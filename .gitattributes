@@ -1,0 +1,39 @@
+# Normalise line endings. Development happens on Windows; CI runs on Linux. Without this
+# the whole repository churns on every commit and diffs become unreadable.
+* text=auto eol=lf
+
+*.py     text eol=lf
+*.pyi    text eol=lf
+*.md     text eol=lf
+*.toml   text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.json   text eol=lf
+*.cfg    text eol=lf
+*.ini    text eol=lf
+*.sql    text eol=lf
+*.html   text eol=lf
+*.css    text eol=lf
+*.js     text eol=lf
+*.sh     text eol=lf
+justfile text eol=lf
+Makefile text eol=lf
+
+# Batch files must keep CRLF or Windows will not run them.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binaries — never normalise, never diff.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.pdf  binary
+*.ico  binary
+*.woff  binary
+*.woff2 binary
+*.zip  binary
+*.gz   binary
+
+# Generated lockfile: keep it in the repo, keep it out of code review diffs.
+uv.lock linguist-generated=true -diff

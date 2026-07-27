@@ -1,0 +1,67 @@
+# --- Secrets: never commit. ---------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+!src/**/*.key
+secrets/
+.secrets/
+
+# --- Python ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.installed.cfg
+
+# --- Virtualenvs / tooling caches -----------------------------------------------------
+.venv/
+venv/
+env/
+.uv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.nox/
+
+# --- Application runtime state --------------------------------------------------------
+# Artefacts are content-addressed evidence: large, and reproducible from source. They are
+# backed up separately, never committed. Note the `var/*` form -- a negation cannot
+# re-include a file inside a directory that is itself excluded.
+var/*
+!var/.gitkeep
+*.db
+*.sqlite3
+logs/
+*.log
+
+# --- Generated outputs ----------------------------------------------------------------
+out/
+reports/
+*.pdf
+!docs/**/*.pdf
+
+# --- Editors / OS ---------------------------------------------------------------------
+.idea/
+.vscode/*
+!.vscode/settings.json.example
+!.vscode/extensions.json
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Node (only used to build the Tailwind stylesheet; output IS committed) ------------
+node_modules/

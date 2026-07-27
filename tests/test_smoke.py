@@ -1,0 +1,250 @@
+"""Foundation smoke tests: version identity, error contract, and secret redaction."""
+
+from __future__ import annotations
+
+import json
+import logging
+import re
+
+import pytest
+
+from aer import __version__, build_identity, version
+from aer.errors import (
+    AerError,
+    BudgetExceededError,
+    ConfigError,
+    ExternalServiceError,
+    IntegrityError,
+    ValidationError,
+)
+from aer.logging import (
+    MASK,
+    configure_logging,
+    get_logger,
+    is_sensitive_name,
+    redact_secrets,
+    redact_value,
+)
+
+SEMVER_ISH = re.compile(r"^\d+\.\d+\.\d+")
+
+ERROR_TYPES = [
+    AerError,
+    ConfigError,
+    ValidationError,
+    ExternalServiceError,
+    BudgetExceededError,
+    IntegrityError,
+]
+
+
+class TestVersion:
+    def test_version_is_non_empty_and_semver_ish(self):
+        assert isinstance(__version__, str)
+        assert __version__
+        assert SEMVER_ISH.match(__version__), __version__
+
+    def test_version_function_matches_module_attribute(self):
+        assert version() == __version__
+
+    def test_build_identity_includes_version(self):
+        identity = build_identity()
+        assert __version__ in identity
+
+
+class TestErrors:
+    @pytest.mark.parametrize("error_type", ERROR_TYPES)
+    def test_every_error_has_a_code_and_context(self, error_type):
+        kwargs = {"provider": "sec_edgar"} if error_type is ExternalServiceError else {}
+        error = error_type("something went wrong", **kwargs)
+
+        assert isinstance(error.code, str)
+        assert error.code
+        assert isinstance(error.context, dict)
+        assert isinstance(error, AerError)
+
+    def test_codes_are_unique(self):
+        codes = [error_type.code for error_type in ERROR_TYPES]
+        assert len(codes) == len(set(codes))
+
+    def test_context_is_copied_not_aliased(self):
+        original = {"ticker": "MSFT"}
+        error = AerError("boom", context=original)
+        error.context["ticker"] = "AAPL"
+        assert original["ticker"] == "MSFT"
+
+    def test_to_dict_round_trip(self):
+        error = ValidationError("as_of_date is in the future", context={"field": "as_of_date"})
+        payload = error.to_dict()
+        assert payload == {
+            "code": "validation_error",
+            "message": "as_of_date is in the future",
+            "context": {"field": "as_of_date"},
+        }
+
+    def test_external_service_error_carries_retry_signal(self):
+        error = ExternalServiceError(
+            "rate limited",
+            provider="sec_edgar",
+            retryable=True,
+            status_code=429,
+        )
+        assert error.retryable is True
+        assert error.provider == "sec_edgar"
+        assert error.context["status_code"] == 429
+
+
+class TestRedaction:
+    def test_masks_anthropic_key_in_a_message_string(self, fake_anthropic_key):
+        event = redact_secrets(None, "info", {"event": f"calling api with {fake_anthropic_key}"})
+        assert fake_anthropic_key not in event["event"]
+        assert MASK in event["event"]
+
+    def test_masks_field_named_api_key(self, fake_anthropic_key):
+        event = redact_secrets(None, "info", {"event": "configured", "api_key": fake_anthropic_key})
+        assert event["api_key"] == MASK
+
+    def test_leaves_ordinary_fields_untouched(self):
+        event = redact_secrets(
+            None,
+            "info",
+            {
+                "event": "run started",
+                "ticker": "MSFT",
+                "as_of_date": "2026-07-27",
+                "cost_gbp": 1.25,
+            },
+        )
+        assert event["ticker"] == "MSFT"
+        assert event["as_of_date"] == "2026-07-27"
+        assert event["cost_gbp"] == 1.25
+        assert event["event"] == "run started"
+
+    @pytest.mark.parametrize(
+        "field_name",
+        [
+            "api_key",
+            "API_KEY",
+            "anthropic_api_key",
+            "password",
+            "secret",
+            "auth_token",
+            "authorization",
+            "private_key",
+            "eodhd_apikey",
+            "db_credential",
+        ],
+    )
+    def test_sensitive_names_are_detected(self, field_name):
+        assert is_sensitive_name(field_name)
+
+    @pytest.mark.parametrize(
+        "field_name",
+        ["step_key", "section_key", "idempotency_key", "key", "ticker", "monkey_patch"],
+    )
+    def test_structural_key_fields_are_not_redacted(self, field_name):
+        # These are identifiers, not credentials. Masking them would gut the run console
+        # for no security benefit -- see the module docstring in aer/logging.py.
+        assert not is_sensitive_name(field_name)
+
+    def test_bearer_token_is_masked_but_scheme_is_kept(self):
+        redacted = redact_value("Authorization: Bearer abcdef1234567890xyz")
+        assert "abcdef1234567890xyz" not in redacted
+        assert "Bearer" in redacted
+        assert MASK in redacted
+
+    def test_redaction_reaches_nested_structures(self, fake_anthropic_key):
+        event = redact_secrets(
+            None,
+            "info",
+            {
+                "event": "provider configured",
+                "providers": [
+                    {"name": "anthropic", "api_key": fake_anthropic_key},
+                    {"name": "eodhd", "note": f"token is {fake_anthropic_key}"},
+                ],
+            },
+        )
+        first, second = event["providers"]
+        assert first["api_key"] == MASK
+        assert fake_anthropic_key not in second["note"]
+
+    def test_recursion_is_depth_limited(self):
+        # A deeply nested structure must not hang or blow the stack. Losing detail deep
+        # in a log payload is always better than wedging the process writing it.
+        payload: dict[str, object] = {"level": 0}
+        cursor = payload
+        for depth in range(1, 60):
+            child: dict[str, object] = {"level": depth}
+            cursor["child"] = child
+            cursor = child
+
+        result = redact_secrets(None, "info", {"event": "deep", "payload": payload})
+        assert result["event"] == "deep"
+
+    def test_non_string_scalars_pass_through(self):
+        assert redact_value(42) == 42
+        assert redact_value(None) is None
+        assert redact_value(True) is True
+
+
+class TestLoggingConfiguration:
+    """End-to-end: the processor chain must actually be wired into emitted output.
+
+    A redaction function that works in isolation but is not reached by real log calls is
+    worse than none, because it invites false confidence.
+    """
+
+    def test_emitted_json_line_is_redacted(self, capsys, fake_anthropic_key):
+        configure_logging(level="INFO", json_output=True)
+        get_logger("test").info(
+            "provider configured",
+            api_key=fake_anthropic_key,
+            ticker="MSFT",
+            note=f"header was Bearer {'z' * 24}",
+        )
+
+        captured = capsys.readouterr().out.strip()
+        payload = json.loads(captured)
+
+        assert payload["api_key"] == MASK
+        assert payload["ticker"] == "MSFT"
+        assert fake_anthropic_key not in captured
+        assert "z" * 24 not in captured
+        assert payload["event"] == "provider configured"
+        assert payload["level"] == "info"
+        assert "timestamp" in payload
+
+    def test_rejects_unknown_level(self):
+        with pytest.raises(ValueError, match="Unknown log level"):
+            configure_logging(level="VERBOSE")
+
+    def test_console_renderer_still_redacts(self, capsys, fake_anthropic_key):
+        configure_logging(level="INFO", json_output=False)
+        get_logger("test").info("configured", api_key=fake_anthropic_key)
+
+        captured = capsys.readouterr().out
+        assert fake_anthropic_key not in captured
+        assert MASK in captured
+
+    def test_foreign_stdlib_records_are_redacted(self, capsys, fake_anthropic_key):
+        # A third-party client logging a URL that carries a credential is a realistic
+        # leak path. Bridging structlog onto stdlib logging is what closes it, so prove
+        # the bridge actually redacts rather than trusting that it does.
+        configure_logging(level="INFO", json_output=True)
+        logging.getLogger("httpx").info(
+            "HTTP Request: GET https://example.test/data?token=%s", fake_anthropic_key
+        )
+
+        captured = capsys.readouterr().out.strip()
+        assert fake_anthropic_key not in captured
+        assert MASK in captured
+
+    def test_level_filtering_is_applied(self, capsys):
+        configure_logging(level="WARNING", json_output=True)
+        get_logger("test").info("should not appear")
+        get_logger("test").warning("should appear")
+
+        captured = capsys.readouterr().out
+        assert "should not appear" not in captured
+        assert "should appear" in captured
