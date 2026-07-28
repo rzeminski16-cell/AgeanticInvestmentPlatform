@@ -17,8 +17,9 @@ from tests.api_fixtures import build_app, client_for
 
 @pytest.fixture
 async def web_client(api_settings, broken_engine, fake_redis):
-    # The landing page touches no dependency, so it must render with everything down.
-    # If that ever stops being true, this fixture fails and says so.
+    # Built on dependencies that are down, deliberately. The landing page is the first
+    # thing an operator opens when something is not working, so it has to render and say
+    # what is wrong rather than return a blank 500.
     async for client in client_for(build_app(api_settings, engine=broken_engine, redis=fake_redis)):
         yield client
 
@@ -52,6 +53,19 @@ class TestLandingPage:
 
     async def test_the_page_is_not_indexable(self, web_client):
         assert 'name="robots"' in (await web_client.get("/")).text
+
+    async def test_it_says_what_is_wrong_when_the_database_is_down(self, web_client):
+        # Degraded, not broken. "The database is not reachable, run just up" is actionable;
+        # a 500 with a request id is a puzzle.
+        body = (await web_client.get("/")).text
+
+        assert "not reachable" in body
+        assert "just up" in body
+
+    async def test_pages_that_show_data_still_fail_loudly(self, web_client):
+        # Only the landing page degrades. A list page that rendered "no requests" while
+        # the database was unreachable would be stating something false.
+        assert (await web_client.get("/requests")).status_code == 500
 
 
 class TestStaticAssets:

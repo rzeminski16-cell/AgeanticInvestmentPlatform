@@ -20,7 +20,8 @@ from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import AsyncIterator, Iterator
+import threading
+from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,41 @@ _DEFAULT_TEST_URL = (
 )
 TEST_DATABASE_URL = os.environ.get("AER_TEST_DATABASE_URL", _DEFAULT_TEST_URL)
 TEST_USER_AGENT = "Test Runner test@example.invalid"
+
+
+def in_worker_thread(work: Callable[[], Any]) -> Any:
+    """Run ``work`` on a dedicated thread and return its result.
+
+    ``asyncio.run`` raises if a loop is already running in the calling thread, and one
+    often is: Playwright's synchronous API drives its own loop, so setup code that starts
+    a loop fails inside a browser test with "cannot be called from a running event loop" —
+    a message that points at asyncio rather than at the thing that needs fixing.
+
+    A fresh thread has no running loop, which sidesteps the question rather than trying to
+    detect it. Slightly slower and completely reliable, which is the right trade for setup.
+    Exceptions are re-raised on the calling thread so a failure still fails the test.
+    """
+    outcome: dict[str, Any] = {}
+
+    def runner() -> None:
+        try:
+            outcome["value"] = work()
+        except BaseException as exc:  # re-raised on the calling thread below
+            outcome["error"] = exc
+
+    thread = threading.Thread(target=runner)
+    thread.start()
+    thread.join()
+
+    if "error" in outcome:
+        raise outcome["error"]
+    return outcome.get("value")
+
+
+def run_async(coroutine: Any) -> Any:
+    """Run a coroutine to completion from synchronous code, safely. See
+    :func:`in_worker_thread`."""
+    return in_worker_thread(lambda: asyncio.run(coroutine))
 
 
 def _admin_url(url: str) -> str:
@@ -101,15 +137,17 @@ def _run_migrations(url: str) -> None:
 @pytest.fixture(scope="session")
 def database_url() -> str:
     """A migrated test database, or skip the whole suite with the reason."""
-    reachable, reason = asyncio.run(_server_is_reachable(TEST_DATABASE_URL))
+    reachable, reason = run_async(_server_is_reachable(TEST_DATABASE_URL))
     if not reachable:
         pytest.skip(
             f"PostgreSQL is not reachable at {_admin_url(TEST_DATABASE_URL)} ({reason}). "
             "Start it with `just up`, or set AER_TEST_DATABASE_URL."
         )
 
-    asyncio.run(_recreate_database(TEST_DATABASE_URL))
-    _run_migrations(TEST_DATABASE_URL)
+    run_async(_recreate_database(TEST_DATABASE_URL))
+    # Alembic's async env starts its own event loop, so this needs the same treatment as
+    # the calls above rather than only looking synchronous from here.
+    in_worker_thread(lambda: _run_migrations(TEST_DATABASE_URL))
     return TEST_DATABASE_URL
 
 

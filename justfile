@@ -112,13 +112,21 @@ fix:
 typecheck:
     uv run mypy
 
-# Run the test suite (no network, no model spend).
+# Run the test suite (no network, no model spend). Excludes the browser tests.
 test:
+    uv run pytest --ignore=tests/e2e
+
+# Run the browser tests. Needs PostgreSQL and Chromium; slower than the rest combined.
+test-e2e:
+    uv run pytest tests/e2e
+
+# Everything, including the browser tests.
+test-all:
     uv run pytest
 
 # Run the test suite with coverage.
 test-cov:
-    uv run pytest --cov --cov-report=term-missing
+    uv run pytest --ignore=tests/e2e --cov --cov-report=term-missing
 
 # Everything CI runs, in the same order.
 ci: lint typecheck test

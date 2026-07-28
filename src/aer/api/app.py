@@ -24,7 +24,7 @@ from starlette.staticfiles import StaticFiles
 
 from aer.api.errors import register_exception_handlers
 from aer.api.middleware import RequestContextMiddleware
-from aer.api.routes import health
+from aer.api.routes import health, requests
 from aer.api.state import AppState
 from aer.config import Settings, load_settings
 from aer.db.engine import create_engine, create_session_factory
@@ -107,6 +107,7 @@ def create_app(settings: Settings | None = None, *, state: AppState | None = Non
     register_exception_handlers(app)
 
     app.include_router(health.router)
+    app.include_router(requests.router)
     app.include_router(web_routes.router)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 

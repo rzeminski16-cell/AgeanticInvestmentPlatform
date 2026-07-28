@@ -13,9 +13,10 @@ source document.
 ## Status
 
 **Phase 1 — foundation.** The repository scaffold, tooling, conventions, local
-infrastructure, typed configuration, database schema and the web application shell exist.
-`uv run aer serve` starts a working server with health checks, structured logging and
-consistent error responses. The research pipeline itself does not exist yet. See
+infrastructure, typed configuration, database schema, web application shell and the
+**research request** — form, API, validation and universe rules — all exist.
+`uv run aer serve` starts a working server; you can create and read requests through the
+GUI or the API. Source acquisition, analysis and report generation do not exist yet. See
 `docs/PLAN.md` for the full plan and `docs/adr/` for the decisions taken so far.
 
 ## What it does (target state)
@@ -154,7 +155,8 @@ With `just`:
 | `just lint` | Lint and check formatting |
 | `just fix` | Apply lint fixes and format |
 | `just typecheck` | Run mypy |
-| `just test` | Run the test suite |
+| `just test` | Run the test suite (excludes the browser tests) |
+| `just test-e2e` | Run the browser tests (needs Chromium and PostgreSQL) |
 | `just ci` | Everything CI runs, in the same order |
 | `just hooks` | Run every pre-commit hook over the whole tree |
 | `just css` | Rebuild the Tailwind stylesheet (needs Node) |
@@ -171,10 +173,21 @@ uv run aer version            # what build am I running?
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /` | Landing page |
+| `GET /` | Landing page. Renders even with the database down, and says what is wrong |
+| `GET /requests` | Your research requests |
+| `GET /requests/new` | The research request form |
+| `GET /requests/{id}` | One request |
 | `GET /healthz` | **Liveness.** Always 200 while the process can answer; touches nothing external |
 | `GET /readyz` | **Readiness.** 200 when Postgres and Redis both answer, 503 with a per-dependency breakdown otherwise |
 | `GET /docs` | Interactive API documentation (disabled when `AER_APP_ENV=production`) |
+
+The JSON API mirrors the GUI exactly, because both call the same service functions:
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/requests` | Create a request. 201 with a `Location` header |
+| `GET /api/requests` | List requests, most recent first |
+| `GET /api/requests/{id}` | Read one request |
 
 Every response carries an `X-Request-ID`, and the same id appears in every log line for
 that request and in the body of every error — so an error you can see is an error you can
@@ -258,11 +271,21 @@ drift**, so a model change that was never migrated cannot reach production.
 ## Testing
 
 ```bash
-uv run pytest                 # default suite: no network, no model spend
-uv run pytest --cov           # with coverage
-uv run pytest -m integration  # database tests only
+uv run pytest --ignore=tests/e2e     # default suite: no network, no model spend
+uv run pytest tests/e2e              # browser tests (Chromium + PostgreSQL)
+uv run pytest --cov                  # with coverage
+uv run pytest -m integration         # database tests only
 uv run pytest -m "not integration"   # skip anything needing PostgreSQL
 ```
+
+The browser tests drive a real Chromium against a real uvicorn server on an ephemeral
+port. They exist to catch what an in-process HTTP client structurally cannot — a form
+field the server never receives, a submit button outside the form, an HTMX response the
+browser silently discards. Two genuine bugs found that way are recorded in
+`docs/adr/0007-request-validation-boundaries.md`.
+
+If Chromium was installed outside Playwright's own cache, point at it with
+`PLAYWRIGHT_CHROMIUM_PATH`; `/opt/pw-browsers/chromium` is picked up automatically.
 
 Tests that would make real, billable model calls are marked `live_llm` and never run by
 default.

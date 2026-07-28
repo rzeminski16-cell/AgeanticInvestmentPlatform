@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% macro row(label, value, muted_when_empty=True) %}
+  <div class="border-t border-slate-200 py-3 sm:grid sm:grid-cols-3 sm:gap-4 dark:border-slate-800">
+    <dt class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ label }}</dt>
+    <dd class="mt-1 text-sm sm:col-span-2 sm:mt-0
+               {% if not value and muted_when_empty %}text-slate-400{% else %}text-slate-900 dark:text-slate-100{% endif %}">
+      {{ value if value else "Not specified" }}
+    </dd>
+  </div>
+{% endmacro %}
+
+{% block title %}{{ item.ticker }} &middot; Research request{% endblock %}
+
+{% block content %}
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight" id="company-name">{{ item.company_name }}</h1>
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        <span class="font-mono" id="ticker">{{ item.ticker }}</span>
+        on <span id="exchange">{{ item.exchange | replace('_', ' ') }}</span>
+        &middot; as at <span id="as-of-date">{{ item.as_of_date.isoformat() }}</span>
+      </p>
+    </div>
+    <div class="flex flex-col items-end gap-2">
+      <span
+        id="status"
+        class="rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-800 dark:bg-slate-800 dark:text-slate-200"
+      >
+        {{ item.status.value }}
+      </span>
+      {% if not item.resolved %}
+        <span class="text-xs text-slate-500" id="resolution-state">
+          Ticker not yet confirmed against a data source
+        </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div
+    class="mt-6 rounded-md border border-sky-300 bg-sky-50 p-4 dark:border-sky-900 dark:bg-sky-950/40"
+    role="note"
+  >
+    <p class="text-sm text-sky-900 dark:text-sky-100">
+      Saved as a draft. Nothing has been fetched and nothing has been spent. Planning and
+      approval are not built yet &mdash; when they are, you will review a costed plan here
+      before any work starts.
+    </p>
+  </div>
+
+  <section class="mt-8">
+    <h2 class="text-lg font-semibold tracking-tight">Mandate</h2>
+    <dl class="mt-2">
+      {{ row("Horizon", item.investment_horizon_months ~ " months" ~ (" — " ~ item.horizon_label if item.horizon_label else "")) }}
+      {{ row("Depth", item.analysis_mode.value | capitalize) }}
+      {{ row("Point-in-time", "On — no source published after the as-of date may be used" if item.point_in_time else "Off — look-ahead bias is possible") }}
+      {{ row("Base currency", item.base_currency) }}
+      {{ row("Reporting currency", item.reporting_currency) }}
+      {{ row("ISIN", item.isin) }}
+    </dl>
+  </section>
+
+  <section class="mt-8">
+    <h2 class="text-lg font-semibold tracking-tight">Portfolio context</h2>
+    <dl class="mt-2">
+      {{ row("Current weight", (item.portfolio_context.get('current_weight') | percent) if item.portfolio_context.get('current_weight') else None) }}
+      {{ row("Maximum weight", (item.portfolio_context.get('maximum_weight') | percent) if item.portfolio_context.get('maximum_weight') else None) }}
+      {{ row("Benchmark", item.portfolio_context.get('benchmark')) }}
+    </dl>
+  </section>
+
+  <section class="mt-8">
+    <h2 class="text-lg font-semibold tracking-tight">Your priorities</h2>
+    <dl class="mt-2">
+      {{ row("Risk tolerance", item.risk_tolerance | capitalize if item.risk_tolerance else None) }}
+      {{ row("ESG weighting", item.esg_sensitivity | capitalize if item.esg_sensitivity else None) }}
+      {{ row("Liquidity constraint", ("£" ~ "{:,.2f}".format(item.liquidity_constraint_gbp)) if item.liquidity_constraint_gbp is not none else None) }}
+    </dl>
+
+    <h3 class="mt-6 text-sm font-semibold text-slate-800 dark:text-slate-200">Questions to answer</h3>
+    {% if item.focus_questions %}
+      <ul class="mt-2 list-disc space-y-1 pl-5 text-sm" id="focus-questions">
+        {% for question in item.focus_questions %}<li>{{ question }}</li>{% endfor %}
+      </ul>
+    {% else %}
+      <p class="mt-2 text-sm text-slate-400">None given.</p>
+    {% endif %}
+
+    <h3 class="mt-6 text-sm font-semibold text-slate-800 dark:text-slate-200">Excluded sources</h3>
+    {% if item.excluded_sources %}
+      <ul class="mt-2 list-disc space-y-1 pl-5 text-sm font-mono" id="excluded-sources">
+        {% for domain in item.excluded_sources %}<li>{{ domain }}</li>{% endfor %}
+      </ul>
+    {% else %}
+      <p class="mt-2 text-sm text-slate-400">None.</p>
+    {% endif %}
+  </section>
+
+  <section class="mt-8">
+    <h2 class="text-lg font-semibold tracking-tight">Cost ceiling</h2>
+    <dl class="mt-2">
+      {{ row("Maximum spend", "£" ~ "{:,.2f}".format(item.max_cost_gbp)) }}
+      {{ row("Created", item.created_at.strftime("%d %B %Y at %H:%M %Z")) }}
+    </dl>
+  </section>
+
+  <div class="mt-8 flex gap-4 border-t border-slate-200 pt-6 dark:border-slate-800">
+    <a href="/requests" class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400">
+      All requests
+    </a>
+    <a href="/requests/new" class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400">
+      New request
+    </a>
+  </div>
+{% endblock %}

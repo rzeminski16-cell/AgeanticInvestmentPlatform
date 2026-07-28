@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Research requests &middot; Ageiantic Equity Research{% endblock %}
+
+{% block content %}
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-2xl font-semibold tracking-tight">Research requests</h1>
+    <a
+      href="/requests/new"
+      class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+    >
+      New request
+    </a>
+  </div>
+
+  {% if requests %}
+    <div class="mt-6 overflow-x-auto">
+      <table class="w-full min-w-[40rem] text-left text-sm">
+        <thead class="border-b border-slate-300 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700">
+          <tr>
+            <th scope="col" class="py-2 pr-4 font-medium">Company</th>
+            <th scope="col" class="py-2 pr-4 font-medium">Ticker</th>
+            <th scope="col" class="py-2 pr-4 font-medium">Exchange</th>
+            <th scope="col" class="py-2 pr-4 font-medium">As at</th>
+            <th scope="col" class="py-2 pr-4 font-medium">Depth</th>
+            <th scope="col" class="py-2 font-medium">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in requests %}
+            <tr class="border-b border-slate-200 dark:border-slate-800">
+              <td class="py-2 pr-4">
+                <a
+                  href="/requests/{{ item.id }}"
+                  class="font-medium text-sky-700 underline underline-offset-2 dark:text-sky-400"
+                >
+                  {{ item.company_name }}
+                </a>
+              </td>
+              <td class="py-2 pr-4 font-mono">{{ item.ticker }}</td>
+              <td class="py-2 pr-4">{{ item.exchange | replace('_', ' ') }}</td>
+              <td class="py-2 pr-4">{{ item.as_of_date.isoformat() }}</td>
+              <td class="py-2 pr-4">{{ item.analysis_mode.value | capitalize }}</td>
+              <td class="py-2">
+                <span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide dark:bg-slate-800">
+                  {{ item.status.value }}
+                </span>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="mt-8 rounded-lg border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
+      <p class="text-sm text-slate-600 dark:text-slate-400">
+        No requests yet. A request records what you want researched and the constraints it
+        must respect &mdash; creating one costs nothing and starts nothing.
+      </p>
+      <a
+        href="/requests/new"
+        class="mt-4 inline-block rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+      >
+        Create the first one
+      </a>
+    </div>
+  {% endif %}
+{% endblock %}

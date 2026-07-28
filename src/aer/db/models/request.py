@@ -109,6 +109,19 @@ class ResearchRequest(Base):
         default=RequestStatus.DRAFT,
         server_default=RequestStatus.DRAFT.value,
     )
+
+    # Whether the ticker and exchange have been confirmed against a real security by an
+    # external lookup. Always false at creation: no outbound call is made while a request
+    # is being written, so what is stored is exactly what the operator typed. Ticker
+    # resolution arrives with the SEC EDGAR adapter.
+    #
+    # The column exists now rather than later because everything downstream needs to know
+    # whether it is working from a confirmed identity or an unverified string, and a
+    # nullable "we did not record it" state for older rows would make that unanswerable.
+    resolved: Mapped[bool] = mapped_column(
+        nullable=False, default=False, server_default=text("false")
+    )
+
     created_at: Mapped[Timestamp] = created_at_column()
 
     # -- Relationships -----------------------------------------------------------------

@@ -10,7 +10,49 @@
       under explicit human approval &mdash; with every number traceable to a formula and
       every fact traceable to a hashed source document.
     </p>
+    <div class="mt-5 flex flex-wrap items-center gap-4">
+      <a
+        href="/requests/new"
+        class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+      >
+        Start a research request
+      </a>
+      <a href="/requests" class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400">
+        View all requests
+      </a>
+    </div>
   </section>
+
+  {% if problem %}
+    <section
+      class="mt-8 rounded-md border border-amber-400 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
+      role="alert"
+      id="startup-problem"
+    >
+      <h2 class="text-sm font-semibold text-amber-900 dark:text-amber-200">Not ready yet</h2>
+      <p class="mt-1 text-sm text-amber-900/90 dark:text-amber-100/90">{{ problem }}</p>
+    </section>
+  {% endif %}
+
+  {% if recent_requests %}
+    <section class="mt-10">
+      <h2 class="text-lg font-semibold tracking-tight">Recent requests</h2>
+      <ul class="mt-3 divide-y divide-slate-200 dark:divide-slate-800">
+        {% for item in recent_requests %}
+          <li class="flex flex-wrap items-baseline justify-between gap-2 py-2">
+            <a
+              href="/requests/{{ item.id }}"
+              class="text-sm font-medium text-sky-700 underline underline-offset-2 dark:text-sky-400"
+            >
+              {{ item.company_name }}
+              <span class="font-mono text-slate-500">({{ item.ticker }})</span>
+            </a>
+            <span class="text-xs uppercase tracking-wide text-slate-500">{{ item.status.value }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
 
   <section
     class="mt-8 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/40"

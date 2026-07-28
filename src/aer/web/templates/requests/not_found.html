@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Request not found &middot; Ageiantic Equity Research{% endblock %}
+
+{% block content %}
+  <h1 class="text-2xl font-semibold tracking-tight">Request not found</h1>
+  <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+    There is no research request with id
+    <span class="font-mono">{{ request_id }}</span>, or it does not belong to you.
+  </p>
+  <div class="mt-6 flex gap-4">
+    <a href="/requests" class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400">
+      All requests
+    </a>
+    <a href="/requests/new" class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400">
+      New request
+    </a>
+  </div>
+{% endblock %}

@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% import "requests/_field.html" as f %}
+
+{% block title %}New research request &middot; Ageiantic Equity Research{% endblock %}
+
+{% block content %}
+  <h1 class="text-2xl font-semibold tracking-tight">New research request</h1>
+  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+    This describes what you want researched and the constraints it must respect. Nothing is
+    fetched and nothing is spent when you submit it &mdash; the request is saved as a draft,
+    and you approve a costed plan before any work begins.
+  </p>
+
+  <div id="form-errors" aria-live="polite">
+    {% include "requests/_form_errors.html" %}
+  </div>
+
+  {#
+    hx-post and the plain action point at the same URL. With JavaScript the response is
+    swapped into #form-errors; without it, the identical POST returns a full page or a
+    redirect. The validation is the same code either way -- HTMX changes where the answer
+    is rendered, never what the answer is.
+  #}
+  <form
+    method="post"
+    action="/requests/new"
+    hx-post="/requests/new"
+    hx-target="#form-errors"
+    hx-swap="innerHTML"
+    hx-disabled-elt="#submit"
+    class="mt-6 space-y-10"
+    novalidate
+  >
+    {# The id is what lets an HTMX error response refresh this token out of band. #}
+    <input type="hidden" id="csrf-input" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+
+    <fieldset class="space-y-4">
+      <legend class="text-lg font-semibold tracking-tight">Company</legend>
+      <div class="grid gap-4 sm:grid-cols-2">
+        {{ f.field("company_name", "Company name", errors, values, required=True,
+                   placeholder="Microsoft Corporation") }}
+        {{ f.field("ticker", "Ticker", errors, values, required=True, placeholder="MSFT",
+                   hint="Letters, digits, '.' and '-'. For example MSFT, BRK.B or RIO.L.") }}
+        {{ f.select("exchange", "Exchange", exchanges, errors, values, required=True,
+                    blank_label="Select an exchange",
+                    hint="US and UK main markets only. OTC venues are not supported.") }}
+        {{ f.field("isin", "ISIN", errors, values, placeholder="US5949181045",
+                   hint="Optional. Checked for a valid check digit if given.") }}
+      </div>
+    </fieldset>
+
+    <fieldset class="space-y-4">
+      <legend class="text-lg font-semibold tracking-tight">Timing and currency</legend>
+      <div class="grid gap-4 sm:grid-cols-3">
+        {{ f.field("as_of_date", "As-of date", errors, values, type="date", required=True,
+                   attrs='max="' ~ today ~ '"',
+                   hint="The analysis is performed as at this date. It cannot be in the future.") }}
+        {{ f.select("base_currency", "Base currency", currencies, errors, values, required=True,
+                    hint="The currency the valuation is expressed in.") }}
+        {{ f.select("reporting_currency", "Reporting currency", currencies, errors, values,
+                    blank_label="Same as base",
+                    hint="Optional. The currency the company reports in, if it differs.") }}
+      </div>
+    </fieldset>
+
+    <fieldset class="space-y-4">
+      <legend class="text-lg font-semibold tracking-tight">Mandate</legend>
+      <div class="grid gap-4 sm:grid-cols-2">
+        {{ f.field("investment_horizon_months", "Investment horizon (months)", errors, values,
+                   type="number", required=True, attrs='min="1" max="240" step="1"',
+                   hint="Between 1 and 240 months.") }}
+        {{ f.field("horizon_label", "Horizon label", errors, values,
+                   placeholder="Medium term, through the next capex cycle",
+                   hint="Optional. How you think about that period.") }}
+        {{ f.select("analysis_mode", "Depth", analysis_modes, errors, values, required=True,
+                    hint="Quick is a screen; full is the complete report.") }}
+      </div>
+
+      <div class="flex items-start gap-3 rounded-md border border-slate-200 p-4 dark:border-slate-800">
+        <input
+          type="checkbox"
+          id="point_in_time"
+          name="point_in_time"
+          value="true"
+          {% if values.get('point_in_time') or not values %}checked{% endif %}
+          class="mt-0.5 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+        />
+        <label for="point_in_time" class="text-sm">
+          <span class="font-medium text-slate-800 dark:text-slate-200">Point-in-time mode</span>
+          <span class="mt-1 block text-xs text-slate-600 dark:text-slate-400">
+            Refuse any source published after the as-of date. Turning this off invites
+            look-ahead bias, which silently invalidates backward-looking analysis. Leave it
+            on unless you have a specific reason not to.
+          </span>
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset class="space-y-4">
+      <legend class="text-lg font-semibold tracking-tight">Portfolio context</legend>
+      <p class="text-sm text-slate-600 dark:text-slate-400">
+        Optional. Given, it lets the analysis speak to your actual position rather than in
+        the abstract.
+      </p>
+      <div class="grid gap-4 sm:grid-cols-3">
+        {{ f.field("current_weight_percent", "Current weight (%)", errors, values,
+                   type="number", attrs='min="0" max="100" step="any"', placeholder="2.5") }}
+        {{ f.field("maximum_weight_percent", "Maximum weight (%)", errors, values,
+                   type="number", attrs='min="0" max="100" step="any"', placeholder="5") }}
+        {{ f.field("benchmark", "Benchmark", errors, values, placeholder="MSCI World") }}
+      </div>
+    </fieldset>
+
+    <fieldset class="space-y-4">
+      <legend class="text-lg font-semibold tracking-tight">Your priorities</legend>
+      <div class="grid gap-4 sm:grid-cols-3">
+        {{ f.select("risk_tolerance", "Risk tolerance", risk_tolerances, errors, values,
+                    blank_label="Not specified") }}
+        {{ f.select("esg_sensitivity", "ESG weighting", esg_sensitivities, errors, values,
+                    blank_label="Not specified") }}
+        {{ f.field("liquidity_constraint_gbp", "Liquidity constraint (GBP)", errors, values,
+                   type="number", attrs='min="0" step="any"', placeholder="250000",
+                   hint="Optional. The position size you would need to be able to exit.") }}
+      </div>
+
+      {{ f.textarea("focus_questions", "Questions you want answered", errors, values, rows=4,
+                    placeholder="How durable is the Azure gross margin?\nWhat would have to be true for the bear case?",
+                    hint="One per line. These are carried into the plan, so the report addresses your question rather than a generic template.") }}
+
+      {{ f.textarea("excluded_sources", "Excluded sources", errors, values, rows=3,
+                    placeholder="seekingalpha.com",
+                    hint="One domain per line. These will never be cited.") }}
+    </fieldset>
+
+    <fieldset class="space-y-4">
+      <legend class="text-lg font-semibold tracking-tight">Cost ceiling</legend>
+      {{ f.field("max_cost_gbp", "Maximum spend for this report (GBP)", errors, values,
+                 type="number", required=True, attrs='min="0.01" step="0.01"', placeholder="2.50",
+                 hint="Enforced in code, not merely reported. A run projected to exceed this pauses for your decision rather than quietly spending.") }}
+    </fieldset>
+
+    <div class="flex items-center gap-4 border-t border-slate-200 pt-6 dark:border-slate-800">
+      <button
+        type="submit"
+        id="submit"
+        class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm
+               hover:bg-sky-800 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2
+               disabled:opacity-60"
+      >
+        Save draft request
+      </button>
+      <a href="/requests" class="text-sm text-slate-600 underline underline-offset-2 dark:text-slate-400">
+        Cancel
+      </a>
+    </div>
+  </form>
+{% endblock %}

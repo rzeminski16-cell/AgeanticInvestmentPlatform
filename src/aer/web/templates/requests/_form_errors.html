@@ -1,0 +1,66 @@
+{#
+  The error summary.
+
+  Rendered at the top of the form on a full-page submission, and returned on its own as
+  the HTMX response so the errors appear without a page reload. Same template either way,
+  so the two paths cannot show different things.
+
+  It links to each field rather than only listing messages: on a form this long, "as-of
+  date is in the future" with no way to get to the input is a message that makes the
+  operator scroll and hunt.
+#}
+{#
+  When this fragment is swapped in by HTMX, the surrounding form is untouched — including
+  its hidden CSRF input. If the server has issued a new token, the cookie and the form
+  would then disagree and every subsequent submission would be refused, leaving the
+  operator with a form that looks fine and can never be submitted.
+
+  An out-of-band swap updates the hidden input alongside the errors. Only when rendering
+  the fragment: in a full-page render the whole form is rebuilt anyway, and emitting this
+  too would produce two inputs with the same id.
+#}
+{% if oob_csrf %}
+  <input
+    type="hidden"
+    id="csrf-input"
+    name="{{ csrf_field }}"
+    value="{{ csrf_token }}"
+    hx-swap-oob="true"
+  />
+{% endif %}
+
+{% if banner %}
+  <div
+    class="mb-4 rounded-md border border-amber-400 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
+    role="alert"
+  >
+    <p class="text-sm text-amber-900 dark:text-amber-100">{{ banner }}</p>
+  </div>
+{% endif %}
+
+{% if errors %}
+  <div
+    class="mb-4 rounded-md border border-rose-400 bg-rose-50 p-4 dark:border-rose-800 dark:bg-rose-950/40"
+    role="alert"
+    tabindex="-1"
+    id="error-summary"
+  >
+    <h2 class="text-sm font-semibold text-rose-900 dark:text-rose-100">
+      This request was not created
+      {% set total = errors.values() | map('length') | sum %}
+      ({{ total }} problem{{ '' if total == 1 else 's' }})
+    </h2>
+    <ul class="mt-2 space-y-1">
+      {% for field_name, messages in errors.items() %}
+        {% for message in messages %}
+          <li class="text-sm text-rose-800 dark:text-rose-200">
+            <a href="#{{ field_name }}" class="font-medium underline underline-offset-2">
+              {{ field_name | replace('_', ' ') | replace(' percent', ' (%)') }}
+            </a>
+            &mdash; {{ message }}
+          </li>
+        {% endfor %}
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
