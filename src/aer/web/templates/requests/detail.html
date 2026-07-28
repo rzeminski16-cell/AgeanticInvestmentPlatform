@@ -41,11 +41,36 @@
     class="mt-6 rounded-md border border-sky-300 bg-sky-50 p-4 dark:border-sky-900 dark:bg-sky-950/40"
     role="note"
   >
-    <p class="text-sm text-sky-900 dark:text-sky-100">
-      Saved as a draft. Nothing has been fetched and nothing has been spent. Planning and
-      approval are not built yet &mdash; when they are, you will review a costed plan here
-      before any work starts.
-    </p>
+    {% if job %}
+      <p class="text-sm text-sky-900 dark:text-sky-100">
+        A run exists for this request. Follow it to see where it is up to, and to approve or
+        reject at each gate.
+      </p>
+      <a
+        href="/runs/{{ job.id }}"
+        class="mt-3 inline-block rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+        id="open-run"
+      >
+        Open the run
+      </a>
+    {% else %}
+      <p class="text-sm text-sky-900 dark:text-sky-100">
+        Saved as a draft. Nothing has been fetched and nothing has been spent. Starting a run
+        produces a costed plan, which you approve before any research is carried out.
+      </p>
+      {# A POST, because starting a run spends money. A GET must never have that effect. #}
+      <form method="post" action="/runs" class="mt-3" id="start-run-form">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        <input type="hidden" name="request_id" value="{{ item.id }}" />
+        <button
+          type="submit"
+          id="start-run"
+          class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+        >
+          Start the run
+        </button>
+      </form>
+    {% endif %}
   </div>
 
   <section class="mt-8">

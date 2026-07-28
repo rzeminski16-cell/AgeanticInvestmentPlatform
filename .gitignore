@@ -47,8 +47,11 @@ logs/
 *.log
 
 # --- Generated outputs ----------------------------------------------------------------
-out/
-reports/
+# Anchored to the repository root. Unanchored, `reports/` also matched
+# src/aer/web/templates/reports/ and silently kept the report page out of the repository —
+# a checkout that renders every page except the one the whole run produces.
+/out/
+/reports/
 *.pdf
 !docs/**/*.pdf
 

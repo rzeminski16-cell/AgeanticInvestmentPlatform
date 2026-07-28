@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Request
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import (
@@ -35,6 +36,7 @@ from aer.core.schemas.request import (
     RiskTolerance,
 )
 from aer.core.universe import SUPPORTED_EXCHANGES
+from aer.db.models import Job
 from aer.errors import AerError, ValidationError
 from aer.services import requests as request_service
 from aer.version import build_identity
@@ -200,6 +202,7 @@ async def request_detail(
     request: Request,
     request_id: uuid.UUID,
     session: DbSession,
+    settings: SettingsDep,
     user: CurrentUser,
 ) -> Response:
     found = await request_service.get_request(session, request_id, user_id=user.id)
@@ -211,7 +214,25 @@ async def request_detail(
             status_code=HTTP_404_NOT_FOUND,
         )
         return response
-    detail: Response = render(request, "requests/detail.html", {"item": found})
+
+    # A run already exists, or there is a button to start one. Both are the same page: the
+    # operator's question is "where is this up to?", and the answer differs only in whether
+    # anything has started.
+    job = await session.scalar(
+        select(Job).where(Job.request_id == request_id).order_by(Job.started_at.desc().nullslast())
+    )
+    token = new_csrf_token(settings)
+    detail: Response = render(
+        request,
+        "requests/detail.html",
+        {
+            "item": found,
+            "job": job,
+            "csrf_field": CSRF_FIELD_NAME,
+            "csrf_token": token,
+        },
+    )
+    set_csrf_cookie(detail, token)
     return detail
 
 

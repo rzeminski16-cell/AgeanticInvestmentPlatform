@@ -10,6 +10,13 @@ So this module starts uvicorn on an ephemeral port in a background thread. Ephem
 rather than fixed, because a hard-coded port collides with a development server the
 moment someone runs both — and the failure looks like a mysterious test failure rather
 than a port conflict.
+
+**Run these in their own pytest process.** Playwright's synchronous API drives an asyncio
+loop on the main thread and keeps it running for the life of its session fixture, so any
+asyncio-based fixture that runs after a browser test in the same process fails with
+"Runner.run() cannot be called from a running event loop". ``just test`` excludes this
+directory and ``just test-e2e`` runs it alone, which is why ``just test-all`` is two
+commands rather than one ``pytest`` invocation.
 """
 
 from __future__ import annotations
@@ -132,8 +139,14 @@ async def _reset(database_url: str) -> None:
     try:
         async with engine.begin() as connection:
             await connection.execute(text("SET LOCAL statement_timeout = '5s'"))
+            # Everything a run produces, by cascade. `section_definitions` is deliberately
+            # absent: those rows come from the migration and are what a report is built
+            # from, so truncating them would empty every report rather than reset the test.
             await connection.execute(
-                text("TRUNCATE research_requests, audit_events, users RESTART IDENTITY CASCADE")
+                text(
+                    "TRUNCATE research_requests, audit_events, users, artefacts, prompts, "
+                    "companies RESTART IDENTITY CASCADE"
+                )
             )
         factory = async_sessionmaker(bind=engine, expire_on_commit=False)
         async with factory() as session:

@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{#
+  Gate 2. The preview below is rendered from the same `report_sections` rows the payload
+  hash was computed over, so the operator decides on the document itself rather than on a
+  summary of it. An approval of a summary is not an approval of a report.
+#}
+
+{% block title %}Approve the draft &middot; Ageiantic Equity Research{% endblock %}
+
+{% block content %}
+  <nav class="text-sm">
+    <a href="/runs/{{ job.id }}" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
+      &larr; Back to the run
+    </a>
+  </nav>
+
+  <h1 class="mt-4 text-2xl font-semibold tracking-tight">Approve the draft report</h1>
+  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+    This is the document as it will be stored, footnotes and all. Approving freezes it: the
+    Markdown is archived and the report becomes immutable, with your approval recorded
+    against a hash of exactly what is below.
+  </p>
+
+  <dl class="mt-6 grid gap-4 sm:grid-cols-3">
+    <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Sections</dt>
+      <dd class="mt-1 font-mono text-sm" id="section-count">{{ sections | length }}</dd>
+    </div>
+    <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Footnotes</dt>
+      <dd class="mt-1 font-mono text-sm" id="footnote-count">{{ footnote_count }}</dd>
+    </div>
+    <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Content hash</dt>
+      <dd class="mt-1 truncate font-mono text-xs" id="content-hash" title="{{ payload_hash }}">
+        {{ payload_hash[:16] }}…
+      </dd>
+    </div>
+  </dl>
+
+  <section class="mt-8">
+    <h2 class="text-lg font-semibold tracking-tight">Sections in this draft</h2>
+    <ul class="mt-2 flex flex-wrap gap-2" id="draft-sections">
+      {% for section in sections %}
+        <li
+          class="rounded-full bg-slate-200 px-3 py-1 font-mono text-xs text-slate-800 dark:bg-slate-800 dark:text-slate-200"
+        >
+          {{ section.key }}
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="mt-8">
+    <h2 class="text-lg font-semibold tracking-tight">The document</h2>
+    {#
+      Rendered as text, not as HTML. The Markdown is written from model output, and
+      injecting it into the page as markup would turn a drafted sentence into script that
+      runs in the operator's browser on a page that can reach the database.
+    #}
+    <pre
+      id="draft-markdown"
+      class="mt-3 max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-4 font-mono text-xs leading-relaxed dark:border-slate-800 dark:bg-slate-900"
+    >{{ markdown }}</pre>
+  </section>
+
+  {% if decided %}
+    <section
+      class="mt-8 rounded-md border border-slate-300 bg-slate-100 p-4 dark:border-slate-700 dark:bg-slate-800"
+      role="status"
+      id="already-decided"
+    >
+      <p class="text-sm text-slate-800 dark:text-slate-200">
+        This gate was already <strong>{{ decided | lower }}</strong>. A decision is not a state
+        to be re-asserted; changing it needs a new run.
+      </p>
+    </section>
+  {% else %}
+    <form method="post" action="/runs/{{ job.id }}/gates/{{ gate }}" class="mt-8 space-y-4" id="gate-form">
+      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+      <input type="hidden" name="payload_hash" id="payload-hash" value="{{ payload_hash }}" />
+
+      <div>
+        <label for="notes" class="block text-sm font-medium">Notes (optional)</label>
+        <textarea
+          id="notes"
+          name="notes"
+          rows="3"
+          maxlength="4000"
+          class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+          placeholder="Recorded in the audit trail alongside your decision."
+        ></textarea>
+      </div>
+
+      <div class="flex flex-wrap gap-3">
+        <button
+          type="submit"
+          name="decision"
+          value="APPROVED"
+          id="approve"
+          class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+        >
+          Approve and publish
+        </button>
+        <button
+          type="submit"
+          name="decision"
+          value="REJECTED"
+          id="reject"
+          class="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          Reject and stop
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-500">
+        {{ disclaimer }}
+      </p>
+    </form>
+  {% endif %}
+{% endblock %}

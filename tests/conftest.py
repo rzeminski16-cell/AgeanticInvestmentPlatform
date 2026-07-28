@@ -50,6 +50,12 @@ from tests.fetch_fixtures import (  # noqa: F401
     redis_client,
     sleeper,
 )
+from tests.workflow_fixtures import (  # noqa: F401
+    provider,
+    sec_client,
+    workflow_settings,
+    workflow_store,
+)
 
 # A User-Agent is the one required setting, so almost every settings test needs it.
 VALID_USER_AGENT = "Test Runner test@example.invalid"

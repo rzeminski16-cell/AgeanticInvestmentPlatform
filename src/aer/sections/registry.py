@@ -23,6 +23,7 @@ from typing import Any
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from aer.db.models import ReportSection, SectionDefinition, SectionStatus
 from aer.db.models.request import ResearchRequest
@@ -163,14 +164,20 @@ async def create_report_sections(
 
 
 async def sections_for_job(session: AsyncSession, job_id: Any) -> list[ReportSection]:
-    """A run's sections in position order.
+    """A run's sections in position order, each with its definition already loaded.
 
     **The only order a report is ever assembled in**, and the reason a new section needs no
     code change: the workflow, the renderer and the Markdown exporter all call this.
+
+    The definition is eager-loaded rather than left lazy. A caller reading
+    ``section.definition`` outside a greenlet — which is every synchronous line of a step
+    that has already awaited its query — would otherwise raise ``MissingGreenlet``, and it
+    would do so only when the object happened not to be in the identity map already.
     """
     rows = await session.scalars(
         select(ReportSection)
         .where(ReportSection.job_id == job_id)
+        .options(selectinload(ReportSection.definition))
         .order_by(ReportSection.position, ReportSection.section_key)
     )
     return list(rows)

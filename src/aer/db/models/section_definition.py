@@ -20,6 +20,9 @@ possible.** A section declares the shape of its own output; the renderer walks t
 No section needs a bespoke template to produce acceptable Markdown, which is the property
 that stops "add a section" from meaning "write a template".
 
+It is stored as ``json`` rather than ``jsonb`` **because the author's field order is part
+of the contract** — see the column's own comment. Everything else here is ``jsonb``.
+
 **``position`` is NUMERIC, not an integer.** Sparse ordering: built-ins sit at 100, 200,
 300, so a custom section slots in at 250 without renumbering anything. Integer positions
 would mean an insert rewrites every row after it, and concurrent inserts would collide.
@@ -32,7 +35,7 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import ARRAY, CheckConstraint, Index, Numeric, Text, UniqueConstraint, text
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSON, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from aer.db.base import Base, created_at_column
@@ -85,7 +88,15 @@ class SectionDefinition(Base):
 
     # JSON Schema the section's structured output must satisfy. Also what the generic
     # renderer walks to produce Markdown, which is why no section needs a template.
-    output_contract: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    #
+    # `json`, not `jsonb`. JSONB normalises: it discards key order, reordering by key
+    # length and then bytewise. The renderer takes its field order and its table columns
+    # from this document, so under JSONB a section declaring `thesis, key_points,
+    # key_risks` renders as `thesis, key_risks, key_points` -- the author's order silently
+    # replaced by an implementation detail of the storage engine. `json` keeps the text
+    # exactly as written. Nothing queries inside this column, so the indexing JSONB buys
+    # is worth nothing here.
+    output_contract: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
 
     # min_sources, max_tier, requires_primary, allow_forward_looking. Data rather than
     # code so a user-authored section can tighten its own evidence rules -- and, because
@@ -128,7 +139,7 @@ class SectionDefinition(Base):
         CheckConstraint("char_length(btrim(key)) > 0", name="key_is_not_blank"),
         CheckConstraint("token_budget > 0", name="token_budget_is_positive"),
         CheckConstraint(
-            "jsonb_typeof(output_contract) = 'object'", name="output_contract_is_an_object"
+            "json_typeof(output_contract) = 'object'", name="output_contract_is_an_object"
         ),
         Index("ix_section_definitions_position", "position"),
     )

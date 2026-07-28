@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{#
+  The run console.
+
+  Rendered complete on the server. `console.js` then subscribes to the event stream and
+  keeps the step list and the spend current. When `EventSource` is unavailable the same
+  page refreshes itself on a timer instead -- slower, identical information, and never a
+  blank page for a run that is still spending money.
+#}
+
+{% block title %}Run &middot; {{ research_request.ticker if research_request else job.id }}{% endblock %}
+
+{% block head_extra %}
+  <script src="{{ url_for('static', path='/js/console.js') }}" defer></script>
+  {#
+    The no-JavaScript fallback, emitted by the server so it works before any script has had
+    a chance to run. `console.js` removes it on start-up: a page driven by the event stream
+    that also reloaded itself every few seconds would throw away the stream it just opened.
+  #}
+  {% if not is_terminal %}
+    <meta http-equiv="refresh" content="{{ poll_seconds }}" id="poll-fallback" />
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  <div
+    id="run-console"
+    data-job-id="{{ job.id }}"
+    data-events-url="/api/runs/{{ job.id }}/events"
+    data-terminal="{{ 'true' if is_terminal else 'false' }}"
+  >
+    <nav class="text-sm">
+      <a
+        href="/requests/{{ job.request_id }}"
+        class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
+      >
+        &larr; Back to the request
+      </a>
+    </nav>
+
+    <div class="mt-4 flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight">
+          {{ research_request.company_name if research_request else "Research run" }}
+        </h1>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          {% if research_request %}
+            <span class="font-mono">{{ research_request.ticker }}</span> &middot; as at
+            {{ research_request.as_of_date.isoformat() }} &middot;
+          {% endif %}
+          workflow <span class="font-mono">{{ job.workflow_version }}</span>
+        </p>
+      </div>
+      <div class="flex flex-col items-end gap-1">
+        <span
+          id="run-status"
+          class="rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-800 dark:bg-slate-800 dark:text-slate-200"
+        >
+          {{ state.status }}
+        </span>
+        <span class="text-xs text-slate-500">
+          spent <span class="font-mono" id="run-spend">£{{ spend_gbp }}</span>
+        </span>
+      </div>
+    </div>
+
+    {% if awaiting %}
+      <section
+        class="mt-6 rounded-md border border-sky-300 bg-sky-50 p-4 dark:border-sky-900 dark:bg-sky-950/40"
+        role="alert"
+        id="awaiting-approval"
+      >
+        <h2 class="text-sm font-semibold text-sky-900 dark:text-sky-100">Waiting for you</h2>
+        <p class="mt-1 text-sm text-sky-900/90 dark:text-sky-100/90">
+          This run has stopped at a gate. Nothing further happens, and nothing further is
+          spent, until you approve or reject it.
+        </p>
+        <div class="mt-3 flex flex-wrap gap-3">
+          <a
+            href="/runs/{{ job.id }}/plan"
+            class="rounded-md bg-sky-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-800"
+            id="review-plan"
+          >
+            Review the plan
+          </a>
+          <a
+            href="/runs/{{ job.id }}/review"
+            class="rounded-md border border-sky-700 px-3 py-1.5 text-sm font-semibold text-sky-800 hover:bg-sky-100 dark:text-sky-300 dark:hover:bg-sky-900/40"
+            id="review-draft"
+          >
+            Review the draft
+          </a>
+        </div>
+      </section>
+    {% endif %}
+
+    {% if budget_exceeded %}
+      <section
+        class="mt-6 rounded-md border border-amber-400 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
+        role="alert"
+        id="budget-exceeded"
+      >
+        <h2 class="text-sm font-semibold text-amber-900 dark:text-amber-200">Stopped on budget</h2>
+        <p class="mt-1 text-sm text-amber-900/90 dark:text-amber-100/90">
+          The next step would take this run past a spending cap, so it stopped before making
+          the call rather than after paying for it. Raise the cap on the request to continue.
+        </p>
+      </section>
+    {% endif %}
+
+    {% if report_id %}
+      <section class="mt-6">
+        <a
+          href="/reports/{{ report_id }}"
+          class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+          id="view-report"
+        >
+          View the report
+        </a>
+      </section>
+    {% endif %}
+
+    <section class="mt-8">
+      <h2 class="text-lg font-semibold tracking-tight">Steps</h2>
+      <ol class="mt-3 divide-y divide-slate-200 dark:divide-slate-800" id="run-steps">
+        {% for step in state.steps %}
+          <li class="flex flex-wrap items-baseline justify-between gap-2 py-2" data-step="{{ step.key }}">
+            <span class="font-mono text-sm">{{ step.key }}</span>
+            <span class="flex items-baseline gap-3 text-xs">
+              <span class="uppercase tracking-wide text-slate-500" data-field="status">
+                {{ step.status }}
+              </span>
+              <span class="font-mono text-slate-500" data-field="cost">£{{ step.cost_gbp }}</span>
+            </span>
+            {% if step.error %}
+              <p class="w-full text-xs text-red-700 dark:text-red-400" data-field="error">
+                {{ step.error }}
+              </p>
+            {% endif %}
+          </li>
+        {% else %}
+          <li class="py-2 text-sm text-slate-400">This run has not started a step yet.</li>
+        {% endfor %}
+      </ol>
+    </section>
+
+    <p class="mt-6 text-xs text-slate-500" id="stream-note">
+      Live updates require JavaScript. Without it this page refreshes itself every
+      {{ poll_seconds }} seconds.
+    </p>
+  </div>
+{% endblock %}

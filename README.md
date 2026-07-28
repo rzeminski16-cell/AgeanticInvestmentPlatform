@@ -12,12 +12,21 @@ source document.
 
 ## Status
 
-**Phase 1 — foundation.** The repository scaffold, tooling, conventions, local
-infrastructure, typed configuration, database schema, web application shell and the
-**research request** — form, API, validation and universe rules — all exist.
-`uv run aer serve` starts a working server; you can create and read requests through the
-GUI or the API. Source acquisition, analysis and report generation do not exist yet. See
-`docs/PLAN.md` for the full plan and `docs/adr/` for the decisions taken so far.
+**Phase 1 complete — the vertical slice runs end to end.** A research request becomes a
+costed plan you approve, a filing fetched from SEC EDGAR and hashed, point-in-time facts, a
+traced calculation, a drafted report you approve, and a frozen Markdown document in which
+every figure carries a footnote that resolves to either the formula that produced it or the
+archived bytes it came from.
+
+It is a *slice*, not a finished product: one document, a handful of facts, one calculation,
+two sections. Every one of those is deliberately thin. What is complete is the **chain** —
+request → plan → approval → acquisition → extraction → calculation → draft → approval →
+cited report — and the machinery around it: the approval gates, the budget cap, the cost
+meter, resumability after a crash, and a report whose sections are database rows rather
+than code.
+
+Phase 2 widens the sources; Phase 3 deepens the analysis. See `docs/PLAN.md` for the full
+plan and `docs/adr/` for the decisions taken so far.
 
 ## What it does (target state)
 
@@ -151,12 +160,14 @@ With `just`:
 | `just setup` | Sync dependencies and install git hooks |
 | `just serve` | Run the web server |
 | `just dev` | Run the web server with auto-reload |
+| `just worker` | Run the background worker that executes research runs |
 | `just seed-user you@example.com` | Create the local user (idempotent) |
 | `just lint` | Lint and check formatting |
 | `just fix` | Apply lint fixes and format |
 | `just typecheck` | Run mypy |
 | `just test` | Run the test suite (excludes the browser tests) |
 | `just test-e2e` | Run the browser tests (needs Chromium and PostgreSQL) |
+| `just test-all` | Both, as two processes — see the note under **Testing** |
 | `just ci` | Everything CI runs, in the same order |
 | `just hooks` | Run every pre-commit hook over the whole tree |
 | `just css` | Rebuild the Tailwind stylesheet (needs Node) |
@@ -171,12 +182,24 @@ uv run aer serve --reload     # auto-reload while developing
 uv run aer version            # what build am I running?
 ```
 
+A run happens in the worker, so both processes need to be up:
+
+```bash
+uv run aer serve              # the GUI and API
+uv run arq aer.worker.WorkerSettings   # the worker that executes runs
+```
+
 | Endpoint | Purpose |
 |---|---|
 | `GET /` | Landing page. Renders even with the database down, and says what is wrong |
 | `GET /requests` | Your research requests |
 | `GET /requests/new` | The research request form |
-| `GET /requests/{id}` | One request |
+| `GET /requests/{id}` | One request, and the button that starts a run |
+| `POST /runs` | Start a run (form post; redirects to the console) |
+| `GET /runs/{id}` | **The run console.** Live progress, or a meta refresh without JavaScript |
+| `GET /runs/{id}/plan` | **Gate 1.** The plan, its sources, its cost and its risks |
+| `GET /runs/{id}/review` | **Gate 2.** The drafted report, exactly as it will be stored |
+| `GET /reports/{id}` | A finished report, its hash, and a link to the archived bytes |
 | `GET /healthz` | **Liveness.** Always 200 while the process can answer; touches nothing external |
 | `GET /readyz` | **Readiness.** 200 when Postgres and Redis both answer, 503 with a per-dependency breakdown otherwise |
 | `GET /docs` | Interactive API documentation (disabled when `AER_APP_ENV=production`) |
@@ -188,6 +211,27 @@ The JSON API mirrors the GUI exactly, because both call the same service functio
 | `POST /api/requests` | Create a request. 201 with a `Location` header |
 | `GET /api/requests` | List requests, most recent first |
 | `GET /api/requests/{id}` | Read one request |
+| `POST /api/runs` | Start a run. 202; the run happens in the worker |
+| `GET /api/runs/{id}` | A run's status, steps and spend |
+| `GET /api/runs/{id}/events` | Server-sent events: progress until the run ends |
+| `GET /api/runs/{id}/draft` | What gate 2 decides on, and the hash an approval must carry |
+| `POST /api/runs/{id}/gates/{gate}/decide` | Approve or reject at a gate |
+| `GET /api/plans/for-run/{id}` | What gate 1 shows, and its hash |
+| `GET /api/reports/for-run/{id}` | The report a run produced |
+| `GET /api/reports/{id}/download` | The **archived** Markdown, with its digest in a header |
+| `GET /api/calculations/{id}` | One calculation: formula, inputs, sources, code version |
+
+### Approving is a decision about something specific
+
+Both gates show a payload and a hash of exactly that payload, and an approval must carry
+the hash back. If what the run produced changed between the page being served and the
+button being pressed, the hashes differ and the workflow refuses to continue — an approval
+of something else is not an approval of this. The page and the run build that payload from
+**the same function**, so "what was shown" and "what was approved" cannot come apart.
+
+Approving never executes anything inline. It records the decision, commits, and enqueues:
+a gate approval that ran the remaining steps inside the request would hold a browser
+connection open for the length of a research run, and would abandon it if the tab closed.
 
 Every response carries an `X-Request-ID`, and the same id appears in every log line for
 that request and in the body of every error — so an error you can see is an error you can
@@ -252,16 +296,36 @@ src/aer/            application package
     sec/companyfacts.py every XBRL fact ever tagged, as exact decimals
     sec/pit.py      point-in-time selection: what was known, as at a date
     sec/client.py   EDGAR endpoints, URL construction and pacing
+  providers/        model providers: the seam that makes the suite free to run
+    protocol.py     two operations: structured completion, and token counting
+    router.py       role -> model; no call site names a model
+    costs.py        usage -> money, by category, in Decimal, with the FX rate on the row
+    anthropic.py    the ONLY module permitted to import the vendor SDK
+    fake.py         scripted answers, plausible token counts, zero spend
+  agents/           agents: route, call, archive both payloads, meter
+    base.py         everything an agent must not have to remember
+    planner.py      proposes a plan; states no figure and asserts no fact
+  workflow/         the step runner and the workflows built on it
+    engine.py       idempotent, resumable, budget-checked before each step
+    workflows/vertical_slice_v1.py   request -> plan -> gates -> cited report
+  sections/         sections are rows, not code
+    registry.py     which sections apply, in what order, pinned per run
+    render.py       Markdown from a JSON Schema; citation is a field name
+  render/markdown.py  the document: header, sections, footnotes, sources, disclaimer
   services/         business operations: requests, artefacts, provenance, facts,
-                    calculations (persist a context, walk lineage to evidence)
+                    calculations, approvals (gate order and payload hashes), runs
+  runtime.py        assembles the service bundle both processes share
+  worker.py         the arq worker: where a research run actually executes
   api/              HTTP layer
     app.py          create_app() factory; lifespan owns the engine and Redis client
     deps.py         session, settings and current-user dependencies
     errors.py       Problem Details responses; what may and may not be returned
     middleware.py   request id, access logging, timing
     security.py     signed CSRF tokens
+    sse.py          live run progress, polled from committed state
     routes/         JSON API routers
   web/              server-rendered GUI
+    pages.py        run console, both gate pages, the report
     templates/      Jinja2; the disclaimer lives in the shell, not in pages
     static/         committed build output and vendored libraries
     styles/         Tailwind source (compiled to static/css/app.css)
@@ -401,15 +465,98 @@ hiding it.
 Rounding happens once, at presentation. See
 `docs/adr/0011-calculations-are-unit-safe-and-traced.md`.
 
+### Model calls
+
+Every call goes through a provider, a router and a meter — see
+`docs/adr/0012-model-provider-abstraction.md`.
+
+**A role picks the model; no call site names one.** `AER_MODEL_ROUTES` is JSON, so moving
+source triage from Sonnet to Haiku — roughly a thirtyfold difference on a step that runs
+dozens of times per report — is a configuration edit. A role with no route **raises**
+rather than falling back, because a silent default is how a run costs thirty times what
+was expected while looking entirely normal.
+
+**Usage is priced by category and stored in `Decimal`.** Input, output, cache read and
+cache write have ratios spanning an order of magnitude; a meter that treated them alike
+would misreport a cached run in the direction that flatters the platform. The USD→GBP rate
+is written on each row rather than applied and forgotten, so last month's costs stay
+reconcilable when the rate changes. An unknown model is priced at the dearest known one:
+an overstatement pauses a run for a decision, an understatement spends money nobody agreed
+to.
+
+**The cap is checked before a step runs, not after.** A run that would exceed its ceiling
+stops in `BUDGET_EXCEEDED` having called nothing; the test for it asserts the provider's
+call count is zero.
+
+**Only `aer/providers/anthropic.py` may import the vendor SDK**, and it does so inside a
+function. A test parses every file under `src/` to confirm it, and a second test imports
+the application in a subprocess and checks the SDK never loaded.
+
+### Report sections are rows, not code
+
+A section is a row in `section_definitions`: a key, a version, a position, and a JSON
+Schema that the renderer walks to produce Markdown. There is no section enum, no section
+list, and no per-section branch anywhere in `src/` — enforced by a test that reads the
+source tree.
+
+That is not tidiness. Phase 4 lets you author a section in a natural-language skill file,
+and a section defined that way has nobody to write its template. If rendering needed one,
+the feature would be impossible to add later rather than merely unbuilt.
+
+Adding a section is an `INSERT`:
+
+```sql
+INSERT INTO section_definitions (key, version, origin, title, position, required,
+                                 output_contract, evidence_policy, token_budget,
+                                 allowed_tools, applicability)
+VALUES ('competitive_position', 1, 'builtin', 'Competitive Position', 150, true,
+        '{"type":"object","properties":{"commentary":{"type":"string","title":"Commentary"}}}',
+        '{"min_sources":1,"requires_primary":true}', 2000, '{}', '{}');
+```
+
+`position` is `NUMERIC` and sparse (100, 200), so 150 slots in without renumbering
+anything. `tests/test_report_sections.py::TestAThirdSection` does exactly this and asserts
+the rendered report gains a third section, in the right place, with footnote numbering
+still correct across the whole document, **with no code change**. See
+`docs/adr/0013-report-sections-are-data-not-code.md`.
+
+`output_contract` is stored as `json`, not `jsonb` — the only such column in the schema.
+`jsonb` discards key order, reordering by key length then bytewise, which silently replaced
+a section author's declared field order with an artefact of the storage engine. The order
+is part of the contract, so the column keeps the text exactly as written.
+
+### Approval gates and resumability
+
+A run stops at each gate and records an approval carrying the hash of exactly what was
+displayed. Approving twice is refused; approving gate 2 before gate 1 is refused; an
+approval recorded against different content does not open the gate.
+
+Steps are idempotent by stored outcome. A worker that dies mid-run resumes from the first
+incomplete step — the planner is not asked twice, the filing is not fetched twice — because
+a step that already succeeded returns its stored output instead of executing. There is a
+test that kills a run after acquisition and asserts the fetch count does not change.
+
 ## Testing
 
 ```bash
 uv run pytest --ignore=tests/e2e     # default suite: no network, no model spend
 uv run pytest tests/e2e              # browser tests (Chromium + PostgreSQL)
+just test-all                        # both, as two processes
 uv run pytest --cov                  # with coverage
 uv run pytest -m integration         # database tests only
 uv run pytest -m "not integration"   # skip anything needing PostgreSQL
 ```
+
+**The browser tests must run in their own pytest process.** Playwright's synchronous API
+drives an asyncio loop on the main thread and keeps it running for the life of its session
+fixture, so any asyncio-based fixture that runs after a browser test in the same process
+fails with "Runner.run() cannot be called from a running event loop". `just test-all` is
+therefore two commands rather than one `pytest` invocation.
+
+The whole vertical slice — plan, both gates, budget guard, acquisition, calculation,
+rendered report — runs in the default suite against a fake provider and a stubbed EDGAR
+client, so it costs nothing and needs no network. That is the entire reason the provider
+abstraction exists: a suite that spent money would be a suite nobody ran.
 
 The browser tests drive a real Chromium against a real uvicorn server on an ephemeral
 port. They exist to catch what an in-process HTTP client structurally cannot — a form

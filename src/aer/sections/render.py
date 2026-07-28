@@ -113,6 +113,7 @@ def render_section(
             footnote_start=footnote_start,
             heading_level=heading_level + 1,
             field_title=field_title,
+            subschema=subschema,
         )
         lines.extend(rendered)
 
@@ -122,9 +123,11 @@ def render_section(
 def _ordered_properties(contract: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
     """The contract's properties, in declaration order.
 
-    Python preserves insertion order and so does Postgres' JSONB round trip for objects
-    written by this application, so the author's declared order is the rendered order. That
-    is what lets a section author control the shape of their output without a template.
+    Python preserves insertion order, and ``section_definitions.output_contract`` is stored
+    as ``json`` rather than ``jsonb`` precisely so that order survives the database — jsonb
+    reorders keys by length and then bytewise, silently. So the author's declared order is
+    the rendered order, which is what lets a section author control the shape of their
+    output without a template.
     """
     properties = contract.get("properties")
     if not isinstance(properties, dict):
@@ -139,6 +142,7 @@ def _render_value(
     footnote_start: int,
     heading_level: int,
     field_title: str,
+    subschema: dict[str, Any] | None = None,
 ) -> list[str]:
     """Render one field.
 
@@ -147,6 +151,9 @@ def _render_value(
     its own schema is a validation problem, and rendering is not the place to discover it
     -- by here the content has already been validated, and rendering what is actually
     present beats rendering what was promised.
+
+    ``subschema`` is the field's own schema, carried down so a table's columns can come
+    from the contract rather than from whatever key order the content happens to have.
     """
     if isinstance(value, list):
         return _render_list(
@@ -155,6 +162,7 @@ def _render_value(
             footnote_start=footnote_start,
             heading_level=heading_level,
             field_title=field_title,
+            subschema=subschema,
         )
 
     if isinstance(value, dict):
@@ -172,6 +180,7 @@ def _render_list(
     footnote_start: int,
     heading_level: int,
     field_title: str,
+    subschema: dict[str, Any] | None = None,
 ) -> list[str]:
     lines = [f"{'#' * heading_level} {field_title}", ""]
 
@@ -180,7 +189,7 @@ def _render_list(
         lines.append("")
         return lines
 
-    columns = _shared_columns(values)
+    columns = _shared_columns(values, subschema=subschema)
     if columns:
         lines.extend(
             _render_table(
@@ -203,24 +212,55 @@ def _render_list(
     return lines
 
 
-def _shared_columns(values: list[Any]) -> list[str]:
+def _shared_columns(values: list[Any], *, subschema: dict[str, Any] | None = None) -> list[str]:
     """The content columns every object in a list has, or nothing if they differ.
 
     A table is only honest when the rows share a shape. Objects with different keys
     rendered as a table would produce empty cells that read as missing data rather than as
     a section whose items are simply not tabular.
+
+    **Order comes from the contract when the contract describes the item.** The values
+    decide *whether* a table is appropriate; the author decides what order its columns go
+    in. Taking the order from the first row would hand that decision to whatever built the
+    content — and a figure written as ``{"value": ..., "label": ...}`` would silently
+    transpose a table its author had laid out deliberately.
     """
     dicts = [item for item in values if isinstance(item, dict)]
     if len(dicts) != len(values) or not dicts:
         return []
 
-    first = [key for key in dicts[0] if key not in _METADATA_KEYS]
-    if not first:
+    present = {key for key in dicts[0] if key not in _METADATA_KEYS}
+    if not present:
         return []
     for item in dicts[1:]:
-        if [key for key in item if key not in _METADATA_KEYS] != first:
+        if {key for key in item if key not in _METADATA_KEYS} != present:
             return []
-    return first
+
+    declared = _declared_item_properties(subschema)
+    if declared:
+        # The contract's order, restricted to what the rows actually carry. A declared
+        # column no row has would render as a column of blanks, which reads as missing
+        # data rather than as a field this content does not use.
+        ordered = [name for name in declared if name in present]
+        if set(ordered) == present:
+            return ordered
+
+    # No usable contract: fall back to the first row's order, which is at least stable
+    # across the rows because they were just checked to share a key set.
+    return [key for key in dicts[0] if key not in _METADATA_KEYS]
+
+
+def _declared_item_properties(subschema: dict[str, Any] | None) -> list[str]:
+    """The property names an array field declares for its items, in declared order."""
+    if not isinstance(subschema, dict):
+        return []
+    items = subschema.get("items")
+    if not isinstance(items, dict):
+        return []
+    properties = items.get("properties")
+    if not isinstance(properties, dict):
+        return []
+    return [name for name in properties if name not in _METADATA_KEYS]
 
 
 def _render_table(

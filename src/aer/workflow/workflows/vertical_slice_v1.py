@@ -29,6 +29,7 @@ from typing import Any, Final
 
 import structlog
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.base import AgentContext
 from aer.agents.planner import PlannerAgent, PlannerInput
@@ -57,7 +58,7 @@ from aer.sources.sec.companyfacts import parse_company_facts
 from aer.sources.sec.pit import select_point_in_time
 from aer.workflow.engine import StepContext, StepPaused, StepResult, WorkflowStep
 
-__all__ = ["WORKFLOW_VERSION", "build_steps"]
+__all__ = ["WORKFLOW_VERSION", "build_steps", "final_gate_payload", "plan_gate_payload"]
 
 _log = structlog.get_logger("aer.workflow.vertical_slice")
 
@@ -137,9 +138,16 @@ async def _plan(context: StepContext) -> StepResult:
     context.session.add(plan)
     await context.session.flush()
 
-    # The hash of exactly what gate 1 will display. Recorded on the approval, so an
-    # approval of one plan cannot be reused for a different one -- see `_require_approval`.
-    payload_hash = sha256_hex(canonical_json(payload))
+    # Refreshed before hashing, so the hash covers what the *database* holds rather than
+    # what is in memory. `estimated_cost_gbp` is NUMERIC(12,6): a Decimal that arrived with
+    # more places comes back rounded, and a gate page reading the row would otherwise
+    # compute a different hash from the one recorded here and reject every approval.
+    await context.session.refresh(plan)
+
+    # The hash of exactly what gate 1 will display -- the same function the page renders
+    # from. Recorded on the approval, so an approval of one plan cannot be reused for a
+    # different one; see `_require_approval`.
+    payload_hash = sha256_hex(canonical_json(plan_gate_payload(plan)))
 
     await create_report_sections(context.session, job_id=context.job.id, definitions=definitions)
 
@@ -157,6 +165,29 @@ async def _plan(context: StepContext) -> StepResult:
 # ==========================================================================================
 # 2 and 7. The gates
 # ==========================================================================================
+
+
+def plan_gate_payload(plan: ResearchPlan) -> dict[str, Any]:
+    """Exactly what gate 1 approves, as one structure.
+
+    Built here and used by the plan step, the JSON API and the review page alike, so "what
+    the run hashed", "what the API reports" and "what the operator was shown" are the same
+    object by construction rather than by three functions agreeing.
+
+    Costs are strings because they are ``Decimal``; a JSON number would round them, and a
+    hash over a rounded figure is a hash over something nobody displayed.
+    """
+    body = dict(plan.plan or {})
+    return {
+        "plan_id": str(plan.id),
+        "workflow_version": plan.workflow_version,
+        "summary": body.get("summary", ""),
+        "sections": body.get("sections", []),
+        "planned_sources": list(plan.planned_sources or []),
+        "known_risks": list(plan.known_risks or []),
+        "estimated_cost_gbp": str(plan.estimated_cost_gbp),
+        "estimated_runtime_seconds": plan.estimated_runtime_seconds,
+    }
 
 
 async def _gate_plan(context: StepContext) -> StepResult:
@@ -404,7 +435,7 @@ async def _draft(context: StepContext) -> StepResult:
 
     await context.session.flush()
 
-    payload = {"sections": [{"key": s.section_key, "content": s.content} for s in sections]}
+    payload = await final_gate_payload(context.session, job_id=context.job.id)
     return StepResult(
         output={
             "sections_drafted": filled,
@@ -413,6 +444,18 @@ async def _draft(context: StepContext) -> StepResult:
             "payload_hash": sha256_hex(canonical_json(payload)),
         }
     )
+
+
+async def final_gate_payload(session: AsyncSession, *, job_id: uuid.UUID) -> dict[str, Any]:
+    """Exactly what gate 2 approves, as one structure.
+
+    Built here and used both by the draft step and by the review page, so "what the run
+    hashed" and "what the operator was shown" are the same object by construction. Two
+    functions producing the same shape would be two functions that eventually do not, and
+    the symptom would be a gate that refuses every approval for reasons nobody can see.
+    """
+    sections = await sections_for_job(session, job_id)
+    return {"sections": [{"key": s.section_key, "content": s.content} for s in sections]}
 
 
 def _content_for(

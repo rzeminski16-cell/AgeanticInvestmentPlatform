@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import logging
 import re
+import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -248,3 +250,44 @@ class TestLoggingConfiguration:
         captured = capsys.readouterr().out
         assert "should not appear" not in captured
         assert "should appear" in captured
+
+
+class TestNothingUnderSrcIsIgnored:
+    """No file the application needs may be excluded from the repository.
+
+    This is not hypothetical. A `reports/` line in `.gitignore`, meant for generated
+    output, was unanchored — so it also matched `src/aer/web/templates/reports/` and kept
+    the report page out of the repository entirely. Every test passed, because the file
+    was present locally; a fresh checkout would have rendered every page except the one
+    the whole platform exists to produce.
+
+    Asked of git rather than reimplemented: `.gitignore` semantics are more subtle than
+    they look, and a second implementation of them would be wrong in a different way.
+    """
+
+    def test_git_ignores_nothing_under_src(self) -> None:
+        root = Path(__file__).resolve().parent.parent
+        candidates = [
+            path
+            for path in (root / "src").rglob("*")
+            if path.is_file() and "__pycache__" not in path.parts
+        ]
+        assert candidates, "no source files found; the path is wrong"
+
+        # `--no-index` is load-bearing. Without it, `check-ignore` says nothing about a
+        # file that is already tracked — so once the missing template had been committed,
+        # the check that was supposed to catch the rule would go quiet, and the next
+        # source directory the same rule swallowed would be missed in exactly the same way.
+        #
+        # `check-ignore` exits 0 when it matched something, 1 when it matched nothing.
+        result = subprocess.run(
+            ["git", "check-ignore", "--stdin", "--no-index"],  # noqa: S607 -- git is on PATH
+            input="\n".join(str(p) for p in candidates),
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.stdout.strip() == "", (
+            f"these files are git-ignored and would be missing from a checkout:\n{result.stdout}"
+        )

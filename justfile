@@ -52,6 +52,11 @@ serve *args:
 dev:
     uv run aer serve --reload
 
+# Run the background worker. A research run happens here, not in an HTTP request: the web
+# process only enqueues, so nothing useful happens until this is running too.
+worker:
+    uv run arq aer.worker.WorkerSettings
+
 # Create the single local user. Idempotent.
 seed-user email:
     uv run aer seed-user --email "{{email}}"
@@ -121,8 +126,13 @@ test-e2e:
     uv run pytest tests/e2e
 
 # Everything, including the browser tests.
-test-all:
-    uv run pytest
+#
+# Two processes, not one. Playwright's synchronous API drives an asyncio loop on the main
+# thread and keeps it running for the life of its session fixture, so every asyncio-based
+# fixture that runs after a browser test in the same process fails with "Runner.run()
+# cannot be called from a running event loop". Splitting the run is the fix; the
+# alternative is a suite whose result depends on collection order.
+test-all: test test-e2e
 
 # Run the test suite with coverage.
 test-cov:
