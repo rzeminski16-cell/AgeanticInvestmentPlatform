@@ -25,6 +25,7 @@ from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
+from sqlalchemy import Enum as SaEnum
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -182,11 +183,23 @@ class TestRoundTrip:
             finally:
                 await engine.dispose()
 
+        # Derived from the models rather than hardcoded, so adding a table does not mean
+        # editing this test -- and so a table the migration forgot still fails it.
+        expected_tables = len(Base.metadata.tables) + 1  # + alembic_version
+        expected_enums = len(
+            {
+                column.type.name
+                for table in Base.metadata.tables.values()
+                for column in table.columns
+                if isinstance(column.type, SaEnum)
+            }
+        )
+
         asyncio.run(recreate())
 
         run_alembic(roundtrip_url, "upgrade", "head")
-        assert asyncio.run(count_public_tables()) == 8  # 7 application tables + alembic_version
-        assert asyncio.run(count_enum_types()) == 6
+        assert asyncio.run(count_public_tables()) == expected_tables
+        assert asyncio.run(count_enum_types()) == expected_enums
 
         run_alembic(roundtrip_url, "downgrade", "base")
         # Only alembic_version survives, and every enum type is cleaned up. A leaked enum
@@ -195,5 +208,5 @@ class TestRoundTrip:
         assert asyncio.run(count_enum_types()) == 0
 
         run_alembic(roundtrip_url, "upgrade", "head")
-        assert asyncio.run(count_public_tables()) == 8
-        assert asyncio.run(count_enum_types()) == 6
+        assert asyncio.run(count_public_tables()) == expected_tables
+        assert asyncio.run(count_enum_types()) == expected_enums

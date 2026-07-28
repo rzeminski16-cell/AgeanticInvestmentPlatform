@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from aer.db.models.approval import Approval
     from aer.db.models.job import Job
     from aer.db.models.plan import ResearchPlan
+    from aer.db.models.source_document import SourceDocument
     from aer.db.models.user import User
 
 __all__ = ["ResearchRequest"]
@@ -133,6 +134,9 @@ class ResearchRequest(Base):
         back_populates="request", cascade="all, delete-orphan"
     )
     jobs: Mapped[list[Job]] = relationship(back_populates="request", cascade="all, delete-orphan")
+    sources: Mapped[list[SourceDocument]] = relationship(
+        back_populates="request", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         CheckConstraint(

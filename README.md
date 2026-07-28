@@ -229,6 +229,10 @@ src/aer/            application package
     enums.py        domain vocabulary, rendered as native PostgreSQL enums
     hashing.py      canonical serialisation and audit hash chaining
   db/               engine, session management, and ORM models
+  storage/          content-addressed artefact store; the evidence substrate
+    protocol.py     the ArtefactStore interface: no delete, no update, no move
+    local.py        sha256 addressing, atomic writes, integrity verification
+  services/         business operations: requests, artefacts, provenance
   api/              HTTP layer
     app.py          create_app() factory; lifespan owns the engine and Redis client
     deps.py         session, settings and current-user dependencies
@@ -267,6 +271,30 @@ application code is a rule those other writers do not have. See
 
 A test compares the live schema against the ORM models and **fails the build on any
 drift**, so a model change that was never migrated cannot reach production.
+
+### Evidence storage
+
+Every byte the platform fetches is stored under `AER_ARTEFACT_ROOT`, addressed by the
+SHA-256 of its own content:
+
+```
+var/artefacts/<aa>/<bb>/<full-sha256>
+```
+
+That one decision buys deduplication, tamper detection and verifiable citations at once —
+the address *is* the digest, so a file that no longer hashes to its own name has been
+altered. Writes are atomic (temp file, `fsync`, rename), the size cap is enforced while
+streaming rather than afterwards, and **artefact rows are made immutable by a database
+trigger** rather than by convention.
+
+Provenance lives separately in `source_documents`: the URL, publisher, publication date,
+licence note and robots status of each acquisition. Two fetches of the same PDF share one
+artefact and get two provenance records, because they happened at different times and
+possibly under different terms.
+
+**A source whose publication date cannot be established is quarantined** when the request
+is in point-in-time mode — kept, so the record of what was seen survives, but flagged so
+nothing can cite it. See `docs/adr/0008-content-addressed-immutable-artefacts.md`.
 
 ## Testing
 

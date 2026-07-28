@@ -19,7 +19,9 @@ __all__ = [
     "Decision",
     "GateKind",
     "JobStatus",
+    "Provider",
     "RequestStatus",
+    "SourceTier",
     "UserRole",
 ]
 
@@ -102,3 +104,84 @@ class Decision(StrEnum):
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
     AMENDED = "AMENDED"
+
+
+class SourceTier(StrEnum):
+    """How much a source may be relied upon.
+
+    The numbers are ordered and load-bearing: **when two sources disagree, the lower tier
+    number wins.** That rule is what makes conflict resolution a deterministic comparison
+    rather than a judgement call, so it lives in the schema rather than in prose a model
+    might weigh differently on different days.
+
+    Two rules follow from the bottom of the table and are enforced elsewhere in code:
+
+    * ``T5_SECONDARY`` is always labelled secondary and is **never the sole support for a
+      numeric claim**. A figure that only a newspaper asserts is a figure with no primary
+      record behind it.
+    * ``T6_UNVERIFIED`` generates hypotheses and is **never citable evidence**. Your own
+      earlier notes live here too — a note repeating a number does not make the number
+      sourced, it makes it repeated.
+
+    See ``docs/PLAN.md`` section 1.1.
+    """
+
+    T1_REGULATORY = "T1_REGULATORY"
+    """SEC EDGAR filings and XBRL, FCA NSM, Companies House, RNS. Authoritative for
+    reported financials."""
+
+    T2_ISSUER = "T2_ISSUER"
+    """Issuer-hosted material: annual report PDFs, results presentations, transcripts.
+    Authoritative where tier 1 does not contradict it."""
+
+    T3_OFFICIAL_STATS = "T3_OFFICIAL_STATS"
+    """FRED, ONS, Bank of England, BLS, Eurostat, OECD. Authoritative for macro."""
+
+    T4_LICENSED_MARKET = "T4_LICENSED_MARKET"
+    """Licensed market data: end-of-day prices, corporate actions. Authoritative for
+    prices and returns."""
+
+    T5_SECONDARY = "T5_SECONDARY"
+    """Reputable secondary reporting. Never the sole support for a number."""
+
+    T6_UNVERIFIED = "T6_UNVERIFIED"
+    """Blogs, forums, user-supplied notes. Hypothesis generation only."""
+
+    @property
+    def rank(self) -> int:
+        """The tier number. Lower is more authoritative."""
+        return int(self.value[1])
+
+    @property
+    def is_primary(self) -> bool:
+        """Whether this tier counts as a primary source for evidence-policy purposes."""
+        return self.rank <= _PRIMARY_TIER_LIMIT
+
+    @property
+    def is_citable(self) -> bool:
+        """Whether a claim may cite this tier as evidence at all."""
+        return self is not SourceTier.T6_UNVERIFIED
+
+
+# Tiers 1 and 2 are primary: the regulator's copy and the issuer's own copy.
+_PRIMARY_TIER_LIMIT = 2
+
+
+class Provider(StrEnum):
+    """Where a source document came from.
+
+    Distinct from :class:`SourceTier`: the tier says how much weight a document carries,
+    the provider says which adapter fetched it and therefore which licence, rate limit
+    and terms of use apply to it. The same publisher can appear at different tiers — an
+    issuer's own annual report is tier 2, the same figures inside a regulatory filing are
+    tier 1 — so collapsing the two would lose the distinction that matters.
+    """
+
+    SEC_EDGAR = "sec_edgar"
+    COMPANIES_HOUSE = "companies_house"
+    FCA_NSM = "fca_nsm"
+    EODHD = "eodhd"
+    FRED = "fred"
+    ISSUER_IR = "issuer_ir"
+    WEB_SEARCH = "web_search"
+    USER_SUPPLIED = "user_supplied"
