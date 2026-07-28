@@ -27,6 +27,7 @@ dependencies = [
   "typer>=0.15",
   "redis>=5.2",
   "python-multipart>=0.0.20",
+  "httpx>=0.28",
 ]
 
 [dependency-groups]
@@ -39,8 +40,9 @@ dev = [
   "pre-commit>=4.0",
   "httpx>=0.28",
   "asgi-lifespan>=2.1",
-  "fakeredis>=2.26",
+  "fakeredis[lua]>=2.26",
   "pytest-playwright>=0.6",
+  "respx>=0.22",
 ]
 
 [project.scripts]
@@ -99,6 +101,10 @@ ignore = [
   "S105",    # hardcoded password-alike strings are deliberate test fixtures
   "S106",
   "SLF001",  # tests may reach for private helpers to test them directly
+  # A test requests its fixtures as positional parameters; that is pytest's interface,
+  # not a design choice the test author made, so counting them is counting the wrong
+  # thing.
+  "PLR0917",
 ]
 "src/aer/**" = ["S101"]
 

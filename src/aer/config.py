@@ -190,6 +190,18 @@ class Settings(BaseSettings):
     artefact_root: Path = Path("./var/artefacts")
     max_artefact_bytes: int = Field(default=52_428_800, gt=0)
 
+    # -- Network -----------------------------------------------------------------------
+
+    # Permit the plain http:// scheme for outbound fetches. Off, and meant to stay off: an
+    # unencrypted response can be altered in transit, and evidence that may have been
+    # altered is not evidence.
+    #
+    # It relaxes the *scheme* rule only. The address rules are untouched, so loopback and
+    # private addresses stay refused whatever this is set to — which means it does not
+    # make a server on localhost reachable, and is not a way to point the fetch layer at
+    # one. Its only real use is a public host that serves plain HTTP.
+    allow_insecure_http: bool = False
+
     # -- Obsidian ----------------------------------------------------------------------
 
     obsidian_vault_root: Path | None = None

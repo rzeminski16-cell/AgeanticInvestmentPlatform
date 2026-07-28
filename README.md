@@ -232,6 +232,13 @@ src/aer/            application package
   storage/          content-addressed artefact store; the evidence substrate
     protocol.py     the ArtefactStore interface: no delete, no update, no move
     local.py        sha256 addressing, atomic writes, integrity verification
+  fetch/            the ONLY component that makes outbound network requests
+    ssrf.py         resolve, validate every address, refuse anything not public
+    transport.py    connects only to validated addresses; closes the rebinding gap
+    policy.py       per-provider allowlist, rate, licence note
+    robots.py       robots.txt compliance; a disallow is a refusal
+    limits.py       Redis token bucket and circuit breaker, shared across workers
+    client.py       SafeFetcher: the pipeline, and what archives every response
   services/         business operations: requests, artefacts, provenance
   api/              HTTP layer
     app.py          create_app() factory; lifespan owns the engine and Redis client
@@ -295,6 +302,28 @@ possibly under different terms.
 **A source whose publication date cannot be established is quarantined** when the request
 is in point-in-time mode — kept, so the record of what was seen survives, but flagged so
 nothing can cite it. See `docs/adr/0008-content-addressed-immutable-artefacts.md`.
+
+### Network egress
+
+`src/aer/fetch/` is the only component permitted to make outbound requests, and every
+control sits on that one door: a per-provider allowlist, robots.txt compliance, a
+Redis-backed token bucket shared by every worker, a circuit breaker, retries with full
+jitter, a streaming byte cap, and content-type sniffing that never trusts the header.
+
+**No agent-callable tool anywhere in this system takes a URL.** An agent asks for a *kind*
+of source; deterministic adapter code decides which URL that means. Text hidden in a
+fetched filing can instruct as loudly as it likes, because no tool exists that would carry
+it out. That is a property of what is *absent* from the tool surface, so it is stated in
+the module docstring where someone about to add the missing tool will read it.
+
+SSRF protection resolves each hostname once, validates **every** address it returns, and
+then connects only to a validated address — carrying the real hostname in the `Host` header
+and the TLS SNI, so certificate checking still works. Letting the HTTP client resolve the
+name a second time is what DNS rebinding exploits. Every redirect hop is re-validated from
+scratch. See `docs/adr/0009-network-egress-is-deterministic-and-guarded.md`.
+
+No fetch test touches the real network: everything runs against `respx`, and a fixture
+replaces `socket.socket` so a test that reaches out fails instead of succeeding quietly.
 
 ## Testing
 

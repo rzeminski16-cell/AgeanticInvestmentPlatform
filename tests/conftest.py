@@ -22,9 +22,10 @@ import structlog
 from aer.config import ENV_PREFIX, Settings, get_settings
 from aer.logging import configure_logging
 
-# Database and API fixtures live in their own modules to keep this one readable;
-# re-exported here so pytest discovers them. See tests/db_fixtures.py for the isolation
-# strategy and tests/api_fixtures.py for how the application is driven.
+# Fixtures live in their own modules to keep this one readable; re-exported here so
+# pytest discovers them. See tests/db_fixtures.py for the transactional isolation
+# strategy, tests/api_fixtures.py for how the application is driven, and
+# tests/fetch_fixtures.py for the socket guard that keeps the fetch tests offline.
 from tests.api_fixtures import (  # noqa: F401
     api_engine,
     api_settings,
@@ -38,6 +39,16 @@ from tests.db_fixtures import (  # noqa: F401
     db_engine,
     db_session,
     repo_root,
+)
+from tests.fetch_fixtures import (  # noqa: F401
+    artefact_store,
+    breaker,
+    clock,
+    fetch_settings,
+    limiter,
+    no_real_sockets,
+    redis_client,
+    sleeper,
 )
 
 # A User-Agent is the one required setting, so almost every settings test needs it.
