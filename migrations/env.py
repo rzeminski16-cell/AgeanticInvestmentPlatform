@@ -25,7 +25,12 @@ from aer.db.base import Base
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False is not optional here. `fileConfig` defaults to True,
+    # which disables every logger that already exists -- and migrations run in-process,
+    # both in the test suite and anywhere a future startup path applies them. The default
+    # would therefore silence the application's own loggers as a side effect of upgrading
+    # the schema, with no error and nothing in the output to explain the silence.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 

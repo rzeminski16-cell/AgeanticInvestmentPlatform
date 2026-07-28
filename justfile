@@ -44,6 +44,32 @@ health:
     docker compose exec postgres pg_isready -U aer -d aer
     docker compose exec redis redis-cli ping
 
+# Run the web server on the configured host and port (default 127.0.0.1:8000).
+serve *args:
+    uv run aer serve {{args}}
+
+# Run the web server with auto-reload, for development.
+dev:
+    uv run aer serve --reload
+
+# Create the single local user. Idempotent.
+seed-user email:
+    uv run aer seed-user --email "{{email}}"
+
+# Rebuild the Tailwind stylesheet. Needs Node; the OUTPUT is committed, so CI does not.
+css:
+    npm run build:css
+
+# Rebuild the stylesheet continuously while editing templates.
+watch-css:
+    npm run watch:css
+
+# Copy vendored JavaScript out of node_modules. Run after `npm install` or `npm update`.
+# Record the version and SHA-256 in the commit message; see src/aer/web/static/README.md.
+vendor-js:
+    cp node_modules/htmx.org/dist/htmx.min.js src/aer/web/static/vendor/htmx.min.js
+    @echo "htmx.min.js updated. Record its version and hash in the commit message."
+
 # Apply all pending migrations.
 migrate:
     uv run alembic upgrade head

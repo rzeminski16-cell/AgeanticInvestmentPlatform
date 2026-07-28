@@ -1,0 +1,32 @@
+{# Site header. The "not advice" badge sits beside the product name deliberately: it is
+   the first thing read on every page, not something found at the bottom. #}
+<header class="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+  <nav
+    class="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-4 sm:px-6"
+    aria-label="Main"
+  >
+    <a href="/" class="text-base font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+      Ageiantic <span class="text-sky-700 dark:text-sky-400">Equity Research</span>
+    </a>
+
+    <span
+      class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+      title="{{ disclaimer }}"
+    >
+      Not investment advice
+    </span>
+
+    <div class="ml-auto flex items-center gap-4 text-sm">
+      <a
+        href="/healthz"
+        class="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+        >Health</a
+      >
+      <a
+        href="/docs"
+        class="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+        >API</a
+      >
+    </div>
+  </nav>
+</header>

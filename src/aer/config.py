@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import secrets
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
@@ -35,6 +36,8 @@ from aer.errors import ConfigError
 __all__ = [
     "DEFAULT_MODEL_ROUTES",
     "ENV_PREFIX",
+    "PROVIDER_CREDENTIAL_FIELDS",
+    "SECRET_FIELDS",
     "AppEnv",
     "Effort",
     "ModelRoute",
@@ -52,13 +55,22 @@ Effort = Literal["low", "medium", "high", "xhigh", "max"]
 
 _VALID_LOG_LEVELS: Final = frozenset({"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"})
 
-# Secret fields, listed once so tests and `require_secret` agree on the set.
-SECRET_FIELDS: Final[tuple[str, ...]] = (
+# Credentials for third-party services. All optional at startup: requiredness belongs at
+# the point of use, so a missing EODHD key does not stop you working on SEC ingestion.
+PROVIDER_CREDENTIAL_FIELDS: Final[tuple[str, ...]] = (
     "anthropic_api_key",
     "eodhd_api_key",
     "fred_api_key",
     "companies_house_api_key",
 )
+
+# Every secret field, listed once so tests, redaction and `require_secret` agree on the
+# set. `secret_key` is ours rather than a provider's, and unlike the others it is filled
+# in when absent rather than left None -- see _secret_key_must_exist_in_production.
+SECRET_FIELDS: Final[tuple[str, ...]] = (*PROVIDER_CREDENTIAL_FIELDS, "secret_key")
+
+# 48 random bytes, url-safe encoded. Comfortably above the 32 bytes HMAC-SHA256 needs.
+_GENERATED_SECRET_BYTES: Final = 48
 
 
 class ModelRoute(BaseModel):
@@ -147,6 +159,13 @@ class Settings(BaseSettings):
     fred_api_key: SecretStr | None = None
     companies_house_api_key: SecretStr | None = None
 
+    # -- Signing ------------------------------------------------------------------------
+
+    # Signs CSRF tokens, and any signed cookie added later. Left unset it is generated per
+    # process; see _secret_key_must_exist_in_production for why that is safe locally and
+    # refused in production.
+    secret_key: SecretStr | None = None
+
     # -- Application -------------------------------------------------------------------
 
     app_env: AppEnv = "development"
@@ -202,6 +221,7 @@ class Settings(BaseSettings):
         "eodhd_api_key",
         "fred_api_key",
         "companies_house_api_key",
+        "secret_key",
         "obsidian_vault_root",
         "obsidian_personal_root",
         mode="before",
@@ -278,6 +298,46 @@ class Settings(BaseSettings):
         return value
 
     @model_validator(mode="after")
+    def _secret_key_must_exist_in_production(self) -> Settings:
+        """Fill in a per-process signing key, or refuse to start without a real one.
+
+        There is deliberately no committed default. A signing key shipped in source is not
+        a key: anyone with the repository could mint a valid CSRF token, so the protection
+        would be decorative.
+
+        Locally, generating one per process is the right trade. It costs nothing except
+        that tokens issued before a restart stop verifying afterwards, which for a
+        single-user tool on loopback means a form open across a restart needs reloading.
+        In production that same behaviour would log every user out on each deploy and
+        would differ between workers, so there it is a startup error instead.
+
+        Generating a value inside a validator makes ``Settings`` non-deterministic, which
+        is unusual enough to call out. The alternative — deriving it lazily at first use —
+        puts mutable state behind a module global and makes "is this key stable?" a
+        question you have to trace through call sites rather than read here.
+        """
+        if self.secret_key is not None:
+            return self
+
+        if self.is_production:
+            message = (
+                f"{ENV_PREFIX}SECRET_KEY must be set when {ENV_PREFIX}APP_ENV=production. "
+                'Generate one with: python -c "import secrets; print(secrets.token_urlsafe(48))"'
+            )
+            raise ValueError(message)
+
+        _log.warning(
+            "%sSECRET_KEY is not set; generating an ephemeral one for this process. CSRF "
+            "tokens will stop verifying when the application restarts. Set it in .env to "
+            "avoid that.",
+            ENV_PREFIX,
+        )
+        # Assigning through __dict__ avoids re-running this validator, which
+        # `validate_assignment` would otherwise do on a normal attribute set.
+        self.__dict__["secret_key"] = SecretStr(secrets.token_urlsafe(_GENERATED_SECRET_BYTES))
+        return self
+
+    @model_validator(mode="after")
     def _obsidian_roots_must_not_nest(self) -> Settings:
         """Refuse to run if the generated vault and personal notes overlap.
 
@@ -329,6 +389,18 @@ class Settings(BaseSettings):
         directories and every test would need a temporary path.
         """
         self.artefact_root.mkdir(parents=True, exist_ok=True)
+
+    @property
+    def signing_key(self) -> bytes:
+        """The HMAC key for CSRF tokens and signed cookies.
+
+        Always populated once validation has run; see
+        :meth:`_secret_key_must_exist_in_production`.
+        """
+        if self.secret_key is None:  # pragma: no cover -- the validator guarantees this
+            message = f"{ENV_PREFIX}SECRET_KEY was not resolved during validation."
+            raise ConfigError(message)
+        return self.secret_key.get_secret_value().encode("utf-8")
 
     @property
     def is_production(self) -> bool:

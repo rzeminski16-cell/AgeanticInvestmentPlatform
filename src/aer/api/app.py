@@ -1,0 +1,125 @@
+"""The FastAPI application factory.
+
+``create_app()`` is a factory rather than a module-level ``app = FastAPI()`` for one
+reason that matters and several that follow from it: importing a module must not open a
+database connection pool. A module-level instance means every import — a test collecting,
+a CLI printing its version, a migration loading models — drags the whole runtime with it.
+
+Resources live on :class:`AppState`, built during the lifespan and reachable from any
+handler through ``request.app.state.aer``. Tests may inject their own state; the lifespan
+then leaves it alone, because whoever created a resource is responsible for closing it,
+and a factory that disposes an engine it did not create will eventually dispose one still
+in use.
+"""
+
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+import structlog
+from fastapi import FastAPI
+from redis.asyncio import Redis
+from starlette.staticfiles import StaticFiles
+
+from aer.api.errors import register_exception_handlers
+from aer.api.middleware import RequestContextMiddleware
+from aer.api.routes import health
+from aer.api.state import AppState
+from aer.config import Settings, load_settings
+from aer.db.engine import create_engine, create_session_factory
+from aer.logging import configure_logging
+from aer.version import build_identity, version
+from aer.web import routes as web_routes
+from aer.web.templating import STATIC_DIR
+
+__all__ = ["AppState", "bootstrap", "create_app"]
+
+_log = structlog.get_logger("aer.api.app")
+
+_DESCRIPTION = """\
+Local-first, auditable equity research for UK and US listed equities.
+
+**Not investment advice.** Nothing this API returns is a recommendation to buy, sell or
+hold any security.
+"""
+
+
+def _build_state(settings: Settings) -> AppState:
+    engine = create_engine(settings)
+    return AppState(
+        settings=settings,
+        engine=engine,
+        session_factory=create_session_factory(engine),
+        # Decoding here rather than at each call site: every value this application puts
+        # in Redis is text, and a bytes/str mismatch is a bug that only shows up on the
+        # read path, far from the write that caused it.
+        redis=Redis.from_url(settings.redis_url, decode_responses=True),
+    )
+
+
+def create_app(settings: Settings | None = None, *, state: AppState | None = None) -> FastAPI:
+    """Build the application.
+
+    Args:
+        settings: Configuration to use. Loaded from the environment when omitted.
+        state: Pre-built resources. When supplied they are used as-is and **not** closed
+            on shutdown, so a test can share one engine across many requests.
+    """
+    resolved = settings or load_settings()
+    injected = state is not None
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        app_state = state if state is not None else _build_state(resolved)
+        app.state.aer = app_state
+
+        if not injected:
+            resolved.ensure_directories()
+
+        _log.info(
+            "application.started",
+            app_env=resolved.app_env,
+            build=build_identity(),
+            artefact_root=str(resolved.artefact_root),
+        )
+        try:
+            yield
+        finally:
+            if not injected:
+                await app_state.engine.dispose()
+                await app_state.redis.aclose()
+            _log.info("application.stopped")
+
+    app = FastAPI(
+        title="Ageiantic Equity Research Platform",
+        description=_DESCRIPTION,
+        version=version(),
+        lifespan=lifespan,
+        # The interactive docs are a development affordance, not a feature. In production
+        # they advertise the whole surface to anyone who reaches the port.
+        docs_url=None if resolved.is_production else "/docs",
+        redoc_url=None,
+        openapi_url=None if resolved.is_production else "/openapi.json",
+    )
+
+    app.add_middleware(RequestContextMiddleware)
+    register_exception_handlers(app)
+
+    app.include_router(health.router)
+    app.include_router(web_routes.router)
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    return app
+
+
+def bootstrap() -> FastAPI:
+    """Configure logging, then build the application.
+
+    The entry point for ``uvicorn --factory aer.api.app:bootstrap``. Uvicorn's reloader
+    re-imports the factory in a fresh subprocess, so anything that must happen before the
+    first log line has to happen inside the factory rather than in the caller.
+    """
+    settings = load_settings()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    return create_app(settings)

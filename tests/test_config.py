@@ -19,6 +19,7 @@ from pydantic import ValidationError
 from aer.config import (
     DEFAULT_MODEL_ROUTES,
     ENV_PREFIX,
+    PROVIDER_CREDENTIAL_FIELDS,
     SECRET_FIELDS,
     ModelRoute,
     Settings,
@@ -77,7 +78,7 @@ class TestLoading:
     def test_blank_optional_values_are_treated_as_unset(self, settings_env):
         # .env.example ships every optional key present but blank. A blank must mean
         # "not configured", not "configured to empty".
-        for field in SECRET_FIELDS:
+        for field in PROVIDER_CREDENTIAL_FIELDS:
             settings_env.setenv(env(field.upper()), "")
         settings_env.setenv(env("OBSIDIAN_VAULT_ROOT"), "")
         settings_env.setenv(env("OBSIDIAN_PERSONAL_ROOT"), "")
@@ -85,7 +86,7 @@ class TestLoading:
 
         settings = load_settings()
 
-        for field in SECRET_FIELDS:
+        for field in PROVIDER_CREDENTIAL_FIELDS:
             assert getattr(settings, field) is None
         assert settings.obsidian_vault_root is None
         assert settings.obsidian_personal_root is None
@@ -228,10 +229,58 @@ class TestBindHostWarning:
     def test_loopback_bind_is_silent(self, settings_env, caplog):
         caplog.set_level(logging.WARNING, logger="aer.config")
         settings_env.setenv(env("BIND_HOST"), "127.0.0.1")
+        # Set the signing key so its own "generating an ephemeral one" warning does not
+        # count as a bind-host warning.
+        settings_env.setenv(env("SECRET_KEY"), SECRET_VALUE)
 
         load_settings()
 
         assert not caplog.records
+
+
+class TestSigningKey:
+    """A signing key must exist, must never be a committed constant, and must be real
+    in production."""
+
+    def test_a_configured_key_is_used_verbatim(self, settings_env):
+        settings_env.setenv(env("SECRET_KEY"), SECRET_VALUE)
+        assert load_settings().signing_key == SECRET_VALUE.encode()
+
+    def test_an_absent_key_is_generated_in_development(self, settings_env):
+        settings = load_settings()
+        assert settings.secret_key is not None
+        assert len(settings.signing_key) >= 32
+
+    def test_a_generated_key_is_announced(self, settings_env, caplog):
+        caplog.set_level(logging.WARNING, logger="aer.config")
+        load_settings()
+        assert env("SECRET_KEY") in caplog.text
+
+    def test_generated_keys_differ_between_processes(self, settings_env):
+        # Two loads stand in for two processes. If these ever matched, the "key" would be
+        # derived from something constant, which is the failure mode worth catching.
+        first = load_settings().signing_key
+        second = load_settings().signing_key
+        assert first != second
+
+    def test_production_refuses_to_start_without_one(self, settings_env):
+        settings_env.setenv(env("APP_ENV"), "production")
+        with pytest.raises(ConfigError) as excinfo:
+            load_settings()
+        assert env("SECRET_KEY") in str(excinfo.value)
+
+    def test_production_starts_with_one(self, settings_env):
+        settings_env.setenv(env("APP_ENV"), "production")
+        settings_env.setenv(env("SECRET_KEY"), SECRET_VALUE)
+        settings = load_settings()
+        assert settings.is_production
+        assert settings.signing_key == SECRET_VALUE.encode()
+
+    def test_a_generated_key_still_never_renders(self, settings_env):
+        settings = load_settings()
+        assert settings.secret_key is not None
+        assert settings.secret_key.get_secret_value() not in repr(settings)
+        assert settings.secret_key.get_secret_value() not in settings.model_dump_json()
 
 
 class TestObsidianContainment:

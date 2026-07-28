@@ -44,6 +44,12 @@ MASK: Final = "***REDACTED***"
 
 _MAX_DEPTH: Final = 12
 
+# Marks the root handler this module installs, so reconfiguring replaces our own handler
+# without disturbing anyone else's. Removing every root handler -- the obvious
+# implementation -- silently unhooks pytest's log capture and anything a host process
+# attached before calling us, which is not ours to do.
+_HANDLER_TAG: Final = "_aer_logging_handler"
+
 # Substrings that mark a field name as holding a credential. Deliberately specific --
 # see the module docstring for why bare "key" is excluded.
 _SENSITIVE_NAME_FRAGMENTS: Final[tuple[str, ...]] = (
@@ -216,9 +222,11 @@ def configure_logging(
 
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(formatter)
+    setattr(handler, _HANDLER_TAG, True)
 
     root_logger = logging.getLogger()
     for existing in list(root_logger.handlers):
-        root_logger.removeHandler(existing)
+        if getattr(existing, _HANDLER_TAG, False):
+            root_logger.removeHandler(existing)
     root_logger.addHandler(handler)
     root_logger.setLevel(numeric_level)

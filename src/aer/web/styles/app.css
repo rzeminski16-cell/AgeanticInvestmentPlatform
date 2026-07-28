@@ -1,0 +1,11 @@
+/* Tailwind source. The compiled output lives at ../static/css/app.css and IS committed;
+   see package.json for why.
+
+   Tailwind v4 is configured in CSS rather than a JavaScript config file. `@source` tells
+   it where to look for class names — it cannot see inside Jinja templates by default
+   because they are not a file type it scans. */
+
+@import "tailwindcss";
+
+@source "../templates/**/*.html";
+@source "../../**/*.py";

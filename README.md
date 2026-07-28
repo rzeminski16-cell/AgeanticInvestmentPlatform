@@ -12,8 +12,10 @@ source document.
 
 ## Status
 
-**Phase 0 — foundation.** The repository scaffold, tooling, development conventions, local
-infrastructure and typed configuration exist. The application itself does not yet. See
+**Phase 1 — foundation.** The repository scaffold, tooling, conventions, local
+infrastructure, typed configuration, database schema and the web application shell exist.
+`uv run aer serve` starts a working server with health checks, structured logging and
+consistent error responses. The research pipeline itself does not exist yet. See
 `docs/PLAN.md` for the full plan and `docs/adr/` for the decisions taken so far.
 
 ## What it does (target state)
@@ -81,10 +83,18 @@ copy .env.example .env
 docker compose up -d
 docker compose ps          # both services should report healthy
 
-# 7. Verify
+# 7. Apply the schema and create your user
+uv run alembic upgrade head
+uv run aer seed-user --email you@example.com
+
+# 8. Verify
 uv run pytest
 uv run ruff check .
 uv run mypy
+
+# 9. Run it
+uv run aer serve
+#    Then open http://127.0.0.1:8000
 ```
 
 macOS and Linux are identical apart from the uv installer and `cp` instead of `copy`:
@@ -103,6 +113,11 @@ single value gives you a working configuration.
 mandates a descriptive User-Agent identifying the operator as a condition of using its
 APIs — a shared placeholder would get everyone using it blocked together. Set it to a real
 name and a contact address you monitor.
+
+`AER_SECRET_KEY` signs CSRF tokens. Leave it blank locally and one is generated per
+process; the only consequence is that a form left open across a restart needs reloading.
+It becomes **required** when `AER_APP_ENV=production`, where an ephemeral key would differ
+between workers and change on every deploy — startup refuses to continue without it.
 
 API keys are deliberately *not* required at startup. A missing key fails at the point the
 provider is used, with a message naming the variable to set, so you are never blocked on
@@ -133,14 +148,60 @@ With `just`:
 | Command | What it does |
 |---|---|
 | `just setup` | Sync dependencies and install git hooks |
+| `just serve` | Run the web server |
+| `just dev` | Run the web server with auto-reload |
+| `just seed-user you@example.com` | Create the local user (idempotent) |
 | `just lint` | Lint and check formatting |
 | `just fix` | Apply lint fixes and format |
 | `just typecheck` | Run mypy |
 | `just test` | Run the test suite |
 | `just ci` | Everything CI runs, in the same order |
 | `just hooks` | Run every pre-commit hook over the whole tree |
+| `just css` | Rebuild the Tailwind stylesheet (needs Node) |
 
 Without `just`, read the `justfile` — every recipe is a one-line `uv run ...` command.
+
+## The web application
+
+```bash
+uv run aer serve              # 127.0.0.1:8000 by default
+uv run aer serve --reload     # auto-reload while developing
+uv run aer version            # what build am I running?
+```
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /` | Landing page |
+| `GET /healthz` | **Liveness.** Always 200 while the process can answer; touches nothing external |
+| `GET /readyz` | **Readiness.** 200 when Postgres and Redis both answer, 503 with a per-dependency breakdown otherwise |
+| `GET /docs` | Interactive API documentation (disabled when `AER_APP_ENV=production`) |
+
+Every response carries an `X-Request-ID`, and the same id appears in every log line for
+that request and in the body of every error — so an error you can see is an error you can
+trace. Errors are returned as
+[RFC 9457 Problem Details](https://www.rfc-editor.org/rfc/rfc9457) with a stable
+machine-readable `code`.
+
+Unexpected exceptions return a generic message and the request id, never an internal
+message or a stack trace; the full traceback goes to the log. Deliberate errors return
+their message, because "run `aer seed-user`" is the entire value of that error.
+
+### Front end
+
+Server-rendered Jinja2 templates, styled with Tailwind, progressively enhanced with HTMX —
+see `docs/adr/0006-server-rendered-htmx-gui.md`. **The compiled stylesheet and the vendored
+HTMX are committed**, so a checkout runs immediately and CI needs no Node toolchain. Node
+is required only to change the styling:
+
+```bash
+npm install        # once
+just css           # rebuild src/aer/web/static/css/app.css
+just watch-css     # rebuild continuously while editing templates
+```
+
+Nothing is loaded from a CDN. The application is local-first and must work with no
+internet connection, and a third-party script on a page that can reach your database and
+your provider credentials is a supply-chain risk taken for convenience.
 
 ## Repository layout
 
@@ -150,16 +211,29 @@ src/aer/            application package
   errors.py         error hierarchy; every error has a stable machine-readable code
   logging.py        structured JSON logging with secret redaction
   config.py         typed settings; secrets never render, all problems reported at once
+  cli.py            `aer serve`, `aer version`, `aer seed-user`
   core/             correctness core: pure, side-effect free, mypy --strict
     enums.py        domain vocabulary, rendered as native PostgreSQL enums
     hashing.py      canonical serialisation and audit hash chaining
   db/               engine, session management, and ORM models
+  api/              HTTP layer
+    app.py          create_app() factory; lifespan owns the engine and Redis client
+    deps.py         session, settings and current-user dependencies
+    errors.py       Problem Details responses; what may and may not be returned
+    middleware.py   request id, access logging, timing
+    security.py     signed CSRF tokens
+    routes/         JSON API routers
+  web/              server-rendered GUI
+    templates/      Jinja2; the disclaimer lives in the shell, not in pages
+    static/         committed build output and vendored libraries
+    styles/         Tailwind source (compiled to static/css/app.css)
 migrations/         Alembic migrations; the schema's only source of truth
 tests/              test suite; runs with no network access and no model spend
 docs/
   PLAN.md           the full research, architecture and build plan
   adr/              architecture decision records
 docker-compose.yml  Postgres, Redis, and MinIO under the `objectstore` profile
+package.json        build-time only: compiles the stylesheet. Not needed to run the app.
 .env.example        every setting, documented
 ```
 

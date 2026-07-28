@@ -3,6 +3,12 @@
 default_language_version:
   python: python3.12
 
+# Generated stylesheets and vendored libraries are excluded from the whitespace hooks.
+# Both are committed build artefacts: rewriting them means the file no longer matches
+# what the build produced, and for a vendored library it also breaks the SHA-256 recorded
+# alongside it -- which is the only thing making its provenance checkable.
+exclude: ^src/aer/web/static/(css|vendor)/
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0

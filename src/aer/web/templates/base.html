@@ -1,0 +1,41 @@
+{#
+  The page shell.
+
+  Two things here are load-bearing rather than decorative:
+
+  * The disclaimer block is part of the shell, not of any individual page, so a page
+    cannot ship without it.
+  * Every asset is served from /static. Nothing is loaded from a CDN: this application is
+    local-first and must work with no internet connection, and a third-party script tag
+    on a page that can reach your database is a supply-chain risk taken for convenience.
+#}
+<!doctype html>
+<html lang="en-GB" class="h-full">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{% block title %}Ageiantic Equity Research{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/app.css') }}" />
+    <link rel="icon" href="{{ url_for('static', path='/favicon.svg') }}" type="image/svg+xml" />
+    <script src="{{ url_for('static', path='/vendor/htmx.min.js') }}" defer></script>
+  </head>
+  <body class="h-full bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
+    <div class="flex min-h-full flex-col">
+      {% include "_nav.html" %}
+
+      <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6">
+        {% block content %}{% endblock %}
+      </main>
+
+      <footer class="border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <div class="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
+          <p class="text-sm text-slate-600 dark:text-slate-400">{{ disclaimer }}</p>
+          <p class="mt-2 text-xs text-slate-500 dark:text-slate-500">
+            Ageiantic Equity Research Platform &middot; version {{ app_version }}
+          </p>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>

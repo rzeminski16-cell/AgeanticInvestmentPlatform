@@ -15,6 +15,7 @@ been impossible.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from pathlib import Path
 
@@ -79,6 +80,29 @@ class TestMigrationScripts:
                 f"{revision.revision} has an empty downgrade; a migration that cannot be "
                 "reversed cannot be tested by round-trip"
             )
+
+
+@pytest.mark.integration
+class TestMigrationsDoNotDisturbTheHost:
+    def test_running_migrations_leaves_existing_loggers_enabled(self, database_url):
+        """Applying a migration must not silence the application's loggers.
+
+        ``migrations/env.py`` calls ``logging.config.fileConfig``, whose
+        ``disable_existing_loggers`` argument defaults to **True** — it disables every
+        logger that already exists. Migrations run in-process here and would in any
+        future migrate-on-startup path, so the default turns "upgrade the schema" into
+        "stop logging", with no error and nothing in the output to explain it.
+
+        This failure is invisible: a disabled logger does not raise, it returns quietly.
+        The only way it stays fixed is a test that looks.
+        """
+        canary = logging.getLogger("aer.test.canary")
+        assert not canary.disabled
+
+        run_alembic(database_url, "upgrade", "head")
+
+        assert not canary.disabled
+        assert not logging.getLogger("aer.config").disabled
 
 
 class TestSchemaMatchesModels:

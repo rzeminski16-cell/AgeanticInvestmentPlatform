@@ -21,6 +21,11 @@ dependencies = [
   "sqlalchemy[asyncio]>=2.0.36",
   "asyncpg>=0.30",
   "alembic>=1.14",
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "jinja2>=3.1",
+  "typer>=0.15",
+  "redis>=5.2",
 ]
 
 [dependency-groups]
@@ -31,7 +36,13 @@ dev = [
   "ruff>=0.7",
   "mypy>=1.13",
   "pre-commit>=4.0",
+  "httpx>=0.28",
+  "asgi-lifespan>=2.1",
+  "fakeredis>=2.26",
 ]
+
+[project.scripts]
+aer = "aer.cli:main"
 
 [build-system]
 requires = ["hatchling"]

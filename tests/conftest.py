@@ -11,16 +11,27 @@ rather than an enforced invariant.
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+import structlog
 
 from aer.config import ENV_PREFIX, Settings, get_settings
+from aer.logging import configure_logging
 
-# Database fixtures live in their own module to keep this one readable; re-exported here
-# so pytest discovers them. See tests/db_fixtures.py for the isolation strategy.
+# Database and API fixtures live in their own modules to keep this one readable;
+# re-exported here so pytest discovers them. See tests/db_fixtures.py for the isolation
+# strategy and tests/api_fixtures.py for how the application is driven.
+from tests.api_fixtures import (  # noqa: F401
+    api_engine,
+    api_settings,
+    broken_engine,
+    broken_redis,
+    fake_redis,
+)
 from tests.db_fixtures import (  # noqa: F401
     anyio_backend,
     database_url,
@@ -84,6 +95,29 @@ def fake_anthropic_key() -> str:
     enough like one to exercise the matching patterns.
     """
     return "sk-ant-api03-FAKEFAKEFAKE"
+
+
+@pytest.fixture
+def bridged_logging() -> Iterator[None]:
+    """Route structlog through stdlib logging, so ``caplog`` can see events.
+
+    Structlog's out-of-the-box configuration prints straight to stdout and never touches
+    stdlib logging, which means ``caplog`` sees nothing until :func:`configure_logging`
+    has run. A test asserting on log output without this fixture does not fail — it finds
+    an empty record list and quietly proves nothing.
+
+    Restores structlog's defaults afterwards so a configured pipeline does not leak into
+    tests that expect the default one.
+    """
+    configure_logging(level="DEBUG", json_output=False)
+    try:
+        yield
+    finally:
+        structlog.reset_defaults()
+        root = logging.getLogger()
+        for handler in list(root.handlers):
+            if getattr(handler, "_aer_logging_handler", False):
+                root.removeHandler(handler)
 
 
 @pytest.fixture
