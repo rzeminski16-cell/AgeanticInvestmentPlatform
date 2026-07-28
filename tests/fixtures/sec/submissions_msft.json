@@ -1,0 +1,59 @@
+{
+  "cik": "789019",
+  "entityType": "operating",
+  "sic": "7372",
+  "sicDescription": "Services-Prepackaged Software",
+  "name": "MICROSOFT CORP",
+  "tickers": ["MSFT"],
+  "exchanges": ["Nasdaq"],
+  "fiscalYearEnd": "0630",
+  "filings": {
+    "recent": {
+      "accessionNumber": [
+        "0000789019-22-000010",
+        "0000950170-21-000003",
+        "0000789019-21-000027",
+        "0000789019-20-000039",
+        "0000789019-20-000021"
+      ],
+      "filingDate": [
+        "2022-07-28",
+        "2021-10-26",
+        "2021-07-29",
+        "2020-07-30",
+        "2020-04-29"
+      ],
+      "reportDate": [
+        "2022-06-30",
+        "",
+        "2021-06-30",
+        "2020-06-30",
+        "2020-03-31"
+      ],
+      "form": ["10-K", "8-K", "10-K", "10-K", "10-Q"],
+      "primaryDocument": [
+        "msft-20220630.htm",
+        "msft-20211026.htm",
+        "msft-20210630.htm",
+        "msft-20200630.htm",
+        "msft-20200331.htm"
+      ],
+      "primaryDocDescription": [
+        "10-K",
+        "8-K",
+        "10-K",
+        "10-K",
+        "10-Q"
+      ],
+      "isXBRL": [1, 1, 1, 1, 1]
+    },
+    "files": [
+      {
+        "name": "CIK0000789019-submissions-001.json",
+        "filingCount": 1024,
+        "filingFrom": "1994-01-24",
+        "filingTo": "2020-04-28"
+      }
+    ]
+  }
+}

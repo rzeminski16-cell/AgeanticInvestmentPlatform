@@ -17,6 +17,7 @@ from enum import StrEnum
 __all__ = [
     "AnalysisMode",
     "Decision",
+    "FactBasis",
     "GateKind",
     "JobStatus",
     "Provider",
@@ -165,6 +166,31 @@ class SourceTier(StrEnum):
 
 # Tiers 1 and 2 are primary: the regulator's copy and the issuer's own copy.
 _PRIMARY_TIER_LIMIT = 2
+
+
+class FactBasis(StrEnum):
+    """Which version of a reported number a fact represents.
+
+    The distinction this platform is built around. A single period's revenue has several
+    true values depending on when you ask, and conflating them is the mechanism by which a
+    backtest flatters itself.
+
+    ``AS_REPORTED`` is the only basis admissible under point-in-time rules, and the only
+    one :func:`aer.sources.sec.pit.select_point_in_time` will produce. The other two are
+    defined here because they exist in the world and a stored fact has to be able to say
+    which it is — not because anything currently creates them.
+    """
+
+    AS_REPORTED = "as_reported"
+    """What the filing said at the time it was filed. The point-in-time answer."""
+
+    RESTATED = "restated"
+    """A later filing's revision of an earlier period. True today, unknowable then."""
+
+    VENDOR_STANDARDISED = "vendor_standardised"
+    """A data vendor's recast of the filer's own presentation. Convenient, comparable
+    across companies, and traceable to nobody's actual filing — never the sole support
+    for a claim."""
 
 
 class Provider(StrEnum):

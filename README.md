@@ -227,7 +227,9 @@ src/aer/            application package
   cli.py            `aer serve`, `aer version`, `aer seed-user`
   core/             correctness core: pure, side-effect free, mypy --strict
     enums.py        domain vocabulary, rendered as native PostgreSQL enums
+    concepts.py     canonical financial concepts and the filer tags that mean them
     hashing.py      canonical serialisation and audit hash chaining
+    schemas/facts.py  RawFact: one reported number, and when it was reported
   db/               engine, session management, and ORM models
   storage/          content-addressed artefact store; the evidence substrate
     protocol.py     the ArtefactStore interface: no delete, no update, no move
@@ -239,7 +241,14 @@ src/aer/            application package
     robots.py       robots.txt compliance; a disallow is a refusal
     limits.py       Redis token bucket and circuit breaker, shared across workers
     client.py       SafeFetcher: the pipeline, and what archives every response
-  services/         business operations: requests, artefacts, provenance
+  sources/          data-source adapters: one package per publisher
+    base.py         the SourceAdapter protocol: resolve, discover, extract
+    sec/tickers.py  ticker and exchange to CIK, refusing to guess an ambiguity
+    sec/submissions.py  the filing index; checks the parallel arrays are parallel
+    sec/companyfacts.py every XBRL fact ever tagged, as exact decimals
+    sec/pit.py      point-in-time selection: what was known, as at a date
+    sec/client.py   EDGAR endpoints, URL construction and pacing
+  services/         business operations: requests, artefacts, provenance, facts
   api/              HTTP layer
     app.py          create_app() factory; lifespan owns the engine and Redis client
     deps.py         session, settings and current-user dependencies
@@ -324,6 +333,30 @@ scratch. See `docs/adr/0009-network-egress-is-deterministic-and-guarded.md`.
 
 No fetch test touches the real network: everything runs against `respx`, and a fixture
 replaces `socket.socket` so a test that reaches out fails instead of succeeding quietly.
+
+### Point-in-time data
+
+A company's FY2020 revenue has more than one true value. The FY2020 annual report states
+one figure; the FY2022 report may state a different one for the same year, after a
+restatement. Both are true; they differ in *when they were said*. Research performed as at
+a date in 2021 must use the first, because the second did not exist.
+
+Taking "the latest value" instead is look-ahead bias, and it fails **silently** — nothing
+raises, no figure looks implausible, and the analysis simply looks better than reality.
+
+SEC EDGAR carries the filing date on every fact, which makes the correct answer computable:
+
+> Group facts by concept, unit, period end and fiscal period. Discard every fact filed
+> after the as-of date. From what remains, choose the one filed **latest**.
+
+`aer.sources.sec.pit` implements exactly that, as a pure function with an exhaustive test
+suite, and returns a **partition** rather than a filtered list: every input fact appears
+once, in `chosen` or in `rejected` with a reason. "Why is this figure not in the report?"
+is asked about every report, and a filtered list cannot answer it.
+
+Only the `as_reported` basis is implemented. Asking for `restated` raises. See
+`docs/adr/0010-point-in-time-is-selection-not-filtering.md` and
+`docs/data-sources/sec-edgar.md`.
 
 ## Testing
 

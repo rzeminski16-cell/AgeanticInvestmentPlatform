@@ -1,0 +1,12 @@
+{
+  "fields": ["cik", "name", "ticker", "exchange"],
+  "data": [
+    [789019, "MICROSOFT CORP", "MSFT", "Nasdaq"],
+    [320193, "Apple Inc.", "AAPL", "Nasdaq"],
+    [1067983, "BERKSHIRE HATHAWAY INC", "BRK-B", "NYSE"],
+    [1090727, "UNITED PARCEL SERVICE INC", "UPS", "NYSE"],
+    [4962, "AMERICAN EXPRESS CO", "AXP", "NYSE"],
+    [1004315, "AMERICAN SHARED HOSPITAL SERVICES", "AMS", "NYSE American"],
+    [1000045, "NICHOLAS FINANCIAL INC", "NICK", "Nasdaq"]
+  ]
+}

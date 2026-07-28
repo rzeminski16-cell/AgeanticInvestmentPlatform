@@ -24,7 +24,13 @@ from aer.db.models import Artefact, AuditEvent
 from aer.errors import IntegrityError
 from aer.storage.protocol import ArtefactStore, StoredArtefact
 
-__all__ = ["ArtefactRecord", "store_artefact", "store_artefact_stream", "verify_artefact"]
+__all__ = [
+    "ArtefactRecord",
+    "record_fetched_artefact",
+    "store_artefact",
+    "store_artefact_stream",
+    "verify_artefact",
+]
 
 _log = structlog.get_logger("aer.services.artefacts")
 
@@ -70,6 +76,39 @@ async def store_artefact_stream(
 ) -> ArtefactRecord:
     """As :func:`store_artefact`, for content too large to hold in memory."""
     stored = await store.put_stream(chunks)
+    return await _record(session, store, stored, media_type=media_type)
+
+
+async def record_fetched_artefact(
+    session: AsyncSession,
+    store: ArtefactStore,
+    *,
+    sha256: str,
+    size_bytes: int,
+    media_type: str = DEFAULT_MEDIA_TYPE,
+) -> ArtefactRecord:
+    """Create the row for bytes the fetch layer has already stored.
+
+    :class:`~aer.fetch.client.SafeFetcher` archives every response as it arrives, so by
+    the time a caller has a result the bytes are on disk and hashed. Handing them to
+    :func:`store_artefact` would store them a second time — harmless, because the store is
+    content-addressed, and wasteful, because it costs a full re-hash of something as large
+    as a companyfacts document.
+
+    Raises:
+        IntegrityError: If the artefact is not actually present in the store. That would
+            mean the row was about to claim provenance for bytes nobody holds, which is
+            the one thing this table must never do.
+    """
+    if not await store.exists(sha256):
+        message = (
+            f"No artefact with digest {sha256} is in the store, so there is nothing for a "
+            "provenance record to point at. The fetch layer archives before it returns, "
+            "so this means the artefact was removed or the store is misconfigured."
+        )
+        raise IntegrityError(message, context={"sha256": sha256})
+
+    stored = StoredArtefact(sha256=sha256, size_bytes=size_bytes, was_new=False)
     return await _record(session, store, stored, media_type=media_type)
 
 
