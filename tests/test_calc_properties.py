@@ -134,13 +134,24 @@ class TestCagrProperties:
         one = Quantity.of(1, Unit())
         reconstructed = start * (one + Quantity(rate.value)).power(n)
 
-        # Relative, and loose enough to survive the worst case in the input space: an
-        # endpoint ratio spanning ten orders of magnitude passes through a fractional power
-        # and back, which amplifies the last place. Twenty significant figures of agreement
-        # is still far beyond anything a financial figure needs -- the property being
-        # asserted is that the arithmetic is essentially exact, not that it hits a
-        # particular bound.
-        assert abs(reconstructed.value - end.value) <= abs(end.value) * Decimal("1e-20")
+        # Two things set this bound, and hypothesis found both -- neither was reasoned
+        # out in advance, and the first two guesses were wrong.
+        #
+        # It is relative to the *larger* operand rather than to `end`. The absolute error
+        # is governed by the magnitude of the arithmetic the value passed through, so with
+        # start=3.8e12 and end=0.01, normalising to the tiny endpoint made the bound far
+        # tighter than the operation could ever meet.
+        #
+        # And it is 1e-24, not the ~1e-33 that exact decimal arithmetic would give, because
+        # this round trip is not exact arithmetic: 1/n is irrational for most n, so raising
+        # to it and back is a transcendental operation evaluated at 34 digits, and the
+        # final power multiplies whatever error that left. Measured over 25,000 examples
+        # the worst relative error is 9.78e-27, at start=0.07, end=1e13, n=7 -- an extreme
+        # ratio through a seventh root. 1e-24 leaves two orders of headroom on that while
+        # still asserting twenty-four significant figures of agreement, which is far beyond
+        # anything a financial figure needs.
+        magnitude = max(abs(start.value), abs(end.value))
+        assert abs(reconstructed.value - end.value) <= magnitude * Decimal("1e-24")
 
 
 class TestGrowthRateProperties:
@@ -164,12 +175,21 @@ class TestGrowthRateProperties:
 
         assert close(reconstructed.value, end.value, Decimal("1e-15"))
 
-    @given(start=any_money, end=any_money)
-    def test_a_negative_base_still_reports_improvement_as_positive(self, start, end):
+    @given(
+        loss=st.integers(min_value=1, max_value=10**15),
+        improvement=st.integers(min_value=1, max_value=10**15),
+    )
+    def test_a_negative_base_still_reports_improvement_as_positive(self, loss, improvement):
         # The absolute-value denominator. A loss narrowing is an improvement, whatever the
         # sign of the base.
-        assume(start.value < 0)
-        assume(end.value > start.value)
+        #
+        # Constructed rather than filtered. The obvious form -- draw two signed amounts and
+        # `assume` the start is negative and the end is larger -- rejects most draws, and
+        # hypothesis's filter-rate health check then fails intermittently depending on what
+        # it happened to generate. Building a negative start and adding a positive delta
+        # tests exactly the same property with nothing thrown away.
+        start = money(Decimal(-loss).scaleb(-2), "USD", source=SOURCE)
+        end = money(Decimal(improvement - loss).scaleb(-2), "USD", source=SOURCE)
 
         assert growth_rate(context(), start=start, end=end).value > 0
 
