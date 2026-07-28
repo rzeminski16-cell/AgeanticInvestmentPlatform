@@ -10,7 +10,9 @@ from __future__ import annotations
 
 from aer.db.models.approval import Approval
 from aer.db.models.artefact import Artefact
+from aer.db.models.assumption import Assumption
 from aer.db.models.audit_event import AuditEvent
+from aer.db.models.calculation import Calculation
 from aer.db.models.company import Company
 from aer.db.models.financial_fact import FinancialFact
 from aer.db.models.job import Job
@@ -23,7 +25,9 @@ from aer.db.models.user import User
 __all__ = [
     "Approval",
     "Artefact",
+    "Assumption",
     "AuditEvent",
+    "Calculation",
     "Company",
     "FinancialFact",
     "Job",

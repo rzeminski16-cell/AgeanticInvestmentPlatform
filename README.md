@@ -230,6 +230,10 @@ src/aer/            application package
     concepts.py     canonical financial concepts and the filer tags that mean them
     hashing.py      canonical serialisation and audit hash chaining
     schemas/facts.py  RawFact: one reported number, and when it was reported
+  calc/             the calculation kernel: pure, unit-safe, mypy --strict
+    units.py        Quantity = value + unit + source; incompatible units raise
+    engine.py       @traced: records the formula, inputs, sources and code version
+    basic.py        growth, CAGR, ratio, margin, weighted average, YoY series
   db/               engine, session management, and ORM models
   storage/          content-addressed artefact store; the evidence substrate
     protocol.py     the ArtefactStore interface: no delete, no update, no move
@@ -248,7 +252,8 @@ src/aer/            application package
     sec/companyfacts.py every XBRL fact ever tagged, as exact decimals
     sec/pit.py      point-in-time selection: what was known, as at a date
     sec/client.py   EDGAR endpoints, URL construction and pacing
-  services/         business operations: requests, artefacts, provenance, facts
+  services/         business operations: requests, artefacts, provenance, facts,
+                    calculations (persist a context, walk lineage to evidence)
   api/              HTTP layer
     app.py          create_app() factory; lifespan owns the engine and Redis client
     deps.py         session, settings and current-user dependencies
@@ -357,6 +362,44 @@ is asked about every report, and a filtered list cannot answer it.
 Only the `as_reported` basis is implemented. Asking for `restated` raises. See
 `docs/adr/0010-point-in-time-is-selection-not-filtering.md` and
 `docs/data-sources/sec-edgar.md`.
+
+### Calculations
+
+`src/aer/calc/` owns every number. **No language model may produce a figure that bypasses
+it** — a discounted cash flow is forty lines of Python with unit tests, not a reasoning
+task, and putting arithmetic in prose is the most common way systems like this produce
+confidently wrong numbers.
+
+A value is never a bare number. It is a `Quantity`: an exact `Decimal`, a unit, and a
+source.
+
+```python
+eps = revenue / share_count  # USD / shares  ->  USD/shares
+revenue + market_cap_in_gbp  # raises UnitMismatchError
+```
+
+Units are dimensional vectors, so `USD/USD` is dimensionless, `USD/shares` composes, and a
+growth rate times a revenue is a revenue — all of it from the arithmetic rather than from a
+table of legal combinations. Currencies never convert implicitly; `convert()` needs a rate
+whose own unit proves it is the right way up, **and** a source on that rate.
+
+Every calculation goes through `@traced`, which **refuses any input it cannot account for**:
+
+```python
+cagr(context, start=revenue_2017, end=revenue_2022, years=5)
+# records: formula, function_ref, code_version, each input with its unit and
+#          source id, the parameters, and the output with its unit
+```
+
+A `Quantity` with no source raises. A bare `Decimal` raises. A refused call records
+nothing. The result carries a source pointing at its own record, so calculations chain and
+`GET /api/calculations/{id}` can resolve the lineage down to the facts and assumptions the
+figure ultimately rests on — reporting any reference that no longer resolves rather than
+hiding it.
+
+`Decimal` throughout, at 34 digits, with division-by-zero and invalid-operation trapped.
+Rounding happens once, at presentation. See
+`docs/adr/0011-calculations-are-unit-safe-and-traced.md`.
 
 ## Testing
 

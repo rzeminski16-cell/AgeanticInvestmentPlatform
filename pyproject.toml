@@ -43,6 +43,7 @@ dev = [
   "fakeredis[lua]>=2.26",
   "pytest-playwright>=0.6",
   "respx>=0.22",
+  "hypothesis>=6.140",
 ]
 
 [project.scripts]
