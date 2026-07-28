@@ -12,9 +12,9 @@ source document.
 
 ## Status
 
-**Phase 0 — foundation.** The repository scaffold, tooling and development conventions
-exist. The application itself does not yet. See `docs/PLAN.md` for the full plan and
-`docs/adr/` for the decisions taken so far.
+**Phase 0 — foundation.** The repository scaffold, tooling, development conventions, local
+infrastructure and typed configuration exist. The application itself does not yet. See
+`docs/PLAN.md` for the full plan and `docs/adr/` for the decisions taken so far.
 
 ## What it does (target state)
 
@@ -72,17 +72,59 @@ uv sync --all-groups
 # 4. Install the git hooks
 uv run pre-commit install
 
-# 5. Verify
+# 5. Configure
+copy .env.example .env
+#    Then edit .env and set AER_HTTP_USER_AGENT. Everything else has a working
+#    default; add API keys as and when you need the providers they unlock.
+
+# 6. Start Postgres and Redis
+docker compose up -d
+docker compose ps          # both services should report healthy
+
+# 7. Verify
 uv run pytest
 uv run ruff check .
 uv run mypy
 ```
 
-macOS and Linux are identical apart from the uv installer:
+macOS and Linux are identical apart from the uv installer and `cp` instead of `copy`:
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
+
+### Configuration
+
+All settings are read from `AER_*` environment variables, or from `.env`. Every one is
+documented in `.env.example`, which is complete enough that copying it and filling in a
+single value gives you a working configuration.
+
+**`AER_HTTP_USER_AGENT` is the only required setting.** It has no default because the SEC
+mandates a descriptive User-Agent identifying the operator as a condition of using its
+APIs — a shared placeholder would get everyone using it blocked together. Set it to a real
+name and a contact address you monitor.
+
+API keys are deliberately *not* required at startup. A missing key fails at the point the
+provider is used, with a message naming the variable to set, so you are never blocked on
+credentials for a service you are not using yet.
+
+Inspect the effective configuration at any time with `just config` — secrets render masked.
+
+### Local infrastructure
+
+```bash
+just up        # start Postgres and Redis
+just health    # pg_isready + redis ping
+just psql      # psql shell on the dev database
+just logs      # follow service logs
+just down      # stop, keeping data
+just down-hard # stop and DELETE all data
+```
+
+Every published port binds to `127.0.0.1` only. Docker bypasses host firewalls when
+publishing ports, so a plain `5432:5432` would expose the database to whatever network you
+are on. MinIO is available but not started by default: `docker compose --profile
+objectstore up -d`.
 
 ## Everyday commands
 
@@ -107,10 +149,14 @@ src/aer/            application package
   version.py        build identity (version + git SHA), recorded on every calculation
   errors.py         error hierarchy; every error has a stable machine-readable code
   logging.py        structured JSON logging with secret redaction
+  config.py         typed settings; secrets never render, all problems reported at once
+  core/             correctness core: pure, side-effect free, mypy --strict
 tests/              test suite; runs with no network access and no model spend
 docs/
   PLAN.md           the full research, architecture and build plan
   adr/              architecture decision records
+docker-compose.yml  Postgres, Redis, and MinIO under the `objectstore` profile
+.env.example        every setting, documented
 ```
 
 ## Testing

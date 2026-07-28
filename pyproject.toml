@@ -76,9 +76,14 @@ ignore = [
 "tests/**" = [
   "S101",    # asserts are the point of a test
   "PLR2004", # magic values in assertions are clearer than named constants
-  "ARG001",  # pytest fixtures are frequently injected but unused by name
+  # A fixture requested for its side effect (env setup, cache clearing) is by nature an
+  # argument that is never referenced. Both forms fire: ARG001 on functions, ARG002 on
+  # methods.
+  "ARG001",
+  "ARG002",
   "S105",    # hardcoded password-alike strings are deliberate test fixtures
   "S106",
+  "SLF001",  # tests may reach for private helpers to test them directly
 ]
 "src/aer/**" = ["S101"]
 

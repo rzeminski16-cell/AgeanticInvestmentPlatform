@@ -1,0 +1,87 @@
+# Local development infrastructure.
+#
+# Every published port binds to 127.0.0.1 explicitly. Docker bypasses host firewalls when
+# publishing ports, so a bare "5432:5432" would expose the database to your whole network
+# -- including hotel and coffee-shop wifi. Do not remove the loopback prefixes.
+#
+# Start:      docker compose up -d
+# With MinIO: docker compose --profile objectstore up -d
+# Stop:       docker compose down          (add -v to also drop the data volumes)
+
+name: aer
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aer-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${AER_POSTGRES_USER:-aer}
+      # Local-only development credential. The port is bound to loopback and this
+      # database holds no production data. Replace it for any non-local deployment --
+      # see docs/adr/0004-postgres-redis-local-first.md.
+      POSTGRES_PASSWORD: ${AER_POSTGRES_PASSWORD:-aer_local_dev}
+      POSTGRES_DB: ${AER_POSTGRES_DB:-aer}
+      # Deterministic collation. Left to the host locale, ORDER BY results differ between
+      # machines, which would make report output non-reproducible across environments.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "127.0.0.1:${AER_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AER_POSTGRES_USER:-aer} -d ${AER_POSTGRES_DB:-aer}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: aer-redis
+    restart: unless-stopped
+    # Redis backs the ARQ job queue. Persistence is on so an in-flight run survives a
+    # restart of the container; run state itself lives in Postgres, so this is a
+    # convenience rather than a correctness requirement.
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+    ports:
+      - "127.0.0.1:${AER_REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # Optional. Not started by default: the local filesystem is the artefact store for the
+  # MVP. This exists so the S3 code path can be exercised before any cloud deployment.
+  minio:
+    image: minio/minio:latest
+    container_name: aer-minio
+    restart: unless-stopped
+    profiles: ["objectstore"]
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${AER_MINIO_ROOT_USER:-aer_minio}
+      MINIO_ROOT_PASSWORD: ${AER_MINIO_ROOT_PASSWORD:-aer_local_dev_minio}
+    ports:
+      - "127.0.0.1:${AER_MINIO_PORT:-9000}:9000"
+      - "127.0.0.1:${AER_MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  postgres_data:
+    name: aer_postgres_data
+  redis_data:
+    name: aer_redis_data
+  minio_data:
+    name: aer_minio_data

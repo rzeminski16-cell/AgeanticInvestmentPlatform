@@ -7,10 +7,42 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 default:
     @just --list
 
-# First-time setup: sync dependencies and install git hooks.
+# First-time setup: sync dependencies, install git hooks, create .env.
 setup:
     uv sync --all-groups
     uv run pre-commit install
+    @echo "Now copy .env.example to .env and set AER_HTTP_USER_AGENT."
+
+# Start Postgres and Redis in the background.
+up:
+    docker compose up -d
+    @echo "Waiting for services to report healthy..."
+    docker compose ps
+
+# Stop the services, keeping data volumes.
+down:
+    docker compose down
+
+# Stop the services and DELETE all data. Destroys the local database.
+down-hard:
+    docker compose down -v
+
+# Follow service logs.
+logs *args:
+    docker compose logs -f {{args}}
+
+# Open a psql shell on the development database.
+psql:
+    docker compose exec postgres psql -U aer -d aer
+
+# Open a redis-cli shell.
+redis:
+    docker compose exec redis redis-cli
+
+# Check that the infrastructure is actually reachable.
+health:
+    docker compose exec postgres pg_isready -U aer -d aer
+    docker compose exec redis redis-cli ping
 
 # Lint and check formatting (does not modify files).
 lint:
@@ -45,3 +77,7 @@ hooks:
 # Print the build identity (version and git SHA).
 version:
     uv run python -c "from aer import build_identity; print(build_identity())"
+
+# Print the effective configuration. Secrets render masked.
+config:
+    uv run python -c "from aer.config import load_settings; print(load_settings().model_dump_json(indent=2))"

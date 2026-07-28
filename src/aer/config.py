@@ -1,0 +1,378 @@
+"""Typed application configuration.
+
+One validated object, built once, imported everywhere. The alternative — reading
+``os.environ`` at each call site — leaks credentials into logs, lets defaults drift apart
+between modules, and makes "fail fast with a clear message" impossible to add later.
+
+Three properties this module is responsible for:
+
+* **Secrets never render.** Every credential is a :class:`~pydantic.SecretStr`, which masks
+  itself in ``repr()`` and ``str()``. A stray f-string in a log line cannot leak a key.
+* **Every problem is reported at once.** A fresh machine should take one pass to configure,
+  not one error per run.
+* **Construction has no side effects.** Building a ``Settings`` never touches the
+  filesystem; :meth:`Settings.ensure_directories` does that, explicitly, at startup.
+
+This module lives outside ``aer.core`` because it reads the environment, and ``aer.core``
+is required to stay pure.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+from decimal import Decimal
+from functools import lru_cache
+from pathlib import Path
+from typing import Annotated, Any, Final, Literal
+
+from pydantic import BaseModel, Field, SecretStr, ValidationError, field_validator, model_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+from aer.errors import ConfigError
+
+__all__ = [
+    "DEFAULT_MODEL_ROUTES",
+    "ENV_PREFIX",
+    "AppEnv",
+    "Effort",
+    "ModelRoute",
+    "Settings",
+    "get_settings",
+    "load_settings",
+]
+
+_log = logging.getLogger(__name__)
+
+ENV_PREFIX: Final = "AER_"
+
+AppEnv = Literal["development", "test", "production"]
+Effort = Literal["low", "medium", "high", "xhigh", "max"]
+
+_VALID_LOG_LEVELS: Final = frozenset({"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"})
+
+# Secret fields, listed once so tests and `require_secret` agree on the set.
+SECRET_FIELDS: Final[tuple[str, ...]] = (
+    "anthropic_api_key",
+    "eodhd_api_key",
+    "fred_api_key",
+    "companies_house_api_key",
+)
+
+
+class ModelRoute(BaseModel):
+    """Which model answers for a given agent role, and how hard it thinks.
+
+    Routing is configuration rather than code so that rebalancing cost against quality is
+    an environment change, never an edit to the workflow engine.
+    """
+
+    model_config = {"protected_namespaces": (), "frozen": True}
+
+    model: str
+    effort: Effort = "medium"
+
+
+# Opus 5 for judgement, Sonnet 5 as the workhorse, Haiku 4.5 for triage.
+# Rationale and the cost model behind it: docs/PLAN.md section 1.8.
+DEFAULT_MODEL_ROUTES: Final[dict[str, ModelRoute]] = {
+    "planner": ModelRoute(model="claude-opus-5", effort="high"),
+    "source_triage": ModelRoute(model="claude-haiku-4-5", effort="low"),
+    "extraction": ModelRoute(model="claude-sonnet-5", effort="medium"),
+    "analysis": ModelRoute(model="claude-sonnet-5", effort="medium"),
+    "valuation_interpretation": ModelRoute(model="claude-opus-5", effort="high"),
+    "red_team": ModelRoute(model="claude-opus-5", effort="high"),
+    "validator": ModelRoute(model="claude-sonnet-5", effort="medium"),
+    "custom_section": ModelRoute(model="claude-sonnet-5", effort="medium"),
+    "report_writer": ModelRoute(model="claude-opus-5", effort="high"),
+    "obsidian_linker": ModelRoute(model="claude-haiku-4-5", effort="low"),
+}
+
+
+def _normalised(path: Path) -> Path:
+    """Resolve a path for comparison, tolerating parts that do not exist yet.
+
+    ``normcase`` matters: on Windows ``C:\\Notes`` and ``c:\\notes`` are the same
+    directory, and a containment check that missed that would be worse than useless
+    because it would look like it was protecting something.
+    """
+    resolved = path.expanduser().resolve(strict=False)
+    return Path(os.path.normcase(str(resolved)))
+
+
+def _contains(parent: Path, child: Path) -> bool:
+    """Whether ``child`` is ``parent`` or sits underneath it."""
+    normalised_parent = _normalised(parent)
+    normalised_child = _normalised(child)
+    return normalised_child == normalised_parent or normalised_child.is_relative_to(
+        normalised_parent
+    )
+
+
+class Settings(BaseSettings):
+    """Validated application configuration, read from ``AER_*`` environment variables."""
+
+    model_config = SettingsConfigDict(
+        env_prefix=ENV_PREFIX,
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        # Unrecognised AER_* variables are ignored rather than rejected: docker-compose.yml
+        # reads AER_POSTGRES_* from the same .env file, and those are not application
+        # settings.
+        extra="ignore",
+        protected_namespaces=(),
+    )
+
+    # -- Identity ----------------------------------------------------------------------
+
+    http_user_agent: str = Field(
+        min_length=1,
+        description=(
+            "User-Agent sent on every outbound request. Required, with no default: the "
+            "SEC mandates a descriptive User-Agent identifying the operator as a "
+            "condition of using its APIs, and a shared placeholder default would get "
+            "every user of it rate-limited or blocked together."
+        ),
+    )
+
+    # -- Provider credentials ----------------------------------------------------------
+    # Optional here on purpose. Requiredness belongs at the point of use, so that a
+    # missing EODHD key does not stop you working on SEC ingestion. Call
+    # `require_secret()` where the credential is actually needed.
+
+    anthropic_api_key: SecretStr | None = None
+    eodhd_api_key: SecretStr | None = None
+    fred_api_key: SecretStr | None = None
+    companies_house_api_key: SecretStr | None = None
+
+    # -- Application -------------------------------------------------------------------
+
+    app_env: AppEnv = "development"
+    log_level: str = "INFO"
+    log_json: bool = True
+    bind_host: str = "127.0.0.1"
+    bind_port: int = Field(default=8000, ge=1, le=65535)
+
+    # -- Infrastructure ----------------------------------------------------------------
+
+    # The embedded password is the local development credential from docker-compose.yml,
+    # not a secret: the port is loopback-only and the database holds no production data.
+    # Keep it in step with AER_POSTGRES_PASSWORD in docker-compose.yml if either changes.
+    # Reasoning recorded in docs/adr/0004-postgres-redis-local-first.md.
+    database_url: str = (
+        "postgresql+asyncpg://aer:aer_local_dev@127.0.0.1:5432/aer"  # pragma: allowlist secret
+    )
+    redis_url: str = "redis://127.0.0.1:6379/0"
+
+    # -- Storage -----------------------------------------------------------------------
+
+    artefact_root: Path = Path("./var/artefacts")
+    max_artefact_bytes: int = Field(default=52_428_800, gt=0)
+
+    # -- Obsidian ----------------------------------------------------------------------
+
+    obsidian_vault_root: Path | None = None
+    obsidian_personal_root: Path | None = None
+
+    # -- Research defaults -------------------------------------------------------------
+
+    point_in_time_default: bool = True
+
+    # -- Cost control ------------------------------------------------------------------
+
+    per_run_budget_gbp: Decimal = Field(default=Decimal("2.50"), gt=0)
+    monthly_budget_gbp: Decimal = Field(default=Decimal("80.00"), gt=0)
+    budget_warn_ratio: float = Field(default=0.75, gt=0, le=1)
+    usd_to_gbp: Decimal = Field(default=Decimal("0.79"), gt=0)
+
+    # NoDecode: pydantic-settings would otherwise JSON-decode this at the source layer,
+    # before any validator runs, so a blank `AER_MODEL_ROUTES=` would raise an opaque
+    # SettingsError instead of falling back to the defaults. Parsing it ourselves keeps
+    # blank-means-unset consistent with every other optional setting.
+    model_routes: Annotated[dict[str, ModelRoute], NoDecode] = Field(
+        default_factory=lambda: dict(DEFAULT_MODEL_ROUTES)
+    )
+
+    # -- Validation --------------------------------------------------------------------
+
+    @field_validator(
+        "anthropic_api_key",
+        "eodhd_api_key",
+        "fred_api_key",
+        "companies_house_api_key",
+        "obsidian_vault_root",
+        "obsidian_personal_root",
+        mode="before",
+    )
+    @classmethod
+    def _blank_means_unset(cls, value: Any) -> Any:
+        """Treat ``AER_FOO=`` as unset rather than as an empty value.
+
+        ``.env.example`` ships every optional key present but blank, which is the clearest
+        way to document what exists. Without this, a blank line would produce
+        ``SecretStr('')`` — a credential that is present, empty, and fails confusingly at
+        the point of use instead of obviously at startup.
+        """
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("log_level", mode="after")
+    @classmethod
+    def _known_log_level(cls, value: str) -> str:
+        upper = value.upper()
+        if upper not in _VALID_LOG_LEVELS:
+            valid = ", ".join(sorted(_VALID_LOG_LEVELS))
+            message = f"must be one of: {valid}"
+            raise ValueError(message)
+        return upper
+
+    @field_validator("http_user_agent", mode="after")
+    @classmethod
+    def _user_agent_is_meaningful(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            message = "must not be blank; identify yourself, e.g. 'Jane Smith jane@example.com'"
+            raise ValueError(message)
+        return stripped
+
+    @field_validator("model_routes", mode="before")
+    @classmethod
+    def _parse_model_routes(cls, value: Any) -> Any:
+        """Decode the JSON ourselves, treating blank as unset (see NoDecode above)."""
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return dict(DEFAULT_MODEL_ROUTES)
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError as exc:
+                message = f"must be valid JSON: {exc}"
+                raise ValueError(message) from exc
+        return value
+
+    @field_validator("model_routes", mode="after")
+    @classmethod
+    def _merge_with_default_routes(cls, value: dict[str, ModelRoute]) -> dict[str, ModelRoute]:
+        """Overlay a partial override onto the defaults rather than replacing them.
+
+        Replacement semantics would mean that overriding one role's effort silently
+        removes routing for the other nine — a misconfiguration that would only surface
+        much later, mid-run, as a missing role.
+        """
+        merged = dict(DEFAULT_MODEL_ROUTES)
+        merged.update(value)
+        return merged
+
+    @field_validator("bind_host", mode="after")
+    @classmethod
+    def _warn_on_public_bind(cls, value: str) -> str:
+        if value not in {"127.0.0.1", "localhost", "::1"}:
+            _log.warning(
+                "Binding to %s exposes this application to the network. It has no "
+                "authentication and can reach your database, artefacts and provider "
+                "credentials. Use 127.0.0.1 unless you have deliberately secured it.",
+                value,
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _obsidian_roots_must_not_nest(self) -> Settings:
+        """Refuse to run if the generated vault and personal notes overlap.
+
+        Checked in both directions. The exporter regenerates whole directories inside the
+        generated vault, so personal notes nested underneath it are exposed to being
+        overwritten; and a generated vault nested inside a personal folder makes it
+        impossible to tell machine-written notes from your own. Neither is recoverable
+        once it has happened, so it is a startup error rather than a warning.
+        """
+        vault = self.obsidian_vault_root
+        personal = self.obsidian_personal_root
+        if vault is None or personal is None:
+            return self
+
+        if _contains(personal, vault) or _contains(vault, personal):
+            message = (
+                f"{ENV_PREFIX}OBSIDIAN_VAULT_ROOT ({vault}) and "
+                f"{ENV_PREFIX}OBSIDIAN_PERSONAL_ROOT ({personal}) overlap. The generated "
+                "vault is rewritten wholesale, so these must be separate directories, "
+                "neither containing the other."
+            )
+            raise ValueError(message)
+        return self
+
+    # -- Behaviour ---------------------------------------------------------------------
+
+    def require_secret(self, field_name: str) -> str:
+        """Return a credential's value, or raise a :class:`ConfigError` naming the setting.
+
+        Use this at the point a credential is actually needed. The error names the
+        environment variable to set, so the fix never requires reading the source.
+        """
+        if field_name not in SECRET_FIELDS:
+            message = f"{field_name!r} is not a known secret setting"
+            raise ConfigError(message, context={"known_secrets": list(SECRET_FIELDS)})
+
+        secret: SecretStr | None = getattr(self, field_name)
+        if secret is None or not secret.get_secret_value().strip():
+            env_var = f"{ENV_PREFIX}{field_name.upper()}"
+            message = f"{env_var} is not set, and is required for this operation."
+            raise ConfigError(message, context={"setting": field_name, "env_var": env_var})
+        return secret.get_secret_value()
+
+    def ensure_directories(self) -> None:
+        """Create the directories the application writes to.
+
+        Called explicitly at startup, never from a validator: constructing a settings
+        object should not touch the filesystem, or merely importing a module could create
+        directories and every test would need a temporary path.
+        """
+        self.artefact_root.mkdir(parents=True, exist_ok=True)
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env == "production"
+
+
+def _env_var_for(location: tuple[int | str, ...]) -> str:
+    if not location:
+        return "(configuration)"
+    head = location[0]
+    if isinstance(head, str):
+        return f"{ENV_PREFIX}{head.upper()}"
+    return str(head)
+
+
+def load_settings(**overrides: Any) -> Settings:
+    """Build :class:`Settings`, converting validation failures into one clear error.
+
+    pydantic already gathers every failure into a single exception; this reports all of
+    them together, named by environment variable, so configuring a new machine takes one
+    pass rather than one run per mistake.
+    """
+    try:
+        return Settings(**overrides)
+    except ValidationError as exc:
+        problems = [f"  {_env_var_for(error['loc'])}: {error['msg']}" for error in exc.errors()]
+        detail = "\n".join(problems)
+        count = len(problems)
+        noun = "problem" if count == 1 else "problems"
+        message = (
+            f"Configuration is invalid ({count} {noun}). Copy .env.example to .env and "
+            f"correct the following:\n{detail}"
+        )
+        raise ConfigError(
+            message,
+            context={"problem_count": count, "problems": [p.strip() for p in problems]},
+        ) from exc
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """Return the process-wide settings, built once.
+
+    Cached so that configuration is read and validated a single time. Tests must call
+    ``get_settings.cache_clear()`` when they change the environment.
+    """
+    return load_settings()
