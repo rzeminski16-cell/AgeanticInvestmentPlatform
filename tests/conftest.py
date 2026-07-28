@@ -19,6 +19,16 @@ import pytest
 
 from aer.config import ENV_PREFIX, Settings, get_settings
 
+# Database fixtures live in their own module to keep this one readable; re-exported here
+# so pytest discovers them. See tests/db_fixtures.py for the isolation strategy.
+from tests.db_fixtures import (  # noqa: F401
+    anyio_backend,
+    database_url,
+    db_engine,
+    db_session,
+    repo_root,
+)
+
 # A User-Agent is the one required setting, so almost every settings test needs it.
 VALID_USER_AGENT = "Test Runner test@example.invalid"
 

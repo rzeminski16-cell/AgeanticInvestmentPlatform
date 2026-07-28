@@ -151,6 +151,10 @@ src/aer/            application package
   logging.py        structured JSON logging with secret redaction
   config.py         typed settings; secrets never render, all problems reported at once
   core/             correctness core: pure, side-effect free, mypy --strict
+    enums.py        domain vocabulary, rendered as native PostgreSQL enums
+    hashing.py      canonical serialisation and audit hash chaining
+  db/               engine, session management, and ORM models
+migrations/         Alembic migrations; the schema's only source of truth
 tests/              test suite; runs with no network access and no model spend
 docs/
   PLAN.md           the full research, architecture and build plan
@@ -159,16 +163,40 @@ docker-compose.yml  Postgres, Redis, and MinIO under the `objectstore` profile
 .env.example        every setting, documented
 ```
 
+### Database
+
+```bash
+just migrate          # apply all pending migrations
+just migrate-status   # current revision and available heads
+just revision "add foo table"   # autogenerate from model changes
+just migrate-down     # roll back one revision
+```
+
+The schema is enforced in PostgreSQL, not only in Python: native enums, CHECK constraints
+on domain rules, `NUMERIC` for money, and `TIMESTAMPTZ` everywhere. The application is not
+the only thing that will ever write to this database, so a rule that lives only in
+application code is a rule those other writers do not have. See
+`docs/adr/0005-postgres-as-system-of-record.md`.
+
+A test compares the live schema against the ORM models and **fails the build on any
+drift**, so a model change that was never migrated cannot reach production.
+
 ## Testing
 
 ```bash
 uv run pytest                 # default suite: no network, no model spend
 uv run pytest --cov           # with coverage
-uv run pytest -m integration  # requires Docker Compose services (later phases)
+uv run pytest -m integration  # database tests only
+uv run pytest -m "not integration"   # skip anything needing PostgreSQL
 ```
 
 Tests that would make real, billable model calls are marked `live_llm` and never run by
 default.
+
+Database tests run against a separate `aer_test` database, inside a transaction that is
+rolled back afterwards, so they never touch your development data. If PostgreSQL is not
+running they **skip with the reason** rather than failing, so `uv run pytest` still works
+on a machine with nothing started. Point them elsewhere with `AER_TEST_DATABASE_URL`.
 
 ## Contributing
 

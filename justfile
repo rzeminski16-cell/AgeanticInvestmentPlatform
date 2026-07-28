@@ -44,6 +44,33 @@ health:
     docker compose exec postgres pg_isready -U aer -d aer
     docker compose exec redis redis-cli ping
 
+# Apply all pending migrations.
+migrate:
+    uv run alembic upgrade head
+
+# Roll back one migration.
+migrate-down:
+    uv run alembic downgrade -1
+
+# Roll back every migration. Destroys all data.
+migrate-base:
+    uv run alembic downgrade base
+
+# Show the current revision and the available heads.
+migrate-status:
+    uv run alembic current --verbose
+    uv run alembic heads
+
+# Create a new migration from the difference between the models and the database.
+# Always read the generated file before committing it: autogenerate is a first draft,
+# not an answer. It cannot see data migrations, and it guesses at renames.
+revision message:
+    uv run alembic revision --autogenerate -m "{{message}}"
+
+# Create an empty migration, for data changes autogenerate cannot infer.
+revision-empty message:
+    uv run alembic revision -m "{{message}}"
+
 # Lint and check formatting (does not modify files).
 lint:
     uv run ruff check .
