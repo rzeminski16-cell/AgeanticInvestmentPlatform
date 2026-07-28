@@ -575,6 +575,13 @@ rolled back afterwards, so they never touch your development data. If PostgreSQL
 running they **skip with the reason** rather than failing, so `uv run pytest` still works
 on a machine with nothing started. Point them elsewhere with `AER_TEST_DATABASE_URL`.
 
+### Verifying it by hand
+
+`docs/manual-verification.md` is a checklist for everything the suite structurally cannot
+prove: Docker Compose, the pages as a person sees them, the guards provoked deliberately,
+and one real run against the real SEC and a real model call. Most of it costs nothing; the
+one section that spends money says so and says roughly how much.
+
 ## Contributing
 
 See `CONTRIBUTING.md` for the workflow and the definition of done, and `CLAUDE.md` for the
