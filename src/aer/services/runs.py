@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
 from aer.core.enums import JobStatus
-from aer.db.models import Job, JobStep, ResearchRequest
+from aer.db.models import Job, JobStep, Report, ResearchRequest
 from aer.errors import ValidationError
 from aer.providers.protocol import LLMProvider
 from aer.providers.router import Router
@@ -37,7 +37,7 @@ from aer.version import git_sha
 from aer.workflow.engine import BudgetGuard, WorkflowEngine, spend_so_far
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION, build_steps
 
-__all__ = ["RunOutcome", "execute", "run_state", "start_run"]
+__all__ = ["RunOutcome", "execute", "latest_run", "run_state", "start_run"]
 
 _log = structlog.get_logger("aer.services.runs")
 
@@ -58,19 +58,22 @@ class RunOutcome:
 
 
 async def start_run(session: AsyncSession, *, request: ResearchRequest) -> Job:
-    """Create the job for a request, or return the one that exists.
+    """Create the job for a request, return the one that exists, or replace a dead one.
 
-    One job per request in Phase 1. A second run of the same request is a Phase 2 concern
-    and needs a story about which report is current; returning the existing job is the
-    honest behaviour until there is one.
+    **One report per request, not one job.** That was the Phase 1 rule and it still holds:
+    a second run of a request that already produced a report needs a story about which
+    report is current, and there is not one yet. But a run that was cancelled or failed
+    produced no report, so nothing has to be chosen between — and refusing to start again
+    would leave the operator with a request they can neither run, edit nor delete. That is
+    what cancelling a run used to do, which is how this was found.
+
+    Superseding creates a **new** job rather than resurrecting the old one. Reusing it
+    would contradict the audit record — the row says it finished, with a time — and a
+    cancelled job still carries its cancellation, so the engine would stop it again on its
+    first step.
     """
-    existing = await session.scalar(
-        # Newest first, with a never-started job last. `jobs` has no created_at -- a job's
-        # life begins when it starts -- so `started_at` is the ordering column, and
-        # nulls-last keeps a queued-but-unstarted job from shadowing a real one.
-        select(Job).where(Job.request_id == request.id).order_by(Job.started_at.desc().nullslast())
-    )
-    if existing is not None:
+    existing = await latest_run(session, request_id=request.id)
+    if existing is not None and not await _may_be_superseded(session, job=existing):
         return existing
 
     job = Job(
@@ -88,8 +91,37 @@ async def start_run(session: AsyncSession, *, request: ResearchRequest) -> Job:
         job_id=str(job.id),
         request_id=str(request.id),
         workflow=WORKFLOW_VERSION,
+        # Which of the two things just happened. "A run started" is ambiguous once a
+        # request can have more than one, and the second is the interesting case.
+        supersedes=str(existing.id) if existing is not None else None,
     )
     return job
+
+
+async def latest_run(session: AsyncSession, *, request_id: uuid.UUID) -> Job | None:
+    """The most recent job for a request, if any.
+
+    Newest first, with a never-started job last. ``jobs`` has no ``created_at`` — a job's
+    life begins when it starts — so ``started_at`` is the ordering column, and nulls-last
+    keeps a queued-but-unstarted job from shadowing a real one.
+    """
+    found: Job | None = await session.scalar(
+        select(Job).where(Job.request_id == request_id).order_by(Job.started_at.desc().nullslast())
+    )
+    return found
+
+
+async def _may_be_superseded(session: AsyncSession, *, job: Job) -> bool:
+    """Whether starting again should replace this run rather than return it.
+
+    Two conditions, and both are needed. Terminal, because a run that is queued, running or
+    waiting at a gate is the run — starting "again" means watching that one. And no report,
+    because a report is the thing there can only be one current version of.
+    """
+    if not job.status.is_terminal:
+        return False
+    report = await session.scalar(select(Report.id).where(Report.job_id == job.id).limit(1))
+    return report is None
 
 
 async def execute(

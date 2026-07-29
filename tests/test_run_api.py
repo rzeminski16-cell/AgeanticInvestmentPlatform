@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import re
 import uuid
+from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
@@ -61,8 +62,25 @@ class EnqueueRecorder:
 
 
 @pytest.fixture
-async def clean_slate(db_engine: Any) -> None:
-    async with db_engine.begin() as connection:
+async def clean_slate(db_engine: Any) -> AsyncIterator[None]:
+    """Empty the tables a run writes to, before **and** after.
+
+    Before, so a test's result never depends on which tests ran first. After, because this
+    file commits for real and the rows outlive it — and the last test to run has nobody
+    left to clean up for it. Without the teardown the suite relies on "the final test in
+    this file happens not to create artefacts", which is an invariant nobody can see and
+    which a new test at the bottom of the file silently breaks. It did.
+
+    The statement timeout turns a lock conflict into a fast, readable failure instead of a
+    suite that hangs.
+    """
+    await _truncate(db_engine)
+    yield
+    await _truncate(db_engine)
+
+
+async def _truncate(engine: Any) -> None:
+    async with engine.begin() as connection:
         await connection.execute(text("SET LOCAL statement_timeout = '5s'"))
         await connection.execute(text(f"TRUNCATE {_TABLES} RESTART IDENTITY CASCADE"))
 
@@ -760,3 +778,76 @@ def _hidden_value(html: str, name: str) -> str:
     )
     assert match is not None, f"no hidden input named {name!r} in the page"
     return match.group(1)
+
+
+class TestStartingAgainAfterACancelledRun:
+    """The dead end, at the surface an operator touches.
+
+    Cancelling used to leave the request page offering only "open the run", with no way to
+    start again and no way to remove it. This is the journey that was broken.
+    """
+
+    async def _cancelled(self, api: Any, committed: dict, db_engine: Any) -> uuid.UUID:
+        body = await start(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+        await api.post(f"/api/runs/{job_id}/cancel", json={"reason": "wrong as-of date"})
+
+        # The worker's next pass, which is what actually moves the job to CANCELLED.
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            assert job is not None
+            job.status = JobStatus.CANCELLED
+            await session.commit()
+        return job_id
+
+    async def test_the_request_page_offers_a_new_run(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        await self._cancelled(api, committed, db_engine)
+
+        page = await api.get(f"/requests/{committed['request'].id}")
+
+        assert 'id="start-run"' in page.text
+        assert "cancelled" in page.text.lower()
+        # The old run is still reachable — superseded, not erased.
+        assert 'id="open-run"' in page.text
+
+    async def test_starting_again_creates_a_different_run(
+        self, api: Any, committed: dict, db_engine: Any, enqueued: EnqueueRecorder
+    ) -> None:
+        first = await self._cancelled(api, committed, db_engine)
+
+        second = uuid.UUID((await start(api, committed["request"].id))["job_id"])
+
+        assert second != first
+        assert str(second) in enqueued.job_ids
+
+    async def test_the_new_run_is_not_born_cancelled(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        # The cancellation belongs to the old job. A resurrected row would carry it and
+        # stop again on its first step.
+        await self._cancelled(api, committed, db_engine)
+        second = (await start(api, committed["request"].id))["job_id"]
+
+        assert (await api.get(f"/api/runs/{second}")).json()["status"] == JobStatus.QUEUED.value
+
+    async def test_a_run_still_going_is_returned_rather_than_duplicated(
+        self, api: Any, committed: dict
+    ) -> None:
+        first = await start(api, committed["request"].id)
+        second = await start(api, committed["request"].id)
+
+        assert first["job_id"] == second["job_id"]
+
+    async def test_a_finished_report_is_not_superseded(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        # One report per request still holds. Starting again on a run that produced one
+        # would need a story about which report is current, and there is not one yet.
+        job_id = await _to_second_gate(api, committed, driver)
+        await driver.approve(job_id, gate=GateKind.FINAL, step="draft")
+        assert await driver.advance(job_id) is JobStatus.SUCCEEDED
+
+        assert (await start(api, committed["request"].id))["job_id"] == str(job_id)

@@ -38,10 +38,11 @@ from aer.core.schemas.request import (
     RiskTolerance,
 )
 from aer.core.universe import SUPPORTED_EXCHANGES
-from aer.db.models import Job
+from aer.db.models import Report
 from aer.db.schema_check import schema_drift
 from aer.errors import AerError, ConflictError, ValidationError
 from aer.services import requests as request_service
+from aer.services import runs as run_service
 from aer.version import build_identity
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.forms import ParsedForm, form_values_from, parse_request_form
@@ -386,9 +387,13 @@ async def request_detail(
     # A run already exists, or there is a button to start one. Both are the same page: the
     # operator's question is "where is this up to?", and the answer differs only in whether
     # anything has started.
-    job = await session.scalar(
-        select(Job).where(Job.request_id == request_id).order_by(Job.started_at.desc().nullslast())
+    job = await run_service.latest_run(session, request_id=request_id)
+    report = (
+        await session.scalar(select(Report.id).where(Report.job_id == job.id).limit(1))
+        if job is not None
+        else None
     )
+
     token = new_csrf_token(settings)
     detail: Response = render(
         request,
@@ -396,6 +401,10 @@ async def request_detail(
         {
             "item": found,
             "job": job,
+            # A cancelled or failed run produced no report, so there is nothing to choose
+            # between and starting again is the obvious next move. Without this the page
+            # offered only "open the run" and the request was a dead end.
+            "can_start_again": job is not None and job.status.is_terminal and report is None,
             # The page shows edit and delete, or says why it cannot. Asked as a question
             # about the request rather than inferred from `job` being None, so the one rule
             # lives in the service and the template only renders the answer.

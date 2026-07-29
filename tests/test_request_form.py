@@ -525,7 +525,10 @@ class TestTheEditForm:
 
         assert page.status_code == 409
         # The reason, not a bare status. The operator almost certainly followed a stale tab.
-        assert "no longer be changed" in page.text
+        # A queued run is live, so the answer is "wait or cancel", not "create a new
+        # request" — the run has not left anything behind yet.
+        assert "cancel it" in page.text
+        assert 'id="immutable-reason"' in page.text
 
     async def test_the_detail_page_explains_why_editing_stopped(self, web, db_engine):
         detail = await create_draft(web)

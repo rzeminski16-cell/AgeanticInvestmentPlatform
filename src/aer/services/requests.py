@@ -13,12 +13,20 @@ universe rules therefore work from the typed values alone, which makes them heur
 hence exclusion messages that name the rule and explain themselves rather than simply
 refusing.
 
-**A request stops being editable the moment a run exists.** Until then it is a note to
-self and correcting a mistyped ticker costs nothing. After that it is the thing a plan was
-approved against, the thing evidence was gathered under, and the thing a report cites — so
-editing it in place would not correct the record, it would falsify it. Deletion follows
-the same line, which is threat T16's retention rule arriving early in its safest form:
-nothing that has evidence or a report behind it can be removed by this code at all.
+**A request stops being editable once a run has left something behind.** Not when a run
+starts — when it produces a report, gathers evidence, spends money, or records a decision
+at a gate. Those are the things an edit would falsify and a deletion would destroy, and
+each of them is checked by name in :func:`immutable_reason`.
+
+The distinction is not pedantry. The first version of this froze a request as soon as a
+``jobs`` row existed, using that as a proxy for "research happened". Cancel a run before it
+fetched anything and the request became permanently uneditable and undeletable, with
+nothing anywhere to justify it — a dead end the operator could not get out of. A run that
+gathered nothing, cited nothing and spent nothing leaves nothing an edit could falsify.
+
+Deletion follows the same line, which is threat T16's retention rule arriving early in its
+safest form: nothing that has evidence, spend or a report behind it can be removed by this
+code at all.
 """
 
 from __future__ import annotations
@@ -31,7 +39,7 @@ from enum import StrEnum
 from typing import Any
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
@@ -43,7 +51,16 @@ from aer.core.schemas.request import (
     check_limits,
 )
 from aer.core.universe import Exclusion, ExclusionRule, check_universe
-from aer.db.models import AuditEvent, Job, ResearchRequest, User
+from aer.db.models import (
+    Approval,
+    AuditEvent,
+    Cost,
+    Job,
+    Report,
+    ResearchRequest,
+    SourceDocument,
+    User,
+)
 from aer.errors import ConflictError, ValidationError
 
 __all__ = [
@@ -255,31 +272,97 @@ async def create_request(
 async def immutable_reason(session: AsyncSession, *, request: ResearchRequest) -> str | None:
     """Why this request can no longer be changed, or ``None`` if it still can.
 
-    Returned as prose rather than a boolean because both callers need the sentence: the
-    API puts it in the problem detail, and the detail page puts it where the edit button
-    would otherwise be. "Editing is disabled" with no reason is the kind of answer that
-    sends someone to the source code.
+    Returned as prose rather than a boolean because both callers need the sentence: the API
+    puts it in the problem detail, and the detail page puts it where the edit button would
+    otherwise be. "Editing is disabled" with no reason is the kind of answer that sends
+    someone to the source code.
 
-    The run check is the load-bearing one — starting a run leaves the request in ``DRAFT``
-    today, so the status check would not catch it on its own. The status check is there for
-    the day something else moves a request out of ``DRAFT`` without a job, which is a
-    change that should not silently re-open editing.
+    **What freezes a request is what a run left behind, not that a run existed.** The first
+    version of this used "a job row exists" as a proxy for "research happened", and the
+    proxy is wrong at exactly the boundary that matters: cancel a run before it fetches
+    anything and the request became permanently uneditable and undeletable, with nothing
+    anywhere to justify it. A job that gathered nothing, cited nothing and spent nothing
+    leaves nothing an edit could falsify.
+
+    So each condition below is a *specific* thing an edit or a deletion would damage, and
+    each says which. They are checked in order of how badly, so the message names the most
+    serious one rather than the first one queried.
     """
-    started = await session.scalar(select(Job.id).where(Job.request_id == request.id).limit(1))
-    if started is not None:
+    latest = await session.scalar(
+        select(Job).where(Job.request_id == request.id).order_by(Job.started_at.desc().nullslast())
+    )
+
+    if latest is None:
+        # Nothing downstream can exist without a run, so there is nothing else to ask.
+        return _not_a_draft(request)
+
+    if not latest.status.is_terminal:
         return (
-            "A run has been started for this request, so it can no longer be changed. What "
-            "was researched, and what a plan was approved against, has to stay what it was "
-            "— editing it now would not correct the record, it would falsify it. Create a "
-            "new request instead."
+            f"A run is {latest.status.value.lower().replace('_', ' ')} for this request. "
+            "Wait for it to finish, or cancel it, before changing anything — a worker may "
+            "be reading these values right now."
         )
 
-    if request.status is not RequestStatus.DRAFT:
-        return (
-            f"This request is {request.status.value}, not a draft, so it can no longer be changed."
-        )
+    for statement, message in _what_a_run_left_behind(request):
+        if await _exists(session, statement):
+            return message
 
-    return None
+    return _not_a_draft(request)
+
+
+def _what_a_run_left_behind(
+    request: ResearchRequest,
+) -> tuple[tuple[Select[tuple[uuid.UUID]], str], ...]:
+    """Each durable thing a run can produce, and why it freezes the request.
+
+    Ordered by how badly an edit or a deletion would damage it, so the operator is told the
+    most serious reason rather than whichever query happened to run first. Every message
+    names the specific damage — "editing is disabled" is not something anyone can act on.
+    """
+    return (
+        (
+            select(Report.id).where(Report.request_id == request.id),
+            "A report has been produced from this request, so it can no longer be changed. "
+            "The report cites the terms it was researched under; editing them now would not "
+            "correct the record, it would falsify it. Create a new request instead.",
+        ),
+        (
+            select(SourceDocument.id).where(SourceDocument.request_id == request.id),
+            "Evidence has been gathered against this request. The as-of date and "
+            "point-in-time setting are what admitted that evidence, so changing them now "
+            "would leave the stored sources inconsistent with the rules that selected them. "
+            "Create a new request instead.",
+        ),
+        (
+            select(Cost.id).join(Job, Job.id == Cost.job_id).where(Job.request_id == request.id),
+            "Money has been spent on this request. Deleting it would take the spend record "
+            "with it and quietly understate the month's total; editing it would mean the "
+            "spend was made against terms that no longer exist. Create a new request "
+            "instead.",
+        ),
+        (
+            select(Approval.id).where(Approval.request_id == request.id),
+            "You have made a decision at a gate on this request. An approval records what "
+            "you were shown, and editing the request behind it would leave a decision "
+            "attached to something you never saw. Create a new request instead.",
+        ),
+    )
+
+
+def _not_a_draft(request: ResearchRequest) -> str | None:
+    """The backstop, for a request moved out of ``DRAFT`` by something other than a run.
+
+    Nothing does that today — starting a run leaves the status alone — so this is a guard
+    against a future change silently re-opening editing rather than a condition currently
+    reachable.
+    """
+    if request.status is RequestStatus.DRAFT:
+        return None
+    return f"This request is {request.status.value}, not a draft, so it can no longer be changed."
+
+
+async def _exists(session: AsyncSession, statement: Select[tuple[uuid.UUID]]) -> bool:
+    return await session.scalar(statement.limit(1)) is not None
 
 
 async def _refuse_if_immutable(

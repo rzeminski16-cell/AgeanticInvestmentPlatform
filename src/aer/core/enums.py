@@ -15,6 +15,7 @@ from __future__ import annotations
 from enum import StrEnum
 
 __all__ = [
+    "TERMINAL_JOB_STATUSES",
     "AnalysisMode",
     "Decision",
     "FactBasis",
@@ -80,6 +81,25 @@ class JobStatus(StrEnum):
     FAILED = "FAILED"
     CANCELLED = "CANCELLED"
     BUDGET_EXCEEDED = "BUDGET_EXCEEDED"
+
+    @property
+    def is_terminal(self) -> bool:
+        """Whether a run in this state has stopped for good.
+
+        The three that will never execute another step. Everything else — including
+        ``AWAITING_APPROVAL`` and ``BUDGET_EXCEEDED``, which look stopped — is a run that
+        continues the moment a human decides something, which is why it is a property of
+        the vocabulary rather than a set each caller assembles for itself.
+        """
+        return self in TERMINAL_JOB_STATUSES
+
+
+# Defined after the class because the members have to exist first. Kept as a frozenset as
+# well as a property because several callers ask "which of these jobs are finished?" of a
+# query rather than of a single value.
+TERMINAL_JOB_STATUSES: frozenset[JobStatus] = frozenset(
+    {JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.CANCELLED}
+)
 
 
 class GateKind(StrEnum):

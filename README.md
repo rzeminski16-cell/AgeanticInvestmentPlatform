@@ -556,14 +556,21 @@ because of a pending migration would take away the one page that could have told
 
 ### What may change after the fact
 
-**A request is editable and deletable until a run exists, and frozen from that moment.**
-Before a job it is a note to itself and correcting a mistyped ticker costs nothing; after
-one it is what a plan was approved against and what evidence was gathered under, so editing
-it would not correct the record but falsify it. Editing is a whole-payload replace through
-the same validation a creation goes through, so a rule cannot be dodged by creating
-something valid and then editing it. Deleting anything with a run behind it is refused
-outright — `research_requests` cascades to jobs, plans, sources and reports, and no code
-path in the platform can take evidence with it.
+**A request is editable and deletable until a run has left something behind.** Not when a
+run starts — when it produces a report, gathers evidence, spends money, or records a
+decision at a gate. Those are the things an edit would falsify and a deletion would
+destroy, and `immutable_reason` names whichever one applies rather than saying "editing is
+disabled". Editing is a whole-payload replace through the same validation a creation goes
+through, so a rule cannot be dodged by creating something valid and then editing it.
+Deleting anything with evidence or spend behind it is refused outright — `research_requests`
+cascades to jobs, plans, sources, costs and reports, and no code path in the platform can
+take those with it.
+
+**One report per request, not one job.** A cancelled or failed run produced no report, so
+starting again supersedes it with a new job; a live run or one that produced a report is
+returned instead. Superseding never resurrects the old job: the row says it finished, and a
+cancelled job still carries its cancellation, so the engine would stop it again on its first
+step.
 
 **A run can be cancelled, but not interrupted.** Cancelling records a request in
 `job_cancellations`; the engine reads it before each step and stops. A step already in

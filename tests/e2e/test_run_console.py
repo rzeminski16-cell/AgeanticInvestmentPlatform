@@ -46,7 +46,11 @@ class RunFixture:
         )
         self._provider = make_provider()
         self._sec_client = StubSecClient(self._store)
+        self.request_id: uuid.UUID | None = None
         self.job_id: uuid.UUID = run_async(self._create())
+
+    def request_path(self, live_server: str) -> str:
+        return f"{live_server}/requests/{self.request_id}"
 
     async def _engine(self) -> Any:
         """A throwaway engine for one operation, pooling nothing.
@@ -84,6 +88,7 @@ class RunFixture:
 
                 job = await run_service.start_run(session, request=request)
                 await session.commit()
+                self.request_id = request.id
                 return job.id
         finally:
             await engine.dispose()
@@ -370,3 +375,41 @@ class TestCancelling:
         page.goto(f"{live_server}/runs/{waiting_run.job_id}")
 
         expect(page.locator("#cancel-run")).to_have_count(0)
+
+
+class TestCancellingIsNotADeadEnd:
+    """The journey that was broken, driven end to end in a browser.
+
+    Cancel a run and the request page offered only "open the run": no way to start again,
+    no way to edit, no way to delete. The request was rubbish that could not be thrown away.
+    """
+
+    def cancel_and_stop(self, page: Page, live_server: str, run: RunFixture) -> str:
+        page.goto(f"{live_server}/runs/{run.job_id}")
+        page.click("#cancel-run")
+        page.wait_for_url(CONSOLE_URL)
+        assert run.advance() is JobStatus.CANCELLED
+        return run.request_path(live_server)
+
+    def test_the_request_offers_a_fresh_run(
+        self, page: Page, live_server: str, waiting_run: RunFixture
+    ) -> None:
+        request_url = self.cancel_and_stop(page, live_server, waiting_run)
+
+        page.goto(request_url)
+
+        expect(page.locator("#start-run")).to_be_visible()
+        expect(page.locator("#start-run")).to_have_text("Start a new run")
+        # Superseded, not erased: the cancelled run is still reachable.
+        expect(page.locator("#open-run")).to_be_visible()
+
+    def test_starting_again_opens_a_different_console(
+        self, page: Page, live_server: str, waiting_run: RunFixture
+    ) -> None:
+        request_url = self.cancel_and_stop(page, live_server, waiting_run)
+        page.goto(request_url)
+
+        page.click("#start-run")
+
+        page.wait_for_url(CONSOLE_URL)
+        assert str(waiting_run.job_id) not in page.url

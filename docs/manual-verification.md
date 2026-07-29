@@ -1220,20 +1220,27 @@ the whole feature, and this section checks the platform actually holds it.
 - [ ] Delete a draft you do not want. You are asked to confirm, then returned to
       `/requests`, and it is gone from the list.
 
-### Once a run exists
+### Once a run has left something behind
 
-- [ ] Start a run on a request, then go back to `/requests/<id>`.
-- [ ] The **Edit** and **Delete** buttons are **gone**, replaced by a sentence explaining
-      why. **Wrong:** greyed-out buttons — there is no condition that re-enables them, and
-      a disabled button invites you to hunt for one.
-- [ ] Navigate directly to `/requests/<id>/edit`. You get a **409** page that says the
-      request is now the record of something that happened, not a blank form and not a
-      bare error code.
+What freezes a request is not that a run started — it is what the run produced. A run
+cancelled before it fetched or spent anything leaves nothing an edit could falsify, so the
+request stays editable. Check both halves.
+
+- [ ] Start a run on a request, then go back to `/requests/<id>` while it is still queued
+      or running.
+- [ ] The **Edit** and **Delete** buttons are **gone**, replaced by a sentence saying to
+      wait for the run or cancel it. **Wrong:** greyed-out buttons — a disabled button
+      invites you to hunt for the condition that re-enables it.
+- [ ] Navigate directly to `/requests/<id>/edit`. You get a **409** page with the reason on
+      it, not a blank form and not a bare error code.
 - [ ] Try the API: `curl -i -X DELETE http://127.0.0.1:8000/api/requests/<id>`. **409**,
       with `"code": "conflict"`. Not 422 — the body was never the problem, and resubmitting
       it would not help.
+- [ ] Let the run reach the plan gate, then read the refusal again. It should now name the
+      **spend** — the planner has run and cost money, and deleting would take the spend
+      record with it and understate the month's total.
 - [ ] Confirm the request is still there afterwards. `research_requests` cascades to jobs,
-      plans, sources and reports, so a delete allowed here would take the evidence with it.
+      plans, sources, costs and reports, so a delete allowed here would take all of it.
 
 ### The audit trail
 
@@ -1276,6 +1283,23 @@ says so rather than pretending the run stopped the instant you clicked.
       http://127.0.0.1:8000/api/runs/<id>/cancel` against a succeeded run. **409**. Not
       because the write would fail, but because recording it would put something in the
       audit trail that did not happen.
+
+### Cancelling must not be a dead end
+
+This is the check that matters most, because getting it wrong leaves you with a request you
+can neither run, fix nor throw away. That is exactly what the first version did.
+
+- [ ] Go back to `/requests/<id>` after the run has reached `CANCELLED`.
+- [ ] There is a **Start a new run** button, and a link to the cancelled run beside it.
+      **Wrong:** only "Open the run", with no way forward — that is the dead end.
+- [ ] Press it. You land on a **different** console URL, and the new run is `QUEUED`, not
+      `CANCELLED`. A resurrected job would carry the old cancellation and stop again on its
+      first step.
+- [ ] The cancelled run is still openable at its own URL. Superseded, not erased.
+- [ ] Cancel a run *before* the planner has spent anything — press stop while it is still
+      `QUEUED` and let the worker pass over it. The request should now be **editable and
+      deletable again**: a run that gathered nothing, cited nothing and spent nothing leaves
+      nothing an edit could falsify.
 
 ```sql
 SELECT j.status, c.requested_at, j.finished_at, c.reason

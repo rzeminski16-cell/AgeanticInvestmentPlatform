@@ -21,9 +21,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import JobStatus
-from aer.db.models import AuditEvent, Job, JobCancellation, JobStep
+from aer.db.models import AuditEvent, Cost, Job, JobCancellation, JobStep
 from aer.errors import ConflictError
 from aer.services import cancellation as cancellation_service
+from aer.services import requests as request_service
+from aer.services import runs as run_service
 from aer.workflow.engine import StepResult, WorkflowEngine, WorkflowStep
 from tests.workflow_fixtures import seed_job, seed_request, seed_user
 
@@ -239,3 +241,127 @@ class TestTheServiceLayerBoundary:
         await cancellation_service.request_cancellation(session, job=job, actor=user)
 
         assert await spend_so_far(session, job_id=job.id) == Decimal(0)
+
+
+class TestACancelledRunIsNotADeadEnd:
+    """The bug this class exists for, found by using the feature.
+
+    Cancelling a run left the request in a state with no way out: the page offered only
+    "open the run", ``start_run`` returned the dead job, and the request was frozen against
+    editing and deletion because a ``jobs`` row existed. Cancel by mistake and the request
+    was rubbish that could not even be thrown away.
+    """
+
+    async def test_a_cancelled_run_can_be_replaced_by_a_new_one(self, queued: dict) -> None:
+        session, job, user, request = (
+            queued["session"],
+            queued["job"],
+            queued["user"],
+            queued["request"],
+        )
+        await cancellation_service.request_cancellation(session, job=job, actor=user)
+        await WorkflowEngine([counting_step("first", [])]).run(session, job=job, services={})
+
+        replacement = await run_service.start_run(session, request=request)
+
+        assert replacement.id != job.id
+        assert replacement.status is JobStatus.QUEUED
+
+    async def test_the_replacement_is_not_immediately_cancelled_again(self, queued: dict) -> None:
+        # A resurrected job would still carry its cancellation and stop on its first step,
+        # which is the trap that makes reusing the row wrong rather than merely untidy.
+        session, job, user, request = (
+            queued["session"],
+            queued["job"],
+            queued["user"],
+            queued["request"],
+        )
+        await cancellation_service.request_cancellation(session, job=job, actor=user)
+        await WorkflowEngine([counting_step("first", [])]).run(session, job=job, services={})
+
+        replacement = await run_service.start_run(session, request=request)
+        log: list[str] = []
+        await WorkflowEngine([counting_step("first", log)]).run(
+            session, job=replacement, services={}
+        )
+
+        assert log == ["first"]
+        assert replacement.status is not JobStatus.CANCELLED
+
+    async def test_the_cancelled_run_is_still_there(self, queued: dict) -> None:
+        # Superseded, not erased. What happened, happened, and the audit trail says so.
+        session, job, user, request = (
+            queued["session"],
+            queued["job"],
+            queued["user"],
+            queued["request"],
+        )
+        await cancellation_service.request_cancellation(session, job=job, actor=user)
+        await WorkflowEngine([counting_step("first", [])]).run(session, job=job, services={})
+        await run_service.start_run(session, request=request)
+
+        original = await session.get(Job, job.id)
+        assert original is not None
+        assert original.status is JobStatus.CANCELLED
+
+    async def test_a_live_run_is_returned_rather_than_replaced(self, queued: dict) -> None:
+        # "Start again" on a run that is still going means watching that one. Creating a
+        # second would have two workers on one request.
+        session, job, request = queued["session"], queued["job"], queued["request"]
+
+        assert (await run_service.start_run(session, request=request)).id == job.id
+
+    async def test_a_request_whose_run_left_nothing_behind_is_editable_again(
+        self, queued: dict
+    ) -> None:
+        # The heart of it. A run that gathered nothing, cited nothing and spent nothing
+        # leaves nothing an edit could falsify, so freezing the request would be a rule
+        # with no damage behind it.
+        session, job, user, request = (
+            queued["session"],
+            queued["job"],
+            queued["user"],
+            queued["request"],
+        )
+        await cancellation_service.request_cancellation(session, job=job, actor=user)
+        await WorkflowEngine([counting_step("first", [])]).run(session, job=job, services={})
+
+        assert await request_service.immutable_reason(session, request=request) is None
+
+    async def test_a_live_run_still_freezes_it(self, queued: dict) -> None:
+        session, request = queued["session"], queued["request"]
+
+        reason = await request_service.immutable_reason(session, request=request)
+
+        assert reason is not None
+        assert "cancel it" in reason
+
+    async def test_spending_freezes_it_even_after_cancellation(self, queued: dict) -> None:
+        # The common real case: the planner ran and cost money before the operator pressed
+        # stop. Deleting would take the spend record with it and understate the month.
+        session, job, user, request = (
+            queued["session"],
+            queued["job"],
+            queued["user"],
+            queued["request"],
+        )
+        session.add(
+            Cost(
+                job_id=job.id,
+                category="model",
+                provider="anthropic",
+                model="claude-opus-5",
+                units=Decimal(150),
+                unit_type="tokens",
+                amount_usd=Decimal("0.0500"),
+                amount_gbp=Decimal("0.0400"),
+                fx_rate=Decimal("0.8"),
+            )
+        )
+        await cancellation_service.request_cancellation(session, job=job, actor=user)
+        await WorkflowEngine([counting_step("first", [])]).run(session, job=job, services={})
+
+        reason = await request_service.immutable_reason(session, request=request)
+
+        assert reason is not None
+        assert "Money has been spent" in reason

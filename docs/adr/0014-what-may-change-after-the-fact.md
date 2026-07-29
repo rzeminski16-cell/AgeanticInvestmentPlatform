@@ -29,22 +29,51 @@ to lock timeout`.
 
 ## Decision
 
-### The line is: a run exists, or it does not
+### The line is: what a run left behind
 
-A research request may be edited or deleted **only** while it is a `DRAFT` with no job.
-Both checks live in one function, `aer.services.requests.immutable_reason`, which returns
-the sentence explaining the refusal rather than a boolean — the API puts it in the problem
-detail and the detail page puts it where the buttons would be.
+A research request may be edited or deleted until a run has produced something durable.
+The check lives in `aer.services.requests.immutable_reason`, which returns the sentence
+explaining the refusal rather than a boolean — the API puts it in the problem detail and
+the detail page puts it where the buttons would be. Five things freeze it, each named
+explicitly in the message:
 
-The job check is the load-bearing one. Starting a run leaves the request in `DRAFT` today,
-so the status check alone would not catch it; the status check is there for the day
-something else moves a request out of `DRAFT`.
+| Condition | Why it freezes the request |
+|---|---|
+| A run that is not terminal | A worker may be reading these values right now |
+| A report exists | The report cites the terms it was researched under |
+| A source document exists | The as-of date and point-in-time rule are what admitted it |
+| A cost exists | Deleting would erase spend; editing means it was made against other terms |
+| An approval exists | A decision would end up attached to something you never saw |
+
+**This is a correction.** The first version froze a request as soon as a `jobs` row
+existed, using that as a proxy for "research happened". The proxy is wrong at exactly the
+boundary that matters, and using the feature found it within the hour: cancel a run and the
+request became permanently uneditable and undeletable, while `start_run` returned the dead
+job so it could not be re-run either. A request you can neither run, fix nor throw away.
+
+A job that gathered nothing, cited nothing and spent nothing leaves nothing an edit could
+falsify. The invariant was never "a job existed" — it was "nothing that was researched can
+be rewritten", and the conditions above are that invariant stated directly instead of
+approximated.
 
 Editing is a **whole-payload replace**, validated by exactly the code that validates a
 creation. A partial update would need a rule for what an absent field means, and "leave it"
 and "clear it" are both defensible — which is precisely why neither should be guessed. A
 rule enforced only at creation is a rule anyone can get around by creating something valid
 and then editing it.
+
+### One *report* per request, not one job
+
+`start_run` returns the existing job for a run that is live or that produced a report, and
+creates a new one when the newest job is terminal with no report. The Phase 1 rule was
+always about reports — a second run of a request that already produced one needs a story
+about which report is current, and there still is not one. A cancelled or failed run
+produced no report, so there is nothing to choose between.
+
+Superseding creates a **new** job rather than resurrecting the old one, for two reasons
+that are both fatal to reuse: the row says it finished, with a time, and rewriting that
+would contradict the audit record; and a cancelled job still carries its row in
+`job_cancellations`, so the engine would stop it again on its first step.
 
 ### Deleting refuses rather than cascading
 
@@ -98,12 +127,22 @@ answer.
 
 **Costs, accepted.**
 
-- "Fix a typo in a request that has already run" is not supported. The answer is a new
-  request. That is the right answer, and it will still occasionally be annoying.
+- "Fix a typo in a request that has already produced something" is not supported. The
+  answer is a new request. That is the right answer, and it will still occasionally be
+  annoying.
 - Cancellation costs one extra `SELECT` per step. Steps take seconds to minutes; this is
   not measurable.
 - A run cancelled mid-step still pays for that step. Refunding it is not possible and
-  pretending otherwise would misreport the spend.
+  pretending otherwise would misreport the spend. In practice this is the common case: the
+  planner usually runs before anyone presses stop, so a cancelled request is usually frozen
+  by its *spend* rather than freed by having gathered nothing.
+- `immutable_reason` issues up to five queries where it used to issue one. They are indexed
+  lookups on a page an operator opens a handful of times a day, and the first is skipped
+  entirely when no job exists — which is the common case for a draft.
+- Two clicks on "Start a new run" in the same instant can create two jobs, where the old
+  return-the-existing behaviour was idempotent. The window is one round trip and the second
+  click sees a queued job, so it closes itself; a unique constraint would be the fix if it
+  ever stops being theoretical.
 
 **Deliberately not built.**
 
