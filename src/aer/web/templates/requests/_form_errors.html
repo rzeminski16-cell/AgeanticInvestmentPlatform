@@ -46,7 +46,7 @@
     id="error-summary"
   >
     <h2 class="text-sm font-semibold text-rose-900 dark:text-rose-100">
-      This request was not created
+      {{ error_summary_heading | default("This request was not created", true) }}
       {% set total = errors.values() | map('length') | sum %}
       ({{ total }} problem{{ '' if total == 1 else 's' }})
     </h2>

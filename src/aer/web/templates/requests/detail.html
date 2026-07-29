@@ -129,6 +129,54 @@
     </dl>
   </section>
 
+  <section class="mt-8 border-t border-slate-200 pt-6 dark:border-slate-800">
+    {% if immutable_reason %}
+      {#
+        No edit, no delete, and the reason in place of the buttons. Rendering them disabled
+        would be worse: a greyed-out button invites the operator to hunt for the condition
+        that re-enables it, and there isn't one.
+      #}
+      <p class="max-w-3xl text-sm text-slate-600 dark:text-slate-400" id="immutable-reason">
+        {{ immutable_reason }}
+      </p>
+    {% else %}
+      <div class="flex flex-wrap items-center gap-4">
+        <a
+          href="/requests/{{ item.id }}/edit"
+          class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          id="edit-request"
+        >
+          Edit this request
+        </a>
+        {#
+          A POST, because deleting destroys something, and confirmed in the browser because
+          unlike cancelling a run this cannot be undone by starting again. The confirmation
+          is an enhancement, not the guard: the service refuses a delete that would take
+          evidence with it whether or not any dialogue appeared.
+        #}
+        <form
+          method="post"
+          action="/requests/{{ item.id }}/delete"
+          id="delete-request-form"
+          onsubmit="return confirm('Delete this draft request? This cannot be undone.');"
+        >
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+          <button
+            type="submit"
+            id="delete-request"
+            class="rounded-md border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-800 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/40"
+          >
+            Delete
+          </button>
+        </form>
+      </div>
+      <p class="mt-3 max-w-3xl text-xs text-slate-500">
+        Nothing has been fetched or spent against this request, so it can still be changed
+        or removed. Both stop being possible once a run starts.
+      </p>
+    {% endif %}
+  </section>
+
   <div class="mt-8 flex gap-4 border-t border-slate-200 pt-6 dark:border-slate-800">
     <a href="/requests" class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400">
       All requests

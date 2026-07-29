@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{#
+  Shown when an edit or a delete is refused because the request is no longer a draft.
+
+  A page rather than a bare 409, because the operator almost certainly got here from a
+  stale tab or a bookmark and the useful information is *why* — that this request is now
+  the record of something that happened — not that a route said no.
+#}
+
+{% block title %}Cannot be {{ verb }} &middot; {{ item.ticker }}{% endblock %}
+
+{% block content %}
+  <h1 class="text-2xl font-semibold tracking-tight">
+    This request cannot be {{ verb }}
+  </h1>
+
+  <div
+    class="mt-4 max-w-3xl rounded-md border border-amber-400 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
+    role="alert"
+    id="immutable-reason"
+  >
+    <p class="text-sm text-amber-900 dark:text-amber-100">{{ reason }}</p>
+  </div>
+
+  <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">
+    <span class="font-mono">{{ item.ticker }}</span> &mdash; {{ item.company_name }},
+    as at {{ item.as_of_date.isoformat() }}.
+  </p>
+
+  <div class="mt-6 flex flex-wrap gap-4">
+    <a
+      href="/requests/{{ item.id }}"
+      class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+    >
+      Back to the request
+    </a>
+    <a href="/requests" class="self-center text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400">
+      All requests
+    </a>
+    <a href="/requests/new" class="self-center text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400">
+      New request
+    </a>
+  </div>
+{% endblock %}

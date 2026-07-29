@@ -32,16 +32,18 @@ from starlette.status import (
     HTTP_303_SEE_OTHER,
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
+    HTTP_409_CONFLICT,
     HTTP_422_UNPROCESSABLE_CONTENT,
 )
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
 from aer.core.enums import Decision, GateKind, JobStatus
 from aer.db.models import Company, Job, Report, ResearchPlan, ResearchRequest
-from aer.errors import ValidationError
+from aer.errors import ConflictError, ValidationError
 from aer.queue import enqueue_run
 from aer.render.markdown import render_markdown
 from aer.services import approvals as approval_service
+from aer.services import cancellation as cancellation_service
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
@@ -120,6 +122,7 @@ async def run_console(
     research_request = await session.get(ResearchRequest, job.request_id)
     report = await session.scalar(select(Report).where(Report.job_id == job_id))
     pending = await approval_service.pending_gate(session, job)
+    cancellation = await cancellation_service.cancellation_for(session, job_id=job_id)
 
     token = new_csrf_token(settings)
     response: Response = render(
@@ -128,6 +131,8 @@ async def run_console(
         {
             "job": job,
             "research_request": research_request,
+            "cancellation": cancellation,
+            "can_cancel": job.status not in cancellation_service.TERMINAL_STATUSES,
             "state": state.as_dict(),
             "steps": state.steps,
             "spend_gbp": state.spend_gbp,
@@ -143,6 +148,47 @@ async def run_console(
     )
     set_csrf_cookie(response, token)
     return response
+
+
+@router.post("/runs/{job_id}/cancel", summary="Ask a run to stop")
+async def cancel_run_page(
+    request: Request,
+    job_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Record a request to stop, then return to the console.
+
+    The run does not stop here. It stops at its next step boundary, which the console will
+    show — a page that reported the run as stopped the moment the button was pressed would
+    be wrong for as long as the current step took.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
+
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was cancelled.",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        await cancellation_service.request_cancellation(
+            session, job=job, actor=user, reason=(submitted.get("reason") or None)
+        )
+    except ConflictError as exc:
+        # The run finished between the page rendering and the button being pressed. Nothing
+        # went wrong; there is simply nothing left to stop, and the page says so.
+        return _problem(request, exc.message, status=HTTP_409_CONFLICT)
+
+    await session.commit()
+    return RedirectResponse(f"/runs/{job_id}", status_code=HTTP_303_SEE_OTHER)
 
 
 @router.get("/runs/{job_id}/plan", response_class=HTMLResponse, summary="Review the plan")

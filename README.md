@@ -537,6 +537,29 @@ incomplete step — the planner is not asked twice, the filing is not fetched tw
 a step that already succeeded returns its stored output instead of executing. There is a
 test that kills a run after acquisition and asserts the fetch count does not change.
 
+### What may change after the fact
+
+**A request is editable and deletable until a run exists, and frozen from that moment.**
+Before a job it is a note to itself and correcting a mistyped ticker costs nothing; after
+one it is what a plan was approved against and what evidence was gathered under, so editing
+it would not correct the record but falsify it. Editing is a whole-payload replace through
+the same validation a creation goes through, so a rule cannot be dodged by creating
+something valid and then editing it. Deleting anything with a run behind it is refused
+outright — `research_requests` cascades to jobs, plans, sources and reports, and no code
+path in the platform can take evidence with it.
+
+**A run can be cancelled, but not interrupted.** Cancelling records a request in
+`job_cancellations`; the engine reads it before each step and stops. A step already in
+flight — a model call, a filing being fetched — runs to completion, because abandoning it
+would throw away work already paid for while recording a stop time that never happened. The
+console shows both moments: when you asked, and when it actually stopped.
+
+The separate table is not tidiness. `runs.execute` sets `jobs.status = RUNNING` and the
+worker commits once, at the end, so Postgres holds that row's lock for the run's whole
+lifetime; a cancel that wrote to `jobs` would block for exactly as long as cancelling
+remained useful. That was measured with two `psql` sessions before the design was chosen.
+See `docs/adr/0014-what-may-change-after-the-fact.md`.
+
 ## Testing
 
 ```bash

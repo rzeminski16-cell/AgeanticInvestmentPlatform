@@ -18,6 +18,7 @@ from aer.db.models.company import Company
 from aer.db.models.cost import Cost
 from aer.db.models.financial_fact import FinancialFact
 from aer.db.models.job import Job
+from aer.db.models.job_cancellation import JobCancellation
 from aer.db.models.job_step import JobStep
 from aer.db.models.plan import ResearchPlan
 from aer.db.models.prompt import Prompt
@@ -39,6 +40,7 @@ __all__ = [
     "Cost",
     "FinancialFact",
     "Job",
+    "JobCancellation",
     "JobStep",
     "Prompt",
     "Report",

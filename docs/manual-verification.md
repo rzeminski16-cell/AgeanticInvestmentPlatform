@@ -1156,14 +1156,130 @@ JSONB does, and it means the column type has regressed to `jsonb`.
 
 ---
 
+## 13. Correcting or removing a draft request
+
+A request you have not run yet is a note to itself, and mistyping a ticker should cost you
+nothing. The moment a run exists it stops being a note and becomes the record of what was
+researched — so editing it would not correct anything, it would falsify it. That line is
+the whole feature, and this section checks the platform actually holds it.
+
+### While it is still a draft
+
+- [ ] Create a request. On its detail page there are **Edit this request** and **Delete**
+      buttons.
+- [ ] Click **Edit this request**. Every field is **prefilled with what you saved** — not
+      blank, and not defaults. Check the portfolio weight in particular: if you entered
+      `2.5%` the box must read `2.5`, not `0.025`. Rendering the stored fraction into a box
+      labelled "%" would divide your weight by a hundred every time you pressed save.
+- [ ] Change the company name and save. You land back on the detail page showing the new
+      name.
+- [ ] Edit again and submit something invalid — an as-of date in the future, say. The page
+      is refused, says **"This request was not saved"**, and **everything else you typed is
+      still in the boxes**.
+- [ ] Confirm the same rules apply as at creation: try `TSX` as the exchange, or a cost
+      above your per-run budget. Both must be refused. A rule that only creation enforces
+      is a rule anyone can get around by creating a valid request and then editing it.
+- [ ] Delete a draft you do not want. You are asked to confirm, then returned to
+      `/requests`, and it is gone from the list.
+
+### Once a run exists
+
+- [ ] Start a run on a request, then go back to `/requests/<id>`.
+- [ ] The **Edit** and **Delete** buttons are **gone**, replaced by a sentence explaining
+      why. **Wrong:** greyed-out buttons — there is no condition that re-enables them, and
+      a disabled button invites you to hunt for one.
+- [ ] Navigate directly to `/requests/<id>/edit`. You get a **409** page that says the
+      request is now the record of something that happened, not a blank form and not a
+      bare error code.
+- [ ] Try the API: `curl -i -X DELETE http://127.0.0.1:8000/api/requests/<id>`. **409**,
+      with `"code": "conflict"`. Not 422 — the body was never the problem, and resubmitting
+      it would not help.
+- [ ] Confirm the request is still there afterwards. `research_requests` cascades to jobs,
+      plans, sources and reports, so a delete allowed here would take the evidence with it.
+
+### The audit trail
+
+```sql
+SELECT event_type, payload FROM audit_events
+WHERE event_type IN ('request.edited', 'request.deleted')
+ORDER BY id DESC LIMIT 5;
+```
+
+- [ ] The edit entry carries a `changes` object with **before and after** for each field
+      you changed, and nothing for the fields you did not.
+- [ ] Money in that payload is a **string** — `"2.00"`, not `2.0`. JSON has no decimal
+      type, and a cost ceiling that comes back as `1.4999999999999998` is worse than
+      useless.
+- [ ] The delete entry is still there after the row is gone, and names the ticker.
+      `audit_events.request_id` is deliberately not a foreign key, so the record outlives
+      the thing it describes.
+
+---
+
+## 14. Cancelling a run
+
+Cancelling is a **request**, not an act. The worker is inside a step — an HTTP fetch, a
+model call — and neither can be interrupted from another process without abandoning work
+already paid for. So the button records the request and the run stops at its next step
+boundary. That is the finest granularity that can be reported honestly, and the console
+says so rather than pretending the run stopped the instant you clicked.
+
+- [ ] Start a run. While it is going, the console shows a **Cancel this run** button and an
+      optional reason box.
+- [ ] Type a reason — "wrong as-of date" — and press it. You return to the console, which
+      now shows a **Stopping** panel with your reason and the time you asked.
+- [ ] The cancel button is **gone**. Asking twice is idempotent, but a button that stays
+      offered invites a second click that does nothing visible.
+- [ ] Watch the worker log. You should see `workflow.cancelled` with a `before_step`
+      naming the step it stopped *before* — and the step that was already running should
+      have logged `workflow.step_completed` first. **Wrong:** a step abandoned halfway.
+- [ ] Reload the console. The status reads `CANCELLED` and there is no auto-refresh.
+- [ ] Press cancel on a run that has already finished — or `curl -i -X POST
+      http://127.0.0.1:8000/api/runs/<id>/cancel` against a succeeded run. **409**. Not
+      because the write would fail, but because recording it would put something in the
+      audit trail that did not happen.
+
+```sql
+SELECT j.status, c.requested_at, j.finished_at, c.reason
+FROM job_cancellations c JOIN jobs j ON j.id = c.job_id
+ORDER BY c.requested_at DESC LIMIT 5;
+```
+
+- [ ] `requested_at` is **earlier** than `finished_at`. The gap is how long the step in
+      flight took to finish, and both times are kept precisely because they differ.
+
+```sql
+SELECT payload FROM audit_events
+WHERE event_type = 'run.cancellation_requested' ORDER BY id DESC LIMIT 1;
+```
+
+- [ ] The payload records `status_when_requested`. Reconstructing what the run was doing
+      from timestamps alone is guesswork.
+
+### Why a separate table, if you are wondering
+
+The worker sets `jobs.status = RUNNING` and commits only when the whole run ends, so it
+holds that row's lock for the run's entire lifetime. A cancel that wrote to `jobs` would
+wait for exactly as long as cancelling remained useful. You can prove this to yourself:
+open `psql`, `BEGIN; UPDATE jobs SET status = 'CANCELLED' WHERE id = '<a running job>';`
+and watch it hang. That measurement is why `job_cancellations` exists.
+
+---
+
 ## What is not covered here, and why
 
 **Restart resilience of the queue.** arq's own persistence is not something this project
 tests; a run interrupted by a machine restart is recovered by re-enqueueing it, not
 automatically.
 
-**Retention and safe deletion.** Not built. `docs/PLAN.md` has it in Phase 2. There is
-currently no supported way to delete a report and its evidence.
+**Retention and safe deletion.** Only the safest slice of it is built: a request can be
+deleted while it is a draft with no run (section 13). Anything with evidence, costs or a
+report behind it cannot be deleted by any code path in the platform. A real retention
+policy — deleting a report *and* its artefacts, provably and with a record — is Phase 6.
+
+**Pausing a run.** Not built, deliberately. A run can be cancelled (section 14) but not
+paused and resumed on demand. `docs/PLAN.md` §2.7 lists both; pausing needs a story about
+what happens to a half-fetched evidence set, and inventing one now would be guessing.
 
 **Audit-chain verification on a schedule.** `aer.core.hashing.verify_chain` exists and is
 tested, but nothing runs it periodically yet. You can call it by hand over the

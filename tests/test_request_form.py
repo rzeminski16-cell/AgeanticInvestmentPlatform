@@ -15,6 +15,7 @@ to get wrong:
 from __future__ import annotations
 
 import re
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -24,6 +25,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from aer.api.security import CSRF_COOKIE_NAME, issue_csrf_token
 from aer.core.enums import UserRole
 from aer.db.models import ResearchRequest, User
+from aer.services import runs as run_service
 from tests.api_fixtures import build_app, client_for
 
 pytestmark = pytest.mark.integration
@@ -424,3 +426,176 @@ class TestDetailPage:
         detail = await web.get(created.headers["location"])
 
         assert "not regulated investment advice" in detail.text
+
+
+async def create_draft(client) -> str:
+    """A saved draft, returned as its detail path."""
+    token = await fresh_token(client)
+    created = await client.post(NEW, data=valid_form(csrf_token=token))
+    assert created.status_code == 303, created.text
+    return created.headers["location"]
+
+
+async def token_from(client, path: str) -> str:
+    page = await client.get(path)
+    match = _TOKEN.search(page.text)
+    assert match, f"no CSRF token on {path}"
+    return match.group(1)
+
+
+async def give_it_a_run(engine, detail_path: str) -> None:
+    """Start a run for the request at ``detail_path``, as pressing the button would."""
+    request_id = uuid.UUID(detail_path.rsplit("/", 1)[-1])
+    factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+    async with factory() as session:
+        request = await session.get(ResearchRequest, request_id)
+        assert request is not None
+        await run_service.start_run(session, request=request)
+        await session.commit()
+
+
+class TestTheEditForm:
+    async def test_the_detail_page_offers_to_edit_a_draft(self, web):
+        detail = await create_draft(web)
+        assert 'id="edit-request"' in (await web.get(detail)).text
+
+    async def test_the_form_is_prefilled_with_what_was_saved(self, web):
+        detail = await create_draft(web)
+
+        page = await web.get(f"{detail}/edit")
+
+        assert page.status_code == 200
+        assert 'value="MSFT"' in page.text
+        assert 'value="Microsoft Corporation"' in page.text
+        # The percentage the operator typed, not the fraction that was stored. A form that
+        # renders 0.025 into a box labelled "%" silently divides the weight by a hundred
+        # every time it is saved.
+        assert 'value="2.5"' in page.text
+
+    async def test_it_posts_back_to_itself(self, web):
+        detail = await create_draft(web)
+        page = await web.get(f"{detail}/edit")
+
+        # Not to /requests/new. A rejected edit re-rendered as the create form would make
+        # the next submission create a second request instead of fixing the first.
+        assert f'action="{detail}/edit"' in page.text
+
+    async def test_saving_a_change_updates_the_request(self, web):
+        detail = await create_draft(web)
+        token = await token_from(web, f"{detail}/edit")
+
+        response = await web.post(
+            f"{detail}/edit",
+            data=valid_form(csrf_token=token, company_name="Microsoft Corp."),
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == detail
+        assert "Microsoft Corp." in (await web.get(detail)).text
+
+    async def test_a_rejected_edit_keeps_the_operators_input(self, web, db_engine):
+        detail = await create_draft(web)
+        token = await token_from(web, f"{detail}/edit")
+
+        response = await web.post(
+            f"{detail}/edit",
+            data=valid_form(csrf_token=token, exchange="TSX", horizon_label="Kept, please"),
+        )
+
+        assert response.status_code == 422
+        assert "Kept, please" in response.text
+        # "not saved", not "not created". The operator is editing something that exists.
+        assert "not saved" in response.text
+        assert "Kept, please" not in (await web.get(detail)).text
+
+    async def test_a_submission_without_a_csrf_token_changes_nothing(self, web, db_engine):
+        detail = await create_draft(web)
+
+        response = await web.post(f"{detail}/edit", data=valid_form(company_name="Hijacked Ltd"))
+
+        assert response.status_code == 403
+        assert "Hijacked Ltd" not in (await web.get(detail)).text
+
+    async def test_the_form_is_refused_once_a_run_exists(self, web, db_engine):
+        detail = await create_draft(web)
+        await give_it_a_run(db_engine, detail)
+
+        page = await web.get(f"{detail}/edit")
+
+        assert page.status_code == 409
+        # The reason, not a bare status. The operator almost certainly followed a stale tab.
+        assert "no longer be changed" in page.text
+
+    async def test_the_detail_page_explains_why_editing_stopped(self, web, db_engine):
+        detail = await create_draft(web)
+        await give_it_a_run(db_engine, detail)
+
+        page = await web.get(detail)
+
+        assert 'id="edit-request"' not in page.text
+        assert 'id="immutable-reason"' in page.text
+
+    async def test_saving_after_a_run_started_is_refused(self, web, db_engine):
+        # The race the guard exists for: the form was loaded while the request was a draft
+        # and submitted after a run began.
+        detail = await create_draft(web)
+        token = await token_from(web, f"{detail}/edit")
+        await give_it_a_run(db_engine, detail)
+
+        response = await web.post(
+            f"{detail}/edit", data=valid_form(csrf_token=token, ticker="AAPL")
+        )
+
+        assert response.status_code == 409
+        assert "AAPL" not in (await web.get(detail)).text
+
+
+class TestDeletingADraft:
+    async def test_the_detail_page_offers_to_delete_a_draft(self, web):
+        detail = await create_draft(web)
+        assert 'id="delete-request"' in (await web.get(detail)).text
+
+    async def test_deleting_removes_it_and_returns_to_the_list(self, web, db_engine):
+        detail = await create_draft(web)
+        token = await token_from(web, detail)
+
+        response = await web.post(
+            f"{detail}/delete", data={"csrf_token": token}, follow_redirects=False
+        )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/requests"
+        assert (await web.get(detail)).status_code == 404
+        assert await count_requests(db_engine) == 0
+
+    async def test_a_delete_without_a_csrf_token_deletes_nothing(self, web, db_engine):
+        detail = await create_draft(web)
+
+        response = await web.post(f"{detail}/delete")
+
+        assert response.status_code == 403
+        assert await count_requests(db_engine) == 1
+
+    async def test_a_get_cannot_delete(self, web, db_engine):
+        # A destructive GET is reachable by a prefetch, a link checker or an image tag.
+        detail = await create_draft(web)
+
+        assert (await web.get(f"{detail}/delete")).status_code == 405
+        assert await count_requests(db_engine) == 1
+
+    async def test_deleting_is_refused_once_a_run_exists(self, web, db_engine):
+        detail = await create_draft(web)
+        token = await token_from(web, detail)
+        await give_it_a_run(db_engine, detail)
+
+        response = await web.post(f"{detail}/delete", data={"csrf_token": token})
+
+        assert response.status_code == 409
+        assert await count_requests(db_engine) == 1
+
+    async def test_the_button_is_gone_once_a_run_exists(self, web, db_engine):
+        detail = await create_draft(web)
+        await give_it_a_run(db_engine, detail)
+
+        assert 'id="delete-request"' not in (await web.get(detail)).text

@@ -33,15 +33,19 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
 
 from pydantic import ValidationError as PydanticValidationError
 
 from aer.core.schemas.request import FieldProblem, ResearchRequestCreate
 
+if TYPE_CHECKING:
+    from aer.db.models import ResearchRequest
+
 __all__ = [
     "FORM_FIELDS",
     "ParsedForm",
+    "form_values_from",
     "fraction_to_percent",
     "parse_request_form",
     "percent_to_fraction",
@@ -135,7 +139,10 @@ def fraction_to_percent(value: Decimal | None) -> str:
     if value is None:
         return ""
     # normalize() strips trailing zeros so 0.0250 renders as "2.5" rather than "2.500".
-    return str((value * _HUNDRED).normalize())
+    # The ":f" is not decoration: normalize() turns a whole hundred into Decimal("1E+2"),
+    # and "1E+2" in a number input is a value the browser will not accept and the operator
+    # cannot read. Fixed-point formatting is the only way back to "100".
+    return f"{(value * _HUNDRED).normalize():f}"
 
 
 def _lines(raw: str) -> list[str]:
@@ -209,6 +216,64 @@ def parse_request_form(form: dict[str, str]) -> ParsedForm:
             )
             errors.setdefault(form_field, []).append(_readable(detail))
         return ParsedForm(payload=None, errors=errors, values=values)
+
+
+def form_values_from(request: ResearchRequest) -> dict[str, str]:
+    """Render a stored request back into the flat strings the form template reads.
+
+    The exact inverse of :func:`parse_request_form`, and it has to stay that way: a value
+    this function renders differently from the way the parser reads it produces an edit
+    form that changes a field nobody touched. The round trip is asserted in the tests
+    rather than left to inspection.
+
+    Every value is a string, including the ones that are not text. That is what an HTML
+    form is, and converting here rather than in the template keeps the "" that means
+    "unset" in one place instead of scattered through Jinja conditionals.
+    """
+    portfolio = request.portfolio_context or {}
+    return {
+        "company_name": request.company_name,
+        "ticker": request.ticker,
+        "exchange": request.exchange,
+        "isin": request.isin or "",
+        "as_of_date": request.as_of_date.isoformat(),
+        "base_currency": request.base_currency,
+        "reporting_currency": request.reporting_currency or "",
+        "investment_horizon_months": str(request.investment_horizon_months),
+        "horizon_label": request.horizon_label or "",
+        "analysis_mode": request.analysis_mode.value,
+        # An unchecked checkbox submits nothing at all, so "" is the only honest
+        # representation of false here -- the parser reads presence, not a value.
+        "point_in_time": "true" if request.point_in_time else "",
+        "current_weight_percent": fraction_to_percent(_weight(portfolio.get("current_weight"))),
+        "maximum_weight_percent": fraction_to_percent(_weight(portfolio.get("maximum_weight"))),
+        "benchmark": str(portfolio.get("benchmark") or ""),
+        "risk_tolerance": request.risk_tolerance or "",
+        "liquidity_constraint_gbp": _plain(request.liquidity_constraint_gbp),
+        "esg_sensitivity": request.esg_sensitivity or "",
+        "focus_questions": "\n".join(request.focus_questions or ()),
+        "excluded_sources": "\n".join(request.excluded_sources or ()),
+        "max_cost_gbp": _plain(request.max_cost_gbp),
+    }
+
+
+def _weight(raw: Any) -> Decimal | None:
+    """Read a portfolio weight back out of JSONB.
+
+    Stored as a JSON *string* by ``model_dump(mode="json")`` precisely so no float is ever
+    involved. ``str()`` before ``Decimal()`` covers the case where something else wrote a
+    number, which would otherwise raise here rather than in whatever wrote it.
+    """
+    if raw is None:
+        return None
+    try:
+        return Decimal(str(raw))
+    except InvalidOperation:
+        return None
+
+
+def _plain(value: Decimal | None) -> str:
+    return "" if value is None else str(value)
 
 
 def _readable(detail: Mapping[str, Any]) -> str:

@@ -33,7 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import JobStatus
 from aer.core.hashing import canonical_json, sha256_hex
-from aer.db.models import Cost, Job, JobStep
+from aer.db.models import Cost, Job, JobCancellation, JobStep
 from aer.errors import AerError, BudgetExceededError
 
 __all__ = [
@@ -231,6 +231,14 @@ class WorkflowEngine:
         outputs: dict[str, dict[str, Any]] = {}
 
         for sequence, step in enumerate(self._steps):
+            # Checked before each step, which is the finest granularity honestly available:
+            # a model call or an HTTP fetch already in flight cannot be interrupted, and
+            # pretending otherwise would mean reporting a run as stopped while it was still
+            # spending. See `aer.services.cancellation`.
+            if await self._cancelled(session, job=job):
+                await self._cancel(session, job=job, before_step=step.key)
+                break
+
             existing = await self._completed(session, job=job, step=step)
             if existing is not None:
                 outputs[step.key] = existing.output_ref or {}
@@ -251,6 +259,27 @@ class WorkflowEngine:
         return outputs
 
     # -- Internals -------------------------------------------------------------------------
+
+    async def _cancelled(self, session: AsyncSession, *, job: Job) -> bool:
+        """Whether somebody has asked for this run to stop.
+
+        A fresh query every step rather than a value read once: the whole point is to see a
+        decision made by *another process* while this one was working. Postgres reads
+        committed data per statement, so this sees the request as soon as the web process
+        commits it — which is why the request is a row of its own and not a column on
+        ``jobs``, whose lock this transaction is holding.
+        """
+        found = await session.scalar(
+            select(JobCancellation.id).where(JobCancellation.job_id == job.id)
+        )
+        return found is not None
+
+    async def _cancel(self, session: AsyncSession, *, job: Job, before_step: str) -> None:
+        """Record the run as cancelled, naming where it stopped."""
+        job.status = JobStatus.CANCELLED
+        job.finished_at = datetime.now(UTC)
+        await session.flush()
+        _log.info("workflow.cancelled", job_id=str(job.id), before_step=before_step)
 
     async def _completed(
         self, session: AsyncSession, *, job: Job, step: WorkflowStep

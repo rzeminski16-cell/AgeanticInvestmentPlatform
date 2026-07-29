@@ -109,6 +109,31 @@
       </section>
     {% endif %}
 
+    {% if cancellation %}
+      <section
+        class="mt-6 rounded-md border border-slate-300 bg-slate-100 p-4 dark:border-slate-700 dark:bg-slate-800"
+        role="status"
+        id="cancellation-requested"
+      >
+        <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-200">
+          {% if is_terminal %}Cancelled{% else %}Stopping{% endif %}
+        </h2>
+        <p class="mt-1 text-sm text-slate-700 dark:text-slate-300">
+          Cancellation requested at
+          {{ cancellation.requested_at.strftime("%H:%M:%S on %d %B %Y") }}.
+          {% if not is_terminal %}
+            The run stops at the end of the step it is in &mdash; a filing already being
+            fetched, or a model call already made, is not abandoned halfway.
+          {% endif %}
+        </p>
+        {% if cancellation.reason %}
+          <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            Reason: {{ cancellation.reason }}
+          </p>
+        {% endif %}
+      </section>
+    {% endif %}
+
     {% if report_id %}
       <section class="mt-6">
         <a
@@ -119,6 +144,35 @@
           View the report
         </a>
       </section>
+    {% endif %}
+
+    {% if can_cancel and not cancellation %}
+      {# A POST, because stopping a run changes something. No confirmation dialogue: the
+         worst case is a run you start again, and a modal that has to be dismissed to stop
+         spending money is a modal in the wrong place. #}
+      <form method="post" action="/runs/{{ job.id }}/cancel" class="mt-6" id="cancel-form">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        <label for="cancel-reason" class="block text-xs font-medium text-slate-600 dark:text-slate-400">
+          Why? (optional, recorded in the audit trail)
+        </label>
+        <div class="mt-1 flex flex-wrap items-center gap-3">
+          <input
+            type="text"
+            id="cancel-reason"
+            name="reason"
+            maxlength="4000"
+            placeholder="Wrong as-of date"
+            class="w-64 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
+          />
+          <button
+            type="submit"
+            id="cancel-run"
+            class="rounded-md border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-800 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/40"
+          >
+            Cancel this run
+          </button>
+        </div>
+      </form>
     {% endif %}
 
     <section class="mt-8">

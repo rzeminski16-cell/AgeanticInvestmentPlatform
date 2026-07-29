@@ -25,7 +25,15 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from aer.api.sse import event_stream
 from aer.config import Settings
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
-from aer.db.models import Approval, Job, JobStep, Report, ResearchRequest, User
+from aer.db.models import (
+    Approval,
+    Job,
+    JobCancellation,
+    JobStep,
+    Report,
+    ResearchRequest,
+    User,
+)
 from aer.providers.fake import FakeProvider
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
@@ -357,61 +365,166 @@ class TestTheReportApi:
         assert (await api.get(f"/api/reports/{uuid.uuid4()}")).status_code == 404
 
 
+@pytest.fixture
+async def someone_elses_run(committed: dict, db_engine: Any) -> uuid.UUID:
+    """A second user with their own request and run.
+
+    Created *after* the fixture user, so ``get_current_user`` — which returns the oldest —
+    still resolves to the first. That is what makes the calls below act as the wrong
+    operator.
+    """
+    factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+    async with factory() as session:
+        other = User(email="other@example.invalid", display_name="Other", role=UserRole.OWNER)
+        session.add(other)
+        await session.flush()
+
+        request = ResearchRequest(
+            user_id=other.id,
+            company_name="Rio Tinto plc",
+            ticker="RIO",
+            exchange="LSE",
+            as_of_date=AS_OF_DATE,
+            base_currency="GBP",
+            reporting_currency="GBP",
+            investment_horizon_months=12,
+            max_cost_gbp="1.00",
+        )
+        session.add(request)
+        await session.flush()
+
+        job = await run_service.start_run(session, request=request)
+        await session.commit()
+        return job.id
+
+
+class TestCancellingARun:
+    """The surface of the cancel feature. The behaviour is in ``test_cancellation.py``."""
+
+    async def test_cancelling_returns_202_and_records_the_request(
+        self, api: Any, committed: dict, db_session: Any
+    ) -> None:
+        body = await start(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+
+        # 202, not 200: the run has been *asked* to stop and will do so at the next step
+        # boundary. Anything else would claim the run had already stopped.
+        response = await api.post(f"/api/runs/{job_id}/cancel", json={"reason": "wrong date"})
+        assert response.status_code == 202
+
+        found = await db_session.scalar(
+            select(JobCancellation).where(JobCancellation.job_id == job_id)
+        )
+        assert found is not None
+        assert found.reason == "wrong date"
+
+    async def test_a_reason_is_optional(self, api: Any, committed: dict) -> None:
+        body = await start(api, committed["request"].id)
+        assert (await api.post(f"/api/runs/{body['job_id']}/cancel")).status_code == 202
+
+    async def test_cancelling_a_finished_run_is_a_409(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        body = await start(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            assert job is not None
+            job.status = JobStatus.SUCCEEDED
+            await session.commit()
+
+        response = await api.post(f"/api/runs/{job_id}/cancel")
+
+        assert response.status_code == 409
+        assert response.json()["code"] == "conflict"
+
+    async def test_cancelling_another_users_run_is_a_404(
+        self, api: Any, someone_elses_run: uuid.UUID
+    ) -> None:
+        assert (await api.post(f"/api/runs/{someone_elses_run}/cancel")).status_code == 404
+
+    async def test_the_console_offers_a_cancel_button_while_the_run_is_live(
+        self, api: Any, committed: dict
+    ) -> None:
+        body = await start(api, committed["request"].id)
+
+        page = await api.get(f"/runs/{body['job_id']}")
+        assert 'id="cancel-run"' in page.text
+
+    async def test_the_console_stops_offering_it_once_asked(
+        self, api: Any, committed: dict
+    ) -> None:
+        body = await start(api, committed["request"].id)
+        await api.post(f"/api/runs/{body['job_id']}/cancel", json={"reason": "wrong date"})
+
+        page = await api.get(f"/runs/{body['job_id']}")
+        assert 'id="cancel-run"' not in page.text
+        assert 'id="cancellation-requested"' in page.text
+        # The reason is shown back, so "why did this stop?" is answerable from the page the
+        # operator is already looking at.
+        assert "wrong date" in page.text
+
+    async def test_the_form_post_cancels_and_redirects_to_the_console(
+        self, api: Any, committed: dict, db_session: Any
+    ) -> None:
+        body = await start(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+        page = await api.get(f"/runs/{job_id}")
+
+        response = await api.post(
+            f"/runs/{job_id}/cancel",
+            data={CSRF_FIELD_NAME: _hidden_value(page.text, CSRF_FIELD_NAME), "reason": "typo"},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == f"/runs/{job_id}"
+        found = await db_session.scalar(
+            select(JobCancellation).where(JobCancellation.job_id == job_id)
+        )
+        assert found is not None
+
+    async def test_a_form_post_without_a_csrf_token_cancels_nothing(
+        self, api: Any, committed: dict, db_session: Any
+    ) -> None:
+        # This application runs on loopback with no authentication, so any page in any tab
+        # can POST to it. An unprotected cancel means a page merely visited can stop a run.
+        body = await start(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+
+        response = await api.post(f"/runs/{job_id}/cancel", data={"reason": "not mine to give"})
+
+        assert response.status_code == 403
+        found = await db_session.scalar(
+            select(JobCancellation).where(JobCancellation.job_id == job_id)
+        )
+        assert found is None
+
+
 class TestOwnership:
     """One operator's run must not be readable by another."""
 
-    @pytest.fixture
-    async def someone_elses(self, committed: dict, db_engine: Any) -> uuid.UUID:
-        """A second user with their own request and run.
-
-        Created *after* the fixture user, so ``get_current_user`` — which returns the
-        oldest — still resolves to the first. That is what makes the API calls below act
-        as the wrong operator.
-        """
-        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
-        async with factory() as session:
-            other = User(email="other@example.invalid", display_name="Other", role=UserRole.OWNER)
-            session.add(other)
-            await session.flush()
-
-            request = ResearchRequest(
-                user_id=other.id,
-                company_name="Rio Tinto plc",
-                ticker="RIO",
-                exchange="LSE",
-                as_of_date=AS_OF_DATE,
-                base_currency="GBP",
-                reporting_currency="GBP",
-                investment_horizon_months=12,
-                max_cost_gbp="1.00",
-            )
-            session.add(request)
-            await session.flush()
-
-            job = await run_service.start_run(session, request=request)
-            await session.commit()
-            return job.id
-
     async def test_reading_another_users_run_is_a_404(
-        self, api: Any, someone_elses: uuid.UUID
+        self, api: Any, someone_elses_run: uuid.UUID
     ) -> None:
-        assert (await api.get(f"/api/runs/{someone_elses}")).status_code == 404
+        assert (await api.get(f"/api/runs/{someone_elses_run}")).status_code == 404
 
     async def test_deciding_on_another_users_gate_is_a_404(
-        self, api: Any, someone_elses: uuid.UUID
+        self, api: Any, someone_elses_run: uuid.UUID
     ) -> None:
         response = await api.post(
-            f"/api/runs/{someone_elses}/gates/{GateKind.PLAN.value}/decide",
+            f"/api/runs/{someone_elses_run}/gates/{GateKind.PLAN.value}/decide",
             json={"decision": Decision.APPROVED.value, "payload_hash": "a" * 64},
         )
         assert response.status_code == 404
 
     async def test_the_console_page_does_not_reveal_it_exists(
-        self, api: Any, someone_elses: uuid.UUID
+        self, api: Any, someone_elses_run: uuid.UUID
     ) -> None:
-        response = await api.get(f"/runs/{someone_elses}")
+        response = await api.get(f"/runs/{someone_elses_run}")
         assert response.status_code == 404
-        assert str(someone_elses) in response.text  # the id they asked for, not the run
+        assert str(someone_elses_run) in response.text  # the id they asked for, not the run
 
 
 class TestTheEventStream:

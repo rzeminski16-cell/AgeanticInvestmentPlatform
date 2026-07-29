@@ -9,6 +9,7 @@ to read it.
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -17,6 +18,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.core.enums import RequestStatus, UserRole
 from aer.db.models import AuditEvent, Job, ResearchRequest, User
+from aer.services import runs as run_service
 from tests.api_fixtures import build_app, client_for
 
 pytestmark = pytest.mark.integration
@@ -85,6 +87,20 @@ async def seeded_user(clean_slate, db_engine):
 async def api(api_settings, db_engine, fake_redis, seeded_user):
     async for client in client_for(build_app(api_settings, engine=db_engine, redis=fake_redis)):
         yield client
+
+
+async def _start_a_run(engine, request_id: str) -> None:
+    """Give a request a job, the way starting a run would.
+
+    Written directly rather than through the run API because what is being tested is the
+    consequence of a job existing, not how it came to.
+    """
+    factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+    async with factory() as session:
+        request = await session.get(ResearchRequest, uuid.UUID(request_id))
+        assert request is not None
+        await run_service.start_run(session, request=request)
+        await session.commit()
 
 
 class TestCreate:
@@ -221,6 +237,135 @@ class TestValidationIsReached:
         # silently dropped and assume the rating took effect.
         response = await api.post(ENDPOINT, json=payload(rating="BUY"))
         assert response.status_code == 422
+
+
+class TestEdit:
+    """A draft is a note to self. It stops being one the moment a run exists."""
+
+    async def test_a_draft_can_be_replaced(self, api):
+        created = (await api.post(ENDPOINT, json=payload())).json()
+
+        response = await api.put(
+            f"{ENDPOINT}/{created['id']}",
+            json=payload(ticker="AAPL", company_name="Apple Inc."),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["ticker"] == "AAPL"
+        assert (await api.get(f"{ENDPOINT}/{created['id']}")).json()["ticker"] == "AAPL"
+
+    async def test_the_same_rules_apply_as_at_creation(self, api):
+        # The edit path calls the same validator. A rule that only creation enforces is a
+        # rule anyone can get around by creating a valid request and then editing it.
+        created = (await api.post(ENDPOINT, json=payload())).json()
+
+        response = await api.put(f"{ENDPOINT}/{created['id']}", json=payload(exchange="TSX"))
+
+        assert response.status_code == 422
+        assert response.json()["context"]["problems"][0]["code"] == "unsupported_exchange"
+
+    async def test_a_rejected_edit_changes_nothing(self, api):
+        created = (await api.post(ENDPOINT, json=payload())).json()
+
+        await api.put(f"{ENDPOINT}/{created['id']}", json=payload(max_cost_gbp="999.00"))
+
+        assert (await api.get(f"{ENDPOINT}/{created['id']}")).json() == created
+
+    async def test_editing_a_request_with_a_run_is_a_409(self, api, db_engine):
+        created = (await api.post(ENDPOINT, json=payload())).json()
+        await _start_a_run(db_engine, created["id"])
+
+        response = await api.put(f"{ENDPOINT}/{created['id']}", json=payload(ticker="AAPL"))
+
+        assert response.status_code == 409
+        assert response.json()["code"] == "conflict"
+        # Not 422: the body was never the problem, so resubmitting it would not help.
+        assert (await api.get(f"{ENDPOINT}/{created['id']}")).json()["ticker"] == "MSFT"
+
+    async def test_the_edit_is_recorded_with_before_and_after(self, api, db_session):
+        created = (await api.post(ENDPOINT, json=payload())).json()
+
+        await api.put(f"{ENDPOINT}/{created['id']}", json=payload(ticker="AAPL"))
+
+        event = await db_session.scalar(
+            select(AuditEvent)
+            .where(AuditEvent.event_type == "request.edited")
+            .order_by(AuditEvent.id.desc())
+            .limit(1)
+        )
+        assert event is not None
+        # Before and after, not just the field names: the row itself only remembers the
+        # after, so a log entry saying "ticker changed" answers nothing months later.
+        assert event.payload["changes"]["ticker"] == ["MSFT", "AAPL"]
+
+    async def test_only_the_fields_that_changed_are_recorded(self, api, db_session):
+        created = (await api.post(ENDPOINT, json=payload())).json()
+
+        await api.put(f"{ENDPOINT}/{created['id']}", json=payload(max_cost_gbp="1.50"))
+
+        event = await db_session.scalar(
+            select(AuditEvent)
+            .where(AuditEvent.event_type == "request.edited")
+            .order_by(AuditEvent.id.desc())
+            .limit(1)
+        )
+        assert event is not None
+        assert list(event.payload["changes"]) == ["max_cost_gbp"]
+        # A string, never a number. JSON has no decimal type, and a cost ceiling that comes
+        # back as 1.4999999999999998 in the audit trail is worse than useless.
+        assert event.payload["changes"]["max_cost_gbp"] == ["2.00", "1.50"]
+
+    async def test_an_unknown_field_is_refused(self, api):
+        created = (await api.post(ENDPOINT, json=payload())).json()
+        response = await api.put(f"{ENDPOINT}/{created['id']}", json=payload(rating="BUY"))
+        assert response.status_code == 422
+
+    async def test_editing_an_unknown_request_is_a_404(self, api):
+        response = await api.put(f"{ENDPOINT}/00000000-0000-0000-0000-000000000000", json=payload())
+        assert response.status_code == 404
+
+
+class TestDelete:
+    async def test_a_draft_can_be_deleted(self, api):
+        created = (await api.post(ENDPOINT, json=payload())).json()
+
+        response = await api.delete(f"{ENDPOINT}/{created['id']}")
+
+        assert response.status_code == 204
+        assert (await api.get(f"{ENDPOINT}/{created['id']}")).status_code == 404
+
+    async def test_deleting_a_request_with_a_run_is_refused(self, api, db_engine, db_session):
+        # The guard, not a convenience. `research_requests` cascades to jobs, plans, sources
+        # and reports, so a delete allowed here would take the evidence with it.
+        created = (await api.post(ENDPOINT, json=payload())).json()
+        await _start_a_run(db_engine, created["id"])
+
+        response = await api.delete(f"{ENDPOINT}/{created['id']}")
+
+        assert response.status_code == 409
+        still_there = await db_session.get(ResearchRequest, uuid.UUID(created["id"]))
+        assert still_there is not None
+
+    async def test_the_deletion_outlives_the_row(self, api, db_session):
+        created = (await api.post(ENDPOINT, json=payload())).json()
+
+        await api.delete(f"{ENDPOINT}/{created['id']}")
+
+        event = await db_session.scalar(
+            select(AuditEvent)
+            .where(AuditEvent.event_type == "request.deleted")
+            .order_by(AuditEvent.id.desc())
+            .limit(1)
+        )
+        assert event is not None
+        assert event.request_id == uuid.UUID(created["id"])
+        # Enough to say what was removed. `audit_events.request_id` is deliberately not a
+        # foreign key, so the record survives the thing it describes.
+        assert event.payload["ticker"] == "MSFT"
+
+    async def test_deleting_an_unknown_request_is_a_404(self, api):
+        response = await api.delete(f"{ENDPOINT}/00000000-0000-0000-0000-000000000000")
+        assert response.status_code == 404
 
 
 class TestRead:

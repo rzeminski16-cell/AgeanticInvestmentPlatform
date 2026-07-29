@@ -133,9 +133,18 @@ class TestCommittedBuildOutput:
         # class present in a template but absent from the output means the stylesheet was
         # not rebuilt after that template changed.
         compiled = (STATIC_DIR / "css" / "app.css").read_text(encoding="utf-8")
-        for expected in ("antialiased", "max-w-5xl", "tracking-tight"):
+        # The last two are the destructive-action styling on the cancel and delete buttons.
+        # They are the newest classes in the templates, so they are the ones a stale
+        # stylesheet would be missing.
+        for expected in ("antialiased", "max-w-5xl", "tracking-tight", "border-red-300"):
             assert expected in compiled, f"{expected} missing; run `just css`"
 
     def test_every_template_is_present(self):
         for name in ("base.html", "_nav.html", "index.html"):
             assert (TEMPLATES_DIR / name).is_file()
+
+    def test_the_shared_request_form_is_present(self):
+        # `new.html` and `edit.html` both include it and neither renders without it, so a
+        # missing partial is two broken pages rather than one.
+        for name in ("_form.html", "new.html", "edit.html", "immutable.html"):
+            assert (TEMPLATES_DIR / "requests" / name).is_file()

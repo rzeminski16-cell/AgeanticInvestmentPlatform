@@ -30,6 +30,7 @@ from aer.db.models import Job, ResearchRequest, User
 from aer.errors import AerError
 from aer.queue import enqueue_run
 from aer.services import approvals as approval_service
+from aer.services import cancellation as cancellation_service
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
 from aer.workflow.workflows.vertical_slice_v1 import final_gate_payload
@@ -79,6 +80,18 @@ class RunRead(BaseModel):
     code_version: str
     spend_gbp: str
     steps: list[dict[str, Any]]
+
+
+class CancelRequest(BaseModel):
+    """Why the run is being stopped. Optional, and worth asking for.
+
+    "Cancelled at 14:02" answers nothing three months later; "wrong as-of date" answers
+    everything.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str | None = Field(default=None, max_length=4000)
 
 
 class DraftRead(BaseModel):
@@ -164,6 +177,35 @@ async def read_draft(job_id: uuid.UUID, session: DbSession, user: CurrentUser) -
         sections=list(payload["sections"]),
         payload_hash=payload_hash_for(payload),
     )
+
+
+@router.post(
+    "/{job_id}/cancel",
+    status_code=HTTP_202_ACCEPTED,
+    response_model=RunRead,
+    summary="Ask a run to stop",
+)
+async def cancel_run(
+    job_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+    payload: Annotated[CancelRequest | None, Body()] = None,
+) -> RunRead:
+    """Record a request to stop this run.
+
+    202, not 200: the run has been *asked* to stop, and will do so at the next step
+    boundary. A step already in flight — a model call, a filing being fetched — runs to
+    completion, because abandoning it would throw away work already paid for while leaving
+    the audit trail claiming the run stopped earlier than it did.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+
+    await cancellation_service.request_cancellation(
+        session, job=job, actor=user, reason=payload.reason if payload else None
+    )
+    await session.commit()
+
+    return await _read(session, job_id=job_id)
 
 
 @router.post(

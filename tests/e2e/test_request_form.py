@@ -205,3 +205,97 @@ class TestDisclaimer:
     def test_the_header_badge_is_present_too(self, page: Page, live_server: str):
         page.goto(live_server)
         expect(page.get_by_text("Not investment advice", exact=True)).to_be_visible()
+
+
+class TestEditingADraft:
+    """The edit journey, in a real browser.
+
+    The value of doing this here rather than with an HTTP client: the edit form is the
+    *same* template as the create form, rendered with different values and a different
+    action. An in-process test that POSTs a dictionary would pass against a page whose
+    inputs were never prefilled at all.
+    """
+
+    def create(self, page: Page, live_server: str, **overrides: str) -> None:
+        page.goto(f"{live_server}/requests/new")
+        fill_valid(page, **overrides)
+        page.click("#submit")
+        page.wait_for_url(DETAIL_URL)
+
+    def test_the_form_opens_prefilled_with_what_was_saved(self, page: Page, live_server: str):
+        self.create(page, live_server)
+
+        page.click("#edit-request")
+
+        expect(page.locator("#company_name")).to_have_value("Microsoft Corporation")
+        expect(page.locator("#ticker")).to_have_value("MSFT")
+        expect(page.locator("#exchange")).to_have_value("NASDAQ")
+        # The percentage as typed, not the fraction as stored. Getting this wrong divides
+        # the weight by a hundred every time the form is saved, and nothing errors.
+        expect(page.locator("#current_weight_percent")).to_have_value("2.5")
+        expect(page.locator("#point_in_time")).to_be_checked()
+
+    def test_changing_a_value_and_saving_updates_the_request(self, page: Page, live_server: str):
+        self.create(page, live_server)
+        page.click("#edit-request")
+
+        page.fill("#company_name", "Microsoft Corp.")
+        page.click("#submit")
+
+        page.wait_for_url(DETAIL_URL)
+        expect(page.locator("#company-name")).to_have_text("Microsoft Corp.")
+
+    def test_a_rejected_edit_keeps_what_was_typed(self, page: Page, live_server: str):
+        self.create(page, live_server)
+        page.click("#edit-request")
+
+        tomorrow = (datetime.now(UTC).date() + timedelta(days=1)).isoformat()
+        page.fill("#as_of_date", tomorrow)
+        page.fill("#horizon_label", "Kept, please")
+        page.click("#submit")
+
+        expect(page.locator("#error-summary")).to_be_visible()
+        expect(page.locator("#horizon_label")).to_have_value("Kept, please")
+
+    def test_the_edit_and_delete_controls_disappear_once_a_run_starts(
+        self, page: Page, live_server: str
+    ):
+        self.create(page, live_server)
+        detail = page.url
+
+        page.click("#start-run")
+        page.wait_for_url(re.compile(r"/runs/"))
+        page.goto(detail)
+
+        expect(page.locator("#edit-request")).to_have_count(0)
+        expect(page.locator("#delete-request")).to_have_count(0)
+        expect(page.locator("#immutable-reason")).to_be_visible()
+
+
+class TestDeletingADraft:
+    def test_confirming_the_dialogue_deletes_it(self, page: Page, live_server: str):
+        page.goto(f"{live_server}/requests/new")
+        fill_valid(page, company_name="Deletable Holdings plc")
+        page.click("#submit")
+        page.wait_for_url(DETAIL_URL)
+
+        page.on("dialog", lambda dialog: dialog.accept())
+        page.click("#delete-request")
+
+        page.wait_for_url(f"{live_server}/requests")
+        expect(page.get_by_role("link", name="Deletable Holdings plc")).to_have_count(0)
+
+    def test_dismissing_the_dialogue_deletes_nothing(self, page: Page, live_server: str):
+        # The confirmation is an enhancement, not the guard — but it must at least work in
+        # the direction that keeps data.
+        page.goto(f"{live_server}/requests/new")
+        fill_valid(page, company_name="Kept Holdings plc")
+        page.click("#submit")
+        page.wait_for_url(DETAIL_URL)
+        detail = page.url
+
+        page.on("dialog", lambda dialog: dialog.dismiss())
+        page.click("#delete-request")
+
+        page.goto(detail)
+        expect(page.locator("#company-name")).to_have_text("Kept Holdings plc")

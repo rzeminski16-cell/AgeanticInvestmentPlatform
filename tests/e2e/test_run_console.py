@@ -314,3 +314,59 @@ class TestGateOrdering:
 
 def _gate_path(job_id: uuid.UUID, gate: GateKind) -> str:
     return f"/runs/{job_id}/gates/{gate.value}"
+
+
+class TestCancelling:
+    """The stop button, in a real browser.
+
+    What this catches that an HTTP test cannot: that the button is inside its form, that
+    the form's CSRF input is actually rendered, and that the console the operator lands
+    back on tells them the run is stopping rather than looking unchanged.
+    """
+
+    def test_the_button_stops_the_run_and_the_console_says_so(
+        self, page: Page, live_server: str, waiting_run: RunFixture
+    ) -> None:
+        page.goto(f"{live_server}/runs/{waiting_run.job_id}")
+
+        page.fill("#cancel-reason", "Wrong as-of date")
+        page.click("#cancel-run")
+
+        page.wait_for_url(CONSOLE_URL)
+        expect(page.locator("#cancellation-requested")).to_be_visible()
+        expect(page.locator("#cancellation-requested")).to_contain_text("Wrong as-of date")
+        # Offered once. A second press would be a second row nobody could interpret.
+        expect(page.locator("#cancel-run")).to_have_count(0)
+
+    def test_the_run_stops_rather_than_continuing(
+        self, page: Page, live_server: str, waiting_run: RunFixture
+    ) -> None:
+        page.goto(f"{live_server}/runs/{waiting_run.job_id}")
+        page.click("#cancel-run")
+        page.wait_for_url(CONSOLE_URL)
+
+        # The worker's next pass. It stops at the step boundary rather than carrying on
+        # through the rest of the workflow.
+        assert waiting_run.advance() is JobStatus.CANCELLED
+
+        page.reload()
+        expect(page.locator("#run-status")).to_have_text(JobStatus.CANCELLED.value)
+
+    def test_a_finished_run_offers_no_cancel_button(
+        self, page: Page, live_server: str, waiting_run: RunFixture
+    ) -> None:
+        # Approved through the browser, the same way the other gate tests do, so the run
+        # reaches SUCCEEDED by the path an operator actually takes.
+        page.goto(f"{live_server}/runs/{waiting_run.job_id}/plan")
+        page.click("#approve")
+        page.wait_for_url(CONSOLE_URL)
+        assert waiting_run.advance() is JobStatus.AWAITING_APPROVAL
+
+        page.goto(f"{live_server}/runs/{waiting_run.job_id}/review")
+        page.click("#approve")
+        page.wait_for_url(CONSOLE_URL)
+        assert waiting_run.advance() is JobStatus.SUCCEEDED
+
+        page.goto(f"{live_server}/runs/{waiting_run.job_id}")
+
+        expect(page.locator("#cancel-run")).to_have_count(0)

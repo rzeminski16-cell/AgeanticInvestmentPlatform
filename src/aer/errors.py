@@ -17,6 +17,7 @@ __all__ = [
     "AerError",
     "BudgetExceededError",
     "ConfigError",
+    "ConflictError",
     "ExternalServiceError",
     "IntegrityError",
     "ValidationError",
@@ -74,6 +75,20 @@ class ValidationError(AerError):
 
     code: ClassVar[str] = "validation_error"
     http_status: ClassVar[int] = 422
+
+
+class ConflictError(AerError):
+    """The input is fine; the thing it addresses is in the wrong state for it.
+
+    Distinct from :class:`ValidationError`, and the distinction is worth keeping: a 422
+    tells the caller to change what they sent, and resubmitting the identical body would
+    be pointless. A 409 tells them the body was never the problem — a run had already
+    finished, a request had already been researched — and the only thing that could change
+    the answer is the state of the resource.
+    """
+
+    code: ClassVar[str] = "conflict"
+    http_status: ClassVar[int] = 409
 
 
 class ExternalServiceError(AerError):
