@@ -80,6 +80,16 @@ That is Docker Desktop's Linux engine not running. `docker` and `docker compose`
 installed correctly; there is simply nothing for them to talk to. See **0.1e** below — it
 is the single most common first-run problem and none of it is a fault in this project.
 
+Then check Compose, which is a separate tool bundled with Docker Desktop:
+
+```powershell
+docker compose version
+```
+
+**Expect:** `Docker Compose version v2.x` or higher. Note the space: `docker compose`, not
+`docker-compose`. The hyphenated form is the old standalone tool and this project does not
+use it.
+
 ### 0.1e When the engine will not start
 
 Work down the list. Re-run `docker version` after each step and stop when the `Server:`
@@ -140,14 +150,6 @@ because nothing of yours exists in Docker yet.
 
 **Do not continue to section 1 until `docker version` prints a `Server:` block.** Every
 command in that section talks to the engine, and each will fail with the same error.
-
-```powershell
-docker compose version
-```
-
-**Expect:** `Docker Compose version v2.x` or higher. Note the space: `docker compose`, not
-`docker-compose`. The hyphenated form is the old standalone tool and this project does not
-use it.
 
 ### 0.2 Git
 
