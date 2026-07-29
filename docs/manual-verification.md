@@ -522,8 +522,101 @@ uv run alembic upgrade head
 
 **Expect:** a series of `Running upgrade` lines ending at **`0006 -> 0007`**.
 
-**Wrong:** a connection error. The containers from section 1 must still be running —
-`docker compose ps` to check.
+You will also see this, and it is **not** an error:
+
+```
+WARNI [aer.config] AER_SECRET_KEY is not set; generating an ephemeral one for this
+process. CSRF tokens will stop verifying when the application restarts.
+```
+
+`.env.example` ships that value blank on purpose — a shared default signing key would be
+no key at all. Migrations do not sign anything, so it is harmless here. Set it before
+section 5, or every restart of the web server will invalidate any form you had open:
+
+```powershell
+uv run python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Paste the output into `AER_SECRET_KEY=` in `.env`.
+
+### 2a. When the migration cannot reach the database
+
+A long traceback ending in:
+
+```
+ConnectionRefusedError: [WinError 1225] The remote computer refused the network connection
+```
+
+Ignore everything above that line — it is the call stack from Alembic down through
+SQLAlchemy to the socket, and none of it is the problem. "Connection refused" means the
+address was reachable but **nothing is listening on port 5432**. PostgreSQL is not running.
+
+**1. Are the containers up?**
+
+```powershell
+docker compose ps
+```
+
+**Expect:** `aer-postgres` and `aer-redis`, both `Up ... (healthy)`.
+
+If the list is empty, you never completed section 1.2 — most likely you hit the Docker
+engine error first, fixed it, and did not go back:
+
+```powershell
+docker compose up -d
+```
+
+**2. Did Docker Desktop restart since you last started them?** The containers are set to
+`restart: unless-stopped`, so they come back on their own — but only once the engine is
+running, and only if you had started them at least once. `docker compose up -d` is safe to
+run again either way; it does nothing if they are already up.
+
+**3. Are they still starting?** `(health: starting)` means wait 15 seconds. PostgreSQL
+accepts connections a few seconds after the container reports `Started`.
+
+**4. Is it listening where the application is looking?**
+
+```powershell
+docker compose port postgres 5432
+```
+
+**Expect:** `127.0.0.1:5432`.
+
+If it prints a different port — because you changed `AER_POSTGRES_PORT` to dodge a
+conflict — then `AER_DATABASE_URL` in `.env` must use that same port. Those two settings
+are separate and have to agree.
+
+**5. Prove it independently of this application:**
+
+```powershell
+docker compose exec postgres pg_isready -U aer -d aer
+```
+
+**Expect:** `accepting connections`. If that works and `alembic` still refuses, the problem
+is the URL in `.env` rather than the database.
+
+**A different error, worth telling apart:** if you get
+`password authentication failed for user "aer"`, PostgreSQL *is* running and the credential
+is wrong. That is the trap described in section 1.1 — the password was baked into the data
+volume the first time the container started, and changing `.env` afterwards does not change
+it. Either restore the original password in `.env`, or wipe the volume with
+`docker compose down -v` and start again.
+
+### 2b. A note on OneDrive
+
+If your checkout is under `OneDrive\Desktop\...`, it works, but be aware of two things.
+
+OneDrive syncs everything you generate. Once you have run a report, `var/artefacts/`
+contains every document the platform fetched, and all of it will be uploaded to Microsoft's
+cloud. That is a decision worth making deliberately rather than by accident.
+
+OneDrive also locks files while it uploads them, which can surface as intermittent
+permission errors during a test run that writes many small files quickly. If you see
+`PermissionError` or `[WinError 32] The process cannot access the file`, that is almost
+certainly OneDrive rather than this project.
+
+Both are avoided by keeping the repository outside the synced folder — `C:\dev\` or
+`%USERPROFILE%\code\` — which I would recommend, though nothing here requires it.
 
 ```powershell
 uv run aer seed-user --email you@example.com
