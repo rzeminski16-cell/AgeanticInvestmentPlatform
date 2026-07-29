@@ -655,6 +655,49 @@ temporarily and re-run if you want to see the masking work rather than assume it
 
 ## 3. The static gates and the test suite
 
+### 3.0 Confirm you are running the code you think you are
+
+Do this first, every time, before reporting a failure. A test failing because your checkout
+is three commits behind wastes everyone's time and looks exactly like a real defect.
+
+```powershell
+git status -sb
+```
+
+**Expect:** `## claude/equity-research-platform-uf2mql...origin/claude/equity-research-platform-uf2mql`
+with no `[behind N]`.
+
+**Wrong:** `## main...`, or any other branch. The work lives on
+`claude/equity-research-platform-uf2mql`; `git pull` on a different branch fetches a
+different branch's commits and reports success while changing nothing you care about.
+
+```powershell
+git fetch origin
+git status -sb
+```
+
+If it now says `[behind 3]` or similar:
+
+```powershell
+git checkout claude/equity-research-platform-uf2mql
+git pull origin claude/equity-research-platform-uf2mql
+```
+
+**Wrong:** `There is no tracking information for the current branch`. A bare `git pull`
+does nothing useful in that state and says so in a message that is easy to scroll past.
+Naming the remote and branch explicitly, as above, works regardless.
+
+Then check what you actually have:
+
+```powershell
+git log --oneline -1
+```
+
+Compare it against the tip of the branch on GitHub. If they differ, the pull did not take —
+usually because of local edits blocking the merge, which `git status` will list.
+
+### 3.1 The gates
+
 ```powershell
 uv run ruff check .
 uv run ruff format --check .
@@ -674,9 +717,11 @@ that matters on Windows — two directories differing only in case being *the sa
 directory — is a separate test that does run. A third runs everywhere and asserts the
 helper agrees with whatever the platform actually does.
 
-**Wrong:** any failure. Report it with the test name; two Windows-only defects have
-already been found this way: two in the tests, and one — concurrent artefact writes
-colliding on Windows rather than deduplicating — in the application itself.
+**Wrong:** any failure — but check 3.0 first. Three Windows-only defects have been found
+this way: two unportable tests, and one in the application itself, where concurrent
+artefact writes collided rather than deduplicating. All three are fixed, so a failure now
+is either a checkout that is behind or something new. The test count is the quickest tell:
+1210 means you are three commits behind, 1220 means you are current.
 
 Run the two pytest commands **separately**, not as one `pytest`. Playwright's synchronous
 API keeps an event loop running on the main thread for the life of its session, so any
