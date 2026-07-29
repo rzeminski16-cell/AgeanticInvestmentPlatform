@@ -146,7 +146,11 @@ async def execute(
         raise ValidationError(message, context={"job_id": str(job.id)})
 
     job.status = JobStatus.RUNNING
-    await session.flush()
+    # Committed, not just flushed. The console polls from another process, and until this
+    # lands it reads QUEUED — for the whole first step, which is a model call lasting a
+    # minute. An operator watching a page that says QUEUED while money is being spent has no
+    # way to tell a working run from a dead worker.
+    await session.commit()
 
     engine = WorkflowEngine(
         build_steps(),
@@ -180,7 +184,7 @@ async def execute(
     if job.status is JobStatus.RUNNING:
         job.status = JobStatus.SUCCEEDED
         job.finished_at = datetime.now(UTC)
-        await session.flush()
+        await session.commit()
 
     _log.info(
         "run.executed",

@@ -876,8 +876,15 @@ a bug in this week's, and the log line that would tell you otherwise does not ex
       rising.
 - [ ] Within a minute or so it stops at **Waiting for you**.
 
-**Wrong:** the console sits at `QUEUED` forever. That means the worker is not running or
-cannot reach Redis.
+**Wrong:** the console sits at `QUEUED` and never moves, with no worker log lines either.
+That means the worker is not running or cannot reach Redis.
+
+If the worker *is* logging — `run_research` picked up, an Anthropic request returning
+`200 OK` — but the console still says `QUEUED`, that used to be a defect rather than your
+setup: the worker held one transaction for the whole run and published nothing until it
+reached a gate. It now commits after each step, so the status should move to `RUNNING` within
+a second of the run starting. If it does not, the two processes are pointed at different
+databases; check `AER_DATABASE_URL` in both terminals.
 
 ### Gate 1
 

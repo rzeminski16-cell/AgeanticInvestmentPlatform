@@ -16,9 +16,11 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.agents import planner
 from aer.config import Settings
 from aer.core.enums import Decision, GateKind, JobStatus
 from aer.db.models import (
@@ -110,6 +112,79 @@ async def scenario(
         "sec_client": sec_client,
         "provider": provider,
     }
+
+
+class TestThePlannerAsksForWhatItValidates:
+    """The prompt's length budgets and the schema's ceilings, checked against each other.
+
+    A live run died here. The model wrote a 660-character ``focus`` against a 600-character
+    ``max_length``, and because the API does not enforce ``max_length`` — the SDK moves it into
+    the schema's description, where it is guidance — validation failed *after* the call had
+    been paid for. A £0.05 planner call thrown away over forty words.
+
+    The bounds are therefore two numbers per field: a ceiling that only catches a runaway
+    blob, and a budget the prompt actually asks for, comfortably inside it. These tests are
+    what keeps the gap real, because closing it is silent until it costs money.
+    """
+
+    _FIELDS = (
+        ("summary", planner._SUMMARY_BUDGET, planner._SUMMARY_CEILING),
+        ("focus", planner._FOCUS_BUDGET, planner._FOCUS_CEILING),
+        ("what/why", planner._REASON_BUDGET, planner._REASON_CEILING),
+    )
+
+    @pytest.mark.parametrize(("field", "budget", "ceiling"), _FIELDS)
+    def test_the_ceiling_leaves_real_headroom_over_the_budget(
+        self, field: str, budget: int, ceiling: int
+    ) -> None:
+        """ "The model went thirty per cent over" must not be a failed run."""
+        assert ceiling >= budget * 2, (
+            f"{field} allows {ceiling} and asks for {budget}; a model that overruns its "
+            "budget by half would kill the run after the call was paid for"
+        )
+
+    @pytest.mark.parametrize(("field", "budget", "ceiling"), _FIELDS)
+    def test_the_prompt_states_the_budget(self, field: str, budget: int, ceiling: int) -> None:
+        """The prompt is the only channel the model reliably reads a limit on.
+
+        The schema's description carries ``{maxLength: 600}`` after the SDK's translation, and
+        the run that failed proves that is not enough to rely on.
+        """
+        assert str(budget) in planner._SYSTEM_PROMPT
+
+    def test_a_reply_at_the_stated_budget_validates(self) -> None:
+        """The contract stated as one object: write what was asked for, and it is accepted."""
+        draft = planner.ResearchPlanDraft(
+            summary="s" * planner._SUMMARY_BUDGET,
+            sections=[planner.PlannedSection(key="k", focus="f" * planner._FOCUS_BUDGET)],
+            planned_sources=[
+                planner.PlannedSource(
+                    provider="sec_edgar",
+                    tier="regulatory",
+                    what="w" * planner._REASON_BUDGET,
+                    why="y" * planner._REASON_BUDGET,
+                )
+            ],
+        )
+        assert len(draft.sections) == 1
+
+    def test_the_bounds_that_carry_meaning_stay_strict(self) -> None:
+        """Only the *presentational* bounds were loosened.
+
+        ``confidence`` is a 0-to-1 judgement: a value outside it means the model misunderstood
+        the field, and accepting it would put a number nobody can interpret in front of a
+        reviewer. Failing there is right, and the distinction is the whole point — a length is
+        a storage concern, a range is a meaning.
+        """
+        with pytest.raises(PydanticValidationError):
+            planner.ResearchPlanDraft(
+                summary="s",
+                sections=[planner.PlannedSection(key="k", focus="f")],
+                planned_sources=[
+                    planner.PlannedSource(provider="p", tier="reg", what="w", why="y")
+                ],
+                confidence=1.7,
+            )
 
 
 class TestTheFirstLeg:

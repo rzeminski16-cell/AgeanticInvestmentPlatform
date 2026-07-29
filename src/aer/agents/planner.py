@@ -30,6 +30,30 @@ MAX_SECTIONS = 12
 MAX_SOURCES = 20
 MAX_RISKS = 10
 
+# Lengths on the prose the planner writes, in characters. Two numbers per field, and the
+# gap between them is the point.
+#
+# **The API does not enforce a `max_length`.** The SDK moves it into the schema's
+# description, where it is guidance the model can miss — and a miss raises *after* the call
+# has been paid for, killing the run over a field that was 40 words long instead of 30. That
+# happened on the first real run: a `focus` of 660 characters against a 600 ceiling, and a
+# £0.05 planner call thrown away.
+#
+# So a ceiling is a sanity bound — it exists to stop a runaway blob reaching the database,
+# not to enforce a house style. What the platform actually *asks* for is the budget, stated
+# in the prompt where the model will read it, and set to a fraction of the ceiling so that
+# ordinary variance is not a failed run.
+#
+# Both come from these constants and the prompt interpolates the budgets, so the instruction
+# and the validation cannot drift apart.
+_SUMMARY_CEILING = 4000
+_FOCUS_CEILING = 2000
+_REASON_CEILING = 1000
+
+_SUMMARY_BUDGET = 1200
+_FOCUS_BUDGET = 600
+_REASON_BUDGET = 300
+
 
 class PlannedSource(BaseModel):
     """A source the plan intends to consult.
@@ -43,8 +67,12 @@ class PlannedSource(BaseModel):
 
     provider: str = Field(min_length=1, max_length=64)
     tier: str = Field(min_length=2, max_length=32)
-    what: str = Field(min_length=1, max_length=400, description="What will be retrieved.")
-    why: str = Field(min_length=1, max_length=400, description="What question it answers.")
+    what: str = Field(
+        min_length=1, max_length=_REASON_CEILING, description="What will be retrieved."
+    )
+    why: str = Field(
+        min_length=1, max_length=_REASON_CEILING, description="What question it answers."
+    )
 
 
 class PlannedSection(BaseModel):
@@ -59,7 +87,9 @@ class PlannedSection(BaseModel):
 
     key: str = Field(min_length=1, max_length=128)
     focus: str = Field(
-        min_length=1, max_length=600, description="What this section should concentrate on."
+        min_length=1,
+        max_length=_FOCUS_CEILING,
+        description="What this section should concentrate on.",
     )
 
 
@@ -70,7 +100,7 @@ class ResearchPlanDraft(BaseModel):
 
     summary: str = Field(
         min_length=1,
-        max_length=2000,
+        max_length=_SUMMARY_CEILING,
         description="What this run will do, in a few sentences a reviewer can check.",
     )
     sections: list[PlannedSection] = Field(min_length=1, max_length=MAX_SECTIONS)
@@ -95,7 +125,7 @@ class PlannerInput(BaseModel):
     available_section_keys: list[str] = Field(default_factory=list)
 
 
-_SYSTEM_PROMPT = """\
+_SYSTEM_PROMPT = f"""\
 You are the research planner for an equity research platform. You produce a plan; you do \
 not produce findings.
 
@@ -112,6 +142,10 @@ late, a business whose structure the standard analysis does not fit.
 5. Point-in-time research means nothing published after the as-of date may be used. If the \
 as-of date makes part of the request impossible, say so in the risks rather than planning \
 around it silently.
+6. Keep each field within its length: `summary` under {_SUMMARY_BUDGET} characters, each \
+section's `focus` under {_FOCUS_BUDGET}, and each source's `what` and `why` under \
+{_REASON_BUDGET}. These are hard limits on the stored plan, not suggestions. Write a second \
+section rather than one long one.
 
 Be specific. "Consult SEC filings" is not a plan; "retrieve the FY2022 10-K for revenue \
 and operating income, and the FY2021 10-K for the comparative" is."""
@@ -133,7 +167,11 @@ class PlannerAgent(Agent[PlannerInput, ResearchPlanDraft]):
     # reasoning about a research plan before writing a word of it. The ceiling costs nothing
     # unless it is used; the run that hits it produces no plan at all.
     max_output_tokens: ClassVar[int] = 16_384
-    prompt_version: ClassVar[str] = "1"
+
+    # Bumped because rule 6 was added deliberately. `_ensure_prompt` records an unbumped
+    # edit under a hash-suffixed version so a run is never attributed to the wrong
+    # instruction — that safety net is for accidents, and this was not one.
+    prompt_version: ClassVar[str] = "2"
 
     def system_prompt(self, payload: PlannerInput) -> str:  # noqa: ARG002
         """The planner's instruction, which does not vary with the request.

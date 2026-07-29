@@ -8,10 +8,18 @@ middle, and no way to close the laptop. So the web process enqueues and the work
 service bundle, and calls :func:`aer.services.runs.execute` — the same function the tests
 call directly. What the worker adds is a process to run it in and a queue to reach it.
 
-**One transaction per run attempt, committed at the end.** A run that dies mid-step leaves
-the database as it was at the last commit, and the engine resumes from the last step that
-succeeded. Committing per step would be finer-grained and would also mean a half-written
-step's output could be read as complete.
+**One transaction per step, committed as each one finishes.** A run that dies mid-step
+leaves the database as it was at the last commit, and the engine resumes from the last step
+that succeeded.
+
+That used to say "one transaction per run", with the same claim about resuming attached to
+it — and the claim was false. Between gates, a crash rolled back *every* completed step, so
+the next attempt began at step one and paid for the work again. It also meant the run console
+could show nothing: Postgres publishes on commit, so a run that had spent real money still
+read ``QUEUED`` from the web process, and a run that had *failed* reverted to ``QUEUED`` when
+the exception unwound this function before its commit. The step boundary is where the
+recorded state is whole, so it is where the commit belongs. See
+``aer.workflow.engine.WorkflowEngine._publish``.
 
 Run it with::
 
@@ -73,8 +81,10 @@ async def run_research(ctx: dict[str, Any], job_id: str) -> dict[str, Any]:
             store=services.store,
             sec_client=services.sec_client,
         )
-        # One commit, at the end. A run that dies mid-step leaves the database as it was,
-        # and the engine resumes from the last step that succeeded.
+        # The engine and `execute` commit at every state they reach, so by here there is
+        # normally nothing pending. Kept because this function owns the session: anything a
+        # future step leaves uncommitted is published by whoever opened the transaction, not
+        # left to be discovered when a row is missing.
         await session.commit()
 
     _log.info(

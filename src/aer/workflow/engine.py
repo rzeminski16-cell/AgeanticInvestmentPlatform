@@ -197,6 +197,10 @@ async def spend_so_far(session: AsyncSession, *, job_id: uuid.UUID) -> Decimal:
 class WorkflowEngine:
     """Runs a workflow's steps in order, recording each.
 
+    **The step is the unit of publication.** Every state the engine reaches — a step
+    finished, a gate hit, a cancellation honoured, a failure recorded — is committed before
+    the engine moves on. See :meth:`_publish` for why that is not merely a convenience.
+
     Args:
         steps: In execution order. A step's key is its identity for idempotency, so
             renaming one makes a resumed run re-execute it.
@@ -260,6 +264,36 @@ class WorkflowEngine:
 
     # -- Internals -------------------------------------------------------------------------
 
+    async def _publish(self, session: AsyncSession) -> None:
+        """Commit, so that another process can see how far this run has got.
+
+        Called only at a boundary where the run's recorded state is whole: a step's row, its
+        cost rows and its ``agent_runs`` all reach their final values before this, so a
+        reader sees a finished step or no step. There is no window in which a half-written
+        output looks complete — that would need a commit *inside* a step, which nothing here
+        does.
+
+        Three things were broken by not doing this, and none of them was cosmetic.
+
+        **The run console could not show progress.** The worker held one transaction for the
+        whole run, and Postgres publishes nothing until commit, so the console showed
+        ``QUEUED`` from start to gate however much work had been done and however much money
+        had been spent. This was reported from a live run: spend visible at the provider,
+        ``QUEUED`` on the page.
+
+        **A failure was rolled back along with everything else.** ``_fail`` recorded
+        ``FAILED`` and then re-raised; the exception left the worker's session without a
+        commit, so the row reverted and the database kept saying ``QUEUED`` for a run that
+        had died. The only trace was a log line.
+
+        **A resume re-ran work already paid for.** The worker's docstring justified one
+        transaction by saying a run that dies "resumes from the last step that succeeded".
+        Between gates that was not true: a crash rolled back every completed step, so the
+        next attempt started from the beginning and spent the money again. Committing at the
+        step boundary is what makes that sentence true.
+        """
+        await session.commit()
+
     async def _cancelled(self, session: AsyncSession, *, job: Job) -> bool:
         """Whether somebody has asked for this run to stop.
 
@@ -278,7 +312,7 @@ class WorkflowEngine:
         """Record the run as cancelled, naming where it stopped."""
         job.status = JobStatus.CANCELLED
         job.finished_at = datetime.now(UTC)
-        await session.flush()
+        await self._publish(session)
         _log.info("workflow.cancelled", job_id=str(job.id), before_step=before_step)
 
     async def _completed(
@@ -350,7 +384,7 @@ class WorkflowEngine:
         row.output_ref = result.output
         row.cost_gbp = result.cost_gbp
         row.finished_at = datetime.now(UTC)
-        await session.flush()
+        await self._publish(session)
 
         outputs[step.key] = result.output
         _log.info(
@@ -421,10 +455,17 @@ class WorkflowEngine:
         row.error = detail
         row.finished_at = datetime.now(UTC)
         job.status = status
-        await session.flush()
+        await self._publish(session)
         _log.info("workflow.paused", job_id=str(job.id), step=row.step_key, status=status.value)
 
     async def _fail(self, session: AsyncSession, *, job: Job, row: JobStep, exc: Exception) -> None:
+        """Record the failure. **Committed here, because the caller re-raises.**
+
+        An exception leaves the worker's ``async with`` without reaching its commit, so a
+        flush alone would be rolled back on the way out and the database would go on
+        reporting the run as queued. The log line would be the only evidence that anything
+        had happened, and the operator would be watching a page that never changed.
+        """
         detail = (
             exc.to_dict()
             if isinstance(exc, AerError)
@@ -434,5 +475,5 @@ class WorkflowEngine:
         row.error = detail
         row.finished_at = datetime.now(UTC)
         job.status = JobStatus.FAILED
-        await session.flush()
+        await self._publish(session)
         _log.error("workflow.step_failed", job_id=str(job.id), step=row.step_key, **detail)

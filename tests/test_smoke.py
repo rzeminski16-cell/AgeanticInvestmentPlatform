@@ -135,6 +135,10 @@ class TestRedaction:
             "private_key",
             "eodhd_apikey",
             "db_credential",
+            "access_token",
+            "refresh_token",
+            "csrf_token",
+            "token",
         ],
     )
     def test_sensitive_names_are_detected(self, field_name):
@@ -147,6 +151,27 @@ class TestRedaction:
     def test_structural_key_fields_are_not_redacted(self, field_name):
         # These are identifiers, not credentials. Masking them would gut the run console
         # for no security benefit -- see the module docstring in aer/logging.py.
+        assert not is_sensitive_name(field_name)
+
+    @pytest.mark.parametrize(
+        "field_name",
+        [
+            "max_tokens",
+            "input_tokens",
+            "output_tokens",
+            "total_tokens",
+            "cache_read_tokens",
+            "cache_write_tokens",
+        ],
+    )
+    def test_token_counts_are_not_redacted(self, field_name):
+        """A substring match on "token" masked every number the budget is reconciled from.
+
+        ``provider.completed`` reported its token counts as ``***REDACTED***``, and a failure
+        telling the operator to raise a ``max_tokens`` ceiling hid the ceiling. Credential
+        tokens are named in compound and are caught that way; no integer is a credential, and
+        the plural is never one.
+        """
         assert not is_sensitive_name(field_name)
 
     def test_bearer_token_is_masked_but_scheme_is_kept(self):

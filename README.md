@@ -585,11 +585,19 @@ flight — a model call, a filing being fetched — runs to completion, because 
 would throw away work already paid for while recording a stop time that never happened. The
 console shows both moments: when you asked, and when it actually stopped.
 
-The separate table is not tidiness. `runs.execute` sets `jobs.status = RUNNING` and the
-worker commits once, at the end, so Postgres holds that row's lock for the run's whole
-lifetime; a cancel that wrote to `jobs` would block for exactly as long as cancelling
-remained useful. That was measured with two `psql` sessions before the design was chosen.
-See `docs/adr/0014-what-may-change-after-the-fact.md`.
+The separate table is not tidiness. A step is a model call or a filing fetch, up to minutes
+long, and Postgres holds the `jobs` row's lock for all of it; a cancel that wrote to `jobs`
+would block for exactly as long as cancelling remained useful. That was measured with two
+`psql` sessions before the design was chosen. See
+`docs/adr/0014-what-may-change-after-the-fact.md`.
+
+**A run publishes itself step by step.** Every state the engine reaches is committed before it
+moves on, so the console shows progress, a failed run records its failure, and a resume skips
+what already succeeded instead of paying for it twice. The worker used to hold one transaction
+for a whole run, which cost all three — most visibly a console that read `QUEUED` while money
+was being spent. `tests/test_run_visibility.py` asserts each property through a **second
+connection**, because a test sharing the engine's session cannot tell the two designs apart.
+See `docs/adr/0016-a-run-publishes-itself-step-by-step.md`.
 
 ## Testing
 

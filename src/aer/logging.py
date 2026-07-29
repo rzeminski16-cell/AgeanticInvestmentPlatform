@@ -17,6 +17,15 @@ schema uses ``key`` extensively for non-secret identifiers — ``step_key``, ``s
 the run console for no security benefit. Genuine credential fields are caught by the
 more specific fragments below, and by value-shape matching regardless of their name.
 
+**A bare ``token`` is excluded for the same reason, and the reason is sharper.** This
+platform meters spend in tokens: ``input_tokens``, ``output_tokens``, ``cache_read_tokens``,
+``max_tokens``. A substring match on "token" masked every one of them, so ``provider.completed``
+— the line the £100/month budget is reconciled from — reported its token counts as
+``***REDACTED***``, and a failure telling the operator to raise a ceiling hid the ceiling.
+Credential tokens are named in compound (``access_token``, ``refresh_token``) and are matched
+that way; a field named exactly ``token`` is matched exactly. No integer is a credential, and
+the plural is never one either.
+
 Redaction is a backstop, not a licence: do not put secrets in log context in the first
 place.
 """
@@ -51,21 +60,31 @@ _MAX_DEPTH: Final = 12
 _HANDLER_TAG: Final = "_aer_logging_handler"
 
 # Substrings that mark a field name as holding a credential. Deliberately specific --
-# see the module docstring for why bare "key" is excluded.
+# see the module docstring for why bare "key" and bare "token" are both excluded.
 _SENSITIVE_NAME_FRAGMENTS: Final[tuple[str, ...]] = (
+    "access_token",
     "api_key",
     "apikey",
     "auth_token",
     "authorization",
+    "bearer_token",
     "credential",
+    "csrf_token",
+    "id_token",
     "passwd",
     "password",
     "private_key",
     "pwd",
+    "refresh_token",
     "secret",
     "session_id",
-    "token",
+    "session_token",
+    "token_secret",
 )
+
+# Names that are credentials on their own, but whose *substring* would swallow the token
+# counts this platform meters spend with. Matched whole, never as a fragment.
+_SENSITIVE_NAMES: Final[frozenset[str]] = frozenset({"token"})
 
 # Value shapes that are credentials wherever they appear. Each entry is a
 # (pattern, replacement) pair; the replacement may keep a non-secret prefix so a log line
@@ -83,6 +102,8 @@ _SECRET_VALUE_PATTERNS: Final[tuple[tuple[re.Pattern[str], str], ...]] = (
 def is_sensitive_name(name: str) -> bool:
     """Return whether a field name looks like it holds a credential."""
     lowered = name.lower()
+    if lowered in _SENSITIVE_NAMES:
+        return True
     return any(fragment in lowered for fragment in _SENSITIVE_NAME_FRAGMENTS)
 
 
