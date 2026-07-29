@@ -15,9 +15,15 @@ make every count downstream wrong.
 point-in-time selection produced it, not because that is the usual case. When a vendor
 adapter eventually writes ``vendor_standardised`` rows, the distinction has to already be
 in the data rather than being reconstructed from which table it came from.
+
+**Facts arrive in tens of thousands, so the insert is batched.** One company's full filing
+history is not a handful of rows — see :data:`_PARAMETER_LIMIT`.
 """
 
 from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import Any, Final
 
 import structlog
 from sqlalchemy import select
@@ -32,6 +38,16 @@ from aer.sources.base import ResolvedEntity
 __all__ = ["persist_facts", "upsert_company"]
 
 _log = structlog.get_logger("aer.services.facts")
+
+# Postgres binds every value in a statement as a parameter, and the wire protocol carries the
+# count in an ``int16`` — so 32,767 is a hard ceiling, not a tunable. A multi-row INSERT
+# therefore has a row ceiling of ``32767 // columns``, and with sixteen columns that is 2,047.
+#
+# Microsoft's companyfacts, point-in-time selected at a 2022 as-of date, is **13,702 facts**:
+# 219,232 parameters, nearly seven times over. The extract step failed on it with
+# ``the number of query arguments cannot exceed 32767``. This is not an edge case — it is
+# every US large cap with a decade of filings, which is the platform's whole subject.
+_PARAMETER_LIMIT: Final = 32_767
 
 
 async def upsert_company(
@@ -102,6 +118,10 @@ async def persist_facts(
     ``ON CONFLICT DO NOTHING`` against the observation index. The alternative — select,
     compare, insert — has a race between the two statements and needs the same constraint
     behind it anyway to be correct, so it buys nothing but a round trip.
+
+    Written in batches, all inside the caller's transaction: either every fact from this
+    document lands or none does. A partial fact set is worse than none, because a
+    calculation reading it would produce a real-looking number from half a filing history.
     """
     if not facts:
         return 0
@@ -128,13 +148,15 @@ async def persist_facts(
         for fact in facts
     ]
 
-    statement = (
-        pg_insert(FinancialFact)
-        .values(rows)
-        .on_conflict_do_nothing(index_elements=_OBSERVATION_KEY)
-        .returning(FinancialFact.id)
-    )
-    inserted = len((await session.scalars(statement)).all())
+    inserted = 0
+    for batch in _batched(rows, _rows_per_statement(rows[0])):
+        statement = (
+            pg_insert(FinancialFact)
+            .values(batch)
+            .on_conflict_do_nothing(index_elements=_OBSERVATION_KEY)
+            .returning(FinancialFact.id)
+        )
+        inserted += len((await session.scalars(statement)).all())
 
     _log.info(
         "facts.persisted",
@@ -145,6 +167,20 @@ async def persist_facts(
         basis=basis.value,
     )
     return inserted
+
+
+def _rows_per_statement(row: dict[str, Any]) -> int:
+    """How many rows fit under Postgres's parameter ceiling.
+
+    Derived from the row itself rather than written down, so adding a column cannot silently
+    push the batch over the limit — which is a failure that only appears against a company
+    large enough to reach it, on a run that has already been paid for.
+    """
+    return _PARAMETER_LIMIT // len(row)
+
+
+def _batched(rows: Sequence[dict[str, Any]], size: int) -> list[Sequence[dict[str, Any]]]:
+    return [rows[start : start + size] for start in range(0, len(rows), size)]
 
 
 # Must match `uq_financial_facts_observation` exactly. Postgres identifies the arbiter

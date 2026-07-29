@@ -452,6 +452,56 @@ class TestPersistingFacts:
 
         assert written == 0
 
+    async def test_a_full_filing_history_does_not_exceed_the_parameter_limit(
+        self, db_session, company, source
+    ):
+        """Postgres binds each value as a parameter and stops at 32,767.
+
+        Sixteen columns means 2,047 rows per statement, and this failed on the first real
+        company: Microsoft's companyfacts, point-in-time selected, is 13,702 facts — 219,232
+        parameters. The extract step died with ``the number of query arguments cannot exceed
+        32767`` after the planner call had been paid for.
+
+        Every fixture in this file until now held a handful of facts, which is why nothing
+        caught it. The count below is deliberately just over one batch rather than a realistic
+        13,702: the boundary is what breaks, and a test that takes a second is a test that
+        keeps being run.
+        """
+        over_one_batch = 2_100
+        facts = [
+            make_fact(concept=f"concept_{index}", value=index, fiscal_period="FY")
+            for index in range(over_one_batch)
+        ]
+
+        written = await persist_facts(
+            db_session, company=company, source_document=source, facts=facts
+        )
+
+        assert written == over_one_batch
+        stored = await db_session.scalar(select(func.count()).select_from(FinancialFact))
+        assert stored == over_one_batch
+
+    async def test_a_batched_insert_still_skips_what_is_already_stored(
+        self, db_session, company, source
+    ):
+        """The idempotency the docstring promises has to hold across batch boundaries too.
+
+        A naive chunking that reported ``len(rows)`` rather than summing what each statement
+        returned would pass the test above and quietly lie here — and "how many facts did this
+        run add?" is a number that appears on the run console.
+        """
+        facts = [
+            make_fact(concept=f"concept_{index}", value=index, fiscal_period="FY")
+            for index in range(2_100)
+        ]
+        await persist_facts(db_session, company=company, source_document=source, facts=facts)
+
+        again = await persist_facts(
+            db_session, company=company, source_document=source, facts=facts
+        )
+
+        assert again == 0
+
     async def test_a_fact_cannot_outlive_the_document_it_came_from(
         self, db_session, company, source
     ):
