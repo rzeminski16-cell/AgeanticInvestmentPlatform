@@ -39,13 +39,13 @@ from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
 from aer.core.enums import Decision, GateKind, JobStatus
 from aer.db.models import Company, Job, Report, ResearchPlan, ResearchRequest
 from aer.errors import ValidationError
+from aer.queue import enqueue_run
 from aer.render.markdown import render_markdown
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
-from aer.worker import enqueue_run
 from aer.workflow.workflows.vertical_slice_v1 import final_gate_payload, plan_gate_payload
 
 __all__ = ["router"]

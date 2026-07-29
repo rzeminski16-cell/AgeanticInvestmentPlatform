@@ -28,10 +28,10 @@ from aer.api.sse import SSE_MEDIA_TYPE, event_stream
 from aer.core.enums import Decision, GateKind
 from aer.db.models import Job, ResearchRequest, User
 from aer.errors import AerError
+from aer.queue import enqueue_run
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
-from aer.worker import enqueue_run
 from aer.workflow.workflows.vertical_slice_v1 import final_gate_payload
 
 __all__ = ["router"]

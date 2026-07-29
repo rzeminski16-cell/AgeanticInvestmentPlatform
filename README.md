@@ -315,6 +315,7 @@ src/aer/            application package
   services/         business operations: requests, artefacts, provenance, facts,
                     calculations, approvals (gate order and payload hashes), runs
   runtime.py        assembles the service bundle both processes share
+  queue.py          enqueueing a run, from the web process
   worker.py         the arq worker: where a research run actually executes
   api/              HTTP layer
     app.py          create_app() factory; lifespan owns the engine and Redis client

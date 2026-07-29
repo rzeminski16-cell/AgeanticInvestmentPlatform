@@ -34,11 +34,9 @@ from aer.logging import configure_logging
 from aer.runtime import build_services
 from aer.services import runs as run_service
 
-__all__ = ["RUN_RESEARCH_TASK", "WorkerSettings", "enqueue_run", "run_research"]
+__all__ = ["WorkerSettings", "run_research"]
 
 _log = structlog.get_logger("aer.worker")
-
-RUN_RESEARCH_TASK = "run_research"
 
 # How long a single run may take before arq abandons it. Generous: a real run is twenty to
 # sixty minutes, and a worker that killed one at the median would fail exactly the runs
@@ -93,51 +91,6 @@ async def run_research(ctx: dict[str, Any], job_id: str) -> dict[str, Any]:
     }
 
 
-async def enqueue_run(redis: Any, job_id: uuid.UUID) -> str | None:
-    """Queue a run, from the web process.
-
-    Returns the queued task's id, or ``None`` if the queue is unavailable — the caller
-    decides what to do about that. A web request that failed because a background queue was
-    down would be an unhelpful error for an operator who has just approved a plan; the run
-    is recorded and can be started again.
-    """
-    from arq import create_pool  # noqa: PLC0415 -- only needed when actually enqueueing
-
-    pool = None
-    try:
-        pool = await create_pool(_redis_settings_from(redis))
-        task = await pool.enqueue_job(RUN_RESEARCH_TASK, str(job_id))
-    except Exception as exc:
-        _log.warning("worker.enqueue_failed", job_id=str(job_id), error=str(exc))
-        return None
-    finally:
-        # Closed every time. `create_pool` opens its own connection pool, and a web
-        # process that enqueues without closing leaks one per approval -- invisible until
-        # the Redis connection limit is reached, at which point nothing can be queued at
-        # all.
-        if pool is not None:
-            await pool.aclose()
-
-    return task.job_id if task is not None else None
-
-
-def _redis_settings_from(redis: Any) -> RedisSettings:
-    """Derive arq's connection settings from an existing client.
-
-    Reuses whatever the application is already configured with rather than reading the
-    environment a second time, so the worker and the web process cannot end up pointed at
-    different Redis instances.
-    """
-    pool = getattr(redis, "connection_pool", None)
-    kwargs = getattr(pool, "connection_kwargs", {}) if pool is not None else {}
-    return RedisSettings(
-        host=str(kwargs.get("host", "127.0.0.1")),
-        port=int(kwargs.get("port", 6379)),
-        database=int(kwargs.get("db", 0)),
-        password=kwargs.get("password"),
-    )
-
-
 async def _startup(ctx: dict[str, Any]) -> None:
     """Build the engine, the session factory and a Redis client, once per worker."""
     configure_logging()
@@ -162,19 +115,24 @@ async def _shutdown(ctx: dict[str, Any]) -> None:
     _log.info("worker.stopped")
 
 
-def _worker_redis_settings() -> RedisSettings:
-    return RedisSettings.from_dsn(get_settings().redis_url)
-
-
 class WorkerSettings:
-    """arq's entry point. ``uv run arq aer.worker.WorkerSettings``."""
+    """arq's entry point. ``uv run arq aer.worker.WorkerSettings``.
 
-    # arq reads these as class attributes, so they are declared as ClassVar rather than
-    # moved into an __init__ it never calls.
+    arq reads this class's ``__dict__`` directly — not through ``getattr`` — so every
+    value here must be the finished article. A function assigned to ``redis_settings``,
+    intending lazy resolution, is handed to arq *as a function*, and the worker dies on
+    startup with ``'function' object has no attribute 'host'``. A property or a metaclass
+    would not help either: neither appears in ``__dict__``.
+
+    So the connection settings are resolved when this module is imported, which is why
+    nothing but the worker imports it — see :mod:`aer.queue`.
+    """
+
+    # Declared ClassVar rather than moved into an __init__ arq never calls.
     functions: ClassVar[list[Any]] = [run_research]
     on_startup = _startup
     on_shutdown = _shutdown
-    redis_settings = _worker_redis_settings
+    redis_settings = RedisSettings.from_dsn(get_settings().redis_url)
     job_timeout = _JOB_TIMEOUT_SECONDS
     max_tries = _MAX_TRIES
 

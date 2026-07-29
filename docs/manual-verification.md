@@ -707,7 +707,7 @@ uv run pytest tests/e2e
 ```
 
 **Expect:** clean, clean, `Success: no issues found in 121 source files`, then
-**1220 passed** (one of which skips on Windows — see below) and **27 passed**.
+**1228 passed** (one of which skips on Windows — see below) and **27 passed**.
 
 One test is expected to **skip on Windows** and run on Linux and macOS:
 `test_case_differences_are_distinct_on_a_case_sensitive_filesystem`. It simulates a
@@ -717,11 +717,11 @@ that matters on Windows — two directories differing only in case being *the sa
 directory — is a separate test that does run. A third runs everywhere and asserts the
 helper agrees with whatever the platform actually does.
 
-**Wrong:** any failure — but check 3.0 first. Three Windows-only defects have been found
-this way: two unportable tests, and one in the application itself, where concurrent
-artefact writes collided rather than deduplicating. All three are fixed, so a failure now
-is either a checkout that is behind or something new. The test count is the quickest tell:
-1210 means you are three commits behind, 1220 means you are current.
+**Wrong:** any failure — but check 3.0 first. Four defects have been found this way: two unportable
+tests, one where concurrent artefact writes collided on Windows rather than deduplicating,
+and one where the background worker could not start at all on any platform. All are fixed,
+so a failure now is either a checkout that is behind or something new. The test count is the quickest tell:
+1210 means you are several commits behind, 1228 means you are current.
 
 Run the two pytest commands **separately**, not as one `pytest`. Playwright's synchronous
 API keeps an event loop running on the main thread for the life of its session, so any
