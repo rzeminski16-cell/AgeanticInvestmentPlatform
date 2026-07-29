@@ -10,45 +10,381 @@ compare against the stated expectation.
 
 Commands are PowerShell. On macOS or Linux they are identical apart from `copy` → `cp`.
 
-**Cost warning.** Sections 1–6 and 9–12 spend nothing. **Section 7 makes one real model
+**If this is your first time running the system, start at section 0** — it installs the
+tools and includes what to do when Docker Desktop will not start, which is where most first
+attempts stall. If you already have Docker and uv working, start at section 1.
+
+**Cost warning.** Sections 0–6 and 9–12 spend nothing. **Section 7 makes one real model
 call and costs a few pence** (one Opus 5 planner call, typically £0.03–£0.06). Section 8
 depends on it. Nothing else in this document reaches a paid API.
+
+A note on what has and has not been checked: everything from section 2 onward has been run
+against a real PostgreSQL, a real Redis and real files on disk. **Sections 0 and 1 have
+not** — the environment this was built in has no Docker and no Windows. They are written
+from the compose file and from Docker's documented behaviour, so treat any discrepancy as
+a defect in these instructions and tell me.
+
+---
+
+## 0. Before anything else: install the tools
+
+Skip any you already have. Each step ends in a command that proves it worked — run it, and
+do not move on until it does.
+
+### 0.1 Docker Desktop
+
+Docker runs PostgreSQL and Redis for you, so you never install a database on Windows
+directly. On Windows it runs them inside WSL 2 (a Linux environment Windows ships with).
+
+**a. Enable WSL 2.** Open **PowerShell as Administrator** (right-click Start → Terminal
+(Admin)) and run:
+
+```powershell
+wsl --install
+```
+
+If it says WSL is already installed, that is fine. If it installs something, **reboot**.
+
+If it fails with a virtualisation error, virtualisation is disabled in your BIOS/UEFI.
+You will need to reboot into BIOS settings and enable **Intel VT-x** or **AMD-V**. Every
+motherboard names it differently; search for your model plus "enable virtualisation".
+
+**b. Install Docker Desktop.** Download from
+<https://www.docker.com/products/docker-desktop/> and run the installer. Accept the
+default "Use WSL 2 instead of Hyper-V". Reboot if asked.
+
+**c. Start it.** Launch Docker Desktop from the Start menu. Wait until the whale icon in
+the system tray (bottom-right, possibly under the `^` arrow) stops animating and the app
+window says **Engine running**.
+
+This matters more than it sounds: **every `docker` command fails until Docker Desktop is
+running**, and the error does not say so clearly. If you reboot, you have to start it
+again unless you enabled "Start Docker Desktop when you sign in" in its settings.
+
+**d. Prove it works.** In a *normal* (non-admin) PowerShell window:
+
+```powershell
+docker version
+```
+
+**Expect:** two blocks, `Client:` and `Server: Docker Desktop`, both with version numbers.
+
+**Wrong:** anything mentioning `The system cannot find the file specified`, for example:
+
+```
+failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine;
+check if the path is correct and if the daemon is running
+```
+
+That is Docker Desktop's Linux engine not running. `docker` and `docker compose` are
+installed correctly; there is simply nothing for them to talk to. See **0.1e** below — it
+is the single most common first-run problem and none of it is a fault in this project.
+
+### 0.1e When the engine will not start
+
+Work down the list. Re-run `docker version` after each step and stop when the `Server:`
+block appears.
+
+**1. Is Docker Desktop actually running?** Not installed — *running*. Look for the whale
+icon in the system tray (bottom-right, possibly hidden under the `^` arrow). If it is not
+there, launch Docker Desktop from the Start menu and wait. First start after installation
+can take two or three minutes.
+
+Open the Docker Desktop window and look at the bottom-left corner. You want **Engine
+running** in green. `Starting…` means wait. Anything red means read the message.
+
+**2. Are you in Windows-containers mode?** The pipe name in your error,
+`dockerDesktopLinuxEngine`, is the Linux engine. If Docker Desktop was switched to Windows
+containers, that pipe never gets created. Right-click the whale icon: if the menu offers
+**"Switch to Linux containers…"**, you are in the wrong mode — click it and wait.
+
+**3. Is WSL 2 healthy?** In PowerShell:
+
+```powershell
+wsl --status
+wsl --list --verbose
+```
+
+**Expect:** a default version of 2, and `docker-desktop` listed with `VERSION 2`.
+
+If WSL is missing or old:
+
+```powershell
+wsl --update
+```
+
+Then restart Docker Desktop.
+
+**4. Give WSL a clean restart.** This fixes a surprising proportion of cases where the
+engine hangs in `Starting…`. Quit Docker Desktop from the tray icon first, then:
+
+```powershell
+wsl --shutdown
+```
+
+Wait ten seconds, then start Docker Desktop again.
+
+**5. Is virtualisation enabled?** Open Task Manager → **Performance** → **CPU** and look
+for **Virtualization: Enabled**. If it says Disabled, WSL 2 cannot run and Docker never
+will. Reboot into your BIOS/UEFI and enable **Intel VT-x** or **AMD-V** — the setting is
+named differently on every board, so search for your motherboard or laptop model plus
+"enable virtualisation".
+
+**6. Read what Docker itself says.** Docker Desktop → the bug icon → **Troubleshoot**, or
+its log at `%LOCALAPPDATA%\Docker\log.txt`. By this point the problem is specific to your
+machine and the log will name it.
+
+**7. Last resort:** Docker Desktop → Settings → Troubleshoot → **Reset to factory
+defaults**. This deletes all containers, images and volumes — which is harmless here,
+because nothing of yours exists in Docker yet.
+
+**Do not continue to section 1 until `docker version` prints a `Server:` block.** Every
+command in that section talks to the engine, and each will fail with the same error.
+
+```powershell
+docker compose version
+```
+
+**Expect:** `Docker Compose version v2.x` or higher. Note the space: `docker compose`, not
+`docker-compose`. The hyphenated form is the old standalone tool and this project does not
+use it.
+
+### 0.2 Git
+
+```powershell
+git --version
+```
+
+If that fails, install from <https://git-scm.com/download/win> and accept the defaults.
+
+### 0.3 uv
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+**Close and reopen PowerShell**, then:
+
+```powershell
+uv --version
+```
+
+**Wrong:** `uv is not recognized`. The installer added it to your `PATH` but the open
+window still has the old one — reopening is the fix, not reinstalling.
+
+### 0.4 The repository
+
+```powershell
+cd $HOME
+git clone https://github.com/rzeminski16-cell/AgeianticEquityResearchPlatform.git
+cd AgeianticEquityResearchPlatform
+git checkout claude/equity-research-platform-uf2mql
+```
+
+**Every command in the rest of this document must be run from this directory.** Docker
+Compose finds `docker-compose.yml` by looking in the current directory; from anywhere else
+it will tell you no configuration file was found. Check with:
+
+```powershell
+Get-Location          # -> ...\AgeianticEquityResearchPlatform
+Test-Path docker-compose.yml    # -> True
+```
 
 ---
 
 ## 1. Local infrastructure
 
 This is the one acceptance criterion from Task 2 that has never been verified, because
-image pulls are blocked in the sandbox this was built in.
+image pulls are blocked in the sandbox this was built in. So this section is genuinely a
+test, not a formality — if something is wrong with the compose file, it will show up here.
+
+### 1.1 Create your configuration first
+
+Do this **before** starting the containers, and understand why.
+
+```powershell
+copy .env.example .env
+```
+
+Compose reads `.env` from the current directory and uses it for the database name, user
+and password. PostgreSQL applies those **only when it first creates its data volume**.
+If you start the containers now and change the password later, the container keeps the old
+one and the application gets an authentication error that looks like a bug in the
+application. Getting out of that means `docker compose down -v`, which deletes the data.
+
+For this first run, leave the credentials at their defaults. The only value you need to
+set is `AER_HTTP_USER_AGENT`, and that is section 2 — the containers do not care about it.
+
+If you ever *do* change `AER_POSTGRES_PASSWORD`, you must change the password inside
+`AER_DATABASE_URL` to match. They are two separate settings that have to agree.
+
+### 1.2 Start the containers
 
 ```powershell
 docker compose up -d
+```
+
+**The first run downloads about 150 MB** of images and takes a few minutes. You will see
+progress bars for `postgres:16-alpine` and `redis:7-alpine`. Subsequent runs start in
+about two seconds.
+
+**Expect**, eventually:
+
+```
+[+] Running 4/4
+ ✔ Network aer_default        Created
+ ✔ Volume "aer_postgres_data" Created
+ ✔ Volume "aer_redis_data"    Created
+ ✔ Container aer-postgres     Started
+ ✔ Container aer-redis        Started
+```
+
+The exact layout varies by Compose version; the container names `aer-postgres` and
+`aer-redis` do not.
+
+**Wrong:** `port is already allocated`. Something else on your machine is using 5432 or
+6379 — most likely a PostgreSQL you installed directly at some point. Either stop it, or
+set `AER_POSTGRES_PORT=5433` in `.env` and change the port in `AER_DATABASE_URL` to match.
+
+### 1.3 Wait for healthy, then check
+
+`Started` is not `healthy`. The containers are up before the databases inside them are
+ready to answer, which is exactly the kind of thing that makes a first run look broken.
+The health checks poll every 5 seconds and give PostgreSQL a 10-second grace period, so
+give it **about 20 seconds**, then:
+
+```powershell
 docker compose ps
 ```
 
-**Expect:** `postgres` and `redis` both `running` and `healthy`.
+**Expect:** two rows, `postgres` and `redis`, both with status `Up ... (healthy)`.
+
+**If it says `(health: starting)`** — wait another 15 seconds and run it again. That is
+normal.
+
+**If it says `(unhealthy)`** after a minute, read the logs:
 
 ```powershell
-docker compose ps --format json
+docker compose logs postgres
 ```
 
-**Expect:** ports bound to `127.0.0.1:5432` and `127.0.0.1:6379`.
+### 1.4 Confirm the ports are bound to loopback only
 
-**Wrong:** any `0.0.0.0:` binding. That would expose your database to your whole network.
+This is a security check, not a connectivity check, and it is the reason the compose file
+is written the way it is. Docker publishes ports by writing firewall rules directly — it
+bypasses Windows Firewall — so a port published without an explicit address is reachable
+by **anything on your network**, including whatever else is on a hotel or café wifi.
 
 ```powershell
-docker compose exec postgres pg_isready -U aer -d aer     # -> accepting connections
-docker compose exec redis redis-cli ping                   # -> PONG
+docker compose port postgres 5432
+docker compose port redis 6379
 ```
 
-The object store is behind a profile and should **not** have started:
+**Expect exactly:**
+
+```
+127.0.0.1:5432
+127.0.0.1:6379
+```
+
+**Wrong:** `0.0.0.0:5432`. That is your database exposed to the network. If you ever see
+it, the loopback prefixes have been removed from `docker-compose.yml`.
+
+You can see the same thing in `docker compose ps` under `PORTS`, though the formatting
+varies between Docker versions — `docker compose port` is the version-independent answer.
+
+### 1.5 Confirm the databases actually answer
+
+Up and healthy is Docker's opinion. Ask the services directly:
 
 ```powershell
-docker compose ps minio        # -> nothing
+docker compose exec postgres pg_isready -U aer -d aer
+```
+
+**Expect:** `/var/run/postgresql:5432 - accepting connections`
+
+```powershell
+docker compose exec redis redis-cli ping
+```
+
+**Expect:** `PONG`
+
+**Wrong:** `service "postgres" is not running`. The container stopped after starting —
+`docker compose logs postgres` will say why.
+
+### 1.6 Confirm the object store did *not* start
+
+MinIO sits behind a Compose profile, so it stays out of the way until something needs the
+S3 code path. Nothing in Phase 1 does — the artefact store is your local disk.
+
+```powershell
+docker compose ps minio
+```
+
+**Expect:** a header row and nothing under it. If a `aer-minio` container is running, the
+profile is not doing its job.
+
+Now start it deliberately, confirm it works, and stop it again:
+
+```powershell
 docker compose --profile objectstore up -d
-docker compose ps minio        # -> now running
-docker compose --profile objectstore down
+docker compose ps minio
 ```
+
+**Expect:** `aer-minio` running. Its console is at <http://127.0.0.1:9001> if you want to
+look — user `aer_minio`, password `aer_local_dev_minio`, both local-only defaults.
+
+```powershell
+docker compose --profile objectstore stop minio
+docker compose --profile objectstore rm -f minio
+```
+
+**Expect:** `aer-postgres` and `aer-redis` still running afterwards. Check with
+`docker compose ps`.
+
+### 1.7 Confirm the data survives a restart
+
+The whole point of the named volumes. This takes ten seconds and catches a
+misconfiguration that would otherwise only show up when you lose a report.
+
+```powershell
+docker compose exec postgres psql -U aer -d aer -c "CREATE TABLE restart_probe (note text); INSERT INTO restart_probe VALUES ('still here');"
+docker compose down
+docker compose up -d
+```
+
+Wait for healthy, then:
+
+```powershell
+docker compose exec postgres psql -U aer -d aer -c "SELECT * FROM restart_probe;"
+```
+
+**Expect:** `still here`.
+
+**Wrong:** `relation "restart_probe" does not exist`. That means the data volume is not
+persisting, and every report you ever generate would vanish on the next restart.
+
+Clean up the probe:
+
+```powershell
+docker compose exec postgres psql -U aer -d aer -c "DROP TABLE restart_probe;"
+```
+
+### 1.8 Know how to stop and how to reset
+
+```powershell
+docker compose down       # stop the containers, KEEP the data
+docker compose down -v    # stop AND DELETE the data volumes
+```
+
+`down -v` is the reset button for when the database is in a state you would rather not
+reason about. It is also unrecoverable, so it is worth knowing which one you are typing.
+
+Leave the containers **running** — section 2 needs them.
+
+**Section 1 passes when:** `docker compose ps` shows postgres and redis healthy,
+`docker compose port` shows both bound to `127.0.0.1`, both services answer directly,
+minio is absent unless asked for, and data survived a `down`/`up`.
 
 ---
 
@@ -57,23 +393,50 @@ docker compose --profile objectstore down
 The point of this one is that `.env.example` is sufficient — that a new machine needs one
 value filled in, not a scavenger hunt.
 
-```powershell
-copy .env.example .env
+You copied `.env` in step 1.1. Now open it in an editor and set **one** value:
+
+```
+AER_HTTP_USER_AGENT=Ageiantic Research you@example.com
 ```
 
-Edit `.env` and set **only** `AER_HTTP_USER_AGENT`, to a real name and a contact address
-you actually monitor — for example `Ageiantic Research rzeminski16@gmail.com`. The SEC
-requires this and will block a generic one.
+Use a real name and a contact address you actually monitor. The SEC requires a descriptive
+User-Agent identifying the operator and blocks generic ones — which is why this is the only
+setting with no default. A shared default would get everyone rate-limited together.
+
+Leave everything else alone for now. API keys come in section 7.
 
 ```powershell
+uv python install 3.12
 uv sync --all-groups
-uv run alembic upgrade head
-uv run aer seed-user --email you@example.com
+```
+
+**The first sync downloads and builds the dependencies** and takes a few minutes.
+
+```powershell
 uv run aer version
 ```
 
-**Expect:** migrations run to `0007`, the user is created, and `aer version` prints a
-version and a git SHA.
+**Expect:** a version and a git SHA, e.g. `0.1.0 (3174311)`.
+
+**Wrong:** a `ConfigError` naming `AER_HTTP_USER_AGENT`. That means `.env` is missing or
+the value is still blank — and note that the error tells you exactly which variable to set.
+That is the intended behaviour, not a failure.
+
+```powershell
+uv run alembic upgrade head
+```
+
+**Expect:** a series of `Running upgrade` lines ending at **`0006 -> 0007`**.
+
+**Wrong:** a connection error. The containers from section 1 must still be running —
+`docker compose ps` to check.
+
+```powershell
+uv run aer seed-user --email you@example.com
+```
+
+**Expect:** confirmation that the user was created. The application has no login; this is
+the single local user everything belongs to.
 
 ```powershell
 uv run aer seed-user --email you@example.com
