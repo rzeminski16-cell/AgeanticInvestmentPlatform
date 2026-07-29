@@ -662,7 +662,7 @@ uv run pytest tests/e2e
 ```
 
 **Expect:** clean, clean, `Success: no issues found in 121 source files`, then
-**1218 passed** (one of which skips on Windows — see below) and **27 passed**.
+**1220 passed** (one of which skips on Windows — see below) and **27 passed**.
 
 One test is expected to **skip on Windows** and run on Linux and macOS:
 `test_case_differences_are_distinct_on_a_case_sensitive_filesystem`. It simulates a
@@ -673,7 +673,8 @@ directory — is a separate test that does run. A third runs everywhere and asse
 helper agrees with whatever the platform actually does.
 
 **Wrong:** any failure. Report it with the test name; two Windows-only defects have
-already been found this way and both were in the tests, not the code.
+already been found this way: two in the tests, and one — concurrent artefact writes
+colliding on Windows rather than deduplicating — in the application itself.
 
 Run the two pytest commands **separately**, not as one `pytest`. Playwright's synchronous
 API keeps an event loop running on the main thread for the life of its session, so any

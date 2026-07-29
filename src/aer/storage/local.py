@@ -18,6 +18,14 @@ absence would do:
 3. **A caller cannot escape the root.** Every path is built from a validated hex digest,
    never from anything a caller supplies directly.
 
+**Concurrent writes of the same content deduplicate rather than collide**, and the two
+platforms make that harder than it sounds. Two adapters fetching the same filing at once
+is the ordinary case; on POSIX the racing renames simply overwrite each other with
+identical bytes, while Windows refuses a rename whose destination another writer holds
+open. :meth:`_finalise_sync` treats a refusal with the artefact already present as the
+duplicate it is, because under content addressing the destination's name *is* the digest
+of what was about to be written.
+
 All blocking I/O runs in a worker thread. A 50 MiB read on the event loop would stall
 every other request in the process, and the fetch layer will be storing exactly that size.
 """
@@ -167,11 +175,30 @@ class LocalArtefactStore:
             return StoredArtefact(sha256=sha256, size_bytes=size, was_new=False)
 
         destination.parent.mkdir(parents=True, exist_ok=True)
+
         # Atomic within a filesystem: a reader sees the old state or the new one, never a
         # partial file. `replace` rather than `rename` because it is defined to overwrite
         # on Windows too, and a racing writer of *identical* content is harmless by
         # construction -- both wrote the same bytes.
-        temporary.replace(destination)
+        #
+        # The `exists` check above is a time-of-check/time-of-use race, and deliberately
+        # not the only defence. Ten writers of the same filing all see "not there" and all
+        # proceed to here. On POSIX every rename then succeeds and the last one wins, to no
+        # ill effect. On Windows `MoveFileEx` refuses with ERROR_ACCESS_DENIED while another
+        # writer holds the destination open -- including the winner, reading it back to
+        # verify -- so the losers raised instead of deduplicating quietly.
+        try:
+            temporary.replace(destination)
+        except OSError:
+            if not destination.exists():
+                raise
+            # Somebody else got there first. Under content addressing that is not a
+            # conflict: the destination's *name* is the digest of the bytes just written,
+            # so whatever is there is what this call was going to write. Reported as a
+            # duplicate, exactly like the check above.
+            temporary.unlink(missing_ok=True)
+            return StoredArtefact(sha256=sha256, size_bytes=size, was_new=False)
+
         _fsync_directory(destination.parent)
 
         actual = _digest_file(destination)

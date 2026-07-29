@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import pytest
 
@@ -162,6 +163,61 @@ class TestConcurrency:
 
         assert len({result.sha256 for result in results}) == 10
         assert len(stored_files(store)) == 10
+
+    async def test_a_lost_rename_race_is_reported_as_a_duplicate(self, store, monkeypatch):
+        """Losing the rename must deduplicate, not raise.
+
+        This is a real failure and not a hypothetical one. The existence check before the
+        rename is a time-of-check/time-of-use race: ten writers of the same filing all see
+        "not there" and all proceed. POSIX renames simply overwrite, so the loss is
+        invisible. Windows' ``MoveFileEx`` refuses with ERROR_ACCESS_DENIED while another
+        writer holds the destination open, so the losers used to raise ``PermissionError``
+        — and two adapters fetching the same filing at once is the ordinary case.
+
+        Simulated rather than raced, because the race only loses on Windows and this must
+        be covered everywhere.
+        """
+
+        def losing_replace(self, target):
+            # Exactly the state Windows leaves behind: the winner's file is in place, and
+            # this writer's rename is refused.
+            destination = Path(target)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(PAYLOAD)
+            message = "[WinError 5] Access is denied"
+            raise PermissionError(5, message)
+
+        monkeypatch.setattr(Path, "replace", losing_replace)
+
+        result = await store.put_bytes(PAYLOAD)
+
+        assert result.was_new is False
+        assert result.sha256 == PAYLOAD_SHA256
+        assert store.path_for(PAYLOAD_SHA256).read_bytes() == PAYLOAD
+        # And the loser tidied up after itself.
+        assert list((store.root / "tmp").glob("*.part")) == []
+
+    async def test_a_rename_that_fails_with_nothing_at_the_address_still_raises(
+        self, store, monkeypatch
+    ):
+        """The permissive branch must not swallow a genuine failure.
+
+        Without this, "the destination exists" and "the rename failed for a reason that
+        matters" would be indistinguishable, and a full disk or a permissions problem
+        would be reported as a successful deduplication of a file that is not there.
+        """
+
+        def failing_replace(self, target):
+            message = "[WinError 5] Access is denied"
+            raise PermissionError(5, message)
+
+        monkeypatch.setattr(Path, "replace", failing_replace)
+
+        with pytest.raises(PermissionError):
+            await store.put_bytes(PAYLOAD)
+
+        assert stored_files(store) == []
+        assert list((store.root / "tmp").glob("*.part")) == []
 
 
 class TestSizeCap:
