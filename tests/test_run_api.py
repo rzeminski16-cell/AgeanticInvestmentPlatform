@@ -17,10 +17,11 @@ import asyncio
 import re
 import uuid
 from collections.abc import AsyncIterator
+from decimal import Decimal
 from typing import Any
 
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.api.sse import event_stream
@@ -28,6 +29,8 @@ from aer.config import Settings
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
 from aer.db.models import (
     Approval,
+    AuditEvent,
+    Cost,
     Job,
     JobCancellation,
     JobStep,
@@ -851,3 +854,81 @@ class TestStartingAgainAfterACancelledRun:
         assert await driver.advance(job_id) is JobStatus.SUCCEEDED
 
         assert (await start(api, committed["request"].id))["job_id"] == str(job_id)
+
+
+class TestDeletingARequestWhoseRunWasCancelled:
+    """Your junk test request, thrown away — through the API, with real spend behind it.
+
+    This is the journey that was blocked. The planner runs before anyone presses stop, so a
+    cancelled request nearly always has a cost row, and blocking on spend made the delete
+    button theoretical. Since migration 0009 the spend outlives the request, so there is
+    nothing left for the refusal to protect.
+    """
+
+    async def _cancelled_with_spend(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> uuid.UUID:
+        body = await start(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+        # A real leg: the planner runs, is metered, and stops at the gate.
+        assert await driver.advance(job_id) is JobStatus.AWAITING_APPROVAL
+
+        await api.post(f"/api/runs/{job_id}/cancel", json={"reason": "just testing"})
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            assert job is not None
+            job.status = JobStatus.CANCELLED
+            await session.commit()
+        return job_id
+
+    async def test_the_request_can_be_deleted(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        await self._cancelled_with_spend(api, committed, driver, db_engine)
+
+        response = await api.delete(f"/api/requests/{committed['request'].id}")
+
+        assert response.status_code == 204
+        assert (await api.get(f"/api/requests/{committed['request'].id}")).status_code == 404
+
+    async def test_the_page_offers_the_button(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        await self._cancelled_with_spend(api, committed, driver, db_engine)
+
+        page = await api.get(f"/requests/{committed['request'].id}")
+
+        assert 'id="delete-request"' in page.text
+        assert 'id="edit-request"' in page.text
+
+    async def test_the_spend_is_not_deleted_with_it(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any, db_session: Any
+    ) -> None:
+        # The property the old refusal existed to protect, now guaranteed by the schema
+        # instead. A monthly cap you can get under by deleting what you spent it on is not
+        # a cap.
+        await self._cancelled_with_spend(api, committed, driver, db_engine)
+        before = await db_session.scalar(select(func.coalesce(func.sum(Cost.amount_gbp), 0)))
+        assert before > 0
+
+        await api.delete(f"/api/requests/{committed['request'].id}")
+
+        after = await db_session.scalar(select(func.coalesce(func.sum(Cost.amount_gbp), 0)))
+        assert after == before
+
+    async def test_the_orphaned_spend_stays_explicable(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any, db_session: Any
+    ) -> None:
+        await self._cancelled_with_spend(api, committed, driver, db_engine)
+        await api.delete(f"/api/requests/{committed['request'].id}")
+
+        event = await db_session.scalar(
+            select(AuditEvent)
+            .where(AuditEvent.event_type == "request.deleted")
+            .order_by(AuditEvent.id.desc())
+            .limit(1)
+        )
+        assert event is not None
+        assert Decimal(event.payload["spend_gbp"]) > 0
+        assert event.payload["ticker"] == "MSFT"

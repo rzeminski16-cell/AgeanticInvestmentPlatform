@@ -14,6 +14,7 @@ between steps. Three properties matter, and each has its own class.
 
 from __future__ import annotations
 
+import uuid
 from decimal import Decimal
 
 import pytest
@@ -40,6 +41,21 @@ def counting_step(key: str, log: list[str]) -> WorkflowStep:
         return StepResult(output={"ran": key})
 
     return WorkflowStep(key=key, run=run)  # type: ignore[arg-type]
+
+
+def _a_cost(job_id: uuid.UUID) -> Cost:
+    """One model call's worth of spend, as the planner would record it."""
+    return Cost(
+        job_id=job_id,
+        category="model",
+        provider="anthropic",
+        model="claude-opus-5",
+        units=Decimal(150),
+        unit_type="tokens",
+        amount_usd=Decimal("0.0500"),
+        amount_gbp=Decimal("0.0400"),
+        fx_rate=Decimal("0.8"),
+    )
 
 
 @pytest.fixture
@@ -336,32 +352,70 @@ class TestACancelledRunIsNotADeadEnd:
         assert reason is not None
         assert "cancel it" in reason
 
-    async def test_spending_freezes_it_even_after_cancellation(self, queued: dict) -> None:
-        # The common real case: the planner ran and cost money before the operator pressed
-        # stop. Deleting would take the spend record with it and understate the month.
+    async def test_spending_does_not_freeze_it(self, queued: dict) -> None:
+        """The common real case, and the one that made "delete" unreachable in practice.
+
+        The planner runs before anyone presses stop, so nearly every cancelled request has
+        a cost row. Blocking on that made the delete button theoretical — and it was only
+        ever blocking because ``costs`` cascaded away with the request, which is a defect in
+        the cascade rather than a reason to keep the request forever.
+        """
         session, job, user, request = (
             queued["session"],
             queued["job"],
             queued["user"],
             queued["request"],
         )
-        session.add(
-            Cost(
-                job_id=job.id,
-                category="model",
-                provider="anthropic",
-                model="claude-opus-5",
-                units=Decimal(150),
-                unit_type="tokens",
-                amount_usd=Decimal("0.0500"),
-                amount_gbp=Decimal("0.0400"),
-                fx_rate=Decimal("0.8"),
-            )
-        )
+        session.add(_a_cost(job.id))
         await cancellation_service.request_cancellation(session, job=job, actor=user)
         await WorkflowEngine([counting_step("first", [])]).run(session, job=job, services={})
 
-        reason = await request_service.immutable_reason(session, request=request)
+        assert await request_service.immutable_reason(session, request=request) is None
 
-        assert reason is not None
-        assert "Money has been spent" in reason
+    async def test_the_spend_survives_the_deletion(self, queued: dict) -> None:
+        # The property that makes the above safe. A monthly cap you can get under by
+        # deleting what you spent it on is not a cap.
+        session, job, user, request = (
+            queued["session"],
+            queued["job"],
+            queued["user"],
+            queued["request"],
+        )
+        session.add(_a_cost(job.id))
+        await cancellation_service.request_cancellation(session, job=job, actor=user)
+        await WorkflowEngine([counting_step("first", [])]).run(session, job=job, services={})
+
+        await request_service.delete_request(session, request=request, actor=user)
+
+        remaining = (await session.scalars(select(Cost))).all()
+        assert len(remaining) == 1
+        assert remaining[0].amount_gbp == Decimal("0.0400")
+        # Orphaned, not deleted: the job it pointed at is gone.
+        assert remaining[0].job_id is None
+
+    async def test_the_deletion_records_what_the_spend_was_for(self, queued: dict) -> None:
+        # The cost row loses its job reference, so without this the money would still be
+        # counted and no longer explicable.
+        session, job, user, request = (
+            queued["session"],
+            queued["job"],
+            queued["user"],
+            queued["request"],
+        )
+        session.add(_a_cost(job.id))
+        await cancellation_service.request_cancellation(session, job=job, actor=user)
+        await WorkflowEngine([counting_step("first", [])]).run(session, job=job, services={})
+
+        await request_service.delete_request(session, request=request, actor=user)
+
+        event = await session.scalar(
+            select(AuditEvent)
+            .where(AuditEvent.event_type == "request.deleted")
+            .order_by(AuditEvent.id.desc())
+            .limit(1)
+        )
+        assert event is not None
+        # Compared as a Decimal, not a string: the sum comes back at the column's own
+        # scale, and asserting on "0.040000" would be asserting on NUMERIC(12, 6).
+        assert Decimal(event.payload["spend_gbp"]) == Decimal("0.04")
+        assert event.payload["ticker"] == "MSFT"

@@ -14,9 +14,9 @@ hence exclusion messages that name the rule and explain themselves rather than s
 refusing.
 
 **A request stops being editable once a run has left something behind.** Not when a run
-starts — when it produces a report, gathers evidence, spends money, or records a decision
-at a gate. Those are the things an edit would falsify and a deletion would destroy, and
-each of them is checked by name in :func:`immutable_reason`.
+starts — when it produces a report or gathers evidence. Those are the two things that exist
+only here, so they are the two an edit would falsify and a deletion would destroy, and each
+is checked by name in :func:`immutable_reason`.
 
 The distinction is not pedantry. The first version of this froze a request as soon as a
 ``jobs`` row existed, using that as a proxy for "research happened". Cancel a run before it
@@ -25,8 +25,10 @@ nothing anywhere to justify it — a dead end the operator could not get out of.
 gathered nothing, cited nothing and spent nothing leaves nothing an edit could falsify.
 
 Deletion follows the same line, which is threat T16's retention rule arriving early in its
-safest form: nothing that has evidence, spend or a report behind it can be removed by this
-code at all.
+safest form: nothing that has evidence or a report behind it can be removed by this code at
+all. Spend is deliberately *not* on that list — since migration 0009 the ``costs`` rows
+outlive the request, so the month's total is unaffected by what gets deleted and there is
+nothing left for a refusal to protect.
 """
 
 from __future__ import annotations
@@ -52,7 +54,6 @@ from aer.core.schemas.request import (
 )
 from aer.core.universe import Exclusion, ExclusionRule, check_universe
 from aer.db.models import (
-    Approval,
     AuditEvent,
     Cost,
     Job,
@@ -313,38 +314,39 @@ async def immutable_reason(session: AsyncSession, *, request: ResearchRequest) -
 def _what_a_run_left_behind(
     request: ResearchRequest,
 ) -> tuple[tuple[Select[tuple[uuid.UUID]], str], ...]:
-    """Each durable thing a run can produce, and why it freezes the request.
+    """Each durable thing a run can produce that an edit or a deletion would damage.
 
-    Ordered by how badly an edit or a deletion would damage it, so the operator is told the
-    most serious reason rather than whichever query happened to run first. Every message
-    names the specific damage — "editing is disabled" is not something anyone can act on.
+    Two, not five. **Spend and approvals used to be here and should not have been**, and
+    the reason each was removed is worth stating because it is the same reason:
+
+    * **Spend** blocked deletion only because ``costs`` cascaded away with the request. The
+      defect was the cascade, not the deletion — a monthly cap you can get under by
+      deleting what you spent it on is not a cap. Migration 0009 makes those references
+      ``SET NULL``, so the ledger now survives and has nothing to be protected from.
+    * **Approvals** are recorded in the audit chain by
+      :func:`aer.services.approvals.record_decision`, with the payload hash of exactly what
+      was shown, and the chain outlives the request by design. The ``approvals`` table is a
+      convenient index over that record, not the record itself.
+
+    What remains are the two things that exist *only* here: a report, and the provenance of
+    evidence that was gathered. Ordered by severity, so the operator is told the most
+    serious reason rather than whichever query happened to run first.
     """
     return (
         (
             select(Report.id).where(Report.request_id == request.id),
-            "A report has been produced from this request, so it can no longer be changed. "
-            "The report cites the terms it was researched under; editing them now would not "
-            "correct the record, it would falsify it. Create a new request instead.",
+            "A report has been produced from this request, so it can no longer be changed "
+            "or removed. The report cites the terms it was researched under; editing them "
+            "now would not correct the record, it would falsify it. Create a new request "
+            "instead.",
         ),
         (
             select(SourceDocument.id).where(SourceDocument.request_id == request.id),
             "Evidence has been gathered against this request. The as-of date and "
             "point-in-time setting are what admitted that evidence, so changing them now "
-            "would leave the stored sources inconsistent with the rules that selected them. "
-            "Create a new request instead.",
-        ),
-        (
-            select(Cost.id).join(Job, Job.id == Cost.job_id).where(Job.request_id == request.id),
-            "Money has been spent on this request. Deleting it would take the spend record "
-            "with it and quietly understate the month's total; editing it would mean the "
-            "spend was made against terms that no longer exist. Create a new request "
-            "instead.",
-        ),
-        (
-            select(Approval.id).where(Approval.request_id == request.id),
-            "You have made a decision at a gate on this request. An approval records what "
-            "you were shown, and editing the request behind it would leave a decision "
-            "attached to something you never saw. Create a new request instead.",
+            "would leave the stored sources inconsistent with the rules that selected them "
+            "— and deleting the request would throw away the provenance of bytes that are "
+            "still on disk. Create a new request instead.",
         ),
     )
 
@@ -444,21 +446,25 @@ async def delete_request(
 ) -> None:
     """Delete a draft request that has never been run.
 
-    The guard is the whole point. A request with a run behind it has evidence, costs and
-    possibly a report attached, and the ORM cascade would take all of it — so this refuses
-    rather than relying on an operator not to ask. Nothing here can delete anything that
-    was researched; that needs an explicit retention policy, which is Phase 6 work.
+    The guard is the whole point. A request that produced a report, or gathered evidence,
+    has something attached that exists nowhere else, and the ORM cascade would take it — so
+    this refuses rather than relying on an operator not to ask. Nothing here can delete
+    anything that was researched; that needs an explicit retention policy, which is Phase 6
+    work.
 
-    The audit entry outlives the row, deliberately: ``audit_events`` carries ``request_id``
-    as a plain column with no foreign key, so the record that a request existed and was
-    removed survives the removal.
+    **Spend is not destroyed and therefore does not block.** Since migration 0009 the
+    ``costs`` rows survive with their references nulled, so the month's total is unaffected
+    by what is deleted. The audit entry below records what those now-orphaned rows were
+    spent on, which keeps them attributable: ``audit_events`` carries ``request_id`` as a
+    plain column with no foreign key, precisely so a record survives the thing it describes.
 
     Raises:
-        ConflictError: If a run has been started, or the request has left ``DRAFT``.
+        ConflictError: If a run is still live, or a report or evidence exists.
     """
     await _refuse_if_immutable(session, request=request, verb="deleted")
 
     request_id = request.id
+    spent = await _spend_on(session, request_id=request_id)
     await _record(
         session,
         actor=str(actor.id),
@@ -473,13 +479,28 @@ async def delete_request(
             "company_name": request.company_name,
             "as_of_date": request.as_of_date.isoformat(),
             "status": request.status.value,
+            # The cost rows outlive this deletion but lose their job reference. Without
+            # this line the money would still be counted and no longer explicable.
+            "spend_gbp": str(spent),
         },
     )
 
     await session.delete(request)
     await session.flush()
 
-    _log.info("request.deleted", request_id=str(request_id), actor=str(actor.id))
+    _log.info(
+        "request.deleted", request_id=str(request_id), actor=str(actor.id), spend_gbp=str(spent)
+    )
+
+
+async def _spend_on(session: AsyncSession, *, request_id: uuid.UUID) -> Decimal:
+    """What this request's runs have cost, read before its jobs are deleted."""
+    total = await session.scalar(
+        select(func.coalesce(func.sum(Cost.amount_gbp), 0))
+        .join(Job, Job.id == Cost.job_id)
+        .where(Job.request_id == request_id)
+    )
+    return Decimal(str(total or 0))
 
 
 async def get_request(

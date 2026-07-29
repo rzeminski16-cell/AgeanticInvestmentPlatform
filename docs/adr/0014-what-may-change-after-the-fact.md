@@ -41,9 +41,28 @@ explicitly in the message:
 |---|---|
 | A run that is not terminal | A worker may be reading these values right now |
 | A report exists | The report cites the terms it was researched under |
-| A source document exists | The as-of date and point-in-time rule are what admitted it |
-| A cost exists | Deleting would erase spend; editing means it was made against other terms |
-| An approval exists | A decision would end up attached to something you never saw |
+| A source document exists | The as-of rule admitted it, and bytes remain on disk |
+
+**Spend and approvals were on that list and should not have been.** Both were removed for
+the same reason: neither is destroyed by the operation being refused.
+
+* **Spend** blocked deletion only because `costs` referenced `jobs`, `job_steps` and
+  `agent_runs` with `ON DELETE CASCADE`, and all three chain back to `research_requests`.
+  Deleting a request erased its whole cost history by three separate paths. That is a hole
+  in the budget ledger, and the budget is a control, not a report: a monthly cap you can
+  get under by deleting what you spent it on is not a cap. **The cascade was the defect,
+  not the deletion.** Migration 0009 makes those three references `SET NULL`, following
+  the pattern `audit_events` already uses — plain columns, no foreign key, so a record
+  outlives the thing it describes. `delete_request` writes the orphaned total into the
+  `request.deleted` audit entry so the money stays explicable.
+
+  This mattered in practice rather than in theory: the planner runs before anyone presses
+  stop, so nearly every cancelled request has a cost row, and the delete button was
+  therefore refused almost always.
+
+* **Approvals** are recorded in the audit chain by `record_decision`, with the payload hash
+  of exactly what was shown, and the chain outlives the request by construction. The
+  `approvals` table is a convenient index over that record, not the record itself.
 
 **This is a correction.** The first version froze a request as soon as a `jobs` row
 existed, using that as a proxy for "research happened". The proxy is wrong at exactly the
@@ -77,11 +96,16 @@ would contradict the audit record; and a cancelled job still carries its row in
 
 ### Deleting refuses rather than cascading
 
-`research_requests` cascades to jobs, plans, sources and reports. A delete allowed after a
-run would take the evidence with it. Refusing is threat T16's retention rule arriving early
-in its safest possible form: **nothing with evidence behind it can be removed by any code
-path in the platform.** A real retention policy — deleting a report *and* its artefacts,
-provably, with a record — remains Phase 6 work.
+`research_requests` cascades to jobs, plans, sources and reports. A delete allowed after
+evidence was gathered would take the provenance with it while leaving the hashed bytes
+orphaned on disk. Refusing is threat T16's retention rule arriving early in its safest
+possible form: **nothing with evidence or a report behind it can be removed by any code path
+in the platform.** A real retention policy — deleting a report *and* its artefacts, provably,
+with a record — remains Phase 6 work.
+
+The cost rows are the deliberate exception. They are a ledger rather than evidence, they
+answer a question about the month rather than about the request, and since migration 0009
+they survive on their own.
 
 The audit entry outlives the row. `audit_events.request_id` is deliberately a plain column
 with no foreign key, so "this request existed and was deleted, and here is what it was"
@@ -119,9 +143,12 @@ answer.
 - A mistyped ticker costs nothing to fix, which is the difference between a tool people use
   and a tool people work around.
 - Cancelling is instant to record and does not fight the worker for a lock.
-- The audit trail gains two event types that answer questions timestamps cannot:
-  `request.edited` carries before-and-after for each changed field, and
-  `run.cancellation_requested` carries the run's status at the moment the operator asked.
+- The audit trail gains three event types that answer questions timestamps cannot:
+  `request.edited` carries before-and-after for each changed field,
+  `run.cancellation_requested` carries the run's status at the moment the operator asked,
+  and `request.deleted` carries the spend it orphaned.
+- The budget ledger is now genuinely append-only in effect: no application path removes a
+  cost row, so the month's total cannot be reduced by tidying up.
 - The reproducibility claim is unweakened: nothing that was researched can be edited, and
   nothing with evidence can be deleted.
 

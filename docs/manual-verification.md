@@ -1236,11 +1236,38 @@ request stays editable. Check both halves.
 - [ ] Try the API: `curl -i -X DELETE http://127.0.0.1:8000/api/requests/<id>`. **409**,
       with `"code": "conflict"`. Not 422 — the body was never the problem, and resubmitting
       it would not help.
-- [ ] Let the run reach the plan gate, then read the refusal again. It should now name the
-      **spend** — the planner has run and cost money, and deleting would take the spend
-      record with it and understate the month's total.
 - [ ] Confirm the request is still there afterwards. `research_requests` cascades to jobs,
-      plans, sources, costs and reports, so a delete allowed here would take all of it.
+      plans, sources and reports, so a delete allowed here would take all of it.
+
+### Spend does not block deletion, and must not be lost by it
+
+The planner runs before you can press stop, so almost every cancelled request has cost
+something. That used to block deletion — which made the button theoretical. The real
+problem was that `costs` cascaded away with the request, so deleting one erased its spend
+history. Migration 0009 fixed the cascade; the refusal was then unnecessary.
+
+- [ ] Note the month's spend before you start:
+
+```sql
+SELECT sum(amount_gbp) FROM costs;
+```
+
+- [ ] Take a request that reached the plan gate, cancel it, let the worker stop it, then
+      delete it from `/requests/<id>`. It should delete.
+- [ ] Run the sum again. **It must be unchanged.** A total that drops when you delete a
+      request is a monthly cap you can get under by tidying up, which is not a cap.
+- [ ] Check the orphaned rows are still explicable:
+
+```sql
+SELECT payload->>'ticker', payload->>'spend_gbp'
+FROM audit_events WHERE event_type = 'request.deleted' ORDER BY id DESC LIMIT 3;
+
+SELECT count(*) FROM costs WHERE job_id IS NULL;
+```
+
+      The cost rows lose their `job_id` — that is the `SET NULL` working — and the
+      `request.deleted` audit entry records what they were spent on. The audit log is
+      designed to outlive what it describes, which is why the attribution lives there.
 
 ### The audit trail
 

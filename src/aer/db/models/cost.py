@@ -38,12 +38,18 @@ class Cost(Base):
 
     id: Mapped[UuidPk]
 
-    job_id: Mapped[UuidFkOptional] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"))
+    # SET NULL, not CASCADE. All three of these chain back to `research_requests`, so
+    # cascading meant deleting a request erased every record of what it had cost -- by
+    # three separate paths. A monthly cap you can get under by deleting the thing you
+    # spent it on is not a cap. The row survives with its amount, its date, its provider
+    # and its model; what it was spent on is preserved in the `request.deleted` audit
+    # entry, which by construction outlives the request. See migration 0009.
+    job_id: Mapped[UuidFkOptional] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
     job_step_id: Mapped[UuidFkOptional] = mapped_column(
-        ForeignKey("job_steps.id", ondelete="CASCADE")
+        ForeignKey("job_steps.id", ondelete="SET NULL")
     )
     agent_run_id: Mapped[UuidFkOptional] = mapped_column(
-        ForeignKey("agent_runs.id", ondelete="CASCADE")
+        ForeignKey("agent_runs.id", ondelete="SET NULL")
     )
 
     # llm_input | llm_output | cache_write | cache_read | web_search | data_api.

@@ -562,9 +562,16 @@ decision at a gate. Those are the things an edit would falsify and a deletion wo
 destroy, and `immutable_reason` names whichever one applies rather than saying "editing is
 disabled". Editing is a whole-payload replace through the same validation a creation goes
 through, so a rule cannot be dodged by creating something valid and then editing it.
-Deleting anything with evidence or spend behind it is refused outright — `research_requests`
-cascades to jobs, plans, sources, costs and reports, and no code path in the platform can
-take those with it.
+Deleting anything with evidence or a report behind it is refused outright — those cascade
+away with the request and the hashed bytes would be left orphaned on disk.
+
+**Spend is the deliberate exception, and fixing it was a schema change rather than a rule
+change.** `costs` used to cascade away with the request through three separate references,
+so deleting a request erased its cost history — and a monthly cap you can get under by
+deleting what you spent it on is not a cap. Migration 0009 makes those references
+`SET NULL`, following the pattern `audit_events` already uses so a record outlives what it
+describes. The ledger is now append-only in effect, and spend no longer has to block
+deletion to be protected.
 
 **One report per request, not one job.** A cancelled or failed run produced no report, so
 starting again supersedes it with a new job; a live run or one that produced a report is
