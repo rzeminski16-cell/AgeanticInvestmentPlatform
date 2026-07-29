@@ -72,7 +72,10 @@ class ModelPrices:
 
 
 DEFAULT_PRICES: Final[dict[str, ModelPrices]] = {
-    "claude-opus-5": ModelPrices.from_input_rate("15.00", "75.00"),
+    # Sticker rates. Opus 5 ships at Opus 4.8's pricing; Sonnet 5 holds the $3/$15 sticker
+    # (an introductory $2/$10 runs to 2026-08-31, deliberately not used here — a cap fed by
+    # a promotional rate starts under-reporting on the day it lapses).
+    "claude-opus-5": ModelPrices.from_input_rate("5.00", "25.00"),
     "claude-sonnet-5": ModelPrices.from_input_rate("3.00", "15.00"),
     "claude-haiku-4-5": ModelPrices.from_input_rate("1.00", "5.00"),
 }

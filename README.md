@@ -613,6 +613,14 @@ rendered report — runs in the default suite against a fake provider and a stub
 client, so it costs nothing and needs no network. That is the entire reason the provider
 abstraction exists: a suite that spent money would be a suite nobody ran.
 
+**A fake provider proves nothing about what goes on the wire**, and the first real model call
+found that out: a 400 on a request shape 1,300 passing tests had never looked at. So
+`tests/test_anthropic_provider.py` asserts the payload itself, with the SDK client stubbed —
+which parameters are sent, which are deliberately absent, and what each failure message tells
+the operator to do. Alongside it, `TestTheSdkContract` checks the *installed* SDK for the
+surface the provider depends on, so an upgrade that moves it fails there rather than on the
+next live run. See `docs/adr/0015-the-vendor-contract-is-asserted-not-assumed.md`.
+
 The browser tests drive a real Chromium against a real uvicorn server on an ephemeral
 port. They exist to catch what an in-process HTTP client structurally cannot — a form
 field the server never receives, a submit button outside the form, an HTMX response the

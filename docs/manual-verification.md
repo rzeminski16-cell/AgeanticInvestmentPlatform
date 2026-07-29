@@ -860,6 +860,12 @@ uv run arq aer.worker.WorkerSettings
 **Expect** the worker to log `worker.started`. Without it the run is queued and nothing
 happens — which is itself worth seeing once, so you recognise the symptom.
 
+**Neither process reloads code.** After a `git pull` or any edit, stop both with `Ctrl+C` and
+start them again. A worker running last week's code will fail a run in a way that looks like
+a bug in this week's, and the log line that would tell you otherwise does not exist. Run
+`uv run alembic upgrade head` at the same time if migrations changed — the landing page and
+`/readyz` both say so when the schema is behind, but only after you have restarted.
+
 ### Run it
 
 1. Create a request for **Microsoft Corporation / MSFT / NASDAQ**, as-of date

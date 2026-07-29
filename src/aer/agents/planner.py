@@ -127,7 +127,12 @@ class PlannerAgent(Agent[PlannerInput, ResearchPlanDraft]):
     # and an agent with no need for a capability should not have it.
     allowed_tools: ClassVar[frozenset[str]] = frozenset()
 
-    max_output_tokens: ClassVar[int] = 4096
+    # Headroom, not an expectation. The plan itself is a few hundred tokens of JSON, but
+    # `max_tokens` bounds thinking and visible output *together* on the models this role
+    # routes to, and adaptive thinking at `high` effort will happily spend 4,096 tokens
+    # reasoning about a research plan before writing a word of it. The ceiling costs nothing
+    # unless it is used; the run that hits it produces no plan at all.
+    max_output_tokens: ClassVar[int] = 16_384
     prompt_version: ClassVar[str] = "1"
 
     def system_prompt(self, payload: PlannerInput) -> str:  # noqa: ARG002

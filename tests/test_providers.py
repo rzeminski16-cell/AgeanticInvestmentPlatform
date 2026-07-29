@@ -209,10 +209,22 @@ class TestPricing:
             DEFAULT_PRICES.values(), key=lambda p: p.output_usd
         )
 
+        # Opus 5's rate, $5/$25 — the dearest in the table.
         usage = Usage(input_tokens=MILLION, output_tokens=0, model="claude-unreleased")
         assert price_usage(usage, provider="a", usd_to_gbp=Decimal(1))[0].amount_usd == Decimal(
-            "15.00"
+            "5.00"
         )
+
+    def test_the_published_opus_rate_is_what_the_table_holds(self) -> None:
+        """A literal, because the budget cap is only as honest as this number.
+
+        The table said $15/$75 for over a month — Opus 4.7's rate, carried forward when the
+        model ID changed. It overstated every planner call threefold, which is the safe
+        direction and still wrong: a cap that trips at a third of the real spend stops runs
+        that had money left.
+        """
+        assert DEFAULT_PRICES["claude-opus-5"].input_usd == Decimal("5.00")
+        assert DEFAULT_PRICES["claude-opus-5"].output_usd == Decimal("25.00")
 
     def test_every_amount_is_a_decimal(self) -> None:
         """Money in floats is money that stops reconciling in the third decimal place."""
