@@ -159,18 +159,105 @@ If that fails, install from <https://git-scm.com/download/win> and accept the de
 
 ### 0.3 uv
 
+`uv` installs Python, resolves dependencies and runs commands inside the project's
+environment. Every command in this document that starts `uv run` needs it.
+
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-**Close and reopen PowerShell**, then:
+Watch the output. It should end by saying it installed `uv` and `uvx` and added a
+directory to your `PATH`. If it printed an error instead, see 0.3a.
+
+**Now close this PowerShell window and open a new one.** This is not optional and not
+superstition: the installer edits your user `PATH` in the registry, and Windows hands a
+process its environment when the process *starts*. An already-open window keeps the `PATH`
+it was born with, forever. Reopening is what picks up the change.
 
 ```powershell
 uv --version
 ```
 
-**Wrong:** `uv is not recognized`. The installer added it to your `PATH` but the open
-window still has the old one — reopening is the fix, not reinstalling.
+**Expect:** something like `uv 0.9.x`.
+
+### 0.3a When `uv` is not recognized
+
+```
+uv : The term 'uv' is not recognized as the name of a cmdlet, function, script file,
+or operable program.
+```
+
+This means Windows cannot find `uv` on your `PATH`. It does **not** necessarily mean the
+install failed. Work down the list.
+
+**1. Did you open a new window?** By far the most common cause. Close every PowerShell
+window, open a fresh one, and try again.
+
+If you would rather not reopen — or you did and it still fails — pull the updated `PATH`
+into the current window:
+
+```powershell
+$env:Path = [Environment]::GetEnvironmentVariable("Path","User") + ";" + [Environment]::GetEnvironmentVariable("Path","Machine")
+uv --version
+```
+
+If that works, the install was fine all along and only the window was stale. Note that
+this fixes the current window only; new windows get it permanently.
+
+**2. Is the binary actually there?** The installer's location has changed between
+versions, so check both:
+
+```powershell
+Test-Path "$HOME\.local\bin\uv.exe"
+Test-Path "$HOME\.cargo\bin\uv.exe"
+```
+
+If either says `True`, it installed correctly and this is purely a `PATH` problem. Confirm
+by running it by its full path:
+
+```powershell
+& "$HOME\.local\bin\uv.exe" --version
+```
+
+To fix the `PATH` permanently, replacing `.local\bin` with whichever directory was `True`:
+
+```powershell
+[Environment]::SetEnvironmentVariable(
+  "Path",
+  [Environment]::GetEnvironmentVariable("Path","User") + ";$HOME\.local\bin",
+  "User"
+)
+```
+
+Then open a new window and check `uv --version`.
+
+**3. If both said `False`, it never installed.** Scroll back through the installer output
+and read the error. Common causes:
+
+- **Execution policy or antivirus** blocked the script. The `-ExecutionPolicy ByPass` in
+  the command handles the usual case; corporate machine-level policy can still refuse.
+- **No network, or a proxy** intercepting `astral.sh`.
+
+Use a different installation method instead — any of these gives you the same tool:
+
+```powershell
+winget install --id=astral-sh.uv -e
+```
+
+or download the `uv-x86_64-pc-windows-msvc.zip` from
+<https://github.com/astral-sh/uv/releases>, unzip it somewhere permanent such as
+`C:\tools\uv`, and add that folder to your `PATH` with the `SetEnvironmentVariable`
+command above.
+
+Then open a new window and check `uv --version`.
+
+**4. Check you are not in a strange shell.** This document assumes **PowerShell**. If your
+prompt is `C:\>` you are in the old Command Prompt — most commands here still work, but
+`$HOME` and `Test-Path` do not. Open "Windows PowerShell" or "Terminal" from the Start
+menu.
+
+**Do not continue until `uv --version` prints a version.** Everything from section 2
+onward runs through `uv`.
 
 ### 0.4 The repository
 
@@ -411,6 +498,13 @@ uv sync --all-groups
 ```
 
 **The first sync downloads and builds the dependencies** and takes a few minutes.
+
+**Wrong:** `uv : The term 'uv' is not recognized`. That is step **0.3a**, not a problem
+with this project — `uv` is either not installed or not on this window's `PATH`. Go back
+and finish 0.3 before continuing.
+
+**Wrong:** `No `pyproject.toml` found`. You are in the wrong directory. `Get-Location`
+should end in `AgeianticEquityResearchPlatform`.
 
 ```powershell
 uv run aer version
