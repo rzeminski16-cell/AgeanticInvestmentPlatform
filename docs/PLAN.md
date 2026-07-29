@@ -1787,6 +1787,10 @@ on the fixture; documented one-command deploy.
 Each task is one focused session. Every task carries the same standing rules; they are restated in
 task 1 and referenced thereafter.
 
+> **Tasks 11–21 (Phase 2) are in `docs/phase-2-plan.md`.** This stage covers Phase 1 only. The
+> phase specifications in Stage 3 remain the authority for scope; the task files are the
+> dependency-ordered breakdowns of them.
+
 ---
 
 ### Task 1 — Repository foundation and development conventions
