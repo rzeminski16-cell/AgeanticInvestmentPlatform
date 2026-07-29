@@ -537,6 +537,23 @@ incomplete step — the planner is not asked twice, the filing is not fetched tw
 a step that already succeeded returns its stored output instead of executing. There is a
 test that kills a run after acquisition and asserts the fetch count does not change.
 
+### Pending migrations announce themselves
+
+New code often needs new tables, and forgetting `uv run alembic upgrade head` used to
+produce the worst kind of failure: the process started cleanly, `/readyz` reported ready,
+and one page returned an opaque 500 whose only clue was a stack trace.
+
+`aer.db.schema_check` compares `Base.metadata` against the live schema and reports what is
+missing, in three places: a `schema.out_of_date` warning at start-up, a banner on the
+landing page, and a `schema` entry in `/readyz` that turns a stale schema into a 503 naming
+the missing objects. It is derived from the models rather than from a revision constant, so
+there is nothing to keep in step — a table added to the models and forgotten in a migration
+is caught by the same check.
+
+It is a warning at start-up and never a refusal. The landing page is deliberately built to
+render with the database down and say what is wrong; an application that would not start
+because of a pending migration would take away the one page that could have told you.
+
 ### What may change after the fact
 
 **A request is editable and deletable until a run exists, and frozen from that moment.**

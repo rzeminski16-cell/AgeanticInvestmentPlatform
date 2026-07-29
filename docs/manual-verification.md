@@ -1156,6 +1156,44 @@ JSONB does, and it means the column type has regressed to `jsonb`.
 
 ---
 
+## 12a. After you pull: run the migrations
+
+**Do this first, every time you pull.** New code frequently needs new tables, and the
+symptom of forgetting is not obvious: the application starts cleanly, most pages work, and
+one page returns a 500 whose only clue is in a stack trace.
+
+```powershell
+uv run alembic upgrade head
+uv run alembic current      # should print the newest revision followed by (head)
+```
+
+The platform now tells you rather than letting you find out. All three of these say the
+same thing, and it is worth knowing where each of them is:
+
+- [ ] **At start-up.** `uv run aer serve` logs a `schema.out_of_date` warning in the
+      console naming the missing tables. It is a warning, not a refusal — an application
+      that would not start because of a pending migration would take away the landing page
+      that could have explained it.
+- [ ] **On the landing page.** A "Not ready yet" banner naming the missing tables and the
+      command to run.
+- [ ] **On `/readyz`.** `schema` appears alongside `database` and `redis`, and a stale
+      schema gives a **503** with `"error": "SchemaOutOfDateError"` and a detail naming
+      what is missing.
+
+To see all three deliberately, downgrade one step and look:
+
+```powershell
+uv run alembic downgrade -1
+uv run aer serve            # watch the console, then open / and /readyz
+uv run alembic upgrade head
+```
+
+- [ ] With the schema behind, `/readyz` is 503 and `database` still reports **ok**.
+      Connectivity and schema are different problems with different fixes; reporting the
+      second as the first would send you to restart a container that was working perfectly.
+
+---
+
 ## 13. Correcting or removing a draft request
 
 A request you have not run yet is a note to itself, and mistyping a ticker should cost you

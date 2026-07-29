@@ -20,6 +20,7 @@ from contextlib import asynccontextmanager
 import structlog
 from fastapi import FastAPI
 from redis.asyncio import Redis
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.staticfiles import StaticFiles
 
 from aer.api.errors import register_exception_handlers
@@ -28,6 +29,7 @@ from aer.api.routes import calculations, health, plans, reports, requests, runs
 from aer.api.state import AppState
 from aer.config import Settings, load_settings
 from aer.db.engine import create_engine, create_session_factory
+from aer.db.schema_check import schema_drift
 from aer.logging import configure_logging
 from aer.version import build_identity, version
 from aer.web import pages as web_pages
@@ -44,6 +46,36 @@ Local-first, auditable equity research for UK and US listed equities.
 **Not investment advice.** Nothing this API returns is a recommendation to buy, sell or
 hold any security.
 """
+
+
+async def _warn_if_schema_is_behind(app_state: AppState) -> None:
+    """Say so at start-up if the database is missing something the models expect.
+
+    A warning, never a refusal. The landing page is deliberately built to render with the
+    database down and say what is wrong, and an application that would not start because of
+    a pending migration would take away the one page that could have told you. This is also
+    why the check cannot fail start-up when it is the *database* that is unreachable: that
+    is a state the application is required to survive.
+
+    Logged rather than printed because ``aer serve`` streams these to the console anyway,
+    and a print would bypass the redaction every other line goes through.
+    """
+    try:
+        async with app_state.session_factory() as session:
+            drift = await schema_drift(session)
+    except (SQLAlchemyError, OSError) as exc:
+        _log.warning("schema.check_skipped", reason=type(exc).__name__)
+        return
+
+    if drift.is_clean:
+        return
+
+    _log.warning(
+        "schema.out_of_date",
+        detail=drift.as_message(),
+        missing_tables=list(drift.missing_tables),
+        missing_columns=list(drift.missing_columns),
+    )
 
 
 def _build_state(settings: Settings) -> AppState:
@@ -84,6 +116,7 @@ def create_app(settings: Settings | None = None, *, state: AppState | None = Non
             build=build_identity(),
             artefact_root=str(resolved.artefact_root),
         )
+        await _warn_if_schema_is_behind(app_state)
         try:
             yield
         finally:

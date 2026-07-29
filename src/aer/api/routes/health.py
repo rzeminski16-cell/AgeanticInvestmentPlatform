@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.status import HTTP_503_SERVICE_UNAVAILABLE
 
 from aer.api.deps import DbSession, RedisClient
+from aer.db.schema_check import SchemaOutOfDateError, schema_drift
 from aer.logging import redact_value
 from aer.version import git_sha, version
 
@@ -79,6 +80,25 @@ async def _check_redis(client: Redis) -> None:
     await client.ping()
 
 
+async def _check_schema(session: AsyncSession) -> None:
+    """Refuse readiness when the database is missing something the models expect.
+
+    A connectivity check alone reported "ready" for a database two migrations behind, and
+    the first page that touched the new table returned an opaque 500. Answering "have you
+    run the migrations?" here is the difference between a probe that tells you what is
+    wrong and one that tells you nothing was.
+    """
+    drift = await schema_drift(session)
+    if not drift.is_clean:
+        raise SchemaOutOfDateError(
+            drift.as_message(),
+            context={
+                "missing_tables": list(drift.missing_tables),
+                "missing_columns": list(drift.missing_columns),
+            },
+        )
+
+
 @router.get("/healthz", summary="Liveness probe")
 async def healthz() -> dict[str, str | None]:
     """Always 200 while the process can answer. Touches no dependency."""
@@ -93,6 +113,12 @@ async def readyz(response: Response, session: DbSession, redis: RedisClient) -> 
         _timed(_check_redis(redis)),
     )
     checks = {"database": database, "redis": cache}
+
+    # Only once the connection itself works. Run unconditionally it would report a missing
+    # schema for a database that is simply not there, which is a different problem with a
+    # different fix.
+    if database["status"] == "ok":
+        checks["schema"] = await _timed(_check_schema(session))
 
     failing = sorted(name for name, result in checks.items() if result["status"] != "ok")
     if failing:

@@ -39,6 +39,7 @@ from aer.core.schemas.request import (
 )
 from aer.core.universe import SUPPORTED_EXCHANGES
 from aer.db.models import Job
+from aer.db.schema_check import schema_drift
 from aer.errors import AerError, ConflictError, ValidationError
 from aer.services import requests as request_service
 from aer.version import build_identity
@@ -153,6 +154,18 @@ async def index(request: Request, session: DbSession) -> Response:
     recent: list[Any] = []
     problem: str | None = None
     try:
+        # Before the query, not after. A schema two migrations behind can leave *this*
+        # page working perfectly — nothing here touches the newest tables — while the run
+        # console returns an opaque 500. Checking eagerly is what makes this the page that
+        # tells you, which is the only reason it degrades instead of failing.
+        #
+        # It costs an inspection of every table on each load. On a single-user local tool
+        # that is a few tens of milliseconds a handful of times a day, and the alternative
+        # is caching an answer that would keep complaining after you fixed it.
+        drift = await schema_drift(session)
+        if not drift.is_clean:
+            problem = drift.as_message()
+
         user = await get_current_user(session)
         recent = list(await request_service.list_requests(session, user_id=user.id, limit=5))
     except AerError as exc:
@@ -165,10 +178,7 @@ async def index(request: Request, session: DbSession) -> Response:
         # connection, before there is a DBAPI error for SQLAlchemy to wrap. Catching only
         # SQLAlchemyError here would miss the single most common failure — Postgres not
         # started. Nothing else in this handler does I/O, so the breadth costs nothing.
-        problem = (
-            "The database is not reachable. Start it with `just up`, then reload this "
-            "page. /readyz reports which dependencies are answering."
-        )
+        problem = await _database_problem(session)
 
     response: Response = render(
         request,
@@ -396,6 +406,29 @@ async def request_detail(
     )
     set_csrf_cookie(detail, token)
     return detail
+
+
+_NOT_REACHABLE = (
+    "The database is not reachable. Start it with `just up`, then reload this page. "
+    "/readyz reports which dependencies are answering."
+)
+
+
+async def _database_problem(session: DbSession) -> str:
+    """Say *which* database problem this is, now that there are two worth telling apart.
+
+    "Not reachable" and "reachable but two migrations behind" have completely different
+    fixes, and reporting the second as the first sends the operator to restart a container
+    that was working perfectly. The failed statement has poisoned the transaction, so the
+    rollback is not optional — without it the drift query fails too and every problem looks
+    like an outage again.
+    """
+    try:
+        await session.rollback()
+        drift = await schema_drift(session)
+    except (SQLAlchemyError, OSError):
+        return _NOT_REACHABLE
+    return _NOT_REACHABLE if drift.is_clean else drift.as_message()
 
 
 async def _submitted_values(request: Request) -> dict[str, str]:

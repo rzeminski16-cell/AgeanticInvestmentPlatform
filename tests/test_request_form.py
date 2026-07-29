@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.api.security import CSRF_COOKIE_NAME, issue_csrf_token
 from aer.core.enums import UserRole
-from aer.db.models import ResearchRequest, User
+from aer.db.models import JobCancellation, ResearchRequest, User
 from aer.services import runs as run_service
 from tests.api_fixtures import build_app, client_for
 
@@ -599,3 +599,37 @@ class TestDeletingADraft:
         await give_it_a_run(db_engine, detail)
 
         assert 'id="delete-request"' not in (await web.get(detail)).text
+
+
+class TestTheLandingPageWarnsAboutAPendingMigration:
+    """The page an operator opens when something is wrong should say what is wrong.
+
+    A schema one migration behind can leave this page working perfectly — it touches none
+    of the new tables — while the run console returns an opaque 500. Checking eagerly is
+    what makes this the page that tells you.
+    """
+
+    @pytest.fixture
+    async def missing_a_table(self, db_engine):
+        async with db_engine.begin() as connection:
+            await connection.execute(text("DROP TABLE IF EXISTS job_cancellations CASCADE"))
+        try:
+            yield
+        finally:
+            async with db_engine.begin() as connection:
+                await connection.run_sync(JobCancellation.__table__.create, checkfirst=True)
+
+    async def test_it_still_renders(self, web, missing_a_table):
+        # Degraded, not broken. An application that refused to serve this page would take
+        # away the only thing that could have explained the failure.
+        assert (await web.get("/")).status_code == 200
+
+    async def test_it_names_the_missing_table_and_the_command(self, web, missing_a_table):
+        body = (await web.get("/")).text
+
+        assert 'id="startup-problem"' in body
+        assert "job_cancellations" in body
+        assert "alembic upgrade head" in body
+
+    async def test_a_migrated_database_shows_no_such_banner(self, web):
+        assert 'id="startup-problem"' not in (await web.get("/")).text
