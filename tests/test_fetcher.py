@@ -19,6 +19,7 @@ otherwise slip through unnoticed.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import socket as socket_module
 
@@ -38,8 +39,13 @@ from aer.fetch.errors import (
     SsrfBlockedError,
     UrlNotAllowedError,
 )
+from aer.fetch.policy import policy_for_url
 from aer.fetch.robots import RobotsCache
-from tests.fetch_fixtures import RecordingSleeper, public_resolver
+from tests.fetch_fixtures import (
+    NetworkAccessInTestError,
+    RecordingSleeper,
+    public_resolver,
+)
 
 pytestmark = pytest.mark.usefixtures("no_real_sockets")
 
@@ -237,13 +243,36 @@ class TestAllowlist:
         with pytest.raises(UrlNotAllowedError):
             await fetcher.fetch("https://evil-sec.gov/x", provider=Provider.SEC_EDGAR)
 
-    async def test_a_subdomain_of_an_allowed_domain_is_permitted(self, fetcher):
-        # Refused for a different reason -- respx has no route for it -- which is what
-        # proves the allowlist let it through.
-        with pytest.raises(BaseException) as excinfo:  # noqa: PT011 -- see the assertion
-            await fetcher.fetch("https://data.sec.gov/api/x", provider=Provider.SEC_EDGAR)
+    def test_a_subdomain_of_an_allowed_domain_is_permitted(self):
+        """Asked of the allowlist directly, rather than inferred from a fetch failing.
 
-        assert not isinstance(excinfo.value, UrlNotAllowedError)
+        This was originally written as "fetch it and assert *something* raises, but not
+        ``UrlNotAllowedError``" — the something being the socket guard firing on a request
+        respx had no route for. That is a proxy for the real question, and it depended on
+        the guard behaving identically everywhere. It did not: on Windows the fetch reached
+        the network instead of raising, so the test failed while the allowlist was working
+        perfectly. Asking the allowlist what it decided has no such dependency.
+        """
+        assert policy_for_url("https://data.sec.gov/api/x", Provider.SEC_EDGAR)
+
+    def test_a_lookalike_of_a_subdomain_is_still_refused(self):
+        """The same question from the other side, so the test above cannot pass vacuously."""
+        with pytest.raises(UrlNotAllowedError):
+            policy_for_url("https://data.sec.gov.evil.test/api/x", Provider.SEC_EDGAR)
+
+    @respx.mock
+    async def test_the_pipeline_really_will_fetch_that_subdomain(self, fetcher):
+        """And the allowlist decision is actually reached by the pipeline.
+
+        Routed through respx this time, so the request is answered rather than escaping.
+        Without this, `policy_for_url` could be correct and never consulted.
+        """
+        url = "https://data.sec.gov/api/x"
+        respx.get(url).mock(return_value=httpx.Response(200, content=b"{}"))
+
+        result = await fetcher.fetch(url, provider=Provider.SEC_EDGAR)
+
+        assert result.ok
 
 
 class TestRobots:
@@ -537,3 +566,76 @@ class TestRateLimitingIsApplied:
 
         assert result.ok
         assert recorded.calls == [pytest.approx(0.125, abs=1e-6)]
+
+
+class TestTheNetworkGuard:
+    """The guard that makes every other test in this module mean something.
+
+    Worth its own tests because it failed silently once. Patching ``socket.socket`` catches
+    synchronous code and nothing else: on Windows the Proactor event loop connects through
+    IOCP and never calls ``socket.connect``, so for two months the fetch suite had no
+    network guard at all on the platform this project is developed on — and the only symptom
+    was one unrelated test failing for a reason that looked like a bug in the allowlist.
+
+    A guard nobody tests is a guard that is working right up until it is not.
+    """
+
+    async def test_a_remote_connection_is_refused(self):
+        """Through ``create_connection``, which is how anyio, httpcore and httpx connect."""
+        loop = asyncio.get_running_loop()
+
+        with pytest.raises(NetworkAccessInTestError, match="real network connection"):
+            await loop.create_connection(asyncio.Protocol, "example.com", 80)
+
+    def test_create_connection_is_patched_and_not_only_the_socket(self):
+        """A structural check, because a behavioural one cannot tell them apart here.
+
+        On a selector event loop — Linux, macOS — ``create_connection`` builds its socket
+        with ``socket.socket`` and connects through it, so the socket patch alone catches
+        everything and the test above passes whether or not this patch exists. Only the
+        Proactor loop, which is Windows-only and cannot be run here, takes the path that
+        needs it.
+
+        So this asserts the patch is *installed* rather than that it fires. That is weaker
+        than a behavioural test and it is what is actually verifiable on this platform;
+        pretending otherwise is how the guard came to be a no-op on Windows in the first
+        place.
+        """
+        import asyncio.base_events  # noqa: PLC0415 -- read at call time, after patching
+
+        assert (
+            asyncio.base_events.BaseEventLoop.create_connection.__qualname__
+            != "BaseEventLoop.create_connection"
+        ), "the no_real_sockets fixture is not patching create_connection"
+
+    async def test_a_remote_ip_is_refused_as_well_as_a_hostname(self):
+        """A resolved address must not be a way round it."""
+        loop = asyncio.get_running_loop()
+
+        with pytest.raises(NetworkAccessInTestError):
+            await loop.create_connection(asyncio.Protocol, "104.16.0.1", 443)
+
+    async def test_loopback_is_still_permitted(self):
+        """Redis is a real dependency; blocking loopback would mean testing a stub.
+
+        Nothing is listening on this port, so the connection is refused by the operating
+        system — and that is the point: it got far enough to be refused by the OS rather
+        than by the guard.
+        """
+        loop = asyncio.get_running_loop()
+
+        with pytest.raises((ConnectionRefusedError, OSError)) as excinfo:
+            await loop.create_connection(asyncio.Protocol, "127.0.0.1", 9)
+
+        assert not isinstance(excinfo.value, NetworkAccessInTestError)
+
+    def test_the_synchronous_path_is_guarded_too(self):
+        """The original check, kept: not everything that opens a socket is async.
+
+        The socket is closed explicitly. The guard raises before the connection is
+        attempted, so without the context manager it would be finalised by the garbage
+        collector — and ``filterwarnings = ["error"]`` turns that ResourceWarning into a
+        failure in whichever test happens to run next.
+        """
+        with socket_module.socket() as sock, pytest.raises(NetworkAccessInTestError):
+            sock.connect(("example.com", 80))

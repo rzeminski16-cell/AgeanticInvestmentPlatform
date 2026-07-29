@@ -2,8 +2,16 @@
 
 ``no_real_sockets`` is the load-bearing one. Every other test in this directory would pass
 just as happily against code that quietly opened a real connection — respx intercepts at
-the transport layer, so anything bypassing httpx would slip through unnoticed. Replacing
-``socket.socket`` turns that from an assumption into a failure.
+the transport layer, so anything bypassing httpx would slip through unnoticed. Turning
+that from an assumption into a failure is the whole point of the fixture.
+
+**It blocks in two places, and both are necessary.** Patching ``socket.socket`` catches
+synchronous code. It does *not* catch asyncio on Windows: the Proactor event loop connects
+through IOCP's ``ConnectEx`` on the socket handle and never calls ``socket.connect``, so
+the guard was silently a no-op there — on the exact code it exists to guard, since the
+fetcher is entirely async. The second patch closes that: anyio, and therefore httpcore and
+httpx, opens every outbound connection through ``loop.create_connection``, which both the
+selector and proactor loops inherit from ``BaseEventLoop``.
 
 Loopback is left open, because Redis is a real dependency of the rate limiter and the
 robots cache, and testing those against a stub would be testing the stub.
@@ -11,6 +19,7 @@ robots cache, and testing those against a stub would be testing the stub.
 
 from __future__ import annotations
 
+import asyncio
 import socket
 from pathlib import Path
 
@@ -24,6 +33,10 @@ from aer.storage.local import LocalArtefactStore
 USER_AGENT = "Ageiantic Research Test test@example.invalid"
 
 _LOOPBACK = frozenset({"127.0.0.1", "::1", "localhost"})
+
+
+class NetworkAccessInTestError(AssertionError):
+    """A test opened a real connection. Always a defect in the test, never in the code."""
 
 
 class _BlockedSocket(socket.socket):
@@ -46,19 +59,33 @@ def _refuse_if_remote(address: object) -> None:
             "run against respx; a test that reaches the internet is slow, flaky, and "
             "proves nothing about the code under test."
         )
-        raise AssertionError(message)
+        raise NetworkAccessInTestError(message)
 
 
 @pytest.fixture
 def no_real_sockets(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Fail the test if it opens a socket to a remote address.
+    """Fail the test if it opens a connection to a remote address.
 
     Requested per module via ``pytestmark = pytest.mark.usefixtures("no_real_sockets")``
     rather than made autouse. Autouse here would reach the whole suite and break the
     database and browser tests, which legitimately open sockets — and a guard that has to
     be disabled somewhere is a guard nobody trusts anywhere.
+
+    Both patches are needed; see the module docstring. The asyncio one is what makes this
+    fixture mean anything on Windows.
     """
     monkeypatch.setattr(socket, "socket", _BlockedSocket)
+
+    original = asyncio.base_events.BaseEventLoop.create_connection
+
+    async def guarded(self, protocol_factory, host=None, port=None, **kwargs):  # type: ignore[no-untyped-def]
+        # `host` is None when the caller passes an already-connected `sock=`, which the
+        # socket patch above has already vetted.
+        if host is not None:
+            _refuse_if_remote(host)
+        return await original(self, protocol_factory, host, port, **kwargs)
+
+    monkeypatch.setattr(asyncio.base_events.BaseEventLoop, "create_connection", guarded)
 
 
 @pytest.fixture

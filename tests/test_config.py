@@ -31,6 +31,12 @@ from aer.errors import ConfigError
 
 CURRENT_MODEL_IDS = {"claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"}
 
+# Whether pathlib itself treats two paths differing only in case as equal — true on
+# Windows, false on Linux and on a case-sensitive macOS volume. Detected rather than
+# inferred from `sys.platform`, because the thing that actually matters is the comparison
+# behaviour and not the operating system's name.
+PATHS_FOLD_CASE = Path("A") == Path("a")
+
 # Deliberately fake. Its only job is to be a distinctive string we can assert never
 # appears in a repr, a log line or a traceback.
 SECRET_VALUE = "sk-ant-api03-NOTAREALKEY"  # pragma: allowlist secret
@@ -357,11 +363,31 @@ class TestContainmentHelper:
         monkeypatch.setattr(os.path, "normcase", str.lower)
         assert _contains(tmp_path / "Notes", tmp_path / "notes" / "research")
 
+    @pytest.mark.skipif(
+        PATHS_FOLD_CASE,
+        reason=(
+            "pathlib's Windows flavour compares paths case-insensitively in its own "
+            "right, whatever os.path.normcase does, so a case-sensitive filesystem "
+            "cannot be simulated by patching normcase here. The behaviour that matters "
+            "on Windows -- Notes and notes being one directory -- is the test above, "
+            "which does run there."
+        ),
+    )
     def test_case_differences_are_distinct_on_a_case_sensitive_filesystem(
         self, monkeypatch, tmp_path
     ):
         monkeypatch.setattr(os.path, "normcase", lambda value: value)
         assert not _contains(tmp_path / "Notes", tmp_path / "notes" / "research")
+
+    def test_the_helper_folds_case_wherever_the_platform_does(self, tmp_path):
+        """No simulation, no patching: whatever this machine does, containment agrees.
+
+        The two tests above each cover one half of the platform split and one of them is
+        always skipped. This one runs everywhere and would catch a helper that disagreed
+        with its own filesystem — which is the failure that would actually let personal
+        notes sit inside a directory the exporter regenerates.
+        """
+        assert _contains(tmp_path / "Notes", tmp_path / "notes" / "research") is PATHS_FOLD_CASE
 
 
 class TestDirectories:
