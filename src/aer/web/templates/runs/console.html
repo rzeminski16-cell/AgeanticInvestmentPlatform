@@ -175,6 +175,28 @@
       </form>
     {% endif %}
 
+    {#
+      The evidence surfaces. Linked from the console rather than only from a finished
+      report, because "what has this run actually gathered?" is a question worth being able
+      to ask while it is still running.
+    #}
+    <nav class="mt-8 flex flex-wrap gap-4 text-sm" id="evidence-links">
+      <a
+        href="/runs/{{ job.id }}/sources"
+        class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
+        id="sources-link"
+      >
+        Sources and provenance
+      </a>
+      <a
+        href="/runs/{{ job.id }}/claims"
+        class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
+        id="claims-link"
+      >
+        Claims and their evidence
+      </a>
+    </nav>
+
     <section class="mt-8">
       <h2 class="text-lg font-semibold tracking-tight">Steps</h2>
       <ol class="mt-3 divide-y divide-slate-200 dark:divide-slate-800" id="run-steps">

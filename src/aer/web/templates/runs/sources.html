@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{#
+  The evidence table.
+
+  Everything the run acquired, including what it refused to use. A table that showed only
+  the admissible sources would answer "what did we rely on?" while making "what did we
+  reject, and why?" unanswerable — and the second question is the one that tells a reader
+  whether the first answer can be trusted.
+
+  Plain server-rendered HTML with no script of any kind. This page is read on the way to
+  deciding whether to believe a number, which is the last place to depend on a fetch.
+#}
+
+{% block title %}
+  Sources &middot; {{ research_request.ticker if research_request else "Run" }}
+{% endblock %}
+
+{% block content %}
+  <nav class="text-sm">
+    <a href="/runs/{{ job.id }}" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
+      &larr; Back to the run
+    </a>
+  </nav>
+
+  <h1 class="mt-4 text-2xl font-semibold tracking-tight">Sources</h1>
+  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+    Every document this run fetched, with the record that decides what it may support. The
+    digest identifies the archived bytes: the same digest is what a citation is verified
+    against.
+  </p>
+
+  <dl class="mt-6 grid gap-4 sm:grid-cols-3">
+    <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Acquired</dt>
+      <dd class="mt-1 font-mono text-sm" id="source-count">{{ sources | length }}</dd>
+    </div>
+    <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Quarantined</dt>
+      <dd class="mt-1 font-mono text-sm" id="quarantined-count">{{ quarantined }}</dd>
+    </div>
+    <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Still inadmissible</dt>
+      <dd class="mt-1 font-mono text-sm" id="inadmissible-count">{{ inadmissible }}</dd>
+    </div>
+  </dl>
+
+  {% if flagged %}
+    <p
+      class="mt-4 rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-200"
+      id="injection-note"
+    >
+      {{ flagged }} of these documents contained text that looks like an instruction to a
+      model. Nothing acted on it — fetched content is data, never instruction — but the
+      passages are recorded and worth a look.
+    </p>
+  {% endif %}
+
+  <div class="mt-8 overflow-x-auto">
+    <table class="w-full min-w-[64rem] text-left text-sm" id="sources-table">
+      <thead class="border-b border-slate-300 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700">
+        <tr>
+          <th scope="col" class="py-2 pr-4">Document</th>
+          <th scope="col" class="py-2 pr-4">Tier</th>
+          <th scope="col" class="py-2 pr-4">Published</th>
+          <th scope="col" class="py-2 pr-4">Retrieved</th>
+          <th scope="col" class="py-2 pr-4">Artefact</th>
+          <th scope="col" class="py-2 pr-4">Admissible</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+        {% for source in sources %}
+          <tr data-source="{{ source.id }}" data-tier="{{ source.source_tier.value }}">
+            <td class="py-3 pr-4 align-top">
+              <a
+                href="{{ source.url }}"
+                rel="noopener noreferrer nofollow"
+                class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
+              >
+                {{ source.title or source.url }}
+              </a>
+              <p class="mt-0.5 font-mono text-xs text-slate-500">
+                {{ source.provider.value }}{% if source.publisher %} &middot; {{ source.publisher }}{% endif %}
+              </p>
+              {% if source.licence_note %}
+                <p class="mt-1 max-w-md text-xs text-slate-500" data-field="licence">
+                  {{ source.licence_note }}
+                </p>
+              {% endif %}
+              {% if source.injection_flagged %}
+                <p class="mt-1 text-xs font-semibold text-amber-800 dark:text-amber-300" data-field="injection">
+                  Contains text that reads as an instruction ({{ source.injection_findings | length }} passage{{ "" if source.injection_findings | length == 1 else "s" }}).
+                </p>
+              {% endif %}
+            </td>
+
+            {#
+              The tier badge. Colour is an aid, not the message: the tier code is printed
+              too, because a reader who cannot distinguish the greens still needs to know
+              whether this is a regulator or a blog.
+            #}
+            <td class="py-3 pr-4 align-top">
+              <span
+                class="rounded-full px-2 py-0.5 font-mono text-xs font-semibold
+                  {% if source.source_tier.rank <= 2 %}
+                    bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200
+                  {% elif source.source_tier.rank <= 4 %}
+                    bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200
+                  {% else %}
+                    bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300
+                  {% endif %}"
+                data-field="tier"
+              >
+                {{ source.source_tier.value }}
+              </span>
+            </td>
+
+            <td class="py-3 pr-4 align-top font-mono text-xs" data-field="published">
+              {{ source.publication_date.isoformat() if source.publication_date else "—" }}
+              {% if source.publication_date_latest and source.publication_date_latest != source.publication_date %}
+                <span class="block text-amber-700 dark:text-amber-400" data-field="published-latest">
+                  latest evidence {{ source.publication_date_latest.isoformat() }}
+                </span>
+              {% endif %}
+              {% if source.publication_date_source %}
+                <span class="block text-slate-500">{{ source.publication_date_source }}</span>
+              {% endif %}
+            </td>
+
+            <td class="py-3 pr-4 align-top font-mono text-xs" data-field="retrieved">
+              {{ source.retrieved_at.date().isoformat() }}
+            </td>
+
+            <td class="py-3 pr-4 align-top font-mono text-xs" data-field="hash" title="{{ source.sha256 }}">
+              {{ source.short_hash or "—" }}
+              {% if source.excerpt_count %}
+                <span class="block text-slate-500">
+                  {{ source.excerpt_count }} excerpt{{ "" if source.excerpt_count == 1 else "s" }}
+                </span>
+              {% endif %}
+            </td>
+
+            <td class="py-3 pr-4 align-top" data-field="admissibility">
+              {% if source.is_admissible %}
+                <span class="text-xs font-semibold text-emerald-800 dark:text-emerald-300">Yes</span>
+              {% else %}
+                <span class="text-xs font-semibold text-red-800 dark:text-red-400">No</span>
+              {% endif %}
+              {% if source.quarantined %}
+                <p class="mt-1 max-w-xs text-xs text-red-800 dark:text-red-400" data-field="quarantine-reason">
+                  Quarantined: {{ source.quarantine_reason }}
+                </p>
+              {% endif %}
+              {% if source.override_reason %}
+                <p class="mt-1 max-w-xs text-xs text-amber-800 dark:text-amber-300" data-field="override-reason">
+                  Used anyway: {{ source.override_reason }}
+                </p>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="6" class="py-6 text-sm text-slate-400" id="no-sources">
+              This run has not acquired anything yet.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

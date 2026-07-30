@@ -100,7 +100,27 @@
     <p class="mt-1 text-sm text-amber-900/90 dark:text-amber-100/90">{{ disclaimer }}</p>
   </section>
 
-  <div class="mt-8 flex gap-4 border-t border-slate-200 pt-6 dark:border-slate-800">
+  {#
+    The two-click path. From here to the claim index is one click and to the excerpt behind
+    any claim is the second; the sources link is the same journey approached from the
+    document end. Both are on the report itself rather than only on the console, because the
+    report is what a reader has in front of them when they doubt a number.
+  #}
+  <div class="mt-8 flex flex-wrap gap-4 border-t border-slate-200 pt-6 dark:border-slate-800">
+    <a
+      href="/runs/{{ report.job_id }}/claims"
+      class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
+      id="report-claims-link"
+    >
+      Every claim and its evidence
+    </a>
+    <a
+      href="/runs/{{ report.job_id }}/sources"
+      class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
+      id="report-sources-link"
+    >
+      Sources and provenance
+    </a>
     <a
       href="/runs/{{ report.job_id }}"
       class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"

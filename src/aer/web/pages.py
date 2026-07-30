@@ -38,12 +38,21 @@ from starlette.status import (
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
 from aer.core.enums import Decision, GateKind, JobStatus
-from aer.db.models import Company, Job, Report, ResearchPlan, ResearchRequest
+from aer.db.models import (
+    Claim,
+    Company,
+    Job,
+    Report,
+    ReportSection,
+    ResearchPlan,
+    ResearchRequest,
+)
 from aer.errors import ConflictError, ValidationError
 from aer.queue import enqueue_run
 from aer.render.markdown import render_markdown
 from aer.services import approvals as approval_service
 from aer.services import cancellation as cancellation_service
+from aer.services import provenance
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
@@ -366,6 +375,98 @@ async def decide_gate_page(
     return RedirectResponse(f"/runs/{job_id}", status_code=HTTP_303_SEE_OTHER)
 
 
+@router.get("/runs/{job_id}/sources", response_class=HTMLResponse, summary="What a run acquired")
+async def run_sources(
+    request: Request,
+    job_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+) -> Response:
+    """The evidence table: every document, its tier, its dates, its hash, its flags.
+
+    Read-only, and deliberately shows everything — a quarantined source appears here with
+    its reason rather than being filtered out. "What did this run refuse to use, and why?"
+    is a question a reader of the report is entitled to ask, and a table that showed only
+    the sources that were used could not answer it.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    sources = await provenance.sources_for_run(session, job_id)
+    research_request = await session.get(ResearchRequest, job.request_id)
+
+    page: Response = render(
+        request,
+        "runs/sources.html",
+        {
+            "job": job,
+            "research_request": research_request,
+            "sources": sources,
+            "quarantined": sum(1 for source in sources if source.quarantined),
+            "inadmissible": sum(1 for source in sources if not source.is_admissible),
+            "flagged": sum(1 for source in sources if source.injection_flagged),
+        },
+    )
+    return page
+
+
+@router.get("/runs/{job_id}/claims", response_class=HTMLResponse, summary="What a run asserts")
+async def run_claims(
+    request: Request,
+    job_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+) -> Response:
+    """The claim index a reader arrives at from a report.
+
+    One click from here to the excerpt behind any of them, which is what makes the whole
+    chain checkable in two rather than in "read the source and search for the sentence".
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    claims = await provenance.claims_for_run(session, job_id)
+    research_request = await session.get(ResearchRequest, job.request_id)
+
+    page: Response = render(
+        request,
+        "runs/claims.html",
+        {
+            "job": job,
+            "research_request": research_request,
+            "claims": claims,
+            "unsupported": sum(1 for claim in claims if not claim.is_supported),
+        },
+    )
+    return page
+
+
+@router.get("/claims/{claim_id}", response_class=HTMLResponse, summary="The evidence for a claim")
+async def claim_detail(
+    request: Request,
+    claim_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+) -> Response:
+    """The drill-down: the sentence, the figure, and the exact words behind it.
+
+    The excerpt is shown **verbatim, as stored**, with the verifier's verdict beside it. A
+    page that showed the excerpt without saying whether code had confirmed it would imply a
+    check that may never have happened, which is worse than showing nothing.
+    """
+    if not await _claim_is_visible(session, claim_id=claim_id, user_id=user.id):
+        return _problem(request, f"No claim {claim_id}.", status=HTTP_404_NOT_FOUND)
+
+    view = await provenance.claim_view(session, claim_id)
+    if view is None:  # pragma: no cover -- visibility already proved it exists
+        return _problem(request, f"No claim {claim_id}.", status=HTTP_404_NOT_FOUND)
+
+    page: Response = render(request, "claims/detail.html", {"claim": view})
+    return page
+
+
 @router.get("/reports/{report_id}", response_class=HTMLResponse, summary="A finished report")
 async def report_detail(
     request: Request,
@@ -414,6 +515,25 @@ async def _owned_job(session: AsyncSession, *, job_id: uuid.UUID, user: Any) -> 
         .where(Job.id == job_id, ResearchRequest.user_id == user.id)
     )
     return job
+
+
+async def _claim_is_visible(
+    session: AsyncSession, *, claim_id: uuid.UUID, user_id: uuid.UUID
+) -> bool:
+    """Whether this claim belongs to a run of the asking user's own request.
+
+    Mirrors the JSON API's check rather than sharing it, because the two answer differently
+    — this one renders a problem page and that one raises. What they must not differ on is
+    *who* may see a claim, which is why both are one query against the same join.
+    """
+    owner = await session.scalar(
+        select(ResearchRequest.user_id)
+        .join(Job, Job.request_id == ResearchRequest.id)
+        .join(ReportSection, ReportSection.job_id == Job.id)
+        .join(Claim, Claim.report_section_id == ReportSection.id)
+        .where(Claim.id == claim_id)
+    )
+    return owner == user_id
 
 
 async def _decision_for(session: AsyncSession, *, job_id: uuid.UUID, gate: GateKind) -> str | None:

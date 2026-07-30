@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{#
+  The claim index: one row per assertion the report makes, in section order.
+
+  This is the first of the two clicks. From the report a reader arrives here; from here one
+  more click reaches the exact words behind any sentence.
+#}
+
+{% block title %}
+  Claims &middot; {{ research_request.ticker if research_request else "Run" }}
+{% endblock %}
+
+{% block content %}
+  <nav class="text-sm">
+    <a href="/runs/{{ job.id }}" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
+      &larr; Back to the run
+    </a>
+  </nav>
+
+  <h1 class="mt-4 text-2xl font-semibold tracking-tight">Claims</h1>
+  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+    Every assertion this report makes, and whether anything checkable stands behind it.
+    Numeric and factual claims need a citation; a forward-looking statement or an opinion
+    needs a stated basis instead, and is not marked unsupported for lacking one.
+  </p>
+
+  <dl class="mt-6 grid gap-4 sm:grid-cols-2">
+    <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Claims</dt>
+      <dd class="mt-1 font-mono text-sm" id="claim-count">{{ claims | length }}</dd>
+    </div>
+    <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Unsupported</dt>
+      <dd class="mt-1 font-mono text-sm" id="unsupported-count">{{ unsupported }}</dd>
+    </div>
+  </dl>
+
+  <ul class="mt-8 divide-y divide-slate-200 dark:divide-slate-800" id="claims-list">
+    {% for claim in claims %}
+      <li class="py-4" data-claim="{{ claim.id }}">
+        <p class="text-sm">
+          <a
+            href="/claims/{{ claim.id }}"
+            class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
+            data-field="claim-link"
+          >
+            {{ claim.text }}
+          </a>
+        </p>
+        <p class="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+          <span class="font-mono">{{ claim.section_key }}</span>
+          <span class="font-mono uppercase tracking-wide">{{ claim.kind.value }}</span>
+          <span data-field="citations">
+            {{ claim.verified_count }}/{{ claim.citation_count }} citation{{ "" if claim.citation_count == 1 else "s" }} admissible
+          </span>
+          {% if not claim.is_supported %}
+            <span
+              class="rounded-full bg-red-100 px-2 py-0.5 font-semibold uppercase tracking-wide text-red-900 dark:bg-red-950 dark:text-red-200"
+              data-field="unsupported"
+            >
+              Unsupported
+            </span>
+          {% endif %}
+        </p>
+      </li>
+    {% else %}
+      <li class="py-6 text-sm text-slate-400" id="no-claims">
+        This run recorded no claims. Sections drafted by the vertical slice cite their
+        sources as footnotes; per-sentence claims arrive with the section-writer agent.
+      </li>
+    {% endfor %}
+  </ul>
+{% endblock %}

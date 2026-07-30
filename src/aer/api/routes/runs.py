@@ -31,6 +31,7 @@ from aer.errors import AerError
 from aer.queue import enqueue_run
 from aer.services import approvals as approval_service
 from aer.services import cancellation as cancellation_service
+from aer.services import provenance
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
 from aer.workflow.workflows.vertical_slice_v1 import final_gate_payload
@@ -110,6 +111,31 @@ class DraftRead(BaseModel):
     payload_hash: str
 
 
+class SourcesRead(BaseModel):
+    """A run's acquired documents, and the counts a reader checks first."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    job_id: uuid.UUID
+    sources: list[dict[str, Any]]
+
+    # Two counts, not one. `quarantined` is how many were refused; `inadmissible` is how
+    # many are *still* refused after any overrides. A single number would hide the
+    # difference between "nothing was doubtful" and "everything doubtful was waved through".
+    quarantined: int
+    inadmissible: int
+
+
+class ClaimsRead(BaseModel):
+    """A run's claims, in section order."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    job_id: uuid.UUID
+    claims: list[dict[str, Any]]
+    unsupported: int
+
+
 @router.post("", status_code=HTTP_202_ACCEPTED, response_model=RunRead, summary="Start a run")
 async def start_run(
     payload: StartRunRequest,
@@ -183,6 +209,49 @@ async def read_draft(job_id: uuid.UUID, session: DbSession, user: CurrentUser) -
         sections=list(payload["sections"]),
         escalations=list(payload["escalations"]),
         payload_hash=payload_hash_for(payload),
+    )
+
+
+@router.get(
+    "/{job_id}/sources",
+    response_model=SourcesRead,
+    summary="What this run acquired, and whether it may be relied on",
+)
+async def read_sources(job_id: uuid.UUID, session: DbSession, user: CurrentUser) -> SourcesRead:
+    """Every document this run fetched, with its provenance record in full.
+
+    Tier, both publication dates, the artefact digest, the licence note, whether robots was
+    consulted, whether it was quarantined and why, and whether a document tried to smuggle
+    instructions. Nothing is filtered out — a quarantined source appears here quarantined,
+    because "what did this run refuse to use?" is a question the record has to answer.
+    """
+    await _owned_job(session, job_id=job_id, user=user)
+    sources = await provenance.sources_for_run(session, job_id)
+    return SourcesRead(
+        job_id=job_id,
+        sources=[source.as_dict() for source in sources],
+        quarantined=sum(1 for source in sources if source.quarantined),
+        inadmissible=sum(1 for source in sources if not source.is_admissible),
+    )
+
+
+@router.get(
+    "/{job_id}/claims",
+    response_model=ClaimsRead,
+    summary="What this run's report asserts",
+)
+async def read_claims(job_id: uuid.UUID, session: DbSession, user: CurrentUser) -> ClaimsRead:
+    """The run's claims in section order, each with its citation count.
+
+    The index a reader arrives at from a report; ``GET /api/claims/{id}`` is the
+    drill-down behind each entry.
+    """
+    await _owned_job(session, job_id=job_id, user=user)
+    claims = await provenance.claims_for_run(session, job_id)
+    return ClaimsRead(
+        job_id=job_id,
+        claims=[claim.as_dict() for claim in claims],
+        unsupported=sum(1 for claim in claims if not claim.is_supported),
     )
 
 

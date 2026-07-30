@@ -369,7 +369,12 @@ class TestCitationsResolve:
         session: AsyncSession = run_context["session"]
         store: LocalArtefactStore = run_context["store"]
 
-        document = await session.scalar(select(SourceDocument))
+        # Scoped to this run's job. An unfiltered `select` picks an arbitrary row, and once
+        # another module in the suite commits a source document of its own the digest
+        # printed in *this* report stops matching the one this query happens to find.
+        document = await session.scalar(
+            select(SourceDocument).where(SourceDocument.job_id == run_context["job"].id)
+        )
         assert document is not None
         artefact = await session.get(Artefact, document.artefact_id)
         assert artefact is not None

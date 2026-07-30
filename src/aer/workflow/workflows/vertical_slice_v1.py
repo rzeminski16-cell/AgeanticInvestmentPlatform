@@ -318,6 +318,11 @@ async def _acquire(context: StepContext) -> StepResult:
         context.session,
         store,
         request=request,
+        # Which run fetched it. Optional on the service because a document can be supplied
+        # by hand or gathered while planning — but a run that omits it produces provenance
+        # attributable to a request and to no particular run, and the sources table, which
+        # asks "what did *this* run acquire?", would be empty for every real run.
+        job_id=context.job.id,
         result=response.fetch,
         provider=Provider.SEC_EDGAR,
         source_tier=SourceTier.T1_REGULATORY,

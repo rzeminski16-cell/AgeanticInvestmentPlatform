@@ -68,3 +68,7 @@ desktop.ini
 
 # --- Node (only used to build the Tailwind stylesheet; output IS committed) ------------
 node_modules/
+
+# Redis' on-disk snapshot, written into the working directory by a locally started
+# redis-server. Never part of the project.
+dump.rdb

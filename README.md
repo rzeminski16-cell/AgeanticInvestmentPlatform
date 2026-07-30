@@ -640,6 +640,38 @@ The override never clears the flag, so the record says both that the document wa
 somebody decided to use it anyway. See
 `docs/adr/0021-look-ahead-is-checked-twice-on-the-latest-date.md`.
 
+### Reaching the evidence in two clicks
+
+Everything a reader could want was in the database by the end of the evidence pipeline, and
+none of it was reachable without SQL. A guarantee nobody can exercise is indistinguishable
+from one that does not hold, so the chain has surfaces: a **sources table** per run, a
+**claim index**, and a **drill-down** that shows the exact words behind a sentence with the
+verifier's verdict beside them. Report → claims → excerpt is two clicks, and a test walks the
+links rather than knowing the URLs.
+
+**Nothing is filtered out, and that is the design.** A table showing only admissible sources
+answers "what did we rely on?" while making "what did we reject, and why?" unanswerable —
+and the second question is what tells a reader whether to believe the first. So a quarantined
+source appears with its reason, a document that tried to smuggle instructions appears
+flagged, and a citation that failed verification appears with its excerpt, its match ratio
+and the error. Hiding the failed excerpt would be the worst of the three: a ratio of 0.94 and
+a ratio of 0.02 are a reflowed paragraph and a fabrication, and only the words let a reader
+tell which they are looking at.
+
+**Three citation states, not two.** Verified, overridden, unverified. Folding "overridden"
+into either neighbour loses the distinction a research report most needs: code confirmed
+this, versus code could not and a person accepted it anyway. The sources table carries two
+counts for the same reason — quarantined and still-inadmissible — because one number would
+hide the difference between "nothing was doubtful" and "everything doubtful was waved
+through".
+
+The excerpt is printed as **text, never markup**: it came out of a document nobody vetted,
+and rendering it as HTML would run a filing's contents as script on a page that can reach the
+database. Neither page carries a script of its own, and a browser test loads both with
+JavaScript disabled — these are the pages a reader opens *because* they doubt a number, and a
+table that arrives by fetch is a table that is blank when anything is wrong. See
+`docs/adr/0024-the-evidence-chain-is-a-surface-not-a-schema.md`.
+
 ### Two sources, one number, no silent winner
 
 Two admissible sources will report different values for the same thing, and the failure worth

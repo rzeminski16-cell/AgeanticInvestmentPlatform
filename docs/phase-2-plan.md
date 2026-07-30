@@ -277,9 +277,23 @@ migration.
 
 ---
 
-## Task 20 — The sources and claims surfaces
+## Task 20 — The sources and claims surfaces *(done)*
 
 **Objective.** The phase's user-visible outcome.
+
+**Built.** `aer/services/provenance.py` — one read model, called by both the JSON API and the
+pages, so the two cannot become different accounts of the same evidence. `GET
+/api/runs/{id}/sources`, `GET /api/runs/{id}/claims`, `GET /api/claims/{id}`; the
+`/runs/{id}/sources`, `/runs/{id}/claims` and `/claims/{id}` pages. Nothing is filtered:
+quarantined sources appear with their reason, unverifiable citations appear with their
+excerpt and the verifier's error. Three citation states rather than two — verified,
+overridden, unverified. See ADR 0024.
+
+**Known and stated rather than hidden:** the vertical slice does not emit per-sentence
+`claims` rows (its figures cite through footnotes), so the claim index is empty for a slice
+run and the page says so. The surfaces are tested against evidence built through the real
+services and verified by the real verifier. The section-writer agent in Phase 3 is what
+fills them.
 
 **Build.** `GET /api/runs/{id}/sources` and `GET /api/claims/{id}`; the run console's live
 sources table with tier badges, publication dates, hashes and quarantine flags; and the claim

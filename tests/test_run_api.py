@@ -365,6 +365,43 @@ class TestTheGateApi:
         draft = (await api.get(f"/api/runs/{job_id}/draft")).json()
         assert draft["escalations"] == []
 
+    async def test_a_real_run_fills_its_sources_table(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        """The surface against an actual run rather than against constructed evidence.
+
+        Attribution is the load-bearing part: ``source_documents.job_id`` is nullable, so a
+        run that omitted it would leave this endpoint returning nothing while every other
+        test still passed.
+        """
+        job_id = await _to_second_gate(api, committed, driver)
+
+        body = (await api.get(f"/api/runs/{job_id}/sources")).json()
+
+        assert body["sources"], "the run acquired a filing and the table must show it"
+        assert body["sources"][0]["provider"] == "sec_edgar"
+        assert len(body["sources"][0]["sha256"]) == 64
+
+    async def test_the_slices_api_aggregate_is_shown_quarantined(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        """And that is correct, not a defect, which is why it is pinned.
+
+        The slice's one source is the SEC's ``companyfacts`` response: a generated
+        aggregate, not a published document, so it has no publication date and under
+        point-in-time rules a source that cannot be dated is quarantined. The facts drawn
+        from it are still filtered on ``filed_date``, which is the point-in-time key that
+        actually applies to a reported figure.
+
+        Surfacing it rather than suppressing it is the whole argument for the table.
+        """
+        job_id = await _to_second_gate(api, committed, driver)
+
+        body = (await api.get(f"/api/runs/{job_id}/sources")).json()
+
+        assert body["quarantined"] == 1
+        assert body["sources"][0]["quarantine_reason"] == "no_publication_date"
+
 
 class TestTheReportApi:
     @pytest.fixture
