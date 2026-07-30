@@ -33,7 +33,8 @@ columns rather than adding them.
   standing constraint is explicit: nothing that breaches terms of use or circumvents access
   controls. If NSM turns out to offer no permitted programmatic access, task 18 is dropped
   and says so in an ADR. It is deliberately last and deliberately isolated so that dropping
-  it touches nothing else.
+  it touches nothing else. **Done: no permitted programmatic access, task 18 dropped — ADR
+  0022.**
 
 ## Why this order
 
@@ -232,11 +233,20 @@ validation and then fails, because SEC EDGAR is the only adapter.
 
 ---
 
-## Task 18 — FCA National Storage Mechanism *(conditional)*
+## Task 18 — FCA National Storage Mechanism *(conditional)* — **declined**
 
 Preceded by a written determination of what NSM permits. If programmatic access is not
 permitted, the task becomes an ADR recording why, and the UK path relies on Companies House
 alone. **Do not build first and check later.**
+
+**Outcome: not permitted, so not built.** The FCA's terms prohibit automated access to its
+sites without its prior written consent, and the NSM offers no public read API to integrate
+against instead — the "NSM API" in FCA material is the submission channel for Primary
+Information Providers. See ADR 0022 and `docs/data-sources/fca-nsm.md`.
+
+The refusal is enforced in code rather than left to this note: `REFUSED_HOSTS` in
+`aer/fetch/policy.py` refuses `.fca.org.uk` under every provider, ahead of the allowlist and
+ahead of `extra_hosts`, on the original URL and on every redirect hop.
 
 ---
 

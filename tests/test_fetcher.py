@@ -212,6 +212,19 @@ class TestSsrfThroughTheFetcher:
             await fetcher.fetch(FILING_URL, provider=Provider.SEC_EDGAR)
 
     @respx.mock
+    async def test_a_redirect_into_a_refused_host_is_refused(self, fetcher):
+        # The refusal has to hold on the hop that is actually fetched, not only on the URL
+        # somebody typed. A publisher that redirects to the FCA would otherwise fetch it.
+        respx.get(FILING_URL).mock(
+            return_value=httpx.Response(
+                302, headers={"location": "https://data.fca.org.uk/nsm/document/abc"}
+            )
+        )
+
+        with pytest.raises(UrlNotAllowedError, match="not fetched by this platform"):
+            await fetcher.fetch(FILING_URL, provider=Provider.SEC_EDGAR)
+
+    @respx.mock
     async def test_a_permitted_redirect_is_followed_and_recorded(self, fetcher):
         final = "https://www.sec.gov/Archives/final.htm"
         respx.get(FILING_URL).mock(return_value=httpx.Response(301, headers={"location": final}))
@@ -283,7 +296,7 @@ class TestRobots:
         async def robots(_url: str) -> str:
             return "User-agent: *\nDisallow: /\n"
 
-        route = respx.get("https://data.fca.org.uk/filing.htm").mock(
+        route = respx.get("https://investors.example-plc.com/report.htm").mock(
             return_value=httpx.Response(200, content=b"<html>")
         )
         guarded = SafeFetcher(
@@ -297,8 +310,15 @@ class TestRobots:
             transport_factory=httpx.AsyncHTTPTransport,
         )
 
+        # An issuer's own site, which is where robots.txt actually applies: reading a
+        # company's website is crawling, whereas the regulator APIs are a documented
+        # contract and are configured not to consult it.
         with pytest.raises(RobotsDisallowedError):
-            await guarded.fetch("https://data.fca.org.uk/filing.htm", provider=Provider.FCA_NSM)
+            await guarded.fetch(
+                "https://investors.example-plc.com/report.htm",
+                provider=Provider.ISSUER_IR,
+                extra_hosts=("investors.example-plc.com",),
+            )
 
         assert route.call_count == 0
 

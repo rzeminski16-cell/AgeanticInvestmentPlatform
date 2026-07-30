@@ -11,6 +11,14 @@ document at acquisition, because "may we quote this?" is answerable now and much
 reconstruct from a URL a year later. ``requests_per_second`` is politeness expressed as a
 number: the SEC publishes a rate it expects clients to respect, and exceeding it gets an
 IP banned rather than throttled.
+
+``REFUSED_HOSTS`` is the one thing here that is not an allowlist, and it exists because
+"absent" and "refused" are different states that an allowlist cannot tell apart. A host is
+absent because nobody has needed it yet, and ``extra_hosts`` exists so a call site can
+admit one for a single request. A *refusal* is a determination that was taken and written
+down — a publisher whose terms forbid automated access — and it has to survive that
+mechanism, so it is checked before the allowlist, before ``extra_hosts``, under every
+provider, on the original URL and again on every redirect hop.
 """
 
 from __future__ import annotations
@@ -24,10 +32,13 @@ from aer.fetch.errors import UrlNotAllowedError
 
 __all__ = [
     "DEFAULT_POLICIES",
+    "REFUSED_HOSTS",
     "FetchPolicy",
+    "HostRefusal",
     "host_matches",
     "policy_for",
     "policy_for_url",
+    "refusal_for",
 ]
 
 
@@ -93,10 +104,17 @@ DEFAULT_POLICIES: Final[dict[Provider, FetchPolicy]] = {
     Provider.FCA_NSM: FetchPolicy(
         provider=Provider.FCA_NSM,
         source_tier=SourceTier.T1_REGULATORY,
-        allowed_hosts=(".fca.org.uk", "data.fca.org.uk"),
+        # Empty, and reinforced by REFUSED_HOSTS below: the FCA's terms prohibit automated
+        # access to its sites without its prior written consent, which this project does
+        # not hold. See ADR 0022. The provider survives the refusal because a *manually*
+        # obtained NSM document is still a Tier 1 regulatory filing and still needs these
+        # terms recorded against it.
+        allowed_hosts=(),
         licence_note=(
-            "FCA National Storage Mechanism. Regulated disclosures, free to access; "
-            "check the FCA's terms before any redistribution."
+            "FCA National Storage Mechanism. Regulated disclosures, free to read on the "
+            "FCA's site under its terms of use. Automated access is not permitted without "
+            "the FCA's prior written consent, so this document was supplied by hand. "
+            "Quoted for research with attribution; not redistributed."
         ),
         requests_per_second=1.0,
     ),
@@ -150,6 +168,47 @@ DEFAULT_POLICIES: Final[dict[Provider, FetchPolicy]] = {
 }
 
 
+@dataclass(frozen=True, slots=True)
+class HostRefusal:
+    """A host this platform will not fetch from, and the determination that says so."""
+
+    # Matched with `host_matches`, so a leading dot covers subdomains. A lookalike such as
+    # `fca.org.uk.evil.test` is deliberately *not* caught here: it is refused by the
+    # allowlist, which is the honest reason to refuse it. Widening the refusal to catch
+    # lookalikes would mean refusing hosts on the grounds of somebody else's terms.
+    pattern: str
+
+    # Stated in the error, because a refusal a caller cannot explain to a colleague is one
+    # they will work around.
+    reason: str
+
+    # Repository-relative path to the ADR. Recording where the decision lives is what makes
+    # it reversible: consent obtained later changes one document and one tuple entry.
+    determination: str
+
+
+REFUSED_HOSTS: Final[tuple[HostRefusal, ...]] = (
+    HostRefusal(
+        pattern=".fca.org.uk",
+        reason=(
+            "The FCA's terms prohibit using a scraper, robot, spider or any other automated "
+            "process to access, acquire, copy or monitor its site or the content on it "
+            "without the FCA's prior written consent, which this project does not hold. "
+            "National Storage Mechanism documents are obtained by hand or not at all."
+        ),
+        determination="docs/adr/0022-the-fca-nsm-is-not-fetched-automatically.md",
+    ),
+)
+
+
+def refusal_for(host: str) -> HostRefusal | None:
+    """The refusal covering ``host``, if there is one."""
+    for refusal in REFUSED_HOSTS:
+        if host_matches(host, refusal.pattern):
+            return refusal
+    return None
+
+
 def policy_for(provider: Provider) -> FetchPolicy:
     """The policy for a provider.
 
@@ -196,11 +255,27 @@ def policy_for_url(
             a filing, without widening the standing allowlist for every future fetch.
 
     Raises:
-        UrlNotAllowedError: If the host is not on the allowlist for this provider.
+        UrlNotAllowedError: If the host carries a standing refusal, or is not on the
+            allowlist for this provider.
     """
-    policy = policy_for(provider)
     host = (urlsplit(url).hostname or "").lower()
 
+    # Before the provider is even looked up, because a refusal is not a property of the
+    # provider: relabelling the fetch, or passing the host in `extra_hosts`, must not get
+    # round it.
+    refusal = refusal_for(host)
+    if refusal is not None:
+        message = f"{host} is not fetched by this platform. {refusal.reason}"
+        raise UrlNotAllowedError(
+            message,
+            context={
+                "host": host,
+                "provider": provider.value,
+                "determination": refusal.determination,
+            },
+        )
+
+    policy = policy_for(provider)
     permitted = (*policy.allowed_hosts, *extra_hosts)
     if any(host_matches(host, pattern) for pattern in permitted):
         return policy

@@ -90,6 +90,14 @@ Sources: [SEC EDGAR APIs](https://www.sec.gov/search-filings/edgar-application-p
 | **EODHD** | UK equities via direct LSE contract | EOD OHLCV, splits, dividends | €19.99/mo (All World) | REST JSON | Tier 4 | Good | Plan-dependent | Licensed; redistribution needs add-on | UK prices, returns |
 | **EODHD Fundamentals** | Global incl. UK | Standardised financial statements | €59.99/mo | REST JSON | Tier 4 | **Poor for PIT** — vendor-standardised, generally as-restated, not as-reported | Plan-dependent | Licensed | Optional upgrade; **cross-check only, never the sole basis for a claim** |
 
+> **Superseded in one cell.** The NSM row above says "Core. UK filing discovery & PIT anchor".
+> That is what the research found; it is not what was decided. The FCA's terms prohibit
+> automated access to its sites without prior written consent, and the NSM offers no public read
+> API, so **the platform does not fetch from the FCA at all** — see ADR 0022 and
+> `docs/data-sources/fca-nsm.md`. UK filing discovery runs on Companies House and the issuer's
+> own site; the point-in-time anchor is `aer/extract/dates.py`. The row stays as written because
+> it records why the question was worth asking.
+
 **The UK gap is the single biggest data risk in this project, and it is structural.** There is no free,
 machine-readable, point-in-time UK equivalent of SEC XBRL companyfacts. Two hard facts drive this:
 

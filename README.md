@@ -592,6 +592,30 @@ next fetch. A hit published after the as-of date is reported as excluded rather 
 missing, because a search that found relevant material and one that found nothing mean different
 things.
 
+### The source that is refused rather than merely absent
+
+The FCA's National Storage Mechanism is the most complete index of UK regulated disclosure there
+is, and **this platform does not fetch it.** The FCA's terms prohibit using a scraper, robot,
+spider or any other automated process to access or copy its sites without prior written consent,
+and the NSM offers no public read API to integrate against instead — the "NSM API" in FCA
+material is the channel by which Primary Information Providers *submit*. Where a publisher
+documents an API, a client of it is not a scraper; where none exists, automated collection is
+exactly what the terms name.
+
+That would have been a paragraph in a document, so it is a check in the fetch layer instead.
+`REFUSED_HOSTS` is consulted **before** the provider's allowlist and **before** `extra_hosts`, on
+the original URL and again on every redirect hop. Emptying an allowlist would not have been
+enough: `extra_hosts` admits a host for one request — it is how an issuer's IR domain gets in —
+allowlists are per provider, so the same URL fetched as `ISSUER_IR` asks a different question,
+and a permitted host that redirects into `data.fca.org.uk` would have walked in the back door.
+An empty allowlist means "nobody has needed this yet"; a refusal means "a decision was taken",
+and only the second survives a keyword argument. Each refusal carries the path of the ADR that
+created it, and a test asserts the file exists.
+
+`Provider.FCA_NSM` survives the refusal, because a document somebody downloads by hand is still a
+Tier 1 regulatory filing and still needs the FCA's terms recorded against it. What is removed is
+the ability to fetch one. See `docs/adr/0022-the-fca-nsm-is-not-fetched-automatically.md`.
+
 ### Look-ahead: checked twice, on the latest date
 
 A report citing a document published after its own as-of date reads exactly like one that does
