@@ -1,0 +1,13 @@
+{
+  "total_results": 3,
+  "items_per_page": 20,
+  "kind": "search#companies",
+  "items": [
+    {"company_number": "00102498", "title": "ACME HOLDINGS PLC", "company_status": "active",
+     "company_type": "plc", "date_of_creation": "1909-04-14"},
+    {"company_number": "04567890", "title": "ACME HOLDINGS (UK) LIMITED", "company_status": "active",
+     "company_type": "ltd", "date_of_creation": "2002-09-01"},
+    {"company_number": "07777777", "title": "ACME HOLDINGS PENSION TRUSTEE LIMITED",
+     "company_status": "dissolved", "company_type": "ltd", "date_of_creation": "2011-01-20"}
+  ]
+}

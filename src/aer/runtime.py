@@ -33,6 +33,7 @@ from aer.fetch.robots import RobotsCache, RobotsFetcher
 from aer.providers.protocol import LLMProvider
 from aer.providers.router import Router
 from aer.sources.sec.client import SecEdgarClient
+from aer.sources.uk.companies_house import basic_auth_header
 from aer.storage.local import LocalArtefactStore
 from aer.storage.protocol import ArtefactStore
 
@@ -117,6 +118,7 @@ def build_services(
             _robots_fetcher(bare, artefact_store),
             user_agent=settings.http_user_agent,
         ),
+        credentials=_credentials(settings),
     )
 
     return ServiceBundle(
@@ -127,6 +129,26 @@ def build_services(
         sec_client=SecEdgarClient(fetcher, store=artefact_store),
         fetcher=fetcher,
     )
+
+
+def _credentials(settings: Settings) -> dict[Provider, str]:
+    """The ``Authorization`` header for each provider whose key is configured.
+
+    **Absent rather than empty when a key is not set.** A provider with no credential simply
+    gets no header, and the request fails at the publisher with a 401 that says so. Raising
+    here instead would make an unconfigured Companies House key stop the whole application from
+    starting — including the SEC half of a run that never needed it.
+
+    Built once, when the service bundle is. The credential then lives on the fetcher and is
+    attached per provider; see :class:`~aer.fetch.client.SafeFetcher`.
+    """
+    credentials: dict[Provider, str] = {}
+
+    key = settings.companies_house_api_key
+    if key is not None and key.get_secret_value().strip():
+        credentials[Provider.COMPANIES_HOUSE] = basic_auth_header(key.get_secret_value())
+
+    return credentials
 
 
 def _robots_fetcher(fetcher: SafeFetcher, store: ArtefactStore) -> RobotsFetcher:

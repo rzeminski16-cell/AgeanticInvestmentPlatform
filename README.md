@@ -313,6 +313,7 @@ src/aer/            application package
     tiering.py      provider + kind -> tier, by table; an unknown pair is not citable
     sec/fulltext.py full-text search; URLs built from identifiers, never from the response
     sec/client.py   EDGAR endpoints, URL construction and pacing
+    uk/companies_house.py  the UK register; refuses an ambiguous company rather than guessing
     issuer.py       IR-page discovery; the operator names the domain, a page never does
   providers/        model providers: the seam that makes the suite free to run
     protocol.py     two operations: structured completion, and token counting
@@ -523,6 +524,21 @@ in a way that does not matter at one report a week. **One known defect, recorded
 hidden:** rotated text extracts in the wrong order, because characters are ordered along the
 page's x axis — so a sideways table reads backwards. It is extracted rather than dropped, and a
 test pins it. See `docs/adr/0020-pdfplumber-alone-and-why-not-pymupdf.md`.
+
+### A company number is not a ticker
+
+Companies House registers **companies**. It knows nothing about listings or tickers, so resolving
+a name to a company number is a search followed by a judgement — and the adapter **refuses an
+ambiguous match rather than taking the first hit**. A search for a short name routinely returns
+dormant subsidiaries, pension trustees, a holding company and its operating arm. Picking one by
+rank would put another business's accounts under this company's name, and nothing downstream
+would notice: every figure would be internally consistent and about the wrong firm. When the
+search is ambiguous the error lists the candidates and asks for a number.
+
+The API key is HTTP Basic with an empty password, handed to the fetcher **once at construction
+and attached by provider** — not in the policy table, which is a logged module constant, and not
+a per-call argument, which is a secret with many chances to be logged. A test asserts it reaches
+Companies House and is absent from a SEC request. See `docs/data-sources/companies-house.md`.
 
 ### UK inline XBRL, read offline
 

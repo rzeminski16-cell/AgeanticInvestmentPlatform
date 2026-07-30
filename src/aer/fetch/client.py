@@ -28,7 +28,7 @@ from __future__ import annotations
 import asyncio
 import random
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Final
 from urllib.parse import urljoin
@@ -178,6 +178,7 @@ class SafeFetcher:
         sleep: Sleeper | None = None,
         resolver: object = None,
         transport_factory: Callable[[], httpx.AsyncBaseTransport] | None = None,
+        credentials: Mapping[Provider, str] | None = None,
     ) -> None:
         if not settings.http_user_agent.strip():
             # Refused at construction rather than at the first request. The SEC makes a
@@ -198,6 +199,16 @@ class SafeFetcher:
         self._resolver = resolver
         self._transport_factory = transport_factory
         self._pins: dict[str, str] = {}
+
+        # Per-provider `Authorization` header values, supplied once at construction.
+        #
+        # **Not in `FetchPolicy.extra_headers`**, which is a module-level constant: putting a
+        # credential there would put it in a table that gets logged, repr'd and imported by
+        # anything wanting to know a provider's rate limit. And **not a per-call argument**,
+        # because a secret threaded through every call site is a secret with many chances to
+        # be logged. It lives here, is attached only to requests for the provider it belongs
+        # to, and `aer.logging` redacts anything named `authorization` as a backstop.
+        self._credentials: dict[Provider, str] = dict(credentials or {})
 
     # -- Public API ----------------------------------------------------------------------
 
@@ -428,6 +439,11 @@ class SafeFetcher:
             "Accept-Encoding": "gzip, deflate",
             **policy.extra_headers,
         }
+        # Attached by provider, so a credential for one publisher can never travel to
+        # another's host — the policy has already confirmed the URL belongs to this provider.
+        credential = self._credentials.get(policy.provider)
+        if credential is not None:
+            headers["Authorization"] = credential
 
         async with self._client(policy) as client:
             request = client.build_request("GET", url, headers=headers)

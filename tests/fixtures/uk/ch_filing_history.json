@@ -1,0 +1,53 @@
+{
+  "total_count": 4,
+  "items_per_page": 100,
+  "start_index": 0,
+  "filing_history_status": "filing-history-available",
+  "items": [
+    {
+      "transaction_id": "MzM1NTk4NDI3NmFkaXF6a2N4",
+      "category": "accounts",
+      "type": "AA",
+      "date": "2022-10-14",
+      "action_date": "2022-06-30",
+      "description": "accounts-with-accounts-type-full",
+      "description_values": {"made_up_date": "2022-06-30"},
+      "links": {
+        "self": "/company/00102498/filing-history/MzM1NTk4NDI3NmFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/AbCdEf1234"
+      },
+      "pages": 96
+    },
+    {
+      "transaction_id": "MzA5ODc2NTQzMmFkaXF6a2N4",
+      "category": "accounts",
+      "type": "AA",
+      "date": "2021-10-08",
+      "action_date": "2021-06-30",
+      "description": "accounts-with-accounts-type-full",
+      "links": {
+        "self": "/company/00102498/filing-history/MzA5ODc2NTQzMmFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/GhIjKl5678"
+      }
+    },
+    {
+      "transaction_id": "MjIyMjIyMjIyMmFkaXF6a2N4",
+      "category": "confirmation-statement",
+      "type": "CS01",
+      "date": "2022-05-03",
+      "description": "confirmation-statement-with-updates",
+      "links": {
+        "self": "/company/00102498/filing-history/MjIyMjIyMjIyMmFkaXF6a2N4",
+        "document_metadata": "https://document-api.company-information.service.gov.uk/document/MnOpQr9012"
+      }
+    },
+    {
+      "transaction_id": "MTExMTExMTExMWFkaXF6a2N4",
+      "category": "accounts",
+      "type": "AA",
+      "date": "1998-11-02",
+      "description": "accounts-with-accounts-type-full",
+      "links": {"self": "/company/00102498/filing-history/MTExMTExMTExMWFkaXF6a2N4"}
+    }
+  ]
+}

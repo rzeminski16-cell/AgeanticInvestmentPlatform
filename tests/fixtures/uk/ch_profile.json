@@ -1,0 +1,15 @@
+{
+  "company_number": "00102498",
+  "company_name": "ACME HOLDINGS PLC",
+  "company_status": "active",
+  "type": "plc",
+  "date_of_creation": "1909-04-14",
+  "jurisdiction": "england-wales",
+  "accounts": {
+    "accounting_reference_date": {"day": "30", "month": "06"},
+    "next_due": "2023-03-31",
+    "last_accounts": {"made_up_to": "2022-06-30", "type": "full"}
+  },
+  "registered_office_address": {"locality": "London", "postal_code": "SW1A 1AA"},
+  "links": {"self": "/company/00102498", "filing_history": "/company/00102498/filing-history"}
+}
