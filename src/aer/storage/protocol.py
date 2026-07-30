@@ -61,11 +61,25 @@ class ArtefactStore(Protocol):
         ...
 
     async def read(self, sha256: str) -> bytes:
-        """Return the stored bytes for a content address."""
+        """Return the stored bytes for a content address, **verifying the digest first**.
+
+        Threat T8. An implementation that skipped the check would serve an edited file under
+        the name of the original, and every consumer downstream would go on treating it as the
+        archived document.
+
+        Raises:
+            IntegrityError: The artefact is missing, or its bytes no longer hash to its name.
+        """
         ...
 
     def open(self, sha256: str) -> AsyncIterator[bytes]:
-        """Yield the stored bytes in chunks, for artefacts too large to hold at once."""
+        """Yield the stored bytes in chunks, for artefacts too large to hold at once.
+
+        **Unlike :meth:`read`, this cannot verify before yielding** — the digest is only known
+        once the last chunk has been seen, and by then a caller has already acted on the first.
+        Use it for streaming a file to a client; use :meth:`read` for anything a claim will
+        rest on, and :meth:`verify` for an integrity sweep.
+        """
         ...
 
     async def exists(self, sha256: str) -> bool:

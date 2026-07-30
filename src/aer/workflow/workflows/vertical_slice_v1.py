@@ -53,9 +53,11 @@ from aer.sections.registry import create_report_sections, resolve_sections, sect
 from aer.services import calculations as calculation_service
 from aer.services.acquisition import record_acquisition
 from aer.services.artefacts import store_artefact
+from aer.services.citations import review_evidence
 from aer.services.facts import persist_facts, upsert_company
 from aer.sources.sec.companyfacts import parse_company_facts
 from aer.sources.sec.pit import select_point_in_time
+from aer.verify.citations import verify_job_citations
 from aer.workflow.engine import StepContext, StepPaused, StepResult, WorkflowStep
 
 __all__ = ["WORKFLOW_VERSION", "build_steps", "final_gate_payload", "plan_gate_payload"]
@@ -196,8 +198,54 @@ async def _gate_plan(context: StepContext) -> StepResult:
 
 
 async def _gate_final(context: StepContext) -> StepResult:
-    """Stop until a human approves the draft."""
+    """Check the evidence, then stop until a human approves the draft.
+
+    **The evidence check comes first, and it is not part of the approval.** An operator must
+    not be shown a draft to approve while the platform still has unverified citations in it —
+    approving would then mean "I accept this" without the platform having said which parts of
+    it it could not stand behind. So the run pauses on the evidence before it pauses on the
+    person, with a different message.
+    """
+    await _refuse_unsupported_evidence(context)
     return await _require_approval(context, gate=GateKind.FINAL, of_step="draft")
+
+
+async def _refuse_unsupported_evidence(context: StepContext) -> None:
+    """Verify every citation this run produced, and pause if any claim is left unsupported.
+
+    Verification runs **here rather than when a citation is written**, because a citation is a
+    proposal and the point at which it must become a confirmation is the point at which
+    something rests on it. Re-checking at the gate also means a document that changed after the
+    citation was recorded is caught, which a one-off check at write time would miss.
+
+    Raises:
+        StepPaused: Something is unsupported. Not a failure — the run is recoverable by fixing
+            the evidence or by overriding a citation with a reason, and a failed run would
+            throw away everything already paid for.
+    """
+    await verify_job_citations(
+        context.session,
+        context.service("store"),
+        job_id=context.job.id,
+        settings=context.service("settings"),
+    )
+    review = await review_evidence(context.session, job_id=context.job.id)
+
+    if review.is_admissible:
+        return
+
+    raise StepPaused(
+        review.as_message(),
+        gate=GateKind.FINAL.value,
+        context={
+            "job_id": str(context.job.id),
+            "claims": review.claims,
+            "citations": review.citations,
+            "verified": review.verified,
+            "unsupported_claims": len(review.unsupported),
+            "unverified_citations": len(review.unverified),
+        },
+    )
 
 
 async def _require_approval(context: StepContext, *, gate: GateKind, of_step: str) -> StepResult:

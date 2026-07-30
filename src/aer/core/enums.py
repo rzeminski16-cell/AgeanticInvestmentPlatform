@@ -13,10 +13,13 @@ migration or a future service still cannot land.
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Final
 
 __all__ = [
+    "CITATION_REQUIRING_CLAIMS",
     "TERMINAL_JOB_STATUSES",
     "AnalysisMode",
+    "ClaimKind",
     "Decision",
     "ExtractionKind",
     "FactBasis",
@@ -245,3 +248,30 @@ class ExtractionKind(StrEnum):
 
     TEXT = "text"
     TABLE = "table"
+
+
+class ClaimKind(StrEnum):
+    """What kind of assertion a sentence in a report makes.
+
+    The kind decides what the sentence must be able to show, so it is recorded rather than
+    inferred — §2.9 sets a different bar for each:
+
+    * ``NUMERIC`` and ``FACTUAL`` need at least one **verified** citation.
+    * ``FORWARD_LOOKING`` and ``OPINION`` need a stated basis — a calculation, or a premise
+      that is itself cited — and are rendered with explicit hedging.
+
+    A ``NUMERIC`` claim additionally has to name the figure it asserts, because no number
+    reaches a report unless it is a stored fact or a recorded calculation.
+    """
+
+    NUMERIC = "numeric"
+    FACTUAL = "factual"
+    FORWARD_LOOKING = "forward_looking"
+    OPINION = "opinion"
+
+
+# The kinds that cannot stand on a basis alone. Named here rather than written out at each
+# call site, so "which claims need a citation?" has one answer.
+CITATION_REQUIRING_CLAIMS: Final[frozenset[ClaimKind]] = frozenset(
+    {ClaimKind.NUMERIC, ClaimKind.FACTUAL}
+)

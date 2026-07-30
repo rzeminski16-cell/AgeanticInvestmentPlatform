@@ -282,7 +282,9 @@ src/aer/            application package
   db/               engine, session management, and ORM models
   storage/          content-addressed artefact store; the evidence substrate
     protocol.py     the ArtefactStore interface: no delete, no update, no move
-    local.py        sha256 addressing, atomic writes, integrity verification
+    local.py        sha256 addressing, atomic writes, verified on every read
+  verify/           deterministic checks on whether a claim is supported
+    citations.py    the ONLY writer of citations.excerpt_verified
   fetch/            the ONLY component that makes outbound network requests
     ssrf.py         resolve, validate every address, refuse anything not public
     transport.py    connects only to validated addresses; closes the rebinding gap
@@ -455,6 +457,32 @@ bytes, same text, same content hash. `content_hash` covers the whole extracted t
 verifier can distinguish "the extractor changed and every locator shifted" from "this excerpt is
 wrong" — two failures needing different responses. See
 `docs/adr/0017-a-locator-points-into-an-extraction-not-into-bytes.md`.
+
+### A citation is confirmed by code or not at all
+
+The platform's strongest claim, and the one that needed the most care to make real. A citation
+records a claim, a source document and an *extraction* — a located span of text. Confirming it
+means re-deriving the document's text from the artefact and taking the slice at that locator.
+
+**It slices; it does not search.** A filing contains the sentence "Total revenue was $168,088
+million for fiscal year 2021" three paragraphs below the 2022 figure. A verifier that looked for
+the excerpt anywhere in the document would confirm a citation pointing at either, and would go on
+confirming ones that point at the wrong year, the wrong segment, or the wrong company in a
+comparison table. The test fixture contains that second sentence deliberately.
+
+`excerpt_verified` is written by exactly one function, and a test parses every file under `src/`
+to prove it. `record_citation` has no argument that could set it — a caller acting on a model's
+suggestion can propose a citation and cannot confirm one. Four different failures get four
+different messages, because "the bytes changed", "the extractor changed", "the locator is out of
+range" and "the quote is wrong" send you to four different places.
+
+An unverified citation can be **overridden** by a named person with a written reason. That does
+not mark it verified: the report says both that the check failed and that somebody took
+responsibility. There is no bulk override, and the absence is the design.
+
+Gate 2 checks the evidence *before* it looks for an approval — being asked to approve a draft
+while the platform holds unverified citations would mean approving something it cannot stand
+behind, without being told. See `docs/adr/0018-only-code-confirms-a-citation.md`.
 
 ### Point-in-time data
 

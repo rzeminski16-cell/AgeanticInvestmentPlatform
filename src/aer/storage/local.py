@@ -220,14 +220,51 @@ class LocalArtefactStore:
     # -- Reading -------------------------------------------------------------------------
 
     async def read(self, sha256: str) -> bytes:
+        """The artefact's bytes, **after confirming they still hash to their own address.**
+
+        Threat T8's control, and it belongs here rather than at each call site. A
+        content-addressed store whose reads are unchecked is a store where an edited file goes
+        on being served under the name of the original — and every consumer downstream, the
+        citation verifier included, would then be checking evidence against a document that is
+        no longer the document that was archived.
+
+        Verifying on read rather than leaving it to :meth:`verify` is the difference between a
+        control and a facility. A caller who has to remember is a caller who one day does not.
+
+        The cost is one SHA-256 pass over bytes already in memory, at hundreds of megabytes a
+        second. Against a run that parses the document and calls a model about it, it does not
+        register.
+
+        Raises:
+            IntegrityError: The artefact is missing, or its bytes have changed.
+        """
         path = self.path_for(sha256)
         try:
-            return await asyncio.to_thread(path.read_bytes)
+            data: bytes = await asyncio.to_thread(path.read_bytes)
         except FileNotFoundError as exc:
             raise self._missing(sha256) from exc
 
+        actual = hashlib.sha256(data).hexdigest()
+        if actual != sha256:
+            message = (
+                f"The artefact stored as {sha256} now hashes to {actual}. Its bytes have "
+                "changed since they were archived, so it is not the document anything citing "
+                "it was checked against. Nothing here can repair that; the file has to be "
+                "re-fetched."
+            )
+            raise IntegrityError(
+                message, context={"expected_sha256": sha256, "actual_sha256": actual}
+            )
+
+        return data
+
     async def open(self, sha256: str) -> AsyncIterator[bytes]:
-        """Yield the artefact in chunks, so a large file never has to fit in memory."""
+        """Yield the artefact in chunks, so a large file never has to fit in memory.
+
+        **Does not verify.** The digest is only known after the last chunk, by which point the
+        caller has acted on the first — so a check here would report a tampered file too late
+        to matter. Anything a claim will rest on uses :meth:`read`.
+        """
         path = self.path_for(sha256)
         try:
             handle = await asyncio.to_thread(path.open, "rb")

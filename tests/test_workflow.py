@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents import planner
 from aer.config import Settings
-from aer.core.enums import Decision, GateKind, JobStatus
+from aer.core.enums import ClaimKind, Decision, GateKind, JobStatus
 from aer.db.models import (
     AgentRun,
     Approval,
@@ -40,6 +40,7 @@ from aer.errors import ValidationError
 from aer.providers.fake import FakeProvider
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
+from aer.services.citations import record_claim
 from aer.storage.local import LocalArtefactStore
 from tests.workflow_fixtures import (
     StubSecClient,
@@ -577,3 +578,83 @@ def _args(scenario: dict) -> dict:
         "store": scenario["store"],
         "sec_client": scenario["sec_client"],
     }
+
+
+class TestGateTwoWillNotOpenOnUnsupportedEvidence:
+    """The rule §2.9 states, enforced where it bites: before a person is asked to approve.
+
+    The run below is the real workflow, driven to the second gate, with one unsupported claim
+    planted in the drafted section. What is under test is that the gate stops *on the evidence*
+    rather than on the approval — an operator shown a draft to approve while the platform still
+    has unverified citations in it would be approving something the platform cannot stand
+    behind, without being told so.
+    """
+
+    @staticmethod
+    async def _reach_the_draft(scenario: dict) -> None:
+        session, job = scenario["session"], scenario["job"]
+        await run_to_next_stop(**_args(scenario))
+        await approve(session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="plan")
+        await run_to_next_stop(**_args(scenario))
+
+    async def test_a_run_with_no_claims_reaches_the_gate_as_before(self, scenario: dict) -> None:
+        """The Phase 1 workflow makes no claims yet. The check must not invent a failure for a
+        draft that asserts nothing — which is what an over-eager "every section needs a
+        citation" rule would do."""
+        await self._reach_the_draft(scenario)
+
+        outcome = await run_to_next_stop(**_args(scenario))
+
+        assert outcome.status is JobStatus.AWAITING_APPROVAL
+
+    async def test_an_unsupported_claim_stops_the_run_before_the_approval(
+        self, scenario: dict
+    ) -> None:
+        await self._reach_the_draft(scenario)
+        session = scenario["session"]
+        section = await session.scalar(
+            select(ReportSection).where(ReportSection.job_id == scenario["job"].id)
+        )
+        assert section is not None
+        await record_claim(
+            session,
+            section=section,
+            kind=ClaimKind.FACTUAL,
+            text="Revenue grew for the third consecutive year.",
+        )
+
+        outcome = await run_to_next_stop(**_args(scenario))
+        step = await session.scalar(
+            select(JobStep).where(
+                JobStep.job_id == scenario["job"].id, JobStep.step_key == "gate_final"
+            )
+        )
+
+        assert outcome.status is JobStatus.AWAITING_APPROVAL
+        assert step is not None
+        assert "no admissible citation" in str((step.error or {}).get("message", ""))
+
+    async def test_the_report_is_not_rendered_while_a_claim_is_unsupported(
+        self, scenario: dict
+    ) -> None:
+        """The consequence that matters. A gate that paused but let the render step through
+        would publish the unsupported sentence anyway."""
+        await self._reach_the_draft(scenario)
+        session = scenario["session"]
+        section = await session.scalar(
+            select(ReportSection).where(ReportSection.job_id == scenario["job"].id)
+        )
+        assert section is not None
+        await record_claim(
+            session,
+            section=section,
+            kind=ClaimKind.FACTUAL,
+            text="Revenue grew for the third consecutive year.",
+        )
+
+        await approve(
+            session, job=scenario["job"], gate=GateKind.FINAL, actor=scenario["user"], step="draft"
+        )
+        await run_to_next_stop(**_args(scenario))
+
+        assert await session.scalar(select(func.count()).select_from(Report)) == 0

@@ -32,6 +32,7 @@ dependencies = [
   "anthropic>=0.40",
   "selectolax>=0.3.21",
   "lxml>=5.3",
+  "rapidfuzz>=3.9",
 ]
 
 [dependency-groups]

@@ -40,6 +40,7 @@ from aer.db.base import Base, created_at_column
 from aer.db.types import Timestamp, UuidFk, UuidPk
 
 if TYPE_CHECKING:
+    from aer.db.models.claim import Claim
     from aer.db.models.section_definition import SectionDefinition
 
 __all__ = ["ReportSection", "SectionStatus"]
@@ -109,6 +110,12 @@ class ReportSection(Base):
     created_at: Mapped[Timestamp] = created_at_column()
 
     definition: Mapped[SectionDefinition] = relationship()
+
+    # A re-drafted section replaces its claims rather than accumulating them; orphans would
+    # be counted by every coverage metric and cited by none.
+    claims: Mapped[list[Claim]] = relationship(
+        back_populates="section", cascade="all, delete-orphan", passive_deletes=True
+    )
 
     __table_args__ = (
         UniqueConstraint("job_id", "section_key", name="uq_report_sections_key_per_job"),

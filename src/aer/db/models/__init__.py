@@ -14,6 +14,8 @@ from aer.db.models.artefact import Artefact
 from aer.db.models.assumption import Assumption
 from aer.db.models.audit_event import AuditEvent
 from aer.db.models.calculation import Calculation
+from aer.db.models.citation import Citation
+from aer.db.models.claim import Claim
 from aer.db.models.company import Company
 from aer.db.models.cost import Cost
 from aer.db.models.extraction import Extraction
@@ -37,6 +39,8 @@ __all__ = [
     "Assumption",
     "AuditEvent",
     "Calculation",
+    "Citation",
+    "Claim",
     "Company",
     "Cost",
     "Extraction",
