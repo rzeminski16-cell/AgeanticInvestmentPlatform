@@ -291,6 +291,7 @@ async def draft_review(
         {
             "job": job,
             "sections": payload["sections"],
+            "escalations": payload["escalations"],
             "markdown": preview.markdown,
             "footnote_count": preview.footnote_count,
             "payload_hash": payload_hash_for(payload),

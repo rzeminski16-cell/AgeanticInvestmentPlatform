@@ -54,6 +54,7 @@ from aer.services import calculations as calculation_service
 from aer.services.acquisition import record_acquisition
 from aer.services.artefacts import store_artefact
 from aer.services.citations import review_evidence
+from aer.services.disagreements import escalations_for_job
 from aer.services.facts import persist_facts, upsert_company
 from aer.sources.sec.companyfacts import parse_company_facts
 from aer.sources.sec.pit import select_point_in_time
@@ -501,9 +502,31 @@ async def final_gate_payload(session: AsyncSession, *, job_id: uuid.UUID) -> dic
     hashed" and "what the operator was shown" are the same object by construction. Two
     functions producing the same shape would be two functions that eventually do not, and
     the symptom would be a gate that refuses every approval for reasons nobody can see.
+
+    **Escalated disagreements are part of the payload, not a decoration beside it.** That
+    means they are inside the hash the approval records, so "approved with these three
+    conflicts outstanding" is a verifiable statement afterwards rather than a claim about
+    what a page happened to render. It also means settling one invalidates a stale approval
+    of the older draft, which is correct: the evidence changed.
     """
     sections = await sections_for_job(session, job_id)
-    return {"sections": [{"key": s.section_key, "content": s.content} for s in sections]}
+    escalations = await escalations_for_job(session, job_id)
+    return {
+        "sections": [{"key": s.section_key, "content": s.content} for s in sections],
+        "escalations": [
+            {
+                "id": str(row.id),
+                "topic": row.topic,
+                "kind": row.kind.value,
+                "rule": row.rule.value,
+                "rationale": row.resolution_rationale,
+                "material": row.material,
+                "position_a": row.position_a,
+                "position_b": row.position_b,
+            }
+            for row in escalations
+        ],
+    }
 
 
 def _content_for(

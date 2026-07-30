@@ -39,6 +39,50 @@
     </div>
   </dl>
 
+  {#
+    The escalation banner. These are conflicts the deterministic ladder refused to settle,
+    and they are inside the payload hash below — so approving with them outstanding is a
+    decision that is on the record, not one made by not scrolling.
+  #}
+  {% if escalations %}
+    <section
+      class="mt-8 rounded-lg border border-amber-400 bg-amber-50 p-4 dark:border-amber-600 dark:bg-amber-950"
+      id="escalations"
+    >
+      <h2 class="text-lg font-semibold tracking-tight text-amber-900 dark:text-amber-200">
+        {{ escalations | length }} unresolved
+        {{ "disagreement" if escalations | length == 1 else "disagreements" }}
+      </h2>
+      <p class="mt-1 text-sm text-amber-900 dark:text-amber-200">
+        Two sources conflict and no rule decides between them. Both positions are kept and
+        both appear in the report&rsquo;s disagreement appendix.
+      </p>
+      <ul class="mt-4 space-y-3">
+        {% for escalation in escalations %}
+          <li class="rounded border border-amber-300 bg-white p-3 text-sm dark:border-amber-700 dark:bg-slate-900">
+            <p class="font-medium">
+              {{ escalation.topic }}
+              {% if escalation.material %}
+                <span class="ml-2 rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-900 dark:bg-amber-800 dark:text-amber-100">
+                  Material
+                </span>
+              {% endif %}
+            </p>
+            <p class="mt-1 text-slate-700 dark:text-slate-300">{{ escalation.rationale }}</p>
+            <p class="mt-2 font-mono text-xs text-slate-500">
+              {{ escalation.position_a.label }}: {{ escalation.position_a.value }}
+              {{ escalation.position_a.unit }} ({{ escalation.position_a.tier }})
+              &middot;
+              {{ escalation.position_b.label }}: {{ escalation.position_b.value }}
+              {{ escalation.position_b.unit }} ({{ escalation.position_b.tier }})
+              &middot; rule: {{ escalation.rule }}
+            </p>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
   <section class="mt-8">
     <h2 class="text-lg font-semibold tracking-tight">Sections in this draft</h2>
     <ul class="mt-2 flex flex-wrap gap-2" id="draft-sections">

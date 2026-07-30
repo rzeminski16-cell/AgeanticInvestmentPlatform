@@ -354,6 +354,17 @@ class TestTheGateApi:
             "historical_financial_analysis",
         ]
 
+    async def test_the_draft_endpoint_reports_unsettled_disagreements(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        # A run with clean evidence has none, and the key is present rather than absent —
+        # a client that has to distinguish "no conflicts" from "this build does not report
+        # conflicts" would have to guess.
+        job_id = await _to_second_gate(api, committed, driver)
+
+        draft = (await api.get(f"/api/runs/{job_id}/draft")).json()
+        assert draft["escalations"] == []
+
 
 class TestTheReportApi:
     @pytest.fixture

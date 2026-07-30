@@ -18,6 +18,7 @@ from aer.db.models.citation import Citation
 from aer.db.models.claim import Claim
 from aer.db.models.company import Company
 from aer.db.models.cost import Cost
+from aer.db.models.disagreement import Disagreement
 from aer.db.models.extraction import Extraction
 from aer.db.models.financial_fact import FinancialFact
 from aer.db.models.job import Job
@@ -29,6 +30,7 @@ from aer.db.models.report import Report
 from aer.db.models.report_section import ReportSection, SectionStatus
 from aer.db.models.request import ResearchRequest
 from aer.db.models.section_definition import SectionDefinition
+from aer.db.models.sector_profile import SectorProfile
 from aer.db.models.source_document import SourceDocument
 from aer.db.models.user import User
 
@@ -43,6 +45,7 @@ __all__ = [
     "Claim",
     "Company",
     "Cost",
+    "Disagreement",
     "Extraction",
     "FinancialFact",
     "Job",
@@ -55,6 +58,7 @@ __all__ = [
     "ResearchRequest",
     "SectionDefinition",
     "SectionStatus",
+    "SectorProfile",
     "SourceDocument",
     "User",
 ]

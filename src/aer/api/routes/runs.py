@@ -101,6 +101,12 @@ class DraftRead(BaseModel):
 
     job_id: uuid.UUID
     sections: list[dict[str, Any]]
+
+    # Conflicts the deterministic ladder refused to settle. Part of the payload the hash is
+    # taken over, so approving with them outstanding is on the record rather than a claim
+    # about what a client happened to render.
+    escalations: list[dict[str, Any]]
+
     payload_hash: str
 
 
@@ -175,6 +181,7 @@ async def read_draft(job_id: uuid.UUID, session: DbSession, user: CurrentUser) -
     return DraftRead(
         job_id=job_id,
         sections=list(payload["sections"]),
+        escalations=list(payload["escalations"]),
         payload_hash=payload_hash_for(payload),
     )
 

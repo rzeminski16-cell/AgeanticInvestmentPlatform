@@ -250,9 +250,18 @@ ahead of `extra_hosts`, on the original URL and on every redirect hop.
 
 ---
 
-## Task 19 — Disagreements
+## Task 19 — Disagreements *(done)*
 
 **Objective.** Two sources, one number, no silent winner.
+
+**Built.** `aer/core/disagreement.py` — the ladder, pure and `mypy --strict`, with **no
+default branch**: a pair matching no rung raises, and a hypothesis property over the whole
+input space asserts it never does. Two rungs moved from the order §2.9 lists, both argued in
+ADR 0023: units are checked before any arithmetic, and a suspected scale error outranks the
+tier rule because a factor of 10^6 is a parsing bug rather than evidence about a publisher.
+`aer/services/disagreements.py` persists, idempotent on a fingerprint over identities rather
+than values. Escalations are carried **inside** the gate-2 payload, so they are inside the
+hash the approval records.
 
 **Build.** `disagreements` table and the §2.9 resolution ladder as deterministic code: same
 tier and value → agree; different tiers → lower tier number wins; same tier, different

@@ -640,6 +640,38 @@ The override never clears the flag, so the record says both that the document wa
 somebody decided to use it anyway. See
 `docs/adr/0021-look-ahead-is-checked-twice-on-the-latest-date.md`.
 
+### Two sources, one number, no silent winner
+
+Two admissible sources will report different values for the same thing, and the failure worth
+designing against is not choosing wrongly — it is choosing and **not saying so**. A report whose
+revenue came from the second of two conflicting filings, with no record the first existed, reads
+exactly like one where no conflict arose.
+
+So a seven-rung ladder decides, and where it cannot it says so and stops. Units, then agreement,
+then a suspected scale error, then tier, then basis, then filing date, then nothing left to
+prefer by. **There is no `else`**: a pair matching no rung raises, and a hypothesis property over
+the whole input space asserts that never happens. The alternative shape — `elif … else: pick_one()`
+— passes the same tests and is wrong in the way that matters, because "no rule applied so we took
+the first" is indistinguishable in the database from a rule having fired.
+
+Two placements carry the argument. **A clean power of ten outranks the tier rule**: a tier-1 figure
+of 245,122 against a tier-2 figure of 245,122,000,000 in the same unit is a parsing bug in one of
+them, not evidence about which publisher is more reliable, and resolving it by tier would hand the
+bug a provenance record saying the regulator said so. **A basis mismatch outranks the date rule**:
+an as-reported figure and a restatement are both true, of different questions, and preferring the
+later one silently is how a backtest starts flattering itself.
+
+The result is a function of the pair, not of the call. Positions are put in a canonical order
+first — including every tie-break field, because the rationale prints them in order — so a re-run
+cannot quietly change which figure was reported. Losing evidence is kept in its own column, and
+agreement writes no row at all: a check constraint refuses one, so the rule lives in the schema
+rather than in the service that happens to obey it.
+
+Escalations go into the **gate-2 payload**, not beside it, so they sit inside the hash the
+approval records. "Approved with these three outstanding" is then verifiable afterwards rather
+than a claim about what a page rendered. See
+`docs/adr/0023-the-disagreement-ladder-decides-or-says-it-cannot.md`.
+
 ### A citation is confirmed by code or not at all
 
 The platform's strongest claim, and the one that needed the most care to make real. A citation
