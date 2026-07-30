@@ -153,8 +153,9 @@ decides. Silently dropping evidence is its own failure mode.
 
 **Objective.** Filings and IR decks that are not machine-readable XBRL.
 
-**Build.** `aer/extract/pdf.py` — `pymupdf` for text with coordinates, `pdfplumber` for
-tables. Locators carry page number and bounding box as well as character offset, because a
+**Build.** `aer/extract/pdf.py` — **`pdfplumber` for both** text with coordinates and tables.
+`pymupdf` was dropped at implementation time: it is AGPL-3.0 or a paid licence, which conflicts
+with this MIT project's intended commercial network deployment. See ADR 0020. Locators carry page number and bounding box as well as character offset, because a
 PDF excerpt a human cannot find on the page is not checkable. Runs inside task 11's
 subprocess sandbox.
 

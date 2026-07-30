@@ -69,7 +69,7 @@ count and putting duplicate footnotes in reports.
 
 Uniqueness is over a hash of the canonical locator rather than over the JSONB itself. A unique
 constraint on JSON fields needs an expression index per field and would have to be rewritten
-each time a locator kind gains a coordinate — which task 14's page-and-bounding-box locator does
+each time a locator kind gains a coordinate — which the PDF page-and-bounding-box locator does
 immediately. The hash excludes null fields, so adding an optional coordinate does not silently
 re-key every row that never had one.
 
@@ -79,8 +79,9 @@ Parsing runs in a child process with a wall-clock timeout and, where the platfor
 address-space cap.
 
 **Why a subprocess despite the cost.** Parsing is the one operation where untrusted bytes drive
-a large C library — `lexbor` here, `MuPDF` in task 14. A crash in either is not an exception a
-caller can catch; in-process it takes the worker down, and with it the run. Isolation is what
+a large third-party parser — `lexbor` for HTML, `pdfminer.six` and `pypdfium2` for PDF (ADR 0020).
+A segfault in a C extension is not an exception a caller can catch, and nor is an unbounded loop in
+a pure-Python parser; in-process it takes the worker down, and with it the run. Isolation is what
 makes "the extract step failed" a recoverable outcome. The cost is a process spawn per document,
 around a hundred milliseconds on Windows, against a filing that parses in seconds and a model
 call that takes a minute.

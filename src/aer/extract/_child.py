@@ -20,10 +20,11 @@ import sys
 from typing import Any
 
 from aer.extract.html import extract_html
+from aer.extract.pdf import extract_pdf
 
 # The extractors this process is allowed to run, by name. A dictionary rather than a lookup by
 # attribute, so an argument arriving from anywhere cannot name an arbitrary callable.
-_EXTRACTORS = {"html": extract_html}
+_EXTRACTORS = {"html": extract_html, "pdf": extract_pdf}
 
 
 def _apply_memory_cap(limit_bytes: int) -> bool:
@@ -82,6 +83,13 @@ def main(argv: list[str]) -> int:
             # Findings cross as plain JSON. The parent rebuilds them; an exception, an enum or
             # a dataclass cannot travel between processes, and this is the one channel.
             "findings": [f.model_dump(mode="json", exclude_none=True) for f in extracted.findings],
+            # The page map is the largest thing that crosses here — a span per word, so an
+            # annual report's runs to a few megabytes of JSON. Sent whole anyway: it is the only
+            # thing that can turn a character offset into a rectangle, it is regenerable rather
+            # than stored, and the alternative is the parent re-parsing the document to rebuild
+            # what this process already knows.
+            "pages": None if extracted.pages is None else extracted.pages.model_dump(mode="json"),
+            "tables": [t.model_dump(mode="json") for t in extracted.tables],
         }
     )
     return 0

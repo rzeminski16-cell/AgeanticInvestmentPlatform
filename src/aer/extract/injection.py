@@ -3,7 +3,7 @@
 Threat T2. Two scans, and the split is not arbitrary — it follows what can be seen from where.
 
 :func:`scan_text` reads the extracted text and needs nothing else. Pure, safe to call anywhere,
-and it works for every extractor: the PDF one in task 14 inherits it without a line of new code.
+and it works for every extractor: the PDF one inherits it without a line of new code.
 
 :func:`scan_markup` needs the parse tree, because "this text was invisible" is a fact about the
 markup that the text no longer carries. It therefore runs **inside the sandbox**, during the

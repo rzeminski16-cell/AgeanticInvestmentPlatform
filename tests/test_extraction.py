@@ -600,7 +600,7 @@ class TestTheLocatorHash:
 
     def test_an_absent_field_and_a_null_field_hash_alike(self) -> None:
         """`exclude_none` in the hash input, so a locator gaining an optional coordinate does
-        not silently re-key every row that never had one — which is what task 14's page and
+        not silently re-key every row that never had one — which is what the PDF page and
         bounding box would otherwise do."""
         assert locator_hash(Locator(char_start=1, char_end=2)) == locator_hash(
             Locator(char_start=1, char_end=2, page=None)

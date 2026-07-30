@@ -191,7 +191,7 @@ $0.01/search figure as ±50% until confirmed.
 | LLM provider | **Anthropic Python SDK** behind `LLMProvider` protocol | LiteLLM, direct HTTP | SDK for retries/streaming/caching; protocol wrapper so OpenAI/local models can be added without touching the workflow engine |
 | Structured LLM output | **`output_config.format` (structured outputs) + Pydantic** | prompt-and-parse, instructor | Schema-enforced JSON removes an entire class of parsing failure. Every agent has a typed input and output contract |
 | Document parsing — HTML/iXBRL | **`selectolax` + `lxml` + `arelle`** (iXBRL) | BeautifulSoup, python-xbrl | `arelle` is the reference iXBRL processor; essential for UK annual reports |
-| Document parsing — PDF | **`pymupdf` (text+layout) + `pdfplumber` (tables)**, `camelot` as fallback | unstructured.io, Docling, LlamaParse | Local, free, no data leaves the machine. Reserve an LLM vision pass for tables that defeat all three |
+| Document parsing — PDF | **`pdfplumber` alone** (text with coordinates *and* tables) — see ADR 0020 | `pymupdf`, `camelot`, unstructured.io, Docling, LlamaParse | Local, free, no data leaves the machine. **`pymupdf` was dropped at implementation: it is AGPL-3.0 or a paid Artifex licence, which conflicts with this MIT project's intended commercial network deployment.** `pdfplumber` covers both needs — per-cell bounding boxes and per-glyph colour and size — on an all-permissive tree. Slower, and irrelevantly so at one report a week. Reserve an LLM vision pass for tables that defeat it |
 | Financial data model | **Pandas + Pydantic**, no ORM for numerics | polars | Pandas for the calculation kernel; Pydantic models as the wire/DB contract |
 | Database | **PostgreSQL 16** (Docker) + **SQLAlchemy 2.0 (async)** + **Alembic** | SQLite, MongoDB | You asked for Postgres. JSONB for semi-structured extraction payloads; `pgvector` extension reserved for Phase 6 prior-research retrieval |
 | Artefact store | **Content-addressed local filesystem** (`sha256/aa/bb/<hash>`) + metadata row in Postgres; **MinIO** profile for S3 parity | DB BLOBs | Hash-addressing gives dedup and integrity for free; MinIO profile makes the later cloud move a config change |
@@ -1597,7 +1597,7 @@ seeded built-in rows). Skill authoring, policy composition and custom-section ex
 
 **Deliverables.** Safe fetcher (SSRF guard, robots, per-provider rate limiter, retries, redirect
 validation, size caps); content-addressed cache; parsers (iXBRL via `arelle`, PDF via
-`pymupdf`+`pdfplumber`, HTML via `selectolax`); `extractions` table + locators + excerpts; publication-date
+`pdfplumber`, HTML via `selectolax`); `extractions` table + locators + excerpts; publication-date
 extraction with confidence; PIT filter + quarantine; source-tier assignment; claim/citation model with
 **deterministic excerpt verification**; SEC full-text search adapter; Companies House adapter; FCA NSM
 adapter; issuer-IR discovery; injection-heuristic scanner.

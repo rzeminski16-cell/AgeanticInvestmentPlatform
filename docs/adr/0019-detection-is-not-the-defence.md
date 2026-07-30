@@ -96,7 +96,7 @@ there means one parse. Re-parsing untrusted bytes *outside* that boundary in ord
 attacks would be an odd way to defend against them.
 
 The pattern half (`scan_text`) needs only a string, so it is pure, safe anywhere, and the PDF
-extractor in task 14 inherits it without a line of new code.
+extractor inherits it without a line of new code.
 
 ### Findings carry locators
 

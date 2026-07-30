@@ -13,9 +13,15 @@ The controls this layer applies are threat T5, and they live in:
 * :mod:`aer.extract.xml` — the one hardened ``lxml`` parser: no entities, no DTD, no network.
 * :mod:`aer.extract.sandbox` — size ceiling, then a child process with a clock and a cap.
 
-What comes out is an :class:`aer.core.schemas.extraction.ExtractedText` whose ``extractor`` and
-``extractor_version`` pin the function that produced it, so a stored locator keeps meaning
-exactly one thing. See that module for the verification contract in full.
+What comes out is an :class:`~aer.extract.result.ExtractedDocument`, whose ``text`` carries the
+``extractor`` and ``extractor_version`` that pin the function that produced it, so a stored
+locator keeps meaning exactly one thing. See
+:mod:`aer.core.schemas.extraction` for the verification contract in full.
+
+**Use** :meth:`~aer.extract.result.ExtractedDocument.locate` **to build a locator**, rather than
+the method of the same name on the text. A PDF locator carries a page and a bounding box and an
+HTML one correctly does not, and going through the document means no call site has to know which
+kind it is holding.
 """
 
 from __future__ import annotations

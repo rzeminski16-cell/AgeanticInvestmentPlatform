@@ -298,6 +298,7 @@ src/aer/            application package
     xml.py          the one hardened lxml parser: no entities, no DTD, no network
     html.py         selectolax; keeps hidden text, drops script and style
     injection.py    what a document tried, as located findings — flags, never blocks
+    pdf.py          pdfplumber; a page and a box for every word, and for every cell
     sandbox.py      size ceiling, then a child process with a clock and a cap
     _child.py       the isolated process itself: bytes in, JSON out, nothing else
     result.py       what an extraction returns: the text, and what was noticed in it
@@ -494,6 +495,29 @@ bytes, same text, same content hash. `content_hash` covers the whole extracted t
 verifier can distinguish "the extractor changed and every locator shifted" from "this excerpt is
 wrong" — two failures needing different responses. See
 `docs/adr/0017-a-locator-points-into-an-extraction-not-into-bytes.md`.
+
+### PDFs: a page and a box, for every figure
+
+A character offset is not something a person can check against the page in front of them, so a PDF
+locator also carries a page number and a bounding box, and so does every table cell. The text is
+assembled **from** the word geometry rather than taken from the library, which means an offset and
+a rectangle are two views of one list and cannot disagree — the failure mode being avoided is a
+citation that highlights the wrong figure, which is more convincing than no highlight at all.
+Page and box are display coordinates: verification still slices on offsets, so a library upgrade
+that shifts a rectangle by a fraction of a point cannot invalidate a stored citation.
+
+The truth set is built from raw PDF operators, so the expected coordinates are the ones the
+generator placed rather than the ones the parser reported. **A scanned filing is reported
+`unextractable`**, because "this needs OCR" is the honest answer and empty text would put a
+section with no evidence in front of a reviewer with nothing to say why.
+
+`pymupdf` is *not* used, despite both plans specifying it: it is AGPL-3.0 or a paid Artifex
+licence, which conflicts with this MIT project's intended commercial deployment. `pdfplumber`
+covers both text-with-coordinates and tables on an all-permissive dependency tree, and is slower
+in a way that does not matter at one report a week. **One known defect, recorded rather than
+hidden:** rotated text extracts in the wrong order, because characters are ordered along the
+page's x axis — so a sideways table reads backwards. It is extracted rather than dropped, and a
+test pins it. See `docs/adr/0020-pdfplumber-alone-and-why-not-pymupdf.md`.
 
 ### A citation is confirmed by code or not at all
 

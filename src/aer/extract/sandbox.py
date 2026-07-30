@@ -12,17 +12,18 @@ Three controls, in the order they apply, and the order is the design:
    and nothing else.
 
 **Why a subprocess at all, given the cost.** Parsing is the one operation in this platform where
-untrusted bytes drive a large C library — ``lexbor`` here, ``MuPDF`` in task 14. A crash in
-either is not an exception a caller can catch; in-process it takes the worker with it, and with
-it the run, and the run's uncommitted state. The isolation is what makes "the extract step
-failed" a recoverable outcome rather than a dead worker.
+untrusted bytes drive a large third-party parser — ``lexbor`` for HTML, ``pdfminer.six`` and
+``pypdfium2`` for PDF. A segfault in a C extension is not an exception a caller can catch, and an
+unbounded loop in a pure-Python parser is not one either; in-process, both take the worker with
+them, and with it the run and the run's uncommitted state. The isolation is what makes "the
+extract step failed" a recoverable outcome rather than a dead worker.
 
 The cost is real and worth stating: on Windows a process spawn plus a fresh interpreter import
 is of the order of a hundred milliseconds. Against a filing that takes a second to parse and a
 model call that takes a minute, it does not register.
 
 **The boundary is one async function.** No call site knows a process is involved, which is what
-keeps task 14's parser from having to re-invent any of this.
+let the PDF extractor arrive without re-inventing any of this.
 """
 
 from __future__ import annotations
@@ -34,7 +35,7 @@ from typing import Any, Final
 
 import structlog
 
-from aer.core.schemas.extraction import ExtractedText
+from aer.core.schemas.extraction import ExtractedTable, ExtractedText, PageMap
 from aer.core.schemas.injection import Finding
 from aer.extract.errors import (
     DocumentTooLargeError,
@@ -60,6 +61,10 @@ EXTRACTOR_MEDIA_TYPES: Final[dict[str, frozenset[DetectedType]]] = {
     # XHTML and inline XBRL are served as XML and are HTML for reading purposes, so both are
     # admissible here; `sniff` already prefers HTML when the markers are present.
     "html": frozenset({DetectedType.HTML, DetectedType.XML}),
+    # Only the real thing. `%PDF-` is an unambiguous signature, so there is no second type worth
+    # admitting and every reason not to: handing the PDF parser something that is not a PDF is
+    # precisely the case this module exists to prevent.
+    "pdf": frozenset({DetectedType.PDF}),
 }
 
 # How long to wait for a killed child to actually die before giving up on it.
@@ -111,6 +116,7 @@ async def extract_in_sandbox(
     if not result.get("ok"):
         raise _child_failure(result, extractor=extractor, detected=detected)
 
+    pages = result.get("pages")
     document = ExtractedDocument(
         text=ExtractedText(
             text=str(result["text"]),
@@ -119,6 +125,8 @@ async def extract_in_sandbox(
             title=result.get("title"),
         ),
         findings=tuple(Finding.model_validate(f) for f in result.get("findings", [])),
+        pages=None if pages is None else PageMap.model_validate(pages),
+        tables=tuple(ExtractedTable.model_validate(t) for t in result.get("tables", [])),
     )
 
     _log.debug(

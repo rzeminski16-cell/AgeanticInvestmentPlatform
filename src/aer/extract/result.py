@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from aer.core.schemas.extraction import ExtractedText
+from aer.core.schemas.extraction import Excerpt, ExtractedTable, ExtractedText, PageMap
 from aer.core.schemas.injection import Finding, InjectionSignal
 
 __all__ = ["ExtractedDocument"]
@@ -27,10 +27,16 @@ __all__ = ["ExtractedDocument"]
 
 @dataclass(frozen=True, slots=True)
 class ExtractedDocument:
-    """An extraction and its findings."""
+    """An extraction, its findings, and — for a paginated document — where its text sits."""
 
     text: ExtractedText
     findings: tuple[Finding, ...] = field(default_factory=tuple)
+
+    # Absent for HTML, which has no pages. An honest absence: a locator into an HTML extraction
+    # has no box because there is no page to draw one on, not because nobody worked it out.
+    pages: PageMap | None = None
+
+    tables: tuple[ExtractedTable, ...] = field(default_factory=tuple)
 
     @property
     def is_flagged(self) -> bool:
@@ -45,3 +51,16 @@ class ExtractedDocument:
     def signals(self) -> frozenset[InjectionSignal]:
         """The distinct kinds noticed, for a badge that says what rather than how many."""
         return frozenset(finding.signal for finding in self.findings)
+
+    def locate(self, needle: str, *, start: int = 0) -> Excerpt | None:
+        """Find ``needle`` and return it as an excerpt located as precisely as this format allows.
+
+        **The way a caller should build a locator**, rather than going to
+        :meth:`~aer.core.schemas.extraction.ExtractedText.locate` directly: the page and box get
+        filled in for a PDF and are correctly left empty for HTML, and no call site has to know
+        which kind of document it is holding.
+        """
+        found = self.text.locate(needle, start=start)
+        if found is None or self.pages is None:
+            return found
+        return Excerpt(text=found.text, locator=self.pages.enrich(found.locator))
