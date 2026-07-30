@@ -298,6 +298,7 @@ src/aer/            application package
     xml.py          the one hardened lxml parser: no entities, no DTD, no network
     html.py         selectolax; keeps hidden text, drops script and style
     injection.py    what a document tried, as located findings — flags, never blocks
+    dates.py        when a document was published, scored by what kind of evidence said so
     pdf.py          pdfplumber; a page and a box for every word, and for every cell
     sandbox.py      size ceiling, then a child process with a clock and a cap
     _child.py       the isolated process itself: bytes in, JSON out, nothing else
@@ -308,6 +309,7 @@ src/aer/            application package
     sec/submissions.py  the filing index; checks the parallel arrays are parallel
     sec/companyfacts.py every XBRL fact ever tagged, as exact decimals
     sec/pit.py      point-in-time selection: what was known, as at a date
+    tiering.py      provider + kind -> tier, by table; an unknown pair is not citable
     sec/client.py   EDGAR endpoints, URL construction and pacing
   providers/        model providers: the seam that makes the suite free to run
     protocol.py     two operations: structured completion, and token counting
@@ -518,6 +520,30 @@ in a way that does not matter at one report a week. **One known defect, recorded
 hidden:** rotated text extracts in the wrong order, because characters are ordered along the
 page's x axis — so a sideways table reads backwards. It is extracted rather than dropped, and a
 test pins it. See `docs/adr/0020-pdfplumber-alone-and-why-not-pymupdf.md`.
+
+### Look-ahead: checked twice, on the latest date
+
+A report citing a document published after its own as-of date reads exactly like one that does
+not, so publication dates are **extracted and scored, never trusted**. Four kinds of evidence, in
+order of trust: the filing index, the document's own metadata, a date printed in the text, and —
+last, because it describes a file on a server rather than a document — `Last-Modified`. Every
+candidate is kept, so a confidence is an argument a reviewer can check rather than a bare number.
+
+**Admissibility is decided on the latest candidate, not the best estimate.** If the index says
+July and the document's own text says September, the honest answer to "can this be shown to
+predate 31 July?" is no. Being wrong that way costs a quarantine an operator can lift with a
+written reason; being wrong the other way costs a report that used information nobody had and
+never mentions it.
+
+The check runs **at acquisition and again when a claim is made**, because the two moments know
+different things: acquisition cannot know what a claim will later rest on, nor see an as-of date
+that moves afterwards. A source fetched under one as-of date and cited after the operator moved it
+earlier passes the first check and fails the second — that case is in the suite.
+
+A quarantined source is usable only after a **recorded** override: a person, a reason and a time.
+The override never clears the flag, so the record says both that the document was refused and that
+somebody decided to use it anyway. See
+`docs/adr/0021-look-ahead-is-checked-twice-on-the-latest-date.md`.
 
 ### A citation is confirmed by code or not at all
 

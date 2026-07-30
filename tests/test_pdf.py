@@ -67,7 +67,7 @@ from tests.test_extraction import FILING, _child_processes
 def settings() -> Settings:
     return Settings(
         http_user_agent="aer-tests (tests@example.invalid)",
-        secret_key="test-secret-key-not-used-for-anything-real",
+        secret_key="test-secret-key-not-used-for-anything-real",  # pragma: allowlist secret
     )
 
 

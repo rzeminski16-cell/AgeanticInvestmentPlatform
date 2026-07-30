@@ -389,7 +389,11 @@ class TestRecordingSources:
             publisher="U.S. Securities and Exchange Commission",
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
-            publication_date=date(2026, 7, 30),
+            # Before the request's as-of date of 2026-06-30. It was 2026-07-30 until task 15,
+            # a month *after* it, and this test asserted the document was admissible — because
+            # at the time nothing compared the two. That is the look-ahead hole the task closed,
+            # and this fixture was sitting in it.
+            publication_date=date(2026, 6, 12),
             publication_date_confidence=1.0,
             http_status=200,
             licence_note="US government work, public domain",

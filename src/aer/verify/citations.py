@@ -28,6 +28,15 @@ different subject, falls far below it. A fabricated excerpt does not score 0.9 b
 **A failed verification is recorded, not raised.** Every citation gets a verdict, and a run
 with four bad citations should tell an operator about four rather than about the first. The
 refusal happens at gate 2, where a person can see all of them at once.
+
+**Point-in-time is checked again here, and that repetition is the design.** A source is already
+screened at acquisition, in :mod:`aer.services.sources`, and screening it a second time looks
+redundant until you notice the two moments know different things. Acquisition cannot know what a
+claim will later rest on: a document is fetched while the as-of date is one thing and cited after
+an operator has moved it earlier, or it is gathered for background and ends up under a numeric
+claim. This check runs against the request's as-of date **as it stands when the claim is made**,
+which is the only moment at which the question "does this report use information nobody had?" has
+a final answer. Threat T13.
 """
 
 from __future__ import annotations
@@ -46,7 +55,15 @@ from sqlalchemy.orm import selectinload
 
 from aer.config import Settings
 from aer.core.schemas.extraction import ExtractedText, Locator, normalise_whitespace
-from aer.db.models import Artefact, Citation, Claim, Extraction, ReportSection, SourceDocument
+from aer.db.models import (
+    Artefact,
+    Citation,
+    Claim,
+    Extraction,
+    ReportSection,
+    ResearchRequest,
+    SourceDocument,
+)
 from aer.errors import IntegrityError
 from aer.extract import ExtractionError, extract_text
 from aer.storage.protocol import ArtefactStore
@@ -138,12 +155,81 @@ async def verify(
             its own, so verifying one citation needs no ceremony.
     """
     reader = documents if documents is not None else ReadOnce(store, settings)
+
+    # Before the text is even re-read: a source that may not be used at this as-of date fails
+    # whatever it says, and re-parsing a filing to confirm a quote nobody may cite is work done
+    # to reach an answer that was already decided.
+    inadmissible = await _refuse_if_out_of_time(session, citation=citation)
+    if inadmissible is not None:
+        return _record(citation, inadmissible)
+
     reread = await _reread(session, reader, citation=citation)
     if isinstance(reread, VerificationOutcome):
         return _record(citation, reread)
 
     extraction, extracted = reread
     return _record(citation, _compare(extraction, extracted))
+
+
+async def _refuse_if_out_of_time(
+    session: AsyncSession, *, citation: Citation
+) -> VerificationOutcome | None:
+    """Whether this citation's source may be used at the request's as-of date.
+
+    ``None`` means it may. The check is on the source document's own record rather than on a
+    recomputed date: the quarantine decision was made at acquisition with the evidence in hand,
+    and re-deriving it here from a stored date would use less information than the decision it
+    was second-guessing.
+
+    What *is* re-derived is the comparison against the as-of date, because the as-of date can
+    change after acquisition and a citation is only sound against the request as it now stands.
+    """
+    source = await _source_for(session, citation=citation)
+    if source is None:  # pragma: no cover -- RESTRICT makes this unreachable in practice
+        return VerificationOutcome(False, Decimal(0), "the source document is gone")
+
+    request = await session.get(ResearchRequest, source.request_id)
+    if request is None:  # pragma: no cover -- source_documents.request_id is NOT NULL
+        return VerificationOutcome(False, Decimal(0), "the request is gone")
+
+    if not source.is_admissible:
+        return VerificationOutcome(
+            False,
+            Decimal(0),
+            f"the source is quarantined ({source.quarantine_reason}) and has no recorded "
+            "override, so it may not support a claim",
+        )
+
+    if not request.point_in_time:
+        return None
+
+    # The latest date any evidence supports, not the best estimate. A document that *might* be
+    # from after the as-of date cannot be shown to have predated it, which is the question.
+    latest = source.publication_date_latest or source.publication_date
+    if latest is not None and latest > request.as_of_date:
+        return VerificationOutcome(
+            False,
+            Decimal(0),
+            f"the source was published on {latest.isoformat()}, after the request's as-of date "
+            f"of {request.as_of_date.isoformat()}. Citing it would use information nobody had "
+            "at the time.",
+        )
+
+    return None
+
+
+async def _source_for(session: AsyncSession, *, citation: Citation) -> SourceDocument | None:
+    """The source document behind a citation, resolved through its extraction.
+
+    Through the extraction rather than from anything on the citation, so a citation cannot name
+    one document and be checked against another's admissibility.
+    """
+    found: SourceDocument | None = await session.scalar(
+        select(SourceDocument)
+        .join(Extraction, Extraction.source_document_id == SourceDocument.id)
+        .where(Extraction.id == citation.extraction_id)
+    )
+    return found
 
 
 async def _reread(
