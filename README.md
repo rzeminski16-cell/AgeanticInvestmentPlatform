@@ -299,6 +299,7 @@ src/aer/            application package
     html.py         selectolax; keeps hidden text, drops script and style
     injection.py    what a document tried, as located findings — flags, never blocks
     dates.py        when a document was published, scored by what kind of evidence said so
+    ixbrl.py        arelle, offline; UK tagged facts, and a gate for the tags nobody maps
     pdf.py          pdfplumber; a page and a box for every word, and for every cell
     sandbox.py      size ceiling, then a child process with a clock and a cap
     _child.py       the isolated process itself: bytes in, JSON out, nothing else
@@ -522,6 +523,32 @@ in a way that does not matter at one report a week. **One known defect, recorded
 hidden:** rotated text extracts in the wrong order, because characters are ordered along the
 page's x axis — so a sideways table reads backwards. It is extracted rather than dropped, and a
 test pins it. See `docs/adr/0020-pdfplumber-alone-and-why-not-pymupdf.md`.
+
+### UK inline XBRL, read offline
+
+A UK filing is one XHTML document that is both the readable annual report and the machine-readable
+data. `arelle` reads the tagged facts — **with its web cache switched off, which is a control
+rather than a setting.** An iXBRL document names its taxonomy by URL and arelle's default is to
+fetch it, which would be a component other than `aer.fetch` making an outbound request driven by a
+URL inside an untrusted document. A test asserts that loading a filing naming a remote schema opens
+no socket; deleting the line makes it fail with arelle reporting `Attempt to load network entity`.
+
+Offline, concepts do not resolve — but everything a fact *is* still does: the tag, the value with
+the document's own `scale` applied, the period, the entity's Companies House number and the unit.
+The missing half is the taxonomy's opinion about data types and signs, which this platform was
+never going to take on trust anyway.
+
+Two details are easy to get wrong and both are pinned by tests. arelle reports an **exclusive**
+period end, so a year ending 30 June comes back as 1 July and one day is subtracted — otherwise
+every UK fiscal year end moves by a day, which survives review because it looks almost right. And
+`scale` is already applied, so applying it again is a thousandfold error that looks plausible.
+
+**The confirmation gate is on tags, not on schema resolution.** Offline nothing resolves, so a
+verdict based on that would fire every time and be a badge nobody reads. What raises it is a tag
+outside the shared taxonomies — `acme:AdjustedEBITDAPreExceptionalItems` rather than
+`ifrs-full:Revenue`. UK filers extend the taxonomy routinely, and an extension may well carry the
+company's headline profit measure, so those facts are kept under their raw tag and wait for a
+person to say what they mean. See `docs/data-sources/uk-ixbrl.md`.
 
 ### Reading an issuer's own website
 

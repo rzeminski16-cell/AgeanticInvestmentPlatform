@@ -34,6 +34,7 @@ dependencies = [
   "lxml>=5.3",
   "rapidfuzz>=3.9",
   "pdfplumber>=0.11",
+  "arelle-release>=2.36",
 ]
 
 [dependency-groups]
@@ -149,6 +150,13 @@ strict = true
 [[tool.mypy.overrides]]
 module = ["tests.*"]
 disallow_untyped_defs = false
+
+# `arelle` ships no type information. Everything read from its model is converted at the
+# boundary in `aer.extract.ixbrl` rather than trusted, which is why that module's helpers take
+# `Any` and immediately narrow.
+[[tool.mypy.overrides]]
+module = ["arelle.*"]
+ignore_missing_imports = true
 
 # --------------------------------------------------------------------------------------
 # pytest

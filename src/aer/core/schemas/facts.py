@@ -100,8 +100,28 @@ class RawFact(BaseModel):
 
     @field_validator("accession")
     @classmethod
-    def _accession_is_well_formed(cls, value: str) -> str:
-        return format_accession(value)
+    def _accession_identifies_a_filing(cls, value: str) -> str:
+        """The filing this fact came from, in whatever form its publisher issues.
+
+        **Not EDGAR-specific, deliberately.** An accession number is one publisher's way of
+        naming a filing; Companies House issues base64-ish transaction IDs and the FCA issues
+        something else again. A shared fact type that demanded eighteen digits would make every
+        UK fact unrepresentable, which is a schema asserting a fact about the SEC rather than
+        about facts.
+
+        EDGAR's own shape is still enforced — in :mod:`aer.sources.sec.companyfacts` and
+        :mod:`aer.sources.sec.submissions`, where EDGAR facts are built and where a malformed
+        accession is already treated as an unusable row. An EDGAR-shaped value is normalised
+        here too, so a caller passing the undashed form still gets the dashed one.
+        """
+        cleaned = value.strip()
+        if not cleaned:
+            message = "A fact must name the filing it came from."
+            raise ValueError(message)
+        try:
+            return format_accession(cleaned)
+        except ValueError:
+            return cleaned
 
     @field_validator("taxonomy", "form", "unit")
     @classmethod

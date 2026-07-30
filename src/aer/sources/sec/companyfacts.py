@@ -38,7 +38,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Final
 
 from aer.core.concepts import canonical_concept
-from aer.core.schemas.facts import RawFact
+from aer.core.schemas.facts import RawFact, format_accession
 from aer.errors import ExternalServiceError
 from aer.sources.sec.tickers import format_cik
 
@@ -235,6 +235,13 @@ def _parse_observation(
         return None
 
     try:
+        # Checked **here** rather than by the model. `RawFact.accession` means "which filing
+        # this came from" and is shared with the UK adapters, whose Companies House transaction
+        # IDs are not EDGAR accession numbers. The strict shape is an EDGAR guarantee, so it is
+        # asserted where EDGAR facts are built; the `except ValueError` below already treats a
+        # malformed one as an unusable row, so nothing is weakened by moving it.
+        accession = format_accession(accession)
+
         return RawFact(
             concept=concept,
             raw_concept=raw_concept,

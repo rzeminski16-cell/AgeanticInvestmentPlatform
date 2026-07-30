@@ -117,9 +117,27 @@ class TestRawFact:
                 filed_date=date(2021, 1, 1),
             )
 
-    def test_a_malformed_accession_is_refused_at_construction(self):
-        with pytest.raises(ValueError, match="accession"):
-            make_fact(accession="not-an-accession")
+    def test_an_edgar_accession_is_normalised_to_its_dashed_form(self):
+        """The undashed form appears in archive URLs and the dashed one in the API. A caller
+        holding either should not have to know which."""
+        assert make_fact(accession="000156459022026876").accession == "0001564590-22-026876"
+
+    def test_a_filing_identifier_that_is_not_edgar_shaped_is_accepted(self):
+        """**Changed deliberately in task 17.** Companies House issues base64-ish transaction
+        IDs, and a shared fact type demanding eighteen digits would make every UK fact
+        unrepresentable — a schema asserting a fact about the SEC rather than about facts.
+
+        EDGAR's shape is still enforced; it moved to where EDGAR facts are built. See the test
+        below, which is what says the guarantee was relocated rather than dropped.
+        """
+        fact = make_fact(accession="MzM1NTk4NDI3NmFkaXF6a2N4")
+
+        assert fact.accession == "MzM1NTk4NDI3NmFkaXF6a2N4"
+
+    def test_an_empty_filing_identifier_is_still_refused(self):
+        """A fact that cannot say which filing it came from is not a fact."""
+        with pytest.raises(ValueError, match="name the filing"):
+            make_fact(accession="   ")
 
     def test_an_unknown_field_is_refused(self):
         # extra="forbid". A typo in a keyword would otherwise be silently discarded, and

@@ -30,6 +30,8 @@ from typing import Final
 
 __all__ = [
     "CANONICAL_CONCEPTS",
+    "IFRS_ALIASES",
+    "UK_FRC_ALIASES",
     "US_GAAP_ALIASES",
     "canonical_concept",
     "is_canonical_concept",
@@ -122,21 +124,108 @@ US_GAAP_ALIASES: Final[dict[str, str]] = {
 }
 
 
+# IFRS tags to canonical concepts.
+#
+# **This is the taxonomy an LSE-listed company reports under.** UK listed issuers apply
+# IFRS as adopted for use in the UK, so their inline XBRL is tagged from `ifrs-full`. The
+# FRC's `uk-*` taxonomies are for the FRS 101/102 regime that smaller and private companies
+# use, and they are not what this platform's universe files under — a handful of the most
+# common `uk-core` spellings are mapped below anyway, because a UK filer occasionally tags a
+# statutory line from them alongside the IFRS ones.
+#
+# Where IFRS names a concept differently from US GAAP rather than merely spelling it
+# differently, the mapping is to the canonical name whose *definition* matches, not the one
+# whose words look closest. `ProfitLossFromOperatingActivities` is operating income;
+# `FinanceCosts` is the interest line; `CashFlowsFromUsedInOperatingActivities` is operating
+# cash flow. Getting one of those wrong puts a real number on the wrong line, which is worse
+# than leaving it unmapped and visible.
+IFRS_ALIASES: Final[dict[str, str]] = {
+    # -- Income statement ---------------------------------------------------------------
+    "Revenue": "revenue",
+    "RevenueFromContractsWithCustomers": "revenue",
+    "CostOfSales": "cost_of_revenue",
+    "GrossProfit": "gross_profit",
+    "ProfitLossFromOperatingActivities": "operating_income",
+    "OperatingProfitLoss": "operating_income",
+    "ResearchAndDevelopmentExpense": "research_and_development",
+    "FinanceCosts": "interest_expense",
+    "InterestExpense": "interest_expense",
+    "IncomeTaxExpenseContinuingOperations": "income_tax_expense",
+    "ProfitLoss": "net_income",
+    "ProfitLossAttributableToOwnersOfParent": "net_income",
+    "DilutedEarningsLossPerShare": "earnings_per_share_diluted",
+    # -- Balance sheet ------------------------------------------------------------------
+    "Assets": "assets",
+    "CurrentAssets": "current_assets",
+    "Liabilities": "liabilities",
+    "CurrentLiabilities": "current_liabilities",
+    "Equity": "equity",
+    "EquityAttributableToOwnersOfParent": "equity",
+    "CashAndCashEquivalents": "cash_and_equivalents",
+    "Inventories": "inventory",
+    "NoncurrentPortionOfNoncurrentBorrowings": "long_term_debt",
+    "BorrowingsNoncurrent": "long_term_debt",
+    "CurrentPortionOfNoncurrentBorrowings": "short_term_debt",
+    "BorrowingsCurrent": "short_term_debt",
+    # -- Cash flow ----------------------------------------------------------------------
+    "CashFlowsFromUsedInOperatingActivities": "operating_cash_flow",
+    "DepreciationAndAmortisationExpense": "depreciation_and_amortisation",
+    "DepreciationAmortisationAndImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss": (
+        "depreciation_and_amortisation"
+    ),
+    "PurchaseOfPropertyPlantAndEquipment": "capital_expenditure",
+    "PaymentsToAcquirePropertyPlantAndEquipment": "capital_expenditure",
+    "DividendsPaid": "dividends_paid",
+    "DividendsPaidClassifiedAsFinancingActivities": "dividends_paid",
+    # -- Share counts -------------------------------------------------------------------
+    "WeightedAverageNumberOfDilutedSharesOutstanding": "diluted_shares_outstanding",
+    "NumberOfSharesOutstanding": "shares_outstanding",
+}
+
+
+# The FRC's own taxonomies. A very short list on purpose: these appear alongside IFRS tags in
+# a UK filing's cover-page and statutory sections rather than in its primary statements.
+UK_FRC_ALIASES: Final[dict[str, str]] = {
+    "TurnoverRevenue": "revenue",
+    "Turnover": "revenue",
+    "GrossProfitLoss": "gross_profit",
+    "OperatingProfitLoss": "operating_income",
+    "ProfitLossForPeriod": "net_income",
+}
+
+
+# Which alias table each taxonomy prefix uses. A dictionary rather than a chain of `if`s so
+# that adding a taxonomy is a data change, and so a reader can see the whole supported set at
+# once rather than reconstructing it from control flow.
+_ALIAS_TABLES: Final[dict[str, dict[str, str]]] = {
+    "us-gaap": US_GAAP_ALIASES,
+    "dei": US_GAAP_ALIASES,
+    "ifrs-full": IFRS_ALIASES,
+    "ifrs": IFRS_ALIASES,
+    "uk-core": UK_FRC_ALIASES,
+    "uk-bus": UK_FRC_ALIASES,
+    "core": UK_FRC_ALIASES,
+}
+
+
 def canonical_concept(taxonomy: str, tag: str) -> str | None:
     """The canonical concept a filer's tag means, or ``None`` if it is unmapped.
 
     Args:
-        taxonomy: The taxonomy the tag belongs to, as EDGAR reports it — ``us-gaap``,
-            ``dei``, ``ifrs-full``, or a filer's own extension namespace.
+        taxonomy: The taxonomy the tag belongs to — ``us-gaap``, ``dei``, ``ifrs-full``, one
+            of the FRC's ``uk-*`` prefixes, or a filer's own extension namespace.
         tag: The element name exactly as it appears in the filing.
 
-    Only ``us-gaap`` and ``dei`` are mapped today. A tag from a filer's own extension
-    namespace is by definition not in a shared taxonomy, so there is nothing to map it
-    onto — it is returned unmapped and surfaced to the operator.
+    A tag from a filer's own extension namespace is by definition not in a shared taxonomy,
+    so there is nothing to map it onto — it is returned unmapped and surfaced to the
+    operator. **That is the normal case for a UK filing**, where extensions are common, and
+    it is why :mod:`aer.extract.ixbrl` treats an extraction with unmapped tags as needing a
+    human rather than as a failure.
     """
-    if taxonomy not in {"us-gaap", "dei"}:
+    table = _ALIAS_TABLES.get(taxonomy.strip().lower())
+    if table is None:
         return None
-    return US_GAAP_ALIASES.get(tag)
+    return table.get(tag)
 
 
 def is_canonical_concept(name: str) -> bool:
