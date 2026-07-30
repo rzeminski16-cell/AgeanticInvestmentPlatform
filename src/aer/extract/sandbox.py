@@ -35,6 +35,7 @@ from typing import Any, Final
 import structlog
 
 from aer.core.schemas.extraction import ExtractedText
+from aer.core.schemas.injection import Finding
 from aer.extract.errors import (
     DocumentTooLargeError,
     MediaTypeMismatchError,
@@ -42,6 +43,7 @@ from aer.extract.errors import (
     ParseTimeoutError,
     UnextractableError,
 )
+from aer.extract.result import ExtractedDocument
 from aer.extract.sniff import DetectedType, sniff
 
 __all__ = ["EXTRACTOR_MEDIA_TYPES", "extract_in_sandbox"]
@@ -77,7 +79,7 @@ async def extract_in_sandbox(
     max_bytes: int,
     timeout_seconds: float,
     memory_limit_bytes: int,
-) -> ExtractedText:
+) -> ExtractedDocument:
     """Extract text from ``data`` in a child process.
 
     Args:
@@ -109,23 +111,34 @@ async def extract_in_sandbox(
     if not result.get("ok"):
         raise _child_failure(result, extractor=extractor, detected=detected)
 
-    extracted = ExtractedText(
-        text=str(result["text"]),
-        extractor=str(result["extractor"]),
-        extractor_version=str(result["extractor_version"]),
-        title=result.get("title"),
+    document = ExtractedDocument(
+        text=ExtractedText(
+            text=str(result["text"]),
+            extractor=str(result["extractor"]),
+            extractor_version=str(result["extractor_version"]),
+            title=result.get("title"),
+        ),
+        findings=tuple(Finding.model_validate(f) for f in result.get("findings", [])),
     )
 
     _log.debug(
         "extract.completed",
-        extractor=extracted.extractor,
-        extractor_version=extracted.extractor_version,
+        extractor=document.text.extractor,
+        extractor_version=document.text.extractor_version,
         detected=detected.value,
         input_bytes=len(data),
-        characters=len(extracted.text),
+        characters=len(document.text.text),
         memory_capped=bool(result.get("memory_capped")),
     )
-    return extracted
+    if document.is_flagged:
+        # At `warning`, because a document that tried something is worth seeing in a log even
+        # when nobody is looking at the page that shows it.
+        _log.warning(
+            "extract.flagged",
+            signals=sorted(s.value for s in document.signals()),
+            findings=len(document.findings),
+        )
+    return document
 
 
 def _refuse_if_too_large(data: bytes, *, extractor: str, max_bytes: int) -> None:

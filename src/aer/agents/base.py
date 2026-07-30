@@ -31,6 +31,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.agents.untrusted import CONTAINMENT_RULE, UntrustedSource, wrap_untrusted
 from aer.config import Settings
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import AgentRun, Cost, JobStep, Prompt
@@ -105,13 +106,52 @@ class Agent[InputT, OutputT: BaseModel]:
     def user_message(self, payload: InputT) -> str:
         raise NotImplementedError
 
+    def untrusted_sources(self, payload: InputT) -> list[UntrustedSource]:  # noqa: ARG002
+        """Fetched content this call needs the model to read. Empty by default.
+
+        **Declared rather than interpolated.** An agent that pasted a filing into
+        :meth:`user_message` itself would be an agent that could forget to delimit it, and the
+        one that forgets is the one that gets exploited. Returning the sources hands the
+        wrapping to :meth:`run`, which cannot forget.
+
+        ``payload`` is unused in the default and is part of the interface, because an agent
+        that fetches decides *from its input* what it fetched.
+        """
+        return []
+
+    # -- Composed by the base, not by an agent -----------------------------------------------
+
+    def composed_system_prompt(self, payload: InputT) -> str:
+        """The agent's instruction, plus the containment rule when it is needed.
+
+        Appended only when this call carries untrusted content. Adding it unconditionally would
+        put a rule about quoted documents in front of an agent that reads none, and the prompt
+        recorded against a run should describe that run.
+
+        The two variants hash differently and therefore become two ``prompts`` rows. That is
+        correct: they are different instructions, and a run must be attributable to the one it
+        actually used.
+        """
+        if not self.untrusted_sources(payload):
+            return self.system_prompt(payload)
+        return f"{self.system_prompt(payload)}\n\n{CONTAINMENT_RULE}"
+
+    def composed_user_message(self, payload: InputT) -> str:
+        """The agent's request, with any fetched content quoted beneath it."""
+        quoted = wrap_untrusted(self.untrusted_sources(payload))
+        if not quoted:
+            return self.user_message(payload)
+        return f"{self.user_message(payload)}\n\n{quoted}"
+
     # -- The one public operation ------------------------------------------------------------
 
     async def run(self, context: AgentContext, payload: InputT) -> OutputT:
         """Perform the agent's work: one routed, archived, metered model call."""
         choice = context.router.resolve(self.role)
-        system = self.system_prompt(payload)
-        messages = [Message(role="user", content=self.user_message(payload))]
+        # Composed, never raw. Untrusted content is wrapped and the containment rule attached
+        # here, where an agent has no opportunity to skip either.
+        system = self.composed_system_prompt(payload)
+        messages = [Message(role="user", content=self.composed_user_message(payload))]
 
         started = time.perf_counter()
         result = await context.provider.complete_structured(
@@ -154,9 +194,12 @@ class Agent[InputT, OutputT: BaseModel]:
         no figure.
         """
         choice = context.router.resolve(self.role)
+        # The composed forms, because those are what will be sent. Counting the bare prompt
+        # would under-report by the length of every quoted document, which is most of the call
+        # — and the figure this produces is what a person sees before agreeing to spend money.
         return await context.provider.count_tokens(
-            system=self.system_prompt(payload),
-            messages=[Message(role="user", content=self.user_message(payload))],
+            system=self.composed_system_prompt(payload),
+            messages=[Message(role="user", content=self.composed_user_message(payload))],
             model=choice.model,
         )
 

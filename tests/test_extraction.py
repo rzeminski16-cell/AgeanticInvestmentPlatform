@@ -253,23 +253,23 @@ class TestTheHardenedXmlParser:
 
 class TestTheHtmlExtractor:
     def test_it_extracts_the_prose(self) -> None:
-        assert SENTENCE in extract_html(FILING).text
+        assert SENTENCE in extract_html(FILING).text.text
 
     def test_it_records_the_extractor_and_its_version(self) -> None:
         """Both travel with every locator. A locator without them points into text nobody can
         reproduce."""
-        extracted = extract_html(FILING)
+        extracted = extract_html(FILING).text
 
         assert extracted.extractor == "html"
         assert extracted.extractor_version == VERSION
 
     def test_the_title_is_kept_and_trimmed(self) -> None:
-        assert extract_html(FILING).title == "Microsoft 10-K"
+        assert extract_html(FILING).text.title == "Microsoft 10-K"
 
     def test_script_and_style_content_is_dropped(self) -> None:
         """Code, not prose. Left in, `var revenue = 198270` would sit in the text as a citable
         sentence and every offset after it would move with a minification nobody decided on."""
-        text = extract_html(FILING).text
+        text = extract_html(FILING).text.text
 
         assert "var revenue" not in text
         assert "display:none}" not in text
@@ -278,12 +278,12 @@ class TestTheHtmlExtractor:
         """Looks wrong, and is the point. Hidden text is the primary injection vector in a
         filing; an extractor that dropped it would destroy the evidence before task 13's
         scanner could flag it."""
-        assert "Ignore previous instructions" in extract_html(FILING).text
+        assert "Ignore previous instructions" in extract_html(FILING).text.text
 
     def test_extraction_is_deterministic(self) -> None:
         """The property every stored locator depends on. An extractor whose output varied
         would make every citation resting on it unverifiable, with nothing failing loudly."""
-        first, second = extract_html(FILING), extract_html(FILING)
+        first, second = extract_html(FILING).text, extract_html(FILING).text
 
         assert first.text == second.text
         assert first.content_hash == second.content_hash
@@ -292,12 +292,12 @@ class TestTheHtmlExtractor:
         """What lets a verifier say "the extractor changed" instead of "the excerpt is wrong"."""
         other = FILING.replace(b"$198,270", b"$198,271")
 
-        assert extract_html(FILING).content_hash != extract_html(other).content_hash
+        assert extract_html(FILING).text.content_hash != extract_html(other).text.content_hash
 
     def test_the_document_declares_its_own_encoding(self) -> None:
         body = "<html><head><meta charset=windows-1252></head><body><p>café</p></body></html>"
 
-        assert "café" in extract_html(body.encode("cp1252")).text
+        assert "café" in extract_html(body.encode("cp1252")).text.text
 
     def test_a_document_with_no_text_is_refused_rather_than_returning_empty(self) -> None:
         """Empty text would put a citation-free section in front of a reviewer with nothing to
@@ -307,7 +307,7 @@ class TestTheHtmlExtractor:
 
     def test_offsets_index_into_the_extracted_text(self) -> None:
         """The whole locator contract in one assertion."""
-        extracted = extract_html(FILING)
+        extracted = extract_html(FILING).text
         found = extracted.locate(SENTENCE)
 
         assert found is not None
@@ -399,8 +399,8 @@ class TestTheSandbox:
     async def test_the_result_survives_the_process_boundary_intact(
         self, settings: Settings
     ) -> None:
-        in_process = extract_html(FILING)
-        sandboxed = await extract_bytes(FILING, extractor="html", settings=settings)
+        in_process = extract_html(FILING).text
+        sandboxed = (await extract_bytes(FILING, extractor="html", settings=settings)).text
 
         assert sandboxed.text == in_process.text
         assert sandboxed.content_hash == in_process.content_hash
@@ -418,7 +418,7 @@ class TestTheSandbox:
             store, sha256=stored.sha256, extractor="html", settings=settings
         )
 
-        assert SENTENCE in extracted.text
+        assert SENTENCE in extracted.text.text
 
 
 def _child_processes() -> int:
@@ -497,7 +497,7 @@ class TestRecordingExcerpts:
 
     @staticmethod
     def _found() -> tuple[ExtractedText, Excerpt]:
-        extracted = extract_html(FILING)
+        extracted = extract_html(FILING).text
         excerpt = extracted.locate(SENTENCE)
         assert excerpt is not None
         return extracted, excerpt
@@ -559,7 +559,7 @@ class TestRecordingExcerpts:
     async def test_several_excerpts_come_back_in_order(
         self, db_session: AsyncSession, source: SourceDocument
     ) -> None:
-        extracted = extract_html(FILING)
+        extracted = extract_html(FILING).text
         wanted = ["Results of Operations", SENTENCE, "Ignore previous instructions"]
         excerpts = [found for text in wanted if (found := extracted.locate(text)) is not None]
         assert len(excerpts) == len(wanted)

@@ -115,7 +115,13 @@ class ExtractedText(BaseModel):
 
     @property
     def content_hash(self) -> str:
-        """The hash of this text, so extractor drift is distinguishable from a bad excerpt."""
+        """The hash of this text, so extractor drift is distinguishable from a bad excerpt.
+
+        Of the text and nothing else. Injection findings travel beside an extraction rather
+        than inside it — see :class:`aer.extract.ExtractedDocument` — partly to keep this module
+        free of a dependency on the injection vocabulary, and partly because a new heuristic
+        noticing something extra must not invalidate every locator recorded before it existed.
+        """
         return sha256_hex(self.text.encode("utf-8"))
 
     def excerpt(self, locator: Locator) -> Excerpt:

@@ -17,6 +17,12 @@ what it means afterwards.
 because it is code rather than prose. Left in, ``var revenue = 198270`` would sit in the
 extracted text as a citable sentence, and every offset after it would shift with a
 minification change nobody made a decision about.
+
+**Injection scanning happens here**, for a reason that is about isolation rather than about
+cohesion: "this text was invisible" is a fact about the markup, the markup exists only during
+this parse, and this parse is the one already running inside the sandbox. See
+:mod:`aer.extract.injection`. Findings do not affect ``content_hash``, so a new heuristic cannot
+invalidate a locator recorded before it existed.
 """
 
 from __future__ import annotations
@@ -27,6 +33,8 @@ from selectolax.parser import HTMLParser
 
 from aer.core.schemas.extraction import ExtractedText
 from aer.extract.errors import UnextractableError
+from aer.extract.injection import scan_markup, scan_text
+from aer.extract.result import ExtractedDocument
 
 __all__ = ["EXTRACTOR", "VERSION", "extract_html"]
 
@@ -43,7 +51,7 @@ _NON_PROSE: Final[tuple[str, ...]] = ("script", "style", "template")
 _SEPARATOR: Final = "\n"
 
 
-def extract_html(data: bytes) -> ExtractedText:
+def extract_html(data: bytes) -> ExtractedDocument:
     """Extract the readable text of an HTML document.
 
     Encoding is decided by ``selectolax`` from the document's own declaration, which is both
@@ -72,11 +80,18 @@ def extract_html(data: bytes) -> ExtractedText:
         )
         raise UnextractableError(message, context={"extractor": EXTRACTOR, "bytes": len(data)})
 
-    return ExtractedText(
-        text=text,
-        extractor=EXTRACTOR,
-        extractor_version=VERSION,
-        title=_title(tree),
+    # Scanned here, during the parse that is already happening and inside the sandbox that
+    # already contains it. The markup signals — what was hidden, what was in a comment — can
+    # only be seen before the tree is discarded, and re-parsing untrusted bytes elsewhere to
+    # look for attacks would be an odd way to defend against them.
+    return ExtractedDocument(
+        text=ExtractedText(
+            text=text,
+            extractor=EXTRACTOR,
+            extractor_version=VERSION,
+            title=_title(tree),
+        ),
+        findings=scan_markup(tree, text) + scan_text(text),
     )
 
 

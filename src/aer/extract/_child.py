@@ -75,10 +75,13 @@ def main(argv: list[str]) -> int:
         {
             "ok": True,
             "memory_capped": capped,
-            "text": extracted.text,
-            "extractor": extracted.extractor,
-            "extractor_version": extracted.extractor_version,
-            "title": extracted.title,
+            "text": extracted.text.text,
+            "extractor": extracted.text.extractor,
+            "extractor_version": extracted.text.extractor_version,
+            "title": extracted.text.title,
+            # Findings cross as plain JSON. The parent rebuilds them; an exception, an enum or
+            # a dataclass cannot travel between processes, and this is the one channel.
+            "findings": [f.model_dump(mode="json", exclude_none=True) for f in extracted.findings],
         }
     )
     return 0

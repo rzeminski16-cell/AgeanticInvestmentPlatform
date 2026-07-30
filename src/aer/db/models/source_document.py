@@ -20,7 +20,7 @@ accident. The rule is applied in :mod:`aer.services.sources`, in code, with a te
 from __future__ import annotations
 
 from datetime import date
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     CheckConstraint,
@@ -33,6 +33,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy import Enum as SaEnum
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from aer.core.enums import Provider, SourceTier
@@ -123,6 +124,20 @@ class SourceDocument(Base):
     quarantined: Mapped[bool] = mapped_column(nullable=False, default=False, server_default="false")
     quarantine_reason: Mapped[str | None] = mapped_column(Text)
 
+    # -- What the document tried ----------------------------------------------------------
+
+    # **A flag, not a quarantine.** A document that hides text is shown to a human at gate 2;
+    # it is not refused, because hidden text has innocent uses and because nothing downstream
+    # depends on detection — see `aer.extract.injection`. Kept separate from `quarantined`,
+    # which is the point-in-time rule and is a refusal.
+    injection_flagged: Mapped[bool] = mapped_column(
+        nullable=False, default=False, server_default=text("false")
+    )
+
+    # The findings themselves, with their locators, so a reviewer is shown the passage rather
+    # than a category. JSONB because the shape is per-signal and will grow with the heuristics.
+    injection_findings: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+
     created_at: Mapped[Timestamp] = created_at_column()
 
     # -- Relationships -------------------------------------------------------------------
@@ -156,6 +171,13 @@ class SourceDocument(Base):
         ),
         Index("ix_source_documents_request_id_publication_date", "request_id", "publication_date"),
         Index("ix_source_documents_artefact_id", "artefact_id"),
+        # A flag with no findings, or findings with no flag, would be a record nobody could
+        # act on: the page shows the passages, and the badge is what sends a reviewer to them.
+        CheckConstraint(
+            "injection_flagged = (injection_findings IS NOT NULL"
+            " AND jsonb_array_length(injection_findings) > 0)",
+            name="ck_source_documents_flagged_has_findings",
+        ),
         Index("ix_source_documents_job_id", "job_id"),
         # Partial: quarantined sources are the minority and are always wanted as a set
         # ("what did this run refuse to use, and why?"), so indexing only those rows keeps

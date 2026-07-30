@@ -210,7 +210,7 @@ async def scene(db_session: AsyncSession, store: LocalArtefactStore) -> dict[str
     db_session.add(document)
     await db_session.flush()
 
-    extracted = extract_html(FILING)
+    extracted = extract_html(FILING).text
     excerpt = extracted.locate(CITED)
     assert excerpt is not None
 

@@ -112,9 +112,10 @@ class ReadOnce:
     async def text(self, sha256: str, extractor: str) -> ExtractedText:
         key = (sha256, extractor)
         if key not in self._texts:
-            self._texts[key] = await extract_text(
+            document = await extract_text(
                 self._store, sha256=sha256, extractor=extractor, settings=self._settings
             )
+            self._texts[key] = document.text
         return self._texts[key]
 
 

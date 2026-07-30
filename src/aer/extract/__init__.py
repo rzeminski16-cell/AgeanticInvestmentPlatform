@@ -30,11 +30,13 @@ from aer.extract.errors import (
     ParseTimeoutError,
     UnextractableError,
 )
+from aer.extract.result import ExtractedDocument
 from aer.extract.sandbox import extract_in_sandbox
 from aer.storage.protocol import ArtefactStore
 
 __all__ = [
     "DocumentTooLargeError",
+    "ExtractedDocument",
     "ExtractedText",
     "ExtractionError",
     "MediaTypeMismatchError",
@@ -52,8 +54,8 @@ async def extract_text(
     sha256: str,
     extractor: str,
     settings: Settings,
-) -> ExtractedText:
-    """Extract the text of an archived document, by hash.
+) -> ExtractedDocument:
+    """Extract an archived document, by hash.
 
     The store verifies the digest as it reads, so a tampered artefact fails here rather than
     producing text that would then be cited (threat T8).
@@ -62,7 +64,7 @@ async def extract_text(
     return await extract_bytes(data, extractor=extractor, settings=settings)
 
 
-async def extract_bytes(data: bytes, *, extractor: str, settings: Settings) -> ExtractedText:
+async def extract_bytes(data: bytes, *, extractor: str, settings: Settings) -> ExtractedDocument:
     """Extract from bytes already in hand.
 
     For the acquisition path, which has just written the artefact and holds the bytes, and for
