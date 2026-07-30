@@ -190,6 +190,23 @@ class Settings(BaseSettings):
     artefact_root: Path = Path("./var/artefacts")
     max_artefact_bytes: int = Field(default=52_428_800, gt=0)
 
+    # -- Extraction ----------------------------------------------------------------------
+
+    # Deliberately separate from `max_artefact_bytes` despite sharing its default. Archiving a
+    # large filing is cheap and sometimes necessary; *parsing* one is where a decompression
+    # bomb goes off, so the two ceilings answer different questions and should be movable
+    # independently.
+    max_parse_bytes: int = Field(default=52_428_800, gt=0)
+
+    # A wall-clock budget per document. Generous against a real filing — a 300-page annual
+    # report is seconds — and short enough that a pathological input does not stall a run.
+    parse_timeout_seconds: float = Field(default=30.0, gt=0)
+
+    # Address-space ceiling for a parse child, applied on POSIX only; Windows has no
+    # equivalent without a native extension. See `aer.extract._child._apply_memory_cap` for
+    # why the gap is narrower than it looks.
+    max_parse_memory_bytes: int = Field(default=1_073_741_824, gt=0)
+
     # -- Network -----------------------------------------------------------------------
 
     # Permit the plain http:// scheme for outbound fetches. Off, and meant to stay off: an

@@ -18,6 +18,7 @@ __all__ = [
     "TERMINAL_JOB_STATUSES",
     "AnalysisMode",
     "Decision",
+    "ExtractionKind",
     "FactBasis",
     "GateKind",
     "JobStatus",
@@ -231,3 +232,16 @@ class Provider(StrEnum):
     ISSUER_IR = "issuer_ir"
     WEB_SEARCH = "web_search"
     USER_SUPPLIED = "user_supplied"
+
+
+class ExtractionKind(StrEnum):
+    """What an extraction located inside a document.
+
+    The kind governs what a locator means and therefore how a citation to it is checked, which
+    is why it is a stored column rather than something inferred from the extractor's name. A
+    ``TEXT`` locator is a character range; a ``TABLE`` locator adds a cell reference. An
+    extractor can produce both from one document.
+    """
+
+    TEXT = "text"
+    TABLE = "table"

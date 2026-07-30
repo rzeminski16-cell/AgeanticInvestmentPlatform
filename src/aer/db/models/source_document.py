@@ -41,6 +41,7 @@ from aer.db.types import Timestamp, UuidFk, UuidFkOptional, UuidPk
 
 if TYPE_CHECKING:
     from aer.db.models.artefact import Artefact
+    from aer.db.models.extraction import Extraction
     from aer.db.models.request import ResearchRequest
 
 __all__ = ["SourceDocument"]
@@ -128,6 +129,12 @@ class SourceDocument(Base):
 
     artefact: Mapped[Artefact] = relationship(back_populates="sources")
     request: Mapped[ResearchRequest] = relationship(back_populates="sources")
+
+    # CASCADE, because an extraction is derived and regenerable from bytes that are never
+    # deleted. What is cited is protected one level further out; see the model's docstring.
+    extractions: Mapped[list[Extraction]] = relationship(
+        back_populates="source_document", cascade="all, delete-orphan", passive_deletes=True
+    )
 
     __table_args__ = (
         # The same URL fetched at the same instant for the same request is the same

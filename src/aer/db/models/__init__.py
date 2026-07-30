@@ -16,6 +16,7 @@ from aer.db.models.audit_event import AuditEvent
 from aer.db.models.calculation import Calculation
 from aer.db.models.company import Company
 from aer.db.models.cost import Cost
+from aer.db.models.extraction import Extraction
 from aer.db.models.financial_fact import FinancialFact
 from aer.db.models.job import Job
 from aer.db.models.job_cancellation import JobCancellation
@@ -38,6 +39,7 @@ __all__ = [
     "Calculation",
     "Company",
     "Cost",
+    "Extraction",
     "FinancialFact",
     "Job",
     "JobCancellation",

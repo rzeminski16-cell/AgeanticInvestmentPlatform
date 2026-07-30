@@ -274,6 +274,7 @@ src/aer/            application package
     concepts.py     canonical financial concepts and the filer tags that mean them
     hashing.py      canonical serialisation and audit hash chaining
     schemas/facts.py  RawFact: one reported number, and when it was reported
+    schemas/extraction.py  Locator and Excerpt: the verification contract, stated
   calc/             the calculation kernel: pure, unit-safe, mypy --strict
     units.py        Quantity = value + unit + source; incompatible units raise
     engine.py       @traced: records the formula, inputs, sources and code version
@@ -289,6 +290,12 @@ src/aer/            application package
     robots.py       robots.txt compliance; a disallow is a refusal
     limits.py       Redis token bucket and circuit breaker, shared across workers
     client.py       SafeFetcher: the pipeline, and what archives every response
+  extract/          untrusted bytes to located text; the only place a parser runs
+    sniff.py        what the bytes are, ignoring what they were labelled
+    xml.py          the one hardened lxml parser: no entities, no DTD, no network
+    html.py         selectolax; keeps hidden text, drops script and style
+    sandbox.py      size ceiling, then a child process with a clock and a cap
+    _child.py       the isolated process itself: bytes in, JSON out, nothing else
   sources/          data-source adapters: one package per publisher
     base.py         the SourceAdapter protocol: resolve, discover, extract
     sec/tickers.py  ticker and exchange to CIK, refusing to guess an ambiguity
@@ -403,6 +410,51 @@ scratch. See `docs/adr/0009-network-egress-is-deterministic-and-guarded.md`.
 
 No fetch test touches the real network: everything runs against `respx`, and a fixture
 replaces `socket.socket` so a test that reaches out fails instead of succeeding quietly.
+
+### Reading documents without getting hurt
+
+Parsing is the one place where untrusted bytes drive a large C library, so it happens in a
+**child process** with a wall-clock timeout: a parser that hangs or segfaults takes that process
+down and nothing else, which is what makes "the extract step failed" recoverable rather than a
+dead worker. Before the bytes get that far, two cheaper checks run — a size ceiling, because a
+decompression bomb does its damage *during* the parse, and content sniffing, because
+`Content-Type` is a claim made by whoever served the file and a zip archive labelled `text/html`
+is how a bomb begins.
+
+XML goes through one hardened `lxml` configuration and nothing may build another.
+`resolve_entities=False` is the setting that matters: it stops both the billion-laughs expansion
+and the `file:///etc/passwd` disclosure, because an entity that is never resolved has nothing to
+expand and nothing to read. `no_network=True` closes the one path by which a document could
+cause an outbound request that bypassed every rule in `aer.fetch`.
+
+**Hidden text is deliberately kept.** `display:none` content stays in the extracted text,
+because it is the primary prompt-injection vector in a filing and an extractor that dropped it
+would destroy the evidence before the scanner could flag it. Script and style content is removed
+— that is code, not prose.
+
+The hostile-document tests are **differentials**: each payload runs through the hardened parser
+*and* an unhardened one, and the test asserts the unhardened parser discloses something real.
+Without that, "the hardened parser returned empty" would pass against a parser that returns
+empty for everything, and would keep passing after someone removed the setting doing the work.
+
+### Where an excerpt is
+
+A citation has to be checkable, which means an excerpt needs an address. That address is **not** a
+byte offset into the archived document — neither parser exposes source positions, and a byte
+range in HTML spans tags and attributes rather than the sentence a reader is being asked to
+verify. Instead:
+
+```
+artefact SHA-256 + extractor + extractor version + locator  →  exactly one excerpt
+```
+
+All four are recorded on every extraction, because all four are load-bearing. The hash fixes the
+input, the extractor and version fix the function, the locator fixes the slice. That makes
+**extraction determinism** a requirement rather than a nicety, so it is asserted directly: same
+bytes, same text, same content hash. `content_hash` covers the whole extracted text, so a
+verifier can distinguish "the extractor changed and every locator shifted" from "this excerpt is
+wrong" — two failures needing different responses. See
+`docs/adr/0017-a-locator-points-into-an-extraction-not-into-bytes.md`.
 
 ### Point-in-time data
 
