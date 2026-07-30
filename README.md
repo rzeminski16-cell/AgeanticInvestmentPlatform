@@ -310,7 +310,9 @@ src/aer/            application package
     sec/companyfacts.py every XBRL fact ever tagged, as exact decimals
     sec/pit.py      point-in-time selection: what was known, as at a date
     tiering.py      provider + kind -> tier, by table; an unknown pair is not citable
+    sec/fulltext.py full-text search; URLs built from identifiers, never from the response
     sec/client.py   EDGAR endpoints, URL construction and pacing
+    issuer.py       IR-page discovery; the operator names the domain, a page never does
   providers/        model providers: the seam that makes the suite free to run
     protocol.py     two operations: structured completion, and token counting
     router.py       role -> model; no call site names a model
@@ -520,6 +522,32 @@ in a way that does not matter at one report a week. **One known defect, recorded
 hidden:** rotated text extracts in the wrong order, because characters are ordered along the
 page's x axis — so a sideways table reads backwards. It is extracted rather than dropped, and a
 test pins it. See `docs/adr/0020-pdfplumber-alone-and-why-not-pymupdf.md`.
+
+### Reading an issuer's own website
+
+Every other adapter builds URLs from identifiers a regulator issued. Issuer-IR discovery reads
+links off a page the company controls, which makes it the first place a fetched document can
+influence what gets fetched next — so the domain is **supplied by the operator and never
+discovered**. There is no code path that learns a host from a page and then requests it.
+
+Links off that host are dropped, matched properly rather than by suffix, since
+`endswith("investors.example.com")` also admits `evil-investors.example.com`. `<base href>` is
+not honoured, because a page pointing its own base elsewhere would make every relative link
+resolve to a domain the page chose. Only `http` and `https` are followed — `data:` has no host to
+check at all, which is the appeal of it.
+
+Then the fetch layer checks again. `ISSUER_IR` carries an **empty standing allowlist**, so
+nothing on it is fetchable unless the operator names the host for that request, and robots.txt is
+honoured for issuers where it is not for the regulator APIs — reading a company's website is
+crawling, whereas EDGAR access is a documented API contract. The tests for that half would still
+pass with the discovery module deleted, which is the property worth having.
+
+EDGAR full-text search is the other half of "more than one document per run". A hit gives an
+accession number and a filename, and the archive URL is **built from those** — the response is
+untrusted content, and a result carrying its own URL would let whatever EDGAR indexed choose the
+next fetch. A hit published after the as-of date is reported as excluded rather than silently
+missing, because a search that found relevant material and one that found nothing mean different
+things.
 
 ### Look-ahead: checked twice, on the latest date
 

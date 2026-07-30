@@ -23,7 +23,7 @@ everything on this machine for as long as it lasts, so the margin is worth its c
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, Final
@@ -36,6 +36,7 @@ from aer.errors import ValidationError
 from aer.fetch.client import FetchResult, SafeFetcher
 from aer.sources.base import DocumentRef, ResolvedEntity
 from aer.sources.sec.companyfacts import CompanyFacts, parse_company_facts
+from aer.sources.sec.fulltext import SearchResults, build_search_url, parse_search_results
 from aer.sources.sec.submissions import PERIODIC_FORMS, SubmissionsIndex, parse_submissions
 from aer.sources.sec.tickers import (
     TickerRecord,
@@ -141,6 +142,50 @@ class SecEdgarClient:
         """
         result = await self._get(_COMPANYFACTS_URL.format(cik=format_cik(cik)))
         return SecResponse(data=parse_company_facts(await self._body(result)), fetch=result)
+
+    async def search_full_text(
+        self,
+        phrase: str,
+        *,
+        cik: str | None = None,
+        forms: Iterable[str] = (),
+        start_date: date | None = None,
+        as_of_date: date | None = None,
+        size: int = 10,
+    ) -> SecResponse[SearchResults]:
+        """Search the full text of filings for a phrase.
+
+        The question the submissions index cannot answer: *which* filings discuss a thing. One
+        search turns a run that reads a single 10-K into one that reads the handful of documents
+        a section needs.
+
+        Args:
+            cik: Scopes the search to one filer, and should almost always be supplied. An
+                unscoped search returns other companies' filings, and acquiring one would mean
+                citing a competitor's document for this company's figures.
+            as_of_date: Bounds the query itself, so the index is not asked about later filings.
+                Hits are **still** checked after parsing — the bound is a courtesy to EDGAR and
+                a saving, not the control. See :meth:`SearchResults.admissible`.
+        """
+        url = build_search_url(
+            phrase,
+            cik=cik,
+            forms=forms,
+            start_date=start_date,
+            end_date=as_of_date,
+            size=size,
+        )
+        result = await self._get(url)
+        results = parse_search_results(await self._body(result))
+
+        _log.info(
+            "sec.full_text_searched",
+            phrase=phrase,
+            cik=cik,
+            hits=len(results.hits),
+            total=results.total,
+        )
+        return SecResponse(data=results, fetch=result)
 
     async def fetch_document(self, ref: DocumentRef) -> FetchResult:
         """Fetch a filing document referenced by an index this client produced.

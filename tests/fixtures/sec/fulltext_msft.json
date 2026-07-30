@@ -1,0 +1,78 @@
+{
+  "took": 42,
+  "timed_out": false,
+  "hits": {
+    "total": {"value": 137, "relation": "eq"},
+    "max_score": 12.4,
+    "hits": [
+      {
+        "_index": "edgar_file",
+        "_id": "0000789019-22-000010:msft-10k_20220630.htm",
+        "_score": 12.4,
+        "_source": {
+          "ciks": ["0000789019"],
+          "period_ending": "2022-06-30",
+          "root_forms": ["10-K"],
+          "file_num": ["001-37845"],
+          "display_names": ["MICROSOFT CORP  (MSFT)  (CIK 0000789019)"],
+          "xsl": null,
+          "sequence": "1",
+          "file_date": "2022-07-28",
+          "biz_states": ["WA"],
+          "sics": ["7372"],
+          "form": "10-K",
+          "adsh": "0000789019-22-000010",
+          "file_type": "10-K",
+          "file_description": "10-K",
+          "inc_states": ["WA"],
+          "items": []
+        }
+      },
+      {
+        "_index": "edgar_file",
+        "_id": "0000789019-22-000005:msft-10q_20220331.htm",
+        "_score": 9.1,
+        "_source": {
+          "ciks": ["0000789019"],
+          "period_ending": "2022-03-31",
+          "root_forms": ["10-Q"],
+          "display_names": ["MICROSOFT CORP  (MSFT)  (CIK 0000789019)"],
+          "file_date": "2022-04-26",
+          "form": "10-Q",
+          "adsh": "0000789019-22-000005",
+          "file_type": "10-Q"
+        }
+      },
+      {
+        "_index": "edgar_file",
+        "_id": "0000789019-21-000007:msft-10k_20210630.htm",
+        "_score": 8.7,
+        "_source": {
+          "ciks": ["0000789019"],
+          "period_ending": "2021-06-30",
+          "root_forms": ["10-K"],
+          "display_names": ["MICROSOFT CORP  (MSFT)  (CIK 0000789019)"],
+          "file_date": "2021-07-29",
+          "form": "10-K",
+          "adsh": "0000789019-21-000007",
+          "file_type": "10-K"
+        }
+      },
+      {
+        "_index": "edgar_file",
+        "_id": "0000789019-22-000067:msft-10q_20220930.htm",
+        "_score": 8.2,
+        "_source": {
+          "ciks": ["0000789019"],
+          "period_ending": "2022-09-30",
+          "root_forms": ["10-Q"],
+          "display_names": ["MICROSOFT CORP  (MSFT)  (CIK 0000789019)"],
+          "file_date": "2022-10-25",
+          "form": "10-Q",
+          "adsh": "0000789019-22-000067",
+          "file_type": "10-Q"
+        }
+      }
+    ]
+  }
+}

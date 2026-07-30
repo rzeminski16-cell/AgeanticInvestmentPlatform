@@ -149,6 +149,32 @@ Only the `as_reported` basis is implemented. `select_point_in_time` **raises** i
 `restated`, because a convenience function for selecting restated figures is a convenience
 function for introducing look-ahead bias.
 
+## Full-text search
+
+`efts.sec.gov/LATEST/search-index` answers the question the submissions index cannot: *which*
+filings mention a thing. It is a different host from `www.sec.gov` and `data.sec.gov`, and all
+three are covered by the `.sec.gov` allowlist entry.
+
+**Scope every search to a CIK.** An unscoped search returns other filers' documents, and a run
+that acquired one would have cited a competitor's filing for this company's figures.
+`build_search_url` takes `cik` for exactly this reason.
+
+**The index begins in 2001.** A search bounded entirely before then returns nothing, and that is
+a fact about the index rather than about the company.
+
+**URLs are constructed from identifiers, never read out of the response.** A hit gives an
+accession number and a filename; the archive URL is built from those plus the CIK. The response
+is untrusted content like any other fetched document, and a result carrying its own URL would be
+a way for whatever EDGAR indexed to choose what this platform fetches next. Two conventions bite
+here and both are 404s the first time they are missed: the CIK is **un-padded** in an archive
+path, and the accession number has its **dashes stripped**.
+
+**A hit published after the as-of date is reported, not dropped.** `SearchResults.admissible`
+splits rather than filters, so a run can say *"three results were excluded as post-dated"*.
+Dropping them makes a search that found relevant material look like one that found nothing, and
+those need different responses. If such a document is acquired anyway, `record_acquisition`
+quarantines it — see ADR 0021.
+
 ## Testing
 
 Every test runs against fixtures in `tests/fixtures/sec/`; none touches the network, and
