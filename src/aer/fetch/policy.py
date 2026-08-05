@@ -122,12 +122,35 @@ DEFAULT_POLICIES: Final[dict[Provider, FetchPolicy]] = {
         provider=Provider.EODHD,
         source_tier=SourceTier.T4_LICENSED_MARKET,
         allowed_hosts=("eodhd.com", "eodhistoricaldata.com"),
+        # **Corrected 2026-08-05, and the correction matters.** This note previously said
+        # "derived figures may be published, raw series may not". EODHD's published terms do
+        # not say that. They prohibit selling, retransmitting, redistributing or *displaying*
+        # information in its "original or repackaged form", and there is no derived-data safe
+        # harbour anywhere in them — so whether a computed multiple may be published is
+        # unresolved rather than permitted. A licence note is stamped on every source document
+        # and is what answers "may we quote this?" years later; one that overstated the
+        # position would have been the most consequential wrong sentence in the codebase.
+        # See ADR 0030.
         licence_note=(
-            "Licensed market data. Redistribution is prohibited by the subscription "
-            "agreement; derived figures may be published, raw series may not."
+            "Licensed market data under a subscription agreement. Selling, retransmitting, "
+            "redistributing or displaying the information in original or repackaged form is "
+            "prohibited without prior written approval. The terms contain no derived-data "
+            "exemption, so whether a figure computed from this series may be published "
+            "externally is unresolved and must not be assumed. Copies must be deleted within "
+            "one month of the subscription ending."
         ),
-        requests_per_second=2.0,
-        burst=4,
+        # From the published limit of 1,000 requests per minute (16.6 per second), with the
+        # same headroom the SEC policy keeps below its own published rate. This platform pulls
+        # a handful of series per run, roughly weekly, so the ceiling is nowhere near binding
+        # and a conservative number costs nothing.
+        #
+        # **A second limiter is required and is not built.** The daily allowance is 100,000
+        # *weighted* calls rather than requests: technical and news endpoints cost 5,
+        # fundamentals and options cost 10, whole-exchange bulk requests cost 100. A rolling
+        # request limiter cannot see that, so a daily weighted ledger is part of the adapter
+        # work rather than of this policy.
+        requests_per_second=8.0,
+        burst=8,
         honours_robots=False,
     ),
     Provider.FRED: FetchPolicy(

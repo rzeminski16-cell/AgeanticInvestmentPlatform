@@ -505,6 +505,29 @@ adjustments alone.
 way task 18 was, and the valuation surface ships with the comps section stating plainly that no
 market data source is configured. The DCF, ratios, earnings quality and WACC are unaffected.
 
+**Held (2026-08-05). The terms were read and three of the four answers change the design.**
+See ADR 0030.
+
+- **The €19.99 *All World* plan is a personal-use plan.** Commercial use is a separate
+  product, *Internal Use*, at **$399/month** — roughly 4× the whole ≤£100/month ceiling before
+  any model spend. This is the same failure that disqualified yfinance, and it inverts §1.4's
+  ranking: at the commercial tier EODHD is not the cheapest option, it is about eight times
+  Tiingo's explicit commercial plan.
+- **There is no derived-data safe harbour.** The terms prohibit *displaying* information in
+  "original or **repackaged** form" and define nothing as derived. The assumption written into
+  `aer/fetch/policy.py` — "derived figures may be published, raw series may not" — was
+  unsupported and **has been corrected**; it would otherwise have been stamped on every price
+  document as though somebody had determined it.
+- **The one-month post-termination deletion clause contradicts the artefact store**, which has
+  no delete path by design (ADR 0008). EODHD did not create this: `docs/PLAN.md` risk T16
+  already calls for a retention policy nobody has built. A licensed source is the first one
+  that makes it load-bearing. The answer is to split the deletable payload from the
+  undeletable provenance, and it comes *before* the adapter rather than after.
+- **The rate limits are settled and generous**: 1,000 requests/minute, 100,000 *weighted*
+  calls/day. `requests_per_second` is now set from the published ceiling with headroom instead
+  of guessed. The weighted daily allowance needs a second limiter the fetch layer does not
+  have, which is adapter work.
+
 ---
 
 ## Task 30 — Comparables and historical multiples *(needs task 29)*

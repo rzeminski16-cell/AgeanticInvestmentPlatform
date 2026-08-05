@@ -200,3 +200,42 @@ class TestRefusedHosts:
     def test_every_refusal_gives_a_reason(self):
         for refusal in REFUSED_HOSTS:
             assert refusal.reason.strip()
+
+
+class TestTheEodhdLicenceNote:
+    """The note this platform stamps on every price document, pinned.
+
+    It said "derived figures may be published, raw series may not" until 5 August 2026, when
+    reading the terms showed they say no such thing — they prohibit *display* of information
+    in "original or repackaged form" and contain no derived-data exemption at all. A licence
+    note is what answers "may we quote this?" long after the run, so an overstatement here is
+    worse than an absence. ADR 0030 records the determination; these tests keep it from
+    drifting back.
+    """
+
+    def _note(self) -> str:
+        return DEFAULT_POLICIES[Provider.EODHD].licence_note
+
+    def test_it_does_not_claim_a_right_to_publish_derived_figures(self):
+        note = self._note().lower()
+        assert "derived figures may be published" not in note
+        assert "unresolved" in note
+
+    def test_it_names_the_display_and_repackaging_prohibition(self):
+        """Not just redistribution. The wider wording is the whole reason the note changed."""
+        note = self._note().lower()
+        assert "displaying" in note
+        assert "repackaged" in note
+
+    def test_it_records_the_post_termination_deletion_obligation(self):
+        """One month after the subscription ends, and the artefact store cannot delete.
+
+        Carried on the note because it is a property of the data rather than of the run, and
+        because the conflict with the immutable store is the thing a reader has to know.
+        """
+        assert "one month" in self._note()
+
+    def test_the_rate_leaves_headroom_below_the_published_limit(self):
+        """1,000 requests a minute is the published ceiling; this stays well under it."""
+        policy = DEFAULT_POLICIES[Provider.EODHD]
+        assert policy.requests_per_second * 60 < 1000
