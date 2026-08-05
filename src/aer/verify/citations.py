@@ -18,12 +18,24 @@ against text re-derived from the artefact:
    identical from the mismatch alone.
 4. Slice at the locator, normalise whitespace on both sides, and compare.
 
-**Why a similarity ratio rather than equality.** Whitespace normalisation handles reflowing,
-but an excerpt can differ from its source in ways that are not meaningful and not whitespace: a
-typographic quote against a straight one, a non-breaking space, a soft hyphen at a line break.
-Demanding equality would fail correct citations on characters no reader can see. The threshold
-is high enough — :data:`MATCH_THRESHOLD` — that a sentence with a different number in it, or a
-different subject, falls far below it. A fabricated excerpt does not score 0.9 by accident.
+**Equality after normalisation, not a similarity threshold.** An excerpt can differ from its
+source in ways no reader can see — a typographic quote against a straight one, a non-breaking
+space, a soft hyphen at a line break, a reflowed paragraph — so both sides are put through
+:func:`comparable`, which folds exactly those differences away. What survives has to match
+*exactly*.
+
+This module used to admit anything scoring 0.95 or better on a fuzzy ratio, and the reasoning
+written here was that "a fabricated excerpt does not score 0.9 by accident". The evaluation
+corpus in ``tests/citation_corpus.py`` disproved it on the first run: ``$198,270`` cited as
+``$198,720`` scores **0.971**, and "Dividends declared were $18,135 million" cited as
+"…were **not** $18,135 million" scores **0.951**. Both were accepted. A transposed pair of
+digits in a revenue figure and an inserted negation are the two most damaging things a citation
+can get wrong, and they are the two a character-similarity score is worst at seeing. See ADR
+0025.
+
+:data:`MATCH_THRESHOLD` survives as what it always usefully was — the line between "a near
+miss worth a person's attention" and "nothing like it" — and the ratio is still computed and
+stored on every verdict, because 0.97 and 0.02 send an operator to different places.
 
 **A failed verification is recorded, not raised.** Every citation gets a verdict, and a run
 with four bad citations should tell an operator about four rather than about the first. The
@@ -54,7 +66,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from aer.config import Settings
-from aer.core.schemas.extraction import ExtractedText, Locator, normalise_whitespace
+from aer.core.schemas.extraction import (
+    ExtractedText,
+    Locator,
+    comparable,
+    normalise_whitespace,
+)
 from aer.db.models import (
     Artefact,
     Citation,
@@ -281,16 +298,21 @@ def _compare(extraction: Extraction, extracted: ExtractedText) -> VerificationOu
     except ValueError as exc:
         return VerificationOutcome(False, Decimal(0), str(exc))
 
-    ratio = _similarity(extraction.excerpt, found.text)
-    if ratio >= MATCH_THRESHOLD:
-        return VerificationOutcome(True, ratio)
+    if comparable(extraction.excerpt) == comparable(found.text):
+        return VerificationOutcome(True, Decimal(1).quantize(_RATIO_PLACES))
 
-    return VerificationOutcome(
-        False,
-        ratio,
-        f"The text at this locator does not match the cited excerpt (similarity {ratio}, "
-        f"needs {MATCH_THRESHOLD}). The document says: {found.text[:200]!r}",
+    # Computed only to describe the failure. A near miss and a fabrication are the same
+    # verdict and completely different problems, and an operator deciding whether to override
+    # needs to see which one they have.
+    ratio = _similarity(extraction.excerpt, found.text)
+    nearly = ratio >= MATCH_THRESHOLD
+    lead = (
+        "The text at this locator nearly matches the cited excerpt but is not the same "
+        f"(similarity {ratio})"
+        if nearly
+        else f"The text at this locator does not match the cited excerpt (similarity {ratio})"
     )
+    return VerificationOutcome(False, ratio, f"{lead}. The document says: {found.text[:200]!r}")
 
 
 async def verify_job_citations(

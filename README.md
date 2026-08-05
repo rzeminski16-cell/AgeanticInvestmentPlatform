@@ -12,7 +12,15 @@ source document.
 
 ## Status
 
-**Phase 1 complete — the vertical slice runs end to end.** A research request becomes a
+**Phases 1 and 2 complete.**
+
+Phase 2 turned "one source" into an evidence pipeline: PDF and inline-XBRL extraction,
+publication dates that are extracted and scored rather than trusted, a deterministic
+disagreement ladder, the sources and claims surfaces, and six guarantees measured
+continuously and blocking CI. The gate found a real defect in the citation verifier on its
+first run — see `docs/adr/0025-the-gate-found-the-verifier-wrong-on-its-first-run.md`.
+
+**The vertical slice runs end to end.** A research request becomes a
 costed plan you approve, a filing fetched from SEC EDGAR and hashed, point-in-time facts, a
 traced calculation, a drafted report you approve, and a frozen Markdown document in which
 every figure carries a footnote that resolves to either the formula that produced it or the
@@ -168,6 +176,7 @@ With `just`:
 | `just test` | Run the test suite (excludes the browser tests) |
 | `just test-e2e` | Run the browser tests (needs Chromium and PostgreSQL) |
 | `just test-all` | Both, as two processes — see the note under **Testing** |
+| `just eval` | The six blocking metrics on their own |
 | `just ci` | Everything CI runs, in the same order |
 | `just hooks` | Run every pre-commit hook over the whole tree |
 | `just css` | Rebuild the Tailwind stylesheet (needs Node) |
@@ -640,6 +649,36 @@ The override never clears the flag, so the record says both that the document wa
 somebody decided to use it anyway. See
 `docs/adr/0021-look-ahead-is-checked-twice-on-the-latest-date.md`.
 
+### Six numbers that block a build
+
+Every guarantee here was proved once, by a test written the day the feature landed. That is
+not the same as being true tomorrow, so six of them are measured continuously and block CI:
+citation accuracy ≥ 98%, hallucinated citations 0, temporal compliance 100%, look-ahead recall
+100%, injection violations 0, unit mismatches 0.
+
+**Every corpus contains the wrong answers as well as the right ones**, because otherwise the
+gate is a formality. Scored against only-genuine citations, a verifier that returns `True`
+unconditionally gets 100%. Scored against only post-dated documents, a platform that refuses
+everything gets 100%. Both degenerate passes are closed: a third of the citation corpus is
+fabricated, the look-ahead corpus has controls that must be *admitted*, and the compliance
+metric refuses to score a corpus in which nothing was admitted. **An empty corpus fails** — a
+metric over nothing is perfect and checks nothing.
+
+**The gate found a real defect on its first run**, which is the best argument for it that
+could have been made. The citation verifier accepted `$198,270` cited as `$198,720`
+(similarity 0.971) and "Dividends declared were $18,135 million" cited as "…were **not**
+$18,135 million" (0.951) — both above the 0.95 fuzzy threshold that had been in place since
+the verifier was written, with a docstring explaining why fabrications could not score that
+high. Two transposed digits and one inserted negation are the two most damaging things a
+citation can get wrong and the two a character-similarity score is worst at seeing.
+
+Verification is now **equality after an enumerated normalisation**: Unicode composition,
+invisible characters, typographic variants, whitespace — each listed with a comment saying
+why — and nothing else. Case is not folded; punctuation that is not a variant is not folded.
+The similarity ratio survives as a diagnostic, because 0.97 and 0.02 send an operator to
+different places, but it never admits a citation. See
+`docs/adr/0025-the-gate-found-the-verifier-wrong-on-its-first-run.md`.
+
 ### Reaching the evidence in two clicks
 
 Everything a reader could want was in the database by the end of the evidence pipeline, and
@@ -931,10 +970,16 @@ See `docs/adr/0016-a-run-publishes-itself-step-by-step.md`.
 uv run pytest --ignore=tests/e2e     # default suite: no network, no model spend
 uv run pytest tests/e2e              # browser tests (Chromium + PostgreSQL)
 just test-all                        # both, as two processes
+just eval                            # the six blocking metrics, on their own
 uv run pytest --cov                  # with coverage
 uv run pytest -m integration         # database tests only
 uv run pytest -m "not integration"   # skip anything needing PostgreSQL
 ```
+
+**The evaluation gate is inside the default suite and is also its own step in CI.** Both,
+deliberately: it is ordinary pytest so it cannot be forgotten, and a named step so a build
+that goes red because citation accuracy moved says so on the summary line rather than in the
+middle of two thousand dots.
 
 **The browser tests must run in their own pytest process.** Playwright's synchronous API
 drives an asyncio loop on the main thread and keeps it running for the life of its session

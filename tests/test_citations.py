@@ -212,6 +212,61 @@ class TestVerifyingAnExcerpt:
 
         assert outcome.verified
 
+    async def test_a_transposed_digit_is_refused(
+        self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
+    ) -> None:
+        """The case the evaluation corpus caught, pinned so it cannot come back.
+
+        ``$198,270`` cited as ``$198,720`` scores 0.971 on a character-similarity ratio, which
+        the old 0.95 threshold admitted. Two transposed digits in a revenue figure is the most
+        damaging thing a citation can get wrong and the thing a similarity score is worst at
+        seeing. See ADR 0025.
+        """
+        citation = await _cited_claim(db_session, scene)
+        scene["extraction"].excerpt = CITED.replace("198,270", "198,720")
+        await db_session.flush()
+
+        outcome = await verify(db_session, scene["store"], citation=citation, settings=settings)
+
+        assert not outcome.verified
+        # And the near miss is still reported as one: a reviewer needs to know this was a
+        # transposition rather than a fabrication.
+        assert outcome.ratio is not None
+        assert outcome.ratio > MATCH_THRESHOLD
+        assert "nearly matches" in (outcome.reason or "")
+
+    async def test_an_inserted_negation_is_refused(
+        self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
+    ) -> None:
+        """The other case the corpus caught. One word, 0.951, meaning reversed."""
+        citation = await _cited_claim(db_session, scene)
+        scene["extraction"].excerpt = CITED.replace("was $198,270", "was not $198,270")
+        await db_session.flush()
+
+        outcome = await verify(db_session, scene["store"], citation=citation, settings=settings)
+
+        assert not outcome.verified
+
+    async def test_invisible_differences_are_still_tolerated(
+        self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
+    ) -> None:
+        """The tolerance the fuzzy ratio was there for, kept without the ratio.
+
+        A soft hyphen at a line break, a non-breaking space and a typographic apostrophe are
+        differences no reader can see, and two extractions of the same bytes can legitimately
+        disagree about them. Refusing these would fail correct citations, which is how a
+        control gets switched off.
+        """
+        citation = await _cited_claim(db_session, scene)
+        scene["extraction"].excerpt = (
+            CITED.replace(" ", "\u00a0", 1).replace("revenue", "reve\u00adnue") + "\u200b"
+        )
+        await db_session.flush()
+
+        outcome = await verify(db_session, scene["store"], citation=citation, settings=settings)
+
+        assert outcome.verified
+
     async def test_the_ratio_is_recorded_on_a_failure_too(
         self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
     ) -> None:

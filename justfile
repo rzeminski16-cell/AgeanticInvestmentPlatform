@@ -138,6 +138,14 @@ test-all: test test-e2e
 test-cov:
     uv run pytest --ignore=tests/e2e --cov --cov-report=term-missing
 
+# The six blocking metrics from docs/PLAN.md section 2.10, on their own.
+#
+# Inside `test` as well — the gate is ordinary pytest. Runnable alone because "did the
+# platform's guarantees move?" is a question worth being able to ask in ten seconds without
+# reading two thousand dots.
+eval:
+    uv run pytest tests/test_evaluation_gate.py tests/test_eval_metrics.py
+
 # Everything CI runs, in the same order.
 ci: lint typecheck test
 

@@ -307,9 +307,25 @@ clicks.
 
 ---
 
-## Task 21 — The evaluation suite as a CI gate
+## Task 21 — The evaluation suite as a CI gate *(done)*
 
 **Objective.** Make the phase's guarantees continuously enforced rather than once-verified.
+
+**Built.** `aer/eval/` — the six metrics as pure functions from observations to a result with a
+threshold, library code rather than test code because Phase 3 runs the same arithmetic against a
+live report. `tests/test_evaluation_gate.py` gathers the observations by running the real
+verifier, the real date extractor, the real scanner and the real unit algebra over labelled
+corpora; `tests/citation_corpus.py` is the 40-pair `fx_msft_10k` §2.10 asks for.
+`.github/workflows/ci.yml` is the repository's first CI workflow, with the gate as a named step.
+
+**Every corpus contains wrong answers as well as right ones, and an empty corpus fails.** A
+verifier that always says yes scores 100% against only-genuine pairs; a platform that refuses
+every document scores 100% temporal compliance. Both degenerate passes are closed.
+
+**The gate found a real defect on its first run.** The citation verifier accepted a transposed
+digit (`$198,270` cited as `$198,720`, similarity 0.971) and an inserted negation (0.951), both
+above the old 0.95 fuzzy threshold. Verification is now equality after an enumerated
+normalisation; the ratio survives as a diagnostic. ADR 0025.
 
 **Build.** The §2.10 harness over the fixtures the previous tasks produced, with these
 metrics **blocking** in CI: citation accuracy ≥ 98%, hallucinated-citation rate 0, temporal
@@ -319,7 +335,13 @@ Runs with no network and no model spend.
 **Acceptance.** A deliberately introduced regression in any of the six fails CI. Checked by
 introducing one, per the practice used throughout Phase 1.
 
-**Closes Phase 2.**
+**Closes Phase 2.** Sixteen deliberate regressions were introduced one at a time — across the
+verifier, the point-in-time rules, the date extractor, the containment wrapper, the tool
+allowlist, the unit algebra and the harness itself — and every one turned the gate red. Four
+escaped on the first pass and each named a corpus gap rather than a metric bug: no pair
+differing only in case, no document whose evidence disagreed about its date, no post-dated
+document datable only from its own text, and no payload carrying the containment delimiter.
+All four are now in the fixtures.
 
 ---
 

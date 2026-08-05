@@ -36,6 +36,10 @@ class Planted:
         expected: The date the extractor should settle on, or ``None`` where none can be
             established. Written here rather than derived, so the fixture states the answer and
             the test checks it rather than the other way round.
+        latest: The newest date any evidence here supports, where that differs from
+            ``expected``. Admissibility is decided on this one, not on the best estimate — ADR
+            0021 — so a document whose index says July and whose own text says September must
+            be refused even though July is the better guess at when it was published.
     """
 
     name: str
@@ -44,6 +48,12 @@ class Planted:
     metadata: dict[str, str] = field(default_factory=dict)
     text: str = ""
     index_date: date | None = None
+    latest: date | None = None
+
+    @property
+    def conservative(self) -> date | None:
+        """The date the point-in-time rule is judged on."""
+        return self.latest if self.latest is not None else self.expected
 
 
 # -- Planted after the as-of date. Every one of these must be refused. -----------------------------
@@ -71,6 +81,18 @@ POST_DATED: Final[tuple[Planted, ...]] = (
         name="a press release dated in its own text",
         expected=date(2022, 10, 25),
         text="FOR IMMEDIATE RELEASE\n25 October 2022\nThe Board today announced a share buyback.",
+    ),
+    # **The disagreement case, and the reason ADR 0021 exists.** The filing index says 28 July,
+    # which is before the as-of date and is the better estimate of when this was published. The
+    # document's own text says September. The honest answer to "can this be shown to predate 31
+    # July?" is no, so it must be refused — and a system deciding on the best estimate rather
+    # than on the latest evidence would admit it while looking entirely correct.
+    Planted(
+        name="an index date before the as-of, with a September date in the document",
+        expected=date(2022, 7, 28),
+        latest=date(2022, 9, 15),
+        index_date=date(2022, 7, 28),
+        text="Interim statement issued 15 September 2022 covering the period to 30 June 2022.",
     ),
     # The one that is only visible in the weakest evidence. If HTTP headers were dropped as
     # unreliable rather than merely scored low, this document would be admitted with no date at

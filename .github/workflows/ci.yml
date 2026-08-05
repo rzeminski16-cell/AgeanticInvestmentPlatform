@@ -1,0 +1,124 @@
+# Continuous integration.
+#
+# The evaluation gate is a **named step of its own** rather than being left inside the
+# general test run. It is inside that run as well — the gate is ordinary pytest and
+# `just test` executes it — but a build that goes red because citation accuracy moved
+# should say so on the summary line, not in the middle of two thousand dots.
+#
+# No network and no model spend. Every corpus is bytes in this repository, the HTTP tests
+# replay recorded cassettes, and nothing here has an API key to spend with.
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Required by `Settings`, and by SEC EDGAR in production. A CI run fetches nothing, but
+  # the application refuses to construct without it and that refusal is deliberate.
+  AER_HTTP_USER_AGENT: "Ageiantic Research CI ci@example.invalid"
+  AER_SECRET_KEY: "ci-signing-key-not-a-real-one"  # pragma: allowlist secret
+  # The throwaway service container below, with the same non-secret password the local
+  # compose file uses. Nothing outside this runner can reach it.
+  AER_TEST_DATABASE_URL: "postgresql+asyncpg://aer:aer_local_dev@127.0.0.1:5432/postgres"  # pragma: allowlist secret
+
+jobs:
+  static:
+    name: Lint and types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-groups
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+
+  tests:
+    name: Tests and the evaluation gate
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aer
+          POSTGRES_PASSWORD: aer_local_dev  # pragma: allowlist secret
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U aer"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-groups
+
+      - name: Migrations apply and match the models
+        run: uv run pytest tests/test_migrations.py -q
+
+      - name: Test suite
+        run: uv run pytest --ignore=tests/e2e -q
+
+      # Six numbers, each with a threshold, each blocking. See docs/adr/0025 and
+      # docs/PLAN.md section 2.10.
+      - name: Evaluation gate
+        run: uv run pytest tests/test_evaluation_gate.py tests/test_eval_metrics.py -q
+
+  browser:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    # Its own job because Playwright's synchronous API holds an asyncio loop open for the
+    # life of its session fixture, so anything asyncio-based running after it in the same
+    # process fails. `just test-all` splits the run for the same reason.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aer
+          POSTGRES_PASSWORD: aer_local_dev  # pragma: allowlist secret
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U aer"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-groups
+      - run: uv run playwright install --with-deps chromium
+      - run: uv run pytest tests/e2e -q

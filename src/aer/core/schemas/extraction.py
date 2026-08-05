@@ -30,6 +30,7 @@ a locator whose recorded hash no longer matches gets "the extractor changed" rat
 from __future__ import annotations
 
 import bisect
+import unicodedata
 from typing import Final, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -45,6 +46,7 @@ __all__ = [
     "PageMap",
     "PageSpan",
     "TableCell",
+    "comparable",
     "normalise_whitespace",
 ]
 
@@ -79,6 +81,60 @@ def normalise_whitespace(text: str) -> str:
     start accepting excerpts that say something else.
     """
     return " ".join(text.split())
+
+
+# Characters that carry no meaning a reader could see, and which two extractions of the same
+# document can legitimately disagree about. Removed before comparison; nothing else is.
+#
+# Written as escapes rather than as literals throughout this section. A reader of the source
+# cannot tell an en dash from a hyphen, or a non-breaking space from a space, by looking — which
+# is the entire reason these tables exist.
+_INVISIBLE: Final = str.maketrans(
+    {
+        "\u00ad": None,  # soft hyphen, inserted at a line break
+        "\u200b": None,  # zero-width space
+        "\u200c": None,  # zero-width non-joiner
+        "\u200d": None,  # zero-width joiner
+        "\ufeff": None,  # byte-order mark / zero-width no-break space
+    }
+)
+
+# Typographic variants that mean the same thing. A filing set in a proportional font and the
+# same filing pasted into a plain-text field differ by exactly these.
+_PUNCTUATION: Final = str.maketrans(
+    {
+        "\u2018": "'",  # left single quotation mark
+        "\u2019": "'",  # right single quotation mark, and the typographic apostrophe
+        "\u201c": '"',  # left double quotation mark
+        "\u201d": '"',  # right double quotation mark
+        "\u2013": "-",  # en dash
+        "\u2014": "-",  # em dash
+        "\u2212": "-",  # minus sign
+        "\u00a0": " ",  # non-breaking space
+        "\u2032": "'",  # prime
+    }
+)
+
+
+def comparable(text: str) -> str:
+    """The form two excerpts are compared in: invisible differences folded away, nothing else.
+
+    **What is folded, and why each one.** Unicode compatibility composition (so a ligature or
+    a full-width digit equals its plain form), the invisible characters above, the typographic
+    variants above, and finally whitespace. Every one of those is a difference no reader can
+    see and that two extractions of the same bytes can legitimately disagree about.
+
+    **What is not folded: case, punctuation that is not a variant, word order, digits, and
+    anything else.** A comparison that ignored case would accept "NOT" for "not"; one that
+    ignored punctuation would accept "$1,234" for "$1234", which are different numbers in some
+    filings and the same in others — and a verifier is not the place to be deciding which.
+
+    Used by :mod:`aer.verify.citations`, which requires the two forms to be **equal**. Fuzzy
+    similarity is reported on a failure and never admits one; see ADR 0025.
+    """
+    folded = unicodedata.normalize("NFKC", text)
+    folded = folded.translate(_INVISIBLE).translate(_PUNCTUATION)
+    return normalise_whitespace(folded)
 
 
 class Locator(BaseModel):
