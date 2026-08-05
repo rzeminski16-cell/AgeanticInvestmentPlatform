@@ -1118,6 +1118,39 @@ and "not implemented" read differently, because they are different statements.
 any analysis, naming the models that were not run. A sector warning at the foot of a report is
 a footnote. See `docs/adr/0029-the-sector-block-is-a-type-not-a-check.md`.
 
+### Prices, and the column that rewrites itself
+
+Every price vendor ships two closing prices: the one the exchange printed, and an *adjusted*
+one that restates history for splits and dividends. The adjusted figure is the one nearly
+every calculation wants, and storing it is a trap — not because the value is wrong, but
+because it **changes retroactively**. A company splits its stock in September and every
+adjusted close back to 1998 becomes a different number on the vendor's next refresh. A report
+published in August cited a figure that no longer exists.
+
+So `price_bars` holds what the exchange printed, `corporate_actions` holds the events with the
+**ex-date** that decides which bars each one touches, and the adjusted series is a recorded
+calculation over the two. Point-in-time then costs nothing extra: a valuation as of June
+applies only actions whose ex-date had arrived by June, because a split announced in September
+had not happened. Under one adjusted column there is no honest way to clamp at all — the
+vendor already folded September's split into the June figure, and the look-ahead is invisible.
+
+The vendor's own `adjusted_close` is kept as a **cross-check, never the answer**. A systematic
+divergence between it and this platform's arithmetic is a bug worth finding, and it cannot be
+found if only one of them is stored. A vendor correcting a historical bar *collides* on
+`(security_id, bar_date)` rather than overwriting, which routes it into the disagreement ladder.
+
+**Pence is not pounds.** A Barclays quote of `250` means £2.50, and the number carries no
+marker saying so — the same dimensionless trap as a per-cent in ADR 0027, which is why
+`quote_currency` records `GBX` and the conversion to major units is one traced calculation
+rather than a division somebody remembers. `GBX` is not ISO 4217; recording a market
+convention as though it were a currency is the smallest available lie, and the alternatives
+are worse.
+
+**Only splits and dividends are modelled.** Rights issues, spin-offs and returns of capital
+adjust a price series too. Each needs its own arithmetic, a wrong one is wrong by an amount
+nobody can see, and a run whose company had one says its adjusted series is incomplete rather
+than guessing. See `docs/adr/0032-the-adjusted-close-is-not-a-column.md`.
+
 ### Model calls
 
 Every call goes through a provider, a router and a meter — see

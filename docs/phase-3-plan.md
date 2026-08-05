@@ -483,15 +483,18 @@ design, and ADR 0029 records why every obvious implementation fails it.
 **Objective.** The market side, point-in-time clamped.
 
 **Build.**
-- `securities`, `price_bars`, `corporate_actions` tables, migration 0017.
+- `securities`, `price_bars`, `corporate_actions` tables, migration **0018** (0017 went to the
+  retention split below).
 - `aer/sources/eodhd.py` — EOD bars, splits and dividends. Under the existing fetch layer:
   allowlist, token bucket, circuit breaker, hashed artefacts.
 - **The PIT clamp is in the adapter, not in the caller.** A request for bars never returns a bar
   dated after the as-of date, and a test asserts it on the adapter rather than downstream.
 - Split and dividend adjustment as a recorded calculation, with the raw series retained. The
-  licence note matters here and is recorded on every source document: EODHD permits internal
-  commercial use on a paid plan, and **redistribution of the raw series requires a separate
-  add-on** — so derived figures may be published and the series may not.
+  licence note matters here and is recorded on every source document. ~~EODHD permits internal
+  commercial use on a paid plan, and redistribution of the raw series requires a separate
+  add-on — so derived figures may be published and the series may not.~~ **This was wrong and
+  is corrected below and in ADR 0030: the terms grant no derived-data safe harbour, so nothing
+  price-derived leaves the machine.**
 - Market capitalisation, and beta as a computed override for task 26.
 
 **Tests.** Cassettes; a bar after the as-of date is absent; an unadjusted and adjusted series

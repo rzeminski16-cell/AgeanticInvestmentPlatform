@@ -35,6 +35,12 @@ from aer.db.models.request import ResearchRequest
 from aer.db.models.scenario import Scenario, ScenarioOverride
 from aer.db.models.section_definition import SectionDefinition
 from aer.db.models.sector_profile import SectorProfile
+from aer.db.models.security import (
+    CorporateAction,
+    CorporateActionKind,
+    PriceBar,
+    Security,
+)
 from aer.db.models.sensitivity import Sensitivity, SensitivityCell
 from aer.db.models.source_document import SourceDocument
 from aer.db.models.user import User
@@ -51,6 +57,8 @@ __all__ = [
     "Citation",
     "Claim",
     "Company",
+    "CorporateAction",
+    "CorporateActionKind",
     "Cost",
     "Disagreement",
     "Extraction",
@@ -60,6 +68,7 @@ __all__ = [
     "JobStep",
     "MacroObservationRow",
     "MacroSeriesRow",
+    "PriceBar",
     "Prompt",
     "Report",
     "ReportSection",
@@ -70,6 +79,7 @@ __all__ = [
     "SectionDefinition",
     "SectionStatus",
     "SectorProfile",
+    "Security",
     "Sensitivity",
     "SensitivityCell",
     "SourceDocument",

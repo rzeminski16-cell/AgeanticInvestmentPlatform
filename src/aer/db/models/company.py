@@ -28,6 +28,7 @@ from aer.db.types import Timestamp, UuidPk
 
 if TYPE_CHECKING:
     from aer.db.models.financial_fact import FinancialFact
+    from aer.db.models.security import Security
 
 __all__ = ["Company"]
 
@@ -75,6 +76,11 @@ class Company(Base):
     facts: Mapped[list[FinancialFact]] = relationship(
         back_populates="company", cascade="all, delete-orphan"
     )
+
+    # One company, potentially several listings: a dual listing, an ADR, two share
+    # classes. Prices belong to the listing rather than to the company, because they
+    # differ between them in both level and currency.
+    securities: Mapped[list[Security]] = relationship(back_populates="company")
 
     __table_args__ = (
         UniqueConstraint("ticker", "exchange", name="uq_companies_listing"),
