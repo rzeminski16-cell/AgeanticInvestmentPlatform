@@ -41,6 +41,7 @@ from typing import Any, Final
 import structlog
 
 __all__ = [
+    "CREDENTIAL_PARAMS",
     "MASK",
     "configure_logging",
     "get_logger",
@@ -86,10 +87,47 @@ _SENSITIVE_NAME_FRAGMENTS: Final[tuple[str, ...]] = (
 # counts this platform meters spend with. Matched whole, never as a fragment.
 _SENSITIVE_NAMES: Final[frozenset[str]] = frozenset({"token"})
 
+# Query parameter names that carry a credential. Several data providers take their API key
+# in the query string — FRED does, EODHD does — which puts the credential inside a URL, and a
+# URL is a plain string that no amount of field-name matching will mask.
+#
+# **This was a real leak, twice.** `SafeFetcher` logs `url` on every completed fetch, and
+# `httpx` logs the full request line itself at INFO. Neither is a sensitive *name* and
+# neither value matches a credential *shape*, so both went out with the key in them. The
+# pattern below closes it for anything that logs a URL, including third-party libraries this
+# codebase does not control — which is the only way to close it at all.
+#
+# Bare `key` is deliberately absent: it is a legitimate non-secret parameter in several APIs,
+# and redacting it would hide something a reader needs while protecting nothing.
+CREDENTIAL_PARAMS: Final[frozenset[str]] = frozenset(
+    {
+        "access_key",
+        "access_token",
+        "api_key",
+        "api_token",
+        "apikey",
+        "auth",
+        "auth_token",
+        "key_id",
+        "password",
+        "private_key",
+        "secret",
+        "secret_key",
+        "token",
+    }
+)
+
+_CREDENTIAL_PARAM_PATTERN: Final = re.compile(
+    r"(?i)\b(" + "|".join(sorted(re.escape(name) for name in CREDENTIAL_PARAMS)) + r")=[^&#\s\"\']*"
+)
+
 # Value shapes that are credentials wherever they appear. Each entry is a
 # (pattern, replacement) pair; the replacement may keep a non-secret prefix so a log line
 # still shows *what kind* of credential was present.
 _SECRET_VALUE_PATTERNS: Final[tuple[tuple[re.Pattern[str], str], ...]] = (
+    # The parameter name survives, so a reader can still tell an authenticated request from
+    # an anonymous one. Only the value goes.
+    (_CREDENTIAL_PARAM_PATTERN, r"\1=" + MASK),
     (re.compile(r"sk-ant-[A-Za-z0-9_\-]{4,}"), MASK),
     (re.compile(r"(?i)\b(bearer\s+)[A-Za-z0-9._\-]{8,}"), r"\1" + MASK),
     (re.compile(r"(?i)\b(basic\s+)[A-Za-z0-9+/=]{8,}"), r"\1" + MASK),

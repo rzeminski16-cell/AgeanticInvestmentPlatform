@@ -1,0 +1,40 @@
+{
+  "General": {
+    "Code": "MSFT",
+    "Exchange": "NASDAQ",
+    "CurrencyCode": "USD"
+  },
+  "SharesStats": {
+    "SharesOutstanding": 7433980000
+  },
+  "outstandingShares": {
+    "annual": {
+      "0": {
+        "date": "2023",
+        "dateFormatted": "2023-06-30",
+        "sharesMln": "7429.9",
+        "shares": 7429900000
+      },
+      "1": {
+        "date": "2022",
+        "dateFormatted": "2022-06-30",
+        "sharesMln": "7464.0",
+        "shares": 7464000000
+      }
+    },
+    "quarterly": {
+      "0": {
+        "date": "2024-03-31",
+        "dateFormatted": "2024-03-31",
+        "sharesMln": "7432.0",
+        "shares": 7432000000
+      },
+      "1": {
+        "date": "2024-09-30",
+        "dateFormatted": "2024-09-30",
+        "sharesMln": "7500.0",
+        "shares": 7500000000
+      }
+    }
+  }
+}

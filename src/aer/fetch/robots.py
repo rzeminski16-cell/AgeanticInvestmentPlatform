@@ -26,6 +26,7 @@ from urllib.robotparser import RobotFileParser
 import structlog
 from redis.asyncio import Redis
 
+from aer.fetch.credentials import redact_credentials
 from aer.fetch.errors import RobotsDisallowedError
 
 __all__ = ["RobotsCache", "RobotsDecision", "robots_url_for"]
@@ -144,7 +145,11 @@ class RobotsCache:
         """
         decision = await self.decide(url)
         if not decision.allowed:
-            _log.warning("fetch.robots_disallowed", url=url, robots_url=decision.robots_url)
+            _log.warning(
+                "fetch.robots_disallowed",
+                url=redact_credentials(url),
+                robots_url=decision.robots_url,
+            )
             message = (
                 f"robots.txt at {decision.robots_url} disallows this path for our user "
                 "agent. This platform does not fetch what a publisher has asked it not "

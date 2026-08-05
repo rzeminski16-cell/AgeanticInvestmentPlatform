@@ -1151,6 +1151,59 @@ adjust a price series too. Each needs its own arithmetic, a wrong one is wrong b
 nobody can see, and a run whose company had one says its adjusted series is incomplete rather
 than guessing. See `docs/adr/0032-the-adjusted-close-is-not-a-column.md`.
 
+### The one paid feed, and what its licence forbids
+
+EODHD supplies the bars, splits, dividends and share counts. The subscription in use is a
+**personal-use** plan; the commercial tier is $399/month, about four times this project's
+whole operating ceiling. The terms prohibit selling, retransmitting, redistributing or
+*displaying* the data in "original or repackaged form", and contain **no derived-data safe
+harbour**.
+
+So **nothing computed from market data leaves the machine** — not a multiple, not a beta, not
+a market capitalisation. The comparables work is an internal working paper. And every copy
+must be destroyed within a month of the subscription ending, which is why the artefact store
+grew a purge path (ADR 0031). A statement previously in the codebase — "derived figures may
+be published, raw series may not" — was not supported by the terms and has been removed;
+`docs/adr/0030` records the reading.
+
+**The point-in-time clamp is in the adapter, not the caller.** Every URL builder takes
+`as_of` as a required argument and puts it in the `to` parameter; there is no code path that
+omits it, exactly as `aer/sources/macro/fred.py` has none that omits an ALFRED vintage. The
+parsers then apply the bound a *second* time to what came back and count what they discarded,
+because a provider that ignores `to` produces a look-ahead that looks like a correct number.
+The fundamentals endpoint has no bound to give, so the share count is taken from the dated
+historical series rather than from the undated headline figure — pairing a correct June price
+with next quarter's share count is the quietest look-ahead of the lot.
+
+**Two limits, and they are different quantities.** A thousand requests a minute, which the
+token bucket already handles; and a hundred thousand *weighted* API calls a day, which it
+cannot see — a fundamentals document costs ten calls where a price series costs one. The
+daily ledger in `aer/sources/eodhd/budget.py` reserves before the request rather than
+counting after it, refuses rather than warning, keys on the **UTC** day because that is when
+the provider's counter resets, and overwrites its own estimate with the provider's
+`X-RateLimit-Remaining` on every response. See `docs/data-sources/eodhd.md`.
+
+### A credential in a URL, which name-based redaction cannot see
+
+Two providers take their API key as a **query parameter** — FRED and EODHD — so the key is
+part of the request URL. `aer/logging.py` masks by field *name* and by value *shape*, and a
+URL is neither: the field is called `url`, and a bare hex key matches no credential shape.
+
+**Both leak paths were live.** `SafeFetcher` logs `url` and `final_url` on every completed
+fetch and every retry, and `httpx` logs the whole request line at INFO from a library this
+codebase does not control. The FRED key went out in full on both. The existing test for this
+passed and could not have failed: it used an `sk-ant-…` key, which matches a value pattern
+anywhere, so being inside a URL was incidental.
+
+The fix is one list of credential parameter names in `aer/logging.py`, applied as a value
+pattern to **every** log line from any logger, and reused by `aer/fetch/credentials.py` to
+rewrite every URL the fetch layer records — the `FetchResult`, the error contexts, the
+redirect chain. The parameter name survives so a reader can tell an authenticated request
+from an anonymous one; only the value goes. Matched on the parameter and never on the key's
+value, so a rotated key is still hidden in an old log line. See
+`docs/adr/0033-a-credential-in-a-url-is-invisible-to-name-based-redaction.md` — including the
+note that any key logged before this change should be treated as exposed.
+
 ### Model calls
 
 Every call goes through a provider, a router and a meter — see

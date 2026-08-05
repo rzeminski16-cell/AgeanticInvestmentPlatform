@@ -40,6 +40,7 @@ from dataclasses import dataclass
 from typing import Final
 from urllib.parse import urlsplit
 
+from aer.fetch.credentials import redact_credentials
 from aer.fetch.errors import SsrfBlockedError
 
 __all__ = [
@@ -150,12 +151,12 @@ def validate_url(url: str, *, allow_insecure_http: bool) -> tuple[str, str, int]
             "and evidence that may have been altered is not evidence. Set "
             "AER_ALLOW_INSECURE_HTTP only for a local test server."
         )
-        raise SsrfBlockedError(message, context={"url": url})
+        raise SsrfBlockedError(message, context={"url": redact_credentials(url)})
 
     hostname = parts.hostname
     if not hostname:
         message = "The URL has no host."
-        raise SsrfBlockedError(message, context={"url": url})
+        raise SsrfBlockedError(message, context={"url": redact_credentials(url)})
 
     if len(hostname) > _MAX_HOSTNAME_LENGTH:
         message = "The hostname is longer than a hostname can legally be."

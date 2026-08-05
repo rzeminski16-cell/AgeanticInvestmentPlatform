@@ -267,6 +267,27 @@ class TestLoggingConfiguration:
         assert fake_anthropic_key not in captured
         assert MASK in captured
 
+    @pytest.mark.parametrize("parameter", ["api_key", "api_token", "token", "access_token"])
+    def test_a_credential_that_looks_like_ordinary_text_is_still_redacted(self, capsys, parameter):
+        """This test used to pass for the wrong reason and is why the parameter rule exists.
+
+        The case above uses an Anthropic-shaped key, which the value-shape patterns catch
+        wherever it appears — so it proved the bridge worked and said nothing about URLs. A
+        FRED or EODHD key is a bare hex string that matches no shape at all, and one went out
+        in full on every `fetch.completed` line and every `httpx` request line until the
+        parameter-name rule was added.
+        """
+        ordinary = "0123456789abcdef0123456789abcdef"  # pragma: allowlist secret
+        configure_logging(level="INFO", json_output=True)
+        logging.getLogger("httpx").info(
+            "HTTP Request: GET https://example.test/data?%s=%s&fmt=json", parameter, ordinary
+        )
+
+        captured = capsys.readouterr().out.strip()
+        assert ordinary not in captured
+        assert parameter in captured, "the parameter name should survive; only the value goes"
+        assert "fmt=json" in captured, "the rest of the URL is what makes a fetch reproducible"
+
     def test_level_filtering_is_applied(self, capsys):
         configure_logging(level="WARNING", json_output=True)
         get_logger("test").info("should not appear")

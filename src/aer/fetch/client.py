@@ -39,6 +39,7 @@ import structlog
 from aer.config import Settings
 from aer.core.enums import Provider
 from aer.errors import ExternalServiceError
+from aer.fetch.credentials import redact_credentials
 from aer.fetch.errors import ContentTypeMismatchError, FetchTooLargeError, SsrfBlockedError
 from aer.fetch.limits import CircuitBreaker, RateLimiter
 from aer.fetch.policy import FetchPolicy, policy_for_url
@@ -258,7 +259,11 @@ class SafeFetcher:
                         "a loop or an attempt to walk somewhere the first check refused."
                     )
                     raise SsrfBlockedError(
-                        message, context={"url": url, "hops": len(redirect_chain)}
+                        message,
+                        context={
+                            "url": redact_credentials(url),
+                            "hops": len(redirect_chain),
+                        },
                     )
                 redirect_chain.append(current)
                 # Resolved against the current URL so a relative Location works, then
@@ -282,7 +287,9 @@ class SafeFetcher:
         # Unreachable: the loop returns or raises on every path. Present so that a future
         # edit which makes it reachable fails loudly instead of returning None.
         message = "The redirect loop ended without a response."  # pragma: no cover
-        raise SsrfBlockedError(message, context={"url": url})  # pragma: no cover
+        raise SsrfBlockedError(  # pragma: no cover
+            message, context={"url": redact_credentials(url)}
+        )
 
     # -- Internals -----------------------------------------------------------------------
 
@@ -308,10 +315,20 @@ class SafeFetcher:
         media_type = sniff_media_type(response.body, declared)
         is_success = _HTTP_OK <= response.status_code < _HTTP_REDIRECTION
 
+        # **Every URL that leaves this method is redacted, including the one on the result.**
+        # FRED and EODHD both take their API key as a query parameter, so the raw URL carries
+        # a credential — and this result's `url` is what a service writes into
+        # `source_documents.url`, which is permanent and appears in a report's sources
+        # appendix. Redacting here rather than asking each adapter to remember is what makes
+        # it a property of the fetch layer rather than of everybody's diligence.
+        safe_url = redact_credentials(url)
+        safe_final_url = redact_credentials(final_url)
+        safe_chain = tuple(redact_credentials(hop) for hop in redirect_chain)
+
         _log.info(
             "fetch.completed",
-            url=url,
-            final_url=final_url,
+            url=safe_url,
+            final_url=safe_final_url,
             status=response.status_code,
             sha256=stored.sha256,
             size_bytes=stored.size_bytes,
@@ -327,7 +344,7 @@ class SafeFetcher:
         if is_success and expected_media_types and media_type not in expected_media_types:
             expected = sorted(expected_media_types)
             message = (
-                f"{final_url} returned {media_type} (declared {declared!r}), but "
+                f"{safe_final_url} returned {media_type} (declared {declared!r}), but "
                 f"{' or '.join(expected)} was expected. The type is decided by the bytes, "
                 "not the header, because a mislabelled error page parses into confident "
                 "nonsense rather than failing."
@@ -335,7 +352,7 @@ class SafeFetcher:
             raise ContentTypeMismatchError(
                 message,
                 context={
-                    "url": final_url,
+                    "url": safe_final_url,
                     "sniffed": media_type,
                     "declared": declared,
                     "expected": expected,
@@ -344,15 +361,15 @@ class SafeFetcher:
             )
 
         return FetchResult(
-            url=url,
-            final_url=final_url,
+            url=safe_url,
+            final_url=safe_final_url,
             status_code=response.status_code,
             sha256=stored.sha256,
             size_bytes=stored.size_bytes,
             media_type=media_type,
             declared_media_type=declared,
             headers=dict(response.headers),
-            redirect_chain=redirect_chain,
+            redirect_chain=safe_chain,
             elapsed_ms=elapsed_ms,
             attempts=attempts,
             licence_note=policy.licence_note,
@@ -396,7 +413,7 @@ class SafeFetcher:
             delay = self._backoff_delay(attempt_number, retry_after=_retry_after(response))
             _log.info(
                 "fetch.retrying",
-                url=url,
+                url=redact_credentials(url),
                 attempt=attempt_number,
                 status=last_status,
                 error=type(last_error).__name__ if last_error else None,
@@ -411,8 +428,9 @@ class SafeFetcher:
             # archived and the caller sees the real status rather than a generic failure.
             return response, MAX_ATTEMPTS
 
+        safe_url = redact_credentials(url)
         message = (
-            f"{url} failed after {MAX_ATTEMPTS} attempts "
+            f"{safe_url} failed after {MAX_ATTEMPTS} attempts "
             f"({type(last_error).__name__ if last_error else 'unknown error'})."
         )
         raise ExternalServiceError(
@@ -420,7 +438,7 @@ class SafeFetcher:
             provider=policy.provider.value,
             retryable=True,
             status_code=last_status,
-            context={"url": url, "attempts": MAX_ATTEMPTS},
+            context={"url": safe_url, "attempts": MAX_ATTEMPTS},
         )
 
     async def _request_once(self, url: str, policy: FetchPolicy, cap: int) -> _Response:
@@ -475,7 +493,12 @@ class SafeFetcher:
                     "large is genuinely expected."
                 )
                 raise FetchTooLargeError(
-                    message, context={"url": url, "max_bytes": cap, "read_bytes": total}
+                    message,
+                    context={
+                        "url": redact_credentials(url),
+                        "max_bytes": cap,
+                        "read_bytes": total,
+                    },
                 )
             chunks.append(chunk)
         return b"".join(chunks)

@@ -20,7 +20,6 @@ a test asserts the real key reaches neither.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from datetime import date
 from typing import Final
@@ -30,6 +29,7 @@ import structlog
 from aer.core.enums import Provider, SourceTier
 from aer.errors import ValidationError
 from aer.fetch.client import FetchResult, SafeFetcher
+from aer.fetch.credentials import redact_credentials
 from aer.sources.macro import fred, ons
 from aer.sources.macro.series import MacroSeries, series_for
 from aer.storage.protocol import ArtefactStore
@@ -37,12 +37,6 @@ from aer.storage.protocol import ArtefactStore
 __all__ = ["MacroClient", "MacroResponse", "redacted"]
 
 _log = structlog.get_logger("aer.sources.macro")
-
-# What replaces the key in anything recorded. Matched on the parameter rather than on the
-# key's value, so a key that has been rotated is still hidden in an old log line and a key
-# that happens to look like ordinary text is still hidden in a new one.
-_API_KEY_PARAM: Final = re.compile(r"(api_key=)[^&]*")
-_REDACTED: Final = "api_key=REDACTED"
 
 # Both providers answer JSON. Declared so a proxy error page or an HTML maintenance
 # notice is refused by the fetcher rather than reaching a parser that would call it a
@@ -53,11 +47,13 @@ _JSON_TYPES: Final[frozenset[str]] = frozenset({"application/json"})
 def redacted(url: str) -> str:
     """The URL with its API key removed, for logging and for the stored source document.
 
-    FRED takes the key as a query parameter. Without this it would reach every log line, the
-    artefact's recorded URL, and the sources appendix of a published report — three places a
-    credential must never be, all reached by doing nothing wrong.
+    Kept as a name because callers and tests use it; the implementation moved to
+    :mod:`aer.fetch.credentials` once it turned out that redacting here was not enough.
+    `SafeFetcher` logs `url` and `final_url` itself on every completed fetch and every retry,
+    and those lines went out with the FRED key in them for as long as this function was the
+    only defence. The fetch layer redacts now, and this is the same function.
     """
-    return _API_KEY_PARAM.sub(_REDACTED, url)
+    return redact_credentials(url)
 
 
 @dataclass(frozen=True, slots=True)

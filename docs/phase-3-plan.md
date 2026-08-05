@@ -508,8 +508,14 @@ adjustments alone.
 way task 18 was, and the valuation surface ships with the comps section stating plainly that no
 market data source is configured. The DCF, ratios, earnings quality and WACC are unaffected.
 
-**Held (2026-08-05). The terms were read and three of the four answers change the design.**
-See ADR 0030.
+**Delivered (2026-08-05), under ADR 0030 route 2.** `aer/calc/prices.py` (adjustment,
+returns, market capitalisation, beta), `aer/sources/eodhd/` (parsers, the weighted-call
+ledger, the client) and `aer/services/prices.py`. Migration 0018 and ADR 0032 carry the
+schema; `docs/data-sources/eodhd.md` carries the licence and rate-limit position. Two
+credential leaks were found and fixed on the way — see ADR 0033.
+
+**Held before that (2026-08-05). The terms were read and three of the four answers changed
+the design.** See ADR 0030.
 
 - **The €19.99 *All World* plan is a personal-use plan.** Commercial use is a separate
   product, *Internal Use*, at **$399/month** — roughly 4× the whole ≤£100/month ceiling before
