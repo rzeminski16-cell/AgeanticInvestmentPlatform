@@ -232,6 +232,7 @@ class Provider(StrEnum):
     FCA_NSM = "fca_nsm"
     EODHD = "eodhd"
     FRED = "fred"
+    ONS = "ons"
     ISSUER_IR = "issuer_ir"
     WEB_SEARCH = "web_search"
     USER_SUPPLIED = "user_supplied"

@@ -86,6 +86,7 @@ _TABLE: Final[dict[tuple[Provider, DocumentKind], SourceTier]] = {
     (Provider.ISSUER_IR, DocumentKind.NEWS_ARTICLE): SourceTier.T5_SECONDARY,
     # -- Official statistics.
     (Provider.FRED, DocumentKind.STRUCTURED_DATA): SourceTier.T3_OFFICIAL_STATS,
+    (Provider.ONS, DocumentKind.STRUCTURED_DATA): SourceTier.T3_OFFICIAL_STATS,
     # -- Licensed market data.
     (Provider.EODHD, DocumentKind.STRUCTURED_DATA): SourceTier.T4_LICENSED_MARKET,
     # -- Everything found by searching. Reporting at best.

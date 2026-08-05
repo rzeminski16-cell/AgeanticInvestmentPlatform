@@ -1,0 +1,17 @@
+{
+  "description": {
+    "title": "Gross Domestic Product: chained volume measures",
+    "cdid": "ABMI",
+    "unit": "Index",
+    "releaseDate": "2024-06-28T00:00:00.000Z",
+    "seasonalAdjustment": "SA"
+  },
+  "years": [
+    {"date": "2023", "value": "100.1", "year": "2023", "sourceDataset": "QNA"}
+  ],
+  "quarters": [
+    {"date": "2023 Q4", "value": "99.8", "year": "2023", "quarter": "Q4", "sourceDataset": "QNA"},
+    {"date": "2024 Q1", "value": "100.5", "year": "2024", "quarter": "Q1", "sourceDataset": "QNA"}
+  ],
+  "months": []
+}

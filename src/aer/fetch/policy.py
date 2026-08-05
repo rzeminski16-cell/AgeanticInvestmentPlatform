@@ -141,6 +141,20 @@ DEFAULT_POLICIES: Final[dict[Provider, FetchPolicy]] = {
         requests_per_second=2.0,
         honours_robots=False,
     ),
+    Provider.ONS: FetchPolicy(
+        provider=Provider.ONS,
+        source_tier=SourceTier.T3_OFFICIAL_STATS,
+        allowed_hosts=("api.ons.gov.uk", "api.beta.ons.gov.uk", ".ons.gov.uk"),
+        licence_note=(
+            "Office for National Statistics. Crown copyright, licensed under the Open "
+            "Government Licence v3.0; commercial re-use permitted with source accreditation."
+        ),
+        # A documented public API rather than a site being crawled, so robots does not apply
+        # in the sense it applies to an issuer's website -- but the pace stays conservative,
+        # because one series pull per run does not need more.
+        requests_per_second=2.0,
+        honours_robots=False,
+    ),
     Provider.ISSUER_IR: FetchPolicy(
         provider=Provider.ISSUER_IR,
         source_tier=SourceTier.T2_ISSUER,

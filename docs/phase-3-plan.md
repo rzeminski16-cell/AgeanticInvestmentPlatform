@@ -257,6 +257,37 @@ and both are traceable to a vintage.
 
 **Non-goals.** Macro *interpretation*, which is a Phase 4 agent.
 
+**Outcome (2026-08-05).** ALFRED and ONS done; Bank of England still not built.
+
+- The acceptance criterion holds against the database: `TestTwoRunsWithDifferentAsOfDates`.
+  Two vintages of US GDP, the same quarter, different values, both traceable.
+- **FRED is not one licence, and that changed the design.** Its terms forbid commercial
+  redistribution of copyrighted series, and FRED carries both kinds — BLS and BEA figures are
+  public-domain federal works, while Case-Shiller, the ICE BofA family and OECD material are
+  not. So the adapter takes an allowlisted *key*, never an identifier, and
+  `aer/sources/macro/series.py` records the copyright position per series with the refusals
+  listed by name. UK CPI comes from the ONS for the same reason: FRED's UK series are
+  OECD-sourced.
+- ONS is Open Government Licence with a documented API, so no scraping question arises —
+  but it is **not an archive**. Its vintage is the release date, which is a weaker claim than
+  ALFRED's, and `is_archived` carries the difference so a UK figure never borrows a US one's
+  guarantee. A release after the as-of date is refused, which is the one point-in-time check
+  the source honestly supports.
+- Risk-free resolution is documented per currency. **There is no GBP entry**, and asking for
+  one raises rather than substituting the US Treasury yield — that error is the whole rate
+  differential and would look entirely ordinary. Closing ADR 0026 is what adds it.
+- No live call has been made: this environment denies outbound HTTPS to every host, including
+  `api.stlouisfed.org`. Tested against hand-written cassettes; the first real call is on the
+  operator's machine.
+- Verified by sabotage: 30 breakages, 27 caught first time. All three escapes were real gaps —
+  no quarterly ONS coverage, and two schema constraints no test exercised. Two are now tested.
+  The third revealed that a model's `CheckConstraint` has no runtime effect (the test schema
+  comes from the migration, and Alembic's autogenerate does not compare CHECK constraints at
+  all), so the migration is the enforcement and the model's copy is documentation.
+- A pre-existing guard earned its keep: `test_every_provider_has_at_least_one_entry` caught
+  `Provider.ONS` being added without a tiering entry, which would have made every ONS document
+  tier 6 and therefore uncitable.
+
 ---
 
 ## Task 26 — Cost of capital

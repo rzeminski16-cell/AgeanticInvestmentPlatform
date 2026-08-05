@@ -25,6 +25,7 @@ from aer.db.models.financial_fact import FinancialFact
 from aer.db.models.job import Job
 from aer.db.models.job_cancellation import JobCancellation
 from aer.db.models.job_step import JobStep
+from aer.db.models.macro import MacroObservationRow, MacroSeriesRow
 from aer.db.models.plan import ResearchPlan
 from aer.db.models.prompt import Prompt
 from aer.db.models.report import Report
@@ -55,6 +56,8 @@ __all__ = [
     "Job",
     "JobCancellation",
     "JobStep",
+    "MacroObservationRow",
+    "MacroSeriesRow",
     "Prompt",
     "Report",
     "ReportSection",

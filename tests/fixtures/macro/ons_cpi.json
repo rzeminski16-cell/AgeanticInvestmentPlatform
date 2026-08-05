@@ -1,0 +1,22 @@
+{
+  "description": {
+    "title": "CPI INDEX 00: ALL ITEMS 2015=100",
+    "cdid": "D7BT",
+    "unit": "Index, base year = 100",
+    "releaseDate": "2024-06-19T00:00:00.000Z",
+    "nextRelease": "17 July 2024",
+    "seasonalAdjustment": "NSA"
+  },
+  "years": [
+    {"date": "2022", "value": "119.6", "year": "2022", "sourceDataset": "MM23"},
+    {"date": "2023", "value": "128.5", "year": "2023", "sourceDataset": "MM23"}
+  ],
+  "quarters": [
+    {"date": "2024 Q1", "value": "130.9", "year": "2024", "quarter": "Q1", "sourceDataset": "MM23"}
+  ],
+  "months": [
+    {"date": "2024 MAR", "value": "131.0", "year": "2024", "month": "March", "sourceDataset": "MM23"},
+    {"date": "2024 APR", "value": "131.3", "year": "2024", "month": "April", "sourceDataset": "MM23"},
+    {"date": "2024 MAY", "value": "131.5", "year": "2024", "month": "May", "sourceDataset": "MM23"}
+  ]
+}
