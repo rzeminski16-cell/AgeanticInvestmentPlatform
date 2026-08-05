@@ -831,6 +831,63 @@ hiding it.
 Rounding happens once, at presentation. See
 `docs/adr/0011-calculations-are-unit-safe-and-traced.md`.
 
+### Three statements, and whether they close
+
+A ratio needs lines, not a bag of facts. `aer/calc/statements.py` assembles an income
+statement, a balance sheet, a cash-flow statement and a supplementary share-data block from
+one period's canonical facts, each line still carrying the fact it came from.
+
+**A missing line is absent, never zero.** A filer that did not report inventory has no
+inventory line, and every ratio depending on it will be correspondingly absent with a
+reason. Defaulting to zero produces a current ratio that is arithmetically fine, factually
+invented, and indistinguishable downstream from a real one.
+
+**A derived line says it was derived.** Gross profit, pre-tax income and total debt are
+worked out when the filer stated the components but not the subtotal — each through
+`@traced`, so the derived line's provenance points at a calculation whose inputs point at
+facts. A stated subtotal is never overwritten by a derived one; a disagreement between them
+is what an identity check reports.
+
+**The identities are output, not assertions.** Seven checks — the balance sheet balancing,
+the two splits, total debt, gross profit, net income, and the cash-flow roll-forward — each
+carrying the size of the miss as well as the verdict, and each distinguishing "did not hold"
+from "could not run". Assets less liabilities less equity is often not zero on a real
+filing, and raising would end a run over a condition that is normal and informative. The
+tolerance is ten basis points because filings round to the nearest million; an exact check
+would report every real balance sheet as broken and be switched off within a week.
+
+Writing the roll-forward found the vocabulary short of two lines, and adding them needed
+care: `...PeriodIncreaseDecreaseIncludingExchangeRateEffect` and its `Excluding` twin differ
+by one word and by whether the currency effect is in the number. Mapping both would make the
+identity hold for a filer with no foreign cash and fail for an otherwise identical one that
+has some. Only the first is mapped. The same reasoning left `TotalAssetsLessCurrentLiabilities`
+unmapped: it is the Companies Act format's subtotal, not non-current assets, and mapping it
+to the nearest-looking concept would have produced a balance sheet that still appeared to
+balance. See `docs/adr/0024` for the surfaces and the concept module's own docstring for the
+mapping rule.
+
+### Currency, and the rate that is not there yet
+
+`aer/calc/fx.py` prevents the three ways a conversion goes quietly wrong. **Upside down** —
+a rate is a `Quantity` in `quote/base` and the target currency is named by the caller, so
+applying a USD/GBP rate to dollars raises rather than producing `USD²/GBP`. **From the
+future** — `select_rate` refuses an observation later than the as-of date rather than
+ranking it below, because sorting it to the back leaves it one code change from being
+chosen. **Stale** — nothing older than seven days is used, since a pair with no observation
+for a month is a hole in the series, not a currency that stopped moving.
+
+Every conversion is a recorded calculation with the rate as an input, so "what rate did this
+use, and where did it come from?" is answered from the ledger rather than from reading code.
+
+**No rate source is wired in.** The Bank of England's data is Open Government Licence, which
+permits commercial use with attribution — but its `robots.txt` disallows two IADB paths, the
+published accounts of which endpoint serves CSV contradict each other, and this build
+environment cannot reach the Bank's terms of use to check for an automated-access clause of
+the kind that decided the FCA question. So the arithmetic ships and the fetcher does not; a
+rate supplied by hand works exactly as a fetched one will. The three pages somebody has to
+read to close this are listed in `docs/adr/0026` and
+`docs/data-sources/bank-of-england-iadb.md`.
+
 ### Model calls
 
 Every call goes through a provider, a router and a meter — see

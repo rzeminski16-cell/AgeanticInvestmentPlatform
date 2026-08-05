@@ -112,6 +112,22 @@ statements; no conversion happens without a recorded rate and a source.
 
 **Non-goals.** Ratios, valuation, anything needing a price.
 
+**Outcome (2026-08-05).** Done, with the FX **source** deferred and the vocabulary at 62.
+
+- Statements, identities and the unmapped-tags gate are complete and wired end to end.
+- The vocabulary is 62, not 60. The cash-flow roll-forward this task asks for could not be
+  written down without `net_change_in_cash` and `effect_of_exchange_rate_on_cash`; adding two
+  concepts was cheaper than dropping a named identity check.
+- `aer/calc/fx.py` ships in full — selection, look-ahead refusal, staleness limit, traced
+  conversion, inversion, round-trip. **No Bank of England adapter.** The licence is settled
+  (Open Government Licence, commercial use permitted with attribution); the access route is
+  not, and could not be checked from this environment. See ADR 0026 for what a person has to
+  read to close it. Tasks 25 and 26 inherit the open question and must not assume it closed.
+- Two mapping errors found and fixed: `TotalAssetsLessCurrentLiabilities` was mapped to
+  `noncurrent_assets`, and the two variants of the cash movement would have been conflated.
+- `pending_gate` skipped conditional gates entirely, so a run stopped at the financials gate
+  was told it was waiting at the final one. Fixed.
+
 ---
 
 ## Task 23 — The ratio suite and earnings quality
