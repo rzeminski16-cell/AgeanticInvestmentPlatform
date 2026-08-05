@@ -154,6 +154,29 @@ for a missing input — an absent concept produces an absent ratio with a reason
 
 **Non-goals.** Anything requiring a market price or a forecast.
 
+**Outcome (2026-08-05).** Done. Seventeen ratios across six families, eight quality signals,
+two margin bridges.
+
+- `RatioResult` and `QualitySignal` carry a value *or* a reason, never a zero. An undefined
+  ratio — ROE on negative equity, ROIC at zero invested capital — is absent with the guard's
+  own words; the primitive still raises, and the suite is what turns a refusal into a row.
+- A unit mismatch is never swallowed. It means two lines of one statement disagree about what
+  they measure, and hiding it inside the module whose job is to notice problems would be the
+  worst possible place for it.
+- Three signals `docs/PLAN.md` names are **not derivable** from a 62-concept vocabulary —
+  development-cost capitalisation, stated useful lives, revenue-recognition policy. They are
+  listed as `UNAVAILABLE_SIGNALS` with where to look instead, so "we checked" is
+  distinguishable from "we never looked". Interest capitalisation *is* derivable, from the
+  gap between cash interest paid and the charge to profit, and is computed.
+- One precision defect found and fixed: `days_outstanding` computed `balance / flow * year`,
+  which rounds the quotient at 34 digits and multiplies the error back up — a balance of one
+  year's flow came back as 364.999999999999999999999999999999 days. Reordering puts the
+  division last.
+- Two provenance defects found by the tests: a negated bridge component and an inverted FX
+  rate both lost their source, because plain quantity arithmetic has no calculation to point
+  at. Both are now traced functions.
+- Verified by sabotage: 36 deliberate breakages, all 36 caught.
+
 ---
 
 ## Task 24 — Assumptions, scenarios and sensitivities as data

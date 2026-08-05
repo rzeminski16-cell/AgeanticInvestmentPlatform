@@ -866,6 +866,47 @@ to the nearest-looking concept would have produced a balance sheet that still ap
 balance. See `docs/adr/0024` for the surfaces and the concept module's own docstring for the
 mapping rule.
 
+### Ratios, and the ones this filing cannot support
+
+`aer/calc/ratios.py` computes seventeen figures across margins, returns, liquidity,
+leverage, coverage and efficiency. None of the arithmetic is hard, and that is the point:
+one division is checkable, a sentence asking for a current ratio is not.
+
+**An absent input produces an absent ratio, never a zero.** A filer that did not report
+inventory has no quick ratio, and the result says which concepts were missing. The
+alternative is a comparison table where every company has every ratio and some of the
+numbers are invented.
+
+**An undefined ratio is absent too, with the guard's own words.** Return on equity at
+negative book equity is the most misleading number in the suite — it turns a loss into a
+positive return — so it does not come out. Nor does ROIC at zero invested capital, nor a
+leverage multiple on negative EBITDA, which reads as *low* leverage on a company that can
+service none. The primitives raise; the suite turns the refusal into a row an operator reads.
+
+**A unit mismatch is never swallowed.** That is two lines of one statement disagreeing about
+what they measure — a mapping error — and hiding it inside the module whose job is to notice
+problems would be the worst place for it. It propagates.
+
+`aer/calc/quality.py` asks whether the profit and the cash have parted company: accruals
+ratio, cash conversion, working-capital intensity and its drift, capex cover of depreciation,
+the depreciation rate and its movement, and the gap between cash interest paid and interest
+charged to profit — which is where capitalised interest shows up. Each declares which
+direction is concerning and a threshold, both named constants with the reasoning beside
+them, because judgement in a constant can be argued with and judgement in an `if` cannot.
+A flag means "look at this", never "this is wrong".
+
+Three things `docs/PLAN.md` asks for are **not derivable** from a 62-concept vocabulary:
+development-cost capitalisation cannot be separated from an acquisition, and useful lives and
+revenue-recognition policy are prose in the notes. They are listed as unavailable with where
+to read them instead, so "we checked and it was fine" is distinguishable from "we never
+looked".
+
+`aer/calc/bridge.py` decomposes a margin's movement into the lines that caused it. **The
+residual is a line, not a rounding**: a filer reporting only an aggregate operating-expense
+figure produces a bridge that is almost all residual, and that is the honest output. A bridge
+that always adds up, however the components were computed, will one day attribute a change to
+the wrong line with total confidence.
+
 ### Currency, and the rate that is not there yet
 
 `aer/calc/fx.py` prevents the three ways a conversion goes quietly wrong. **Upside down** —
