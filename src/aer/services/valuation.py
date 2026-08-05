@@ -21,6 +21,11 @@ through the side door.
 through :func:`aer.services.scenarios.resolve`, so a corrected base assumption reaches every
 case that did not explicitly disagree with it.
 
+**The mandate travels with the request, not with the code path.** Every entry point here
+takes a :class:`~aer.core.sectors.ValuationMandate` and hands it to :mod:`aer.calc.dcf`, which
+requires one. A bank cannot reach a discounted cash flow through this module for the same
+reason it cannot reach one directly: the permission does not exist to be passed.
+
 **A grid cell is a whole valuation, and its calculations are stored.** ``sensitivity_cells``
 has a non-null ``calculation_id`` for exactly this reason. Running the grid writes every
 calculation in it before the cells reference them, so no cell ever points at a row that is
@@ -51,6 +56,7 @@ from aer.calc.dcf import (
 )
 from aer.calc.engine import CalculationContext
 from aer.calc.units import Quantity
+from aer.core.sectors import ValuationMandate
 from aer.db.models import Scenario, Sensitivity
 from aer.errors import AerError
 from aer.services.calculations import new_context, persist_context
@@ -201,6 +207,7 @@ async def run_valuation(
     *,
     job_id: uuid.UUID,
     inputs: DcfInputs,
+    mandate: ValuationMandate,
     context: CalculationContext | None = None,
 ) -> DcfResult:
     """Value the business and store every calculation that produced the answer.
@@ -217,7 +224,7 @@ async def run_valuation(
     owned = context is None
     ledger = context if context is not None else new_context()
 
-    result = discounted_cash_flow(ledger, inputs)
+    result = discounted_cash_flow(ledger, inputs, mandate=mandate)
 
     if owned:
         await persist_context(session, ledger, job_id=job_id)
@@ -226,6 +233,8 @@ async def run_valuation(
         "valuation.computed",
         job_id=str(job_id),
         years=len(result.years),
+        subject=mandate.subject,
+        sector=mandate.sector_key or "unclassified",
         gordon_per_share=str(result.gordon.value_per_share.value),
         exit_per_share=str(result.exit_multiple.value_per_share.value),
         terminal_share=str(result.gordon.terminal_share.value),
@@ -239,6 +248,7 @@ async def run_scenarios(
     *,
     job_id: uuid.UUID,
     scenarios: Sequence[Scenario],
+    mandate: ValuationMandate,
     years: int,
     base_revenue: Quantity,
     opening_working_capital: Quantity,
@@ -267,7 +277,9 @@ async def run_scenarios(
             shares_outstanding=shares_outstanding,
             non_operating=non_operating,
         )
-        result = await run_valuation(session, job_id=job_id, inputs=inputs, context=ledger)
+        result = await run_valuation(
+            session, job_id=job_id, inputs=inputs, mandate=mandate, context=ledger
+        )
         valuations.append(
             ScenarioValuation(
                 key=scenario.key,
@@ -291,6 +303,7 @@ async def run_sensitivity(
     columns: GridAxis,
     method: TerminalMethod,
     measure: GridMeasure,
+    mandate: ValuationMandate,
     label: str,
     scenario_id: uuid.UUID | None = None,
 ) -> tuple[SensitivityGrid, Sensitivity]:
@@ -304,7 +317,13 @@ async def run_sensitivity(
     """
     ledger = new_context()
     grid = sensitivity_grid(
-        ledger, inputs, rows=rows, columns=columns, method=method, measure=measure
+        ledger,
+        inputs,
+        rows=rows,
+        columns=columns,
+        method=method,
+        measure=measure,
+        mandate=mandate,
     )
 
     await persist_context(session, ledger, job_id=job_id)

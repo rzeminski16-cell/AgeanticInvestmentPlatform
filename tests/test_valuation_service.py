@@ -21,6 +21,7 @@ from sqlalchemy import select, text
 from aer.calc.dcf import BridgeItem, GridAxis, GridMeasure, TerminalMethod
 from aer.calc.units import Quantity, SourceKind, SourceRef, money
 from aer.core.enums import UserRole
+from aer.core.sectors import ValuationModel, unclassified_mandate
 from aer.db.models import (
     Assumption,
     Calculation,
@@ -39,6 +40,10 @@ pytestmark = pytest.mark.integration
 _TABLES = "research_requests, audit_events, users, artefacts, prompts, companies"
 
 FACT = SourceRef.fact("balance-sheet-1")
+
+# Microsoft is not a bank, an insurer, a REIT or a pre-revenue biotech, so the standard
+# model applies. `test_sectors_service.py` covers the runs where it does not.
+MANDATE = unclassified_mandate(ValuationModel.DCF_FCFF, subject="MSFT")
 
 # The five drivers plus the three scalars, at values that produce a healthy forecast.
 BASE_ASSUMPTIONS = {
@@ -230,7 +235,7 @@ class TestRunningAValuation:
         inputs = inputs_from(values, **facts())
 
         result = await valuation_service.run_valuation(
-            db_session, job_id=scene["job"].id, inputs=inputs
+            db_session, job_id=scene["job"].id, inputs=inputs, mandate=MANDATE
         )
 
         rows = list(
@@ -250,7 +255,7 @@ class TestRunningAValuation:
         inputs = inputs_from(values, **facts())
 
         result = await valuation_service.run_valuation(
-            db_session, job_id=scene["job"].id, inputs=inputs
+            db_session, job_id=scene["job"].id, inputs=inputs, mandate=MANDATE
         )
 
         source = result.gordon.value_per_share.source
@@ -265,7 +270,9 @@ class TestRunningAValuation:
         values = await assumption_service.confirmed_values(db_session, scene["request"].id)
         inputs = inputs_from(values, **facts())
 
-        await valuation_service.run_valuation(db_session, job_id=scene["job"].id, inputs=inputs)
+        await valuation_service.run_valuation(
+            db_session, job_id=scene["job"].id, inputs=inputs, mandate=MANDATE
+        )
 
         rows = list(
             await db_session.scalars(
@@ -285,7 +292,9 @@ class TestRunningAValuation:
         values = await assumption_service.confirmed_values(db_session, scene["request"].id)
         inputs = inputs_from(values, **facts())
 
-        await valuation_service.run_valuation(db_session, job_id=scene["job"].id, inputs=inputs)
+        await valuation_service.run_valuation(
+            db_session, job_id=scene["job"].id, inputs=inputs, mandate=MANDATE
+        )
 
         rows = list(
             await db_session.scalars(
@@ -328,7 +337,7 @@ class TestScenarios:
         )
 
         valuations = await valuation_service.run_scenarios(
-            db_session, job_id=scene["job"].id, scenarios=[bear, base], **facts()
+            db_session, job_id=scene["job"].id, scenarios=[bear, base], **facts(), mandate=MANDATE
         )
 
         by_key = {v.key: v for v in valuations}
@@ -360,7 +369,7 @@ class TestScenarios:
 
         before = (
             await valuation_service.run_scenarios(
-                db_session, job_id=scene["job"].id, scenarios=[bear], **facts()
+                db_session, job_id=scene["job"].id, scenarios=[bear], **facts(), mandate=MANDATE
             )
         )[0]
 
@@ -382,7 +391,7 @@ class TestScenarios:
 
         after = (
             await valuation_service.run_scenarios(
-                db_session, job_id=scene["job"].id, scenarios=[bear], **facts()
+                db_session, job_id=scene["job"].id, scenarios=[bear], **facts(), mandate=MANDATE
             )
         )[0]
 
@@ -416,7 +425,7 @@ class TestScenarios:
 
         with pytest.raises(MissingAssumptionError):
             await valuation_service.run_scenarios(
-                db_session, job_id=scene["job"].id, scenarios=[broken], **facts()
+                db_session, job_id=scene["job"].id, scenarios=[broken], **facts(), mandate=MANDATE
             )
 
         rows = list(
@@ -459,6 +468,7 @@ class TestTheStoredGrid:
             method=TerminalMethod.GORDON_GROWTH,
             measure=GridMeasure.VALUE_PER_SHARE,
             label="Value per share: discount rate against terminal growth",
+            mandate=MANDATE,
         )
 
         cells = list(
@@ -502,6 +512,7 @@ class TestTheStoredGrid:
             method=TerminalMethod.EXIT_MULTIPLE,
             measure=GridMeasure.VALUE_PER_SHARE,
             label="Exit multiple grid",
+            mandate=MANDATE,
         )
 
         assert stored.x_assumption == "wacc"
@@ -544,6 +555,7 @@ class TestTheStoredGrid:
             method=TerminalMethod.GORDON_GROWTH,
             measure=GridMeasure.ENTERPRISE_VALUE,
             label="Enterprise value grid",
+            mandate=MANDATE,
         )
 
         cells = list(
@@ -581,7 +593,7 @@ class TestTheEquityBridge:
         )
 
         result = await valuation_service.run_valuation(
-            db_session, job_id=scene["job"].id, inputs=inputs
+            db_session, job_id=scene["job"].id, inputs=inputs, mandate=MANDATE
         )
 
         assert [item.label for item in inputs.non_operating] == [

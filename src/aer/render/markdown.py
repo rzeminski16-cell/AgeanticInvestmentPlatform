@@ -46,7 +46,7 @@ from aer.db.models import (
 from aer.sections.registry import sections_for_job
 from aer.sections.render import CitationRef, render_section
 
-__all__ = ["RenderedReport", "render_markdown"]
+__all__ = ["RenderedReport", "SectorNote", "render_markdown"]
 
 _log = structlog.get_logger("aer.render.markdown")
 
@@ -89,6 +89,7 @@ async def render_markdown(
     job: Job,
     request: ResearchRequest,
     company: Company | None = None,
+    sector: SectorNote | None = None,
     rating: str | None = None,
     confidence: float | None = None,
     generated_at: datetime | None = None,
@@ -133,7 +134,13 @@ async def render_markdown(
     footnotes = await _footnotes(session, citations)
     appendix = await _source_appendix(session, citations)
 
-    document = "\n".join([*header, *body, *footnotes, *appendix, *_footer()])
+    # Immediately after the header and before any analysis. A sector warning at the foot of a
+    # report is a footnote, and `docs/PLAN.md` section 2.9 is explicit that a blocked model
+    # produces a block rather than a footnote: a reader has to meet the limitation before the
+    # numbers, because the number is what they will remember.
+    document = "\n".join(
+        [*header, *_sector_block(sector), *body, *footnotes, *appendix, *_footer()]
+    )
 
     _log.info(
         "report.rendered",
@@ -146,6 +153,56 @@ async def render_markdown(
 
 
 # -- Header and footer ---------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class SectorNote:
+    """What a specialist classification obliges the report to say about itself.
+
+    Assembled by the caller from the confirmed classification rather than looked up here, so
+    a report renders what the run was actually permitted to do rather than what the current
+    seed says it would be permitted to do today.
+    """
+
+    label: str
+    warnings: tuple[str, ...] = ()
+    blocked_models: tuple[str, ...] = ()
+
+    # The required-metric disclosure, already written as a sentence by
+    # `aer.services.sectors.MetricDisclosure`. A string rather than the structure, because
+    # *whether* the absence is disclosed must not depend on a template remembering to.
+    metric_disclosure: str = ""
+
+
+def _sector_block(sector: SectorNote | None) -> list[str]:
+    """The sector limitations, as a block at the top of the report.
+
+    Empty for an ordinary company: a report that announced "this company is not a bank" on
+    every run would train a reader to skip the block on the run where it matters.
+    """
+    if sector is None or not sector.label:
+        return []
+
+    lines = [f"## Sector: {sector.label}", ""]
+
+    if sector.blocked_models:
+        lines.extend(
+            [
+                f"**This report does not run {', '.join(sector.blocked_models)}.** "
+                "The model is blocked for this sector rather than discouraged: it was not "
+                "run and no figure below came from it.",
+                "",
+            ]
+        )
+
+    for warning in sector.warnings:
+        lines.extend([f"> {warning}", ""])
+
+    if sector.metric_disclosure:
+        lines.extend([sector.metric_disclosure, ""])
+
+    lines.extend(["---", ""])
+    return lines
 
 
 def _header(

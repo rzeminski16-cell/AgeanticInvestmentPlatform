@@ -38,6 +38,13 @@ useful things a DCF says. The invariants tested here are the ones that actually 
 falls as the discount rate rises, rises with margin, rises with terminal growth, and scales
 linearly with the level of the cash flows.
 
+**A mandate is required, and that is the sector block.** :func:`project` and
+:func:`discounted_cash_flow` take a :class:`~aer.core.sectors.ValuationMandate`, which cannot
+be constructed for a sector whose profile blocks free cash flow to the firm. A bank therefore
+does not produce a DCF that is then suppressed at the page — it produces a `TypeError` at the
+call site or a refusal at construction, whichever comes first, and there is no route through
+this module that skips it. See `docs/adr/0029`.
+
 Pure and side-effect free, like everything in :mod:`aer.calc`. It is *given* a discount rate
 from :mod:`aer.calc.wacc` and a set of drivers; it fetches nothing and reads no clock.
 """
@@ -59,6 +66,7 @@ from aer.calc.units import (
     UnitMismatchError,
 )
 from aer.calc.wacc import MAX_RATE, MIN_RATE
+from aer.core.sectors import ModelNotPermittedError, ValuationMandate, ValuationModel
 
 __all__ = [
     "DRIVER_NAMES",
@@ -947,13 +955,30 @@ def value_per_share(
 # -- The valuation ---------------------------------------------------------------------------
 
 
-def project(context: CalculationContext, inputs: DcfInputs) -> tuple[ForecastYear, ...]:
+def project(
+    context: CalculationContext, inputs: DcfInputs, *, mandate: ValuationMandate
+) -> tuple[ForecastYear, ...]:
     """Build the explicit forecast, one recorded calculation per line per year.
 
     Not traced itself — it returns a structure rather than a quantity — but every line of
     every year is, so ``context.records`` afterwards contains the whole forecast and a reader
     can ask what any cell was made of.
+
+    Takes the mandate as well as :func:`discounted_cash_flow` does, because a forecast plus a
+    terminal value computed by hand is a discounted cash flow by another name, and "by any
+    route" in the acceptance criterion means this one too.
+
+    **Accepts a free-cash-flow mandate of either kind.** A projection is not itself a
+    valuation: the same forecast underlies free cash flow to the firm and to equity, and they
+    differ in what is done with it rather than in how it is built. A sector that blocks one
+    and permits the other — and a company blocked from FCFF because enterprise value is
+    meaningless for it may well be valued on FCFE — should not be blocked from forecasting.
+
+    Raises:
+        ModelNotPermittedError: If the mandate is for something that is not a discounted cash
+            flow at all.
     """
+    _require_cash_flow_mandate(mandate)
     inputs.validate()
 
     years: list[ForecastYear] = []
@@ -1008,14 +1033,24 @@ def project(context: CalculationContext, inputs: DcfInputs) -> tuple[ForecastYea
     return tuple(years)
 
 
-def discounted_cash_flow(context: CalculationContext, inputs: DcfInputs) -> DcfResult:
+def discounted_cash_flow(
+    context: CalculationContext, inputs: DcfInputs, *, mandate: ValuationMandate
+) -> DcfResult:
     """The whole valuation, both terminal methods, with every step recorded.
 
+    ``mandate`` is the sector block, and it is a required argument rather than a check
+    performed inside. A :class:`~aer.core.sectors.ValuationMandate` for
+    ``DCF_FCFF`` cannot be constructed for a company classified as a bank, an insurer, a REIT
+    or a pre-revenue biotech, so there is no value a caller could pass that would get a
+    discounted cash flow out of this function for one of them.
+
     Raises:
+        ModelNotPermittedError: If the mandate is for a different model.
         CalculationError: From any of the guards above. A discounted cash flow that cannot be
             computed correctly is not computed at all.
     """
-    years = project(context, inputs)
+    _require_fcff_mandate(mandate)
+    years = project(context, inputs, mandate=mandate)
     final = years[-1]
 
     gordon_value = gordon_terminal_value(
@@ -1226,6 +1261,7 @@ def sensitivity_grid(
     columns: GridAxis,
     method: TerminalMethod,
     measure: GridMeasure,
+    mandate: ValuationMandate,
 ) -> SensitivityGrid:
     """Run a complete valuation at every point of a two-dimensional grid.
 
@@ -1257,7 +1293,7 @@ def sensitivity_grid(
                 columns.field: column_value,
             }
             varied = replace(inputs, **overrides)
-            result = discounted_cash_flow(context, varied)
+            result = discounted_cash_flow(context, varied, mandate=mandate)
             outcome = result.outcome(method)
             cells.append(
                 GridCell(
@@ -1285,6 +1321,54 @@ def _measure_of(outcome: TerminalOutcome, measure: GridMeasure) -> Quantity:
 
 
 # -- Guards ----------------------------------------------------------------------------------
+
+
+_CASH_FLOW_MODELS: Final = (ValuationModel.DCF_FCFF, ValuationModel.DCF_FCFE)
+
+
+def _require_fcff_mandate(mandate: ValuationMandate) -> None:
+    """Refuse a mandate granted for some other model.
+
+    The sector rules are enforced when the mandate is *constructed*; this is the second half,
+    and it is about identity rather than permission. A mandate for comparable multiples is a
+    perfectly valid mandate — it is simply not permission to run this.
+
+    Raises:
+        ModelNotPermittedError: If the mandate is not for free cash flow to the firm.
+    """
+    if mandate.model is ValuationModel.DCF_FCFF:
+        return
+    message = (
+        f"This is a discounted free cash flow to the firm, and the mandate is for "
+        f"{mandate.model.value}. A mandate permits one model; running a second under it "
+        "would make the permission mean whatever the caller wanted it to."
+    )
+    raise ModelNotPermittedError(
+        message, context={"model": mandate.model.value, "subject": mandate.subject}
+    )
+
+
+def _require_cash_flow_mandate(mandate: ValuationMandate) -> None:
+    """Refuse a mandate that is not for a discounted cash flow of any kind.
+
+    Wider than :func:`_require_fcff_mandate` on purpose. A forecast is the raw material of
+    both free-cash-flow models, so building one under an FCFE mandate is legitimate; building
+    one under a comparable-multiples mandate is not, because comparables do not forecast.
+
+    Raises:
+        ModelNotPermittedError: If the mandate is for neither free-cash-flow model.
+    """
+    if mandate.model in _CASH_FLOW_MODELS:
+        return
+    message = (
+        f"A forecast is the raw material of a discounted cash flow, and the mandate is for "
+        f"{mandate.model.value}, which does not forecast. A mandate permits one model; "
+        "building the inputs to a second under it would make the permission mean whatever "
+        "the caller wanted it to."
+    )
+    raise ModelNotPermittedError(
+        message, context={"model": mandate.model.value, "subject": mandate.subject}
+    )
 
 
 def _require_money(value: Quantity, *, name: str) -> None:

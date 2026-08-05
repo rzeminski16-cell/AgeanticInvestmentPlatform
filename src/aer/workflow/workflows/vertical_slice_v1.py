@@ -41,6 +41,7 @@ from aer.core.hashing import canonical_json, sha256_hex
 from aer.core.schemas.request import ResearchRequestRead
 from aer.db.models import (
     Approval,
+    Calculation,
     Company,
     FinancialFact,
     Report,
@@ -49,7 +50,7 @@ from aer.db.models import (
     SectionStatus,
     SourceDocument,
 )
-from aer.render.markdown import render_markdown
+from aer.render.markdown import SectorNote, render_markdown
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
 from aer.services import calculations as calculation_service
 from aer.services.acquisition import record_acquisition
@@ -57,6 +58,14 @@ from aer.services.artefacts import store_artefact
 from aer.services.citations import review_evidence
 from aer.services.disagreements import escalations_for_job
 from aer.services.facts import persist_facts, upsert_company
+from aer.services.sectors import (
+    CLASSIFY_STEP,
+    classification_payload,
+    confirmed_classification,
+    metric_disclosure,
+    propose_from_sic,
+    sector_gate_required,
+)
 from aer.sources.sec.companyfacts import parse_company_facts
 from aer.sources.sec.pit import select_point_in_time
 from aer.verify.citations import verify_job_citations
@@ -67,6 +76,7 @@ __all__ = [
     "build_steps",
     "final_gate_payload",
     "plan_gate_payload",
+    "sector_gate_payload",
     "unmapped_gate_payload",
     "unmapped_gate_required",
 ]
@@ -95,6 +105,18 @@ def build_steps() -> list[WorkflowStep]:
         WorkflowStep(key="plan", run=_plan, estimated_cost_gbp=PLANNER_ESTIMATE_GBP),
         WorkflowStep(key="gate_plan", run=_gate_plan, gate=GateKind.PLAN.value),
         WorkflowStep(key="acquire", run=_acquire),
+        # Classification before extraction, because what kind of business this is decides
+        # which valuation models may run, and a run that discovers that after computing a
+        # discounted cash flow has already computed it.
+        WorkflowStep(key=CLASSIFY_STEP, run=_classify),
+        # Conditional: passes straight through for an ordinary company. A specialist
+        # proposal stops here, because it is the proposal that blocks a model and a
+        # classification nobody reviewed is a model deciding which models may run.
+        WorkflowStep(
+            key="gate_sector_specialist",
+            run=_gate_sector_specialist,
+            gate=GateKind.SECTOR_SPECIALIST.value,
+        ),
         WorkflowStep(key="extract", run=_extract),
         # Conditional: it passes straight through unless the extraction left tags the concept
         # map does not know. Declared unconditionally because a gate that only exists on the
@@ -411,6 +433,83 @@ async def _acquire(context: StepContext) -> StepResult:
 
 
 # ==========================================================================================
+# 3b. Classify
+# ==========================================================================================
+
+
+def sector_gate_payload(produced: Mapping[str, Any]) -> dict[str, Any]:
+    """What the sector gate approves. Delegates, so one definition serves both halves."""
+    return classification_payload(produced)
+
+
+async def _classify(context: StepContext) -> StepResult:
+    """Propose what kind of business this is, from the registry's own classification.
+
+    **Deterministic in this slice, and that is a deliberate floor rather than the finished
+    article.** The proposal comes from the filer's SIC code, which is free, reproducible and
+    already retrieved — so the gate and the enforcement it feeds are exercised on every run
+    without a model call. Phase 4's classifier agent replaces the proposal and nothing else:
+    the confirmation, the mandate and the block are indifferent to who proposed.
+
+    A SIC code matching no specialist profile produces an empty proposal, no gate, and the
+    standard model — which is the right answer for most listed companies.
+
+    **`Company.sic` is populated by the adapters that parse it**, which today means Companies
+    House and the SEC *submissions* endpoint. This slice acquires *companyfacts*, which does
+    not carry a SIC code, so a run through this path classifies nothing and takes the standard
+    model. That is safe rather than merely convenient — an absent classification is the
+    permissive state and it is reached here by the data genuinely not being present, not by a
+    lookup failing quietly — but it does mean the block is exercised by runs that resolve a
+    SIC and not yet by this one. The mechanism, the gate and the refusal are tested
+    independently of where the proposal came from.
+    """
+    acquired = context.output_of("acquire")
+    company = await context.session.get(Company, _uuid(acquired["company_id"]))
+    if company is None:  # pragma: no cover -- written by the prior step
+        message = "The acquire step's company row is missing."
+        raise StepPaused(message, gate=None)
+
+    proposal = propose_from_sic(company.sic or "")
+    profile = proposal.profile
+
+    output: dict[str, Any] = {
+        "sector_key": proposal.sector_key,
+        "sector_label": profile.label if profile is not None else "",
+        "rationale": proposal.rationale,
+        "proposed_by": proposal.proposed_by,
+        "confidence": proposal.confidence,
+        "sic_code": proposal.sic_code,
+        "sic_candidates": list(proposal.sic_candidates),
+        "allowed_models": [m.value for m in profile.allowed_models] if profile else [],
+        "blocked_models": [m.value for m in profile.blocked_models] if profile else [],
+        "required_metrics": list(profile.required_metrics) if profile else [],
+        "warnings": list(profile.warnings) if profile else [],
+    }
+    output["payload_hash"] = sha256_hex(canonical_json(sector_gate_payload(output)))
+    return StepResult(output=output)
+
+
+async def _gate_sector_specialist(context: StepContext) -> StepResult:
+    """Stop until a person agrees what kind of business this is.
+
+    **Skipped, not approved, when nothing specialist was proposed.** An ordinary company does
+    not need a human to confirm that it is ordinary, and a gate that fired on every run would
+    be one an operator learns to click through.
+    """
+    produced = context.outputs.get(CLASSIFY_STEP, {})
+    if not sector_gate_required(produced):
+        return StepResult(
+            output={
+                "gate": GateKind.SECTOR_SPECIALIST.value,
+                "required": False,
+                "sector_key": "",
+            }
+        )
+
+    return await _require_approval(context, gate=GateKind.SECTOR_SPECIALIST, of_step=CLASSIFY_STEP)
+
+
+# ==========================================================================================
 # 4. Extract
 # ==========================================================================================
 
@@ -703,6 +802,33 @@ def _as_percent(value: str) -> str:
 # ==========================================================================================
 
 
+async def _sector_note(context: StepContext) -> SectorNote | None:
+    """What this run's sector obliges its report to say, or ``None`` for an ordinary company.
+
+    Read from the *confirmed* classification rather than from the proposal, so a report can
+    only carry limitations somebody agreed applied. A run that reaches here with an
+    unconfirmed specialist proposal has already been stopped by the gate.
+    """
+    profile, _ = await confirmed_classification(context.session, context.job)
+    if profile is None:
+        return None
+
+    computed = {
+        row.name
+        for row in await context.session.scalars(
+            select(Calculation).where(Calculation.job_id == context.job.id)
+        )
+    }
+    disclosure = metric_disclosure(profile, computed=computed)
+
+    return SectorNote(
+        label=profile.label,
+        warnings=profile.warnings,
+        blocked_models=tuple(model.value for model in profile.blocked_models),
+        metric_disclosure=disclosure.as_paragraph(),
+    )
+
+
 async def _render(context: StepContext) -> StepResult:
     """Render the Markdown, archive it, and freeze the report."""
     request = await _request_for(context)
@@ -716,6 +842,7 @@ async def _render(context: StepContext) -> StepResult:
         job=context.job,
         request=request,
         company=company,
+        sector=await _sector_note(context),
     )
 
     artefact = await store_artefact(

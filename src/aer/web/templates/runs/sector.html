@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{#
+  The sector gate. Everything below is rendered from `payload`, whose hash sits in the hidden
+  field -- rendering one thing and hashing another is the failure a gate exists to prevent.
+
+  This gate is unlike the others: approving it does not merely let the run continue, it
+  decides which valuation models the run is permitted to use. So the blocked models are the
+  first thing on the page, before the classification that produced them.
+#}
+
+{% block title %}Confirm the sector &middot; Ageiantic Equity Research{% endblock %}
+
+{% block content %}
+  <nav class="text-sm">
+    <a href="/runs/{{ job.id }}" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
+      &larr; Back to the run
+    </a>
+  </nav>
+
+  <h1 class="mt-4 text-2xl font-semibold tracking-tight">Confirm what kind of business this is</h1>
+  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+    This run has been proposed as <strong>{{ payload.sector_key }}</strong>, and that
+    classification decides which valuation models it may run. A model proposed it; nothing
+    acts on it until you agree.
+  </p>
+
+  {% if payload.blocked_models %}
+    <section
+      class="mt-6 rounded-md border border-amber-400 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
+      role="alert"
+      id="blocked-models"
+    >
+      <h2 class="text-sm font-semibold text-amber-900 dark:text-amber-100">
+        Confirming this blocks {{ payload.blocked_models | length }}
+        model{{ '' if payload.blocked_models | length == 1 else 's' }}
+      </h2>
+      <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-900/90 dark:text-amber-100/90">
+        {% for model in payload.blocked_models %}<li class="font-mono">{{ model }}</li>{% endfor %}
+      </ul>
+      <p class="mt-2 text-sm text-amber-900/90 dark:text-amber-100/90">
+        Blocked, not discouraged. A run that reaches one of these stops rather than producing
+        a number with a caveat beside it.
+      </p>
+    </section>
+  {% endif %}
+
+  <section class="mt-8">
+    <h2 class="text-lg font-semibold tracking-tight">Why this classification</h2>
+    <p class="mt-2 max-w-3xl text-sm" id="rationale">{{ payload.rationale }}</p>
+    <p class="mt-2 text-xs text-slate-500">
+      Proposed by <span class="font-mono">{{ payload.proposed_by }}</span>.
+    </p>
+  </section>
+
+  {% if payload.warnings %}
+    <section class="mt-8">
+      <h2 class="text-lg font-semibold tracking-tight">What this sector means for the analysis</h2>
+      <ul class="mt-2 list-disc space-y-2 pl-5 text-sm" id="sector-warnings">
+        {% for warning in payload.warnings %}<li>{{ warning }}</li>{% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  <section class="mt-8">
+    <h2 class="text-lg font-semibold tracking-tight">What remains available</h2>
+    {% if payload.allowed_models %}
+      <ul class="mt-2 list-disc space-y-1 pl-5 text-sm" id="allowed-models">
+        {% for model in payload.allowed_models %}<li class="font-mono">{{ model }}</li>{% endfor %}
+      </ul>
+    {% else %}
+      <p class="mt-2 text-sm" id="allowed-models">
+        No model this platform implements applies to this sector.
+      </p>
+    {% endif %}
+  </section>
+
+  {% if decided %}
+    <section
+      class="mt-8 rounded-md border border-slate-300 bg-slate-100 p-4 dark:border-slate-700 dark:bg-slate-800"
+      role="status"
+      id="already-decided"
+    >
+      <p class="text-sm text-slate-800 dark:text-slate-200">
+        This gate was already <strong>{{ decided | lower }}</strong>. A decision is not a state
+        to be re-asserted; changing it needs a new run.
+      </p>
+    </section>
+  {% else %}
+    <form method="post" action="/runs/{{ job.id }}/gates/{{ gate }}" class="mt-8 space-y-4" id="gate-form">
+      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+      <input type="hidden" name="payload_hash" id="payload-hash" value="{{ payload_hash }}" />
+
+      <div>
+        <label for="notes" class="block text-sm font-medium">Notes (optional)</label>
+        <textarea
+          id="notes"
+          name="notes"
+          rows="3"
+          maxlength="4000"
+          class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+          placeholder="Why you agree or disagree with this classification. Recorded in the audit trail."
+        ></textarea>
+      </div>
+
+      <div class="flex flex-wrap gap-3">
+        <button
+          type="submit"
+          name="decision"
+          value="APPROVED"
+          id="approve"
+          class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+        >
+          Confirm and continue
+        </button>
+        <button
+          type="submit"
+          name="decision"
+          value="REJECTED"
+          id="reject"
+          class="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          Reject and stop
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-500">
+        Confirming records a hash of exactly the classification above. An approval of one
+        classification is not an approval of a different one.
+      </p>
+    </form>
+  {% endif %}
+{% endblock %}

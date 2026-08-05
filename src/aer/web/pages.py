@@ -56,6 +56,11 @@ from aer.services import cancellation as cancellation_service
 from aer.services import provenance
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
+from aer.services.sectors import (
+    CLASSIFY_STEP,
+    classification_payload,
+    sector_gate_required,
+)
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
 from aer.workflow.workflows.vertical_slice_v1 import (
@@ -301,6 +306,61 @@ async def financials_review(
             "payload_hash": payload_hash_for(payload),
             "decided": decided,
             "gate": GateKind.UK_FINANCIALS.value,
+            "csrf_field": CSRF_FIELD_NAME,
+            "csrf_token": token,
+        },
+    )
+    set_csrf_cookie(response, token)
+    return response
+
+
+@router.get("/runs/{job_id}/sector", response_class=HTMLResponse, summary="Confirm the sector")
+async def sector_review(
+    request: Request,
+    job_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """The conditional gate that decides which valuation models this run may use.
+
+    Unlike the other gates, approving here does not only let the run continue: it grants the
+    mandate the calculation layer requires. So the page leads with what confirming *blocks*
+    rather than with the classification itself.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    produced = await _step_output(session, job_id=job_id, step_key=CLASSIFY_STEP)
+    if produced is None:
+        return _problem(
+            request,
+            "This run has not classified the company yet. There is nothing to confirm.",
+            status=HTTP_404_NOT_FOUND,
+        )
+
+    if not sector_gate_required(produced):
+        return _problem(
+            request,
+            "This company was not classified into a specialist sector, so this gate does not "
+            "apply to this run. The standard model applies and there is nothing to confirm.",
+            status=HTTP_404_NOT_FOUND,
+        )
+
+    payload = classification_payload(produced)
+    decided = await _decision_for(session, job_id=job_id, gate=GateKind.SECTOR_SPECIALIST)
+    token = new_csrf_token(settings)
+
+    response: Response = render(
+        request,
+        "runs/sector.html",
+        {
+            "job": job,
+            "payload": payload,
+            "payload_hash": payload_hash_for(payload),
+            "decided": decided,
+            "gate": GateKind.SECTOR_SPECIALIST.value,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },

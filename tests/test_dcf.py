@@ -57,9 +57,15 @@ from aer.calc.units import (
     UnitMismatchError,
     money,
 )
+from aer.core.sectors import ValuationModel, unclassified_mandate
 
 ASSUMPTION = SourceRef.assumption("assumption-1")
 FACT = SourceRef.fact("fact-1")
+
+# An ordinary company: nobody classified it into a specialist sector, so the standard model
+# applies. The block itself is tested in `test_sectors_enforcement.py`; here the mandate is
+# the permission the arithmetic requires, and every call has to carry one.
+MANDATE = unclassified_mandate(ValuationModel.DCF_FCFF, subject="TESTCO")
 
 
 @pytest.fixture
@@ -145,7 +151,7 @@ class TestTheForecast:
     def test_each_year(
         self, context, year, revenue, ebit, nopat, depreciation, capex, nwc, movement, flow
     ):
-        projected = project(context, base_inputs())[year - 1]
+        projected = project(context, base_inputs(), mandate=MANDATE)[year - 1]
 
         assert projected.revenue.value == Decimal(revenue)
         assert projected.ebit.value == Decimal(ebit)
@@ -157,25 +163,25 @@ class TestTheForecast:
         assert projected.free_cash_flow.value == Decimal(flow)
 
     def test_ebitda_adds_depreciation_back(self, context):
-        years = project(context, base_inputs())
+        years = project(context, base_inputs(), mandate=MANDATE)
         assert years[-1].ebitda.value == Decimal("314.82")
 
     def test_the_discounted_years(self, context):
         # 122/1.1, 133.76/1.21, 143.9856/1.331
-        years = project(context, base_inputs())
+        years = project(context, base_inputs(), mandate=MANDATE)
         assert close(years[0].present_value, "110.90909091")
         assert close(years[1].present_value, "110.54545455")
         assert close(years[2].present_value, "108.17851240")
 
     def test_the_first_year_is_discounted_one_year_not_none(self, context):
         """Year one is a year away. Discounting it at t=0 overstates every valuation."""
-        years = project(context, base_inputs())
+        years = project(context, base_inputs(), mandate=MANDATE)
         assert years[0].discount_factor.value < 1
         assert close(years[0].discount_factor, "0.90909091")
 
     def test_working_capital_moves_from_the_opening_balance(self, context):
         """Year one's movement is against the balance sheet, not against nil."""
-        years = project(context, base_inputs(opening_working_capital=usd("60")))
+        years = project(context, base_inputs(opening_working_capital=usd("60")), mandate=MANDATE)
         assert years[0].change_in_working_capital.value == Decimal("50")
 
 
@@ -185,7 +191,7 @@ class TestTheForecast:
 class TestBothTerminalValues:
     def test_gordon_growth(self, context):
         # 143.9856 x 1.02 / (0.10 - 0.02) = 146.865312 / 0.08
-        result = discounted_cash_flow(context, base_inputs())
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
 
         assert result.gordon.terminal_value.value == Decimal("1835.8164")
         assert close(result.gordon.discounted_terminal_value, "1379.27603306")
@@ -195,7 +201,7 @@ class TestBothTerminalValues:
 
     def test_the_exit_multiple(self, context):
         # 314.82 x 10 = 3,148.2, discounted by 1.331
-        result = discounted_cash_flow(context, base_inputs())
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
 
         assert result.exit_multiple.terminal_value.value == Decimal("3148.2")
         assert close(result.exit_multiple.discounted_terminal_value, "2365.28925620")
@@ -204,7 +210,7 @@ class TestBothTerminalValues:
         assert close(result.exit_multiple.value_per_share, "21.94922314")
 
     def test_both_are_always_returned(self, context):
-        result = discounted_cash_flow(context, base_inputs())
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
 
         assert result.outcomes[0].method is TerminalMethod.GORDON_GROWTH
         assert result.outcomes[1].method is TerminalMethod.EXIT_MULTIPLE
@@ -212,7 +218,7 @@ class TestBothTerminalValues:
 
     def test_the_forecast_years_are_shared_rather_than_recomputed(self, context):
         """Both methods value the same business. Only the terminal assumption differs."""
-        result = discounted_cash_flow(context, base_inputs())
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
 
         difference = (
             result.exit_multiple.enterprise_value.value - result.gordon.enterprise_value.value
@@ -229,27 +235,27 @@ class TestTheCrossChecks:
 
     def test_gordon_growth_reports_the_multiple_it_implies(self, context):
         # 1,835.8164 / 314.82. A 2% perpetuity is a 5.8x exit, which is the argument.
-        result = discounted_cash_flow(context, base_inputs())
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
 
         assert result.gordon.implied_exit_multiple is not None
         assert close(result.gordon.implied_exit_multiple, "5.83132075")
 
     def test_the_exit_multiple_reports_the_growth_it_implies(self, context):
         # (3,148.2 x 0.10 - 143.9856) / (3,148.2 + 143.9856)
-        result = discounted_cash_flow(context, base_inputs())
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
 
         assert result.exit_multiple.implied_terminal_growth is not None
         assert close(result.exit_multiple.implied_terminal_growth, "0.05189088")
 
     def test_neither_restates_its_own_input_as_a_finding(self, context):
-        result = discounted_cash_flow(context, base_inputs())
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
 
         assert result.gordon.implied_terminal_growth is None
         assert result.exit_multiple.implied_exit_multiple is None
 
     def test_the_implied_growth_round_trips_to_the_same_terminal_value(self, context):
         """The cross-check is a rearrangement, so it has to invert exactly."""
-        result = discounted_cash_flow(context, base_inputs())
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
         implied = result.exit_multiple.implied_terminal_growth
         assert implied is not None
 
@@ -265,20 +271,20 @@ class TestTheCrossChecks:
 class TestTheTerminalShare:
     def test_it_appears_on_every_outcome(self, context):
         """The acceptance criterion: on every result, not on request."""
-        result = discounted_cash_flow(context, base_inputs())
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
 
         for outcome in result.outcomes:
             assert outcome.terminal_share.unit.is_dimensionless
             assert 0 < outcome.terminal_share.value < 1
 
     def test_it_is_the_discounted_terminal_value_over_enterprise_value(self, context):
-        result = discounted_cash_flow(context, base_inputs())
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
 
         assert close(result.gordon.terminal_share, "0.80710907")
         assert close(result.exit_multiple.terminal_share, "0.87768365")
 
     def test_a_longer_forecast_lowers_it(self, context):
-        short = discounted_cash_flow(context, base_inputs())
+        short = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
         long = discounted_cash_flow(
             context,
             base_inputs(
@@ -288,6 +294,7 @@ class TestTheTerminalShare:
                 depreciation_intensity=flat("depreciation_intensity", "0.05", years=8),
                 working_capital_intensity=flat("working_capital_intensity", "0.10", years=8),
             ),
+            mandate=MANDATE,
         )
 
         assert long.gordon.terminal_share.value < short.gordon.terminal_share.value
@@ -298,24 +305,28 @@ class TestTheTerminalShare:
 
 class TestCaveats:
     def test_a_high_terminal_share_is_stated(self, context):
-        result = discounted_cash_flow(context, base_inputs())
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
         assert HIGH_TERMINAL_SHARE_CAVEAT in result.caveats
 
     def test_methods_that_disagree_materially_say_so(self, context):
         # 12.09 against 21.95 is 81% apart, and that is the honest width of the answer.
-        result = discounted_cash_flow(context, base_inputs())
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
         assert METHOD_DISAGREEMENT_CAVEAT in result.caveats
 
     def test_a_terminal_growth_rate_near_the_discount_rate_is_flagged(self, context):
-        result = discounted_cash_flow(context, base_inputs(terminal_growth=rate("0.095")))
+        result = discounted_cash_flow(
+            context, base_inputs(terminal_growth=rate("0.095")), mandate=MANDATE
+        )
         assert NARROW_SPREAD_CAVEAT in result.caveats
 
     def test_a_comfortable_spread_is_not_flagged(self, context):
-        result = discounted_cash_flow(context, base_inputs(terminal_growth=rate("0.02")))
+        result = discounted_cash_flow(
+            context, base_inputs(terminal_growth=rate("0.02")), mandate=MANDATE
+        )
         assert NARROW_SPREAD_CAVEAT not in result.caveats
 
     def test_equity_value_below_zero_is_stated_rather_than_printed(self, context):
-        result = discounted_cash_flow(context, base_inputs(net_debt=usd("9000")))
+        result = discounted_cash_flow(context, base_inputs(net_debt=usd("9000")), mandate=MANDATE)
         assert NEGATIVE_EQUITY_CAVEAT in result.caveats
         assert result.gordon.value_per_share.value < 0
 
@@ -333,6 +344,7 @@ class TestCaveats:
                 terminal_growth=rate("0.01"),
                 exit_multiple=rate("4.5"),
             ),
+            mandate=MANDATE,
         )
 
         assert result.caveats == ()
@@ -344,11 +356,15 @@ class TestCaveats:
 class TestItRefusesRatherThanProducingAVastNumber:
     def test_terminal_growth_equal_to_the_discount_rate(self, context):
         with pytest.raises(CalculationError, match="unbounded"):
-            discounted_cash_flow(context, base_inputs(terminal_growth=rate("0.10")))
+            discounted_cash_flow(
+                context, base_inputs(terminal_growth=rate("0.10")), mandate=MANDATE
+            )
 
     def test_terminal_growth_above_the_discount_rate(self, context):
         with pytest.raises(CalculationError, match="perpetuity denominator"):
-            discounted_cash_flow(context, base_inputs(terminal_growth=rate("0.12")))
+            discounted_cash_flow(
+                context, base_inputs(terminal_growth=rate("0.12")), mandate=MANDATE
+            )
 
     def test_a_perpetuity_of_a_negative_cash_flow(self, context):
         with pytest.raises(CalculationError, match="Growing a"):
@@ -405,6 +421,7 @@ class TestItRefusesRatherThanProducingAVastNumber:
             project(
                 context,
                 base_inputs(ebit_margin=flat("ebit_margin", "0.20", years=4)),
+                mandate=MANDATE,
             )
 
     def test_a_forecast_longer_than_the_ceiling(self, context):
@@ -421,6 +438,7 @@ class TestItRefusesRatherThanProducingAVastNumber:
                         "working_capital_intensity", "0.10", years=years
                     ),
                 ),
+                mandate=MANDATE,
             )
 
     def test_a_driver_path_with_no_values(self):
@@ -459,18 +477,20 @@ class TestTheBridgeToEquityValue:
                     BridgeItem("Minority interests", usd("-25")),
                 )
             ),
+            mandate=MANDATE,
         )
-        plain = discounted_cash_flow(context, base_inputs())
+        plain = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
 
         # 1,708.909... - 500 + 150 - 90 - 25
         assert close(adjusted.gordon.equity_value, "1243.90909091")
         assert adjusted.gordon.equity_value.value != plain.gordon.equity_value.value
 
     def test_a_single_positive_adjustment_raises_the_equity_value(self, context):
-        plain = discounted_cash_flow(context, base_inputs())
+        plain = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
         adjusted = discounted_cash_flow(
             context,
             base_inputs(non_operating=(BridgeItem("Listed investments", usd("300")),)),
+            mandate=MANDATE,
         )
 
         assert adjusted.gordon.equity_value.value - plain.gordon.equity_value.value == Decimal(
@@ -478,10 +498,11 @@ class TestTheBridgeToEquityValue:
         )
 
     def test_a_single_negative_adjustment_lowers_it(self, context):
-        plain = discounted_cash_flow(context, base_inputs())
+        plain = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
         adjusted = discounted_cash_flow(
             context,
             base_inputs(non_operating=(BridgeItem("Minority interests", usd("-200")),)),
+            mandate=MANDATE,
         )
 
         assert adjusted.gordon.equity_value.value - plain.gordon.equity_value.value == Decimal(
@@ -489,7 +510,7 @@ class TestTheBridgeToEquityValue:
         )
 
     def test_enterprise_value_less_net_debt_is_equity_value(self, context):
-        result = discounted_cash_flow(context, base_inputs())
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
 
         # Checked in the calculation context. Python's default 28 digits would round the
         # 34-digit enterprise value while subtracting, and the identity would fail on the
@@ -499,7 +520,7 @@ class TestTheBridgeToEquityValue:
         assert result.gordon.equity_value.value == expected
 
     def test_the_bridge_is_one_recorded_calculation_per_method(self, context):
-        discounted_cash_flow(context, base_inputs())
+        discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
         assert len(context.named("equity_value")) == 2
 
 
@@ -508,7 +529,7 @@ class TestTheBridgeToEquityValue:
 
 class TestProvenance:
     def test_every_line_of_every_year_is_recorded(self, context):
-        discounted_cash_flow(context, base_inputs())
+        discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
 
         for name in (
             "projected_revenue",
@@ -526,7 +547,7 @@ class TestProvenance:
 
     def test_the_per_share_figure_traces_back_to_a_driver(self, context):
         """The acceptance criterion: complete lineage to a fact or a confirmed assumption."""
-        result = discounted_cash_flow(context, base_inputs())
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
 
         seen: set[str] = set()
         frontier = [result.gordon.value_per_share.source]
@@ -549,7 +570,7 @@ class TestProvenance:
 
     def test_each_forecast_year_is_recorded_as_its_own_input_to_the_enterprise_value(self, context):
         """A total nobody can decompose is a total nobody can check."""
-        discounted_cash_flow(context, base_inputs())
+        discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
 
         record = context.named("enterprise_value")[0]
         names = [entry.name for entry in record.inputs]
@@ -562,7 +583,7 @@ class TestProvenance:
 
     def test_the_discounting_convention_is_on_the_record(self, context):
         """End-of-year rather than mid-year is a choice worth a quarter of a year's rate."""
-        discounted_cash_flow(context, base_inputs())
+        discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
 
         (record, *_) = context.named("discount_factor")
         assert any("end of each year" in note for note in record.assumptions)
@@ -581,6 +602,7 @@ class TestTheSensitivityGrid:
             columns=GridAxis("terminal_growth", (rate("0.01"), rate("0.02"), rate("0.03"))),
             method=TerminalMethod.GORDON_GROWTH,
             measure=GridMeasure.VALUE_PER_SHARE,
+            mandate=MANDATE,
         )
 
         assert len(grid.cells) == 9
@@ -595,6 +617,7 @@ class TestTheSensitivityGrid:
             columns=GridAxis("terminal_growth", (rate("0.02"), rate("0.03"))),
             method=TerminalMethod.GORDON_GROWTH,
             measure=GridMeasure.VALUE_PER_SHARE,
+            mandate=MANDATE,
         )
 
         centre = next(
@@ -613,6 +636,7 @@ class TestTheSensitivityGrid:
             columns=GridAxis("exit_multiple", (rate("8"), rate("12"))),
             method=TerminalMethod.EXIT_MULTIPLE,
             measure=GridMeasure.VALUE_PER_SHARE,
+            mandate=MANDATE,
         )
 
         identifiers = {cell.calculation_id for cell in grid.cells}
@@ -628,6 +652,7 @@ class TestTheSensitivityGrid:
             columns=GridAxis("terminal_growth", (rate("0.01"), rate("0.02"))),
             method=TerminalMethod.GORDON_GROWTH,
             measure=GridMeasure.VALUE_PER_SHARE,
+            mandate=MANDATE,
         )
 
         for growth in (Decimal("0.01"), Decimal("0.02")):
@@ -645,6 +670,7 @@ class TestTheSensitivityGrid:
             columns=GridAxis("terminal_growth", (rate("0.01"), rate("0.02"), rate("0.03"))),
             method=TerminalMethod.GORDON_GROWTH,
             measure=GridMeasure.VALUE_PER_SHARE,
+            mandate=MANDATE,
         )
 
         for wacc in (Decimal("0.09"), Decimal("0.11")):
@@ -660,6 +686,7 @@ class TestTheSensitivityGrid:
             columns=GridAxis("terminal_growth", (rate("0.01"), rate("0.02"), rate("0.03"))),
             method=TerminalMethod.GORDON_GROWTH,
             measure=GridMeasure.VALUE_PER_SHARE,
+            mandate=MANDATE,
         )
 
         assert len({cell.result.value for cell in grid.cells}) == 9
@@ -672,6 +699,7 @@ class TestTheSensitivityGrid:
             columns=GridAxis("terminal_growth", (rate("0.01"), rate("0.02"))),
             method=TerminalMethod.GORDON_GROWTH,
             measure=GridMeasure.ENTERPRISE_VALUE,
+            mandate=MANDATE,
         )
 
         assert grid.output_name == "enterprise_value_gordon_growth"
@@ -686,6 +714,7 @@ class TestTheSensitivityGrid:
                 columns=GridAxis("wacc", (rate("0.09"), rate("0.11"))),
                 method=TerminalMethod.GORDON_GROWTH,
                 measure=GridMeasure.VALUE_PER_SHARE,
+                mandate=MANDATE,
             )
 
     def test_an_axis_over_something_that_is_not_a_scalar_is_refused(self):
@@ -772,8 +801,10 @@ class TestProperties:
         assume(wacc + increase <= Decimal("0.30"))
         common = {"margin": margin, "growth": growth, "capex": capex, "multiple": multiple}
 
-        lower = discounted_cash_flow(context, built(wacc=wacc, **common))
-        higher = discounted_cash_flow(context, built(wacc=wacc + increase, **common))
+        lower = discounted_cash_flow(context, built(wacc=wacc, **common), mandate=MANDATE)
+        higher = discounted_cash_flow(
+            context, built(wacc=wacc + increase, **common), mandate=MANDATE
+        )
 
         for method in TerminalMethod:
             assert (
@@ -795,8 +826,10 @@ class TestProperties:
         assume(margin + increase <= Decimal("0.60"))
         common = {"wacc": wacc, "growth": growth, "capex": capex}
 
-        lower = discounted_cash_flow(context, built(margin=margin, **common))
-        higher = discounted_cash_flow(context, built(margin=margin + increase, **common))
+        lower = discounted_cash_flow(context, built(margin=margin, **common), mandate=MANDATE)
+        higher = discounted_cash_flow(
+            context, built(margin=margin + increase, **common), mandate=MANDATE
+        )
 
         for method in TerminalMethod:
             assert (
@@ -816,9 +849,11 @@ class TestProperties:
     ):
         common = {"wacc": wacc, "margin": margin}
 
-        lower = discounted_cash_flow(context, built(terminal_growth=terminal_growth, **common))
+        lower = discounted_cash_flow(
+            context, built(terminal_growth=terminal_growth, **common), mandate=MANDATE
+        )
         higher = discounted_cash_flow(
-            context, built(terminal_growth=terminal_growth + increase, **common)
+            context, built(terminal_growth=terminal_growth + increase, **common), mandate=MANDATE
         )
 
         assert higher.gordon.enterprise_value.value > lower.gordon.enterprise_value.value
@@ -843,8 +878,10 @@ class TestProperties:
         """Homogeneity of degree one. A valuation in thousands is the same valuation."""
         common = {"wacc": wacc, "margin": margin, "capex": capex, "nwc": nwc}
 
-        plain = discounted_cash_flow(context, built(revenue=revenue, **common))
-        scaled = discounted_cash_flow(context, built(revenue=revenue * scale, **common))
+        plain = discounted_cash_flow(context, built(revenue=revenue, **common), mandate=MANDATE)
+        scaled = discounted_cash_flow(
+            context, built(revenue=revenue * scale, **common), mandate=MANDATE
+        )
 
         for method in TerminalMethod:
             expected = plain.outcome(method).enterprise_value.value * scale
@@ -857,7 +894,9 @@ class TestProperties:
         self, context, wacc, margin, net_debt, capex
     ):
         result = discounted_cash_flow(
-            context, built(wacc=wacc, margin=margin, net_debt=net_debt, capex=capex)
+            context,
+            built(wacc=wacc, margin=margin, net_debt=net_debt, capex=capex),
+            mandate=MANDATE,
         )
 
         # In the calculation context, not Python's 28-digit default: subtracting even zero
@@ -900,7 +939,7 @@ class TestProperties:
         )
 
         values = [
-            discounted_cash_flow(context, case).gordon.value_per_share.value
+            discounted_cash_flow(context, case, mandate=MANDATE).gordon.value_per_share.value
             for case in (bear, base, bull)
         ]
         assert values == sorted(values)
@@ -908,7 +947,9 @@ class TestProperties:
     @settings(max_examples=40, suppress_health_check=[HealthCheck.function_scoped_fixture])
     @given(wacc=waccs, margin=margins, multiple=multiples)
     def test_the_terminal_share_is_always_a_share(self, context, wacc, margin, multiple):
-        result = discounted_cash_flow(context, built(wacc=wacc, margin=margin, multiple=multiple))
+        result = discounted_cash_flow(
+            context, built(wacc=wacc, margin=margin, multiple=multiple), mandate=MANDATE
+        )
 
         for method in TerminalMethod:
             share = result.outcome(method).terminal_share.value

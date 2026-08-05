@@ -288,6 +288,12 @@ class TestTheWholeRun:
             "plan",
             "gate_plan",
             "acquire",
+            # Classification runs before anything is computed, because what kind of business
+            # this is decides which valuation models may run.
+            "classify",
+            # Conditional, like the financials gate below: it passes straight through for a
+            # company whose SIC code matches no specialist profile, which this one does not.
+            "gate_sector_specialist",
             "extract",
             # A step even on the runs it does not apply to. It succeeds without stopping
             # when every tag mapped, which is what this fixture's filing does.

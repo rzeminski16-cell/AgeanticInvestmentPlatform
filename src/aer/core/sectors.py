@@ -10,12 +10,22 @@ hard gate, not a footnote.** A report that ran the standard model anyway and dis
 in small print is worse than one that refused, because the number is what a reader
 remembers.
 
-**This module is the vocabulary and the seed; nothing consumes it yet.** Phase 3 builds the
-classifier and the gate. It lives here now because the seed ships in migration 0014, and a
-table seeded with rows nobody can compare against application code is data with no owner.
-:mod:`aer.db.models.sector_profile` holds the table, and a test asserts the seeded rows and
-:data:`SECTOR_PROFILES` still agree — a migration and a constant drifting apart would be
-silent, and the symptom would be a gate that fires on the wrong sectors.
+**The enforcement is a capability, not a check somebody remembers to run.**
+:class:`ValuationMandate` is permission to run one model on one company, and the only way to
+obtain one is to pass the sector profile's rules — the validation is in ``__post_init__``, so
+there is no constructor, no ``replace`` and no ``__setattr__`` that produces a mandate the
+profile would not allow. :func:`aer.calc.dcf.discounted_cash_flow` takes one, so a blocked
+model is not something a caller has to avoid: it is something they cannot express.
+
+That is what `docs/phase-3-plan.md` task 28 means by *the block, not the footnote*, and by
+*asserted at the calculation layer rather than at the page*. A guard in a route protects that
+route. A guard in a service protects callers who go through the service. A required argument
+whose type cannot be constructed for a blocked model protects every route there is.
+
+:mod:`aer.db.models.sector_profile` holds the table, seeded in migration 0014, and a test
+asserts the seeded rows and :data:`SECTOR_PROFILES` still agree — a migration and a constant
+drifting apart would be silent, and the symptom would be a gate that fires on the wrong
+sectors.
 
 Pure: no I/O, no database. ``mypy --strict``.
 """
@@ -26,7 +36,19 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Final
 
-__all__ = ["SECTOR_PROFILES", "SectorProfile", "ValuationModel", "profile_for"]
+from aer.errors import AerError
+
+__all__ = [
+    "SECTOR_PROFILES",
+    "ModelNotPermittedError",
+    "SectorProfile",
+    "ValuationMandate",
+    "ValuationModel",
+    "mandate_for",
+    "profile_for",
+    "suggested_profiles",
+    "unclassified_mandate",
+]
 
 
 class ValuationModel(StrEnum):
@@ -235,3 +257,222 @@ def profile_for(key: str) -> SectorProfile | None:
     of receiving a blank profile that silently allows everything.
     """
     return _BY_KEY.get(key)
+
+
+# -- The mandate -------------------------------------------------------------------------
+
+
+class ModelNotPermittedError(AerError):
+    """A valuation model was attempted on a business its sector profile does not permit.
+
+    Its own class rather than a `ValidationError`, because the caller's next step is
+    different: a malformed request is corrected by the requester, and this is answered by
+    running one of the models the profile does allow — or by disagreeing with the
+    classification, which is a decision at the sector gate rather than a code change.
+    """
+
+    code = "valuation_model_not_permitted"
+    http_status = 409
+
+
+@dataclass(frozen=True, slots=True)
+class ValuationMandate:
+    """Permission to run one valuation model on one company.
+
+    **Constructing one is the check.** Validation is in ``__post_init__``, so a mandate for a
+    blocked model does not exist to be passed around: the construction raises. That is what
+    lets :func:`aer.calc.dcf.discounted_cash_flow` take a mandate as a required argument and
+    thereby be *uncallable* for a bank, rather than merely refusing when called.
+
+    ``confirmed_by`` is the person who agreed the classification at the sector gate. A
+    classification a model proposed and nobody confirmed cannot produce a mandate, because
+    an unreviewed guess about what kind of business this is would otherwise decide which
+    models are permitted — and the wrong guess in the permissive direction is a discounted
+    cash flow on a bank.
+    """
+
+    model: ValuationModel
+
+    # The company this mandate covers, as a ticker or an identifier. Not consulted by the
+    # arithmetic, which knows nothing about companies; recorded so that a mandate is
+    # self-describing in a log line and so the service layer can assert it matches the run.
+    subject: str
+
+    # The profile key, or "" for a company nobody classified. Empty is a real state and not
+    # a missing value: most companies are ordinary and run the standard model.
+    sector_key: str
+
+    # Who confirmed the classification. Required whenever `sector_key` is set, and
+    # meaningless when it is not.
+    confirmed_by: str
+
+    def __post_init__(self) -> None:
+        if not self.subject:
+            message = (
+                "A valuation mandate names no company. A permission that does not say what "
+                "it is a permission for is one that can be reused against anything."
+            )
+            raise ModelNotPermittedError(message, context={"model": self.model.value})
+
+        if not self.sector_key:
+            if self.confirmed_by:
+                message = (
+                    f"A mandate for {self.subject} names a confirmer but no sector. Either "
+                    "the classification was confirmed, in which case it has a key, or it "
+                    "was not, in which case nobody confirmed anything."
+                )
+                raise ModelNotPermittedError(message, context={"subject": self.subject})
+            return
+
+        profile = profile_for(self.sector_key)
+        if profile is None:
+            message = (
+                f"{self.sector_key!r} is not a sector profile this platform knows. Known: "
+                f"{', '.join(sorted(_BY_KEY))}. A classification into a sector with no "
+                "profile enforces nothing, which is worse than no classification because it "
+                "looks like enforcement."
+            )
+            raise ModelNotPermittedError(
+                message, context={"sector": self.sector_key, "subject": self.subject}
+            )
+
+        if not self.confirmed_by:
+            message = (
+                f"The classification of {self.subject} as {profile.label} has not been "
+                "confirmed by anybody. A model may propose what kind of business this is; "
+                "only a person may agree to it, because the proposal decides which "
+                "valuation models are permitted and an unreviewed guess in the permissive "
+                "direction is a discounted cash flow on a bank."
+            )
+            raise ModelNotPermittedError(
+                message, context={"sector": self.sector_key, "subject": self.subject}
+            )
+
+        if not profile.permits(self.model):
+            raise ModelNotPermittedError(
+                _refusal_message(self.model, profile=profile, subject=self.subject),
+                context={
+                    "model": self.model.value,
+                    "sector": profile.key,
+                    "subject": self.subject,
+                    "blocked": self.model in profile.blocked_models,
+                    "offered": [m.value for m in profile.allowed_models],
+                },
+            )
+
+    @property
+    def profile(self) -> SectorProfile | None:
+        """The profile this mandate was granted under, or ``None`` when unclassified."""
+        return profile_for(self.sector_key) if self.sector_key else None
+
+    @property
+    def warnings(self) -> tuple[str, ...]:
+        """What a report produced under this mandate has to say about its own limits."""
+        profile = self.profile
+        return profile.warnings if profile is not None else ()
+
+    @property
+    def required_metrics(self) -> tuple[str, ...]:
+        """The metrics a report on this sector must carry, or disclose as absent."""
+        profile = self.profile
+        return profile.required_metrics if profile is not None else ()
+
+    def __str__(self) -> str:
+        where = self.sector_key or "unclassified"
+        return f"{self.model.value} for {self.subject} ({where})"
+
+
+def _refusal_message(model: ValuationModel, *, profile: SectorProfile, subject: str) -> str:
+    """Why this model is refused here, and what is offered instead.
+
+    The message carries the profile's own warnings rather than a summary of them. A refusal
+    that says "not permitted for this sector" tells a reader they have been stopped; one that
+    says *why* enterprise value is meaningless for a bank tells them something they can act
+    on, and is the difference between a control and an obstacle.
+    """
+    offered = (
+        ", ".join(sorted(m.value for m in profile.allowed_models))
+        if profile.allowed_models
+        else "no model this platform implements"
+    )
+
+    if model in profile.blocked_models:
+        opening = (
+            f"{model.value} is blocked for {profile.label.lower()} and {subject} is "
+            f"classified as one. This is not an approximation that would be roughly right — "
+            f"it is a model whose assumptions the business does not satisfy."
+        )
+    else:
+        opening = (
+            f"{model.value} is not implemented for {profile.label.lower()}. It is not "
+            "blocked as wrong; nobody has built it, and running a different model and "
+            "labelling it this one would be worse."
+        )
+
+    lines = [opening, f"What this profile permits: {offered}."]
+    lines.extend(profile.warnings)
+    return " ".join(lines)
+
+
+def mandate_for(
+    model: ValuationModel, *, subject: str, profile: SectorProfile, confirmed_by: str
+) -> ValuationMandate:
+    """Permission to run ``model`` on ``subject``, given a confirmed classification.
+
+    Raises:
+        ModelNotPermittedError: If the profile blocks the model, does not implement it, or
+            nobody confirmed the classification.
+    """
+    return ValuationMandate(
+        model=model,
+        subject=subject,
+        sector_key=profile.key,
+        confirmed_by=confirmed_by,
+    )
+
+
+def unclassified_mandate(model: ValuationModel, *, subject: str) -> ValuationMandate:
+    """Permission for a company nobody has classified into a specialist sector.
+
+    The ordinary case, and deliberately permissive: most listed companies are not banks,
+    insurers, REITs or pre-revenue biotechs, and requiring a positive classification before
+    anything could run would make the common path the exceptional one.
+
+    **The safety of this rests on the gate, not on this function.** A run whose classifier
+    proposed a specialist sector stops at ``SECTOR_SPECIALIST`` until somebody decides, so
+    "unclassified" reaches here only when nothing was proposed at all.
+    """
+    return ValuationMandate(model=model, subject=subject, sector_key="", confirmed_by="")
+
+
+def suggested_profiles(
+    sic_code: str, *, profiles: tuple[SectorProfile, ...] = SECTOR_PROFILES
+) -> tuple[SectorProfile, ...]:
+    """The profiles whose SIC prefixes match, longest prefix first.
+
+    A hint for the classifier, not a classification. SIC codes are self-reported, decades
+    old in places, and a holding company files under whatever its largest subsidiary does —
+    so this narrows the guess and a person still confirms it. Returning several is honest:
+    a reader has to decide whether this filer really is one.
+
+    ``profiles`` is a seam, not an option. **No two seeded profiles currently share a prefix
+    relationship**, so the longest-prefix rule below is unobservable against the real
+    registry — a test that only used the seed would assert nothing. A test asserts the rule
+    against a constructed pair, and a second test asserts the seed's non-overlap so that the
+    day it stops holding, somebody is told rather than surprised.
+
+    An empty code needs no special case: no profile declares an empty prefix, so nothing
+    matches and the answer is already ``()``.
+    """
+    cleaned = sic_code.strip()
+
+    matched = [
+        (len(prefix), profile)
+        for profile in profiles
+        for prefix in profile.sic_prefixes
+        if cleaned.startswith(prefix)
+    ]
+    seen: dict[str, SectorProfile] = {}
+    for _, profile in sorted(matched, key=lambda pair: -pair[0]):
+        seen.setdefault(profile.key, profile)
+    return tuple(seen.values())

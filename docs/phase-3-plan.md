@@ -427,6 +427,55 @@ unclassified company runs the standard model; the seeded warnings reach the repo
 **Acceptance.** A bank ticker cannot produce a DCF by any route, asserted at the calculation
 layer rather than at the page.
 
+**Outcome (2026-08-05).** Done. The acceptance criterion's phrase *by any route* decided the
+design, and ADR 0029 records why every obvious implementation fails it.
+
+- **The block is a type.** `ValuationMandate` is permission to run one model on one company,
+  validated in `__post_init__` — so a mandate for `dcf_fcff` on a bank does not exist to be
+  passed around. `project`, `discounted_cash_flow` and `sensitivity_grid` take one as a
+  required keyword argument with no default. A bank does not produce a DCF that is then
+  suppressed at the page; the permission cannot be constructed.
+- Four ways round it are closed and each is tested: the factory, the constructor,
+  `dataclasses.replace` (which re-runs `__post_init__`), and mutation (the dataclass is
+  frozen). A guard living only in the factory would have missed three of them.
+- **An unconfirmed specialist classification stops the run rather than falling through to
+  "unclassified".** This is the subtle half: unclassified is the *permissive* state, so
+  falling through would be permissively wrong and would be reached by forgetting rather than
+  by deciding. `confirmed_classification` raises; the workflow gate is what makes it
+  reachable only when nothing specialist was proposed.
+- The refusal names the profile, the seeded warnings verbatim and what is offered instead —
+  so a REIT's refusal literally contains "P/FFO", which is the plan's own wording for what
+  the operator should be handed. "Blocked" and "not implemented" read differently, because
+  they are different statements and conflating them misleads in both directions.
+- Required metrics are disclosed both ways: what the run produced and what it owed and did
+  not. A list of what a report has says nothing about what it was supposed to have.
+- The sector block renders **immediately after the header**, before any analysis. A sector
+  warning at the foot of a report is a footnote, which is the thing this task exists to
+  prevent.
+- **The classifier is a floor.** The proposal comes from the filer's SIC code — free,
+  deterministic and available before any model call. `Company.sic` is populated by the
+  adapters that parse it (Companies House, the SEC *submissions* endpoint); this slice
+  acquires *companyfacts*, which carries none, so a run through that path classifies nothing
+  and takes the standard model. Safe, and honestly limited: the block is exercised by runs
+  that resolve a SIC and not yet by the slice. Phase 4's classifier agent replaces the
+  proposal and nothing else.
+- **The first sabotage run was worthless and said so by being perfect.** 38 of 38 "caught",
+  because adding a required `mandate` argument had broken `tests/test_dcf.py` — every case
+  failed for that reason rather than for the sabotage. `mypy` had found the two production
+  call sites immediately; the untyped tests it does not check were invisible. Fixed and
+  re-run properly: **33 of 38, five escapes.**
+- Three of those five were real, and each produced a change rather than a tolerance. Two
+  guards were the same check written twice, so deleting either changed nothing observable —
+  now genuinely different, because a *forecast* is the raw material of both free-cash-flow
+  models while `discounted_cash_flow` is specifically the firm one. The longest-prefix rule
+  in the SIC lookup was unobservable against the seed, since no two profiles overlap by
+  prefix — now tested against a constructed pair, with a second test asserting the seed's
+  non-overlap so the day it stops holding somebody is told. And nothing rendered a *whole*
+  report, so moving the sector block to the foot passed: every test called `_sector_block`
+  directly, and position is the entire claim. The other two escapes were redundant code that
+  no test could distinguish, and it was deleted.
+- Final: 38 of 38 caught, on a suite that was green to begin with.
+
 ---
 
 ## Task 29 — Prices and corporate actions *(conditional on the subscription)*

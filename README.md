@@ -1065,6 +1065,34 @@ distinguishes a computed grid from an interpolated one — see
 `docs/adr/0028-a-sensitivity-grid-is-eighty-one-valuations.md`, which also explains why
 interpolating is wrong in the direction that flatters the valuation.
 
+### Sector enforcement: the block, not the footnote
+
+A discounted cash flow on a bank is not a rough answer, it is a category error that looks
+like a valuation: deposits are a bank's raw material rather than its financing, so enterprise
+value does not mean what the model assumes.
+
+So the block is a **type**, not a check. `aer/core/sectors.py` defines `ValuationMandate` —
+permission to run one model on one company — and validates it in `__post_init__`. A mandate
+for `dcf_fcff` on a bank does not exist to be passed around: the factory raises, the
+constructor raises, `dataclasses.replace` raises because it re-runs the validation, and the
+dataclass is frozen so a permitted mandate cannot be mutated into a forbidden one.
+`aer/calc/dcf.py` then takes a mandate as a **required argument with no default**, which is
+what makes the guarantee "by any route" rather than "on the routes somebody remembered".
+
+**A model proposes the classification; only a person confirms it.** The proposal comes from
+the filer's SIC code today and from a Phase 4 agent later; either way it reaches nothing until
+the `SECTOR_SPECIALIST` gate is approved. An **unconfirmed** specialist proposal stops the run
+rather than falling through to "unclassified" — because unclassified is the *permissive*
+state, and falling through would be the wrong answer reached by forgetting.
+
+**The refusal is useful.** It names the sector, the profile's seeded warnings verbatim and
+what is offered instead, so a REIT's refusal says P/FFO rather than "not permitted". "Blocked"
+and "not implemented" read differently, because they are different statements.
+
+**And the block is a block.** `SectorNote` renders immediately after the report header, before
+any analysis, naming the models that were not run. A sector warning at the foot of a report is
+a footnote. See `docs/adr/0029-the-sector-block-is-a-type-not-a-check.md`.
+
 ### Model calls
 
 Every call goes through a provider, a router and a meter — see
