@@ -592,6 +592,19 @@ figure to its assumptions.
 **Acceptance.** From the valuation page a reader reaches any input's origin in two clicks — the
 same standard Phase 2 set for evidence.
 
+**Delivered (2026-08-05).** `/runs/{id}/valuation` and `/calculations/{id}`, both
+server-rendered with no script of their own, plus `aer/services/valuation_view.py`.
+
+**Read back from the run's ledger, never recomputed.** A page that re-ran the valuation would
+show today's answer beside yesterday's report and both would look authoritative. Where a
+figure is absent the page says the run did not produce it.
+
+Building the surface exposed a provenance gap in task 27's work: `enterprise_value`,
+`equity_value`, `terminal_value_share` and `value_per_share` each run **twice** per valuation,
+once per terminal method, and the ledger held two rows with the same name, different answers
+and nothing saying why. `method` is now a recorded parameter on all four — which the page
+needed, and which a reader reading the calculations table needed already.
+
 ---
 
 ## Task 32 — Golden calculations, and the gate extended

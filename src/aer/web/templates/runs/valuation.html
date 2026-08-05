@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{#
+  The valuation surface. Server-rendered, no script of its own -- the pattern task 20
+  established, and the reason the page works with JavaScript off.
+
+  Two orderings on this page are deliberate:
+
+  1. The sector banner comes before any figure. A blocked model shows the banner and *no*
+     valuation, rather than a valuation with the banner above it, because a number a reader
+     has seen is a number they remember.
+  2. The terminal-value share sits beside the per-share figure rather than in a footnote. A
+     discounted cash flow whose terminal value is three-quarters of the answer is a statement
+     about one assumption, and a reader has to meet that where they meet the number.
+
+  Every figure is a link to the calculation that produced it. That is the two-click standard:
+  one click to the arithmetic, one more to the fact or assumption underneath.
+#}
+
+{% block title %}Valuation &middot; Ageiantic Equity Research{% endblock %}
+
+{% block content %}
+  <nav class="text-sm">
+    <a href="/runs/{{ job.id }}" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
+      &larr; Back to the run
+    </a>
+  </nav>
+
+  <h1 class="mt-4 text-2xl font-semibold tracking-tight">Valuation</h1>
+  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+    Every figure below is a link to the calculation that produced it, and every calculation
+    lists the facts and assumptions it rests on. Nothing here is recomputed &mdash; this is
+    what the run recorded.
+  </p>
+
+  {% if view.sector %}
+    <section
+      class="mt-6 rounded-md border-2 border-amber-500 bg-amber-50 p-5 dark:border-amber-700 dark:bg-amber-950/40"
+      role="alert"
+      id="sector-banner"
+    >
+      <h2 class="text-base font-bold text-amber-900 dark:text-amber-100">
+        {{ view.sector.label }}
+      </h2>
+      {% if view.sector.blocked_models %}
+        <p class="mt-2 text-sm font-semibold text-amber-900 dark:text-amber-100">
+          This platform does not run
+          {{ view.sector.blocked_models | join(', ') }} for this sector. The model is blocked
+          rather than discouraged: it was not run, and no figure on this page came from it.
+        </p>
+      {% endif %}
+      {% if view.sector.warnings %}
+        <ul class="mt-3 list-disc space-y-2 pl-5 text-sm text-amber-900/90 dark:text-amber-100/90">
+          {% for warning in view.sector.warnings %}<li>{{ warning }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  {% if view.sector and view.sector.blocks_the_dcf %}
+    <p class="mt-8 text-sm" id="no-dcf">
+      No discounted cash flow is shown, because none was run.
+    </p>
+  {% elif not view.has_valuation %}
+    <p class="mt-8 text-sm" id="no-valuation">
+      This run recorded no valuation. Nothing is computed here to fill the gap &mdash; a
+      figure produced by this page would be a figure the report does not contain.
+    </p>
+  {% else %}
+    <section class="mt-8">
+      <h2 class="text-lg font-semibold tracking-tight">Both terminal methods</h2>
+      <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+        Two terminal assumptions, carried through separately. Where they disagree, that
+        disagreement is the finding.
+      </p>
+
+      <div class="mt-4 overflow-x-auto">
+        <table class="w-full min-w-[36rem] border-collapse text-sm" id="terminal-methods">
+          <thead>
+            <tr class="border-b border-slate-300 text-left dark:border-slate-700">
+              <th scope="col" class="py-2 pr-4 font-semibold">Figure</th>
+              {% for outcome in outcomes %}
+                <th scope="col" class="py-2 pr-4 font-semibold">{{ outcome.label }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row_key, row_label in rows %}
+              <tr class="border-b border-slate-200 dark:border-slate-800">
+                <th scope="row" class="py-2 pr-4 text-left font-normal">{{ row_label }}</th>
+                {% for outcome in outcomes %}
+                  {% set figure = outcome[row_key] %}
+                  <td class="py-2 pr-4">
+                    {% if figure %}
+                      <a
+                        href="{{ figure.href }}"
+                        class="font-mono text-sky-700 underline underline-offset-2 dark:text-sky-400"
+                        id="figure-{{ outcome.method.value }}-{{ row_key }}"
+                      >{{ figure.value }}</a>
+                      <span class="text-xs text-slate-500">{{ figure.unit }}</span>
+                      {% if row_key == 'terminal_share' and outcome.terminal_share_is_high %}
+                        <span
+                          class="ml-1 rounded bg-amber-200 px-1 text-xs font-semibold text-amber-900 dark:bg-amber-900 dark:text-amber-100"
+                          id="high-terminal-{{ outcome.method.value }}"
+                        >most of the answer</span>
+                      {% endif %}
+                    {% else %}
+                      <span class="text-slate-500">not recorded</span>
+                    {% endif %}
+                  </td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if view.methods_disagree is not none %}
+        <p class="mt-3 text-sm" id="method-disagreement">
+          The two methods differ by
+          <span class="font-mono">{{ '%.1f' | format(view.methods_disagree * 100) }}%</span>
+          of the lower figure.
+        </p>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  {% if view.grids %}
+    <section class="mt-10">
+      <h2 class="text-lg font-semibold tracking-tight">Sensitivity</h2>
+      {% for grid in view.grids %}
+        <h3 class="mt-4 text-sm font-semibold">{{ grid.label }}</h3>
+        <p class="mt-1 text-xs text-slate-500">
+          {{ grid.output_name }} ({{ grid.output_unit }}),
+          <span class="font-mono">{{ grid.y_assumption }}</span> down against
+          <span class="font-mono">{{ grid.x_assumption }}</span> across.
+          Every cell is a valuation of its own and links to it.
+        </p>
+        <div class="mt-2 overflow-x-auto">
+          <table class="min-w-full border-collapse text-sm" id="grid-{{ loop.index0 }}">
+            <thead>
+              <tr class="border-b border-slate-300 text-left dark:border-slate-700">
+                <th scope="col" class="py-2 pr-4 font-semibold">
+                  {{ grid.y_assumption }} \ {{ grid.x_assumption }}
+                </th>
+                {% for x in grid.x_values %}
+                  <th scope="col" class="py-2 pr-4 text-right font-mono font-semibold">{{ x }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for y, cells in grid.rows %}
+                <tr class="border-b border-slate-200 dark:border-slate-800">
+                  <th scope="row" class="py-2 pr-4 text-left font-mono font-normal">{{ y }}</th>
+                  {% for x, output, calculation_id in cells %}
+                    <td class="py-2 pr-4 text-right">
+                      <a
+                        href="/calculations/{{ calculation_id }}"
+                        class="font-mono text-sky-700 underline underline-offset-2 dark:text-sky-400"
+                      >{{ output }}</a>
+                    </td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endfor %}
+    </section>
+  {% endif %}
+
+  <section class="mt-10">
+    <h2 class="text-lg font-semibold tracking-tight">Comparable companies</h2>
+    {% if comps_rows %}
+      <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+        Against
+        {{ comps_rows | length }} peer{{ '' if comps_rows | length == 1 else 's' }} a person
+        confirmed, on a <span class="font-mono">{{ view.comps.basis.value }}</span> basis as at
+        {{ view.comps.as_of }}.
+      </p>
+      <div
+        class="mt-3 rounded-md border border-slate-300 bg-slate-100 p-3 text-sm dark:border-slate-700 dark:bg-slate-800"
+        role="note"
+        id="internal-only"
+      >
+        <strong>Internal only.</strong> These figures derive from market data licensed for
+        internal use with no derived-data exemption. They appear on this page and in no
+        exported report.
+      </div>
+      <div class="mt-3 overflow-x-auto">
+        <table class="w-full min-w-[40rem] border-collapse text-sm" id="comps-table">
+          <thead>
+            <tr class="border-b border-slate-300 text-left dark:border-slate-700">
+              <th scope="col" class="py-2 pr-4 font-semibold">Company</th>
+              {% for key, label in comps_keys %}
+                <th scope="col" class="py-2 pr-4 text-right font-semibold">{{ label }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in comps_rows %}
+              <tr class="border-b border-slate-200 dark:border-slate-800">
+                <th scope="row" class="py-2 pr-4 text-left font-normal">
+                  {{ row.name }}
+                  {% if row.identifier == view.comps.subject.identifier %}
+                    <span class="ml-1 text-xs font-semibold text-sky-700 dark:text-sky-400">subject</span>
+                  {% endif %}
+                </th>
+                {% for key, label in comps_keys %}
+                  {% set found = row.multiple(key) %}
+                  <td class="py-2 pr-4 text-right">
+                    {% if found and found.present %}
+                      <span class="font-mono">{{ '%.1f' | format(found.value) }}x</span>
+                      {% if found.is_implausible %}
+                        <span class="ml-1 text-xs text-amber-700 dark:text-amber-400">check</span>
+                      {% endif %}
+                    {% else %}
+                      <span
+                        class="text-xs text-slate-500"
+                        title="{{ found.absent_because if found else 'not computed' }}"
+                      >n/m</span>
+                    {% endif %}
+                  </td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+            <tr class="border-t-2 border-slate-400 dark:border-slate-600">
+              <th scope="row" class="py-2 pr-4 text-left font-semibold">Peer median</th>
+              {% for key, label in comps_keys %}
+                {% set median = view.comps.median_of(key) %}
+                <td class="py-2 pr-4 text-right font-mono font-semibold">
+                  {{ '%.1f' | format(median) ~ 'x' if median is not none else '—' }}
+                </td>
+              {% endfor %}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {% if view.comps.excluded %}
+        <h3 class="mt-4 text-sm font-semibold">Excluded, and why</h3>
+        <ul class="mt-2 list-disc space-y-1 pl-5 text-sm" id="comps-excluded">
+          {% for excluded in view.comps.excluded %}
+            <li><strong>{{ excluded.name }}</strong> &mdash; {{ excluded.reason }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% else %}
+      <p class="mt-2 text-sm" id="no-comps">
+        No comparables table was produced for this run. Either no peers were proposed, or the
+        peer set was never confirmed &mdash; and an unconfirmed comparison is one nobody can
+        defend, so none is shown.
+      </p>
+    {% endif %}
+  </section>
+{% endblock %}

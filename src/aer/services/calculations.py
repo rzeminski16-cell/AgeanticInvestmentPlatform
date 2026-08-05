@@ -93,7 +93,10 @@ async def persist_context(
         )
         raise ValidationError(message, context={"job_id": str(job_id)})
 
-    rows = [_row_for(record, job_id=job_id) for record in context.records]
+    rows = [
+        _row_for(record, job_id=job_id, sequence=index)
+        for index, record in enumerate(context.records)
+    ]
 
     # A savepoint, so a constraint violation part-way through leaves the caller's
     # transaction usable and the table untouched -- rather than half a provenance chain
@@ -112,10 +115,11 @@ async def persist_context(
     return rows
 
 
-def _row_for(record: CalculationRecord, *, job_id: uuid.UUID) -> Calculation:
+def _row_for(record: CalculationRecord, *, job_id: uuid.UUID, sequence: int) -> Calculation:
     return Calculation(
         id=record.id,
         job_id=job_id,
+        sequence=sequence,
         name=record.name,
         formula=record.formula,
         function_ref=record.function_ref,

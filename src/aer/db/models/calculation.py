@@ -93,11 +93,23 @@ class Calculation(Base):
     output_value: Mapped[Decimal] = mapped_column(Numeric(38, 12), nullable=False)
     output_unit: Mapped[str] = mapped_column(String(32), nullable=False)
 
+    # **Where this calculation sat in its ledger.** `aer.calc.engine` is explicit that order
+    # is significant — a calculation can only cite ones that came before it — and without this
+    # the database threw that away. `created_at` cannot stand in for it: Postgres `now()` is
+    # transaction-start time, so every row a context persists carries the *same* timestamp,
+    # and two valuations written in one transaction were indistinguishable.
+    #
+    # Found by the valuation surface, which needed to say which of two recorded valuations a
+    # page was showing and could not.
+    sequence: Mapped[int] = mapped_column(nullable=False, server_default=text("0"))
+
     created_at: Mapped[Timestamp] = created_at_column()
 
     job: Mapped[Job] = relationship()
 
     __table_args__ = (
+        CheckConstraint("sequence >= 0", name="sequence_is_not_negative"),
+        Index("ix_calculations_job_sequence", "job_id", "sequence"),
         CheckConstraint("char_length(btrim(formula)) > 0", name="formula_is_not_blank"),
         CheckConstraint("char_length(btrim(name)) > 0", name="name_is_not_blank"),
         CheckConstraint("char_length(btrim(code_version)) > 0", name="code_version_is_recorded"),

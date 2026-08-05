@@ -37,8 +37,10 @@ from starlette.status import (
 )
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
+from aer.calc.comps import MULTIPLE_DEFINITIONS, CompsTable
 from aer.core.enums import Decision, GateKind, JobStatus
 from aer.db.models import (
+    Calculation,
     Claim,
     Company,
     Job,
@@ -52,6 +54,7 @@ from aer.errors import ConflictError, ValidationError
 from aer.queue import enqueue_run
 from aer.render.markdown import render_markdown
 from aer.services import approvals as approval_service
+from aer.services import calculations as calculation_service
 from aer.services import cancellation as cancellation_service
 from aer.services import provenance
 from aer.services import runs as run_service
@@ -66,6 +69,7 @@ from aer.services.sectors import (
     classification_payload,
     sector_gate_required,
 )
+from aer.services.valuation_view import lineage_rows, valuation_view
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
 from aer.workflow.workflows.vertical_slice_v1 import (
@@ -644,6 +648,97 @@ async def claim_detail(
         return _problem(request, f"No claim {claim_id}.", status=HTTP_404_NOT_FOUND)
 
     page: Response = render(request, "claims/detail.html", {"claim": view})
+    return page
+
+
+@router.get("/runs/{job_id}/valuation", response_class=HTMLResponse, summary="The valuation")
+async def valuation_page(
+    request: Request,
+    job_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+) -> Response:
+    """The phase's user-visible outcome: both terminal methods, the grid, the comps.
+
+    **Read back from the run's own ledger, never recomputed.** A page that re-ran the
+    valuation would show today's answer against yesterday's report, and both would look
+    authoritative. Where a figure is absent this says the run did not produce it.
+
+    Server-rendered with no script of its own, in the pattern task 20 established, so it works
+    with JavaScript off.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    view = await valuation_view(session, job)
+    research_request = await session.get(ResearchRequest, job.request_id)
+
+    # The comps table is rendered at INTERNAL because this page is not exported. The Markdown
+    # report is the shareable artefact and takes a `WithheldComps` instead -- ADR 0034.
+    table = view.comps if isinstance(view.comps, CompsTable) else None
+    rows = (table.subject, *table.peers) if table is not None else ()
+
+    page: Response = render(
+        request,
+        "runs/valuation.html",
+        {
+            "job": job,
+            "research_request": research_request,
+            "view": view,
+            "outcomes": (view.gordon, view.exit_multiple),
+            "rows": (
+                ("enterprise_value", "Enterprise value"),
+                ("equity_value", "Equity value"),
+                ("terminal_share", "Terminal value share"),
+                ("value_per_share", "Value per share"),
+            ),
+            "comps_rows": rows,
+            "comps_keys": tuple(
+                (definition.key, definition.label) for definition in MULTIPLE_DEFINITIONS
+            ),
+        },
+    )
+    return page
+
+
+@router.get(
+    "/calculations/{calculation_id}",
+    response_class=HTMLResponse,
+    summary="One figure, and what it rests on",
+)
+async def calculation_detail(
+    request: Request,
+    calculation_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+) -> Response:
+    """The second click: the arithmetic, and every input's origin.
+
+    Ownership is checked through the calculation's job rather than assumed. A calculation id
+    is a UUID somebody could guess at, and this page would otherwise show one run's figures to
+    another operator.
+    """
+    calculation = await session.get(Calculation, calculation_id)
+    if calculation is None:
+        return _problem(request, f"No calculation {calculation_id}.", status=HTTP_404_NOT_FOUND)
+
+    job = await _owned_job(session, job_id=calculation.job_id, user=user)
+    if job is None:
+        return _problem(request, f"No calculation {calculation_id}.", status=HTTP_404_NOT_FOUND)
+
+    tree = await calculation_service.lineage(session, calculation_id)
+
+    page: Response = render(
+        request,
+        "calculations/detail.html",
+        {
+            "calculation": calculation,
+            "lineage": lineage_rows(tree),
+            "request_id": job.request_id,
+            "back_href": f"/runs/{job.id}/valuation",
+        },
+    )
     return page
 
 

@@ -850,12 +850,19 @@ def enterprise_value(
     *,
     discounted_flows: Sequence[Quantity],
     discounted_terminal_value: Quantity,
+    method: TerminalMethod,
 ) -> Quantity:
     """The value of the operating business to all providers of capital.
 
     Each discounted year is recorded as its own input, so the ledger says which year
     contributed what rather than storing a total nobody can decompose.
+
+    ``method`` does not enter the arithmetic. It is recorded because **this calculation runs
+    twice per valuation, once per terminal method, and without it the ledger holds two rows
+    with the same name and different answers and nothing saying why.** A reader looking at
+    the calculations table would have to infer it from the order they were written in.
     """
+    _require_method(method)
     if not discounted_flows:
         message = (
             "An enterprise value with no discounted forecast years is a terminal value "
@@ -883,8 +890,13 @@ def terminal_value_share(
     *,
     discounted_terminal_value: Quantity,
     enterprise_value: Quantity,
+    method: TerminalMethod,
 ) -> Quantity:
-    """How much of the valuation lies beyond the forecast period."""
+    """How much of the valuation lies beyond the forecast period.
+
+    ``method`` is recorded rather than used, for the reason :func:`enterprise_value` gives.
+    """
+    _require_method(method)
     if enterprise_value.value <= 0:
         message = (
             f"The enterprise value is {enterprise_value.value}, so a terminal share of it is "
@@ -912,8 +924,13 @@ def equity_value(
     enterprise_value: Quantity,
     net_debt: Quantity,
     adjustments: Sequence[Quantity],
+    method: TerminalMethod,
 ) -> Quantity:
-    """What is left for the ordinary shareholders."""
+    """What is left for the ordinary shareholders.
+
+    ``method`` is recorded rather than used, for the reason :func:`enterprise_value` gives.
+    """
+    _require_method(method)
     total = enterprise_value - net_debt
     for adjustment in adjustments:
         total = total + adjustment
@@ -930,14 +947,23 @@ def equity_value(
     ),
 )
 def value_per_share(
-    _context: CalculationContext, *, equity_value: Quantity, shares: Quantity
+    _context: CalculationContext,
+    *,
+    equity_value: Quantity,
+    shares: Quantity,
+    method: TerminalMethod,
 ) -> Quantity:
     """The valuation, per share.
 
+    ``method`` is recorded rather than used, for the reason :func:`enterprise_value` gives —
+    and it matters most here, because this is the figure a reader quotes.
+
     Raises:
         UnitMismatchError: If the share count is not in shares.
-        CalculationError: If the share count is not positive.
+        CalculationError: If the share count is not positive, or the method is not a
+            :class:`TerminalMethod`.
     """
+    _require_method(method)
     if shares.unit != _SHARES:
         message = (
             f"The share count is in {shares.unit.symbol}, not shares. A per-share figure "
@@ -1103,17 +1129,24 @@ def _outcome(
         context,
         discounted_flows=[year.present_value for year in years],
         discounted_terminal_value=discounted_terminal,
+        method=method,
     )
     share = terminal_value_share(
-        context, discounted_terminal_value=discounted_terminal, enterprise_value=total
+        context,
+        discounted_terminal_value=discounted_terminal,
+        enterprise_value=total,
+        method=method,
     )
     equity = equity_value(
         context,
         enterprise_value=total,
         net_debt=inputs.net_debt,
         adjustments=[item.amount for item in inputs.non_operating],
+        method=method,
     )
-    per_share = value_per_share(context, equity_value=equity, shares=inputs.shares_outstanding)
+    per_share = value_per_share(
+        context, equity_value=equity, shares=inputs.shares_outstanding, method=method
+    )
 
     # Each method reports the *other* one's parameter. Reporting its own would restate an
     # input as though it were a finding.
@@ -1369,6 +1402,23 @@ def _require_cash_flow_mandate(mandate: ValuationMandate) -> None:
     raise ModelNotPermittedError(
         message, context={"model": mandate.model.value, "subject": mandate.subject}
     )
+
+
+def _require_method(value: object) -> None:
+    """Refuse anything but a :class:`TerminalMethod`.
+
+    The annotation covers every caller mypy checks; this catches the ones it does not. A
+    free-text method would be recorded verbatim as the terminal approach a valuation used,
+    which reads as a specification and is a string.
+    """
+    if isinstance(value, TerminalMethod):
+        return
+
+    message = (
+        f"method is {value!r}, which is not a TerminalMethod. This calculation runs once per "
+        "terminal method, so the record has to say which in a form code can read back."
+    )
+    raise CalculationError(message, context={"method": repr(value)})
 
 
 def _require_money(value: Quantity, *, name: str) -> None:

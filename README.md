@@ -1244,6 +1244,35 @@ peers and carries **no field that could hold a figure**. The Markdown renderer's
 accepts only that type, so putting the numbers into a report is not a matter of passing a
 different argument. See `docs/adr/0034-a-withheld-figure-is-a-type-with-no-field-for-it.md`.
 
+### The valuation surface, and two clicks to an origin
+
+`/runs/{id}/valuation` is the phase's user-visible outcome: both terminal methods side by
+side, the sensitivity grid, the comparables table, and — where a specialist sector blocked a
+model — a banner and **no valuation beneath it**. Not a valuation with a warning above it: a
+number a reader has seen is a number they remember.
+
+**Every figure is a link to the calculation that produced it**, and every calculation page
+lists its inputs, each linking to the fact, assumption or calculation underneath. That is the
+two-click standard `docs/PLAN.md` set for evidence in Phase 2, applied to arithmetic. It is
+asserted twice: in-process by walking the hrefs, so a broken link fails; and in a real browser
+by clicking what a reader can see, because a link that is invisible or covered still has a
+valid href.
+
+**Nothing on the page is recomputed.** It reads `calculations`, `sensitivities` and
+`approvals` rows written during the run. The alternative — re-running the valuation to render
+it — is wrong in a way that would take months to notice: an amended assumption or a corrected
+fact would give the page a different figure from the report the run produced, and both would
+look authoritative.
+
+Building it exposed a gap in the ledger. `enterprise_value`, `equity_value`,
+`terminal_value_share` and `value_per_share` each run **twice** per valuation, once per
+terminal method — and the calculations table held two rows with the same name, different
+answers and nothing distinguishing them. A reader would have had to infer it from the order
+they were written in. `method` is now recorded on all four.
+
+Server-rendered with no script of its own, so it works with JavaScript off — asserted by
+disabling scripting in the browser rather than by hoping.
+
 ### Model calls
 
 Every call goes through a provider, a router and a meter — see

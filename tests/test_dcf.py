@@ -385,11 +385,21 @@ class TestItRefusesRatherThanProducingAVastNumber:
 
     def test_a_per_share_value_with_no_shares(self, context):
         with pytest.raises(CalculationError, match="needs shares"):
-            value_per_share(context, equity_value=usd("1000"), shares=shares("0"))
+            value_per_share(
+                context,
+                equity_value=usd("1000"),
+                shares=shares("0"),
+                method=TerminalMethod.GORDON_GROWTH,
+            )
 
     def test_a_share_count_that_is_not_in_shares(self, context):
         with pytest.raises(UnitMismatchError, match="not shares"):
-            value_per_share(context, equity_value=usd("1000"), shares=usd("100"))
+            value_per_share(
+                context,
+                equity_value=usd("1000"),
+                shares=usd("100"),
+                method=TerminalMethod.GORDON_GROWTH,
+            )
 
     def test_a_discount_rate_that_was_never_converted_from_per_cent(self, context):
         with pytest.raises(CalculationError, match="rate_from_percent"):
@@ -447,7 +457,12 @@ class TestItRefusesRatherThanProducingAVastNumber:
 
     def test_an_enterprise_value_with_no_forecast_years(self, context):
         with pytest.raises(CalculationError, match="terminal value wearing"):
-            enterprise_value(context, discounted_flows=[], discounted_terminal_value=usd("1000"))
+            enterprise_value(
+                context,
+                discounted_flows=[],
+                discounted_terminal_value=usd("1000"),
+                method=TerminalMethod.GORDON_GROWTH,
+            )
 
     def test_an_unsourced_driver(self, context):
         with pytest.raises(CalculationError, match="no source"):
@@ -954,3 +969,44 @@ class TestProperties:
         for method in TerminalMethod:
             share = result.outcome(method).terminal_share.value
             assert 0 < share < 1
+
+
+class TestTheLedgerSaysWhichTerminalMethod:
+    """A valuation runs four calculations twice, once per method.
+
+    Without the method recorded, the ledger holds two `value_per_share` rows with different
+    answers and nothing saying why — a reader would have to infer it from the order they were
+    written in. The surface in task 31 reads them back by method, and could not.
+    """
+
+    def test_each_outcome_level_calculation_records_its_method(self, context):
+        discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
+
+        for name in ("enterprise_value", "terminal_value_share", "equity_value", "value_per_share"):
+            recorded = [r for r in context.records if r.name == name]
+            assert len(recorded) == 2, name
+            assert {r.parameters["method"] for r in recorded} == {
+                TerminalMethod.GORDON_GROWTH,
+                TerminalMethod.EXIT_MULTIPLE,
+            }, name
+
+    def test_the_two_per_share_figures_are_told_apart_by_it(self, context):
+        result = discounted_cash_flow(context, base_inputs(), mandate=MANDATE)
+
+        by_method = {
+            r.parameters["method"]: r.output_value
+            for r in context.records
+            if r.name == "value_per_share"
+        }
+
+        assert by_method[TerminalMethod.GORDON_GROWTH] == result.gordon.value_per_share.value
+        assert by_method[TerminalMethod.EXIT_MULTIPLE] == result.exit_multiple.value_per_share.value
+
+    def test_a_free_text_method_is_refused(self, context):
+        with pytest.raises(CalculationError, match="not a TerminalMethod"):
+            value_per_share(
+                context,
+                equity_value=usd("1000"),
+                shares=shares("100"),
+                method="gordon",  # type: ignore[arg-type]
+            )
