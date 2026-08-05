@@ -118,6 +118,12 @@ CANONICAL_CONCEPTS: Final[frozenset[str]] = frozenset(
         "repayments_of_debt",
         "interest_paid",
         "income_taxes_paid",
+        # The two lines the cash-flow roll-forward needs. Without them the identity
+        # `docs/PLAN.md` asks for -- that the three cash flows and the currency effect reach
+        # the movement in cash -- cannot be written down, so the statement with the most room
+        # for a mapping error would be the only one with nothing checking it.
+        "effect_of_exchange_rate_on_cash",
+        "net_change_in_cash",
         # -- Per share and share counts ---------------------------------------------------
         "dividends_per_share",
         "basic_shares_outstanding",
@@ -239,6 +245,20 @@ US_GAAP_ALIASES: Final[dict[str, str]] = {
     "NetCashProvidedByUsedInOperatingActivities": "operating_cash_flow",
     "NetCashProvidedByUsedInInvestingActivities": "investing_cash_flow",
     "NetCashProvidedByUsedInFinancingActivities": "financing_cash_flow",
+    # The movement in the cash balance, *including* the currency effect -- which is what
+    # reconciles to the balance sheet, and what a reader means by "net change in cash". The
+    # `...ExcludingExchangeRateEffect` element is a different figure and is deliberately left
+    # unmapped: mapping both here would make the roll-forward hold for one filer and fail for
+    # an otherwise identical one with foreign cash.
+    (
+        "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"
+        "PeriodIncreaseDecreaseIncludingExchangeRateEffect"
+    ): "net_change_in_cash",
+    "CashAndCashEquivalentsPeriodIncreaseDecrease": "net_change_in_cash",
+    (
+        "EffectOfExchangeRateOnCashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"
+    ): "effect_of_exchange_rate_on_cash",
+    "EffectOfExchangeRateOnCashAndCashEquivalents": "effect_of_exchange_rate_on_cash",
     "DepreciationDepletionAndAmortization": "depreciation_and_amortisation",
     "DepreciationAmortizationAndAccretionNet": "depreciation_and_amortisation",
     "ShareBasedCompensation": "share_based_compensation",
@@ -347,6 +367,11 @@ IFRS_ALIASES: Final[dict[str, str]] = {
     "CashFlowsFromUsedInOperatingActivities": "operating_cash_flow",
     "CashFlowsFromUsedInInvestingActivities": "investing_cash_flow",
     "CashFlowsFromUsedInFinancingActivities": "financing_cash_flow",
+    # As in us-gaap: the movement including the currency effect. IFRS's
+    # `...BeforeEffectOfExchangeRateChanges` is the excluding variant and is left unmapped for
+    # the same reason.
+    "IncreaseDecreaseInCashAndCashEquivalents": "net_change_in_cash",
+    "EffectOfExchangeRateChangesOnCashAndCashEquivalents": "effect_of_exchange_rate_on_cash",
     "DepreciationAndAmortisationExpense": "depreciation_and_amortisation",
     (
         "DepreciationAmortisationAndImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss"
@@ -386,7 +411,12 @@ UK_FRC_ALIASES: Final[dict[str, str]] = {
     "ProfitLossForPeriod": "net_income",
     "ProfitLossOnOrdinaryActivitiesBeforeTax": "pre_tax_income",
     "TaxOnProfitOrLossOnOrdinaryActivities": "income_tax_expense",
-    "TotalAssetsLessCurrentLiabilities": "noncurrent_assets",
+    # `TotalAssetsLessCurrentLiabilities` is deliberately **not** mapped. It is the Companies
+    # Act format's subtotal -- fixed assets plus current assets less creditors falling due
+    # within one year -- and it is not non-current assets, nor total assets, nor anything else
+    # in this vocabulary. Mapping it to the nearest-looking concept would put a figure that is
+    # wrong by (current assets - current liabilities) into a balance sheet that would still
+    # appear to balance. Left unmapped, it reaches the UK financials gate and a person.
     "Equity": "equity",
     "CashBankOnHand": "cash_and_equivalents",
 }

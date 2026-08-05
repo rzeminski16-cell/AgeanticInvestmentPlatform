@@ -289,6 +289,9 @@ class TestTheWholeRun:
             "gate_plan",
             "acquire",
             "extract",
+            # A step even on the runs it does not apply to. It succeeds without stopping
+            # when every tag mapped, which is what this fixture's filing does.
+            "gate_uk_financials",
             "calculate",
             "draft",
             "gate_final",

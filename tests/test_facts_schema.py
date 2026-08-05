@@ -111,6 +111,43 @@ class TestTheConceptVocabulary:
             "restructuring_costs",
         }
 
+    def test_a_subtotal_that_means_something_else_is_left_unmapped(self):
+        """`TotalAssetsLessCurrentLiabilities` is not non-current assets, and must not become it.
+
+        The Companies Act format's subtotal is fixed assets plus current assets less
+        creditors falling due within one year. Mapped to the nearest-looking concept it would
+        put a figure wrong by (current assets less current liabilities) onto a balance sheet
+        that still appeared to balance.
+        """
+        assert canonical_concept("uk-core", "TotalAssetsLessCurrentLiabilities") is None
+
+    def test_the_two_variants_of_the_cash_movement_are_not_conflated(self):
+        """One includes the currency effect and one does not. Only the first is mapped.
+
+        Mapping both onto ``net_change_in_cash`` would make the cash-flow roll-forward hold
+        for a filer with no foreign cash and fail for an otherwise identical one that has
+        some — an error correlated with exactly the companies it matters most for.
+        """
+        including = (
+            "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"
+            "PeriodIncreaseDecreaseIncludingExchangeRateEffect"
+        )
+        excluding = including.replace("Including", "Excluding")
+
+        assert canonical_concept("us-gaap", including) == "net_change_in_cash"
+        assert canonical_concept("us-gaap", excluding) is None
+        assert (
+            canonical_concept("ifrs-full", "IncreaseDecreaseInCashAndCashEquivalents")
+            == "net_change_in_cash"
+        )
+        assert (
+            canonical_concept(
+                "ifrs-full",
+                "IncreaseDecreaseInCashAndCashEquivalentsBeforeEffectOfExchangeRateChanges",
+            )
+            is None
+        )
+
     def test_a_split_out_expense_line_is_absent_rather_than_double_counted(self):
         # A filer tagging selling and administrative expenses separately has reported two
         # components, not SG&A. Mapping both would give two facts claiming to be the same

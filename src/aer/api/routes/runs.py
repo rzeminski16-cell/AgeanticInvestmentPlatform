@@ -26,7 +26,7 @@ from starlette.status import HTTP_202_ACCEPTED, HTTP_404_NOT_FOUND
 from aer.api.deps import CurrentUser, DbSession, RedisClient, StateDep
 from aer.api.sse import SSE_MEDIA_TYPE, event_stream
 from aer.core.enums import Decision, GateKind
-from aer.db.models import Job, ResearchRequest, User
+from aer.db.models import Job, JobStep, ResearchRequest, User
 from aer.errors import AerError
 from aer.queue import enqueue_run
 from aer.services import approvals as approval_service
@@ -34,7 +34,11 @@ from aer.services import cancellation as cancellation_service
 from aer.services import provenance
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
-from aer.workflow.workflows.vertical_slice_v1 import final_gate_payload
+from aer.workflow.workflows.vertical_slice_v1 import (
+    final_gate_payload,
+    unmapped_gate_payload,
+    unmapped_gate_required,
+)
 
 __all__ = ["router"]
 
@@ -108,6 +112,22 @@ class DraftRead(BaseModel):
     # about what a client happened to render.
     escalations: list[dict[str, Any]]
 
+    payload_hash: str
+
+
+class FinancialsRead(BaseModel):
+    """The tags this run's extraction could not place, and the hash confirming them needs."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    job_id: uuid.UUID
+
+    # Whether the gate applies at all. A run whose every tag mapped answers `false` with an
+    # empty list rather than 404 — "nothing to confirm" is a result, not a missing resource.
+    required: bool
+
+    unmapped_tags: list[str]
+    facts_written: int
     payload_hash: str
 
 
@@ -208,6 +228,41 @@ async def read_draft(job_id: uuid.UUID, session: DbSession, user: CurrentUser) -
         job_id=job_id,
         sections=list(payload["sections"]),
         escalations=list(payload["escalations"]),
+        payload_hash=payload_hash_for(payload),
+    )
+
+
+@router.get(
+    "/{job_id}/financials",
+    response_model=FinancialsRead,
+    summary="The unmapped tags a run is waiting on",
+)
+async def read_financials(
+    job_id: uuid.UUID, session: DbSession, user: CurrentUser
+) -> FinancialsRead:
+    """What the conditional financials gate shows: tags the concept map could not place.
+
+    ``required`` is false, and the list empty, for a run whose every tag mapped. That is not
+    an error — it is the answer, and it is the state most runs are in.
+    """
+    await _owned_job(session, job_id=job_id, user=user)
+
+    produced: dict[str, Any] | None = await session.scalar(
+        select(JobStep.output_ref)
+        .where(JobStep.job_id == job_id, JobStep.step_key == "extract")
+        .order_by(JobStep.attempt.desc())
+        .limit(1)
+    )
+    if produced is None:
+        message = f"Run {job_id} has not extracted anything yet."
+        raise RunNotFoundError(message, context={"job_id": str(job_id)})
+
+    payload = unmapped_gate_payload(produced)
+    return FinancialsRead(
+        job_id=job_id,
+        required=unmapped_gate_required(produced),
+        unmapped_tags=list(payload["unmapped_tags"]),
+        facts_written=int(payload["facts_written"]),
         payload_hash=payload_hash_for(payload),
     )
 

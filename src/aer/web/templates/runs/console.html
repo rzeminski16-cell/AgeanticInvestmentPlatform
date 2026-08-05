@@ -84,6 +84,20 @@
           >
             Review the plan
           </a>
+          {#
+            Shown only when this run actually stopped here. Unlike the plan and the draft,
+            this gate is conditional -- offering it on every run would send most operators to
+            a page telling them there is nothing to confirm.
+          #}
+          {% if pending_gate == 'UK_FINANCIALS' %}
+            <a
+              href="/runs/{{ job.id }}/financials"
+              class="rounded-md border border-sky-700 px-3 py-1.5 text-sm font-semibold text-sky-800 hover:bg-sky-100 dark:text-sky-300 dark:hover:bg-sky-900/40"
+              id="review-financials"
+            >
+              Confirm the financials
+            </a>
+          {% endif %}
           <a
             href="/runs/{{ job.id }}/review"
             class="rounded-md border border-sky-700 px-3 py-1.5 text-sm font-semibold text-sky-800 hover:bg-sky-100 dark:text-sky-300 dark:hover:bg-sky-900/40"

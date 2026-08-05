@@ -42,6 +42,7 @@ from aer.db.models import (
     Claim,
     Company,
     Job,
+    JobStep,
     Report,
     ReportSection,
     ResearchPlan,
@@ -57,7 +58,12 @@ from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
-from aer.workflow.workflows.vertical_slice_v1 import final_gate_payload, plan_gate_payload
+from aer.workflow.workflows.vertical_slice_v1 import (
+    final_gate_payload,
+    plan_gate_payload,
+    unmapped_gate_payload,
+    unmapped_gate_required,
+)
 
 __all__ = ["router"]
 
@@ -241,6 +247,60 @@ async def plan_review(
             "payload_hash": payload_hash_for(payload),
             "decided": decided,
             "gate": GateKind.PLAN.value,
+            "csrf_field": CSRF_FIELD_NAME,
+            "csrf_token": token,
+        },
+    )
+    set_csrf_cookie(response, token)
+    return response
+
+
+@router.get(
+    "/runs/{job_id}/financials",
+    response_class=HTMLResponse,
+    summary="Confirm an extraction that left tags unmapped",
+)
+async def financials_review(
+    request: Request,
+    job_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """The conditional gate: tags this platform's concept map could not place."""
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    produced = await _step_output(session, job_id=job_id, step_key="extract")
+    if produced is None:
+        return _problem(
+            request,
+            "This run has not extracted anything yet. There is nothing to confirm.",
+            status=HTTP_404_NOT_FOUND,
+        )
+
+    if not unmapped_gate_required(produced):
+        return _problem(
+            request,
+            "Every tag in this filing mapped onto a canonical concept, so this gate does not "
+            "apply to this run. There is nothing to confirm.",
+            status=HTTP_404_NOT_FOUND,
+        )
+
+    payload = unmapped_gate_payload(produced)
+    decided = await _decision_for(session, job_id=job_id, gate=GateKind.UK_FINANCIALS)
+    token = new_csrf_token(settings)
+
+    response: Response = render(
+        request,
+        "runs/financials.html",
+        {
+            "job": job,
+            "payload": payload,
+            "payload_hash": payload_hash_for(payload),
+            "decided": decided,
+            "gate": GateKind.UK_FINANCIALS.value,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
@@ -534,6 +594,23 @@ async def _claim_is_visible(
         .where(Claim.id == claim_id)
     )
     return owner == user_id
+
+
+async def _step_output(
+    session: AsyncSession, *, job_id: uuid.UUID, step_key: str
+) -> dict[str, Any] | None:
+    """What a step recorded, from the step row rather than from a re-run.
+
+    The latest attempt, because a retried step's earlier attempt describes a state the run
+    is no longer in. ``None`` when the step has not completed.
+    """
+    output: dict[str, Any] | None = await session.scalar(
+        select(JobStep.output_ref)
+        .where(JobStep.job_id == job_id, JobStep.step_key == step_key)
+        .order_by(JobStep.attempt.desc())
+        .limit(1)
+    )
+    return output
 
 
 async def _decision_for(session: AsyncSession, *, job_id: uuid.UUID, gate: GateKind) -> str | None:

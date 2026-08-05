@@ -25,9 +25,9 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.core.enums import Decision, GateKind
+from aer.core.enums import Decision, GateKind, JobStatus
 from aer.core.hashing import canonical_json, sha256_hex
-from aer.db.models import Approval, AuditEvent, Job, User
+from aer.db.models import Approval, AuditEvent, Job, JobStep, User
 from aer.errors import ValidationError
 
 __all__ = [
@@ -61,6 +61,11 @@ _CONDITIONAL: Final[frozenset[GateKind]] = frozenset(
         GateKind.BUDGET,
     }
 )
+
+# The gate names a paused step may carry. A membership test rather than a try/except around
+# `GateKind(...)`, so a step whose recorded detail is from an older workflow version falls
+# back to the gate order instead of raising in a read path.
+_GATE_VALUES: Final[frozenset[str]] = frozenset(gate.value for gate in GateKind)
 
 
 @dataclass(frozen=True, slots=True)
@@ -211,7 +216,28 @@ async def approvals_for_job(session: AsyncSession, job_id: uuid.UUID) -> list[Ap
 
 
 async def pending_gate(session: AsyncSession, job: Job) -> GateKind | None:
-    """The next gate awaiting a decision, if the run is waiting at one."""
+    """The gate this run is waiting at, if it is waiting at one.
+
+    **Asked of the run, not of the gate order.** A conditional gate fires only on the runs
+    that need it, so no ordering over :data:`GATE_ORDER` can say whether *this* run stopped
+    at one — and a console that answered from the order alone sent an operator stuck at the
+    financials gate to the draft page, which had nothing to approve. The paused step records
+    which gate it paused at, so that is what is read.
+
+    Falls back to the order for a run that is not paused at a step, which is what a caller
+    asking "what is next?" of a queued run wants.
+    """
+    paused = await session.scalar(
+        select(JobStep)
+        .where(JobStep.job_id == job.id, JobStep.status == JobStatus.AWAITING_APPROVAL)
+        .order_by(JobStep.sequence.desc())
+        .limit(1)
+    )
+    if paused is not None:
+        named = (paused.error or {}).get("context", {}).get("gate")
+        if named in _GATE_VALUES:
+            return GateKind(named)
+
     decided = {
         row.gate for row in await session.scalars(select(Approval).where(Approval.job_id == job.id))
     }

@@ -23,6 +23,7 @@ somewhere, and that somewhere is :mod:`aer.services.approvals`.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Final
@@ -61,7 +62,14 @@ from aer.sources.sec.pit import select_point_in_time
 from aer.verify.citations import verify_job_citations
 from aer.workflow.engine import StepContext, StepPaused, StepResult, WorkflowStep
 
-__all__ = ["WORKFLOW_VERSION", "build_steps", "final_gate_payload", "plan_gate_payload"]
+__all__ = [
+    "WORKFLOW_VERSION",
+    "build_steps",
+    "final_gate_payload",
+    "plan_gate_payload",
+    "unmapped_gate_payload",
+    "unmapped_gate_required",
+]
 
 _log = structlog.get_logger("aer.workflow.vertical_slice")
 
@@ -88,6 +96,14 @@ def build_steps() -> list[WorkflowStep]:
         WorkflowStep(key="gate_plan", run=_gate_plan, gate=GateKind.PLAN.value),
         WorkflowStep(key="acquire", run=_acquire),
         WorkflowStep(key="extract", run=_extract),
+        # Conditional: it passes straight through unless the extraction left tags the concept
+        # map does not know. Declared unconditionally because a gate that only exists on the
+        # runs that need it is a gate nobody can find when a run needs it.
+        WorkflowStep(
+            key="gate_uk_financials",
+            run=_gate_uk_financials,
+            gate=GateKind.UK_FINANCIALS.value,
+        ),
         WorkflowStep(key="calculate", run=_calculate),
         WorkflowStep(key="draft", run=_draft),
         WorkflowStep(key="gate_final", run=_gate_final, gate=GateKind.FINAL.value),
@@ -196,6 +212,47 @@ def plan_gate_payload(plan: ResearchPlan) -> dict[str, Any]:
 async def _gate_plan(context: StepContext) -> StepResult:
     """Stop until a human approves the plan."""
     return await _require_approval(context, gate=GateKind.PLAN, of_step="plan")
+
+
+def unmapped_gate_payload(produced: Mapping[str, Any]) -> dict[str, Any]:
+    """Exactly what the unmapped-tags gate approves, as one structure.
+
+    Built from the extract step's own output, so the tags an operator is shown are the tags
+    the extractor actually could not place — not a re-derivation that might differ.
+    """
+    return {
+        "exchange": str(produced.get("exchange", "")),
+        "unmapped_tags": list(produced.get("unmapped_tags", [])),
+        "facts_written": produced.get("facts_written", 0),
+        "load_errors": list(produced.get("load_errors", [])),
+    }
+
+
+def unmapped_gate_required(produced: Mapping[str, Any]) -> bool:
+    """Whether this run's extraction needs a person to look at it before it is used.
+
+    On unmapped **tags**, not on a count or a proportion. One extension element carrying a
+    company's headline profit measure matters and forty carrying segment breakdowns nobody
+    asked for do not, and only a person can tell which — see
+    :attr:`aer.extract.ixbrl.IxbrlExtraction.needs_confirmation`, which this mirrors.
+    """
+    return bool(produced.get("unmapped_tags"))
+
+
+async def _gate_uk_financials(context: StepContext) -> StepResult:
+    """Stop until a human confirms an extraction that left tags unmapped.
+
+    **Skipped, not approved, when there is nothing to confirm.** A run whose every tag mapped
+    records that the gate did not apply and continues; the approvals service already treats
+    this gate as conditional, so an absent decision does not block the final gate.
+    """
+    produced = context.outputs.get("extract", {})
+    if not unmapped_gate_required(produced):
+        return StepResult(
+            output={"gate": GateKind.UK_FINANCIALS.value, "required": False, "unmapped_tags": []}
+        )
+
+    return await _require_approval(context, gate=GateKind.UK_FINANCIALS, of_step="extract")
 
 
 async def _gate_final(context: StepContext) -> StepResult:
@@ -388,14 +445,25 @@ async def _extract(context: StepContext) -> StepResult:
         basis=FactBasis.AS_REPORTED,
     )
 
-    return StepResult(
-        output={
-            "facts_written": written,
-            "facts_chosen": len(selection.chosen),
-            "facts_rejected": len(selection.rejected),
-            "rejected_for_look_ahead": len(selection.rejected_for_look_ahead),
-        }
-    )
+    # Tags that produced facts and reached no canonical concept. **Kept, not dropped**: the
+    # concept map is deliberately the top sixty rather than the whole taxonomy, so a filing
+    # falling outside it is expected — and a run that silently ignored the overflow would be
+    # a run whose statements are missing lines nobody was told about.
+    unmapped = tuple(sorted({f"{c.taxonomy}:{c.tag}" for c in parsed.unmapped}))
+
+    output: dict[str, Any] = {
+        "facts_written": written,
+        "facts_chosen": len(selection.chosen),
+        "facts_rejected": len(selection.rejected),
+        "rejected_for_look_ahead": len(selection.rejected_for_look_ahead),
+        "exchange": request.exchange,
+        "unmapped_tags": list(unmapped),
+        "load_errors": [],
+    }
+    # The hash of exactly what the gate will display, on the same terms as the plan gate: an
+    # approval recorded against a different set of tags is not an approval of this one.
+    output["payload_hash"] = sha256_hex(canonical_json(unmapped_gate_payload(output)))
+    return StepResult(output=output)
 
 
 # ==========================================================================================
