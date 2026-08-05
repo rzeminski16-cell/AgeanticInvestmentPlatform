@@ -24,6 +24,7 @@ provider, on the original URL and again on every redirect hop.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Final
 from urllib.parse import urlsplit
 
@@ -35,11 +36,31 @@ __all__ = [
     "REFUSED_HOSTS",
     "FetchPolicy",
     "HostRefusal",
+    "RetentionClass",
     "host_matches",
     "policy_for",
     "policy_for_url",
     "refusal_for",
 ]
+
+
+class RetentionClass(StrEnum):
+    """How long this provider's bytes may be kept, as a property of its licence.
+
+    Declared beside ``licence_note`` because it comes from the same paragraph of the same
+    agreement. A retention rule kept somewhere else is one that gets out of step with the
+    terms it came from.
+    """
+
+    PERMANENT = "permanent"
+    """Kept for ever. Public filings, official statistics, open-licensed material — nothing
+    in their terms asks for deletion, and invariant 1 asks for the opposite."""
+
+    LICENSED = "licensed"
+    """Deletable, and one day required to be deleted. A subscription agreement that obliges
+    the subscriber to destroy every copy within a month of the subscription ending — EODHD's
+    does — cannot be honoured by a store with no delete path. The bytes go; the provenance
+    stays. See ADR 0031."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +79,12 @@ class FetchPolicy:
     licence_note: str
 
     requests_per_second: float
+
+    # Whether the licence obliges deletion at some point. Almost everything here is
+    # permanent; a paid feed is the exception, and it is the exception that decides
+    # whether an archive can comply with its own terms.
+    retention: RetentionClass = RetentionClass.PERMANENT
+
     burst: int = 1
 
     # Longest a single request may take. A provider that hangs must not hold a research
@@ -150,6 +177,11 @@ DEFAULT_POLICIES: Final[dict[Provider, FetchPolicy]] = {
         # request limiter cannot see that, so a daily weighted ledger is part of the adapter
         # work rather than of this policy.
         requests_per_second=8.0,
+        # The only licensed feed here, and the only one whose bytes have an expiry date:
+        # the agreement requires every copy destroyed within a month of the subscription
+        # ending. An archive with no delete path cannot honour that, which is why one
+        # exists — see ADR 0031.
+        retention=RetentionClass.LICENSED,
         burst=8,
         honours_robots=False,
     ),

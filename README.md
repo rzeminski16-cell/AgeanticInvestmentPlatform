@@ -970,6 +970,31 @@ rate supplied by hand works exactly as a fetched one will. The three pages someb
 read to close this are listed in `docs/adr/0026` and
 `docs/data-sources/bank-of-england-iadb.md`.
 
+### Erasure, for the one source whose licence demands it
+
+The artefact store has no `delete`, no `update` and no `move` (ADR 0008) — an artefact's
+address is the hash of its content, so one that changes is a different artefact and one that
+vanishes takes a report's evidence with it. That is invariant 1 expressed as a type.
+
+A licensed feed breaks it. EODHD's agreement obliges the subscriber to destroy every copy
+within a month of the subscription ending, and a no-delete store is precisely one that cannot
+comply. So `aer/storage/retention.py` adds a **separate protocol**: a service holding the
+ordinary `ArtefactStore` still cannot delete anything, because the type it holds has no method
+for it, and exactly one module asks for the narrower `PurgeableStore`.
+
+**Only the bytes go.** The artefact row, its hash, its size, every source document pointing at
+it and every citation resolved against it survive — and the erasure is *appended* to
+`artefact_purges` with a reason in words, an actor, and the licence note as it stood when the
+data arrived. A flag would have meant relaxing the trigger that rejects every UPDATE on
+`artefacts`; an event is what a purge actually is.
+
+**What is lost is stated rather than engineered around.** A citation into a purged artefact can
+be shown to *have been* verified — against a named hash, on a date, by a recorded method — and
+can never be checked again. The alternative was not keeping the bytes; it was not having the
+source. Only EODHD is licensed: every filing, registry document, official statistic and macro
+vintage stays permanent and re-verifiable. See
+`docs/adr/0031-erasure-is-an-appended-event.md`.
+
 ### Macro, at the vintage the as-of date had
 
 US GDP for the first quarter of 2020 was first published at 21,561.139 billion dollars. By

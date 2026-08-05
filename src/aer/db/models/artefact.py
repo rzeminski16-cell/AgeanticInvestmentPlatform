@@ -14,6 +14,11 @@ late-night ``psql`` session does not have.
 DELETE is deliberately *not* blocked. Retention and erasure are legitimate operations —
 they simply have no path in the service layer, so they cannot happen by accident. See
 ``docs/adr/0008-content-addressed-immutable-artefacts.md``.
+
+**Erasure arrived in ADR 0031**, and it does not touch these rows. A licensed payload whose
+subscription has ended is purged from the *store*; the row, its hash and everything pointing
+at it survive, and the erasure is appended to ``artefact_purges``. The trigger above therefore
+still rejects every UPDATE, which is what it was for.
 """
 
 from __future__ import annotations
@@ -27,6 +32,7 @@ from aer.db.base import Base, created_at_column
 from aer.db.types import Sha256, Timestamp, UuidPk
 
 if TYPE_CHECKING:
+    from aer.db.models.artefact_purge import ArtefactPurge
     from aer.db.models.source_document import SourceDocument
 
 __all__ = ["Artefact"]
@@ -54,6 +60,16 @@ class Artefact(Base):
     created_at: Mapped[Timestamp] = created_at_column()
 
     sources: Mapped[list[SourceDocument]] = relationship(back_populates="artefact")
+
+    # The erasure record, if the payload has been purged under a licence obligation. A
+    # relationship rather than a column, because `artefacts` rejects every UPDATE — see
+    # `aer.db.models.artefact_purge` on why a purge is an event and not a flag.
+    purge: Mapped[ArtefactPurge | None] = relationship(back_populates="artefact", uselist=False)
+
+    @property
+    def is_purged(self) -> bool:
+        """Whether the payload has been erased. The row and its lineage remain either way."""
+        return self.purge is not None
 
     __table_args__ = (
         # A zero-byte artefact is almost always a failed fetch that was stored anyway.

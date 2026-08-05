@@ -11,6 +11,7 @@ from __future__ import annotations
 from aer.db.models.agent_run import AgentRun
 from aer.db.models.approval import Approval
 from aer.db.models.artefact import Artefact
+from aer.db.models.artefact_purge import ArtefactPurge
 from aer.db.models.assumption import Assumption
 from aer.db.models.assumption_proposal import AssumptionProposal
 from aer.db.models.audit_event import AuditEvent
@@ -42,6 +43,7 @@ __all__ = [
     "AgentRun",
     "Approval",
     "Artefact",
+    "ArtefactPurge",
     "Assumption",
     "AssumptionProposal",
     "AuditEvent",

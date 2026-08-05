@@ -42,8 +42,12 @@ from collections.abc import AsyncIterable, AsyncIterator, Iterable
 from pathlib import Path
 from typing import IO, Final
 
+import structlog
+
 from aer.errors import IntegrityError, ValidationError
 from aer.storage.protocol import StoredArtefact
+
+_log = structlog.get_logger("aer.storage.local")
 
 __all__ = ["LocalArtefactStore", "is_valid_sha256"]
 
@@ -281,6 +285,39 @@ class LocalArtefactStore:
 
     async def exists(self, sha256: str) -> bool:
         return await asyncio.to_thread(self.path_for(sha256).is_file)
+
+    # -- Erasure ---------------------------------------------------------------------------
+
+    async def purge(self, sha256: str) -> int:
+        """Erase a payload under a licence obligation. Returns the bytes freed.
+
+        Satisfies :class:`aer.storage.retention.PurgeableStore`, which is a **separate**
+        protocol from :class:`~aer.storage.protocol.ArtefactStore` — so a caller holding the
+        ordinary store interface cannot reach this, however much it might want to. See
+        ADR 0031.
+
+        Idempotent: an artefact that is already gone frees nothing and is not an error. A
+        retention sweep must be safe to re-run, and the obligation is that the bytes are
+        absent rather than that this call was the one that removed them.
+
+        The empty fan-out directories are left behind. Removing them would race another
+        writer storing an artefact with the same first bytes, and an empty directory costs
+        an inode.
+        """
+        path = self.path_for(sha256)
+
+        def _remove() -> int:
+            try:
+                freed = path.stat().st_size
+            except FileNotFoundError:
+                return 0
+            path.unlink(missing_ok=True)
+            return freed
+
+        freed = await asyncio.to_thread(_remove)
+        if freed:
+            _log.info("artefact.purged", sha256=sha256, bytes_freed=freed)
+        return freed
 
     async def verify(self, sha256: str) -> int:
         """Confirm a stored artefact still hashes to its own address, and return its size.
