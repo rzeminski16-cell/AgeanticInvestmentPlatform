@@ -372,6 +372,40 @@ denominator refuses rather than producing a vast number.
 **Acceptance.** All golden DCFs within 0.01%; every output row has complete input lineage to a
 fact or a confirmed assumption; the terminal-value share appears on every result.
 
+**Outcome (2026-08-05).** Done. `aer/calc/dcf.py` and `aer/services/valuation.py`.
+
+- Seventeen traced calculations. A three-year forecast records 47 of them; every line of every
+  year is its own entry, so "what was year four's capex?" is a query rather than a re-run.
+- **The golden case was worked on paper first and every exact figure matched.** Revenue, EBIT,
+  NOPAT, depreciation, capex, working capital and its movement, EBITDA and free cash flow are
+  asserted exactly; the discounted aggregates to 0.01%. The hand arithmetic agreed with the
+  implementation to every digit checked, including the Gordon terminal value of 1,835.8164 and
+  the 5.83x it implies.
+- **Both terminal values, each reporting the other's implied parameter.** That cross-check
+  turned out to be the most useful thing in the module: the worked example's 2% perpetual
+  growth implies a 5.8x exit multiple, and its 10x exit multiple implies 5.19% perpetual
+  growth. The two per-share answers differ by 81%, and the result says so in words rather than
+  leaving a reader to notice.
+- **Enterprise value is not monotone in revenue growth**, and the property suite says so
+  explicitly rather than asserting something false. Where capital intensity exceeds the
+  operating margin, growth consumes more cash than it produces and destroys value — which is
+  correct, and is why "bear ≤ base ≤ bull" is stated over margin, the discount rate and
+  terminal growth instead. The invariants that do hold are all tested: value falls as the
+  discount rate rises, rises with margin, rises with terminal growth, scales linearly with the
+  level of the cash flows, and EV − net debt + adjustments = equity value.
+- **Zero-debt and negative-equity cases are handled rather than printed.** A negative equity
+  value carries a caveat saying the per-share figure below zero is arithmetic and not a price.
+- The grid is eighty-one complete valuations at most, each with stored lineage — ADR 0028,
+  which also records why interpolating between corners is wrong in the direction that flatters
+  the valuation.
+- Verified by sabotage: 53 breakages, 48 caught first time. **Three of the five escapes were
+  real test defects**, and all three were the same defect: a test that could pass while the
+  code under it did nothing. The non-operating bridge items summed to nil, so dropping them
+  changed no answer. The grid's monotonicity check was non-strict, so a grid that repeated the
+  base case in all nine cells passed it — twice over, once for each axis. Fixed by asserting
+  strict ordering along both axes, that no two cells hold the same figure, and that adjustments
+  move the equity value. The other two escapes were sabotage cases that were algebraic no-ops.
+
 ---
 
 ## Task 28 — Sector enforcement: the block, not the footnote

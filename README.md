@@ -295,6 +295,7 @@ src/aer/            application package
     bridge.py       margin movement decomposed, with the residual as a line
     fx.py           conversion that refuses upside-down, future and stale rates
     wacc.py         the discount rate; no defaults, every input sourced
+    dcf.py          driver-based FCFF, both terminal values, the sensitivity grid
   db/               engine, session management, and ORM models
   storage/          content-addressed artefact store; the evidence substrate
     protocol.py     the ArtefactStore interface: no delete, no update, no move
@@ -1023,6 +1024,46 @@ equity weight, which understates the WACC, which raises every valuation discount
 A company with no borrowings gets `wacc_all_equity` rather than a cost of debt of zero.
 There is no such rate to weight, and inventing one would be the exact failure this module
 exists to prevent.
+
+### The discounted cash flow
+
+`aer/calc/dcf.py` projects free cash flow to the firm from five drivers — revenue growth,
+EBIT margin, capital intensity, depreciation and working capital — each a confirmed
+assumption, **each recorded year by year** even when the path is flat. A three-year forecast
+writes 47 calculation records, so "what did year four's capex assume?" is a query rather than
+a re-run.
+
+**Both terminal values, always, and each reports the other's implied parameter.** Terminal
+value is usually most of the answer, and Gordon growth and an exit multiple are two different
+guesses about the same unknowable thing. So the result carries both — and the cross-check
+that makes them arguable: the worked example's 2% perpetual growth implies a 5.8x exit
+multiple, and its 10x exit multiple implies 5.19% perpetual growth. A perpetual growth rate
+is hard to disagree with because nobody has an intuition for one; the multiple it implies is
+a number the same reader compares against the sector every day.
+
+**The terminal-value share is an output, not a diagnostic.** It appears on every result,
+because a valuation whose terminal value is 85% of enterprise value is a statement about the
+terminal assumption rather than about the projected years anybody can check.
+
+**What refuses.** Terminal growth at or above the discount rate — the perpetuity denominator
+is nil or negative and the value unbounded. A perpetuity of a negative final-year cash flow.
+An exit multiple on negative EBITDA. A per-share figure with no shares. A discount rate that
+was never converted from per cent. None of them produces a large number with a footnote.
+
+**Enterprise value is not monotone in revenue growth**, and the property suite says so rather
+than asserting something false. Where capital intensity exceeds the operating margin, each
+extra pound of revenue consumes more cash than it produces and growth destroys value. That is
+the correct answer and one of the more useful things a DCF says. The invariants that do hold
+are tested: value falls as the discount rate rises, rises with margin, rises with terminal
+growth, scales linearly with the level of the cash flows, and EV − net debt + adjustments =
+equity value.
+
+**A sensitivity grid is eighty-one valuations, not one valuation and eighty numbers.** Every
+cell is a complete discounted cash flow whose calculation is stored and referenced, because a
+grid is the easiest figure in a valuation to fabricate and nothing in the presentation
+distinguishes a computed grid from an interpolated one — see
+`docs/adr/0028-a-sensitivity-grid-is-eighty-one-valuations.md`, which also explains why
+interpolating is wrong in the direction that flatters the valuation.
 
 ### Model calls
 
