@@ -381,10 +381,11 @@ def series_for(key: str) -> MacroSeries:
 # error that grows with the forecast horizon.
 RISK_FREE_SERIES: Final[dict[str, str]] = {
     "USD": "us_treasury_10y",
-    # No GBP entry. The UK risk-free proxy is the ten-year gilt yield, which the Bank of
-    # England publishes and which this platform does not yet retrieve — see ADR 0026. A
-    # missing key here produces a refusal naming that, which is better than silently
-    # discounting a sterling valuation at a US Treasury yield.
+    # No GBP entry, and the reason is now settled rather than pending. The UK risk-free proxy
+    # is the ten-year gilt yield, published by the Bank of England — whose `robots.txt`
+    # disallows the very CSV handler the Bank documents for programmatic downloads. See ADR
+    # 0026's Resolution. A missing key here produces a refusal naming that, which is better
+    # than silently discounting a sterling valuation at a US Treasury yield.
 }
 
 

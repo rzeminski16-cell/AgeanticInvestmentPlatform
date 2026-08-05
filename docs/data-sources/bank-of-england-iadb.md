@@ -1,8 +1,9 @@
 # Bank of England Interactive Statistical Database
 
-**This platform does not fetch from the Bank of England — yet, and not because it may not.**
-The decision and its reasoning are ADR 0026; this note is the operational summary and what
-has to happen before it changes.
+**This platform does not fetch from the Bank of England, and the reason is now settled.**
+The Bank documents a CSV download route for programmatic use *and* disallows that same route
+in its `robots.txt`. The determination and its evidence are in ADR 0026's Resolution section;
+this note is the operational summary.
 
 ## What the IADB is
 
@@ -18,18 +19,27 @@ attribution. That satisfies this project's standing requirement that every sourc
 extending to future commercial use of the software. Attribution belongs in the source
 document's `licence_note` when an adapter is built.
 
-## The access route: unresolved
+## The access route: resolved, and the answer is no
 
-The Bank's `robots.txt` disallows `/boeapps/iadb` and
-`/boeapps/database/_iadb-FromShowColumns.asp` among others. The CSV endpoint third-party
-clients use — `/boeapps/database/fromshowcolumns.asp?csv.x=yes&SeriesCodes=…` — is not one of
-the disallowed paths under prefix matching, but published descriptions of *which* endpoint
-serves CSV contradict each other, and one of the candidates is disallowed.
+Read at source on 2026-08-05.
 
-The Bank's website terms of use could not be read from the build environment at all: the
-network policy blocks outbound HTTPS to every host. Whether they carry an automated-access
-prohibition of the kind the FCA's terms do — the clause that decided ADR 0022 — is therefore
-**unknown**, not "absent".
+**The terms carry no automated-access prohibition.** Unlike the FCA's (ADR 0022), the Bank's
+legal terms contain no scraper, robot or data-mining clause. Restrictions on automated access
+are expressed through `robots.txt`, reuse is licence-dependent, and excessive use may get an
+address blocked. This is why `bankofengland.co.uk` is **not** in `REFUSED_HOSTS` — that list
+is for publishers whose terms forbid automated access.
+
+**But `robots.txt` disallows the download route.** Confirmed verbatim:
+`/boeapps/database/ShowChart.asp`, `/boeapps/database/_iadb-FromShowColumns.asp`,
+`/boeapps/iadb`, `/boeapps/titan`, plus `/error`, `/forms`, `/mfsd`, `/search` and
+`/test-folder`.
+
+**And the underscored handler is the real one.** The endpoint that serves CSV, and that the
+Bank documents for automatic parameterised downloads, is
+`_iadb-FromShowColumns.asp` — the disallowed one. The plain `fromshowcolumns.asp` viewer is
+not on the list, but it is a viewer: it redirects to, proxies or invokes the handler that is.
+Using it *because* it is unlisted would be circumventing a stated restriction to reach content
+the publisher's own machine-readable policy asks automated clients to leave alone.
 
 ## What is built anyway
 
@@ -50,24 +60,30 @@ A rate supplied by hand today works exactly as one fetched tomorrow will, becaus
 ## What is not built
 
 No `Provider` member, no allowlisted host, no adapter, no rate limit. The host is also **not**
-in `REFUSED_HOSTS`: that list records terms that have been read and found prohibitive, and
-nothing here has been found prohibitive. An entry there would assert a determination nobody
-made.
+in `REFUSED_HOSTS`: that list records publishers whose *terms* forbid automated access, and
+the Bank's do not. An entry there would assert something the terms do not say, and would
+wrongly refuse the rest of the Bank's site along with it.
 
-## Before this changes
+## The enforcement
 
-Read three pages, in this order, and record what they say:
+`tests/test_robots.py::TestTheBankOfEnglandDetermination` pins the `robots.txt` above and
+asserts what it means: the documented handler is refused, the database root is refused, the
+viewer path is not treated as a way round it, and the rest of the Bank's site — speeches, the
+Financial Stability Report, statistical releases — stays fetchable, because the refusal is a
+set of paths rather than a publisher.
 
-1. <https://www.bankofengland.co.uk/legal> — any automated-access, scraper, robot or
-   data-mining prohibition?
-2. <https://www.bankofengland.co.uk/robots.txt> — confirm the `Disallow` lines verbatim.
-3. <https://www.bankofengland.co.uk/boeapps/database/help.asp> — which path serves CSV, and
-   is it documented as a route for programmatic use?
+## What would change this
 
-If clean: add the provider, allowlist `www.bankofengland.co.uk`, rate-limit conservatively
-(this is one series pull per run, not a crawl), parse the CSV, persist rates as facts with
-the OGL attribution, and update ADR 0026 with a follow-up.
+1. **Ask the Bank's Data and Statistics Division.** A documented download route disallowed by
+   the same organisation's `robots.txt` is plausibly an oversight, and it is theirs to
+   resolve. Written consent, or an amended `robots.txt`, closes this outright: the adapter is
+   then a provider, an allowlisted host, a conservative rate limit and a CSV parser, and the
+   arithmetic it feeds is already built and tested.
+2. **The UK Debt Management Office** publishes gilt prices and yields. Its terms have **not**
+   been examined, and nothing here should be read as suggesting they are permissive.
+3. **The ECB's euro reference rates**, crossing non-euro pairs through the euro — which makes
+   a cross-rate a calculation rather than a published observation, and would have to be
+   recorded as such.
 
-If not clean: the European Central Bank's euro reference rates are the fallback, at the cost
-of crossing non-euro pairs through the euro — which makes a cross-rate a calculation rather
-than a published observation, and should be recorded as such.
+Until one of those lands, a rate supplied by hand works exactly as a fetched one will: both
+are `FxRate` objects carrying a `SourceRef`.

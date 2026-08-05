@@ -12,6 +12,7 @@ from __future__ import annotations
 import pytest
 
 from aer.fetch.errors import RobotsDisallowedError
+from aer.fetch.policy import DEFAULT_POLICIES, refusal_for
 from aer.fetch.robots import RobotsCache, robots_url_for
 
 pytestmark = pytest.mark.usefixtures("no_real_sockets")
@@ -35,6 +36,25 @@ Disallow: /filings/
 
 User-agent: *
 Disallow:
+"""
+
+# The Bank of England's robots.txt, read at source on 2026-08-05 and recorded verbatim in
+# ADR 0026. Pinned here because the determination that closed that ADR rests on it: the
+# Bank's own documented CSV handler for the Interactive Statistical Database is on this
+# list, and that is the whole reason this platform does not retrieve UK rates.
+BANK_OF_ENGLAND = """User-agent: *
+Disallow: /boeapps/database/ShowChart.asp
+Disallow: /boeapps/database/_iadb-FromShowColumns.asp
+Disallow: /boeapps/iadb
+Disallow: /boeapps/titan
+Disallow: /error
+Disallow: /forms
+Disallow: /mfsd
+Disallow: /search
+Disallow: /test-folder
+
+Sitemap: https://www.bankofengland.co.uk/_api/sitemap/getsitemap
+Host: www.bankofengland.co.uk
 """
 
 
@@ -185,3 +205,73 @@ class TestCaching:
         await cache.decide("https://example.test/a")
 
         assert len(fetcher.calls) == 2
+
+
+class TestTheBankOfEnglandDetermination:
+    """ADR 0026, closed. The enforcement is this check, not a note in a document.
+
+    The Bank's legal terms carry **no** blanket prohibition on automated access — unlike the
+    FCA's, which is why `bankofengland.co.uk` is not in `REFUSED_HOSTS` and the rest of the
+    site remains fetchable. What its robots.txt disallows is the Interactive Statistical
+    Database, including `_iadb-FromShowColumns.asp`, which is the Bank's own documented
+    handler for parameterised CSV downloads.
+
+    So the download route is documented *and* disallowed at the same time, and this platform
+    resolves that against itself: no UK rate is retrieved. These tests pin both halves, so
+    the day somebody adds a Bank of England adapter the suite says why it cannot work.
+    """
+
+    async def test_the_documented_csv_handler_is_disallowed(self, redis_client):
+        cache, _ = cache_for(redis_client, BANK_OF_ENGLAND)
+
+        decision = await cache.decide(
+            "https://www.bankofengland.co.uk/boeapps/database/"
+            "_iadb-FromShowColumns.asp?csv.x=yes&SeriesCodes=XUDLUSS"
+        )
+
+        assert decision.allowed is False
+
+    async def test_the_database_root_is_disallowed_too(self, redis_client):
+        cache, _ = cache_for(redis_client, BANK_OF_ENGLAND)
+
+        decision = await cache.decide("https://www.bankofengland.co.uk/boeapps/iadb/index.asp")
+
+        assert decision.allowed is False
+
+    async def test_the_viewer_path_is_not_a_way_round_it(self, redis_client):
+        """It is not on the list, and that is not permission.
+
+        Prefix matching leaves `/boeapps/database/fromshowcolumns.asp` — the plain viewer —
+        permitted, and third-party clients use it to reach the same data. Fetching it to get
+        at a handler robots.txt disallows would be circumvention of a stated restriction,
+        which this project's constraints forbid regardless of what the parser returns. So the
+        test records what the file actually says and the refusal lives one layer up, in the
+        absence of any Bank of England provider, adapter or allowlisted host.
+        """
+        cache, _ = cache_for(redis_client, BANK_OF_ENGLAND)
+
+        decision = await cache.decide(
+            "https://www.bankofengland.co.uk/boeapps/database/fromshowcolumns.asp?csv.x=yes"
+        )
+
+        assert decision.allowed is True
+
+    async def test_the_rest_of_the_site_is_fetchable(self, redis_client):
+        """The refusal is a path, not a publisher. Speeches and reports are still readable."""
+        cache, _ = cache_for(redis_client, BANK_OF_ENGLAND)
+
+        decision = await cache.decide(
+            "https://www.bankofengland.co.uk/financial-stability-report/2026/july-2026"
+        )
+
+        assert decision.allowed is True
+
+    def test_no_provider_is_configured_for_the_bank(self):
+        """The determination in code: nothing can fetch from the Bank because nothing may.
+
+        Not a `REFUSED_HOSTS` entry, which would assert that the Bank's *terms* forbid
+        automated access. They do not. The absence of a provider is the accurate statement.
+        """
+        hosts = {host for policy in DEFAULT_POLICIES.values() for host in policy.allowed_hosts}
+        assert not any("bankofengland" in host for host in hosts)
+        assert refusal_for("www.bankofengland.co.uk") is None
