@@ -559,6 +559,20 @@ the gate refuses to proceed on an unconfirmed peer set.
 **Acceptance.** Every multiple names its basis and its date; no comps table is produced without a
 confirmed peer set.
 
+**Delivered (2026-08-05), internal-only under ADR 0030 route 2.** `aer/calc/comps.py` (the five
+multiples, peer alignment, medians and percentile bands) and `aer/services/comps.py` (the
+`PEER_SET` gate, the deterministic SIC-group proposal, the table). The peer-review page is
+`/runs/{id}/peers`; the gate route was already generic.
+
+**Nothing price-derived reaches a shareable surface.** A rendered report gets a `WithheldComps`
+— an object with no field that could hold a figure — and the Markdown renderer's signature
+accepts only that type. ADR 0034 records why that is a type rather than a flag.
+
+Two things the tests found: `MAX_PERIOD_DRIFT_DAYS` was 92, which permitted exactly the
+March-against-December comparison its own rationale said it excluded (now 45); and the calc
+engine refused the first shape of the statistics, correctly, because a list of bare `Decimal`s
+is a number that cannot say where it came from.
+
 ---
 
 ## Task 31 — The valuation surface

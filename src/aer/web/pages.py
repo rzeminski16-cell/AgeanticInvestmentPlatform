@@ -56,6 +56,11 @@ from aer.services import cancellation as cancellation_service
 from aer.services import provenance
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
+from aer.services.comps import (
+    PEER_SET_STEP,
+    peer_set_payload,
+    peer_set_required,
+)
 from aer.services.sectors import (
     CLASSIFY_STEP,
     classification_payload,
@@ -361,6 +366,61 @@ async def sector_review(
             "payload_hash": payload_hash_for(payload),
             "decided": decided,
             "gate": GateKind.SECTOR_SPECIALIST.value,
+            "csrf_field": CSRF_FIELD_NAME,
+            "csrf_token": token,
+        },
+    )
+    set_csrf_cookie(response, token)
+    return response
+
+
+@router.get("/runs/{job_id}/peers", response_class=HTMLResponse, summary="Confirm the peer set")
+async def peer_review(
+    request: Request,
+    job_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """The conditional gate that decides which companies this one is compared with.
+
+    Every peer's rationale is rendered at full length. A page that truncated them would be a
+    page that invites approving a set nobody read, which is the failure this gate exists to
+    prevent.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    produced = await _step_output(session, job_id=job_id, step_key=PEER_SET_STEP)
+    if produced is None:
+        return _problem(
+            request,
+            "This run has not proposed a peer set yet. There is nothing to confirm.",
+            status=HTTP_404_NOT_FOUND,
+        )
+
+    if not peer_set_required(produced):
+        return _problem(
+            request,
+            "This run proposed no comparable companies, so this gate does not apply to it. "
+            "No comparables table will be produced and the report says so.",
+            status=HTTP_404_NOT_FOUND,
+        )
+
+    payload = peer_set_payload(produced)
+    decided = await _decision_for(session, job_id=job_id, gate=GateKind.PEER_SET)
+    token = new_csrf_token(settings)
+
+    response: Response = render(
+        request,
+        "runs/peers.html",
+        {
+            "job": job,
+            "payload": payload,
+            "payload_hash": payload_hash_for(payload),
+            "decided": decided,
+            "gate": GateKind.PEER_SET.value,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },

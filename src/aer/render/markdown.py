@@ -33,6 +33,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.calc.comps import WithheldComps
 from aer.db.models import (
     Calculation,
     Company,
@@ -90,6 +91,7 @@ async def render_markdown(
     request: ResearchRequest,
     company: Company | None = None,
     sector: SectorNote | None = None,
+    comps: WithheldComps | None = None,
     rating: str | None = None,
     confidence: float | None = None,
     generated_at: datetime | None = None,
@@ -139,7 +141,15 @@ async def render_markdown(
     # produces a block rather than a footnote: a reader has to meet the limitation before the
     # numbers, because the number is what they will remember.
     document = "\n".join(
-        [*header, *_sector_block(sector), *body, *footnotes, *appendix, *_footer()]
+        [
+            *header,
+            *_sector_block(sector),
+            *body,
+            *_comps_block(comps),
+            *footnotes,
+            *appendix,
+            *_footer(),
+        ]
     )
 
     _log.info(
@@ -172,6 +182,27 @@ class SectorNote:
     # `aer.services.sectors.MetricDisclosure`. A string rather than the structure, because
     # *whether* the absence is disclosed must not depend on a template remembering to.
     metric_disclosure: str = ""
+
+
+def _comps_block(comps: WithheldComps | None) -> list[str]:
+    """The comparables disclosure — that one was done, and that its figures are not here.
+
+    **This function takes a `WithheldComps` and cannot take a `CompsTable`.** A rendered
+    Markdown report is the shareable artefact: it gets exported, attached and sent, and every
+    multiple in a comps table derives from market data licensed for internal use with no
+    derived-data exemption (ADR 0030 route 2). So the type this renderer accepts is the one
+    that has no figures in it, and a caller wanting to put the numbers in a report cannot do
+    it by passing a different argument — there is no argument that would carry them.
+
+    The internal view is the valuation page, which is not exported.
+
+    Empty when no comparison was performed, because "no comps table" and "a comps table you
+    are not being shown" are different claims and only the second needs saying.
+    """
+    if comps is None:
+        return []
+
+    return ["## Comparable companies", "", comps.as_paragraph(), ""]
 
 
 def _sector_block(sector: SectorNote | None) -> list[str]:

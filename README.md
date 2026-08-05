@@ -1204,6 +1204,46 @@ value, so a rotated key is still hidden in an old log line. See
 `docs/adr/0033-a-credential-in-a-url-is-invisible-to-name-based-redaction.md` — including the
 note that any key logged before this change should be treated as exposed.
 
+### Comparables, and the peer set somebody agreed to
+
+A multiple is a ratio of two things measured the same way, and almost every error here is a
+failure of that sentence rather than of arithmetic. Three of them are structural:
+
+**Every multiple is dimensionless, and the unit algebra proves it.** Enterprise value over
+EBITDA is a currency over a currency; a price per share over earnings per share is per-share
+over per-share. A multiple that comes out carrying a unit is one where a whole-company figure
+was divided by a per-share one — a number wrong by the share count, and entirely
+ordinary-looking. It raises instead of printing.
+
+**A non-positive denominator has no multiple.** A company with negative EBITDA does not have a
+cheap EV/EBITDA; it has none. The arithmetic yields a negative number, and a negative number
+sorted into a table of multiples reads as the *cheapest company in it*. The result carries the
+reason in words instead, in the same shape a ratio its filing cannot support does.
+
+**Every multiple names its basis and its date.** `12.4x` is not a fact; `12.4x EV/EBITDA on a
+trailing twelve-month basis to 30 June 2024` is. The basis is a recorded calculation
+parameter, not implied by which function was called.
+
+**A peer set nobody confirmed is a comparison nobody can defend.** A badly chosen peer moves a
+median more than most modelling choices do, and it moves it invisibly — the arithmetic is
+right and the company should not have been in the set. So the peer set goes through the
+`PEER_SET` gate, and the service *refuses* to build a table without an approval rather than
+producing an unlabelled one. A peer whose reporting period sits more than six weeks from the
+subject's is excluded with its reason recorded, because a March year-end against a December
+one compares three months of a different economy — and every exclusion is listed, since "we
+left out the two peers that would have moved the median" is what a reader needs to notice.
+
+The subject against its **own history** is often the more honest comparison. A company at 14x
+against peers at 11x may be expensive, or may be a company that has traded at 14x for a decade
+against peers that have always been cheaper for a reason.
+
+**None of it leaves the machine.** Every multiple derives from a price, and the price arrives
+under a personal-use subscription with no derived-data exemption (ADR 0030). So a shareable
+report gets a `WithheldComps` — an object that says a comparison was performed against *n*
+peers and carries **no field that could hold a figure**. The Markdown renderer's signature
+accepts only that type, so putting the numbers into a report is not a matter of passing a
+different argument. See `docs/adr/0034-a-withheld-figure-is-a-type-with-no-field-for-it.md`.
+
 ### Model calls
 
 Every call goes through a provider, a router and a meter — see

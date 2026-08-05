@@ -294,6 +294,12 @@ class TestTheWholeRun:
             # Conditional, like the financials gate below: it passes straight through for a
             # company whose SIC code matches no specialist profile, which this one does not.
             "gate_sector_specialist",
+            # Peers after classification, because what kind of business this is decides which
+            # companies are comparable with it. Conditional too: this database holds no other
+            # company sharing the subject's SIC group, so nothing is proposed and the gate
+            # passes straight through.
+            "propose_peers",
+            "gate_peer_set",
             "extract",
             # A step even on the runs it does not apply to. It succeeds without stopping
             # when every tag mapped, which is what this fixture's filing does.

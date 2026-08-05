@@ -35,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.agents.base import AgentContext
 from aer.agents.planner import PlannerAgent, PlannerInput
 from aer.calc.basic import cagr
+from aer.calc.comps import MultipleBasis, WithheldComps, align_peers
 from aer.calc.units import SourceRef, money
 from aer.core.enums import Decision, FactBasis, GateKind, JobStatus, Provider, SourceTier
 from aer.core.hashing import canonical_json, sha256_hex
@@ -50,12 +51,20 @@ from aer.db.models import (
     SectionStatus,
     SourceDocument,
 )
+from aer.fetch.policy import DEFAULT_POLICIES
 from aer.render.markdown import SectorNote, render_markdown
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
 from aer.services import calculations as calculation_service
 from aer.services.acquisition import record_acquisition
 from aer.services.artefacts import store_artefact
 from aer.services.citations import review_evidence
+from aer.services.comps import (
+    PEER_SET_STEP,
+    confirmed_peer_set,
+    peer_set_payload,
+    peer_set_required,
+    propose_peers_from_sic,
+)
 from aer.services.disagreements import escalations_for_job
 from aer.services.facts import persist_facts, upsert_company
 from aer.services.sectors import (
@@ -75,6 +84,7 @@ __all__ = [
     "WORKFLOW_VERSION",
     "build_steps",
     "final_gate_payload",
+    "peer_gate_payload",
     "plan_gate_payload",
     "sector_gate_payload",
     "unmapped_gate_payload",
@@ -116,6 +126,20 @@ def build_steps() -> list[WorkflowStep]:
             key="gate_sector_specialist",
             run=_gate_sector_specialist,
             gate=GateKind.SECTOR_SPECIALIST.value,
+        ),
+        # Peers after classification, because what kind of business this is decides which
+        # companies are comparable with it. **The gate order in `aer.services.approvals` lists
+        # PEER_SET before SECTOR_SPECIALIST, and that is about approval precedence rather than
+        # about step order** — both are conditional, so an undecided one never blocks the
+        # other, and the workflow is free to propose in the sequence that makes sense.
+        WorkflowStep(key=PEER_SET_STEP, run=_propose_peers),
+        # Conditional: passes straight through when nothing comparable is in the database.
+        # A run with no peers has no comparison to defend and should not wait at a gate to
+        # confirm an empty list.
+        WorkflowStep(
+            key="gate_peer_set",
+            run=_gate_peer_set,
+            gate=GateKind.PEER_SET.value,
         ),
         WorkflowStep(key="extract", run=_extract),
         # Conditional: it passes straight through unless the extraction left tags the concept
@@ -509,6 +533,60 @@ async def _gate_sector_specialist(context: StepContext) -> StepResult:
     return await _require_approval(context, gate=GateKind.SECTOR_SPECIALIST, of_step=CLASSIFY_STEP)
 
 
+def peer_gate_payload(produced: Mapping[str, Any]) -> dict[str, Any]:
+    """What the peer-set gate approves. Delegates, so one definition serves both halves."""
+    return peer_set_payload(produced)
+
+
+async def _propose_peers(context: StepContext) -> StepResult:
+    """Put forward comparable companies, from what this database already holds.
+
+    **Deterministic in this slice, and a floor rather than the finished article** — the same
+    shape as `_classify`. Companies sharing the subject's SIC group are proposed with the
+    reason stated; a model writing a real rationale per peer replaces the proposal and nothing
+    else, because the confirmation and the refusal are indifferent to who proposed.
+
+    A database holding no comparable company proposes nobody, no gate fires, and the report
+    says no comparison was performed. That is the honest answer for the first company anybody
+    researches.
+    """
+    acquired = context.output_of("acquire")
+    company = await context.session.get(Company, _uuid(acquired["company_id"]))
+    if company is None:  # pragma: no cover -- written by the prior step
+        message = "The acquire step's company row is missing."
+        raise StepPaused(message, gate=None)
+
+    request = await _request_for(context)
+    proposals = await propose_peers_from_sic(
+        context.session, subject=company, as_of=request.as_of_date
+    )
+
+    output: dict[str, Any] = {
+        "subject": str(company.id),
+        "subject_name": company.name,
+        "subject_period_end": request.as_of_date.isoformat(),
+        "basis": MultipleBasis.TRAILING_TWELVE_MONTHS.value,
+        "proposed_by": "sic_group_lookup",
+        "peers": [peer.as_dict() for peer in proposals],
+    }
+    output["payload_hash"] = sha256_hex(canonical_json(peer_gate_payload(output)))
+    return StepResult(output=output)
+
+
+async def _gate_peer_set(context: StepContext) -> StepResult:
+    """Stop until a person agrees which companies this one is comparable with.
+
+    **Skipped, not approved, when nothing was proposed.** A badly chosen peer moves a median
+    more than most modelling choices do and does it invisibly, so a set that exists needs a
+    person — and a set that is empty needs nobody, because there is no comparison to defend.
+    """
+    produced = context.outputs.get(PEER_SET_STEP, {})
+    if not peer_set_required(produced):
+        return StepResult(output={"gate": GateKind.PEER_SET.value, "required": False, "peers": 0})
+
+    return await _require_approval(context, gate=GateKind.PEER_SET, of_step=PEER_SET_STEP)
+
+
 # ==========================================================================================
 # 4. Extract
 # ==========================================================================================
@@ -829,6 +907,34 @@ async def _sector_note(context: StepContext) -> SectorNote | None:
     )
 
 
+async def _comps_note(context: StepContext) -> WithheldComps | None:
+    """What this run's comparables work obliges its report to say, or ``None``.
+
+    ``None`` when no peer set was confirmed, because "no comparison was performed" and "a
+    comparison whose figures you are not being shown" are different claims and only the
+    second needs saying.
+
+    Returns a :class:`~aer.calc.comps.WithheldComps` and never a table. A rendered report is
+    the shareable artefact, and every multiple in it would derive from market data licensed
+    for internal use only — see `_comps_block` in :mod:`aer.render.markdown`.
+    """
+    confirmed = await confirmed_peer_set(context.session, context.job)
+    if not confirmed:
+        return None
+
+    request = await _request_for(context)
+    aligned, excluded = align_peers(
+        [(peer.identifier, peer.name, peer.period_end) for peer in confirmed],
+        subject_period_end=request.as_of_date,
+    )
+    return WithheldComps(
+        peer_count=len(aligned),
+        excluded_count=len(excluded),
+        as_of=request.as_of_date,
+        licence_note=DEFAULT_POLICIES[Provider.EODHD].licence_note,
+    )
+
+
 async def _render(context: StepContext) -> StepResult:
     """Render the Markdown, archive it, and freeze the report."""
     request = await _request_for(context)
@@ -842,6 +948,7 @@ async def _render(context: StepContext) -> StepResult:
         job=context.job,
         request=request,
         company=company,
+        comps=await _comps_note(context),
         sector=await _sector_note(context),
     )
 
