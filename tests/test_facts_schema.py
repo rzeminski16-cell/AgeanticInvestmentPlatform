@@ -15,9 +15,13 @@ import pytest
 
 from aer.core.concepts import (
     CANONICAL_CONCEPTS,
+    IFRS_ALIASES,
+    MAGNITUDE_CONCEPTS,
+    UK_FRC_ALIASES,
     US_GAAP_ALIASES,
     canonical_concept,
     is_canonical_concept,
+    is_magnitude,
 )
 from aer.core.schemas.facts import RawFact, format_accession
 from tests.sec_fixtures import make_fact
@@ -75,6 +79,77 @@ class TestTheConceptVocabulary:
     def test_is_canonical_concept_recognises_the_vocabulary(self):
         assert is_canonical_concept("revenue")
         assert not is_canonical_concept("Revenues")
+
+    def test_the_vocabulary_is_the_sixty_the_plan_asks_for(self):
+        # docs/PLAN.md names the concept long tail as Phase 3's main risk and prescribes the
+        # top sixty plus a visible "unmapped" surface rather than chasing completeness. A
+        # count is a crude assertion, and it is the one that notices the list shrinking.
+        assert len(CANONICAL_CONCEPTS) >= 60
+
+    def test_every_alias_table_points_only_at_concepts_that_exist(self):
+        targets = (
+            set(US_GAAP_ALIASES.values())
+            | set(IFRS_ALIASES.values())
+            | set(UK_FRC_ALIASES.values())
+        )
+
+        assert targets <= CANONICAL_CONCEPTS
+
+    def test_the_concepts_with_no_ifrs_tag_are_a_recorded_decision(self):
+        """Three concepts have a us-gaap tag and no IFRS one, and that is deliberate.
+
+        ``ifrs-full`` has no element this project is confident means "restructuring costs",
+        "preferred dividends" or "change in working capital" — the nearest candidates are
+        provisions and adjustment lines that mean something adjacent. The module's own rule
+        is that unmapped-and-visible beats wrongly-mapped, so they are absent. Pinned here
+        so that closing one of them is a decision somebody takes rather than a diff nobody
+        reads, and so that the list not *growing* is noticed.
+        """
+        assert CANONICAL_CONCEPTS - set(IFRS_ALIASES.values()) == {
+            "change_in_working_capital",
+            "preferred_dividends",
+            "restructuring_costs",
+        }
+
+    def test_a_split_out_expense_line_is_absent_rather_than_double_counted(self):
+        # A filer tagging selling and administrative expenses separately has reported two
+        # components, not SG&A. Mapping both would give two facts claiming to be the same
+        # concept for one period, and the disagreement ladder would have to arbitrate
+        # between two halves of a total.
+        assert canonical_concept("us-gaap", "SellingGeneralAndAdministrativeExpense") == "sg_and_a"
+        assert canonical_concept("us-gaap", "SellingAndMarketingExpense") is None
+        assert canonical_concept("us-gaap", "GeneralAndAdministrativeExpense") is None
+
+
+class TestTheSignConvention:
+    """The trap that makes free cash flow twice the right number if it is got wrong."""
+
+    def test_capital_expenditure_is_a_magnitude(self):
+        # Tagged `PaymentsToAcquirePropertyPlantAndEquipment` and reported positive: it is a
+        # payment of that size, not a negative cash flow. So free cash flow subtracts it.
+        assert is_magnitude("capital_expenditure")
+
+    def test_operating_cash_flow_is_not(self):
+        assert not is_magnitude("operating_cash_flow")
+
+    def test_every_magnitude_concept_is_in_the_vocabulary(self):
+        assert MAGNITUDE_CONCEPTS <= CANONICAL_CONCEPTS
+
+    def test_the_outflow_concepts_are_all_declared(self):
+        # Every cash-flow concept whose tag names a payment. A new one added to the
+        # vocabulary and forgotten here is a sign error waiting for a capital-intensive
+        # company.
+        for concept in (
+            "dividends_paid",
+            "share_repurchases",
+            "repayments_of_debt",
+            "interest_paid",
+            "income_taxes_paid",
+        ):
+            assert is_magnitude(concept), concept
+
+    def test_an_inflow_is_not_a_magnitude(self):
+        assert not is_magnitude("proceeds_from_debt")
 
 
 class TestAccessionNumbers:

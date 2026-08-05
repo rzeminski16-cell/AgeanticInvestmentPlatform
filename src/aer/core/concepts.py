@@ -18,10 +18,21 @@ segment revenue produces a tag this map has never seen. Discarding it would lose
 data and leave no trace; the parser keeps the fact under its raw tag and reports the tag
 as unmapped, so a gap in this table is visible rather than silent.
 
+**One tag per concept per filing, and that is why some obvious aliases are absent.** A filer
+that tags ``SellingAndMarketingExpense`` and ``GeneralAndAdministrativeExpense`` separately
+has not reported SG&A; it has reported two components of it. Mapping both onto
+``sg_and_a`` would produce two facts claiming to be the same concept for the same period,
+which the disagreement ladder would then have to arbitrate between — two halves of a total,
+neither wrong. So only the combined tag maps, and a filer who splits them leaves the concept
+absent and visible. ``docs/PLAN.md`` names the long tail as this phase's main risk and
+prescribes exactly this: ship the top sixty and surface what is missing.
+
+**Signs are a trap and are documented rather than assumed.** See :data:`MAGNITUDE_CONCEPTS`.
+
 This module is pure vocabulary — no I/O, no dependencies beyond the standard library —
 which is why it lives in ``aer.core`` rather than inside the SEC adapter. The same
-canonical names will be the target of a UK adapter's own alias map, and the point of a
-canonical name is that there is exactly one of it.
+canonical names are the target of the UK adapter's alias map, and the point of a canonical
+name is that there is exactly one of it.
 """
 
 from __future__ import annotations
@@ -31,42 +42,113 @@ from typing import Final
 __all__ = [
     "CANONICAL_CONCEPTS",
     "IFRS_ALIASES",
+    "MAGNITUDE_CONCEPTS",
     "UK_FRC_ALIASES",
     "US_GAAP_ALIASES",
     "canonical_concept",
     "is_canonical_concept",
+    "is_magnitude",
 ]
 
 
-# The canonical vocabulary. Deliberately small: every name here has to be defined
-# precisely enough that two adapters mapping onto it produce comparable numbers, and a
-# vocabulary that grows faster than that definition work is a vocabulary that lies.
+# The canonical vocabulary. Every name here is defined precisely enough that two adapters
+# mapping onto it produce comparable numbers; a vocabulary that grows faster than that
+# definition work is a vocabulary that lies.
+#
+# Grouped by where the line lives, because that is how a reader checks the list for holes.
 CANONICAL_CONCEPTS: Final[frozenset[str]] = frozenset(
     {
-        "assets",
-        "cash_and_equivalents",
-        "cost_of_revenue",
-        "current_assets",
-        "current_liabilities",
-        "depreciation_and_amortisation",
-        "diluted_shares_outstanding",
-        "dividends_paid",
-        "earnings_per_share_diluted",
-        "equity",
-        "gross_profit",
-        "income_tax_expense",
-        "interest_expense",
-        "inventory",
-        "liabilities",
-        "long_term_debt",
-        "net_income",
-        "operating_cash_flow",
-        "operating_income",
-        "capital_expenditure",
-        "research_and_development",
+        # -- Income statement -----------------------------------------------------------
         "revenue",
-        "shares_outstanding",
+        "cost_of_revenue",
+        "gross_profit",
+        "sg_and_a",
+        "research_and_development",
+        "operating_expenses",
+        "operating_income",
+        "impairment",
+        "restructuring_costs",
+        "interest_expense",
+        "interest_income",
+        "pre_tax_income",
+        "income_tax_expense",
+        "net_income",
+        "noncontrolling_interest_income",
+        "preferred_dividends",
+        "earnings_per_share_basic",
+        "earnings_per_share_diluted",
+        # -- Balance sheet: assets --------------------------------------------------------
+        "cash_and_equivalents",
+        "short_term_investments",
+        "accounts_receivable",
+        "inventory",
+        "current_assets",
+        "property_plant_and_equipment",
+        "goodwill",
+        "intangible_assets",
+        "noncurrent_assets",
+        "assets",
+        # -- Balance sheet: liabilities and equity ----------------------------------------
+        "accounts_payable",
+        "accrued_liabilities",
+        "deferred_revenue",
         "short_term_debt",
+        "current_liabilities",
+        "long_term_debt",
+        "lease_liabilities",
+        "noncurrent_liabilities",
+        "liabilities",
+        "total_debt",
+        "retained_earnings",
+        "treasury_stock",
+        "noncontrolling_interests",
+        "equity",
+        # -- Cash flow --------------------------------------------------------------------
+        "operating_cash_flow",
+        "investing_cash_flow",
+        "financing_cash_flow",
+        "depreciation_and_amortisation",
+        "share_based_compensation",
+        "deferred_income_tax_expense",
+        "change_in_working_capital",
+        "capital_expenditure",
+        "share_repurchases",
+        "dividends_paid",
+        "proceeds_from_debt",
+        "repayments_of_debt",
+        "interest_paid",
+        "income_taxes_paid",
+        # -- Per share and share counts ---------------------------------------------------
+        "dividends_per_share",
+        "basic_shares_outstanding",
+        "diluted_shares_outstanding",
+        "shares_outstanding",
+    }
+)
+
+
+# Concepts a filer reports as a **positive magnitude** even though the thing itself is an
+# outflow or a deduction.
+#
+# This is the sign trap, and it is worth a table rather than a convention. Capital
+# expenditure is tagged ``PaymentsToAcquirePropertyPlantAndEquipment`` and reported as a
+# positive number: it is a *payment* of that size, not a negative cash flow. Free cash flow
+# is therefore ``operating_cash_flow - capital_expenditure`` and not a sum, and a model that
+# added them would produce a figure roughly twice the right one for a capital-intensive
+# company and only slightly wrong for an asset-light one — which is the worst possible
+# distribution of an error, because it looks fine in the cases used to check it.
+#
+# Anything not listed here carries the sign the filer reported, including losses.
+MAGNITUDE_CONCEPTS: Final[frozenset[str]] = frozenset(
+    {
+        "capital_expenditure",
+        "dividends_paid",
+        "preferred_dividends",
+        "share_repurchases",
+        "repayments_of_debt",
+        "interest_paid",
+        "income_taxes_paid",
+        "treasury_stock",
     }
 )
 
@@ -89,35 +171,94 @@ US_GAAP_ALIASES: Final[dict[str, str]] = {
     "CostOfGoodsAndServicesSold": "cost_of_revenue",
     "CostOfGoodsSold": "cost_of_revenue",
     "GrossProfit": "gross_profit",
-    "OperatingIncomeLoss": "operating_income",
+    # Only the combined tag; see the module docstring on why the components are absent.
+    "SellingGeneralAndAdministrativeExpense": "sg_and_a",
     "ResearchAndDevelopmentExpense": "research_and_development",
+    "OperatingExpenses": "operating_expenses",
+    "CostsAndExpenses": "operating_expenses",
+    "OperatingIncomeLoss": "operating_income",
+    "AssetImpairmentCharges": "impairment",
+    "GoodwillImpairmentLoss": "impairment",
+    "ImpairmentOfIntangibleAssetsExcludingGoodwill": "impairment",
+    "RestructuringCharges": "restructuring_costs",
     "InterestExpense": "interest_expense",
     "InterestExpenseNonoperating": "interest_expense",
+    "InvestmentIncomeInterest": "interest_income",
+    "InterestIncomeOperating": "interest_income",
+    (
+        "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItems"
+        "NoncontrollingInterest"
+    ): "pre_tax_income",
+    (
+        "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterest"
+        "AndIncomeLossFromEquityMethodInvestments"
+    ): "pre_tax_income",
     "IncomeTaxExpenseBenefit": "income_tax_expense",
     "NetIncomeLoss": "net_income",
     "ProfitLoss": "net_income",
+    "NetIncomeLossAttributableToNoncontrollingInterest": "noncontrolling_interest_income",
+    "PreferredStockDividendsAndOtherAdjustments": "preferred_dividends",
+    "DividendsPreferredStock": "preferred_dividends",
+    "EarningsPerShareBasic": "earnings_per_share_basic",
     "EarningsPerShareDiluted": "earnings_per_share_diluted",
-    # -- Balance sheet ------------------------------------------------------------------
-    "Assets": "assets",
-    "AssetsCurrent": "current_assets",
-    "Liabilities": "liabilities",
-    "LiabilitiesCurrent": "current_liabilities",
-    "StockholdersEquity": "equity",
-    "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest": "equity",
+    # -- Balance sheet: assets ------------------------------------------------------------
     "CashAndCashEquivalentsAtCarryingValue": "cash_and_equivalents",
+    "ShortTermInvestments": "short_term_investments",
+    "AvailableForSaleSecuritiesDebtSecuritiesCurrent": "short_term_investments",
+    "AccountsReceivableNetCurrent": "accounts_receivable",
+    "ReceivablesNetCurrent": "accounts_receivable",
     "InventoryNet": "inventory",
-    "LongTermDebtNoncurrent": "long_term_debt",
-    "LongTermDebt": "long_term_debt",
+    "AssetsCurrent": "current_assets",
+    "PropertyPlantAndEquipmentNet": "property_plant_and_equipment",
+    "Goodwill": "goodwill",
+    "IntangibleAssetsNetExcludingGoodwill": "intangible_assets",
+    "FiniteLivedIntangibleAssetsNet": "intangible_assets",
+    "AssetsNoncurrent": "noncurrent_assets",
+    "Assets": "assets",
+    # -- Balance sheet: liabilities and equity ----------------------------------------------
+    "AccountsPayableCurrent": "accounts_payable",
+    "AccruedLiabilitiesCurrent": "accrued_liabilities",
+    "ContractWithCustomerLiabilityCurrent": "deferred_revenue",
+    "DeferredRevenueCurrent": "deferred_revenue",
     "ShortTermBorrowings": "short_term_debt",
     "LongTermDebtCurrent": "short_term_debt",
+    "LiabilitiesCurrent": "current_liabilities",
+    "LongTermDebtNoncurrent": "long_term_debt",
+    "LongTermDebt": "long_term_debt",
+    "OperatingLeaseLiability": "lease_liabilities",
+    "OperatingLeaseLiabilityNoncurrent": "lease_liabilities",
+    "LiabilitiesNoncurrent": "noncurrent_liabilities",
+    "Liabilities": "liabilities",
+    "DebtLongtermAndShorttermCombinedAmount": "total_debt",
+    "RetainedEarningsAccumulatedDeficit": "retained_earnings",
+    "TreasuryStockValue": "treasury_stock",
+    "MinorityInterest": "noncontrolling_interests",
+    "StockholdersEquity": "equity",
+    "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest": "equity",
     # -- Cash flow ----------------------------------------------------------------------
     "NetCashProvidedByUsedInOperatingActivities": "operating_cash_flow",
+    "NetCashProvidedByUsedInInvestingActivities": "investing_cash_flow",
+    "NetCashProvidedByUsedInFinancingActivities": "financing_cash_flow",
     "DepreciationDepletionAndAmortization": "depreciation_and_amortisation",
     "DepreciationAmortizationAndAccretionNet": "depreciation_and_amortisation",
+    "ShareBasedCompensation": "share_based_compensation",
+    "DeferredIncomeTaxExpenseBenefit": "deferred_income_tax_expense",
+    "IncreaseDecreaseInOperatingCapital": "change_in_working_capital",
     "PaymentsToAcquirePropertyPlantAndEquipment": "capital_expenditure",
+    "PaymentsForRepurchaseOfCommonStock": "share_repurchases",
     "PaymentsOfDividendsCommonStock": "dividends_paid",
     "PaymentsOfDividends": "dividends_paid",
-    # -- Share counts -------------------------------------------------------------------
+    "ProceedsFromIssuanceOfLongTermDebt": "proceeds_from_debt",
+    "ProceedsFromNotesPayable": "proceeds_from_debt",
+    "RepaymentsOfLongTermDebt": "repayments_of_debt",
+    "RepaymentsOfDebt": "repayments_of_debt",
+    "InterestPaidNet": "interest_paid",
+    "InterestPaid": "interest_paid",
+    "IncomeTaxesPaidNet": "income_taxes_paid",
+    "IncomeTaxesPaid": "income_taxes_paid",
+    # -- Per share and share counts -------------------------------------------------------
+    "CommonStockDividendsPerShareDeclared": "dividends_per_share",
+    "WeightedAverageNumberOfSharesOutstandingBasic": "basic_shares_outstanding",
     "WeightedAverageNumberOfDilutedSharesOutstanding": "diluted_shares_outstanding",
     "CommonStockSharesOutstanding": "shares_outstanding",
     "EntityCommonStockSharesOutstanding": "shares_outstanding",
@@ -139,45 +280,97 @@ US_GAAP_ALIASES: Final[dict[str, str]] = {
 # `FinanceCosts` is the interest line; `CashFlowsFromUsedInOperatingActivities` is operating
 # cash flow. Getting one of those wrong puts a real number on the wrong line, which is worse
 # than leaving it unmapped and visible.
+#
+# **IFRS 16 removed the lessee's operating/finance distinction**, so `lease_liabilities` is
+# one concept here and the us-gaap operating-lease tags map onto it. A comparison of leverage
+# across the two regimes is a comparison a reader has to make knowingly, and giving the two a
+# different canonical name would only hide that.
 IFRS_ALIASES: Final[dict[str, str]] = {
     # -- Income statement ---------------------------------------------------------------
     "Revenue": "revenue",
     "RevenueFromContractsWithCustomers": "revenue",
     "CostOfSales": "cost_of_revenue",
     "GrossProfit": "gross_profit",
+    "SellingGeneralAndAdministrativeExpense": "sg_and_a",
+    "ResearchAndDevelopmentExpense": "research_and_development",
+    "OperatingExpense": "operating_expenses",
     "ProfitLossFromOperatingActivities": "operating_income",
     "OperatingProfitLoss": "operating_income",
-    "ResearchAndDevelopmentExpense": "research_and_development",
+    "ImpairmentLossRecognisedInProfitOrLoss": "impairment",
+    "ImpairmentLossRecognisedInProfitOrLossGoodwill": "impairment",
     "FinanceCosts": "interest_expense",
     "InterestExpense": "interest_expense",
+    "FinanceIncome": "interest_income",
+    "RevenueFromInterest": "interest_income",
+    "ProfitLossBeforeTax": "pre_tax_income",
     "IncomeTaxExpenseContinuingOperations": "income_tax_expense",
     "ProfitLoss": "net_income",
     "ProfitLossAttributableToOwnersOfParent": "net_income",
+    "ProfitLossAttributableToNoncontrollingInterests": "noncontrolling_interest_income",
+    "BasicEarningsLossPerShare": "earnings_per_share_basic",
     "DilutedEarningsLossPerShare": "earnings_per_share_diluted",
-    # -- Balance sheet ------------------------------------------------------------------
-    "Assets": "assets",
-    "CurrentAssets": "current_assets",
-    "Liabilities": "liabilities",
-    "CurrentLiabilities": "current_liabilities",
-    "Equity": "equity",
-    "EquityAttributableToOwnersOfParent": "equity",
+    # -- Balance sheet: assets ------------------------------------------------------------
     "CashAndCashEquivalents": "cash_and_equivalents",
+    "OtherCurrentFinancialAssets": "short_term_investments",
+    "CurrentInvestments": "short_term_investments",
+    "TradeAndOtherCurrentReceivables": "accounts_receivable",
+    "CurrentTradeReceivables": "accounts_receivable",
     "Inventories": "inventory",
-    "NoncurrentPortionOfNoncurrentBorrowings": "long_term_debt",
-    "BorrowingsNoncurrent": "long_term_debt",
+    "CurrentAssets": "current_assets",
+    "PropertyPlantAndEquipment": "property_plant_and_equipment",
+    "Goodwill": "goodwill",
+    "IntangibleAssetsOtherThanGoodwill": "intangible_assets",
+    "NoncurrentAssets": "noncurrent_assets",
+    "Assets": "assets",
+    # -- Balance sheet: liabilities and equity ----------------------------------------------
+    "TradeAndOtherCurrentPayables": "accounts_payable",
+    "CurrentTradePayables": "accounts_payable",
+    "CurrentAccruedExpensesAndOtherCurrentLiabilities": "accrued_liabilities",
+    "CurrentContractLiabilities": "deferred_revenue",
+    "CurrentDeferredIncome": "deferred_revenue",
     "CurrentPortionOfNoncurrentBorrowings": "short_term_debt",
     "BorrowingsCurrent": "short_term_debt",
+    "CurrentLiabilities": "current_liabilities",
+    "NoncurrentPortionOfNoncurrentBorrowings": "long_term_debt",
+    "BorrowingsNoncurrent": "long_term_debt",
+    "LeaseLiabilities": "lease_liabilities",
+    "NoncurrentLeaseLiabilities": "lease_liabilities",
+    "NoncurrentLiabilities": "noncurrent_liabilities",
+    "Liabilities": "liabilities",
+    "Borrowings": "total_debt",
+    "RetainedEarnings": "retained_earnings",
+    "TreasuryShares": "treasury_stock",
+    "NoncontrollingInterests": "noncontrolling_interests",
+    "Equity": "equity",
+    "EquityAttributableToOwnersOfParent": "equity",
     # -- Cash flow ----------------------------------------------------------------------
     "CashFlowsFromUsedInOperatingActivities": "operating_cash_flow",
+    "CashFlowsFromUsedInInvestingActivities": "investing_cash_flow",
+    "CashFlowsFromUsedInFinancingActivities": "financing_cash_flow",
     "DepreciationAndAmortisationExpense": "depreciation_and_amortisation",
-    "DepreciationAmortisationAndImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss": (
-        "depreciation_and_amortisation"
-    ),
+    (
+        "DepreciationAmortisationAndImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss"
+    ): "depreciation_and_amortisation",
+    "AdjustmentsForShareBasedPayments": "share_based_compensation",
+    "AdjustmentsForDeferredTaxExpense": "deferred_income_tax_expense",
     "PurchaseOfPropertyPlantAndEquipment": "capital_expenditure",
     "PaymentsToAcquirePropertyPlantAndEquipment": "capital_expenditure",
+    "PaymentsForRepurchaseOfEntitysOwnEquityInstruments": "share_repurchases",
     "DividendsPaid": "dividends_paid",
     "DividendsPaidClassifiedAsFinancingActivities": "dividends_paid",
-    # -- Share counts -------------------------------------------------------------------
+    "ProceedsFromBorrowings": "proceeds_from_debt",
+    "ProceedsFromBorrowingsClassifiedAsFinancingActivities": "proceeds_from_debt",
+    "RepaymentsOfBorrowings": "repayments_of_debt",
+    "RepaymentsOfBorrowingsClassifiedAsFinancingActivities": "repayments_of_debt",
+    "InterestPaidClassifiedAsOperatingActivities": "interest_paid",
+    "IncomeTaxesPaidClassifiedAsOperatingActivities": "income_taxes_paid",
+    # -- Per share and share counts -------------------------------------------------------
+    "DividendsPaidOrdinarySharesPerShare": "dividends_per_share",
+    # The ifrs-full spellings differ from the us-gaap ones, and the diluted count is
+    # "adjusted" rather than "diluted" — a filing tagged correctly under IFRS would miss the
+    # us-gaap name entirely.
+    "WeightedAverageNumberOfOrdinarySharesOutstanding": "basic_shares_outstanding",
+    "AdjustedWeightedAverageNumberOfOrdinarySharesOutstanding": "diluted_shares_outstanding",
     "WeightedAverageNumberOfDilutedSharesOutstanding": "diluted_shares_outstanding",
     "NumberOfSharesOutstanding": "shares_outstanding",
 }
@@ -191,6 +384,11 @@ UK_FRC_ALIASES: Final[dict[str, str]] = {
     "GrossProfitLoss": "gross_profit",
     "OperatingProfitLoss": "operating_income",
     "ProfitLossForPeriod": "net_income",
+    "ProfitLossOnOrdinaryActivitiesBeforeTax": "pre_tax_income",
+    "TaxOnProfitOrLossOnOrdinaryActivities": "income_tax_expense",
+    "TotalAssetsLessCurrentLiabilities": "noncurrent_assets",
+    "Equity": "equity",
+    "CashBankOnHand": "cash_and_equivalents",
 }
 
 
@@ -231,3 +429,13 @@ def canonical_concept(taxonomy: str, tag: str) -> str | None:
 def is_canonical_concept(name: str) -> bool:
     """Whether ``name`` is one of the canonical concepts."""
     return name in CANONICAL_CONCEPTS
+
+
+def is_magnitude(concept: str) -> bool:
+    """Whether this concept is reported as a positive magnitude rather than a signed flow.
+
+    See :data:`MAGNITUDE_CONCEPTS`. Callers combining cash-flow lines must consult this
+    rather than assuming a sign — free cash flow subtracts capital expenditure because the
+    filer reported a payment, not a negative.
+    """
+    return concept in MAGNITUDE_CONCEPTS
