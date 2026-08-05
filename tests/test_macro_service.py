@@ -17,7 +17,8 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 
-from aer.calc.units import Unit
+from aer.calc.engine import CalculationContext
+from aer.calc.units import CalculationError, Unit
 from aer.core.enums import Provider
 from aer.db.models import MacroObservationRow, MacroSeriesRow
 from aer.services import macro as macro_service
@@ -411,6 +412,57 @@ class TestAnObservationBecomesASourcedQuantity:
         )
 
         assert macro_service.as_quantity(row, series=TEN_YEAR).source.kind == "fact"
+
+
+class TestAVintageBecomesADiscountRateInput:
+    """The stored figure is a percentage; the arithmetic wants a fraction. See ADR 0027."""
+
+    async def test_a_published_yield_converts_to_the_fraction_capm_needs(self, db_session, clean):
+        await macro_service.record_series(
+            db_session,
+            response(TEN_YEAR, vintage=date(2024, 6, 28), values={date(2024, 6, 28): "4.36"}),
+        )
+        row = await macro_service.observation_as_at(
+            db_session, key="us_treasury_10y", as_of=date(2024, 6, 28)
+        )
+        context = CalculationContext(code_version="testsha")
+
+        converted = macro_service.as_rate(row, series=TEN_YEAR, context=context)
+
+        assert converted.value == Decimal("0.0436")
+        assert row.value == Decimal("4.36"), "the stored fact must still match the source"
+
+    async def test_the_conversion_is_a_step_in_the_ledger(self, db_session, clean):
+        """Not an inline division somewhere. A reader can see it happened, and to what."""
+        await macro_service.record_series(
+            db_session,
+            response(TEN_YEAR, vintage=date(2024, 6, 28), values={date(2024, 6, 28): "4.36"}),
+        )
+        row = await macro_service.observation_as_at(
+            db_session, key="us_treasury_10y", as_of=date(2024, 6, 28)
+        )
+        context = CalculationContext(code_version="testsha")
+
+        macro_service.as_rate(row, series=TEN_YEAR, context=context)
+
+        (record,) = context.named("rate_from_percent")
+        assert record.inputs[0].value == Decimal("4.36")
+        assert "vintage" in record.inputs[0].source_label
+        assert record.output_value == Decimal("0.0436")
+
+    async def test_a_series_that_is_not_a_percentage_is_refused(self, db_session, clean):
+        """An index level divided by a hundred is a plausible number from the wrong series."""
+        await macro_service.record_series(
+            db_session,
+            response(UK_CPI, vintage=date(2024, 6, 19), values={date(2024, 5, 1): "131.5"}),
+        )
+        row = await macro_service.observation_as_at(
+            db_session, key="uk_cpi", as_of=date(2024, 6, 19)
+        )
+        context = CalculationContext(code_version="testsha")
+
+        with pytest.raises(CalculationError, match="not published as a percentage"):
+            macro_service.as_rate(row, series=UK_CPI, context=context)
 
 
 class TestReadingAWholeSeries:

@@ -259,6 +259,11 @@ def traced(
         wrapper.__qualname__ = function.__qualname__
         wrapper.__doc__ = function.__doc__
         wrapper.__module__ = function.__module__
+        # `inspect.signature` follows this, so a traced function still reports the parameters
+        # it actually takes rather than the wrapper's `(*args, **kwargs)`. Without it the
+        # decorator hides every signature it touches, and a test asserting that no calculation
+        # has a default argument would pass vacuously by inspecting the wrapper instead.
+        wrapper.__wrapped__ = function  # type: ignore[attr-defined]
         # Attached so a caller can display the formula without invoking anything, and so a
         # test can assert the declared formula matches the implementation.
         wrapper.calculation_name = name  # type: ignore[attr-defined]

@@ -289,6 +289,12 @@ src/aer/            application package
     units.py        Quantity = value + unit + source; incompatible units raise
     engine.py       @traced: records the formula, inputs, sources and code version
     basic.py        growth, CAGR, ratio, margin, weighted average, YoY series
+    statements.py   income, balance sheet and cash flow, and whether they close
+    ratios.py       seventeen ratios, and the ones a filing cannot support
+    quality.py      accruals, cash conversion and the other earnings-quality signals
+    bridge.py       margin movement decomposed, with the residual as a line
+    fx.py           conversion that refuses upside-down, future and stale rates
+    wacc.py         the discount rate; no defaults, every input sourced
   db/               engine, session management, and ORM models
   storage/          content-addressed artefact store; the evidence substrate
     protocol.py     the ArtefactStore interface: no delete, no update, no move
@@ -962,6 +968,61 @@ the kind that decided the FCA question. So the arithmetic ships and the fetcher 
 rate supplied by hand works exactly as a fetched one will. The three pages somebody has to
 read to close this are listed in `docs/adr/0026` and
 `docs/data-sources/bank-of-england-iadb.md`.
+
+### Macro, at the vintage the as-of date had
+
+US GDP for the first quarter of 2020 was first published at 21,561.139 billion dollars. By
+2024, after three revisions and a rebasing, the same quarter reads 21,727.657. A valuation
+dated to June 2020 that used the 2024 figure has four years of hindsight in it, and nothing
+in the output would show it — a GDP number looks like a GDP number whichever year it was
+published in.
+
+So `aer/sources/macro/fred.py` reads **ALFRED, not FRED**: the vintage endpoint, with the
+vintage as a required argument that has no default, so there is no code path producing the
+silent version of that error. `macro_observations` is keyed on `(series, period, vintage)`,
+and reading back takes two filters on two different dates — published by the as-of date, and
+describing a period that had happened by then. Nothing falls back to the current series.
+
+**FRED is not one licence.** Its terms forbid commercial redistribution of copyrighted series,
+and it carries both kinds: BLS and BEA figures are public-domain federal works, while
+Case-Shiller, the ICE BofA family and OECD material are not. The client therefore takes an
+allowlisted *key*, never an identifier, and `aer/sources/macro/series.py` records the
+copyright position series by series with the refusals listed by name. UK CPI comes from the
+ONS for the same reason — and the ONS is the producer anyway, so for once the rights question
+and the quality question have the same answer.
+
+The ONS is **not an archive**: its vintage is a release date, a weaker claim than ALFRED's.
+`is_archived` carries the difference so a UK figure never borrows a US one's guarantee.
+
+### The discount rate, and where each number in it came from
+
+`aer/calc/wacc.py` builds a WACC out of a risk-free rate from a vintage, an equity risk
+premium and a beta that are confirmed assumptions, a cost of debt from interest expense over
+average debt, and market-value weights. **No parameter in the module has a default** — a test
+walks every signature to assert it, and to assert every parameter is keyword-only, because
+beta and the equity risk premium swapped positionally would produce a discount rate that is
+wrong and entirely plausible.
+
+**Per cent is a convention, not a unit, and that is where the unit system stops helping.** A
+Treasury yield is `4.36` meaning 4.36%, unit `pure`. Beta times an ERP is `0.055`, unit
+`pure`. Both are genuinely dimensionless, so adding them produces a cost of equity of 441.5%
+that nothing in `aer/calc/units.py` can catch. Three layers close it: the registry records
+which series are quoted as percentages, one traced function converts, and every rate guard
+refuses a figure outside ±100% naming the conversion as the likely cause. ADR 0027 has the
+reasoning, and the reasons the obvious fix — a `percent` unit — is wrong.
+
+**The overrides carry no flag.** "Cost of debt from the filing *or* a confirmed assumption"
+and "effective *or* statutory tax rate" are distinguished by the source kind on the recorded
+input, not by a boolean somebody could set wrongly. The ledger already knows.
+
+**Book weights are a substitution, and it is stated on the calculation.** Where no market
+capitalisation exists, `EquityBasis.BOOK` is recorded as a parameter on the WACC record and a
+caveat travels with the result saying which way the error runs — book equity understates the
+equity weight, which understates the WACC, which raises every valuation discounted at it.
+
+A company with no borrowings gets `wacc_all_equity` rather than a cost of debt of zero.
+There is no such rate to weight, and inventing one would be the exact failure this module
+exists to prevent.
 
 ### Model calls
 

@@ -30,13 +30,16 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.calc.units import Quantity, SourceRef, Unit
+from aer.calc.engine import CalculationContext
+from aer.calc.units import CalculationError, Quantity, SourceRef, Unit
+from aer.calc.wacc import rate_from_percent
 from aer.db.models import MacroObservationRow, MacroSeriesRow
 from aer.sources.macro.client import MacroResponse
 from aer.sources.macro.series import MacroSeries, risk_free_series_for, series_for
 
 __all__ = [
     "as_quantity",
+    "as_rate",
     "observation_as_at",
     "observations_for_series",
     "record_series",
@@ -201,6 +204,38 @@ def as_quantity(observation: MacroObservationRow, *, series: MacroSeries) -> Qua
             f" (vintage {observation.vintage.isoformat()})",
         ),
     )
+
+
+def as_rate(
+    observation: MacroObservationRow,
+    *,
+    series: MacroSeries,
+    context: CalculationContext,
+) -> Quantity:
+    """An observation as the fraction discount-rate arithmetic needs.
+
+    **The one place :attr:`~aer.sources.macro.series.MacroSeries.quoted_in_percent` is read.**
+    A yield arrives as ``4.36`` meaning 4.36% and its unit is ``pure``, which is correct and
+    is exactly why nothing downstream can catch it being added to a decimal rate — see ADR
+    0027. The division happens here, once, through a traced calculation, so the conversion is
+    a step in the ledger rather than something that either did or did not happen at a call
+    site.
+
+    Raises:
+        CalculationError: If the series is not quoted as a percentage. Returning the raw value
+            would be worse than useless: it would make this function a no-op for exactly the
+            series where the caller most needs it to have done something.
+    """
+    if not series.quoted_in_percent:
+        message = (
+            f"{series.key} ({series.label}) is not published as a percentage, so there is no "
+            "rate to read from it. An index level or a currency amount is not a discount-rate "
+            "input, and converting one as though it were would produce a plausible number "
+            "from an unrelated series."
+        )
+        raise CalculationError(message, context={"series": series.key, "unit": series.unit})
+
+    return rate_from_percent(context, quoted=as_quantity(observation, series=series))
 
 
 async def observations_for_series(

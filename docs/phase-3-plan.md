@@ -310,6 +310,42 @@ equity; a missing input refuses rather than defaulting.
 **Acceptance.** Every WACC input resolves to a fact, a vintage or a confirmed assumption. No
 default values anywhere in the module.
 
+**Outcome (2026-08-05).** Done, and the interesting part was not the arithmetic.
+
+- `aer/calc/wacc.py`: ten traced calculations — `rate_from_percent`, `cost_of_equity`,
+  `average_debt`, `cost_of_debt`, `after_tax_cost_of_debt`, `effective_tax_rate`,
+  `equity_weight`, `debt_weight`, `wacc` and `wacc_all_equity` — plus a `cost_of_capital`
+  orchestrator returning every component with its own provenance.
+- **The acceptance criterion is tested structurally, not by inspection.** A test walks every
+  traced function's signature and asserts no parameter has a default *and* every parameter is
+  keyword-only, so beta and the equity risk premium cannot be swapped positionally. That
+  needed one enabling change in `aer/calc/engine.py`: `@traced` now sets `__wrapped__`, without
+  which `inspect.signature` reports the wrapper's `(*args, **kwargs)` and the test would have
+  passed vacuously.
+- **The unit system has a blind spot, and this is where it opens.** A Treasury yield is `4.36`
+  meaning 4.36% with unit `pure`; beta times an ERP is `0.055` with unit `pure`. Both are
+  genuinely dimensionless, so adding them yields a 441.5% cost of equity that nothing in
+  `aer/calc/units.py` can catch. Closed in three layers — `MacroSeries.quoted_in_percent`
+  records the convention, `rate_from_percent` is the single traced conversion (called from
+  `services.macro.as_rate`, the one place the flag is read), and every rate guard refuses a
+  figure outside ±100% naming the conversion as the likely cause. Written up as ADR 0027,
+  because the same shape returns for basis points, rebased indices and pence-per-share.
+- **The "or a confirmed assumption" routes carry no flag.** The plan's documented override for
+  the cost of debt, and the choice between an effective and a statutory tax rate, are both
+  expressed by *which* quantity is passed: an assumption arrives with `SourceKind.ASSUMPTION`
+  and a computed rate with `SourceKind.CALCULATION`. A `used_override=True` field would be a
+  second, forgeable copy of something the ledger already records.
+- **Zero debt is a capital structure, not a missing input.** `cost_of_capital` routes to
+  `wacc_all_equity` rather than weighting an invented cost of debt at zero, and refuses the
+  contradiction in both directions — debt with no cost of debt, and a cost of debt with no debt.
+- No size or country premium. Both fold into the ERP assumption, which then has to justify
+  itself; four numbers whose sum nobody stated are harder to review than one somebody did.
+- Verified by sabotage: 40 breakages, 38 caught first time. One escape was real — a tax charge
+  and a pre-tax profit in different currencies divide to a plausible `0.20` carrying a
+  `USD/GBP` unit, and no test checked the guard. Now tested, with a second test one layer down
+  asserting a currency-pair rate never reaches the weighted average. The other miss was a
+  malformed sabotage pattern, not a gap.
+
 ---
 
 ## Task 27 — The discounted cash flow

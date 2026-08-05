@@ -78,6 +78,16 @@ class MacroSeries:
     # licence note, so the claim travels with the data rather than living only here.
     licence: str
 
+    # Whether the published figure is a percentage rather than a fraction.
+    #
+    # **The trap this exists to close.** DGS10 comes back as `4.36`, meaning 4.36% a year, and
+    # its unit is `pure` because a yield is dimensionless. Beta times an equity risk premium is
+    # `0.055`, and that is dimensionless too. Adding them gives 4.415, which is not 4.415% and
+    # is not 441.5% either -- it is nonsense, and the unit system cannot catch it, because both
+    # sides genuinely are pure numbers. The difference is a *convention*, so it has to be
+    # recorded as one. `aer.calc.wacc.rate_from_percent` is the only sanctioned conversion.
+    quoted_in_percent: bool = False
+
     # The ONS dataset a series code belongs to. Empty for providers that do not need one.
     dataset: str = ""
 
@@ -155,6 +165,7 @@ MACRO_SERIES: Final[tuple[MacroSeries, ...]] = (
         frequency=Frequency.MONTHLY,
         originator="US Bureau of Labor Statistics",
         licence=_US_GOVERNMENT,
+        quoted_in_percent=True,
         notes="Per cent. Stored as published, so 3.7 means 3.7% and not 370%.",
     ),
     # -- US rates -----------------------------------------------------------------------------
@@ -167,6 +178,7 @@ MACRO_SERIES: Final[tuple[MacroSeries, ...]] = (
         frequency=Frequency.DAILY,
         originator="Board of Governors of the Federal Reserve System (H.15)",
         licence=_US_GOVERNMENT,
+        quoted_in_percent=True,
         notes="Per cent per annum. The conventional risk-free proxy for a USD discount rate "
         "over an equity holding period.",
     ),
@@ -179,6 +191,8 @@ MACRO_SERIES: Final[tuple[MacroSeries, ...]] = (
         frequency=Frequency.DAILY,
         originator="Board of Governors of the Federal Reserve System (H.15)",
         licence=_US_GOVERNMENT,
+        quoted_in_percent=True,
+        notes="Per cent per annum.",
     ),
     MacroSeries(
         key="us_treasury_2y",
@@ -189,6 +203,8 @@ MACRO_SERIES: Final[tuple[MacroSeries, ...]] = (
         frequency=Frequency.DAILY,
         originator="Board of Governors of the Federal Reserve System (H.15)",
         licence=_US_GOVERNMENT,
+        quoted_in_percent=True,
+        notes="Per cent per annum.",
     ),
     MacroSeries(
         key="us_fed_funds",
@@ -199,6 +215,8 @@ MACRO_SERIES: Final[tuple[MacroSeries, ...]] = (
         frequency=Frequency.MONTHLY,
         originator="Board of Governors of the Federal Reserve System (H.15)",
         licence=_US_GOVERNMENT,
+        quoted_in_percent=True,
+        notes="Per cent per annum.",
     ),
     # -- UK, from the ONS rather than from FRED -----------------------------------------------
     MacroSeries(
@@ -225,6 +243,7 @@ MACRO_SERIES: Final[tuple[MacroSeries, ...]] = (
         frequency=Frequency.MONTHLY,
         originator="Office for National Statistics",
         licence=_ONS_OGL,
+        quoted_in_percent=True,
         notes="Per cent, twelve-month rate.",
     ),
     MacroSeries(
