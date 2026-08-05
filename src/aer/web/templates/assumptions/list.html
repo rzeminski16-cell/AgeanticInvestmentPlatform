@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{#
+  The assumptions surface. Everything below is rendered from `payload`, whose hash sits in
+  each confirm form -- confirming what the page showed rather than what the database happens
+  to hold at the moment of the click.
+#}
+
+{% block title %}Assumptions &middot; Ageiantic Equity Research{% endblock %}
+
+{% block content %}
+  <nav class="text-sm">
+    <a href="/requests/{{ research_request.id }}" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
+      &larr; Back to the request
+    </a>
+  </nav>
+
+  <h1 class="mt-4 text-2xl font-semibold tracking-tight">
+    Assumptions for {{ research_request.company_name }}
+  </h1>
+  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+    Every number below was <em>chosen</em> rather than observed. A model may propose one;
+    only you can confirm it, and nothing that reaches a valuation may rest on a value nobody
+    agreed to.
+  </p>
+
+  {% if unconfirmed %}
+    <section
+      class="mt-6 rounded-md border border-amber-400 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
+      role="status"
+      id="unconfirmed-banner"
+    >
+      <p class="text-sm text-amber-900 dark:text-amber-100">
+        <strong>{{ unconfirmed }}</strong>
+        assumption{{ '' if unconfirmed == 1 else 's' }} still waiting on you. A valuation
+        cannot use {{ 'it' if unconfirmed == 1 else 'them' }} until you confirm or amend.
+      </p>
+    </section>
+  {% endif %}
+
+  {% if not payload.assumptions %}
+    <p class="mt-8 text-sm text-slate-400" id="no-assumptions">
+      This request has no assumptions yet. They arrive when the run proposes them.
+    </p>
+  {% else %}
+    <ul class="mt-8 space-y-6" id="assumptions">
+      {% for assumption in payload.assumptions %}
+        <li
+          class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+          id="assumption-{{ assumption.id }}"
+        >
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 class="font-mono text-sm font-semibold">{{ assumption.name }}</h2>
+            {% if assumption.approved %}
+              <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-900 dark:bg-emerald-900/50 dark:text-emerald-100">
+                confirmed by {{ assumption.approved_by }}
+              </span>
+            {% else %}
+              <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-100">
+                proposed by {{ assumption.proposed_by }}
+              </span>
+            {% endif %}
+          </div>
+
+          <p class="mt-2 font-mono text-lg">{{ assumption.value }} {{ assumption.unit }}</p>
+
+          <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">
+            {{ assumption.justification }}
+          </p>
+
+          {% if assumption.confidence is not none %}
+            <p class="mt-1 text-xs text-slate-500">
+              Proposed with confidence {{ assumption.confidence }}.
+            </p>
+          {% endif %}
+
+          <div class="mt-4 flex flex-wrap gap-3">
+            <a
+              href="/requests/{{ research_request.id }}/assumptions/{{ assumption.id }}"
+              class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
+            >
+              Every value proposed for this
+            </a>
+          </div>
+
+          {% if not assumption.approved %}
+            <form
+              method="post"
+              action="/requests/{{ research_request.id }}/assumptions/{{ assumption.id }}/confirm"
+              class="mt-4"
+            >
+              <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+              {#
+                The hash of exactly the list rendered above. If an assumption changed between
+                this page being served and the button being pressed, confirming is refused --
+                agreeing to something else is not agreeing to this.
+              #}
+              <input type="hidden" name="payload_hash" value="{{ payload_hash }}" />
+              <button
+                type="submit"
+                class="rounded-md bg-sky-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-800"
+              >
+                Confirm this value
+              </button>
+            </form>
+
+            <form
+              method="post"
+              action="/requests/{{ research_request.id }}/assumptions/{{ assumption.id }}/amend"
+              class="mt-4 space-y-3 border-t border-slate-200 pt-4 dark:border-slate-800"
+            >
+              <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+              <div class="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label for="value-{{ assumption.id }}" class="block text-sm font-medium">
+                    Your value
+                  </label>
+                  <input
+                    type="text"
+                    inputmode="decimal"
+                    id="value-{{ assumption.id }}"
+                    name="value"
+                    value="{{ assumption.value }}"
+                    class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
+                  />
+                </div>
+                <div>
+                  <label for="unit-{{ assumption.id }}" class="block text-sm font-medium">Unit</label>
+                  <input
+                    type="text"
+                    id="unit-{{ assumption.id }}"
+                    name="unit"
+                    value="{{ assumption.unit }}"
+                    class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
+                  />
+                </div>
+              </div>
+              <div>
+                <label for="why-{{ assumption.id }}" class="block text-sm font-medium">
+                  Why yours rather than theirs
+                </label>
+                <textarea
+                  id="why-{{ assumption.id }}"
+                  name="justification"
+                  rows="2"
+                  maxlength="4000"
+                  required
+                  class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                  placeholder="Recorded on the assumption's history. The proposal above is kept whatever you enter."
+                ></textarea>
+              </div>
+              <button
+                type="submit"
+                class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Amend
+              </button>
+            </form>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if scenarios %}
+    <section class="mt-10">
+      <h2 class="text-lg font-semibold tracking-tight">Cases</h2>
+      <p class="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+        A case stores only what it disagrees with the base about, so correcting a base-case
+        assumption corrects every case that did not argue about it.
+      </p>
+      <div class="mt-4 space-y-4" id="scenarios">
+        {% for scenario in scenarios %}
+          <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <h3 class="text-sm font-semibold">{{ scenario.label }}</h3>
+            <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">{{ scenario.description }}</p>
+            {% if scenario.overridden %}
+              <p class="mt-2 text-xs text-slate-500">
+                Differs from the base case in:
+                <span class="font-mono">{{ scenario.overridden | join(', ') }}</span>
+              </p>
+            {% else %}
+              <p class="mt-2 text-xs text-slate-500">Uses the base case unchanged.</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

@@ -12,6 +12,7 @@ from aer.db.models.agent_run import AgentRun
 from aer.db.models.approval import Approval
 from aer.db.models.artefact import Artefact
 from aer.db.models.assumption import Assumption
+from aer.db.models.assumption_proposal import AssumptionProposal
 from aer.db.models.audit_event import AuditEvent
 from aer.db.models.calculation import Calculation
 from aer.db.models.citation import Citation
@@ -29,8 +30,10 @@ from aer.db.models.prompt import Prompt
 from aer.db.models.report import Report
 from aer.db.models.report_section import ReportSection, SectionStatus
 from aer.db.models.request import ResearchRequest
+from aer.db.models.scenario import Scenario, ScenarioOverride
 from aer.db.models.section_definition import SectionDefinition
 from aer.db.models.sector_profile import SectorProfile
+from aer.db.models.sensitivity import Sensitivity, SensitivityCell
 from aer.db.models.source_document import SourceDocument
 from aer.db.models.user import User
 
@@ -39,6 +42,7 @@ __all__ = [
     "Approval",
     "Artefact",
     "Assumption",
+    "AssumptionProposal",
     "AuditEvent",
     "Calculation",
     "Citation",
@@ -56,9 +60,13 @@ __all__ = [
     "ReportSection",
     "ResearchPlan",
     "ResearchRequest",
+    "Scenario",
+    "ScenarioOverride",
     "SectionDefinition",
     "SectionStatus",
     "SectorProfile",
+    "Sensitivity",
+    "SensitivityCell",
     "SourceDocument",
     "User",
 ]

@@ -107,6 +107,21 @@
     {% endif %}
   </div>
 
+  {#
+    Always offered, even before a run proposes anything: the page says so itself when the
+    list is empty, and an operator looking for "what is this valuation assuming?" should not
+    have to know whether a step has run yet to find out where to look.
+  #}
+  <p class="mt-4 text-sm">
+    <a
+      href="/requests/{{ item.id }}/assumptions"
+      class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
+      id="open-assumptions"
+    >
+      Assumptions this analysis rests on
+    </a>
+  </p>
+
   <section class="mt-8">
     <h2 class="text-lg font-semibold tracking-tight">Mandate</h2>
     <dl class="mt-2">

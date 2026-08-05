@@ -39,6 +39,7 @@ from aer.db.base import Base, created_at_column
 from aer.db.types import Timestamp, TimestampOptional, UuidFk, UuidFkOptional, UuidPk
 
 if TYPE_CHECKING:
+    from aer.db.models.assumption_proposal import AssumptionProposal
     from aer.db.models.request import ResearchRequest
 
 __all__ = ["Assumption"]
@@ -93,6 +94,14 @@ class Assumption(Base):
     created_at: Mapped[Timestamp] = created_at_column()
 
     request: Mapped[ResearchRequest] = relationship()
+
+    # Every value anybody put forward, oldest first. The current `value` is the newest
+    # one's; the rest are what it was chosen over. See `assumption_proposals`.
+    proposals: Mapped[list[AssumptionProposal]] = relationship(
+        back_populates="assumption",
+        cascade="all, delete-orphan",
+        order_by="AssumptionProposal.sequence",
+    )
 
     __table_args__ = (
         # One value per named assumption per request. Two different discount rates in one

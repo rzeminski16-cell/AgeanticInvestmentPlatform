@@ -204,6 +204,31 @@ report names a person or a proposal.
 
 **Non-goals.** The models themselves.
 
+**Outcome (2026-08-05).** Done. Five tables in migration 0015, not two.
+
+- `scenarios` needs `scenario_overrides` to *be* a diff, and `sensitivities` needs
+  `sensitivity_cells` so a cell can carry the calculation behind it. Both children exist so
+  that "what does this case change?" and "what produced this number?" are queries rather than
+  JSON scans.
+- `assumption_proposals` is the fifth and was not in the plan's list. Without it an amendment
+  overwrites the proposal, and "an amended assumption keeps the original on the record"
+  cannot hold — the requirement implies the table.
+- `as_quantity` refuses an unconfirmed assumption, so the enforcement is at the point the
+  number would be used rather than at a review step somebody can skip. `confirm` takes a
+  `User`; there is no agent-shaped argument that could be passed instead.
+- Proposals carry an explicit `sequence`. Postgres `now()` is transaction-start time, so a
+  propose-then-amend in one transaction writes rows with identical timestamps and the history
+  a reviewer reads would be in planner order. This is the second time that trap has come up
+  (see task 20 on claim ordering).
+- One defect found: `NUMERIC(38,12)` returns twelve decimal places, so an assumption amended
+  and read from memory hashes differently from the same row read back — and confirming what
+  the page showed would have been refused for a reason nobody could see. The plan gate hit
+  exactly this in task 10; the fix is the same refresh-before-hash.
+- Verified by sabotage: 32 deliberate breakages, all caught. Two initially escaped and both
+  were real test gaps: a history-ordering test that could not tell `sequence` from
+  `created_at` because rows written together share a timestamp *and* come back in insertion
+  order, and a model/migration disagreement that only the drift check can see.
+
 ---
 
 ## Task 25 — Macro with vintages: ALFRED, and the UK equivalents

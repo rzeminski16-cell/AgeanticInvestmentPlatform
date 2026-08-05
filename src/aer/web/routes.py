@@ -15,6 +15,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -30,6 +31,7 @@ from starlette.status import (
 )
 
 from aer.api.deps import CurrentUser, DbSession, SettingsDep, get_current_user
+from aer.api.routes.assumptions import assumptions_payload
 from aer.core.enums import AnalysisMode
 from aer.core.schemas.request import (
     SUPPORTED_CURRENCIES,
@@ -38,11 +40,14 @@ from aer.core.schemas.request import (
     RiskTolerance,
 )
 from aer.core.universe import SUPPORTED_EXCHANGES
-from aer.db.models import Report
+from aer.db.models import Assumption, Report
 from aer.db.schema_check import schema_drift
 from aer.errors import AerError, ConflictError, ValidationError
+from aer.services import assumptions as assumption_service
 from aer.services import requests as request_service
 from aer.services import runs as run_service
+from aer.services import scenarios as scenario_service
+from aer.services.approvals import payload_hash_for
 from aer.version import build_identity
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.forms import ParsedForm, form_values_from, parse_request_form
@@ -553,3 +558,223 @@ def _render_failure(
     )
     set_csrf_cookie(response, token)
     return response
+
+
+# ==========================================================================================
+# Assumptions
+#
+# The surface `docs/phase-3-plan.md` task 24 asks for: every assumption a run rests on,
+# editable before the valuation runs. Nothing here decides anything — amending and confirming
+# call the same service the JSON API calls, so the page and the API cannot disagree about
+# what a confirmation means.
+# ==========================================================================================
+
+
+@router.get(
+    "/requests/{request_id}/assumptions",
+    response_class=HTMLResponse,
+    summary="The assumptions a request rests on",
+)
+async def assumptions_page(
+    request: Request,
+    request_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    found = await request_service.get_request(session, request_id, user_id=user.id)
+    if found is None:
+        return _request_not_found(request, request_id)
+
+    rows = await assumption_service.assumptions_for_request(session, request_id)
+    payload = assumptions_payload(rows)
+
+    cases = []
+    for scenario in await scenario_service.scenarios_for_request(session, request_id):
+        state = await scenario_service.resolve(session, scenario=scenario)
+        cases.append(
+            {
+                "label": scenario.label,
+                "description": scenario.description,
+                "overridden": list(state.overridden),
+            }
+        )
+
+    token = new_csrf_token(settings)
+    page: Response = render(
+        request,
+        "assumptions/list.html",
+        {
+            "research_request": found,
+            "payload": payload,
+            # The hash of exactly the list rendered. Carried back by each confirm form, so
+            # confirming a page that has since changed is refused rather than recorded.
+            "payload_hash": payload_hash_for(payload),
+            "unconfirmed": sum(1 for row in rows if not row.approved),
+            "scenarios": cases,
+            "csrf_field": CSRF_FIELD_NAME,
+            "csrf_token": token,
+        },
+    )
+    set_csrf_cookie(page, token)
+    return page
+
+
+@router.get(
+    "/requests/{request_id}/assumptions/{assumption_id}",
+    response_class=HTMLResponse,
+    summary="Every value proposed for one assumption",
+)
+async def assumption_detail(
+    request: Request,
+    request_id: uuid.UUID,
+    assumption_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+) -> Response:
+    found = await request_service.get_request(session, request_id, user_id=user.id)
+    if found is None:
+        return _request_not_found(request, request_id)
+
+    assumption = await session.scalar(
+        select(Assumption).where(
+            Assumption.id == assumption_id, Assumption.request_id == request_id
+        )
+    )
+    if assumption is None:
+        return _problem_page(
+            request, f"No assumption {assumption_id} on this request.", HTTP_404_NOT_FOUND
+        )
+
+    proposals = await assumption_service.history_of(session, assumption_id)
+    page: Response = render(
+        request,
+        "assumptions/detail.html",
+        {
+            "research_request": found,
+            "assumption": assumption,
+            "proposals": list(proposals),
+        },
+    )
+    return page
+
+
+@router.post(
+    "/requests/{request_id}/assumptions/{assumption_id}/confirm",
+    summary="Agree that an assumption may be used",
+)
+async def confirm_assumption_page(
+    request: Request,
+    request_id: uuid.UUID,
+    assumption_id: uuid.UUID,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Confirm against the hash of the list that was displayed, then return to it."""
+    found = await request_service.get_request(session, request_id, user_id=user.id)
+    if found is None:
+        return _request_not_found(request, request_id)
+
+    form = await request.form()
+    submitted = {k: str(v) for k, v in form.multi_items() if isinstance(v, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem_page(
+            request,
+            "This form's security token was missing or had expired. Nothing was confirmed.",
+            HTTP_403_FORBIDDEN,
+        )
+
+    assumption = await session.scalar(
+        select(Assumption).where(
+            Assumption.id == assumption_id, Assumption.request_id == request_id
+        )
+    )
+    if assumption is None:
+        return _problem_page(
+            request, f"No assumption {assumption_id} on this request.", HTTP_404_NOT_FOUND
+        )
+
+    rows = await assumption_service.assumptions_for_request(session, request_id)
+    if payload_hash_for(assumptions_payload(rows)) != submitted.get("payload_hash", ""):
+        return _problem_page(
+            request,
+            "The assumptions changed after this page was rendered, so confirming would "
+            "agree to something other than what was shown. Reload and look again.",
+            HTTP_409_CONFLICT,
+        )
+
+    try:
+        await assumption_service.confirm(session, assumption=assumption, actor=user)
+    except ValidationError as refused:
+        return _problem_page(request, refused.message, HTTP_409_CONFLICT)
+
+    await session.commit()
+    return _go_to(request, f"/requests/{request_id}/assumptions")
+
+
+@router.post(
+    "/requests/{request_id}/assumptions/{assumption_id}/amend",
+    summary="Replace an assumption's value",
+)
+async def amend_assumption_page(
+    request: Request,
+    request_id: uuid.UUID,
+    assumption_id: uuid.UUID,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    found = await request_service.get_request(session, request_id, user_id=user.id)
+    if found is None:
+        return _request_not_found(request, request_id)
+
+    form = await request.form()
+    submitted = {k: str(v) for k, v in form.multi_items() if isinstance(v, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem_page(
+            request,
+            "This form's security token was missing or had expired. Nothing was amended.",
+            HTTP_403_FORBIDDEN,
+        )
+
+    assumption = await session.scalar(
+        select(Assumption).where(
+            Assumption.id == assumption_id, Assumption.request_id == request_id
+        )
+    )
+    if assumption is None:
+        return _problem_page(
+            request, f"No assumption {assumption_id} on this request.", HTTP_404_NOT_FOUND
+        )
+
+    try:
+        value = Decimal(submitted.get("value", ""))
+    except InvalidOperation:
+        return _problem_page(
+            request,
+            f"{submitted.get('value', '')!r} is not a number.",
+            HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+
+    try:
+        await assumption_service.amend(
+            session,
+            assumption=assumption,
+            value=value,
+            justification=submitted.get("justification", ""),
+            actor=user,
+            unit=submitted.get("unit") or None,
+        )
+    except ValidationError as refused:
+        return _problem_page(request, refused.message, HTTP_422_UNPROCESSABLE_CONTENT)
+
+    await session.commit()
+    return _go_to(request, f"/requests/{request_id}/assumptions")
+
+
+def _problem_page(request: Request, message: str, status: int) -> Response:
+    page: Response = render(request, "runs/problem.html", {"message": message}, status_code=status)
+    return page

@@ -866,6 +866,40 @@ to the nearest-looking concept would have produced a balance sheet that still ap
 balance. See `docs/adr/0024` for the surfaces and the concept module's own docstring for the
 mapping rule.
 
+### Assumptions: proposed by a model, confirmed by a person
+
+A fact is fetched and hashed. An assumption is *chosen*, and the whole of its defensibility
+is the record of who chose it and why.
+
+**A model may propose; only a person may confirm.** A proposal leaves the assumption
+unconfirmed however confident the proposer was — there is no threshold and no agent role
+that makes a model's choice usable on its own. `confirm()` takes a `User`, which is the
+enforcement rather than a convention anybody has to remember, and `as_quantity()` refuses an
+unconfirmed assumption so the refusal lands where the number would be used rather than at a
+review step somebody can skip.
+
+**An amendment keeps the original on the record.** Amending writes a new proposal that
+supersedes the old one; the old row is never touched. An operator who overrides a model's 9%
+with 11% has made a judgement, and a report resting on 11% with no trace of the 9% has thrown
+away the most useful thing about it. Amending also *un-confirms*: otherwise "approved" comes
+to mean "approved at some value, possibly not this one".
+
+Proposals carry an explicit sequence rather than relying on their timestamps. Postgres
+`now()` is transaction-start time, so a propose-then-amend in one transaction writes rows
+that are indistinguishable by time, and the history a reviewer reads would be in whatever
+order the planner returned.
+
+**A scenario is a diff, never a copy.** A bear case stores only what it overrides; resolving
+one reads the confirmed assumptions and applies its rows on top. Correcting the base case's
+tax rate therefore corrects every case that did not argue about the tax rate. A copied bear
+case looks identical until somebody fixes a base-case mistake six weeks later, after which
+every comparison between the two is measuring the correction as well as the scenario — and
+nothing in the output says so.
+
+**Every sensitivity cell names its calculation**, `NOT NULL`. A nine-by-nine grid looks like
+eighty-one pieces of analysis whether or not it is one, and nothing in the presentation
+distinguishes a computed grid from one interpolated between the corners.
+
 ### Ratios, and the ones this filing cannot support
 
 `aer/calc/ratios.py` computes seventeen figures across margins, returns, liquidity,
