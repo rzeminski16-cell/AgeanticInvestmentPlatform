@@ -21,6 +21,7 @@ from aer.db.models.claim import Claim
 from aer.db.models.company import Company
 from aer.db.models.cost import Cost
 from aer.db.models.disagreement import Disagreement
+from aer.db.models.evaluation import Evaluation
 from aer.db.models.extraction import Extraction
 from aer.db.models.financial_fact import FinancialFact
 from aer.db.models.job import Job
@@ -63,6 +64,7 @@ __all__ = [
     "CorporateActionKind",
     "Cost",
     "Disagreement",
+    "Evaluation",
     "Extraction",
     "FinancialFact",
     "Job",

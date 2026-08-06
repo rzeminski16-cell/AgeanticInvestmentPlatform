@@ -21,6 +21,8 @@ gate cannot accidentally become "the metric agrees with itself".
 from __future__ import annotations
 
 from aer.eval.metrics import (
+    BLOCKING,
+    RUN_TIME,
     THRESHOLDS,
     Direction,
     Metric,
@@ -45,6 +47,8 @@ from aer.eval.observations import (
 )
 
 __all__ = [
+    "BLOCKING",
+    "RUN_TIME",
     "THRESHOLDS",
     "CitationObservation",
     "CompletenessObservation",

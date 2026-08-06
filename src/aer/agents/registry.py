@@ -191,6 +191,25 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         max_output_tokens=8_192,
         adr="0037",
     ),
+    RoleDefinition(
+        role="validator",
+        purpose=(
+            "Advisory assistance to the deterministic validators: locate a candidate "
+            "excerpt for a claim the verifier could not resolve, or adjudicate an "
+            "ambiguous publication date. Advice only — no verdict column is writable "
+            "from this role's output, by construction."
+        ),
+        output_schema_ref="aer.agents.validator:ValidatorAdvisory",
+        # No tools. The assist reads what the validator hands it — a claim, a bounded
+        # window of document text — and proposes. A validator's helper that could search
+        # or fetch would be a validator with an input nobody reviewed.
+        allowed_tools=frozenset(),
+        # A claim plus a bounded document window. The window is truncated by the caller;
+        # the cap is the tripwire for a caller that forgot.
+        max_input_tokens=16_000,
+        max_output_tokens=4_096,
+        adr="0038",
+    ),
 )
 
 

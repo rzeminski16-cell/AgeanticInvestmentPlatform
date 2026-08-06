@@ -18,6 +18,7 @@ from decimal import Decimal
 import pytest
 
 from aer.eval import (
+    BLOCKING,
     THRESHOLDS,
     CitationObservation,
     CompletenessObservation,
@@ -503,6 +504,6 @@ class TestEvaluateAll:
             completeness=[_completeness("terminal#0", cites=("a-1",))],
         )
 
-        assert [result.metric for result in results] == list(Metric)
+        assert [result.metric for result in results] == list(BLOCKING)
         assert len(results) == 8
         assert all(result.passed for result in results)

@@ -44,10 +44,10 @@ from aer.config import Settings
 from aer.core.enums import ClaimKind, Provider, SourceTier
 from aer.db.models import Artefact, Job, ResearchRequest, SourceDocument
 from aer.eval import (
+    BLOCKING,
     CitationObservation,
     CompletenessObservation,
     InjectionObservation,
-    Metric,
     MetricResult,
     ReplayObservation,
     SourceObservation,
@@ -484,7 +484,7 @@ class TestTheBlockingMetrics:
             completeness=completeness,
         )
 
-        assert len(results) == len(Metric)
+        assert len(results) == len(BLOCKING)
         failed = [result for result in results if not result.passed]
         assert not failed, "\n".join(result.describe() for result in results)
 

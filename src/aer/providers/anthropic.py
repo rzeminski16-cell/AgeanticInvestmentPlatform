@@ -28,12 +28,13 @@ import time
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Final, Literal
 
+import anyio
 import structlog
 from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 
 from aer.errors import ConfigError, ExternalServiceError, ValidationError
-from aer.providers.protocol import Message, StructuredResult, Usage
+from aer.providers.protocol import BatchRequest, Message, StructuredResult, Usage
 
 if TYPE_CHECKING:  # pragma: no cover -- import-time only for type checking
     from anthropic import AsyncAnthropic
@@ -90,6 +91,14 @@ _UNUSABLE_STOP_REASONS: Final[dict[str, str]] = {
 
 _DEFAULT_TIMEOUT_SECONDS: Final = 600.0
 
+# How the batch path waits. The Batches API is asynchronous by design — results within an
+# hour is normal, 24h is the contract — so polling starts patient and backs off to a
+# ceiling rather than hammering. The deadline exists because a batch the API has lost
+# must eventually become an error here rather than a worker that never returns.
+_BATCH_POLL_INITIAL_SECONDS: Final = 2.0
+_BATCH_POLL_CEILING_SECONDS: Final = 60.0
+_BATCH_DEADLINE_SECONDS: Final = 24 * 60 * 60.0
+
 # How to turn a response object into a dictionary, in order of preference. ``warnings=False``
 # is not cosmetic: the SDK's ``ParsedMessage`` annotates ``content`` with the unparameterised
 # block union, so serialising a perfectly good parsed response emits a dozen Pydantic
@@ -120,6 +129,8 @@ class AnthropicProvider:
         api_key: str,
         client: AsyncAnthropic | None = None,
         timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
+        batch_poll_seconds: float = _BATCH_POLL_INITIAL_SECONDS,
+        batch_deadline_seconds: float = _BATCH_DEADLINE_SECONDS,
     ) -> None:
         if not api_key.strip():
             message = (
@@ -129,6 +140,8 @@ class AnthropicProvider:
             raise ExternalServiceError(message, provider=PROVIDER_NAME, retryable=False)
 
         self._client = client if client is not None else _build_client(api_key, timeout_seconds)
+        self._batch_poll_seconds = batch_poll_seconds
+        self._batch_deadline_seconds = batch_deadline_seconds
 
     @property
     def name(self) -> str:
@@ -196,6 +209,124 @@ class AnthropicProvider:
             request_payload=_archived(request, schema),
             response_payload=_response_payload(response),
         )
+
+    async def complete_structured_batch[T: BaseModel](
+        self,
+        schema: type[T],
+        *,
+        requests: Sequence[BatchRequest],
+        model: str,
+        effort: str = "medium",
+        max_tokens: int = 4096,
+    ) -> list[StructuredResult[T]]:
+        """One validated instance per request, via the Messages Batches API.
+
+        The batch endpoint takes raw message params, so the schema is translated to the
+        wire format with the SDK's own :func:`anthropic.transform_schema` — the same
+        transformation ``messages.parse`` applies — and each reply is validated back
+        against the Pydantic class here. Results are matched to requests by ``custom_id``
+        and returned in request order, whatever order the API finished them in.
+
+        All or nothing: an errored or expired item fails the whole call, because a
+        partial list would silently shift every later result onto the wrong request.
+        """
+        if not requests:
+            return []
+
+        wire_schema = _wire_schema(schema)
+        params: list[dict[str, Any]] = []
+        for item in requests:
+            request = _request_payload(
+                system=item.system,
+                messages=item.messages,
+                model=model,
+                effort=effort,
+                max_tokens=max_tokens,
+            )
+            request["output_format"] = {"type": "json_schema", "schema": wire_schema}
+            params.append(request)
+
+        started = time.perf_counter()
+        try:
+            entries: list[Any] = [
+                {"custom_id": _custom_id(index), "params": request}
+                for index, request in enumerate(params)
+            ]
+            batch = await self._client.messages.batches.create(requests=entries)
+            ended = await self._await_batch(str(batch.id))
+            decoder = await self._client.messages.batches.results(str(ended.id))
+            by_id = {str(entry.custom_id): entry async for entry in decoder}
+        except ExternalServiceError:
+            raise
+        except Exception as exc:
+            message = f"The Anthropic batch call failed ({type(exc).__name__}: {exc})."
+            raise ExternalServiceError(
+                message,
+                provider=PROVIDER_NAME,
+                retryable=_is_retryable(exc),
+                context={"model": model, "items": len(requests)},
+            ) from exc
+        elapsed_ms = (time.perf_counter() - started) * 1000
+
+        results: list[StructuredResult[T]] = []
+        for index, request in enumerate(params):
+            entry = by_id.get(_custom_id(index))
+            response = _succeeded_message(entry, index=index, batch_id=str(batch.id))
+            value = _validate_batch_reply(
+                response, schema, model=model, max_tokens=max_tokens, index=index
+            )
+            results.append(
+                StructuredResult(
+                    value=value,
+                    usage=_usage_from(response, model=model),
+                    # The wall-clock of the whole batch, on every item: an item has no
+                    # latency of its own that the API reports, and inventing one by
+                    # division would be a made-up figure in an audit record.
+                    latency_ms=elapsed_ms,
+                    request_payload={
+                        "batch_id": str(batch.id),
+                        "custom_id": _custom_id(index),
+                        **_archived(
+                            {k: v for k, v in request.items() if k != "output_format"}, schema
+                        ),
+                    },
+                    response_payload=_response_payload(response),
+                )
+            )
+
+        _log.info(
+            "provider.batch_completed",
+            provider=PROVIDER_NAME,
+            model=model,
+            items=len(results),
+            latency_ms=round(elapsed_ms, 2),
+        )
+        return results
+
+    async def _await_batch(self, batch_id: str) -> Any:
+        """Poll until the batch ends, backing off to a ceiling, bounded by a deadline."""
+        delay = self._batch_poll_seconds
+        deadline = time.monotonic() + self._batch_deadline_seconds
+        while True:
+            batch = await self._client.messages.batches.retrieve(batch_id)
+            status = str(getattr(batch, "processing_status", ""))
+            if status == "ended":
+                return batch
+            if status in {"canceling", "canceled"}:
+                message = f"Batch {batch_id} was {status} before it produced results."
+                raise ExternalServiceError(
+                    message, provider=PROVIDER_NAME, retryable=False, context={"batch": batch_id}
+                )
+            if time.monotonic() >= deadline:
+                message = (
+                    f"Batch {batch_id} did not end within "
+                    f"{self._batch_deadline_seconds:.0f}s (status {status!r})."
+                )
+                raise ExternalServiceError(
+                    message, provider=PROVIDER_NAME, retryable=True, context={"batch": batch_id}
+                )
+            await anyio.sleep(delay)
+            delay = min(delay * 2, _BATCH_POLL_CEILING_SECONDS)
 
     async def count_tokens(self, *, system: str, messages: Sequence[Message], model: str) -> int:
         """Count the input tokens a call would consume.
@@ -346,6 +477,84 @@ def _build_client(api_key: str, timeout_seconds: float) -> AsyncAnthropic:
     from anthropic import AsyncAnthropic  # noqa: PLC0415 -- see the docstring
 
     return AsyncAnthropic(api_key=api_key, timeout=timeout_seconds)
+
+
+def _custom_id(index: int) -> str:
+    return f"item-{index}"
+
+
+def _wire_schema(schema: type[BaseModel]) -> dict[str, Any]:
+    """The schema as the batch endpoint accepts it.
+
+    The SDK's own transformation — the one ``messages.parse`` applies before sending —
+    moves the constraints the API rejects (``ge``, ``le``, ``max_length``) into
+    descriptions and stamps ``additionalProperties: false`` on every object. Re-deriving
+    that here by hand would drift from the SDK the first time the API's schema dialect
+    moved; importing it keeps one translation with one owner.
+    """
+    from anthropic import transform_schema  # noqa: PLC0415 -- see `_build_client`
+
+    result: dict[str, Any] = transform_schema(schema)
+    return result
+
+
+def _succeeded_message(entry: Any, *, index: int, batch_id: str) -> Any:
+    """The message inside a succeeded batch entry, or the reason there is not one.
+
+    All or nothing, stated per item: "item 3 errored" beats "the batch was incomplete",
+    because the fix starts from knowing which composition failed.
+    """
+    if entry is None:
+        message = f"Batch {batch_id} returned no result for item {index}."
+        raise ExternalServiceError(
+            message, provider=PROVIDER_NAME, retryable=True, context={"batch": batch_id}
+        )
+    result = getattr(entry, "result", None)
+    kind = str(getattr(result, "type", "missing"))
+    reply = getattr(result, "message", None)
+    if kind != "succeeded" or reply is None:
+        detail = getattr(result, "error", None)
+        message = f"Batch {batch_id} item {index} did not succeed ({kind}): {detail}."
+        raise ExternalServiceError(
+            message,
+            provider=PROVIDER_NAME,
+            # An expired item is retryable — resubmitting may succeed. An errored one
+            # failed on the request's own terms and will fail the same way again.
+            retryable=kind == "expired",
+            context={"batch": batch_id, "item": index, "kind": kind},
+        )
+    return reply
+
+
+def _validate_batch_reply[T: BaseModel](
+    response: Any, schema: type[T], *, model: str, max_tokens: int, index: int
+) -> T:
+    """Validate one batch reply against the Pydantic class.
+
+    The batch endpoint enforces the wire schema's *shape* server-side but, exactly as with
+    the sync path, not the bounds — so the reply is validated here against the full class,
+    and a constraint miss reads as what it is rather than as truncation.
+    """
+    stop_reason = str(getattr(response, "stop_reason", ""))
+    explanation = _UNUSABLE_STOP_REASONS.get(stop_reason)
+    if explanation is not None:
+        message = f"Batch item {index} produced no {schema.__name__}: " + explanation.format(
+            max_tokens=max_tokens
+        )
+        raise ValidationError(
+            message,
+            context={"model": model, "schema": schema.__name__, "stop_reason": stop_reason},
+        )
+
+    text = "".join(
+        str(getattr(block, "text", ""))
+        for block in getattr(response, "content", []) or []
+        if getattr(block, "type", "") == "text"
+    )
+    try:
+        return schema.model_validate_json(text)
+    except PydanticValidationError as exc:
+        raise _unreadable_reply(exc, schema=schema, model=model, max_tokens=max_tokens) from exc
 
 
 def _structured_output(response: Any) -> Any:

@@ -411,6 +411,46 @@ claim fails its citation evaluation.
 **Acceptance.** Every completed run carries evaluation rows for all eight §2.10 run-time
 metrics, written by the same `aer/eval` arithmetic CI trusts.
 
+**Delivered (2026-08-06), ADR 0038.** Migration 0022: ``evaluations`` — one row per metric
+per run, with a **nullable verdict**: NULL value and NULL verdict together mean *not
+exercised* (a run with no post-dated source gave look-ahead recall nothing to catch), and
+a check constraint stops a row claiming a score without a verdict. The run-time eight are
+the §2.10 rows a live run can honestly answer — citation accuracy, hallucinated-citation
+rate, temporal compliance, look-ahead recall, source coverage, primary-source ratio,
+numerical consistency, assumption completeness — named in ``aer/eval/metrics.py``
+alongside a ``BLOCKING`` tuple, so the CI gate's set and the run-time set share one
+vocabulary and one thresholds table without pretending to be the same eight (injection
+resistance and unit integrity need corpora of attacks and mismatches, which a
+well-behaved run does not contain; the two coverage metrics are meaningless against a
+fixture). ``aer/eval/runtime.py`` carries the run-time arithmetic — same ``MetricResult``,
+same quantisation, same empty-population refusal, pure and tested against handwritten
+rows exactly as the gate's metrics are.
+
+The four validators live in ``aer/services/evaluations.py`` and a ``validate`` workflow
+step between draft and gate 2. Citation: the deterministic verifier runs first and its
+verdicts are the rows; whether a failure is fabrication-shaped is decided by re-asking
+the platform's own admissibility question of the source row, never by parsing error
+text, so a quarantine refusal is the temporal family's failure and not a phantom
+hallucination. Temporal reuses the CI gate's own ``SourceObservation`` and functions —
+the fixture semantics are the quarantine rules. Numerical is the task 32 replay harness
+over the run's rows; coverage holds each section to the floor its definition carries,
+custom sections to their pinned composed policy, with a section's evidence drawn from
+its claims' citations, its facts' documents and the source references in its content.
+
+The LLM assists (the ``validator`` role, ADR 0038) locate candidate excerpts for
+unresolved citations and adjudicate undated sources — **advice only**, recorded in the
+row's details, with the tests pinning that a confident "yes" on a failed match changes
+neither the metric nor ``excerpt_verified``. Capped at four questions per validator per
+run; a clean run asks nothing. The provider protocol gains
+``complete_structured_batch`` — request order guaranteed, all or nothing — implemented
+against the Messages Batches API with the SDK's own ``transform_schema`` (the batch
+path's version of the sync path's first-live-call lesson), polling with backoff to a
+deadline; the fake provider answers batches from the same script as the sync path, and
+``Agent.run_batch`` gives every item the composed prompt, the pre-spend cap refusal and
+its own archived, metered ``agent_runs`` row. Batch and sync produce identical rows on
+the fixture, asserted. Fifteen sabotage mutations across the service, the arithmetic,
+the batch transport, the registry and the workflow wiring.
+
 ---
 
 ## Task 40 — The red-team challenger

@@ -315,6 +315,9 @@ class TestTheWholeRun:
             "research_recent_developments",
             "research_technical_context",
             "draft",
+            # Validation before the gate (task 39): the eight run-time evaluation rows
+            # are written here, so gate 2 shows scores rather than promising them.
+            "validate",
             "gate_final",
             "render",
         ]

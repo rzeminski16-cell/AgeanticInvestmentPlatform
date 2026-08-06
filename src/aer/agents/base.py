@@ -27,6 +27,7 @@ of spending its way to the budget guard.
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, ClassVar
@@ -43,7 +44,7 @@ from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import AgentRun, Cost, JobStep, Prompt
 from aer.errors import AerError
 from aer.providers.costs import price_usage
-from aer.providers.protocol import LLMProvider, Message, StructuredResult
+from aer.providers.protocol import BatchRequest, LLMProvider, Message, StructuredResult
 from aer.providers.router import Router
 from aer.services.artefacts import store_artefact
 from aer.storage.protocol import ArtefactStore
@@ -271,6 +272,75 @@ class Agent[InputT, OutputT: BaseModel]:
             latency_ms=round(elapsed_ms, 2),
         )
         return result.value  # type: ignore[return-value]
+
+    async def run_batch(self, context: AgentContext, payloads: Sequence[InputT]) -> list[OutputT]:
+        """Perform many instances of this agent's work as one provider batch.
+
+        Everything :meth:`run` guarantees, per item: the same composition (so nothing can
+        skip the wrapping), the same input-cap refusal *before* any money moves, and one
+        archived, metered ``agent_runs`` row per item — a batch is a transport choice,
+        not a different audit standard. Results come back in payload order, which the
+        provider protocol makes part of its contract.
+        """
+        if not payloads:
+            return []
+
+        choice = context.router.resolve(self.role)
+        requests: list[BatchRequest] = []
+        for payload in payloads:
+            system = self.composed_system_prompt(payload)
+            messages = (Message(role="user", content=self.composed_user_message(payload)),)
+            projected = await context.provider.count_tokens(
+                system=system, messages=messages, model=choice.model
+            )
+            if projected > self.definition.max_input_tokens:
+                message = (
+                    f"The {self.role} agent composed a batch item of {projected} input "
+                    f"tokens against its registered cap of {self.definition.max_input_tokens}. "
+                    "The whole batch was refused before it was made."
+                )
+                raise TokenCapExceededError(
+                    message,
+                    context={
+                        "role": self.role,
+                        "projected": projected,
+                        "cap": self.definition.max_input_tokens,
+                    },
+                )
+            requests.append(BatchRequest(system=system, messages=messages))
+
+        started = time.perf_counter()
+        results = await context.provider.complete_structured_batch(
+            self.output_schema,
+            requests=requests,
+            model=choice.model,
+            effort=choice.effort,
+            max_tokens=self.definition.max_output_tokens,
+        )
+        elapsed_ms = (time.perf_counter() - started) * 1000
+
+        values: list[OutputT] = []
+        for request, result in zip(requests, results, strict=True):
+            agent_run = await self._record(
+                context,
+                result=result,
+                system=request.system,
+                choice_model=choice.model,
+                effort=choice.effort,
+                elapsed_ms=result.latency_ms,
+            )
+            await self._meter(context, result=result, agent_run=agent_run)
+            values.append(result.value)  # type: ignore[arg-type]
+
+        _log.info(
+            "agent.batch_completed",
+            role=self.role,
+            model=choice.model,
+            schema=self.output_schema.__name__,
+            items=len(values),
+            latency_ms=round(elapsed_ms, 2),
+        )
+        return values
 
     async def estimate_input_tokens(self, context: AgentContext, payload: InputT) -> int:
         """Count what this agent's call would consume, without making it.

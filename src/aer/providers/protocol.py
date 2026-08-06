@@ -1,8 +1,11 @@
 """What every model provider must be able to do.
 
-Deliberately narrow: two operations and one value object. A wide interface would encode
+Deliberately narrow: three operations and two value objects. A wide interface would encode
 one vendor's feature set as though it were the shape of the problem, and the next provider
-would either have to fake the parts it lacks or the abstraction would leak.
+would either have to fake the parts it lacks or the abstraction would leak. The batch
+operation (task 39) is the one addition the fan-out judgements earn — many items, one
+schema, one route — and it returns exactly what the single-shot form returns, per item,
+so nothing downstream cares which path a result travelled.
 
 **Structured output, not free text.** :meth:`LLMProvider.complete_structured` takes a
 Pydantic model and returns an instance of it. Every model call in this platform produces a
@@ -29,7 +32,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
-__all__ = ["LLMProvider", "Message", "StructuredResult", "Usage"]
+__all__ = ["BatchRequest", "LLMProvider", "Message", "StructuredResult", "Usage"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +86,20 @@ class Usage:
 
 
 @dataclass(frozen=True, slots=True)
+class BatchRequest:
+    """One item of a batch: its own prompt, sharing the batch's schema, model and effort.
+
+    Deliberately just the per-item parts. A batch in which every item could name its own
+    model and schema would be a loop wearing a batch's name — the point of the batch path
+    is many instances of *one* judgement (validator assists, red-team challenges), and
+    the shared parameters travel once, on the call.
+    """
+
+    system: str
+    messages: tuple[Message, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class StructuredResult[T: BaseModel]:
     """A validated object, what it cost, and the raw exchange.
 
@@ -129,6 +146,31 @@ class LLMProvider(Protocol):
         Raises:
             ExternalServiceError: The provider failed, timed out, or refused.
             ValidationError: The response did not satisfy the schema.
+        """
+        ...
+
+    async def complete_structured_batch[T: BaseModel](
+        self,
+        schema: type[T],
+        *,
+        requests: Sequence[BatchRequest],
+        model: str,
+        effort: str = "medium",
+        max_tokens: int = 4096,
+    ) -> list[StructuredResult[T]]:
+        """Produce one validated instance of ``schema`` per request, in request order.
+
+        The batch form of :meth:`complete_structured`, for the fan-out judgements —
+        validator assists, red-team challenges — where many items share one schema and
+        one route. Order is part of the contract: the caller matches results back to what
+        it asked by position, so an implementation that returns early completions first
+        has broken it.
+
+        Raises:
+            ExternalServiceError: The batch failed, expired, or any item errored. All or
+                nothing — a partial batch would hand the caller results whose positions
+                no longer mean anything.
+            ValidationError: An item's response did not satisfy the schema.
         """
         ...
 

@@ -23,7 +23,7 @@ from typing import Any, Final
 from pydantic import BaseModel
 
 from aer.errors import ExternalServiceError
-from aer.providers.protocol import Message, StructuredResult, Usage
+from aer.providers.protocol import BatchRequest, Message, StructuredResult, Usage
 
 __all__ = ["FakeProvider", "ScriptedResponse"]
 
@@ -131,6 +131,36 @@ class FakeProvider:
             },
             response_payload={"parsed": scripted.value.model_dump(mode="json")},
         )
+
+    async def complete_structured_batch[T: BaseModel](
+        self,
+        schema: type[T],
+        *,
+        requests: Sequence[BatchRequest],
+        model: str,
+        effort: str = "medium",
+        max_tokens: int = 4096,
+    ) -> list[StructuredResult[T]]:
+        """The batch path: each item answered by the same script the sync path reads.
+
+        That equivalence is the point — the parity test asserts batch and sync produce
+        identical rows, and it can only mean anything if the fake answers both from one
+        source. Each item is recorded as its own call with the batch flagged, so a test
+        can still see which path a result travelled.
+        """
+        results: list[StructuredResult[T]] = []
+        for request in requests:
+            result = await self.complete_structured(
+                schema,
+                system=request.system,
+                messages=request.messages,
+                model=model,
+                effort=effort,
+                max_tokens=max_tokens,
+            )
+            self.calls[-1]["batch"] = True
+            results.append(result)
+        return results
 
     async def count_tokens(self, *, system: str, messages: Sequence[Message], model: str) -> int:
         self.token_counts.append({"model": model, "messages": len(messages)})

@@ -70,6 +70,7 @@ from aer.services.comps import (
     propose_peers_from_sic,
 )
 from aer.services.disagreements import escalations_for_job
+from aer.services.evaluations import evaluate_run
 from aer.services.facts import persist_facts, upsert_company
 from aer.services.research import run_worker
 from aer.services.sectors import (
@@ -116,6 +117,10 @@ PLANNER_ESTIMATE_GBP: Final = Decimal("0.15")
 # Generous for the same reason as the planner's — an estimate that understates lets a run
 # through the guard that it should have paused.
 WORKER_ESTIMATE_GBP: Final = Decimal("0.10")
+
+# The validate step (task 39): at most a handful of capped advisory calls on the
+# validator route, and frequently none at all — the deterministic rows cost nothing.
+VALIDATOR_ESTIMATE_GBP: Final = Decimal("0.05")
 
 # What the gate shows as a runtime estimate. A constant for the slice, which does one
 # fetch and one calculation; Phase 3 derives it from the plan.
@@ -217,6 +222,11 @@ def build_steps() -> list[WorkflowStep]:
                 }
             ),
         ),
+        # Validation before the gate (task 39): the eight §2.10 run-time rows are written
+        # here, so gate 2 shows scores rather than promising them. The step never pauses
+        # the run itself — a failed metric is a recorded state the gate displays and the
+        # task 41 escalation engine will act on.
+        WorkflowStep(key="validate", run=_validate, estimated_cost_gbp=VALIDATOR_ESTIMATE_GBP),
         WorkflowStep(key="gate_final", run=_gate_final, gate=GateKind.FINAL.value),
         WorkflowStep(key="render", run=_render),
     ]
@@ -422,6 +432,41 @@ async def _gate_uk_financials(context: StepContext) -> StepResult:
         )
 
     return await _require_approval(context, gate=GateKind.UK_FINANCIALS, of_step="extract")
+
+
+async def _validate(context: StepContext) -> StepResult:
+    """Write the run's eight §2.10 evaluation rows — scores, never a pause.
+
+    The deterministic verifier runs inside :func:`evaluate_run`, first and
+    authoritatively; the LLM assists advise on what it could not settle and their advice
+    lands in the rows' details. A failed metric here is a recorded state for gate 2 to
+    display and the escalation engine (task 41) to act on — the *evidence* rule that can
+    stop a run still lives in the final gate, unchanged.
+    """
+    request = await _request_for(context)
+    agent_context = AgentContext(
+        session=context.session,
+        provider=context.service("provider"),
+        router=context.service("router"),
+        settings=context.service("settings"),
+        store=context.service("store"),
+        job_step=context.step,
+    )
+    rows = await evaluate_run(agent_context, job=context.job, request=request)
+    return StepResult(
+        output={
+            "metrics": {
+                row.metric: {
+                    "value": str(row.value) if row.value is not None else None,
+                    "passed": row.passed,
+                }
+                for row in rows
+            },
+            "failed": [row.metric for row in rows if row.passed is False],
+            "not_exercised": [row.metric for row in rows if row.passed is None],
+        },
+        cost_gbp=agent_context.spend_gbp,
+    )
 
 
 async def _gate_final(context: StepContext) -> StepResult:

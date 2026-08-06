@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import inspect
 import typing
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -41,7 +42,7 @@ from aer.providers.anthropic import (
     AnthropicProvider,
 )
 from aer.providers.costs import DEFAULT_PRICES
-from aer.providers.protocol import Message
+from aer.providers.protocol import BatchRequest, Message
 
 OPUS = "claude-opus-5"
 HAIKU = "claude-haiku-4-5"
@@ -459,3 +460,153 @@ class TestTheSdkContract:
             if isinstance(arg, str)
         }
         assert set(_EFFORT_LEVELS) == levels
+
+
+# ==========================================================================================
+# The batch path (task 39)
+# ==========================================================================================
+
+
+class _JsonBlock:
+    type = "text"
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+
+def _batch_message(payload: str) -> Any:
+    return SimpleNamespace(
+        content=[_JsonBlock(payload)],
+        stop_reason="end_turn",
+        usage=_StubUsage(),
+        model=OPUS,
+        model_dump=lambda **_: {"stop_reason": "end_turn"},
+    )
+
+
+def _entry(custom_id: str, *, kind: str = "succeeded", payload: str = "{}") -> Any:
+    message = _batch_message(payload) if kind == "succeeded" else None
+    return SimpleNamespace(
+        custom_id=custom_id,
+        result=SimpleNamespace(
+            type=kind, message=message, error="boom" if kind != "succeeded" else None
+        ),
+    )
+
+
+class _StubBatches:
+    """The Batches surface the provider drives: create, poll, stream results."""
+
+    def __init__(self, entries: list[Any], *, statuses: list[str] | None = None) -> None:
+        self.created: dict[str, Any] | None = None
+        self._entries = entries
+        self._statuses = list(statuses or ["ended"])
+        self.retrievals = 0
+
+    async def create(self, **kwargs: Any) -> Any:
+        self.created = kwargs
+        return SimpleNamespace(id="batch_1")
+
+    async def retrieve(self, batch_id: str) -> Any:
+        self.retrievals += 1
+        status = self._statuses.pop(0) if len(self._statuses) > 1 else self._statuses[0]
+        return SimpleNamespace(id=batch_id, processing_status=status)
+
+    async def results(self, batch_id: str) -> Any:
+        async def stream() -> Any:
+            for entry in self._entries:
+                yield entry
+
+        return stream()
+
+
+def _batch_provider(
+    entries: list[Any], *, statuses: list[str] | None = None
+) -> tuple[AnthropicProvider, _StubBatches]:
+    messages = _RecordingMessages()
+    batches = _StubBatches(entries, statuses=statuses)
+    messages.batches = batches  # type: ignore[attr-defined]
+    provider = AnthropicProvider(
+        api_key="sk-test",
+        client=_StubClient(messages),  # type: ignore[arg-type]
+        batch_poll_seconds=0.001,
+        batch_deadline_seconds=5,
+    )
+    return provider, batches
+
+
+def _batch_requests(count: int) -> list[BatchRequest]:
+    return [
+        BatchRequest(system="be brief", messages=(Message(role="user", content=f"plan {i}"),))
+        for i in range(count)
+    ]
+
+
+class TestTheBatchPath:
+    async def test_results_come_back_validated_and_in_request_order(self) -> None:
+        # The API finished them backwards; the caller must not notice.
+        entries = [
+            _entry("item-1", payload='{"summary": "second", "confidence": 0.5}'),
+            _entry("item-0", payload='{"summary": "first", "confidence": 0.5}'),
+        ]
+        provider, _ = _batch_provider(entries)
+
+        results = await provider.complete_structured_batch(
+            Plan, requests=_batch_requests(2), model=OPUS, effort="high"
+        )
+
+        assert [r.value.summary for r in results] == ["first", "second"]
+        assert all(isinstance(r.value, Plan) for r in results)
+
+    async def test_the_wire_schema_is_the_sdk_transformation(self) -> None:
+        """The 400 the sync path avoids via ``messages.parse``, avoided here explicitly.
+
+        The API rejects ``maximum`` and requires ``additionalProperties: false``; the
+        SDK's ``transform_schema`` moves the bounds into descriptions. Sending the raw
+        Pydantic schema would be the batch path's version of the sync path's first
+        live-call failure.
+        """
+        provider, batches = _batch_provider([_entry("item-0", payload='{"summary": "ok"}')])
+
+        await provider.complete_structured_batch(
+            Plan, requests=_batch_requests(1), model=OPUS, effort="high"
+        )
+
+        assert batches.created is not None
+        params = batches.created["requests"][0]["params"]
+        schema = params["output_format"]["schema"]
+        assert schema["additionalProperties"] is False
+        assert "maximum" not in schema["properties"]["confidence"]
+
+    async def test_an_errored_item_fails_the_whole_batch(self) -> None:
+        entries = [
+            _entry("item-0", payload='{"summary": "ok", "confidence": 0.5}'),
+            _entry("item-1", kind="errored"),
+        ]
+        provider, _ = _batch_provider(entries)
+
+        with pytest.raises(ExternalServiceError, match="item 1"):
+            await provider.complete_structured_batch(
+                Plan, requests=_batch_requests(2), model=OPUS, effort="high"
+            )
+
+    async def test_polling_waits_for_the_batch_to_end(self) -> None:
+        provider, batches = _batch_provider(
+            [_entry("item-0", payload='{"summary": "ok"}')],
+            statuses=["in_progress", "in_progress", "ended"],
+        )
+
+        results = await provider.complete_structured_batch(
+            Plan, requests=_batch_requests(1), model=OPUS, effort="high"
+        )
+
+        assert len(results) == 1
+        assert batches.retrievals >= 3
+
+    async def test_a_reply_missing_the_schema_is_a_validation_error(self) -> None:
+        provider, _ = _batch_provider([_entry("item-0", payload='{"confidence": 0.5}')])
+
+        with pytest.raises(ValidationError):
+            await provider.complete_structured_batch(
+                Plan, requests=_batch_requests(1), model=OPUS, effort="high"
+            )
