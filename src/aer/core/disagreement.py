@@ -467,15 +467,20 @@ def resolve(first: Position, second: Position) -> Resolution:  # noqa: PLR0911
     )
 
 
-def thesis_conflict(*, first: Position, second: Position, topic: str) -> Resolution:
+def thesis_conflict(
+    *, first: Position, second: Position, topic: str, material: bool = True
+) -> Resolution:
     """Rung 6 of ``docs/PLAN.md`` section 2.9: the red team against the base thesis.
 
     Never auto-resolved, by design rather than by omission. A challenge that the system
     itself could dismiss would be a challenge worth nothing; both positions are published
     side by side in the report's disagreement appendix and the reader decides.
 
-    No numeric comparison happens, so there is no relative difference to report, and it is
-    always material — the point of running a red team is that its findings are read.
+    No numeric comparison happens, so there is no relative difference to report.
+    ``material`` defaults to true — the point of running a red team is that its findings
+    are read — but the caller that knows a challenge's severity may say a low-severity
+    quibble does not raise the section 2.4 banner. It is still escalated and still
+    published; materiality decides the banner, never the record.
     """
     return Resolution(
         outcome=ResolutionOutcome.ESCALATED,
@@ -487,7 +492,7 @@ def thesis_conflict(*, first: Position, second: Position, topic: str) -> Resolut
         position_a=first,
         position_b=second,
         relative_difference=None,
-        material=True,
+        material=material,
     )
 
 

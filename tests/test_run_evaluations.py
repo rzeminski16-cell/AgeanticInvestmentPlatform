@@ -771,7 +771,7 @@ class TestTheSliceWritesItsRows:
         await run_to_next_stop(**args)
         await approve(db_session, job=job, gate=GateKind.PLAN, actor=user, step="plan")
         await run_to_next_stop(**args)
-        await approve(db_session, job=job, gate=GateKind.FINAL, actor=user, step="draft")
+        await approve(db_session, job=job, gate=GateKind.FINAL, actor=user, step="red_team")
         outcome = await run_to_next_stop(**args)
 
         assert outcome.status is JobStatus.SUCCEEDED

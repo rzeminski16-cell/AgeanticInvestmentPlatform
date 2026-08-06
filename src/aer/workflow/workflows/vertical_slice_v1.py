@@ -72,6 +72,7 @@ from aer.services.comps import (
 from aer.services.disagreements import escalations_for_job
 from aer.services.evaluations import evaluate_run
 from aer.services.facts import persist_facts, upsert_company
+from aer.services.red_team import run_red_team
 from aer.services.research import run_worker
 from aer.services.sectors import (
     CLASSIFY_STEP,
@@ -121,6 +122,11 @@ WORKER_ESTIMATE_GBP: Final = Decimal("0.10")
 # The validate step (task 39): at most a handful of capped advisory calls on the
 # validator route, and frequently none at all — the deterministic rows cost nothing.
 VALIDATOR_ESTIMATE_GBP: Final = Decimal("0.05")
+
+# The red team (task 40): §1.8 budgets the bear case at 90k in / 10k out on Opus via the
+# batch path (~£0.85 at current rates). Generous for the same reason as every estimate
+# here, and zero-cost on the runs that skip it for want of claims.
+RED_TEAM_ESTIMATE_GBP: Final = Decimal("1.00")
 
 # What the gate shows as a runtime estimate. A constant for the slice, which does one
 # fetch and one calculation; Phase 3 derives it from the plan.
@@ -227,6 +233,10 @@ def build_steps() -> list[WorkflowStep]:
         # the run itself — a failed metric is a recorded state the gate displays and the
         # task 41 escalation engine will act on.
         WorkflowStep(key="validate", run=_validate, estimated_cost_gbp=VALIDATOR_ESTIMATE_GBP),
+        # The adversary last before the gate (task 40): its challenges join the payload
+        # as escalations, so the hash gate 2 verifies is computed here — by the final
+        # step that can change what the operator will be shown.
+        WorkflowStep(key="red_team", run=_red_team, estimated_cost_gbp=RED_TEAM_ESTIMATE_GBP),
         WorkflowStep(key="gate_final", run=_gate_final, gate=GateKind.FINAL.value),
         WorkflowStep(key="render", run=_render),
     ]
@@ -469,6 +479,38 @@ async def _validate(context: StepContext) -> StepResult:
     )
 
 
+async def _red_team(context: StepContext) -> StepResult:
+    """Attack the draft's recorded claims from a separate context, and seal the payload.
+
+    The adversary sees the claims and the evidence index — the input type cannot carry
+    the drafting context (ADR 0039) — and every surviving challenge lands as an escalated
+    ``disagreements`` row gate 2 displays. This step computes the payload hash the final
+    gate verifies, because its challenges are the last thing that can change what the
+    operator will be shown.
+    """
+    request = await _request_for(context)
+    agent_context = AgentContext(
+        session=context.session,
+        provider=context.service("provider"),
+        router=context.service("router"),
+        settings=context.service("settings"),
+        store=context.service("store"),
+        job_step=context.step,
+    )
+    outcome = await run_red_team(agent_context, context.session, job=context.job, request=request)
+
+    payload = await final_gate_payload(context.session, job_id=context.job.id)
+    return StepResult(
+        output={
+            **outcome.as_dict(),
+            # Gate 2 approves exactly this. The hash is what the approval records, so an
+            # approval of an earlier payload cannot be reused for a later one.
+            "payload_hash": sha256_hex(canonical_json(payload)),
+        },
+        cost_gbp=agent_context.spend_gbp,
+    )
+
+
 async def _gate_final(context: StepContext) -> StepResult:
     """Check the evidence, then stop until a human approves the draft.
 
@@ -479,7 +521,7 @@ async def _gate_final(context: StepContext) -> StepResult:
     person, with a different message.
     """
     await _refuse_unsupported_evidence(context)
-    return await _require_approval(context, gate=GateKind.FINAL, of_step="draft")
+    return await _require_approval(context, gate=GateKind.FINAL, of_step="red_team")
 
 
 async def _refuse_unsupported_evidence(context: StepContext) -> None:
@@ -973,14 +1015,13 @@ async def _draft(context: StepContext) -> StepResult:
 
     await context.session.flush()
 
-    payload = await final_gate_payload(context.session, job_id=context.job.id)
     return StepResult(
         output={
             "sections_drafted": filled,
             "custom_sections": custom_outcomes,
-            # Gate 2 approves exactly this. The hash is what the approval records, so an
-            # approval of an earlier draft cannot be reused for a later one.
-            "payload_hash": sha256_hex(canonical_json(payload)),
+            # No payload hash here since task 40: the red team's challenges join the
+            # gate-2 payload after drafting, so the hash the gate verifies is computed
+            # by the red_team step — the last one that can change it.
         },
         cost_gbp=agent_context.spend_gbp,
     )

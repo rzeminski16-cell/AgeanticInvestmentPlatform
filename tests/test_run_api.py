@@ -348,7 +348,9 @@ class TestTheGateApi:
         job_id = await _to_second_gate(api, committed, driver)
 
         draft = (await api.get(f"/api/runs/{job_id}/draft")).json()
-        assert draft["payload_hash"] == await driver.payload_hash_of(job_id, "draft")
+        # The authoritative hash lives on the red_team step since task 40 — the last
+        # step that can change the gate-2 payload.
+        assert draft["payload_hash"] == await driver.payload_hash_of(job_id, "red_team")
         assert [section["key"] for section in draft["sections"]] == [
             "executive_summary",
             "historical_financial_analysis",
@@ -407,7 +409,7 @@ class TestTheReportApi:
     @pytest.fixture
     async def finished(self, api: Any, committed: dict, driver: Driver) -> uuid.UUID:
         job_id = await _to_second_gate(api, committed, driver)
-        await driver.approve(job_id, gate=GateKind.FINAL, step="draft")
+        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
         await driver.advance(job_id)
         return job_id
 
@@ -628,7 +630,7 @@ class TestTheEventStream:
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
         job_id = await _to_second_gate(api, committed, driver)
-        await driver.approve(job_id, gate=GateKind.FINAL, step="draft")
+        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
         await driver.advance(job_id)
 
         async with api.stream("GET", f"/api/runs/{job_id}/events") as response:
@@ -645,7 +647,7 @@ class TestTheEventStream:
     ) -> None:
         """Buffering defeats it entirely: an hour of progress delivered at the end."""
         job_id = await _to_second_gate(api, committed, driver)
-        await driver.approve(job_id, gate=GateKind.FINAL, step="draft")
+        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
         await driver.advance(job_id)
 
         async with api.stream("GET", f"/api/runs/{job_id}/events") as response:
@@ -683,7 +685,7 @@ class TestTheWebPages:
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
         job_id = await _to_second_gate(api, committed, driver)
-        await driver.approve(job_id, gate=GateKind.FINAL, step="draft")
+        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
         await driver.advance(job_id)
 
         page = await api.get(f"/runs/{job_id}")
@@ -766,14 +768,14 @@ class TestTheWebPages:
         assert page.status_code == 200
         assert 'id="draft-markdown"' in page.text
         assert _hidden_value(page.text, "payload_hash") == await driver.payload_hash_of(
-            job_id, "draft"
+            job_id, "red_team"
         )
 
     async def test_the_report_page_links_to_the_archived_download(
         self, api: Any, committed: dict, driver: Driver, db_session: Any
     ) -> None:
         job_id = await _to_second_gate(api, committed, driver)
-        await driver.approve(job_id, gate=GateKind.FINAL, step="draft")
+        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
         await driver.advance(job_id)
 
         report = await db_session.scalar(select(Report).where(Report.job_id == job_id))
@@ -898,7 +900,7 @@ class TestStartingAgainAfterACancelledRun:
         # One report per request still holds. Starting again on a run that produced one
         # would need a story about which report is current, and there is not one yet.
         job_id = await _to_second_gate(api, committed, driver)
-        await driver.approve(job_id, gate=GateKind.FINAL, step="draft")
+        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
         assert await driver.advance(job_id) is JobStatus.SUCCEEDED
 
         assert (await start(api, committed["request"].id))["job_id"] == str(job_id)

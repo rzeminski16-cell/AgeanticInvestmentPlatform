@@ -210,6 +210,26 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         max_output_tokens=4_096,
         adr="0038",
     ),
+    RoleDefinition(
+        role="red_team",
+        purpose=(
+            "Attack the draft's thesis from a separate context: scored, evidence-cited "
+            "challenges over the recorded claims and the evidence index — never the "
+            "drafting context, never a figure of its own."
+        ),
+        output_schema_ref="aer.agents.red_team:RedTeamReport",
+        # No tools. The red team receives the claims and the evidence index and nothing
+        # else; a challenger that could search or fetch would be building its case from
+        # material the base thesis never saw, and the comparison would stop being about
+        # the draft.
+        allowed_tools=frozenset(),
+        # §1.8 budgets the bear case at 90k in / 10k out on the batch path. The output
+        # cap carries headroom beyond the budget because max_tokens bounds thinking and
+        # visible output together.
+        max_input_tokens=90_000,
+        max_output_tokens=16_384,
+        adr="0039",
+    ),
 )
 
 

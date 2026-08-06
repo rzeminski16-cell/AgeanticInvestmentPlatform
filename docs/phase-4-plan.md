@@ -472,6 +472,36 @@ challenge lands as a disagreement with the ladder's states reachable; batch pari
 materially contradicts the base thesis on a scored dimension — the escalation task 41 will
 gate on.
 
+**Delivered (2026-08-06), ADR 0039.** Isolation is a property of the input type:
+``RedTeamInput`` has fields for the draft's recorded claims and the run's evidence index
+— facts, calculations, sources, by id — and no field for section prose or worker notes,
+with ``extra="forbid"`` refusing anything smuggled under another name. The service builds
+the input from the tables alone; a test plants a marker in the drafting context and
+proves it cannot reach the composed prompt while the claims do. The role holds no tools
+(a challenger that could fetch would build its case from material the base thesis never
+saw), and the dimensions are a closed vocabulary, because "on a scored dimension" only
+means something the platform can group and compare by.
+
+A challenge citing no evidence fails the response schema; one citing an id the run does
+not hold is rejected whole — an argument resting partly on fabricated evidence is a
+fabrication with good footnotes. Each survivor lands on the task 19 ladder's thesis rung:
+escalated to gate 2, never auto-resolved, both positions stored, recording idempotent on
+the challenge's own content digest. Materiality follows severity (``thesis_conflict``
+gained a ``material`` argument): at 4/5 or above the challenge materially contradicts the
+thesis — the §2.4 banner state task 41 gates on — below it the quibble is published
+without the banner. The planted-contradiction fixture produces exactly that: a
+severity-5 growth challenge citing the run's own declining revenue fact, material,
+escalated, visible to ``escalations_for_job``.
+
+The run's one adversary call travels ``Agent.run_batch`` (§1.8 prices the bear case on
+the batch path), with the sync path kept and proven row-identical. A draft that recorded
+no claims skips the adversary visibly and spends nothing. Because challenges join the
+gate-2 payload as escalations, **the payload hash the final gate verifies moved to the
+red_team step** — the last step that can change what the operator is shown — and every
+surface that read the draft step's hash now reads the adversary's. Twelve sabotage
+mutations, including prose leaking into the adversary's context and a thesis conflict
+auto-resolving, all caught.
+
 ---
 
 ## Task 41 — The escalation engine and the Gate 2 dashboard

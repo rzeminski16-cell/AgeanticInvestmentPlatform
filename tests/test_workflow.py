@@ -267,7 +267,9 @@ class TestTheWholeRun:
         await approve(session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="plan")
 
         await run_to_next_stop(**_args(scenario))
-        await approve(session, job=job, gate=GateKind.FINAL, actor=scenario["user"], step="draft")
+        await approve(
+            session, job=job, gate=GateKind.FINAL, actor=scenario["user"], step="red_team"
+        )
 
         outcome = await run_to_next_stop(**_args(scenario))
         return {**scenario, "outcome": outcome}
@@ -318,6 +320,10 @@ class TestTheWholeRun:
             # Validation before the gate (task 39): the eight run-time evaluation rows
             # are written here, so gate 2 shows scores rather than promising them.
             "validate",
+            # The adversary last before the gate (task 40): it seals the payload hash
+            # the final gate verifies. Skipped-but-recorded on this run, which drafts
+            # no claims for it to attack.
+            "red_team",
             "gate_final",
             "render",
         ]
@@ -583,6 +589,36 @@ class TestTheApprovalGates:
         assert outcome.status is JobStatus.AWAITING_APPROVAL
         assert scenario["sec_client"].facts_calls == []
 
+    async def test_the_final_gate_refuses_an_approval_of_different_content(
+        self, scenario: dict
+    ) -> None:
+        """The same rule at gate 2, where the hash is the red team's (task 40).
+
+        The hash the gate verifies is the one the red_team step sealed after the
+        adversary's challenges joined the payload; an approval carrying anything else —
+        including a stale pre-challenge hash — is an approval of something the operator
+        was not shown.
+        """
+        session = scenario["session"]
+        job = scenario["job"]
+        await run_to_next_stop(**_args(scenario))
+        await approve(session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="plan")
+        await run_to_next_stop(**_args(scenario))
+
+        await approval_service.record_decision(
+            session,
+            job=job,
+            gate=GateKind.FINAL,
+            decision=Decision.APPROVED,
+            actor=scenario["user"],
+            payload_hash="b" * 64,
+        )
+
+        outcome = await run_to_next_stop(**_args(scenario))
+        assert outcome.status is JobStatus.AWAITING_APPROVAL
+        report = await session.scalar(select(Report).where(Report.job_id == job.id))
+        assert report is None
+
     async def test_a_rejection_stops_the_run(self, scenario: dict) -> None:
         session = scenario["session"]
         job = scenario["job"]
@@ -691,7 +727,11 @@ class TestGateTwoWillNotOpenOnUnsupportedEvidence:
         )
 
         await approve(
-            session, job=scenario["job"], gate=GateKind.FINAL, actor=scenario["user"], step="draft"
+            session,
+            job=scenario["job"],
+            gate=GateKind.FINAL,
+            actor=scenario["user"],
+            step="red_team",
         )
         await run_to_next_stop(**_args(scenario))
 

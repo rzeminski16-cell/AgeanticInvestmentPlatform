@@ -1,0 +1,530 @@
+"""The red team: a separate context that attacks the thesis, scored and recorded.
+
+Task 40, ADR 0039. The structural properties first — the input type cannot carry working
+notes, an unevidenced challenge cannot exist — then the service against a seeded run with
+a planted contradiction, the ladder states, and batch parity.
+"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import UTC, date, datetime
+from decimal import Decimal
+from pathlib import Path
+from typing import Any
+
+import pytest
+from pydantic import ValidationError as PydanticValidationError
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from aer.agents.base import AgentContext
+from aer.agents.red_team import (
+    ChallengeDimension,
+    RedTeamChallenge,
+    RedTeamInput,
+    RedTeamReport,
+)
+from aer.agents.registry import resolve_role
+from aer.config import Settings
+from aer.core.disagreement import DisagreementKind, ResolutionOutcome, ResolutionRule
+from aer.core.enums import ClaimKind, FactBasis, GateKind, JobStatus, Provider, SourceTier
+from aer.db.models import (
+    Artefact,
+    Company,
+    Disagreement,
+    FinancialFact,
+    Job,
+    JobStep,
+    ResearchRequest,
+    SectionDefinition,
+    SectionStatus,
+    SourceDocument,
+    User,
+)
+from aer.db.models.report_section import ReportSection
+from aer.providers.fake import FakeProvider
+from aer.providers.router import Router
+from aer.services.citations import record_claim
+from aer.services.disagreements import escalations_for_job, settle_by_hand
+from aer.services.red_team import MATERIAL_SEVERITY, run_red_team
+from aer.storage.local import LocalArtefactStore
+from tests.ledger_fixtures import record_valuation_ledger
+from tests.workflow_fixtures import AS_OF_DATE
+
+pytestmark = pytest.mark.anyio
+
+# The drafting context this fixture plants, which must never reach the adversary.
+WORKING_NOTE = "WOLFSBANE-the-bull-case-working-note"
+
+
+# ==========================================================================================
+# Structural isolation and the evidence rule, at the type level
+# ==========================================================================================
+
+
+class TestTheInputCannotCarryWorkingNotes:
+    def test_there_is_no_field_for_the_drafting_context(self) -> None:
+        # The whole point, asserted twice: by the field list, and by extra="forbid"
+        # refusing anything smuggled under another name.
+        assert set(RedTeamInput.model_fields) == {
+            "company_name",
+            "ticker",
+            "as_of_date",
+            "claims",
+            "facts",
+            "calculations",
+            "sources",
+        }
+
+        with pytest.raises(PydanticValidationError):
+            RedTeamInput(
+                company_name="Contoso",
+                ticker="CTSO",
+                as_of_date="2022-06-30",
+                working_notes="the bull case, verbatim",  # type: ignore[call-arg]
+            )
+
+    def test_section_prose_is_refused_under_any_name(self) -> None:
+        with pytest.raises(PydanticValidationError):
+            RedTeamInput(
+                company_name="Contoso",
+                ticker="CTSO",
+                as_of_date="2022-06-30",
+                sections=[{"content": "prose"}],  # type: ignore[call-arg]
+            )
+
+
+class TestAChallengeStandsOnEvidenceOrDoesNotExist:
+    def test_no_cited_ids_fails_the_schema(self) -> None:
+        with pytest.raises(PydanticValidationError, match="cite at least one"):
+            RedTeamChallenge(
+                dimension=ChallengeDimension.GROWTH,
+                severity=5,
+                statement="Growth is an illusion.",
+                basis="Trust me.",
+            )
+
+    def test_severity_is_bounded(self) -> None:
+        with pytest.raises(PydanticValidationError):
+            RedTeamChallenge(
+                dimension=ChallengeDimension.GROWTH,
+                severity=6,
+                statement="Beyond the scale.",
+                basis="Enthusiasm.",
+                fact_ids=["some-fact"],
+            )
+
+
+class TestTheRoleIsRegistered:
+    def test_the_role_names_its_adr_and_holds_no_tools(self) -> None:
+        definition = resolve_role("red_team")
+
+        assert definition.adr == "0039"
+        assert definition.allowed_tools == frozenset()
+        assert definition.output_schema() is RedTeamReport
+        matches = list(Path("docs/adr").glob("0039-*.md"))
+        assert len(matches) == 1
+
+
+# ==========================================================================================
+# The service, against a seeded run with a planted contradiction
+# ==========================================================================================
+
+
+@pytest.fixture
+async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
+    """A drafted run asserting growth while its own evidence shows revenue falling."""
+    user = User(email="redteam@example.invalid", display_name="Red")
+    db_session.add(user)
+    await db_session.flush()
+
+    request = ResearchRequest(
+        user_id=user.id,
+        company_name="Microsoft Corporation",
+        ticker="MSFT",
+        exchange="NASDAQ",
+        as_of_date=AS_OF_DATE,
+        point_in_time=True,
+        base_currency="USD",
+        reporting_currency="USD",
+        investment_horizon_months=12,
+        max_cost_gbp="2.50",
+    )
+    db_session.add(request)
+    await db_session.flush()
+
+    job = Job(
+        request_id=request.id,
+        workflow_version="vertical_slice_v1",
+        code_version="test",
+        status=JobStatus.RUNNING,
+        started_at=datetime.now(UTC),
+    )
+    db_session.add(job)
+    await db_session.flush()
+
+    step = JobStep(
+        job_id=job.id,
+        step_key="red_team",
+        sequence=0,
+        status=JobStatus.RUNNING,
+        attempt=0,
+        idempotency_key=f"{job.id}:red_team",
+        input_hash="0" * 64,
+        started_at=datetime.now(UTC),
+    )
+    db_session.add(step)
+    await db_session.flush()
+
+    settings = Settings(
+        http_user_agent="Test test@example.invalid", artefact_root=tmp_path / "artefacts"
+    )
+    store = LocalArtefactStore(settings.artefact_root, max_bytes=settings.max_artefact_bytes)
+
+    payload = b"<html><p>Total revenue fell for fiscal year 2022.</p></html>"
+    stored = await store.put_bytes(payload)
+    artefact = Artefact(
+        sha256=stored.sha256,
+        media_type="text/html",
+        size_bytes=stored.size_bytes,
+        storage_key=store.storage_key_for(stored.sha256),
+    )
+    db_session.add(artefact)
+    await db_session.flush()
+
+    document = SourceDocument(
+        request_id=request.id,
+        job_id=job.id,
+        artefact_id=artefact.id,
+        url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",
+        provider=Provider.SEC_EDGAR,
+        source_tier=SourceTier.T1_REGULATORY,
+        retrieved_at=datetime.now(UTC),
+        publication_date=date(2022, 3, 1),
+        quarantined=False,
+    )
+    db_session.add(document)
+    await db_session.flush()
+
+    company = Company(name="MICROSOFT CORP", cik="0000789019", ticker="MSFT", exchange="NASDAQ")
+    db_session.add(company)
+    await db_session.flush()
+
+    # The planted contradiction: the run's own fact shows revenue below the prior year,
+    # while the draft's claim (below) asserts growth.
+    fact = FinancialFact(
+        company_id=company.id,
+        source_document_id=document.id,
+        concept="revenue",
+        value=Decimal("150000000000"),
+        unit="USD",
+        period_end=date(2022, 6, 30),
+        basis=FactBasis.AS_REPORTED,
+        filed_date=date(2022, 7, 28),
+    )
+    db_session.add(fact)
+    await db_session.flush()
+
+    ledger = await record_valuation_ledger(db_session, request=request, job=job, actor=user)
+
+    definition = await db_session.scalar(select(SectionDefinition).limit(1))
+    assert definition is not None
+    section = ReportSection(
+        job_id=job.id,
+        section_definition_id=definition.id,
+        section_key=definition.key,
+        position=definition.position,
+        status=SectionStatus.GENERATED,
+        # The working note the adversary must never see.
+        content={"body": f"Revenue is growing strongly. {WORKING_NOTE}"},
+    )
+    db_session.add(section)
+    await db_session.flush()
+
+    claim = await record_claim(
+        db_session,
+        section=section,
+        kind=ClaimKind.FACTUAL,
+        text="Revenue is growing and the trajectory is durable.",
+    )
+
+    return {
+        "session": db_session,
+        "user": user,
+        "request": request,
+        "job": job,
+        "step": step,
+        "settings": settings,
+        "store": store,
+        "document": document,
+        "fact": fact,
+        "calculation": ledger["rows"][0],
+        "section": section,
+        "claim": claim,
+    }
+
+
+def _context(scene: dict[str, Any], provider: FakeProvider) -> AgentContext:
+    return AgentContext(
+        session=scene["session"],
+        provider=provider,
+        router=Router(scene["settings"]),
+        settings=scene["settings"],
+        store=scene["store"],
+        job_step=scene["step"],
+    )
+
+
+def _fixture_report(scene: dict[str, Any]) -> RedTeamReport:
+    """Three scored challenges, led by the planted contradiction."""
+    return RedTeamReport(
+        challenges=[
+            RedTeamChallenge(
+                dimension=ChallengeDimension.GROWTH,
+                severity=5,
+                statement=(
+                    "The draft asserts durable revenue growth, but the run's own revenue "
+                    "fact for the period shows a decline."
+                ),
+                basis="The claim contradicts the recorded fact it should rest on.",
+                fact_ids=[str(scene["fact"].id)],
+            ),
+            RedTeamChallenge(
+                dimension=ChallengeDimension.VALUATION,
+                severity=3,
+                statement=(
+                    "The terminal value rests on a single confirmed growth assumption "
+                    "with no sensitivity shown."
+                ),
+                basis="One assumption carries the valuation.",
+                calculation_ids=[str(scene["calculation"].id)],
+            ),
+            RedTeamChallenge(
+                dimension=ChallengeDimension.COMPETITIVE_POSITION,
+                severity=2,
+                statement="The evidence base is a single filing from a single source.",
+                basis="Nothing corroborates the issuer's own account.",
+                source_document_ids=[str(scene["document"].id)],
+            ),
+        ],
+        coverage_note="Attacked growth, valuation and breadth of evidence.",
+    )
+
+
+async def _rows(session: AsyncSession, job_id: Any) -> list[Disagreement]:
+    return list(
+        await session.scalars(
+            select(Disagreement)
+            .where(Disagreement.job_id == job_id)
+            .order_by(Disagreement.created_at, Disagreement.id)
+        )
+    )
+
+
+class TestThePlantedContradictionIsChallenged:
+    @pytest.fixture
+    async def outcome(self, scene: dict[str, Any]) -> dict[str, Any]:
+        provider = FakeProvider({"RedTeamReport": _fixture_report(scene)})
+        result = await run_red_team(
+            _context(scene, provider),
+            scene["session"],
+            job=scene["job"],
+            request=scene["request"],
+        )
+        return {**scene, "outcome": result, "provider": provider}
+
+    async def test_three_scored_challenges_land_as_disagreements(
+        self, outcome: dict[str, Any]
+    ) -> None:
+        rows = await _rows(outcome["session"], outcome["job"].id)
+
+        assert len(rows) == 3
+        assert all(row.kind is DisagreementKind.THESIS_CONFLICT for row in rows)
+        assert all(row.rule is ResolutionRule.THESIS_CONFLICT for row in rows)
+        # Never auto-resolved: every challenge waits at gate 2 with both positions.
+        assert all(row.resolution is ResolutionOutcome.ESCALATED for row in rows)
+        assert all(row.escalated_to_gate is GateKind.FINAL for row in rows)
+
+    async def test_the_material_contradiction_is_the_state_task_41_gates_on(
+        self, outcome: dict[str, Any]
+    ) -> None:
+        """The acceptance: a challenge materially contradicting the thesis on a scored
+        dimension, visible where the escalation engine will look."""
+        escalations = await escalations_for_job(outcome["session"], outcome["job"].id)
+        material = [
+            row
+            for row in escalations
+            if row.kind is DisagreementKind.THESIS_CONFLICT and row.material
+        ]
+
+        assert len(material) == 1
+        assert material[0].topic.startswith("Red team (growth)")
+        assert f"severity {MATERIAL_SEVERITY + 1}/5" in str(material[0].position_b)
+
+    async def test_severity_decides_the_banner_never_the_record(
+        self, outcome: dict[str, Any]
+    ) -> None:
+        rows = await _rows(outcome["session"], outcome["job"].id)
+        by_dimension = {row.topic.split("(")[1].split(")")[0]: row for row in rows}
+
+        # The severity-5 challenge is material; the quibbles are recorded without the
+        # banner — escalated and published all the same.
+        assert by_dimension["growth"].material is True
+        assert by_dimension["valuation"].material is False
+        assert by_dimension["competitive_position"].material is False
+
+    async def test_both_positions_and_the_evidence_are_on_the_row(
+        self, outcome: dict[str, Any]
+    ) -> None:
+        rows = await _rows(outcome["session"], outcome["job"].id)
+        growth = next(row for row in rows if row.topic.startswith("Red team (growth)"))
+
+        assert growth.position_a["label"].startswith("Base thesis")
+        assert "Red team challenge (growth" in growth.position_b["label"]
+        assert str(outcome["fact"].id) in growth.resolution_rationale
+        assert "own revenue" in growth.resolution_rationale
+
+    async def test_the_working_note_never_reached_the_adversary(
+        self, outcome: dict[str, Any]
+    ) -> None:
+        """Isolation, proved at the prompt: the drafting context was in the database and
+        the claims were in the prompt, and only one of them crossed."""
+        calls = [c for c in outcome["provider"].calls if c["schema"] == "RedTeamReport"]
+        assert len(calls) == 1
+        prompt = calls[0]["system"] + calls[0]["messages"][0]["content"]
+
+        assert WORKING_NOTE not in prompt
+        assert "Revenue is growing and the trajectory is durable." in prompt
+        assert str(outcome["fact"].id) in prompt
+
+    async def test_the_call_travelled_the_batch_path(self, outcome: dict[str, Any]) -> None:
+        calls = [c for c in outcome["provider"].calls if c["schema"] == "RedTeamReport"]
+        assert calls[0].get("batch") is True
+
+
+class TestRejectionAndSkipping:
+    async def test_a_challenge_citing_an_unheld_id_is_rejected_whole(
+        self, scene: dict[str, Any]
+    ) -> None:
+        report = RedTeamReport(
+            challenges=[
+                RedTeamChallenge(
+                    dimension=ChallengeDimension.MACRO,
+                    severity=4,
+                    statement="Rates make the discounting indefensible.",
+                    basis="A macro series this run never acquired.",
+                    fact_ids=[str(uuid.uuid4())],
+                )
+            ],
+            coverage_note="One challenge.",
+        )
+        provider = FakeProvider({"RedTeamReport": report})
+
+        outcome = await run_red_team(
+            _context(scene, provider), scene["session"], job=scene["job"], request=scene["request"]
+        )
+
+        assert outcome.recorded == []
+        assert len(outcome.rejected) == 1
+        assert "does not hold" in outcome.rejected[0]
+        assert await _rows(scene["session"], scene["job"].id) == []
+
+    async def test_a_run_with_no_claims_is_skipped_spending_nothing(
+        self, scene: dict[str, Any]
+    ) -> None:
+        session = scene["session"]
+        await session.delete(scene["claim"])
+        await session.flush()
+        provider = FakeProvider()
+
+        outcome = await run_red_team(
+            _context(scene, provider), scene["session"], job=scene["job"], request=scene["request"]
+        )
+
+        assert outcome.skipped is True
+        assert provider.call_count == 0
+        assert await _rows(session, scene["job"].id) == []
+
+
+class TestTheLadderStatesAreReachable:
+    async def test_a_challenge_can_be_settled_by_hand_like_any_escalation(
+        self, scene: dict[str, Any]
+    ) -> None:
+        provider = FakeProvider({"RedTeamReport": _fixture_report(scene)})
+        await run_red_team(
+            _context(scene, provider), scene["session"], job=scene["job"], request=scene["request"]
+        )
+        session = scene["session"]
+        rows = await _rows(session, scene["job"].id)
+        growth = next(row for row in rows if row.topic.startswith("Red team (growth)"))
+
+        settled = await settle_by_hand(
+            session,
+            disagreement=growth,
+            outcome=ResolutionOutcome.CHOSE_B,
+            actor=scene["user"],
+            rationale="The red team is right: the fact contradicts the claim.",
+        )
+
+        assert settled.resolution is ResolutionOutcome.CHOSE_B
+        assert settled.escalated_to_gate is None
+        open_rows = await escalations_for_job(session, scene["job"].id)
+        assert growth.id not in {row.id for row in open_rows}
+
+
+class TestBatchAndSyncParity:
+    async def test_both_paths_produce_identical_rows(self, scene: dict[str, Any]) -> None:
+        session = scene["session"]
+
+        def snapshot(rows: list[Disagreement]) -> list[tuple[str, ...]]:
+            return sorted(
+                (
+                    row.topic,
+                    row.kind.value,
+                    row.resolution.value,
+                    row.rule.value,
+                    str(row.material),
+                    row.position_a["label"],
+                    row.position_b["label"],
+                    row.fingerprint,
+                )
+                for row in rows
+            )
+
+        sync_provider = FakeProvider({"RedTeamReport": _fixture_report(scene)})
+        await run_red_team(
+            _context(scene, sync_provider),
+            session,
+            job=scene["job"],
+            request=scene["request"],
+            use_batch=False,
+        )
+        sync_rows = snapshot(await _rows(session, scene["job"].id))
+        assert not any(call.get("batch") for call in sync_provider.calls)
+
+        await session.execute(delete(Disagreement).where(Disagreement.job_id == scene["job"].id))
+        await session.flush()
+
+        batch_provider = FakeProvider({"RedTeamReport": _fixture_report(scene)})
+        await run_red_team(
+            _context(scene, batch_provider),
+            session,
+            job=scene["job"],
+            request=scene["request"],
+            use_batch=True,
+        )
+        batch_rows = snapshot(await _rows(session, scene["job"].id))
+
+        assert batch_rows == sync_rows
+
+    async def test_recording_is_idempotent_across_a_retried_step(
+        self, scene: dict[str, Any]
+    ) -> None:
+        provider = FakeProvider({"RedTeamReport": _fixture_report(scene)})
+        context = _context(scene, provider)
+
+        await run_red_team(context, scene["session"], job=scene["job"], request=scene["request"])
+        await run_red_team(context, scene["session"], job=scene["job"], request=scene["request"])
+
+        assert len(await _rows(scene["session"], scene["job"].id)) == 3

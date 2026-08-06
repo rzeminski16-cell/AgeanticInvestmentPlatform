@@ -29,8 +29,10 @@ from aer.agents.custom_section import (
     ProposedCitation,
     ProposedClaim,
 )
+from aer.agents.red_team import RedTeamReport
 from aer.agents.registry import PLATFORM_CONTRACT, resolve_role
 from aer.agents.user_skill import wrap_user_skill
+from aer.agents.validator import ValidatorAdvisory
 from aer.config import Settings
 from aer.core.enums import FactBasis, GateKind, JobStatus, Provider, SourceTier
 from aer.core.section_output import contract_violations, numerals_in, unsourced_numerals
@@ -805,6 +807,17 @@ def moat_provider() -> FakeProvider:
             return worker_report_turn()
         if name == "CustomSectionDraft":
             return _moat_draft_from(holder["provider"].calls[-1]["messages"][0]["content"])
+        if name == "ValidatorAdvisory":
+            return ValidatorAdvisory(
+                found=False, rationale="Scripted fixture: nothing to add.", confidence=0.1
+            )
+        if name == "RedTeamReport":
+            # The moat draft records claims, so the adversary runs. An honest empty
+            # report keeps this fixture about the custom section rather than the bear
+            # case, which has its own suite.
+            return RedTeamReport(
+                challenges=[], coverage_note="Scripted fixture: no challenge raised."
+            )
         message = f"unexpected schema {name}"
         raise AssertionError(message)
 
@@ -851,6 +864,10 @@ class TestTheMoatDurabilityExampleEndToEnd:
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
             retrieved_at=datetime.now(UTC),
+            # Dated before the as-of date, as a real acquisition would have recorded it:
+            # an undated-but-admitted source is a temporal violation the task 39
+            # validator rightly flags, and this fixture is not about that.
+            publication_date=date(2022, 3, 1),
             quarantined=False,
         )
         db_session.add(document)
@@ -874,7 +891,7 @@ class TestTheMoatDurabilityExampleEndToEnd:
         await run_to_next_stop(**args)
         await approve(db_session, job=job, gate=GateKind.PLAN, actor=user, step="plan")
         await run_to_next_stop(**args)
-        await approve(db_session, job=job, gate=GateKind.FINAL, actor=user, step="draft")
+        await approve(db_session, job=job, gate=GateKind.FINAL, actor=user, step="red_team")
         outcome = await run_to_next_stop(**args)
 
         return {
