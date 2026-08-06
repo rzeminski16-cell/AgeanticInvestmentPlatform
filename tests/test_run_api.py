@@ -19,11 +19,13 @@ import uuid
 from collections.abc import AsyncIterator
 from decimal import Decimal
 from typing import Any
+from unittest import mock
 
 import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from aer.api import sse as sse_module
 from aer.api.sse import event_stream
 from aer.config import Settings
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
@@ -573,6 +575,25 @@ class TestCancellingARun:
         assert found is None
 
 
+def _slow_run_state(*, delay_seconds: float) -> Any:
+    """A ``run_state`` that holds its connection long enough to be cancelled mid-query.
+
+    The sleep runs **on the database**, so the session really is mid-statement with its
+    connection checked out — which is the state the leak needed. A plain
+    ``asyncio.sleep`` would park the coroutine with the connection already returned.
+    """
+
+    # Bound before the patch is installed, or the wrapper would resolve the patched
+    # attribute and call itself once per poll.
+    original = run_service.run_state
+
+    async def run_state(session: Any, *, job_id: uuid.UUID) -> Any:
+        await session.execute(text("SELECT pg_sleep(:seconds)"), {"seconds": delay_seconds})
+        return await original(session, job_id=job_id)
+
+    return run_state
+
+
 class TestOwnership:
     """One operator's run must not be readable by another."""
 
@@ -625,6 +646,46 @@ class TestTheEventStream:
 
         with pytest.raises(asyncio.CancelledError):
             await consumer
+
+    async def test_a_reader_that_leaves_mid_query_does_not_strand_a_connection(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """The cancellation lands *inside* the poll, and the connection still comes back.
+
+        The previous test cancels at the sleep between polls, where no session is open —
+        the easy case. This one cancels while a query is in flight, which is the case
+        worth pinning: closing a session is itself an ``await``, so a cancellation that
+        unwound the context manager without completing it would leave the connection
+        checked out until the garbage collector noticed, one per abandoned stream.
+
+        It holds today, which is why this is written as a characterisation rather than a
+        fix. It is here because the property is easy to lose — any refactor that holds a
+        session across a yield, or swallows the cancellation, breaks it — and because the
+        browser suite's long-standing flake was chased through exactly this code before
+        being traced to server *shutdown* instead (see ``tests/e2e/conftest.py``).
+        """
+        body = await start(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+        await driver.advance(job_id)
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        pool = db_engine.sync_engine.pool
+        settled = pool.checkedout()
+
+        slow = _slow_run_state(delay_seconds=0.3)
+        with mock.patch.object(sse_module.run_service, "run_state", slow):
+            stream = event_stream(factory, job_id=job_id, poll_seconds=0.05)
+            consumer = asyncio.create_task(anext(stream))  # type: ignore[arg-type]
+
+            # Long enough for the query to be in flight and its connection checked out.
+            await asyncio.sleep(0.05)
+            assert pool.checkedout() > settled, "the poll should be holding a connection"
+
+            consumer.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await consumer
+
+        assert pool.checkedout() == settled, "the cancelled poll kept its connection"
 
     async def test_a_terminal_run_emits_state_then_done(
         self, api: Any, committed: dict, driver: Driver

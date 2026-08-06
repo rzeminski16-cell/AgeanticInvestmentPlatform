@@ -22,10 +22,12 @@ commands rather than one ``pytest`` invocation.
 from __future__ import annotations
 
 import contextlib
+import gc
 import os
 import socket
 import threading
 import time
+import warnings
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -41,6 +43,9 @@ from aer.db.models import User
 from tests.db_fixtures import run_async
 
 STARTUP_TIMEOUT_SECONDS = 20.0
+
+# What the console's meta-refresh fallback is set to for browser tests. See `live_server`.
+E2E_POLL_SECONDS = 3600
 
 
 def _free_port() -> int:
@@ -85,6 +90,14 @@ def live_server(settings_env, tmp_path, database_url) -> Iterator[str]:
     browser is a separate client, so there is no transaction to roll back — and a test
     that inherits the previous one's rows is a test whose result depends on ordering.
     """
+    # The console's no-JavaScript fallback is a `<meta http-equiv="refresh">`, and five
+    # seconds is right for a person watching a run. In a browser test it is a timer armed
+    # on any page the test leaves parked — including while the test does slow work of its
+    # own — and when it fires into a navigation Playwright reports "interrupted by another
+    # navigation" against whichever test was unlucky. The tests assert that the fallback
+    # is *present* (and absent on a finished run), never that it fires, so an interval no
+    # test outlives keeps the feature under test and takes the race away.
+    settings_env.setattr("aer.web.pages.POLL_SECONDS", E2E_POLL_SECONDS)
     settings_env.setenv("AER_DATABASE_URL", database_url)
     settings_env.setenv("AER_ARTEFACT_ROOT", str(tmp_path / "artefacts"))
     settings_env.setenv("AER_SECRET_KEY", "e2e-signing-key-not-a-real-one")
@@ -132,6 +145,36 @@ def live_server(settings_env, tmp_path, database_url) -> Iterator[str]:
     finally:
         server.should_exit = True
         thread.join(timeout=STARTUP_TIMEOUT_SECONDS)
+        del app, config, server
+        _finalise_abandoned_connections()
+
+
+def _finalise_abandoned_connections() -> None:
+    """Collect this server's leftovers here, rather than during some later test.
+
+    Stopping the server cancels whatever requests are still in flight. A request
+    cancelled mid-query cannot hand its connection back to the pool — closing one is
+    itself an ``await`` and the loop is going away — so the connection is left to the
+    garbage collector. For a process that is exiting, which is what a real shutdown is,
+    that is harmless. In this suite the process carries on, the collector fires during
+    some later test, and ``filterwarnings = ["error"]`` turns asyncpg's ResourceWarning
+    into a failure of a test that had nothing to do with it. That is the whole of the
+    long-standing browser-suite flake: the failures rotated because the collector did.
+
+    So the collection is forced here, where the only objects being finalised are the ones
+    the server just torn down left behind — asyncpg reports them as an unclosed
+    connection, asyncio as an unclosed transport, and the kernel as an unclosed socket to
+    port 5432, all of them the same abandoned connection seen from three levels. Silencing
+    ``ResourceWarning`` for the duration of this one collection is therefore narrow in the
+    way that matters: it covers this server's leftovers and nothing that happens during a
+    test.
+
+    The leak that matters in production — a browser navigating away mid-poll, on a server
+    that keeps running — is fixed in :mod:`aer.api.sse` and never reaches this function.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", ResourceWarning)
+        gc.collect()
 
 
 async def _reset(database_url: str) -> None:

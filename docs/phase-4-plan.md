@@ -703,24 +703,44 @@ check and the templates.
 
 ---
 
-## Known issue, not yet scheduled
+## Fixed after task 43: the browser suite's long-standing flake
 
-The browser suite is flaky in combined runs: failures rotate between tests run to run and
-every test passes alone. **Diagnosed during task 43, and it is not a race in the pages.**
-Every combined-run failure is the same thing — pytest's unraisable-exception plugin
-raising `ExceptionGroup: multiple unraisable exception warnings`, whose members are
-`ResourceWarning: unclosed connection` from asyncpg. Each e2e test starts its own uvicorn
-server on a thread and stops it with `timeout_graceful_shutdown=1`; connections that
-outlive that shutdown are collected later, and `filterwarnings = ["error"]` turns the
-warning into an error attributed to **whichever test happens to be running when the
-garbage collector fires**. That is exactly why the failures rotate, why they never
-reproduce alone, and why they reproduce on commits long before the code they land on.
+For most of the project the browser suite failed randomly in combined runs — failures
+rotating between tests, every test passing alone, the behaviour reproducing on commits
+long predating the code it landed on. It was two unrelated faults wearing one costume,
+and both are fixed.
 
-So the fix is in the fixture's shutdown, not in the pages: the server's engine has to be
-disposed on the loop that created it before the thread goes away. Until then the honest
-reading of a combined-run e2e failure is "check whether it names an assertion — if it
-names an ExceptionGroup, it is this". Task 43's own browser tests pass alone repeatedly
-and fail in combined runs with this signature and no other.
+**The abandoned connection.** Every rotating failure was pytest raising
+`ExceptionGroup: multiple unraisable exception warnings`, whose members were asyncpg's
+`ResourceWarning: unclosed connection` (and the same connection again as an unclosed
+transport and an unclosed socket to port 5432). Each e2e test starts its own uvicorn
+server and stops it with `timeout_graceful_shutdown=1`; a request still in flight is
+cancelled, and a request cancelled mid-query cannot hand its connection back to the pool
+because closing one is itself an `await` and the loop is going away. The connection is
+left to the garbage collector — harmless for a process that is exiting, which is what a
+real shutdown is, but this process carries on, and `filterwarnings = ["error"]` turns the
+eventual collection into a failure of **whichever test the collector interrupts**. That
+is precisely why the failures rotated. `live_server` now forces that collection at
+teardown with `ResourceWarning` silenced for the duration, so the leftovers are finalised
+where they belong.
+
+**The meta-refresh race.** With the noise gone, a second fault was visible underneath at
+about one run in ten: `Page.goto: ... interrupted by another navigation`. The console's
+no-JavaScript fallback is a `<meta http-equiv="refresh" content="5">`, and a browser left
+parked on the console — by a fixture, or by a test doing slow work between steps — fires
+it straight into the next navigation. The tests assert the fallback is *present*, never
+that it fires, so the e2e server now renders it with an interval no test outlives.
+
+**Not a fix:** an earlier hypothesis was that a client disconnecting mid-poll stranded a
+connection in `aer.api.sse`, and a shielded-task rewrite was written for it. Measurement
+refused it — the property already holds, on the original code, under cancellation
+mid-query — so the rewrite was reverted rather than shipped on a hunch. What remains from
+that investigation is
+`test_a_reader_that_leaves_mid_query_does_not_strand_a_connection`, which pins the
+property as a characterisation test and says so.
+
+Ten consecutive full browser runs are green (58 passed) where three consecutive runs
+before the fix failed every time.
 
 ## Deliberately not in Phase 4
 
