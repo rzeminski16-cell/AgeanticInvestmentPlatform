@@ -256,6 +256,40 @@ any tool.
 FakeProvider run yields eighteen sections whose content derives from that run's recorded
 evidence, every figure resolving to a stored calculation or fact.
 
+**Delivered (2026-08-06).** ADR 0042 and the `report_writer` registry row (no tools, the
+one-assertion test). The drafting discipline moved to `aer/sections/evidence.py` —
+`SectionPolicy`, gathering, budget truncation, validation, claim recording, shortfalls —
+and `aer/skills/execution.py` became a caller of it deriving policy from the pin, while
+`aer/sections/writing.py` derives it from the definition row: one implementation, two
+boundaries, held together by construction. `aer/agents/section_writer.py` composes with
+the planner's approved *focus* line and no `<user_skill>` block (both held by test). The
+placeholder `_content_for` is deleted; its contract-walking survives only in the test
+fake (`ScriptedSectionBrain`), which answers each section from the prompt it was just
+sent — parsing the real contract and the real evidence ids back off the provider's own
+call log. Gate 1's section listing gained per-section cost estimates at the writer's
+routed model, zero for the deterministic pair, with the spine's total folded into the
+plan estimate the operator approves against.
+
+Two rules reached their final shape under the writer (recorded in ADR 0042). **A figure
+row is lineage**: a numeral inside an object naming its `calculation_id` or
+`financial_fact_id` carries provenance without a claim — and, tightening as it opened,
+content ids came under the closed world for the first time (a fabricated row id now
+fails validation; previously only claim ids were checked). The citation keys also became
+numeral-exempt: a UUID with an all-digit group was tripping the rule — a latent flake for
+custom sections. **Structured API responses became citable**: a `json` extractor joined
+the sandbox roster (the decoded source verbatim, the same injection scan), and the
+extract step now records one extraction per persisted fact, located in the archived
+bytes, so a claim naming a fact can carry a citation the verifier re-reads — held
+end-to-end by the writer suite, where a scripted draft's citation is confirmed by the
+real verifier against real artefact bytes.
+
+The slice's exact spend roll is pinned: planner, five workers, sixteen writer calls, one
+date-adjudication assist (the undated aggregate now has readable text, so the assist
+genuinely fires), and no red team — the slice's only source is a quarantined undated
+aggregate, so its sections cite through figure rows rather than claims, and an adversary
+with no claims honestly skips. Sabotage: fourteen mutations, fourteen caught. Suite:
+3,464 unit tests green; browser suite green.
+
 ---
 
 ## Task 46 — One assembly, three serialisations: the HTML report and institutional CSS

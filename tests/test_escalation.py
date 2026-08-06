@@ -853,8 +853,12 @@ class TestTheGatePausesNamingTheTriggers:
         message = str(detail.get("message", ""))
         assert TriggerKind.LOW_SOURCE_COVERAGE.value in message
         assert TriggerKind.MATERIAL_MISSING_SECTION.value in message
+        # Three, in the table's order. The starved probe's own confidence drops under the
+        # §2.12 insufficiency ladder (task 45's writer marks thin findings low), so the
+        # uncertainty condition genuinely holds alongside coverage and missing-section.
         assert detail.get("context", {}).get("triggers") == [
             TriggerKind.LOW_SOURCE_COVERAGE.value,
+            TriggerKind.HIGH_MODEL_UNCERTAINTY.value,
             TriggerKind.MATERIAL_MISSING_SECTION.value,
         ]
 
@@ -863,6 +867,7 @@ class TestTheGatePausesNamingTheTriggers:
         payload = await final_gate_payload(driven["session"], job_id=driven["job"].id)
         assert [trigger["kind"] for trigger in payload["triggers"]] == [
             TriggerKind.LOW_SOURCE_COVERAGE.value,
+            TriggerKind.HIGH_MODEL_UNCERTAINTY.value,
             TriggerKind.MATERIAL_MISSING_SECTION.value,
         ]
         # Exactly the probe, and nothing else. The deterministic sections also cite no

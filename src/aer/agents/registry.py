@@ -192,6 +192,25 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         adr="0037",
     ),
     RoleDefinition(
+        role="report_writer",
+        purpose=(
+            "Write one built-in section from the run's structured evidence: content "
+            "against the section's output contract, claims on named evidence, never a "
+            "figure of its own."
+        ),
+        output_schema_ref="aer.agents.section_writer:SectionDraft",
+        # No tools — the whole of ADR 0042. The evidence pack is assembled by code before
+        # the call; a writer that could search would be a researcher whose searches
+        # nobody gated.
+        allowed_tools=frozenset(),
+        # A section's budgeted evidence plus its contract and the platform frame. §1.8
+        # budgets the whole spine at 100k in; per section the definitions cap evidence at
+        # 2-5k tokens, so the role cap trips on a caller composing far past any budget.
+        max_input_tokens=20_000,
+        max_output_tokens=8_192,
+        adr="0042",
+    ),
+    RoleDefinition(
         role="validator",
         purpose=(
             "Advisory assistance to the deterministic validators: locate a candidate "

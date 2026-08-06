@@ -15,6 +15,7 @@ stubbing the parsed result would have meant no artefact and nothing to cite.
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -29,7 +30,7 @@ from aer.config import Settings
 from aer.core.enums import JobStatus, UserRole
 from aer.db.models import Job, ResearchRequest, SectionDefinition, User
 from aer.fetch.client import FetchResult
-from aer.providers.fake import FakeProvider, ScriptedResponse
+from aer.providers.fake import FakeProvider
 from aer.sources.base import ResolvedEntity
 from aer.sources.sec.client import SecResponse
 from aer.sources.sec.companyfacts import parse_company_facts
@@ -144,20 +145,177 @@ def planner_response(*, section_keys: list[str] | None = None) -> ResearchPlanDr
 
 
 def make_provider(**kwargs: Any) -> FakeProvider:
-    """A provider scripted to answer the planner and the research workers.
+    """A provider scripted to answer every role a slice run reaches.
 
-    The worker script reports immediately with no findings: findings must cite ids that
-    exist in the run, and a static script cannot know them. Leads carry no ids, so a lead
-    plus a coverage note is the honest all-purpose worker answer; the loop tests that
-    exercise tools and findings script their own stateful providers.
+    The planner and the workers answer from static scripts; the worker reports
+    immediately with no findings, because findings must cite ids that exist in the run
+    and a static script cannot know them. The section writer cannot be static either —
+    its drafts must satisfy each section's own contract and cite the run's real ids — so
+    it answers from :class:`ScriptedSectionBrain`, which reads the composed prompt back
+    off the provider's own call log. The red team raises no challenges: its scripted
+    verdict is an honest "nothing found", not an absence.
     """
-    return FakeProvider(
-        {
-            "ResearchPlanDraft": ScriptedResponse(planner_response(), output_tokens=400),
-            "WorkerTurn": ScriptedResponse(worker_report_turn(), output_tokens=150),
-        },
-        **kwargs,
-    )
+    brain = ScriptedSectionBrain()
+    provider = FakeProvider(brain, **kwargs)
+    brain.provider = provider
+    return provider
+
+
+class ScriptedSectionBrain:
+    """The fake's answer for every schema, with the section writer done properly.
+
+    The Phase 1 placeholder that once filled built-in sections in production moved here
+    when task 45 replaced it with the real writer — a placeholder belongs in the fake.
+    For a ``SectionDraft`` it parses the evidence listing out of the prompt it was just
+    sent (``provider.calls[-1]``, appended before the script is consulted), builds
+    content satisfying the contract embedded in the system prompt, and proposes one
+    numeric claim naming the run's real calculation with a citation that genuinely
+    verifies — the extraction rows are real, so the deterministic verifier passes them.
+    """
+
+    def __init__(self) -> None:
+        self.provider: FakeProvider | None = None
+
+    def __call__(self, schema: type[Any]) -> Any:
+        name = schema.__name__
+        if name == "ResearchPlanDraft":
+            return planner_response()
+        if name == "WorkerTurn":
+            return worker_report_turn()
+        if name == "SectionDraft":
+            assert self.provider is not None, "bind the provider before the first call"
+            return section_draft_for(self.provider.calls[-1])
+        if name == "RedTeamReport":
+            from aer.agents.red_team import RedTeamReport  # noqa: PLC0415 -- keeps import light
+
+            return RedTeamReport(
+                challenges=[], coverage_note="Scripted adversary; no challenges raised."
+            )
+        if name == "ValidatorAdvisory":
+            # The slice's source is undated and, since task 45, has readable extracted
+            # text — so the date-adjudication assist genuinely fires. The honest scripted
+            # answer is "nothing established": advice, deciding nothing.
+            from aer.agents.validator import ValidatorAdvisory  # noqa: PLC0415
+
+            return ValidatorAdvisory(
+                found=False,
+                rationale="Scripted assist; the text establishes no publication date.",
+                confidence=0.1,
+            )
+        message = f"The scripted brain has no answer for schema {name!r}."
+        raise AssertionError(message)
+
+
+def section_draft_for(call: dict[str, Any]) -> Any:
+    """A draft satisfying the call's own contract, citing the call's own evidence.
+
+    Everything is read from the composed prompt: the contract from the system prompt
+    (the writer embeds it as indented JSON at the end), the evidence ids from the user
+    message's single-line evidence array. Content strings carry no numerals, so the one
+    numeral in the draft — the calculation's value — is exactly covered by the one
+    numeric claim, and the §2.12 numeral rule holds by construction.
+    """
+    from aer.agents.section_writer import SectionDraft  # noqa: PLC0415 -- keeps import light
+
+    contract = _contract_from_system(str(call["system"]))
+    evidence = _evidence_from_messages(call["messages"])
+
+    calculation = next((item for item in evidence if "calculation_id" in item), None)
+    extraction = next((item for item in evidence if "extraction_id" in item), None)
+    fact = next((item for item in evidence if "fact_id" in item), None)
+
+    content: dict[str, Any] = {}
+    for name, subschema in contract.get("properties", {}).items():
+        if not isinstance(subschema, dict):
+            continue
+        declared = subschema.get("type")
+        if declared == "string":
+            content[name] = "Scripted analysis from the recorded evidence; see the figures."
+        elif declared == "array" and _items_are_objects(subschema):
+            content[name] = [_item_for(subschema, calculation=calculation, fact=fact)]
+        elif declared == "array":
+            content[name] = ["A scripted observation with no figure in it."]
+
+    # A formal claim is proposed only where it can carry a citation the verifier will
+    # confirm; the figure rows above carry lineage either way, through their named ids.
+    claims: list[dict[str, Any]] = []
+    if calculation is not None and extraction is not None:
+        claims.append(
+            {
+                "statement": (
+                    f"The recorded {calculation.get('name', 'calculation')} is "
+                    f"{calculation['value']} {calculation.get('unit', '')}.".strip()
+                ),
+                "kind": "numeric",
+                "calculation_id": calculation["calculation_id"],
+                "citations": [
+                    {
+                        "source_document_id": extraction["source_document_id"],
+                        "extraction_id": extraction["extraction_id"],
+                    }
+                ],
+            }
+        )
+
+    return SectionDraft(content=content, claims=claims)
+
+
+def _contract_from_system(system: str) -> dict[str, Any]:
+    """The contract the writer embedded: the first indented JSON object in the prompt.
+
+    ``raw_decode`` rather than ``loads`` because the base agent composes more prompt
+    after the writer's own text — the containment rule sits last — so the contract JSON
+    is followed by prose the parser must ignore rather than choke on.
+    """
+    start = system.index('{\n  "type"')
+    contract, _ = json.JSONDecoder().raw_decode(system, start)
+    return dict(contract)
+
+
+def _evidence_from_messages(messages: list[dict[str, str]]) -> list[dict[str, Any]]:
+    marker = "The run's evidence, as data:\n"
+    for message in messages:
+        content = message.get("content", "")
+        if marker in content:
+            line = content.split(marker, 1)[1].split("\n\n", 1)[0]
+            return list(json.loads(line))
+    return []
+
+
+def _items_are_objects(subschema: dict[str, Any]) -> bool:
+    items = subschema.get("items")
+    return isinstance(items, dict) and items.get("type") == "object"
+
+
+def _item_for(
+    subschema: dict[str, Any],
+    *,
+    calculation: dict[str, Any] | None,
+    fact: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """One row satisfying the array's item schema, citing its figure where it carries one.
+
+    Required text fields get numeral-free prose. A ``value`` field gets the calculation's
+    value and the row names the calculation — the figure-row convention the renderer
+    footnotes and the numeral rule accepts — plus the fact's source document where the
+    schema declares the key. With no calculation in evidence the row says "n/a" and
+    cites nothing, which is the honest empty state.
+    """
+    items: dict[str, Any] = subschema.get("items", {})
+    properties: dict[str, Any] = items.get("properties", {})
+    row: dict[str, Any] = {}
+    for name in items.get("required", []):
+        if name == "value":
+            row[name] = str(calculation["value"]) if calculation is not None else "n/a"
+        elif name == "unit":
+            row[name] = str(calculation.get("unit", "ratio")) if calculation else "n/a"
+        else:
+            row[name] = f"Scripted {name.replace('_', ' ')} with no figure in it."
+    if calculation is not None and "calculation_id" in properties and "value" in row:
+        row["calculation_id"] = calculation["calculation_id"]
+    if fact is not None and "source_document_id" in properties:
+        row["source_document_id"] = fact["source_document_id"]
+    return row
 
 
 def worker_report_turn() -> WorkerTurn:

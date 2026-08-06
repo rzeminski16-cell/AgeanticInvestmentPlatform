@@ -57,10 +57,12 @@ from aer.db.models import (
 from aer.db.models.plan_skill_pin import PLANNED as PIN_PLANNED
 from aer.db.models.plan_skill_pin import SKIPPED_NOT_APPLICABLE, PlanSkillPin
 from aer.db.models.section_definition import BUILTIN, SKILL
+from aer.extract import extract_bytes
 from aer.fetch.policy import DEFAULT_POLICIES
 from aer.render.markdown import SectorNote, render_markdown
 from aer.sections.deterministic import SectionStage, fill_deterministic_sections
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
+from aer.sections.writing import execute_builtin_section
 from aer.services import calculations as calculation_service
 from aer.services.acquisition import record_acquisition
 from aer.services.artefacts import store_artefact
@@ -75,6 +77,7 @@ from aer.services.comps import (
 from aer.services.disagreements import escalations_for_job
 from aer.services.escalation import triggers_for_job
 from aer.services.evaluations import evaluate_run
+from aer.services.extractions import record_excerpts
 from aer.services.facts import persist_facts, upsert_company
 from aer.services.red_team import run_red_team
 from aer.services.research import run_worker
@@ -89,6 +92,7 @@ from aer.services.sectors import (
 from aer.skills.execution import execute_custom_section
 from aer.skills.resolution import (
     custom_definitions_for_pins,
+    estimate_custom_section_cost,
     pinned_skills_for_job,
     pinned_skills_for_plan,
     resolve_skills_for_plan,
@@ -295,6 +299,24 @@ async def _plan(context: StepContext) -> StepResult:
     # the same listing without re-resolving definitions that may have gained versions
     # since. A listing re-resolved at read time would change the hash and refuse every
     # approval of the plan it drifted from.
+    # Each model-written section is estimated at its budgeted evidence tokens against the
+    # writer's routed model (task 45): the spine spends for real now, and a cost the gate
+    # does not show is a cost nobody agreed to. Deterministic sections estimate at zero
+    # because zero is what they spend.
+    writer_model = context.service("router").resolve("report_writer").model
+    usd_to_gbp = context.service("settings").usd_to_gbp
+    spine_estimates = {
+        definition.key: (
+            Decimal(0)
+            if definition.token_budget == 0
+            else estimate_custom_section_cost(
+                model=writer_model,
+                token_budget=definition.token_budget,
+                usd_to_gbp=usd_to_gbp,
+            )
+        )
+        for definition in definitions
+    }
     payload["section_listing"] = [
         {
             "key": definition.key,
@@ -303,6 +325,7 @@ async def _plan(context: StepContext) -> StepResult:
             "required": definition.required,
             "token_budget": definition.token_budget,
             "deterministic": definition.token_budget == 0,
+            "estimated_cost_gbp": str(spine_estimates[definition.key]),
         }
         for definition in definitions
     ]
@@ -312,7 +335,7 @@ async def _plan(context: StepContext) -> StepResult:
         plan=payload,
         planned_sources=payload["planned_sources"],
         known_risks=payload["known_risks"],
-        estimated_cost_gbp=agent_context.spend_gbp,
+        estimated_cost_gbp=agent_context.spend_gbp + sum(spine_estimates.values(), Decimal(0)),
         estimated_runtime_seconds=_RUNTIME_ESTIMATE_SECONDS,
     )
     context.session.add(plan)
@@ -912,6 +935,23 @@ async def _extract(context: StepContext) -> StepResult:
         basis=FactBasis.AS_REPORTED,
     )
 
+    # Each persisted fact's value, located in the archived document and recorded as an
+    # extraction (task 45): this is what lets a numeric claim naming the fact carry a
+    # citation the deterministic verifier can re-read and confirm. A value the locator
+    # cannot find is skipped, not invented — the fact still traces to its document.
+    extracted = await extract_bytes(payload, extractor="json", settings=context.service("settings"))
+    excerpts = []
+    for fact in selection.chosen:
+        found = extracted.locate(f'"val":{fact.value}') or extracted.locate(str(fact.value))
+        if found is not None:
+            excerpts.append(found)
+    fact_extractions = await record_excerpts(
+        context.session,
+        source_document_id=document.id,
+        extracted=extracted.text,
+        excerpts=excerpts,
+    )
+
     # Tags that produced facts and reached no canonical concept. **Kept, not dropped**: the
     # concept map is deliberately the top sixty rather than the whole taxonomy, so a filing
     # falling outside it is expected — and a run that silently ignored the overflow would be
@@ -920,6 +960,7 @@ async def _extract(context: StepContext) -> StepResult:
 
     output: dict[str, Any] = {
         "facts_written": written,
+        "fact_extractions": len(fact_extractions),
         "facts_chosen": len(selection.chosen),
         "facts_rejected": len(selection.rejected),
         "rejected_for_look_ahead": len(selection.rejected_for_look_ahead),
@@ -1039,8 +1080,19 @@ async def _draft(context: StepContext) -> StepResult:
     recorded state the run continues past, never an absent section.
     """
     request = await _request_for(context)
-    calculated = context.outputs.get("calculate", {})
-    acquired = context.output_of("acquire")
+
+    # The planner's one-line brief per section, approved at gate 1. Keyed lookup rather
+    # than trusting order: the planner proposes focus for the sections it chose to speak
+    # about, and a section it named none for is written from its contract alone.
+    focus_by_key: dict[str, str] = {}
+    if context.job.plan_id is not None:
+        plan = await context.session.get(ResearchPlan, context.job.plan_id)
+        if plan is not None:
+            focus_by_key = {
+                str(entry.get("key", "")): str(entry.get("focus", ""))
+                for entry in (plan.plan or {}).get("sections", [])
+                if isinstance(entry, dict)
+            }
 
     pins = await pinned_skills_for_job(context.session, job=context.job)
     pin_by_skill = {pin.skill_id: pin for pin in pins}
@@ -1063,6 +1115,7 @@ async def _draft(context: StepContext) -> StepResult:
     sections = await sections_for_job(context.session, context.job.id)
     filled = 0
     custom_outcomes: list[dict[str, Any]] = []
+    builtin_outcomes: list[dict[str, Any]] = []
 
     for section in sections:
         definition = section.definition
@@ -1092,16 +1145,15 @@ async def _draft(context: StepContext) -> StepResult:
                 filled += 1
             continue
 
-        content = _content_for(
-            contract=definition.output_contract,
+        execution = await execute_builtin_section(
+            agent_context,
+            section=section,
             request=request,
-            calculated=calculated,
-            acquired=acquired,
+            focus=focus_by_key.get(section.section_key, ""),
         )
-        section.content = content
-        section.status = SectionStatus.GENERATED
-        section.confidence = 0.5
-        filled += 1
+        builtin_outcomes.append(execution.as_dict())
+        if execution.status is SectionStatus.GENERATED:
+            filled += 1
 
     await context.session.flush()
 
@@ -1109,6 +1161,7 @@ async def _draft(context: StepContext) -> StepResult:
         output={
             "sections_drafted": filled,
             "deterministic_sections": deterministic,
+            "builtin_sections": builtin_outcomes,
             "custom_sections": custom_outcomes,
             # No payload hash here since task 40: the red team's challenges join the
             # gate-2 payload after drafting, so the hash the gate verifies is computed
@@ -1174,102 +1227,6 @@ async def final_gate_payload(session: AsyncSession, *, job_id: uuid.UUID) -> dic
         ],
         "triggers": [trigger.as_record() for trigger in triggers],
     }
-
-
-def _content_for(
-    *,
-    contract: dict[str, Any],
-    request: ResearchRequest,
-    calculated: dict[str, Any],
-    acquired: dict[str, Any],
-) -> dict[str, Any]:
-    """Build content satisfying a contract, from what the run computed.
-
-    Generic on purpose. It reads the contract's declared properties and fills the ones it
-    can, rather than knowing which section it is filling. A string field gets a sentence; a
-    ``figures`` array gets the run's calculated figure with its citation attached.
-
-    Phase 3 replaces this with a section-writer agent. The shape of what it produces —
-    content validated against the contract, figures carrying their calculation id — is
-    already what the renderer and the citation resolver expect, so that replacement is a
-    change to *how* content is produced and not to what it is.
-    """
-    properties = contract.get("properties", {})
-    content: dict[str, Any] = {}
-
-    for name, subschema in properties.items():
-        declared = subschema.get("type") if isinstance(subschema, dict) else None
-
-        if declared == "string":
-            content[name] = _sentence(request=request, calculated=calculated)
-        elif declared == "array" and _is_object_array(subschema):
-            figures = _figures(calculated=calculated, acquired=acquired)
-            if figures:
-                content[name] = figures
-        elif declared == "array":
-            content[name] = _bullets(name, request=request)
-
-    return content
-
-
-def _is_object_array(subschema: dict[str, Any]) -> bool:
-    items = subschema.get("items")
-    return isinstance(items, dict) and items.get("type") == "object"
-
-
-def _sentence(*, request: ResearchRequest, calculated: dict[str, Any]) -> str:
-    if calculated.get("calculation_id"):
-        return (
-            f"{request.company_name} ({request.ticker}) is analysed as at "
-            f"{request.as_of_date.isoformat()} from its filed financial statements. "
-            f"Reported {SLICE_CONCEPT} compounded at the rate shown below over the periods "
-            "covered by the filings available at that date."
-        )
-    return (
-        f"{request.company_name} ({request.ticker}) is analysed as at "
-        f"{request.as_of_date.isoformat()}. Insufficient filed history was available at "
-        "that date to compute a growth rate."
-    )
-
-
-def _bullets(name: str, *, request: ResearchRequest) -> list[str]:
-    if "risk" in name:
-        return [
-            "This slice computes one figure from one filing; it is not a complete analysis.",
-            "No valuation, peer comparison or forward estimate has been performed.",
-        ]
-    return [
-        f"Analysis is point-in-time as at {request.as_of_date.isoformat()}"
-        f"{'; nothing filed after that date was used.' if request.point_in_time else '.'}",
-        "Every figure below resolves to a recorded calculation over filed facts.",
-    ]
-
-
-def _figures(*, calculated: dict[str, Any], acquired: dict[str, Any]) -> list[dict[str, Any]]:
-    """The run's figures, each carrying what it cites.
-
-    ``calculation_id`` and ``source_document_id`` are what the renderer turns into
-    footnotes. A figure without them would render without a marker, which is the visible
-    symptom of a number nobody can trace.
-    """
-    if not calculated.get("calculation_id"):
-        return []
-
-    return [
-        {
-            "label": f"{calculated['concept'].replace('_', ' ').title()} CAGR "
-            f"({calculated['from_period'][:4]}-{calculated['to_period'][:4]})",
-            "value": _as_percent(calculated["value"]),
-            "unit": "%",
-            "calculation_id": calculated["calculation_id"],
-            "source_document_id": calculated.get("source_document_id")
-            or acquired.get("source_document_id"),
-        }
-    ]
-
-
-def _as_percent(value: str) -> str:
-    return f"{Decimal(value) * 100:.2f}"
 
 
 # ==========================================================================================

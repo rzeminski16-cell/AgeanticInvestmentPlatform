@@ -65,6 +65,10 @@ EXTRACTOR_MEDIA_TYPES: Final[dict[str, frozenset[DetectedType]]] = {
     # admitting and every reason not to: handing the PDF parser something that is not a PDF is
     # precisely the case this module exists to prevent.
     "pdf": frozenset({DetectedType.PDF}),
+    # Task 45: structured API responses (XBRL facts) become citable evidence, so their
+    # excerpts need the same re-read-and-verify path as prose. Only detected JSON — the
+    # extractor's own parse then confirms the claim inside the sandbox.
+    "json": frozenset({DetectedType.JSON}),
 }
 
 # How long to wait for a killed child to actually die before giving up on it.

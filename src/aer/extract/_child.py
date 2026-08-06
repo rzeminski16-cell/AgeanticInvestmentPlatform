@@ -20,11 +20,12 @@ import sys
 from typing import Any
 
 from aer.extract.html import extract_html
+from aer.extract.jsontext import extract_json
 from aer.extract.pdf import extract_pdf
 
 # The extractors this process is allowed to run, by name. A dictionary rather than a lookup by
 # attribute, so an argument arriving from anywhere cannot name an arbitrary callable.
-_EXTRACTORS = {"html": extract_html, "pdf": extract_pdf}
+_EXTRACTORS = {"html": extract_html, "pdf": extract_pdf, "json": extract_json}
 
 
 def _apply_memory_cap(limit_bytes: int) -> bool:

@@ -69,6 +69,7 @@ from tests.workflow_fixtures import (
     AS_OF_DATE,
     StubSecClient,
     planner_response,
+    section_draft_for,
     seed_job,
     seed_request,
     seed_user,
@@ -807,6 +808,10 @@ def moat_provider() -> FakeProvider:
             return worker_report_turn()
         if name == "CustomSectionDraft":
             return _moat_draft_from(holder["provider"].calls[-1]["messages"][0]["content"])
+        if name == "SectionDraft":
+            # The built-in spine drafts alongside the custom section since task 45; the
+            # shared scripted writer answers for it so this fixture stays about the moat.
+            return section_draft_for(holder["provider"].calls[-1])
         if name == "ValidatorAdvisory":
             return ValidatorAdvisory(
                 found=False, rationale="Scripted fixture: nothing to add.", confidence=0.1

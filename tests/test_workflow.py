@@ -28,6 +28,7 @@ from aer.db.models import (
     Approval,
     Calculation,
     Cost,
+    Extraction,
     FinancialFact,
     Job,
     JobStep,
@@ -394,16 +395,56 @@ class TestTheWholeRun:
         assert "not** regulated investment advice" in report.content["markdown"]
 
     async def test_it_spent_only_on_the_judgement_calls(self, finished: dict) -> None:
-        """Six model calls in the whole run: the planner and the five research workers.
+        """Every model call in the run, named and counted exactly.
 
-        The count is exact and the schemas are named, so a seventh call — a step quietly
-        acquiring a model dependency — fails here rather than on a bill. Everything else
-        in the slice is deterministic code.
+        The planner, the five research workers, one writer call per model-written spine
+        section (sixteen — the two deterministic sections spend nothing), and the undated
+        source's date-adjudication assist. No red-team call: the slice's only source is a
+        quarantined undated aggregate, so its sections cite through figure rows rather
+        than recording claims, and an adversary with no claims to attack honestly skips.
+        An extra call — a step quietly acquiring a model dependency, or a section
+        retrying without a recorded reason — fails here rather than on a bill.
         """
         schemas = [call["schema"] for call in finished["provider"].calls]
         assert schemas.count("ResearchPlanDraft") == 1
         assert schemas.count("WorkerTurn") == 5
-        assert finished["provider"].call_count == 6
+        assert schemas.count("SectionDraft") == 16
+        assert schemas.count("ValidatorAdvisory") == 1
+        assert schemas.count("RedTeamReport") == 0
+        assert finished["provider"].call_count == 23
+
+    async def test_the_writer_receives_the_planners_approved_focus(
+        self, finished: dict
+    ) -> None:
+        """The plan's per-section brief — text a human approved at gate 1 — reaches the
+        drafting call for the sections the planner spoke about."""
+        drafts = [
+            "".join(m["content"] for m in call["messages"])
+            for call in finished["provider"].calls
+            if call["schema"] == "SectionDraft"
+        ]
+        assert any(
+            "What the filed history shows for executive_summary." in body for body in drafts
+        )
+
+    async def test_the_extract_step_recorded_citable_excerpts(self, finished: dict) -> None:
+        """One extraction per located fact value, into the archived document (task 45).
+
+        This is what lets a claim naming a fact carry a citation the deterministic
+        verifier can re-read; a run with no extractions is a run whose numerals can only
+        cite through figure rows.
+        """
+        session = finished["session"]
+        rows = list(
+            await session.scalars(
+                select(Extraction)
+                .join(SourceDocument, SourceDocument.id == Extraction.source_document_id)
+                .where(SourceDocument.job_id == finished["job"].id)
+            )
+        )
+        assert rows
+        assert all(row.extractor == "json" for row in rows)
+        assert any("168088000000" in row.excerpt for row in rows)
 
 
 class TestTheBudgetGuard:

@@ -37,9 +37,14 @@ __all__ = [
     "unsourced_numerals",
 ]
 
-# Keys whose numeric values are section metadata rather than assertions about the world.
-# ``confidence`` is the renderer's own metadata key; nothing else is exempt.
-NUMERAL_EXEMPT_KEYS: Final[frozenset[str]] = frozenset({"confidence"})
+# Keys whose values are section metadata rather than assertions about the world.
+# ``confidence`` is the renderer's own metadata key; the citation keys carry ids, and a
+# UUID whose hyphen-delimited group happens to be all digits would otherwise surface a
+# "numeral" no claim could ever cover — provenance tripping the rule that exists to
+# protect provenance. These are exactly the keys the renderer treats as metadata too.
+NUMERAL_EXEMPT_KEYS: Final[frozenset[str]] = frozenset(
+    {"confidence", "calculation_id", "source_document_id", "extraction_id", "financial_fact_id"}
+)
 
 # A numeral as a reader meets one: digits, optional thousands separators and decimals,
 # an optional trailing per-cent sign. Word-bounded so "10-K" and "FY22Q4" do not shed
@@ -116,13 +121,20 @@ def numerals_in(text: str) -> frozenset[str]:
 
 
 def unsourced_numerals(content: dict[str, Any], covered_by: Iterable[str]) -> list[str]:
-    """Numerals in the content that no numeric claim accounts for, with where they sit.
+    """Numerals in the content that nothing accounts for, with where they sit.
 
-    Args:
-        covered_by: The statements of the section's *numeric* claims — each of which, by
-            schema, names exactly one stored fact or recorded calculation. A numeral is
-            covered when it appears in at least one of them; anything else in the content
-            is a figure with no lineage, which is the §2.12 validation failure.
+    A numeral has lineage two ways, and either satisfies the rule:
+
+    * it appears in a numeric claim's statement (``covered_by``) — each of which, by
+      schema, names exactly one stored fact or recorded calculation; or
+    * it sits inside an object that itself names its figure by ``calculation_id`` or
+      ``financial_fact_id`` — the figure-row convention every built-in section has used
+      since Phase 1, and the one the renderer turns into a footnote. **The named id is
+      not taken on trust here**: the execution boundary separately refuses any content id
+      the call's evidence does not hold, so a fabricated id fails there rather than
+      passing as cover.
+
+    Anything else is a figure with no lineage, which is the §2.12 validation failure.
     """
     covered: set[str] = set()
     for statement in covered_by:
@@ -156,10 +168,11 @@ def _numerals_by_path(value: Any, *, path: str) -> list[tuple[str, frozenset[str
         return [(path, numerals_in(repr(value)))]
     if isinstance(value, dict):
         collected: list[tuple[str, frozenset[str]]] = []
-        for key, item in value.items():
-            if str(key) in NUMERAL_EXEMPT_KEYS:
-                continue
-            collected.extend(_numerals_by_path(item, path=f"{path}.{key}"))
+        if not _names_its_figure(value):
+            for key, item in value.items():
+                if str(key) in NUMERAL_EXEMPT_KEYS:
+                    continue
+                collected.extend(_numerals_by_path(item, path=f"{path}.{key}"))
         return collected
     if isinstance(value, list):
         collected = []
@@ -167,3 +180,13 @@ def _numerals_by_path(value: Any, *, path: str) -> list[tuple[str, frozenset[str
             collected.extend(_numerals_by_path(item, path=f"{path}[{index}]"))
         return collected
     return []
+
+
+# The keys whose presence makes an object a figure row: it names the stored figure its
+# numerals came from. `source_document_id` is deliberately not on this list — a document
+# reference says where prose came from, not which figure a numeral is.
+_FIGURE_NAMING_KEYS: Final[frozenset[str]] = frozenset({"calculation_id", "financial_fact_id"})
+
+
+def _names_its_figure(row: dict[Any, Any]) -> bool:
+    return any(isinstance(row.get(key), str) and row.get(key) for key in _FIGURE_NAMING_KEYS)

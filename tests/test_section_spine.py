@@ -222,6 +222,14 @@ class TestTheGateOneListing:
         assert by_key["executive_summary"]["deterministic"] is False
         assert by_key["executive_summary"]["token_budget"] == 2000
 
+        # Task 45: the spine spends for real, so gate 1 estimates it — a ceiling per
+        # model-written section, an honest zero for the platform-filled pair, and the
+        # plan's total covering the lot.
+        assert Decimal(by_key["executive_summary"]["estimated_cost_gbp"]) > 0
+        assert Decimal(by_key["validation_disagreements"]["estimated_cost_gbp"]) == 0
+        spine_total = sum(Decimal(entry["estimated_cost_gbp"]) for entry in listing)
+        assert Decimal(str(plan.estimated_cost_gbp)) > spine_total
+
     async def test_the_gate_payload_reads_the_stored_listing_not_a_re_resolution(
         self, scene: dict[str, Any]
     ) -> None:
