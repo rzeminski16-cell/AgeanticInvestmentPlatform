@@ -27,7 +27,7 @@ from aer.agents.planner import PlannedSection, PlannedSource, ResearchPlanDraft
 from aer.agents.worker import WorkerLead, WorkerReport, WorkerTurn
 from aer.config import Settings
 from aer.core.enums import JobStatus, UserRole
-from aer.db.models import Job, ResearchRequest, User
+from aer.db.models import Job, ResearchRequest, SectionDefinition, User
 from aer.fetch.client import FetchResult
 from aer.providers.fake import FakeProvider, ScriptedResponse
 from aer.sources.base import ResolvedEntity
@@ -43,6 +43,30 @@ COMPANY_FACTS_FIXTURE = "companyfacts_msft.json"
 # Late enough that the fixture's FY2020 and FY2021 revenue are both admissible, so the
 # slice has the two periods a growth rate needs.
 AS_OF_DATE = date(2022, 6, 30)
+
+# The eighteen-section spine in position order, as migrations 0006 and 0023 seed it.
+# Test data, not a section registry: tests assert a run's sections against this list so a
+# lost or reordered seed row fails visibly.
+SPINE_KEYS = (
+    "executive_summary",
+    "investment_thesis",
+    "business_overview",
+    "segment_analysis",
+    "industry_landscape",
+    "management_governance",
+    "historical_financial_analysis",
+    "earnings_quality",
+    "balance_sheet_liquidity",
+    "cash_flow_analysis",
+    "capital_allocation",
+    "growth_outlook",
+    "valuation_dcf",
+    "scenarios_sensitivities",
+    "key_risks",
+    "catalysts",
+    "prior_research_comparison",
+    "validation_disagreements",
+)
 
 
 class StubSecClient:
@@ -151,6 +175,37 @@ def worker_report_turn() -> WorkerTurn:
             coverage_note="Scripted fixture investigation; no evidence was searched.",
         ),
     )
+
+
+async def seed_starved_section(session: AsyncSession) -> None:
+    """A required section that can never meet its evidence floor.
+
+    Its contract holds only prose fields, so the draft fills it with no citation at all —
+    which makes both the §2.4 coverage and missing-section conditions genuinely hold on a
+    run. Tests that need a fired banner seed this rather than relying on any built-in
+    being poor, because the spine's own sections all carry citation fields.
+    """
+    session.add(
+        SectionDefinition(
+            key="starved_probe",
+            version=1,
+            origin="builtin",
+            title="Starved Probe",
+            position=Decimal(500),
+            required=True,
+            output_contract={
+                "type": "object",
+                "title": "Starved Probe",
+                "required": ["commentary"],
+                "properties": {"commentary": {"type": "string", "title": "Commentary"}},
+            },
+            evidence_policy={"min_sources": 1, "requires_primary": True},
+            token_budget=1000,
+            allowed_tools=[],
+            applicability={},
+        )
+    )
+    await session.flush()
 
 
 async def seed_user(session: AsyncSession, *, email: str = "runner@example.invalid") -> User:

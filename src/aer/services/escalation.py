@@ -142,6 +142,7 @@ async def _section_scenes(
                 covered=covered.covered if covered is not None else False,
                 shortfall=covered.shortfall if covered is not None else "no coverage row",
                 confidence=section.confidence,
+                requires_primary=covered.requires_primary if covered is not None else True,
             )
         )
     return tuple(scenes)

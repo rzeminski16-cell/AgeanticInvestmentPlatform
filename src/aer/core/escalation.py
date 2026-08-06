@@ -124,6 +124,11 @@ class SectionScene:
     shortfall: str = ""
     confidence: float | None = None
 
+    # From the section's own evidence policy. The deterministic sections (task 44) declare
+    # ``requires_primary: false`` because their evidence is the run's own rows; a trigger
+    # that demanded a primary source of them would fire on every clean run.
+    requires_primary: bool = True
+
     @property
     def generated(self) -> bool:
         return self.status == _GENERATED
@@ -233,11 +238,16 @@ def fire_triggers(
 def _low_source_coverage(
     sections: tuple[SectionScene, ...], metrics: tuple[MetricScore, ...]
 ) -> FiredTrigger | None:
-    """Any required section with 0 primary sources, or primary-source ratio < 60%."""
+    """Any required section owing a primary source that cites none, or ratio < 60%.
+
+    "Owing" is the section's own evidence floor: a section whose policy sets
+    ``requires_primary: false`` never claimed primary sourcing, so its absence is not
+    thinner sourcing than the report stands on — it is the declared floor being met.
+    """
     evidence = [
         f"required section '{row.key}' cites no primary source"
         for row in sections
-        if row.required and row.generated and not row.has_primary
+        if row.required and row.generated and row.requires_primary and not row.has_primary
     ]
     ratio = _score(metrics, _PRIMARY_SOURCE_RATIO)
     if ratio is not None and ratio.passed is False:

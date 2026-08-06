@@ -49,6 +49,7 @@ class PlanRead(BaseModel):
     workflow_version: str
     summary: str
     sections: list[dict[str, Any]]
+    section_listing: list[dict[str, Any]]
     planned_sources: list[dict[str, Any]]
     known_risks: list[Any]
     estimated_cost_gbp: str
@@ -103,6 +104,7 @@ def _read(plan: ResearchPlan, pins: list[PlanSkillPin]) -> PlanRead:
         workflow_version=plan.workflow_version,
         summary=payload["summary"],
         sections=payload["sections"],
+        section_listing=payload["section_listing"],
         planned_sources=payload["planned_sources"],
         known_risks=payload["known_risks"],
         skills=payload["skills"],

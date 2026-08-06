@@ -43,6 +43,7 @@ from aer.services import runs as run_service
 from aer.services.citations import record_claim
 from aer.storage.local import LocalArtefactStore
 from tests.workflow_fixtures import (
+    SPINE_KEYS,
     StubSecClient,
     seed_job,
     seed_request,
@@ -210,7 +211,7 @@ class TestTheFirstLeg:
         assert plan.estimated_cost_gbp > 0
 
     async def test_the_sections_were_created_from_the_database(self, scenario: dict) -> None:
-        """Two, because two rows are seeded. Not because two are named anywhere in code."""
+        """Eighteen, because eighteen rows are seeded. Not because any is named in code."""
         await run_to_next_stop(**_args(scenario))
         session = scenario["session"]
 
@@ -221,10 +222,7 @@ class TestTheFirstLeg:
                 .order_by(ReportSection.position)
             )
         )
-        assert [row.section_key for row in rows] == [
-            "executive_summary",
-            "historical_financial_analysis",
-        ]
+        assert [row.section_key for row in rows] == list(SPINE_KEYS)
 
     async def test_nothing_was_fetched_before_the_plan_was_approved(self, scenario: dict) -> None:
         """The gate is the point. A run that acquired first would have spent before asking."""

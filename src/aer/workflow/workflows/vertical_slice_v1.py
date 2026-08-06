@@ -59,6 +59,7 @@ from aer.db.models.plan_skill_pin import SKIPPED_NOT_APPLICABLE, PlanSkillPin
 from aer.db.models.section_definition import BUILTIN, SKILL
 from aer.fetch.policy import DEFAULT_POLICIES
 from aer.render.markdown import SectorNote, render_markdown
+from aer.sections.deterministic import SectionStage, fill_deterministic_sections
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
 from aer.services import calculations as calculation_service
 from aer.services.acquisition import record_acquisition
@@ -287,6 +288,24 @@ async def _plan(context: StepContext) -> StepResult:
     )
 
     payload = draft.model_dump(mode="json")
+    # The spine as data, alongside the model's proposal: which sections this run owes, in
+    # position order, each with its budget. Written by code from the resolved definitions
+    # — the planner proposes focus, never the section list — and stored on the plan row so
+    # every reader of the gate-1 payload (the hash here, the API, the review page) gets
+    # the same listing without re-resolving definitions that may have gained versions
+    # since. A listing re-resolved at read time would change the hash and refuse every
+    # approval of the plan it drifted from.
+    payload["section_listing"] = [
+        {
+            "key": definition.key,
+            "title": definition.title,
+            "position": str(definition.position),
+            "required": definition.required,
+            "token_budget": definition.token_budget,
+            "deterministic": definition.token_budget == 0,
+        }
+        for definition in definitions
+    ]
     plan = ResearchPlan(
         request_id=request.id,
         workflow_version=WORKFLOW_VERSION,
@@ -378,6 +397,7 @@ def plan_gate_payload(plan: ResearchPlan, pins: Sequence[PlanSkillPin] = ()) -> 
         "workflow_version": plan.workflow_version,
         "summary": body.get("summary", ""),
         "sections": body.get("sections", []),
+        "section_listing": list(body.get("section_listing", [])),
         "planned_sources": list(plan.planned_sources or []),
         "known_risks": list(plan.known_risks or []),
         "estimated_cost_gbp": str(plan.estimated_cost_gbp),
@@ -466,8 +486,18 @@ async def _validate(context: StepContext) -> StepResult:
         job_step=context.step,
     )
     rows = await evaluate_run(agent_context, job=context.job, request=request)
+
+    # After the metric rows, before the red team: the validation record becomes a report
+    # section here, so the payload the red team seals — and the preview the operator
+    # approves — already carries it. The metrics above were measured before this fill, so
+    # a section recording the validators never sits in its own denominator.
+    deterministic = await fill_deterministic_sections(
+        context.session, job=context.job, request=request, stage=SectionStage.VALIDATE
+    )
+
     return StepResult(
         output={
+            "deterministic_sections": deterministic,
             "metrics": {
                 row.metric: {
                     "value": str(row.value) if row.value is not None else None,
@@ -1023,12 +1053,22 @@ async def _draft(context: StepContext) -> StepResult:
         job_step=context.step,
     )
 
+    # The platform-filled sections first, so a zero-budget definition with no registered
+    # builder fails here — while the seed is the last thing that changed — rather than
+    # rendering as an inexplicable blank later.
+    deterministic = await fill_deterministic_sections(
+        context.session, job=context.job, request=request, stage=SectionStage.DRAFT
+    )
+
     sections = await sections_for_job(context.session, context.job.id)
     filled = 0
     custom_outcomes: list[dict[str, Any]] = []
 
     for section in sections:
         definition = section.definition
+        if definition.origin != SKILL and definition.token_budget == 0:
+            # Deterministic: filled above at this stage, or by the stage that owns it.
+            continue
         if definition.origin == SKILL:
             pin = pin_by_skill.get(definition.skill_id) if definition.skill_id is not None else None
             if pin is None:
@@ -1068,6 +1108,7 @@ async def _draft(context: StepContext) -> StepResult:
     return StepResult(
         output={
             "sections_drafted": filled,
+            "deterministic_sections": deterministic,
             "custom_sections": custom_outcomes,
             # No payload hash here since task 40: the red team's challenges join the
             # gate-2 payload after drafting, so the hash the gate verifies is computed

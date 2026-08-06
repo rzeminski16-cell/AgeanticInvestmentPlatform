@@ -31,26 +31,31 @@ from aer.providers.fake import FakeProvider
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.storage.local import LocalArtefactStore
-from tests.workflow_fixtures import StubSecClient, seed_job, seed_request, seed_user
+from tests.workflow_fixtures import SPINE_KEYS, StubSecClient, seed_job, seed_request, seed_user
 
 pytestmark = pytest.mark.anyio
 
 SRC_ROOT = Path(__file__).resolve().parent.parent / "src"
-SEED_MIGRATION = (
-    Path(__file__).resolve().parent.parent
-    / "migrations"
-    / "versions"
-    / "0006_agents_costs_prompts_sections.py"
+_VERSIONS = Path(__file__).resolve().parent.parent / "migrations" / "versions"
+SEED_MIGRATIONS = (
+    _VERSIONS / "0006_agents_costs_prompts_sections.py",
+    _VERSIONS / "0023_the_eighteen_section_spine.py",
 )
 
-# The keys the seed migration inserts. Named here so the source scan below can look for
-# them; this list is test data, not a section registry.
-SEEDED_KEYS = ("executive_summary", "historical_financial_analysis")
+# The eighteen-section spine, in position order — what the seed migrations insert. The
+# source scan below looks for these keys and the full-run tests assert the order.
+SEEDED_KEYS = SPINE_KEYS
 
-# What the third section is called. Deliberately nothing like the built-in two, so a
+# The two platform-filled sections. Their builders live in `aer/sections/deterministic.py`,
+# which is therefore the one source module allowed to name them — it is the seed's
+# counterpart: the row says "code fills me" and the registry is where that code is bound.
+DETERMINISTIC_KEYS = ("prior_research_comparison", "validation_disagreements")
+DETERMINISTIC_REGISTRY = SRC_ROOT / "aer" / "sections" / "deterministic.py"
+
+# What the inserted section is called. Deliberately nothing like any built-in, so a
 # renderer that happened to handle those by name could not accidentally handle this.
-THIRD_KEY = "competitive_position"
-THIRD_TITLE = "Competitive Position"
+THIRD_KEY = "supply_chain_resilience"
+THIRD_TITLE = "Supply Chain Resilience"
 
 THIRD_CONTRACT: dict[str, Any] = {
     "type": "object",
@@ -185,13 +190,13 @@ def footnote_definitions(markdown: str) -> list[int]:
 
 
 class TestTheBaselineReport:
-    """What the two seeded sections produce, so the third has something to change."""
+    """What the seeded spine produces, so an inserted section has something to change."""
 
     @pytest.fixture
     async def report(self, run_context: dict) -> Report:
         return await run_to_report(**_run_args(run_context))
 
-    async def test_it_has_both_seeded_sections(self, report: Report) -> None:
+    async def test_it_has_the_whole_spine_in_position_order(self, report: Report) -> None:
         assert report.content["sections"] == list(SEEDED_KEYS)
 
     async def test_the_headings_are_in_position_order(self, report: Report) -> None:
@@ -213,24 +218,22 @@ class TestAThirdSection:
 
     @pytest.fixture
     async def report(self, run_context: dict) -> Report:
-        # 150: between the seeded 100 and 200. The sparse numbering is the whole reason a
+        # 155: between the seeded 150 and 200. The sparse numbering is the whole reason a
         # section can be slotted in without renumbering anything.
-        await insert_third_section(run_context["session"], position=Decimal(150))
+        await insert_third_section(run_context["session"], position=Decimal(155))
         return await run_to_report(**_run_args(run_context))
 
     async def test_the_report_gains_the_section(self, report: Report) -> None:
         assert THIRD_KEY in report.content["sections"]
 
-    async def test_it_lands_between_the_two_built_in_sections(self, report: Report) -> None:
-        assert report.content["sections"] == [
-            "executive_summary",
-            THIRD_KEY,
-            "historical_financial_analysis",
-        ]
+    async def test_it_lands_between_its_positional_neighbours(self, report: Report) -> None:
+        found = report.content["sections"]
+        assert found.index("management_governance") + 1 == found.index(THIRD_KEY)
+        assert found.index(THIRD_KEY) + 1 == found.index("historical_financial_analysis")
 
     async def test_its_heading_appears_in_the_right_place(self, report: Report) -> None:
         found = headings(report.content["markdown"])
-        assert found.index("Executive Summary") < found.index(THIRD_TITLE)
+        assert found.index("Management & Governance") < found.index(THIRD_TITLE)
         assert found.index(THIRD_TITLE) < found.index("Historical Financial Analysis")
 
     async def test_its_contract_supplies_the_sub_headings(self, report: Report) -> None:
@@ -260,8 +263,8 @@ class TestAThirdSection:
         """Proves the third section really cited something rather than rendering empty."""
         assert len(footnote_definitions(report.content["markdown"])) >= 2
 
-    async def test_a_position_after_both_puts_it_last(self, run_context: dict) -> None:
-        await insert_third_section(run_context["session"], position=Decimal(300))
+    async def test_a_position_after_the_whole_spine_puts_it_last(self, run_context: dict) -> None:
+        await insert_third_section(run_context["session"], position=Decimal(950))
         report = await run_to_report(**_run_args(run_context))
         assert report.content["sections"][-1] == THIRD_KEY
 
@@ -279,14 +282,19 @@ class TestDeclaredOrderSurvivesTheDatabase:
     async def test_the_seeded_contract_keeps_its_declared_order(
         self, db_session: AsyncSession
     ) -> None:
+        # The latest version: migration 0023 published v2, appending a figures table to
+        # the 0006 contract without disturbing the declared order of the original fields.
         definition = await db_session.scalar(
-            select(SectionDefinition).where(SectionDefinition.key == "executive_summary")
+            select(SectionDefinition)
+            .where(SectionDefinition.key == "executive_summary")
+            .order_by(SectionDefinition.version.desc())
         )
         assert definition is not None
         assert list(definition.output_contract["properties"]) == [
             "thesis",
             "key_points",
             "key_risks",
+            "headline_figures",
         ]
 
     async def test_a_contract_written_now_reads_back_in_the_same_order(
@@ -423,15 +431,29 @@ class TestNoSectionKeyIsHardcoded:
 
     @pytest.mark.parametrize("key", SEEDED_KEYS)
     def test_no_source_file_names_a_seeded_section(self, key: str) -> None:
-        offenders = self._code_mentioning(key)
+        """One scoped exception: the deterministic registry may name a deterministic key.
+
+        A ``token_budget = 0`` row says "code fills me", and the registry in
+        `aer/sections/deterministic.py` is where that code is bound — it is the seed's
+        counterpart, not a leak. Every other module is held to the rule for every key,
+        and the registry itself is held to it for the sixteen model-written keys.
+        """
+        allowed = {DETERMINISTIC_REGISTRY} if key in DETERMINISTIC_KEYS else set()
+        offenders = self._code_mentioning(key) - allowed
         assert offenders == set(), (
             f"{key!r} appears in the code of {sorted(str(p) for p in offenders)}. Sections "
             "are rows; a module that names one has made the next section a code change."
         )
 
-    def test_the_seed_migration_does_name_them(self) -> None:
-        """Guards the test above from passing because the keys were renamed everywhere."""
-        text = SEED_MIGRATION.read_text(encoding="utf-8")
+    def test_the_deterministic_registry_does_bind_its_keys(self) -> None:
+        """Guards the exception above from outliving a rename of the registry."""
+        text = executable_source(DETERMINISTIC_REGISTRY)
+        for key in DETERMINISTIC_KEYS:
+            assert key in text
+
+    def test_the_seed_migrations_do_name_them(self) -> None:
+        """Guards the scan from passing because the keys were renamed everywhere."""
+        text = "".join(path.read_text(encoding="utf-8") for path in SEED_MIGRATIONS)
         for key in SEEDED_KEYS:
             assert key in text
 

@@ -46,7 +46,13 @@ from aer.services import runs as run_service
 from aer.storage.local import LocalArtefactStore
 from aer.web.csrf import CSRF_FIELD_NAME
 from tests.api_fixtures import build_app, client_for
-from tests.workflow_fixtures import AS_OF_DATE, StubSecClient, make_provider
+from tests.workflow_fixtures import (
+    AS_OF_DATE,
+    SPINE_KEYS,
+    StubSecClient,
+    make_provider,
+    seed_starved_section,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -114,6 +120,31 @@ async def committed(clean_slate: None, db_engine: Any) -> dict[str, Any]:
         session.add(request)
         await session.commit()
         return {"user": user, "request": request}
+
+
+@pytest.fixture
+async def starved_section(db_engine: Any) -> AsyncIterator[None]:
+    """A committed starved-probe definition, and its removal.
+
+    The spine's own sections all carry citation fields since task 44, so a test that
+    needs the §2.4 banner genuinely firing seeds this required, prose-only section. The
+    teardown matters: `section_definitions` is deliberately outside `_TABLES` — its rows
+    come from migrations — so a committed probe would otherwise outlive this file and
+    fire the banner on every later run in the suite.
+    """
+    factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+    async with factory() as session:
+        await seed_starved_section(session)
+        await session.commit()
+    yield
+    async with db_engine.begin() as connection:
+        # The run's section rows first: they hold a RESTRICT foreign key to the probe.
+        await connection.execute(
+            text("DELETE FROM report_sections WHERE section_key = 'starved_probe'")
+        )
+        await connection.execute(
+            text("DELETE FROM section_definitions WHERE key = 'starved_probe'")
+        )
 
 
 @pytest.fixture
@@ -353,10 +384,7 @@ class TestTheGateApi:
         # The authoritative hash lives on the red_team step since task 40 — the last
         # step that can change the gate-2 payload.
         assert draft["payload_hash"] == await driver.payload_hash_of(job_id, "red_team")
-        assert [section["key"] for section in draft["sections"]] == [
-            "executive_summary",
-            "historical_financial_analysis",
-        ]
+        assert [section["key"] for section in draft["sections"]] == list(SPINE_KEYS)
 
     async def test_the_draft_endpoint_reports_unsettled_disagreements(
         self, api: Any, committed: dict, driver: Driver
@@ -766,6 +794,20 @@ class TestTheWebPages:
         shown = _hidden_value(page.text, "payload_hash")
         assert shown == await driver.payload_hash_of(job_id, "plan")
 
+    async def test_the_plan_page_lists_the_section_spine(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        """Gate 1 shows which sections the run owes, platform-filled ones marked as such."""
+        body = await start(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+        await driver.advance(job_id)
+
+        page = await api.get(f"/runs/{job_id}/plan")
+        assert 'id="section-listing"' in page.text
+        for key in SPINE_KEYS:
+            assert key in page.text
+        assert "platform-filled" in page.text
+
     async def test_approving_through_the_form_advances_the_gate(
         self, api: Any, committed: dict, driver: Driver, enqueued: EnqueueRecorder
     ) -> None:
@@ -833,7 +875,7 @@ class TestTheWebPages:
         )
 
     async def test_the_review_page_renders_the_gate_two_dashboard(
-        self, api: Any, committed: dict, driver: Driver
+        self, api: Any, committed: dict, driver: Driver, starved_section: None
     ) -> None:
         """The §2.4 surface: banner, validations, coverage, calculations and cost — all
         rendered on the server, so an approval cannot be made without them on the page."""
@@ -842,8 +884,6 @@ class TestTheWebPages:
         page = await api.get(f"/runs/{job_id}/review")
         assert page.status_code == 200
 
-        # The slice's executive summary genuinely cites nothing, so two §2.4 conditions
-        # hold on every run of it — the banner must fire and name them.
         assert 'id="triggers"' in page.text
         assert "low_source_coverage" in page.text
         assert "material_missing_section" in page.text

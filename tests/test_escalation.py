@@ -64,6 +64,7 @@ from tests.workflow_fixtures import (
     make_provider,
     seed_job,
     seed_request,
+    seed_starved_section,
     seed_user,
 )
 
@@ -167,6 +168,24 @@ class TestEachTriggerFiresAloneAndNamesItself:
         [fired] = fire_triggers(**scene)
         assert fired.kind is TriggerKind.LOW_SOURCE_COVERAGE
         assert "executive_summary" in fired.evidence[0]
+
+    def test_a_section_whose_own_floor_waives_the_primary_fires_nothing(self) -> None:
+        """The deterministic appendix case: required, generated, citing no primary —
+        and its evidence policy says none is owed. A trigger that ignored the floor
+        would raise the banner on every clean run."""
+        scene = _clean_scene(
+            sections=(
+                SectionScene(
+                    key="validation_disagreements",
+                    status=SectionStatus.GENERATED.value,
+                    required=True,
+                    has_primary=False,
+                    covered=True,
+                    requires_primary=False,
+                ),
+            )
+        )
+        assert fire_triggers(**scene) == ()
 
     def test_a_failed_primary_source_ratio(self) -> None:
         metrics = tuple(
@@ -786,13 +805,16 @@ async def driven(
     workflow_store: LocalArtefactStore,
     sec_client: StubSecClient,
 ) -> dict[str, Any]:
-    """A slice run driven to the final gate.
+    """A slice run driven to the final gate, with two triggers genuinely firing.
 
-    The plain slice legitimately fires two triggers — its executive summary cites
-    nothing, so the §2.4 coverage and missing-section conditions genuinely hold — which
-    is exactly what these tests need: a real run whose pause and payload must carry them.
+    Since task 44 every spine section carries a citation field, so the plain slice runs
+    clean. The starved probe — a required section whose contract holds only prose —
+    restores real §2.4 conditions: it generates with no citation, so the coverage and
+    missing-section triggers both hold on a real run whose pause and payload must carry
+    them.
     """
     provider = make_provider()
+    await seed_starved_section(db_session)
     user = await seed_user(db_session)
     request = await seed_request(db_session, user=user)
     job = await seed_job(db_session, request=request)
@@ -842,6 +864,12 @@ class TestTheGatePausesNamingTheTriggers:
         assert [trigger["kind"] for trigger in payload["triggers"]] == [
             TriggerKind.LOW_SOURCE_COVERAGE.value,
             TriggerKind.MATERIAL_MISSING_SECTION.value,
+        ]
+        # Exactly the probe, and nothing else. The deterministic sections also cite no
+        # primary source, but their own policy waives one — a coverage trigger that named
+        # them would be ignoring the floor each section actually declared.
+        assert payload["triggers"][0]["evidence"] == [
+            "required section 'starved_probe' cites no primary source"
         ]
 
         step = await driven["session"].scalar(

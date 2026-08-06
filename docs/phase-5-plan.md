@@ -167,11 +167,20 @@ rendered with no code change beyond the seed.
 each with an output contract (JSON Schema with declared field order), evidence policy,
 token budget, allowed tools and applicability — and the token-budget check relaxed to
 `>= 0` for the two deterministic sections. `validation_disagreements` is filled by a small
-deterministic service from the run's evaluations, disagreements and fired escalation
-triggers, written before Gate 2 so the preview the operator approves already contains it;
+deterministic service from the run's evaluation rows and disagreement records, written at
+the end of the validate step — after the metrics are measured, before the red team — so
+the preview the operator approves already contains it. Escalation triggers stay out of the
+section deliberately: they already ride inside the sealed payload (task 41), and embedding
+them in content the trigger engine's scenes are computed over would be a circular flow for
+no new information. Escalated disagreements are described as escalated for human decision
+at approval — a statement about what the run did, which stays true after the human
+decides;
 `prior_research_comparison` seeds now but renders its honest empty state ("first run — no
-prior research to compare") until task 49 supplies the builder. Per-section cost estimates
-join the Gate 1 plan view, which already displays them for custom sections.
+prior research to compare") until task 49 supplies the builder. The Gate 1 plan payload
+gains a per-section listing (key, title, origin, position, token budget); per-section
+*cost* estimates join it in task 45, because until the writer exists the built-in draft
+spends nothing and an estimate the gate showed for spending that cannot occur would be a
+number nobody could reconcile.
 
 **Tests.** Registry resolves exactly eighteen built-in keys in position order; a
 FakeProvider full run generates every model section and both deterministic sections; the
@@ -182,6 +191,36 @@ still passes untouched.
 **Acceptance.** `SELECT count(*) FROM section_definitions WHERE origin = 'builtin'`
 (latest versions) is 18; a run's Markdown report shows all eighteen in spine order with
 custom sections interleaved by position.
+
+**Delivered (2026-08-06).** Migration 0023 (sixteen seed rows, the token-budget check
+relaxed to non-negative, and `executive_summary` **v2** — its own carrier test caught that
+the 0006 contract had no citation-carrying field, so a summary was structurally unable to
+cite a headline figure; a new version row, never an edit). One trap re-found and dodged:
+the seed's table construct initially bound `output_contract` as JSONB, which normalised the
+authors' declared field order before the `json` column ever saw it — the exact bug
+migration 0007 fixed, reintroduced at seed time and caught by the declared-order tests.
+
+`aer/sections/deterministic.py`: the builders registry, routed to **by budget, not by
+key** — the draft step asks "is this section deterministic?" (a column) and the registry
+binds keys to code, which is why the no-key-in-code scan gained exactly one scoped
+exception (the registry itself, held to the rule for the sixteen model keys).
+`prior_research_comparison` fills at the DRAFT stage with the honest first-run sentence;
+`validation_disagreements` fills at the **end of validate** — after the metric rows are
+written, before the red team seals the hash — mirroring the evaluation rows verdict for
+verdict and describing escalated disagreements in words that stay true after the human
+decides. A zero-budget row with no registered builder fails loudly at draft. Gate 1's
+payload gained `section_listing`, written by code from the resolved definitions and stored
+on the plan row so a definition published after planning cannot change what the gate
+hashes (held by test).
+
+One §2.4 correction the spine forced: `SectionScene` now carries `requires_primary` from
+the section's own evidence policy, and the low-source-coverage trigger only names a
+required section that *owes* a primary source — without that, the deterministic pair
+raised the banner on every clean run. The escalation fixtures that previously relied on
+executive summary v1 citing nothing now seed a starved probe (a required, prose-only
+section) so both engineered triggers genuinely hold; the sealed payload pins its evidence
+to exactly the probe. Sabotage: thirteen mutations, thirteen caught. Suite: 3,451 unit
+tests green; browser suite green.
 
 ---
 
@@ -202,8 +241,9 @@ never fabricated to fill space. Evidence policy unmet renders the insufficiency 
 with findings marked low-confidence. Figures name `calculation_id` /
 `source_document_id`, exactly what the renderer and citation resolver already expect —
 which is why this lands as a change to *how* content is produced, not to what it is.
-Token budgets come from the definition rows; cost is metered per section and the draft
-step's Gate 1 estimate covers the spine. `_content_for` and its helpers are deleted.
+Token budgets come from the definition rows; cost is metered per section, per-section
+cost estimates join the Gate 1 section listing, and the plan's estimated total now covers
+the spine. `_content_for` and its helpers are deleted.
 
 **Tests.** Against the FakeProvider: every built-in model section generated against its
 real contract; a schema-violating response is retried once then failed with the reason
