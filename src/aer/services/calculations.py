@@ -30,7 +30,7 @@ from decimal import Decimal
 from typing import Any
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.engine import CalculationContext, CalculationRecord
@@ -93,8 +93,24 @@ async def persist_context(
         )
         raise ValidationError(message, context={"job_id": str(job_id)})
 
+    # Sequences continue the job's ledger rather than restarting at zero, and the advisory
+    # lock is what keeps that true when two workflow nodes persist concurrently (task 34):
+    # without it both read the same maximum and write overlapping ranges, and a replay
+    # label like ``present_value#0`` would name two different rows of one run. The lock is
+    # per job, transaction-scoped, and held only across this read-then-write.
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))").bindparams(
+            key=f"calculations:{job_id}"
+        )
+    )
+    base = await session.scalar(
+        select(func.coalesce(func.max(Calculation.sequence) + 1, 0)).where(
+            Calculation.job_id == job_id
+        )
+    )
+
     rows = [
-        _row_for(record, job_id=job_id, sequence=index)
+        _row_for(record, job_id=job_id, sequence=int(base or 0) + index)
         for index, record in enumerate(context.records)
     ]
 

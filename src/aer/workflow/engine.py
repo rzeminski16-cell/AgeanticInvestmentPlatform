@@ -1,4 +1,4 @@
-"""The step runner: idempotent, resumable, and metered.
+"""The step runner: a dependency graph, idempotent, resumable, and metered.
 
 **Idempotency is by stored outcome, not by hope.** Before running a step the engine looks
 for a ``job_steps`` row with the same idempotency key and a terminal-success status. If it
@@ -14,22 +14,47 @@ bucket as "this crashed", and the operator would learn to ignore both.
 **The budget guard runs before a step, never after.** Checking afterwards tells you what
 you already spent. The guard compares what a step is projected to cost against what remains
 of the request's ceiling, and pauses the run if it would exceed it — before the provider is
-called, which is why the test for it asserts the provider was never touched.
+called, which is why the test for it asserts the provider was never touched. Where nodes
+run concurrently, a node's projection also counts the estimates of everything already in
+flight, because two siblings each individually under the cap can jointly be over it.
+
+**The steps form a graph, and the graph is code** (`docs/PLAN.md` §2.5). A step that
+declares no dependencies chains after the one declared before it — which is every workflow
+the first three phases wrote, unchanged. A step that declares ``needs`` is placed in the
+graph explicitly, and independent nodes may run concurrently, bounded by
+:data:`MAX_PARALLEL_NODES`. Parallelism is for breadth of source coverage, not a belief
+that more agents are better, and the bound is deliberately not configuration.
+
+**Concurrency needs its own sessions.** One ``AsyncSession`` must never be used from two
+tasks, so parallel nodes each open a session from ``services["session_factory"]`` and
+commit their own step boundary; the coordinator alone touches the job row. Without a
+factory in services the engine is exactly the serial engine it always was — which is also
+the path every single-file test exercises, on the savepoint-joined session the fixtures
+provide.
+
+**Stopping is drain, never abandon.** A pause, a budget refusal, a failure or a
+cancellation stops *scheduling*; nodes already in flight are awaited to their own recorded
+outcome first. Work in flight is work being paid for, and a run whose record says "paused"
+while a node was still writing would be a record that lies. A failed node abandons its
+dependants — and only its dependants: an independent branch completes and keeps its work
+before the failure is re-raised.
 """
 
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any
+from enum import StrEnum
+from typing import Any, Final
 
 import structlog
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aer.core.enums import JobStatus
 from aer.core.hashing import canonical_json, sha256_hex
@@ -37,16 +62,34 @@ from aer.db.models import Cost, Job, JobCancellation, JobStep
 from aer.errors import AerError, BudgetExceededError
 
 __all__ = [
+    "MAX_PARALLEL_NODES",
     "BudgetGuard",
     "StepContext",
     "StepPaused",
     "StepResult",
+    "WorkflowDefinitionError",
     "WorkflowEngine",
     "WorkflowStep",
     "spend_so_far",
 ]
 
 _log = structlog.get_logger("aer.workflow.engine")
+
+# The hard bound on concurrent nodes, from `docs/PLAN.md` §2.5: "max 7 workers". A module
+# constant rather than a setting, because a bound that can be raised in configuration is a
+# bound that will be — and the number is part of the cost model the budget was set against.
+MAX_PARALLEL_NODES: Final = 7
+
+
+class WorkflowDefinitionError(AerError):
+    """A workflow's graph is malformed.
+
+    Always a code defect caught at construction: a duplicate key, a dependency on a step
+    that is not declared earlier, an unknown ``stop_after``. Each would otherwise surface
+    mid-run as a hang or a silently wrong order, with money already spent.
+    """
+
+    code = "workflow_definition"
 
 
 class StepPaused(AerError):  # noqa: N818 -- a control-flow signal, not an error condition
@@ -119,7 +162,7 @@ StepFunction = Callable[[StepContext], Awaitable[StepResult]]
 
 @dataclass(frozen=True, slots=True)
 class WorkflowStep:
-    """One named step of a workflow."""
+    """One named node of a workflow's graph."""
 
     key: str
     run: StepFunction
@@ -131,6 +174,13 @@ class WorkflowStep:
     # Whether reaching this step requires a human decision first. The engine checks the
     # gate rather than the step doing it, so a workflow cannot forget.
     gate: str | None = None
+
+    # Where this node sits in the graph. ``None`` — the default — chains it after the step
+    # declared immediately before it, which is the linear workflow every phase so far
+    # wrote and means an existing declaration keeps its exact order with no edits. An
+    # explicit set names the dependencies, all of which must be declared earlier in the
+    # list; an empty set is a node with no dependencies at all, free to start immediately.
+    needs: frozenset[str] | None = None
 
 
 @dataclass(slots=True)
@@ -194,24 +244,93 @@ async def spend_so_far(session: AsyncSession, *, job_id: uuid.UUID) -> Decimal:
     return Decimal(str(total or 0))
 
 
+class _Outcome(StrEnum):
+    """What one node's execution came to, for the coordinator to act on."""
+
+    SUCCEEDED = "succeeded"
+    PAUSED = "paused"
+    FAILED = "failed"
+
+
+@dataclass(slots=True)
+class _NodeReport:
+    """A parallel node's result, carried back across the task boundary.
+
+    The node has already recorded its own ``job_steps`` row and committed it; what remains
+    — the job-level status transition, the shared outputs, re-raising a failure — belongs
+    to the coordinator, which is the only thing allowed to touch the control session.
+    """
+
+    step: WorkflowStep
+    outcome: _Outcome
+    output: dict[str, Any] = field(default_factory=dict)
+    pause_status: JobStatus | None = None
+    exception: Exception | None = None
+
+
 class WorkflowEngine:
-    """Runs a workflow's steps in order, recording each.
+    """Runs a workflow's graph, recording each node.
 
     **The step is the unit of publication.** Every state the engine reaches — a step
     finished, a gate hit, a cancellation honoured, a failure recorded — is committed before
     the engine moves on. See :meth:`_publish` for why that is not merely a convenience.
 
     Args:
-        steps: In execution order. A step's key is its identity for idempotency, so
-            renaming one makes a resumed run re-execute it.
-        budget: Checked before each step that projects a cost.
+        steps: The graph, in declaration order. A step's key is its identity for
+            idempotency, so renaming one makes a resumed run re-execute it. Dependencies
+            (:attr:`WorkflowStep.needs`) must name steps declared earlier — which is what
+            makes a cycle unrepresentable rather than merely checked for.
+        budget: Checked before each node that projects a cost.
+        max_parallel: The fan-out bound. Overridable *downwards* for tests; the ceiling is
+            :data:`MAX_PARALLEL_NODES` and asking for more is a definition error.
     """
 
-    __slots__ = ("_budget", "_steps")
+    __slots__ = ("_budget", "_max_parallel", "_needs", "_sequence", "_steps")
 
-    def __init__(self, steps: list[WorkflowStep], *, budget: BudgetGuard | None = None) -> None:
+    def __init__(
+        self,
+        steps: list[WorkflowStep],
+        *,
+        budget: BudgetGuard | None = None,
+        max_parallel: int = MAX_PARALLEL_NODES,
+    ) -> None:
+        if not 1 <= max_parallel <= MAX_PARALLEL_NODES:
+            message = (
+                f"max_parallel is {max_parallel}; the bound is 1 to {MAX_PARALLEL_NODES}. "
+                "The ceiling is part of the cost model and is not raised per workflow."
+            )
+            raise WorkflowDefinitionError(message, context={"max_parallel": max_parallel})
+
         self._steps = steps
         self._budget = budget
+        self._max_parallel = max_parallel
+        self._needs: dict[str, frozenset[str]] = {}
+        self._sequence: dict[str, int] = {}
+
+        declared: list[str] = []
+        for index, step in enumerate(steps):
+            if step.key in self._needs:
+                message = f"Two steps claim the key {step.key!r}."
+                raise WorkflowDefinitionError(message, context={"step": step.key})
+            if step.needs is None:
+                # The chain default: after the previously declared step. This is every
+                # linear workflow, unchanged.
+                resolved = frozenset({declared[-1]}) if declared else frozenset()
+            else:
+                unknown = step.needs - set(declared)
+                if unknown:
+                    message = (
+                        f"The step {step.key!r} needs {sorted(unknown)}, which are not "
+                        "declared earlier in the workflow. Dependencies point backwards "
+                        "in the declaration; that is what makes a cycle unrepresentable."
+                    )
+                    raise WorkflowDefinitionError(
+                        message, context={"step": step.key, "unknown": sorted(unknown)}
+                    )
+                resolved = step.needs
+            self._needs[step.key] = resolved
+            self._sequence[step.key] = index
+            declared.append(step.key)
 
     async def run(
         self,
@@ -221,46 +340,332 @@ class WorkflowEngine:
         services: dict[str, Any],
         stop_after: str | None = None,
     ) -> dict[str, dict[str, Any]]:
-        """Execute from the first incomplete step.
+        """Execute every incomplete node the target set reaches.
 
         Args:
-            stop_after: Run no further than this step. What the orchestrator uses to run up
-                to a gate and stop, rather than the workflow having to know where the gates
-                are.
+            stop_after: Run no further than this step — its ancestors and itself, nothing
+                else. What the orchestrator uses to run up to a gate and stop, rather than
+                the workflow having to know where the gates are. An unknown key is refused:
+                a typo here would silently run the whole workflow, which is the
+                spending-past-the-gate direction of wrong.
 
         Returns:
-            Every step's output, keyed by step name — including steps that were skipped
-            because they had already completed.
+            Every completed step's output, keyed by step name — including steps that were
+            skipped because they had already completed.
         """
         outputs: dict[str, dict[str, Any]] = {}
+        factory: async_sessionmaker[AsyncSession] | None = services.get("session_factory")
 
-        for sequence, step in enumerate(self._steps):
-            # Checked before each step, which is the finest granularity honestly available:
-            # a model call or an HTTP fetch already in flight cannot be interrupted, and
-            # pretending otherwise would mean reporting a run as stopped while it was still
-            # spending. See `aer.services.cancellation`.
+        pending = [step for step in self._steps if step.key in self._targets(stop_after)]
+        abandoned: set[str] = set()
+        first_failure: Exception | None = None
+        stop_scheduling = False
+
+        while pending and not stop_scheduling:
+            # Checked before each scheduling round, which is the finest granularity
+            # honestly available: a model call or an HTTP fetch already in flight cannot
+            # be interrupted, and pretending otherwise would mean reporting a run as
+            # stopped while it was still spending. See `aer.services.cancellation`.
             if await self._cancelled(session, job=job):
-                await self._cancel(session, job=job, before_step=step.key)
+                await self._cancel(session, job=job, before_step=pending[0].key)
+                return outputs
+
+            # A node whose dependency was abandoned is unsatisfiable: abandon it too, and
+            # only it — an independent branch stays pending.
+            blocked = [step for step in pending if self._needs[step.key] & abandoned]
+            for step in blocked:
+                pending.remove(step)
+                abandoned.add(step.key)
+                _log.info("workflow.step_abandoned", job_id=str(job.id), step=step.key)
+
+            ready = [step for step in pending if self._needs[step.key] <= outputs.keys()]
+            if not ready:
                 break
 
-            existing = await self._completed(session, job=job, step=step)
-            if existing is not None:
-                outputs[step.key] = existing.output_ref or {}
-                _log.debug("workflow.step_skipped", job_id=str(job.id), step=step.key)
-                if stop_after and step.key == stop_after:
-                    break
+            # Already-completed nodes cost nothing and need no scheduling decisions.
+            skipped = False
+            for step in list(ready):
+                existing = await self._completed(session, job=job, step=step)
+                if existing is not None:
+                    outputs[step.key] = existing.output_ref or {}
+                    pending.remove(step)
+                    ready.remove(step)
+                    skipped = True
+                    _log.debug("workflow.step_skipped", job_id=str(job.id), step=step.key)
+            if skipped and not ready:
                 continue
 
-            paused = await self._execute(
-                session, job=job, step=step, sequence=sequence, services=services, outputs=outputs
-            )
-            if paused:
-                break
+            if len(ready) == 1 or factory is None or self._max_parallel == 1:
+                # The serial path: today's engine, on the caller's session. Every linear
+                # workflow — a chain has one ready node at a time — stays on this path
+                # whatever services carry.
+                step = ready[0]
+                pending.remove(step)
+                paused = await self._execute(
+                    session,
+                    job=job,
+                    step=step,
+                    sequence=self._sequence[step.key],
+                    services=services,
+                    outputs=outputs,
+                )
+                if paused:
+                    return outputs
+                continue
 
-            if stop_after and step.key == stop_after:
-                break
+            reports = await self._run_wave(
+                session,
+                job=job,
+                wave=ready[: self._max_parallel],
+                factory=factory,
+                services=services,
+                outputs=outputs,
+            )
+            stop_scheduling, failure = await self._apply_reports(
+                session,
+                job=job,
+                reports=reports,
+                pending=pending,
+                outputs=outputs,
+                abandoned=abandoned,
+            )
+            if first_failure is None:
+                first_failure = failure
+
+        if first_failure is not None:
+            # Independent branches have finished and kept their work; now the run is what
+            # it is. The job-level status and the re-raise preserve the serial contract.
+            job.status = JobStatus.FAILED
+            await self._publish(session)
+            raise first_failure
 
         return outputs
+
+    async def _apply_reports(
+        self,
+        session: AsyncSession,
+        *,
+        job: Job,
+        reports: list[_NodeReport],
+        pending: list[WorkflowStep],
+        outputs: dict[str, dict[str, Any]],
+        abandoned: set[str],
+    ) -> tuple[bool, Exception | None]:
+        """Fold a drained wave back into the coordinator's state.
+
+        Returns whether scheduling must stop, and the first failure if there was one. The
+        job-level pause transition happens here, on the control session, after the wave has
+        drained — the one place it is safe.
+        """
+        stop_scheduling = False
+        failure: Exception | None = None
+        for report in reports:
+            pending.remove(report.step)
+            if report.outcome is _Outcome.SUCCEEDED:
+                outputs[report.step.key] = report.output
+            elif report.outcome is _Outcome.PAUSED:
+                stop_scheduling = True
+                job.status = report.pause_status or JobStatus.AWAITING_APPROVAL
+                await self._publish(session)
+            else:
+                abandoned.add(report.step.key)
+                if failure is None:
+                    failure = report.exception
+        return stop_scheduling, failure
+
+    def _targets(self, stop_after: str | None) -> set[str]:
+        """The nodes a run bounded by ``stop_after`` may execute."""
+        if stop_after is None:
+            return set(self._needs)
+        if stop_after not in self._needs:
+            message = (
+                f"stop_after names {stop_after!r}, which is not a step of this workflow. "
+                "Refused rather than ignored: ignoring it would run the whole workflow, "
+                "past whatever gate the caller meant to stop at."
+            )
+            raise WorkflowDefinitionError(message, context={"stop_after": stop_after})
+
+        closure: set[str] = set()
+        frontier = [stop_after]
+        while frontier:
+            key = frontier.pop()
+            if key in closure:
+                continue
+            closure.add(key)
+            frontier.extend(self._needs[key])
+        return closure
+
+    async def _run_wave(
+        self,
+        session: AsyncSession,
+        *,
+        job: Job,
+        wave: list[WorkflowStep],
+        factory: async_sessionmaker[AsyncSession],
+        services: dict[str, Any],
+        outputs: dict[str, dict[str, Any]],
+    ) -> list[_NodeReport]:
+        """Run one wave of independent nodes concurrently, each on its own session.
+
+        The wave is drained whole: whatever any node comes to, every node that started is
+        awaited to its own recorded outcome before this returns. That is the "drain, never
+        abandon" rule — and it is also what makes the coordinator's job-status transition
+        safe, because nothing is still writing when it happens.
+        """
+        in_flight = Decimal(0)
+        started: list[asyncio.Task[_NodeReport]] = []
+        reports: list[_NodeReport] = []
+
+        for step in wave:
+            if self._budget is not None and step.estimated_cost_gbp > 0:
+                try:
+                    # The node's own estimate plus everything already in flight: two
+                    # siblings each individually under the cap can jointly be over it,
+                    # and the guard only sees committed spend.
+                    await self._budget.check(
+                        session, job=job, projected_gbp=in_flight + step.estimated_cost_gbp
+                    )
+                except BudgetExceededError as exc:
+                    row = await self._step_row(
+                        session,
+                        job=job,
+                        step=step,
+                        sequence=self._sequence[step.key],
+                        outputs=outputs,
+                    )
+                    row.status = JobStatus.BUDGET_EXCEEDED
+                    row.error = exc.to_dict()
+                    row.finished_at = datetime.now(UTC)
+                    await self._publish(session)
+                    reports.append(
+                        _NodeReport(
+                            step=step,
+                            outcome=_Outcome.PAUSED,
+                            pause_status=JobStatus.BUDGET_EXCEEDED,
+                        )
+                    )
+                    # The run is pausing; starting more siblings now would be spending
+                    # into a decision that has already been taken. What has started,
+                    # drains.
+                    break
+
+            in_flight += step.estimated_cost_gbp
+            started.append(
+                asyncio.create_task(
+                    self._run_node(
+                        factory,
+                        job_id=job.id,
+                        step=step,
+                        services=services,
+                        outputs=dict(outputs),
+                    )
+                )
+            )
+
+        if started:
+            reports.extend(await asyncio.gather(*started))
+        return reports
+
+    async def _run_node(
+        self,
+        factory: async_sessionmaker[AsyncSession],
+        *,
+        job_id: uuid.UUID,
+        step: WorkflowStep,
+        services: dict[str, Any],
+        outputs: dict[str, dict[str, Any]],
+    ) -> _NodeReport:
+        """One parallel node: own session, own step row, own commit; never the job row.
+
+        The job-level transition is the coordinator's, applied after the wave drains — two
+        nodes writing ``job.status`` concurrently would be a last-writer-wins race over the
+        one row that says what this run is.
+        """
+        async with factory() as node_session:
+            job = await node_session.get(Job, job_id)
+            if job is None:  # pragma: no cover -- the coordinator holds a live job row
+                message = f"Job {job_id} vanished mid-run."
+                raise AerError(message, context={"job_id": str(job_id)})
+
+            row = await self._step_row(
+                node_session,
+                job=job,
+                step=step,
+                sequence=self._sequence[step.key],
+                outputs=outputs,
+            )
+            context = StepContext(
+                session=node_session, job=job, step=row, services=services, outputs=outputs
+            )
+            started = time.perf_counter()
+
+            try:
+                result = await step.run(context)
+            except StepPaused as paused:
+                await self._record_node_stop(
+                    node_session,
+                    row=row,
+                    status=JobStatus.AWAITING_APPROVAL,
+                    detail=paused.to_dict(),
+                )
+                return _NodeReport(
+                    step=step,
+                    outcome=_Outcome.PAUSED,
+                    pause_status=JobStatus.AWAITING_APPROVAL,
+                )
+            except BudgetExceededError as exc:
+                await self._record_node_stop(
+                    node_session,
+                    row=row,
+                    status=JobStatus.BUDGET_EXCEEDED,
+                    detail=exc.to_dict(),
+                )
+                return _NodeReport(
+                    step=step,
+                    outcome=_Outcome.PAUSED,
+                    pause_status=JobStatus.BUDGET_EXCEEDED,
+                )
+            except Exception as exc:
+                detail = (
+                    exc.to_dict()
+                    if isinstance(exc, AerError)
+                    else {"code": "unexpected_error", "message": f"{type(exc).__name__}: {exc}"}
+                )
+                row.status = JobStatus.FAILED
+                row.error = detail
+                row.finished_at = datetime.now(UTC)
+                await node_session.commit()
+                _log.error("workflow.step_failed", job_id=str(job_id), step=step.key, **detail)
+                return _NodeReport(step=step, outcome=_Outcome.FAILED, exception=exc)
+
+            row.status = JobStatus.SUCCEEDED
+            row.output_ref = result.output
+            row.cost_gbp = result.cost_gbp
+            row.finished_at = datetime.now(UTC)
+            await node_session.commit()
+
+            _log.info(
+                "workflow.step_completed",
+                job_id=str(job_id),
+                step=step.key,
+                cost_gbp=str(result.cost_gbp),
+                elapsed_ms=round((time.perf_counter() - started) * 1000, 2),
+            )
+            return _NodeReport(step=step, outcome=_Outcome.SUCCEEDED, output=result.output)
+
+    async def _record_node_stop(
+        self,
+        node_session: AsyncSession,
+        *,
+        row: JobStep,
+        status: JobStatus,
+        detail: dict[str, Any],
+    ) -> None:
+        """A parallel node's pause, recorded on its row and committed by its session."""
+        row.status = status
+        row.error = detail
+        row.finished_at = datetime.now(UTC)
+        await node_session.commit()
 
     # -- Internals -------------------------------------------------------------------------
 

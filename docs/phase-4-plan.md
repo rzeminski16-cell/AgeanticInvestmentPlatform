@@ -143,6 +143,37 @@ cancellation and gates behave as they do today; two nodes writing calculations g
 **Acceptance.** The existing e2e suite passes against the DAG engine with no workflow
 changes beyond the graph declaration.
 
+**Delivered (2026-08-06).** `WorkflowStep.needs`: ``None`` — the default — chains a step
+after the one declared before it, so every existing workflow (the vertical slice included)
+keeps its exact order with **no edits at all**; an explicit set places the node in the
+graph, and dependencies must point at earlier-declared steps, which makes a cycle
+unrepresentable rather than checked for. Waves of independent nodes run concurrently under
+the §2.5 bound of seven — a module constant, not configuration — with each node on its own
+session from ``services["session_factory"]``, because one ``AsyncSession`` must never be
+shared across tasks; without a factory the engine is byte-for-byte the serial engine, which
+is the path every fixture-session test still exercises.
+
+Three behaviours the tests observe rather than assume: concurrency itself (a high-water
+mark recorded by the nodes); **drain before stopping** (a sibling in flight when a pause,
+budget refusal or failure lands still reaches its own recorded outcome); and **a failed
+node abandons only its dependants** (the independent branch completes and keeps its work
+before the failure re-raises). The wave budget projection counts in-flight siblings — two
+nodes each individually under the cap can jointly be over it — and a refusal stops further
+starts. ``stop_after`` now runs only the target's ancestor closure, and an unknown key is
+refused rather than ignored, because ignoring it would run the whole workflow past the gate
+the caller meant to stop at.
+
+The ledger keeps its promise under concurrency: ``persist_context`` continues a job's
+sequence from the stored maximum under a per-job advisory lock, so two parallel nodes write
+distinct ranges and a replay label like ``present_value#0`` still names one row of one run.
+
+Thirteen sabotage mutations, thirteen caught — the last two after their escapes bought
+tests. Any-dependency readiness was invisible to the diamond (whole waves drain before the
+join is considered), so a staggered-depth graph now exists where the mistake starts the
+join early; and pause-then-continue on the serial path was distinguishable only in a
+parallel-shaped graph run *without* a session factory, where the paused gate's independent
+sibling is next in line and must not run — that case is now a test of its own.
+
 ---
 
 ## Task 35 — The skills schema, the frontmatter validator and the additive-only composer
