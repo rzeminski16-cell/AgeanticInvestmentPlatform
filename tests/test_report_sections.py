@@ -109,7 +109,9 @@ async def run_to_report(
     user: Any,
 ) -> Report:
     """Drive a whole run, approving both gates, and return the report it produced."""
-    for gate, step in ((GateKind.PLAN, "plan"), (GateKind.FINAL, "draft")):
+    # The FINAL hash is sealed by the red_team step since task 40 — the last step that
+    # can change what the operator is shown.
+    for gate, step in ((GateKind.PLAN, "plan"), (GateKind.FINAL, "red_team")):
         await run_service.execute(
             session,
             job=job,

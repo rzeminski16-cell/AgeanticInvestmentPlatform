@@ -50,21 +50,29 @@ ENDPOINT = "/api/calculations"
 
 @pytest.fixture
 async def clean_slate(db_engine):
-    """Empty everything these tests write, before each one.
+    """Empty everything these tests write, before each one and again afterwards.
 
     The application commits for real, so its writes outlive the test that made them.
-    Truncated at setup rather than teardown: it is what the *next* test needs, and doing
-    it here cannot contend with a transaction a finished test still holds open.
+    The setup truncation is what each test needs; the teardown one is what the *rest of
+    the suite* needs — the final test's committed company would otherwise sit in the
+    shared database as a unique-constraint violation waiting for the next file that
+    seeds the same CIK.
     """
-    async with db_engine.begin() as connection:
-        await connection.execute(text("SET LOCAL statement_timeout = '5s'"))
-        await connection.execute(
-            text(
-                "TRUNCATE calculations, assumptions, financial_facts, companies, "
-                "source_documents, artefacts, jobs, research_requests, audit_events, "
-                "users RESTART IDENTITY CASCADE"
+
+    async def scrub() -> None:
+        async with db_engine.begin() as connection:
+            await connection.execute(text("SET LOCAL statement_timeout = '5s'"))
+            await connection.execute(
+                text(
+                    "TRUNCATE calculations, assumptions, financial_facts, companies, "
+                    "source_documents, artefacts, jobs, research_requests, audit_events, "
+                    "users RESTART IDENTITY CASCADE"
+                )
             )
-        )
+
+    await scrub()
+    yield
+    await scrub()
 
 
 @pytest.fixture

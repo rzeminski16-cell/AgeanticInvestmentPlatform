@@ -40,6 +40,46 @@
   </dl>
 
   {#
+    The §2.4 trigger banner. Any one of these fired means the run paused here with a
+    warning attached, and the triggers are inside the payload hash below — an approval
+    made with the banner showing is verifiably an approval made knowing it.
+  #}
+  {% if triggers %}
+    <section
+      class="mt-8 rounded-lg border border-rose-400 bg-rose-50 p-4 dark:border-rose-700 dark:bg-rose-950"
+      id="triggers"
+    >
+      <h2 class="text-lg font-semibold tracking-tight text-rose-900 dark:text-rose-200">
+        {{ triggers | length }} escalation
+        {{ "trigger" if triggers | length == 1 else "triggers" }} fired
+      </h2>
+      <p class="mt-1 text-sm text-rose-900 dark:text-rose-200">
+        The run paused here because the conditions below held. Approving with the banner
+        showing is a recorded decision; the detail tables further down carry the evidence.
+      </p>
+      <ul class="mt-4 space-y-3">
+        {% for trigger in triggers %}
+          <li class="rounded border border-rose-300 bg-white p-3 text-sm dark:border-rose-800 dark:bg-slate-900">
+            <p class="font-medium">
+              <span class="mr-2 rounded-full bg-rose-200 px-2 py-0.5 font-mono text-xs font-semibold uppercase tracking-wide text-rose-900 dark:bg-rose-900 dark:text-rose-100">
+                {{ trigger.kind }}
+              </span>
+              {{ trigger.message }}
+            </p>
+            {% if trigger.evidence %}
+              <ul class="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-700 dark:text-slate-300">
+                {% for line in trigger.evidence %}
+                  <li>{{ line }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  {#
     The escalation banner. These are conflicts the deterministic ladder refused to settle,
     and they are inside the payload hash below — so approving with them outstanding is a
     decision that is on the record, not one made by not scrolling.
@@ -82,6 +122,221 @@
       </ul>
     </section>
   {% endif %}
+
+  {#
+    The dashboard proper: validations, coverage, disagreements, calculations and cost,
+    all rendered on the server from the run's recorded rows. Gate 2 is where §2.4 says
+    the operator sees "draft, validations, coverage, disagreements, cost, logs" — and a
+    table that needs a script to appear is a table an approval can be made without.
+  #}
+  <section class="mt-8" id="validations">
+    <h2 class="text-lg font-semibold tracking-tight">Validation results</h2>
+    {% if evaluations %}
+      <div class="mt-3 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+        <table class="w-full bg-white text-sm dark:bg-slate-900">
+          <thead class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800">
+            <tr>
+              <th class="px-3 py-2">Metric</th>
+              <th class="px-3 py-2">Score</th>
+              <th class="px-3 py-2">Threshold</th>
+              <th class="px-3 py-2">Verdict</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+            {% for row in evaluations %}
+              <tr>
+                <td class="px-3 py-2 font-mono text-xs">{{ row.metric }}</td>
+                <td class="px-3 py-2 font-mono text-xs">
+                  {{ row.value if row.value is not none else "—" }}
+                </td>
+                <td class="px-3 py-2 font-mono text-xs">
+                  {{ "≥" if row.details.get("direction") == "at_least" else "≤" }}
+                  {{ row.threshold }}
+                </td>
+                <td class="px-3 py-2">
+                  {% if row.passed is none %}
+                    <span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                      Not exercised
+                    </span>
+                  {% elif row.passed %}
+                    <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+                      Pass
+                    </span>
+                  {% else %}
+                    <span class="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800 dark:bg-rose-900 dark:text-rose-200">
+                      Fail
+                    </span>
+                  {% endif %}
+                  {% if row.details.get("advisories") %}
+                    <span class="ml-1 text-xs text-slate-500">
+                      {{ row.details["advisories"] | length }} advisory
+                    </span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% if row.passed is false and row.details.get("failures") %}
+                <tr>
+                  <td colspan="4" class="px-3 pb-2 text-xs text-rose-700 dark:text-rose-300">
+                    {% for failure in row.details["failures"][:4] %}
+                      <p>{{ failure }}</p>
+                    {% endfor %}
+                  </td>
+                </tr>
+              {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+        This run has not been validated. The validate step writes one row per metric.
+      </p>
+    {% endif %}
+  </section>
+
+  <section class="mt-8" id="coverage">
+    <h2 class="text-lg font-semibold tracking-tight">Source coverage</h2>
+    <div class="mt-3 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+      <table class="w-full bg-white text-sm dark:bg-slate-900">
+        <thead class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800">
+          <tr>
+            <th class="px-3 py-2">Section</th>
+            <th class="px-3 py-2">Sources</th>
+            <th class="px-3 py-2">Floor</th>
+            <th class="px-3 py-2">Primary</th>
+            <th class="px-3 py-2">Verdict</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+          {% for row in coverage %}
+            <tr>
+              <td class="px-3 py-2 font-mono text-xs">{{ row.name }}</td>
+              <td class="px-3 py-2 font-mono text-xs">{{ row.distinct_sources }}</td>
+              <td class="px-3 py-2 font-mono text-xs">{{ row.min_sources }}</td>
+              <td class="px-3 py-2 text-xs">
+                {% if not row.requires_primary %}
+                  not required
+                {% elif row.has_primary %}
+                  yes
+                {% else %}
+                  <span class="font-semibold text-rose-700 dark:text-rose-300">none</span>
+                {% endif %}
+              </td>
+              <td class="px-3 py-2 text-xs">
+                {% if not row.generated %}
+                  <span class="text-slate-500">not generated</span>
+                {% elif row.covered %}
+                  <span class="font-semibold text-emerald-700 dark:text-emerald-300">covered</span>
+                {% else %}
+                  <span class="font-semibold text-rose-700 dark:text-rose-300">{{ row.shortfall }}</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {% if disagreements %}
+    <section class="mt-8" id="disagreements">
+      <h2 class="text-lg font-semibold tracking-tight">Disagreements</h2>
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        Every conflict this run recorded — settled by rule, settled by hand, or still open.
+        Both positions are kept whatever the outcome.
+      </p>
+      <ul class="mt-3 space-y-3">
+        {% for row in disagreements %}
+          <li class="rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-800 dark:bg-slate-900">
+            <p class="font-medium">
+              {{ row.topic }}
+              {% if row.material %}
+                <span class="ml-2 rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-900 dark:bg-amber-800 dark:text-amber-100">
+                  Material
+                </span>
+              {% endif %}
+              <span class="ml-2 font-mono text-xs text-slate-500">
+                {{ row.kind.value }} &middot; {{ row.rule.value }} &middot; {{ row.resolution.value }}
+              </span>
+            </p>
+            <div class="mt-2 grid gap-3 sm:grid-cols-2">
+              <div class="rounded border border-slate-200 p-2 font-mono text-xs dark:border-slate-700">
+                <p class="font-semibold">A: {{ row.position_a.label }}</p>
+                <p class="mt-1 text-slate-600 dark:text-slate-400">
+                  {{ row.position_a.value }} {{ row.position_a.unit }}
+                  ({{ row.position_a.tier }})
+                </p>
+              </div>
+              <div class="rounded border border-slate-200 p-2 font-mono text-xs dark:border-slate-700">
+                <p class="font-semibold">B: {{ row.position_b.label }}</p>
+                <p class="mt-1 text-slate-600 dark:text-slate-400">
+                  {{ row.position_b.value }} {{ row.position_b.unit }}
+                  ({{ row.position_b.tier }})
+                </p>
+              </div>
+            </div>
+            <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">
+              {{ row.resolution_rationale }}
+            </p>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  {% if calculations %}
+    <section class="mt-8" id="calculations">
+      <h2 class="text-lg font-semibold tracking-tight">Calculations</h2>
+      <div class="mt-3 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+        <table class="w-full bg-white text-sm dark:bg-slate-900">
+          <thead class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800">
+            <tr>
+              <th class="px-3 py-2">Name</th>
+              <th class="px-3 py-2">Formula</th>
+              <th class="px-3 py-2">Result</th>
+              <th class="px-3 py-2">Inputs</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+            {% for row in calculations %}
+              <tr>
+                <td class="px-3 py-2 font-mono text-xs">{{ row.name }}</td>
+                <td class="px-3 py-2 font-mono text-xs">{{ row.formula }}</td>
+                <td class="px-3 py-2 font-mono text-xs">
+                  {{ row.output_value }} {{ row.output_unit }}
+                </td>
+                <td class="px-3 py-2 font-mono text-xs">{{ row.inputs | length }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+
+  <section class="mt-8" id="cost">
+    <h2 class="text-lg font-semibold tracking-tight">Cost</h2>
+    <dl class="mt-3 grid gap-4 sm:grid-cols-3">
+      <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Actual spend</dt>
+        <dd class="mt-1 font-mono text-sm">&pound;{{ cost.actual_gbp }}</dd>
+      </div>
+      <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Estimated</dt>
+        <dd class="mt-1 font-mono text-sm">
+          {% if cost.estimated_gbp is not none %}&pound;{{ cost.estimated_gbp }}{% else %}—{% endif %}
+        </dd>
+      </div>
+      <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Per-run cap</dt>
+        <dd class="mt-1 font-mono text-sm">&pound;{{ cost.cap_gbp }}</dd>
+      </div>
+    </dl>
+    <p class="mt-2 text-xs text-slate-500">
+      The banner above fires when either figure passes &pound;{{ cost_alert_gbp }} (80% of the
+      cap). The hard cap itself is enforced in code before every model step.
+    </p>
+  </section>
 
   <section class="mt-8">
     <h2 class="text-lg font-semibold tracking-tight">Sections in this draft</h2>

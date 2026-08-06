@@ -771,6 +771,31 @@ class TestTheWebPages:
             job_id, "red_team"
         )
 
+    async def test_the_review_page_renders_the_gate_two_dashboard(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        """The §2.4 surface: banner, validations, coverage, calculations and cost — all
+        rendered on the server, so an approval cannot be made without them on the page."""
+        job_id = await _to_second_gate(api, committed, driver)
+
+        page = await api.get(f"/runs/{job_id}/review")
+        assert page.status_code == 200
+
+        # The slice's executive summary genuinely cites nothing, so two §2.4 conditions
+        # hold on every run of it — the banner must fire and name them.
+        assert 'id="triggers"' in page.text
+        assert "low_source_coverage" in page.text
+        assert "material_missing_section" in page.text
+
+        assert 'id="validations"' in page.text
+        assert "citation_accuracy" in page.text
+        assert 'id="coverage"' in page.text
+        assert 'id="calculations"' in page.text
+        assert 'id="cost"' in page.text
+
+        # This run recorded no disagreements, so that section honestly says nothing.
+        assert 'id="disagreements"' not in page.text
+
     async def test_the_report_page_links_to_the_archived_download(
         self, api: Any, committed: dict, driver: Driver, db_session: Any
     ) -> None:

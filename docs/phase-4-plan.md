@@ -526,6 +526,54 @@ JavaScript.
 contradiction and planted post-dated source — both escalate, visibly, with the trigger
 named.
 
+**Delivered (2026-08-06).** The engine is pure and lives in the correctness core:
+`aer/core/escalation.py` (`mypy --strict`) holds the ten §2.4 conditions as a closed
+`TriggerKind` vocabulary in the table's own order, evaluated over row-shaped scenes —
+metric scores, section coverage verdicts, conflict rows, policy clamps, source flags and
+a cost picture — with the thresholds as named constants (confidence floor 0.5, cost alert
+at 80% of cap). No model is consulted and no I/O happens, which is load-bearing rather
+than tidy: **the fired triggers ride inside the gate-2 payload, inside the approval
+hash**, so the hash the red-team step seals and the hash the review page computes live
+must agree, and they can only agree if the triggers are a pure function of rows that are
+frozen by then. "Approved with the look-ahead banner showing" is thereby a verifiable
+statement, and a trigger that fires after sealing invalidates the stale approval — which
+is correct, because the evidence changed.
+
+The service (`aer/services/escalation.py`) only loads: evaluations rows (with advisory
+*disputes* — a validator locating an excerpt the verifier failed, or dating a source the
+platform holds undated — feeding the uncertainty trigger), per-section coverage through
+the evaluations service's newly public `section_coverage_for_job`, the disagreements
+ladder (a conflict a person has already settled does not re-raise the banner; one a rule
+settled does), planned pins' clamps, source flags, and the same `costs` sum the budget
+guard enforces. The allowlist half of "suspicious source" stays where it is enforced — in
+`aer.fetch`, which refuses off-policy hosts before a source row can exist — so the
+trigger reads the injection flag, and the docstring says why that is the whole of it.
+
+An undecided final gate now pauses with the fired triggers in its message and context, so
+the console names them before anyone opens the review page; a decided gate falls through
+to the ordinary approval check. The review page is the full §2.4 dashboard,
+server-rendered with no script: the trigger banner (kind, message, evidence), the
+validation table with pass/fail/not-exercised verdicts and named failures, the coverage
+matrix per section against its own floor, every disagreement side by side with both
+positions, the calculations with formulae, and cost against estimate and cap. The plain
+slice honestly fires two triggers — its executive summary cites nothing — and the tests
+lean on that: the pause names them, the sealed hash covers them, the page shows them.
+Forty-one tests (ten-trigger isolation matrix, clean scenes, service loads, the
+all-ten-at-once ordering pin, slice end-to-end) plus the planted-contradiction fixture
+asserting the thesis banner and a page test for every dashboard section. Sixteen sabotage
+mutations — thresholds slipping, settlements forgotten, triggers vanishing from payload,
+pause or page — all caught after the first pass exposed an unpinned trigger order and the
+ordering test grew to cover the whole vocabulary.
+
+Two pre-existing suite failures surfaced and were repaired in passing: task 40's hash
+move had missed the FINAL-gate approvals in `test_report_sections` and
+`test_unmapped_gate` (both still read the draft step's hash, which no longer exists), and
+`test_calc_api`'s truncate-at-setup fixture left its final test's committed company in
+the shared database, where the next file to seed the same CIK hit a unique-constraint
+violation — it now truncates at teardown as well. The unit suite is fully green
+(`just test`, 3354 passed); the three browser flakes in `tests/e2e` remain the
+documented pass-alone kind and pass alone.
+
 ---
 
 ## Task 42 — The adversarial corpora, and containment in the blocking gate

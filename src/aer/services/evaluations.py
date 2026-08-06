@@ -74,7 +74,7 @@ from aer.extract import extract_text
 from aer.sections.registry import sections_for_job
 from aer.verify.citations import verify_job_citations
 
-__all__ = ["MAX_ASSISTS", "evaluate_run", "evaluations_for_job"]
+__all__ = ["MAX_ASSISTS", "evaluate_run", "evaluations_for_job", "section_coverage_for_job"]
 
 _log = structlog.get_logger("aer.services.evaluations")
 
@@ -177,6 +177,20 @@ async def evaluations_for_job(session: AsyncSession, job_id: uuid.UUID) -> list[
         for row in await session.scalars(select(Evaluation).where(Evaluation.job_id == job_id))
     }
     return [found[metric.value] for metric in RUN_TIME if metric.value in found]
+
+
+async def section_coverage_for_job(
+    session: AsyncSession, *, job: Job, request: ResearchRequest
+) -> list[SectionCoverage]:
+    """Each of a run's sections held against its own evidence floor, freshly computed.
+
+    The same rows the coverage metric is measured over, exposed because the escalation
+    engine and the gate-2 coverage matrix both need the per-section verdicts, not just
+    the ratio — and a second derivation of "what stands behind this section" would be a
+    place for the two to disagree.
+    """
+    rows = await _load(session, job=job, request=request)
+    return _coverage_rows(rows)
 
 
 # ==========================================================================================

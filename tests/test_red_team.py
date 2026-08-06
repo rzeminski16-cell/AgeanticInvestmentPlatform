@@ -29,6 +29,7 @@ from aer.agents.registry import resolve_role
 from aer.config import Settings
 from aer.core.disagreement import DisagreementKind, ResolutionOutcome, ResolutionRule
 from aer.core.enums import ClaimKind, FactBasis, GateKind, JobStatus, Provider, SourceTier
+from aer.core.escalation import TriggerKind
 from aer.db.models import (
     Artefact,
     Company,
@@ -47,6 +48,7 @@ from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
 from aer.services.citations import record_claim
 from aer.services.disagreements import escalations_for_job, settle_by_hand
+from aer.services.escalation import triggers_for_job
 from aer.services.red_team import MATERIAL_SEVERITY, run_red_team
 from aer.storage.local import LocalArtefactStore
 from tests.ledger_fixtures import record_valuation_ledger
@@ -401,6 +403,18 @@ class TestThePlantedContradictionIsChallenged:
     async def test_the_call_travelled_the_batch_path(self, outcome: dict[str, Any]) -> None:
         calls = [c for c in outcome["provider"].calls if c["schema"] == "RedTeamReport"]
         assert calls[0].get("batch") is True
+
+    async def test_the_escalation_engine_raises_the_thesis_banner(
+        self, outcome: dict[str, Any]
+    ) -> None:
+        """The Phase 4 acceptance closed end to end: the planted contradiction lands as
+        a named §2.4 trigger where gate 2 renders the banner (task 41)."""
+        fired = await triggers_for_job(
+            outcome["session"], job=outcome["job"], request=outcome["request"]
+        )
+        thesis = next((t for t in fired if t.kind is TriggerKind.THESIS_DISAGREEMENT), None)
+        assert thesis is not None
+        assert any(line.startswith("Red team (growth)") for line in thesis.evidence)
 
 
 class TestRejectionAndSkipping:

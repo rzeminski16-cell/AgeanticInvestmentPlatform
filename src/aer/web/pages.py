@@ -39,6 +39,7 @@ from starlette.status import (
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
 from aer.calc.comps import MULTIPLE_DEFINITIONS, CompsTable
 from aer.core.enums import Decision, GateKind, JobStatus
+from aer.core.escalation import COST_ALERT_RATIO
 from aer.db.models import (
     Calculation,
     Claim,
@@ -64,6 +65,9 @@ from aer.services.comps import (
     peer_set_payload,
     peer_set_required,
 )
+from aer.services.disagreements import disagreements_for_job
+from aer.services.escalation import cost_scene_for_job
+from aer.services.evaluations import evaluations_for_job, section_coverage_for_job
 from aer.services.sectors import (
     CLASSIFY_STEP,
     classification_payload,
@@ -477,6 +481,22 @@ async def draft_review(
     # on the thing itself.
     preview = await render_markdown(session, job=job, request=research_request, company=company)
 
+    # The rest of the §2.4 dashboard: every row the operator needs to judge the draft,
+    # read from the same recorded state the triggers in the payload were computed over.
+    # Server-rendered like everything else on this page — a gate that needs a script to
+    # show its warnings is a gate that can be approved without seeing them.
+    evaluations = await evaluations_for_job(session, job.id)
+    coverage = await section_coverage_for_job(session, job=job, request=research_request)
+    disagreements = await disagreements_for_job(session, job.id)
+    calculations = list(
+        await session.scalars(
+            select(Calculation)
+            .where(Calculation.job_id == job.id)
+            .order_by(Calculation.created_at, Calculation.id)
+        )
+    )
+    cost = await cost_scene_for_job(session, job=job, request=research_request)
+
     decided = await _decision_for(session, job_id=job_id, gate=GateKind.FINAL)
     token = new_csrf_token(settings)
 
@@ -487,6 +507,13 @@ async def draft_review(
             "job": job,
             "sections": payload["sections"],
             "escalations": payload["escalations"],
+            "triggers": payload["triggers"],
+            "evaluations": evaluations,
+            "coverage": coverage,
+            "disagreements": disagreements,
+            "calculations": calculations,
+            "cost": cost,
+            "cost_alert_gbp": cost.cap_gbp * COST_ALERT_RATIO,
             "markdown": preview.markdown,
             "footnote_count": preview.footnote_count,
             "payload_hash": payload_hash_for(payload),

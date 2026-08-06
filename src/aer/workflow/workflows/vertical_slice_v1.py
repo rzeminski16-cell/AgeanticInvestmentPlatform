@@ -39,6 +39,7 @@ from aer.calc.basic import cagr
 from aer.calc.comps import MultipleBasis, WithheldComps, align_peers
 from aer.calc.units import SourceRef, money
 from aer.core.enums import Decision, FactBasis, GateKind, JobStatus, Provider, SourceTier
+from aer.core.escalation import FiredTrigger
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.core.schemas.request import ResearchRequestRead
 from aer.db.models import (
@@ -46,6 +47,7 @@ from aer.db.models import (
     Calculation,
     Company,
     FinancialFact,
+    Job,
     Report,
     ResearchPlan,
     ResearchRequest,
@@ -70,6 +72,7 @@ from aer.services.comps import (
     propose_peers_from_sic,
 )
 from aer.services.disagreements import escalations_for_job
+from aer.services.escalation import triggers_for_job
 from aer.services.evaluations import evaluate_run
 from aer.services.facts import persist_facts, upsert_company
 from aer.services.red_team import run_red_team
@@ -521,7 +524,54 @@ async def _gate_final(context: StepContext) -> StepResult:
     person, with a different message.
     """
     await _refuse_unsupported_evidence(context)
+    await _pause_naming_triggers(context)
     return await _require_approval(context, gate=GateKind.FINAL, of_step="red_team")
+
+
+async def _pause_naming_triggers(context: StepContext) -> None:
+    """Pause an undecided run with the fired §2.4 triggers in the message.
+
+    §2.4 says any fired trigger "pauses the run and raises a banner at Gate 2". The run
+    pauses at gate 2 regardless — the final gate always needs a person — so what a fired
+    trigger changes is what the pause *says*: the message names the conditions, and the
+    console shows them before anyone opens the review page. A clean run falls through to
+    :func:`_require_approval`'s ordinary message; a decided run falls through so the
+    decision, not the banner, determines what happens next.
+
+    Raises:
+        StepPaused: The gate is undecided and at least one trigger fired.
+    """
+    approval = await context.session.scalar(
+        select(Approval).where(
+            Approval.request_id == context.job.request_id,
+            Approval.gate == GateKind.FINAL,
+            Approval.job_id == context.job.id,
+        )
+    )
+    if approval is not None:
+        return
+
+    request = await _request_for(context)
+    fired = await triggers_for_job(context.session, job=context.job, request=request)
+    if not fired:
+        return
+
+    names = ", ".join(trigger.kind.value for trigger in fired)
+    plural = "s" if len(fired) != 1 else ""
+    message = (
+        f"This run is waiting for the final gate, and {len(fired)} escalation "
+        f"trigger{plural} raised the banner: {names}. Nothing further happens, and "
+        "nothing further is spent, until somebody approves or rejects it with the "
+        "banner in view."
+    )
+    raise StepPaused(
+        message,
+        gate=GateKind.FINAL.value,
+        context={
+            "job_id": str(context.job.id),
+            "triggers": [trigger.kind.value for trigger in fired],
+        },
+    )
 
 
 async def _refuse_unsupported_evidence(context: StepContext) -> None:
@@ -1040,9 +1090,21 @@ async def final_gate_payload(session: AsyncSession, *, job_id: uuid.UUID) -> dic
     conflicts outstanding" is a verifiable statement afterwards rather than a claim about
     what a page happened to render. It also means settling one invalidates a stale approval
     of the older draft, which is correct: the evidence changed.
+
+    **The §2.4 triggers ride inside the hash on the same argument** (task 41). "Approved
+    with the look-ahead banner showing" must be verifiable, and a trigger outside the hash
+    could fire after the approval without invalidating it. The trigger engine is pure over
+    rows that are frozen once the red-team step has run, so the hash sealed there and the
+    hash the review page computes live agree — a property the tests hold, not assume.
     """
     sections = await sections_for_job(session, job_id)
     escalations = await escalations_for_job(session, job_id)
+    triggers: tuple[FiredTrigger, ...] = ()
+    job = await session.get(Job, job_id)
+    if job is not None:
+        request = await session.get(ResearchRequest, job.request_id)
+        if request is not None:
+            triggers = await triggers_for_job(session, job=job, request=request)
     return {
         # Status and the degradation note ride inside the hash: a failed custom section
         # and an insufficiency banner are part of what the operator approves, and a
@@ -1069,6 +1131,7 @@ async def final_gate_payload(session: AsyncSession, *, job_id: uuid.UUID) -> dic
             }
             for row in escalations
         ],
+        "triggers": [trigger.as_record() for trigger in triggers],
     }
 
 
