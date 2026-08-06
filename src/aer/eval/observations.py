@@ -12,10 +12,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
+from decimal import Decimal
 
 __all__ = [
     "CitationObservation",
+    "CompletenessObservation",
     "InjectionObservation",
+    "ReplayObservation",
     "SourceObservation",
     "UnitObservation",
 ]
@@ -144,3 +147,68 @@ class UnitObservation:
     def is_violation(self) -> bool:
         """A mismatch that produced a value instead of an error."""
         return not self.compatible and not self.raised
+
+
+@dataclass(frozen=True, slots=True)
+class ReplayObservation:
+    """One stored calculation re-run from its own record.
+
+    ``expected`` is what the ledger holds; ``replayed`` is what re-executing the named
+    function on the stored inputs produced now. ``error`` carries the reason where the
+    replay could not run at all — a function that no longer exists, an input that cannot be
+    reconstructed — which is a failure of the record, not a case to skip.
+    """
+
+    name: str
+    expected: Decimal
+    expected_unit: str
+    replayed: Decimal | None
+    replayed_unit: str | None
+    error: str | None = None
+
+    @property
+    def delta(self) -> Decimal:
+        """Relative distance from the stored figure. Infinite where nothing replayed.
+
+        Infinite rather than absent, so a record that cannot be re-run fails a threshold
+        instead of vanishing from the maximum.
+        """
+        from aer.eval.replay import relative_delta  # noqa: PLC0415 -- avoids a module cycle
+
+        if self.replayed is None:
+            return Decimal("Infinity")
+        return relative_delta(self.expected, self.replayed)
+
+    @property
+    def unit_matches(self) -> bool:
+        """Whether the replay produced the stored unit.
+
+        A replay that reproduces the number in a different unit has not reproduced the
+        calculation — 0.05 pure and 0.05 USD are different claims with the same digits.
+        """
+        return self.replayed_unit == self.expected_unit
+
+
+@dataclass(frozen=True, slots=True)
+class CompletenessObservation:
+    """One calculation's assumption inputs, resolved against the assumptions table as it
+    stands now.
+
+    ``unresolved`` are cited ids that no longer match a row; ``unconfirmed`` are rows that
+    exist but nobody has (or any longer has) agreed to. Re-proposing an assumption withdraws
+    its approval, so the second set is how a report whose basis was pulled out from under it
+    gets noticed.
+    """
+
+    name: str
+    assumption_ids: tuple[str, ...]
+    unresolved: tuple[str, ...] = ()
+    unconfirmed: tuple[str, ...] = ()
+
+    @property
+    def rests_on_assumptions(self) -> bool:
+        return bool(self.assumption_ids)
+
+    @property
+    def is_complete(self) -> bool:
+        return not self.unresolved and not self.unconfirmed

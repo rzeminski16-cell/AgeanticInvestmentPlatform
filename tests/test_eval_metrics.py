@@ -20,16 +20,20 @@ import pytest
 from aer.eval import (
     THRESHOLDS,
     CitationObservation,
+    CompletenessObservation,
     Direction,
     InjectionObservation,
     Metric,
+    ReplayObservation,
     SourceObservation,
     UnitObservation,
+    assumption_completeness,
     citation_accuracy,
     evaluate_all,
     hallucinated_citation_rate,
     injection_resistance,
     look_ahead_recall,
+    numerical_consistency,
     temporal_compliance,
     unit_integrity,
 )
@@ -44,6 +48,39 @@ def _citation(name: str, *, genuine: bool, verified: bool) -> CitationObservatio
 
 def _source(name: str, *, published: date | None, admitted: bool) -> SourceObservation:
     return SourceObservation(name=name, published=published, as_of=AS_OF, admitted=admitted)
+
+
+def _replay(
+    name: str,
+    *,
+    expected: str,
+    replayed: str | None,
+    unit: str = "USD",
+    replayed_unit: str | None = None,
+    error: str | None = None,
+) -> ReplayObservation:
+    return ReplayObservation(
+        name=name,
+        expected=Decimal(expected),
+        expected_unit=unit,
+        replayed=Decimal(replayed) if replayed is not None else None,
+        replayed_unit=(
+            replayed_unit if replayed_unit is not None else (unit if replayed is not None else None)
+        ),
+        error=error,
+    )
+
+
+def _completeness(
+    name: str,
+    *,
+    cites: tuple[str, ...] = (),
+    unresolved: tuple[str, ...] = (),
+    unconfirmed: tuple[str, ...] = (),
+) -> CompletenessObservation:
+    return CompletenessObservation(
+        name=name, assumption_ids=cites, unresolved=unresolved, unconfirmed=unconfirmed
+    )
 
 
 class TestCitationAccuracy:
@@ -286,6 +323,118 @@ class TestUnitIntegrity:
             unit_integrity([UnitObservation(name="usd + usd", compatible=True, raised=False)])
 
 
+class TestNumericalConsistency:
+    def test_exact_replays_score_zero(self):
+        result = numerical_consistency(
+            [
+                _replay("wacc#0", expected="0.08625", replayed="0.08625", unit="pure"),
+                _replay("value_per_share#1", expected="7", replayed="7", unit="USD/shares"),
+            ]
+        )
+
+        assert result.value == 0
+        assert result.passed
+
+    def test_it_reports_the_maximum_not_the_mean(self):
+        # One badly wrong calculation must not hide behind fifty perfect ones. Averaged over
+        # the corpus below the drift is 0.002 and would pass; the maximum is 0.01 and fails.
+        observations = [_replay(f"fine#{i}", expected="100", replayed="100") for i in range(4)]
+        observations.append(_replay("drifted#4", expected="100", replayed="101"))
+
+        result = numerical_consistency(observations)
+
+        assert result.value == Decimal("0.01000000")
+        assert not result.passed
+        assert "drifted#4" in result.describe()
+
+    def test_a_drift_inside_the_threshold_passes(self):
+        result = numerical_consistency([_replay("close#0", expected="1000", replayed="1001")])
+
+        assert result.value == Decimal("0.00100000")
+        assert result.passed
+
+    def test_a_record_that_cannot_be_replayed_is_infinite_not_skipped(self):
+        # Skipping would mean the metric measures only the records that still work — a gate
+        # passing on the strength of what it did not check.
+        result = numerical_consistency(
+            [
+                _replay("fine#0", expected="100", replayed="100"),
+                _replay(
+                    "gone#1",
+                    expected="100",
+                    replayed=None,
+                    error="RegistryError: no traced function is named 'gone'",
+                ),
+            ]
+        )
+
+        assert not result.value.is_finite()
+        assert not result.passed
+        assert "did not replay" in result.describe()
+
+    def test_a_unit_mismatch_fails_even_with_matching_digits(self):
+        # 0.05 pure and 0.05 USD are different claims with the same digits.
+        result = numerical_consistency(
+            [_replay("recoined#0", expected="0.05", replayed="0.05", replayed_unit="pure")]
+        )
+
+        assert not result.passed
+        assert "replayed in pure" in result.describe()
+
+    def test_a_small_real_drift_does_not_round_to_a_clean_pass(self):
+        # At the four places the share metrics use, 0.00004 rounds to zero and the metric
+        # would report a perfect replay of arithmetic that moved. Deltas keep eight places.
+        result = numerical_consistency([_replay("drift#0", expected="100000", replayed="100004")])
+
+        assert result.value == Decimal("0.00004000")
+        assert result.value > 0
+
+    def test_an_empty_corpus_raises(self):
+        with pytest.raises(EmptyCorpusError):
+            numerical_consistency([])
+
+
+class TestAssumptionCompleteness:
+    def test_confirmed_assumptions_score_one(self):
+        result = assumption_completeness(
+            [
+                _completeness("terminal#0", cites=("a-1",)),
+                _completeness("facts_only#1"),
+            ]
+        )
+
+        assert result.value == Decimal("1.0000")
+        assert result.passed
+
+    def test_an_unconfirmed_assumption_fails(self):
+        # Re-proposing withdraws approval, so this is the state a calculation lands in when
+        # its basis was changed after it ran.
+        result = assumption_completeness(
+            [_completeness("terminal#0", cites=("a-1",), unconfirmed=("a-1",))]
+        )
+
+        assert not result.passed
+        assert "unconfirmed assumption" in result.describe()
+
+    def test_an_assumption_that_no_longer_resolves_fails(self):
+        result = assumption_completeness(
+            [_completeness("terminal#0", cites=("a-1",), unresolved=("a-1",))]
+        )
+
+        assert not result.passed
+        assert "no longer resolve" in result.describe()
+
+    def test_a_corpus_that_exercises_no_assumptions_raises(self):
+        # Calculations built purely from facts are trivially complete. A corpus of only
+        # those would score 100% and prove nothing about the rule.
+        with pytest.raises(EmptyCorpusError):
+            assumption_completeness([_completeness("facts_only#0")])
+
+    def test_an_empty_corpus_raises(self):
+        with pytest.raises(EmptyCorpusError):
+            assumption_completeness([])
+
+
 class TestTheThresholds:
     def test_every_metric_has_one(self):
         assert set(THRESHOLDS) == set(Metric)
@@ -303,7 +452,14 @@ class TestTheThresholds:
         assert threshold == 0
         assert direction is Direction.AT_MOST
 
-    @pytest.mark.parametrize("metric", [Metric.TEMPORAL_COMPLIANCE, Metric.LOOK_AHEAD_RECALL])
+    @pytest.mark.parametrize(
+        "metric",
+        [
+            Metric.TEMPORAL_COMPLIANCE,
+            Metric.LOOK_AHEAD_RECALL,
+            Metric.ASSUMPTION_COMPLETENESS,
+        ],
+    )
     def test_the_rates_that_must_be_total_are_total(self, metric):
         threshold, direction = THRESHOLDS[metric]
         assert threshold == 1
@@ -311,6 +467,13 @@ class TestTheThresholds:
 
     def test_citation_accuracy_matches_the_plan(self):
         assert THRESHOLDS[Metric.CITATION_ACCURACY][0] == Decimal("0.98")
+
+    def test_numerical_consistency_matches_the_plan(self):
+        # §2.10: max relative delta on independent recomputation < 0.5%. The golden corpus
+        # is held to 0.01% separately, in tests/test_calc_golden.py.
+        threshold, direction = THRESHOLDS[Metric.NUMERICAL_CONSISTENCY]
+        assert threshold == Decimal("0.005")
+        assert direction is Direction.AT_MOST
 
     def test_a_rate_just_above_zero_does_not_round_to_a_pass(self):
         # 1 in 57 is 0.0175. Quantised to two places it would be 0.02 and still fail; quantised
@@ -336,7 +499,10 @@ class TestEvaluateAll:
             ],
             injections=[InjectionObservation(name="payload", contained=True)],
             units=[UnitObservation(name="usd + gbp", compatible=False, raised=True)],
+            replays=[_replay("wacc#0", expected="0.08625", replayed="0.08625", unit="pure")],
+            completeness=[_completeness("terminal#0", cites=("a-1",))],
         )
 
         assert [result.metric for result in results] == list(Metric)
+        assert len(results) == 8
         assert all(result.passed for result in results)

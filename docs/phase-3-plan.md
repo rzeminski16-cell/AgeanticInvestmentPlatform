@@ -624,6 +624,31 @@ introducing one — the practice used throughout Phases 1 and 2.
 **Acceptance.** All 30 golden calculations within 0.01%; the gate now has eight blocking metrics
 and a regression in any of them is red.
 
+**Delivered (2026-08-06).** `aer/eval/replay.py` (the harness), the two metrics in
+`aer/eval/metrics.py`, `tests/fixtures/calc/golden.json` (thirty hand-computed answers in the
+stored-record shape, one per calculation, all ten calc modules represented and the coverage
+asserted), and the deliberate regressions in `tests/test_eval_replay.py`: a corrupted stored
+output, a stored function name the code no longer has, and a re-proposed assumption each turn
+their metric red.
+
+**A golden case is a stored row, not a test function.** The corpus is written in exactly the
+shape the `calculations` table persists and replayed through the same harness that replays a
+live run — so the thirty answers prove the harness's reconstruction (sequence inputs
+reassembled, JSONB-flattened enums coerced back) at the same time as the arithmetic.
+
+Two design points worth keeping: the registry of traced functions is **derived** from the calc
+modules' own `calculation_name` attributes, refusing duplicates, because a hand-kept mapping
+would silently fall behind; and a record that cannot be re-run scores **infinite** drift rather
+than being skipped, because a metric that measures only the records that still work passes on
+the strength of what it did not check.
+
+The sabotage pass ran seventeen mutations; sixteen are caught (one — the rebuilt inputs
+inventing their own sources — escaped first time and now has a test pinning the documented
+property). The seventeenth, dropping `sequence` from the replay query's ORDER BY, is the same
+defensive-only tie-break task 31 examined: rows in one transaction share `created_at` and
+return in insertion order in practice, and the labels carry the stored sequence regardless, so
+no deterministic test can distinguish the mutation. Left untested deliberately, as there.
+
 **Closes Phase 3.**
 
 ---

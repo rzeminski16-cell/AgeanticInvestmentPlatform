@@ -1,0 +1,288 @@
+{
+  "_comment": [
+    "Thirty known-answer calculations, one per row, hand-computed and never generated.",
+    "Each entry is the stored-record shape a `calculations` row carries — the same shape",
+    "`aer.eval.replay.replay` reads — so a golden case exercises the replay harness itself",
+    "against an answer a person worked out on paper. Values are chosen to be exact in",
+    "decimal arithmetic so a failure is a code change, never a rounding argument.",
+    "Every calc module in CALC_MODULES is represented; the coverage test enforces it."
+  ],
+  "cases": [
+    {
+      "name": "growth_rate",
+      "inputs": [
+        {"name": "start", "value": "1000", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "end", "value": "1150", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "0.15", "unit": "pure"}
+    },
+    {
+      "name": "cagr",
+      "inputs": [
+        {"name": "start", "value": "1000", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "end", "value": "1331", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {"years": 3},
+      "expected": {"value": "0.1", "unit": "pure"}
+    },
+    {
+      "name": "ratio",
+      "inputs": [
+        {"name": "numerator", "value": "250", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "denominator", "value": "1000", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "0.25", "unit": "pure"}
+    },
+    {
+      "name": "margin",
+      "inputs": [
+        {"name": "part", "value": "200", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "whole", "value": "800", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "0.25", "unit": "pure"}
+    },
+    {
+      "name": "weighted_average",
+      "inputs": [
+        {"name": "values[0]", "value": "10", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "values[1]", "value": "20", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "weights[0]", "value": "1", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "weights[1]", "value": "3", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "17.5", "unit": "USD"}
+    },
+    {
+      "name": "ebitda",
+      "inputs": [
+        {"name": "operating_income", "value": "300", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "depreciation", "value": "100", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "400", "unit": "USD"}
+    },
+    {
+      "name": "net_debt",
+      "inputs": [
+        {"name": "total_debt", "value": "500", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "cash", "value": "200", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "300", "unit": "USD"}
+    },
+    {
+      "name": "invested_capital",
+      "inputs": [
+        {"name": "total_debt", "value": "500", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "equity", "value": "700", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "cash", "value": "200", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "1000", "unit": "USD"}
+    },
+    {
+      "name": "rate_from_percent",
+      "inputs": [
+        {"name": "quoted", "value": "4.25", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "0.0425", "unit": "pure"}
+    },
+    {
+      "name": "cost_of_equity",
+      "inputs": [
+        {"name": "risk_free", "value": "0.04", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "beta", "value": "1.2", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "equity_risk_premium", "value": "0.05", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "0.1", "unit": "pure"}
+    },
+    {
+      "name": "after_tax_cost_of_debt",
+      "inputs": [
+        {"name": "cost_of_debt", "value": "0.06", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "tax_rate", "value": "0.25", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "0.045", "unit": "pure"}
+    },
+    {
+      "name": "effective_tax_rate",
+      "inputs": [
+        {"name": "income_tax_expense", "value": "25", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "pre_tax_income", "value": "100", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "0.25", "unit": "pure"}
+    },
+    {
+      "name": "wacc",
+      "inputs": [
+        {"name": "cost_of_equity", "value": "0.10", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "after_tax_cost_of_debt", "value": "0.045", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "equity_weight", "value": "0.75", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "debt_weight", "value": "0.25", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {"equity_basis": "market"},
+      "expected": {"value": "0.08625", "unit": "pure"}
+    },
+    {
+      "name": "projected_revenue",
+      "inputs": [
+        {"name": "prior_revenue", "value": "1000", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "growth", "value": "0.1", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "1100", "unit": "USD"}
+    },
+    {
+      "name": "nopat_from_ebit",
+      "inputs": [
+        {"name": "ebit", "value": "220", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "tax_rate", "value": "0.25", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "165", "unit": "USD"}
+    },
+    {
+      "name": "free_cash_flow",
+      "inputs": [
+        {"name": "nopat", "value": "165", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "depreciation", "value": "55", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "capex", "value": "88", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "working_capital_change", "value": "10", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "122", "unit": "USD"}
+    },
+    {
+      "name": "discount_factor",
+      "inputs": [
+        {"name": "wacc", "value": "0.25", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {"year": 2},
+      "expected": {"value": "0.64", "unit": "pure"}
+    },
+    {
+      "name": "present_value",
+      "inputs": [
+        {"name": "amount", "value": "100", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "factor", "value": "0.9", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "90", "unit": "USD"}
+    },
+    {
+      "name": "gordon_terminal_value",
+      "inputs": [
+        {"name": "final_cash_flow", "value": "100", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "wacc", "value": "0.10", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "terminal_growth", "value": "0.02", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "1275", "unit": "USD"}
+    },
+    {
+      "name": "exit_multiple_terminal_value",
+      "inputs": [
+        {"name": "terminal_ebitda", "value": "200", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "multiple", "value": "6", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "1200", "unit": "USD"}
+    },
+    {
+      "name": "value_per_share",
+      "inputs": [
+        {"name": "equity_value", "value": "700", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "shares", "value": "100", "unit": "shares", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {"method": "gordon_growth"},
+      "expected": {"value": "7", "unit": "USD/shares"}
+    },
+    {
+      "name": "multiple",
+      "inputs": [
+        {"name": "numerator", "value": "1200", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "denominator", "value": "100", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {"basis": "ttm"},
+      "expected": {"value": "12", "unit": "pure"}
+    },
+    {
+      "name": "market_enterprise_value",
+      "inputs": [
+        {"name": "market_capitalisation", "value": "1000", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "net_debt", "value": "200", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "1200", "unit": "USD"}
+    },
+    {
+      "name": "price_in_major_units",
+      "inputs": [
+        {"name": "quoted", "value": "250", "unit": "GBX/shares", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "2.5", "unit": "GBP/shares"}
+    },
+    {
+      "name": "market_capitalisation",
+      "inputs": [
+        {"name": "price", "value": "4", "unit": "USD/shares", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "shares", "value": "25", "unit": "shares", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "100", "unit": "USD"}
+    },
+    {
+      "name": "beta",
+      "inputs": [
+        {"name": "subject_market_covariance", "value": "0.02", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "market_variance", "value": "0.01", "unit": "pure", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {"frequency": "monthly", "observations": 30},
+      "expected": {"value": "2", "unit": "pure"}
+    },
+    {
+      "name": "fx_convert",
+      "inputs": [
+        {"name": "amount", "value": "100", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "rate", "value": "0.8", "unit": "GBP/USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {"into": "GBP"},
+      "expected": {"value": "80", "unit": "GBP"}
+    },
+    {
+      "name": "subtotal_sum",
+      "inputs": [
+        {"name": "a", "value": "300", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "b", "value": "100", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "400", "unit": "USD"}
+    },
+    {
+      "name": "cash_conversion",
+      "inputs": [
+        {"name": "operating_cash_flow", "value": "120", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "net_income", "value": "100", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "1.2", "unit": "pure"}
+    },
+    {
+      "name": "margin_of",
+      "inputs": [
+        {"name": "line", "value": "200", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}},
+        {"name": "revenue", "value": "800", "unit": "USD", "source": {"kind": "fact", "id": "golden", "label": "hand-computed"}}
+      ],
+      "parameters": {},
+      "expected": {"value": "0.25", "unit": "pure"}
+    }
+  ]
+}

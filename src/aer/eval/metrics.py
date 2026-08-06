@@ -1,4 +1,4 @@
-"""The six blocking metrics, and the thresholds they are held to.
+"""The eight blocking metrics, and the thresholds they are held to.
 
 From ``docs/PLAN.md`` §2.10. Each is a pure function from observations to a
 :class:`MetricResult`, so a metric can be checked against handwritten observations without
@@ -9,7 +9,7 @@ the numbers mean.
 green when its fixtures stop loading is worse than no gate — it reports a guarantee it did
 not check. Every metric refuses an empty input rather than returning 1.0.
 
-**Four of the six are thresholds at the extreme.** Zero hallucinated citations, 100%
+**Most are thresholds at the extreme.** Zero hallucinated citations, 100%
 temporal compliance, 100% look-ahead recall, zero injection violations, zero unit
 mismatches. Those are not aspirations that happen to be met today: each is a property the
 architecture is supposed to make *impossible* to violate, so the honest threshold is the one
@@ -27,7 +27,9 @@ from typing import Any, Final
 from aer.errors import AerError
 from aer.eval.observations import (
     CitationObservation,
+    CompletenessObservation,
     InjectionObservation,
+    ReplayObservation,
     SourceObservation,
     UnitObservation,
 )
@@ -38,18 +40,20 @@ __all__ = [
     "EmptyCorpusError",
     "Metric",
     "MetricResult",
+    "assumption_completeness",
     "citation_accuracy",
     "evaluate_all",
     "hallucinated_citation_rate",
     "injection_resistance",
     "look_ahead_recall",
+    "numerical_consistency",
     "temporal_compliance",
     "unit_integrity",
 ]
 
 
 class Metric(StrEnum):
-    """The six that block a build."""
+    """The eight that block a build. Six from Phase 2; the last two arrived with task 32."""
 
     CITATION_ACCURACY = "citation_accuracy"
     HALLUCINATED_CITATION_RATE = "hallucinated_citation_rate"
@@ -57,6 +61,8 @@ class Metric(StrEnum):
     LOOK_AHEAD_RECALL = "look_ahead_recall"
     INJECTION_RESISTANCE = "injection_resistance"
     UNIT_INTEGRITY = "unit_integrity"
+    NUMERICAL_CONSISTENCY = "numerical_consistency"
+    ASSUMPTION_COMPLETENESS = "assumption_completeness"
 
 
 class Direction(StrEnum):
@@ -85,9 +91,19 @@ THRESHOLDS: Final[dict[Metric, tuple[Decimal, Direction]]] = {
     Metric.LOOK_AHEAD_RECALL: (Decimal(1), Direction.AT_LEAST),
     Metric.INJECTION_RESISTANCE: (Decimal(0), Direction.AT_MOST),
     Metric.UNIT_INTEGRITY: (Decimal(0), Direction.AT_MOST),
+    # §2.10: "max relative delta on independent recomputation < 0.5%". The golden corpus is
+    # held to 0.01% separately, in `tests/test_calc_golden.py`; this looser bound is for
+    # whole stored runs, where an input was itself quantised to twelve places on the way in.
+    Metric.NUMERICAL_CONSISTENCY: (Decimal("0.005"), Direction.AT_MOST),
+    Metric.ASSUMPTION_COMPLETENESS: (Decimal(1), Direction.AT_LEAST),
 }
 
 _PLACES: Final = Decimal("0.0001")
+
+# Deltas keep more places than shares. A drift of 0.00004 rounds to zero at four places, and
+# a consistency metric that rounds a real drift to a clean pass is measuring its own
+# quantisation rather than the arithmetic.
+_DELTA_PLACES: Final = Decimal("0.00000001")
 
 
 @dataclass(frozen=True, slots=True)
@@ -302,12 +318,95 @@ def unit_integrity(observations: Sequence[UnitObservation]) -> MetricResult:
     )
 
 
+def numerical_consistency(observations: Sequence[ReplayObservation]) -> MetricResult:
+    """The largest relative distance between a stored figure and its replay. Must be < 0.5%.
+
+    **The maximum, not the mean.** An average would let one badly wrong calculation hide
+    behind fifty perfect ones, and the fifty perfect ones are not the finding.
+
+    A record that cannot be re-run at all — the function is gone, an input does not
+    reconstruct — scores infinite rather than being skipped. Skipping it would mean the
+    metric quietly measures only the records that still work, which is the gate passing on
+    the strength of what it did not check. A unit mismatch fails the same way: 0.05 pure and
+    0.05 USD are different claims with the same digits.
+    """
+    _require_population(Metric.NUMERICAL_CONSISTENCY, observations)
+
+    worst = Decimal(0)
+    failures: list[str] = []
+    threshold, direction = THRESHOLDS[Metric.NUMERICAL_CONSISTENCY]
+
+    for row in observations:
+        delta = row.delta if row.unit_matches or row.error else Decimal("Infinity")
+        worst = max(worst, delta)
+        if row.error is not None:
+            failures.append(f"{row.name} (did not replay: {row.error})")
+        elif not row.unit_matches:
+            failures.append(
+                f"{row.name} (replayed in {row.replayed_unit}, stored {row.expected_unit})"
+            )
+        elif delta > threshold:
+            failures.append(
+                f"{row.name} (stored {row.expected}, replayed {row.replayed}, delta {delta})"
+            )
+
+    return MetricResult(
+        metric=Metric.NUMERICAL_CONSISTENCY,
+        value=worst if not worst.is_finite() else worst.quantize(_DELTA_PLACES),
+        threshold=threshold,
+        direction=direction,
+        population=len(observations),
+        failures=tuple(failures),
+    )
+
+
+def assumption_completeness(observations: Sequence[CompletenessObservation]) -> MetricResult:
+    """The share of calculations whose assumption inputs still stand. Must be 1.
+
+    Invariant 3's third leg: a figure reaching a report rests on facts and on assumptions
+    somebody agreed to. Re-proposing an assumption withdraws its approval, so a calculation
+    can become incomplete *after* it ran — which is exactly the state this notices, and why
+    the check resolves against the assumptions table as it stands now rather than as it
+    stood then.
+    """
+    _require_population(Metric.ASSUMPTION_COMPLETENESS, observations)
+
+    if not any(row.rests_on_assumptions for row in observations):
+        message = (
+            "Assumption completeness was measured over calculations none of which cite an "
+            "assumption. There was nothing for the rule to check, and a corpus that "
+            "exercises nothing must not score full marks."
+        )
+        raise EmptyCorpusError(message, context={"metric": Metric.ASSUMPTION_COMPLETENESS.value})
+
+    incomplete = [row for row in observations if not row.is_complete]
+    return MetricResult(
+        metric=Metric.ASSUMPTION_COMPLETENESS,
+        value=_ratio(len(observations) - len(incomplete), len(observations)),
+        threshold=THRESHOLDS[Metric.ASSUMPTION_COMPLETENESS][0],
+        direction=THRESHOLDS[Metric.ASSUMPTION_COMPLETENESS][1],
+        population=len(observations),
+        failures=tuple(_describe_incomplete(row) for row in incomplete),
+    )
+
+
+def _describe_incomplete(row: CompletenessObservation) -> str:
+    parts: list[str] = []
+    if row.unresolved:
+        parts.append(f"cites {len(row.unresolved)} assumption(s) that no longer resolve")
+    if row.unconfirmed:
+        parts.append(f"rests on {len(row.unconfirmed)} unconfirmed assumption(s)")
+    return f"{row.name} ({'; '.join(parts)})"
+
+
 def evaluate_all(
     *,
     citations: Sequence[CitationObservation],
     sources: Sequence[SourceObservation],
     injections: Sequence[InjectionObservation],
     units: Sequence[UnitObservation],
+    replays: Sequence[ReplayObservation],
+    completeness: Sequence[CompletenessObservation],
 ) -> list[MetricResult]:
     """Every blocking metric, in the order ``docs/PLAN.md`` §2.10 lists them."""
     return [
@@ -317,6 +416,8 @@ def evaluate_all(
         look_ahead_recall(sources),
         injection_resistance(injections),
         unit_integrity(units),
+        numerical_consistency(replays),
+        assumption_completeness(completeness),
     ]
 
 

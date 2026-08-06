@@ -12,13 +12,23 @@ source document.
 
 ## Status
 
-**Phases 1 and 2 complete.**
+**Phases 1, 2 and 3 complete.**
 
 Phase 2 turned "one source" into an evidence pipeline: PDF and inline-XBRL extraction,
 publication dates that are extracted and scored rather than trusted, a deterministic
 disagreement ladder, the sources and claims surfaces, and six guarantees measured
 continuously and blocking CI. The gate found a real defect in the citation verifier on its
 first run — see `docs/adr/0025-the-gate-found-the-verifier-wrong-on-its-first-run.md`.
+
+Phase 3 built the analytical core on the calculation kernel: normalised statements, the
+ratio and earnings-quality suites, assumptions and scenarios as approved data, macro with
+vintages, a cost of capital, a driver-based DCF, sector enforcement that blocks rather than
+footnotes, licensed prices and betas, comparables behind a human peer-set gate, and the
+valuation surface where every figure links to its arithmetic. It closed by extending the
+gate to eight metrics: every stored calculation is now re-run from its own record, and every
+assumption a figure rests on is checked against what is confirmed *now*. Phase 4 — agents,
+skills, custom sections, validation and the red-team — is broken down in
+`docs/phase-4-plan.md`.
 
 **The vertical slice runs end to end.** A research request becomes a
 costed plan you approve, a filing fetched from SEC EDGAR and hashed, point-in-time facts, a
@@ -33,8 +43,8 @@ cited report — and the machinery around it: the approval gates, the budget cap
 meter, resumability after a crash, and a report whose sections are database rows rather
 than code.
 
-Phase 2 widens the sources; Phase 3 deepens the analysis. See `docs/PLAN.md` for the full
-plan and `docs/adr/` for the decisions taken so far.
+Phase 2 widened the sources; Phase 3 deepened the analysis; Phase 4 adds the judgement
+layer. See `docs/PLAN.md` for the full plan and `docs/adr/` for the decisions taken so far.
 
 ## What it does (target state)
 
@@ -176,7 +186,7 @@ With `just`:
 | `just test` | Run the test suite (excludes the browser tests) |
 | `just test-e2e` | Run the browser tests (needs Chromium and PostgreSQL) |
 | `just test-all` | Both, as two processes — see the note under **Testing** |
-| `just eval` | The six blocking metrics on their own |
+| `just eval` | The eight blocking metrics and the golden calculations, on their own |
 | `just ci` | Everything CI runs, in the same order |
 | `just hooks` | Run every pre-commit hook over the whole tree |
 | `just css` | Rebuild the Tailwind stylesheet (needs Node) |
@@ -656,12 +666,29 @@ The override never clears the flag, so the record says both that the document wa
 somebody decided to use it anyway. See
 `docs/adr/0021-look-ahead-is-checked-twice-on-the-latest-date.md`.
 
-### Six numbers that block a build
+### Eight numbers that block a build
 
 Every guarantee here was proved once, by a test written the day the feature landed. That is
-not the same as being true tomorrow, so six of them are measured continuously and block CI:
+not the same as being true tomorrow, so eight of them are measured continuously and block CI:
 citation accuracy ≥ 98%, hallucinated citations 0, temporal compliance 100%, look-ahead recall
-100%, injection violations 0, unit mismatches 0.
+100%, injection violations 0, unit mismatches 0, numerical consistency within 0.5% on
+independent recomputation, and assumption completeness 100%.
+
+**The two Phase 3 metrics work from the ledger, not from memory.** Numerical consistency
+re-executes every stored calculation from exactly what its row recorded — the named traced
+function, the sourced inputs, the structural parameters — and reports the *maximum* drift,
+so one wrong figure cannot hide behind fifty right ones. A row that cannot be re-run scores
+infinite rather than being skipped: a calculation whose provenance is decorative fails the
+metric, it does not shrink the population. Assumption completeness checks the other
+direction — every input citing an assumption must still resolve to a row somebody confirmed.
+Re-proposing an assumption withdraws its approval, so this is the metric that notices a
+report whose stated basis was pulled out from under it after the run.
+
+The replay harness is itself proved against **thirty golden calculations** — hand-computed
+answers covering all ten calc modules, written in the same stored-record shape and replayed
+through the same harness, held to 0.01% (`tests/fixtures/calc/golden.json`). The corpus
+size, uniqueness, and module coverage are asserted, so a calc module cannot ship without at
+least one answer a person worked out on paper.
 
 **Every corpus contains the wrong answers as well as the right ones**, because otherwise the
 gate is a formality. Scored against only-genuine citations, a verifier that returns `True`
@@ -1412,7 +1439,7 @@ See `docs/adr/0016-a-run-publishes-itself-step-by-step.md`.
 uv run pytest --ignore=tests/e2e     # default suite: no network, no model spend
 uv run pytest tests/e2e              # browser tests (Chromium + PostgreSQL)
 just test-all                        # both, as two processes
-just eval                            # the six blocking metrics, on their own
+just eval                            # the eight blocking metrics, on their own
 uv run pytest --cov                  # with coverage
 uv run pytest -m integration         # database tests only
 uv run pytest -m "not integration"   # skip anything needing PostgreSQL

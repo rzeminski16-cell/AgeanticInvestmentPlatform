@@ -1,9 +1,10 @@
-"""The blocking gate: six measurements over the corpora the phase produced.
+"""The blocking gate: eight measurements over the corpora the phases produced.
 
 This is the module that turns "we proved it once" into "it is still true". It gathers
 observations by running the **real** verifier, the real date extractor, the real injection
-scanner and the real unit algebra over labelled corpora, hands them to
-:mod:`aer.eval.metrics`, and fails the build if any of the six moves.
+scanner, the real unit algebra, the real replay harness and the real assumptions ladder
+over labelled corpora, hands them to :mod:`aer.eval.metrics`, and fails the build if any of
+the eight moves.
 
 Three properties make it a gate rather than a formality.
 
@@ -13,17 +14,22 @@ Three properties make it a gate rather than a formality.
   the fixtures.
 * **An empty corpus fails.** If a fixture stops loading, the metric raises rather than
   scoring perfectly on nothing.
-* **Each metric has its own test.** A single "everything passes" assertion would report six
-  guarantees as one line and send whoever is on the failure to go and find which.
+* **Each metric has its own test.** A single "everything passes" assertion would report
+  eight guarantees as one line and send whoever is on the failure to go and find which.
 
 No network and no model spend: every corpus is bytes in the repository, and nothing here
-constructs a provider.
+constructs a provider. The two task-32 metrics score real artefacts as well as fixtures —
+numerical consistency replays the golden corpus through the same harness that replays
+stored runs (``tests/test_eval_replay.py`` covers the stored-run side and its deliberate
+regressions), and assumption completeness resolves a chain the real services persisted.
 """
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -39,21 +45,26 @@ from aer.core.enums import ClaimKind, Provider, SourceTier
 from aer.db.models import Artefact, Job, ResearchRequest, SourceDocument
 from aer.eval import (
     CitationObservation,
+    CompletenessObservation,
     InjectionObservation,
     Metric,
     MetricResult,
+    ReplayObservation,
     SourceObservation,
     UnitObservation,
     evaluate_all,
 )
 from aer.eval.metrics import (
+    assumption_completeness,
     citation_accuracy,
     hallucinated_citation_rate,
     injection_resistance,
     look_ahead_recall,
+    numerical_consistency,
     temporal_compliance,
     unit_integrity,
 )
+from aer.eval.replay import completeness_observations_for_job, registry, replay
 from aer.extract.dates import extract_publication_date
 from aer.extract.html import extract_html
 from aer.extract.injection import scan_markup, scan_text
@@ -63,10 +74,13 @@ from aer.services.sources import decide_quarantine
 from aer.storage.local import LocalArtefactStore
 from aer.verify.citations import verify
 from tests import citation_corpus, injection_fixtures, lookahead_fixtures
+from tests.ledger_fixtures import record_valuation_ledger
 from tests.scene_fixtures import build_scene
 from tests.workflow_fixtures import AS_OF_DATE
 
 pytestmark = pytest.mark.integration
+
+GOLDEN_CORPUS = Path(__file__).parent / "fixtures" / "calc" / "golden.json"
 
 
 # ==========================================================================================
@@ -88,8 +102,18 @@ def store(settings: Settings) -> LocalArtefactStore:
 
 
 @pytest.fixture
+async def scene(db_session: AsyncSession, store: LocalArtefactStore) -> dict[str, Any]:
+    # Shared rather than built per corpus: two fixtures each calling build_scene in one test
+    # would seed the same user twice and trip the email uniqueness constraint.
+    return await build_scene(db_session, store)
+
+
+@pytest.fixture
 async def citations(
-    db_session: AsyncSession, store: LocalArtefactStore, settings: Settings
+    db_session: AsyncSession,
+    store: LocalArtefactStore,
+    settings: Settings,
+    scene: dict[str, Any],
 ) -> list[CitationObservation]:
     """Every pair in ``citation_corpus`` put to the real verifier.
 
@@ -97,7 +121,6 @@ async def citations(
     own locator and then replaced where the pair says it should be wrong — which is exactly
     how a hallucinated citation reaches the database in the first place.
     """
-    scene = await build_scene(db_session, store)
     document = await _document_for(
         db_session,
         store,
@@ -316,6 +339,48 @@ def units() -> list[UnitObservation]:
     return observations
 
 
+@pytest.fixture
+def replays() -> list[ReplayObservation]:
+    """The thirty golden calculations, replayed through the real harness.
+
+    The corpus is bytes in the repository — hand-computed answers in the stored-record
+    shape — and the harness is the same :func:`aer.eval.replay.replay` that re-runs a live
+    run's rows, so this measures both the arithmetic and the harness's ability to
+    reconstruct a calculation from its record. Held here to the gate's 0.5% threshold; the
+    tighter 0.01% golden bound is asserted in ``tests/test_calc_golden.py``.
+    """
+    corpus = json.loads(GOLDEN_CORPUS.read_text())
+    return [
+        replay(
+            name=case["name"],
+            label=case["name"],
+            inputs=case["inputs"],
+            parameters=case["parameters"],
+            expected_value=Decimal(case["expected"]["value"]),
+            expected_unit=case["expected"]["unit"],
+        )
+        for case in corpus["cases"]
+    ]
+
+
+@pytest.fixture
+async def completeness(
+    db_session: AsyncSession, scene: dict[str, Any]
+) -> list[CompletenessObservation]:
+    """A chain the real services persisted, resolved against the assumptions table.
+
+    An assumption proposed and confirmed through ``aer.services.assumptions``, carried into
+    a traced calculation via ``as_quantity``, persisted through ``persist_context``, and
+    read back by the same resolver the live gate uses. The corpus also contains a
+    calculation resting on facts alone, so "complete" is measured against a mixture rather
+    than only rows the rule applies to.
+    """
+    await record_valuation_ledger(
+        db_session, request=scene["request"], job=scene["job"], actor=scene["user"]
+    )
+    return await completeness_observations_for_job(db_session, scene["job"].id)
+
+
 async def _document_for(
     session: AsyncSession,
     store: LocalArtefactStore,
@@ -385,12 +450,22 @@ class TestTheBlockingMetrics:
     def test_unit_integrity(self, units: list[UnitObservation]) -> None:
         _assert_passed(unit_integrity(units))
 
-    async def test_all_six_together(
+    def test_numerical_consistency(self, replays: list[ReplayObservation]) -> None:
+        _assert_passed(numerical_consistency(replays))
+
+    async def test_assumption_completeness(
+        self, completeness: list[CompletenessObservation]
+    ) -> None:
+        _assert_passed(assumption_completeness(completeness))
+
+    async def test_all_eight_together(
         self,
         citations: list[CitationObservation],
         sources: list[SourceObservation],
         injections: list[InjectionObservation],
         units: list[UnitObservation],
+        replays: list[ReplayObservation],
+        completeness: list[CompletenessObservation],
     ) -> None:
         """The gate as CI runs it, with every result in the failure message.
 
@@ -398,7 +473,12 @@ class TestTheBlockingMetrics:
         should say so once rather than being fixed one round-trip at a time.
         """
         results = evaluate_all(
-            citations=citations, sources=sources, injections=injections, units=units
+            citations=citations,
+            sources=sources,
+            injections=injections,
+            units=units,
+            replays=replays,
+            completeness=completeness,
         )
 
         assert len(results) == len(Metric)
@@ -451,6 +531,30 @@ class TestTheCorporaAreWorthScoring:
         assert sum(1 for row in units if row.compatible) >= 3
         assert all(not row.raised for row in units if row.compatible)
 
+    def test_the_golden_corpus_is_the_thirty_the_plan_asks_for(
+        self, replays: list[ReplayObservation]
+    ) -> None:
+        assert len(replays) == 30
+
+    def test_the_golden_corpus_covers_every_calc_module(
+        self, replays: list[ReplayObservation]
+    ) -> None:
+        # A calc module without a golden case is arithmetic the consistency metric has never
+        # scored against a hand-computed answer.
+        corpus = json.loads(GOLDEN_CORPUS.read_text())
+        reg = registry()
+        covered = {reg[case["name"]].__module__ for case in corpus["cases"]}
+
+        assert len(covered) == 10
+
+    async def test_the_completeness_corpus_actually_rests_on_an_assumption(
+        self, completeness: list[CompletenessObservation]
+    ) -> None:
+        # A corpus of facts-only calculations is trivially complete, and the metric refuses
+        # it — so the fixture has to contain both kinds for the gate to mean anything.
+        assert any(row.rests_on_assumptions for row in completeness)
+        assert any(not row.rests_on_assumptions for row in completeness)
+
 
 class TestWhatTheGateReports:
     def test_a_failure_names_the_cases(self) -> None:
@@ -487,10 +591,17 @@ class TestWhatTheGateReports:
         sources: list[SourceObservation],
         injections: list[InjectionObservation],
         units: list[UnitObservation],
+        replays: list[ReplayObservation],
+        completeness: list[CompletenessObservation],
     ) -> None:
         # `evaluations.details` is JSONB, and Phase 3 writes these rows.
         results = evaluate_all(
-            citations=citations, sources=sources, injections=injections, units=units
+            citations=citations,
+            sources=sources,
+            injections=injections,
+            units=units,
+            replays=replays,
+            completeness=completeness,
         )
 
         for result in results:
