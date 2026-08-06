@@ -1,4 +1,4 @@
-# Phase 5 — task sequence (tasks 44–51)
+# Phase 5 — task sequence (tasks 44–52)
 
 Continues from `docs/phase-4-plan.md`. The phase specification — objective, deliverables,
 acceptance criteria — is `docs/PLAN.md` → Stage 3 → Phase 5, and it remains the authority.
@@ -74,7 +74,7 @@ tokens — because their content is a record of what the platform did, not a jud
 | 310 | `scenarios_sensitivities` | Scenarios & sensitivities | model |
 | 400 | `key_risks` | Key risks | model |
 | 410 | `catalysts` | Catalysts | model |
-| 900 | `prior_research_comparison` | Prior research comparison | code (task 48) |
+| 900 | `prior_research_comparison` | Prior research comparison | code (task 49) |
 | 910 | `validation_disagreements` | Validation & disagreements | code (task 44) |
 
 Deliberately absent: a comparables section — the comps disclosure is already the renderer's
@@ -98,7 +98,7 @@ is that preview and PDF are the same bytes-in, which the shared-HTML route guara
 directly. Footnote-numbering identity between the Markdown and HTML serialisations is held
 by test instead.
 
-**3. A chart is a figure (ADR 0042, task 46).** The withheld-figures rule applies to
+**3. A chart is a figure (ADR 0043, task 47).** The withheld-figures rule applies to
 pixels: a price line is a price series and a comps band is a set of multiples, whether they
 arrive as digits or as geometry. So the chart pack splits into an **exportable set**
 (revenue & margin history, segment mix, scenario bridge, sensitivity heatmap, and the
@@ -108,37 +108,51 @@ comps band), which render solely on the internal valuation surface that already 
 licensed figures. Exportable surfaces carry the existing licence note where a band is
 withheld.
 
-**4. The Obsidian exporter is deterministic, and no `obsidian_linker` agent ships in
+**4. The section writer is Phase 5 work, and it is a new agent role.** The draft step
+still fills built-in sections with the Phase 1 placeholder (`_content_for`), whose own
+docstring promises its replacement by a section-writer agent. No phase plan ever claimed
+that replacement, but §1.8 commits to the `report_writer` role ("18 sections from
+structured facts"), its model route has been configured since task 2, and a report phase
+that shipped sixteen new sections of placeholder prose would be sixteen sections nobody
+could read. So the spine seed (task 44) is immediately followed by the section writer
+(task 45), registered under ADR 0042 as ADR 0035 requires. It gets **no tools**: evidence
+arrives as a structured pack assembled by code from what the run already recorded, which
+is both the §1.8 design ("from structured facts") and the reason its containment story is
+short.
+
+**5. The Obsidian exporter is deterministic, and no `obsidian_linker` agent ships in
 Phase 5.** Every §2.8 link is derivable from the database — industry from the confirmed
 sector classification, competitors from the approved peer set, sources from the run's
 citations, catalysts from the catalysts section's structured output — so link-building is
 a query, not a judgement. The `obsidian_linker` model route stays configured but unused;
 adding the role later requires an ADR (ADR 0035) and nothing in this phase justifies one.
 
-**5. Reproducible bytes.** The plan requires a byte-reproducible PDF (§1 tooling table).
+**6. Reproducible bytes.** The plan requires a byte-reproducible PDF (§1 tooling table).
 Three sources of nondeterminism are pinned: Matplotlib SVG ids (`svg.hashsalt` set from the
 report id, date metadata stripped), WeasyPrint's PDF creation metadata (overwritten in the
 pikepdf pass from `approved_at`, never the clock), and pikepdf's document id (deterministic
 save). The test is blunt: render twice, hash twice, equal.
 
-**6. Migration numbering.** The plan file's `0007_reports_obsidian` label is long
+**7. Migration numbering.** The plan file's `0007_reports_obsidian` label is long
 superseded by the real sequence. Phase 5 lands three migrations, each in the task that
 needs it: `0023` (section spine seed + token-budget constraint, task 44), `0024` (report
-HTML artefact column, task 47), `0025` (Obsidian export records, task 49).
+HTML artefact column, task 48), `0025` (Obsidian export records, task 50).
 
 ---
 
 ## Why this order
 
-Content before rendering: the HTML snapshot test is only worth writing once the section
-spine is complete, so the spine (44) precedes the template set (45). Charts (46) precede
-the PDF (47) because the PDF embeds them; the HTML set (45) also precedes the PDF because
-WeasyPrint consumes exactly that HTML. History (48) precedes Obsidian (49–50) because the
-run note's "Prior research comparison" and the company page consume the same deterministic
-builder, and building it twice would guarantee drift. The exporter splits into the vault
-writer with its anti-contamination guards (49) — the part where a bug touches the user's
-personal notes — and the link graph and journal features (50), so the safety-critical part
-is tested alone before anything interesting is layered on it. Provenance drill-down (51)
+Content before rendering: the spine (44) comes first because everything else renders,
+writes or exports it, and the section writer (45) follows immediately so the spine holds
+real analysis before any surface shows it. The HTML snapshot test is only worth writing
+against full-width content, so the template set (46) follows; charts (47) precede the PDF
+(48) because the PDF embeds them, and the HTML set precedes it because WeasyPrint consumes
+exactly that HTML. History (49) precedes Obsidian (50–51) because the run note's "Prior
+research comparison" and the company page consume the same deterministic builder, and
+building it twice would guarantee drift. The exporter splits into the vault writer with
+its anti-contamination guards (50) — the part where a bug touches the user's personal
+notes — and the link graph and journal features (51), so the safety-critical part is
+tested alone before anything interesting is layered on it. Provenance drill-down (52)
 comes last because it reads every surface the phase built.
 
 ---
@@ -156,7 +170,7 @@ token budget, allowed tools and applicability — and the token-budget check rel
 deterministic service from the run's evaluations, disagreements and fired escalation
 triggers, written before Gate 2 so the preview the operator approves already contains it;
 `prior_research_comparison` seeds now but renders its honest empty state ("first run — no
-prior research to compare") until task 48 supplies the builder. Per-section cost estimates
+prior research to compare") until task 49 supplies the builder. Per-section cost estimates
 join the Gate 1 plan view, which already displays them for custom sections.
 
 **Tests.** Registry resolves exactly eighteen built-in keys in position order; a
@@ -171,7 +185,40 @@ custom sections interleaved by position.
 
 ---
 
-## Task 45 — One assembly, three serialisations: the HTML report and institutional CSS
+## Task 45 — The section writer: structured facts in, contract-shaped analysis out
+
+**Objective.** The §1.8 `report_writer` role, replacing the Phase 1 placeholder: every
+built-in model section written from the run's recorded evidence, under the same claim,
+citation and failure rules a custom section already lives by.
+
+**Build.** ADR 0042 registers the role (ADR 0035 makes that a precondition, not
+paperwork): typed input carrying the section's contract, its evidence policy and a
+structured evidence pack — facts, calculations, research-worker findings, all assembled
+by deterministic code from what the run stored; **no tools**, because a writer that could
+fetch would be a researcher with a second identity. One structured-output call per
+section, validated against the definition's `output_contract`; a schema violation is
+retried once, then the section fails with its reason recorded — never silently dropped,
+never fabricated to fill space. Evidence policy unmet renders the insufficiency banner
+with findings marked low-confidence. Figures name `calculation_id` /
+`source_document_id`, exactly what the renderer and citation resolver already expect —
+which is why this lands as a change to *how* content is produced, not to what it is.
+Token budgets come from the definition rows; cost is metered per section and the draft
+step's Gate 1 estimate covers the spine. `_content_for` and its helpers are deleted.
+
+**Tests.** Against the FakeProvider: every built-in model section generated against its
+real contract; a schema-violating response is retried once then failed with the reason
+recorded; figures cite calculations that exist on the run; an evidence-policy failure
+produces the banner rather than invented content; the deterministic sections are never
+sent to the writer; a cost row exists per written section; the registry refuses the role
+any tool.
+
+**Acceptance.** No placeholder sentence survives in `vertical_slice_v1`; a full
+FakeProvider run yields eighteen sections whose content derives from that run's recorded
+evidence, every figure resolving to a stored calculation or fact.
+
+---
+
+## Task 46 — One assembly, three serialisations: the HTML report and institutional CSS
 
 **Objective.** The single template set the plan promises: a `ReportDocument` assembler,
 the Jinja HTML serialisation, and print-grade CSS — with the custom-section default
@@ -203,7 +250,7 @@ user-authored HTML.
 
 ---
 
-## Task 46 — The chart pack: deterministic Matplotlib, and a chart is a figure
+## Task 47 — The chart pack: deterministic Matplotlib, and a chart is a figure
 
 **Objective.** Six charts, every one rendered by deterministic code from recorded rows,
 byte-stable, provenance-marked, and licence-clean.
@@ -217,7 +264,7 @@ bands only. Internal-only set: price/relative performance and the football-field
 with the comps band, rendered solely on the valuation surface. Every chart carries a
 caption with footnote markers citing the calculation ids it was drawn from, so a chart
 figure resolves exactly as a text figure does. Charts embed into the HTML as data-URI SVG,
-keeping the stored HTML artefact self-contained. ADR 0042 records the pixels-are-figures
+keeping the stored HTML artefact self-contained. ADR 0043 records the pixels-are-figures
 rule. `matplotlib` joins runtime dependencies.
 
 **Tests.** Rendering the same chart twice yields identical bytes; the exportable football
@@ -230,7 +277,7 @@ provenance; nothing price- or comps-derived appears in any exportable artefact.
 
 ---
 
-## Task 47 — The PDF: WeasyPrint, bookmarks, and the pikepdf immutability pass
+## Task 48 — The PDF: WeasyPrint, bookmarks, and the pikepdf immutability pass
 
 **Objective.** The immutable PDF the sequence diagram promises: rendered from the approved
 HTML at approval time, frozen as a content-addressed artefact, tamper-evident.
@@ -257,7 +304,7 @@ what was previewed.
 
 ---
 
-## Task 48 — Report history, company history and the prior-run comparison
+## Task 49 — Report history, company history and the prior-run comparison
 
 **Objective.** The platform starts remembering: what was concluded about a company before,
 and what changed.
@@ -282,7 +329,7 @@ catalysts and what happened; the comparison section appears in the report itself
 
 ---
 
-## Task 49 — The Obsidian exporter: vault writer and anti-contamination
+## Task 50 — The Obsidian exporter: vault writer and anti-contamination
 
 **Objective.** The vault as a derived, one-directional projection of approved data — with
 the §2.8 anti-contamination rules enforced in code before a single interesting feature is
@@ -314,7 +361,7 @@ below any sentinel is ever touched; no draft data exists anywhere in the vault.
 
 ---
 
-## Task 50 — The link graph and the research journal
+## Task 51 — The link graph and the research journal
 
 **Objective.** The §2.8 features that make the vault a journal rather than a folder of
 exports: links, industries, catalysts with outcomes, and the historical comparison in the
@@ -325,7 +372,7 @@ company back-links; competitor links from the approved peer set, maintained symm
 catalyst notes from the catalysts section's structured output, each carrying
 `thesis_refs`; on a later export for the same company, catalyst notes whose date has
 passed get their `resolution` field pointed at the newer run. The run note gains the
-`## Prior research comparison` section from the task 48 builder, so the journal and the
+`## Prior research comparison` section from the task 49 builder, so the journal and the
 report tell one story. The company note records the valuation-range history.
 
 **Tests.** Competitor links are symmetric after exporting two peers; every `[[link]]`
@@ -339,7 +386,7 @@ custom sections used.
 
 ---
 
-## Task 51 — Provenance drill-down and the phase close-out
+## Task 52 — Provenance drill-down and the phase close-out
 
 **Objective.** Any figure on any surface walks back to bytes: the hover/drill-down UI,
 and the phase's acceptance sweep.
