@@ -112,6 +112,12 @@
   td { border-bottom: 0.6pt solid var(--rule); padding: 0.35rem 0.6rem 0.35rem 0;
        vertical-align: top; }
 
+  .exhibits figure { margin: 1.2rem 0; break-inside: avoid; }
+  .exhibits img { max-width: 100%; height: auto; display: block;
+                  border: 0.6pt solid var(--rule); }
+  .exhibits figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 0.35rem; }
+  .exhibits figure.placeholder img { border-style: dashed; }
+
   sup.fn-ref { font-size: 0.7em; line-height: 0; }
   sup.fn-ref a { text-decoration: none; }
   .footnotes, .appendix { font-size: 0.88rem; }
@@ -196,6 +202,18 @@
   <section class="report-section" id="section-comparable-companies">
     <h2>Comparable companies</h2>
     <p>{{ comps_html }}</p>
+  </section>
+  {% endif %}
+
+  {% if charts %}
+  <section class="report-section exhibits" id="section-exhibits">
+    <h2>Exhibits</h2>
+    {% for chart in charts %}
+    <figure id="exhibit-{{ chart.key }}" class="exhibit{{ ' placeholder' if chart.placeholder }}">
+      <img src="{{ chart.uri }}" alt="{{ chart.title }}" />
+      <figcaption><strong>{{ chart.title }}.</strong> {{ chart.caption }}</figcaption>
+    </figure>
+    {% endfor %}
   </section>
   {% endif %}
 </main>

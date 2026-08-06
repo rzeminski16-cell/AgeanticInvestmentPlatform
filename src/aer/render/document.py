@@ -28,6 +28,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.comps import WithheldComps
+from aer.charts import Chart
 from aer.db.models import (
     Calculation,
     Company,
@@ -38,6 +39,7 @@ from aer.db.models import (
     SectionStatus,
     SourceDocument,
 )
+from aer.errors import ValidationError
 from aer.sections.registry import sections_for_job
 from aer.sections.render import CitationRef, Fragment, render_section
 
@@ -45,6 +47,7 @@ __all__ = [
     "DISCLAIMER",
     "AppendixRow",
     "CalculationFootnote",
+    "ChartView",
     "Footnote",
     "HeaderView",
     "ReportDocument",
@@ -165,6 +168,23 @@ class UnresolvedFootnote:
     identifier: str
 
 
+@dataclass(frozen=True, slots=True)
+class ChartView:
+    """One exhibit, numbered into the document.
+
+    ``markers`` are the chart's citations as global footnote numbers, in caption order —
+    assigned here so no serialiser can renumber them, exactly as for a section's markers.
+    """
+
+    key: str
+    title: str
+    svg: str
+    caption: str
+    markers: tuple[int, ...]
+    placeholder: bool
+    licence_note: str
+
+
 Footnote = CalculationFootnote | SourceFootnote | UnresolvedFootnote
 
 
@@ -192,6 +212,7 @@ class ReportDocument:
     footnotes: tuple[Footnote, ...]
     appendix: tuple[AppendixRow, ...]
     citations: list[CitationRef]
+    charts: tuple[ChartView, ...] = ()
     disclaimer: str = DISCLAIMER
 
     @property
@@ -211,6 +232,7 @@ async def assemble_document(
     company: Company | None = None,
     sector: SectorNote | None = None,
     comps: WithheldComps | None = None,
+    charts: tuple[Chart, ...] = (),
     rating: str | None = None,
     confidence: float | None = None,
     generated_at: datetime | None = None,
@@ -227,10 +249,25 @@ async def assemble_document(
     whichever section they happen to be in.
 
     Args:
+        charts: The exhibit pack from :func:`aer.services.exhibits.exportable_charts_for`.
+            A chart with ``exportable=False`` is refused outright — a rendered report is
+            the shareable artefact, and licensed geometry does not become shareable by
+            being passed to the wrong function (ADR 0043).
         generated_at: Stamped on the document. A parameter rather than a clock read so a
             test can assert the whole output byte for byte, and so a re-render of an
             archived report can carry the date it was actually produced.
+
+    Raises:
+        ValidationError: If any chart in ``charts`` is internal-only.
     """
+    internal = [chart.key for chart in charts if not chart.exportable]
+    if internal:
+        message = (
+            f"Internal-only charts cannot enter a report document: {', '.join(internal)}. "
+            "They render solely on the valuation surface."
+        )
+        raise ValidationError(message)
+
     sections = await sections_for_job(session, job.id)
     definitions = await _definitions_for(session, sections)
 
@@ -262,6 +299,24 @@ async def assemble_document(
         )
         citations.extend(rendered.citations)
 
+    chart_views: list[ChartView] = []
+    for chart in charts:
+        # Numbering continues straight on from the sections: an exhibit's marker is a
+        # footnote like any other, and both notations receive it already assigned.
+        markers = tuple(range(len(citations) + 1, len(citations) + 1 + len(chart.citations)))
+        citations.extend(chart.citations)
+        chart_views.append(
+            ChartView(
+                key=chart.key,
+                title=chart.title,
+                svg=chart.svg,
+                caption=chart.caption,
+                markers=markers,
+                placeholder=chart.placeholder,
+                licence_note=chart.licence_note,
+            )
+        )
+
     footnotes = await _footnotes(session, citations)
     appendix = await _appendix(session, citations)
 
@@ -283,6 +338,7 @@ async def assemble_document(
         footnotes=footnotes,
         appendix=appendix,
         citations=citations,
+        charts=tuple(chart_views),
     )
 
 

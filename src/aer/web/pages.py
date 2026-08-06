@@ -38,6 +38,7 @@ from starlette.status import (
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
 from aer.calc.comps import MULTIPLE_DEFINITIONS, CompsTable
+from aer.charts import svg_data_uri
 from aer.core.enums import Decision, GateKind, JobStatus
 from aer.core.escalation import COST_ALERT_RATIO
 from aer.db.models import (
@@ -70,6 +71,7 @@ from aer.services.comps import (
 from aer.services.disagreements import disagreements_for_job
 from aer.services.escalation import cost_scene_for_job
 from aer.services.evaluations import evaluations_for_job, section_coverage_for_job
+from aer.services.exhibits import exportable_charts_for, internal_charts_for
 from aer.services.sectors import (
     CLASSIFY_STEP,
     classification_payload,
@@ -576,13 +578,20 @@ async def run_preview(
             Company.exchange == research_request.exchange,
         )
     )
+    comps = await comps_note_for(session, job=job, request=research_request)
     document = await assemble_document(
         session,
         job=job,
         request=research_request,
         company=company,
         sector=await sector_note_for(session, job=job),
-        comps=await comps_note_for(session, job=job, request=research_request),
+        comps=comps,
+        charts=await exportable_charts_for(
+            session,
+            job=job,
+            request=research_request,
+            licence_note=comps.licence_note if comps else "",
+        ),
     )
     return HTMLResponse(render_html(document))
 
@@ -768,6 +777,15 @@ async def valuation_page(
     table = view.comps if isinstance(view.comps, CompsTable) else None
     rows = (table.subject, *table.peers) if table is not None else ()
 
+    # The licensed charts render here and only here: their builders mark them
+    # non-exportable and the report assembler refuses them, so this page is the one
+    # surface that can carry them (ADR 0043).
+    internal_charts = (
+        await internal_charts_for(session, job=job, request=research_request)
+        if research_request is not None
+        else ()
+    )
+
     page: Response = render(
         request,
         "runs/valuation.html",
@@ -786,6 +804,11 @@ async def valuation_page(
             "comps_keys": tuple(
                 (definition.key, definition.label) for definition in MULTIPLE_DEFINITIONS
             ),
+            "internal_charts": [
+                {"key": chart.key, "title": chart.title, "uri": svg_data_uri(chart.svg)}
+                for chart in internal_charts
+                if not chart.placeholder
+            ],
         },
     )
     return page
@@ -898,13 +921,20 @@ async def report_preview(
     company = (
         await session.get(Company, report.company_id) if report.company_id is not None else None
     )
+    comps = await comps_note_for(session, job=job, request=research_request)
     document = await assemble_document(
         session,
         job=job,
         request=research_request,
         company=company,
         sector=await sector_note_for(session, job=job),
-        comps=await comps_note_for(session, job=job, request=research_request),
+        comps=comps,
+        charts=await exportable_charts_for(
+            session,
+            job=job,
+            request=research_request,
+            licence_note=comps.licence_note if comps else "",
+        ),
         rating=report.rating,
         confidence=report.confidence,
         generated_at=report.created_at,

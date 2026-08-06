@@ -348,6 +348,19 @@ class TestScenarios:
             < by_key["base"].result.gordon.value_per_share.value
         )
 
+        # Every outcome row is stamped with its case (task 47): the ledger can be read
+        # back per scenario, which is what the scenario bridge exhibit draws from.
+        rows = list(
+            await db_session.scalars(
+                select(Calculation).where(
+                    Calculation.job_id == scene["job"].id,
+                    Calculation.name == "value_per_share",
+                )
+            )
+        )
+        recorded_cases = {str(row.parameters.get("case")) for row in rows}
+        assert recorded_cases == {"bear", "base"}
+
     async def test_correcting_the_base_case_moves_the_bear_case_too(self, db_session, scene):
         """The property a copied scenario would fail, and the reason scenarios are diffs."""
         await confirm_all(db_session, scene)

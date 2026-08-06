@@ -33,12 +33,14 @@ from aer.core.enums import Decision, GateKind, JobStatus, UserRole
 from aer.db.models import (
     Approval,
     AuditEvent,
+    Calculation,
     Cost,
     Job,
     JobCancellation,
     JobStep,
     Report,
     ResearchRequest,
+    Scenario,
     User,
 )
 from aer.providers.fake import FakeProvider
@@ -955,6 +957,70 @@ class TestTheWebPages:
         page = await api.get(f"/runs/{job_id}/preview")
         assert page.status_code == 404
         assert "no document to preview" in page.text
+
+    async def test_the_frozen_report_carries_the_exhibits_the_run_recorded(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any, db_session: Any
+    ) -> None:
+        """The acceptance path: rows recorded during the run become charts in the
+        rendered report — the workflow's own render step, not just the assembler."""
+        job_id = await _to_second_gate(api, committed, driver)
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            session.add(
+                Scenario(
+                    request_id=committed["request"].id,
+                    job_id=job_id,
+                    key="base",
+                    label="Base case",
+                    description="The base case, as stated.",
+                )
+            )
+            session.add(
+                Calculation(
+                    job_id=job_id,
+                    name="value_per_share",
+                    formula="value per share = equity value / shares outstanding",
+                    function_ref="aer.calc.dcf:value_per_share",
+                    code_version="chartcode123456",
+                    inputs=[],
+                    parameters={"method": "gordon_growth", "case": "base"},
+                    output_value=Decimal("280.00"),
+                    output_unit="USD/share",
+                )
+            )
+            await session.commit()
+
+        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+        await driver.advance(job_id)
+
+        report = await db_session.scalar(select(Report).where(Report.job_id == job_id))
+        assert report is not None
+        markdown = str(report.content["markdown"])
+        assert "## Exhibits" in markdown
+        assert "Scenario bridge" in markdown
+        assert "Rendered in the HTML and PDF editions" in markdown
+
+        preview = await api.get(f"/reports/{report.id}/preview")
+        assert 'id="section-exhibits"' in preview.text
+        assert "data:image/svg+xml;base64," in preview.text
+
+    async def test_no_licensed_geometry_reaches_the_preview_or_the_valuation_page(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        """ADR 0043's containment, at the surfaces: the preview carries no internal
+        chart, and a run with no price rows shows no internal section at all."""
+        job_id = await _to_second_gate(api, committed, driver)
+
+        preview = await api.get(f"/runs/{job_id}/preview")
+        assert "price_relative" not in preview.text
+        assert "football_field_internal" not in preview.text
+
+        valuation = await api.get(f"/runs/{job_id}/valuation")
+        assert valuation.status_code == 200
+        # No stored bars means the internal set is all placeholders, and a placeholder
+        # price chart informs nobody — the section is absent, not empty.
+        assert 'id="internal-charts"' not in valuation.text
 
     async def test_a_preview_of_a_run_that_is_not_yours_does_not_exist(
         self, api: Any, someone_elses_run: uuid.UUID

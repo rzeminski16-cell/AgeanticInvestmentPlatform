@@ -209,6 +209,7 @@ async def run_valuation(
     inputs: DcfInputs,
     mandate: ValuationMandate,
     context: CalculationContext | None = None,
+    case: str = "base",
 ) -> DcfResult:
     """Value the business and store every calculation that produced the answer.
 
@@ -224,7 +225,7 @@ async def run_valuation(
     owned = context is None
     ledger = context if context is not None else new_context()
 
-    result = discounted_cash_flow(ledger, inputs, mandate=mandate)
+    result = discounted_cash_flow(ledger, inputs, mandate=mandate, case=case)
 
     if owned:
         await persist_context(session, ledger, job_id=job_id)
@@ -278,7 +279,12 @@ async def run_scenarios(
             non_operating=non_operating,
         )
         result = await run_valuation(
-            session, job_id=job_id, inputs=inputs, mandate=mandate, context=ledger
+            session,
+            job_id=job_id,
+            inputs=inputs,
+            mandate=mandate,
+            context=ledger,
+            case=scenario.key,
         )
         valuations.append(
             ScenarioValuation(

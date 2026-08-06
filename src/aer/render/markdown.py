@@ -23,6 +23,7 @@ from aer.render.document import (
     DISCLAIMER,
     AppendixRow,
     CalculationFootnote,
+    ChartView,
     Footnote,
     HeaderView,
     ReportDocument,
@@ -37,6 +38,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from aer.calc.comps import WithheldComps
+    from aer.charts import Chart
     from aer.db.models import Company, Job, ResearchRequest
 
 __all__ = ["DISCLAIMER", "RenderedReport", "SectorNote", "render_markdown", "serialise_markdown"]
@@ -65,6 +67,7 @@ async def render_markdown(
     company: Company | None = None,
     sector: SectorNote | None = None,
     comps: WithheldComps | None = None,
+    charts: tuple[Chart, ...] = (),
     rating: str | None = None,
     confidence: float | None = None,
     generated_at: datetime | None = None,
@@ -77,6 +80,7 @@ async def render_markdown(
         company=company,
         sector=sector,
         comps=comps,
+        charts=charts,
         rating=rating,
         confidence=confidence,
         generated_at=generated_at,
@@ -116,6 +120,7 @@ def serialise_markdown(document: ReportDocument) -> str:
             *_sector_block(document.sector),
             *body,
             *_comps_block(document.comps_paragraph),
+            *_exhibits_block(document.charts),
             *_footnotes(document.footnotes),
             *_appendix(document.appendix),
             *_footer(),
@@ -190,6 +195,34 @@ def _comps_block(paragraph: str | None) -> list[str]:
         return []
 
     return ["## Comparable companies", "", paragraph, ""]
+
+
+def _exhibits_block(charts: tuple[ChartView, ...]) -> list[str]:
+    """The chart pack, as text: captions and markers, with the geometry deferred.
+
+    Markdown cannot carry the SVGs, and inlining them base64 would make the file
+    unreadable for the one thing Markdown is kept for. So this notation carries each
+    exhibit's caption with its markers — the figures resolve through the notes exactly
+    as in the HTML — and says plainly where the rendered chart lives. Absent entirely
+    when the run recorded nothing chartable, so a chart-less report reads unchanged.
+    """
+    if not charts:
+        return []
+
+    lines = ["## Exhibits", ""]
+    for chart in charts:
+        markers = "".join(f"[^{number}]" for number in chart.markers)
+        lines.extend(
+            [
+                f"### {chart.title}",
+                "",
+                f"{chart.caption}{markers}",
+                "",
+                "*Rendered in the HTML and PDF editions of this report.*",
+                "",
+            ]
+        )
+    return lines
 
 
 def _footer() -> list[str]:

@@ -21,8 +21,10 @@ from __future__ import annotations
 from jinja2 import Environment, PackageLoader, select_autoescape
 from markupsafe import Markup, escape
 
+from aer.charts import svg_data_uri
 from aer.render.document import (
     CalculationFootnote,
+    ChartView,
     Footnote,
     ReportDocument,
     SourceFootnote,
@@ -68,6 +70,7 @@ def render_html(document: ReportDocument) -> str:
         sections=sections,
         custom_sections=custom,
         builtin_sections=[s for s in sections if s["origin"] != "skill"],
+        charts=[_chart(chart, seen=seen) for chart in document.charts],
         footnotes=[_footnote(footnote) for footnote in document.footnotes],
         referenced=sorted(seen),
         disclaimer_html=_emphasise(document.disclaimer),
@@ -165,6 +168,23 @@ def _marks(markers: tuple[int, ...], *, seen: set[int]) -> Markup:
             Markup(f'<sup class="fn-ref"{anchor}><a href="#fn-{number}">{number}</a></sup>')
         )
     return Markup("").join(parts)
+
+
+# -- Exhibits --------------------------------------------------------------------------------
+
+
+def _chart(chart: ChartView, *, seen: set[int]) -> dict[str, object]:
+    """One exhibit as template data: the SVG as a data URI, the caption with its markers.
+
+    A data URI rather than inline SVG — see :func:`aer.charts.svg_data_uri`.
+    """
+    return {
+        "key": chart.key,
+        "title": chart.title,
+        "uri": svg_data_uri(chart.svg),
+        "caption": Markup(f"{escape(chart.caption)}{_marks(chart.markers, seen=seen)}"),
+        "placeholder": chart.placeholder,
+    }
 
 
 # -- Footnotes as display rows ---------------------------------------------------------------

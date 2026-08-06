@@ -388,6 +388,46 @@ never an invented axis; caption citations resolve to real calculations.
 **Acceptance.** The HTML report shows the exportable charts inline with resolvable
 provenance; nothing price- or comps-derived appears in any exportable artefact.
 
+**Delivered (2026-08-06).** ADR 0043 (a chart is a figure) and `aer/charts/`: frozen
+`Decimal` input types whose every point carries a `CitationRef` (`model.py`), the pinned
+style and the one route from figure to bytes (`style.py` — bundled DejaVu, fixed DPI,
+`svg.fonttype: none`, no date metadata, `svg.hashsalt` from the job id, one typed wrapper
+around `rc_context`), and seven pure builders (`builders.py`): the five exportable
+exhibits, plus the internal-only price chart and comps-band football field, both born
+`exportable=False` by their builders. Empty input renders the honest bordered placeholder,
+never an axis. `aer/services/exhibits.py` is the only ledger-to-geometry bridge:
+`exportable_charts_for` reads FY revenue facts (restatement-deduped, quarterly facts
+excluded at the chart's grain), margin calculations with their periods recovered from
+their recorded fact inputs (an ambiguous period stays off the chart), case-tagged
+per-scenario valuations, the first stored sensitivity grid, and value-per-share bands for
+the football field, whose caption carries the comps licence note; the all-placeholder run
+gets no exhibits block at all, which keeps chart-less reports byte-stable.
+`internal_charts_for` serves the valuation page alone. Scenario attribution needed one
+recorded parameter that did not exist: the four DCF outcome calculations now carry
+`case` alongside `method` (same precedent, one level up), threaded from
+`run_scenarios(case=scenario.key)` with a blank-case refusal, and the exhibits service
+reads it back rather than guessing positionally — untagged pre-task-47 rows honestly
+cannot reach the bridge. The assembler takes `charts=`, refuses `exportable=False`
+outright, and numbers exhibit citations straight on from the sections; the Markdown
+notation carries captions and markers with the geometry deferred to the HTML and PDF
+editions, and the HTML embeds each chart as a base64 SVG data URI in an `img` (self-
+contained, and an `img` cannot script). Both preview routes and the workflow's render
+step pass the pack; the valuation page renders the internal set under an explicit
+licensed-data note. `matplotlib` joined runtime dependencies. Tests: builder purity
+(byte-identical re-render, salt genuinely applied, no `dc:date`, placeholders on every
+empty input, the licence split including the input type having no comps field),
+exhibits-service read-back against a seeded ledger, document integration (markers
+continue the global sequence, both notations agree, assembler refusal), the end-to-end
+run whose frozen report and preview carry the exhibits, and the recorded `case` asserted
+in the valuation service's own scenario test. A 17-mutation sabotage pass — the salt, the
+date metadata, every placeholder branch, both born-internal flags, the dedupe, the
+licence caption, the assembler's refusal and numbering, both notations' exhibit blocks,
+the skip-all rule, the case filter, the period-ambiguity guard, the FY grain, the
+valuation-page placeholder filter and the workflow's chart wiring — was caught in full on
+the first run, three of those catches resting on tests strengthened pre-emptively while
+planning the pass (the ambiguity guard, the FY grain and the workflow wiring had no test
+before it). No migration: `case` is a parameter, not a column.
+
 ---
 
 ## Task 48 — The PDF: WeasyPrint, bookmarks, and the pikepdf immutability pass

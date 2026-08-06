@@ -253,4 +253,31 @@
       </p>
     {% endif %}
   </section>
+
+  {% if internal_charts %}
+    <section class="mt-8" id="internal-charts">
+      <h2 class="text-lg font-semibold tracking-tight">Internal charts</h2>
+      {#
+        Licensed geometry. These render here and nowhere else: their builders mark them
+        non-exportable and the report assembler refuses them (ADR 0043), so this page is
+        the only surface that can carry a price line.
+      #}
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        Drawn from licensed market data for internal review; none of this appears in any
+        exportable report.
+      </p>
+      {% for chart in internal_charts %}
+        <figure class="mt-4" id="internal-chart-{{ chart.key }}">
+          <img
+            src="{{ chart.uri }}"
+            alt="{{ chart.title }}"
+            class="w-full rounded-md border border-slate-200 bg-white dark:border-slate-800"
+          />
+          <figcaption class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            {{ chart.title }}
+          </figcaption>
+        </figure>
+      {% endfor %}
+    </section>
+  {% endif %}
 {% endblock %}

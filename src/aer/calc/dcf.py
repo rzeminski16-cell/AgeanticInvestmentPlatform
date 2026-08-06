@@ -851,6 +851,7 @@ def enterprise_value(
     discounted_flows: Sequence[Quantity],
     discounted_terminal_value: Quantity,
     method: TerminalMethod,
+    case: str = "base",
 ) -> Quantity:
     """The value of the operating business to all providers of capital.
 
@@ -861,8 +862,13 @@ def enterprise_value(
     twice per valuation, once per terminal method, and without it the ledger holds two rows
     with the same name and different answers and nothing saying why.** A reader looking at
     the calculations table would have to infer it from the order they were written in.
+
+    ``case`` is the same argument one level up: a run that values its scenarios executes
+    this calculation once per case, and before task 47 recorded them indistinguishably —
+    which made a scenario chart unreadable from the ledger. Recorded, never computed with.
     """
     _require_method(method)
+    _require_case(case)
     if not discounted_flows:
         message = (
             "An enterprise value with no discounted forecast years is a terminal value "
@@ -891,12 +897,14 @@ def terminal_value_share(
     discounted_terminal_value: Quantity,
     enterprise_value: Quantity,
     method: TerminalMethod,
+    case: str = "base",
 ) -> Quantity:
     """How much of the valuation lies beyond the forecast period.
 
     ``method`` is recorded rather than used, for the reason :func:`enterprise_value` gives.
     """
     _require_method(method)
+    _require_case(case)
     if enterprise_value.value <= 0:
         message = (
             f"The enterprise value is {enterprise_value.value}, so a terminal share of it is "
@@ -925,12 +933,14 @@ def equity_value(
     net_debt: Quantity,
     adjustments: Sequence[Quantity],
     method: TerminalMethod,
+    case: str = "base",
 ) -> Quantity:
     """What is left for the ordinary shareholders.
 
     ``method`` is recorded rather than used, for the reason :func:`enterprise_value` gives.
     """
     _require_method(method)
+    _require_case(case)
     total = enterprise_value - net_debt
     for adjustment in adjustments:
         total = total + adjustment
@@ -952,6 +962,7 @@ def value_per_share(
     equity_value: Quantity,
     shares: Quantity,
     method: TerminalMethod,
+    case: str = "base",
 ) -> Quantity:
     """The valuation, per share.
 
@@ -964,6 +975,7 @@ def value_per_share(
             :class:`TerminalMethod`.
     """
     _require_method(method)
+    _require_case(case)
     if shares.unit != _SHARES:
         message = (
             f"The share count is in {shares.unit.symbol}, not shares. A per-share figure "
@@ -1060,9 +1072,13 @@ def project(
 
 
 def discounted_cash_flow(
-    context: CalculationContext, inputs: DcfInputs, *, mandate: ValuationMandate
+    context: CalculationContext, inputs: DcfInputs, *, mandate: ValuationMandate, case: str = "base"
 ) -> DcfResult:
     """The whole valuation, both terminal methods, with every step recorded.
+
+    ``case`` names the scenario this valuation prices — ``"base"`` unless a scenario run
+    says otherwise — and is stamped on the outcome calculations exactly as ``method`` is,
+    so the ledger can be read back per case. See :func:`enterprise_value`.
 
     ``mandate`` is the sector block, and it is a required argument rather than a check
     performed inside. A :class:`~aer.core.sectors.ValuationMandate` for
@@ -1096,6 +1112,7 @@ def discounted_cash_flow(
         method=TerminalMethod.GORDON_GROWTH,
         terminal=gordon_value,
         final=final,
+        case=case,
     )
     exit_outcome = _outcome(
         context,
@@ -1104,6 +1121,7 @@ def discounted_cash_flow(
         method=TerminalMethod.EXIT_MULTIPLE,
         terminal=exit_value,
         final=final,
+        case=case,
     )
 
     return DcfResult(
@@ -1122,6 +1140,7 @@ def _outcome(
     method: TerminalMethod,
     terminal: Quantity,
     final: ForecastYear,
+    case: str,
 ) -> TerminalOutcome:
     """Carry one terminal value through to a per-share figure."""
     discounted_terminal = present_value(context, amount=terminal, factor=final.discount_factor)
@@ -1130,12 +1149,14 @@ def _outcome(
         discounted_flows=[year.present_value for year in years],
         discounted_terminal_value=discounted_terminal,
         method=method,
+        case=case,
     )
     share = terminal_value_share(
         context,
         discounted_terminal_value=discounted_terminal,
         enterprise_value=total,
         method=method,
+        case=case,
     )
     equity = equity_value(
         context,
@@ -1143,9 +1164,10 @@ def _outcome(
         net_debt=inputs.net_debt,
         adjustments=[item.amount for item in inputs.non_operating],
         method=method,
+        case=case,
     )
     per_share = value_per_share(
-        context, equity_value=equity, shares=inputs.shares_outstanding, method=method
+        context, equity_value=equity, shares=inputs.shares_outstanding, method=method, case=case
     )
 
     # Each method reports the *other* one's parameter. Reporting its own would restate an
@@ -1402,6 +1424,21 @@ def _require_cash_flow_mandate(mandate: ValuationMandate) -> None:
     raise ModelNotPermittedError(
         message, context={"model": mandate.model.value, "subject": mandate.subject}
     )
+
+
+def _require_case(case: str) -> None:
+    """Refuse a blank case label.
+
+    A blank case is a row nobody can attribute to a scenario, which is the exact gap the
+    parameter exists to close. Validated rather than defaulted here: the default lives on
+    the signature, so an explicit empty string is a caller error, not a base case.
+    """
+    if not case.strip():
+        message = (
+            "The case label is blank; the ledger could not say which scenario this valuation "
+            "prices."
+        )
+        raise CalculationError(message, context={"case": case})
 
 
 def _require_method(value: object) -> None:

@@ -77,6 +77,7 @@ from aer.services.comps import (
 from aer.services.disagreements import escalations_for_job
 from aer.services.escalation import triggers_for_job
 from aer.services.evaluations import evaluate_run
+from aer.services.exhibits import exportable_charts_for
 from aer.services.extractions import record_excerpts
 from aer.services.facts import persist_facts, upsert_company
 from aer.services.red_team import run_red_team
@@ -1301,13 +1302,20 @@ async def _render(context: StepContext) -> StepResult:
 
     company = await context.session.get(Company, _uuid(acquired["company_id"]))
 
+    comps = await comps_note_for(context.session, job=context.job, request=request)
     rendered = await render_markdown(
         context.session,
         job=context.job,
         request=request,
         company=company,
-        comps=await comps_note_for(context.session, job=context.job, request=request),
+        comps=comps,
         sector=await sector_note_for(context.session, job=context.job),
+        charts=await exportable_charts_for(
+            context.session,
+            job=context.job,
+            request=request,
+            licence_note=comps.licence_note if comps else "",
+        ),
     )
 
     artefact = await store_artefact(
