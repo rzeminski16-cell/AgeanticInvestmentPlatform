@@ -121,6 +121,7 @@ async def render_markdown(
             # third marker in the report rather than the third in some section.
             footnote_start=len(citations) + 1,
             status_note=_STATUS_NOTES.get(section.status),
+            warning=section.low_confidence_reason,
         )
         body.append(rendered.markdown)
         citations.extend(rendered.citations)

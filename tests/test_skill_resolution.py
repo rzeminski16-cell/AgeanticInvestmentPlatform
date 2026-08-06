@@ -478,16 +478,18 @@ class TestThePlanStepCarriesTheSkills:
         # The run knows its plan, and through it, its skills.
         assert job.plan_id == plan.id
 
-        # Until task 38, the custom section is planned and approved but not drafted:
-        # no report_sections row carries the custom key.
+        # Task 38: a pinned custom section is a section of the run from the plan step
+        # on, so drafting reaches it under the <user_skill> execution contract.
         sections = await db_session.scalars(
             select(ReportSection.section_key).where(ReportSection.job_id == job.id)
         )
-        assert all(not key.startswith("custom.") for key in sections)
+        assert "custom.moat_durability" in set(sections)
 
-        # The boundary that matters is the *second* run: the projected definition now
-        # exists in section_definitions, and the generic drafter must still not pick it
-        # up — a custom section without its execution contract must not be drafted.
+        # The boundary that matters is a run whose plan did NOT pin the skill. Its
+        # projected definition sits in section_definitions permanently, and a blanket
+        # query would sweep it into every later run — sections must come from the
+        # plan's own pins, and a plan with none creates none.
+        await set_enabled(db_session, key="moat_durability", enabled=False, actor=user)
         second_request = await seed_request(db_session, user=user)
         second_job = await seed_job(db_session, request=second_request)
         await run_to_next_stop(

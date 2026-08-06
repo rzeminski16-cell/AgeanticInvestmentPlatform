@@ -74,6 +74,7 @@ def render_section(
     heading_level: int = _HEADING_BASE,
     footnote_start: int = 1,
     status_note: str | None = None,
+    warning: str | None = None,
 ) -> RenderedSection:
     """Render one section's content against its contract.
 
@@ -85,6 +86,9 @@ def render_section(
         status_note: Shown in place of content when there is none — "this section did not
             apply", "generation failed". An absence with no explanation reads as an
             oversight.
+        warning: A degradation banner — insufficient evidence, truncated evidence, a
+            recorded failure reason — rendered above the content so a reader meets the
+            limitation before the analysis, never as a footnote after it.
 
     Returns:
         The Markdown and the citations in marker order, so the caller can build the
@@ -92,6 +96,10 @@ def render_section(
     """
     lines = [f"{'#' * heading_level} {title}", ""]
     citations: list[CitationRef] = []
+
+    if warning:
+        lines.append(f"> **{warning}**")
+        lines.append("")
 
     if not content:
         lines.append(f"*{status_note or 'No content was produced for this section.'}*")

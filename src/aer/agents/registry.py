@@ -170,6 +170,27 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         max_output_tokens=8_192,
         adr="0036",
     ),
+    RoleDefinition(
+        role="custom_section",
+        purpose=(
+            "Draft one user-authored section under its pinned composed policy: content "
+            "against the section's output contract, claims on named evidence, never a "
+            "figure of its own."
+        ),
+        output_schema_ref="aer.agents.custom_section:CustomSectionDraft",
+        # §2.12's custom-section allowlist, and the same set the additive-only composer
+        # intersects skill requests against (`aer.skills.resolution`
+        # PLANNED_CUSTOM_SECTION_TOOLS). A test pins the two to each other, so the
+        # composer and the registry cannot drift apart — a skill can never be granted a
+        # tool this role does not hold.
+        allowed_tools=frozenset({"search_facts", "search_sources", "fetch_known_url"}),
+        # §1.8 budgets a custom section at up to 12k evidence tokens; the cap adds room
+        # for the contract, the platform frame and the operator's own text, and trips on
+        # a caller composing something the section was never budgeted to carry.
+        max_input_tokens=20_000,
+        max_output_tokens=8_192,
+        adr="0037",
+    ),
 )
 
 

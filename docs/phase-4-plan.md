@@ -352,6 +352,42 @@ provider.
 **Acceptance.** A custom section appears in the draft with its own cited evidence, and its
 failure modes are all visible states rather than absent sections.
 
+**Delivered (2026-08-06), ADR 0037.** The ``custom_section`` role joins the registry with
+§2.12's three tools — a test pins its allowlist to the composer's
+``PLANNED_CUSTOM_SECTION_TOOLS``, so the set a skill is composed against and the set the
+role holds cannot drift. The registered contract is a fixed envelope
+(``CustomSectionDraft``: content plus proposed claims, ``extra="forbid"``); the section's
+own ``output_contract`` is validated by deterministic code (``aer/core/section_output.py``),
+closed-world — so a rating is unwritable three times over: undeclarable in a contract
+(task 35), unrepresentable in the envelope, and refused as an undeclared content key. The
+executor additionally refuses to *run* a doctored contract carrying a reserved field,
+spending nothing.
+
+The composed prompt runs in the fixed order: platform contract (the base agent's
+immovable prefix), the section's schema in the role instruction, structured evidence as
+data, then the operator's text inside ``<user_skill>`` delimiters — neutralised inside
+the body exactly as the untrusted wrapper neutralises its own, so the text cannot close
+its quotation and continue as the frame. Quoted excerpts trail everything in
+``<untrusted_source>`` blocks. Evidence is gathered by code, gated by the pin's snapshot
+(never recomposed): ``search_facts`` admits the run's facts and calculations,
+``search_sources`` its admissible sources and excerpts within the composed tier ceiling.
+Truncation to the pinned token budget drops whole units — listing, excerpt and validation
+index together, so an id the budget dropped is an id the validator refuses.
+
+One call, one retry with the problems named, then the section is marked ``failed`` with
+its reasons on the row and the run continues. The bare-numeral rule is exact: every
+numeral in the content — prose and JSON numbers alike, ``confidence`` exempt as renderer
+metadata — must appear in a numeric claim naming a stored fact or recorded calculation.
+Claims and citations go through ``record_claim``/``record_citation`` unchanged and the
+gate 2 verifier confirms or refuses them like any other. Evidence short of the composed
+policy generates under an explicit "Insufficient evidence" banner (rendered above the
+content) with confidence floored at 0.3 — never fabricated prose. The moat-durability
+example runs end to end on the fake provider: planned, priced, approved with its pins in
+the gate hash, drafted with verified citations, banner showing (it demands three sources;
+the run holds two), rendered with ``reports.rating`` still ``None``. Seventeen sabotage
+mutations across the executor, the wrapper, the scan, the registry and the workflow
+wiring.
+
 ---
 
 ## Task 39 — The validators, and `evaluations` rows per run

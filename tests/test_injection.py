@@ -115,11 +115,13 @@ class TestContainmentDoesNotDependOnDetection:
             resolve_role(agent.role)
 
     def test_every_allowlist_is_exactly_what_its_adr_admits(self) -> None:
-        """Task 37 changed this knowingly: the analysis role carries §2.5's three worker
-        tools, admitted by ADR 0036 — and every other role still carries none. Exact
-        equality, so a tool appearing anywhere is a deliberate decision with a diff here,
-        not a default that drifted."""
-        granted = {"analysis": frozenset({"search_facts", "search_sources", "fetch_known_url"})}
+        """Tasks 37 and 38 changed this knowingly: the analysis role carries §2.5's three
+        worker tools (ADR 0036), the custom-section role carries §2.12's same three
+        (ADR 0037) — and every other role still carries none. Exact equality, so a tool
+        appearing anywhere is a deliberate decision with a diff here, not a default that
+        drifted."""
+        searches = frozenset({"search_facts", "search_sources", "fetch_known_url"})
+        granted = {"analysis": searches, "custom_section": searches}
         for role in registered_roles():
             assert resolve_role(role).allowed_tools == granted.get(role, frozenset())
 

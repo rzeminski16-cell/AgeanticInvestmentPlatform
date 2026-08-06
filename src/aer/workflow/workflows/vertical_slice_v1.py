@@ -54,7 +54,7 @@ from aer.db.models import (
 )
 from aer.db.models.plan_skill_pin import PLANNED as PIN_PLANNED
 from aer.db.models.plan_skill_pin import SKIPPED_NOT_APPLICABLE, PlanSkillPin
-from aer.db.models.section_definition import BUILTIN
+from aer.db.models.section_definition import BUILTIN, SKILL
 from aer.fetch.policy import DEFAULT_POLICIES
 from aer.render.markdown import SectorNote, render_markdown
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
@@ -80,7 +80,13 @@ from aer.services.sectors import (
     propose_from_sic,
     sector_gate_required,
 )
-from aer.skills.resolution import pinned_skills_for_plan, resolve_skills_for_plan
+from aer.skills.execution import execute_custom_section
+from aer.skills.resolution import (
+    custom_definitions_for_pins,
+    pinned_skills_for_job,
+    pinned_skills_for_plan,
+    resolve_skills_for_plan,
+)
 from aer.sources.sec.companyfacts import parse_company_facts
 from aer.sources.sec.pit import select_point_in_time
 from aer.verify.citations import verify_job_citations
@@ -229,9 +235,10 @@ async def _plan(context: StepContext) -> StepResult:
     a plan that has since changed is not an approval.
     """
     request = await _request_for(context)
-    # Built-ins only until task 38: a projected custom section is planned, priced and
-    # gated below, but not drafted — the generic writer must not run user-authored
-    # sections before the <user_skill> execution contract exists to contain them.
+    # Built-ins only here: the planner proposes over the platform's own sections, and a
+    # custom section is the operator's instruction, not the planner's to plan. This run's
+    # custom sections join below, from the pins — never from a blanket query, which would
+    # sweep in projections belonging to other plans.
     definitions = [
         definition
         for definition in await resolve_sections(context.session, request=request)
@@ -301,6 +308,11 @@ async def _plan(context: StepContext) -> StepResult:
     pins = await pinned_skills_for_plan(context.session, plan_id=plan.id)
     payload_hash = sha256_hex(canonical_json(plan_gate_payload(plan, pins)))
 
+    # The run's sections are the built-ins plus this plan's pinned custom sections
+    # (task 38). Derived from the pins rather than taken from `resolved.definitions`, so
+    # a retried plan step — whose resolution returns the existing pins and no fresh
+    # projections — creates exactly the same rows.
+    definitions = definitions + await custom_definitions_for_pins(context.session, pins)
     await create_report_sections(context.session, job_id=context.job.id, definitions=definitions)
 
     return StepResult(
@@ -853,20 +865,56 @@ def _research(topic: ResearchTopic) -> Any:
 async def _draft(context: StepContext) -> StepResult:
     """Fill in every section this run has, whatever they are.
 
-    **No section key appears here.** The step iterates ``report_sections`` and builds
-    content for each from its contract. A third section definition therefore produces a
-    third drafted section with no change to this function — which is the property the
-    Phase 4 custom-section work depends on, and which has its own test.
+    **No section key appears here.** The step iterates ``report_sections`` and routes
+    each by what it *is*: a built-in goes to the generic contract-filler, a custom
+    section (``origin='skill'``) executes under the ``<user_skill>`` contract against
+    its pinned composed policy (task 38, ADR 0037). A failed custom section is a
+    recorded state the run continues past, never an absent section.
     """
     request = await _request_for(context)
     calculated = context.outputs.get("calculate", {})
     acquired = context.output_of("acquire")
 
+    pins = await pinned_skills_for_job(context.session, job=context.job)
+    pin_by_skill = {pin.skill_id: pin for pin in pins}
+    agent_context = AgentContext(
+        session=context.session,
+        provider=context.service("provider"),
+        router=context.service("router"),
+        settings=context.service("settings"),
+        store=context.service("store"),
+        job_step=context.step,
+    )
+
     sections = await sections_for_job(context.session, context.job.id)
     filled = 0
+    custom_outcomes: list[dict[str, Any]] = []
 
     for section in sections:
         definition = section.definition
+        if definition.origin == SKILL:
+            pin = pin_by_skill.get(definition.skill_id) if definition.skill_id is not None else None
+            if pin is None:
+                # A skill-origin section this plan never pinned has no approved policy
+                # to run under, and running it anyway would execute something gate 1
+                # never displayed.
+                section.status = SectionStatus.FAILED
+                section.low_confidence_reason = (
+                    "No skill pin exists for this section on this run's plan, so there "
+                    "is no approved composed policy to execute it under."
+                )
+                custom_outcomes.append(
+                    {"section_key": section.section_key, "status": section.status.value}
+                )
+                continue
+            execution = await execute_custom_section(
+                agent_context, section=section, pin=pin, request=request
+            )
+            custom_outcomes.append(execution.as_dict())
+            if execution.status is SectionStatus.GENERATED:
+                filled += 1
+            continue
+
         content = _content_for(
             contract=definition.output_contract,
             request=request,
@@ -884,10 +932,12 @@ async def _draft(context: StepContext) -> StepResult:
     return StepResult(
         output={
             "sections_drafted": filled,
+            "custom_sections": custom_outcomes,
             # Gate 2 approves exactly this. The hash is what the approval records, so an
             # approval of an earlier draft cannot be reused for a later one.
             "payload_hash": sha256_hex(canonical_json(payload)),
-        }
+        },
+        cost_gbp=agent_context.spend_gbp,
     )
 
 
@@ -908,7 +958,18 @@ async def final_gate_payload(session: AsyncSession, *, job_id: uuid.UUID) -> dic
     sections = await sections_for_job(session, job_id)
     escalations = await escalations_for_job(session, job_id)
     return {
-        "sections": [{"key": s.section_key, "content": s.content} for s in sections],
+        # Status and the degradation note ride inside the hash: a failed custom section
+        # and an insufficiency banner are part of what the operator approves, and a
+        # payload without them would let "approved" mean "approved, unaware".
+        "sections": [
+            {
+                "key": s.section_key,
+                "content": s.content,
+                "status": s.status.value,
+                "note": s.low_confidence_reason,
+            }
+            for s in sections
+        ],
         "escalations": [
             {
                 "id": str(row.id),

@@ -14,13 +14,13 @@ floor that moved between approval and execution must not silently change what ru
 **Custom sections are projected into ``section_definitions``** — the data-driven content
 model Phase 1 built for exactly this — as ``origin='skill'`` rows, versioned and never
 edited, with a fresh definition version whenever the projection differs from the latest
-one. The projected definitions are deliberately *not* drafted by the generic section
-writer yet: execution under the ``<user_skill>`` contract is task 38, and until that
-exists a custom section is planned and approved but not run.
+one. Execution under the ``<user_skill>`` contract lives in :mod:`aer.skills.execution`
+(ADR 0037), which reads the pin's snapshot rather than recomposing anything here.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Final
@@ -54,6 +54,7 @@ if TYPE_CHECKING:
 __all__ = [
     "CUSTOM_SECTION_OUTPUT_TOKENS",
     "PLANNED_CUSTOM_SECTION_TOOLS",
+    "custom_definitions_for_pins",
     "estimate_custom_section_cost",
     "pinned_skills_for_job",
     "pinned_skills_for_plan",
@@ -64,10 +65,10 @@ __all__ = [
 _log = structlog.get_logger("aer.skills.resolution")
 
 # What a custom section may ask for, per §2.12: search over what the run already holds,
-# plus fetching a specific known URL through the deterministic fetch layer. This constant
-# becomes the registry's `custom_section` role allowlist when task 38 lands the agent —
-# and a test pins the two to each other from that day, so they cannot drift. Until then
-# the composer intersects against this, which it cannot widen either way.
+# plus fetching a specific known URL through the deterministic fetch layer. The registry's
+# `custom_section` role (ADR 0037) holds the same set, and a test pins the two to each
+# other so they cannot drift — the list a skill is composed against is the list the role
+# actually holds.
 PLANNED_CUSTOM_SECTION_TOOLS: Final[frozenset[str]] = frozenset(
     {"search_facts", "search_sources", "fetch_known_url"}
 )
@@ -389,6 +390,32 @@ async def pinned_skills_for_plan(session: AsyncSession, *, plan_id: Any) -> list
     )
     pins.sort(key=lambda pin: (pin.status != PLANNED, pin.skill.key))
     return pins
+
+
+async def custom_definitions_for_pins(
+    session: AsyncSession, pins: Sequence[PlanSkillPin]
+) -> list[SectionDefinition]:
+    """The projected definition behind each *planned* custom-section pin.
+
+    Looked up by skill rather than carried in memory, so the plan step's retry — which
+    finds its pins already flushed and receives no fresh projections — reaches the same
+    definitions the first attempt projected. The latest version per skill is correct
+    within a run for the same reason projection is idempotent: nothing else writes a
+    newer one between the pin and this read.
+    """
+    definitions: list[SectionDefinition] = []
+    for pin in pins:
+        if pin.status != PLANNED or pin.skill.kind != "custom_section":
+            continue
+        found = await session.scalar(
+            select(SectionDefinition)
+            .where(SectionDefinition.skill_id == pin.skill_id)
+            .order_by(SectionDefinition.version.desc())
+            .limit(1)
+        )
+        if found is not None:
+            definitions.append(found)
+    return definitions
 
 
 async def pinned_skills_for_job(session: AsyncSession, *, job: Job) -> list[PlanSkillPin]:
