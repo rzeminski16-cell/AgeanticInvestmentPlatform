@@ -235,6 +235,12 @@ class Settings(BaseSettings):
     budget_warn_ratio: float = Field(default=0.75, gt=0, le=1)
     usd_to_gbp: Decimal = Field(default=Decimal("0.79"), gt=0)
 
+    # The per-custom-section token ceiling the additive-only composer clamps requests to
+    # (docs/PLAN.md §2.12, §1.8: "12k each (cap)"). Config rather than code because it is
+    # a cost decision; the *floor* rules a skill cannot relax are code, in
+    # aer.core.skill_policy.
+    custom_section_token_ceiling: int = Field(default=12_000, gt=0)
+
     # NoDecode: pydantic-settings would otherwise JSON-decode this at the source layer,
     # before any validator runs, so a blank `AER_MODEL_ROUTES=` would raise an opaque
     # SettingsError instead of falling back to the defaults. Parsing it ourselves keeps

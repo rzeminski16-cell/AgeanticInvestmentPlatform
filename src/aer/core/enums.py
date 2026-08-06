@@ -276,3 +276,24 @@ class ClaimKind(StrEnum):
 CITATION_REQUIRING_CLAIMS: Final[frozenset[ClaimKind]] = frozenset(
     {ClaimKind.NUMERIC, ClaimKind.FACTUAL}
 )
+
+
+class SkillKind(StrEnum):
+    """What a user-authored skill file adds to the platform (`docs/PLAN.md` §2.12).
+
+    ``CUSTOM_SECTION`` becomes a report section of its own, with an output contract, an
+    evidence policy and a budget. The other three are composed into an existing agent's
+    prompt under the ``<user_skill>`` delimiter — methodology guidance, presentation
+    preferences, a standing house view — and carry no output contract because they produce
+    no section.
+
+    Whatever the kind, a skill is additive-only: it may add requirements and direction,
+    never relax the evidence contract. That rule is enforced by the composer in
+    :mod:`aer.core.skill_policy`, not by this enum — but the enum is why the composer can
+    be exhaustive about what it is composing.
+    """
+
+    CUSTOM_SECTION = "custom_section"
+    METHODOLOGY = "methodology"
+    PREFERENCE = "preference"
+    HOUSE_VIEW = "house_view"

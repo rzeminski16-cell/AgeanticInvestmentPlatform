@@ -199,6 +199,33 @@ to construct one); content hash changes on any edit.
 **Acceptance.** A skill row cannot exist with invalid frontmatter, and no composed policy is
 ever looser than the built-in floor.
 
+**Delivered (2026-08-06).** Migration 0020: ``skills`` (identity: key, kind, enabled) and
+``skill_versions`` (one immutable row per save, typed columns for everything the platform
+acts on, the source byte-for-byte, its hash). The parser
+(`aer/skills/frontmatter.py`) reports **every** problem at once, each with the 1-based file
+line it lives on — nested fields included — and the write path validates before it
+constructs, so the acceptance criterion is a property of the code shape. The schema
+(`aer/core/schemas/skill.py`) makes the reserved output fields (rating, recommendation,
+target price, valuation range) *undeclarable*: there is deliberately no downstream check on
+what a custom section wrote into a rating field, because no such field can exist to be
+written into — ADR 0034's pattern applied to authorship.
+
+The composer (`aer/core/skill_policy.py`, pure, strict) clamps rather than refuses:
+``max(floor, request)`` per evidence field in its own direction of strictness, tools as the
+intersection with the role allowlist — an unknown tool intersects to nothing, never
+escalates to a question — and the budget under the configured ceiling
+(``AER_CUSTOM_SECTION_TOKEN_CEILING``). Every clamp is a named warning, because the
+effective policy differing from what the author wrote is exactly what they must be shown.
+The containment claim itself is a **hypothesis property**: for any request the schema
+admits, against any allowlist and any ceiling, nothing composes looser, wider or larger —
+and every difference from the request is named.
+
+Versions are allocated from what is stored, never from the author's own ``version`` field
+(two edits both claiming ``version: 3`` must not fight over history); identical bytes are
+refused; a key keeps its kind. Sixteen sabotage mutations, sixteen caught — one after the
+no-fence test learned to assert the diagnosis as well as the line, and one after a
+broken mutation string was rewritten honestly.
+
 ---
 
 ## Task 36 — Skill resolution, version pinning and custom sections in the plan
@@ -384,6 +411,16 @@ it, and see it appear in a draft with its own cited evidence — with the dry-ru
 loop minutes rather than a run.
 
 ---
+
+## Known issue, not yet scheduled
+
+The browser suite's ``test_run_console.py`` is flaky against the session-scoped e2e
+server: failures rotate between tests run to run, every test passes alone, and the
+behaviour reproduces identically on the task-34 commit before the skills work existed —
+so it is an unfixed race in how those tests share a live server (SSE and gate timing),
+not a functional regression in anything recent. It has widened from "combined runs only"
+(first recorded in task 31) to intra-file. Worth its own fix before the Phase 4 surfaces
+(tasks 41 and 43) add more e2e weight to the same server.
 
 ## Deliberately not in Phase 4
 
