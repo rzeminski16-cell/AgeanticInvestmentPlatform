@@ -157,16 +157,8 @@ class PlannerAgent(Agent[PlannerInput, ResearchPlanDraft]):
     role: ClassVar[str] = "planner"
     output_schema: ClassVar[type[BaseModel]] = ResearchPlanDraft
 
-    # No tools. The planner reads the request and nothing else; it has no reason to fetch,
-    # and an agent with no need for a capability should not have it.
-    allowed_tools: ClassVar[frozenset[str]] = frozenset()
-
-    # Headroom, not an expectation. The plan itself is a few hundred tokens of JSON, but
-    # `max_tokens` bounds thinking and visible output *together* on the models this role
-    # routes to, and adaptive thinking at `high` effort will happily spend 4,096 tokens
-    # reasoning about a research plan before writing a word of it. The ceiling costs nothing
-    # unless it is used; the run that hits it produces no plan at all.
-    max_output_tokens: ClassVar[int] = 16_384
+    # Tools and token caps are deliberately absent: they live in this role's
+    # `aer.agents.registry` definition, and a declaration here would grant nothing.
 
     # Bumped because rule 6 was added deliberately. `_ensure_prompt` records an unbumped
     # edit under a hash-suffixed version so a run is never attributed to the wrong

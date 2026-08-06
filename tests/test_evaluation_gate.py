@@ -74,6 +74,7 @@ from aer.services.sources import decide_quarantine
 from aer.storage.local import LocalArtefactStore
 from aer.verify.citations import verify
 from tests import citation_corpus, injection_fixtures, lookahead_fixtures
+from tests.agent_probes import ProbeAnswer
 from tests.ledger_fixtures import record_valuation_ledger
 from tests.scene_fixtures import build_scene
 from tests.workflow_fixtures import AS_OF_DATE
@@ -219,16 +220,18 @@ def sources() -> list[SourceObservation]:
     return observations
 
 
-class _NoToolsAgent(Agent[Any, Any]):
+class _NoToolsAgent(Agent[Any, ProbeAnswer]):
     """An agent with an empty allowlist, standing in for every role in the platform.
 
-    Every agent that currently exists has ``allowed_tools = frozenset()``, so "authorised a
-    tool outside policy" means "authorised a tool at all". When a role gains tools the
-    corpus below gains the ones it must still refuse.
+    Every role registered so far grants no tools, so "authorised a tool outside policy"
+    means "authorised a tool at all". The allowlist comes from the registered
+    ``evaluation-probe`` role (``tests/agent_probes.py``) — an agent class cannot carry
+    one of its own. When a role gains tools the corpus below gains the ones it must still
+    refuse.
     """
 
     role = "evaluation-probe"
-    allowed_tools = frozenset()
+    output_schema = ProbeAnswer
 
 
 # What the payloads try to get done. Each is a capability that would turn a poisoned

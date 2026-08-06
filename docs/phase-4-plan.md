@@ -103,6 +103,24 @@ and recorded; the planner, re-pointed at the registry, behaves identically.
 grants a tool or a budget. **ADR: a new agent role requires an ADR** — the registry refuses
 roles with no ADR reference, making the mitigation structural rather than procedural.
 
+**Delivered (2026-08-06).** `aer/agents/registry.py` (one `RoleDefinition` per implemented
+role; contracts by `module:Attribute` reference, the `function_ref` idiom), ADR 0035, and
+the base agent rewired: construction resolves the definition, refuses an unregistered role,
+and verifies the class's declared schema is the registered one. The input cap is checked
+against a real token count before a call is made; the output cap is the `max_tokens` the
+provider receives. The platform contract now leads every composed system prompt, with the
+containment rule last.
+
+One design point found by its own sabotage pass: a subclass class-attribute named
+`allowed_tools` would *shadow* the base property and win attribute lookup — the quiet
+widening path in miniature. Two layers close it: `__init_subclass__` refuses
+capability-shaped attributes at class definition, and `require_tool` reads the definition
+rather than the property, tested by bolting the attribute on after class creation, which
+bypasses the first layer. The injection suite's containment assertions moved from agent
+classes to the registry, which is the stronger claim: a role with a network tool is the
+breach whether or not an agent class for it exists yet. Eleven sabotage mutations, eleven
+caught — the eleventh after the shadowing test was added.
+
 ---
 
 ## Task 34 — The DAG workflow engine with bounded fan-out

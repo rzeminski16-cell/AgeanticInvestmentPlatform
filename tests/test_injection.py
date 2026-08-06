@@ -24,14 +24,15 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from pydantic import BaseModel
 
 from aer.agents.base import Agent, ToolNotPermittedError
 from aer.agents.planner import PlannerAgent
+from aer.agents.registry import PLATFORM_CONTRACT, registered_roles, resolve_role
 from aer.agents.untrusted import CONTAINMENT_RULE, UntrustedSource, wrap_untrusted
 from aer.core.schemas.injection import Finding, InjectionSignal
 from aer.extract.html import extract_html
 from aer.extract.injection import scan_text
+from tests.agent_probes import ProbeAnswer
 from tests.injection_fixtures import FILINGS, INNOCENT_BUT_FLAGGED, PAYLOADS
 
 SRC_ROOT = Path(__file__).resolve().parent.parent / "src"
@@ -43,8 +44,9 @@ _NETWORK_SHAPED = frozenset(
 )
 
 
-class _Answer(BaseModel):
-    verdict: str
+# The registered contract for the probe role. The base verifies at construction that the
+# class declares exactly the schema its role registers, so a local stand-in would refuse.
+_Answer = ProbeAnswer
 
 
 class _MinimalAgent(Agent[str, _Answer]):
@@ -52,10 +54,11 @@ class _MinimalAgent(Agent[str, _Answer]):
 
     Subclassing a real agent would drag its input schema in, and a test that has to construct a
     full research request in order to check a prompt composition is a test that breaks when an
-    unrelated field is added to that request.
+    unrelated field is added to that request. The role is a registered test probe — see
+    ``tests/agent_probes.py`` — because an unregistered role cannot construct at all.
     """
 
-    role = "planner"
+    role = "injection-probe"
     output_schema = _Answer
 
     def system_prompt(self, payload: str) -> str:
@@ -90,31 +93,45 @@ class TestContainmentDoesNotDependOnDetection:
 
         return list(_subclasses(Agent))
 
-    def test_no_agent_has_a_network_tool(self) -> None:
+    def test_no_role_has_a_network_tool(self) -> None:
         """Threat T3's real control. An injected "send the database to evil.invalid" has
-        nothing to call, so exfiltration is not mitigated — it is unavailable."""
-        for agent in self._agents():
-            assert not agent.allowed_tools & _NETWORK_SHAPED, (
-                f"{agent.__name__} has a network-shaped tool; exfiltration stops being "
-                "structurally impossible the moment one exists"
+        nothing to call, so exfiltration is not mitigated — it is unavailable.
+
+        Asserted over the registry rather than over agent classes, because the registry is
+        where tools now come from — a role with a network tool would be the breach whether
+        or not an agent class for it exists yet.
+        """
+        for role in registered_roles():
+            granted = resolve_role(role).allowed_tools & _NETWORK_SHAPED
+            assert not granted, (
+                f"the {role} role grants {sorted(granted)}; exfiltration stops being "
+                "structurally impossible the moment a network-shaped tool exists"
             )
 
-    def test_every_agent_starts_with_an_empty_allowlist(self) -> None:
-        """Phase 1 and 2 agents use no tools at all. Asserted so that the first agent to want
-        one is a deliberate decision with a test behind it, not a default that drifted."""
+    def test_every_agent_role_resolves_in_the_registry(self) -> None:
+        """Every Agent subclass names a registered role — the property that makes the
+        registry the single source of capability rather than one of two."""
         for agent in self._agents():
-            assert agent.allowed_tools == frozenset()
+            resolve_role(agent.role)
+
+    def test_every_role_starts_with_an_empty_allowlist(self) -> None:
+        """No role registered so far uses tools at all. Asserted so that the first role to
+        want one is a deliberate decision with a test behind it, not a default that
+        drifted. Task 37's research workers will change this line knowingly."""
+        for role in registered_roles():
+            assert resolve_role(role).allowed_tools == frozenset()
 
     def test_a_tool_outside_the_allowlist_is_refused(self) -> None:
         with pytest.raises(ToolNotPermittedError, match="may not use the tool"):
             PlannerAgent().require_tool("fetch_url")
 
-    def test_the_allowlist_is_a_class_attribute_and_not_derived_from_input(self) -> None:
+    def test_the_allowlist_is_registry_data_and_not_derived_from_input(self) -> None:
         """The structural reason an injected instruction cannot widen it.
 
-        ``allowed_tools`` is set on the class. Nothing reads a payload, a document or a model
-        response to decide it — so there is no path from what a document says to what an agent
-        may do, and no amount of persuasion in a filing creates one.
+        ``allowed_tools`` comes from the role's frozen registry definition. Nothing reads a
+        payload, a document or a model response to decide it — so there is no path from
+        what a document says to what an agent may do, and no amount of persuasion in a
+        filing creates one. The AST check pins the mechanism: the base never assigns it.
         """
         source = (SRC_ROOT / "aer" / "agents" / "base.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
@@ -131,7 +148,7 @@ class TestContainmentDoesNotDependOnDetection:
 
         assert assigns == [], "allowed_tools is assigned at runtime somewhere in the agent base"
 
-    def test_require_tool_reads_the_class_not_the_payload(self) -> None:
+    def test_require_tool_reads_the_registry_not_the_payload(self) -> None:
         """The same property, demonstrated rather than parsed: a payload that asks for a tool
         does not get one."""
         agent = _MinimalAgent()
@@ -250,7 +267,17 @@ class TestTheAgentBaseCannotForget:
         composed = _MinimalAgent().composed_system_prompt("Plan the research.")
 
         assert CONTAINMENT_RULE not in composed
-        assert composed == "Be brief."
+        assert composed == f"{PLATFORM_CONTRACT}\n\nBe brief."
+
+    def test_the_platform_contract_leads_and_containment_trails(self) -> None:
+        """The order is the design: the invariant text every role shares comes first —
+        prompt caching keys on a stable prefix — and nothing an agent writes can precede
+        or displace it."""
+        composed = _ReadingAgent().composed_system_prompt("Plan the research.")
+
+        assert composed.startswith(PLATFORM_CONTRACT)
+        assert composed.index(PLATFORM_CONTRACT) < composed.index("Be brief.")
+        assert composed.index("Be brief.") < composed.index(CONTAINMENT_RULE)
 
     def test_the_user_message_is_untouched_when_there_is_nothing_to_quote(self) -> None:
         assert _MinimalAgent().composed_user_message("Plan it.") == "Plan it."

@@ -19,8 +19,10 @@ from pathlib import Path
 import pytest
 import structlog
 
+from aer.agents import registry as agent_registry
 from aer.config import ENV_PREFIX, Settings, get_settings
 from aer.logging import configure_logging
+from tests.agent_probes import PROBE_DEFINITIONS
 
 # Fixtures live in their own modules to keep this one readable; re-exported here so
 # pytest discovers them. See tests/db_fixtures.py for the transactional isolation
@@ -86,6 +88,23 @@ def hermetic_environment(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True, scope="session")
+def probe_agent_roles() -> Iterator[None]:
+    """Register the test probe agent roles for the session, and remove them after.
+
+    The agent registry refuses an unregistered role at construction — a property several
+    suites rely on — so the stand-in agents tests subclass need roles of their own. See
+    ``tests/agent_probes.py``. Inserted directly rather than via monkeypatch because the
+    registration must outlive any single test.
+    """
+    for definition in PROBE_DEFINITIONS:
+        assert definition.role not in agent_registry._REGISTRY
+        agent_registry._REGISTRY[definition.role] = definition
+    yield
+    for definition in PROBE_DEFINITIONS:
+        agent_registry._REGISTRY.pop(definition.role, None)
 
 
 @pytest.fixture

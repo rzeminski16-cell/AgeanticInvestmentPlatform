@@ -13,10 +13,15 @@ that?" is unanswerable from a token count.
 **Meter every call.** Usage becomes ``costs`` rows in USD and GBP with the exchange rate on
 each row. Not a reporting feature — this is what the budget cap reads.
 
-**Never widen the allowlist.** ``allowed_tools`` is a property of the agent, and the check
-that a tool is permitted happens in Python before the tool runs. Text inside a fetched
-document can ask for anything it likes; there is no path from what a model emits to what an
-agent is permitted to do.
+**Never widen the allowlist.** What an agent may do comes from
+:mod:`aer.agents.registry`, resolved at construction, and the check that a tool is
+permitted happens in Python before the tool runs. A class attribute grants nothing; text
+inside a fetched document can ask for anything it likes; there is no path from what a model
+emits — or what an agent's own module declares — to what the role is permitted.
+
+**Refuse an oversized call before it is made.** The role's input cap is checked against a
+real token count at the provider boundary, so a runaway composition fails for free instead
+of spending its way to the budget guard.
 """
 
 from __future__ import annotations
@@ -31,6 +36,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.agents.registry import PLATFORM_CONTRACT, RoleDefinitionError, resolve_role
 from aer.agents.untrusted import CONTAINMENT_RULE, UntrustedSource, wrap_untrusted
 from aer.config import Settings
 from aer.core.hashing import canonical_json, sha256_hex
@@ -42,19 +48,31 @@ from aer.providers.router import Router
 from aer.services.artefacts import store_artefact
 from aer.storage.protocol import ArtefactStore
 
-__all__ = ["Agent", "AgentContext", "ToolNotPermittedError"]
+__all__ = ["Agent", "AgentContext", "TokenCapExceededError", "ToolNotPermittedError"]
 
 _log = structlog.get_logger("aer.agents")
 
 
 class ToolNotPermittedError(AerError):
-    """An agent tried to use a tool outside its allowlist.
+    """An agent tried to use a tool outside its role's allowlist.
 
     Always a bug or an attack, never a condition to recover from by widening the list.
     """
 
     code = "tool_not_permitted"
     http_status = 403
+
+
+class TokenCapExceededError(AerError):
+    """A composed call would exceed the role's input cap, and was refused unmade.
+
+    The registry's cap is a statement about what a role's input *can legitimately be* —
+    the planner reads a request, not a filing. Exceeding it means a caller composed
+    something the role was never meant to carry, and the right failure is here, before
+    any money is spent, rather than at the budget guard afterwards.
+    """
+
+    code = "token_cap_exceeded"
 
 
 @dataclass(slots=True)
@@ -81,13 +99,16 @@ class AgentContext:
 class Agent[InputT, OutputT: BaseModel]:
     """Base for every agent.
 
-    Subclasses declare four class attributes and implement two methods:
+    Subclasses declare two class attributes and implement two methods:
 
-    * ``role`` — what the router resolves.
-    * ``output_schema`` — the Pydantic model the response must satisfy.
-    * ``allowed_tools`` — a frozen set, checked in code. Empty means no tools at all,
-      which is the correct default and what every Phase 1 agent uses.
-    * ``max_output_tokens`` — a hard cap, so one agent cannot consume a run's budget.
+    * ``role`` — the name resolved against :mod:`aer.agents.registry` for capability and
+      against the router for a model. Constructing an agent whose role is unregistered
+      raises; a role's tools and token caps come from its :class:`RoleDefinition` and from
+      nowhere else, so nothing a subclass declares can widen anything.
+    * ``output_schema`` — the Pydantic model the response must satisfy. Declared on the
+      class because the type parameter needs a value at hand, and verified at construction
+      to be the schema the registry registers for the role — the two naming different
+      contracts is a fork in the single source of capability.
 
     * :meth:`system_prompt` — the instruction, which becomes a versioned ``prompts`` row.
     * :meth:`user_message` — the request, built from typed input rather than interpolated
@@ -96,9 +117,49 @@ class Agent[InputT, OutputT: BaseModel]:
 
     role: ClassVar[str]
     output_schema: ClassVar[type[BaseModel]]
-    allowed_tools: ClassVar[frozenset[str]] = frozenset()
-    max_output_tokens: ClassVar[int] = 4096
     prompt_version: ClassVar[str] = "1"
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Refuse a subclass that declares capability of its own.
+
+        A class attribute named ``allowed_tools`` would shadow the base property and win
+        attribute lookup — the exact quiet-widening path the registry exists to close. So
+        the names are unrepresentable on a subclass, not merely ignored.
+        """
+        super().__init_subclass__(**kwargs)
+        claimed = {"allowed_tools", "max_output_tokens", "max_input_tokens"} & set(cls.__dict__)
+        if claimed:
+            message = (
+                f"{cls.__name__} declares {sorted(claimed)}. Tool allowlists and token "
+                "caps come from the role's registry definition and from nowhere else; a "
+                "class declaration would shadow the registry and is refused outright."
+            )
+            raise RoleDefinitionError(message, context={"agent": cls.__name__})
+
+    def __init__(self) -> None:
+        self.definition = resolve_role(type(self).role)
+
+        registered = self.definition.output_schema()
+        if type(self).output_schema is not registered:
+            message = (
+                f"The {self.role} agent declares the output contract "
+                f"{type(self).output_schema.__qualname__!r}, but the registry registers "
+                f"{registered.__qualname__!r} for that role. One of them changed without "
+                "the other; the registry is the source of record."
+            )
+            raise RoleDefinitionError(
+                message,
+                context={
+                    "role": self.role,
+                    "declared": type(self).output_schema.__qualname__,
+                    "registered": registered.__qualname__,
+                },
+            )
+
+    @property
+    def allowed_tools(self) -> frozenset[str]:
+        """The role's allowlist, from the registry. Read-only, and there is no setter."""
+        return self.definition.allowed_tools
 
     def system_prompt(self, payload: InputT) -> str:
         raise NotImplementedError
@@ -122,19 +183,24 @@ class Agent[InputT, OutputT: BaseModel]:
     # -- Composed by the base, not by an agent -----------------------------------------------
 
     def composed_system_prompt(self, payload: InputT) -> str:
-        """The agent's instruction, plus the containment rule when it is needed.
+        """The platform contract, the agent's instruction, and the containment rule.
 
-        Appended only when this call carries untrusted content. Adding it unconditionally would
-        put a rule about quoted documents in front of an agent that reads none, and the prompt
-        recorded against a run should describe that run.
+        In that order, and the order is doing work. The contract leads because it is the
+        text every role shares and must not be able to displace — and because prompt
+        caching keys on a stable prefix, so the invariant text comes first and the
+        per-call content last.
 
-        The two variants hash differently and therefore become two ``prompts`` rows. That is
-        correct: they are different instructions, and a run must be attributable to the one it
-        actually used.
+        The containment rule is appended only when this call carries untrusted content.
+        Adding it unconditionally would put a rule about quoted documents in front of an
+        agent that reads none, and the prompt recorded against a run should describe that
+        run. The variants hash differently and become different ``prompts`` rows, which is
+        correct: they are different instructions, and a run must be attributable to the
+        one it actually used.
         """
+        composed = f"{PLATFORM_CONTRACT}\n\n{self.system_prompt(payload)}"
         if not self.untrusted_sources(payload):
-            return self.system_prompt(payload)
-        return f"{self.system_prompt(payload)}\n\n{CONTAINMENT_RULE}"
+            return composed
+        return f"{composed}\n\n{CONTAINMENT_RULE}"
 
     def composed_user_message(self, payload: InputT) -> str:
         """The agent's request, with any fetched content quoted beneath it."""
@@ -153,6 +219,27 @@ class Agent[InputT, OutputT: BaseModel]:
         system = self.composed_system_prompt(payload)
         messages = [Message(role="user", content=self.composed_user_message(payload))]
 
+        # The role's input cap, checked against a real count before any money moves. The
+        # count itself is free, and a refused call costs nothing at all.
+        projected = await context.provider.count_tokens(
+            system=system, messages=messages, model=choice.model
+        )
+        if projected > self.definition.max_input_tokens:
+            message = (
+                f"The {self.role} agent composed a call of {projected} input tokens against "
+                f"its registered cap of {self.definition.max_input_tokens}. The call was "
+                "refused before it was made — a composition this size means something was "
+                "included that this role is not meant to carry."
+            )
+            raise TokenCapExceededError(
+                message,
+                context={
+                    "role": self.role,
+                    "projected": projected,
+                    "cap": self.definition.max_input_tokens,
+                },
+            )
+
         started = time.perf_counter()
         result = await context.provider.complete_structured(
             self.output_schema,
@@ -160,7 +247,7 @@ class Agent[InputT, OutputT: BaseModel]:
             messages=messages,
             model=choice.model,
             effort=choice.effort,
-            max_tokens=self.max_output_tokens,
+            max_tokens=self.definition.max_output_tokens,
         )
         elapsed_ms = (time.perf_counter() - started) * 1000
 
@@ -211,12 +298,14 @@ class Agent[InputT, OutputT: BaseModel]:
                 point is that what an agent may do is fixed before any untrusted text is
                 read.
         """
-        if name in self.allowed_tools:
+        # The definition, not the property: an attribute anywhere on the class hierarchy
+        # must have no way to answer this question.
+        if name in self.definition.allowed_tools:
             return
         message = (
             f"The {self.role} agent may not use the tool {name!r}. Permitted: "
-            f"{sorted(self.allowed_tools) or 'none'}. An agent's tool allowlist is fixed "
-            "in code and is never widened at runtime."
+            f"{sorted(self.allowed_tools) or 'none'}. A role's tool allowlist is fixed in "
+            "its registry definition and is never widened at runtime."
         )
         raise ToolNotPermittedError(message, context={"role": self.role, "tool": name})
 
