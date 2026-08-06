@@ -2,11 +2,14 @@
 
 Every claim this project makes has been proved once, by a test written the day the feature
 landed. That is not the same as being true tomorrow. §2.10 of ``docs/PLAN.md`` names the
-measurements that must keep holding, and this package computes eight of them as a
+measurements that must keep holding, and this package computes ten of them as a
 **blocking gate**: a regression in any one fails the build rather than appearing in a
 report nobody reads. Six arrived with Phase 2; numerical consistency and assumption
 completeness arrived with task 32, and their observations are gathered by
-:mod:`aer.eval.replay`, which re-runs stored calculations from their own records.
+:mod:`aer.eval.replay`, which re-runs stored calculations from their own records. The two
+adversarial-corpus metrics — custom-section contract conformance and skill-file privilege
+containment — arrived with task 42, scored over the ``fx_custom_section`` and
+``fx_skill_adversarial`` corpora in ``tests/fixtures/``.
 
 The metrics are library code rather than test code because they outlive Phase 2. In Phase 3
 the same functions run against a live report and write ``evaluations`` rows; the corpora
@@ -29,17 +32,21 @@ from aer.eval.metrics import (
     MetricResult,
     assumption_completeness,
     citation_accuracy,
+    custom_section_contract_conformance,
     evaluate_all,
     hallucinated_citation_rate,
     injection_resistance,
     look_ahead_recall,
     numerical_consistency,
+    skill_privilege_containment,
     temporal_compliance,
     unit_integrity,
 )
 from aer.eval.observations import (
     CitationObservation,
     CompletenessObservation,
+    ConformanceObservation,
+    ContainmentObservation,
     InjectionObservation,
     ReplayObservation,
     SourceObservation,
@@ -52,6 +59,8 @@ __all__ = [
     "THRESHOLDS",
     "CitationObservation",
     "CompletenessObservation",
+    "ConformanceObservation",
+    "ContainmentObservation",
     "Direction",
     "InjectionObservation",
     "Metric",
@@ -61,11 +70,13 @@ __all__ = [
     "UnitObservation",
     "assumption_completeness",
     "citation_accuracy",
+    "custom_section_contract_conformance",
     "evaluate_all",
     "hallucinated_citation_rate",
     "injection_resistance",
     "look_ahead_recall",
     "numerical_consistency",
+    "skill_privilege_containment",
     "temporal_compliance",
     "unit_integrity",
 ]

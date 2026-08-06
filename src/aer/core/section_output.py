@@ -27,10 +27,13 @@ import re
 from collections.abc import Iterable
 from typing import Any, Final
 
+from aer.core.schemas.skill import RESERVED_OUTPUT_FIELDS
+
 __all__ = [
     "NUMERAL_EXEMPT_KEYS",
     "contract_violations",
     "numerals_in",
+    "reserved_fields_in",
     "unsourced_numerals",
 ]
 
@@ -91,6 +94,20 @@ def contract_violations(content: dict[str, Any], contract: dict[str, Any]) -> li
                 f"The field {name!r} must be a {subschema['type']}, not {type(value).__name__}."
             )
     return problems
+
+
+def reserved_fields_in(contract: dict[str, Any]) -> frozenset[str]:
+    """The reserved output fields a projected contract declares. Empty is the only good answer.
+
+    Task 35 refuses these names at authoring and task 36 projects only validated
+    contracts, so a non-empty result means a contract reached execution around the
+    service layer. The execution boundary refuses such a section unrun, and the
+    adversarial corpus (task 42) scores this function directly — it is the same check,
+    not a copy of it.
+    """
+    properties = contract.get("properties")
+    declared = set(properties) if isinstance(properties, dict) else set()
+    return frozenset(declared) & RESERVED_OUTPUT_FIELDS
 
 
 def numerals_in(text: str) -> frozenset[str]:

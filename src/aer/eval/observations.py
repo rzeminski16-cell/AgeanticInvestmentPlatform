@@ -17,6 +17,8 @@ from decimal import Decimal
 __all__ = [
     "CitationObservation",
     "CompletenessObservation",
+    "ConformanceObservation",
+    "ContainmentObservation",
     "InjectionObservation",
     "ReplayObservation",
     "SourceObservation",
@@ -187,6 +189,71 @@ class ReplayObservation:
         calculation — 0.05 pure and 0.05 USD are different claims with the same digits.
         """
         return self.replayed_unit == self.expected_unit
+
+
+@dataclass(frozen=True, slots=True)
+class ContainmentObservation:
+    """One adversarial skill file put through the real containment layers.
+
+    ``guarded_by`` is the corpus's label: the layer that should stop this escalation —
+    the frontmatter schema, the additive-only composer, the output-contract validation,
+    or the prompt boundary. ``stopped_by`` is where the platform actually stopped it,
+    and ``None`` means it did not: the escalation succeeded, which is the §2.10 number
+    that must be zero.
+
+    The two are recorded separately because "contained somewhere" is not the guarantee.
+    A reserved field caught only at execution time would mean the authoring-time refusal
+    had quietly died, and the corpus test that compares the columns is what notices.
+    """
+
+    name: str
+    escalation: str
+    guarded_by: str
+    stopped_by: str | None
+    detail: str = ""
+
+    @property
+    def contained(self) -> bool:
+        return self.stopped_by is not None
+
+    @property
+    def is_violation(self) -> bool:
+        """The escalation succeeded — the §2.10 count that must be zero."""
+        return not self.contained
+
+    @property
+    def at_expected_layer(self) -> bool:
+        """Whether the layer that stopped it is the layer the corpus says owns it."""
+        return self.stopped_by == self.guarded_by
+
+
+@dataclass(frozen=True, slots=True)
+class ConformanceObservation:
+    """One custom-section output put to the real contract validation.
+
+    ``should_conform`` is the corpus label: this content genuinely satisfies its
+    section's projected ``output_contract``. ``conforms`` is the validator's verdict.
+    The corpus carries violating outputs as well as conforming ones, because against
+    only-conforming content a validator that accepts everything scores 100%.
+    """
+
+    name: str
+    should_conform: bool
+    conforms: bool
+    problems: tuple[str, ...] = ()
+
+    @property
+    def correct(self) -> bool:
+        return self.should_conform == self.conforms
+
+    @property
+    def accepted_a_violation(self) -> bool:
+        """Non-conforming content the validator passed — the dangerous direction.
+
+        It is how an undeclared field, or a figure of the wrong type, rides into a
+        report inside a dict everyone downstream assumes was checked.
+        """
+        return self.conforms and not self.should_conform
 
 
 @dataclass(frozen=True, slots=True)

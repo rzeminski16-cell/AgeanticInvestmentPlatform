@@ -54,6 +54,7 @@ if TYPE_CHECKING:
 __all__ = [
     "CUSTOM_SECTION_OUTPUT_TOKENS",
     "PLANNED_CUSTOM_SECTION_TOOLS",
+    "contract_schema",
     "custom_definitions_for_pins",
     "estimate_custom_section_cost",
     "pinned_skills_for_job",
@@ -248,7 +249,7 @@ async def project_custom_section(
     key = f"custom.{skill.key}"
     projection: dict[str, Any] = {
         "title": version.title,
-        "output_contract": _contract_schema(version.output_contract or {}),
+        "output_contract": contract_schema(version.output_contract or {}),
         "evidence_policy": {
             "min_sources": composed.evidence.min_sources,
             "requires_primary": composed.evidence.requires_primary,
@@ -299,7 +300,7 @@ def _projection_of(definition: SectionDefinition) -> dict[str, Any]:
     }
 
 
-def _contract_schema(declared: dict[str, Any]) -> dict[str, Any]:
+def contract_schema(declared: dict[str, Any]) -> dict[str, Any]:
     """The author's field spec as a minimal JSON Schema.
 
     Scalar types map; anything structured is carried as-is under a permissive schema for

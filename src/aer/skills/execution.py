@@ -28,8 +28,7 @@ from sqlalchemy import select
 from aer.agents.base import AgentContext, TokenCapExceededError
 from aer.agents.custom_section import CustomSectionAgent, CustomSectionDraft, CustomSectionInput
 from aer.core.enums import ClaimKind, SourceTier
-from aer.core.schemas.skill import RESERVED_OUTPUT_FIELDS
-from aer.core.section_output import contract_violations, unsourced_numerals
+from aer.core.section_output import contract_violations, reserved_fields_in, unsourced_numerals
 from aer.db.models import (
     Calculation,
     Extraction,
@@ -159,7 +158,7 @@ async def execute_custom_section(
     # names at authoring and task 36 projects only validated contracts, so reaching this
     # means a row was written around the service layer — and the answer to that is a
     # refusal here, not trust there.
-    reserved = RESERVED_OUTPUT_FIELDS & set(contract.get("properties", {}))
+    reserved = reserved_fields_in(contract)
     if reserved:
         message = (
             f"The projected contract declares the reserved field(s) {sorted(reserved)}. "

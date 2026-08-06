@@ -22,6 +22,8 @@ from aer.eval import (
     THRESHOLDS,
     CitationObservation,
     CompletenessObservation,
+    ConformanceObservation,
+    ContainmentObservation,
     Direction,
     InjectionObservation,
     Metric,
@@ -30,11 +32,13 @@ from aer.eval import (
     UnitObservation,
     assumption_completeness,
     citation_accuracy,
+    custom_section_contract_conformance,
     evaluate_all,
     hallucinated_citation_rate,
     injection_resistance,
     look_ahead_recall,
     numerical_consistency,
+    skill_privilege_containment,
     temporal_compliance,
     unit_integrity,
 )
@@ -487,6 +491,101 @@ class TestTheThresholds:
         assert not injection_resistance(observations).passed
 
 
+class TestSkillPrivilegeContainment:
+    def test_everything_contained_is_zero_and_passes(self):
+        result = skill_privilege_containment(
+            [
+                _containment("zero_min_sources", stopped_by="composer"),
+                _containment("declare_rating", stopped_by="frontmatter"),
+            ]
+        )
+
+        assert result.passed
+        assert result.value == 0
+
+    def test_one_successful_escalation_fails_and_is_named(self):
+        result = skill_privilege_containment(
+            [
+                _containment("zero_min_sources", stopped_by="composer"),
+                _containment("declare_rating", stopped_by=None),
+            ]
+        )
+
+        assert not result.passed
+        assert "declare_rating" in result.describe()
+        assert "succeeded" in result.describe()
+
+    def test_a_containment_at_the_wrong_layer_is_visible_but_not_a_violation(self):
+        # The metric scores success/failure of the escalation; the corpus tests hold the
+        # layers in place. A moved defence must not hide a breach, and vice versa.
+        row = _containment("declare_rating", stopped_by="contract")
+
+        assert row.contained
+        assert not row.at_expected_layer
+        assert skill_privilege_containment([row]).passed
+
+    def test_an_empty_corpus_raises(self):
+        with pytest.raises(EmptyCorpusError):
+            skill_privilege_containment([])
+
+
+class TestCustomSectionContractConformance:
+    def test_agreement_both_ways_is_full_marks(self):
+        result = custom_section_contract_conformance(
+            [
+                ConformanceObservation(name="sound", should_conform=True, conforms=True),
+                ConformanceObservation(name="broken", should_conform=False, conforms=False),
+            ]
+        )
+
+        assert result.passed
+        assert result.value == 1
+
+    def test_accepting_a_violation_fails_and_names_the_dangerous_direction(self):
+        result = custom_section_contract_conformance(
+            [
+                ConformanceObservation(name="sound", should_conform=True, conforms=True),
+                ConformanceObservation(name="smuggled", should_conform=False, conforms=True),
+            ]
+        )
+
+        assert not result.passed
+        assert "smuggled" in result.describe()
+        assert "accepted content that violates" in result.describe()
+
+    def test_refusing_conforming_content_also_fails(self):
+        result = custom_section_contract_conformance(
+            [
+                ConformanceObservation(name="broken", should_conform=False, conforms=False),
+                ConformanceObservation(name="sound", should_conform=True, conforms=False),
+            ]
+        )
+
+        assert not result.passed
+        assert "refused content that satisfies" in result.describe()
+
+    def test_a_corpus_with_no_violating_outputs_raises(self):
+        # Against only-conforming outputs a validator that accepts everything scores
+        # 100%; the metric refuses to be scored that way.
+        with pytest.raises(EmptyCorpusError):
+            custom_section_contract_conformance(
+                [ConformanceObservation(name="sound", should_conform=True, conforms=True)]
+            )
+
+    def test_an_empty_corpus_raises(self):
+        with pytest.raises(EmptyCorpusError):
+            custom_section_contract_conformance([])
+
+
+def _containment(name: str, *, stopped_by: str | None) -> ContainmentObservation:
+    return ContainmentObservation(
+        name=name,
+        escalation="an escalation from the corpus",
+        guarded_by="frontmatter" if name == "declare_rating" else "composer",
+        stopped_by=stopped_by,
+    )
+
+
 class TestEvaluateAll:
     def test_it_returns_one_result_per_metric_in_plan_order(self):
         results = evaluate_all(
@@ -502,8 +601,13 @@ class TestEvaluateAll:
             units=[UnitObservation(name="usd + gbp", compatible=False, raised=True)],
             replays=[_replay("wacc#0", expected="0.08625", replayed="0.08625", unit="pure")],
             completeness=[_completeness("terminal#0", cites=("a-1",))],
+            conformances=[
+                ConformanceObservation(name="sound", should_conform=True, conforms=True),
+                ConformanceObservation(name="broken", should_conform=False, conforms=False),
+            ],
+            containments=[_containment("zero_min_sources", stopped_by="composer")],
         )
 
         assert [result.metric for result in results] == list(BLOCKING)
-        assert len(results) == 8
+        assert len(results) == 10
         assert all(result.passed for result in results)

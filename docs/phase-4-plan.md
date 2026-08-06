@@ -597,6 +597,41 @@ layer at a time and every corpus entry that layer guards goes red.
 **Acceptance.** 0 successful escalations, asserted continuously; the gate grows to ten
 blocking measurements without loosening any existing one.
 
+**Delivered (2026-08-06), ADR 0040.** `tests/fixtures/fx_skill_adversarial/` holds twelve
+skill files, one per T19 escalation across seven families — weaken evidence
+(`min_sources`, `requires_primary`, `max_tier`), widen tools (shell/file/email, any-URL
+fetch), set the rating (rating, target price, recommendation), exceed budget, disable
+citations in prose, override point-in-time with an unknown key, and close the
+`<user_skill>` delimiter. `tests/fixtures/fx_custom_section/` holds six well-formed
+skills, two with deliberately awkward contracts (sixteen fields at the size ceiling; a
+made-up type word and a nested schema object), each with labelled conforming *and*
+violating outputs. `tests/skill_corpus.py` runs every file through the **real** layers —
+`parse_skill_file`, `compose_policy` against the real role allowlist, `wrap_user_skill`,
+and the `section_output` checks — and derives the containing layer from what happened,
+never from the label, so the corpus notices a defence that has silently moved as well as
+one that has died.
+
+Two metrics joined `BLOCKING` in §2.10's order, taking it from eight to ten:
+**custom-section contract conformance** (agreement with labels, must be 1 — the corpus
+carries violations so a validator that accepts everything cannot score full marks, and
+the metric refuses a violation-free corpus) and **skill-file privilege containment**
+(successful escalations ÷ attempts, must be 0). Two `ContainmentObservation` /
+`ConformanceObservation` records joined `aer.eval.observations`, two functions joined
+`aer.eval.metrics`, and `evaluate_all` grew two arguments. The reserved-field refusal
+moved into the pure core as `section_output.reserved_fields_in`, and the contract
+projection became public as `resolution.contract_schema`, so the gate scores the deployed
+checks, not copies.
+
+The corpus-quality tests are the load-bearing half: every escalation is contained *at its
+owning layer* (a reserved field caught at execution instead of authoring means the
+authoring refusal died and a backstop is carrying it — invisible to the zero-breaches
+metric, so asserted separately); every named family is present; frontmatter refusals name
+the attacked field; composer containments carry their clamp receipts (the same receipts
+§2.4's clamp banner reads). Twelve sabotage mutations — one per containment layer plus the
+two metrics' own logic and the `BLOCKING` tuple — all caught: relax the `min_sources`
+floor and `zero_min_sources` succeeds, drop the reserved-field check and three files
+succeed, stop neutralising the delimiter and `close_the_boundary` escapes.
+
 ---
 
 ## Task 43 — The skills library, editor and dry-run

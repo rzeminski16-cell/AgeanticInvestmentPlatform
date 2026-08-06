@@ -1,10 +1,10 @@
-"""The blocking gate: eight measurements over the corpora the phases produced.
+"""The blocking gate: ten measurements over the corpora the phases produced.
 
 This is the module that turns "we proved it once" into "it is still true". It gathers
 observations by running the **real** verifier, the real date extractor, the real injection
-scanner, the real unit algebra, the real replay harness and the real assumptions ladder
-over labelled corpora, hands them to :mod:`aer.eval.metrics`, and fails the build if any of
-the eight moves.
+scanner, the real unit algebra, the real replay harness, the real assumptions ladder and
+the real skill-containment layers over labelled corpora, hands them to
+:mod:`aer.eval.metrics`, and fails the build if any of the ten moves.
 
 Three properties make it a gate rather than a formality.
 
@@ -47,6 +47,8 @@ from aer.eval import (
     BLOCKING,
     CitationObservation,
     CompletenessObservation,
+    ConformanceObservation,
+    ContainmentObservation,
     InjectionObservation,
     MetricResult,
     ReplayObservation,
@@ -57,10 +59,12 @@ from aer.eval import (
 from aer.eval.metrics import (
     assumption_completeness,
     citation_accuracy,
+    custom_section_contract_conformance,
     hallucinated_citation_rate,
     injection_resistance,
     look_ahead_recall,
     numerical_consistency,
+    skill_privilege_containment,
     temporal_compliance,
     unit_integrity,
 )
@@ -73,7 +77,7 @@ from aer.services.extractions import record_excerpt
 from aer.services.sources import decide_quarantine
 from aer.storage.local import LocalArtefactStore
 from aer.verify.citations import verify
-from tests import citation_corpus, injection_fixtures, lookahead_fixtures
+from tests import citation_corpus, injection_fixtures, lookahead_fixtures, skill_corpus
 from tests.agent_probes import ProbeAnswer
 from tests.ledger_fixtures import record_valuation_ledger
 from tests.scene_fixtures import build_scene
@@ -384,6 +388,24 @@ async def completeness(
     return await completeness_observations_for_job(db_session, scene["job"].id)
 
 
+@pytest.fixture
+def containments(settings: Settings) -> list[ContainmentObservation]:
+    """Every adversarial skill file, put through the real containment layers.
+
+    The ceiling is the same configured value the resolver composes against, so the
+    budget escalation is scored against the number the platform actually enforces.
+    """
+    return skill_corpus.containment_observations(
+        budget_ceiling=settings.custom_section_token_ceiling
+    )
+
+
+@pytest.fixture
+def conformances() -> list[ConformanceObservation]:
+    """Every labelled custom-section output, put to the real contract validation."""
+    return skill_corpus.conformance_observations()
+
+
 async def _document_for(
     session: AsyncSession,
     store: LocalArtefactStore,
@@ -461,7 +483,17 @@ class TestTheBlockingMetrics:
     ) -> None:
         _assert_passed(assumption_completeness(completeness))
 
-    async def test_all_eight_together(
+    def test_custom_section_contract_conformance(
+        self, conformances: list[ConformanceObservation]
+    ) -> None:
+        _assert_passed(custom_section_contract_conformance(conformances))
+
+    def test_skill_privilege_containment(self, containments: list[ContainmentObservation]) -> None:
+        """Zero successful escalations. Not "low" — a skill file that weakens its own
+        evidence floor is an authoring surface that can switch the guarantees off."""
+        _assert_passed(skill_privilege_containment(containments))
+
+    async def test_all_ten_together(
         self,
         citations: list[CitationObservation],
         sources: list[SourceObservation],
@@ -469,6 +501,8 @@ class TestTheBlockingMetrics:
         units: list[UnitObservation],
         replays: list[ReplayObservation],
         completeness: list[CompletenessObservation],
+        conformances: list[ConformanceObservation],
+        containments: list[ContainmentObservation],
     ) -> None:
         """The gate as CI runs it, with every result in the failure message.
 
@@ -482,6 +516,8 @@ class TestTheBlockingMetrics:
             units=units,
             replays=replays,
             completeness=completeness,
+            conformances=conformances,
+            containments=containments,
         )
 
         assert len(results) == len(BLOCKING)
@@ -558,6 +594,94 @@ class TestTheCorporaAreWorthScoring:
         assert any(row.rests_on_assumptions for row in completeness)
         assert any(not row.rests_on_assumptions for row in completeness)
 
+    def test_the_adversarial_corpus_is_the_twelve_the_plan_asks_for(
+        self, containments: list[ContainmentObservation]
+    ) -> None:
+        assert len(containments) == 12
+
+    def test_every_named_escalation_family_is_represented(self) -> None:
+        # The families task 42 names, each with at least one file attempting it. A family
+        # that quietly left the corpus is an escalation nobody is asserting fails.
+        families = {case.family for case in skill_corpus.ADVERSARIAL_SKILLS}
+        assert families >= {
+            "weaken_evidence",
+            "widen_tools",
+            "set_rating",
+            "exceed_budget",
+            "disable_citations",
+            "override_point_in_time",
+            "escape_boundary",
+        }
+
+    def test_each_escalation_fails_at_the_layer_that_owns_it(
+        self, containments: list[ContainmentObservation]
+    ) -> None:
+        """Contained *at the guarding layer*, not merely somewhere.
+
+        An escalation caught one layer late means the layer that owns it has died and a
+        backstop is carrying its weight — a state the zero-successes metric cannot see,
+        because the backstop still contained it.
+        """
+        moved = [
+            f"{row.name}: guarded by {row.guarded_by}, stopped by {row.stopped_by}"
+            for row in containments
+            if not row.at_expected_layer
+        ]
+        assert not moved, "\n".join(moved)
+
+    def test_every_containment_layer_is_exercised(
+        self, containments: list[ContainmentObservation]
+    ) -> None:
+        # A layer with no corpus entry is a defence whose death nothing would notice.
+        assert {row.guarded_by for row in containments} == {
+            "frontmatter",
+            "composer",
+            "contract",
+            "boundary",
+        }
+
+    def test_frontmatter_refusals_name_the_attacked_field(self, settings: Settings) -> None:
+        # The authoring-time refusal is line-level and named (§2.12); a refusal for some
+        # other reason would mean the corpus file is broken, not that the control works.
+        for case in skill_corpus.ADVERSARIAL_SKILLS:
+            if case.guarded_by != "frontmatter":
+                continue
+            probe = skill_corpus.probe_file(
+                skill_corpus.read_adversarial(case.name),
+                budget_ceiling=settings.custom_section_token_ceiling,
+            )
+            assert probe.error is not None, f"{case.name}: expected an authoring refusal"
+            fields = {issue.field for issue in probe.error.issues}
+            assert case.attacked_field in fields, (
+                f"{case.name}: refused, but not for {case.attacked_field}"
+            )
+
+    def test_composer_containments_carry_their_clamp_receipts(self, settings: Settings) -> None:
+        """The warning half of the control. §2.4's skill-policy-clamp trigger reads these
+        receipts, so a composer that clamped silently would also kill the gate-2 banner."""
+        for case in skill_corpus.ADVERSARIAL_SKILLS:
+            if case.guarded_by != "composer":
+                continue
+            probe = skill_corpus.probe_file(
+                skill_corpus.read_adversarial(case.name),
+                budget_ceiling=settings.custom_section_token_ceiling,
+            )
+            assert probe.composed is not None, f"{case.name}: expected the file to compose"
+            fields = {clamp.field for clamp in probe.composed.clamps}
+            assert case.attacked_field in fields, f"{case.name}: clamped without a receipt"
+
+    def test_the_conformance_corpus_is_six_skills_with_two_awkward_contracts(self) -> None:
+        assert len(skill_corpus.CUSTOM_SECTION_SKILLS) == 6
+        assert sum(1 for case in skill_corpus.CUSTOM_SECTION_SKILLS if case.awkward) == 2
+
+    def test_the_conformance_corpus_carries_outputs_labelled_both_ways(
+        self, conformances: list[ConformanceObservation]
+    ) -> None:
+        # Without violating outputs a validator that accepts everything scores 100%, and
+        # without conforming ones a validator that refuses everything does.
+        assert sum(1 for row in conformances if row.should_conform) >= 6
+        assert sum(1 for row in conformances if not row.should_conform) >= 6
+
 
 class TestWhatTheGateReports:
     def test_a_failure_names_the_cases(self) -> None:
@@ -596,6 +720,8 @@ class TestWhatTheGateReports:
         units: list[UnitObservation],
         replays: list[ReplayObservation],
         completeness: list[CompletenessObservation],
+        conformances: list[ConformanceObservation],
+        containments: list[ContainmentObservation],
     ) -> None:
         # `evaluations.details` is JSONB, and Phase 3 writes these rows.
         results = evaluate_all(
@@ -605,6 +731,8 @@ class TestWhatTheGateReports:
             units=units,
             replays=replays,
             completeness=completeness,
+            conformances=conformances,
+            containments=containments,
         )
 
         for result in results:
