@@ -34,7 +34,16 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import ARRAY, CheckConstraint, Index, Numeric, Text, UniqueConstraint, text
+from sqlalchemy import (
+    ARRAY,
+    CheckConstraint,
+    ForeignKey,
+    Index,
+    Numeric,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSON, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -68,10 +77,11 @@ class SectionDefinition(Base):
 
     origin: Mapped[str] = mapped_column(Text, nullable=False, server_default=BUILTIN)
 
-    # Reserved for the skills table, which does not exist yet. A plain UUID rather than a
-    # foreign key for exactly that reason -- the constraint arrives with the table, in the
-    # migration that creates it.
-    skill_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    # The skill a custom definition was projected from (task 36). RESTRICT: a skill whose
+    # sections exist in reports is provenance, and must not vanish from under them.
+    skill_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("skills.id", ondelete="RESTRICT")
+    )
 
     title: Mapped[str] = mapped_column(Text, nullable=False)
 

@@ -247,6 +247,36 @@ pinned versions — approving one set of skills is not approving another.
 
 **Acceptance.** A run's report can name the exact version of every skill that shaped it.
 
+**Delivered (2026-08-06).** Migration 0021: ``plan_skill_pins`` — one row per enabled skill
+per plan, referencing the immutable ``skill_versions`` row, carrying the composed policy
+*as approved* (snapshotted with every clamp, because a floor that moves between approval
+and execution must not silently change what runs) and the section's cost estimate; plus the
+foreign key ``section_definitions.skill_id`` promised in migration 0006's comment. The plan
+step sets ``job.plan_id`` — the column existed from Phase 1, unwritten until something
+needed "which skill versions shaped this run?" answered — so pins resolve job → plan →
+versions.
+
+Applicability is a pure matrix (`aer/core/skill_applicability.py`) with a reason on every
+skip: markets from the exchange, analysis modes, company and sector scopes, and sector
+exclusions that fire **only on a known classification** — an unknown must not quietly
+disable a global skill for every first-time company, while a sector-*scoped* skill reads
+the other way and does not run on hope. Custom sections project into
+``section_definitions`` as ``origin='skill'`` rows (the Phase 1 registry built for exactly
+this), version-bumped when the projection changes, keeping their position across contract
+edits. Gate 1 lists every pin with version, cost ceiling and clamps; the payload hash
+covers them, so approving one set of skills is not approving another; the pinned budgets
+join the estimate the operator approves against.
+
+Two deliberate scope notes, both reversed in task 38: projected custom definitions are
+filtered out of the generic drafting path — planned and approved but not run, because
+executing user prose before the ``<user_skill>`` contract exists would be containment
+theatre — and the composer intersects against ``PLANNED_CUSTOM_SECTION_TOOLS``, the
+constant that becomes the registry's ``custom_section`` allowlist when the agent lands,
+with a test to pin the two together from that day. The drafting boundary is tested where it
+actually bites: on the *second* run, when the projection already exists. Fifteen sabotage
+mutations, fifteen caught — two after their no-op mutation strings (``[] or [...]``) were
+rewritten honestly; that trap is now twice-learnt.
+
 ---
 
 ## Task 37 — The research workers: bounded parallel investigation

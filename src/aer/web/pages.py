@@ -70,6 +70,7 @@ from aer.services.sectors import (
     sector_gate_required,
 )
 from aer.services.valuation_view import lineage_rows, valuation_view
+from aer.skills.resolution import pinned_skills_for_plan
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
 from aer.workflow.workflows.vertical_slice_v1 import (
@@ -245,7 +246,8 @@ async def plan_review(
             status=HTTP_404_NOT_FOUND,
         )
 
-    payload = plan_gate_payload(plan)
+    pins = await pinned_skills_for_plan(session, plan_id=plan.id)
+    payload = plan_gate_payload(plan, pins)
     decided = await _decision_for(session, job_id=job_id, gate=GateKind.PLAN)
     token = new_csrf_token(settings)
 

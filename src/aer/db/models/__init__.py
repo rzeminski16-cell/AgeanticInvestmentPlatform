@@ -28,6 +28,7 @@ from aer.db.models.job_cancellation import JobCancellation
 from aer.db.models.job_step import JobStep
 from aer.db.models.macro import MacroObservationRow, MacroSeriesRow
 from aer.db.models.plan import ResearchPlan
+from aer.db.models.plan_skill_pin import PlanSkillPin
 from aer.db.models.prompt import Prompt
 from aer.db.models.report import Report
 from aer.db.models.report_section import ReportSection, SectionStatus
@@ -69,6 +70,7 @@ __all__ = [
     "JobStep",
     "MacroObservationRow",
     "MacroSeriesRow",
+    "PlanSkillPin",
     "PriceBar",
     "Prompt",
     "Report",

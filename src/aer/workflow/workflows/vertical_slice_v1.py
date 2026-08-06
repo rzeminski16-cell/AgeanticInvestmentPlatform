@@ -23,7 +23,7 @@ somewhere, and that somewhere is :mod:`aer.services.approvals`.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Final
@@ -51,6 +51,9 @@ from aer.db.models import (
     SectionStatus,
     SourceDocument,
 )
+from aer.db.models.plan_skill_pin import PLANNED as PIN_PLANNED
+from aer.db.models.plan_skill_pin import SKIPPED_NOT_APPLICABLE, PlanSkillPin
+from aer.db.models.section_definition import BUILTIN
 from aer.fetch.policy import DEFAULT_POLICIES
 from aer.render.markdown import SectorNote, render_markdown
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
@@ -75,6 +78,7 @@ from aer.services.sectors import (
     propose_from_sic,
     sector_gate_required,
 )
+from aer.skills.resolution import pinned_skills_for_plan, resolve_skills_for_plan
 from aer.sources.sec.companyfacts import parse_company_facts
 from aer.sources.sec.pit import select_point_in_time
 from aer.verify.citations import verify_job_citations
@@ -170,7 +174,14 @@ async def _plan(context: StepContext) -> StepResult:
     a plan that has since changed is not an approval.
     """
     request = await _request_for(context)
-    definitions = await resolve_sections(context.session, request=request)
+    # Built-ins only until task 38: a projected custom section is planned, priced and
+    # gated below, but not drafted — the generic writer must not run user-authored
+    # sections before the <user_skill> execution contract exists to contain them.
+    definitions = [
+        definition
+        for definition in await resolve_sections(context.session, request=request)
+        if definition.origin == BUILTIN
+    ]
 
     agent = PlannerAgent()
     agent_context = AgentContext(
@@ -203,6 +214,25 @@ async def _plan(context: StepContext) -> StepResult:
     context.session.add(plan)
     await context.session.flush()
 
+    # The job records which plan it ran under. The column existed from Phase 1; this is
+    # the first thing that needs it answered — "which skill versions shaped this run?"
+    # resolves job -> plan -> pins.
+    context.job.plan_id = plan.id
+
+    # Every enabled skill, pinned to this plan — planned with its composed policy, or
+    # skipped with its reason. The pinned sections' budgets join the estimate the
+    # operator approves against, because a cost the gate does not show is a cost nobody
+    # agreed to.
+    resolved = await resolve_skills_for_plan(
+        context.session,
+        request=request,
+        plan=plan,
+        settings=context.service("settings"),
+        router=context.service("router"),
+    )
+    plan.estimated_cost_gbp = plan.estimated_cost_gbp + resolved.estimated_cost_gbp
+    await context.session.flush()
+
     # Refreshed before hashing, so the hash covers what the *database* holds rather than
     # what is in memory. `estimated_cost_gbp` is NUMERIC(12,6): a Decimal that arrived with
     # more places comes back rounded, and a gate page reading the row would otherwise
@@ -211,8 +241,10 @@ async def _plan(context: StepContext) -> StepResult:
 
     # The hash of exactly what gate 1 will display -- the same function the page renders
     # from. Recorded on the approval, so an approval of one plan cannot be reused for a
-    # different one; see `_require_approval`.
-    payload_hash = sha256_hex(canonical_json(plan_gate_payload(plan)))
+    # different one; see `_require_approval`. The pins are inside the payload, so
+    # approving one set of skills is not approving another.
+    pins = await pinned_skills_for_plan(context.session, plan_id=plan.id)
+    payload_hash = sha256_hex(canonical_json(plan_gate_payload(plan, pins)))
 
     await create_report_sections(context.session, job_id=context.job.id, definitions=definitions)
 
@@ -222,6 +254,10 @@ async def _plan(context: StepContext) -> StepResult:
             "payload_hash": payload_hash,
             "section_keys": [definition.key for definition in definitions],
             "planned_sources": len(draft.planned_sources),
+            "skills_planned": [pin.skill.key for pin in pins if pin.status == PIN_PLANNED],
+            "skills_skipped": {
+                pin.skill.key: pin.reason for pin in pins if pin.status == SKIPPED_NOT_APPLICABLE
+            },
         },
         cost_gbp=agent_context.spend_gbp,
     )
@@ -232,7 +268,7 @@ async def _plan(context: StepContext) -> StepResult:
 # ==========================================================================================
 
 
-def plan_gate_payload(plan: ResearchPlan) -> dict[str, Any]:
+def plan_gate_payload(plan: ResearchPlan, pins: Sequence[PlanSkillPin] = ()) -> dict[str, Any]:
     """Exactly what gate 1 approves, as one structure.
 
     Built here and used by the plan step, the JSON API and the review page alike, so "what
@@ -241,6 +277,10 @@ def plan_gate_payload(plan: ResearchPlan) -> dict[str, Any]:
 
     Costs are strings because they are ``Decimal``; a JSON number would round them, and a
     hash over a rounded figure is a hash over something nobody displayed.
+
+    ``pins`` carries the plan's skill pins (task 36) — the exact versions, the composed
+    policies and every clamp — because approving a plan is approving *those*, and a pin
+    outside the hash would be a skill the operator never signed off.
     """
     body = dict(plan.plan or {})
     return {
@@ -252,6 +292,22 @@ def plan_gate_payload(plan: ResearchPlan) -> dict[str, Any]:
         "known_risks": list(plan.known_risks or []),
         "estimated_cost_gbp": str(plan.estimated_cost_gbp),
         "estimated_runtime_seconds": plan.estimated_runtime_seconds,
+        "skills": [
+            {
+                "key": pin.skill.key,
+                "kind": pin.skill.kind,
+                "title": pin.skill_version.title,
+                "version": pin.skill_version.version,
+                "content_hash": pin.skill_version.content_hash,
+                "status": pin.status,
+                "reason": pin.reason,
+                "token_budget": pin.token_budget,
+                "granted_tools": list(pin.granted_tools or []),
+                "clamps": list(pin.clamps or []),
+                "estimated_cost_gbp": str(pin.estimated_cost_gbp),
+            }
+            for pin in pins
+        ],
     }
 
 
