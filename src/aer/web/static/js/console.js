@@ -8,11 +8,12 @@
  * Two mechanisms, one of which is always active:
  *
  *   * `EventSource` subscribes to /api/runs/{id}/events and applies each state frame.
- *   * A `<meta http-equiv="refresh">` emitted by the server reloads the page on a timer.
+ *   * A `<meta http-equiv="refresh">` inside `noscript` reloads the page on a timer when
+ *     scripting is off.
  *
- * The meta refresh is the default, present in the markup before any script runs. This file
- * removes it and takes over — so a browser with no EventSource, or one where this file
- * never loaded, keeps the slower behaviour rather than none.
+ * The fallback lives in `noscript` rather than being removed here, because a declarative
+ * refresh is scheduled when the element is *parsed* and removing it afterwards does not
+ * cancel it — a bare meta tag would keep reloading the page underneath the stream.
  */
 (function () {
   "use strict";
@@ -24,19 +25,21 @@
 
   /*
    * Terminal runs are not watched. The stream would open, immediately emit `done` and
-   * close, and the meta refresh would reload a page that can no longer change.
+   * close, having told the page nothing it does not already show.
    */
   if (root.dataset.terminal === "true") {
-    dropFallback();
     return;
   }
 
   if (typeof window.EventSource === "undefined") {
-    // No stream available. Leave the meta refresh in place — slower, same information.
+    /*
+     * No stream available, and the noscript fallback did not fire because scripting is
+     * on. The page still shows the state it was requested with; refreshing is manual.
+     * A scripted browser without EventSource is a museum piece, and museum pieces get
+     * the page, not a polling loop maintained for them alone.
+     */
     return;
   }
-
-  dropFallback();
 
   var note = document.getElementById("stream-note");
   if (note) {
@@ -108,13 +111,6 @@
     var cell = row.querySelector('[data-field="' + name + '"]');
     if (cell) {
       cell.textContent = value;
-    }
-  }
-
-  function dropFallback() {
-    var fallback = document.getElementById("poll-fallback");
-    if (fallback && fallback.parentNode) {
-      fallback.parentNode.removeChild(fallback);
     }
   }
 })();

@@ -85,6 +85,17 @@
 
   <section class="mt-8">
     <h2 class="text-lg font-semibold tracking-tight">The report</h2>
+    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+      <a
+        href="/reports/{{ report.id }}/preview"
+        class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
+        id="report-preview"
+      >
+        Open the document preview
+      </a>
+      — the report as a formatted page. The archived Markdown below remains the hashed
+      record of what was approved.
+    </p>
     {# Text, not markup: see the note in the draft review page. #}
     <pre
       id="report-markdown"

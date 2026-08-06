@@ -35,6 +35,7 @@ from aer.db.models import (
     SourceDocument,
     User,
 )
+from aer.render.document import assemble_document
 from aer.render.markdown import _comps_block, render_markdown
 from aer.services import approvals as approval_service
 from aer.services import comps as service
@@ -579,26 +580,26 @@ class TestTheRenderedReportCarriesNoMultiple:
     """A Markdown report is the shareable artefact: it gets exported, attached and sent."""
 
     def test_the_renderer_cannot_be_handed_a_table(self):
-        """`_comps_block` takes a `WithheldComps`. There is no argument that carries figures.
+        """The assembly takes a `WithheldComps`. There is no argument that carries figures.
 
         This is the ADR 0029 argument again: a rule enforced by a signature is one a later
-        template cannot forget. A caller wanting the numbers in a report has to change the
-        renderer, which is a change somebody reviews.
+        template cannot forget. Since task 46 the guarantee lives on `assemble_document` -
+        the one walk every notation serialises - so a caller wanting the numbers in any
+        rendered report has to change the assembler, which is a change somebody reviews.
+        The serialisers downstream only ever see the already-written paragraph.
         """
-        annotation = inspect.signature(_comps_block).parameters["comps"].annotation
-        assert "WithheldComps" in str(annotation)
-        assert "CompsTable" not in str(annotation)
-
-        renderer = inspect.signature(render_markdown).parameters["comps"].annotation
-        assert "WithheldComps" in str(renderer)
-        assert "CompsTable" not in str(renderer)
+        for entry in (assemble_document, render_markdown):
+            annotation = inspect.signature(entry).parameters["comps"].annotation
+            assert "WithheldComps" in str(annotation)
+            assert "CompsTable" not in str(annotation)
 
     def test_a_run_with_no_peers_says_nothing(self):
         """ "No comps table" and "a comps table you are not shown" are different claims."""
         assert _comps_block(None) == []
 
     def test_a_run_with_peers_discloses_the_withholding(self):
-        block = _comps_block(calc.WithheldComps(peer_count=3, excluded_count=1, as_of=AS_OF))
+        withheld = calc.WithheldComps(peer_count=3, excluded_count=1, as_of=AS_OF)
+        block = _comps_block(withheld.as_paragraph())
 
         joined = "\n".join(block)
         assert "## Comparable companies" in joined

@@ -105,10 +105,12 @@ from aer.workflow.engine import StepContext, StepPaused, StepResult, WorkflowSte
 __all__ = [
     "WORKFLOW_VERSION",
     "build_steps",
+    "comps_note_for",
     "final_gate_payload",
     "peer_gate_payload",
     "plan_gate_payload",
     "sector_gate_payload",
+    "sector_note_for",
     "unmapped_gate_payload",
     "unmapped_gate_required",
 ]
@@ -1234,22 +1236,23 @@ async def final_gate_payload(session: AsyncSession, *, job_id: uuid.UUID) -> dic
 # ==========================================================================================
 
 
-async def _sector_note(context: StepContext) -> SectorNote | None:
+async def sector_note_for(session: AsyncSession, *, job: Job) -> SectorNote | None:
     """What this run's sector obliges its report to say, or ``None`` for an ordinary company.
 
     Read from the *confirmed* classification rather than from the proposal, so a report can
     only carry limitations somebody agreed applied. A run that reaches here with an
     unconfirmed specialist proposal has already been stopped by the gate.
+
+    Public since task 46: the document preview pages assemble with exactly what the
+    render step assembles with, by calling exactly what it calls.
     """
-    profile, _ = await confirmed_classification(context.session, context.job)
+    profile, _ = await confirmed_classification(session, job)
     if profile is None:
         return None
 
     computed = {
         row.name
-        for row in await context.session.scalars(
-            select(Calculation).where(Calculation.job_id == context.job.id)
-        )
+        for row in await session.scalars(select(Calculation).where(Calculation.job_id == job.id))
     }
     disclosure = metric_disclosure(profile, computed=computed)
 
@@ -1261,7 +1264,9 @@ async def _sector_note(context: StepContext) -> SectorNote | None:
     )
 
 
-async def _comps_note(context: StepContext) -> WithheldComps | None:
+async def comps_note_for(
+    session: AsyncSession, *, job: Job, request: ResearchRequest
+) -> WithheldComps | None:
     """What this run's comparables work obliges its report to say, or ``None``.
 
     ``None`` when no peer set was confirmed, because "no comparison was performed" and "a
@@ -1272,11 +1277,10 @@ async def _comps_note(context: StepContext) -> WithheldComps | None:
     the shareable artefact, and every multiple in it would derive from market data licensed
     for internal use only — see `_comps_block` in :mod:`aer.render.markdown`.
     """
-    confirmed = await confirmed_peer_set(context.session, context.job)
+    confirmed = await confirmed_peer_set(session, job)
     if not confirmed:
         return None
 
-    request = await _request_for(context)
     aligned, excluded = align_peers(
         [(peer.identifier, peer.name, peer.period_end) for peer in confirmed],
         subject_period_end=request.as_of_date,
@@ -1302,8 +1306,8 @@ async def _render(context: StepContext) -> StepResult:
         job=context.job,
         request=request,
         company=company,
-        comps=await _comps_note(context),
-        sector=await _sector_note(context),
+        comps=await comps_note_for(context.session, job=context.job, request=request),
+        sector=await sector_note_for(context.session, job=context.job),
     )
 
     artefact = await store_artefact(

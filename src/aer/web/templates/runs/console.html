@@ -14,12 +14,16 @@
 {% block head_extra %}
   <script src="{{ url_for('static', path='/js/console.js') }}" defer></script>
   {#
-    The no-JavaScript fallback, emitted by the server so it works before any script has had
-    a chance to run. `console.js` removes it on start-up: a page driven by the event stream
-    that also reloaded itself every few seconds would throw away the stream it just opened.
+    The no-JavaScript fallback, inside `noscript` so a scripting browser never parses it.
+    That containment is load-bearing: a declarative refresh is *scheduled at parse time*
+    and removing the element afterwards does not cancel it (verified against Chromium),
+    so the previous scheme -- emit it bare, have `console.js` delete it -- still reloaded
+    the page every few seconds and threw away the event stream it had just opened.
   #}
   {% if not is_terminal %}
-    <meta http-equiv="refresh" content="{{ poll_seconds }}" id="poll-fallback" />
+    <noscript>
+      <meta http-equiv="refresh" content="{{ poll_seconds }}" id="poll-fallback" />
+    </noscript>
   {% endif %}
 {% endblock %}
 

@@ -353,6 +353,16 @@
 
   <section class="mt-8">
     <h2 class="text-lg font-semibold tracking-tight">The document</h2>
+    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+      <a
+        href="/runs/{{ job.id }}/preview"
+        class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
+        id="document-preview"
+      >
+        Open the document preview
+      </a>
+      — the report as a formatted page, assembled from exactly the rows shown below.
+    </p>
     {#
       Rendered as text, not as HTML. The Markdown is written from model output, and
       injecting it into the page as markup would turn a drafted sentence into script that

@@ -53,6 +53,8 @@ from aer.db.models import (
 )
 from aer.errors import ConflictError, ValidationError
 from aer.queue import enqueue_run
+from aer.render.document import assemble_document
+from aer.render.html import render_html
 from aer.render.markdown import render_markdown
 from aer.services import approvals as approval_service
 from aer.services import calculations as calculation_service
@@ -78,8 +80,10 @@ from aer.skills.resolution import pinned_skills_for_plan
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
 from aer.workflow.workflows.vertical_slice_v1 import (
+    comps_note_for,
     final_gate_payload,
     plan_gate_payload,
+    sector_note_for,
     unmapped_gate_payload,
     unmapped_gate_required,
 )
@@ -527,6 +531,62 @@ async def draft_review(
     return response
 
 
+@router.get(
+    "/runs/{job_id}/preview",
+    response_class=HTMLResponse,
+    summary="The document as it stands",
+)
+async def run_preview(
+    request: Request,
+    job_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+) -> Response:
+    """The run's draft as the finished document: the HTML the report itself will be.
+
+    This page is the report's own HTML notation, not a site page — no navigation, no
+    scripts, the print stylesheet included. It is assembled by the same call, with the
+    same inputs, as the render step will use, which is what makes looking at it *before*
+    approving Gate 2 meaningful: what is approved is what exists.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    research_request = await session.get(ResearchRequest, job.request_id)
+    if research_request is None:  # pragma: no cover -- a job cannot exist without its request
+        return _problem(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
+
+    exists = await session.scalar(
+        select(ReportSection.id).where(ReportSection.job_id == job_id).limit(1)
+    )
+    if exists is None:
+        return _problem(
+            request,
+            "This run has no sections yet, so there is no document to preview. Sections "
+            "appear once the plan is approved.",
+            status=HTTP_404_NOT_FOUND,
+        )
+
+    # Matched on the listing for the same reason as the review page: the company row only
+    # exists once the acquire step has run.
+    company = await session.scalar(
+        select(Company).where(
+            Company.ticker == research_request.ticker,
+            Company.exchange == research_request.exchange,
+        )
+    )
+    document = await assemble_document(
+        session,
+        job=job,
+        request=research_request,
+        company=company,
+        sector=await sector_note_for(session, job=job),
+        comps=await comps_note_for(session, job=job, request=research_request),
+    )
+    return HTMLResponse(render_html(document))
+
+
 @router.post("/runs/{job_id}/gates/{gate}", summary="Record a gate decision")
 async def decide_gate_page(
     request: Request,
@@ -801,6 +861,55 @@ async def report_detail(
         },
     )
     return detail
+
+
+@router.get(
+    "/reports/{report_id}/preview",
+    response_class=HTMLResponse,
+    summary="A finished report, as the document",
+)
+async def report_preview(
+    request: Request,
+    report_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+) -> Response:
+    """The report's HTML notation, carrying the view and date the report row recorded.
+
+    Re-assembled from the run's stored rows rather than replayed from an archive — the
+    archived Markdown remains the hashed record of what was approved, and task 48 will
+    archive these bytes too, at which point the stored HTML becomes the PDF's input. Until
+    then this is a reading surface, and the row's ``created_at`` is stamped on it so the
+    document carries the date it was produced rather than the date it was viewed.
+    """
+    report = await session.scalar(
+        select(Report)
+        .join(ResearchRequest, ResearchRequest.id == Report.request_id)
+        .where(Report.id == report_id, ResearchRequest.user_id == user.id)
+    )
+    if report is None:
+        return _problem(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
+
+    job = await session.get(Job, report.job_id)
+    research_request = await session.get(ResearchRequest, report.request_id)
+    if job is None or research_request is None:  # pragma: no cover -- FK-guaranteed rows
+        return _problem(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
+
+    company = (
+        await session.get(Company, report.company_id) if report.company_id is not None else None
+    )
+    document = await assemble_document(
+        session,
+        job=job,
+        request=research_request,
+        company=company,
+        sector=await sector_note_for(session, job=job),
+        comps=await comps_note_for(session, job=job, request=research_request),
+        rating=report.rating,
+        confidence=report.confidence,
+        generated_at=report.created_at,
+    )
+    return HTMLResponse(render_html(document))
 
 
 # -- Internals ---------------------------------------------------------------------------

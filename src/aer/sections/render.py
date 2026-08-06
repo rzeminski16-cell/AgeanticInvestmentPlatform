@@ -3,7 +3,10 @@
 **This module is what makes a user-authored section possible.** If rendering needed a
 template per section, then adding one would mean writing one — and a section authored in a
 natural-language skill file has nobody to write it. So the renderer walks the section's
-``output_contract`` (a JSON Schema) and produces Markdown from the shape it describes.
+``output_contract`` (a JSON Schema) and produces a sequence of **fragments** from the
+shape it describes; a serialiser turns fragments into Markdown here, and into HTML in
+:mod:`aer.render.html`. One walk, several notations — which is what stops the preview, the
+PDF and the Markdown export drifting into three accounts of the same content (task 46).
 
 The whole convention is four rules:
 
@@ -30,7 +33,21 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-__all__ = ["CitationRef", "RenderedSection", "render_section"]
+__all__ = [
+    "Banner",
+    "Bullet",
+    "Bullets",
+    "CitationRef",
+    "Fragment",
+    "Heading",
+    "Paragraph",
+    "RenderedSection",
+    "StatusLine",
+    "Table",
+    "TableRow",
+    "markdown_lines",
+    "render_section",
+]
 
 # The keys that make an object a cited item. Names rather than positions, so a section
 # author gets a citation by naming a field.
@@ -55,14 +72,86 @@ class CitationRef:
         return f"{self.kind}:{self.identifier}"
 
 
+# -- Fragments ------------------------------------------------------------------------------
+#
+# The format-neutral middle: what the walk produces and every serialiser consumes. Footnote
+# markers are *numbers* here — global across the document, already assigned — so no
+# serialiser can renumber, and the Markdown and HTML of one document cannot disagree about
+# which marker sits where.
+
+
+@dataclass(frozen=True, slots=True)
+class Heading:
+    level: int
+    text: str
+
+
+@dataclass(frozen=True, slots=True)
+class Banner:
+    """A degradation warning, shown before the content it qualifies."""
+
+    text: str
+
+
+@dataclass(frozen=True, slots=True)
+class StatusLine:
+    """Why there is no content — "did not apply", "could not be generated"."""
+
+    text: str
+
+
+@dataclass(frozen=True, slots=True)
+class Paragraph:
+    """Prose, or — when ``pairs`` is set — a described object's label-value runs.
+
+    Pairs rather than pre-formatted text, because emphasis is notation: Markdown wants
+    ``**Label:** value`` and HTML wants ``<strong>``, and a fragment carrying either
+    would leak one serialiser's syntax into the other's output.
+    """
+
+    text: str = ""
+    markers: tuple[int, ...] = ()
+    pairs: tuple[tuple[str, str], ...] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class Bullet:
+    text: str = ""
+    markers: tuple[int, ...] = ()
+    pairs: tuple[tuple[str, str], ...] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class Bullets:
+    items: tuple[Bullet, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class TableRow:
+    cells: tuple[str, ...]
+    markers: tuple[int, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class Table:
+    """Column display names come from the contract, already humanised by the walk."""
+
+    columns: tuple[str, ...]
+    rows: tuple[TableRow, ...]
+
+
+Fragment = Heading | Banner | StatusLine | Paragraph | Bullets | Table
+
+
 @dataclass(slots=True)
 class RenderedSection:
-    """A section as Markdown, plus what it cited, in the order the markers appear."""
+    """A section as fragments and as Markdown, plus what it cited, in marker order."""
 
     title: str
     key: str
     markdown: str
     citations: list[CitationRef] = field(default_factory=list)
+    fragments: tuple[Fragment, ...] = ()
 
 
 def render_section(
@@ -91,23 +180,22 @@ def render_section(
             limitation before the analysis, never as a footnote after it.
 
     Returns:
-        The Markdown and the citations in marker order, so the caller can build the
-        footnote block.
+        The fragments, their Markdown, and the citations in marker order, so the caller
+        can build the footnote block.
     """
-    lines = [f"{'#' * heading_level} {title}", ""]
+    fragments: list[Fragment] = [Heading(level=heading_level, text=title)]
     citations: list[CitationRef] = []
 
     if warning:
-        lines.append(f"> **{warning}**")
-        lines.append("")
+        fragments.append(Banner(text=warning))
 
     if not content:
-        lines.append(f"*{status_note or 'No content was produced for this section.'}*")
-        lines.append("")
-        return RenderedSection(title=title, key=key, markdown="\n".join(lines), citations=citations)
+        fragments.append(
+            StatusLine(text=status_note or "No content was produced for this section.")
+        )
+        return _rendered(title=title, key=key, fragments=fragments, citations=citations)
 
-    properties = _ordered_properties(contract)
-    for name, subschema in properties:
+    for name, subschema in _ordered_properties(contract):
         if name in _METADATA_KEYS or name not in content:
             continue
         value = content[name]
@@ -115,17 +203,82 @@ def render_section(
             continue
 
         field_title = str(subschema.get("title") or _humanise(name))
-        rendered = _render_value(
-            value,
-            citations=citations,
-            footnote_start=footnote_start,
-            heading_level=heading_level + 1,
-            field_title=field_title,
-            subschema=subschema,
+        fragments.extend(
+            _value_fragments(
+                value,
+                citations=citations,
+                footnote_start=footnote_start,
+                heading_level=heading_level + 1,
+                field_title=field_title,
+                subschema=subschema,
+            )
         )
-        lines.extend(rendered)
 
-    return RenderedSection(title=title, key=key, markdown="\n".join(lines), citations=citations)
+    return _rendered(title=title, key=key, fragments=fragments, citations=citations)
+
+
+def _rendered(
+    *, title: str, key: str, fragments: list[Fragment], citations: list[CitationRef]
+) -> RenderedSection:
+    return RenderedSection(
+        title=title,
+        key=key,
+        markdown="\n".join(markdown_lines(fragments)),
+        citations=citations,
+        fragments=tuple(fragments),
+    )
+
+
+# -- The Markdown notation -------------------------------------------------------------------
+
+
+def markdown_lines(fragments: list[Fragment] | tuple[Fragment, ...]) -> list[str]:
+    """Fragments as Markdown lines, each block carrying its own trailing blank.
+
+    This is the notation the golden-document test holds byte for byte: the walk moved to
+    fragments in task 46 and this function is where the exact pre-refactor line shapes
+    live on.
+    """
+    lines: list[str] = []
+    for fragment in fragments:
+        match fragment:
+            case Heading(level=level, text=text):
+                lines.extend([f"{'#' * level} {text}", ""])
+            case Banner(text=text):
+                lines.extend([f"> **{text}**", ""])
+            case StatusLine(text=text):
+                lines.extend([f"*{text}*", ""])
+            case Paragraph(markers=markers) as paragraph:
+                lines.extend([f"{_prose(paragraph)}{_marks(markers)}", ""])
+            case Bullets(items=items):
+                lines.extend(f"- {_prose(item)}{_marks(item.markers)}" for item in items)
+                lines.append("")
+            case Table(columns=columns, rows=rows):
+                lines.append("| " + " | ".join(columns) + " |")
+                lines.append("|" + "|".join("---" for _ in columns) + "|")
+                for row in rows:
+                    cells = list(row.cells)
+                    # The marker goes on the last cell, which is where a reader looks for
+                    # the provenance of a row.
+                    if row.markers:
+                        cells[-1] = f"{cells[-1]}{_marks(row.markers)}"
+                    lines.append("| " + " | ".join(cells) + " |")
+                lines.append("")
+    return lines
+
+
+def _marks(markers: tuple[int, ...]) -> str:
+    return "".join(f"[^{number}]" for number in markers)
+
+
+def _prose(fragment: Paragraph | Bullet) -> str:
+    """A paragraph's or bullet's text in Markdown: pair runs bolded, plain text as is."""
+    if fragment.pairs is None:
+        return fragment.text
+    return " — ".join(f"**{label}:** {value}" for label, value in fragment.pairs)
+
+
+# -- The walk --------------------------------------------------------------------------------
 
 
 def _ordered_properties(contract: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
@@ -143,7 +296,7 @@ def _ordered_properties(contract: dict[str, Any]) -> list[tuple[str, dict[str, A
     return [(name, sub if isinstance(sub, dict) else {}) for name, sub in properties.items()]
 
 
-def _render_value(
+def _value_fragments(
     value: Any,
     *,
     citations: list[CitationRef],
@@ -151,7 +304,7 @@ def _render_value(
     heading_level: int,
     field_title: str,
     subschema: dict[str, Any] | None = None,
-) -> list[str]:
+) -> list[Fragment]:
     """Render one field.
 
     Dispatches on the *value*, not the declared type. The contract supplies the ordering
@@ -164,7 +317,7 @@ def _render_value(
     from the contract rather than from whatever key order the content happens to have.
     """
     if isinstance(value, list):
-        return _render_list(
+        return _list_fragments(
             value,
             citations=citations,
             footnote_start=footnote_start,
@@ -173,15 +326,15 @@ def _render_value(
             subschema=subschema,
         )
 
+    heading = Heading(level=heading_level, text=field_title)
     if isinstance(value, dict):
-        marker = _cite(value, citations=citations, footnote_start=footnote_start)
-        body = _describe(value)
-        return [f"{'#' * heading_level} {field_title}", "", f"{body}{marker}", ""]
+        markers = _cite(value, citations=citations, footnote_start=footnote_start)
+        return [heading, Paragraph(markers=markers, pairs=_pairs(value))]
 
-    return [f"{'#' * heading_level} {field_title}", "", f"{value}", ""]
+    return [heading, Paragraph(text=f"{value}")]
 
 
-def _render_list(
+def _list_fragments(
     values: list[Any],
     *,
     citations: list[CitationRef],
@@ -189,35 +342,36 @@ def _render_list(
     heading_level: int,
     field_title: str,
     subschema: dict[str, Any] | None = None,
-) -> list[str]:
-    lines = [f"{'#' * heading_level} {field_title}", ""]
+) -> list[Fragment]:
+    heading = Heading(level=heading_level, text=field_title)
 
     if all(not isinstance(item, dict) for item in values):
-        lines.extend(f"- {item}" for item in values)
-        lines.append("")
-        return lines
+        return [heading, Bullets(items=tuple(Bullet(text=f"{item}") for item in values))]
 
     columns = _shared_columns(values, subschema=subschema)
     if columns:
-        lines.extend(
-            _render_table(
-                values,
-                columns=columns,
-                citations=citations,
-                footnote_start=footnote_start,
+        rows = []
+        for item in values:
+            markers = _cite(item, citations=citations, footnote_start=footnote_start)
+            rows.append(
+                TableRow(
+                    cells=tuple(str(item.get(column, "")) for column in columns),
+                    markers=markers,
+                )
             )
-        )
-        lines.append("")
-        return lines
+        return [
+            heading,
+            Table(columns=tuple(_humanise(c) for c in columns), rows=tuple(rows)),
+        ]
 
+    items: list[Bullet] = []
     for item in values:
         if isinstance(item, dict):
-            marker = _cite(item, citations=citations, footnote_start=footnote_start)
-            lines.append(f"- {_describe(item)}{marker}")
+            markers = _cite(item, citations=citations, footnote_start=footnote_start)
+            items.append(Bullet(markers=markers, pairs=_pairs(item)))
         else:
-            lines.append(f"- {item}")
-    lines.append("")
-    return lines
+            items.append(Bullet(text=f"{item}"))
+    return [heading, Bullets(items=tuple(items))]
 
 
 def _shared_columns(values: list[Any], *, subschema: dict[str, Any] | None = None) -> list[str]:
@@ -271,33 +425,16 @@ def _declared_item_properties(subschema: dict[str, Any] | None) -> list[str]:
     return [name for name in properties if name not in _METADATA_KEYS]
 
 
-def _render_table(
-    values: list[Any], *, columns: list[str], citations: list[CitationRef], footnote_start: int
-) -> list[str]:
-    header = "| " + " | ".join(_humanise(c) for c in columns) + " |"
-    divider = "|" + "|".join("---" for _ in columns) + "|"
-    lines = [header, divider]
-
-    for item in values:
-        marker = _cite(item, citations=citations, footnote_start=footnote_start)
-        cells = [str(item.get(column, "")) for column in columns]
-        # The marker goes on the last cell, which is where a reader looks for the
-        # provenance of a row.
-        if marker:
-            cells[-1] = f"{cells[-1]}{marker}"
-        lines.append("| " + " | ".join(cells) + " |")
-
-    return lines
-
-
-def _cite(item: dict[str, Any], *, citations: list[CitationRef], footnote_start: int) -> str:
-    """Register any citations on an object and return the footnote marker.
+def _cite(
+    item: dict[str, Any], *, citations: list[CitationRef], footnote_start: int
+) -> tuple[int, ...]:
+    """Register any citations on an object and return its footnote numbers.
 
     An object citing both a calculation and a source document gets two markers — a
     calculated figure rests on both the arithmetic and the evidence beneath it, and a
     reader chasing one should not have to guess that the other exists.
     """
-    markers: list[str] = []
+    markers: list[int] = []
     for key in CITATION_KEYS:
         identifier = item.get(key)
         if not identifier:
@@ -314,19 +451,18 @@ def _cite(item: dict[str, Any], *, citations: list[CitationRef], footnote_start:
         else:
             citations.append(reference)
             number = footnote_start + len(citations) - 1
-        markers.append(f"[^{number}]")
+        markers.append(number)
 
-    return "".join(markers)
+    return tuple(markers)
 
 
-def _describe(item: dict[str, Any]) -> str:
-    """A one-line rendering of an object with no shared shape."""
-    parts = [
-        f"**{_humanise(key)}:** {value}"
+def _pairs(item: dict[str, Any]) -> tuple[tuple[str, str], ...]:
+    """An object with no shared shape, as label-value runs for a one-line rendering."""
+    return tuple(
+        (_humanise(key), f"{value}")
         for key, value in item.items()
         if key not in _METADATA_KEYS and value not in (None, "", [], {})
-    ]
-    return " — ".join(parts)
+    )
 
 
 def _humanise(name: str) -> str:

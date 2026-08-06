@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{{ header.company_name }} — Research Note</title>
+<style>
+  /* One stylesheet for two readers: a browser previewing, and a paged-media engine
+     printing. The @page machinery is ignored by the former and honoured by the latter,
+     which is exactly the split wanted — the pixels differ, the document does not. */
+  :root {
+    --ink: #1a1c1e;
+    --muted: #5c6166;
+    --rule: #c9ccd0;
+    --accent: #16324f;
+    --amber: #8a5a00;
+    --paper: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html { font-size: 11pt; }
+  body {
+    font-family: "Charter", "Georgia", "Times New Roman", serif;
+    color: var(--ink);
+    background: var(--paper);
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+    max-width: 52rem;
+    line-height: 1.45;
+  }
+  @page {
+    size: A4;
+    margin: 22mm 18mm 20mm;
+    @top-left { content: string(doc-company); font-family: "DejaVu Sans", sans-serif;
+                font-size: 8pt; color: #5c6166; }
+    @top-right { content: "Research Note"; font-family: "DejaVu Sans", sans-serif;
+                 font-size: 8pt; color: #5c6166; }
+    @bottom-center { content: counter(page) " of " counter(pages);
+                     font-family: "DejaVu Sans", sans-serif; font-size: 8pt; color: #5c6166; }
+  }
+  @page :first {
+    @top-left { content: none; }
+    @top-right { content: none; }
+    @bottom-center { content: none; }
+  }
+  @media print { body { max-width: none; padding: 0; } }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "DejaVu Sans", "Helvetica Neue", "Arial", sans-serif;
+    color: var(--accent);
+    line-height: 1.2;
+    break-after: avoid;
+  }
+  h2 { font-size: 1.25rem; border-bottom: 1.5pt solid var(--accent);
+       padding-bottom: 0.2rem; margin: 2rem 0 0.8rem; }
+  h3 { font-size: 1rem; margin: 1.2rem 0 0.4rem; }
+  p { margin: 0.4rem 0 0.8rem; }
+  a { color: var(--accent); }
+  code { font-family: "DejaVu Sans Mono", monospace; font-size: 0.85em; }
+
+  .cover { break-after: page; }
+  .cover .masthead {
+    font-family: "DejaVu Sans", sans-serif; font-size: 0.75rem; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--muted);
+    border-bottom: 2.5pt solid var(--accent); padding-bottom: 0.4rem;
+  }
+  .cover h1 { string-set: doc-company content(); font-size: 2rem; margin: 2.2rem 0 0.2rem; }
+  .cover .doc-kind { font-family: "DejaVu Sans", sans-serif; font-size: 1.05rem;
+                     color: var(--muted); margin: 0 0 2rem; }
+  .cover dl { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 1.2rem;
+              margin: 0 0 2rem; font-size: 0.95rem; }
+  .cover dt { font-family: "DejaVu Sans", sans-serif; font-size: 0.7rem;
+              text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+              align-self: baseline; padding-top: 0.15rem; }
+  .cover dd { margin: 0; }
+  .disclaimer {
+    border: 1pt solid var(--rule); background: #f6f7f8; padding: 0.7rem 0.9rem;
+    font-size: 0.85rem; color: var(--muted); margin: 1.2rem 0;
+  }
+
+  .toc { break-after: page; }
+  .toc ol { margin: 0.4rem 0 1rem 1.2rem; padding: 0; }
+  .toc li { margin: 0.25rem 0; }
+  .toc a { text-decoration: none; }
+  .toc .custom-note { font-size: 0.85rem; color: var(--muted); margin: 0.2rem 0 0.5rem; }
+
+  .sector {
+    border-left: 3pt solid var(--amber); background: #fbf6ea;
+    padding: 0.7rem 0.9rem; margin: 1.2rem 0; break-inside: avoid;
+  }
+  .sector h2 { border: none; margin: 0 0 0.5rem; font-size: 1.05rem; color: var(--amber); }
+  .sector p { margin: 0.3rem 0; font-size: 0.95rem; }
+
+  .report-section { margin-bottom: 1.6rem; }
+  .custom-chip {
+    float: right; font-family: "DejaVu Sans", sans-serif; font-size: 0.65rem;
+    text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+    border: 1pt solid var(--rule); border-radius: 2pt; padding: 0.15rem 0.45rem;
+    margin: 2.1rem 0 0 0.8rem;
+  }
+
+  .banner {
+    border-left: 3pt solid var(--amber); background: #fbf6ea; color: var(--amber);
+    padding: 0.5rem 0.8rem; margin: 0.6rem 0; font-size: 0.9rem; break-inside: avoid;
+  }
+  .status-note { font-style: italic; color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; margin: 0.6rem 0 1rem;
+          font-size: 0.92rem; break-inside: avoid; }
+  th { font-family: "DejaVu Sans", sans-serif; font-size: 0.7rem; text-transform: uppercase;
+       letter-spacing: 0.06em; color: var(--muted); text-align: left;
+       border-bottom: 1.2pt solid var(--ink); padding: 0.3rem 0.6rem 0.3rem 0; }
+  td { border-bottom: 0.6pt solid var(--rule); padding: 0.35rem 0.6rem 0.35rem 0;
+       vertical-align: top; }
+
+  sup.fn-ref { font-size: 0.7em; line-height: 0; }
+  sup.fn-ref a { text-decoration: none; }
+  .footnotes, .appendix { font-size: 0.88rem; }
+  .footnotes ol { margin: 0.4rem 0 0 1.4rem; padding: 0; }
+  .footnotes li { margin: 0.35rem 0; }
+  .backref { text-decoration: none; margin-left: 0.3rem; }
+  .appendix td a { word-break: break-all; }
+
+  .doc-footer { margin-top: 2.5rem; border-top: 1pt solid var(--rule); padding-top: 0.8rem; }
+</style>
+</head>
+<body>
+
+<header class="cover">
+  <p class="masthead">Equity Research — personal research tool</p>
+  <h1>{{ header.company_name }}</h1>
+  <p class="doc-kind">Research Note — {{ header.ticker }} ({{ header.exchange }})</p>
+  <dl>
+    <dt>As-of date</dt><dd>{{ header.as_of.isoformat() }}</dd>
+    <dt>Base currency</dt><dd>{{ header.base_currency }}</dd>
+    <dt>Point-in-time</dt><dd>{{ "enforced" if header.point_in_time else "off" }}</dd>
+    <dt>Generated</dt><dd>{{ header.generated_at.strftime("%Y-%m-%d %H:%M UTC") }}</dd>
+    <dt>Non-binding view</dt><dd>{{ header.rating or "no view reached" }}</dd>
+    {% if header.confidence is not none %}
+    <dt>Confidence</dt><dd>{{ "%.0f%%" | format(header.confidence * 100) }}</dd>
+    {% endif %}
+  </dl>
+  <div class="disclaimer">{{ disclaimer_html }}</div>
+</header>
+
+<nav class="toc" id="contents">
+  <h2>Contents</h2>
+  <ol>
+    {% for section in builtin_sections %}
+    <li><a href="#section-{{ section.key }}">{{ section.title }}</a></li>
+    {% endfor %}
+  </ol>
+  {% if custom_sections %}
+  <h3>Custom analysis</h3>
+  <p class="custom-note">
+    Bespoke sections authored by the operator as their own methodology. They run under
+    the same evidence, citation and point-in-time rules as the platform's sections, and
+    are the operator's analysis rather than platform output.
+  </p>
+  <ol>
+    {% for section in custom_sections %}
+    <li><a href="#section-{{ section.key }}">{{ section.title }}</a></li>
+    {% endfor %}
+  </ol>
+  {% endif %}
+</nav>
+
+{% if document.sector and document.sector.label %}
+<aside class="sector">
+  <h2>Sector: {{ document.sector.label }}</h2>
+  {% if document.sector.blocked_models %}
+  <p><strong>This report does not run {{ document.sector.blocked_models | join(", ") }}.</strong>
+     The model is blocked for this sector rather than discouraged: it was not run and no
+     figure below came from it.</p>
+  {% endif %}
+  {% for warning in document.sector.warnings %}
+  <p>{{ warning }}</p>
+  {% endfor %}
+  {% if document.sector.metric_disclosure %}
+  <p>{{ document.sector.metric_disclosure }}</p>
+  {% endif %}
+</aside>
+{% endif %}
+
+<main>
+  {% for section in sections %}
+  <section class="report-section{{ ' custom' if section.origin == 'skill' }}"
+           id="section-{{ section.key }}">
+    {% if section.origin == 'skill' %}
+    <div class="custom-chip">Custom analysis</div>
+    {% endif %}
+    {{ section.body }}
+  </section>
+  {% endfor %}
+
+  {% if document.comps_paragraph %}
+  <section class="report-section" id="section-comparable-companies">
+    <h2>Comparable companies</h2>
+    <p>{{ comps_html }}</p>
+  </section>
+  {% endif %}
+</main>
+
+{% if footnotes %}
+<section class="footnotes" id="notes">
+  <h2>Notes</h2>
+  <ol>
+    {% for footnote in footnotes %}
+    <li id="fn-{{ footnote.number }}" value="{{ footnote.number }}">
+      {{ footnote.text }}
+      {% if footnote.number in referenced %}
+      <a class="backref" href="#fnref-{{ footnote.number }}" aria-label="Back to reference">↩</a>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+
+{% if document.appendix %}
+<section class="appendix" id="sources">
+  <h2>Sources</h2>
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Source</th><th scope="col">Publisher</th>
+        <th scope="col">Published</th><th scope="col">Retrieved</th>
+        <th scope="col">Tier</th><th scope="col">Artefact</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in document.appendix %}
+      <tr>
+        <td><a href="{{ row.url }}">{{ row.title }}</a></td>
+        <td>{{ row.publisher or "—" }}</td>
+        <td>{{ row.publication_date.isoformat() if row.publication_date else "—" }}</td>
+        <td>{{ row.retrieved.isoformat() }}</td>
+        <td>{{ row.tier }}</td>
+        <td>{% if row.digest_prefix %}<code>{{ row.digest_prefix }}</code>{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+<footer class="doc-footer">
+  <div class="disclaimer">{{ disclaimer_html }}</div>
+</footer>
+
+</body>
+</html>

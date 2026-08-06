@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MICROSOFT CORP — Research Note</title>
+<style>
+  /* One stylesheet for two readers: a browser previewing, and a paged-media engine
+     printing. The @page machinery is ignored by the former and honoured by the latter,
+     which is exactly the split wanted — the pixels differ, the document does not. */
+  :root {
+    --ink: #1a1c1e;
+    --muted: #5c6166;
+    --rule: #c9ccd0;
+    --accent: #16324f;
+    --amber: #8a5a00;
+    --paper: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html { font-size: 11pt; }
+  body {
+    font-family: "Charter", "Georgia", "Times New Roman", serif;
+    color: var(--ink);
+    background: var(--paper);
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+    max-width: 52rem;
+    line-height: 1.45;
+  }
+  @page {
+    size: A4;
+    margin: 22mm 18mm 20mm;
+    @top-left { content: string(doc-company); font-family: "DejaVu Sans", sans-serif;
+                font-size: 8pt; color: #5c6166; }
+    @top-right { content: "Research Note"; font-family: "DejaVu Sans", sans-serif;
+                 font-size: 8pt; color: #5c6166; }
+    @bottom-center { content: counter(page) " of " counter(pages);
+                     font-family: "DejaVu Sans", sans-serif; font-size: 8pt; color: #5c6166; }
+  }
+  @page :first {
+    @top-left { content: none; }
+    @top-right { content: none; }
+    @bottom-center { content: none; }
+  }
+  @media print { body { max-width: none; padding: 0; } }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "DejaVu Sans", "Helvetica Neue", "Arial", sans-serif;
+    color: var(--accent);
+    line-height: 1.2;
+    break-after: avoid;
+  }
+  h2 { font-size: 1.25rem; border-bottom: 1.5pt solid var(--accent);
+       padding-bottom: 0.2rem; margin: 2rem 0 0.8rem; }
+  h3 { font-size: 1rem; margin: 1.2rem 0 0.4rem; }
+  p { margin: 0.4rem 0 0.8rem; }
+  a { color: var(--accent); }
+  code { font-family: "DejaVu Sans Mono", monospace; font-size: 0.85em; }
+
+  .cover { break-after: page; }
+  .cover .masthead {
+    font-family: "DejaVu Sans", sans-serif; font-size: 0.75rem; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--muted);
+    border-bottom: 2.5pt solid var(--accent); padding-bottom: 0.4rem;
+  }
+  .cover h1 { string-set: doc-company content(); font-size: 2rem; margin: 2.2rem 0 0.2rem; }
+  .cover .doc-kind { font-family: "DejaVu Sans", sans-serif; font-size: 1.05rem;
+                     color: var(--muted); margin: 0 0 2rem; }
+  .cover dl { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 1.2rem;
+              margin: 0 0 2rem; font-size: 0.95rem; }
+  .cover dt { font-family: "DejaVu Sans", sans-serif; font-size: 0.7rem;
+              text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+              align-self: baseline; padding-top: 0.15rem; }
+  .cover dd { margin: 0; }
+  .disclaimer {
+    border: 1pt solid var(--rule); background: #f6f7f8; padding: 0.7rem 0.9rem;
+    font-size: 0.85rem; color: var(--muted); margin: 1.2rem 0;
+  }
+
+  .toc { break-after: page; }
+  .toc ol { margin: 0.4rem 0 1rem 1.2rem; padding: 0; }
+  .toc li { margin: 0.25rem 0; }
+  .toc a { text-decoration: none; }
+  .toc .custom-note { font-size: 0.85rem; color: var(--muted); margin: 0.2rem 0 0.5rem; }
+
+  .sector {
+    border-left: 3pt solid var(--amber); background: #fbf6ea;
+    padding: 0.7rem 0.9rem; margin: 1.2rem 0; break-inside: avoid;
+  }
+  .sector h2 { border: none; margin: 0 0 0.5rem; font-size: 1.05rem; color: var(--amber); }
+  .sector p { margin: 0.3rem 0; font-size: 0.95rem; }
+
+  .report-section { margin-bottom: 1.6rem; }
+  .custom-chip {
+    float: right; font-family: "DejaVu Sans", sans-serif; font-size: 0.65rem;
+    text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+    border: 1pt solid var(--rule); border-radius: 2pt; padding: 0.15rem 0.45rem;
+    margin: 2.1rem 0 0 0.8rem;
+  }
+
+  .banner {
+    border-left: 3pt solid var(--amber); background: #fbf6ea; color: var(--amber);
+    padding: 0.5rem 0.8rem; margin: 0.6rem 0; font-size: 0.9rem; break-inside: avoid;
+  }
+  .status-note { font-style: italic; color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; margin: 0.6rem 0 1rem;
+          font-size: 0.92rem; break-inside: avoid; }
+  th { font-family: "DejaVu Sans", sans-serif; font-size: 0.7rem; text-transform: uppercase;
+       letter-spacing: 0.06em; color: var(--muted); text-align: left;
+       border-bottom: 1.2pt solid var(--ink); padding: 0.3rem 0.6rem 0.3rem 0; }
+  td { border-bottom: 0.6pt solid var(--rule); padding: 0.35rem 0.6rem 0.35rem 0;
+       vertical-align: top; }
+
+  sup.fn-ref { font-size: 0.7em; line-height: 0; }
+  sup.fn-ref a { text-decoration: none; }
+  .footnotes, .appendix { font-size: 0.88rem; }
+  .footnotes ol { margin: 0.4rem 0 0 1.4rem; padding: 0; }
+  .footnotes li { margin: 0.35rem 0; }
+  .backref { text-decoration: none; margin-left: 0.3rem; }
+  .appendix td a { word-break: break-all; }
+
+  .doc-footer { margin-top: 2.5rem; border-top: 1pt solid var(--rule); padding-top: 0.8rem; }
+</style>
+</head>
+<body>
+
+<header class="cover">
+  <p class="masthead">Equity Research — personal research tool</p>
+  <h1>MICROSOFT CORP</h1>
+  <p class="doc-kind">Research Note — MSFT (NASDAQ)</p>
+  <dl>
+    <dt>As-of date</dt><dd>2022-06-30</dd>
+    <dt>Base currency</dt><dd>USD</dd>
+    <dt>Point-in-time</dt><dd>enforced</dd>
+    <dt>Generated</dt><dd>2022-07-02 09:30 UTC</dd>
+    <dt>Non-binding view</dt><dd>Constructive (non-binding)</dd>
+    <dt>Confidence</dt><dd>62%</dd>
+  </dl>
+  <div class="disclaimer">This is a personal research tool. It is <strong>not</strong> regulated investment advice, and nothing in this document is a recommendation to buy, sell or hold any security. Any rating expressed is a non-binding personal view.</div>
+</header>
+
+<nav class="toc" id="contents">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#section-golden_overview">Golden Overview</a></li>
+    <li><a href="#section-golden_warnings">Golden Warnings</a></li>
+    <li><a href="#section-golden_pending">Golden Pending</a></li>
+    <li><a href="#section-golden_failed">Golden Failed</a></li>
+    <li><a href="#section-golden_skipped">Golden Skipped</a></li>
+    <li><a href="#section-golden_unresolved">Golden Unresolved</a></li>
+  </ol>
+</nav>
+
+<aside class="sector">
+  <h2>Sector: Banks</h2>
+  <p><strong>This report does not run dcf.</strong>
+     The model is blocked for this sector rather than discouraged: it was not run and no
+     figure below came from it.</p>
+  <p>Deposit funding inverts the usual reading of leverage.</p>
+  <p>CET1 was required for this sector and was not computed.</p>
+</aside>
+
+<main>
+  <section class="report-section"
+           id="section-golden_overview">
+    <h2>Golden Overview</h2><h3>Thesis</h3><p>A fixed thesis sentence with no figures in it.</p><h3>Headcount</h3><p>221000</p><h3>Key Points</h3><ul><li>First fixed point.</li><li>Second fixed point.</li></ul><h3>Flagship Product</h3><p><strong>Name:</strong> Azure — <strong>Role:</strong> Growth engine<sup class="fn-ref" id="fnref-1"><a href="#fn-1">1</a></sup><sup class="fn-ref" id="fnref-2"><a href="#fn-2">2</a></sup></p><h3>Figures</h3><table><thead><tr><th scope="col">Label</th><th scope="col">Value</th><th scope="col">Unit</th></tr></thead><tbody><tr><td>Revenue CAGR</td><td>0.18</td><td>ratio<sup class="fn-ref" id="fnref-3"><a href="#fn-3">3</a></sup><sup class="fn-ref" id="fnref-4"><a href="#fn-4">4</a></sup></td></tr><tr><td>Revenue CAGR</td><td>0.18</td><td>ratio<sup class="fn-ref" id="fnref-5"><a href="#fn-5">5</a></sup><sup class="fn-ref"><a href="#fn-4">4</a></sup></td></tr></tbody></table><h3>Mixed Notes</h3><ul><li><strong>Observation:</strong> An object with its own shape.</li><li><strong>Label:</strong> Odd item — <strong>Detail:</strong> A different shape, cited.<sup class="fn-ref" id="fnref-6"><a href="#fn-6">6</a></sup></li><li>A bare string in a mixed list.</li></ul>
+  </section>
+  <section class="report-section"
+           id="section-golden_warnings">
+    <h2>Golden Warnings</h2><div class="banner" role="note">Insufficient evidence: the golden scene says so.</div><h3>Commentary</h3><p>Written under a banner, deliberately.</p>
+  </section>
+  <section class="report-section"
+           id="section-golden_pending">
+    <h2>Golden Pending</h2><p class="status-note">This section was not generated.</p>
+  </section>
+  <section class="report-section"
+           id="section-golden_failed">
+    <h2>Golden Failed</h2><div class="banner" role="note">The golden scene fails this one on purpose.</div><p class="status-note">This section could not be generated.</p>
+  </section>
+  <section class="report-section"
+           id="section-golden_skipped">
+    <h2>Golden Skipped</h2><p class="status-note">This section does not apply to this company.</p>
+  </section>
+  <section class="report-section"
+           id="section-golden_unresolved">
+    <h2>Golden Unresolved</h2><h3>Figures</h3><table><thead><tr><th scope="col">Label</th><th scope="col">Value</th><th scope="col">Unit</th></tr></thead><tbody><tr><td>Ghost figure</td><td>1.23</td><td>x<sup class="fn-ref" id="fnref-7"><a href="#fn-7">7</a></sup><sup class="fn-ref" id="fnref-8"><a href="#fn-8">8</a></sup></td></tr></tbody></table>
+  </section>
+
+  <section class="report-section" id="section-comparable-companies">
+    <h2>Comparable companies</h2>
+    <p>A comparable-company analysis was performed against 3 peer(s) as at 2022-06-30, with 1 proposed peer(s) excluded. <strong>The figures are withheld from this version.</strong> They derive from market data licensed for internal use only, under terms that grant no derived-data exemption, so no multiple computed from it appears in anything shareable. The analysis is available in full on the operator&#39;s own copy.</p>
+  </section>
+</main>
+
+<section class="footnotes" id="notes">
+  <h2>Notes</h2>
+  <ol>
+    <li id="fn-1" value="1">
+      Form 10-K, fiscal 2022, US Securities and Exchange Commission, published 2022-06-15, retrieved 2022-07-01, tier T1_REGULATORY. <a href="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm" class="src">https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm</a>
+      <a class="backref" href="#fnref-1" aria-label="Back to reference">↩</a>
+    </li>
+    <li id="fn-2" value="2">
+      Calculated: <code>cagr = (end / start) ** (1 / years) - 1</code> = 0.180000000000 ratio (<code>aer.calc.basic:cagr</code>, code version <code>goldencode12</code>).
+      <a class="backref" href="#fnref-2" aria-label="Back to reference">↩</a>
+    </li>
+    <li id="fn-3" value="3">
+      Form 10-K, fiscal 2022, US Securities and Exchange Commission, published 2022-06-15, retrieved 2022-07-01, tier T1_REGULATORY. <a href="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm" class="src">https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm</a>
+      <a class="backref" href="#fnref-3" aria-label="Back to reference">↩</a>
+    </li>
+    <li id="fn-4" value="4">
+      Calculated: <code>cagr = (end / start) ** (1 / years) - 1</code> = 0.180000000000 ratio (<code>aer.calc.basic:cagr</code>, code version <code>goldencode12</code>).
+      <a class="backref" href="#fnref-4" aria-label="Back to reference">↩</a>
+    </li>
+    <li id="fn-5" value="5">
+      Segment data pack, retrieved 2022-07-01, tier T2_ISSUER. <a href="https://www.microsoft.com/investor/segment-data.html" class="src">https://www.microsoft.com/investor/segment-data.html</a>
+      <a class="backref" href="#fnref-5" aria-label="Back to reference">↩</a>
+    </li>
+    <li id="fn-6" value="6">
+      Segment data pack, retrieved 2022-07-01, tier T2_ISSUER. <a href="https://www.microsoft.com/investor/segment-data.html" class="src">https://www.microsoft.com/investor/segment-data.html</a>
+      <a class="backref" href="#fnref-6" aria-label="Back to reference">↩</a>
+    </li>
+    <li id="fn-7" value="7">
+      <strong>Unresolved citation</strong> — this claim references source document <code>00000000-0000-0000-0000-000000003002</code>, which is no longer present. Do not rely on the figure it supports.
+      <a class="backref" href="#fnref-7" aria-label="Back to reference">↩</a>
+    </li>
+    <li id="fn-8" value="8">
+      <strong>Unresolved citation</strong> — this claim references calculation <code>00000000-0000-0000-0000-000000003001</code>, which is no longer present. Do not rely on the figure it supports.
+      <a class="backref" href="#fnref-8" aria-label="Back to reference">↩</a>
+    </li>
+  </ol>
+</section>
+
+<section class="appendix" id="sources">
+  <h2>Sources</h2>
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Source</th><th scope="col">Publisher</th>
+        <th scope="col">Published</th><th scope="col">Retrieved</th>
+        <th scope="col">Tier</th><th scope="col">Artefact</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><a href="https://www.microsoft.com/investor/segment-data.html">Segment data pack</a></td>
+        <td>—</td>
+        <td>—</td>
+        <td>2022-07-01</td>
+        <td>T2_ISSUER</td>
+        <td><code>e3b0c44298fc</code></td>
+      </tr>
+      <tr>
+        <td><a href="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm">Form 10-K, fiscal 2022</a></td>
+        <td>US Securities and Exchange Commission</td>
+        <td>2022-06-15</td>
+        <td>2022-07-01</td>
+        <td>T1_REGULATORY</td>
+        <td><code>e3b0c44298fc</code></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<footer class="doc-footer">
+  <div class="disclaimer">This is a personal research tool. It is <strong>not</strong> regulated investment advice, and nothing in this document is a recommendation to buy, sell or hold any security. Any rating expressed is a non-binding personal view.</div>
+</footer>
+
+</body>
+</html>

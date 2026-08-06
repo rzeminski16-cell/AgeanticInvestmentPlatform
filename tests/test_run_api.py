@@ -17,6 +17,7 @@ import asyncio
 import re
 import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 from unittest import mock
@@ -762,13 +763,22 @@ class TestTheWebPages:
     async def test_the_console_falls_back_to_polling(
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
-        """The meta refresh is in the markup before any script runs; console.js removes it."""
+        """The meta refresh is in the markup, contained so only a script-less browser runs it.
+
+        The `noscript` wrapper is the load-bearing part: a declarative refresh is
+        scheduled at parse time and removing the element afterwards does not cancel it,
+        so a bare meta tag would reload the page underneath the event stream every few
+        seconds — which is exactly what it used to do.
+        """
         body = await start(api, committed["request"].id)
         await driver.advance(uuid.UUID(body["job_id"]))
 
         page = await api.get(f"/runs/{body['job_id']}")
         assert 'id="poll-fallback"' in page.text
         assert 'http-equiv="refresh"' in page.text
+        fallback_at = page.text.index('id="poll-fallback"')
+        opened_at = page.text.index("<noscript>")
+        assert opened_at < fallback_at < page.text.index("</noscript>")
 
     async def test_a_finished_run_does_not_keep_refreshing(
         self, api: Any, committed: dict, driver: Driver
@@ -911,6 +921,78 @@ class TestTheWebPages:
         assert page.status_code == 200
         assert f"/api/reports/{report.id}/download" in page.text
         assert 'id="immutable-badge"' in page.text
+
+    async def test_the_review_page_links_to_the_document_preview(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        job_id = await _to_second_gate(api, committed, driver)
+
+        page = await api.get(f"/runs/{job_id}/review")
+        assert 'id="document-preview"' in page.text
+        assert f"/runs/{job_id}/preview" in page.text
+
+    async def test_the_draft_preview_is_the_document_itself(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        """Not a site page: the report's own HTML, cover, contents and disclaimer."""
+        job_id = await _to_second_gate(api, committed, driver)
+
+        page = await api.get(f"/runs/{job_id}/preview")
+        assert page.status_code == 200
+        assert page.text.startswith("<!DOCTYPE html>")
+        assert "Research Note" in page.text
+        assert "not</strong> regulated investment advice" in page.text
+        assert 'id="contents"' in page.text
+        # The draft has no view yet, and the preview says so rather than inventing one.
+        assert "no view reached" in page.text
+
+    async def test_a_run_with_no_sections_has_no_preview(self, api: Any, committed: dict) -> None:
+        # Started but not yet picked up by the worker: the plan step is what creates the
+        # section rows, so this run has none and there is no document to assemble.
+        body = await start(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+
+        page = await api.get(f"/runs/{job_id}/preview")
+        assert page.status_code == 404
+        assert "no document to preview" in page.text
+
+    async def test_a_preview_of_a_run_that_is_not_yours_does_not_exist(
+        self, api: Any, someone_elses_run: uuid.UUID
+    ) -> None:
+        page = await api.get(f"/runs/{someone_elses_run}/preview")
+        assert page.status_code == 404
+        # The *ownership* refusal, specifically. The other run has no sections either, so
+        # a broken ownership check would still 404 — with the no-sections message — and a
+        # status assertion alone could not tell the two guards apart.
+        assert f"No run {someone_elses_run}" in page.text
+
+    async def test_the_report_page_links_to_its_own_preview(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        job_id = await _to_second_gate(api, committed, driver)
+        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+        await driver.advance(job_id)
+
+        # Backdate the row before viewing: a report produced moments ago carries a
+        # created_at that *rounds to the same minute as now*, so asserting the row's own
+        # timestamp would also pass if the preview stamped the viewing time instead.
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            report = await session.scalar(select(Report).where(Report.job_id == job_id))
+            assert report is not None
+            report.created_at = datetime(2020, 5, 4, 9, 30, tzinfo=UTC)
+            report_id = report.id
+            await session.commit()
+
+        page = await api.get(f"/reports/{report_id}")
+        assert 'id="report-preview"' in page.text
+        assert f"/reports/{report_id}/preview" in page.text
+
+        preview = await api.get(f"/reports/{report_id}/preview")
+        assert preview.status_code == 200
+        assert preview.text.startswith("<!DOCTYPE html>")
+        # Stamped with the date the report was produced, not the date it was viewed.
+        assert "2020-05-04 09:30 UTC" in preview.text
 
     async def test_every_page_carries_the_disclaimer(
         self, api: Any, committed: dict, driver: Driver

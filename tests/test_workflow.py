@@ -413,9 +413,7 @@ class TestTheWholeRun:
         assert schemas.count("RedTeamReport") == 0
         assert finished["provider"].call_count == 23
 
-    async def test_the_writer_receives_the_planners_approved_focus(
-        self, finished: dict
-    ) -> None:
+    async def test_the_writer_receives_the_planners_approved_focus(self, finished: dict) -> None:
         """The plan's per-section brief — text a human approved at gate 1 — reaches the
         drafting call for the sections the planner spoke about."""
         drafts = [
@@ -423,9 +421,7 @@ class TestTheWholeRun:
             for call in finished["provider"].calls
             if call["schema"] == "SectionDraft"
         ]
-        assert any(
-            "What the filed history shows for executive_summary." in body for body in drafts
-        )
+        assert any("What the filed history shows for executive_summary." in body for body in drafts)
 
     async def test_the_extract_step_recorded_citable_excerpts(self, finished: dict) -> None:
         """One extraction per located fact value, into the archived document (task 45).

@@ -118,6 +118,11 @@ ignore = [
   "PLR0917",
 ]
 "src/aer/**" = ["S101"]
+# The HTML notation's whole job is constructing markup, and every interpolated value in
+# it passes through markupsafe.escape — the exact discipline S704 exists to encourage but
+# cannot see through an f-string. The escaping is held by test (a section containing
+# <script> renders escaped), which is a stronger check than the lint.
+"src/aer/render/html.py" = ["S101", "S704"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["aer"]

@@ -322,9 +322,44 @@ does not.
 section is visually indistinguishable in quality from a built-in one without a line of
 user-authored HTML.
 
----
-
-## Task 47 — The chart pack: deterministic Matplotlib, and a chart is a figure
+**Delivered (2026-08-06).** The assembly walk moved out of `aer/render/markdown.py` into
+`aer/render/document.py` (`assemble_document` → `ReportDocument`: header view, sector
+note, section views with fragments and origin, global footnote numbering, resolved
+footnote and appendix rows), and `sections/render.py` now produces format-neutral
+fragments (`Heading`/`Banner`/`StatusLine`/`Paragraph`/`Bullet`/`Table`, markers as
+pre-assigned global integers) that each notation only transcribes. The Markdown module
+became `serialise_markdown(document)`, held **byte-identical to the pre-refactor
+renderer** by `tests/fixtures/fx_report/golden.md` — recorded before the split, so the
+identity is against the old code's actual output, not against itself. The HTML notation
+is `aer/render/html.py` plus `templates/report.html`: one self-contained page (cover with
+masthead and disclaimer, contents page grouping `origin='skill'` sections under "Custom
+analysis" with the attribution note while the body keeps position order, sector aside,
+footnotes with back-references, sources appendix with digest prefixes) under one
+stylesheet written for both screen and CSS paged media (`@page` running headers, page
+counters, `string-set` company name), so the browser preview and task 48's WeasyPrint
+input are the same bytes. Every interpolation passes through `markupsafe.escape` (S704
+scoped ignore recorded in `pyproject.toml`, held by test rather than lint). Preview
+routes `/runs/{job_id}/preview` and `/reports/{report_id}/preview` serve the document
+itself — assembled with the workflow's own `sector_note_for`/`comps_note_for`, made
+public for exactly that parity — linked from the Gate 2 review page and the report page;
+the report preview stamps the row's `rating`, `confidence` and `created_at`. Tests: both
+goldens (`UPDATE_GOLDEN=1` re-records then fails, so an update can't pass silently),
+marker-sequence identity between the notations, escaping planted in every tag path,
+two skill-origin sections between built-ins (body order, contents grouping, numbering
+unbroken across the boundary), notation edge cases (dangling `**`, heading cap), and the
+preview pages' content, no-sections refusal and ownership. A 27-mutation sabotage pass
+over the walk, assembler, both serialisers, template and routes found three escapes —
+the marker-carrying table cell escapes on a separate branch nobody had planted markup in,
+the ownership 404 was indistinguishable from the no-sections 404, and a report viewed
+moments after creation cannot tell "stamped with created_at" from "stamped with now" —
+each fixed by strengthening the test it exposed, after which all 27 were caught. The e2e
+sweep then exposed a real console bug: the no-JavaScript meta refresh was emitted bare
+and deleted by `console.js`, but a declarative refresh is scheduled at parse time and
+removal does not cancel it (verified empirically against the bundled Chromium), so every
+scripted console view reloaded underneath its own event stream every five seconds — now
+emitted inside `noscript`, with the containment pinned by test. No new
+migration and no ADR: no schema change, no new agent role, and the one-assembly rule is
+the plan's own (storage of the HTML artefact is task 48's migration 0024, as planned).
 
 **Objective.** Six charts, every one rendered by deterministic code from recorded rows,
 byte-stable, provenance-marked, and licence-clean.

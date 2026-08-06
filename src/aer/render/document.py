@@ -1,0 +1,421 @@
+"""One assembly of a report, for every notation of it.
+
+Task 46's organising rule: **what is approved is what exists.** The Gate 2 preview, the
+stored HTML, the PDF derived from it and the Markdown beside it must be one assembly
+serialised, never parallel renderings that could drift. So this module walks the run's
+sections once — position order, global footnote numbering, footnote and appendix
+resolution — and produces a :class:`ReportDocument`: everything a serialiser needs and
+nothing it may decide. The Markdown notation lives in :mod:`aer.render.markdown`, the
+HTML notation in :mod:`aer.render.html`, and neither can renumber a footnote or reorder a
+section because the numbers and the order arrive already fixed.
+
+**The comps parameter is a `WithheldComps` and cannot be a `CompsTable`.** A rendered
+report is the shareable artefact: it gets exported, attached and sent, and every multiple
+in a comps table derives from market data licensed for internal use with no derived-data
+exemption (ADR 0030 route 2). So the type this assembler accepts is the one that has no
+figures in it, and a caller wanting to put the numbers in a report cannot do it by
+passing a different argument — there is no argument that would carry them.
+"""
+
+from __future__ import annotations
+
+import uuid
+from dataclasses import dataclass
+from datetime import UTC, date, datetime
+from decimal import Decimal
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from aer.calc.comps import WithheldComps
+from aer.db.models import (
+    Calculation,
+    Company,
+    Job,
+    ReportSection,
+    ResearchRequest,
+    SectionDefinition,
+    SectionStatus,
+    SourceDocument,
+)
+from aer.sections.registry import sections_for_job
+from aer.sections.render import CitationRef, Fragment, render_section
+
+__all__ = [
+    "DISCLAIMER",
+    "AppendixRow",
+    "CalculationFootnote",
+    "Footnote",
+    "HeaderView",
+    "ReportDocument",
+    "SectionView",
+    "SectorNote",
+    "SourceFootnote",
+    "UnresolvedFootnote",
+    "assemble_document",
+]
+
+DISCLAIMER = (
+    "This is a personal research tool. It is **not** regulated investment advice, and "
+    "nothing in this document is a recommendation to buy, sell or hold any security. Any "
+    "rating expressed is a non-binding personal view."
+)
+
+# How much of an artefact digest a document prints. Enough to identify the file among a
+# run's artefacts, short enough to read; the full digest is in the database for anyone
+# verifying.
+_HASH_PREFIX = 12
+
+# How much of a code version a calculation footnote prints, on the same reasoning.
+_CODE_PREFIX = 12
+
+# Sorts undated sources first in the appendix rather than raising on the comparison.
+_EPOCH = date(1970, 1, 1)
+
+_STATUS_NOTES = {
+    SectionStatus.PENDING: "This section was not generated.",
+    SectionStatus.FAILED: "This section could not be generated.",
+    SectionStatus.SKIPPED_NOT_APPLICABLE: "This section does not apply to this company.",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class SectorNote:
+    """What a specialist classification obliges the report to say about itself.
+
+    Assembled by the caller from the confirmed classification rather than looked up here, so
+    a report renders what the run was actually permitted to do rather than what the current
+    seed says it would be permitted to do today.
+    """
+
+    label: str
+    warnings: tuple[str, ...] = ()
+    blocked_models: tuple[str, ...] = ()
+
+    # The required-metric disclosure, already written as a sentence by
+    # `aer.services.sectors.MetricDisclosure`. A string rather than the structure, because
+    # *whether* the absence is disclosed must not depend on a template remembering to.
+    metric_disclosure: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class HeaderView:
+    """The document's masthead, as data."""
+
+    company_name: str
+    ticker: str
+    exchange: str
+    as_of: date
+    base_currency: str
+    point_in_time: bool
+    generated_at: datetime
+    rating: str | None
+    confidence: float | None
+
+
+@dataclass(frozen=True, slots=True)
+class SectionView:
+    """One section, walked: its fragments, and where it belongs.
+
+    ``origin`` is what the contents page groups by — ``'skill'`` sections appear under
+    the "Custom analysis" heading so bespoke methodology is attributed as the operator's
+    own — while the body keeps position order regardless.
+    """
+
+    key: str
+    title: str
+    origin: str
+    position: Decimal
+    fragments: tuple[Fragment, ...]
+    citations: tuple[CitationRef, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CalculationFootnote:
+    number: int
+    formula: str
+    value: str
+    unit: str
+    function_ref: str
+    code_version_prefix: str
+
+
+@dataclass(frozen=True, slots=True)
+class SourceFootnote:
+    number: int
+    title: str
+    url: str
+    publisher: str | None
+    publication_date: date | None
+    retrieved: date
+    tier: str
+
+
+@dataclass(frozen=True, slots=True)
+class UnresolvedFootnote:
+    """A citation whose target is gone.
+
+    Stated in the document rather than dropped. A report that silently omitted a broken
+    citation would read as though the claim were unsupported by accident; saying so makes
+    it a finding.
+    """
+
+    number: int
+    kind_label: str
+    identifier: str
+
+
+Footnote = CalculationFootnote | SourceFootnote | UnresolvedFootnote
+
+
+@dataclass(frozen=True, slots=True)
+class AppendixRow:
+    """One source the report rests on, with enough to verify it."""
+
+    title: str
+    url: str
+    publisher: str | None
+    publication_date: date | None
+    retrieved: date
+    tier: str
+    digest_prefix: str | None
+
+
+@dataclass(slots=True)
+class ReportDocument:
+    """The whole document, assembled once. Serialisers may only transcribe it."""
+
+    header: HeaderView
+    sector: SectorNote | None
+    sections: tuple[SectionView, ...]
+    comps_paragraph: str | None
+    footnotes: tuple[Footnote, ...]
+    appendix: tuple[AppendixRow, ...]
+    citations: list[CitationRef]
+    disclaimer: str = DISCLAIMER
+
+    @property
+    def section_keys(self) -> list[str]:
+        return [section.key for section in self.sections]
+
+    @property
+    def footnote_count(self) -> int:
+        return len(self.citations)
+
+
+async def assemble_document(
+    session: AsyncSession,
+    *,
+    job: Job,
+    request: ResearchRequest,
+    company: Company | None = None,
+    sector: SectorNote | None = None,
+    comps: WithheldComps | None = None,
+    rating: str | None = None,
+    confidence: float | None = None,
+    generated_at: datetime | None = None,
+) -> ReportDocument:
+    """Assemble a run's sections into one document.
+
+    **Sections are iterated, never enumerated**: whatever
+    :func:`aer.sections.registry.sections_for_job` returns is walked through the generic
+    renderer, which is why inserting a section definition makes a section appear here —
+    correctly placed, correctly numbered — with no code change.
+
+    **Footnotes are numbered across the whole document, in the order the markers
+    appear.** A reader chasing marker 3 finds the third marker, not the third of
+    whichever section they happen to be in.
+
+    Args:
+        generated_at: Stamped on the document. A parameter rather than a clock read so a
+            test can assert the whole output byte for byte, and so a re-render of an
+            archived report can carry the date it was actually produced.
+    """
+    sections = await sections_for_job(session, job.id)
+    definitions = await _definitions_for(session, sections)
+
+    views: list[SectionView] = []
+    citations: list[CitationRef] = []
+
+    for section in sections:
+        definition = definitions.get(section.section_definition_id)
+        rendered = render_section(
+            key=section.section_key,
+            title=definition.title if definition else section.section_key,
+            contract=(definition.output_contract if definition else {}),
+            content=section.content,
+            # Numbering continues across the document, so a reader chasing marker 3
+            # finds the third marker in the report rather than the third in some section.
+            footnote_start=len(citations) + 1,
+            status_note=_STATUS_NOTES.get(section.status),
+            warning=section.low_confidence_reason,
+        )
+        views.append(
+            SectionView(
+                key=section.section_key,
+                title=rendered.title,
+                origin=definition.origin if definition else "builtin",
+                position=Decimal(str(section.position)),
+                fragments=rendered.fragments,
+                citations=tuple(rendered.citations),
+            )
+        )
+        citations.extend(rendered.citations)
+
+    footnotes = await _footnotes(session, citations)
+    appendix = await _appendix(session, citations)
+
+    return ReportDocument(
+        header=HeaderView(
+            company_name=company.name if company is not None else request.company_name,
+            ticker=request.ticker,
+            exchange=request.exchange,
+            as_of=request.as_of_date,
+            base_currency=request.base_currency,
+            point_in_time=request.point_in_time,
+            generated_at=generated_at or datetime.now(UTC),
+            rating=rating,
+            confidence=confidence,
+        ),
+        sector=sector,
+        sections=tuple(views),
+        comps_paragraph=comps.as_paragraph() if comps is not None else None,
+        footnotes=footnotes,
+        appendix=appendix,
+        citations=citations,
+    )
+
+
+# -- Resolution ------------------------------------------------------------------------------
+
+
+async def _footnotes(session: AsyncSession, citations: list[CitationRef]) -> tuple[Footnote, ...]:
+    """One footnote per marker, in marker order, resolved to something checkable.
+
+    A source footnote carries the URL, publisher, publication date, retrieval date and
+    tier — enough to find the bytes and confirm they are the bytes. A calculation
+    footnote carries the formula and the code version. A footnote that only said
+    "SEC EDGAR" would look like a citation and support nothing.
+    """
+    documents = await _load_source_documents(session, citations)
+    calculations = await _load_calculations(session, citations)
+
+    footnotes: list[Footnote] = []
+    for number, reference in enumerate(citations, start=1):
+        if reference.kind == "calculation":
+            calculation = calculations.get(reference.identifier)
+            if calculation is None:
+                footnotes.append(
+                    UnresolvedFootnote(
+                        number=number, kind_label="calculation", identifier=reference.identifier
+                    )
+                )
+                continue
+            footnotes.append(
+                CalculationFootnote(
+                    number=number,
+                    formula=calculation.formula,
+                    value=str(calculation.output_value),
+                    unit=calculation.output_unit,
+                    function_ref=calculation.function_ref,
+                    code_version_prefix=calculation.code_version[:_CODE_PREFIX],
+                )
+            )
+            continue
+
+        document = documents.get(reference.identifier)
+        if document is None:
+            footnotes.append(
+                UnresolvedFootnote(
+                    number=number, kind_label="source document", identifier=reference.identifier
+                )
+            )
+            continue
+        footnotes.append(
+            SourceFootnote(
+                number=number,
+                title=document.title or document.url,
+                url=document.url,
+                publisher=document.publisher,
+                publication_date=document.publication_date,
+                retrieved=document.retrieved_at.date(),
+                tier=document.source_tier.value,
+            )
+        )
+
+    return tuple(footnotes)
+
+
+async def _appendix(session: AsyncSession, citations: list[CitationRef]) -> tuple[AppendixRow, ...]:
+    """Every source document the report rests on, with enough to verify it.
+
+    The hash prefix is what makes this an appendix rather than a bibliography: a reader
+    can take the digest, find the artefact, and confirm the bytes are the bytes the
+    report was written from.
+    """
+    documents = await _load_source_documents(session, citations)
+    ordered = sorted(documents.values(), key=lambda d: (d.publication_date or _EPOCH, d.url))
+    return tuple(
+        AppendixRow(
+            title=document.title or document.url,
+            url=document.url,
+            publisher=document.publisher,
+            publication_date=document.publication_date,
+            retrieved=document.retrieved_at.date(),
+            tier=document.source_tier.value,
+            digest_prefix=(document.artefact.sha256[:_HASH_PREFIX] if document.artefact else None),
+        )
+        for document in ordered
+    )
+
+
+async def _definitions_for(
+    session: AsyncSession, sections: list[ReportSection]
+) -> dict[uuid.UUID, SectionDefinition]:
+    ids = {section.section_definition_id for section in sections}
+    if not ids:
+        return {}
+    rows = await session.scalars(select(SectionDefinition).where(SectionDefinition.id.in_(ids)))
+    return {row.id: row for row in rows}
+
+
+async def _load_source_documents(
+    session: AsyncSession, citations: list[CitationRef]
+) -> dict[str, SourceDocument]:
+    ids = _uuids(citations, kind="source_document")
+    if not ids:
+        return {}
+    rows = await session.scalars(select(SourceDocument).where(SourceDocument.id.in_(ids)))
+    loaded = list(rows)
+    for row in loaded:
+        # Touch the relationship inside the async context; the appendix reads the digest
+        # and a lazy load at render time would raise outside a greenlet.
+        await session.refresh(row, ["artefact"])
+    return {str(row.id): row for row in loaded}
+
+
+async def _load_calculations(
+    session: AsyncSession, citations: list[CitationRef]
+) -> dict[str, Calculation]:
+    ids = _uuids(citations, kind="calculation")
+    if not ids:
+        return {}
+    rows = await session.scalars(select(Calculation).where(Calculation.id.in_(ids)))
+    return {str(row.id): row for row in rows}
+
+
+def _uuids(citations: list[CitationRef], *, kind: str) -> list[uuid.UUID]:
+    """Parse the identifiers of one kind, ignoring any that are not UUIDs.
+
+    An unparseable id resolves to nothing and renders as an unresolved citation, which is
+    the honest outcome — better than a query that raises and takes the whole report with it.
+    """
+    found: list[uuid.UUID] = []
+    for reference in citations:
+        if reference.kind != kind:
+            continue
+        try:
+            found.append(uuid.UUID(reference.identifier))
+        except (ValueError, AttributeError, TypeError):
+            continue
+    return found
