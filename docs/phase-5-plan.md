@@ -361,6 +361,10 @@ emitted inside `noscript`, with the containment pinned by test. No new
 migration and no ADR: no schema change, no new agent role, and the one-assembly rule is
 the plan's own (storage of the HTML artefact is task 48's migration 0024, as planned).
 
+---
+
+## Task 47 — The chart pack: deterministic Matplotlib, and a chart is a figure
+
 **Objective.** Six charts, every one rendered by deterministic code from recorded rows,
 byte-stable, provenance-marked, and licence-clean.
 
