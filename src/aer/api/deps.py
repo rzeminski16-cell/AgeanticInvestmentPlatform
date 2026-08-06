@@ -20,12 +20,20 @@ from aer.api.state import AppState
 from aer.config import Settings
 from aer.db.models import User
 from aer.errors import ConfigError
+from aer.providers.protocol import LLMProvider
+from aer.providers.router import Router
+from aer.runtime import build_provider
+from aer.storage.local import LocalArtefactStore
+from aer.storage.protocol import ArtefactStore
 
 __all__ = [
     "CurrentUser",
     "DbSession",
+    "ProviderDep",
     "RedisClient",
+    "RouterDep",
     "SettingsDep",
+    "StoreDep",
     "get_app_state",
     "get_current_user",
     "get_db_session",
@@ -87,3 +95,39 @@ async def get_current_user(session: DbSession) -> User:
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+def get_provider(state: StateDep) -> LLMProvider:
+    """The model provider, built on first use and kept for the process's life.
+
+    Lazily rather than at start-up: only the skill dry run spends from the web process,
+    and a deployment with no key should still serve every page that does not. The
+    provider itself is what refuses a missing key, loudly, at the point somebody asks for
+    something that needs one.
+    """
+    if state.provider is None:
+        state.provider = build_provider(state.settings)
+    return state.provider
+
+
+ProviderDep = Annotated[LLMProvider, Depends(get_provider)]
+
+
+def get_router(settings: SettingsDep) -> Router:
+    """Model routing for this request. Cheap to build and configured wholly by settings."""
+    return Router(settings)
+
+
+RouterDep = Annotated[Router, Depends(get_router)]
+
+
+def get_store(state: StateDep) -> ArtefactStore:
+    """The artefact store, on the same terms as the provider."""
+    if state.store is None:
+        state.store = LocalArtefactStore(
+            state.settings.artefact_root, max_bytes=state.settings.max_artefact_bytes
+        )
+    return state.store
+
+
+StoreDep = Annotated[ArtefactStore, Depends(get_store)]

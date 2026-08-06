@@ -54,6 +54,7 @@ if TYPE_CHECKING:
 __all__ = [
     "CUSTOM_SECTION_OUTPUT_TOKENS",
     "PLANNED_CUSTOM_SECTION_TOOLS",
+    "compose_for_version",
     "contract_schema",
     "custom_definitions_for_pins",
     "estimate_custom_section_cost",
@@ -174,7 +175,7 @@ async def resolve_skills_for_plan(
             estimated_cost_gbp=Decimal(0),
         )
         if skill.kind == "custom_section":
-            composed = _compose_for(version, settings=settings)
+            composed = compose_for_version(version, settings=settings)
             pin.min_sources = composed.evidence.min_sources
             pin.requires_primary = composed.evidence.requires_primary
             pin.max_tier = composed.evidence.max_tier
@@ -215,7 +216,13 @@ async def resolve_skills_for_plan(
     return ResolvedSkills(pins=pins, definitions=definitions)
 
 
-def _compose_for(version: SkillVersion, *, settings: Settings) -> ComposedSectionPolicy:
+def compose_for_version(version: SkillVersion, *, settings: Settings) -> ComposedSectionPolicy:
+    """The composed policy for a stored version — what a plan would pin for it.
+
+    Public because the authoring surface previews with it (task 43): a preview
+    computed by a second function would eventually disagree with what a run
+    composes, and the whole point of the preview is that it does not.
+    """
     requested = EvidencePolicyRequest(
         min_sources=version.min_sources or 0,
         requires_primary=bool(version.requires_primary),

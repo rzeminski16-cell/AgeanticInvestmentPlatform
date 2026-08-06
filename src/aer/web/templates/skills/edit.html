@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{#
+  The editor. Three panels, in the order an author needs them: the file, what the platform
+  made of it, and what it produces against real evidence.
+
+  Every issue carries the line it lives on, because that is the difference between an error
+  message and a fix. Every clamp carries its reason, because an effective policy differing
+  from the written one is a fact about the author's file that they must be shown.
+#}
+
+{% block title %}
+  {{ key if key else "New skill" }} &middot; Skills &middot; Ageiantic Equity Research
+{% endblock %}
+
+{% block content %}
+  <nav class="text-sm">
+    <a href="/skills" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
+      &larr; All skills
+    </a>
+  </nav>
+
+  <h1 class="mt-4 text-2xl font-semibold tracking-tight">
+    {% if key %}{{ key }}{% else %}Write a skill{% endif %}
+    {% if version %}<span class="ml-2 font-mono text-base text-slate-500">v{{ version }}</span>{% endif %}
+  </h1>
+
+  {% if problem %}
+    <section
+      class="mt-4 rounded-md border border-amber-400 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
+      role="alert"
+      id="problem"
+    >
+      <p class="text-sm text-amber-900 dark:text-amber-100">{{ problem }}</p>
+    </section>
+  {% endif %}
+
+  <form method="post" action="/skills/save" class="mt-6 space-y-4" id="editor-form">
+    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+    <input type="hidden" name="key" value="{{ key or '' }}" />
+
+    <div>
+      <label for="source" class="block text-sm font-medium">The skill file</label>
+      <textarea
+        id="source"
+        name="source"
+        rows="24"
+        spellcheck="false"
+        class="mt-1 w-full rounded-md border border-slate-300 bg-white p-3 font-mono text-xs leading-relaxed dark:border-slate-700 dark:bg-slate-900"
+      >{{ source }}</textarea>
+    </div>
+
+    <div class="flex flex-wrap gap-3">
+      <button
+        type="submit"
+        formaction="/skills/validate"
+        id="validate"
+        class="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+      >
+        Validate
+      </button>
+      <button
+        type="submit"
+        id="save"
+        class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+      >
+        Save as a new version
+      </button>
+    </div>
+  </form>
+
+  {% if preview %}
+    {% if not preview.valid %}
+      <section
+        class="mt-8 rounded-lg border border-rose-400 bg-rose-50 p-4 dark:border-rose-700 dark:bg-rose-950"
+        id="issues"
+      >
+        <h2 class="text-lg font-semibold tracking-tight text-rose-900 dark:text-rose-200">
+          {{ preview.issues | length }}
+          {{ "problem" if preview.issues | length == 1 else "problems" }} in the frontmatter
+        </h2>
+        <ul class="mt-3 space-y-2">
+          {% for issue in preview.issues %}
+            <li class="rounded border border-rose-300 bg-white p-2 text-sm dark:border-rose-800 dark:bg-slate-900">
+              <span class="font-mono text-xs text-rose-800 dark:text-rose-300">
+                line {{ issue.line if issue.line else "?" }} &middot; {{ issue.field }}
+              </span>
+              <p class="mt-1 text-slate-700 dark:text-slate-300">{{ issue.message }}</p>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% else %}
+      <section class="mt-8" id="composed">
+        <h2 class="text-lg font-semibold tracking-tight">What this composes to</h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          The effective policy a run would pin. Computed by the same composer plan-time
+          resolution uses, so this is what the section actually executes under.
+        </p>
+
+        {% if preview.evidence_policy %}
+          <dl class="mt-3 grid gap-4 sm:grid-cols-4">
+            <div class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+              <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Min sources</dt>
+              <dd class="mt-1 font-mono text-sm" id="min-sources">
+                {{ preview.evidence_policy.min_sources }}
+              </dd>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+              <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Primary required</dt>
+              <dd class="mt-1 font-mono text-sm" id="requires-primary">
+                {{ "yes" if preview.evidence_policy.requires_primary else "no" }}
+              </dd>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+              <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max tier</dt>
+              <dd class="mt-1 font-mono text-sm">{{ preview.evidence_policy.max_tier }}</dd>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+              <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Token budget</dt>
+              <dd class="mt-1 font-mono text-sm" id="token-budget">{{ preview.token_budget }}</dd>
+            </div>
+          </dl>
+
+          <p class="mt-3 text-sm text-slate-600 dark:text-slate-400">
+            Tools granted:
+            <span class="font-mono text-xs" id="granted-tools">
+              {{ preview.granted_tools | join(", ") if preview.granted_tools else "none" }}
+            </span>
+            &middot; estimated cost
+            <span class="font-mono text-xs" id="estimated-cost">
+              &pound;{{ preview.estimated_cost_gbp }}
+            </span>
+          </p>
+        {% else %}
+          <p class="mt-3 text-sm text-slate-600 dark:text-slate-400" id="no-policy">
+            A {{ preview.kind }} skill composes into an existing agent's prompt rather than
+            producing a section, so it carries no evidence policy of its own.
+          </p>
+        {% endif %}
+
+        {% if preview.clamps %}
+          <div
+            class="mt-4 rounded-lg border border-amber-400 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-950"
+            id="clamps"
+          >
+            <h3 class="text-sm font-semibold text-amber-900 dark:text-amber-200">
+              {{ preview.clamps | length }}
+              {{ "clamp" if preview.clamps | length == 1 else "clamps" }} applied
+            </h3>
+            <p class="mt-1 text-xs text-amber-900 dark:text-amber-200">
+              Skill files add requirements and never remove them. Where this file asked for
+              something looser than the platform floor, the floor won — and here is where.
+            </p>
+            <ul class="mt-3 space-y-2">
+              {% for clamp in preview.clamps %}
+                <li class="rounded border border-amber-300 bg-white p-2 text-sm dark:border-amber-800 dark:bg-slate-900">
+                  <p class="font-mono text-xs">
+                    {{ clamp.field }}: requested {{ clamp.requested }}, effective
+                    {{ clamp.effective }}
+                  </p>
+                  <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{{ clamp.reason }}</p>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+      </section>
+    {% endif %}
+  {% endif %}
+
+  {% if key and preview and preview.valid and preview.evidence_policy %}
+    <section class="mt-8" id="dry-run">
+      <h2 class="text-lg font-semibold tracking-tight">Try it against a finished run</h2>
+      <p class="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+        A dry run executes this section once, against evidence a previous run already
+        acquired, and shows you the section as the report would carry it. It is a real
+        call: it is metered, capped, and it writes nothing into the run it reads.
+      </p>
+
+      {% if not runs %}
+        <p class="mt-3 text-sm text-slate-400" id="no-runs">
+          No finished runs to borrow evidence from yet.
+        </p>
+      {% else %}
+        <form method="post" action="/skills/{{ key }}/dry-run" class="mt-3 flex flex-wrap items-end gap-3">
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+          <div>
+            <label for="job_id" class="block text-sm font-medium">Run</label>
+            <select
+              id="job_id"
+              name="job_id"
+              class="mt-1 rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+            >
+              {% for run in runs %}
+                <option value="{{ run.job_id }}">{{ run.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button
+            type="submit"
+            id="run-dry-run"
+            class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+          >
+            Dry run
+          </button>
+        </form>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  {% if dry_run %}
+    <section class="mt-8" id="dry-run-result">
+      <h2 class="text-lg font-semibold tracking-tight">
+        Dry run &middot;
+        <span class="font-mono text-base" id="dry-run-status">{{ dry_run.status }}</span>
+      </h2>
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        {{ dry_run.claims }} claim{{ "" if dry_run.claims == 1 else "s" }} recorded,
+        {{ dry_run.footnote_count }} footnote{{ "" if dry_run.footnote_count == 1 else "s" }},
+        {{ dry_run.attempts }} attempt{{ "" if dry_run.attempts == 1 else "s" }} &middot;
+        cost <span class="font-mono" id="dry-run-cost">&pound;{{ dry_run.cost_gbp }}</span>
+        against an estimate of &pound;{{ dry_run.estimated_cost_gbp }}
+      </p>
+
+      {% if dry_run.insufficient_evidence or dry_run.evidence_truncated or dry_run.problems %}
+        <div
+          class="mt-3 rounded-md border border-amber-400 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-950"
+          id="dry-run-problems"
+        >
+          <ul class="list-disc space-y-1 pl-5 text-sm text-amber-900 dark:text-amber-100">
+            {% if dry_run.evidence_truncated %}
+              <li>The evidence was truncated to fit the composed token budget.</li>
+            {% endif %}
+            {% for item in dry_run.problems %}
+              <li>{{ item }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      {#
+        Rendered as text, not as markup: the content comes from model output, and injecting
+        it into the page as HTML would turn a drafted sentence into script running on a page
+        that can reach the database.
+      #}
+      <pre
+        id="dry-run-markdown"
+        class="mt-3 max-h-[28rem] overflow-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-4 font-mono text-xs leading-relaxed dark:border-slate-800 dark:bg-slate-900"
+      >{{ dry_run.markdown }}</pre>
+    </section>
+  {% endif %}
+{% endblock %}

@@ -86,13 +86,28 @@ async def broken_engine() -> AsyncIterator[AsyncEngine]:
         await engine.dispose()
 
 
-def build_app(settings: Settings, *, engine: AsyncEngine, redis: Redis) -> FastAPI:
-    """Build an application over resources the test owns and will close itself."""
+def build_app(
+    settings: Settings,
+    *,
+    engine: AsyncEngine,
+    redis: Redis,
+    provider: object | None = None,
+    store: object | None = None,
+) -> FastAPI:
+    """Build an application over resources the test owns and will close itself.
+
+    ``provider`` and ``store`` are injected for the one endpoint that spends from the web
+    process — the skill dry run. Left as ``None`` the application builds the configured
+    provider on first use, which needs a real key: exactly the production behaviour, and
+    exactly what a test must not reach.
+    """
     state = AppState(
         settings=settings,
         engine=engine,
         session_factory=async_sessionmaker(bind=engine, expire_on_commit=False),
         redis=redis,
+        provider=provider,  # type: ignore[arg-type]
+        store=store,  # type: ignore[arg-type]
     )
     return create_app(settings, state=state)
 

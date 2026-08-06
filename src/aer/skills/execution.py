@@ -144,6 +144,7 @@ async def execute_custom_section(
     section: ReportSection,
     pin: PlanSkillPin,
     request: ResearchRequest,
+    evidence_job_id: uuid.UUID | None = None,
 ) -> SectionExecution:
     """Run one custom section to a recorded outcome. Never raises for a bad draft.
 
@@ -151,6 +152,14 @@ async def execute_custom_section(
     low-confidence reason that carries the insufficiency and truncation flags — and the
     claims and citations are recorded through the same services every built-in section
     will use. What comes back is the audit summary the workflow step stores.
+
+    Args:
+        evidence_job_id: Whose recorded calculations count as this section's evidence.
+            Defaults to the executing run's own job, which is the only answer a real run
+            has. A dry run (task 43) executes in its own job against a finished run's
+            evidence, and passes that run's id here — an explicit argument rather than a
+            silent widening of the query, because "which run's figures may this section
+            cite?" is exactly the question a reader of a citation needs answered.
     """
     contract: dict[str, Any] = section.definition.output_contract or {}
 
@@ -168,7 +177,13 @@ async def execute_custom_section(
         return _failed(section, attempts=0, problems=[message])
 
     policy = _policy_of(pin, context)
-    evidence = await _gather(context, pin=pin, request=request, budget=policy["token_budget"])
+    evidence = await _gather(
+        context,
+        pin=pin,
+        request=request,
+        budget=policy["token_budget"],
+        evidence_job_id=evidence_job_id or context.job_step.job_id,
+    )
 
     agent = CustomSectionAgent()
     body = pin.skill_version.body
@@ -321,6 +336,7 @@ async def _gather(
     pin: PlanSkillPin,
     request: ResearchRequest,
     budget: int,
+    evidence_job_id: uuid.UUID,
 ) -> _Evidence:
     """Assemble what this section may see, gated by the pinned grant, inside the budget.
 
@@ -362,7 +378,7 @@ async def _gather(
         # layer's own figures, and the §2.12 numeral rule is unusable without them.
         calculations = await session.scalars(
             select(Calculation)
-            .where(Calculation.job_id == context.job_step.job_id)
+            .where(Calculation.job_id == evidence_job_id)
             .order_by(Calculation.sequence)
             .limit(EVIDENCE_ITEM_CAP)
         )

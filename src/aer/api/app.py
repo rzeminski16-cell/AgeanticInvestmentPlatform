@@ -34,6 +34,7 @@ from aer.api.routes import (
     reports,
     requests,
     runs,
+    skills,
 )
 from aer.api.state import AppState
 from aer.config import Settings, load_settings
@@ -43,6 +44,7 @@ from aer.logging import configure_logging
 from aer.version import build_identity, version
 from aer.web import pages as web_pages
 from aer.web import routes as web_routes
+from aer.web import skills_pages
 from aer.web.templating import STATIC_DIR
 
 __all__ = ["AppState", "bootstrap", "create_app"]
@@ -157,8 +159,10 @@ def create_app(settings: Settings | None = None, *, state: AppState | None = Non
     app.include_router(plans.router)
     app.include_router(runs.router)
     app.include_router(reports.router)
+    app.include_router(skills.router)
     app.include_router(web_routes.router)
     app.include_router(web_pages.router)
+    app.include_router(skills_pages.router)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     return app

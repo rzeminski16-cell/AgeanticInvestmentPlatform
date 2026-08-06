@@ -658,17 +658,69 @@ Playwright covers author → validate → enable → dry-run.
 it, and see it appear in a draft with its own cited evidence — with the dry-run making the
 loop minutes rather than a run.
 
+**Delivered (2026-08-06), ADR 0041.** Three surfaces over two new services. The read side
+(`aer/services/skill_authoring.py`) answers the questions an author asks before anything
+is written: line-level validation through the same `parse_skill_file` the save path uses,
+a **composed-policy preview** through `compose_for_version` — *the same function plan-time
+resolution calls*, now public — over a version row built exactly as `save_skill` builds
+one, and an import diff. The preview showing what a run would pin, rather than what the
+file asked for, is the point: a test holds it against a pin a real plan produced, not
+against the composer called twice.
+
+The write side keeps its existing service: `POST /api/skills` saves version n+1, `PUT
+/api/skills/{key}` refuses a file whose frontmatter names a different skill from the one
+the editor is open on, `POST /api/skills/validate` writes nothing, `POST
+/api/skills/{key}/enable` is its own decision, and `POST /api/skills/import` shows a diff
+without a confirmation and applies only with one whose hash covers the key, the incoming
+file **and** the version it replaces — so a confirmation made against a diff that has
+since gone stale is refused (threat T20). SSR pages at `/skills`, `/skills/new`,
+`/skills/{key}` and `/skills/import` post plain forms with CSRF, render the effective
+policy and every clamp with its reason on the server, and put frontmatter issues beside
+the lines they belong to.
+
+`aer/services/skill_dry_run.py` executes one section against a finished run's evidence
+through the real `execute_custom_section`, the real claim and citation services and the
+real renderer. **It gets its own job, plan, pin and section, marked `skill_dry_run_v1`**,
+so isolation is structural rather than careful — nothing it writes carries the source
+run's id. `execute_custom_section` gained an explicit `evidence_job_id` (facts and sources
+belong to a request; recorded calculations belong to a job), defaulting to the executing
+run, so a real run is unchanged and the rehearsal says out loud whose figures it may cite.
+The call is real, so the same `BudgetGuard` runs before it against the same per-request
+cap and the same meter writes the same cost rows. The web process therefore holds a
+provider for this one endpoint, built lazily on first use — every other spending path
+still goes to the worker.
+
+Forty-four tests: preview-versus-pin agreement, clamps with reasons, byte-for-byte editor
+round-trip, versions accreting, import diff and stale-confirmation refusal, dry-run
+isolation (the source job ends with no sections, no claims and no steps), the source run's
+calculations reaching the prompt, metering to the column's own precision, a cap refusal
+before the call, plus the JSON API and the server-rendered pages. A Playwright suite
+drives write → validate → save → enable → dry-run in a browser with no JavaScript, using
+a provider patched at `aer.api.deps.build_provider` rather than a configuration switch —
+a settings-level fake would exist in production too. Eighteen sabotage mutations across
+the preview, the import confirmation, the dry run's isolation and budget, the ownership
+check and the templates.
+
 ---
 
 ## Known issue, not yet scheduled
 
-The browser suite's ``test_run_console.py`` is flaky against the session-scoped e2e
-server: failures rotate between tests run to run, every test passes alone, and the
-behaviour reproduces identically on the task-34 commit before the skills work existed —
-so it is an unfixed race in how those tests share a live server (SSE and gate timing),
-not a functional regression in anything recent. It has widened from "combined runs only"
-(first recorded in task 31) to intra-file. Worth its own fix before the Phase 4 surfaces
-(tasks 41 and 43) add more e2e weight to the same server.
+The browser suite is flaky in combined runs: failures rotate between tests run to run and
+every test passes alone. **Diagnosed during task 43, and it is not a race in the pages.**
+Every combined-run failure is the same thing — pytest's unraisable-exception plugin
+raising `ExceptionGroup: multiple unraisable exception warnings`, whose members are
+`ResourceWarning: unclosed connection` from asyncpg. Each e2e test starts its own uvicorn
+server on a thread and stops it with `timeout_graceful_shutdown=1`; connections that
+outlive that shutdown are collected later, and `filterwarnings = ["error"]` turns the
+warning into an error attributed to **whichever test happens to be running when the
+garbage collector fires**. That is exactly why the failures rotate, why they never
+reproduce alone, and why they reproduce on commits long before the code they land on.
+
+So the fix is in the fixture's shutdown, not in the pages: the server's engine has to be
+disposed on the loop that created it before the thread goes away. Until then the honest
+reading of a combined-run e2e failure is "check whether it names an assertion — if it
+names an ExceptionGroup, it is this". Task 43's own browser tests pass alone repeatedly
+and fail in combined runs with this signature and no other.
 
 ## Deliberately not in Phase 4
 
