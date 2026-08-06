@@ -114,12 +114,14 @@ class TestContainmentDoesNotDependOnDetection:
         for agent in self._agents():
             resolve_role(agent.role)
 
-    def test_every_role_starts_with_an_empty_allowlist(self) -> None:
-        """No role registered so far uses tools at all. Asserted so that the first role to
-        want one is a deliberate decision with a test behind it, not a default that
-        drifted. Task 37's research workers will change this line knowingly."""
+    def test_every_allowlist_is_exactly_what_its_adr_admits(self) -> None:
+        """Task 37 changed this knowingly: the analysis role carries §2.5's three worker
+        tools, admitted by ADR 0036 — and every other role still carries none. Exact
+        equality, so a tool appearing anywhere is a deliberate decision with a diff here,
+        not a default that drifted."""
+        granted = {"analysis": frozenset({"search_facts", "search_sources", "fetch_known_url"})}
         for role in registered_roles():
-            assert resolve_role(role).allowed_tools == frozenset()
+            assert resolve_role(role).allowed_tools == granted.get(role, frozenset())
 
     def test_a_tool_outside_the_allowlist_is_refused(self) -> None:
         with pytest.raises(ToolNotPermittedError, match="may not use the tool"):

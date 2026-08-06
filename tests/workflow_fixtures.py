@@ -24,6 +24,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.planner import PlannedSection, PlannedSource, ResearchPlanDraft
+from aer.agents.worker import WorkerLead, WorkerReport, WorkerTurn
 from aer.config import Settings
 from aer.core.enums import JobStatus, UserRole
 from aer.db.models import Job, ResearchRequest, User
@@ -119,10 +120,36 @@ def planner_response(*, section_keys: list[str] | None = None) -> ResearchPlanDr
 
 
 def make_provider(**kwargs: Any) -> FakeProvider:
-    """A provider scripted to answer the planner and nothing else."""
+    """A provider scripted to answer the planner and the research workers.
+
+    The worker script reports immediately with no findings: findings must cite ids that
+    exist in the run, and a static script cannot know them. Leads carry no ids, so a lead
+    plus a coverage note is the honest all-purpose worker answer; the loop tests that
+    exercise tools and findings script their own stateful providers.
+    """
     return FakeProvider(
-        {"ResearchPlanDraft": ScriptedResponse(planner_response(), output_tokens=400)},
+        {
+            "ResearchPlanDraft": ScriptedResponse(planner_response(), output_tokens=400),
+            "WorkerTurn": ScriptedResponse(worker_report_turn(), output_tokens=150),
+        },
         **kwargs,
+    )
+
+
+def worker_report_turn() -> WorkerTurn:
+    """A finished investigation with nothing to assert and one honest lead."""
+    return WorkerTurn(
+        requests=[],
+        report=WorkerReport(
+            findings=[],
+            leads=[
+                WorkerLead(
+                    question="What does the filing say about segment concentration?",
+                    why_it_matters="Concentration decides how brittle the revenue base is.",
+                )
+            ],
+            coverage_note="Scripted fixture investigation; no evidence was searched.",
+        ),
     )
 
 

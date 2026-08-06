@@ -304,7 +304,16 @@ class TestTheWholeRun:
             # A step even on the runs it does not apply to. It succeeds without stopping
             # when every tag mapped, which is what this fixture's filing does.
             "gate_uk_financials",
+            # The task 37 wave: the calculation and the five research workers share their
+            # dependency on the financials gate. Without a session factory in services —
+            # this test's shape — the engine takes them one at a time, in declared order,
+            # which is what makes this list deterministic.
             "calculate",
+            "research_company",
+            "research_industry",
+            "research_macro",
+            "research_recent_developments",
+            "research_technical_context",
             "draft",
             "gate_final",
             "render",
@@ -377,9 +386,17 @@ class TestTheWholeRun:
         assert report is not None
         assert "not** regulated investment advice" in report.content["markdown"]
 
-    async def test_it_spent_only_on_the_planner(self, finished: dict) -> None:
-        """One model call in the whole slice. The rest is deterministic code."""
-        assert finished["provider"].call_count == 1
+    async def test_it_spent_only_on_the_judgement_calls(self, finished: dict) -> None:
+        """Six model calls in the whole run: the planner and the five research workers.
+
+        The count is exact and the schemas are named, so a seventh call — a step quietly
+        acquiring a model dependency — fails here rather than on a bill. Everything else
+        in the slice is deterministic code.
+        """
+        schemas = [call["schema"] for call in finished["provider"].calls]
+        assert schemas.count("ResearchPlanDraft") == 1
+        assert schemas.count("WorkerTurn") == 5
+        assert finished["provider"].call_count == 6
 
 
 class TestTheBudgetGuard:
@@ -486,7 +503,10 @@ class TestResumability:
         await approve(session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="plan")
         await run_to_next_stop(**_args(scenario))
 
-        assert scenario["provider"].call_count == 1
+        planner_calls = [
+            call for call in scenario["provider"].calls if call["schema"] == "ResearchPlanDraft"
+        ]
+        assert len(planner_calls) == 1
 
 
 class TestTheApprovalGates:

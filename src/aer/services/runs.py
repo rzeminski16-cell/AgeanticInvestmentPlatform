@@ -133,6 +133,7 @@ async def execute(
     store: ArtefactStore,
     sec_client: Any,
     stop_after: str | None = None,
+    session_factory: Any = None,
 ) -> RunOutcome:
     """Run the workflow from the first incomplete step.
 
@@ -172,6 +173,10 @@ async def execute(
             "router": Router(settings),
             "store": store,
             "sec_client": sec_client,
+            # Present only where the caller runs with real sessions (the ARQ worker).
+            # Without it the engine runs its waves one node at a time on this session,
+            # which is what the savepoint-fixtured tests need.
+            "session_factory": session_factory,
         },
         stop_after=stop_after,
     )

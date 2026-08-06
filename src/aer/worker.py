@@ -75,6 +75,7 @@ async def run_research(ctx: dict[str, Any], job_id: str) -> dict[str, Any]:
 
         outcome = await run_service.execute(
             session,
+            session_factory=session_factory,
             job=state.job,
             settings=settings,
             provider=services.provider,

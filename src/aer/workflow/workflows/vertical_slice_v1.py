@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.base import AgentContext
 from aer.agents.planner import PlannerAgent, PlannerInput
+from aer.agents.worker import ResearchTopic
 from aer.calc.basic import cagr
 from aer.calc.comps import MultipleBasis, WithheldComps, align_peers
 from aer.calc.units import SourceRef, money
@@ -70,6 +71,7 @@ from aer.services.comps import (
 )
 from aer.services.disagreements import escalations_for_job
 from aer.services.facts import persist_facts, upsert_company
+from aer.services.research import run_worker
 from aer.services.sectors import (
     CLASSIFY_STEP,
     classification_payload,
@@ -103,6 +105,11 @@ WORKFLOW_VERSION: Final = "vertical_slice_v1"
 # it is necessarily an estimate; the real figure is metered afterwards. Deliberately
 # generous — a guard that underestimates lets a run through it should have paused.
 PLANNER_ESTIMATE_GBP: Final = Decimal("0.15")
+
+# Per research worker (task 37): a bounded request/execute loop on the analysis route.
+# Generous for the same reason as the planner's — an estimate that understates lets a run
+# through the guard that it should have paused.
+WORKER_ESTIMATE_GBP: Final = Decimal("0.10")
 
 # What the gate shows as a runtime estimate. A constant for the slice, which does one
 # fetch and one calculation; Phase 3 derives it from the plan.
@@ -154,8 +161,56 @@ def build_steps() -> list[WorkflowStep]:
             run=_gate_uk_financials,
             gate=GateKind.UK_FINANCIALS.value,
         ),
-        WorkflowStep(key="calculate", run=_calculate),
-        WorkflowStep(key="draft", run=_draft),
+        # The first real fan-out (task 37): the calculation and the five research workers
+        # are independent of each other and all of the financials gate, so they form one
+        # wave — six nodes, inside the §2.5 bound of seven. Where the run has no session
+        # factory (every savepoint-fixtured test) the engine takes them one at a time on
+        # the caller's session, in this declared order.
+        WorkflowStep(key="calculate", run=_calculate, needs=frozenset({"gate_uk_financials"})),
+        WorkflowStep(
+            key="research_company",
+            run=_research(ResearchTopic.COMPANY),
+            needs=frozenset({"gate_uk_financials"}),
+            estimated_cost_gbp=WORKER_ESTIMATE_GBP,
+        ),
+        WorkflowStep(
+            key="research_industry",
+            run=_research(ResearchTopic.INDUSTRY),
+            needs=frozenset({"gate_uk_financials"}),
+            estimated_cost_gbp=WORKER_ESTIMATE_GBP,
+        ),
+        WorkflowStep(
+            key="research_macro",
+            run=_research(ResearchTopic.MACRO),
+            needs=frozenset({"gate_uk_financials"}),
+            estimated_cost_gbp=WORKER_ESTIMATE_GBP,
+        ),
+        WorkflowStep(
+            key="research_recent_developments",
+            run=_research(ResearchTopic.RECENT_DEVELOPMENTS),
+            needs=frozenset({"gate_uk_financials"}),
+            estimated_cost_gbp=WORKER_ESTIMATE_GBP,
+        ),
+        WorkflowStep(
+            key="research_technical_context",
+            run=_research(ResearchTopic.TECHNICAL_CONTEXT),
+            needs=frozenset({"gate_uk_financials"}),
+            estimated_cost_gbp=WORKER_ESTIMATE_GBP,
+        ),
+        WorkflowStep(
+            key="draft",
+            run=_draft,
+            needs=frozenset(
+                {
+                    "calculate",
+                    "research_company",
+                    "research_industry",
+                    "research_macro",
+                    "research_recent_developments",
+                    "research_technical_context",
+                }
+            ),
+        ),
         WorkflowStep(key="gate_final", run=_gate_final, gate=GateKind.FINAL.value),
         WorkflowStep(key="render", run=_render),
     ]
@@ -758,6 +813,41 @@ async def _calculate(context: StepContext) -> StepResult:
 # ==========================================================================================
 # 6. Draft
 # ==========================================================================================
+
+
+def _research(topic: ResearchTopic) -> Any:
+    """One research worker as a workflow node, closed over its topic.
+
+    The findings live on the step's own output row: they are the node's product, they are
+    already JSON, and the drafting layer reads its inputs from step outputs. The audit
+    trail of every tool request — executed and refused alike — travels with them.
+    """
+
+    async def run(context: StepContext) -> StepResult:
+        request = await _request_for(context)
+        agent_context = AgentContext(
+            session=context.session,
+            provider=context.service("provider"),
+            router=context.service("router"),
+            settings=context.service("settings"),
+            store=context.service("store"),
+            job_step=context.step,
+        )
+        investigation = await run_worker(
+            agent_context, context.session, topic=topic, request=request
+        )
+        return StepResult(
+            output={
+                "topic": topic.value,
+                "report": investigation.report.model_dump(mode="json"),
+                "tool_calls": investigation.tool_calls,
+                "rounds": investigation.rounds,
+                "requests": [item.as_dict() for item in investigation.executed],
+            },
+            cost_gbp=agent_context.spend_gbp,
+        )
+
+    return run
 
 
 async def _draft(context: StepContext) -> StepResult:

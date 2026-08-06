@@ -152,6 +152,24 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         max_output_tokens=16_384,
         adr="0035",
     ),
+    RoleDefinition(
+        role="analysis",
+        purpose=(
+            "Per-topic research workers: findings and leads on named evidence, never a "
+            "figure of their own. Tools are requested in a schema and executed by code."
+        ),
+        output_schema_ref="aer.agents.worker:WorkerTurn",
+        # §2.5's worker allowlist: search over what the run already holds, plus fetching
+        # a specific known URL through the deterministic fetch layer. No tool takes an
+        # arbitrary instruction, and none exists as a callable surface — the request/
+        # execute protocol (ADR 0036) means the model asks and code decides.
+        allowed_tools=frozenset({"search_facts", "search_sources", "fetch_known_url"}),
+        # Evidence digests accumulate across the loop's rounds; the cap bounds the whole
+        # composed turn, not the first one.
+        max_input_tokens=30_000,
+        max_output_tokens=8_192,
+        adr="0036",
+    ),
 )
 
 

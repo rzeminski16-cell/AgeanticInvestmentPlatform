@@ -299,6 +299,35 @@ ids fail validation; all with the fake provider.
 **Acceptance.** A run's source coverage widens measurably on the fixture corpus with cost
 still under the per-run cap.
 
+**Delivered (2026-08-06), with one design decision worth the ADR (0036).** The workers do
+not use provider-level tool calling — **the model asks, in a schema; code decides**. Each
+turn returns either typed tool requests or the final report, never both, never neither;
+every request is authorised against the ``analysis`` role's registry allowlist *before*
+any executor is consulted, and executed deterministically in ``aer/services/research.py``.
+There is no tool-use surface in the provider at all, so an instruction smuggled into a
+fetched document has nothing to invoke — the strongest available form of "assert at the
+registry, not the prompt". The provider protocol stays two operations, and the fake
+provider scripts multi-turn workers with a stateful callable.
+
+The bounds are code: twelve executed calls per worker (§2.5), the thirteenth refused with
+the budget named; refusals of unlisted tools cost nothing, so a poisoned document cannot
+burn a worker's budget by asking for capabilities it will never get — tested with a budget
+of two, where a wrongly-consuming refusal would starve the legitimate search behind it.
+Findings must cite evidence (an uncited finding is "a hunch wearing a label" and refuses to
+validate), and cited ids are checked in code against the run's own tables — an id from
+another run or a fabrication is fed back with the problem named, and a worker that cannot
+fix it fails loudly. Evidence channels are split: our own rows travel as data, anything
+text-bearing from outside (source titles included) reaches the model only inside
+``<untrusted_source>`` delimiters.
+
+The slice gains its first real fan-out: ``calculate`` plus the five ``research_*`` nodes
+form one six-node wave (inside the §2.5 bound of seven), with ``draft`` joining on all six.
+The ARQ worker passes its session factory through ``runs.execute``, so production and e2e
+runs fan out for real while every savepoint-fixtured test keeps the deterministic serial
+order. The slice now makes six judgement calls — the planner and five workers — and the
+spend test names each schema so a seventh call fails in CI rather than on a bill. Eleven
+sabotage mutations, eleven caught first pass.
+
 ---
 
 ## Task 38 — Custom-section execution: the `<user_skill>` boundary
