@@ -13,7 +13,9 @@ run's output can never support a claim (the verifier hard-rejects the
 from aer.obsidian.export import ObsidianExportError, export_report
 from aer.obsidian.notes import (
     SENTINEL,
+    CatalystNoteMeta,
     CompanyNoteMeta,
+    IndustryNoteMeta,
     RunNoteMeta,
     SourceNoteMeta,
 )
@@ -21,7 +23,9 @@ from aer.obsidian.vault import VaultWriteError, VaultWriter
 
 __all__ = [
     "SENTINEL",
+    "CatalystNoteMeta",
     "CompanyNoteMeta",
+    "IndustryNoteMeta",
     "ObsidianExportError",
     "RunNoteMeta",
     "SourceNoteMeta",

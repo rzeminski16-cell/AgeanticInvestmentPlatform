@@ -643,6 +643,53 @@ rows; frontmatter for every note kind validates.
 same company; methodology drift is visible — a run note pins the skill versions its
 custom sections used.
 
+**Delivered (2026-08-07).** `aer/obsidian/graph.py`: the link graph as a deterministic
+read of approved runs and their *confirmed* gates — an unconfirmed peer set or sector
+classification contributes no edge, logged, because a link in a journal is still a use of
+unapproved state. The competitor relation is symmetric by construction (an approved run
+of A naming B links both directions, whether or not B ever named A back), and the export
+covers the whole connected component of it: run and source notes for every approved run
+of every company in the component — each dated by its own report's approval — a company
+note per company (an honestly-labelled stub where a company was named as a comparable but
+never researched), catalyst notes, industry notes. That closure is what makes **every
+`[[link]]` written resolve to a file**, which a vault-wide sweep test asserts. Catalysts
+aggregate by (company, label) across runs — every proposer in `thesis_refs`, the latest
+proposer's timing — and resolve by calendar and rows alone: the earliest approved run
+whose as-of date lies *strictly* past the deadline parsed by the (now public)
+`history.timing_deadline`, its run note becoming the `resolution` link; a deadline on the
+as-of date itself stays `pending`, and an unparseable timing stays `undated` forever.
+Industry notes (evergreen, `30-Industries/`) list companies by their *latest* confirmed
+classification — each run note still links its own run's sector, which is how
+classification drift stays visible — and membership unions companies from prior exports
+so one component's export cannot silently drop another's back-link; the MOC unions
+previously exported companies the same way. The company note gains `industry_note`,
+symmetric `competitors` and a `## Valuation history` section (one line per approved run,
+range and run link); the run note gains `industry_note`, `competitors` and
+`catalyst_notes` frontmatter — the §2.8 illustrative key for that field collides with a
+seeded section key, and the no-hardcoded-section-key scan holds the exporter to the same
+rule it taught task 49, so the field is named for what it holds instead;
+`IndustryNoteMeta` and `CatalystNoteMeta` join the validated schemas. Tests
+(12 new, in `tests/test_obsidian_links.py`): symmetry after exporting two peers including
+the reverse-only direction and the stub, unconfirmed proposals leaving no trace, the
+vault-wide link sweep, catalyst resolution arriving with the newer run (with the strict
+boundary and the undated case), cross-run catalyst aggregation, latest-classification
+membership with the empty prior-sector note, disjoint-export membership healing, the
+run-note comparison matching the stored section rows, valuation history, frontmatter
+validation across all five note kinds, whole-graph idempotence by byte, and the
+company-less degenerate path. A 24-mutation sabotage pass (reverse edge, strict
+resolution boundary, freshest-timing and aggregation identity, component filtering,
+membership and MOC unions, evergreen-vs-whole writes, the rule-1 conjunction, both new
+frontmatter defaults, the year-deadline parse) finished with one escape on the first
+run — weakening rule 1's `or` to `and` survived because the draft test set both halves
+false together — fixed by strengthening the guard test with the reachable half-state (a
+draft carrying a stray `approved_at`; the inverse half-state turned out to be
+unrepresentable, owned by the `ck_reports_immutable_reports_were_approved` check
+constraint), after which the honest full re-run caught all 24. Several other catches rest
+on scene state seeded pre-emptively while planning the pass: the unresolvable peer
+identifiers (a ticker and a foreign UUID inside a confirmed set), the catalyst restated
+across both runs with a fresher timing, and the sentinel assertions on regenerated
+industry and MOC notes.
+
 ---
 
 ## Task 52 — Provenance drill-down and the phase close-out

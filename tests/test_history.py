@@ -31,12 +31,12 @@ from aer.db.models import (
 )
 from aer.sections.deterministic import BUILDERS
 from aer.services.history import (
-    _timing_deadline,
     approved_reports_for,
     catalyst_outcomes_for,
     company_for_user,
     prior_comparison_content,
     prior_risks_for,
+    timing_deadline,
 )
 from tests.workflow_fixtures import AS_OF_DATE
 
@@ -267,14 +267,14 @@ class TestCatalystOutcomes:
         assert all(outcome.prior_report_id == scene["older"].id for outcome in outcomes)
 
     def test_the_timing_parser_reads_only_unambiguous_shapes(self) -> None:
-        assert _timing_deadline("2023-03-31") == date(2023, 3, 31)
-        assert _timing_deadline("2023") == date(2023, 12, 31)
-        assert _timing_deadline("FY2023") == date(2023, 12, 31)
-        assert _timing_deadline("Q2 2023") == date(2023, 6, 30)
-        assert _timing_deadline("H1 2023") == date(2023, 6, 30)
-        assert _timing_deadline("H2 2023") == date(2023, 12, 31)
-        assert _timing_deadline("the medium term") is None
-        assert _timing_deadline("2023-02-31") is None  # a date that does not exist
+        assert timing_deadline("2023-03-31") == date(2023, 3, 31)
+        assert timing_deadline("2023") == date(2023, 12, 31)
+        assert timing_deadline("FY2023") == date(2023, 12, 31)
+        assert timing_deadline("Q2 2023") == date(2023, 6, 30)
+        assert timing_deadline("H1 2023") == date(2023, 6, 30)
+        assert timing_deadline("H2 2023") == date(2023, 12, 31)
+        assert timing_deadline("the medium term") is None
+        assert timing_deadline("2023-02-31") is None  # a date that does not exist
 
 
 class TestTheComparisonSection:

@@ -151,6 +151,17 @@ class TestTheGuards:
 
         with pytest.raises(ObsidianExportError, match="never approved"):
             await export_report(db_session, settings=settings, report_id=scene["report"].id)
+
+        # A draft carrying a stray approval timestamp — an approval reverted, or a data
+        # fault — still refuses: rule 1 requires both halves, and the permissive reading
+        # (export on the strength of either alone) is exactly what the guard refuses.
+        # The inverse half-state, immutable with no timestamp, is unrepresentable — the
+        # ck_reports_immutable_reports_were_approved check constraint owns that side.
+        scene["report"].approved_at = APPROVED_AT
+        await db_session.flush()
+        with pytest.raises(ObsidianExportError, match="never approved"):
+            await export_report(db_session, settings=settings, report_id=scene["report"].id)
+
         assert not (settings.obsidian_vault_root / "20-Runs").exists()
 
     async def test_no_vault_configured_refuses_before_touching_anything(

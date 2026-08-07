@@ -41,6 +41,7 @@ __all__ = [
     "company_for_user",
     "prior_comparison_content",
     "prior_risks_for",
+    "timing_deadline",
     "valuation_history_for",
 ]
 
@@ -181,7 +182,7 @@ async def catalyst_outcomes_for(
     outcomes: list[CatalystOutcome] = []
     for item in await _items_shaped(session, job_id=prior.job_id, required=CATALYST_FIELDS):
         timing = str(item.get("expected_timing", ""))
-        deadline = _timing_deadline(timing)
+        deadline = timing_deadline(timing)
         status = "undated" if deadline is None else ("passed" if deadline < as_of else "pending")
         outcomes.append(
             CatalystOutcome(
@@ -238,8 +239,12 @@ async def _items_shaped(
     return found
 
 
-def _timing_deadline(text: str) -> date | None:
-    """The last day a stated timing could still be honoured, or ``None``."""
+def timing_deadline(text: str) -> date | None:
+    """The last day a stated timing could still be honoured, or ``None``.
+
+    Public because the Obsidian exporter dates catalyst notes with exactly this parse:
+    two readers of the same free text must not disagree about when its window closes.
+    """
     cleaned = text.strip()
     if match := _ISO.match(cleaned):
         year, month, day = (int(part) for part in match.groups())

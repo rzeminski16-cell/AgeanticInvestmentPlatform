@@ -17,7 +17,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 __all__ = [
     "SENTINEL",
+    "CatalystNoteMeta",
     "CompanyNoteMeta",
+    "IndustryNoteMeta",
     "RunNoteMeta",
     "SourceNoteMeta",
     "render_note",
@@ -64,6 +66,12 @@ class RunNoteMeta(_NoteMeta):
     horizon_months: int | None = None
     aliases: list[str] = Field(default_factory=list)
     company_note: str = ""
+    industry_note: str | None = None
+    competitors: list[str] = Field(default_factory=list)
+    # Named for what it holds — links to catalyst notes — and deliberately not the
+    # section 2.8 illustrative key, which collides with a seeded section key that no
+    # module may name (the no-hardcoded-section-key scan holds this file to that too).
+    catalyst_notes: list[str] = Field(default_factory=list)
     source_notes: list[str] = Field(default_factory=list)
     content_hash: str
     custom_sections: list[dict[str, Any]] = Field(default_factory=list)
@@ -76,6 +84,43 @@ class CompanyNoteMeta(_NoteMeta):
     ticker: str
     exchange: str
     run_notes: list[str] = Field(default_factory=list)
+    industry_note: str | None = None
+    competitors: list[str] = Field(default_factory=list)
+
+
+class IndustryNoteMeta(_NoteMeta):
+    """An industry note names its companies; each company note names it back.
+
+    The ``companies`` list is the back-link half of the section 2.8 company-industry
+    convention, and it is recomputed from the database on every regeneration — membership
+    is a statement about confirmed classifications, not about which export ran last.
+    """
+
+    aer_kind: Literal["industry"] = "industry"
+    sector_key: str
+    label: str
+    companies: list[str] = Field(default_factory=list)
+
+
+class CatalystNoteMeta(_NoteMeta):
+    """One expected event, the runs whose theses lean on it, and — later — its outcome.
+
+    ``thesis_refs`` carries run ``aer_id``s rather than wiki-links, per section 2.8: a
+    reference to a thesis is data a query can follow, not a rendering choice.
+    ``resolution`` stays absent until an approved run's as-of date lies beyond the
+    catalyst's parsed deadline; "passed" is a statement about the calendar and the
+    research record, never about whether the event actually happened.
+    """
+
+    aer_kind: Literal["catalyst"] = "catalyst"
+    company: str
+    ticker: str
+    label: str
+    expected_timing: str
+    deadline: date | None = None
+    status: str
+    thesis_refs: list[str] = Field(default_factory=list)
+    resolution: str | None = None
 
 
 class SourceNoteMeta(_NoteMeta):

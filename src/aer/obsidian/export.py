@@ -6,9 +6,16 @@ exports automatically; the report page and the CLI both call this, and both only
 person asked.
 
 **A second export is the first export.** Every note is a function of the database state
-and the report's own approval date — no wall clock reaches a byte — so re-exporting an
+and the reports' own approval dates — no wall clock reaches a byte — so re-exporting an
 unchanged report rewrites identical files. What changes between exports is only the
 ``obsidian_exports`` row recording the act.
+
+**Every link the export writes resolves.** The export covers the connected component of
+the competitor relation around the subject (see :mod:`aer.obsidian.graph`): run and
+source notes for every approved run of every company in it, a company note for each —
+a stub, honestly labelled, where a company was named as a comparable but never
+researched — plus the catalyst and industry notes those runs' notes point at. Closure
+is what makes the vault a journal rather than a folder of exports.
 """
 
 from __future__ import annotations
@@ -25,6 +32,7 @@ from sqlalchemy.orm import selectinload
 
 from aer.config import Settings
 from aer.core.enums import ClaimKind
+from aer.core.sectors import SectorProfile
 from aer.db.models import (
     Claim,
     Company,
@@ -37,14 +45,17 @@ from aer.db.models import (
     SourceDocument,
 )
 from aer.errors import AerError
+from aer.obsidian.graph import CompanyView, LinkGraph, RunView, build_graph
 from aer.obsidian.notes import (
+    CatalystNoteMeta,
     CompanyNoteMeta,
+    IndustryNoteMeta,
     RunNoteMeta,
     SourceNoteMeta,
     render_note,
 )
 from aer.obsidian.vault import VaultWriter
-from aer.services.history import approved_reports_for
+from aer.services.history import report_view
 from aer.version import version
 
 __all__ = ["ObsidianExportError", "export_report"]
@@ -61,9 +72,9 @@ Everything in this vault outside `99-Personal/` is machine-generated from approv
 research runs. The database and the artefact store remain the record; these notes are a
 derived, one-directional projection of them.
 
-- Notes are regenerated on export. In evergreen notes (companies, MOC), only the content
-  **above** the `AER:END-GENERATED` marker is rewritten; anything you write below a
-  marker is yours and survives every regeneration.
+- Notes are regenerated on export. In evergreen notes (companies, industries, MOC), only
+  the content **above** the `AER:END-GENERATED` marker is rewritten; anything you write
+  below a marker is yours and survives every regeneration.
 - `99-Personal/` is never written by the application.
 - Prior research informs hypotheses only. It is never evidence: a claim reused from an
   earlier note must be re-sourced before it can support anything.
@@ -81,7 +92,7 @@ class ObsidianExportError(AerError):
 async def export_report(
     session: AsyncSession, *, settings: Settings, report_id: uuid.UUID
 ) -> ObsidianExport:
-    """Project one approved report into the vault and record the act.
+    """Project one approved report — and its link neighbourhood — into the vault.
 
     Raises:
         ObsidianExportError: If no vault root is configured, or the report does not
@@ -119,59 +130,70 @@ async def export_report(
 
     stamp = report.approved_at.astimezone(UTC)
     generator = f"ageiantic-aer@{version()}"
-    sources = await _sources_for(session, job_id=job.id)
-    claims = await _supported_claims(session, job_id=job.id)
+    graph = await build_graph(session, job=job, report=report, company=company)
+    catalyst_links = _catalyst_links_by_report(graph)
 
-    written, source_links = _write_source_notes(
-        writer, sources, request=request, stamp=stamp, generator=generator
-    )
-    company_title = _company_note_title(request, company_name)
+    written: list[str] = []
+    for company_id in graph.order:
+        written.extend(
+            await _export_company(
+                session,
+                writer,
+                view=graph.companies[company_id],
+                graph=graph,
+                catalyst_links=catalyst_links,
+                stamp=stamp,
+                generator=generator,
+            )
+        )
 
-    custom_sections = await _custom_sections(session, job_id=job.id)
-    run_meta = RunNoteMeta(
-        aer_id=f"run-{report.id}",
-        generated_at=stamp,
-        generator=generator,
-        tags=["aer/run", "aer/approved", f"market/{request.exchange.lower()}"],
-        report_id=str(report.id),
-        job_id=str(job.id),
-        workflow_version=job.workflow_version,
-        company=company_name,
-        ticker=request.ticker,
-        exchange=request.exchange,
-        as_of_date=request.as_of_date,
-        base_currency=request.base_currency,
-        point_in_time=request.point_in_time,
-        rating=report.rating,
-        confidence=report.confidence,
-        valuation=_valuation_dict(report),
-        horizon_months=request.investment_horizon_months,
-        aliases=[f"{request.ticker} {request.as_of_date.isoformat()} research"],
-        company_note=f"[[{company_title}]]",
-        source_notes=source_links,
-        content_hash=report.content_hash,
-        custom_sections=custom_sections,
-    )
-    run_relative = f"20-Runs/{request.as_of_date.isoformat()} {_safe(request.ticker)}.md"
-    writer.write(run_relative, render_note(run_meta, _run_body(report, request, claims, sources)))
-    written.append(run_relative)
+    if company is not None:
+        subject_title = _company_title(company)
+    else:
+        # A report with no company row: its peers exported above; the run itself is
+        # projected here, with whatever links its own job confirmed.
+        subject_title = _company_note_title(request, company_name)
+        lone = RunView(
+            report=report,
+            request=request,
+            job=job,
+            industry=graph.subject_industry,
+            peer_ids=graph.subject_peer_ids,
+        )
+        written.extend(
+            await _export_run(
+                session,
+                writer,
+                run=lone,
+                graph=graph,
+                company_title=subject_title,
+                company_name=company_name,
+                catalyst_links=catalyst_links,
+                fallback_stamp=stamp,
+                generator=generator,
+            )
+        )
+        company_relative = f"10-Companies/{_safe(subject_title)}.md"
+        writer.regenerate(
+            company_relative,
+            _lone_company_generated(
+                request,
+                report,
+                company_name=company_name,
+                graph=graph,
+                stamp=stamp,
+                generator=generator,
+            ),
+        )
+        written.append(company_relative)
 
-    company_relative = f"10-Companies/{_safe(company_title)}.md"
-    company_generated = await _company_generated(
-        session,
-        report=report,
-        request=request,
-        company=company,
-        company_name=company_name,
-        company_title=company_title,
-        stamp=stamp,
-        generator=generator,
-    )
-    writer.regenerate(company_relative, company_generated)
-    written.append(company_relative)
+    written.extend(_write_catalyst_notes(writer, graph, stamp=stamp, generator=generator))
+    written.extend(_write_industry_notes(writer, graph, stamp=stamp, generator=generator))
 
+    current_titles = {_company_title(view.company) for view in graph.companies.values()}
+    current_titles.add(subject_title)
     moc_relative = "00-Meta/MOC-Companies.md"
-    writer.regenerate(moc_relative, _moc_generated(company_title))
+    writer.regenerate(moc_relative, await _moc_generated(session, current_titles))
     written.append(moc_relative)
 
     readme_relative = "00-Meta/README-generated.md"
@@ -181,7 +203,7 @@ async def export_report(
     record = ObsidianExport(
         report_id=report.id,
         exported_at=datetime.now(UTC),
-        files=written,
+        files=list(dict.fromkeys(written)),
         generator_version=generator,
     )
     session.add(record)
@@ -190,10 +212,117 @@ async def export_report(
     _log.info(
         "obsidian.exported",
         report_id=str(report.id),
-        files=len(written),
+        files=len(record.files),
+        companies=len(graph.companies),
         vault=str(writer.root),
     )
     return record
+
+
+# -- The component, company by company ---------------------------------------------------------
+
+
+async def _export_company(
+    session: AsyncSession,
+    writer: VaultWriter,
+    *,
+    view: CompanyView,
+    graph: LinkGraph,
+    catalyst_links: dict[uuid.UUID, list[str]],
+    stamp: datetime,
+    generator: str,
+) -> list[str]:
+    """Every approved run of one company, then its evergreen note."""
+    written: list[str] = []
+    title = _company_title(view.company)
+    for run in view.runs:
+        written.extend(
+            await _export_run(
+                session,
+                writer,
+                run=run,
+                graph=graph,
+                company_title=title,
+                company_name=view.company.name,
+                catalyst_links=catalyst_links,
+                fallback_stamp=stamp,
+                generator=generator,
+            )
+        )
+
+    company_relative = f"10-Companies/{_safe(title)}.md"
+    writer.regenerate(
+        company_relative, _company_generated(view, graph=graph, stamp=stamp, generator=generator)
+    )
+    written.append(company_relative)
+    return written
+
+
+async def _export_run(
+    session: AsyncSession,
+    writer: VaultWriter,
+    *,
+    run: RunView,
+    graph: LinkGraph,
+    company_title: str,
+    company_name: str,
+    catalyst_links: dict[uuid.UUID, list[str]],
+    fallback_stamp: datetime,
+    generator: str,
+) -> list[str]:
+    """One run note and its source notes, dated by that run's own approval."""
+    run_stamp = (run.report.approved_at or fallback_stamp).astimezone(UTC)
+    sources = await _sources_for(session, job_id=run.report.job_id)
+    claims = await _supported_claims(session, job_id=run.report.job_id)
+    written, source_links = _write_source_notes(
+        writer, sources, request=run.request, stamp=run_stamp, generator=generator
+    )
+    custom_sections = await _custom_sections(session, job_id=run.report.job_id)
+
+    run_meta = RunNoteMeta(
+        aer_id=f"run-{run.report.id}",
+        generated_at=run_stamp,
+        generator=generator,
+        tags=["aer/run", "aer/approved", f"market/{run.request.exchange.lower()}"],
+        report_id=str(run.report.id),
+        job_id=str(run.job.id),
+        workflow_version=run.job.workflow_version,
+        company=company_name,
+        ticker=run.request.ticker,
+        exchange=run.request.exchange,
+        as_of_date=run.request.as_of_date,
+        base_currency=run.request.base_currency,
+        point_in_time=run.request.point_in_time,
+        rating=run.report.rating,
+        confidence=run.report.confidence,
+        valuation=_valuation_dict(run.report),
+        horizon_months=run.request.investment_horizon_months,
+        aliases=[f"{run.request.ticker} {run.request.as_of_date.isoformat()} research"],
+        company_note=f"[[{company_title}]]",
+        industry_note=(
+            f"[[{_industry_note_title(run.industry)}]]" if run.industry is not None else None
+        ),
+        competitors=_peer_links(graph, run.peer_ids),
+        catalyst_notes=list(catalyst_links.get(run.report.id, [])),
+        source_notes=source_links,
+        content_hash=run.report.content_hash,
+        custom_sections=custom_sections,
+    )
+    run_relative = f"20-Runs/{_run_note_title(run.request)}.md"
+    writer.write(
+        run_relative, render_note(run_meta, _run_body(run.report, run.request, claims, sources))
+    )
+    written.append(run_relative)
+    return written
+
+
+def _peer_links(graph: LinkGraph, peer_ids: tuple[uuid.UUID, ...]) -> list[str]:
+    titles = sorted(
+        _company_title(graph.companies[peer].company)
+        for peer in peer_ids
+        if peer in graph.companies
+    )
+    return [f"[[{title}]]" for title in titles]
 
 
 def _write_source_notes(
@@ -298,26 +427,91 @@ def _comparison_lines(report: Report) -> list[str]:
     return body.strip().splitlines()
 
 
-async def _company_generated(
-    session: AsyncSession,
-    *,
-    report: Report,
+def _company_generated(
+    view: CompanyView, *, graph: LinkGraph, stamp: datetime, generator: str
+) -> str:
+    """The evergreen company note: run history, valuation history, and its relations."""
+    company = view.company
+    title = _company_title(company)
+    run_links = [f"[[{_run_note_title(run.request)}]]" for run in view.runs]
+    competitors = _peer_links(graph, view.competitor_ids)
+    industry_link = (
+        f"[[{_industry_note_title(view.industry)}]]" if view.industry is not None else None
+    )
+
+    meta = CompanyNoteMeta(
+        aer_id=f"company-{_safe(company.ticker)}-{_safe(company.exchange)}",
+        generated_at=stamp,
+        generator=generator,
+        tags=["aer/company"],
+        company=company.name,
+        ticker=company.ticker,
+        exchange=company.exchange,
+        run_notes=run_links,
+        industry_note=industry_link,
+        competitors=competitors,
+    )
+
+    if not view.runs:
+        body_lines = [
+            f"# {title}",
+            "",
+            "Named as a comparable in approved research; this platform holds no approved "
+            "research of its own on this company yet.",
+            "",
+        ]
+    else:
+        latest = view.runs[-1].report
+        body_lines = [
+            f"# {title}",
+            "",
+            f"Latest approved view: {latest.rating or 'no view reached'} as of "
+            f"{latest.as_of_date.isoformat()}.",
+            "",
+            "## Approved runs",
+            "",
+            *[f"- {link}" for link in run_links],
+            "",
+            "## Valuation history",
+            "",
+            *_valuation_history_lines(view.runs),
+            "",
+        ]
+    if competitors:
+        body_lines.extend(["## Competitors", "", *[f"- {link}" for link in competitors], ""])
+    body_lines.extend(
+        [
+            "Everything below the marker is yours; the platform regenerates only what is above it.",
+            "",
+        ]
+    )
+    return render_note(meta, "\n".join(body_lines))
+
+
+def _valuation_history_lines(runs: tuple[RunView, ...]) -> list[str]:
+    """One line per approved run, oldest first — the range as each run recorded it."""
+    lines = []
+    for run in runs:
+        span = report_view(run.report).valuation_range
+        lines.append(
+            f"- {run.report.as_of_date.isoformat()} — {span} — [[{_run_note_title(run.request)}]]"
+        )
+    return lines
+
+
+def _lone_company_generated(
     request: ResearchRequest,
-    company: Company | None,
+    report: Report,
+    *,
     company_name: str,
-    company_title: str,
+    graph: LinkGraph,
     stamp: datetime,
     generator: str,
 ) -> str:
-    run_links: list[str] = []
-    if company is not None:
-        for prior in reversed(await approved_reports_for(session, company_id=company.id)):
-            prior_request = await session.get(ResearchRequest, prior.request_id)
-            if prior_request is not None:
-                run_links.append(f"[[{_run_note_title(prior_request)}]]")
-    if not run_links:
-        run_links.append(f"[[{_run_note_title(request)}]]")
-
+    """The company note for a report with no company row: one run of history."""
+    title = _company_note_title(request, company_name)
+    run_link = f"[[{_run_note_title(request)}]]"
+    competitors = _peer_links(graph, graph.subject_peer_ids)
     meta = CompanyNoteMeta(
         aer_id=f"company-{_safe(request.ticker)}-{_safe(request.exchange)}",
         generated_at=stamp,
@@ -326,31 +520,186 @@ async def _company_generated(
         company=company_name,
         ticker=request.ticker,
         exchange=request.exchange,
-        run_notes=run_links,
+        run_notes=[run_link],
+        industry_note=(
+            f"[[{_industry_note_title(graph.subject_industry)}]]"
+            if graph.subject_industry is not None
+            else None
+        ),
+        competitors=competitors,
     )
     body_lines = [
-        f"# {company_title}",
+        f"# {title}",
         "",
         f"Latest approved view: {report.rating or 'no view reached'} as of "
         f"{report.as_of_date.isoformat()}.",
         "",
         "## Approved runs",
         "",
-        *[f"- {link}" for link in run_links],
+        f"- {run_link}",
         "",
-        "Everything below the marker is yours; the platform regenerates only what is above it.",
+        "## Valuation history",
+        "",
+        f"- {report.as_of_date.isoformat()} — {report_view(report).valuation_range} — {run_link}",
         "",
     ]
+    if competitors:
+        body_lines.extend(["## Competitors", "", *[f"- {link}" for link in competitors], ""])
+    body_lines.extend(
+        [
+            "Everything below the marker is yours; the platform regenerates only what is above it.",
+            "",
+        ]
+    )
     return render_note(meta, "\n".join(body_lines))
 
 
-def _moc_generated(company_title: str) -> str:
-    return (
-        "# MOC — Companies\n\n"
-        "Generated map of content. Companies appear here as they gain approved runs; "
-        "your own organisation belongs below the marker.\n\n"
-        f"- [[{company_title}]]\n\n"
+# -- Catalysts and industries ------------------------------------------------------------------
+
+
+def _catalyst_links_by_report(graph: LinkGraph) -> dict[uuid.UUID, list[str]]:
+    """Which catalyst notes each run note links, in catalyst order."""
+    links: dict[uuid.UUID, list[str]] = {}
+    for catalyst in graph.catalyst_views:
+        link = f"[[{_catalyst_note_title(catalyst.company, catalyst.label)}]]"
+        for run, _ in catalyst.proposals:
+            bucket = links.setdefault(run.report.id, [])
+            if link not in bucket:
+                bucket.append(link)
+    return links
+
+
+def _write_catalyst_notes(
+    writer: VaultWriter, graph: LinkGraph, *, stamp: datetime, generator: str
+) -> list[str]:
+    written: list[str] = []
+    for catalyst in graph.catalyst_views:
+        title = _catalyst_note_title(catalyst.company, catalyst.label)
+        resolved = catalyst.resolved_by
+        if resolved is not None:
+            status = "passed"
+        elif catalyst.deadline is not None:
+            status = "pending"
+        else:
+            status = "undated"
+        meta = CatalystNoteMeta(
+            aer_id=f"catalyst-{_safe(catalyst.company.ticker)}-{_safe(catalyst.label)}",
+            generated_at=stamp,
+            generator=generator,
+            tags=["aer/catalyst"],
+            company=catalyst.company.name,
+            ticker=catalyst.company.ticker,
+            label=catalyst.label,
+            expected_timing=catalyst.expected_timing,
+            deadline=catalyst.deadline,
+            status=status,
+            thesis_refs=list(catalyst.thesis_refs),
+            resolution=(
+                f"[[{_run_note_title(resolved.request)}]]" if resolved is not None else None
+            ),
+        )
+        lines = [f"# {title}", "", "## Thesis references", ""]
+        for run, rationale in catalyst.proposals:
+            lines.append(
+                f"- Proposed by [[{_run_note_title(run.request)}]] "
+                f"(as of {run.report.as_of_date.isoformat()}): {rationale}"
+            )
+        lines.extend(["", "## Resolution", ""])
+        if resolved is not None:
+            lines.append(
+                f"The stated window ({catalyst.expected_timing}) had closed by the approved "
+                f"run [[{_run_note_title(resolved.request)}]], as of "
+                f"{resolved.report.as_of_date.isoformat()}. Whether the event played out as "
+                "expected is that run's judgement to record, not this note's."
+            )
+        elif catalyst.deadline is not None:
+            lines.append(
+                "The stated window is still open at the latest approved as-of date for "
+                "this company."
+            )
+        else:
+            lines.append(
+                "No calendar date could be read from the stated timing, so this catalyst "
+                "cannot resolve by date."
+            )
+        lines.append("")
+        relative = f"50-Catalysts/{title}.md"
+        writer.write(relative, render_note(meta, "\n".join(lines)))
+        written.append(relative)
+    return written
+
+
+def _write_industry_notes(
+    writer: VaultWriter, graph: LinkGraph, *, stamp: datetime, generator: str
+) -> list[str]:
+    written: list[str] = []
+    for key in sorted(graph.industries):
+        profile = graph.industries[key]
+        members = graph.industry_members.get(key, ())
+        links = [f"[[{_company_title(member)}]]" for member in members]
+        meta = IndustryNoteMeta(
+            aer_id=f"industry-{profile.key}",
+            generated_at=stamp,
+            generator=generator,
+            tags=["aer/industry"],
+            sector_key=profile.key,
+            label=profile.label,
+            companies=links,
+        )
+        body_lines = [
+            f"# {profile.label}",
+            "",
+            "Companies whose latest approved run confirmed this classification. Membership "
+            "is a statement about the research record, never a market taxonomy.",
+            "",
+            "## Companies",
+            "",
+        ]
+        if links:
+            body_lines.extend(f"- {link}" for link in links)
+        else:
+            body_lines.append(
+                "No exported company currently carries this classification as its latest "
+                "confirmed view."
+            )
+        body_lines.append("")
+        relative = f"30-Industries/{_industry_note_title(profile)}.md"
+        writer.regenerate(relative, render_note(meta, "\n".join(body_lines)))
+        written.append(relative)
+    return written
+
+
+async def _moc_generated(session: AsyncSession, current_titles: set[str]) -> str:
+    """The map of content: every company this vault has been given, alphabetically.
+
+    Recorded exports are database state, so the list unions the companies of every prior
+    export with this one — regenerating the map for one company must not drop another
+    the vault already holds.
+    """
+    titles = set(current_titles)
+    exported = await session.scalars(
+        select(Report).join(ObsidianExport, ObsidianExport.report_id == Report.id).distinct()
     )
+    for prior in exported:
+        prior_request = await session.get(ResearchRequest, prior.request_id)
+        if prior_request is None:  # pragma: no cover -- FK-guaranteed
+            continue
+        prior_company = (
+            await session.get(Company, prior.company_id) if prior.company_id is not None else None
+        )
+        name = prior_company.name if prior_company is not None else prior_request.company_name
+        titles.add(_company_note_title(prior_request, name))
+
+    lines = [
+        "# MOC — Companies",
+        "",
+        "Generated map of content. Companies appear here as they gain approved runs; "
+        "your own organisation belongs below the marker.",
+        "",
+        *[f"- [[{title}]]" for title in sorted(titles)],
+        "",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 # -- Queries -----------------------------------------------------------------------------------
@@ -428,6 +777,18 @@ def _run_note_title(request: ResearchRequest) -> str:
 
 def _company_note_title(request: ResearchRequest, company_name: str) -> str:
     return f"{_safe(request.ticker)} - {_safe(company_name)}"
+
+
+def _company_title(company: Company) -> str:
+    return f"{_safe(company.ticker)} - {_safe(company.name)}"
+
+
+def _industry_note_title(profile: SectorProfile) -> str:
+    return _safe(profile.label)
+
+
+def _catalyst_note_title(company: Company, label: str) -> str:
+    return f"{_safe(company.ticker)} {_safe(label)[:60].strip()}"
 
 
 def _source_note_title(source: SourceDocument) -> str:
