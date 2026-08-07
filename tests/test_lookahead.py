@@ -469,7 +469,11 @@ class TestTiering:
             if tier_for(provider, kind) is not SourceTier.T6_UNVERIFIED
         }
 
-        assert covered == set(Provider)
+        # One documented exception: a prior run's own output exists precisely to have no
+        # citable path (section 2.8 rule 4) — its absence from the tier map is the point,
+        # and the citation verifier hard-rejects it besides.
+        deliberately_uncitable = {Provider.INTERNAL_PRIOR_RUN}
+        assert covered == set(Provider) - deliberately_uncitable
 
     def test_the_bottom_tier_is_not_citable(self) -> None:
         """The property the fallback relies on: falling back is safe only because a tier-6

@@ -125,6 +125,49 @@
     >{{ markdown }}</pre>
   </section>
 
+  <section class="mt-8" id="obsidian-export">
+    <h2 class="text-lg font-semibold tracking-tight">Obsidian vault</h2>
+    {% if not report.immutable %}
+      <p class="mt-2 text-sm text-slate-600 dark:text-slate-400" id="export-refused-draft">
+        Only approved reports export. This draft leaves no trace in the vault.
+      </p>
+    {% elif not vault_configured %}
+      <p class="mt-2 text-sm text-slate-600 dark:text-slate-400" id="export-unconfigured">
+        No vault is configured. Set <code class="font-mono">AER_OBSIDIAN_VAULT_ROOT</code>
+        to enable exporting.
+      </p>
+    {% else %}
+      <form
+        method="post"
+        action="/reports/{{ report.id }}/export-obsidian"
+        class="mt-2"
+        id="export-form"
+      >
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        <button
+          type="submit"
+          class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-slate-100 dark:text-slate-900"
+          id="export-obsidian-button"
+        >
+          Export to vault
+        </button>
+        <span class="ml-2 text-xs text-slate-500 dark:text-slate-400">
+          Nothing exports automatically; every export is an explicit act, recorded below.
+        </span>
+      </form>
+    {% endif %}
+    {% if exports %}
+      <ul class="mt-3 space-y-1 text-sm" id="export-history">
+        {% for export in exports %}
+          <li class="text-slate-600 dark:text-slate-400">
+            {{ export.exported_at.strftime("%Y-%m-%d %H:%M UTC") }} &mdash;
+            {{ export.files | length }} file(s), {{ export.generator_version }}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+
   <section
     class="mt-8 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/40"
     role="note"

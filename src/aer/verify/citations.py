@@ -66,6 +66,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from aer.config import Settings
+from aer.core.enums import Provider
 from aer.core.schemas.extraction import (
     ExtractedText,
     Locator,
@@ -209,13 +210,9 @@ async def _refuse_if_out_of_time(
     if request is None:  # pragma: no cover -- source_documents.request_id is NOT NULL
         return VerificationOutcome(False, Decimal(0), "the request is gone")
 
-    if not source.is_admissible:
-        return VerificationOutcome(
-            False,
-            Decimal(0),
-            f"the source is quarantined ({source.quarantine_reason}) and has no recorded "
-            "override, so it may not support a claim",
-        )
+    refused = _refuse_source(source)
+    if refused is not None:
+        return refused
 
     if not request.point_in_time:
         return None
@@ -230,6 +227,30 @@ async def _refuse_if_out_of_time(
             f"the source was published on {latest.isoformat()}, after the request's as-of date "
             f"of {request.as_of_date.isoformat()}. Citing it would use information nobody had "
             "at the time.",
+        )
+
+    return None
+
+
+def _refuse_source(source: SourceDocument) -> VerificationOutcome | None:
+    """Refusals that follow from what the source *is*, before any date arithmetic."""
+    if source.provider is Provider.INTERNAL_PRIOR_RUN:
+        # Section 2.8 rule 4, and a hard failure by design: prior research may inform a
+        # hypothesis but cannot support a claim. A platform citing its own earlier output
+        # would launder yesterday's inference into today's evidence.
+        return VerificationOutcome(
+            False,
+            Decimal(0),
+            "the cited source is a prior run's own output (provider internal_prior_run). "
+            "Prior research cannot support a claim; re-source it from primary evidence.",
+        )
+
+    if not source.is_admissible:
+        return VerificationOutcome(
+            False,
+            Decimal(0),
+            f"the source is quarantined ({source.quarantine_reason}) and has no recorded "
+            "override, so it may not support a claim",
         )
 
     return None

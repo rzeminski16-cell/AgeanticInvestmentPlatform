@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import uuid
 from typing import Annotated
 
 import typer
@@ -25,6 +26,7 @@ from aer.db.engine import create_engine, create_session_factory
 from aer.db.models import AuditEvent, User
 from aer.errors import AerError
 from aer.logging import configure_logging, get_logger
+from aer.obsidian import ObsidianExportError, export_report
 from aer.version import build_identity, git_sha, version
 
 __all__ = ["app", "main"]
@@ -161,6 +163,41 @@ async def _seed_user(
             )
             await session.commit()
             return True, user.email
+    finally:
+        await engine.dispose()
+
+
+@app.command(name="export-obsidian")
+def export_obsidian(
+    report_id: Annotated[uuid.UUID, typer.Argument(help="The approved report to export.")],
+) -> None:
+    """Project one approved report into the configured Obsidian vault.
+
+    Nothing exports automatically: this command, and the button on the report page, are
+    the only ways a note reaches the vault — and only for a report somebody approved.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    try:
+        files = asyncio.run(_export_obsidian(settings, report_id=report_id))
+    except ObsidianExportError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+
+    typer.secho(f"Exported {len(files)} file(s):", fg=typer.colors.GREEN)
+    for relative in files:
+        typer.echo(f"  {relative}")
+
+
+async def _export_obsidian(settings: Settings, *, report_id: uuid.UUID) -> list[str]:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            record = await export_report(session, settings=settings, report_id=report_id)
+            files = list(record.files)
+            await session.commit()
+            return files
     finally:
         await engine.dispose()
 

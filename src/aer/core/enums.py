@@ -237,6 +237,16 @@ class Provider(StrEnum):
     WEB_SEARCH = "web_search"
     USER_SUPPLIED = "user_supplied"
 
+    INTERNAL_PRIOR_RUN = "internal_prior_run"
+    """A prior run's own exported output, fed back in as context.
+
+    Deliberately uncitable: it has no tier mapping (so it resolves to the unverified
+    tier) and the citation verifier hard-rejects it regardless (docs/PLAN.md section
+    2.8, rule 4). Prior research may inform a hypothesis; it can never support a claim,
+    because a platform citing itself would launder yesterday's inference into today's
+    evidence.
+    """
+
 
 class ExtractionKind(StrEnum):
     """What an extraction located inside a document.

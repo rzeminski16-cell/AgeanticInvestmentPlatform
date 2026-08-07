@@ -54,12 +54,14 @@ from aer.db.models import (
     Company,
     Job,
     JobStep,
+    ObsidianExport,
     Report,
     ReportSection,
     ResearchPlan,
     ResearchRequest,
 )
 from aer.errors import ConflictError, ValidationError
+from aer.obsidian import ObsidianExportError, VaultWriteError, export_report
 from aer.queue import enqueue_run
 from aer.render.document import assemble_document
 from aer.render.html import render_html
@@ -982,6 +984,7 @@ async def report_detail(
     request: Request,
     report_id: uuid.UUID,
     session: DbSession,
+    settings: SettingsDep,
     user: CurrentUser,
 ) -> Response:
     """The report as approved, with its hash and a link to the archived bytes."""
@@ -995,7 +998,15 @@ async def report_detail(
 
     content: dict[str, Any] = dict(report.content or {})
     research_request = await session.get(ResearchRequest, report.request_id)
+    exports = list(
+        await session.scalars(
+            select(ObsidianExport)
+            .where(ObsidianExport.report_id == report.id)
+            .order_by(ObsidianExport.exported_at.desc())
+        )
+    )
 
+    token = new_csrf_token(settings)
     detail: Response = render(
         request,
         "reports/detail.html",
@@ -1004,9 +1015,54 @@ async def report_detail(
             "research_request": research_request,
             "markdown": str(content.get("markdown", "")),
             "section_keys": list(content.get("sections", [])),
+            "exports": exports,
+            "vault_configured": settings.obsidian_vault_root is not None,
+            "csrf_field": CSRF_FIELD_NAME,
+            "csrf_token": token,
         },
     )
+    set_csrf_cookie(detail, token)
     return detail
+
+
+@router.post("/reports/{report_id}/export-obsidian", summary="Export a report to the vault")
+async def export_obsidian_page(
+    request: Request,
+    report_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Project the approved report into the vault, on explicit request.
+
+    Nothing exports automatically; this form and the CLI are the only two doors, and the
+    exporter itself re-checks every rule — approval, containment, the reserved personal
+    tree — so this route decides nothing beyond ownership and the CSRF token.
+    """
+    report = await session.scalar(
+        select(Report)
+        .join(ResearchRequest, ResearchRequest.id == Report.request_id)
+        .where(Report.id == report_id, ResearchRequest.user_id == user.id)
+    )
+    if report is None:
+        return _problem(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was exported.",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        await export_report(session, settings=settings, report_id=report.id)
+    except (ObsidianExportError, VaultWriteError) as exc:
+        return _problem(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
+
+    await session.commit()
+    return RedirectResponse(f"/reports/{report_id}", status_code=HTTP_303_SEE_OTHER)
 
 
 @router.get(

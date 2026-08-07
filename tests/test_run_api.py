@@ -1165,6 +1165,35 @@ class TestTheWebPages:
         assert f"/runs/{body['job_id']}" in page.text
 
 
+class TestTheObsidianSurface:
+    """The report page's export door: honest states, and refusal wired through."""
+
+    async def test_an_unapproved_report_says_only_approved_reports_export(
+        self, api: Any, committed: dict, driver: Driver, db_session: Any
+    ) -> None:
+        job_id = await _to_second_gate(api, committed, driver)
+        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+        await driver.advance(job_id)
+        report = await db_session.scalar(select(Report).where(Report.job_id == job_id))
+        assert report is not None
+
+        # The test app has no vault configured, and the page says so rather than
+        # offering a button that would fail.
+        page = await api.get(f"/reports/{report.id}")
+        assert 'id="export-unconfigured"' in page.text
+        assert 'id="export-obsidian-button"' not in page.text
+
+        # No form renders in this state, but the page still set the CSRF cookie; the
+        # double-submit pair is the cookie's own token.
+        token = api.cookies.get("aer_csrf")
+        assert token
+        response = await api.post(
+            f"/reports/{report.id}/export-obsidian", data={CSRF_FIELD_NAME: token}
+        )
+        assert response.status_code == 422
+        assert "No Obsidian vault is configured" in response.text
+
+
 class TestTheHistorySurfaces:
     """Task 49's pages and API, over directly seeded approved reports."""
 

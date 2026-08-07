@@ -582,6 +582,42 @@ export is idempotent.
 **Acceptance.** An approved run exports; the vault opens cleanly in Obsidian; nothing
 below any sentinel is ever touched; no draft data exists anywhere in the vault.
 
+**Delivered (2026-08-07).** `aer/obsidian/`: `notes.py` (the §2.8 frontmatter as Pydantic
+models — run, company and source notes — serialised through `python-frontmatter` with
+sorted keys and `None` dropped; fields the platform cannot source are absent, never
+invented), `vault.py` (`VaultWriter`, the one door: every path resolves and is refused
+outside the vault root, inside the personal root — checked even when that root sits
+inside the vault, so the guard does not lean on `Settings` — or under the reserved
+`99-Personal/` subtree; `regenerate` rewrites only above the sentinel and carries the
+personal half byte for byte), and `export.py` (`export_report`: rule 1 first — only
+`immutable` reports with an `approved_at`; run note with every verified numeric/factual
+claim carrying `^claim-<id>` and a source wiki-link, the stored prior-research-comparison
+transcribed, custom sections pinned as `key@version` with the `aer/custom-section` tag;
+company note and MOC evergreen behind the sentinel; one source note per admissible source
+— quarantined sources leave no trace; README stating the vault's rules). **A second
+export is the first export**: every byte derives from database state and the approval's
+own timestamp, so idempotence is a property, not a hope, and each act is recorded in
+`obsidian_exports` (migration 0025, which also adds the `internal_prior_run` provider
+value). Rule 4 landed in the verifier: `Provider.INTERNAL_PRIOR_RUN` is deliberately
+uncitable — no tier mapping (the exhaustiveness test carries the documented exemption)
+and a hard rejection in the citation verifier's refusal ladder, isolated from
+admissibility so the test proves the provider rule itself. Nothing exports automatically:
+the report page's form (with export history and honest disabled states) and
+`aer export-obsidian <report-id>` are the only doors. Tests: containment including the
+inside-the-vault personal case, the draft refusal, the untouched personal directory
+asserted on the filesystem, sentinel preservation byte for byte, schema-validated
+frontmatter with the approval's date, block references with the unverified claim staying
+home, quarantined sources absent, idempotence by file digest with both acts on record,
+and the verifier's hard rejection. An 11-mutation sabotage pass — all three containment
+checks, the sentinel carry-over, the approval gate, the approval-time stamp, the block
+reference, the quarantine filter, the verified-citation filter, the provider rule and
+the page's vault conditional — was caught in full on the first run; three of those
+catches rest on tests strengthened pre-emptively while planning the pass (the
+personal-root check isolated from the outside-vault check, the quarantined source, and
+the unverified claim staying home). No ADR: every rule here is §2.8's own, no invariant
+moved, and the deterministic exporter needs no agent role (the `obsidian_linker` route
+stays unused by design, as the phase plan decided).
+
 ---
 
 ## Task 51 — The link graph and the research journal
