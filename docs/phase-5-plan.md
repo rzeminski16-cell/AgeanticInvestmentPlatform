@@ -455,6 +455,38 @@ equals the artefact record; an unapproved report has no PDF to download and says
 plus every enabled custom section, at institutional visual quality, provably identical to
 what was previewed.
 
+**Delivered (2026-08-06).** `aer/render/pdf.py`: `render_pdf` (WeasyPrint over the stored
+preview HTML) and `finish_pdf` (the pikepdf pass — forms stripped, owner-password
+permission bits refusing modification/assembly/form-filling with reading unrestricted,
+XMP carrying `dc:identifier` and the content hash with the non-advice disclaimer, every
+date the approval's, docinfo synced from the XMP as the single source). Byte-stability
+was won empirically, and three measured findings shaped the module, each documented in
+its docstring: qpdf refuses its content-derived deterministic `/ID` for any encrypted
+output; AES can never be byte-stable (random stream IVs), so the pass uses **RC4 R4 with
+unencrypted metadata and a static `/ID`** — the cipher is not confidentiality (the user
+password is empty by design), only the carrier for permission bits any tool could strip,
+and the document's real identity is the XMP hash plus the artefact digest; and
+WeasyPrint's font *subsetter* emits differently ordered tables across renders in one
+process (measured five renders, five byte streams), so the PDF embeds **full fonts** —
+about two megabytes for reproducibility. Migration 0024 adds `reports.html_artefact_id`;
+the render step now assembles once and freezes three notations — Markdown, HTML, and,
+strictly behind an approval, the PDF rendered from the *stored* HTML bytes and stamped
+with `approved_at` — linking all three artefacts and reporting all three digests in its
+step output. `GET /api/reports/{id}/download/{fmt}` serves `md | html | pdf` from the
+content-addressed store with the digest in `X-Artefact-SHA256` (the bare `/download`
+stays as Markdown); the PDF's absence message names the actual rule — no approval, no
+PDF. The report page gains the HTML and PDF download links and an honest no-PDF note.
+Tests (`tests/test_report_pdf.py`, on the golden HTML fixture — the real template, not a
+toy page): double render byte-identical inside the 30-second budget, permission bits,
+form stripping via an injected AcroForm, XMP id/hash/date, a bookmark for every golden
+section plus Notes and Sources; integration: an approved run freezes all three notations
+with body-hash = header = artefact row for each format and a bookmark for every one of
+the run's 18+ section rows, and an unapproved report's PDF download and page both say
+why there is none. An 11-mutation sabotage pass — the full-fonts pin, the static id,
+form stripping, the permission bits, both XMP fields, the two artefact links, the format
+map, the absence message and the page's PDF conditional — was caught in full on the
+first run. `weasyprint` and `pikepdf` joined runtime dependencies.
+
 ---
 
 ## Task 49 — Report history, company history and the prior-run comparison

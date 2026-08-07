@@ -9,6 +9,7 @@ content-addressed, so what is served is provably what was frozen.
 from __future__ import annotations
 
 import uuid
+from enum import StrEnum
 from typing import Any
 
 from fastapi import APIRouter
@@ -86,6 +87,37 @@ async def read_report_for_run(
     return await read_report(report.id, session, user)
 
 
+class DownloadFormat(StrEnum):
+    """The three archived notations a report can be fetched in."""
+
+    MD = "md"
+    HTML = "html"
+    PDF = "pdf"
+
+
+# For each format: which artefact column carries it, the media type it serves as, and
+# what to call its absence. The PDF's absence message names the actual rule — a PDF
+# exists only behind an approval — because "not found" would read as a fault.
+_FORMATS: dict[DownloadFormat, tuple[str, str, str]] = {
+    DownloadFormat.MD: (
+        "markdown_artefact_id",
+        "text/markdown; charset=utf-8",
+        "This report has no archived Markdown. It was never rendered.",
+    ),
+    DownloadFormat.HTML: (
+        "html_artefact_id",
+        "text/html; charset=utf-8",
+        "This report has no archived HTML. It was rendered before task 48 stored one.",
+    ),
+    DownloadFormat.PDF: (
+        "pdf_artefact_id",
+        "application/pdf",
+        "This report has no PDF. A PDF is rendered only when a report is approved, "
+        "because its every date is the approval's — and this report was never approved.",
+    ),
+}
+
+
 @router.get(
     "/{report_id}/download",
     summary="Download the archived Markdown",
@@ -94,31 +126,51 @@ async def read_report_for_run(
 async def download_report(
     report_id: uuid.UUID, session: DbSession, settings: SettingsDep, user: CurrentUser
 ) -> Response:
-    """Serve the archived Markdown artefact.
+    """The original download path, kept as the Markdown notation."""
+    return await download_report_format(
+        report_id, DownloadFormat.MD, session=session, settings=settings, user=user
+    )
 
-    Read from the content-addressed store rather than re-rendered. A re-render could
-    differ from what was approved — by a section definition that has since changed, by a
-    fact that has since been superseded — and the difference would be undetectable. The
-    stored bytes hash to their own name, so what is served is provably what was frozen.
+
+@router.get(
+    "/{report_id}/download/{fmt}",
+    summary="Download an archived notation of the report",
+    response_class=Response,
+)
+async def download_report_format(
+    report_id: uuid.UUID,
+    fmt: DownloadFormat,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Serve one archived notation of the report.
+
+    Always the content-addressed store, never a re-render. A re-render could differ from
+    what was approved — by a section definition that has since changed, by a fact that
+    has since been superseded — and the difference would be undetectable. The stored
+    bytes hash to their own name, so what is served is provably what was frozen.
     """
     report = await _owned(session, report_id=report_id, user=user)
 
-    if report.markdown_artefact_id is None:
-        message = "This report has no archived Markdown. It was never rendered."
-        raise ReportNotFoundError(message, context={"report_id": str(report_id)})
+    column, media_type, absent_message = _FORMATS[fmt]
+    artefact_id = getattr(report, column)
+    if artefact_id is None:
+        raise ReportNotFoundError(absent_message, context={"report_id": str(report_id)})
 
-    artefact = await session.get(Artefact, report.markdown_artefact_id)
+    artefact = await session.get(Artefact, artefact_id)
     if artefact is None:
-        message = "The report's archived Markdown is missing from the database."
+        message = f"The report's archived {fmt.value} artefact is missing from the database."
         raise ReportNotFoundError(message, context={"report_id": str(report_id)})
 
     store = LocalArtefactStore(settings.artefact_root, max_bytes=settings.max_artefact_bytes)
     body = await store.read(artefact.sha256)
 
-    filename = f"research-{report.as_of_date.isoformat()}-{str(report.id)[:8]}.md"
+    filename = f"research-{report.as_of_date.isoformat()}-{str(report.id)[:8]}.{fmt.value}"
     return Response(
         content=body,
-        media_type="text/markdown; charset=utf-8",
+        media_type=media_type,
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
             # The digest of exactly what was served, so a recipient can verify it against

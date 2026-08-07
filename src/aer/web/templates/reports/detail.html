@@ -50,6 +50,28 @@
       >
         Download the archived Markdown
       </a>
+      {% if report.html_artefact_id %}
+        <a
+          href="/api/reports/{{ report.id }}/download/html"
+          class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
+          id="download-html"
+        >
+          Download the archived HTML
+        </a>
+      {% endif %}
+      {% if report.pdf_artefact_id %}
+        <a
+          href="/api/reports/{{ report.id }}/download/pdf"
+          class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
+          id="download-pdf"
+        >
+          Download the PDF
+        </a>
+      {% else %}
+        <span class="text-sm text-slate-500 dark:text-slate-400" id="no-pdf">
+          No PDF: one is rendered only when a report is approved.
+        </span>
+      {% endif %}
     </div>
   </div>
 

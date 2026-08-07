@@ -59,7 +59,10 @@ from aer.db.models.plan_skill_pin import SKIPPED_NOT_APPLICABLE, PlanSkillPin
 from aer.db.models.section_definition import BUILTIN, SKILL
 from aer.extract import extract_bytes
 from aer.fetch.policy import DEFAULT_POLICIES
-from aer.render.markdown import SectorNote, render_markdown
+from aer.render.document import assemble_document
+from aer.render.html import render_html
+from aer.render.markdown import SectorNote, serialise_markdown
+from aer.render.pdf import render_pdf
 from aer.sections.deterministic import SectionStage, fill_deterministic_sections
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
 from aer.sections.writing import execute_builtin_section
@@ -1295,7 +1298,14 @@ async def comps_note_for(
 
 
 async def _render(context: StepContext) -> StepResult:
-    """Render the Markdown, archive it, and freeze the report."""
+    """One assembly, every stored notation: Markdown, HTML, and — behind an approval —
+    the PDF, each a content-addressed artefact the report row links.
+
+    The PDF is rendered from the archived HTML bytes, not from the document object, so
+    what freezes is provably derived from the file a re-reader can fetch; and only an
+    approved report gets one, because the PDF's every date is the approval's and an
+    unapproved run has no approval to stamp (task 48).
+    """
     request = await _request_for(context)
     acquired = context.output_of("acquire")
     store = context.service("store")
@@ -1303,7 +1313,7 @@ async def _render(context: StepContext) -> StepResult:
     company = await context.session.get(Company, _uuid(acquired["company_id"]))
 
     comps = await comps_note_for(context.session, job=context.job, request=request)
-    rendered = await render_markdown(
+    document = await assemble_document(
         context.session,
         job=context.job,
         request=request,
@@ -1317,12 +1327,20 @@ async def _render(context: StepContext) -> StepResult:
             licence_note=comps.licence_note if comps else "",
         ),
     )
+    markdown = serialise_markdown(document)
+    html = render_html(document)
 
-    artefact = await store_artefact(
+    markdown_artefact = await store_artefact(
         context.session,
         store,
-        data=rendered.markdown.encode("utf-8"),
+        data=markdown.encode("utf-8"),
         media_type="text/markdown",
+    )
+    html_artefact = await store_artefact(
+        context.session,
+        store,
+        data=html.encode("utf-8"),
+        media_type="text/html",
     )
 
     approval = await context.session.scalar(
@@ -1336,9 +1354,10 @@ async def _render(context: StepContext) -> StepResult:
         as_of_date=request.as_of_date,
         rating=None,
         confidence=None,
-        content={"markdown": rendered.markdown, "sections": rendered.section_keys},
-        content_hash=sha256_hex(rendered.markdown),
-        markdown_artefact_id=artefact.artefact.id,
+        content={"markdown": markdown, "sections": document.section_keys},
+        content_hash=sha256_hex(markdown),
+        markdown_artefact_id=markdown_artefact.artefact.id,
+        html_artefact_id=html_artefact.artefact.id,
         approved_by=approval.actor_user_id if approval is not None else None,
         approved_at=approval.decided_at if approval is not None else None,
         # Frozen only because a human approved it. The check constraint enforces the same
@@ -1346,6 +1365,25 @@ async def _render(context: StepContext) -> StepResult:
         immutable=approval is not None,
     )
     context.session.add(report)
+    await context.session.flush()
+
+    pdf_sha256 = None
+    if approval is not None and approval.decided_at is not None:
+        stored_html = await store.read(html_artefact.sha256)
+        pdf_bytes = render_pdf(
+            stored_html.decode("utf-8"),
+            report_id=str(report.id),
+            content_hash=report.content_hash,
+            approved_at=approval.decided_at,
+        )
+        pdf_artefact = await store_artefact(
+            context.session,
+            store,
+            data=pdf_bytes,
+            media_type="application/pdf",
+        )
+        report.pdf_artefact_id = pdf_artefact.artefact.id
+        pdf_sha256 = pdf_artefact.sha256
 
     context.job.status = JobStatus.SUCCEEDED
     context.job.finished_at = datetime.now(UTC)
@@ -1354,10 +1392,12 @@ async def _render(context: StepContext) -> StepResult:
     return StepResult(
         output={
             "report_id": str(report.id),
-            "markdown_sha256": artefact.sha256,
-            "footnotes": rendered.footnote_count,
-            "sections": rendered.section_keys,
-            "characters": len(rendered.markdown),
+            "markdown_sha256": markdown_artefact.sha256,
+            "html_sha256": html_artefact.sha256,
+            "pdf_sha256": pdf_sha256,
+            "footnotes": document.footnote_count,
+            "sections": document.section_keys,
+            "characters": len(markdown),
         }
     )
 

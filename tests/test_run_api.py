@@ -14,14 +14,17 @@ that ships.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import re
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from decimal import Decimal
+from io import BytesIO
 from typing import Any
 from unittest import mock
 
+import pikepdf
 import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -39,8 +42,10 @@ from aer.db.models import (
     JobCancellation,
     JobStep,
     Report,
+    ReportSection,
     ResearchRequest,
     Scenario,
+    SectionDefinition,
     User,
 )
 from aer.providers.fake import FakeProvider
@@ -1005,6 +1010,82 @@ class TestTheWebPages:
         assert 'id="section-exhibits"' in preview.text
         assert "data:image/svg+xml;base64," in preview.text
 
+    async def test_an_approved_run_freezes_all_three_notations(
+        self, api: Any, committed: dict, driver: Driver, db_session: Any
+    ) -> None:
+        """Approval yields Markdown, HTML and PDF artefacts; every download serves the
+        archived bytes, provably — the digest header, the artefact row and the body's own
+        hash are one value. The PDF carries a bookmark for every section row."""
+        job_id = await _to_second_gate(api, committed, driver)
+        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+        await driver.advance(job_id)
+
+        report = await db_session.scalar(select(Report).where(Report.job_id == job_id))
+        assert report is not None
+        assert report.markdown_artefact_id is not None
+        assert report.html_artefact_id is not None
+        assert report.pdf_artefact_id is not None
+
+        for fmt, sniff in (("md", b"# "), ("html", b"<!DOCTYPE html>"), ("pdf", b"%PDF")):
+            response = await api.get(f"/api/reports/{report.id}/download/{fmt}")
+            assert response.status_code == 200, fmt
+            assert response.content.startswith(sniff), fmt
+            digest = hashlib.sha256(response.content).hexdigest()
+            assert response.headers["X-Artefact-SHA256"] == digest, fmt
+
+        # The PDF is derived from exactly the archived HTML: re-finishing those bytes
+        # is not asserted here (task tests do), but the bookmarks prove the whole spine
+        # made it through — one per generated section, from the heading structure alone.
+        pdf_response = await api.get(f"/api/reports/{report.id}/download/pdf")
+        titles = _pdf_outline_titles(pdf_response.content)
+        section_titles = list(
+            await db_session.scalars(
+                select(SectionDefinition.title)
+                .join(ReportSection, ReportSection.section_definition_id == SectionDefinition.id)
+                .where(ReportSection.job_id == job_id)
+            )
+        )
+        assert len(section_titles) >= 18
+        for title in section_titles:
+            assert title in titles, title
+
+        page = await api.get(f"/reports/{report.id}")
+        assert 'id="download-pdf"' in page.text
+        assert 'id="download-html"' in page.text
+
+    async def test_an_unapproved_report_has_no_pdf_and_says_so(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = Job(
+                request_id=committed["request"].id,
+                workflow_version="vertical_slice_v1",
+                code_version="unapproved123456",
+                status=JobStatus.SUCCEEDED,
+            )
+            session.add(job)
+            await session.flush()
+            report = Report(
+                job_id=job.id,
+                request_id=committed["request"].id,
+                as_of_date=committed["request"].as_of_date,
+                content={"markdown": "draft"},
+                content_hash="0" * 64,
+                immutable=False,
+            )
+            session.add(report)
+            await session.commit()
+            report_id = report.id
+
+        response = await api.get(f"/api/reports/{report_id}/download/pdf")
+        assert response.status_code == 404
+        assert "never approved" in response.text
+
+        page = await api.get(f"/reports/{report_id}")
+        assert 'id="no-pdf"' in page.text
+        assert 'id="download-pdf"' not in page.text
+
     async def test_no_licensed_geometry_reaches_the_preview_or_the_valuation_page(
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
@@ -1092,6 +1173,20 @@ async def _to_second_gate(api: Any, committed: dict, driver: Driver) -> uuid.UUI
     await driver.approve(job_id, gate=GateKind.PLAN, step="plan")
     await driver.advance(job_id)
     return job_id
+
+
+def _pdf_outline_titles(pdf_bytes: bytes) -> list[str]:
+    """Every bookmark title in the PDF, flattened."""
+    titles: list[str] = []
+
+    def walk(items: Any) -> None:
+        for item in items:
+            titles.append(str(item.title))
+            walk(item.children)
+
+    with pikepdf.open(BytesIO(pdf_bytes)) as pdf, pdf.open_outline() as outline:
+        walk(outline.root)
+    return titles
 
 
 def _hidden_value(html: str, name: str) -> str:

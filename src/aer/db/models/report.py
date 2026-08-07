@@ -91,6 +91,11 @@ class Report(Base):
     markdown_artefact_id: Mapped[UuidFkOptional] = mapped_column(
         ForeignKey("artefacts.id", ondelete="RESTRICT")
     )
+    # The stored preview HTML — the PDF's exact input, archived so "what was approved"
+    # is a file, not a re-render (task 48, migration 0024).
+    html_artefact_id: Mapped[UuidFkOptional] = mapped_column(
+        ForeignKey("artefacts.id", ondelete="RESTRICT")
+    )
     pdf_artefact_id: Mapped[UuidFkOptional] = mapped_column(
         ForeignKey("artefacts.id", ondelete="RESTRICT")
     )
