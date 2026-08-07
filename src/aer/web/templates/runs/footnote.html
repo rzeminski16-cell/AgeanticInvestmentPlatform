@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{#
+  The footnote drill-down: what one marker in the rendered document rests on.
+
+  A marker names a source; this page answers with the source's identity — full artefact
+  digest, tier, licence note — and every claim in the run the verifier checked against it,
+  each excerpt printed **verbatim, as stored**, inside a `pre`, never as markup.
+
+  An unresolvable citation renders here in exactly the words the document used. Softening
+  the message on the page a reader clicked through to would be telling them two different
+  stories about the same broken chain.
+#}
+
+{% block title %}Note {{ number }} &middot; Ageiantic Equity Research{% endblock %}
+
+{% block content %}
+  <nav class="text-sm">
+    <a
+      href="/runs/{{ job.id }}/preview#fn-{{ number }}"
+      class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
+      id="back-to-document"
+    >
+      &larr; Back to the document
+    </a>
+  </nav>
+
+  {% if unresolved %}
+    <h1 class="mt-4 text-2xl font-semibold tracking-tight">Note {{ number }} — unresolved</h1>
+    <p
+      class="mt-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
+      id="unresolved-note"
+    >
+      {{ unresolved.statement }}
+    </p>
+  {% else %}
+    <h1 class="mt-4 text-2xl font-semibold tracking-tight">
+      Note {{ number }} — the evidence behind it
+    </h1>
+    {% if label %}
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        Cited by: <span class="font-mono">{{ label }}</span>
+      </p>
+    {% endif %}
+
+    <section class="mt-6 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="text-lg font-semibold tracking-tight">The source</h2>
+      <p class="mt-2 text-sm">
+        <a
+          href="{{ source.url }}"
+          class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
+          rel="noopener noreferrer"
+        >{{ source.title or source.url }}</a>
+      </p>
+      <dl class="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+        <div>
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Tier</dt>
+          <dd class="mt-0.5 font-mono" data-field="tier">{{ source.source_tier.value }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Publisher</dt>
+          <dd class="mt-0.5">{{ source.publisher or "not recorded" }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Published</dt>
+          <dd class="mt-0.5">
+            {{ source.publication_date.isoformat() if source.publication_date else "no determinable date" }}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Retrieved</dt>
+          <dd class="mt-0.5">{{ source.retrieved_at.strftime("%Y-%m-%d %H:%M UTC") }}</dd>
+        </div>
+        <div class="sm:col-span-2">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Licence</dt>
+          <dd class="mt-0.5" data-field="licence-note">
+            {{ source.licence_note or "no licence note recorded" }}
+          </dd>
+        </div>
+        <div class="sm:col-span-2">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Artefact SHA-256
+          </dt>
+          <dd class="mt-0.5 break-all font-mono text-xs" id="source-sha256">
+            {% if source.sha256 %}{{ source.sha256 }}{% else %}no artefact stored{% endif %}
+          </dd>
+        </div>
+      </dl>
+      {% if source.quarantined %}
+        <p
+          class="mt-3 rounded-md bg-amber-100 p-2 text-xs text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+          data-field="quarantine-note"
+        >
+          This source is quarantined: {{ source.quarantine_reason }}
+        </p>
+      {% endif %}
+    </section>
+
+    <section class="mt-8">
+      <h2 class="text-lg font-semibold tracking-tight">Claims checked against this source</h2>
+      {% if not rows %}
+        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400" id="no-claims">
+          No recorded claim cites this source. The marker traces the section's own content
+          to the document; the run recorded no separate claim rows against it.
+        </p>
+      {% endif %}
+      {% for row in rows %}
+        <article class="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <blockquote class="border-l-4 border-slate-300 pl-3 text-sm dark:border-slate-700">
+            <a
+              href="/claims/{{ row.claim.id }}"
+              class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
+            >{{ row.claim.text }}</a>
+          </blockquote>
+          {% for citation in row.citations %}
+            <div class="mt-3" data-citation data-state="{{ citation.state }}">
+              <p class="flex flex-wrap items-center gap-2 text-xs">
+                {% if citation.state == "verified" %}
+                  <span
+                    class="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold uppercase tracking-wide text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+                  >Verified</span>
+                {% elif citation.state == "overridden" %}
+                  <span
+                    class="rounded-full bg-amber-100 px-2 py-0.5 font-semibold uppercase tracking-wide text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                  >Overridden</span>
+                {% else %}
+                  <span
+                    class="rounded-full bg-red-100 px-2 py-0.5 font-semibold uppercase tracking-wide text-red-900 dark:bg-red-950 dark:text-red-200"
+                  >Not confirmed</span>
+                {% endif %}
+                {% if citation.match_ratio is not none %}
+                  <span class="font-mono text-slate-500" data-field="ratio">
+                    match ratio {{ citation.match_ratio }}
+                  </span>
+                {% endif %}
+                {% if citation.verification_method %}
+                  <span class="font-mono text-slate-500">{{ citation.verification_method }}</span>
+                {% endif %}
+              </p>
+              {# Text, never markup: the excerpt came out of a document nobody vetted. #}
+              <pre
+                class="mt-2 overflow-auto whitespace-pre-wrap rounded-md bg-slate-100 p-3 font-mono text-xs dark:bg-slate-800"
+                data-field="excerpt"
+              >{{ citation.excerpt.excerpt }}</pre>
+              {% if citation.verification_error %}
+                <p class="mt-1 text-xs text-red-700 dark:text-red-400" data-field="verdict">
+                  Not confirmed: {{ citation.verification_error }}
+                </p>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </article>
+      {% endfor %}
+    </section>
+  {% endif %}
+
+  <div class="mt-8 flex flex-wrap gap-4 border-t border-slate-200 pt-6 dark:border-slate-800">
+    <a
+      href="/runs/{{ job.id }}/claims"
+      class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
+    >
+      Every claim in this run
+    </a>
+    <a
+      href="/runs/{{ job.id }}/sources"
+      class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
+    >
+      Sources and provenance
+    </a>
+  </div>
+{% endblock %}

@@ -63,7 +63,7 @@ from aer.db.models import (
 from aer.errors import ConflictError, ValidationError
 from aer.obsidian import ObsidianExportError, VaultWriteError, export_report
 from aer.queue import enqueue_run
-from aer.render.document import assemble_document
+from aer.render.document import UnresolvedFootnote, assemble_document
 from aer.render.html import render_html
 from aer.render.markdown import render_markdown
 from aer.services import approvals as approval_service
@@ -580,6 +580,19 @@ async def run_preview(
             status=HTTP_404_NOT_FOUND,
         )
 
+    document = await _run_document(session, job=job, research_request=research_request)
+    return HTMLResponse(render_html(document))
+
+
+async def _run_document(
+    session: AsyncSession, *, job: Job, research_request: ResearchRequest
+) -> Any:
+    """The run's document, assembled exactly as the preview shows it.
+
+    One function for the preview and the footnote drill-down, because the drill-down
+    resolves a *marker number* — and marker numbers only mean anything if both pages
+    assemble the same document with the same inputs.
+    """
     # Matched on the listing for the same reason as the review page: the company row only
     # exists once the acquire step has run.
     company = await session.scalar(
@@ -589,7 +602,7 @@ async def run_preview(
         )
     )
     comps = await comps_note_for(session, job=job, request=research_request)
-    document = await assemble_document(
+    return await assemble_document(
         session,
         job=job,
         request=research_request,
@@ -603,7 +616,6 @@ async def run_preview(
             licence_note=comps.licence_note if comps else "",
         ),
     )
-    return HTMLResponse(render_html(document))
 
 
 @router.post("/runs/{job_id}/gates/{gate}", summary="Record a gate decision")
@@ -759,6 +771,134 @@ async def claim_detail(
     return page
 
 
+@router.get(
+    "/runs/{job_id}/footnotes/{number}",
+    response_class=HTMLResponse,
+    summary="What one footnote marker rests on",
+)
+async def footnote_drilldown(
+    request: Request,
+    job_id: uuid.UUID,
+    number: int,
+    session: DbSession,
+    user: CurrentUser,
+) -> Response:
+    """The walk back from a marker: the excerpt, the verdict, the digest — or the walk on.
+
+    Marker numbers are meaningful because this assembles the same document, with the same
+    inputs, as the preview that showed the marker. A calculation marker continues to the
+    calculation walk; a source marker answers here with the source, its licence note, and
+    every claim in this run the verifier checked against it; an unresolvable citation is
+    stated in exactly the words the document used.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+    research_request = await session.get(ResearchRequest, job.request_id)
+    if research_request is None:  # pragma: no cover -- a job cannot exist without its request
+        return _problem(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
+
+    document = await _run_document(session, job=job, research_request=research_request)
+    if number < 1 or number > len(document.citations):
+        return _problem(
+            request,
+            f"This document has {len(document.citations)} note(s); there is no note {number}.",
+            status=HTTP_404_NOT_FOUND,
+        )
+    return await _footnote_answer(
+        request,
+        session,
+        job=job,
+        research_request=research_request,
+        number=number,
+        reference=document.citations[number - 1],
+    )
+
+
+async def _footnote_answer(
+    request: Request,
+    session: AsyncSession,
+    *,
+    job: Job,
+    research_request: ResearchRequest,
+    number: int,
+    reference: Any,
+) -> Response:
+    """One marker's answer: the walk on, the evidence, or the honest dead end."""
+    identifier = _uuid_or_none(reference.identifier)
+
+    if reference.kind == "calculation":
+        calculation = await session.get(Calculation, identifier) if identifier else None
+        if calculation is not None:
+            # The calculation walk already exists and already renders the DAG to its
+            # leaves; a second copy of it here would be the page that drifts.
+            return RedirectResponse(
+                f"/calculations/{calculation.id}", status_code=HTTP_303_SEE_OTHER
+            )
+        return _unresolved_footnote_page(request, job=job, number=number, reference=reference)
+
+    source = await provenance.source_detail(session, identifier) if identifier else None
+    if source is None:
+        return _unresolved_footnote_page(request, job=job, number=number, reference=reference)
+
+    claims = await provenance.claims_citing(session, job_id=job.id, source_document_id=source.id)
+    rows = [
+        {
+            "claim": claim,
+            # Only this source's citations: a claim resting on two documents is walked
+            # one document at a time, and the other document has its own marker.
+            "citations": [c for c in claim.citations if c.source.id == source.id],
+        }
+        for claim in claims
+    ]
+    page: Response = render(
+        request,
+        "runs/footnote.html",
+        {
+            "job": job,
+            "research_request": research_request,
+            "number": number,
+            "label": reference.label,
+            "source": source,
+            "rows": rows,
+            "unresolved": None,
+        },
+    )
+    return page
+
+
+def _unresolved_footnote_page(
+    request: Request, *, job: Job, number: int, reference: Any
+) -> Response:
+    """The honest dead end, in the document's own words."""
+    footnote = UnresolvedFootnote(
+        number=number,
+        kind_label=("calculation" if reference.kind == "calculation" else "source document"),
+        identifier=reference.identifier,
+    )
+    page: Response = render(
+        request,
+        "runs/footnote.html",
+        {
+            "job": job,
+            "research_request": None,
+            "number": number,
+            "label": reference.label,
+            "source": None,
+            "rows": [],
+            "unresolved": footnote,
+        },
+    )
+    return page
+
+
+def _uuid_or_none(identifier: str) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(identifier)
+    except (ValueError, AttributeError, TypeError):
+        return None
+
+
 @router.get("/runs/{job_id}/valuation", response_class=HTMLResponse, summary="The valuation")
 async def valuation_page(
     request: Request,
@@ -858,6 +998,7 @@ async def calculation_detail(
             "calculation": calculation,
             "lineage": lineage_rows(tree),
             "request_id": job.request_id,
+            "job_id": job.id,
             "back_href": f"/runs/{job.id}/valuation",
         },
     )

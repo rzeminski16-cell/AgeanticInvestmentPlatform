@@ -64,9 +64,11 @@ GOLDEN_HTML = FIXTURES / "golden.html"
 # excludes the footnote definitions (``[^n]:``); the HTML pattern matches only the
 # superscript markers, never the back-references.
 _MD_MARKERS = re.compile(r"\[\^(\d+)\](?!:)")
-_HTML_MARKERS = re.compile(r'<sup class="fn-ref"[^>]*><a href="#fn-(\d+)">')
+_HTML_MARKERS = re.compile(r'<sup class="fn-ref"[^>]*><a[^>]*href="#fn-(\d+)">')
 
-# Every id pinned, so the rendered document is stable byte for byte across runs.
+# Every id pinned, so the rendered document is stable byte for byte across runs. The
+# job id is among them now that footnotes carry their drill-down path.
+JOB_ID = uuid.UUID(int=0x1000)
 CALC_ID = uuid.UUID(int=0x1001)
 DOC_ONE_ID = uuid.UUID(int=0x2001)
 DOC_TWO_ID = uuid.UUID(int=0x2002)
@@ -177,6 +179,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     await db_session.flush()
 
     job = Job(
+        id=JOB_ID,
         request_id=request.id,
         workflow_version="golden_scene_v1",
         code_version="goldencode123456",
@@ -617,7 +620,8 @@ class TestTheHtmlNotationEdges:
         assert str(_emphasise("**a** and **b")) == "<strong>a</strong> and b"
 
     def test_heading_depth_is_capped_at_what_html_has(self) -> None:
-        assert str(_blocks((Heading(level=9, text="Deep"),), seen=set())) == "<h6>Deep</h6>"
+        rendered = _blocks((Heading(level=9, text="Deep"),), seen=set(), titles={})
+        assert str(rendered) == "<h6>Deep</h6>"
 
 
 class TestCustomSectionsInTheDocument:
@@ -734,9 +738,9 @@ class TestCustomSectionsInTheDocument:
         # positions put both between the overview's six and the unresolved pair.
         assert document.footnote_count == 10
         early = html[html.index('id="section-custom_early"') : html.index('id="section-golden_pen')]
-        assert '<a href="#fn-7">7</a>' in early
+        assert 'href="#fn-7">7</a>' in early
         unresolved = html[html.index('id="section-golden_unresolved"') :]
-        assert '<a href="#fn-9">9</a>' in unresolved
+        assert 'href="#fn-9">9</a>' in unresolved
 
         first_seen = list(dict.fromkeys(_HTML_MARKERS.findall(html)))
         assert first_seen == [str(n) for n in range(1, 11)]

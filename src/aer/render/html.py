@@ -54,12 +54,13 @@ _ENV = Environment(
 def render_html(document: ReportDocument) -> str:
     """One :class:`ReportDocument`, as a self-contained HTML page."""
     seen: set[int] = set()
+    titles = {footnote.number: _hover(footnote) for footnote in document.footnotes}
     sections = [
         {
             "key": section.key,
             "title": section.title,
             "origin": section.origin,
-            "body": _blocks(section.fragments, seen=seen),
+            "body": _blocks(section.fragments, seen=seen, titles=titles),
         }
         for section in document.sections
     ]
@@ -70,8 +71,8 @@ def render_html(document: ReportDocument) -> str:
         sections=sections,
         custom_sections=custom,
         builtin_sections=[s for s in sections if s["origin"] != "skill"],
-        charts=[_chart(chart, seen=seen) for chart in document.charts],
-        footnotes=[_footnote(footnote) for footnote in document.footnotes],
+        charts=[_chart(chart, seen=seen, titles=titles) for chart in document.charts],
+        footnotes=[_footnote(footnote, job_id=document.job_id) for footnote in document.footnotes],
         referenced=sorted(seen),
         disclaimer_html=_emphasise(document.disclaimer),
         comps_html=(_emphasise(document.comps_paragraph) if document.comps_paragraph else None),
@@ -102,7 +103,7 @@ def _emphasise(text: str) -> Markup:
 # -- Fragments as HTML -----------------------------------------------------------------------
 
 
-def _blocks(fragments: tuple[Fragment, ...], *, seen: set[int]) -> Markup:
+def _blocks(fragments: tuple[Fragment, ...], *, seen: set[int], titles: dict[int, str]) -> Markup:
     """Fragments as HTML blocks — the same walk the Markdown notation transcribes.
 
     ``seen`` tracks which footnote numbers have already had a marker: the first marker
@@ -120,10 +121,14 @@ def _blocks(fragments: tuple[Fragment, ...], *, seen: set[int]) -> Markup:
             case StatusLine(text=text):
                 parts.append(Markup(f'<p class="status-note">{escape(text)}</p>'))
             case Paragraph(markers=markers) as paragraph:
-                parts.append(Markup(f"<p>{_prose(paragraph)}{_marks(markers, seen=seen)}</p>"))
+                parts.append(
+                    Markup(f"<p>{_prose(paragraph)}{_marks(markers, seen=seen, titles=titles)}</p>")
+                )
             case Bullets(items=items):
                 bullets = Markup("").join(
-                    Markup(f"<li>{_prose(item)}{_marks(item.markers, seen=seen)}</li>")
+                    Markup(
+                        f"<li>{_prose(item)}{_marks(item.markers, seen=seen, titles=titles)}</li>"
+                    )
                     for item in items
                 )
                 parts.append(Markup(f"<ul>{bullets}</ul>"))
@@ -138,7 +143,8 @@ def _blocks(fragments: tuple[Fragment, ...], *, seen: set[int]) -> Markup:
                         # The marker goes on the last cell, which is where a reader looks
                         # for the provenance of a row.
                         cells[-1] = Markup(
-                            f"<td>{escape(row.cells[-1])}{_marks(row.markers, seen=seen)}</td>"
+                            f"<td>{escape(row.cells[-1])}"
+                            f"{_marks(row.markers, seen=seen, titles=titles)}</td>"
                         )
                     body_rows.append(Markup(f"<tr>{Markup('').join(cells)}</tr>"))
                 parts.append(
@@ -159,30 +165,65 @@ def _prose(fragment: Paragraph | Bullet) -> Markup:
     )
 
 
-def _marks(markers: tuple[int, ...], *, seen: set[int]) -> Markup:
+def _marks(markers: tuple[int, ...], *, seen: set[int], titles: dict[int, str]) -> Markup:
+    """The superscript markers, each carrying a CSS-only hover preview of its note.
+
+    The ``title`` attribute is written *before* ``href`` deliberately: the marker's link
+    stays in-document (``#fn-{n}``), which is what keeps the archived HTML and the PDF
+    self-contained, and the notation-agreement test anchors on ``href`` being the final
+    attribute.
+    """
     parts: list[Markup] = []
     for number in markers:
         anchor = f' id="fnref-{number}"' if number not in seen else ""
         seen.add(number)
+        hover = titles.get(number, "")
+        title = f' title="{escape(hover)}"' if hover else ""
         parts.append(
-            Markup(f'<sup class="fn-ref"{anchor}><a href="#fn-{number}">{number}</a></sup>')
+            Markup(f'<sup class="fn-ref"{anchor}><a{title} href="#fn-{number}">{number}</a></sup>')
         )
     return Markup("").join(parts)
+
+
+def _hover(footnote: Footnote) -> str:
+    """One footnote as the plain sentence its markers show on hover — no markup, no JS."""
+    match footnote:
+        case CalculationFootnote():
+            return (
+                f"Calculated: {footnote.formula} = {footnote.value} {footnote.unit}. "
+                "Follow the note to walk it back to its inputs."
+            )
+        case SourceFootnote():
+            pieces = [footnote.title]
+            if footnote.publisher:
+                pieces.append(footnote.publisher)
+            pieces.append(f"tier {footnote.tier}")
+            pieces.append(f"retrieved {footnote.retrieved.isoformat()}")
+            return ", ".join(pieces) + ". Follow the note to the excerpt behind it."
+        case UnresolvedFootnote():
+            return (
+                f"Unresolved citation: the cited {footnote.kind_label} is no longer "
+                "present. Do not rely on the figure it supports."
+            )
 
 
 # -- Exhibits --------------------------------------------------------------------------------
 
 
-def _chart(chart: ChartView, *, seen: set[int]) -> dict[str, object]:
+def _chart(chart: ChartView, *, seen: set[int], titles: dict[int, str]) -> dict[str, object]:
     """One exhibit as template data: the SVG as a data URI, the caption with its markers.
 
-    A data URI rather than inline SVG — see :func:`aer.charts.svg_data_uri`.
+    A data URI rather than inline SVG — see :func:`aer.charts.svg_data_uri`. The caption's
+    markers go through the same ``_marks`` as a section's, so an exhibit's provenance links
+    exactly the way a paragraph's does.
     """
     return {
         "key": chart.key,
         "title": chart.title,
         "uri": svg_data_uri(chart.svg),
-        "caption": Markup(f"{escape(chart.caption)}{_marks(chart.markers, seen=seen)}"),
+        "caption": Markup(
+            f"{escape(chart.caption)}{_marks(chart.markers, seen=seen, titles=titles)}"
+        ),
         "placeholder": chart.placeholder,
     }
 
@@ -190,8 +231,14 @@ def _chart(chart: ChartView, *, seen: set[int]) -> dict[str, object]:
 # -- Footnotes as display rows ---------------------------------------------------------------
 
 
-def _footnote(footnote: Footnote) -> dict[str, object]:
-    """One footnote as template data; the entry text is built here, escaped."""
+def _footnote(footnote: Footnote, *, job_id: object = None) -> dict[str, object]:
+    """One footnote as template data; the entry text is built here, escaped.
+
+    ``drill_href`` is the provenance drill-down for this marker — the page that answers
+    with the excerpt, its verification state and the artefact digest (or the calculation
+    walk). Written into the document itself, so the archived HTML carries the path back
+    to its evidence rather than only the evidence's description.
+    """
     match footnote:
         case CalculationFootnote():
             text = Markup(
@@ -218,4 +265,5 @@ def _footnote(footnote: Footnote) -> dict[str, object]:
                 f"{escape(footnote.kind_label)} <code>{escape(footnote.identifier)}</code>, "
                 "which is no longer present. Do not rely on the figure it supports."
             )
-    return {"number": footnote.number, "text": text}
+    drill_href = f"/runs/{job_id}/footnotes/{footnote.number}" if job_id is not None else None
+    return {"number": footnote.number, "text": text, "drill_href": drill_href}

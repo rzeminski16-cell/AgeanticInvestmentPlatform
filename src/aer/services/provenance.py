@@ -50,7 +50,9 @@ __all__ = [
     "FigureView",
     "SourceView",
     "claim_view",
+    "claims_citing",
     "claims_for_run",
+    "source_detail",
     "sources_for_run",
 ]
 
@@ -359,6 +361,43 @@ def _source_view(row: SourceDocument) -> SourceView:
         injection_findings=tuple(row.injection_findings or ()),
         excerpt_count=len(row.extractions),
     )
+
+
+async def source_detail(session: AsyncSession, source_document_id: uuid.UUID) -> SourceView | None:
+    """One source, fully resolved — the footnote drill-down's subject."""
+    row = await session.scalar(
+        select(SourceDocument)
+        .where(SourceDocument.id == source_document_id)
+        .options(selectinload(SourceDocument.artefact), selectinload(SourceDocument.extractions))
+    )
+    return _source_view(row) if row is not None else None
+
+
+async def claims_citing(
+    session: AsyncSession, *, job_id: uuid.UUID, source_document_id: uuid.UUID
+) -> list[ClaimView]:
+    """Every claim in this run that cites this source, with its evidence resolved.
+
+    What a footnote marker walks back to: the marker names a source, and this answers
+    "which sentences lean on it, and did the verifier confirm their excerpts?". Scoped to
+    the run, because a document shared by two runs supports each run's claims separately.
+    """
+    # Section order, then recording order — the order a reader met the claims in. A claim
+    # citing the source through two citations arrives twice from the join; dict.fromkeys
+    # keeps the first occurrence and the order (DISTINCT with this ORDER BY would need the
+    # ordering columns in the select list, which is more machinery for the same answer).
+    rows = await session.scalars(
+        select(Claim.id)
+        .join(ReportSection, ReportSection.id == Claim.report_section_id)
+        .join(Citation, Citation.claim_id == Claim.id)
+        .where(
+            ReportSection.job_id == job_id,
+            Citation.source_document_id == source_document_id,
+        )
+        .order_by(ReportSection.position, Claim.created_at, Claim.id)
+    )
+    views = [await claim_view(session, claim_id) for claim_id in dict.fromkeys(rows)]
+    return [view for view in views if view is not None]
 
 
 def _excerpt_view(row: Extraction) -> ExcerptView:

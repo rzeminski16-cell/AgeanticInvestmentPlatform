@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
@@ -62,14 +63,22 @@ async def evidence(
 
 
 @pytest.fixture
-async def clean_slate(db_engine: Any) -> None:
-    """Empty everything these tests write, before each one.
+async def clean_slate(db_engine: Any) -> AsyncIterator[None]:
+    """Empty everything these tests write, before **and** after each one.
 
     The application commits for real, so its writes outlive the test that made them.
-    Truncated at setup rather than teardown: it is what the *next* test needs, and doing it
-    here cannot contend with a transaction a finished test still holds open.
+    Before, so a test's result never depends on which tests ran first. After, because the
+    evidence carries a company keyed by its listing and its CIK — and the last test in
+    this file would otherwise leave that row for the next module that researches the same
+    company to collide with.
     """
-    async with db_engine.begin() as connection:
+    await _truncate_evidence(db_engine)
+    yield
+    await _truncate_evidence(db_engine)
+
+
+async def _truncate_evidence(engine: Any) -> None:
+    async with engine.begin() as connection:
         await connection.execute(text("SET LOCAL statement_timeout = '5s'"))
         await connection.execute(
             text(
@@ -78,6 +87,13 @@ async def clean_slate(db_engine: Any) -> None:
                 "jobs, research_requests, audit_events, users RESTART IDENTITY CASCADE"
             )
         )
+        # The evidence carries a skill-authored section, and skills outlive the run
+        # tables — `section_definitions` rows come from migrations, so the table is not
+        # truncated. A skill left behind would show up as a second row in every later
+        # module that counts them.
+        await connection.execute(text("DELETE FROM section_definitions WHERE origin = 'skill'"))
+        await connection.execute(text("DELETE FROM skill_versions"))
+        await connection.execute(text("DELETE FROM skills"))
 
 
 @pytest.fixture

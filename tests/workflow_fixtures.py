@@ -185,6 +185,12 @@ class ScriptedSectionBrain:
         if name == "SectionDraft":
             assert self.provider is not None, "bind the provider before the first call"
             return section_draft_for(self.provider.calls[-1])
+        if name == "CustomSectionDraft":
+            # A run with an enabled custom section reaches this; the custom-section agent
+            # composes its contract and evidence with the same markers the writer uses,
+            # so one builder answers both.
+            assert self.provider is not None, "bind the provider before the first call"
+            return custom_section_draft_for(self.provider.calls[-1])
         if name == "RedTeamReport":
             from aer.agents.red_team import RedTeamReport  # noqa: PLC0415 -- keeps import light
 
@@ -224,17 +230,7 @@ def section_draft_for(call: dict[str, Any]) -> Any:
     extraction = next((item for item in evidence if "extraction_id" in item), None)
     fact = next((item for item in evidence if "fact_id" in item), None)
 
-    content: dict[str, Any] = {}
-    for name, subschema in contract.get("properties", {}).items():
-        if not isinstance(subschema, dict):
-            continue
-        declared = subschema.get("type")
-        if declared == "string":
-            content[name] = "Scripted analysis from the recorded evidence; see the figures."
-        elif declared == "array" and _items_are_objects(subschema):
-            content[name] = [_item_for(subschema, calculation=calculation, fact=fact)]
-        elif declared == "array":
-            content[name] = ["A scripted observation with no figure in it."]
+    content = _content_for(contract, calculation=calculation, fact=fact)
 
     # A formal claim is proposed only where it can carry a citation the verifier will
     # confirm; the figure rows above carry lineage either way, through their named ids.
@@ -258,6 +254,76 @@ def section_draft_for(call: dict[str, Any]) -> Any:
         )
 
     return SectionDraft(content=content, claims=claims)
+
+
+def custom_section_draft_for(call: dict[str, Any]) -> Any:
+    """The same draft, in the custom-section envelope.
+
+    The custom-section agent embeds its contract and its evidence listing with the same
+    markers the built-in writer uses, so the contract-driven content builder is shared:
+    a fake that answered user-authored sections differently from platform ones would be
+    testing a distinction the platform does not make.
+    """
+    from aer.agents.custom_section import CustomSectionDraft  # noqa: PLC0415 -- light import
+
+    contract = _contract_from_system(str(call["system"]))
+    evidence = _evidence_from_messages(call["messages"])
+
+    calculation = next((item for item in evidence if "calculation_id" in item), None)
+    extraction = next((item for item in evidence if "extraction_id" in item), None)
+    fact = next((item for item in evidence if "fact_id" in item), None)
+
+    claims: list[dict[str, Any]] = []
+    if calculation is not None and extraction is not None:
+        claims.append(
+            {
+                "statement": (
+                    f"The recorded {calculation.get('name', 'calculation')} is "
+                    f"{calculation['value']} {calculation.get('unit', '')}.".strip()
+                ),
+                "kind": "numeric",
+                "calculation_id": calculation["calculation_id"],
+                "citations": [
+                    {
+                        "source_document_id": extraction["source_document_id"],
+                        "extraction_id": extraction["extraction_id"],
+                    }
+                ],
+            }
+        )
+
+    return CustomSectionDraft(
+        content=_content_for(contract, calculation=calculation, fact=fact),
+        claims=claims,
+    )
+
+
+def _content_for(
+    contract: dict[str, Any],
+    *,
+    calculation: dict[str, Any] | None,
+    fact: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Content satisfying a contract, field by field, from the run's own evidence.
+
+    Strings carry no numerals, so the one numeral a draft contains — the calculation's
+    value, in a figure row — is exactly covered by the one numeric claim, and the §2.12
+    numeral rule holds by construction rather than by luck.
+    """
+    content: dict[str, Any] = {}
+    for name, subschema in contract.get("properties", {}).items():
+        if not isinstance(subschema, dict):
+            continue
+        declared = subschema.get("type")
+        if declared == "string":
+            content[name] = "Scripted analysis from the recorded evidence; see the figures."
+        elif declared in {"number", "integer"}:
+            content[name] = 8
+        elif declared == "array" and _items_are_objects(subschema):
+            content[name] = [_item_for(subschema, calculation=calculation, fact=fact)]
+        elif declared == "array":
+            content[name] = ["A scripted observation with no figure in it."]
+    return content
 
 
 def _contract_from_system(system: str) -> dict[str, Any]:

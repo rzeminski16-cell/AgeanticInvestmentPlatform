@@ -167,6 +167,20 @@ class UnresolvedFootnote:
     kind_label: str
     identifier: str
 
+    @property
+    def statement(self) -> str:
+        """The honest state, as one sentence — the same words in every surface.
+
+        The document's footnote and the drill-down page both render this, so a reader
+        who follows a broken marker is told exactly what the document told them, not a
+        softer paraphrase of it.
+        """
+        return (
+            f"Unresolved citation — this claim references {self.kind_label} "
+            f"{self.identifier}, which is no longer present. Do not rely on the figure "
+            "it supports."
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class ChartView:
@@ -203,7 +217,12 @@ class AppendixRow:
 
 @dataclass(slots=True)
 class ReportDocument:
-    """The whole document, assembled once. Serialisers may only transcribe it."""
+    """The whole document, assembled once. Serialisers may only transcribe it.
+
+    ``job_id`` is the run the document was assembled from — what lets the HTML notation
+    write each footnote's drill-down link, so a reader can walk any marker back to the
+    excerpt, verification state and artefact digest behind it.
+    """
 
     header: HeaderView
     sector: SectorNote | None
@@ -214,6 +233,7 @@ class ReportDocument:
     citations: list[CitationRef]
     charts: tuple[ChartView, ...] = ()
     disclaimer: str = DISCLAIMER
+    job_id: uuid.UUID | None = None
 
     @property
     def section_keys(self) -> list[str]:
@@ -339,6 +359,7 @@ async def assemble_document(
         appendix=appendix,
         citations=citations,
         charts=tuple(chart_views),
+        job_id=job.id,
     )
 
 

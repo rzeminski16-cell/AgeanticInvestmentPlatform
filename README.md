@@ -85,6 +85,12 @@ discouraged. See `docs/adr/0003-deterministic-code-owns-numbers-and-facts.md`.
 - **Docker Desktop** (from Phase 1 onward, for PostgreSQL and Redis)
 - Optionally [**just**](https://github.com/casey/just) as a task runner
 
+PDF rendering uses [WeasyPrint](https://weasyprint.org/), which needs its native stack
+(Pango, cairo, GDK-PixBuf) present on the machine. On Windows that means installing the
+GTK runtime; on Debian and Ubuntu, `libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0`.
+Everything else — matplotlib for charts, pikepdf for the PDF finishing pass,
+python-frontmatter for the vault — is a pure `uv sync` away.
+
 ## Setup (Windows, PowerShell)
 
 ```powershell
@@ -218,7 +224,17 @@ uv run arq aer.worker.WorkerSettings   # the worker that executes runs
 | `GET /runs/{id}` | **The run console.** Live progress, or a meta refresh without JavaScript |
 | `GET /runs/{id}/plan` | **Gate 1.** The plan, its sources, its cost and its risks |
 | `GET /runs/{id}/review` | **Gate 2.** The drafted report, exactly as it will be stored |
+| `GET /runs/{id}/preview` | The run's draft **as the document**: the same HTML the PDF is made from |
+| `GET /runs/{id}/sources` | Every document the run acquired, including the ones it refused |
+| `GET /runs/{id}/claims` | Every claim the run asserts, and whether its evidence verified |
+| `GET /runs/{id}/footnotes/{n}` | **The drill-down.** What one footnote marker rests on: the excerpt, the verdict, the digest |
+| `GET /claims/{id}` | One claim, its excerpts and the verifier's verdict on each |
+| `GET /calculations/{id}` | One figure, walked to its leaves: facts, assumptions, and their documents |
+| `GET /reports` | Every report this account has produced, grouped by company |
+| `GET /companies/{id}` | A company's research history: valuation range over time, prior catalysts and risks |
 | `GET /reports/{id}` | A finished report, its hash, and a link to the archived bytes |
+| `GET /reports/{id}/preview` | The finished report as the document |
+| `POST /reports/{id}/export-obsidian` | Project one approved report into the vault. Never automatic |
 | `GET /healthz` | **Liveness.** Always 200 while the process can answer; touches nothing external |
 | `GET /readyz` | **Readiness.** 200 when Postgres and Redis both answer, 503 with a per-dependency breakdown otherwise |
 | `GET /docs` | Interactive API documentation (disabled when `AER_APP_ENV=production`) |
@@ -238,6 +254,8 @@ The JSON API mirrors the GUI exactly, because both call the same service functio
 | `GET /api/plans/for-run/{id}` | What gate 1 shows, and its hash |
 | `GET /api/reports/for-run/{id}` | The report a run produced |
 | `GET /api/reports/{id}/download` | The **archived** Markdown, with its digest in a header |
+| `GET /api/reports/{id}/download/{md,html,pdf}` | The archived bytes in one of the three frozen notations |
+| `GET /api/companies/{id}/history` | A company's approved reports: ratings, ranges, catalysts |
 | `GET /api/calculations/{id}` | One calculation: formula, inputs, sources, code version |
 
 ### Approving is a decision about something specific
@@ -1299,6 +1317,73 @@ they were written in. `method` is now recorded on all four.
 
 Server-rendered with no script of its own, so it works with JavaScript off — asserted by
 disabling scripting in the browser rather than by hoping.
+
+### One document, three notations
+
+The Gate 2 preview, the stored HTML, the PDF derived from it and the Markdown beside it are
+**one assembly, serialised**, not parallel renderings that could drift. `aer.render.document`
+walks the run's sections once — position order, global footnote numbering, footnote and
+appendix resolution — and produces a `ReportDocument` that the serialisers may only
+transcribe. No serialiser can renumber a footnote or reorder a section, because the numbers
+and the order arrive already fixed. Approving the preview is therefore approving the PDF's
+input, byte for byte.
+
+Charts are figures, not decoration (`docs/adr/0043-a-chart-is-a-figure.md`): each is built by
+pure code from the run's own ledger rows, carries its own citations as footnote markers, and
+declares whether it may be exported. A chart drawn from licensed market data is marked
+internal-only and the assembler **refuses** it — a rendered report is the shareable artefact,
+and licensed geometry does not become shareable by being passed to the wrong function.
+
+The PDF is produced once, at approval, from the **stored** HTML bytes, and finished by pikepdf:
+RC4-encrypted with the content hash as the owner password, permissions denying modification,
+XMP carrying the report id and content hash. Byte-stability took experiment rather than
+guesswork — WeasyPrint's font subsetter emits different bytes per process, so fonts are
+embedded whole; AES encryption is never byte-stable because its IVs are random. Both findings
+are recorded where the next reader will meet them.
+
+### From a figure in the report to the bytes behind it
+
+Every footnote marker in the document is a door. Hovering shows the note (a `title`
+attribute — CSS only, no script), following it lands on the note itself, and the note carries
+an **evidence** link to `/runs/{id}/footnotes/{n}`:
+
+- a **source** marker answers with the document's full artefact SHA-256, its tier, its licence
+  note and its dates, then every claim in that run the verifier checked against it — each
+  excerpt printed verbatim as text, with the verdict and match ratio beside it;
+- a **calculation** marker continues to the calculation walk, which renders the DAG to its
+  leaves: facts (each linking on to the document it was reported in) and assumptions (each
+  stating its justification in place). The walk never ends on a calculation;
+- an **unresolvable** citation renders its honest dead end in *exactly the words the document
+  used*. A reader who follows a broken marker must not be told a softer story than the
+  document told them, so both surfaces render one shared sentence.
+
+Marker numbers mean something only because the drill-down assembles the same document, with
+the same inputs, as the page that showed the marker. That is why the route re-assembles rather
+than storing a marker index.
+
+### The vault is a projection, and the projection only flows outward
+
+Postgres and the artefact store are the record; the Obsidian vault is a derived,
+one-directional view of **approved** data. The application never reads vault content back as
+evidence. `docs/PLAN.md` §2.8's anti-contamination rules are enforced in code, not by
+convention: only `immutable` reports export; every exported claim carries its `^claim-<id>`
+block reference and a source link; company, industry and MOC notes regenerate only *above* the
+`AER:END-GENERATED` sentinel and anything below it is the person's and survives byte for byte;
+the writer refuses any path outside the vault root or inside the personal notes directory; and
+the citation verifier **hard-rejects** a claim whose source is a prior run's own output
+(`provider = internal_prior_run`) — prior research can inform a hypothesis and can never
+support a claim.
+
+The links make it a journal rather than a folder of exports. Competitor edges are symmetric by
+construction, industry notes list their companies and each company names its industry back,
+and catalyst notes carry the runs whose theses lean on them plus a `resolution` filled in on a
+later run once the stated window has passed. The export writes the closure of that graph, so
+**every `[[link]]` it writes resolves to a file it also wrote** — asserted by sweeping the
+whole vault. A second export is the first export: every byte derives from database state and
+the approval's own timestamp.
+
+Nothing exports automatically. The report page's form and `uv run aer export-obsidian <report-id>`
+are the only doors, and each act is recorded.
 
 ### Model calls
 

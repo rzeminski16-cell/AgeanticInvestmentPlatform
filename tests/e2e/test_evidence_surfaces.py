@@ -45,6 +45,7 @@ class EvidenceFixture:
         self.job_id: uuid.UUID = built["job_id"]
         self.supported_claim_id: uuid.UUID = built["supported_claim_id"]
         self.quarantine_reason: str = built["quarantine_reason"]
+        self.filing_sha256: str = built["filing_sha256"]
 
     async def _create(self) -> dict[str, Any]:
         # A throwaway engine per operation, pooling nothing; see `RunFixture` in
@@ -59,6 +60,7 @@ class EvidenceFixture:
                     "job_id": built["job"].id,
                     "supported_claim_id": built["supported_claim"].id,
                     "quarantine_reason": built["quarantine_reason"],
+                    "filing_sha256": built["filing_sha256"],
                 }
         finally:
             await engine.dispose()
@@ -124,6 +126,54 @@ class TestWhatTheReaderIsTold:
         page.goto(f"{live_server}/runs/{evidence.job_id}/sources")
 
         expect(page.locator('[data-field="tier"]').first).to_have_text("T1_REGULATORY")
+
+
+class TestFromAFigureToTheBytes:
+    """Task 52's acceptance walk, performed: a figure in the document to its digest.
+
+    The in-process suite follows ``href`` attributes, which would still pass if a marker
+    were invisible or a link were covered. Here a reader clicks what they can see.
+    """
+
+    def test_a_marker_in_the_preview_reaches_the_artefact_hash(
+        self, page: Page, live_server: str, evidence: EvidenceFixture
+    ) -> None:
+        page.goto(f"{live_server}/runs/{evidence.job_id}/preview")
+
+        # The figure's marker: click it, land on the note it names.
+        page.locator("sup.fn-ref a").first.click()
+        expect(page.locator("#fn-1")).to_be_visible()
+
+        # The note's evidence link: the drill-down, carrying the digest in full. Both
+        # claims resting on this document appear, so the verified excerpt is located by
+        # its own text rather than by position among them.
+        page.locator("#fn-1 a.drill").click()
+        page.wait_for_url(f"**/runs/{evidence.job_id}/footnotes/1")
+        expect(page.locator("#source-sha256")).to_have_text(evidence.filing_sha256)
+        expect(
+            page.locator('[data-citation][data-state="verified"] [data-field="excerpt"]')
+        ).to_contain_text(SUPPORTED_SENTENCE)
+
+    def test_the_hover_preview_needs_no_script(
+        self, browser: Browser, live_server: str, evidence: EvidenceFixture
+    ) -> None:
+        """The preview is a ``title`` attribute, so it survives scripting being off."""
+        context = browser.new_context(java_script_enabled=False)
+        try:
+            page = context.new_page()
+            page.goto(f"{live_server}/runs/{evidence.job_id}/preview")
+
+            marker = page.locator("sup.fn-ref a").first
+            title = marker.get_attribute("title")
+            assert title is not None
+            assert "Follow the note" in title
+
+            marker.click()
+            expect(page.locator("#fn-1")).to_be_visible()
+            page.locator("#fn-1 a.drill").click()
+            expect(page.locator("#source-sha256")).to_have_text(evidence.filing_sha256)
+        finally:
+            context.close()
 
 
 class TestWithScriptingOff:

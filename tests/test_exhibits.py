@@ -471,7 +471,7 @@ class TestTheDocumentIntegration:
         assert html.count("data:image/svg+xml;base64,") == len(document.charts)
 
         md_markers = re.findall(r"\[\^(\d+)\](?!:)", markdown)
-        html_markers = re.findall(r'<sup class="fn-ref"[^>]*><a href="#fn-(\d+)">', html)
+        html_markers = re.findall(r'<sup class="fn-ref"[^>]*><a[^>]*href="#fn-(\d+)">', html)
         assert md_markers == html_markers
 
     async def test_the_assembler_refuses_licensed_geometry(self, scene: dict[str, Any]) -> None:

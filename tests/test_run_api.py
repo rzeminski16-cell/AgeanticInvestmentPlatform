@@ -49,17 +49,13 @@ from aer.db.models import (
     SectionDefinition,
     User,
 )
-from aer.providers.fake import FakeProvider
-from aer.services import approvals as approval_service
 from aer.services import runs as run_service
-from aer.storage.local import LocalArtefactStore
 from aer.web.csrf import CSRF_FIELD_NAME
 from tests.api_fixtures import build_app, client_for
+from tests.run_fixtures import Driver, start_run, to_final_gate
 from tests.workflow_fixtures import (
     AS_OF_DATE,
     SPINE_KEYS,
-    StubSecClient,
-    make_provider,
     seed_starved_section,
 )
 
@@ -176,75 +172,16 @@ async def api(
         yield client
 
 
-class Driver:
-    """Advances a run to its next stopping point, committing as the worker would."""
-
-    def __init__(self, engine: Any, settings: Settings) -> None:
-        self._factory = async_sessionmaker(bind=engine, expire_on_commit=False)
-        self._settings = settings
-        self._store = LocalArtefactStore(
-            settings.artefact_root, max_bytes=settings.max_artefact_bytes
-        )
-        self.provider: FakeProvider = make_provider()
-        self.sec_client = StubSecClient(self._store)
-
-    async def advance(self, job_id: uuid.UUID) -> JobStatus:
-        async with self._factory() as session:
-            job = await session.get(Job, job_id)
-            assert job is not None
-            outcome = await run_service.execute(
-                session,
-                job=job,
-                settings=self._settings,
-                provider=self.provider,
-                store=self._store,
-                sec_client=self.sec_client,
-            )
-            await session.commit()
-            return outcome.status
-
-    async def payload_hash_of(self, job_id: uuid.UUID, step: str) -> str:
-        async with self._factory() as session:
-            row = await session.scalar(
-                select(JobStep).where(JobStep.job_id == job_id, JobStep.step_key == step)
-            )
-            assert row is not None, f"the {step} step has not run"
-            return str((row.output_ref or {})["payload_hash"])
-
-    async def approve(self, job_id: uuid.UUID, *, gate: GateKind, step: str) -> None:
-        async with self._factory() as session:
-            job = await session.get(Job, job_id)
-            user = await session.scalar(select(User))
-            assert job is not None
-            assert user is not None
-            await approval_service.record_decision(
-                session,
-                job=job,
-                gate=gate,
-                decision=Decision.APPROVED,
-                actor=user,
-                payload_hash=await self.payload_hash_of(job_id, step),
-            )
-            await session.commit()
-
-
 @pytest.fixture
 def driver(db_engine: Any, api_settings: Settings) -> Driver:
     return Driver(db_engine, api_settings)
-
-
-async def start(api: Any, request_id: uuid.UUID) -> dict[str, Any]:
-    response = await api.post("/api/runs", json={"request_id": str(request_id)})
-    assert response.status_code == 202, response.text
-    body: dict[str, Any] = response.json()
-    return body
 
 
 class TestStartingARun:
     async def test_it_returns_the_run_and_queues_it(
         self, api: Any, committed: dict, enqueued: EnqueueRecorder
     ) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
 
         assert body["status"] == JobStatus.QUEUED.value
         assert enqueued.job_ids == [body["job_id"]]
@@ -253,7 +190,7 @@ class TestStartingARun:
         self, api: Any, committed: dict, db_session: Any
     ) -> None:
         """A run takes tens of minutes. Doing it here would hold a browser open for it."""
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
 
         steps = list(
             await db_session.scalars(
@@ -263,8 +200,8 @@ class TestStartingARun:
         assert steps == []
 
     async def test_starting_twice_returns_the_same_run(self, api: Any, committed: dict) -> None:
-        first = await start(api, committed["request"].id)
-        second = await start(api, committed["request"].id)
+        first = await start_run(api, committed["request"].id)
+        second = await start_run(api, committed["request"].id)
         assert first["job_id"] == second["job_id"]
 
     async def test_an_unknown_request_is_a_404(self, api: Any) -> None:
@@ -277,7 +214,7 @@ class TestReadingARun:
     async def test_the_state_shows_each_step(
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         await driver.advance(uuid.UUID(body["job_id"]))
 
         state = (await api.get(f"/api/runs/{body['job_id']}")).json()
@@ -289,7 +226,7 @@ class TestReadingARun:
     ) -> None:
         """A cost that changes in the sixth decimal place because it passed through JSON
         is a cost nobody can reconcile against the database."""
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         await driver.advance(uuid.UUID(body["job_id"]))
 
         state = (await api.get(f"/api/runs/{body['job_id']}")).json()
@@ -303,7 +240,7 @@ class TestTheGateApi:
     async def test_the_plan_endpoint_returns_the_hash_an_approval_must_carry(
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
 
@@ -319,7 +256,7 @@ class TestTheGateApi:
         enqueued: EnqueueRecorder,
         db_session: Any,
     ) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
 
@@ -341,7 +278,7 @@ class TestTheGateApi:
     async def test_approving_twice_is_refused(
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
         digest = await driver.payload_hash_of(job_id, "plan")
@@ -360,7 +297,7 @@ class TestTheGateApi:
     async def test_the_final_gate_cannot_be_approved_first(
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
 
@@ -374,7 +311,7 @@ class TestTheGateApi:
     async def test_an_approval_without_a_hash_is_rejected_by_the_schema(
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
 
@@ -514,7 +451,7 @@ class TestCancellingARun:
     async def test_cancelling_returns_202_and_records_the_request(
         self, api: Any, committed: dict, db_session: Any
     ) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
 
         # 202, not 200: the run has been *asked* to stop and will do so at the next step
@@ -529,13 +466,13 @@ class TestCancellingARun:
         assert found.reason == "wrong date"
 
     async def test_a_reason_is_optional(self, api: Any, committed: dict) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         assert (await api.post(f"/api/runs/{body['job_id']}/cancel")).status_code == 202
 
     async def test_cancelling_a_finished_run_is_a_409(
         self, api: Any, committed: dict, driver: Driver, db_engine: Any
     ) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
         async with factory() as session:
@@ -557,7 +494,7 @@ class TestCancellingARun:
     async def test_the_console_offers_a_cancel_button_while_the_run_is_live(
         self, api: Any, committed: dict
     ) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
 
         page = await api.get(f"/runs/{body['job_id']}")
         assert 'id="cancel-run"' in page.text
@@ -565,7 +502,7 @@ class TestCancellingARun:
     async def test_the_console_stops_offering_it_once_asked(
         self, api: Any, committed: dict
     ) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         await api.post(f"/api/runs/{body['job_id']}/cancel", json={"reason": "wrong date"})
 
         page = await api.get(f"/runs/{body['job_id']}")
@@ -578,7 +515,7 @@ class TestCancellingARun:
     async def test_the_form_post_cancels_and_redirects_to_the_console(
         self, api: Any, committed: dict, db_session: Any
     ) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         page = await api.get(f"/runs/{job_id}")
 
@@ -600,7 +537,7 @@ class TestCancellingARun:
     ) -> None:
         # This application runs on loopback with no authentication, so any page in any tab
         # can POST to it. An unprotected cancel means a page merely visited can stop a run.
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
 
         response = await api.post(f"/runs/{job_id}/cancel", data={"reason": "not mine to give"})
@@ -667,7 +604,7 @@ class TestTheEventStream:
         client will not produce one on demand. Suppressing that cancellation would leave a
         database connection held for a reader that has gone.
         """
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
 
@@ -701,7 +638,7 @@ class TestTheEventStream:
         browser suite's long-standing flake was chased through exactly this code before
         being traced to server *shutdown* instead (see ``tests/e2e/conftest.py``).
         """
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
 
@@ -759,7 +696,7 @@ class TestTheWebPages:
     async def test_the_console_renders_the_run_without_javascript(
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         await driver.advance(uuid.UUID(body["job_id"]))
 
         page = await api.get(f"/runs/{body['job_id']}")
@@ -778,7 +715,7 @@ class TestTheWebPages:
         so a bare meta tag would reload the page underneath the event stream every few
         seconds — which is exactly what it used to do.
         """
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         await driver.advance(uuid.UUID(body["job_id"]))
 
         page = await api.get(f"/runs/{body['job_id']}")
@@ -802,7 +739,7 @@ class TestTheWebPages:
     async def test_the_plan_page_shows_the_hash_it_will_submit(
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
 
@@ -816,7 +753,7 @@ class TestTheWebPages:
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
         """Gate 1 shows which sections the run owes, platform-filled ones marked as such."""
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
 
@@ -829,7 +766,7 @@ class TestTheWebPages:
     async def test_approving_through_the_form_advances_the_gate(
         self, api: Any, committed: dict, driver: Driver, enqueued: EnqueueRecorder
     ) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
 
@@ -852,7 +789,7 @@ class TestTheWebPages:
         self, api: Any, committed: dict, driver: Driver, db_session: Any
     ) -> None:
         """Loopback with no authentication is exactly where this matters most."""
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
 
@@ -870,7 +807,7 @@ class TestTheWebPages:
     async def test_a_decided_gate_shows_the_decision_rather_than_a_button(
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
         await driver.approve(job_id, gate=GateKind.PLAN, step="plan")
@@ -957,7 +894,7 @@ class TestTheWebPages:
     async def test_a_run_with_no_sections_has_no_preview(self, api: Any, committed: dict) -> None:
         # Started but not yet picked up by the worker: the plan step is what creates the
         # section rows, so this run has none and there is no document to assemble.
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
 
         page = await api.get(f"/runs/{job_id}/preview")
@@ -1145,7 +1082,7 @@ class TestTheWebPages:
     async def test_every_page_carries_the_disclaimer(
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
 
@@ -1158,7 +1095,7 @@ class TestTheWebPages:
         assert 'id="start-run"' in page.text
 
     async def test_it_links_to_the_run_once_one_exists(self, api: Any, committed: dict) -> None:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
 
         page = await api.get(f"/requests/{committed['request'].id}")
         assert 'id="open-run"' in page.text
@@ -1305,14 +1242,7 @@ class TestTheHistorySurfaces:
 
 
 async def _to_second_gate(api: Any, committed: dict, driver: Driver) -> uuid.UUID:
-    """Start a run and drive it to the final gate, approving the plan on the way."""
-    body = await start(api, committed["request"].id)
-    job_id = uuid.UUID(body["job_id"])
-
-    await driver.advance(job_id)
-    await driver.approve(job_id, gate=GateKind.PLAN, step="plan")
-    await driver.advance(job_id)
-    return job_id
+    return await to_final_gate(api, committed["request"].id, driver)
 
 
 def _pdf_outline_titles(pdf_bytes: bytes) -> list[str]:
@@ -1350,7 +1280,7 @@ class TestStartingAgainAfterACancelledRun:
     """
 
     async def _cancelled(self, api: Any, committed: dict, db_engine: Any) -> uuid.UUID:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await api.post(f"/api/runs/{job_id}/cancel", json={"reason": "wrong as-of date"})
 
@@ -1380,7 +1310,7 @@ class TestStartingAgainAfterACancelledRun:
     ) -> None:
         first = await self._cancelled(api, committed, db_engine)
 
-        second = uuid.UUID((await start(api, committed["request"].id))["job_id"])
+        second = uuid.UUID((await start_run(api, committed["request"].id))["job_id"])
 
         assert second != first
         assert str(second) in enqueued.job_ids
@@ -1391,15 +1321,15 @@ class TestStartingAgainAfterACancelledRun:
         # The cancellation belongs to the old job. A resurrected row would carry it and
         # stop again on its first step.
         await self._cancelled(api, committed, db_engine)
-        second = (await start(api, committed["request"].id))["job_id"]
+        second = (await start_run(api, committed["request"].id))["job_id"]
 
         assert (await api.get(f"/api/runs/{second}")).json()["status"] == JobStatus.QUEUED.value
 
     async def test_a_run_still_going_is_returned_rather_than_duplicated(
         self, api: Any, committed: dict
     ) -> None:
-        first = await start(api, committed["request"].id)
-        second = await start(api, committed["request"].id)
+        first = await start_run(api, committed["request"].id)
+        second = await start_run(api, committed["request"].id)
 
         assert first["job_id"] == second["job_id"]
 
@@ -1412,7 +1342,7 @@ class TestStartingAgainAfterACancelledRun:
         await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
         assert await driver.advance(job_id) is JobStatus.SUCCEEDED
 
-        assert (await start(api, committed["request"].id))["job_id"] == str(job_id)
+        assert (await start_run(api, committed["request"].id))["job_id"] == str(job_id)
 
 
 class TestDeletingARequestWhoseRunWasCancelled:
@@ -1427,7 +1357,7 @@ class TestDeletingARequestWhoseRunWasCancelled:
     async def _cancelled_with_spend(
         self, api: Any, committed: dict, driver: Driver, db_engine: Any
     ) -> uuid.UUID:
-        body = await start(api, committed["request"].id)
+        body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         # A real leg: the planner runs, is metered, and stops at the gate.
         assert await driver.advance(job_id) is JobStatus.AWAITING_APPROVAL

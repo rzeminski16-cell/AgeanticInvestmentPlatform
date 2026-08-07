@@ -70,7 +70,13 @@
       </thead>
       <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
         {% for source in sources %}
-          <tr data-source="{{ source.id }}" data-tier="{{ source.source_tier.value }}">
+          {# The id is the anchor a calculation walk's fact leaf links to: a figure's
+             lineage ends at the document it was reported in, not at a table of them. #}
+          <tr
+            id="source-{{ source.id }}"
+            data-source="{{ source.id }}"
+            data-tier="{{ source.source_tier.value }}"
+          >
             <td class="py-3 pr-4 align-top">
               <a
                 href="{{ source.url }}"

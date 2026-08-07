@@ -1368,6 +1368,56 @@ and watch it hang. That measurement is why `job_cancellations` exists.
 
 ---
 
+## 15. The report, and walking a figure back to bytes
+
+Approve a run at both gates so it produces a frozen report, then open
+`/reports/{report_id}`.
+
+### The three notations are one document
+
+1. Follow **Open the document preview**. That page is the report's own HTML, with no site
+   navigation and no script of its own.
+2. Download the Markdown, the HTML and the PDF. Each response carries an
+   `X-Artefact-SHA256` header; compute the digest of the bytes you received and check it
+   matches. It is the archived artefact being served, not a re-render.
+3. Open the PDF. The bookmark tree should carry one entry per section the run produced —
+   including any custom section you enabled — and the cover, running headers and page
+   numbers should be present. Try to edit it: it is encrypted with permissions denying
+   modification, with the content hash as the owner password.
+
+### Every marker is a door
+
+In the preview, hover a superscript footnote marker. The note's text appears as a tooltip
+— that is a `title` attribute, so turn JavaScript off and confirm it still does.
+
+4. Click the marker. You land on the note.
+5. Click the note's **evidence** link. For a source you should see the document's **full**
+   SHA-256, its tier, its licence note, and every claim in the run checked against it —
+   each excerpt printed verbatim, with the verifier's verdict and match ratio beside it. A
+   claim whose excerpt did not verify appears here saying so; that is the most important
+   thing this page can show.
+6. Find a marker on a **calculated** figure. It leads to the calculation walk: the formula,
+   the code version, and the inputs to their leaves. Every leaf should be a fact or an
+   assumption — never another calculation. An assumption states its justification in place;
+   a fact links on to the document it was reported in, where its artefact digest is.
+
+If any marker leads nowhere, that is the defect this whole surface exists to prevent.
+
+### The vault, if you have one configured
+
+Set `AER_OBSIDIAN_VAULT_ROOT` (and `AER_OBSIDIAN_PERSONAL_ROOT`, to a directory that is
+**not** inside it) and export the report from the report page.
+
+7. Open the vault in Obsidian. Every wiki-link should resolve — no broken-link styling
+   anywhere, including in the industry, catalyst and competitor notes.
+8. Write something below the `<!-- AER:END-GENERATED -->` marker in a company note, then
+   export again. Your text must be exactly as you left it, and the marker must appear once.
+9. Export the same report twice and compare the vault's files: they should be byte-identical
+   between exports. Only the `obsidian_exports` row differs, because only the act differs.
+10. Try to export an **unapproved** report. The page should refuse and say why.
+
+---
+
 ## What is not covered here, and why
 
 **Restart resilience of the queue.** arq's own persistence is not something this project

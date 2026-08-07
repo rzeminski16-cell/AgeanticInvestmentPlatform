@@ -124,6 +124,8 @@
   .footnotes ol { margin: 0.4rem 0 0 1.4rem; padding: 0; }
   .footnotes li { margin: 0.35rem 0; }
   .backref { text-decoration: none; margin-left: 0.3rem; }
+  .drill { font-family: "DejaVu Sans", sans-serif; font-size: 0.75rem; margin-left: 0.4rem;
+           color: var(--muted); }
   .appendix td a { word-break: break-all; }
 
   .doc-footer { margin-top: 2.5rem; border-top: 1pt solid var(--rule); padding-top: 0.8rem; }
@@ -225,6 +227,10 @@
     {% for footnote in footnotes %}
     <li id="fn-{{ footnote.number }}" value="{{ footnote.number }}">
       {{ footnote.text }}
+      {% if footnote.drill_href %}
+      <a class="drill" href="{{ footnote.drill_href }}"
+         title="The excerpt, verification state and artefact digest behind this note">evidence</a>
+      {% endif %}
       {% if footnote.number in referenced %}
       <a class="backref" href="#fnref-{{ footnote.number }}" aria-label="Back to reference">↩</a>
       {% endif %}

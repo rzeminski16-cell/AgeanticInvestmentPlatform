@@ -75,6 +75,16 @@
               <tr class="border-b border-slate-200 dark:border-slate-800">
                 <th scope="row" class="py-2 pr-4 text-left font-normal">
                   <span style="padding-left: {{ node.depth }}rem">{{ node.label or node.kind }}</span>
+                  {% if node.kind == 'assumption' and node.detail.justification %}
+                    {# The justification, in place. An assumption is the judgement in a
+                       chain of measurements; naming it without saying why would make the
+                       one arguable input the one nobody can argue with. #}
+                    <span
+                      class="mt-0.5 block text-xs text-slate-500"
+                      style="padding-left: {{ node.depth }}rem"
+                      data-field="justification"
+                    >{{ node.detail.justification }}</span>
+                  {% endif %}
                 </th>
                 <td class="py-2 pr-4">
                   <span class="font-mono text-xs">{{ node.kind }}</span>
@@ -94,6 +104,15 @@
                       href="/requests/{{ request_id }}/assumptions/{{ node.id }}"
                       class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
                     >the assumption</a>
+                  {% elif node.kind == 'fact' and job_id and node.detail.source_document_id %}
+                    {# The end of the walk: the document the figure was reported in, with
+                       its artefact digest. A leaf that only said "a reported figure"
+                       would stop one step short of the bytes. #}
+                    <a
+                      href="/runs/{{ job_id }}/sources#source-{{ node.detail.source_document_id }}"
+                      class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
+                      data-field="fact-source"
+                    >the document it was reported in</a>
                   {% elif node.kind == 'fact' %}
                     <span class="text-xs text-slate-500">
                       a reported figure &mdash; see the sources for this run

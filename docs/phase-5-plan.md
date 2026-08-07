@@ -717,3 +717,64 @@ to the artefact hash that supports it.
 resolvable regardless of section origin, custom sections at institutional quality with no
 user HTML, a vault that opens cleanly with working links, user content under sentinels
 preserved.
+
+**Delivered (2026-08-07).** Every marker in a rendered document is now a door.
+`ReportDocument` carries the `job_id` it was assembled from, so the HTML notation can write
+each footnote's `evidence` link, and every marker anchor carries a `title` — the hover
+preview is an attribute, not a script, and the in-document `#fn-n` link stays exactly where
+it was so the archived HTML and the PDF remain self-contained. `GET /runs/{id}/footnotes/{n}`
+is the drill-down: it **re-assembles the same document with the same inputs** (one
+`_run_document` shared with the preview, because a marker number only means something if
+both pages assemble the same document), then answers by kind — a source marker with the
+full artefact digest, tier, licence note and every claim in the run checked against it,
+each excerpt verbatim with its verdict and match ratio; a calculation marker with a 303 to
+the existing walk rather than a second copy of it; an unresolvable citation with the
+document's own words, from one shared `UnresolvedFootnote.statement` rendered by both
+surfaces so a reader who follows a broken marker is never told a softer story. The walk
+itself gained its last two steps: a fact leaf links on to the source row it was reported in
+(`#source-{id}`, new anchor on the sources table), and an assumption leaf states its
+justification in place — the one arguable input was the one nobody could argue with.
+`provenance.source_detail` and `provenance.claims_citing` are the new read-side; nothing
+about admissibility or verification is decided there.
+
+Close-out: `tests/test_phase5_acceptance.py` states the five `docs/PLAN.md` criteria as five
+tests against **one** FakeProvider run driven through both gates to an approved, frozen
+report with an enabled §2.12 custom section — the PDF bookmarks every section including the
+custom one and serves bytes whose digest matches its header; every marker in the approved
+report resolves; the custom section renders through the generic contract walk, is attributed
+as the operator's own, and renders planted markup as text; the exported vault's every
+`[[link]]` resolves; a hand-written half under the sentinel survives a re-export byte for
+byte. Driving a run is now reusable (`tests/run_fixtures.py`), and the shared scripted brain
+answers `CustomSectionDraft` from the contract in the prompt, so `make_provider()` can drive
+a run with custom sections enabled. Tests: 18 in `tests/test_provenance_drilldown.py`
+(including the exhibit caption walking back the same way, the walk reaching only facts and
+assumptions, and a fact leaf reaching the artefact digest), 8 acceptance, and 2 e2e — a
+browser clicking from a marker to the digest, once with scripting on and once with it off.
+Two cross-test leaks the new fixtures introduced were found by the full suite and closed:
+the evidence builder now commits a company keyed by its listing *and* its CIK, so both
+provenance modules truncate after as well as before (the reasoning `test_run_api.py`
+already carries), and `test_exhibits.py` kept its own marker pattern, which the hover
+title broke.
+The golden HTML was deliberately re-recorded for the hover titles and evidence links, and
+the golden scene's job id is now pinned like its other ids, since the document carries it.
+A 23-mutation sabotage pass covered the job id, the drill href, the hover map, the chart
+titles, the back-reference, the marker bound, the off-by-one reference, both unresolved
+branches, the citation filter, the ownership check, the walk's `job_id`, the citing
+predicate, the claim list, the digest, the licence note, the shared statement, the
+fact-leaf link, the justification, the source anchor and the custom-analysis chip. Four
+escaped on the first run, and each named a real gap rather than a bad mutation: the golden
+document carries no exhibits, so nothing held the *chart* captions' hover titles (the
+exhibit test now asserts them); both claims in the fixture cite one document, so filtering
+citations by source was indistinguishable from not filtering (a new test gives one claim a
+second source and asserts the other document's excerpt stays off this document's page);
+truncating the claim list was aimed at a test whose assertion the arbitrary claim order
+could satisfy either way (retargeted at the test asserting *both* claims); and the
+contents page carries the words "Custom analysis" too, so a bare text search passed with
+the per-section attribution chip deleted (the assertion now matches the chip by class).
+The re-run caught 22 of 23 — the citation-filter mutation was still aimed at the old test
+rather than the new one written for it — and that last mutation was then re-run against
+its own test and caught.
+
+README and `docs/manual-verification.md` gained the Phase 5 surfaces: the new endpoints, one
+document in three notations, the walk from a figure to the bytes, the vault as a projection,
+and WeasyPrint's native-stack requirement.
