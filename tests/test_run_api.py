@@ -37,6 +37,7 @@ from aer.db.models import (
     Approval,
     AuditEvent,
     Calculation,
+    Company,
     Cost,
     Job,
     JobCancellation,
@@ -1162,6 +1163,116 @@ class TestTheWebPages:
         page = await api.get(f"/requests/{committed['request'].id}")
         assert 'id="open-run"' in page.text
         assert f"/runs/{body['job_id']}" in page.text
+
+
+class TestTheHistorySurfaces:
+    """Task 49's pages and API, over directly seeded approved reports."""
+
+    async def _seed_approved(
+        self, committed: dict, db_engine: Any, *, ticker: str = "MSFT", exchange: str = "NASDAQ"
+    ) -> tuple[uuid.UUID, uuid.UUID]:
+        """One company with one approved report and one draft; ids of both rows."""
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            company = Company(
+                name="MICROSOFT CORP", cik="0000789019", ticker=ticker, exchange=exchange
+            )
+            session.add(company)
+            await session.flush()
+
+            approved_job = Job(
+                request_id=committed["request"].id,
+                workflow_version="vertical_slice_v1",
+                code_version="historyseed12345",
+                status=JobStatus.SUCCEEDED,
+            )
+            draft_job = Job(
+                request_id=committed["request"].id,
+                workflow_version="vertical_slice_v1",
+                code_version="historyseed12345",
+                status=JobStatus.SUCCEEDED,
+            )
+            session.add_all([approved_job, draft_job])
+            await session.flush()
+
+            approved = Report(
+                job_id=approved_job.id,
+                request_id=committed["request"].id,
+                company_id=company.id,
+                as_of_date=committed["request"].as_of_date,
+                valuation_low=Decimal("180"),
+                valuation_high=Decimal("220"),
+                valuation_currency="USD",
+                content={"markdown": "approved"},
+                content_hash="c" * 64,
+                approved_at=datetime(2022, 1, 15, 10, 0, tzinfo=UTC),
+                immutable=True,
+            )
+            draft = Report(
+                job_id=draft_job.id,
+                request_id=committed["request"].id,
+                company_id=company.id,
+                as_of_date=committed["request"].as_of_date,
+                content={"markdown": "draft"},
+                content_hash="d" * 64,
+                immutable=False,
+            )
+            session.add_all([approved, draft])
+            await session.commit()
+            return company.id, approved.id
+
+    async def test_the_reports_page_groups_and_filters(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        company_id, _ = await self._seed_approved(committed, db_engine)
+
+        page = await api.get("/reports")
+        assert page.status_code == 200
+        assert "Microsoft Corporation (MSFT)" in page.text
+        assert ">Approved<" in page.text
+        assert ">Draft<" in page.text  # the work list shows drafts, badged
+        assert f"/companies/{company_id}" in page.text
+
+        filtered = await api.get("/reports", params={"company": "zzz"})
+        assert 'id="no-reports"' in filtered.text
+
+    async def test_the_company_page_shows_history_and_only_history(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        company_id, approved_id = await self._seed_approved(committed, db_engine)
+
+        page = await api.get(f"/companies/{company_id}")
+        assert page.status_code == 200
+        assert 'id="report-timeline"' in page.text
+        assert f"/reports/{approved_id}" in page.text
+        # The draft is not history: the one approved report is the whole timeline.
+        assert page.text.count("as of 2") == 1
+        assert 'id="valuation-history-chart"' in page.text
+        assert "data:image/svg+xml;base64," in page.text
+        assert "180 to 220 USD per share" in page.text
+
+    async def test_the_history_api_serves_mine_and_refuses_theirs(
+        self, api: Any, committed: dict, db_engine: Any, someone_elses_run: uuid.UUID
+    ) -> None:
+        company_id, approved_id = await self._seed_approved(committed, db_engine)
+
+        mine = await api.get(f"/api/companies/{company_id}/history")
+        assert mine.status_code == 200
+        body = mine.json()
+        assert body["ticker"] == "MSFT"
+        assert [report["report_id"] for report in body["reports"]] == [str(approved_id)]
+
+        # The other user's request created RIO on LSE; a company row for it is theirs,
+        # not mine, and answers as if it did not exist.
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            rio = Company(name="RIO TINTO PLC", cik="0000863064", ticker="RIO", exchange="LSE")
+            session.add(rio)
+            await session.commit()
+            rio_id = rio.id
+
+        theirs = await api.get(f"/api/companies/{rio_id}/history")
+        assert theirs.status_code == 404
 
 
 async def _to_second_gate(api: Any, committed: dict, driver: Driver) -> uuid.UUID:

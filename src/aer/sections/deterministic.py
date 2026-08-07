@@ -35,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.db.models import Disagreement, Evaluation, Job, ResearchRequest, SectionStatus
 from aer.eval import THRESHOLDS, Direction, Metric
 from aer.sections.registry import sections_for_job
+from aer.services.history import prior_comparison_content
 
 __all__ = ["BUILDERS", "SectionStage", "fill_deterministic_sections"]
 
@@ -109,21 +110,18 @@ async def fill_deterministic_sections(
 
 
 async def _prior_research_comparison(
-    session: AsyncSession,  # noqa: ARG001 -- task 49's builder queries prior reports here
-    job: Job,  # noqa: ARG001
+    session: AsyncSession,
+    job: Job,
     request: ResearchRequest,
 ) -> dict[str, Any]:
-    """The honest first-run state. Task 49 replaces the body with the history builder.
+    """What earlier approved research concluded, against this run — rows, never judgement.
 
-    An empty ``comparisons`` list is omitted rather than rendered, so the section reads as
-    one sentence — which is exactly what a first run has to say.
+    Delegates to :func:`aer.services.history.prior_comparison_content`: a first run gets
+    the honest one-sentence state, and a later run gets the prior view, confidence and
+    valuation range plus every prior catalyst (dated against this run's as-of) and key
+    risk, each row carrying the prior ``report_id``.
     """
-    return {
-        "commentary": (
-            f"This is the first research run for {request.company_name} "
-            f"({request.ticker}). No prior approved report exists to compare against."
-        ),
-    }
+    return await prior_comparison_content(session, job_id=job.id, request=request)
 
 
 # -- Validation & disagreements ------------------------------------------------------------

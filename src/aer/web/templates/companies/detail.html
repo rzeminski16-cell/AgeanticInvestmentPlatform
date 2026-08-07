@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{# The section 2.7 company page: what this account has concluded about one listing over
+   time. Approved reports only — a draft was never agreed to and cannot become "what we
+   used to think". #}
+
+{% block title %}{{ company.ticker }} &middot; Company history{% endblock %}
+
+{% block content %}
+  <h1 class="text-2xl font-semibold tracking-tight">{{ company.name }}</h1>
+  <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+    <span class="font-mono">{{ company.ticker }}</span> &middot; {{ company.exchange }}
+  </p>
+
+  <section class="mt-8" id="valuation-history">
+    <h2 class="text-lg font-semibold tracking-tight">Valuation history</h2>
+    <figure class="mt-3">
+      <img
+        src="{{ chart_uri }}"
+        alt="Valuation range history"
+        class="w-full rounded-md border border-slate-200 bg-white dark:border-slate-800"
+        id="valuation-history-chart"
+      />
+      <figcaption class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        {{ chart_caption }}
+      </figcaption>
+    </figure>
+  </section>
+
+  <section class="mt-8" id="report-timeline">
+    <h2 class="text-lg font-semibold tracking-tight">Approved reports</h2>
+    {% if not timeline %}
+      <p class="mt-2 text-sm text-slate-600 dark:text-slate-400" id="no-approved-reports">
+        No approved report exists for this company yet. Drafts and rejected runs do not
+        appear here: history is only what somebody agreed to.
+      </p>
+    {% else %}
+      <ol class="mt-3 space-y-3">
+        {% for view in timeline %}
+          <li
+            class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+          >
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              <a
+                href="/reports/{{ view.report_id }}"
+                class="font-mono text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
+              >
+                as of {{ view.as_of_date.isoformat() }}
+              </a>
+              <span class="text-sm">{{ view.rating or "no view reached" }}</span>
+            </div>
+            <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Valuation: {{ view.valuation_range }}
+              {% if view.confidence is not none %}
+                &middot; confidence {{ "%.0f%%" | format(view.confidence * 100) }}
+              {% endif %}
+            </p>
+          </li>
+        {% endfor %}
+      </ol>
+    {% endif %}
+  </section>
+
+  <section class="mt-8" id="prior-catalysts">
+    <h2 class="text-lg font-semibold tracking-tight">Prior catalysts, and what happened</h2>
+    {% if not catalyst_outcomes %}
+      <p class="mt-2 text-sm text-slate-600 dark:text-slate-400" id="no-catalysts">
+        No approved report has recorded catalysts yet.
+      </p>
+    {% else %}
+      <div class="mt-3 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+        <table class="w-full bg-white text-sm dark:bg-slate-900">
+          <thead
+            class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800"
+          >
+            <tr>
+              <th class="px-3 py-2">Catalyst</th>
+              <th class="px-3 py-2">Expected</th>
+              <th class="px-3 py-2">Status today</th>
+              <th class="px-3 py-2">From report</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+            {% for outcome in catalyst_outcomes %}
+              <tr>
+                <td class="px-3 py-2">{{ outcome.label }}</td>
+                <td class="px-3 py-2">{{ outcome.expected_timing }}</td>
+                <td class="px-3 py-2">
+                  {% if outcome.status == "passed" %}
+                    <span
+                      class="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-200"
+                      >Window passed</span
+                    >
+                  {% elif outcome.status == "pending" %}
+                    <span
+                      class="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-900 dark:bg-sky-950 dark:text-sky-200"
+                      >Pending</span
+                    >
+                  {% else %}
+                    <span class="text-xs text-slate-500">Undated</span>
+                  {% endif %}
+                </td>
+                <td class="px-3 py-2">
+                  <a
+                    href="/reports/{{ outcome.prior_report_id }}"
+                    class="font-mono text-xs text-sky-700 underline underline-offset-2 dark:text-sky-400"
+                  >
+                    {{ outcome.prior_report_id | string | truncate(8, true, "") }}&hellip;
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+        &ldquo;Window passed&rdquo; is a statement about the calendar, not about whether the
+        event occurred &mdash; that judgement belongs to the next run&rsquo;s analysis.
+      </p>
+    {% endif %}
+  </section>
+{% endblock %}

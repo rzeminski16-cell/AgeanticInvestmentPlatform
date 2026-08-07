@@ -29,6 +29,7 @@ from aer.api.routes import (
     assumptions,
     calculations,
     claims,
+    companies,
     health,
     plans,
     reports,
@@ -159,6 +160,7 @@ def create_app(settings: Settings | None = None, *, state: AppState | None = Non
     app.include_router(plans.router)
     app.include_router(runs.router)
     app.include_router(reports.router)
+    app.include_router(companies.router)
     app.include_router(skills.router)
     app.include_router(web_routes.router)
     app.include_router(web_pages.router)

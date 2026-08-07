@@ -24,6 +24,7 @@ from aer.charts.builders import (
     scenario_bridge,
     segment_mix,
     sensitivity_heatmap,
+    valuation_history,
 )
 from aer.charts.model import (
     Chart,
@@ -40,6 +41,8 @@ from aer.charts.model import (
     SegmentMixInput,
     SegmentShare,
     SeriesPoint,
+    ValuationHistoryInput,
+    ValuationRangePoint,
     ValueBand,
     svg_data_uri,
 )
@@ -59,6 +62,8 @@ __all__ = [
     "SegmentMixInput",
     "SegmentShare",
     "SeriesPoint",
+    "ValuationHistoryInput",
+    "ValuationRangePoint",
     "ValueBand",
     "football_field",
     "football_field_with_comps",
@@ -68,4 +73,5 @@ __all__ = [
     "segment_mix",
     "sensitivity_heatmap",
     "svg_data_uri",
+    "valuation_history",
 ]

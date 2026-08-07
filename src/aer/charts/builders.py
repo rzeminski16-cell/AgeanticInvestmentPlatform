@@ -27,6 +27,7 @@ from aer.charts.model import (
     RevenueMarginInput,
     ScenarioBridgeInput,
     SegmentMixInput,
+    ValuationHistoryInput,
     ValueBand,
 )
 from aer.charts.style import AMBER, INK, MUTED, PALETTE, RULE, pinned_context, render_svg
@@ -42,6 +43,7 @@ __all__ = [
     "scenario_bridge",
     "segment_mix",
     "sensitivity_heatmap",
+    "valuation_history",
 ]
 
 # One canvas for the whole pack. A pack whose exhibits jump in size reads as assembled
@@ -345,6 +347,57 @@ def price_relative(data: PriceRelativeInput, *, hashsalt: str) -> Chart:
         caption=caption,
         exportable=False,
         licence_note=data.licence_note,
+    )
+
+
+def valuation_history(data: ValuationHistoryInput, *, hashsalt: str) -> Chart:
+    """Approved per-share ranges over time — how the view moved between reports.
+
+    Exportable: every band end is a figure from one of this account's own approved
+    reports. The caption names the population; the company page beside it lists the
+    reports themselves, so this chart carries no markers of its own.
+    """
+    key, title = "valuation_history", "Valuation range history"
+    if data.is_empty:
+        return _placeholder(
+            key=key,
+            title=title,
+            message="No approved report has recorded a valuation range yet.",
+            hashsalt=hashsalt,
+        )
+
+    with pinned_context(hashsalt=hashsalt):
+        figure = Figure(figsize=_SIZE)
+        axis = figure.add_subplot()
+        positions = range(len(data.points))
+        for index, point in enumerate(data.points):
+            low, high = float(point.low), float(point.high)
+            axis.vlines(index, low, high, color=PALETTE[0], linewidth=6, alpha=0.85)
+            axis.text(
+                index,
+                high,
+                f" {point.high:.2f}",
+                ha="center",
+                va="bottom",
+                fontsize=7,
+                color=MUTED,
+            )
+            axis.text(
+                index, low, f" {point.low:.2f}", ha="center", va="top", fontsize=7, color=MUTED
+            )
+        axis.set_xticks(list(positions), [point.as_of.isoformat() for point in data.points])
+        axis.set_ylabel(f"Value per share, {data.currency}" if data.currency else "Value per share")
+        axis.margins(y=0.18)
+        axis.set_title(title)
+
+    return Chart(
+        key=key,
+        title=title,
+        svg=render_svg(figure, hashsalt=hashsalt),
+        caption=(
+            f"Per-share valuation ranges from {len(data.points)} approved report(s), "
+            "in as-of date order."
+        ),
     )
 
 

@@ -512,6 +512,44 @@ user's company; the valuation-history chart is byte-stable.
 **Acceptance.** The §2.7 company page exists: timeline, valuation history, prior
 catalysts and what happened; the comparison section appears in the report itself.
 
+**Delivered (2026-08-07).** `aer/services/history.py`: approved reports only — the
+`immutable` flag, which only an approval sets, is the whole filter, so a draft or a
+rejected run can never quietly become "what we used to think"; `company_for_user` makes a
+company visible only to an account that researched it; `approved_reports_for` takes a
+`before` bound so a comparison can never read the future. `prior_comparison_content`
+fills the position-900 section from rows alone: a first run keeps the one-sentence honest
+state, and a later run gets the most recent prior's view, confidence and valuation range
+(the current side read from this run's own base-case `value_per_share` rows — the same
+read the football field makes — or an honest "not computed"), then every prior report's
+catalysts and key risks, each row carrying its `prior_report_id`. Catalyst timings are
+the prior analyst's free text and become dates only where an unambiguous shape matches
+(ISO, year, quarter, half); "passed" is a statement about the calendar, never about
+whether the event occurred. The deterministic builder in `sections/deterministic.py` now
+delegates to the service, with the delegation itself held by test. **The
+no-hardcoded-section-key scan caught this task's first design** — the reader named
+`catalysts` and `key_risks`, making two rows a code dependency — so prior items are now
+collected by the *fields they carry* (`CATALYST_FIELDS`, `RISK_FIELDS`), the same
+convention as the renderer's citation keys: a custom section whose items carry those
+fields joins history exactly as it gains citations, with no code change. New surfaces:
+`/reports` (grouped by company, drafts badged, filterable), `/companies/{id}` (the §2.7
+page: approved-report timeline, prior catalysts dated against today, and the
+`valuation_history` chart — a new exportable builder salted with the company id, byte-
+stable by the same pinning as the rest of the pack), and `GET
+/api/companies/{id}/history` (approved reports oldest-first; another user's company
+answers 404 exactly as a missing one). Numeric display trims the storage scale — a
+`Numeric(18,4)` round-trip is not a precision claim. Tests: only-approved history, the
+before bound, company invisibility, catalyst dating including the parser's refusals, the
+comparison rows' prior-report ids, scenario rows staying out of the base-case range,
+builder delegation, first-run honesty, chart byte-stability and placeholder, and the
+three surfaces (grouping and filtering, timeline-without-drafts with the chart, API
+mine-versus-theirs). A 12-mutation sabotage pass — the immutable filter, the before
+bound, both ownership checks, catalyst dating and the quarter parser, the row ids, the
+base-case filter, the builder delegation, the chart placeholder, the draft badge and the
+page filter — was caught in full on the first run; two of those catches rest on tests
+strengthened pre-emptively while planning the pass (a scenario row that must not widen
+the base-case range, and the builder delegation itself). No migration and no ADR: rows
+already existed, and no invariant moved.
+
 ---
 
 ## Task 50 — The Obsidian exporter: vault writer and anti-contamination

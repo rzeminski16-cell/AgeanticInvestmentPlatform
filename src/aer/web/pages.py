@@ -22,6 +22,8 @@ implementation.
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -38,7 +40,12 @@ from starlette.status import (
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
 from aer.calc.comps import MULTIPLE_DEFINITIONS, CompsTable
-from aer.charts import svg_data_uri
+from aer.charts import (
+    ValuationHistoryInput,
+    ValuationRangePoint,
+    svg_data_uri,
+    valuation_history,
+)
 from aer.core.enums import Decision, GateKind, JobStatus
 from aer.core.escalation import COST_ALERT_RATIO
 from aer.db.models import (
@@ -60,6 +67,7 @@ from aer.render.markdown import render_markdown
 from aer.services import approvals as approval_service
 from aer.services import calculations as calculation_service
 from aer.services import cancellation as cancellation_service
+from aer.services import history as history_service
 from aer.services import provenance
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
@@ -849,6 +857,121 @@ async def calculation_detail(
             "lineage": lineage_rows(tree),
             "request_id": job.request_id,
             "back_href": f"/runs/{job.id}/valuation",
+        },
+    )
+    return page
+
+
+@router.get("/reports", response_class=HTMLResponse, summary="Report history")
+async def reports_index(
+    request: Request,
+    session: DbSession,
+    user: CurrentUser,
+) -> Response:
+    """Every report this account has produced, grouped by company, newest first.
+
+    Drafts appear marked as such — this is the account's own work list — but the
+    *history* surfaces (the company page, the API, the comparison section) show approved
+    reports only; the grouping here links through to those.
+    """
+    company_filter = str(request.query_params.get("company", "")).strip()
+
+    fetched = await session.execute(
+        select(Report, ResearchRequest)
+        .join(ResearchRequest, ResearchRequest.id == Report.request_id)
+        .where(ResearchRequest.user_id == user.id)
+        .order_by(Report.as_of_date.desc(), Report.created_at.desc())
+    )
+    rows: list[tuple[Report, ResearchRequest]] = [(report, req) for report, req in fetched.tuples()]
+    if company_filter:
+        needle = company_filter.lower()
+        rows = [
+            (report, req)
+            for report, req in rows
+            if needle in req.ticker.lower() or needle in req.company_name.lower()
+        ]
+
+    groups: dict[str, dict[str, Any]] = {}
+    for report, req in rows:
+        label = f"{req.company_name} ({req.ticker})"
+        group = groups.setdefault(label, {"label": label, "company_id": None, "reports": []})
+        if report.company_id is not None:
+            group["company_id"] = report.company_id
+        group["reports"].append({"report": report, "request": req})
+
+    page: Response = render(
+        request,
+        "reports/index.html",
+        {
+            "groups": list(groups.values()),
+            "company_filter": company_filter,
+            "total": len(rows),
+        },
+    )
+    return page
+
+
+@router.get(
+    "/companies/{company_id}", response_class=HTMLResponse, summary="A company's research history"
+)
+async def company_page(
+    request: Request,
+    company_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+) -> Response:
+    """The section 2.7 page: timeline, valuation history, prior catalysts and what happened.
+
+    Approved reports only — the history a decision could rest on. The valuation chart is
+    the deterministic exportable builder salted with the company id, so the page shows
+    the same bytes on every load.
+    """
+    company = await history_service.company_for_user(
+        session, company_id=company_id, user_id=user.id
+    )
+    if company is None:
+        return _problem(request, f"No company {company_id}.", status=HTTP_404_NOT_FOUND)
+
+    views = await history_service.valuation_history_for(session, company_id=company.id)
+
+    chart = valuation_history(
+        ValuationHistoryInput(
+            currency=next(
+                (view.valuation_currency for view in views if view.valuation_currency), ""
+            ),
+            points=tuple(
+                ValuationRangePoint(
+                    as_of=view.as_of_date,
+                    low=Decimal(view.valuation_low),
+                    high=Decimal(view.valuation_high),
+                )
+                for view in views
+                if view.valuation_low is not None and view.valuation_high is not None
+            ),
+        ),
+        hashsalt=str(company.id),
+    )
+
+    today = datetime.now(UTC).date()
+    catalyst_rows: list[Any] = []
+    for view in reversed(views):  # newest report's catalysts first
+        prior = await session.get(Report, view.report_id)
+        if prior is None:  # pragma: no cover -- the view was built from this row
+            continue
+        catalyst_rows.extend(
+            await history_service.catalyst_outcomes_for(session, prior=prior, as_of=today)
+        )
+
+    page: Response = render(
+        request,
+        "companies/detail.html",
+        {
+            "company": company,
+            "timeline": list(reversed(views)),
+            "chart_uri": svg_data_uri(chart.svg),
+            "chart_caption": chart.caption,
+            "chart_is_placeholder": chart.placeholder,
+            "catalyst_outcomes": catalyst_rows,
         },
     )
     return page

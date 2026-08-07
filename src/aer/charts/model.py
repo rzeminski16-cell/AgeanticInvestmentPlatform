@@ -30,6 +30,8 @@ __all__ = [
     "SegmentMixInput",
     "SegmentShare",
     "SeriesPoint",
+    "ValuationHistoryInput",
+    "ValuationRangePoint",
     "ValueBand",
     "svg_data_uri",
 ]
@@ -191,6 +193,28 @@ class PriceRelativeInput:
     @property
     def is_empty(self) -> bool:
         return not any(series.points for series in self.series)
+
+
+@dataclass(frozen=True, slots=True)
+class ValuationRangePoint:
+    """One approved report's per-share range, on the day it was taken."""
+
+    as_of: date
+    low: Decimal
+    high: Decimal
+    label: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ValuationHistoryInput:
+    """The company page's range-over-time chart. Own recorded figures only."""
+
+    currency: str = ""
+    points: tuple[ValuationRangePoint, ...] = ()
+
+    @property
+    def is_empty(self) -> bool:
+        return not self.points
 
 
 def svg_data_uri(svg: str) -> str:
