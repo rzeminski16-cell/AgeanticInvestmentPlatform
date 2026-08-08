@@ -231,8 +231,11 @@ _TOOL_BRIEFS: Final[dict[str, str]] = {
         "has acquired. Returns those documents with their ids and tiers."
     ),
     "fetch_known_url": (
-        "fetch_known_url — query: one URL a source you were shown already names. Fetches "
-        "it through the platform's fetch layer. Never a URL you composed yourself."
+        "fetch_known_url — query: one URL, on a host whose documents search_sources has "
+        "already shown you. Fetches and archives it, and gives you back its text and a "
+        "new source document id you can cite. A host this run holds nothing from is "
+        "refused, however plausible the URL: the platform never learns a new host from a "
+        "request."
     ),
 }
 

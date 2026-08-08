@@ -35,7 +35,7 @@ from aer.agents.worker import (
     WorkerTurn,
     investigate,
 )
-from aer.config import Settings
+from aer.config import Settings, load_settings
 from aer.core.enums import FactBasis, JobStatus, Provider, SourceTier, UserRole
 from aer.db.models import (
     Artefact,
@@ -47,6 +47,8 @@ from aer.db.models import (
     SourceDocument,
     User,
 )
+from aer.fetch.client import FetchResult
+from aer.fetch.errors import UrlNotAllowedError
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
 from aer.services.research import build_executors, validate_report
@@ -429,6 +431,249 @@ class TestTheWorkerIsToldWhatItHas:
         [system] = [call["system"] for call in provider.calls]
         assert "search_facts" in system
         assert "search_sources" not in system
+
+
+def _tool_request(tool: str, query: str) -> ToolRequest:
+    return ToolRequest(tool=tool, query=query, why="because the test says so")
+
+
+class _RecordingFetcher:
+    """A SafeFetcher stand-in that archives to the real store and records its arguments.
+
+    Deliberately not a mock of the whole fetch layer: what these tests must prove is what
+    this executor *hands* the fetcher — the host and the provider — because everything
+    downstream of that is the fetcher's own, and has its own suite.
+    """
+
+    def __init__(
+        self,
+        *,
+        body: bytes = b"<html><body><p>Nothing much.</p></body></html>",
+        raises: Exception | None = None,
+    ) -> None:
+        self._body = body
+        self._raises = raises
+        self.urls: list[str] = []
+        self.providers: list[Provider] = []
+        self.extra_hosts: list[tuple[str, ...]] = []
+        self.store: Any = None
+
+    async def fetch(
+        self, url: str, *, provider: Provider, extra_hosts: tuple[str, ...] = (), **_: Any
+    ) -> FetchResult:
+        if self._raises is not None:
+            raise self._raises
+        self.urls.append(url)
+        self.providers.append(provider)
+        self.extra_hosts.append(extra_hosts)
+        stored = await self.store.put_bytes(self._body)
+        return FetchResult(
+            url=url,
+            final_url=url,
+            status_code=200,
+            sha256=stored.sha256,
+            size_bytes=len(self._body),
+            media_type="text/html",
+            declared_media_type="text/html",
+            headers={},
+            redirect_chain=(),
+            elapsed_ms=1.0,
+            attempts=1,
+        )
+
+
+@pytest.fixture
+async def fetch_scene(db_session: AsyncSession, tmp_path: Any, settings_env: Any) -> dict[str, Any]:
+    """A run holding exactly one document, from sec.gov, and nothing from anywhere else."""
+    user = User(email="worker-fetch@example.invalid", display_name="Fetch", role=UserRole.OWNER)
+    db_session.add(user)
+    await db_session.flush()
+
+    request = ResearchRequest(
+        user_id=user.id,
+        company_name="Contoso Corporation",
+        ticker="CTSO",
+        exchange="NASDAQ",
+        as_of_date=date(2023, 1, 1),
+        base_currency="USD",
+        investment_horizon_months=12,
+        max_cost_gbp="2.50",
+        portfolio_context={},
+    )
+    db_session.add(request)
+    await db_session.flush()
+
+    payload = b"<html>Contoso 10-K</html>"
+    artefact = Artefact(
+        sha256="b" * 64, media_type="text/html", size_bytes=len(payload), storage_key="bb/b"
+    )
+    db_session.add(artefact)
+    await db_session.flush()
+
+    db_session.add(
+        SourceDocument(
+            request_id=request.id,
+            artefact_id=artefact.id,
+            url="https://www.sec.gov/Archives/edgar/contoso-10k.htm",
+            title="Contoso 10-K",
+            provider=Provider.SEC_EDGAR,
+            source_tier=SourceTier.T1_REGULATORY,
+            publication_date=date(2022, 6, 1),
+            retrieved_at=datetime.now(UTC),
+        )
+    )
+    await db_session.flush()
+
+    settings = load_settings()
+    store = LocalArtefactStore(tmp_path / "fetched", max_bytes=settings.max_artefact_bytes)
+    return {
+        "session": db_session,
+        "request": request,
+        "store": store,
+        "settings": settings,
+    }
+
+
+class TestFetchingAKnownUrl:
+    """The one tool that reaches outside, and the rule that keeps it safe.
+
+    `aer.sources.issuer` states the invariant this has to respect: "there is no code path
+    that learns a new domain from a page and then fetches it, because the one thing an
+    attacker who controls a page wants is exactly that." A worker reads untrusted evidence,
+    so a URL it hands back *is* untrusted text. The model picks the path; code picks the
+    host, from documents the run already holds.
+    """
+
+    @staticmethod
+    def _executors(scene: dict[str, Any], fetcher: Any) -> dict[str, Any]:
+        fetcher.store = scene["store"]
+        return build_executors(
+            scene["session"],
+            request=scene["request"],
+            fetcher=fetcher,
+            store=scene["store"],
+            settings=scene["settings"],
+        )
+
+    async def test_a_host_this_run_never_touched_is_refused_without_a_fetch(
+        self, fetch_scene: dict[str, Any]
+    ) -> None:
+        """The control. The run holds an sec.gov document and nothing else."""
+        fetcher = _RecordingFetcher()
+        executors = self._executors(fetch_scene, fetcher)
+
+        outcome = await executors["fetch_known_url"](
+            _tool_request("fetch_known_url", "https://evil.invalid/press-release")
+        )
+
+        assert outcome.executed is False
+        assert "holds no document from that host" in outcome.refusal
+        assert fetcher.urls == [], "a refused host must never reach the fetch layer"
+
+    async def test_a_page_on_an_established_host_is_fetched_and_becomes_citable(
+        self, fetch_scene: dict[str, Any]
+    ) -> None:
+        """A finding can only cite ids the run holds, so a fetch that records no source
+        document is a fetch the worker cannot use."""
+        fetcher = _RecordingFetcher(
+            body=b"<html><body><p>Contoso raised guidance.</p></body></html>"
+        )
+        executors = self._executors(fetch_scene, fetcher)
+
+        outcome = await executors["fetch_known_url"](
+            _tool_request("fetch_known_url", "https://www.sec.gov/news/contoso")
+        )
+
+        assert outcome.executed is True
+        [record] = outcome.internal_results
+        [evidence] = outcome.untrusted_evidence
+        assert "Contoso raised guidance" in evidence["text"]
+
+        stored = await fetch_scene["session"].get(
+            SourceDocument, uuid.UUID(record["source_document_id"])
+        )
+        assert stored is not None
+        assert stored.request_id == fetch_scene["request"].id
+
+    async def test_the_host_is_passed_to_the_fetch_layer_to_be_checked_again(
+        self, fetch_scene: dict[str, Any]
+    ) -> None:
+        """This module's check is the cheap one; the allowlist belongs to the fetcher."""
+        fetcher = _RecordingFetcher()
+        executors = self._executors(fetch_scene, fetcher)
+
+        await executors["fetch_known_url"](
+            _tool_request("fetch_known_url", "https://www.sec.gov/news/contoso")
+        )
+
+        assert fetcher.extra_hosts == [("www.sec.gov",)]
+        # The provider the host was admitted under, not one this tool chose: provider is
+        # what decides the licence, the rate limit and the standing allowlist.
+        assert fetcher.providers == [Provider.SEC_EDGAR]
+
+    async def test_a_fetched_page_enters_at_the_weakest_tier(
+        self, fetch_scene: dict[str, Any]
+    ) -> None:
+        """A page a model picked is not the artefact the adapter was built to fetch, even
+        though it shares that adapter's host."""
+        executors = self._executors(fetch_scene, _RecordingFetcher())
+
+        outcome = await executors["fetch_known_url"](
+            _tool_request("fetch_known_url", "https://www.sec.gov/news/contoso")
+        )
+
+        # The stored row, not the answer's copy of it. Asserting only the answer let a
+        # mutation raise the *recorded* tier to T1 while the worker was still told T5.
+        record = outcome.internal_results[0]
+        stored = await fetch_scene["session"].get(
+            SourceDocument, uuid.UUID(record["source_document_id"])
+        )
+        assert stored is not None
+        assert stored.source_tier is SourceTier.T5_SECONDARY
+        assert record["tier"] == SourceTier.T5_SECONDARY.value
+
+    async def test_a_refusal_from_the_fetch_layer_is_reported_not_raised(
+        self, fetch_scene: dict[str, Any]
+    ) -> None:
+        """robots, SSRF and the size cap all refuse by raising. A refusal is something the
+        worker can act on; failing the node would lose the other four topics with it."""
+        fetcher = _RecordingFetcher(raises=UrlNotAllowedError("that host is not fetched here"))
+        executors = self._executors(fetch_scene, fetcher)
+
+        outcome = await executors["fetch_known_url"](
+            _tool_request("fetch_known_url", "https://www.sec.gov/news/contoso")
+        )
+
+        assert outcome.executed is False
+        assert "not fetched here" in outcome.refusal
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            # A host the run really does hold documents from, so the host check passes and
+            # the *scheme* is the only thing left standing between this and a fetch.
+            "ftp://www.sec.gov/pub/secrets",
+            "file:///etc/passwd",
+        ],
+    )
+    async def test_a_scheme_that_is_not_http_never_reaches_the_fetcher(
+        self, fetch_scene: dict[str, Any], url: str
+    ) -> None:
+        fetcher = _RecordingFetcher()
+        executors = self._executors(fetch_scene, fetcher)
+
+        outcome = await executors["fetch_known_url"](_tool_request("fetch_known_url", url))
+
+        assert outcome.executed is False
+        assert fetcher.urls == []
+
+    async def test_the_tool_is_absent_when_no_fetcher_is_bound(
+        self, fetch_scene: dict[str, Any]
+    ) -> None:
+        """Permission is not availability. A run with no fetcher offers the two searches."""
+        executors = build_executors(fetch_scene["session"], request=fetch_scene["request"])
+
+        assert set(executors) == {"search_facts", "search_sources"}
 
 
 class TestTheContractItself:

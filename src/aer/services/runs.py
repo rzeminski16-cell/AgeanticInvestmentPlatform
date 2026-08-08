@@ -141,6 +141,7 @@ async def execute(
     provider: LLMProvider,
     store: ArtefactStore,
     sec_client: Any,
+    fetcher: Any = None,
     stop_after: str | None = None,
     session_factory: Any = None,
 ) -> RunOutcome:
@@ -182,6 +183,10 @@ async def execute(
             "router": Router(settings),
             "store": store,
             "sec_client": sec_client,
+            # Optional in the same way `session_factory` is: supplied by the worker, absent
+            # in tests that want no network. A research worker offered no fetcher simply
+            # does not see `fetch_known_url` on its menu.
+            "fetcher": fetcher,
             # Present only where the caller runs with real sessions (the ARQ worker).
             # Without it the engine runs its waves one node at a time on this session,
             # which is what the savepoint-fixtured tests need.

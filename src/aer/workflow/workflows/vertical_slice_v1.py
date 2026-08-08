@@ -84,7 +84,7 @@ from aer.services.exhibits import exportable_charts_for
 from aer.services.extractions import record_excerpts
 from aer.services.facts import persist_facts, upsert_company
 from aer.services.red_team import run_red_team
-from aer.services.research import run_worker
+from aer.services.research import build_executors, run_worker
 from aer.services.sectors import (
     CLASSIFY_STEP,
     classification_payload,
@@ -1060,7 +1060,21 @@ def _research(topic: ResearchTopic) -> Any:
             job_step=context.step,
         )
         investigation = await run_worker(
-            agent_context, context.session, topic=topic, request=request
+            agent_context,
+            context.session,
+            topic=topic,
+            request=request,
+            # `fetch_known_url` appears on the worker's menu only where a fetcher was
+            # bundled. The registry grants the capability either way; this decides whether
+            # the run can act on it -- see `build_executors`.
+            executors=build_executors(
+                context.session,
+                request=request,
+                fetcher=context.services.get("fetcher"),
+                store=context.service("store"),
+                settings=context.service("settings"),
+                job_id=context.job.id,
+            ),
         )
         return StepResult(
             output={
