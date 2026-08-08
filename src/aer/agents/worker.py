@@ -200,6 +200,10 @@ class WorkerInput(BaseModel):
     as_of_date: str
     remaining_tool_calls: int
 
+    # Turns left, this one included. Told to the worker for the same reason the tool budget
+    # is: a bound it cannot see is a bound it cannot plan against -- see `user_message`.
+    remaining_rounds: int = 1
+
     # The tools this run can actually execute: the role's allowlist narrowed to the
     # executors that were bound. Permission is not availability — `fetch_known_url` is
     # granted to the role but absent until something binds a fetcher — and the worker needs
@@ -254,6 +258,9 @@ were shown. Ids you were not shown do not exist.
 3. Tool requests are executed by the platform's code, only within your remaining budget, \
 and only for the tools listed below. There are no others. Asking for a tool that is not \
 listed is refused and wastes a turn.
+3a. You are bounded twice: by tool calls and by turns. Each message tells you what is left \
+of both. Reaching the last turn without a report is a failure, and a report drawn from \
+partial evidence is worth more than none.
 4. Where the evidence cannot settle a question, record it as a lead rather than \
 stretching a finding.
 
@@ -292,7 +299,8 @@ class ResearchWorker(Agent[WorkerInput, WorkerTurn]):
         parts = [
             f"Investigate {payload.company_name} ({payload.ticker}), as of "
             f"{payload.as_of_date}. Topic: {payload.topic.value}.",
-            f"Remaining tool budget: {payload.remaining_tool_calls} call(s).",
+            f"Remaining tool budget: {payload.remaining_tool_calls} call(s). "
+            f"Remaining turns, this one included: {payload.remaining_rounds}.",
             f"Internal results so far, as data:\n{internal['internal_results']}",
         ]
         if payload.problems:
@@ -300,7 +308,18 @@ class ResearchWorker(Agent[WorkerInput, WorkerTurn]):
                 "Your previous report was refused for these reasons; fix them:\n- "
                 + "\n- ".join(payload.problems)
             )
-        if payload.remaining_tool_calls == 0:
+        if payload.remaining_rounds <= 1:
+            # **The bound that actually kills workers, and the one they were never told.**
+            # Only the tool budget had a warning, so a worker spending two calls a turn
+            # reached the fifth turn with calls to spare, was never once told to wrap up,
+            # and was failed for producing nothing. Five workers died that way in one run —
+            # one of them having spent seven of its twelve calls.
+            parts.append(
+                "This is your final turn. Deliver your report now. A report from partial "
+                "evidence is what is wanted here: state what you found, and record "
+                "everything you did not settle as leads."
+            )
+        elif payload.remaining_tool_calls == 0:
             parts.append("Your tool budget is spent. Deliver your report this turn.")
         return "\n\n".join(parts)
 
@@ -398,6 +417,7 @@ async def investigate(
                 ticker=ticker,
                 as_of_date=as_of_date,
                 remaining_tool_calls=max_tool_calls - spent,
+                remaining_rounds=max_rounds - round_number + 1,
                 available_tools=available,
                 internal_results=internal,
                 untrusted_evidence=untrusted,

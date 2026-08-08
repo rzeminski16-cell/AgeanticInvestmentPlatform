@@ -22,6 +22,7 @@ from aer.agents.registry import resolve_role
 from aer.agents.untrusted import CONTAINMENT_RULE
 from aer.agents.worker import (
     _TOOL_BRIEFS,
+    MAX_ROUNDS,
     MAX_TOOL_CALLS,
     ExecutedTool,
     ResearchTopic,
@@ -88,14 +89,17 @@ def _report_turn(
     )
 
 
-def _worker_input(*, available_tools: list[str]) -> WorkerInput:
+def _worker_input(
+    *, available_tools: list[str] | None = None, remaining_rounds: int = MAX_ROUNDS
+) -> WorkerInput:
     return WorkerInput(
         topic=ResearchTopic.COMPANY,
         company_name="Contoso",
         ticker="CTSO",
         as_of_date="2023-01-01",
         remaining_tool_calls=MAX_TOOL_CALLS,
-        available_tools=available_tools,
+        remaining_rounds=remaining_rounds,
+        available_tools=available_tools or [],
     )
 
 
@@ -674,6 +678,77 @@ class TestFetchingAKnownUrl:
         executors = build_executors(fetch_scene["session"], request=fetch_scene["request"])
 
         assert set(executors) == {"search_facts", "search_sources"}
+
+
+class TestTheWorkerKnowsWhenToStop:
+    """The bound that actually kills workers, and the one they were never told.
+
+    A live run failed all five workers with `worker_exhausted` and not one
+    ``worker.report_refused`` in the log — so no report was ever produced and refused. They
+    spent every turn asking for tools. Only the *tool* budget carried a warning, so a
+    worker spending two calls a turn reached the fifth turn with calls to spare, was never
+    once told to wrap up, and was failed for delivering nothing. One of them had used seven
+    of its twelve calls.
+    """
+
+    def test_every_turn_says_how_many_are_left(self) -> None:
+        message = ResearchWorker().user_message(_worker_input(remaining_rounds=3))
+
+        assert "Remaining turns, this one included: 3" in message
+
+    def test_the_last_turn_demands_the_report(self) -> None:
+        message = ResearchWorker().user_message(_worker_input(remaining_rounds=1))
+
+        assert "final turn" in message
+        assert "Deliver your report now" in message
+
+    @pytest.mark.parametrize("remaining", [2, 4])
+    def test_an_earlier_turn_does_not(self, remaining: int) -> None:
+        """Told to wrap up early, a worker stops investigating early.
+
+        Two is the case that matters: it is the tightest turn that is still not the last,
+        so a threshold widened by even one costs every worker a turn of investigation.
+        """
+        message = ResearchWorker().user_message(_worker_input(remaining_rounds=remaining))
+
+        assert "final turn" not in message
+
+    def test_the_last_turn_asks_for_partial_evidence_rather_than_perfection(self) -> None:
+        """Without this the instruction reads as "produce a finished report", which a
+        worker three turns from finished cannot do — so it keeps searching instead."""
+        message = ResearchWorker().user_message(_worker_input(remaining_rounds=1))
+
+        assert "partial evidence" in message
+        assert "leads" in message
+
+    async def test_the_loop_counts_the_turns_down(self, loop_scene: dict[str, Any]) -> None:
+        """End to end: the number really falls, rather than being a constant nobody moves.
+
+        Three turns of requests, so the fourth message is the one that must say `2`.
+        """
+        provider = _scripted(
+            [
+                _request_turn(("search_facts", "revenue")),
+                _request_turn(("search_facts", "assets")),
+                _request_turn(("search_facts", "equity")),
+                _report_turn(),
+            ]
+        )
+        await investigate(
+            _context(loop_scene, provider),
+            topic=ResearchTopic.COMPANY,
+            company_name="Contoso",
+            ticker="CTSO",
+            as_of_date="2023-01-01",
+            executors=build_executors(loop_scene["session"], request=loop_scene["request"]),
+            validate=_accept_all,
+            max_rounds=5,
+        )
+
+        turns = [call["messages"][0]["content"] for call in provider.calls]
+        assert "Remaining turns, this one included: 5" in turns[0]
+        assert "Remaining turns, this one included: 2" in turns[3]
+        assert "final turn" not in turns[0]
 
 
 class TestTheContractItself:
