@@ -196,10 +196,25 @@ class TestTheHardenedXmlParser:
      <!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;">
     ]><lolz>&lol3;</lolz>"""
 
-    XXE = b"""<?xml version="1.0"?><!DOCTYPE foo [
-     <!ELEMENT foo ANY>
-     <!ENTITY xxe SYSTEM "file:///etc/hostname">
-    ]><foo>&xxe;</foo>"""
+    # The canary the disclosure payload goes after. A file the test writes itself, rather
+    # than a well-known system path: `/etc/hostname` does not exist on Windows, so the
+    # payload read nothing there and the control assertion below — correctly — refused to
+    # let the test pass while proving nothing.
+    CANARY = "the-quick-brown-fox-8f2c1d"
+
+    @staticmethod
+    def _xxe_reading(target: Path) -> bytes:
+        """An external-entity payload aimed at one file, addressed portably.
+
+        ``Path.as_uri`` produces ``file:///etc/...`` on POSIX and ``file:///C:/...`` on
+        Windows, which is the difference this test used to hard-code and get wrong.
+        """
+        return (
+            b'<?xml version="1.0"?><!DOCTYPE foo [\n'
+            b" <!ELEMENT foo ANY>\n"
+            b' <!ENTITY xxe SYSTEM "' + target.as_uri().encode("ascii") + b'">\n'
+            b"]><foo>&xxe;</foo>"
+        )
 
     @staticmethod
     def _unhardened(data: bytes) -> str:
@@ -213,13 +228,21 @@ class TestTheHardenedXmlParser:
 
         assert (parse_xml(self.BILLION_LAUGHS).text or "") == ""
 
-    def test_an_external_entity_discloses_no_file_contents(self) -> None:
+    def test_an_external_entity_discloses_no_file_contents(self, tmp_path: Path) -> None:
         """`resolve_entities=False` is doing the work, and the unhardened read proves it by
-        returning real content from the host filesystem."""
-        leaked = self._unhardened(self.XXE)
-        assert leaked.strip(), "the payload did not read the file even unhardened"
+        returning the exact contents of a real file on the host filesystem."""
+        secret = tmp_path / "secret.txt"
+        secret.write_text(self.CANARY, encoding="utf-8")
+        payload = self._xxe_reading(secret)
 
-        assert (parse_xml(self.XXE).text or "") == ""
+        # The control: unhardened, this payload really does read the file. Asserting on the
+        # canary rather than on "something non-empty" means a payload that silently stopped
+        # working could not be mistaken for one the hardening had defeated.
+        assert self.CANARY in self._unhardened(payload), (
+            "the payload did not read the file even unhardened, so this test proves nothing"
+        )
+
+        assert (parse_xml(payload).text or "") == ""
 
     def test_an_entity_naming_a_url_fetches_nothing(self) -> None:
         """The same mechanism as the file:// case, which is the point.
