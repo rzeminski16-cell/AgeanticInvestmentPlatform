@@ -1,8 +1,8 @@
 """Command line entry points.
 
-Three commands, each doing exactly one thing that is awkward to do any other way: start
-the server with logging already configured, print what build you are running, and create
-the local user.
+Each does exactly one thing that is awkward to do any other way: start the server with
+logging already configured, print what build you are running, create the local user,
+project a report into Obsidian, and clear the research history on a development machine.
 
 Every command loads settings through :func:`aer.config.load_settings`, so a
 misconfiguration is reported once, in full, by the same code path the server uses — not
@@ -14,11 +14,12 @@ from __future__ import annotations
 import asyncio
 import sys
 import uuid
+from collections.abc import Sequence
 from typing import Annotated
 
 import typer
 import uvicorn
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from aer.config import Settings, load_settings
 from aer.core.enums import UserRole
@@ -198,6 +199,130 @@ async def _export_obsidian(settings: Settings, *, report_id: uuid.UUID) -> list[
             files = list(record.files)
             await session.commit()
             return files
+    finally:
+        await engine.dispose()
+
+
+@app.command(name="reset-research")
+def reset_research(
+    yes: Annotated[
+        bool, typer.Option("--yes", help="Skip the confirmation. For scripts, not for haste.")
+    ] = False,
+) -> None:
+    """Delete every research request and everything derived from one.
+
+    For starting over on a development machine. What survives is what was never part of a
+    run: the user accounts, the authored skills, the section and sector definitions, the
+    content-addressed artefacts, and the audit log — which gains an entry recording this,
+    because wiping the history is itself an act the trail should hold.
+
+    Cached evidence does **not** survive, and cannot: ``source_documents`` carries the
+    request that fetched it, so a document outliving its request would be a row pointing at
+    nothing. The next run re-fetches from SEC EDGAR, which costs a few seconds and no money.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+
+    tables = _research_tables()
+    counts = asyncio.run(_row_counts(settings, tables))
+    populated = {name: count for name, count in counts.items() if count}
+
+    if not populated:
+        typer.echo("No research history to remove; nothing to do.")
+        return
+
+    typer.secho("This will permanently delete:", fg=typer.colors.YELLOW)
+    for name, count in sorted(populated.items(), key=lambda row: (-row[1], row[0])):
+        typer.echo(f"  {count:>9,}  {name}")
+    if not yes and not typer.confirm("Delete all of it?"):
+        typer.echo("Nothing was deleted.")
+        raise typer.Exit(code=1)
+
+    removed = sum(populated.values())
+    asyncio.run(_reset_research(settings, tables, rows=removed))
+    typer.secho(
+        f"Removed {removed:,} row(s) across {len(populated)} table(s).", fg=typer.colors.GREEN
+    )
+
+
+def _research_tables() -> tuple[str, ...]:
+    """Every table holding part of a research request, in the order it must be emptied.
+
+    Walked from ``research_requests`` through the foreign keys rather than listed by hand,
+    so a table added next month is included without anyone remembering to add it here — and
+    a hand-written list that has gone stale is how a "clean" database keeps one run's rows.
+
+    **Deepest first, and that is not tidiness.** Several of these references are
+    ``RESTRICT`` on purpose — a citation pins the extraction it quotes, a claim pins the
+    calculation behind its number — so evidence cannot be deleted out from under the report
+    that cites it. Nothing may go before the rows that point at it, which is exactly
+    SQLAlchemy's own dependency sort, reversed.
+    """
+    from aer.db.base import Base  # noqa: PLC0415 -- import cost belongs to this command alone
+
+    parents = {
+        name: {fk.column.table.name for fk in table.foreign_keys}
+        for name, table in Base.metadata.tables.items()
+    }
+
+    reached = {"research_requests"}
+    while True:
+        grown = {name for name, refs in parents.items() if refs & reached} | reached
+        if grown == reached:
+            break
+        reached = grown
+
+    ordered = [table.name for table in reversed(Base.metadata.sorted_tables)]
+    return tuple(name for name in ordered if name in reached)
+
+
+async def _row_counts(settings: Settings, tables: Sequence[str]) -> dict[str, int]:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            return {
+                name: int(await session.scalar(text(f'SELECT count(*) FROM "{name}"')) or 0)  # noqa: S608
+                for name in tables
+            }
+    finally:
+        await engine.dispose()
+
+
+async def _reset_research(settings: Settings, tables: Sequence[str], *, rows: int) -> None:
+    """Empty each table in turn, in one transaction, and record that it happened.
+
+    ``DELETE`` rather than ``TRUNCATE``, for two reasons that both matter here.
+    ``TRUNCATE`` needs an exclusive lock on every table at once, so it deadlocks against
+    anything merely reading — a browser tab left open on the runs list is enough. And its
+    ``CASCADE`` overrides the schema's declared delete semantics wholesale, including the
+    ``RESTRICT`` rules that exist to stop evidence being deleted out from under a report.
+    Walking the dependency order respects them instead: if one day a reference cannot be
+    honoured, this fails saying which, rather than steamrollering it.
+
+    ``rows`` is the count the operator was shown and agreed to, carried in rather than
+    re-counted, so the audit entry records what was confirmed rather than what a second
+    query happened to find.
+    """
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            for name in tables:
+                await session.execute(text(f'DELETE FROM "{name}"'))  # noqa: S608
+
+            previous = await session.scalar(
+                select(AuditEvent).order_by(AuditEvent.id.desc()).limit(1)
+            )
+            session.add(
+                AuditEvent.create_linked(
+                    actor="cli",
+                    event_type="research.reset",
+                    payload={"tables": list(tables), "rows": rows},
+                    previous=previous,
+                )
+            )
+            await session.commit()
     finally:
         await engine.dispose()
 

@@ -22,6 +22,7 @@ implementation.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -334,6 +335,7 @@ async def financials_review(
         {
             "job": job,
             "payload": payload,
+            "counts": _extraction_counts(produced),
             "payload_hash": payload_hash_for(payload),
             "decided": decided,
             "gate": GateKind.UK_FINANCIALS.value,
@@ -1314,6 +1316,29 @@ async def _step_output(
         .limit(1)
     )
     return output
+
+
+def _extraction_counts(produced: Mapping[str, Any]) -> dict[str, int]:
+    """Context for the financials gate, beside the figure it actually approves.
+
+    **"0 facts written" is true and reads as a disaster.** Facts are deduplicated on the
+    observation itself, so the second run of a company supplies eighteen thousand and
+    inserts none — and the gate said ``0``, which any reader takes for a failed extraction
+    rather than for a cache hit. What the operator is judging is whether the extraction is
+    sound, and that question is answered by how many facts the filing carries, with the
+    insert count as the footnote it always was.
+
+    Read from the step's own output rather than added to the gate payload, because the
+    payload is hashed and an approval is an approval *of that hash*. Context beside it is
+    free; a new key inside it would refuse every approval of a plan gated before the change.
+    """
+    available = int(produced.get("facts_chosen", 0))
+    written = int(produced.get("facts_written", 0))
+    return {
+        "available": available,
+        "already_held": max(0, available - written),
+        "look_ahead": int(produced.get("rejected_for_look_ahead", 0)),
+    }
 
 
 async def _decision_for(session: AsyncSession, *, job_id: uuid.UUID, gate: GateKind) -> str | None:

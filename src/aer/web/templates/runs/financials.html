@@ -50,14 +50,31 @@
     <h2 class="text-lg font-semibold tracking-tight">What did map</h2>
     <dl class="mt-2 grid gap-4 sm:grid-cols-2">
       <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Facts written</dt>
-        <dd class="mt-1 font-mono text-sm" id="facts-written">{{ payload.facts_written }}</dd>
+        <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">
+          Facts this filing carries
+        </dt>
+        <dd class="mt-1 font-mono text-sm" id="facts-available">{{ counts.available }}</dd>
+        {#
+          Two numbers, because one of them is nearly always zero and on its own reads as a
+          failed extraction. Facts are deduplicated on the observation itself, so the second
+          run of a company inserts nothing and holds everything.
+        #}
+        <p class="mt-1 text-xs text-slate-500" id="facts-written">
+          {{ payload.facts_written }} newly stored, {{ counts.already_held }} already held from
+          an earlier run.
+        </p>
       </div>
       <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
         <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Exchange</dt>
         <dd class="mt-1 font-mono text-sm" id="gate-exchange">{{ payload.exchange or '—' }}</dd>
       </div>
     </dl>
+    {% if counts.look_ahead %}
+      <p class="mt-2 text-xs text-slate-500" id="facts-look-ahead">
+        {{ counts.look_ahead }} further fact(s) were held back as published after this run's
+        as-of date.
+      </p>
+    {% endif %}
   </section>
 
   {% if payload.load_errors %}

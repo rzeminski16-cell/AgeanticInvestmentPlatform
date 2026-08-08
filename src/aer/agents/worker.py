@@ -24,6 +24,13 @@ documents and fact ids, and the validator refuses one that cites nothing — a h
 a label. Anything numeric belongs to the deterministic layer as a stored fact or a
 recorded calculation; the worker's job is to say *which* evidence matters and what should
 be investigated next, never to assert a figure of its own.
+
+**A rejected reply is a conversation, not a death.** Both ways a report can be turned away
+— the validator refusing it on the platform's tables, or the contract itself refusing to
+read it — come back to the model as problems to fix on the next turn. The second used to
+propagate out and kill the node, which is a strange way to treat the more trivially
+fixable of the two: a coverage note forty characters too long is one sentence of feedback
+away from being a good report. See :func:`investigate` and :data:`_LIMITS`.
 """
 
 from __future__ import annotations
@@ -43,6 +50,7 @@ from aer.errors import AerError, ValidationError
 __all__ = [
     "MAX_ROUNDS",
     "MAX_TOOL_CALLS",
+    "MAX_UNREADABLE_REPLIES",
     "ExecutedTool",
     "Investigation",
     "ResearchTopic",
@@ -66,6 +74,16 @@ MAX_TOOL_CALLS: Final = 12
 # Turns of the request/execute loop. A separate bound from the tool budget: a worker that
 # spends nothing and produces nothing must still terminate, visibly.
 MAX_ROUNDS: Final = 5
+
+# Replies the schema could not read, before the worker gives up. Deliberately much smaller
+# than MAX_ROUNDS, and not for the reason the other bounds are small.
+#
+# A reply that breaks a field constraint is rejected while the SDK is still accumulating the
+# stream, so there is no response object, no usage figure and therefore **no cost row**: the
+# tokens were spent and the ledger never sees them. Every re-ask is money the budget cap
+# cannot count, which makes this the one loop here that must not be generous. Naming the
+# field the model overran fixes it on the next attempt or it does not get fixed at all.
+MAX_UNREADABLE_REPLIES: Final = 2
 
 
 class WorkerExhaustedError(AerError):
@@ -215,6 +233,48 @@ class WorkerInput(BaseModel):
     problems: list[str] = Field(default_factory=list)
 
 
+def _cap(model: type[BaseModel], name: str) -> int:
+    """The declared maximum for one field of the worker's contract.
+
+    Raises:
+        AssertionError: The field has no ``max_length``. A programming error rather than a
+            condition — every field :data:`_LIMITS` names has one, and this fires at import
+            so a bound that disappears from the schema cannot quietly stay in the prompt.
+    """
+    for constraint in model.model_fields[name].metadata:
+        limit = getattr(constraint, "max_length", None)
+        if limit is not None:
+            return int(limit)
+    message = f"{model.__name__}.{name} has no max_length for the prompt to state."
+    raise AssertionError(message)
+
+
+# The schema's own bounds, in words the model can work to.
+#
+# **They have to be said, because the API does not enforce them.** The SDK moves
+# ``max_length`` into the schema's *description* before sending — the API's JSON-schema mode
+# rejects the constraint outright — so the server checks a reply's shape and nothing else.
+# A structurally perfect reply can therefore overrun a bound by forty characters, and it is
+# rejected here, on the way in, after the money has been spent. Three of five workers died
+# that way in one run: two over-long coverage notes and one finding citing more fact ids
+# than a finding may carry.
+#
+# Read off the models rather than typed out again. A limit written in a prompt and again in
+# a schema is a limit that drifts, and the prompt is always the copy that loses.
+_LIMITS: Final = f"""\
+- the report: at most {_cap(WorkerReport, "findings")} findings and \
+{_cap(WorkerReport, "leads")} leads, and a coverage_note of at most \
+{_cap(WorkerReport, "coverage_note")} characters
+- each finding: a statement of at most {_cap(WorkerFinding, "statement")} characters, and \
+at most {_cap(WorkerFinding, "source_document_ids")} source document ids and \
+{_cap(WorkerFinding, "fact_ids")} fact ids
+- each lead: a question of at most {_cap(WorkerLead, "question")} characters and a \
+why_it_matters of at most {_cap(WorkerLead, "why_it_matters")} characters
+- each turn: at most {_cap(WorkerTurn, "requests")} tool requests, each with a query of at \
+most {_cap(ToolRequest, "query")} characters and a why of at most \
+{_cap(ToolRequest, "why")} characters"""
+
+
 # What each tool does, in the worker's own terms. Keyed by the names in the ``analysis``
 # role's allowlist, and checked against it by a test — a tool the registry grants but this
 # map does not describe would be a tool the model is never told it has.
@@ -254,7 +314,8 @@ Each turn you either ask for tools or deliver your report — never both.
 Rules that are enforced outside this conversation, stated so you can work with them:
 1. You never assert a figure. A number belongs to a stored fact; you cite its id.
 2. Every finding cites at least one source document id or fact id from the evidence you \
-were shown. Ids you were not shown do not exist.
+were shown. Ids you were not shown do not exist. A finding with nothing to cite is not a \
+finding: if your point is that the evidence is silent on something, that is a lead.
 3. Tool requests are executed by the platform's code, only within your remaining budget, \
 and only for the tools listed below. There are no others. Asking for a tool that is not \
 listed is refused and wastes a turn.
@@ -263,6 +324,11 @@ of both. Reaching the last turn without a report is a failure, and a report draw
 partial evidence is worth more than none.
 4. Where the evidence cannot settle a question, record it as a lead rather than \
 stretching a finding.
+
+Length limits, checked when your reply arrives. Not advisory: a reply that breaks one of \
+these cannot be read at all, so it is thrown away whole and costs you the turn. Write to \
+fit them — say less, in fewer findings, rather than trimming what you cite.
+{limits}
 
 The tools available to you on this run, and nothing else:
 {tools}
@@ -287,11 +353,13 @@ class ResearchWorker(Agent[WorkerInput, WorkerTurn]):
 
     role: ClassVar[str] = "analysis"
     output_schema: ClassVar[type[BaseModel]] = WorkerTurn
-    prompt_version: ClassVar[str] = "1"
+    prompt_version: ClassVar[str] = "2"
 
     def system_prompt(self, payload: WorkerInput) -> str:
         return _SYSTEM_PROMPT.format(
-            brief=_TOPIC_BRIEFS[payload.topic], tools=_tool_menu(payload.available_tools)
+            brief=_TOPIC_BRIEFS[payload.topic],
+            limits=_LIMITS,
+            tools=_tool_menu(payload.available_tools),
         )
 
     def user_message(self, payload: WorkerInput) -> str:
@@ -304,8 +372,10 @@ class ResearchWorker(Agent[WorkerInput, WorkerTurn]):
             f"Internal results so far, as data:\n{internal['internal_results']}",
         ]
         if payload.problems:
+            # "Reply", not "report": the same channel carries a report the validator refused
+            # and one the schema could not read at all, and the second is not a report.
             parts.append(
-                "Your previous report was refused for these reasons; fix them:\n- "
+                "Your previous reply was not accepted, for these reasons; fix them:\n- "
                 + "\n- ".join(payload.problems)
             )
         if payload.remaining_rounds <= 1:
@@ -393,10 +463,22 @@ async def investigate(
 ) -> Investigation:
     """Run one worker's request/execute loop to a validated report.
 
+    **A reply the schema cannot read is a problem to feed back, not a death.** The bounds on
+    the contract reach the model as description text rather than as a rule the API applies
+    (see :data:`_LIMITS`), so an otherwise sound report can arrive forty characters too long
+    and be rejected on the way in. That used to propagate straight out of here and kill the
+    node — losing four other topics along with it — when it is the most trivially fixable
+    failure the loop can see: naming the field that overran is usually the whole remedy. It
+    is fed back exactly as a validator's refusal is, and bounded harder, because each
+    attempt is spend the ledger never sees. See :data:`MAX_UNREADABLE_REPLIES`.
+
     Raises:
         WorkerExhaustedError: If the rounds run out without a report the validator
             accepts. Deliberately an error — the workflow node fails visibly rather than
             the run continuing with a silently absent investigation.
+        ValidationError: If the model produced :data:`MAX_UNREADABLE_REPLIES` replies the
+            contract could not read. Re-raised rather than translated: it names the field
+            and the constraint, which is what whoever reads the failed step needs.
     """
     worker = ResearchWorker()
     # Permission ∩ availability, settled once. The registry says what the role may ask for;
@@ -407,24 +489,41 @@ async def investigate(
     untrusted: list[dict[str, str]] = []
     problems: list[str] = []
     spent = 0
+    unreadable = 0
 
     for round_number in range(1, max_rounds + 1):
-        turn = await worker.run(
-            context,
-            WorkerInput(
-                topic=topic,
-                company_name=company_name,
-                ticker=ticker,
-                as_of_date=as_of_date,
-                remaining_tool_calls=max_tool_calls - spent,
-                remaining_rounds=max_rounds - round_number + 1,
-                available_tools=available,
-                internal_results=internal,
-                untrusted_evidence=untrusted,
-                problems=problems,
-            ),
+        payload = WorkerInput(
+            topic=topic,
+            company_name=company_name,
+            ticker=ticker,
+            as_of_date=as_of_date,
+            remaining_tool_calls=max_tool_calls - spent,
+            remaining_rounds=max_rounds - round_number + 1,
+            available_tools=available,
+            internal_results=internal,
+            untrusted_evidence=untrusted,
+            problems=problems,
         )
         problems = []
+
+        try:
+            turn = await worker.run(context, payload)
+        except ValidationError as rejected:
+            unreadable += 1
+            problems = _schema_problems(rejected)
+            _log.warning(
+                "worker.reply_unreadable",
+                topic=topic.value,
+                round=round_number,
+                attempt=unreadable,
+                problems=problems,
+            )
+            if unreadable >= MAX_UNREADABLE_REPLIES:
+                # Which worker, on the way past. The provider knows the model and the
+                # schema; only this frame knows which of the five topics just died.
+                rejected.context["topic"] = topic.value
+                raise
+            continue
 
         if turn.report is not None:
             found = await validate(turn.report)
@@ -458,10 +557,52 @@ async def investigate(
         f"The {topic.value} worker used {spent} tool call(s) over {max_rounds} round(s) "
         "and never produced a report its validator accepted."
     )
+    if problems:
+        # What the last attempt was refused for. Without it the error says only that five
+        # rounds happened, and the fix always starts from why the last one was not enough.
+        message += " Its final attempt was refused for: " + "; ".join(problems)
     raise WorkerExhaustedError(
         message,
-        context={"topic": topic.value, "tool_calls": spent, "rounds": max_rounds},
+        context={
+            "topic": topic.value,
+            "tool_calls": spent,
+            "rounds": max_rounds,
+            "problems": problems,
+        },
     )
+
+
+def _schema_problems(rejected: ValidationError) -> list[str]:
+    """A rejected reply, said back to the model in terms it can act on.
+
+    The exception's own message is written for whoever reads the failed step: it names the
+    model, the schema, the count, and — for a truncation — that ``max_output_tokens`` wants
+    raising, which is advice the model can do nothing with. What the worker needs is
+    narrower and more useful: which field, and what was wrong with it.
+    """
+    errors = rejected.context.get("errors")
+    if not isinstance(errors, list) or not errors:
+        # No field-level detail, which at this layer means the reply carried no structured
+        # output at all — a refusal, or the token ceiling reached before the JSON began.
+        return [
+            "Your last reply could not be read as a turn. It must be one JSON object "
+            "matching the schema, and short enough to finish."
+        ]
+
+    problems: list[str] = []
+    for error in errors:
+        if not isinstance(error, dict):  # pragma: no cover -- context is ours; belt and braces
+            continue
+        if error.get("type") == "json_invalid":
+            problems.append(
+                "Your last reply was cut off before it was complete. Say the same thing in "
+                "fewer words: fewer findings, shorter statements."
+            )
+            continue
+        where = str(error.get("loc") or "your reply")
+        detail = str(error.get("msg") or error.get("type") or "was rejected")
+        problems.append(f"{where}: {detail}")
+    return problems
 
 
 def _tool_menu(available: list[str]) -> str:

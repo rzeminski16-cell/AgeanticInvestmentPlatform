@@ -478,6 +478,27 @@ class TestWhenTheReplyCannotBeRead:
 
         assert "ceiling" not in str(caught.value)
 
+    async def test_the_context_carries_the_constraint_that_was_broken(self) -> None:
+        """Which field, and what was wrong with it — not merely that something was.
+
+        The summary is read by the research loop as well as by a person: it feeds the
+        rejection back to the model so the next attempt can fix it, and "report.confidence,
+        less_than_equal" is not something anything can act on. Pydantic's ``msg`` is
+        generated from the constraint rather than from the reply, so keeping it leaks
+        nothing of an arbitrary-length model output into a log line.
+        """
+        provider, _ = _provider(
+            raises=self._validation_error('{"summary": "ok", "confidence": 1.7}'),
+            raises_at="final",
+        )
+
+        with pytest.raises(ValidationError) as caught:
+            await _call(provider)
+
+        [error] = caught.value.context["errors"]
+        assert error["loc"] == "confidence"
+        assert "less than or equal to 1" in error["msg"]
+
 
 class TestFailures:
     async def test_a_missing_key_is_refused_at_construction(self) -> None:

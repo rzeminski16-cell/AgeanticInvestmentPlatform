@@ -667,10 +667,20 @@ def _error_summary(exc: PydanticValidationError) -> list[dict[str, str]]:
     """The first few schema failures, without the offending values.
 
     Values are left out deliberately: this goes into a log line, and a truncated model reply
-    is arbitrary text of arbitrary length.
+    is arbitrary text of arbitrary length. Pydantic's ``msg`` is kept, because it is
+    generated from the constraint rather than from the input — "String should have at most
+    600 characters" is the whole diagnosis, and a summary of ``loc`` and ``type`` alone
+    ("report.findings.2", "value_error") says only that something, somewhere, was wrong.
+
+    Callers feed these back to the model as well as to the log; see
+    :func:`aer.agents.worker._schema_problems`.
     """
     return [
-        {"loc": ".".join(str(part) for part in error["loc"]), "type": error["type"]}
+        {
+            "loc": ".".join(str(part) for part in error["loc"]),
+            "type": error["type"],
+            "msg": str(error.get("msg", "")),
+        }
         for error in exc.errors()[:5]
     ]
 

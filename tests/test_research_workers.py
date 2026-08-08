@@ -12,18 +12,21 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.base import AgentContext
 from aer.agents.registry import resolve_role
 from aer.agents.untrusted import CONTAINMENT_RULE
 from aer.agents.worker import (
+    _LIMITS,
     _TOOL_BRIEFS,
     MAX_ROUNDS,
     MAX_TOOL_CALLS,
+    MAX_UNREADABLE_REPLIES,
     ExecutedTool,
     ResearchTopic,
     ResearchWorker,
@@ -34,6 +37,7 @@ from aer.agents.worker import (
     WorkerLead,
     WorkerReport,
     WorkerTurn,
+    _cap,
     investigate,
 )
 from aer.config import Settings, load_settings
@@ -48,8 +52,10 @@ from aer.db.models import (
     SourceDocument,
     User,
 )
+from aer.errors import ValidationError as AerValidationError
 from aer.fetch.client import FetchResult
 from aer.fetch.errors import UrlNotAllowedError
+from aer.providers.anthropic import _unreadable_reply
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
 from aer.services.research import build_executors, validate_report
@@ -108,14 +114,67 @@ async def _never_called(tool_request: ToolRequest) -> ExecutedTool:
     raise AssertionError("the scripted turns request no tools")  # pragma: no cover
 
 
-def _scripted(turns: list[WorkerTurn]) -> FakeProvider:
+def _scripted(turns: list[WorkerTurn | Exception]) -> FakeProvider:
+    """A provider that answers from a list, and raises any exception standing in it.
+
+    A scripted exception is raised from inside ``complete_structured``, after the call has
+    been recorded — the same place and the same order as the real provider, which rejects a
+    reply while it is still accumulating the stream.
+    """
     remaining = list(turns)
 
     def answer(schema: type) -> Any:
         assert schema is WorkerTurn
-        return remaining.pop(0)
+        nxt = remaining.pop(0)
+        if isinstance(nxt, Exception):
+            raise nxt
+        return nxt
 
     return FakeProvider(answer)
+
+
+def _reply_rejection(payload: dict[str, Any]) -> AerValidationError:
+    """The error the provider really raises for a reply the contract cannot read.
+
+    Built by validating a genuinely bad payload and handing the failure to the provider's
+    own translation, rather than by assembling a context dict here. That dict is the
+    interface between the two modules, and a hand-made copy of it is a test that keeps
+    passing after the real thing has changed shape.
+    """
+    try:
+        WorkerTurn.model_validate(payload)
+    except PydanticValidationError as broken:
+        return _unreadable_reply(broken, schema=WorkerTurn, model="claude-opus-5", max_tokens=8192)
+    raise AssertionError("the payload under test must not validate")  # pragma: no cover
+
+
+def _rejected_by_the_contract() -> AerValidationError:
+    """A report over the coverage-note bound — the live failure, reproduced exactly."""
+    return _reply_rejection(
+        {
+            "report": {
+                "findings": [
+                    {
+                        "statement": "The evidence shown supports this statement.",
+                        "kind": "factual",
+                        "fact_ids": [str(uuid.uuid4())],
+                        "confidence": 0.7,
+                    }
+                ],
+                "leads": [],
+                "coverage_note": "x" * (_cap(WorkerReport, "coverage_note") + 1),
+            }
+        }
+    )
+
+
+def _cut_off_mid_reply() -> AerValidationError:
+    """What the provider raises when the token ceiling stopped the JSON mid-object."""
+    try:
+        WorkerTurn.model_validate_json('{"report": {"coverage_note": "half a sen')
+    except PydanticValidationError as broken:
+        return _unreadable_reply(broken, schema=WorkerTurn, model="claude-opus-5", max_tokens=8192)
+    raise AssertionError("truncated JSON must not validate")  # pragma: no cover
 
 
 @pytest.fixture
@@ -749,6 +808,192 @@ class TestTheWorkerKnowsWhenToStop:
         assert "Remaining turns, this one included: 5" in turns[0]
         assert "Remaining turns, this one included: 2" in turns[3]
         assert "final turn" not in turns[0]
+
+
+class TestAReplyTheContractCannotReadIsFedBack:
+    """The bounds are guidance to the model and a rule here, and the gap is survivable.
+
+    A live run lost three of five workers to this. The API enforces a structured reply's
+    *shape* but not its bounds — the SDK moves ``max_length`` into the schema's description
+    text, because the API's JSON-schema mode rejects the constraint — so three otherwise
+    sound reports arrived over-long and were rejected on the way in. That rejection then
+    propagated out of the loop and killed the node, when a validator's refusal of the very
+    same report would have been fed back for another turn.
+    """
+
+    async def test_the_rejection_becomes_a_problem_and_the_next_reply_lands(
+        self, loop_scene: dict[str, Any]
+    ) -> None:
+        provider = _scripted([_rejected_by_the_contract(), _report_turn()])
+
+        outcome = await investigate(
+            _context(loop_scene, provider),
+            topic=ResearchTopic.COMPANY,
+            company_name="Contoso",
+            ticker="CTSO",
+            as_of_date="2023-01-01",
+            executors={},
+            validate=_accept_all,
+        )
+
+        assert outcome.rounds == 2
+
+    async def test_the_model_is_told_which_field_it_overran(
+        self, loop_scene: dict[str, Any]
+    ) -> None:
+        """The field and the constraint, not "your reply was invalid".
+
+        Feeding back the exception's own message would tell the model to raise
+        ``max_output_tokens``, which is advice for whoever reads the log and nothing the
+        model can act on.
+        """
+        provider = _scripted([_rejected_by_the_contract(), _report_turn()])
+
+        await investigate(
+            _context(loop_scene, provider),
+            topic=ResearchTopic.COMPANY,
+            company_name="Contoso",
+            ticker="CTSO",
+            as_of_date="2023-01-01",
+            executors={},
+            validate=_accept_all,
+        )
+
+        second = provider.calls[1]["messages"][0]["content"]
+        assert "report.coverage_note" in second
+        assert "at most 600 characters" in second
+
+    async def test_a_second_unreadable_reply_fails_the_worker(
+        self, loop_scene: dict[str, Any]
+    ) -> None:
+        """Bounded harder than the other loops, and the reason is in the ledger.
+
+        A reply rejected mid-stream has no usage figure, so no cost row is written: the
+        tokens were spent and the budget cap never sees them. The third scripted turn is a
+        perfectly good report, and reaching it would mean the bound had been widened past
+        what the cost invariant allows.
+        """
+        provider = _scripted(
+            [_rejected_by_the_contract(), _rejected_by_the_contract(), _report_turn()]
+        )
+
+        with pytest.raises(AerValidationError) as caught:
+            await investigate(
+                _context(loop_scene, provider),
+                topic=ResearchTopic.INDUSTRY,
+                company_name="Contoso",
+                ticker="CTSO",
+                as_of_date="2023-01-01",
+                executors={},
+                validate=_accept_all,
+            )
+
+        assert provider.call_count == MAX_UNREADABLE_REPLIES
+        # Which of the five died. The provider knows the model and the schema; only the
+        # loop knows the topic, and "a worker failed" is not a diagnosis.
+        assert caught.value.context["topic"] == "industry"
+
+    async def test_a_truncated_reply_is_told_to_be_shorter(
+        self, loop_scene: dict[str, Any]
+    ) -> None:
+        """Truncation and a broken bound need opposite advice, and look alike from here."""
+        provider = _scripted([_cut_off_mid_reply(), _report_turn()])
+
+        await investigate(
+            _context(loop_scene, provider),
+            topic=ResearchTopic.COMPANY,
+            company_name="Contoso",
+            ticker="CTSO",
+            as_of_date="2023-01-01",
+            executors={},
+            validate=_accept_all,
+        )
+
+        second = provider.calls[1]["messages"][0]["content"]
+        assert "cut off" in second
+        assert "fewer words" in second
+
+    async def test_exhaustion_names_what_the_final_attempt_was_refused_for(
+        self, loop_scene: dict[str, Any]
+    ) -> None:
+        """Five rounds happened is not a diagnosis; why the fifth was not enough is."""
+
+        async def never(report: WorkerReport) -> list[str]:
+            return ["Finding 1 cites fact 'f-1', which this run does not hold."]
+
+        provider = _scripted([_report_turn() for _ in range(MAX_ROUNDS)])
+
+        with pytest.raises(WorkerExhaustedError, match="does not hold"):
+            await investigate(
+                _context(loop_scene, provider),
+                topic=ResearchTopic.MACRO,
+                company_name="Contoso",
+                ticker="CTSO",
+                as_of_date="2023-01-01",
+                executors={},
+                validate=never,
+            )
+
+
+class TestTheLimitsAreStated:
+    """Bounds the API does not enforce have to be said, or they are only discovered by
+    breaking them — at Opus prices, with no cost row to show for it."""
+
+    # The one bound the prompt deliberately leaves out. A tool name is chosen from the menu,
+    # so its length is not something the model can get wrong -- and "at most 64 characters in
+    # a tool name" would be a line of noise in a list whose whole value is being short enough
+    # to read. Listed here rather than skipped silently, so a *new* bound cannot join it
+    # without someone deciding it should.
+    _NOT_WORTH_SAYING: ClassVar[set[tuple[str, str]]] = {("ToolRequest", "tool")}
+
+    def test_every_bound_in_the_contract_is_stated(self) -> None:
+        """A limit added to the schema and never told to the model is the whole bug."""
+        contract = (WorkerTurn, WorkerReport, WorkerFinding, WorkerLead, ToolRequest)
+
+        for model in contract:
+            for name, field in model.model_fields.items():
+                bounded = any(
+                    getattr(item, "max_length", None) is not None for item in field.metadata
+                )
+                if not bounded or (model.__name__, name) in self._NOT_WORTH_SAYING:
+                    continue
+                stated = _cap(model, name)
+                assert str(stated) in _LIMITS, (
+                    f"{model.__name__}.{name} is bounded at {stated} and the prompt is silent"
+                )
+
+    def test_the_bounds_that_broke_a_live_run_are_named(self) -> None:
+        """The three that actually failed: an over-long note, and too many cited ids."""
+        note = _cap(WorkerReport, "coverage_note")
+        ids = _cap(WorkerFinding, "fact_ids")
+
+        assert f"coverage_note of at most {note} characters" in _LIMITS
+        assert f"{ids} fact ids" in _LIMITS
+
+    def test_the_limits_reach_the_prompt_framed_as_rules(self) -> None:
+        """The numbers and the framing both. A list of bounds under a heading that does not
+        say they are enforced reads as house style, and house style gets rounded off."""
+        prompt = ResearchWorker().system_prompt(_worker_input(available_tools=["search_facts"]))
+
+        assert _LIMITS in prompt
+        assert "Length limits, checked when your reply arrives" in prompt
+        assert "thrown away whole" in prompt
+
+    def test_a_bound_the_prompt_names_must_exist_on_the_model(self) -> None:
+        """`_cap` refuses to invent a limit rather than rendering a plausible one."""
+        with pytest.raises(AssertionError, match="no max_length"):
+            _cap(WorkerFinding, "confidence")
+
+    def test_a_finding_with_nothing_to_cite_is_directed_to_the_leads(self) -> None:
+        """The third live failure: "No evidence of X" written as a finding, cited to nothing.
+
+        The contract refuses it, and refusing without saying where it should have gone
+        leaves the model no move but to drop the observation entirely.
+        """
+        prompt = ResearchWorker().system_prompt(_worker_input(available_tools=["search_facts"]))
+
+        assert "A finding with nothing to cite is not a finding" in prompt
+        assert "that is a lead" in prompt
 
 
 class TestTheContractItself:

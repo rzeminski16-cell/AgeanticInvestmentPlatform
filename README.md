@@ -186,6 +186,7 @@ With `just`:
 | `just dev` | Run the web server with auto-reload |
 | `just worker` | Run the background worker that executes research runs |
 | `just seed-user you@example.com` | Create the local user (idempotent) |
+| `just reset-research` | Delete every research request and everything derived from one |
 | `just lint` | Lint and check formatting |
 | `just fix` | Apply lint fixes and format |
 | `just typecheck` | Run mypy |
@@ -326,7 +327,7 @@ src/aer/            application package
   errors.py         error hierarchy; every error has a stable machine-readable code
   logging.py        structured JSON logging with secret redaction
   config.py         typed settings; secrets never render, all problems reported at once
-  cli.py            `aer serve`, `aer version`, `aer seed-user`
+  cli.py            `aer serve`, `aer version`, `aer seed-user`, `aer reset-research`
   core/             correctness core: pure, side-effect free, mypy --strict
     enums.py        domain vocabulary, rendered as native PostgreSQL enums
     concepts.py     canonical financial concepts and the filer tags that mean them

@@ -61,6 +61,11 @@ worker:
 seed-user email:
     uv run aer seed-user --email "{{email}}"
 
+# Delete every research request and everything derived from one. Asks first. Keeps the
+# accounts, the authored skills, the artefacts and the audit log; cached evidence goes.
+reset-research:
+    uv run aer reset-research
+
 # Rebuild the Tailwind stylesheet. Needs Node; the OUTPUT is committed, so CI does not.
 css:
     npm run build:css

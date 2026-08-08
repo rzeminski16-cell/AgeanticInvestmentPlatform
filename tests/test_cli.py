@@ -8,15 +8,16 @@ second insert; the test that runs it twice is what keeps it true.
 from __future__ import annotations
 
 import asyncio
+from datetime import date
 
 import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from typer.testing import CliRunner
 
-from aer.cli import app
+from aer.cli import _research_tables, app
 from aer.core.enums import UserRole
-from aer.db.models import AuditEvent, User
+from aer.db.models import AuditEvent, ResearchRequest, User
 from aer.version import version
 
 runner = CliRunner()
@@ -211,3 +212,131 @@ class TestSeedUser:
             app, ["seed-user", "--email", "x@example.invalid", "--role", "superuser"]
         )
         assert result.exit_code != 0
+
+
+class TestResearchTablesAreWalkedNotListed:
+    """What ``reset-research`` clears comes from the mapping, not from a list someone
+    maintains. A hand-written list is how a "clean" database keeps one run's rows."""
+
+    def test_the_walk_is_transitive(self):
+        """Two hops out. ``financial_facts`` reaches a request only through
+        ``source_documents``, so a walk that stops at direct children leaves the facts
+        behind and the next run reads a company's history from a request that is gone."""
+        tables = _research_tables()
+
+        assert "research_requests" in tables
+        assert "jobs" in tables
+        assert "source_documents" in tables
+        assert "financial_facts" in tables
+        assert "sensitivity_cells" in tables
+
+    @pytest.mark.parametrize(
+        ("first", "second"),
+        [
+            ("financial_facts", "source_documents"),
+            ("citations", "extractions"),
+            ("claims", "calculations"),
+            ("jobs", "research_plans"),
+            ("job_steps", "jobs"),
+            ("research_plans", "research_requests"),
+        ],
+    )
+    def test_a_restricting_child_is_emptied_before_its_parent(self, first, second):
+        """Each pair is a deliberate ``RESTRICT``: evidence must not vanish from under the
+        report that cites it. Reverse either and the delete stops halfway, refused."""
+        tables = _research_tables()
+
+        assert tables.index(first) < tables.index(second)
+
+    def test_what_was_never_part_of_a_run_survives(self):
+        tables = _research_tables()
+
+        for kept in ("users", "skills", "skill_versions", "audit_events", "artefacts", "companies"):
+            assert kept not in tables
+
+
+@pytest.fixture
+def clean_research_tables(cli_env, database_url):
+    """Empty everything ``reset-research`` touches, before and after.
+
+    Same reason as ``clean_user_tables``: the command opens its own engine and really
+    commits, so ``db_session``'s rollback cannot reach it.
+    """
+    asyncio.run(_truncate(database_url))
+    yield
+    asyncio.run(_truncate(database_url))
+
+
+def _seed_request(database_url: str) -> None:
+    """One committed research request, as a run would leave behind."""
+
+    async def run() -> None:
+        engine = create_async_engine(database_url)
+        try:
+            async with async_sessionmaker(bind=engine, expire_on_commit=False)() as session:
+                user = User(
+                    email="reset@example.invalid", display_name="Reset", role=UserRole.OWNER
+                )
+                session.add(user)
+                await session.flush()
+                session.add(
+                    ResearchRequest(
+                        user_id=user.id,
+                        company_name="Contoso Corporation",
+                        ticker="CTSO",
+                        exchange="NASDAQ",
+                        as_of_date=date(2023, 1, 1),
+                        base_currency="USD",
+                        investment_horizon_months=12,
+                        max_cost_gbp="2.50",
+                        portfolio_context={},
+                    )
+                )
+                await session.commit()
+        finally:
+            await engine.dispose()
+
+    asyncio.run(run())
+
+
+class TestResetResearch:
+    def test_the_requests_go_and_the_account_stays(self, read_scalar, database_url):
+        """The distinction the whole command turns on: a run is disposable, the person
+        who asked for it is not."""
+        _seed_request(database_url)
+
+        invoke_ok(["reset-research", "--yes"])
+
+        assert read_scalar(select(func.count()).select_from(ResearchRequest)) == 0
+        assert read_scalar(select(func.count()).select_from(User)) == 1
+
+    def test_declining_deletes_nothing(self, read_scalar, database_url):
+        """A destructive command that acts on silence is a destructive command that acts
+        by accident."""
+        _seed_request(database_url)
+
+        result = runner.invoke(app, ["reset-research"], input="n\n")
+
+        assert result.exit_code != 0
+        assert read_scalar(select(func.count()).select_from(ResearchRequest)) == 1
+
+    def test_an_empty_history_is_not_an_error(self, clean_research_tables):
+        result = invoke_ok(["reset-research"])
+
+        assert "nothing to do" in result.output
+
+    def test_the_wipe_is_recorded_in_the_audit_log(self, read_scalar, database_url):
+        """The trail outlives what it describes, or it is not a trail."""
+        _seed_request(database_url)
+
+        invoke_ok(["reset-research", "--yes"])
+
+        event = read_scalar(
+            select(AuditEvent)
+            .where(AuditEvent.event_type == "research.reset")
+            .order_by(AuditEvent.id.desc())
+            .limit(1)
+        )
+        assert event is not None
+        assert event.payload["rows"] >= 1
+        assert "research_requests" in event.payload["tables"]
