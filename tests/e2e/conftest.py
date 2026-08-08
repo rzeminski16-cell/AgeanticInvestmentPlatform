@@ -195,9 +195,7 @@ async def _reset(database_url: str) -> None:
             # reach: they own `section_definitions` rows, which stay for the reason given
             # there. A skill left behind gives the next test a library that is not empty
             # — and "the library is empty" is exactly what the editor's first test says.
-            await connection.execute(
-                text("DELETE FROM section_definitions WHERE origin = 'skill'")
-            )
+            await connection.execute(text("DELETE FROM section_definitions WHERE origin = 'skill'"))
             await connection.execute(text("DELETE FROM skill_versions"))
             await connection.execute(text("DELETE FROM skills"))
         factory = async_sessionmaker(bind=engine, expire_on_commit=False)
