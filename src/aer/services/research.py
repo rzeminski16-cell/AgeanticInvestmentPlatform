@@ -21,7 +21,8 @@ from typing import Any, Final
 from urllib.parse import urlsplit
 
 import structlog
-from sqlalchemy import or_, select
+from sqlalchemy import Select, or_, select
+from sqlalchemy import false as sa_false
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.base import AgentContext
@@ -35,7 +36,7 @@ from aer.agents.worker import (
 )
 from aer.config import Settings
 from aer.core.enums import Provider, SourceTier
-from aer.db.models import FinancialFact, ResearchRequest, SourceDocument
+from aer.db.models import Company, FinancialFact, ResearchRequest, SourceDocument
 from aer.errors import AerError
 from aer.extract import extract_text
 from aer.services.acquisition import record_acquisition
@@ -94,13 +95,10 @@ def build_executors(
     """
 
     async def search_facts(tool_request: ToolRequest) -> ExecutedTool:
+        company_id = await _company_id_for(session, request=request)
         rows = await session.scalars(
-            select(FinancialFact)
-            .join(SourceDocument, SourceDocument.id == FinancialFact.source_document_id)
-            .where(
-                SourceDocument.request_id == request.id,
-                FinancialFact.concept.ilike(f"%{tool_request.query.strip()}%"),
-            )
+            _visible_facts(request, company_id)
+            .where(FinancialFact.concept.ilike(f"%{tool_request.query.strip()}%"))
             .order_by(FinancialFact.period_end.desc())
             .limit(MAX_HITS)
         )
@@ -307,6 +305,51 @@ async def _text_of(store: Any, *, result: Any, settings: Settings | None) -> tup
     return body[:MAX_FETCHED_CHARS], f"extracted, truncated to {MAX_FETCHED_CHARS} characters"
 
 
+async def _company_id_for(session: AsyncSession, *, request: ResearchRequest) -> uuid.UUID | None:
+    """The company this request researches, or ``None`` before it has been resolved."""
+    found: uuid.UUID | None = await session.scalar(
+        select(Company.id).where(
+            Company.ticker == request.ticker, Company.exchange == request.exchange
+        )
+    )
+    return found
+
+
+def _visible_facts(request: ResearchRequest, company_id: uuid.UUID | None) -> Select[Any]:
+    """Facts a worker on this run may see: the company's, as at the as-of date.
+
+    **Scoped by company, not by request, and that is the fix for a run that found nothing.**
+    Facts are deduplicated on an observation key that deliberately excludes the source
+    document — an observation is an observation, and storing MSFT's 2023 revenue twice
+    because two runs both read the same filing would be a second copy of the same truth. So
+    the *second* run of a company inserts nothing: "supplied 18588, inserted 0" is the
+    dedupe working. But every consumer here joined through ``source_documents`` to
+    ``request_id``, so those facts belonged to the earlier run's document and this run could
+    not see one of them. Five workers spent sixty tool calls searching an empty table, three
+    exhausted, and the two that finished reported no findings at all.
+
+    ``calculate`` never had the problem because it scopes by ``company_id``, which is the
+    established shape: the fact is about the company, and the source document records where
+    it came from — possibly an earlier run, whose artefact is hashed and traceable exactly
+    the same way.
+
+    **The date filter is part of the fix, not a separate improvement.** Request scope
+    happened to bound what a worker saw to one acquisition; company scope does not, so
+    without this a point-in-time run could now be shown a fact filed after its as-of date by
+    some later run's acquisition. Filtered on ``filed_date``, because what matters is when
+    the filing was filed, not when this platform happened to fetch it.
+    """
+    statement = select(FinancialFact).where(FinancialFact.company_id == company_id)
+    if company_id is None:
+        # Before `acquire` resolves the company there is nothing to show. `None` would
+        # match no rows anyway; saying so here keeps that an intention rather than a
+        # coincidence of SQL null semantics.
+        return statement.where(sa_false())
+    if request.point_in_time:
+        statement = statement.where(FinancialFact.filed_date <= request.as_of_date)
+    return statement
+
+
 async def validate_report(
     session: AsyncSession, report: WorkerReport, *, request: ResearchRequest
 ) -> list[str]:
@@ -329,11 +372,13 @@ async def validate_report(
         column=SourceDocument.id,
         cited=cited_sources,
     )
+    # The same reach the worker was given. A validator narrower than the search would
+    # refuse the worker's own evidence back at it, which is a loop with no exit.
     valid_facts = await _existing(
         session,
-        select(FinancialFact.id)
-        .join(SourceDocument, SourceDocument.id == FinancialFact.source_document_id)
-        .where(SourceDocument.request_id == request.id),
+        _visible_facts(request, await _company_id_for(session, request=request)).with_only_columns(
+            FinancialFact.id
+        ),
         column=FinancialFact.id,
         cited=cited_facts,
     )

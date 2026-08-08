@@ -777,6 +777,181 @@ async def evidence_scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, A
     }
 
 
+@pytest.fixture
+async def rerun_scene(db_session: AsyncSession) -> dict[str, Any]:
+    """The shape of the live failure: a company researched twice.
+
+    The first request's document holds the facts, because that is the acquisition that
+    inserted them; the second request holds a document of its own and — thanks to the
+    observation dedupe — not one fact.
+    """
+    user = User(email="rerun@example.invalid", display_name="Rerun", role=UserRole.OWNER)
+    db_session.add(user)
+    await db_session.flush()
+
+    def _request(ticker: str, exchange: str) -> ResearchRequest:
+        return ResearchRequest(
+            user_id=user.id,
+            company_name=f"{ticker} Corporation",
+            ticker=ticker,
+            exchange=exchange,
+            as_of_date=date(2023, 1, 1),
+            point_in_time=True,
+            base_currency="USD",
+            investment_horizon_months=12,
+            max_cost_gbp="2.50",
+            portfolio_context={},
+        )
+
+    first, rerun, unresolved = (
+        _request("CTSO", "NASDAQ"),
+        _request("CTSO", "NASDAQ"),
+        _request("NOPE", "NASDAQ"),
+    )
+    db_session.add_all([first, rerun, unresolved])
+    await db_session.flush()
+
+    company = Company(name="CONTOSO CORP", cik="0002222222", ticker="CTSO", exchange="NASDAQ")
+    other = Company(name="FABRIKAM INC", cik="0003333333", ticker="FBRK", exchange="NYSE")
+    payload = b"<html>Contoso</html>"
+    artefact = Artefact(
+        sha256="c" * 64, media_type="text/html", size_bytes=len(payload), storage_key="cc/c"
+    )
+    db_session.add_all([company, other, artefact])
+    await db_session.flush()
+
+    def _document(req: ResearchRequest) -> SourceDocument:
+        return SourceDocument(
+            request_id=req.id,
+            artefact_id=artefact.id,
+            url="https://data.sec.gov/api/xbrl/companyfacts/CIK0002222222.json",
+            title="Contoso company facts",
+            provider=Provider.SEC_EDGAR,
+            source_tier=SourceTier.T1_REGULATORY,
+            publication_date=date(2022, 6, 1),
+            retrieved_at=datetime.now(UTC),
+        )
+
+    first_document, rerun_document = _document(first), _document(rerun)
+    db_session.add_all([first_document, rerun_document])
+    await db_session.flush()
+
+    def _fact(company_id: Any, *, filed: date, period: date) -> FinancialFact:
+        return FinancialFact(
+            company_id=company_id,
+            # Every one of them recorded against the *first* run's document, which is what
+            # the dedupe leaves behind on a re-run.
+            source_document_id=first_document.id,
+            concept="revenue",
+            value=Decimal("1000"),
+            unit="USD",
+            period_end=period,
+            basis=FactBasis.AS_REPORTED,
+            filed_date=filed,
+        )
+
+    fact = _fact(company.id, filed=date(2022, 7, 30), period=date(2022, 6, 30))
+    future_fact = _fact(company.id, filed=date(2024, 7, 30), period=date(2024, 6, 30))
+    foreign_fact = _fact(other.id, filed=date(2022, 7, 30), period=date(2022, 6, 30))
+    db_session.add_all([fact, future_fact, foreign_fact])
+    await db_session.flush()
+
+    return {
+        "session": db_session,
+        "rerun": rerun,
+        "unresolved": unresolved,
+        "fact": fact,
+        "future_fact": future_fact,
+        "foreign_fact": foreign_fact,
+    }
+
+
+class TestFactsAreScopedToTheCompanyNotTheRequest:
+    """The reason a real run found nothing and three of its five workers exhausted.
+
+    Facts are deduplicated on an observation key that deliberately excludes the source
+    document, so the *second* run of a company inserts none of them — "supplied 18588,
+    inserted 0" is that dedupe working exactly as intended. But `search_facts` joined
+    through `source_documents` to `request_id`, so every one of those facts belonged to the
+    first run's document and the second run could not see a single one. Five workers spent
+    sixty tool calls on an empty table.
+    """
+
+    async def test_a_second_run_sees_the_facts_the_first_run_stored(
+        self, rerun_scene: dict[str, Any]
+    ) -> None:
+        executors = build_executors(rerun_scene["session"], request=rerun_scene["rerun"])
+
+        outcome = await executors["search_facts"](_tool_request("search_facts", "revenue"))
+
+        assert outcome.internal_results, (
+            "the re-run saw none of its own company's facts, which is what sent five "
+            "workers looking through an empty table"
+        )
+        assert outcome.internal_results[0]["fact_id"] == str(rerun_scene["fact"].id)
+
+    async def test_the_validator_accepts_what_the_search_offered(
+        self, rerun_scene: dict[str, Any]
+    ) -> None:
+        """A validator narrower than the search refuses the worker's own evidence back at
+        it, which is a loop with no exit — and is how a worker burns five rounds."""
+        report = WorkerReport(
+            coverage_note="Revenue is stored against this company.",
+            findings=[
+                WorkerFinding(
+                    statement="The company reports revenue.",
+                    kind="factual",
+                    fact_ids=[str(rerun_scene["fact"].id)],
+                    confidence=0.8,
+                )
+            ],
+        )
+
+        problems = await validate_report(
+            rerun_scene["session"], report, request=rerun_scene["rerun"]
+        )
+
+        assert problems == []
+
+    async def test_another_company_s_facts_stay_out_of_reach(
+        self, rerun_scene: dict[str, Any]
+    ) -> None:
+        """Company scope is wider than request scope; it is not unbounded."""
+        executors = build_executors(rerun_scene["session"], request=rerun_scene["rerun"])
+
+        outcome = await executors["search_facts"](_tool_request("search_facts", "revenue"))
+        found = {row["fact_id"] for row in outcome.internal_results}
+
+        assert str(rerun_scene["foreign_fact"].id) not in found
+
+    async def test_a_point_in_time_run_is_not_shown_a_later_filing(
+        self, rerun_scene: dict[str, Any]
+    ) -> None:
+        """The half of the fix that widening the scope made necessary.
+
+        Request scope happened to bound a worker to one acquisition. Company scope does
+        not, so a fact filed after this run's as-of date — stored by some later run — would
+        now be in reach without this.
+        """
+        executors = build_executors(rerun_scene["session"], request=rerun_scene["rerun"])
+
+        outcome = await executors["search_facts"](_tool_request("search_facts", "revenue"))
+        found = {row["fact_id"] for row in outcome.internal_results}
+
+        assert str(rerun_scene["future_fact"].id) not in found
+
+    async def test_a_run_whose_company_is_not_resolved_yet_sees_nothing(
+        self, rerun_scene: dict[str, Any]
+    ) -> None:
+        """Before `acquire` resolves the listing there is no company to scope to, and
+        "no company" must mean no facts rather than every company's."""
+        executors = build_executors(rerun_scene["session"], request=rerun_scene["unresolved"])
+
+        outcome = await executors["search_facts"](_tool_request("search_facts", "revenue"))
+
+        assert outcome.internal_results == []
+
+
 class TestTheExecutors:
     async def test_search_facts_finds_the_runs_facts_by_concept(
         self, evidence_scene: dict[str, Any]
