@@ -24,7 +24,9 @@ from typing import Any
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.agents.custom_section import CustomSectionDraft
 from aer.agents.planner import PlannedSection, PlannedSource, ResearchPlanDraft
+from aer.agents.section_writer import SectionDraft
 from aer.agents.worker import WorkerLead, WorkerReport, WorkerTurn
 from aer.config import Settings
 from aer.core.enums import JobStatus, UserRole
@@ -161,6 +163,22 @@ def make_provider(**kwargs: Any) -> FakeProvider:
     return provider
 
 
+def declared_schema_name(schema: type) -> str:
+    """The role's declared contract name, whatever this call narrowed it to.
+
+    A section writer asks for a subclass built from that section's own output contract
+    (:mod:`aer.agents.contract_schema`), so the class the provider is handed is named for
+    the section rather than for the role. A double matching on the exact name would answer
+    nothing — and would report a bug that is not there.
+    """
+    # `SectionDraft` before `CustomSectionDraft`: the first is a subclass of the second,
+    # and testing the general case first would call every built-in draft a custom one.
+    for base in (SectionDraft, CustomSectionDraft):
+        if issubclass(schema, base):
+            return base.__name__
+    return schema.__name__
+
+
 class ScriptedSectionBrain:
     """The fake's answer for every schema, with the section writer done properly.
 
@@ -177,7 +195,7 @@ class ScriptedSectionBrain:
         self.provider: FakeProvider | None = None
 
     def __call__(self, schema: type[Any]) -> Any:
-        name = schema.__name__
+        name = declared_schema_name(schema)
         if name == "ResearchPlanDraft":
             return planner_response()
         if name == "WorkerTurn":

@@ -56,7 +56,7 @@ from aer.storage.local import LocalArtefactStore
 from aer.web.csrf import CSRF_FIELD_NAME
 from tests.api_fixtures import build_app, client_for
 from tests.test_skill_frontmatter import MOAT_DURABILITY
-from tests.workflow_fixtures import AS_OF_DATE
+from tests.workflow_fixtures import AS_OF_DATE, declared_schema_name
 
 pytestmark = pytest.mark.anyio
 
@@ -523,7 +523,8 @@ def section_provider() -> FakeProvider:
     holder: dict[str, FakeProvider] = {}
 
     def answer(schema: type) -> Any:
-        assert schema.__name__ == "CustomSectionDraft", f"unexpected schema {schema.__name__}"
+        kind = declared_schema_name(schema)
+        assert kind == "CustomSectionDraft", f"unexpected schema {schema.__name__}"
         return _draft_from(holder["provider"].calls[-1]["messages"][0]["content"])
 
     provider = FakeProvider(answer)

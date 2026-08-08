@@ -24,6 +24,7 @@ from typing import Any, ClassVar, Final
 from pydantic import BaseModel, ConfigDict, Field
 
 from aer.agents.base import Agent
+from aer.agents.contract_schema import draft_model_for
 from aer.agents.custom_section import CustomSectionDraft
 from aer.agents.untrusted import UntrustedSource
 
@@ -91,6 +92,16 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
     role: ClassVar[str] = "report_writer"
     output_schema: ClassVar[type[BaseModel]] = SectionDraft
     prompt_version: ClassVar[str] = "1"
+
+    def response_schema(self, payload: SectionWriterInput) -> type[BaseModel]:
+        """The declared envelope, with ``content`` replaced by this section's contract.
+
+        The prompt below still shows the contract, because the model writes better having
+        read what each field is for. But being *shown* a contract and being *bound* by one
+        are different things, and only the second put a thesis in the reply — see
+        :mod:`aer.agents.contract_schema`.
+        """
+        return draft_model_for(SectionDraft, payload.output_contract, name=payload.section_key)
 
     def system_prompt(self, payload: SectionWriterInput) -> str:
         return _SYSTEM_PROMPT.format(

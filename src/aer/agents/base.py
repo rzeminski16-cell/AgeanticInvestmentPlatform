@@ -174,6 +174,22 @@ class Agent[InputT, OutputT: BaseModel]:
     def user_message(self, payload: InputT) -> str:
         raise NotImplementedError
 
+    def response_schema(self, payload: InputT) -> type[BaseModel]:  # noqa: ARG002
+        """The schema this particular call asks for. The role's contract by default.
+
+        **An override may narrow the contract; it can never replace it.** Whatever comes
+        back is re-validated into :attr:`output_schema` by :meth:`run`, so a subclass
+        cannot widen what the role may return — the registry binding still decides that.
+
+        The one thing this exists for is a field the declared contract can only describe
+        as "an object". ``dict[str, Any]`` becomes ``{"properties": {},
+        "additionalProperties": false}`` on the wire, because the API's JSON-schema mode
+        has no way to say "any object" — so the model is handed a schema that permits it
+        to return nothing, and it duly returns nothing. A caller that knows the shape at
+        call time can say so here. See :mod:`aer.agents.contract_schema`.
+        """
+        return type(self).output_schema
+
     def untrusted_sources(self, payload: InputT) -> list[UntrustedSource]:  # noqa: ARG002
         """Fetched content this call needs the model to read. Empty by default.
 
@@ -249,7 +265,7 @@ class Agent[InputT, OutputT: BaseModel]:
 
         started = time.perf_counter()
         result = await context.provider.complete_structured(
-            self.output_schema,
+            self.response_schema(payload),
             system=system,
             messages=messages,
             model=choice.model,
@@ -272,12 +288,35 @@ class Agent[InputT, OutputT: BaseModel]:
             "agent.completed",
             role=self.role,
             model=choice.model,
-            schema=self.output_schema.__name__,
+            schema=type(result.value).__name__,
             input_tokens=result.usage.input_tokens,
             output_tokens=result.usage.output_tokens,
             latency_ms=round(elapsed_ms, 2),
         )
-        return result.value  # type: ignore[return-value]
+        return self._as_declared(result.value)
+
+    def _as_declared(self, value: BaseModel) -> OutputT:
+        """Bring a narrowed reply back to the role's declared contract.
+
+        A no-op unless :meth:`response_schema` was overridden. When it was, the reply is an
+        instance of a class built for this call, and everything downstream — the validators,
+        the recorders, the renderer — is written against the declared one. Re-validating
+        rather than casting is what keeps the registry binding meaningful: a narrowed schema
+        that produced something the role may not return fails here, loudly.
+
+        ``exclude_none`` because an optional field the model left out arrives as ``None``,
+        and a declared field holding null passes "is it present?" and fails every reader
+        after that. ``by_alias`` because the aliases are the contract's own field names.
+        """
+        declared = type(self).output_schema
+        # Exact type, not `isinstance`: a narrowed schema is built as a *subclass* of the
+        # declared one, so an instance check would pass it straight through with its
+        # content still a nested model where every reader expects a mapping.
+        if type(value) is declared:
+            return value  # type: ignore[return-value]
+        return declared.model_validate(  # type: ignore[return-value]
+            value.model_dump(mode="json", by_alias=True, exclude_none=True)
+        )
 
     async def run_batch(self, context: AgentContext, payloads: Sequence[InputT]) -> list[OutputT]:
         """Perform many instances of this agent's work as one provider batch.

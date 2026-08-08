@@ -29,6 +29,7 @@ from typing import Any, ClassVar, Final, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from aer.agents.base import Agent
+from aer.agents.contract_schema import draft_model_for
 from aer.agents.untrusted import UntrustedSource
 from aer.agents.user_skill import USER_SKILL_RULE, wrap_user_skill
 
@@ -158,6 +159,18 @@ class CustomSectionAgent(Agent[CustomSectionInput, CustomSectionDraft]):
     role: ClassVar[str] = "custom_section"
     output_schema: ClassVar[type[BaseModel]] = CustomSectionDraft
     prompt_version: ClassVar[str] = "1"
+
+    def response_schema(self, payload: CustomSectionInput) -> type[BaseModel]:
+        """The declared envelope, with ``content`` bound to the pinned contract.
+
+        The projected contract is what the operator approved, so binding the reply to it is
+        also the tightest reading of the pin: a field the pin does not declare is not
+        merely refused afterwards, it cannot be returned. See
+        :mod:`aer.agents.contract_schema` for why being shown a contract was not enough.
+        """
+        return draft_model_for(
+            CustomSectionDraft, payload.output_contract, name=payload.section_key
+        )
 
     def system_prompt(self, payload: CustomSectionInput) -> str:
         return _SYSTEM_PROMPT.format(

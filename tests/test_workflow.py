@@ -408,7 +408,13 @@ class TestTheWholeRun:
         schemas = [call["schema"] for call in finished["provider"].calls]
         assert schemas.count("ResearchPlanDraft") == 1
         assert schemas.count("WorkerTurn") == 5
-        assert schemas.count("SectionDraft") == 16
+        # Named for the section it was built for; see `declared_schema_name`.
+        assert sum(1 for name in schemas if name.endswith("SectionDraft")) == 16
+        # **And named for the section, not the role.** The bare envelope means the writer
+        # was handed `content: dict[str, Any]`, which the API's dialect closes to an object
+        # permitting no keys — the model can then return nothing, and every section renders
+        # as "could not be generated". That was the first real report this platform wrote.
+        assert "SectionDraft" not in schemas
         assert schemas.count("ValidatorAdvisory") == 1
         assert schemas.count("RedTeamReport") == 0
         assert finished["provider"].call_count == 23
@@ -419,7 +425,7 @@ class TestTheWholeRun:
         drafts = [
             "".join(m["content"] for m in call["messages"])
             for call in finished["provider"].calls
-            if call["schema"] == "SectionDraft"
+            if call["schema"].endswith("SectionDraft")
         ]
         assert any("What the filed history shows for executive_summary." in body for body in drafts)
 

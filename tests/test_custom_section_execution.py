@@ -68,6 +68,7 @@ from tests.test_workflow import approve, run_to_next_stop
 from tests.workflow_fixtures import (
     AS_OF_DATE,
     StubSecClient,
+    declared_schema_name,
     planner_response,
     section_draft_for,
     seed_job,
@@ -506,7 +507,10 @@ def _scripted(drafts: list[CustomSectionDraft]) -> FakeProvider:
     remaining = list(drafts)
 
     def answer(schema: type) -> Any:
-        assert schema is CustomSectionDraft
+        # A subclass, not the class: the call narrows `content` to the pinned contract, so
+        # what the provider is handed is built for this section. Still the role's envelope,
+        # which is what this double is asserting.
+        assert issubclass(schema, CustomSectionDraft)
         return remaining.pop(0)
 
     return FakeProvider(answer)
@@ -801,7 +805,7 @@ def moat_provider() -> FakeProvider:
     holder: dict[str, FakeProvider] = {}
 
     def answer(schema: type) -> Any:
-        name = schema.__name__
+        name = declared_schema_name(schema)
         if name == "ResearchPlanDraft":
             return planner_response()
         if name == "WorkerTurn":
@@ -991,7 +995,7 @@ class TestTheMoatDurabilityExampleEndToEnd:
 
     async def test_the_call_was_composed_in_the_fixed_order(self, finished: dict[str, Any]) -> None:
         provider = finished["provider"]
-        custom_calls = [c for c in provider.calls if c["schema"] == "CustomSectionDraft"]
+        custom_calls = [c for c in provider.calls if c["schema"].endswith("CustomSectionDraft")]
         assert len(custom_calls) == 1
 
         call = custom_calls[0]
