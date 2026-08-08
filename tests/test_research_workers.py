@@ -18,14 +18,18 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.base import AgentContext
+from aer.agents.registry import resolve_role
 from aer.agents.untrusted import CONTAINMENT_RULE
 from aer.agents.worker import (
+    _TOOL_BRIEFS,
     MAX_TOOL_CALLS,
     ExecutedTool,
     ResearchTopic,
+    ResearchWorker,
     ToolRequest,
     WorkerExhaustedError,
     WorkerFinding,
+    WorkerInput,
     WorkerLead,
     WorkerReport,
     WorkerTurn,
@@ -80,6 +84,22 @@ def _report_turn(
             coverage_note="Investigated within the scripted evidence.",
         )
     )
+
+
+def _worker_input(*, available_tools: list[str]) -> WorkerInput:
+    return WorkerInput(
+        topic=ResearchTopic.COMPANY,
+        company_name="Contoso",
+        ticker="CTSO",
+        as_of_date="2023-01-01",
+        remaining_tool_calls=MAX_TOOL_CALLS,
+        available_tools=available_tools,
+    )
+
+
+async def _never_called(tool_request: ToolRequest) -> ExecutedTool:
+    """Bound so the tool counts as available; the scripted worker never asks for it."""
+    raise AssertionError("the scripted turns request no tools")  # pragma: no cover
 
 
 def _scripted(turns: list[WorkerTurn]) -> FakeProvider:
@@ -353,6 +373,62 @@ class TestTheRequestExecuteLoop:
         assert attempt.executed is False
         assert "not available in this run" in attempt.refusal
         assert outcome.tool_calls == 0
+
+
+class TestTheWorkerIsToldWhatItHas:
+    """The prompt names its tools, because a worker that has to guess wastes a run.
+
+    The live failure: the prompt said requests are executed "only if the tool is on your
+    role's allowlist" and never said what the allowlist was. The worker asked for
+    ``news_search`` and ``sec_filings_search`` — names that have never existed in this
+    codebase — was refused twice, and burned all five rounds finding out by trial what one
+    sentence could have told it.
+    """
+
+    def test_every_tool_the_role_may_use_is_described(self) -> None:
+        """A granted tool with no brief is a tool the worker is never told it has."""
+        granted = resolve_role(ResearchWorker.role).allowed_tools
+
+        assert granted <= set(_TOOL_BRIEFS)
+
+    def test_the_prompt_lists_the_tools_this_run_can_actually_execute(self) -> None:
+        prompt = ResearchWorker().system_prompt(
+            _worker_input(available_tools=["search_facts", "search_sources"])
+        )
+
+        assert "search_facts" in prompt
+        assert "search_sources" in prompt
+        # Granted to the role, but no fetcher bound: permission is not availability, and
+        # offering it would send the worker at a tool that refuses.
+        assert "fetch_known_url" not in prompt
+
+    def test_a_run_with_no_tools_says_so_rather_than_showing_a_blank(self) -> None:
+        prompt = ResearchWorker().system_prompt(_worker_input(available_tools=[]))
+
+        assert "this run bound no tools" in prompt
+
+    def test_the_prompt_says_the_list_is_exhaustive(self) -> None:
+        """Without this the model treats the list as examples and invents a sixth."""
+        prompt = ResearchWorker().system_prompt(_worker_input(available_tools=["search_facts"]))
+
+        assert "There are no others." in prompt
+
+    async def test_the_loop_offers_only_what_was_bound(self, loop_scene: dict[str, Any]) -> None:
+        """End to end: what reaches the model is permission narrowed by availability."""
+        provider = _scripted([_report_turn()])
+        await investigate(
+            _context(loop_scene, provider),
+            topic=ResearchTopic.COMPANY,
+            company_name="Contoso",
+            ticker="CTSO",
+            as_of_date="2023-01-01",
+            executors={"search_facts": _never_called},
+            validate=_accept_all,
+        )
+
+        [system] = [call["system"] for call in provider.calls]
+        assert "search_facts" in system
+        assert "search_sources" not in system
 
 
 class TestTheContractItself:

@@ -199,9 +199,42 @@ class WorkerInput(BaseModel):
     ticker: str
     as_of_date: str
     remaining_tool_calls: int
+
+    # The tools this run can actually execute: the role's allowlist narrowed to the
+    # executors that were bound. Permission is not availability — `fetch_known_url` is
+    # granted to the role but absent until something binds a fetcher — and the worker needs
+    # to be told the narrower of the two, not the wider.
+    available_tools: list[str] = Field(default_factory=list)
+
     internal_results: list[dict[str, Any]] = Field(default_factory=list)
     untrusted_evidence: list[dict[str, str]] = Field(default_factory=list)
     problems: list[str] = Field(default_factory=list)
+
+
+# What each tool does, in the worker's own terms. Keyed by the names in the ``analysis``
+# role's allowlist, and checked against it by a test — a tool the registry grants but this
+# map does not describe would be a tool the model is never told it has.
+#
+# **This map exists because of a wasted run.** The prompt told the worker that requests are
+# executed "only if the tool is on your role's allowlist" and then never said what the
+# allowlist was. The worker did the only thing it could: it guessed. It asked for
+# ``news_search`` and ``sec_filings_search``, neither of which has ever existed here, was
+# refused twice, and spent its five rounds discovering by trial and error what it could
+# have been told in one sentence.
+_TOOL_BRIEFS: Final[dict[str, str]] = {
+    "search_facts": (
+        "search_facts — query: a financial concept, e.g. 'Revenues' or 'OperatingIncome'. "
+        "Returns stored facts for this run with their ids, periods and units."
+    ),
+    "search_sources": (
+        "search_sources — query: words to match against the titles of documents this run "
+        "has acquired. Returns those documents with their ids and tiers."
+    ),
+    "fetch_known_url": (
+        "fetch_known_url — query: one URL a source you were shown already names. Fetches "
+        "it through the platform's fetch layer. Never a URL you composed yourself."
+    ),
+}
 
 
 _SYSTEM_PROMPT: Final = """\
@@ -215,15 +248,28 @@ Rules that are enforced outside this conversation, stated so you can work with t
 1. You never assert a figure. A number belongs to a stored fact; you cite its id.
 2. Every finding cites at least one source document id or fact id from the evidence you \
 were shown. Ids you were not shown do not exist.
-3. Tool requests are executed by the platform's code, only if the tool is on your role's \
-allowlist, and only within your remaining budget. Asking for anything else is refused and \
-wastes a turn.
+3. Tool requests are executed by the platform's code, only within your remaining budget, \
+and only for the tools listed below. There are no others. Asking for a tool that is not \
+listed is refused and wastes a turn.
 4. Where the evidence cannot settle a question, record it as a lead rather than \
 stretching a finding.
+
+The tools available to you on this run, and nothing else:
+{tools}
+
+If none of them can reach what a question needs, that is a lead, not a failure. Say so and \
+deliver your report.
 
 Your topic:
 {brief}
 """
+
+# What the worker is told when a run has bound no executors at all. Better than an empty
+# bullet list, which reads as an oversight rather than as a statement.
+_NO_TOOLS: Final = (
+    "  (none — this run bound no tools. Work from the evidence you are shown, and record "
+    "what you could not reach as leads.)"
+)
 
 
 class ResearchWorker(Agent[WorkerInput, WorkerTurn]):
@@ -234,7 +280,9 @@ class ResearchWorker(Agent[WorkerInput, WorkerTurn]):
     prompt_version: ClassVar[str] = "1"
 
     def system_prompt(self, payload: WorkerInput) -> str:
-        return _SYSTEM_PROMPT.format(brief=_TOPIC_BRIEFS[payload.topic])
+        return _SYSTEM_PROMPT.format(
+            brief=_TOPIC_BRIEFS[payload.topic], tools=_tool_menu(payload.available_tools)
+        )
 
     def user_message(self, payload: WorkerInput) -> str:
         internal = payload.model_dump(mode="json", exclude={"untrusted_evidence"})
@@ -329,6 +377,9 @@ async def investigate(
             the run continuing with a silently absent investigation.
     """
     worker = ResearchWorker()
+    # Permission ∩ availability, settled once. The registry says what the role may ask for;
+    # the executors say what this run can actually do.
+    available = sorted(set(worker.allowed_tools) & set(executors))
     executed: list[ExecutedTool] = []
     internal: list[dict[str, Any]] = []
     untrusted: list[dict[str, str]] = []
@@ -344,6 +395,7 @@ async def investigate(
                 ticker=ticker,
                 as_of_date=as_of_date,
                 remaining_tool_calls=max_tool_calls - spent,
+                available_tools=available,
                 internal_results=internal,
                 untrusted_evidence=untrusted,
                 problems=problems,
@@ -387,6 +439,17 @@ async def investigate(
         message,
         context={"topic": topic.value, "tool_calls": spent, "rounds": max_rounds},
     )
+
+
+def _tool_menu(available: list[str]) -> str:
+    """The tools, as bullets the prompt can carry.
+
+    An available tool with no brief is listed by name rather than dropped: telling the
+    worker less than the truth is the failure this whole function exists to prevent.
+    """
+    if not available:
+        return _NO_TOOLS
+    return "\n".join(f"- {_TOOL_BRIEFS.get(tool, tool)}" for tool in available)
 
 
 async def _execute_one(
