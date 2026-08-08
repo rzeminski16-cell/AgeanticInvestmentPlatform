@@ -40,6 +40,7 @@ from aer.db.models import (
 )
 from aer.extract.html import extract_html
 from aer.providers.fake import FakeProvider
+from aer.providers.protocol import SpentButUnusableError, Usage
 from aer.providers.router import Router
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
 from aer.sections.writing import execute_builtin_section, policy_of_definition
@@ -215,6 +216,27 @@ def _scripted(drafts: list[SectionDraft]) -> FakeProvider:
         # envelope, which is what this double is asserting.
         assert issubclass(schema, SectionDraft)
         return remaining.pop(0)
+
+    return FakeProvider(answer)
+
+
+def _refusing(scene: dict[str, Any]) -> FakeProvider:
+    """A provider whose reply was billed and cannot be used.
+
+    Raised from inside ``complete_structured``, which is where the real one raises it: the
+    call completed, the usage is real, and only the schema is unhappy.
+    """
+    usage = Usage(input_tokens=2_500, output_tokens=1_800, model="claude-opus-5")
+
+    def answer(schema: type) -> Any:
+        raise SpentButUnusableError(
+            "claude-opus-5's reply could not be read as SectionDraft.",
+            usage=usage,
+            request_payload={"model": "claude-opus-5", "messages": [{"role": "user"}]},
+            response_payload={"stop_reason": "end_turn"},
+            latency_ms=1_200.0,
+            context={"schema": schema.__name__},
+        )
 
     return FakeProvider(answer)
 
@@ -423,3 +445,45 @@ class TestSpentPerSection:
         # entries — all against the draft step.
         assert rows
         assert all(row.job_step_id == scene["step"].id for row in rows)
+
+    async def test_a_reply_the_schema_refuses_is_still_metered(self, scene: dict[str, Any]) -> None:
+        """**A call that failed is not a call that was free.**
+
+        The reply was generated and billed; only its usability is in question. The budget
+        cap reads the `costs` table, so spend the table cannot see is spend the cap cannot
+        cap — and a worker that re-asks after a refusal was, until this, spending money the
+        ledger never recorded. `stop_reason` says which kind of failure it was, so these
+        rows are findable rather than sitting under whatever the API happened to report.
+        """
+        provider = _refusing(scene)
+        context = _context(scene, provider)
+
+        await execute_builtin_section(
+            context, section=scene["section"], request=scene["request"], focus=""
+        )
+
+        run = await scene["session"].scalar(
+            select(AgentRun).where(AgentRun.job_step_id == scene["step"].id)
+        )
+        assert run is not None
+        assert run.stop_reason == "schema_rejected"
+        rows = list(await scene["session"].scalars(select(Cost).where(Cost.agent_run_id == run.id)))
+        assert rows
+        assert context.spend_gbp > 0
+
+    async def test_the_failed_exchange_is_archived_like_any_other(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """ "Why did it say that?" is asked far more often about the replies that failed."""
+        context = _context(scene, _refusing(scene))
+
+        await execute_builtin_section(
+            context, section=scene["section"], request=scene["request"], focus=""
+        )
+
+        run = await scene["session"].scalar(
+            select(AgentRun).where(AgentRun.job_step_id == scene["step"].id)
+        )
+        assert run is not None
+        assert run.request_payload_ref is not None
+        assert run.response_payload_ref is not None

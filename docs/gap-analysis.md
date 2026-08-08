@@ -1,5 +1,8 @@
 # Gap analysis — what is missing, as of 2026-08-08
 
+*Updated after A1–A4 were closed. Items struck through are done; the reasoning is kept
+because a gap and the shape of its fix are worth reading together.*
+
 Written after the first end-to-end live runs, from the code rather than from the plan. The
 phase specifications in `docs/PLAN.md` remain the authority on *scope*; this document is an
 honest account of the distance between that scope and what a run actually does today.
@@ -8,9 +11,9 @@ Two lists, as asked: what is missing behind the surface, and what is missing in 
 
 ---
 
-## The finding that dominates both lists
+## The finding that dominated both lists — now closed
 
-**A large, tested deterministic layer exists that the live workflow never calls.**
+**A large, tested deterministic layer existed that the live workflow never called.**
 
 `src/aer/calc/` holds `statements.py`, `ratios.py`, `quality.py`, `wacc.py`, `dcf.py`,
 `comps.py`, `fx.py`, `prices.py` and `bridge.py` — built through Phase 3, each with unit and
@@ -26,11 +29,19 @@ produced a discounted cash flow. The comparables page is empty for the same reas
 balance-sheet, cash-flow, earnings-quality and DCF sections have one figure between them to
 write from, so they write almost nothing even when the writer is working.
 
-The services are reachable from the API and the web — `services/valuation.py`,
-`services/scenarios.py`, `services/assumptions.py` all have routes — but **no workflow step
-runs them**. This is a wiring gap, not a missing-feature gap, and it is the highest-value
-work remaining in the system. Until it closes, most of this platform is code that no
-report has ever touched.
+The services were reachable from the API and the web — `services/valuation.py`,
+`services/scenarios.py`, `services/assumptions.py` all have routes — and **no workflow step
+ran them**. A wiring gap, not a missing-feature gap, and the highest-value work in the
+system at the time it was written.
+
+`aer.services.analysis` closed it for the statements, the ratio suite and the
+earnings-quality signals: a two-year scene now persists more than ten calculations where it
+persisted one. **The valuation is a different kind of gap and stays open** —
+`inputs_from` refuses to run without a confirmed assumption for every driver and scalar,
+and says why: a terminal growth rate this platform chose "would be its opinion presented as
+the operator's". So a DCF needs an operator working through the assumptions page, or an
+agent that proposes assumptions — and that is a new role, which ADR 0035 says needs an ADR
+before it needs code.
 
 ---
 
@@ -40,10 +51,11 @@ report has ever touched.
 
 | # | Gap | Notes |
 |---|---|---|
-| A1 | **The workflow does not invoke the calculation suite** | See above. Nothing else here is close in value. |
-| A2 | **Unmetered model spend** | A reply rejected while the SDK accumulates the stream carries no usage figure, so no `costs` row is written: the tokens are spent and the budget cap never sees them. Breaks the "cost is metered in code" invariant. `MAX_UNREADABLE_REPLIES` bounds the blast radius; the hole itself is open. |
-| A3 | **The companyfacts quarantine** | Every run's only source is quarantined `no_publication_date`. The document is a rolling aggregate with no single publication date; the honest fix is the latest `filed` across the facts it carries, recorded as such. |
-| A4 | **One source per run** | SEC full-text search and issuer-IR discovery (task 16) and Companies House (task 17) are built and are not called. `_acquire` fetches company facts and stops — its docstring says so deliberately, and that deliberate choice has outlived its purpose. |
+| ~~A1~~ | ~~**The workflow does not invoke the calculation suite**~~ | **Closed.** `aer.services.analysis` assembles statements, ratios and quality signals for each annual period into one ledger, and `calculate` runs it. One calculation a run became more than ten on a two-year scene. The DCF stays out deliberately: it refuses to run without confirmed assumptions, and an agent that proposed them would be a new role needing an ADR (0035). |
+| ~~A2~~ | ~~**Unmetered model spend**~~ | **Closed.** The schema now goes to the wire as a dict, so the SDK sends it and skips the client-side parse: the stream always completes, the usage is always whole, and validation happens where a failure is a value already metered. `SpentButUnusableError` carries the bill and both payloads; `Agent.run` writes the `agent_runs` and `costs` rows before re-raising, with `stop_reason` marking them. |
+| ~~A3~~ | ~~**The companyfacts quarantine**~~ | **Closed, and recorded as ADR 0044.** The aggregate takes the date of its newest component — the day it could first have existed — at 0.9 confidence to mark it derived. A current run gets a citable primary source; a historical run still quarantines it, now for a reason that is true. A side effect worth noting: the validator's date-adjudication call has disappeared from every run, because there is nothing left to adjudicate. |
+| A21 | **A filing is fetched and only lightly read** | Forty paragraphs in document order: enough for a section to cite, and not a reading of the filing. Choosing passages by relevance would get far more out of the same document and the same fetch. |
+| ~~A4~~ | ~~**One source per run**~~ | **Closed at the chosen scope.** `aer.services.filings` fetches the latest annual report and the recent current reports from the submissions index, inside the point-in-time window, each dated by its acceptance and excerpted so it can be cited. SEC full-text search, issuer-IR discovery and Companies House remain uncalled — see B13. |
 
 ### Security
 
@@ -95,10 +107,11 @@ report has ever touched.
 | # | Gap | Notes |
 |---|---|---|
 | B1 | **No way to delete or archive a research request** | `aer reset-research` is all-or-nothing. The requests list offers no per-row control. |
-| B2 | **Valuation, DCF, scenarios and sensitivities never appear in a run** | A1. |
-| B3 | **Comparables never appear** | A1 and A20. |
-| B4 | **A run reads one filing** | A4. No 10-K text, no IR pages, no announcements — so the recent-developments worker has almost nothing to find, and reports leads rather than findings. |
-| B5 | **Charts have nothing to plot** | `services/exhibits.py` is wired into the report; with one source and one calculation there is no series to draw. |
+| B2 | **Valuation, DCF, scenarios and sensitivities never appear in a run** | Not A1 any more: the analysis runs, and the valuation is blocked on confirmed assumptions by design. See the section above. |
+| B3 | **Comparables never appear** | A20, and the same assumption question for the multiples that need a forecast. |
+| ~~B4~~ | ~~**A run reads one filing**~~ | **Closed.** A run now reads the annual report and the recent current reports as well as the aggregate. Whether the recent-developments worker does better with them is the next live run's question. |
+| B13 | **No full-text search, no issuer IR pages** | Built in task 16 and still not called. The workers can reach IR pages through `fetch_known_url` once a host is established; nothing seeks them out. |
+| ~~B5~~ | ~~**Charts have nothing to plot**~~ | **Closed by A1**, at least in principle: a run now records a multi-period ledger, so the revenue-and-margin history has a series behind it. The scenario and sensitivity charts stay placeholders until the valuation does. |
 
 ### Not built (Phase 6)
 
@@ -135,11 +148,17 @@ Tasks 29–32 remain genuinely outstanding.
 
 ## Suggested order
 
-1. **A1**, before anything else on either list. It converts a large body of tested code
-   into something a report can stand on, and it makes B2, B3 and B5 disappear at once.
-2. **A3 and A4** next: they are what the analysis in (1) will be reading. A DCF over one
-   quarantined aggregate is arithmetic without evidence.
-3. **A2 and A14** together — both are about what a run costs, and both are cheap beside
-   what they save.
-4. **B1**, which is small and has been asked for repeatedly.
-5. The rest of Phase 6 in the order `docs/PLAN.md` gives.
+**A1 to A4 are done.** What that leaves, in the order it is worth doing:
+
+1. **A14 — prompt caching.** The composition is already ordered for it and never asks for
+   it. The cheapest remaining saving by a distance, now that A2 means the meter can show
+   what it saves.
+2. **B1 — delete or archive a request.** Small, and asked for repeatedly.
+3. **The valuation path.** Not a line above, because it is a design question rather than a
+   gap: a DCF needs confirmed assumptions, so it needs either an operator working through
+   the assumptions page or a proposing agent — and the second needs an ADR before it needs
+   code.
+4. **A3's neighbour, A21.** The filings are fetched and barely read.
+5. **A9 to A12** — retention, backups, audit verification, replay. None urgent on one
+   machine; all much harder to add after there is data worth keeping.
+6. The rest of Phase 6 in the order `docs/PLAN.md` gives.

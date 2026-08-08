@@ -85,6 +85,7 @@ from aer.services.evaluations import evaluate_run
 from aer.services.exhibits import exportable_charts_for
 from aer.services.extractions import record_excerpts
 from aer.services.facts import persist_facts, upsert_company
+from aer.services.filings import acquire_filings
 from aer.services.red_team import run_red_team
 from aer.services.research import build_executors, run_worker
 from aer.services.sectors import (
@@ -151,6 +152,12 @@ _RUNTIME_ESTIMATE_SECONDS: Final = 120
 # The concept this slice calculates. One, on purpose: the deliverable is the chain from
 # filing to footnote, and a second concept would test the same chain twice.
 SLICE_CONCEPT: Final = "revenue"
+
+# How sure the platform is of a publication date it worked out rather than read. Below the
+# certainty of a date printed on a filing, because it is an inference — a sound one, but an
+# inference — and a reader comparing two documents' dates should be able to see which was
+# stated and which was derived.
+_DERIVED_FROM_CONTENTS: Final = 0.9
 
 
 def build_steps() -> list[WorkflowStep]:
@@ -726,10 +733,17 @@ async def _require_approval(context: StepContext, *, gate: GateKind, of_step: st
 
 
 async def _acquire(context: StepContext) -> StepResult:
-    """Fetch the company's facts from EDGAR and record the provenance.
+    """Fetch the company's facts and its filings from EDGAR, and record the provenance.
 
-    One document. The slice's purpose is the chain, and a second document would exercise
-    the same chain again rather than exercising anything new.
+    **It used to fetch one document, and that was the whole of the run's evidence.** The
+    XBRL aggregate: every figure the entity ever tagged, and not one sentence of prose. The
+    original comment said a second document "would exercise the same chain again rather
+    than exercising anything new", which was true of the chain and false of the research —
+    the recent-developments worker finished a live run with five leads and no findings,
+    because there was nothing recent in front of it to find.
+
+    So the annual report and the recent current reports come too, dated by the day EDGAR
+    accepted them and excerpted so they can be cited. See :mod:`aer.services.filings`.
     """
     request = await _request_for(context)
     client = context.service("sec_client")
@@ -752,6 +766,12 @@ async def _acquire(context: StepContext) -> StepResult:
         source_tier=SourceTier.T1_REGULATORY,
         title=f"{entity.name} XBRL company facts",
         publisher="US Securities and Exchange Commission",
+        # An aggregate has no publication date of its own, and having none quarantined the
+        # only source most runs held — so no claim could cite anything. The newest filing
+        # it carries is the day this document could first have existed, which is a real
+        # date rather than a convenience. See `CompanyFacts.latest_filed`.
+        publication_date=response.data.latest_filed,
+        publication_date_confidence=_DERIVED_FROM_CONTENTS,
     )
 
     company = await upsert_company(
@@ -766,13 +786,27 @@ async def _acquire(context: StepContext) -> StepResult:
     request.resolved = True
     await context.session.flush()
 
+    filings = await acquire_filings(
+        context.session,
+        store,
+        client=client,
+        request=request,
+        entity=entity,
+        settings=context.service("settings"),
+        job_id=context.job.id,
+    )
+
     return StepResult(
         output={
             "company_id": str(company.id),
             "cik": entity.identifier,
+            # The aggregate, named on its own because `extract` reads it by hash to build
+            # the fact set. The filings below are prose, and are read by the workers and
+            # the section writers rather than by the extractor.
             "source_document_id": str(acquisition.source_document.id),
             "artefact_sha256": acquisition.sha256,
             "quarantined": acquisition.quarantined,
+            **filings.as_dict(),
         }
     )
 

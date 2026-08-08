@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Final, Literal
+from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
 import anyio
 import structlog
@@ -39,7 +39,13 @@ from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 
 from aer.errors import ConfigError, ExternalServiceError, ValidationError
-from aer.providers.protocol import BatchRequest, Message, StructuredResult, Usage
+from aer.providers.protocol import (
+    BatchRequest,
+    Message,
+    SpentButUnusableError,
+    StructuredResult,
+    Usage,
+)
 
 if TYPE_CHECKING:  # pragma: no cover -- import-time only for type checking
     from anthropic import AsyncAnthropic
@@ -179,6 +185,21 @@ class AnthropicProvider:
 
         Nothing here reads the deltas. ``get_final_message`` waits for the accumulated
         message, which is the same object ``messages.parse`` would have returned.
+
+        **The schema goes to the wire; the reply is validated here.** Handing the SDK the
+        Pydantic class instead makes it validate *during* accumulation, at
+        ``content_block_stop`` — one event before ``message_delta``, which is the event
+        carrying the final output-token count. A reply that broke a bound therefore raised
+        out of a stream whose usage was still the placeholder from ``message_start``: the
+        tokens were spent, no usage figure existed, and no ``costs`` row was ever written.
+        Every re-ask was money the budget cap could not see, which is a cap that does not
+        work — the thing this platform exists not to have.
+
+        Passing the wire format as a dict makes the SDK send the schema (so the server
+        still constrains generation) and skip the client-side parse, so the stream always
+        completes, the usage is always whole, and validation happens below where a failure
+        is a value this method has already metered. It is also exactly what the batch path
+        does, which is now a similarity rather than a coincidence.
         """
         request = _request_payload(
             system=system,
@@ -190,12 +211,12 @@ class AnthropicProvider:
 
         started = time.perf_counter()
         try:
-            # `output_format` rather than a schema in the payload: the SDK translates the
-            # Pydantic class into the wire format and validates the reply against it.
-            async with self._client.messages.stream(output_format=schema, **request) as stream:
+            # `cast` because the SDK types the dict form as a TypedDict it builds
+            # itself; the branch that accepts it (`is_dict(output_format)`) is public
+            # behaviour, and `_wire_output_format` produces exactly that shape.
+            wire_format = cast("Any", _wire_output_format(schema))
+            async with self._client.messages.stream(output_format=wire_format, **request) as stream:
                 response = await stream.get_final_message()
-        except PydanticValidationError as exc:
-            raise _unreadable_reply(exc, schema=schema, model=model, max_tokens=max_tokens) from exc
         except Exception as exc:
             message = f"The Anthropic API call failed ({type(exc).__name__}: {exc})."
             raise ExternalServiceError(
@@ -206,8 +227,23 @@ class AnthropicProvider:
             ) from exc
         elapsed_ms = (time.perf_counter() - started) * 1000
 
-        parsed = self._parse(response, schema, model=model, max_tokens=max_tokens)
+        # Read before anything can fail. Whatever the reply turns out to be, this call was
+        # made and billed, and every path out of here from now on carries the bill.
         usage = _usage_from(response, model=model)
+        archived_request = _archived(request, schema)
+        archived_response = _response_payload(response)
+
+        try:
+            parsed = self._parse(response, schema, model=model, max_tokens=max_tokens)
+        except ValidationError as unusable:
+            raise SpentButUnusableError(
+                unusable.message,
+                usage=usage,
+                request_payload=archived_request,
+                response_payload=archived_response,
+                latency_ms=elapsed_ms,
+                context=unusable.context,
+            ) from unusable
 
         _log.info(
             "provider.completed",
@@ -229,8 +265,8 @@ class AnthropicProvider:
             value=parsed,
             usage=usage,
             latency_ms=elapsed_ms,
-            request_payload=_archived(request, schema),
-            response_payload=_response_payload(response),
+            request_payload=archived_request,
+            response_payload=archived_response,
         )
 
     async def complete_structured_batch[T: BaseModel](
@@ -382,46 +418,19 @@ class AnthropicProvider:
     def _parse[T: BaseModel](
         self, response: Any, schema: type[T], *, model: str, max_tokens: int
     ) -> T:
-        """Take the validated object out of the response, or explain why there is not one.
+        """Validate the reply's text against the schema, or explain why there is nothing to.
+
+        **The provider parses; the SDK no longer does.** The schema goes to the wire as a
+        dict, which is what keeps the stream from raising before the usage arrives (see
+        :meth:`complete_structured`), and the cost of that is that nothing populates
+        ``parsed_output`` — so the text is read and validated here. That is what the batch
+        path always did, and both now go through :func:`_validated`.
 
         A response that does not validate is an error, never something to coerce. A
         half-parsed plan with a missing field is worse than no plan, because everything
         downstream treats it as complete.
         """
-        raw = _structured_output(response)
-        if isinstance(raw, schema):
-            return raw
-
-        if raw is None:
-            raise ValidationError(
-                _nothing_to_parse(response, schema=schema, model=model, max_tokens=max_tokens),
-                context={
-                    "model": model,
-                    "schema": schema.__name__,
-                    "stop_reason": getattr(response, "stop_reason", None),
-                },
-            )
-
-        # An SDK that handed back a mapping rather than an instance. Validated here rather
-        # than trusted, for the same reason the whole method exists: a partially valid
-        # structured output is worse than none, because everything downstream treats it as
-        # complete.
-        try:
-            return schema.model_validate(raw)
-        except PydanticValidationError as exc:
-            message = (
-                f"{model}'s response did not satisfy {schema.__name__}: {exc.error_count()} "
-                "field(s) invalid. A partially valid structured output is not usable — "
-                "everything downstream would treat it as complete."
-            )
-            raise ValidationError(
-                message,
-                context={
-                    "model": model,
-                    "schema": schema.__name__,
-                    "errors": _error_summary(exc),
-                },
-            ) from exc
+        return _validated(response, schema, model=model, max_tokens=max_tokens)
 
 
 def _request_payload(
@@ -506,6 +515,17 @@ def _custom_id(index: int) -> str:
     return f"item-{index}"
 
 
+def _wire_output_format(schema: type[BaseModel]) -> dict[str, Any]:
+    """The schema as the SDK's ``output_format`` **dict** form.
+
+    A dict rather than the Pydantic class, and the difference is the whole of the metering
+    fix: given a class the SDK validates the reply during accumulation and raises before
+    the usage event arrives; given a dict it sends the same schema and leaves the parsing
+    to us. ``is_dict(output_format)`` is the branch in the SDK that decides this.
+    """
+    return {"type": "json_schema", "schema": _wire_schema(schema)}
+
+
 def _wire_schema(schema: type[BaseModel]) -> dict[str, Any]:
     """The schema as the batch endpoint accepts it.
 
@@ -552,16 +572,34 @@ def _succeeded_message(entry: Any, *, index: int, batch_id: str) -> Any:
 def _validate_batch_reply[T: BaseModel](
     response: Any, schema: type[T], *, model: str, max_tokens: int, index: int
 ) -> T:
-    """Validate one batch reply against the Pydantic class.
+    """Validate one batch reply, naming the item when it fails.
 
-    The batch endpoint enforces the wire schema's *shape* server-side but, exactly as with
-    the sync path, not the bounds — so the reply is validated here against the full class,
-    and a constraint miss reads as what it is rather than as truncation.
+    The same check the single-shot path makes, because it is the same question about the
+    same kind of reply — the index is the only thing a batch adds, and it belongs in the
+    message rather than in a second implementation.
+    """
+    try:
+        return _validated(response, schema, model=model, max_tokens=max_tokens)
+    except ValidationError as unusable:
+        raise ValidationError(
+            f"Batch item {index}: {unusable.message}",
+            context={**unusable.context, "item": index},
+        ) from unusable
+
+
+def _validated[T: BaseModel](response: Any, schema: type[T], *, model: str, max_tokens: int) -> T:
+    """The reply's text as an instance of ``schema``.
+
+    The stop reason is read first, because a refusal and a truncation both leave the
+    content empty and only one of them has a fix. The API enforces a structured reply's
+    *shape* but not its bounds — those reach the model as description text — so a
+    structurally perfect reply can still fail here, and :func:`_unreadable_reply` is what
+    keeps the two diagnoses apart.
     """
     stop_reason = str(getattr(response, "stop_reason", ""))
     explanation = _UNUSABLE_STOP_REASONS.get(stop_reason)
     if explanation is not None:
-        message = f"Batch item {index} produced no {schema.__name__}: " + explanation.format(
+        message = f"{model} produced no {schema.__name__}: " + explanation.format(
             max_tokens=max_tokens
         )
         raise ValidationError(
@@ -569,54 +607,29 @@ def _validate_batch_reply[T: BaseModel](
             context={"model": model, "schema": schema.__name__, "stop_reason": stop_reason},
         )
 
-    text = "".join(
-        str(getattr(block, "text", ""))
-        for block in getattr(response, "content", []) or []
-        if getattr(block, "type", "") == "text"
-    )
+    text = _text_of(response)
+    if not text.strip():
+        message = (
+            f"{model} returned no text to read as {schema.__name__}. It stopped with "
+            f"{stop_reason!r} and the response carried {_content_kinds(response)}."
+        )
+        raise ValidationError(
+            message,
+            context={"model": model, "schema": schema.__name__, "stop_reason": stop_reason},
+        )
+
     try:
         return schema.model_validate_json(text)
     except PydanticValidationError as exc:
         raise _unreadable_reply(exc, schema=schema, model=model, max_tokens=max_tokens) from exc
 
 
-def _structured_output(response: Any) -> Any:
-    """Pull the parsed object out of a response, whichever shape it arrived in.
-
-    The SDK puts it on the text block as ``parsed_output`` and exposes a
-    message-level property over the top. Both are checked rather than one assumed: the
-    property is a convenience that a future SDK could rename, while the field is the thing
-    the parser actually writes.
-    """
-    parsed = getattr(response, "parsed_output", None)
-    if parsed is not None:
-        return parsed
-
-    for block in getattr(response, "content", []) or []:
-        candidate = getattr(block, "parsed_output", None)
-        if candidate is not None:
-            return candidate
-    return None
-
-
-def _nothing_to_parse(
-    response: Any, *, schema: type[BaseModel], model: str, max_tokens: int
-) -> str:
-    """Why a response carried no structured output.
-
-    The stop reason is read first because the two ways this happens look identical from the
-    content — both leave it empty — and only one of them has a fix.
-    """
-    stop_reason = getattr(response, "stop_reason", None)
-    explanation = _UNUSABLE_STOP_REASONS.get(str(stop_reason))
-    if explanation is not None:
-        return f"{model} produced no {schema.__name__}: " + explanation.format(
-            max_tokens=max_tokens
-        )
-
-    return (
-        f"{model} returned no structured output. It stopped with {stop_reason!r} and the "
-        f"response carried {_content_kinds(response)} rather than a parsed {schema.__name__}."
+def _text_of(response: Any) -> str:
+    """Every text block concatenated. Thinking blocks carry no answer and are skipped."""
+    return "".join(
+        str(getattr(block, "text", ""))
+        for block in getattr(response, "content", []) or []
+        if getattr(block, "type", "") == "text"
     )
 
 

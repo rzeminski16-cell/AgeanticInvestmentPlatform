@@ -22,6 +22,7 @@ from playwright.sync_api import Page, expect
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from aer.agents.custom_section import CustomSectionDraft
 from aer.db.models import User
 from aer.providers.fake import FakeProvider
 from aer.storage.local import LocalArtefactStore
@@ -48,7 +49,8 @@ def scripted_provider(monkeypatch: pytest.MonkeyPatch) -> FakeProvider:
     holder: dict[str, FakeProvider] = {}
 
     def answer(schema: type) -> Any:
-        assert schema.__name__ == "CustomSectionDraft", f"unexpected schema {schema.__name__}"
+        # A subclass, not the class: the call narrows `content` to the pinned contract.
+        assert issubclass(schema, CustomSectionDraft), f"unexpected schema {schema.__name__}"
         return _draft_from(holder["provider"].calls[-1]["messages"][0]["content"])
 
     provider = FakeProvider(answer)

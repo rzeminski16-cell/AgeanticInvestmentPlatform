@@ -36,12 +36,26 @@ from aer.providers.fake import FakeProvider
 from aer.sources.base import ResolvedEntity
 from aer.sources.sec.client import SecResponse
 from aer.sources.sec.companyfacts import parse_company_facts
+from aer.sources.sec.submissions import parse_submissions
 from aer.storage.local import LocalArtefactStore
 from aer.version import git_sha
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
 from tests.sec_fixtures import MSFT_CIK, fixture_bytes
 
 COMPANY_FACTS_FIXTURE = "companyfacts_msft.json"
+SUBMISSIONS_FIXTURE = "submissions_msft.json"
+
+# A filing's primary document, small but real: paragraphs long enough to be excerpted, in
+# the shape the acquisition path reads. Marker text would exercise the plumbing and prove
+# nothing about the excerpts a citation is later verified against.
+FILING_DOCUMENT = b"""<!DOCTYPE html><html><head><title>Annual report</title></head><body>
+<p>Revenue increased across all three segments during the year, with commercial cloud
+remaining the largest single contributor to the growth the company reported.</p>
+<p>The company returned capital through a combination of dividends and share repurchases,
+and describes its capital allocation priorities as unchanged from the prior year.</p>
+<p>Risk factors include competition in cloud infrastructure, foreign exchange movement in
+the currencies the company bills in, and the regulatory environment for large platforms.</p>
+</body></html>"""
 
 # Late enough that the fixture's FY2020 and FY2021 revenue are both admissible, so the
 # slice has the two periods a growth rate needs.
@@ -80,6 +94,8 @@ class StubSecClient:
         self._payload = payload if payload is not None else fixture_bytes(COMPANY_FACTS_FIXTURE)
         self.entity_calls: list[str] = []
         self.facts_calls: list[str] = []
+        self.submissions_calls: list[str] = []
+        self.document_calls: list[str] = []
 
     async def resolve_entity(self, ticker: str, *, exchange: str | None = None) -> ResolvedEntity:
         self.entity_calls.append(ticker)
@@ -119,6 +135,46 @@ class StubSecClient:
                 robots_allowed=True,
             ),
         )
+
+    async def fetch_submissions(self, cik: str) -> SecResponse[Any]:
+        """The filing index, from the same fixture the submissions parser is tested on."""
+        self.submissions_calls.append(cik)
+        payload = fixture_bytes(SUBMISSIONS_FIXTURE)
+        stored = await self._store.put_bytes(payload)
+        url = f"https://data.sec.gov/submissions/CIK{cik}.json"
+        return SecResponse(
+            data=parse_submissions(payload),
+            fetch=_stub_fetch(url, stored, media_type="application/json"),
+        )
+
+    async def fetch_document(self, ref: Any) -> FetchResult:
+        """One filing's primary document, as a small stand-in with real prose in it.
+
+        Real prose rather than a marker string, because the acquisition path excerpts what
+        it fetches and the citation verifier re-reads those excerpts: a document of
+        placeholder text would exercise the plumbing and prove nothing about the excerpts.
+        """
+        self.document_calls.append(ref.url)
+        stored = await self._store.put_bytes(FILING_DOCUMENT)
+        return _stub_fetch(ref.url, stored, media_type="text/html")
+
+
+def _stub_fetch(url: str, stored: Any, *, media_type: str) -> FetchResult:
+    return FetchResult(
+        url=url,
+        final_url=url,
+        status_code=200,
+        sha256=stored.sha256,
+        size_bytes=stored.size_bytes,
+        media_type=media_type,
+        declared_media_type=media_type,
+        headers={"content-type": media_type},
+        redirect_chain=(),
+        elapsed_ms=1.0,
+        attempts=1,
+        licence_note="US government work, public domain.",
+        robots_allowed=True,
+    )
 
 
 def planner_response(*, section_keys: list[str] | None = None) -> ResearchPlanDraft:

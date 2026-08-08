@@ -45,7 +45,13 @@ from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import AgentRun, Cost, JobStep, Prompt
 from aer.errors import AerError
 from aer.providers.costs import price_usage
-from aer.providers.protocol import BatchRequest, LLMProvider, Message, StructuredResult
+from aer.providers.protocol import (
+    BatchRequest,
+    LLMProvider,
+    Message,
+    SpentButUnusableError,
+    StructuredResult,
+)
 from aer.providers.router import Router
 from aer.services.artefacts import store_artefact
 from aer.storage.protocol import ArtefactStore
@@ -264,14 +270,23 @@ class Agent[InputT, OutputT: BaseModel]:
             )
 
         started = time.perf_counter()
-        result = await context.provider.complete_structured(
-            self.response_schema(payload),
-            system=system,
-            messages=messages,
-            model=choice.model,
-            effort=choice.effort,
-            max_tokens=self.definition.max_output_tokens,
-        )
+        try:
+            result = await context.provider.complete_structured(
+                self.response_schema(payload),
+                system=system,
+                messages=messages,
+                model=choice.model,
+                effort=choice.effort,
+                max_tokens=self.definition.max_output_tokens,
+            )
+        except SpentButUnusableError as unusable:
+            # The reply is no good and the money is gone. Recording it is not bookkeeping
+            # for its own sake: the budget cap reads the `costs` table, so spend it cannot
+            # see is spend it cannot cap. The archived payloads go down too, because a
+            # reply nobody kept is a reply nobody can explain — and these are the ones
+            # somebody will want to read.
+            await self._meter_a_failure(context, unusable, choice_model=choice.model, system=system)
+            raise
         elapsed_ms = (time.perf_counter() - started) * 1000
 
         agent_run = await self._record(
@@ -426,6 +441,62 @@ class Agent[InputT, OutputT: BaseModel]:
 
     # -- Internals ---------------------------------------------------------------------------
 
+    async def _meter_a_failure(
+        self,
+        context: AgentContext,
+        unusable: SpentButUnusableError,
+        *,
+        choice_model: str,
+        system: str,
+    ) -> None:
+        """Record what an unusable reply cost, then let the error continue on its way.
+
+        The same two writes a success gets — an ``agent_runs`` row with both payloads
+        archived, and the ``costs`` rows priced off the usage — because a call that failed
+        is not a call that was free. ``stop_reason`` carries the schema's verdict rather
+        than the API's, which is what makes these rows findable afterwards.
+
+        Never raises. This runs on the way out of a failure, and a second failure here
+        would replace a diagnosis the caller can act on with a database error nobody asked
+        about. The spend is logged in that case, so it is at least visible somewhere.
+        """
+        try:
+            agent_run = await self._record(
+                context,
+                result=StructuredResult(
+                    value=None,
+                    usage=unusable.usage,
+                    latency_ms=unusable.latency_ms,
+                    request_payload=unusable.request_payload,
+                    response_payload=unusable.response_payload,
+                ),
+                system=system,
+                choice_model=choice_model,
+                effort=context.router.resolve(self.role).effort,
+                elapsed_ms=unusable.latency_ms,
+                stop_reason="schema_rejected",
+            )
+            await self._meter(
+                context,
+                result=StructuredResult(
+                    value=None,
+                    usage=unusable.usage,
+                    latency_ms=unusable.latency_ms,
+                    request_payload=unusable.request_payload,
+                    response_payload=unusable.response_payload,
+                ),
+                agent_run=agent_run,
+            )
+        except Exception:
+            _log.warning(
+                "agent.unmetered_failure",
+                role=self.role,
+                model=choice_model,
+                input_tokens=unusable.usage.input_tokens,
+                output_tokens=unusable.usage.output_tokens,
+                exc_info=True,
+            )
+
     async def _record(
         self,
         context: AgentContext,
@@ -435,6 +506,7 @@ class Agent[InputT, OutputT: BaseModel]:
         choice_model: str,
         effort: str,
         elapsed_ms: float,
+        stop_reason: str | None = None,
     ) -> AgentRun:
         """Archive the exchange and write the ``agent_runs`` row."""
         prompt = await self._ensure_prompt(context, system)
@@ -465,7 +537,9 @@ class Agent[InputT, OutputT: BaseModel]:
             output_tokens=result.usage.output_tokens,
             cache_read_tokens=result.usage.cache_read_tokens,
             cache_write_tokens=result.usage.cache_write_tokens,
-            stop_reason=result.usage.stop_reason,
+            # The schema's verdict when there is one, so an unusable reply is findable
+            # as such rather than sitting under whatever the API happened to say.
+            stop_reason=stop_reason or result.usage.stop_reason,
             latency_ms=int(elapsed_ms),
         )
         context.session.add(agent_run)

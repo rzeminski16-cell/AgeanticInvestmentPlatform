@@ -397,13 +397,18 @@ class TestTheWholeRun:
     async def test_it_spent_only_on_the_judgement_calls(self, finished: dict) -> None:
         """Every model call in the run, named and counted exactly.
 
-        The planner, the five research workers, one writer call per model-written spine
-        section (sixteen — the two deterministic sections spend nothing), and the undated
-        source's date-adjudication assist. No red-team call: the slice's only source is a
-        quarantined undated aggregate, so its sections cite through figure rows rather
-        than recording claims, and an adversary with no claims to attack honestly skips.
-        An extra call — a step quietly acquiring a model dependency, or a section
-        retrying without a recorded reason — fails here rather than on a bill.
+        The planner, the five research workers, and one writer call per model-written
+        spine section — sixteen, because the two deterministic sections spend nothing. An
+        extra call, from a step quietly acquiring a model dependency or a section retrying
+        without a recorded reason, fails here rather than on a bill.
+
+        **Two calls this run used to make and no longer does.** The validator's
+        date-adjudication assist existed to argue about a source with no publication date,
+        and the company-facts aggregate now carries one derived from its newest filing
+        (ADR 0044) — there is nothing left to adjudicate, and the cheapest model call is
+        the one a determination made unnecessary. The red team still does not run, for the
+        reason it never did: the scripted writer cites through figure rows rather than
+        recording claims, and an adversary with no claims to attack honestly skips.
         """
         schemas = [call["schema"] for call in finished["provider"].calls]
         assert schemas.count("ResearchPlanDraft") == 1
@@ -415,9 +420,9 @@ class TestTheWholeRun:
         # permitting no keys — the model can then return nothing, and every section renders
         # as "could not be generated". That was the first real report this platform wrote.
         assert "SectionDraft" not in schemas
-        assert schemas.count("ValidatorAdvisory") == 1
+        assert schemas.count("ValidatorAdvisory") == 0
         assert schemas.count("RedTeamReport") == 0
-        assert finished["provider"].call_count == 23
+        assert finished["provider"].call_count == 22
 
     async def test_the_writer_receives_the_planners_approved_focus(self, finished: dict) -> None:
         """The plan's per-section brief — text a human approved at gate 1 — reaches the

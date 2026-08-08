@@ -31,10 +31,9 @@ import pytest
 # and is unaffected.
 from anthropic.lib.streaming import AsyncMessageStream, AsyncMessageStreamManager
 from anthropic.resources.messages.messages import AsyncMessages
+from anthropic.types.json_output_format_param import JSONOutputFormatParam
 from anthropic.types.output_config_param import OutputConfigParam
-from anthropic.types.parsed_message import ParsedMessage, ParsedTextBlock
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
-from pydantic import ValidationError as PydanticValidationError
+from pydantic import BaseModel, ConfigDict, Field
 
 from aer.errors import ConfigError, ExternalServiceError, ValidationError
 from aer.providers.anthropic import (
@@ -43,7 +42,7 @@ from aer.providers.anthropic import (
     AnthropicProvider,
 )
 from aer.providers.costs import DEFAULT_PRICES
-from aer.providers.protocol import BatchRequest, Message
+from aer.providers.protocol import BatchRequest, Message, SpentButUnusableError
 
 OPUS = "claude-opus-5"
 HAIKU = "claude-haiku-4-5"
@@ -69,11 +68,18 @@ class _StubUsage:
 
 
 class _StubTextBlock:
+    """A text block carrying the reply as JSON, which is what the API really sends.
+
+    ``parsed_output`` is deliberately absent. The provider hands the schema to the wire as
+    a dict so the SDK does not parse during accumulation (that is what keeps the usage
+    intact when a reply is unusable), and a stub still offering a pre-parsed object would
+    let a test pass against a code path production no longer takes.
+    """
+
     type = "text"
 
     def __init__(self, parsed: Any) -> None:
-        self.text = "{}"
-        self.parsed_output = parsed
+        self.text = parsed.model_dump_json() if isinstance(parsed, BaseModel) else "{}"
 
 
 class _StubResponse:
@@ -81,9 +87,9 @@ class _StubResponse:
 
     Hand-written rather than an SDK ``ParsedMessage``, so that a test asserting on the
     provider's handling of a stop reason is not also asserting that a private SDK
-    constructor still works. The shape it presents — ``parsed_output`` on the message and on
-    the text block, ``stop_reason``, ``usage``, ``model`` — is checked against the real class
-    by :func:`test_the_sdk_still_exposes_what_the_provider_reads`.
+    constructor still works. The shape it presents — text blocks, ``stop_reason``,
+    ``usage``, ``model`` — is checked against the real class by
+    :func:`test_the_sdk_still_exposes_what_the_provider_reads`.
     """
 
     def __init__(
@@ -93,7 +99,6 @@ class _StubResponse:
         stop_reason: str | None = "end_turn",
         blocks: list[Any] | None = None,
     ) -> None:
-        self.parsed_output = parsed
         self.content = blocks if blocks is not None else [_StubTextBlock(parsed)]
         self.stop_reason = stop_reason
         self.model = OPUS
@@ -272,7 +277,9 @@ class TestTheRequestShape:
         provider, messages = _provider(_StubResponse(Plan(summary="ok")))
         await _call(provider)
 
-        assert messages.last["output_format"] is Plan
+        sent = messages.last["output_format"]
+        assert sent["type"] == "json_schema"
+        assert sent["schema"]["properties"].keys() == {"summary", "confidence"}
         assert "schema" not in messages.last.get("output_config", {})
         assert set(messages.last.get("output_config", {})) <= {"effort", "format"}
 
@@ -385,34 +392,31 @@ class TestWhatIsArchived:
 
 
 class TestReadingTheResponse:
-    async def test_the_parsed_object_is_returned_as_it_is(self) -> None:
-        """The SDK has already validated it; re-validating would be theatre."""
-        plan = Plan(summary="ok", confidence=0.9)
-        provider, _ = _provider(_StubResponse(plan))
+    async def test_the_reply_is_read_from_the_text_blocks(self) -> None:
+        """The provider parses, because the SDK deliberately no longer does: the schema
+        goes to the wire as a dict so the stream cannot raise before the usage arrives."""
+        provider, _ = _provider(_StubResponse(Plan(summary="ok", confidence=0.9)))
+
         result = await _call(provider)
 
-        assert result.value is plan
+        assert result.value == Plan(summary="ok", confidence=0.9)
 
-    async def test_a_block_level_parse_is_found_when_the_message_property_is_absent(
-        self,
-    ) -> None:
-        """The message-level ``parsed_output`` is a convenience over the block field."""
-        plan = Plan(summary="ok")
-        response = _StubResponse(None, blocks=[_StubTextBlock(plan)])
-        provider, _ = _provider(response)
+    async def test_several_text_blocks_are_read_as_one_reply(self) -> None:
+        """The API may split one JSON object across blocks; a reader taking only the first
+        would fail on a perfectly good reply."""
+        halves = [
+            SimpleNamespace(type="text", text='{"summary": "split ac'),
+            SimpleNamespace(type="text", text='ross blocks"}'),
+        ]
+        provider, _ = _provider(_StubResponse(None, blocks=halves))
 
-        assert (await _call(provider)).value is plan
+        assert (await _call(provider)).value.summary == "split across blocks"
 
-    async def test_a_mapping_is_validated_rather_than_trusted(self) -> None:
-        provider, _ = _provider(_StubResponse({"summary": "ok", "confidence": 0.25}))
-        result = await _call(provider)
+    async def test_a_reply_that_does_not_satisfy_the_schema_raises(self) -> None:
+        broken = [SimpleNamespace(type="text", text='{"confidence": 0.25}')]
+        provider, _ = _provider(_StubResponse(None, blocks=broken))
 
-        assert result.value.confidence == pytest.approx(0.25)
-
-    async def test_a_mapping_that_does_not_satisfy_the_schema_raises(self) -> None:
-        provider, _ = _provider(_StubResponse({"confidence": 0.25}))
-
-        with pytest.raises(ValidationError, match="did not satisfy Plan"):
+        with pytest.raises(ValidationError, match="could not be read as Plan"):
             await _call(provider)
 
     async def test_hitting_the_token_ceiling_says_so_and_says_why(self) -> None:
@@ -439,25 +443,30 @@ class TestReadingTheResponse:
         thinking_only = _StubResponse(None, blocks=[type("B", (), {"type": "thinking"})()])
         provider, _ = _provider(thinking_only)
 
-        with pytest.raises(ValidationError, match="no structured output"):
+        with pytest.raises(ValidationError, match="no text to read") as caught:
             await _call(provider)
+
+        assert "thinking" in str(caught.value)
 
 
 class TestWhenTheReplyCannotBeRead:
-    """The SDK validates as it accumulates, so ``get_final_message`` raises and there is no
-    response to read a stop reason from. The cause has to be inferred from the Pydantic
-    errors instead, and truncation and a broken bound need different fixes."""
+    """A reply that breaks a bound, and the bill that comes with it.
+
+    The API enforces a structured reply's *shape* but not its bounds: the SDK moves ``ge``,
+    ``le`` and ``max_length`` into the schema's descriptions, where they are guidance rather
+    than a rule the server applies. So a structurally perfect reply can still fail here, and
+    truncation and a broken bound need opposite fixes.
+
+    **And the call was billed either way.** The failure carries the usage, because a budget
+    cap that cannot see this spend is a budget cap that does not work.
+    """
 
     @staticmethod
-    def _validation_error(text: str) -> BaseException:
-        try:
-            TypeAdapter(Plan).validate_json(text)
-        except PydanticValidationError as exc:
-            return exc
-        raise AssertionError("expected the payload to be rejected")  # pragma: no cover
+    def _replying(text: str) -> Any:
+        return _StubResponse(None, blocks=[SimpleNamespace(type="text", text=text)])
 
     async def test_truncated_json_is_diagnosed_as_the_ceiling(self) -> None:
-        provider, _ = _provider(raises=self._validation_error('{"summary": "ab'), raises_at="final")
+        provider, _ = _provider(self._replying('{"summary": "ab'))
 
         with pytest.raises(ValidationError, match="stopped mid-object") as caught:
             await _call(provider)
@@ -465,13 +474,9 @@ class TestWhenTheReplyCannotBeRead:
         assert "8,192-token ceiling" in str(caught.value)
 
     async def test_a_broken_bound_is_not_blamed_on_truncation(self) -> None:
-        """The API enforces the shape, not the bounds — the SDK moves ``ge``/``le`` into the
-        description, where they are guidance. Blaming ``max_tokens`` would send someone to
-        raise a ceiling that was never the problem."""
-        provider, _ = _provider(
-            raises=self._validation_error('{"summary": "ok", "confidence": 1.7}'),
-            raises_at="final",
-        )
+        """Blaming ``max_tokens`` would send someone to raise a ceiling that was never the
+        problem."""
+        provider, _ = _provider(self._replying('{"summary": "ok", "confidence": 1.7}'))
 
         with pytest.raises(ValidationError, match="constraint the API does not enforce") as caught:
             await _call(provider)
@@ -482,15 +487,12 @@ class TestWhenTheReplyCannotBeRead:
         """Which field, and what was wrong with it — not merely that something was.
 
         The summary is read by the research loop as well as by a person: it feeds the
-        rejection back to the model so the next attempt can fix it, and "report.confidence,
+        rejection back to the model so the next attempt can fix it, and "confidence,
         less_than_equal" is not something anything can act on. Pydantic's ``msg`` is
         generated from the constraint rather than from the reply, so keeping it leaks
         nothing of an arbitrary-length model output into a log line.
         """
-        provider, _ = _provider(
-            raises=self._validation_error('{"summary": "ok", "confidence": 1.7}'),
-            raises_at="final",
-        )
+        provider, _ = _provider(self._replying('{"summary": "ok", "confidence": 1.7}'))
 
         with pytest.raises(ValidationError) as caught:
             await _call(provider)
@@ -498,6 +500,44 @@ class TestWhenTheReplyCannotBeRead:
         [error] = caught.value.context["errors"]
         assert error["loc"] == "confidence"
         assert "less than or equal to 1" in error["msg"]
+
+    async def test_the_failure_carries_what_the_call_cost(self) -> None:
+        """**The metering hole this shape exists to close.** The reply was generated and
+        billed; only its usability is in question. An error carrying nothing but a message
+        was an error no cost row was ever written for."""
+        provider, _ = _provider(self._replying('{"summary": "ok", "confidence": 1.7}'))
+
+        with pytest.raises(SpentButUnusableError) as caught:
+            await _call(provider)
+
+        assert caught.value.usage.input_tokens == _StubUsage.input_tokens
+        assert caught.value.usage.output_tokens == _StubUsage.output_tokens
+
+    async def test_the_failure_carries_both_payloads(self) -> None:
+        """ "Why did it say that?" is asked far more often about the replies that failed."""
+        provider, _ = _provider(self._replying('{"summary": "ok", "confidence": 1.7}'))
+
+        with pytest.raises(SpentButUnusableError) as caught:
+            await _call(provider)
+
+        assert caught.value.request_payload["messages"]
+        assert caught.value.response_payload
+
+    async def test_it_is_still_a_validation_error(self) -> None:
+        """Callers already catching ValidationError keep working, and get the metering as a
+        consequence of the type rather than by remembering to."""
+        provider, _ = _provider(self._replying("{"))
+
+        with pytest.raises(ValidationError):
+            await _call(provider)
+
+    async def test_a_failure_before_the_money_moves_carries_no_bill(self) -> None:
+        """The distinction the type exists to draw. A connection that never opened cost
+        nothing, and a cost row for it would be a fabricated charge."""
+        provider, _ = _provider(raises=RuntimeError("connection refused"))
+
+        with pytest.raises(ExternalServiceError):
+            await _call(provider)
 
 
 class TestFailures:
@@ -591,9 +631,23 @@ class TestTheSdkContract:
         """The 400 in one assertion: there is no ``schema`` key at this level."""
         assert set(OutputConfigParam.__annotations__) == {"effort", "format"}
 
-    def test_the_sdk_still_exposes_what_the_provider_reads(self) -> None:
-        assert isinstance(ParsedMessage.parsed_output, property)
-        assert "parsed_output" in ParsedTextBlock.model_fields
+    def test_the_sdk_accepts_the_schema_as_a_dict(self) -> None:
+        """What the metering fix rests on.
+
+        Given a Pydantic class the SDK validates the reply *during* accumulation, at
+        ``content_block_stop`` — one event before ``message_delta``, which carries the
+        final output-token count. A reply that broke a bound therefore raised out of a
+        stream whose usage was still a placeholder, and no cost row was ever written for
+        tokens that had been billed. Given a dict the SDK sends the same schema and skips
+        the parse, so the stream always completes and the usage is always whole.
+
+        The provider reads no parsed output from the SDK at all now, which is why the
+        assertion that used to live here — that ``parsed_output`` exists — has gone with it.
+        """
+        declared = str(inspect.signature(AsyncMessages.stream).parameters["output_format"])
+
+        assert "JSONOutputFormatParam" in declared
+        assert set(JSONOutputFormatParam.__annotations__) == {"type", "schema"}
 
     def test_the_effort_ladder_matches_the_sdk(self) -> None:
         """Ours is a tuple so the error message reads in order; the API's is the authority."""

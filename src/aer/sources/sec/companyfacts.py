@@ -92,6 +92,26 @@ class CompanyFacts:
     def concepts(self) -> frozenset[str]:
         return frozenset(fact.concept for fact in self.facts)
 
+    @property
+    def latest_filed(self) -> date | None:
+        """The most recent filing date any fact in this aggregate came from.
+
+        **The nearest thing this document has to a publication date, and it is a real one.**
+        companyfacts is not a filing; it is a view assembled on request from every filing an
+        entity has ever made, so it carries no date of its own and was quarantined for
+        having none — which meant no claim could cite the only source most runs held.
+
+        The latest ``filed`` is the honest answer to "when did this document come into
+        existence?": it is the day the newest thing in it became public, so the aggregate
+        as fetched cannot have existed before it. That makes it correctly *inadmissible*
+        for a run whose as-of date is earlier, which is the right outcome and not a
+        regression — such a run should be reading the filings themselves.
+
+        ``None`` when there are no facts, because an empty aggregate genuinely has no date
+        and inventing one would be worse than the quarantine.
+        """
+        return max((fact.filed_date for fact in self.facts), default=None)
+
 
 def parse_company_facts(payload: bytes, *, include_unmapped: bool = True) -> CompanyFacts:
     """Parse a companyfacts response.

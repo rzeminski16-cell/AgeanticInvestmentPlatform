@@ -22,6 +22,12 @@ real API call, and it is worth it.
 **Usage is returned, never inferred.** Cache reads and writes are priced differently from
 ordinary input tokens, and a meter that assumed they were the same would misreport a
 cached run by an order of magnitude in the direction that flatters it.
+
+**A call that fails after the money is gone says so, with the bill.** A reply the schema
+refuses is still a reply the provider was paid for, and an error that carried nothing but
+a message was an error the meter could not see —
+:class:`SpentButUnusableError` carries the usage and both payloads so the caller can record
+what it cost before dealing with what went wrong.
 """
 
 from __future__ import annotations
@@ -32,7 +38,16 @@ from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
-__all__ = ["BatchRequest", "LLMProvider", "Message", "StructuredResult", "Usage"]
+from aer.errors import ValidationError
+
+__all__ = [
+    "BatchRequest",
+    "LLMProvider",
+    "Message",
+    "SpentButUnusableError",
+    "StructuredResult",
+    "Usage",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +128,41 @@ class StructuredResult[T: BaseModel]:
     latency_ms: float
     request_payload: dict[str, Any]
     response_payload: dict[str, Any]
+
+
+class SpentButUnusableError(ValidationError):
+    """The call completed and was billed; what came back does not satisfy the schema.
+
+    **The distinction is the meter's, not the caller's.** Every other failure in this
+    protocol happens before the money moves — a refused key, a request the API rejects, a
+    connection that never opened — and costs nothing. This one happens after: the tokens
+    were generated, the bill exists, and only the *usability* of the reply is in question.
+    A caller that treats it like any other error writes no cost row, and a budget cap that
+    cannot see the spend it is capping does not work.
+
+    So the bill travels with the failure. :attr:`usage` is what the call really consumed,
+    and the payloads are the same pair a success carries, because "why did it say that?"
+    is asked far more often about the replies that failed.
+
+    A ``ValidationError`` subclass, so callers already catching that keep working and get
+    the metering as a consequence of the type rather than by remembering to.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        usage: Usage,
+        request_payload: dict[str, Any],
+        response_payload: dict[str, Any],
+        latency_ms: float = 0.0,
+        context: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message, context=context)
+        self.usage = usage
+        self.request_payload = request_payload
+        self.response_payload = response_payload
+        self.latency_ms = latency_ms
 
 
 @runtime_checkable
