@@ -316,6 +316,10 @@ Rules that are enforced outside this conversation, stated so you can work with t
 2. Every finding cites at least one source document id or fact id from the evidence you \
 were shown. Ids you were not shown do not exist. A finding with nothing to cite is not a \
 finding: if your point is that the evidence is silent on something, that is a lead.
+2a. An id is a UUID, and the only ids that exist are in the `fact_id` and \
+`source_document_id` fields of the results you were given. Copy one of those, character \
+for character. A value, a concept name or a title from the same result is not an id, and \
+citing one is refused.
 3. Tool requests are executed by the platform's code, only within your remaining budget, \
 and only for the tools listed below. There are no others. Asking for a tool that is not \
 listed is refused and wastes a turn.
@@ -353,7 +357,7 @@ class ResearchWorker(Agent[WorkerInput, WorkerTurn]):
 
     role: ClassVar[str] = "analysis"
     output_schema: ClassVar[type[BaseModel]] = WorkerTurn
-    prompt_version: ClassVar[str] = "2"
+    prompt_version: ClassVar[str] = "3"
 
     def system_prompt(self, payload: WorkerInput) -> str:
         return _SYSTEM_PROMPT.format(

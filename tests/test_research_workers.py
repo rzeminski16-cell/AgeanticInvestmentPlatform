@@ -58,7 +58,7 @@ from aer.fetch.errors import UrlNotAllowedError
 from aer.providers.anthropic import _unreadable_reply
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
-from aer.services.research import build_executors, validate_report
+from aer.services.research import _ID_FIELDS, build_executors, validate_report
 from aer.storage.local import LocalArtefactStore
 
 pytestmark = pytest.mark.integration
@@ -1347,3 +1347,84 @@ class TestTheValidator:
         )
 
         assert len(problems) == 2
+
+    async def test_citing_a_value_instead_of_an_id_says_so(
+        self, evidence_scene: dict[str, Any]
+    ) -> None:
+        """The live failure. A worker read the ``value`` field of a ``search_facts``
+        result and cited ``'9541000000'``. Told only that this run does not hold that
+        fact, it reached for a different number — five rounds and eleven tool calls,
+        every one of them the same mistake. "Not an id" needs a different remedy from
+        "not here", so it gets a different sentence."""
+        report = _report_turn(fact_ids=["9541000000"]).report
+        assert report is not None
+
+        problems = await validate_report(
+            evidence_scene["session"], report, request=evidence_scene["request"]
+        )
+
+        [problem] = problems
+        assert "not an id at all" in problem
+        assert "fact_id" in problem
+        # The other refusal would send it looking for a different number, which is the
+        # loop that burned the run.
+        assert "does not hold" not in problem
+
+    async def test_a_real_id_this_run_lacks_still_reads_as_missing(
+        self, evidence_scene: dict[str, Any]
+    ) -> None:
+        """The distinction has to cut both ways, or it is just a reworded message."""
+        report = _report_turn(fact_ids=[str(uuid.uuid4())]).report
+        assert report is not None
+
+        problems = await validate_report(
+            evidence_scene["session"], report, request=evidence_scene["request"]
+        )
+
+        [problem] = problems
+        assert "does not hold" in problem
+        assert "not an id" not in problem
+
+    async def test_a_source_document_names_its_own_field(
+        self, evidence_scene: dict[str, Any]
+    ) -> None:
+        """Naming the wrong field would be worse than naming none."""
+        report = _report_turn(source_ids=["Microsoft 10-K"]).report
+        assert report is not None
+
+        problems = await validate_report(
+            evidence_scene["session"], report, request=evidence_scene["request"]
+        )
+
+        [problem] = problems
+        assert "source_document_id" in problem
+
+
+class TestTheWorkerIsToldWhatAnIdIs:
+    """An id it has to infer is an id it can infer wrongly, and one worker did.
+
+    ``search_facts`` hands back ``fact_id``, ``concept``, ``value``, ``unit``,
+    ``period_end`` and ``basis`` together. Nothing in the prompt said which of those six
+    is citable, so a worker cited the value.
+    """
+
+    def test_the_prompt_says_an_id_is_a_uuid_from_a_named_field(self) -> None:
+        prompt = ResearchWorker().system_prompt(_worker_input(available_tools=["search_facts"]))
+
+        assert "An id is a UUID" in prompt
+        assert "`fact_id`" in prompt
+        assert "`source_document_id`" in prompt
+
+    def test_the_prompt_rules_out_the_neighbouring_fields(self) -> None:
+        """Naming what *is* an id leaves "well, the value identifies it too" open."""
+        prompt = ResearchWorker().system_prompt(_worker_input(available_tools=["search_facts"]))
+
+        assert "A value, a concept name or a title from the same result is not an id" in prompt
+
+    def test_every_field_the_prompt_names_is_one_a_search_really_returns(self) -> None:
+        """A prompt naming a field that does not exist is worse than naming none."""
+        assert set(_ID_FIELDS.values()) == {"fact_id", "source_document_id"}
+
+        prompt = ResearchWorker().system_prompt(_worker_input(available_tools=["search_facts"]))
+        for field_name in _ID_FIELDS.values():
+            assert f"`{field_name}`" in prompt

@@ -358,6 +358,14 @@ async def validate_report(
     The ids a worker may cite are exactly the ids its searches surfaced; anything else —
     a fabrication, a typo, an id from some other run — is refused with the finding and
     the id spelt out, so the worker's next turn can fix it or drop it.
+
+    **A refusal that does not say what was wrong is a refusal the worker cannot act on.**
+    A live worker cited ``'9541000000'`` — the *value* of a fact, taken from the ``value``
+    field of a ``search_facts`` result instead of the ``fact_id`` beside it. Told only that
+    this run "does not hold" that fact, it did the reasonable thing and reached for a
+    different number, and burned five rounds and eleven tool calls doing it. Something that
+    is not an id at all is now said to be exactly that, because the fix is a different one:
+    not *find another fact*, but *cite the id, not the number*.
     """
     problems: list[str] = []
 
@@ -386,28 +394,48 @@ async def validate_report(
     for index, finding in enumerate(report.findings):
         for identifier in finding.source_document_ids:
             if identifier not in valid_sources:
-                problems.append(
-                    f"Finding {index + 1} cites source document {identifier!r}, which "
-                    "this run does not hold."
-                )
+                problems.append(_refusal(index, identifier, kind="source document"))
         for identifier in finding.fact_ids:
             if identifier not in valid_facts:
-                problems.append(
-                    f"Finding {index + 1} cites fact {identifier!r}, which this run does not hold."
-                )
+                problems.append(_refusal(index, identifier, kind="fact"))
     return problems
+
+
+# Which field of a search result carries the id, by what the worker was citing. Named in
+# the refusal because "cite an id" is advice; "copy the fact_id field" is an instruction.
+_ID_FIELDS: Final[dict[str, str]] = {
+    "fact": "fact_id",
+    "source document": "source_document_id",
+}
+
+
+def _refusal(index: int, identifier: str, *, kind: str) -> str:
+    """Why one cited id was not accepted, in terms the worker can act on."""
+    finding = f"Finding {index + 1} cites {kind} {identifier!r},"
+    if _looks_like_an_id(identifier):
+        return f"{finding} which this run does not hold."
+    return (
+        f"{finding} which is not an id at all. Every id is a UUID: copy the "
+        f"{_ID_FIELDS[kind]} field of a search result exactly. The other fields — a value, "
+        "a concept, a title — are never cited."
+    )
+
+
+def _looks_like_an_id(identifier: str) -> bool:
+    try:
+        uuid.UUID(identifier)
+    except ValueError:
+        return False
+    return True
 
 
 async def _existing(
     session: AsyncSession, base_query: Any, *, column: Any, cited: set[str]
 ) -> set[str]:
     """The subset of cited ids that resolve. Non-UUID strings never resolve."""
-    parseable: dict[uuid.UUID, str] = {}
-    for identifier in cited:
-        try:
-            parseable[uuid.UUID(identifier)] = identifier
-        except ValueError:
-            continue
+    parseable: dict[uuid.UUID, str] = {
+        uuid.UUID(identifier): identifier for identifier in cited if _looks_like_an_id(identifier)
+    }
     if not parseable:
         return set()
     rows = await session.scalars(base_query.where(column.in_(parseable)))
