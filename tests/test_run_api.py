@@ -473,11 +473,13 @@ class TestTheGateApi:
     ) -> None:
         """And that is correct, not a defect, which is why it is pinned.
 
-        The slice's one source is the SEC's ``companyfacts`` response: a generated
-        aggregate, not a published document, so it has no publication date and under
-        point-in-time rules a source that cannot be dated is quarantined. The facts drawn
-        from it are still filtered on ``filed_date``, which is the point-in-time key that
-        actually applies to a reported figure.
+        **The reason changed, and the change is the point.** The SEC's ``companyfacts``
+        response is a view assembled on request, so it used to be quarantined
+        ``no_publication_date`` — which meant no claim could cite the only source the run
+        held. ADR 0044 dates it by its newest component: the day it could first have
+        existed. This run's as-of date is earlier than that day, so the aggregate is now
+        quarantined for a reason that is *true* — it did not exist yet — and a run in that
+        position should be reading the filings themselves, which this one now does.
 
         Surfacing it rather than suppressing it is the whole argument for the table.
         """
@@ -485,8 +487,28 @@ class TestTheGateApi:
 
         body = (await api.get(f"/api/runs/{job_id}/sources")).json()
 
+        aggregate = next(row for row in body["sources"] if "companyfacts" in row["url"])
         assert body["quarantined"] == 1
-        assert body["sources"][0]["quarantine_reason"] == "no_publication_date"
+        assert aggregate["quarantine_reason"] == "published_after_as_of_date"
+        assert aggregate["publication_date_confidence"] == pytest.approx(0.9), (
+            "derived from the contents rather than stated, and the row must say so"
+        )
+
+    async def test_the_filings_the_aggregate_could_not_supply_are_admissible(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        """The other half of ADR 0044's argument, and the reason the quarantine above is
+        tolerable: the run holds dated, citable primary documents of its own."""
+        job_id = await _to_second_gate(api, committed, driver)
+
+        body = (await api.get(f"/api/runs/{job_id}/sources")).json()
+
+        filings = [row for row in body["sources"] if "/Archives/" in row["url"]]
+        assert len(filings) > 1, "a run reading one document is the failure A4 closed"
+        assert all(row["admissible"] for row in filings)
+        assert all(row["excerpt_count"] > 0 for row in filings), (
+            "a source with no excerpts cannot be cited, so acquiring it bought nothing"
+        )
 
 
 class TestTheReportApi:

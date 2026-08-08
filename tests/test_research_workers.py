@@ -12,10 +12,12 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Any, ClassVar
 
 import pytest
 from pydantic import ValidationError as PydanticValidationError
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.base import AgentContext
@@ -59,6 +61,7 @@ from aer.providers.anthropic import _unreadable_reply
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
 from aer.services.research import _ID_FIELDS, build_executors, validate_report
+from aer.sources.sec.fulltext import FullTextHit, SearchResults
 from aer.storage.local import LocalArtefactStore
 
 pytestmark = pytest.mark.integration
@@ -1428,3 +1431,225 @@ class TestTheWorkerIsToldWhatAnIdIs:
         prompt = ResearchWorker().system_prompt(_worker_input(available_tools=["search_facts"]))
         for field_name in _ID_FIELDS.values():
             assert f"`{field_name}`" in prompt
+
+
+class _RecordingSearch:
+    """A `SecEdgarClient.search_full_text` stand-in that records how it was called.
+
+    What matters about this tool is not what EDGAR returns — `tests/test_sec_client.py`
+    covers that — but what the *executor* hands the index. The scope is the control, so
+    the arguments are the assertion.
+    """
+
+    def __init__(
+        self, *, hits: tuple[FullTextHit, ...] = (), raises: Exception | None = None
+    ) -> None:
+        self._results = SearchResults(hits=hits, total=len(hits))
+        self._raises = raises
+        self.calls: list[dict[str, Any]] = []
+
+    async def search_full_text(
+        self,
+        phrase: str,
+        *,
+        cik: str | None = None,
+        as_of_date: date | None = None,
+        size: int = 10,
+        **extra: Any,
+    ) -> Any:
+        self.calls.append(
+            {"phrase": phrase, "cik": cik, "as_of_date": as_of_date, "size": size, **extra}
+        )
+        if self._raises is not None:
+            raise self._raises
+        return SimpleNamespace(data=self._results)
+
+
+def _hit(
+    *, filed: date, form: str = "10-K", accession: str = "0001111111-22-000001"
+) -> FullTextHit:
+    return FullTextHit(
+        accession=accession,
+        filename="contoso-10k.htm",
+        cik="0001111111",
+        display_name="CONTOSO CORP (CIK 0001111111)",
+        form=form,
+        filed=filed,
+    )
+
+
+class TestSearchingTheFilingsFullText:
+    """The tool that answers *which* filings discuss a thing.
+
+    Built in task 16 and never called by anything (gap B13). The phrase is the model's;
+    the CIK and the as-of bound are the run's, and are the difference between a search of
+    this company's filings and a search of everybody's.
+    """
+
+    async def test_the_run_supplies_the_scope_and_the_model_supplies_only_the_phrase(
+        self, evidence_scene: dict[str, Any]
+    ) -> None:
+        """An unscoped hit is a competitor's document, and acquiring one would mean citing
+        it for this company's figures."""
+        index = _RecordingSearch(hits=(_hit(filed=date(2022, 7, 30)),))
+        executors = build_executors(
+            evidence_scene["session"], request=evidence_scene["request"], sec_client=index
+        )
+
+        await executors["search_filings_full_text"](
+            _tool_request("search_filings_full_text", "  segment reporting  ")
+        )
+
+        [call] = index.calls
+        assert call["phrase"] == "segment reporting"
+        assert call["cik"] == "0001111111", "the search must be scoped to this run's filer"
+        assert call["as_of_date"] == evidence_scene["request"].as_of_date
+
+    async def test_a_hit_is_a_listing_and_not_a_reading(
+        self, evidence_scene: dict[str, Any]
+    ) -> None:
+        """A search that silently fetched ten documents would spend the twelve-call budget
+        without the worker choosing to, and would put ten documents' untrusted words in
+        front of it for one authorised call."""
+        index = _RecordingSearch(hits=(_hit(filed=date(2022, 7, 30)),))
+        executors = build_executors(
+            evidence_scene["session"], request=evidence_scene["request"], sec_client=index
+        )
+
+        outcome = await executors["search_filings_full_text"](
+            _tool_request("search_filings_full_text", "segment reporting")
+        )
+
+        assert outcome.executed is True
+        [found] = outcome.internal_results
+        assert found["form"] == "10-K"
+        assert found["filed"] == "2022-07-30"
+        assert found["url"].startswith("https://www.sec.gov/Archives/edgar/data/1111111/")
+        assert outcome.untrusted_evidence == [], (
+            "a listing carries no document text, so there is nothing untrusted to wrap"
+        )
+
+        stored = await evidence_scene["session"].scalars(
+            select(SourceDocument).where(SourceDocument.request_id == evidence_scene["request"].id)
+        )
+        assert len(list(stored)) == 1, "a search must not acquire anything"
+
+    async def test_hits_after_the_as_of_date_are_counted_rather_than_dropped(
+        self, evidence_scene: dict[str, Any]
+    ) -> None:
+        """ "The search found nothing" and "the search found things you may not read" call
+        for different next moves from a worker."""
+        index = _RecordingSearch(
+            hits=(
+                _hit(filed=date(2022, 7, 30)),
+                _hit(filed=date(2024, 7, 30), accession="0001111111-24-000001"),
+            )
+        )
+        executors = build_executors(
+            evidence_scene["session"], request=evidence_scene["request"], sec_client=index
+        )
+
+        outcome = await executors["search_filings_full_text"](
+            _tool_request("search_filings_full_text", "segment reporting")
+        )
+
+        usable = [row for row in outcome.internal_results if "filed" in row]
+        notes = [row["note"] for row in outcome.internal_results if "note" in row]
+        assert [row["filed"] for row in usable] == ["2022-07-30"]
+        assert len(notes) == 1
+        assert "1 further hit" in notes[0]
+
+    async def test_the_post_dated_hit_never_reaches_the_worker_as_a_filing(
+        self, evidence_scene: dict[str, Any]
+    ) -> None:
+        """Counted is not the same as shown. A worker handed the URL of a document it may
+        not read would fetch it, and point-in-time would be over."""
+        later = _hit(filed=date(2024, 7, 30), accession="0001111111-24-000001")
+        index = _RecordingSearch(hits=(later,))
+        executors = build_executors(
+            evidence_scene["session"], request=evidence_scene["request"], sec_client=index
+        )
+
+        outcome = await executors["search_filings_full_text"](
+            _tool_request("search_filings_full_text", "segment reporting")
+        )
+
+        rendered = str(outcome.internal_results)
+        assert later.url not in rendered
+        assert later.accession not in rendered
+
+    async def test_a_run_with_point_in_time_off_is_not_bounded(
+        self, evidence_scene: dict[str, Any]
+    ) -> None:
+        """The bound comes from the mode, not from the date. A run the operator turned
+        point-in-time off for asked for today's filings and should get them."""
+        evidence_scene["request"].point_in_time = False
+        await evidence_scene["session"].flush()
+        later = _hit(filed=date(2024, 7, 30), accession="0001111111-24-000001")
+        index = _RecordingSearch(hits=(later,))
+        executors = build_executors(
+            evidence_scene["session"], request=evidence_scene["request"], sec_client=index
+        )
+
+        outcome = await executors["search_filings_full_text"](
+            _tool_request("search_filings_full_text", "segment reporting")
+        )
+
+        [call] = index.calls
+        assert call["as_of_date"] is None
+        assert [row["filed"] for row in outcome.internal_results] == ["2024-07-30"]
+
+    async def test_an_unresolved_company_is_a_refusal_and_no_search_happens(
+        self, rerun_scene: dict[str, Any]
+    ) -> None:
+        """Before `acquire` resolves the listing there is no CIK to scope to, and an
+        unscoped search of EDGAR is every filer's filings."""
+        index = _RecordingSearch(hits=(_hit(filed=date(2022, 7, 30)),))
+        executors = build_executors(
+            rerun_scene["session"], request=rerun_scene["unresolved"], sec_client=index
+        )
+
+        outcome = await executors["search_filings_full_text"](
+            _tool_request("search_filings_full_text", "segment reporting")
+        )
+
+        assert outcome.executed is False
+        assert "cannot be scoped" in outcome.refusal
+        assert index.calls == [], "an unscoped search must never reach the index"
+
+    async def test_the_index_refusing_is_information_rather_than_a_failed_node(
+        self, evidence_scene: dict[str, Any]
+    ) -> None:
+        index = _RecordingSearch(raises=AerValidationError("the phrase is empty"))
+        executors = build_executors(
+            evidence_scene["session"], request=evidence_scene["request"], sec_client=index
+        )
+
+        outcome = await executors["search_filings_full_text"](
+            _tool_request("search_filings_full_text", "segment reporting")
+        )
+
+        assert outcome.executed is False
+        assert "the phrase is empty" in outcome.refusal
+
+    async def test_the_tool_is_absent_when_no_client_is_bound(
+        self, evidence_scene: dict[str, Any]
+    ) -> None:
+        """The allowlist grants the capability; the run decides availability. A worker
+        told a tool exists and then handed no executor spends a call finding out."""
+        executors = build_executors(evidence_scene["session"], request=evidence_scene["request"])
+
+        assert "search_filings_full_text" not in executors
+
+    def test_the_analysis_role_is_allowed_to_call_it(self) -> None:
+        """A bound executor a worker's role forbids is a tool nothing can reach."""
+        assert "search_filings_full_text" in resolve_role("analysis").allowed_tools
+
+    def test_the_worker_is_told_what_the_query_means(self) -> None:
+        """Every other tool takes a different kind of string — a concept, a title, a URL.
+        A brief-less tool gets called with whatever the model guesses."""
+        assert "search_filings_full_text" in _TOOL_BRIEFS
+        prompt = ResearchWorker().system_prompt(
+            _worker_input(available_tools=["search_filings_full_text"])
+        )
+        assert "a phrase to look for in this company's filings" in prompt

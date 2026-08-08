@@ -21,11 +21,14 @@ from typing import Any
 import pytest
 from sqlalchemy import select, text
 
-from aer.core.enums import Provider, SourceTier, UserRole
+from aer.core.enums import JobStatus, Provider, SourceTier, UserRole
 from aer.db.models import (
+    AgentRun,
     Artefact,
     ArtefactPurge,
     AuditEvent,
+    Job,
+    JobStep,
     ResearchRequest,
     SourceDocument,
     User,
@@ -503,3 +506,254 @@ class TestErasureIsACapability:
         # under test also uses. The name is the assertion.
         annotation = inspect.signature(retention_service.purge_artefact).parameters["store"]
         assert annotation.annotation == "PurgeableStore"
+
+
+# -- The sweeps: is the archive intact, and what is nothing pointing at? ----------------------
+
+
+async def store_filing(session: Any, scene: dict[str, Any]) -> tuple[Artefact, SourceDocument]:
+    """The permanent case: a regulator's document, cited by a run."""
+    return await store_document(
+        session, scene, payload=FILING, provider=Provider.SEC_EDGAR, tier=SourceTier.T1_REGULATORY
+    )
+
+
+async def store_prices(session: Any, scene: dict[str, Any]) -> tuple[Artefact, SourceDocument]:
+    """The licensed case: a vendor's data, deletable when the agreement says so."""
+    return await store_document(
+        session, scene, payload=PRICES, provider=Provider.EODHD, tier=SourceTier.T4_LICENSED_MARKET
+    )
+
+
+async def store_orphan(session: Any, scene: dict[str, Any], payload: bytes) -> Artefact:
+    """An artefact row with bytes and nothing referring to it.
+
+    Not a contrivance: `aer reset-research` clears the runs and deliberately leaves the
+    content-addressed bytes, because deleting artefacts a surviving run still cites is the
+    worse mistake. This is what the store looks like a few resets later.
+    """
+    stored = await scene["store"].put_bytes(payload)
+    artefact = Artefact(
+        sha256=stored.sha256,
+        media_type="application/json",
+        size_bytes=stored.size_bytes,
+        storage_key=scene["store"].storage_key_for(stored.sha256),
+    )
+    session.add(artefact)
+    await session.flush()
+    return artefact
+
+
+async def a_job_step(session: Any, scene: dict[str, Any]) -> JobStep:
+    job = Job(
+        request_id=scene["request"].id,
+        workflow_version="test",
+        code_version="abc",
+        status=JobStatus.RUNNING,
+        started_at=datetime.now(UTC),
+    )
+    session.add(job)
+    await session.flush()
+    step = JobStep(
+        job_id=job.id,
+        step_key="research_company",
+        sequence=0,
+        status=JobStatus.RUNNING,
+        attempt=0,
+        idempotency_key=f"{job.id}:research_company",
+        input_hash="0" * 64,
+        started_at=datetime.now(UTC),
+    )
+    session.add(step)
+    await session.flush()
+    return step
+
+
+class TestVerifyingTheStore:
+    """Invariant 1 is a claim about the present tense.
+
+    "Every externally derived fact traces to a hashed artefact" stops being true the moment
+    an artefact stops matching its hash. The store checks on every read, so corruption is
+    caught when something needs the document; this is what catches it beforehand, while
+    there is still a backup to restore from.
+    """
+
+    async def test_an_intact_store_reports_itself_sound(self, db_session, scene):
+        await store_filing(db_session, scene)
+
+        report = await retention_service.verify_store(db_session, scene["store"])
+
+        assert report.checked == 1
+        assert report.intact == 1
+        assert report.is_sound is True
+
+    async def test_an_edited_artefact_is_reported_corrupt(self, db_session, scene):
+        """The failure this sweep exists for: bytes that changed after they were archived,
+        which no citation over them would ever mention."""
+        artefact, _ = await store_filing(db_session, scene)
+        scene["store"].path_for(artefact.sha256).write_bytes(b'{"cik":"0000000000","facts":{}}')
+
+        report = await retention_service.verify_store(db_session, scene["store"])
+
+        assert report.corrupt == (artefact.sha256,)
+        assert report.missing == ()
+        assert report.intact == 0
+        assert report.is_sound is False
+
+    async def test_a_deleted_file_is_reported_missing_rather_than_corrupt(self, db_session, scene):
+        """A file that is gone wants a backup; one whose bytes changed wants a new disk.
+        The store raises the same error for both — on purpose, since to a reader either
+        means "do not trust this" — so the sweep asks about presence separately."""
+        artefact, _ = await store_filing(db_session, scene)
+        scene["store"].path_for(artefact.sha256).unlink()
+
+        report = await retention_service.verify_store(db_session, scene["store"])
+
+        assert report.missing == (artefact.sha256,)
+        assert report.corrupt == ()
+
+    async def test_a_purged_artefact_is_not_reported_as_loss(self, db_session, scene):
+        """A licensed purge removes the bytes and keeps the row. A sweep that did not know
+        that would report every honoured obligation as data loss — and an alarm that fires
+        on correct behaviour is an alarm somebody switches off."""
+        artefact, _ = await store_prices(db_session, scene)
+        await retention_service.purge_artefact(
+            db_session,
+            scene["store"],
+            artefact=artefact,
+            reason="The EODHD agreement requires deletion within a month of termination.",
+            actor="retention-sweep",
+        )
+
+        report = await retention_service.verify_store(db_session, scene["store"])
+
+        assert report.is_sound is True
+        assert report.checked == 0
+        assert report.skipped == 1
+
+
+class TestFindingWhatNothingPointsAt:
+    async def test_an_artefact_no_row_refers_to_is_unreferenced(self, db_session, scene):
+        orphan = await store_orphan(db_session, scene, b'{"left":"over"}')
+
+        found = await retention_service.unreferenced_artefacts(db_session)
+
+        assert [row.id for row in found] == [orphan.id]
+
+    async def test_a_cited_document_is_never_unreferenced(self, db_session, scene):
+        await store_filing(db_session, scene)
+
+        assert await retention_service.unreferenced_artefacts(db_session) == []
+
+    async def test_an_archived_model_payload_keeps_its_artefact(self, db_session, scene):
+        """The `agent_runs` payload refs are how "why did it say that?" is answerable
+        months later, and they are RESTRICT for that reason."""
+        step = await a_job_step(db_session, scene)
+        payload = await store_orphan(db_session, scene, b'{"messages":[]}')
+        db_session.add(
+            AgentRun(
+                job_step_id=step.id,
+                agent_role="analysis",
+                provider="anthropic",
+                model="claude-sonnet-5",
+                request_payload_ref=payload.id,
+            )
+        )
+        await db_session.flush()
+
+        assert await retention_service.unreferenced_artefacts(db_session) == []
+
+    async def test_one_null_reference_does_not_hide_every_orphan(self, db_session, scene):
+        """`x NOT IN (…, NULL)` is NULL, never true. Four of the reference columns are
+        optional, so a single agent run with no archived response would make the sweep
+        return nothing at all and look exactly like a clean store."""
+        step = await a_job_step(db_session, scene)
+        payload = await store_orphan(db_session, scene, b'{"messages":[]}')
+        orphan = await store_orphan(db_session, scene, b'{"left":"over"}')
+        db_session.add(
+            AgentRun(
+                job_step_id=step.id,
+                agent_role="analysis",
+                provider="anthropic",
+                model="claude-sonnet-5",
+                request_payload_ref=payload.id,
+                response_payload_ref=None,
+            )
+        )
+        await db_session.flush()
+
+        found = await retention_service.unreferenced_artefacts(db_session)
+
+        assert [row.id for row in found] == [orphan.id]
+
+    async def test_a_purged_artefact_is_not_garbage(self, db_session, scene):
+        """Its bytes are gone and its row is the record that they were deleted lawfully.
+        Collecting it would erase the evidence of the erasure."""
+        artefact, document = await store_prices(db_session, scene)
+        await retention_service.purge_artefact(
+            db_session,
+            scene["store"],
+            artefact=artefact,
+            reason="The EODHD agreement requires deletion within a month of termination.",
+            actor="retention-sweep",
+        )
+        await db_session.delete(document)
+        await db_session.flush()
+
+        assert await retention_service.unreferenced_artefacts(db_session) == []
+
+
+class TestCollectingGarbage:
+    async def test_it_is_dry_by_default(self, db_session, scene):
+        """A sweep that deletes on its first invocation is a sweep somebody runs once by
+        accident."""
+        orphan = await store_orphan(db_session, scene, b'{"left":"over"}')
+
+        outcome = await retention_service.collect_garbage(db_session, scene["store"])
+
+        assert outcome.found == 1
+        assert outcome.deleted is False
+        assert outcome.bytes_freed == orphan.size_bytes
+        assert await scene["store"].exists(orphan.sha256) is True
+        assert await db_session.get(Artefact, orphan.id) is not None
+
+    async def test_a_real_sweep_takes_the_bytes_and_the_row(self, db_session, scene):
+        """Unlike a licensed purge, there is no provenance to keep here: nothing refers to
+        these, so the row is not the record of anything."""
+        orphan = await store_orphan(db_session, scene, b'{"left":"over"}')
+
+        outcome = await retention_service.collect_garbage(db_session, scene["store"], dry_run=False)
+
+        assert outcome.deleted is True
+        assert outcome.found == 1
+        assert await scene["store"].exists(orphan.sha256) is False
+        assert await db_session.get(Artefact, orphan.id) is None
+
+    async def test_a_real_sweep_leaves_referenced_evidence_alone(self, db_session, scene):
+        artefact, _ = await store_filing(db_session, scene)
+        orphan = await store_orphan(db_session, scene, b'{"left":"over"}')
+
+        outcome = await retention_service.collect_garbage(db_session, scene["store"], dry_run=False)
+
+        assert outcome.found == 1
+        assert await scene["store"].exists(artefact.sha256) is True
+        assert await db_session.get(Artefact, artefact.id) is not None
+        assert await db_session.get(Artefact, orphan.id) is None
+
+    async def test_the_dry_run_reports_the_same_figure_the_real_one_frees(self, db_session, scene):
+        """An operator compares the two. Two different numbers would mean neither is the
+        answer to "how much will this reclaim?"."""
+        await store_orphan(db_session, scene, b'{"left":"over"}')
+        await store_orphan(db_session, scene, b'{"also":"left over"}')
+
+        dry = await retention_service.collect_garbage(db_session, scene["store"])
+        wet = await retention_service.collect_garbage(db_session, scene["store"], dry_run=False)
+
+        assert dry.reclaimable_bytes == wet.bytes_freed
+        assert dry.found == wet.found == 2
+
+    async def test_collecting_nothing_is_not_an_error(self, db_session, scene):
+        outcome = await retention_service.collect_garbage(db_session, scene["store"], dry_run=False)
+
+        assert outcome.found == 0
+        assert outcome.bytes_freed == 0

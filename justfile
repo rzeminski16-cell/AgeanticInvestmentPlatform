@@ -66,6 +66,16 @@ seed-user email:
 reset-research:
     uv run aer reset-research
 
+# Re-read every archived artefact and confirm it still hashes to its name. Exits non-zero
+# on anything corrupt or missing, so it can be a cron line.
+verify-artefacts:
+    uv run aer verify-artefacts
+
+# Report archived bytes that nothing in the database points at. Reports only; pass
+# --delete to actually remove them.
+gc-artefacts *ARGS:
+    uv run aer gc-artefacts {{ARGS}}
+
 # Rebuild the Tailwind stylesheet. Needs Node; the OUTPUT is committed, so CI does not.
 css:
     npm run build:css

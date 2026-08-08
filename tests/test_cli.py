@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import date
+from pathlib import Path
 
 import pytest
 from sqlalchemy import func, select, text
@@ -17,7 +18,8 @@ from typer.testing import CliRunner
 
 from aer.cli import _research_tables, app
 from aer.core.enums import UserRole
-from aer.db.models import AuditEvent, ResearchRequest, User
+from aer.db.models import Artefact, AuditEvent, ResearchRequest, User
+from aer.storage.local import LocalArtefactStore
 from aer.version import version
 
 runner = CliRunner()
@@ -340,3 +342,112 @@ class TestResetResearch:
         assert event is not None
         assert event.payload["rows"] >= 1
         assert "research_requests" in event.payload["tables"]
+
+
+# -- The maintenance sweeps ------------------------------------------------------------------
+
+
+async def _truncate_artefacts(database_url: str) -> None:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("TRUNCATE users, audit_events, artefacts RESTART IDENTITY CASCADE")
+            )
+    finally:
+        await engine.dispose()
+
+
+@pytest.fixture
+def clean_artefacts(cli_env, database_url):
+    """Empty the artefact table around each sweep test.
+
+    Same reason as ``clean_user_tables``: these commands open their own engine and really
+    commit, so ``db_session``'s outer transaction cannot isolate them.
+    """
+    asyncio.run(_truncate_artefacts(database_url))
+    yield
+    asyncio.run(_truncate_artefacts(database_url))
+
+
+def _seed_artefact(database_url: str, root: Path, payload: bytes) -> str:
+    """One committed artefact with its bytes really on disk. Returns the hash."""
+    store = LocalArtefactStore(root, max_bytes=1_048_576)
+
+    async def run() -> str:
+        stored = await store.put_bytes(payload)
+        engine = create_async_engine(database_url)
+        try:
+            async with async_sessionmaker(bind=engine, expire_on_commit=False)() as session:
+                session.add(
+                    Artefact(
+                        sha256=stored.sha256,
+                        media_type="application/json",
+                        size_bytes=stored.size_bytes,
+                        storage_key=store.storage_key_for(stored.sha256),
+                    )
+                )
+                await session.commit()
+        finally:
+            await engine.dispose()
+        return stored.sha256
+
+    return asyncio.run(run())
+
+
+class TestVerifyArtefacts:
+    def test_an_intact_store_passes(self, clean_artefacts, database_url, tmp_path):
+        _seed_artefact(database_url, tmp_path / "artefacts", b'{"filed":"2024-07-30"}')
+
+        result = invoke_ok(["verify-artefacts"])
+
+        assert "all intact" in result.output
+
+    def test_a_rotted_artefact_fails_the_command(self, clean_artefacts, database_url, tmp_path):
+        """It exits non-zero so it can be a cron line. A sweep whose only output is a log
+        message is a sweep nobody reads."""
+        root = tmp_path / "artefacts"
+        sha256 = _seed_artefact(database_url, root, b'{"filed":"2024-07-30"}')
+        LocalArtefactStore(root, max_bytes=1_048_576).path_for(sha256).write_bytes(b"edited")
+
+        result = runner.invoke(app, ["verify-artefacts"])
+
+        assert result.exit_code == 1
+        assert sha256 in result.output
+
+    def test_an_empty_store_is_sound(self, clean_artefacts):
+        result = invoke_ok(["verify-artefacts"])
+
+        assert "0 artefact(s) checked" in result.output
+
+
+class TestGcArtefacts:
+    def test_it_reports_without_deleting(
+        self, clean_artefacts, read_scalar, database_url, tmp_path
+    ):
+        _seed_artefact(database_url, tmp_path / "artefacts", b'{"left":"over"}')
+
+        result = invoke_ok(["gc-artefacts"])
+
+        assert "Re-run with --delete" in result.output
+        assert read_scalar(select(func.count()).select_from(Artefact)) == 1
+
+    def test_delete_removes_the_row_and_the_bytes(
+        self, clean_artefacts, read_scalar, database_url, tmp_path
+    ):
+        """The commit is the assertion. Without it the session rolls back on close and the
+        bytes are gone while the row survives — a store the next sweep reports as missing
+        and a citation nothing can resolve."""
+        root = tmp_path / "artefacts"
+        sha256 = _seed_artefact(database_url, root, b'{"left":"over"}')
+
+        result = invoke_ok(["gc-artefacts", "--delete"])
+
+        assert "Removed 1 artefact(s)" in result.output
+        assert read_scalar(select(func.count()).select_from(Artefact)) == 0
+        assert not LocalArtefactStore(root, max_bytes=1_048_576).path_for(sha256).is_file()
+
+    def test_nothing_to_collect_is_not_an_error(self, clean_artefacts):
+        result = invoke_ok(["gc-artefacts", "--delete"])
+
+        assert "nothing to do" in result.output

@@ -478,10 +478,23 @@ def worker_report_turn() -> WorkerTurn:
 async def seed_starved_section(session: AsyncSession) -> None:
     """A required section that can never meet its evidence floor.
 
-    Its contract holds only prose fields, so the draft fills it with no citation at all —
-    which makes both the §2.4 coverage and missing-section conditions genuinely hold on a
-    run. Tests that need a fired banner seed this rather than relying on any built-in
+    Tests that need a fired §2.4 banner seed this rather than relying on any built-in
     being poor, because the spine's own sections all carry citation fields.
+
+    **The starvation is the token budget, and it used to be the run's poverty.** The
+    earlier version gave this section an ordinary budget and a prose-only contract, and
+    relied on the run having nothing admissible to cite: the only source a slice run held
+    was the undated companyfacts aggregate, quarantined out of every evidence listing. So
+    the probe was starved by a platform defect rather than by anything about the probe.
+    Acquiring the filings (A4) and dating the aggregate (ADR 0044) fixed that defect, the
+    probe promptly cited a real 10-K, and three triggers stopped firing — a fixture
+    quietly measuring the wrong thing, discovered only because it broke.
+
+    A budget of one token admits no evidence unit at all: `_within_budget` keeps whole
+    units, and the smallest of them costs more than that. So the section generates, cites
+    nothing, and misses a floor it declared — which is what §2.4's coverage, uncertainty
+    and missing-section conditions are each about, and is now true however well sourced
+    the run around it becomes.
     """
     session.add(
         SectionDefinition(
@@ -498,7 +511,9 @@ async def seed_starved_section(session: AsyncSession) -> None:
                 "properties": {"commentary": {"type": "string", "title": "Commentary"}},
             },
             evidence_policy={"min_sources": 1, "requires_primary": True},
-            token_budget=1000,
+            # One token. The column's check constraint forbids zero, and zero means
+            # something else anyway — a deterministic section that makes no model call.
+            token_budget=1,
             allowed_tools=[],
             applicability={},
         )

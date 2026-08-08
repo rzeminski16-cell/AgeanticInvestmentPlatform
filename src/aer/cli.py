@@ -28,6 +28,13 @@ from aer.db.models import AuditEvent, User
 from aer.errors import AerError
 from aer.logging import configure_logging, get_logger
 from aer.obsidian import ObsidianExportError, export_report
+from aer.services.retention import (
+    GarbageCollected,
+    IntegrityReport,
+    collect_garbage,
+    verify_store,
+)
+from aer.storage.local import LocalArtefactStore
 from aer.version import build_identity, git_sha, version
 
 __all__ = ["app", "main"]
@@ -325,6 +332,102 @@ async def _reset_research(settings: Settings, tables: Sequence[str], *, rows: in
             await session.commit()
     finally:
         await engine.dispose()
+
+
+@app.command(name="verify-artefacts")
+def verify_artefacts() -> None:
+    """Re-read every archived artefact and check it still hashes to its name.
+
+    Invariant 1 is a claim in the present tense: "every externally derived fact traces to a
+    hashed artefact" holds only while the artefact still matches its hash. The store checks
+    the digest on every read, so rot is caught the moment something needs the document —
+    this catches it while there is still a backup to restore from.
+
+    Exits 1 on any corrupt or missing artefact, so it can be a cron line.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+
+    report = asyncio.run(_verify_artefacts(settings))
+    if report.is_sound:
+        typer.secho(f"{report.checked:,} artefact(s) checked, all intact.", fg=typer.colors.GREEN)
+        return
+
+    for sha256 in report.corrupt:
+        typer.secho(f"  corrupt  {sha256}", fg=typer.colors.RED, err=True)
+    for sha256 in report.missing:
+        typer.secho(f"  missing  {sha256}", fg=typer.colors.RED, err=True)
+    typer.secho(
+        f"{report.intact:,} of {report.checked:,} intact. "
+        f"{len(report.corrupt)} corrupt, {len(report.missing)} missing.",
+        fg=typer.colors.RED,
+        err=True,
+    )
+    raise typer.Exit(code=1)
+
+
+@app.command(name="gc-artefacts")
+def gc_artefacts(
+    delete: Annotated[
+        bool, typer.Option("--delete", help="Actually remove them. Reports only without it.")
+    ] = False,
+) -> None:
+    """Remove archived bytes that nothing in the database points at.
+
+    Every reference to an artefact is ``RESTRICT``, so an artefact with no referrer is one
+    no citation, report or agent run can reach — deleting it takes nothing away from
+    invariant 1, because no fact traces to it. They accumulate honestly: `reset-research`
+    clears the runs and leaves the content-addressed bytes, which is the right order.
+
+    Reports by default. A sweep that deleted on its first invocation is one somebody runs
+    once by accident.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+
+    outcome = asyncio.run(_gc_artefacts(settings, delete=delete))
+    if not outcome.found:
+        typer.echo("No unreferenced artefacts; nothing to do.")
+        return
+
+    megabytes = outcome.reclaimable_bytes / 1_048_576
+    if outcome.deleted:
+        typer.secho(
+            f"Removed {outcome.found:,} artefact(s), freeing {megabytes:,.1f} MiB.",
+            fg=typer.colors.GREEN,
+        )
+    else:
+        typer.echo(
+            f"{outcome.found:,} unreferenced artefact(s) holding {megabytes:,.1f} MiB. "
+            "Re-run with --delete to remove them."
+        )
+
+
+async def _verify_artefacts(settings: Settings) -> IntegrityReport:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            return await verify_store(session, _store_for(settings))
+    finally:
+        await engine.dispose()
+
+
+async def _gc_artefacts(settings: Settings, *, delete: bool) -> GarbageCollected:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            outcome = await collect_garbage(session, _store_for(settings), dry_run=not delete)
+            if delete:
+                await session.commit()
+            return outcome
+    finally:
+        await engine.dispose()
+
+
+def _store_for(settings: Settings) -> LocalArtefactStore:
+    return LocalArtefactStore(settings.artefact_root, max_bytes=settings.max_artefact_bytes)
 
 
 def main() -> None:

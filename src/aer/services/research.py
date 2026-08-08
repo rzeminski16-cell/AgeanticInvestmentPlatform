@@ -84,14 +84,17 @@ def build_executors(
     store: Any = None,
     settings: Settings | None = None,
     job_id: uuid.UUID | None = None,
+    sec_client: Any = None,
 ) -> dict[str, Any]:
-    """The tool executors for one run: searches over what the run already holds, and — when
-    a fetcher is bound — one more page from a host it already reads.
+    """The tool executors for one run: searches over what the run already holds, a search
+    of the regulator's index for what it does not, and — when a fetcher is bound — one more
+    page from a host it already reads.
 
     The allowlist grants the *capability*, the run decides the *availability*, and an
     unavailable tool is a recorded refusal rather than an error. ``fetch_known_url`` is
-    therefore bound only when a fetcher, a store and settings are all supplied; a caller
-    that omits them gets exactly the two searches it always did.
+    bound only when a fetcher, a store and settings are all supplied, and
+    ``search_filings_full_text`` only when a client is; a caller that omits them gets
+    exactly the two searches it always did.
     """
 
     async def search_facts(tool_request: ToolRequest) -> ExecutedTool:
@@ -243,12 +246,89 @@ def build_executors(
             ],
         )
 
+    async def search_filings_full_text(tool_request: ToolRequest) -> ExecutedTool:
+        """Which of this company's filings discuss a thing.
+
+        **The phrase is the model's; the scope is not.** The CIK and the as-of bound are
+        supplied here, from the run, and are the difference between a search of this
+        company's filings and a search of everybody's: an unscoped hit is a competitor's
+        document, and acquiring one would mean citing it for this company's figures.
+
+        A listing, not a reading. Hits come back as metadata — form, date, URL — and the
+        worker spends a `fetch_known_url` call to read one. That keeps the twelve-call
+        budget meaningful: a search that silently fetched ten documents would spend the
+        budget without the worker choosing to.
+        """
+        company_id = await _company_id_for(session, request=request)
+        cik = await session.scalar(select(Company.cik).where(Company.id == company_id))
+        if not cik:
+            return ExecutedTool(
+                tool=tool_request.tool,
+                query=tool_request.query,
+                executed=False,
+                refusal=(
+                    "This run has not resolved the company against a registry yet, so a "
+                    "filing search cannot be scoped to it. An unscoped search would return "
+                    "other companies' filings."
+                ),
+            )
+
+        try:
+            found = await sec_client.search_full_text(
+                tool_request.query.strip(),
+                cik=cik,
+                as_of_date=request.as_of_date if request.point_in_time else None,
+                size=MAX_HITS,
+            )
+        except AerError as refused:
+            return ExecutedTool(
+                tool=tool_request.tool,
+                query=tool_request.query,
+                executed=False,
+                refusal=f"The filing index refused the search: {refused.message}",
+            )
+
+        usable, excluded = found.data.admissible(
+            request.as_of_date if request.point_in_time else None
+        )
+        # Ids, forms, dates and URLs are the index's, which is ours to trust — the
+        # documents' own words are not here, and reading one costs a fetch.
+        results: list[dict[str, Any]] = [
+            {
+                "form": hit.form,
+                "filed": hit.filed.isoformat(),
+                "accession": hit.accession,
+                "url": hit.url,
+            }
+            for hit in usable
+        ]
+        if excluded:
+            # Said rather than silently dropped: "the search found nothing" and "the search
+            # found things you may not read" call for different next moves.
+            results.append(
+                {
+                    "note": (
+                        f"{len(excluded)} further hit(s) were published after this run's "
+                        "as-of date and are not available to it."
+                    )
+                }
+            )
+
+        return ExecutedTool(
+            tool=tool_request.tool,
+            query=tool_request.query,
+            executed=True,
+            internal_results=results,
+        )
+
     executors: dict[str, Any] = {
         "search_facts": search_facts,
         "search_sources": search_sources,
     }
     if fetcher is not None and store is not None and settings is not None:
         executors["fetch_known_url"] = fetch_known_url
+    if sec_client is not None:
+        executors["search_filings_full_text"] = search_filings_full_text
     return executors
 
 

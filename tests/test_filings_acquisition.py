@@ -23,7 +23,7 @@ from aer.core.schemas.extraction import Locator
 from aer.db.models import Extraction, ResearchRequest, SourceDocument, User
 from aer.errors import ExternalServiceError
 from aer.extract import extract_text
-from aer.services.filings import MIN_EXCERPT_CHARS, acquire_filings
+from aer.services.filings import MAX_EXCERPTS, MIN_EXCERPT_CHARS, acquire_filings
 from aer.sources.base import ResolvedEntity
 from aer.sources.sec.companyfacts import parse_company_facts
 from aer.sources.sec.submissions import parse_submissions
@@ -33,6 +33,7 @@ from tests.workflow_fixtures import (
     COMPANY_FACTS_FIXTURE,
     SUBMISSIONS_FIXTURE,
     StubSecClient,
+    _stub_fetch,
 )
 
 pytestmark = pytest.mark.integration
@@ -205,12 +206,19 @@ class TestTheDocumentsCanBeCited:
     async def test_a_fragment_too_short_to_mean_anything_is_not_excerpted(
         self, scene: dict[str, Any]
     ) -> None:
-        """A citation pointing at "12" verifies and tells a reader nothing."""
+        """A citation pointing at "12" verifies and tells a reader nothing.
+
+        The bound is written out rather than read from `MIN_EXCERPT_CHARS`, because an
+        assertion phrased against the constant is one the constant satisfies at any value:
+        set it to zero and this passes while every page number in the filing becomes
+        citable evidence.
+        """
         await _acquire(scene)
 
         extractions = list(await scene["session"].scalars(select(Extraction)))
         assert extractions
-        assert all(len(row.excerpt) >= MIN_EXCERPT_CHARS for row in extractions)
+        assert all(len(row.excerpt) >= 120 for row in extractions)
+        assert MIN_EXCERPT_CHARS >= 120
 
 
 class TestNothingFailsTheRun:
@@ -280,3 +288,166 @@ class TestTheAggregateIsDated:
         )
         assert urls
         assert not any("/submissions/" in url for url in urls)
+
+
+# A 10-K in miniature: the statutory items, with the cover-page furniture in front of them
+# that document-order selection used to pick instead of the prose.
+TEN_K = b"""<!DOCTYPE html><html><body>
+<p>UNITED STATES SECURITIES AND EXCHANGE COMMISSION Washington, D.C. 20549 FORM 10-K
+ANNUAL REPORT PURSUANT TO SECTION 13 OR 15(d) OF THE SECURITIES EXCHANGE ACT OF 1934.</p>
+<p>Securities registered pursuant to Section 12(b) of the Act: Common stock, par value
+$0.00000625 per share, registered on the NASDAQ Stock Market LLC under the symbol MSFT.</p>
+<p>The registrant's transfer agent and registrar is a national banking association with an
+address in Providence, Rhode Island, and correspondence should be directed there.</p>
+<p>Item 1. Business</p>
+<p>The company reports revenue in three segments, and describes competition across cloud
+infrastructure as intense, with pricing pressure from two large competitors and growth in
+demand for capacity from enterprise customers driving the segment's operating margin.</p>
+<p>Item 1A. Risk Factors</p>
+<p>Regulatory scrutiny of large platforms is a risk to the business, as is litigation
+arising from acquisition activity, and the company notes currency movement in the markets
+where it bills as a further risk to reported revenue.</p>
+<p>Item 6. Reserved</p>
+<p>This item has been reserved and the registrant has nothing to disclose under it at all,
+which is a paragraph of exactly the length that would otherwise qualify for selection.</p>
+<p>Item 7. Management's Discussion and Analysis</p>
+<p>Operating cash flow funded the capital programme and the dividend, and management
+describes its capital allocation strategy and the outlook for margin as unchanged from the
+guidance given at the start of the year, with investment in capacity continuing.</p>
+</body></html>"""
+
+
+class TestWhichPassagesAreKept:
+    """Document order was the first version, and on a 10-K it reads the cover page.
+
+    Forty paragraphs from the top of an annual report is the SEC's address, the listing
+    table and the transfer agent — every one genuinely present in the artefact, and not one
+    of them anything a research section would cite.
+    """
+
+    @pytest.fixture
+    async def filed(self, scene: dict[str, Any]) -> list[str]:
+        class _TenK(StubSecClient):
+            async def fetch_document(self, ref: Any) -> Any:
+                self.document_calls.append(ref.url)
+                stored = await self._store.put_bytes(TEN_K)
+                return _stub_fetch(ref.url, stored, media_type="text/html")
+
+        await _acquire(scene, client=_TenK(scene["store"]), max_current=0)
+        return list(await scene["session"].scalars(select(Extraction.excerpt)))
+
+    async def test_the_statutory_items_are_read(self, filed: list[str]) -> None:
+        body = " ".join(filed)
+
+        assert "three segments" in body
+        assert "Regulatory scrutiny" in body
+        assert "capital allocation strategy" in body
+
+    async def test_the_cover_page_furniture_is_not(self, filed: list[str]) -> None:
+        body = " ".join(filed)
+
+        assert "transfer agent" not in body
+        assert "Washington, D.C." not in body
+
+    async def test_an_item_the_form_reserves_is_not_read(self, filed: list[str]) -> None:
+        """Item 6 is long enough to qualify on length alone, and says nothing."""
+        assert not any("has been reserved" in excerpt for excerpt in filed)
+
+    async def test_the_excerpts_keep_the_filing_s_own_order(self, filed: list[str]) -> None:
+        """A reader following a citation back expects the document's sequence."""
+        body = " ".join(filed)
+
+        assert body.index("three segments") < body.index("Regulatory scrutiny")
+        assert body.index("Regulatory scrutiny") < body.index("capital allocation")
+
+    async def test_a_document_with_no_items_is_read_whole(self, scene: dict[str, Any]) -> None:
+        """An 8-K has no statutory structure and is short and entirely about one event.
+        Finding no headings must mean "read it all", never "read none of it"."""
+        await _acquire(scene, max_current=1)
+
+        excerpts = list(await scene["session"].scalars(select(Extraction.excerpt)))
+        assert excerpts
+
+
+def _crowded_ten_k() -> bytes:
+    """An Item 1 holding far more qualifying paragraphs than a document may keep.
+
+    Cutting on the item headings is only half the selection. Inside Item 1 of a real 10-K
+    there are hundreds of paragraphs long enough to qualify, most of them property leases
+    and legal-entity housekeeping, and taking the first forty of *those* is the cover-page
+    failure again one level down. The filler here is deliberately long, dull and free of
+    the vocabulary a research report uses; the three paragraphs worth reading are last in
+    document order, so only the score can reach them.
+    """
+    filler = "\n".join(
+        f"<p>The registrant maintains an office at building number {number} in a district "
+        "whose address is set out in the exhibit index appended to this report, and the "
+        "lease on that property runs to a date stated in the same exhibit.</p>"
+        for number in range(MAX_EXCERPTS + 10)
+    )
+    return f"""<!DOCTYPE html><html><body>
+<p>Item 1. Business</p>
+{filler}
+<p>The company reports revenue in three segments, and describes competition across cloud
+infrastructure as intense, with pricing pressure from two large competitors and growth in
+demand for capacity from enterprise customers driving the segment's operating margin.</p>
+<p>Operating cash flow funded the capital programme and the dividend, and management
+describes its capital allocation strategy and the outlook for margin as unchanged from the
+guidance given at the start of the year, with investment in capacity continuing.</p>
+<p>Regulatory scrutiny of large platforms is a risk to the business, as is litigation
+arising from acquisition activity, and the company notes currency movement in the markets
+where it bills as a further risk to reported revenue.</p>
+</body></html>""".encode()
+
+
+class TestTheBestPassagesWin:
+    """The second pass, and the one the item headings cannot do on their own.
+
+    A real Item 1 runs to hundreds of qualifying paragraphs. Keeping the first forty of
+    them is document order again, just inside the right section — so the paragraphs are
+    scored on the vocabulary a research report actually uses, and the best are kept.
+    """
+
+    @pytest.fixture
+    async def filed(self, scene: dict[str, Any]) -> list[str]:
+        crowded = _crowded_ten_k()
+
+        class _Crowded(StubSecClient):
+            async def fetch_document(self, ref: Any) -> Any:
+                self.document_calls.append(ref.url)
+                stored = await self._store.put_bytes(crowded)
+                return _stub_fetch(ref.url, stored, media_type="text/html")
+
+        await _acquire(scene, client=_Crowded(scene["store"]), max_current=0)
+        return list(await scene["session"].scalars(select(Extraction.excerpt)))
+
+    async def test_the_substantive_paragraphs_survive_the_crowd(self, filed: list[str]) -> None:
+        """They are last in document order and there are fifty things ahead of them."""
+        body = " ".join(filed)
+
+        assert "three segments" in body
+        assert "capital allocation strategy" in body
+        assert "Regulatory scrutiny" in body
+
+    async def test_the_housekeeping_is_what_gets_dropped(self, filed: list[str]) -> None:
+        kept = sum(1 for excerpt in filed if "lease on that property" in excerpt)
+
+        assert kept < MAX_EXCERPTS, (
+            "the filler filled the quota, which is document-order selection wearing the "
+            "item headings as a hat"
+        )
+
+    async def test_the_document_s_own_order_still_decides_the_sequence(
+        self, filed: list[str]
+    ) -> None:
+        """Ranked by score, emitted by position. A reader following a citation back reads
+        the filing, not this module's opinion of it."""
+        body = " ".join(filed)
+
+        assert body.index("three segments") < body.index("capital allocation")
+        assert body.index("capital allocation") < body.index("Regulatory scrutiny")
+
+    async def test_no_more_than_the_cap_is_ever_recorded(self, filed: list[str]) -> None:
+        """The pack is assembled against a token budget, and one 10-K that filled it would
+        be worse than the silence this module exists to end."""
+        assert 0 < len(filed) <= MAX_EXCERPTS

@@ -1150,6 +1150,7 @@ def _research(topic: ResearchTopic) -> Any:
                 store=context.service("store"),
                 settings=context.service("settings"),
                 job_id=context.job.id,
+                sec_client=context.services.get("sec_client"),
             ),
         )
         return StepResult(

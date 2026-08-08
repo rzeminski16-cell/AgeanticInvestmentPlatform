@@ -294,6 +294,14 @@ _TOOL_BRIEFS: Final[dict[str, str]] = {
         "search_sources — query: words to match against the titles of documents this run "
         "has acquired. Returns those documents with their ids and tiers."
     ),
+    "search_filings_full_text": (
+        "search_filings_full_text — query: a phrase to look for in this company's filings, "
+        "e.g. 'segment operating margin' or 'material weakness'. Searches the regulator's "
+        "full-text index, scoped to this company and to filings public by the as-of date, "
+        "and returns the filings that contain it with their forms, dates and URLs. It "
+        "returns a listing, not the text: to read one, spend a fetch_known_url call on its "
+        "URL."
+    ),
     "fetch_known_url": (
         "fetch_known_url — query: one URL, on a host whose documents search_sources has "
         "already shown you. Fetches and archives it, and gives you back its text and a "

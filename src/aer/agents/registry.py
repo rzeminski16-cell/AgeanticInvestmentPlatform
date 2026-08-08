@@ -159,11 +159,19 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
             "figure of their own. Tools are requested in a schema and executed by code."
         ),
         output_schema_ref="aer.agents.worker:WorkerTurn",
-        # §2.5's worker allowlist: search over what the run already holds, plus fetching
-        # a specific known URL through the deterministic fetch layer. No tool takes an
-        # arbitrary instruction, and none exists as a callable surface — the request/
-        # execute protocol (ADR 0036) means the model asks and code decides.
-        allowed_tools=frozenset({"search_facts", "search_sources", "fetch_known_url"}),
+        # §2.5's worker allowlist: search over what the run already holds, search the
+        # regulator's index for filings that discuss a thing, and fetch a specific known
+        # URL through the deterministic fetch layer. No tool takes an arbitrary
+        # instruction, and none exists as a callable surface — the request/execute protocol
+        # (ADR 0036) means the model asks and code decides.
+        #
+        # `search_filings_full_text` widens what a worker can *find* and not what it can
+        # reach: the query is scoped to this company's CIK and bounded by the as-of date in
+        # code, and a hit is metadata until the worker spends a `fetch_known_url` call on
+        # it. The host was already reachable, so no trust boundary moves.
+        allowed_tools=frozenset(
+            {"search_facts", "search_sources", "search_filings_full_text", "fetch_known_url"}
+        ),
         # Evidence digests accumulate across the loop's rounds; the cap bounds the whole
         # composed turn, not the first one.
         max_input_tokens=30_000,

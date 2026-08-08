@@ -1,7 +1,7 @@
 # Gap analysis — what is missing, as of 2026-08-08
 
-*Updated after A1–A4 were closed. Items struck through are done; the reasoning is kept
-because a gap and the shape of its fix are worth reading together.*
+*Updated after A1–A4, then A21, B13 and A9 were closed. Items struck through are done; the
+reasoning is kept because a gap and the shape of its fix are worth reading together.*
 
 Written after the first end-to-end live runs, from the code rather than from the plan. The
 phase specifications in `docs/PLAN.md` remain the authority on *scope*; this document is an
@@ -54,7 +54,7 @@ before it needs code.
 | ~~A1~~ | ~~**The workflow does not invoke the calculation suite**~~ | **Closed.** `aer.services.analysis` assembles statements, ratios and quality signals for each annual period into one ledger, and `calculate` runs it. One calculation a run became more than ten on a two-year scene. The DCF stays out deliberately: it refuses to run without confirmed assumptions, and an agent that proposed them would be a new role needing an ADR (0035). |
 | ~~A2~~ | ~~**Unmetered model spend**~~ | **Closed.** The schema now goes to the wire as a dict, so the SDK sends it and skips the client-side parse: the stream always completes, the usage is always whole, and validation happens where a failure is a value already metered. `SpentButUnusableError` carries the bill and both payloads; `Agent.run` writes the `agent_runs` and `costs` rows before re-raising, with `stop_reason` marking them. |
 | ~~A3~~ | ~~**The companyfacts quarantine**~~ | **Closed, and recorded as ADR 0044.** The aggregate takes the date of its newest component — the day it could first have existed — at 0.9 confidence to mark it derived. A current run gets a citable primary source; a historical run still quarantines it, now for a reason that is true. A side effect worth noting: the validator's date-adjudication call has disappeared from every run, because there is nothing left to adjudicate. |
-| A21 | **A filing is fetched and only lightly read** | Forty paragraphs in document order: enough for a section to cite, and not a reading of the filing. Choosing passages by relevance would get far more out of the same document and the same fetch. |
+| ~~A21~~ | ~~**A filing is fetched and only lightly read**~~ | **Closed, deterministically.** Forty paragraphs in document order is the cover page, the listing table and the transfer agent's address — all genuinely in the artefact, none of it citable by a research section. Two passes replace it: the document is cut at its statutory item headings (`Item 1`, `Item 1A`, `Item 7`, where the form *obliges* the prose to be), then paragraphs inside those items are scored on the vocabulary a research report uses and the best forty kept, emitted in the filing's own order. No model call, so the selection replays. A filing with no recognisable headings is read whole rather than not at all. |
 | ~~A4~~ | ~~**One source per run**~~ | **Closed at the chosen scope.** `aer.services.filings` fetches the latest annual report and the recent current reports from the submissions index, inside the point-in-time window, each dated by its acceptance and excerpted so it can be cited. SEC full-text search, issuer-IR discovery and Companies House remain uncalled — see B13. |
 
 ### Security
@@ -70,8 +70,8 @@ before it needs code.
 
 | # | Gap | Notes |
 |---|---|---|
-| A9 | **No retention policy, no GC, no integrity sweep** | `services/retention.py` exists; nothing calls it. The artefact store grows without bound. |
-| A10 | **No backups** | Of the database or of the artefact store. |
+| ~~A9~~ | ~~**No retention policy, no GC, no integrity sweep**~~ | **Closed, with a correction to the original claim.** `services/retention.py` did exist and did have no caller — but what it held was the *licensed purge* path, which answers a publisher's demand to destroy copies and is correctly idle while nothing licensed is in the store. The two sweeps a single-machine platform actually needs each week were simply absent, and are now there: `verify_store` re-reads every artefact and checks it still hashes to its name, and `collect_garbage` clears bytes no source document, report or agent run points at. `aer verify-artefacts` exits non-zero on a bad store so it can be a cron line; `aer gc-artefacts` reports and only deletes with `--delete`. Two traps closed on the way: a purged artefact is *expected* to be absent and is skipped rather than reported as loss, and every reference branch filters its nulls — `x NOT IN (…, NULL)` is never true, so one agent run with no archived response payload would have made the sweep return no orphans at all and look exactly like a clean store. |
+| A10 | **No backups** | Of the database or of the artefact store. A9's sweep now says when the store has lost something; nothing can put it back. |
 | A11 | **No audit-chain verification command** | The chain is written on every event and nothing ever checks it. |
 | A12 | **No run-level replay** | `aer.eval.replay` replays *calculations* inside the evaluation suite. "Reproduce this run" does not exist. |
 
@@ -110,7 +110,7 @@ before it needs code.
 | B2 | **Valuation, DCF, scenarios and sensitivities never appear in a run** | Not A1 any more: the analysis runs, and the valuation is blocked on confirmed assumptions by design. See the section above. |
 | B3 | **Comparables never appear** | A20, and the same assumption question for the multiples that need a forecast. |
 | ~~B4~~ | ~~**A run reads one filing**~~ | **Closed.** A run now reads the annual report and the recent current reports as well as the aggregate. Whether the recent-developments worker does better with them is the next live run's question. |
-| B13 | **No full-text search, no issuer IR pages** | Built in task 16 and still not called. The workers can reach IR pages through `fetch_known_url` once a host is established; nothing seeks them out. |
+| ~~B13~~ | ~~**No full-text search**~~ (IR discovery deliberately deferred) | **Half closed, on purpose.** `search_filings_full_text` is now a worker tool: the model supplies the phrase, code supplies the CIK and the as-of bound, and hits come back as metadata — form, date, URL — so reading one still costs a `fetch_known_url` call and the twelve-call budget keeps meaning something. Hits after the as-of date are counted and named rather than dropped, because "found nothing" and "found things you may not read" call for different next moves. **Issuer-IR discovery stays uncalled by choice**: `aer.sources.issuer` holds that no code path learns a domain from a page and then fetches it, and a discovery step is exactly that path with a search engine in the middle. |
 | ~~B5~~ | ~~**Charts have nothing to plot**~~ | **Closed by A1**, at least in principle: a run now records a multi-period ledger, so the revenue-and-margin history has a series behind it. The scenario and sensitivity charts stay placeholders until the valuation does. |
 
 ### Not built (Phase 6)
@@ -148,17 +148,17 @@ Tasks 29–32 remain genuinely outstanding.
 
 ## Suggested order
 
-**A1 to A4 are done.** What that leaves, in the order it is worth doing:
+**A1 to A4, A21, B13 and A9 are done.** What that leaves, in the order it is worth doing:
 
-1. **A14 — prompt caching.** The composition is already ordered for it and never asks for
+1. **B1 — delete or archive a request.** Small, asked for repeatedly, and still not built.
+2. **A14 — prompt caching.** The composition is already ordered for it and never asks for
    it. The cheapest remaining saving by a distance, now that A2 means the meter can show
    what it saves.
-2. **B1 — delete or archive a request.** Small, and asked for repeatedly.
 3. **The valuation path.** Not a line above, because it is a design question rather than a
    gap: a DCF needs confirmed assumptions, so it needs either an operator working through
    the assumptions page or a proposing agent — and the second needs an ADR before it needs
    code.
-4. **A3's neighbour, A21.** The filings are fetched and barely read.
-5. **A9 to A12** — retention, backups, audit verification, replay. None urgent on one
-   machine; all much harder to add after there is data worth keeping.
-6. The rest of Phase 6 in the order `docs/PLAN.md` gives.
+4. **A10 to A12** — backups, audit-chain verification, run replay. A9 made the first of
+   these more pressing rather than less: the sweep can now tell an operator the store has
+   lost a document, and there is still nothing to restore it from.
+5. The rest of Phase 6 in the order `docs/PLAN.md` gives.

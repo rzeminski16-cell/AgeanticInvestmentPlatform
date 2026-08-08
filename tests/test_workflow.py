@@ -402,13 +402,17 @@ class TestTheWholeRun:
         extra call, from a step quietly acquiring a model dependency or a section retrying
         without a recorded reason, fails here rather than on a bill.
 
-        **Two calls this run used to make and no longer does.** The validator's
+        **One call this run used to make and no longer does.** The validator's
         date-adjudication assist existed to argue about a source with no publication date,
         and the company-facts aggregate now carries one derived from its newest filing
         (ADR 0044) — there is nothing left to adjudicate, and the cheapest model call is
-        the one a determination made unnecessary. The red team still does not run, for the
-        reason it never did: the scripted writer cites through figure rows rather than
-        recording claims, and an adversary with no claims to attack honestly skips.
+        the one a determination made unnecessary.
+
+        **And one it now makes for the first time.** The red team used to skip honestly:
+        the scripted writer cited through figure rows rather than recording claims, and an
+        adversary with nothing to attack has nothing to say. Acquiring the filings (A4)
+        gave the sections admissible primary documents with real excerpts, so the drafts
+        now record claims — and the step that exists to argue with them runs.
         """
         schemas = [call["schema"] for call in finished["provider"].calls]
         assert schemas.count("ResearchPlanDraft") == 1
@@ -421,8 +425,8 @@ class TestTheWholeRun:
         # as "could not be generated". That was the first real report this platform wrote.
         assert "SectionDraft" not in schemas
         assert schemas.count("ValidatorAdvisory") == 0
-        assert schemas.count("RedTeamReport") == 0
-        assert finished["provider"].call_count == 22
+        assert schemas.count("RedTeamReport") == 1
+        assert finished["provider"].call_count == 23
 
     async def test_the_writer_receives_the_planners_approved_focus(self, finished: dict) -> None:
         """The plan's per-section brief — text a human approved at gate 1 — reaches the
@@ -440,6 +444,11 @@ class TestTheWholeRun:
         This is what lets a claim naming a fact carry a citation the deterministic
         verifier can re-read; a run with no extractions is a run whose numerals can only
         cite through figure rows.
+
+        **Two extractors now, where there was one.** Every excerpt used to come out of the
+        company-facts JSON, because that aggregate was the only document a run held. A run
+        reads its filings as well (A4), and their passages are read by the HTML extractor
+        (A21) — so the assertion is that both are present, not that one is.
         """
         session = finished["session"]
         rows = list(
@@ -450,7 +459,7 @@ class TestTheWholeRun:
             )
         )
         assert rows
-        assert all(row.extractor == "json" for row in rows)
+        assert {row.extractor for row in rows} == {"json", "html"}
         assert any("168088000000" in row.excerpt for row in rows)
 
 

@@ -30,22 +30,36 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import Provider
-from aer.db.models import Artefact, ArtefactPurge, AuditEvent, SourceDocument, User
-from aer.errors import ValidationError
+from aer.db.models import (
+    AgentRun,
+    Artefact,
+    ArtefactPurge,
+    AuditEvent,
+    Report,
+    SourceDocument,
+    User,
+)
+from aer.errors import AerError, ValidationError
 from aer.fetch.policy import DEFAULT_POLICIES, RetentionClass
+from aer.storage.protocol import ArtefactStore
 from aer.storage.retention import PurgeableStore
 
 __all__ = [
+    "GarbageCollected",
+    "IntegrityReport",
     "PermanentArtefactError",
     "PurgeOutcome",
+    "collect_garbage",
     "licensed_providers",
     "purge_artefact",
     "purge_provider",
     "purgeable_artefacts",
+    "unreferenced_artefacts",
+    "verify_store",
 ]
 
 _log = structlog.get_logger("aer.services.retention")
@@ -285,3 +299,190 @@ def purge_uuid(value: str) -> uuid.UUID:
     except ValueError as exc:
         message = f"{value!r} is not an artefact id."
         raise ValidationError(message, context={"given": value}) from exc
+
+
+# ==========================================================================================
+# The sweeps: proving the archive is intact, and clearing what nothing points at
+# ==========================================================================================
+#
+# **Retention had a delete path and no caller.** `purge_provider` answers a licence's
+# demand to destroy copies, and until there is a licensed provider in the store it answers
+# a question nobody is asking. The two below are the ones a single-machine platform needs
+# every week: is the evidence still the evidence, and how much of the disk is holding bytes
+# nothing refers to.
+
+
+@dataclass(frozen=True, slots=True)
+class GarbageCollected:
+    """What a sweep of unreferenced artefacts found, and whether it acted.
+
+    Its own type rather than :class:`PurgeOutcome`: that one is provider-scoped because a
+    licensed purge answers one publisher's terms, and this is not about a publisher at all.
+    Naming a provider here would put a plausible, wrong word in a compliance answer.
+    """
+
+    found: int
+    bytes_freed: int
+    deleted: bool
+
+    @property
+    def reclaimable_bytes(self) -> int:
+        """What a real sweep would free. The same figure either way — a dry run reports
+        what it would have done, and a caller comparing the two should see one number."""
+        return self.bytes_freed
+
+
+@dataclass(frozen=True, slots=True)
+class IntegrityReport:
+    """What a sweep of the store found.
+
+    ``skipped`` counts the artefacts whose bytes are *supposed* to be gone. A licensed
+    purge leaves the row and removes the payload, so a sweep that did not know about
+    :class:`~aer.db.models.ArtefactPurge` would report every honoured licence obligation
+    as data loss — and an alert that cries wolf on its own correct behaviour is an alert
+    somebody turns off.
+    """
+
+    checked: int
+    intact: int
+    corrupt: tuple[str, ...] = ()
+    missing: tuple[str, ...] = ()
+    skipped: int = 0
+
+    @property
+    def is_sound(self) -> bool:
+        return not self.corrupt and not self.missing
+
+
+async def verify_store(session: AsyncSession, store: ArtefactStore) -> IntegrityReport:
+    """Re-read every artefact and check it still hashes to its name.
+
+    **Invariant 1 is a claim about the present tense.** "Every externally derived fact
+    traces to a hashed artefact" is only true while the artefact still matches its hash —
+    a disk that silently rotted a byte would leave every citation over that document
+    verifying against text nobody filed. The store checks the digest on each read, so a
+    corrupt artefact is caught the moment something needs it; this is what catches it
+    before that, when there is still a backup to restore from.
+
+    Missing and corrupt are counted apart because they call for different responses: a
+    file that is gone is a deletion or a botched move and wants a backup, and one whose
+    bytes have changed is the disk and wants a new one. The store cannot make that
+    distinction — :meth:`~aer.storage.protocol.ArtefactStore.verify` raises
+    ``IntegrityError`` for both, deliberately, because to a reader either answer means "do
+    not trust this" — so presence is asked separately here.
+    """
+    corrupt: list[str] = []
+    missing: list[str] = []
+    checked = 0
+
+    purged = select(ArtefactPurge.artefact_id)
+    statement = select(Artefact.sha256).where(Artefact.id.not_in(purged)).order_by(Artefact.sha256)
+    keepable = list(await session.scalars(statement))
+    total = await session.scalar(select(func.count()).select_from(Artefact)) or 0
+
+    for sha256 in keepable:
+        checked += 1
+        if not await store.exists(sha256):
+            missing.append(sha256)
+            continue
+        try:
+            await store.verify(sha256)
+        except AerError:
+            # It is there and it does not hash to its name: the bytes changed after they
+            # were archived, which is the failure invariant 1 cannot survive quietly.
+            corrupt.append(sha256)
+
+    report = IntegrityReport(
+        checked=checked,
+        intact=checked - len(corrupt) - len(missing),
+        corrupt=tuple(corrupt),
+        missing=tuple(missing),
+        skipped=total - checked,
+    )
+    _log.info(
+        "retention.verified",
+        checked=report.checked,
+        intact=report.intact,
+        corrupt=len(report.corrupt),
+        missing=len(report.missing),
+        skipped=report.skipped,
+    )
+    return report
+
+
+async def unreferenced_artefacts(session: AsyncSession) -> Sequence[Artefact]:
+    """Artefacts nothing in the database points at.
+
+    Every reference to an artefact is ``RESTRICT``, which is what stops evidence being
+    deleted out from under the report that cites it — so an artefact with no referrer is
+    one no citation, no report and no agent run can reach. Deleting it takes nothing away
+    from invariant 1: there is no fact tracing to it.
+
+    They accumulate honestly rather than through a bug. `aer reset-research` clears the
+    runs and leaves the content-addressed bytes, which is the right order to do it in —
+    the alternative is deleting artefacts a surviving run still needs.
+    """
+    # **Every branch filters its nulls, and the sweep is worthless without it.** Four of
+    # these columns are optional, so one agent run with no archived request payload puts a
+    # NULL in the set — and `x NOT IN (…, NULL)` is NULL, never true, for every row. The
+    # query would return no orphans at all and look exactly like a clean store.
+    referenced = union(
+        select(SourceDocument.artefact_id.label("artefact_id")).where(
+            SourceDocument.artefact_id.is_not(None)
+        ),
+        select(ArtefactPurge.artefact_id.label("artefact_id")).where(
+            ArtefactPurge.artefact_id.is_not(None)
+        ),
+        select(AgentRun.request_payload_ref.label("artefact_id")).where(
+            AgentRun.request_payload_ref.is_not(None)
+        ),
+        select(AgentRun.response_payload_ref.label("artefact_id")).where(
+            AgentRun.response_payload_ref.is_not(None)
+        ),
+        select(Report.pdf_artefact_id.label("artefact_id")).where(
+            Report.pdf_artefact_id.is_not(None)
+        ),
+        select(Report.markdown_artefact_id.label("artefact_id")).where(
+            Report.markdown_artefact_id.is_not(None)
+        ),
+        select(Report.html_artefact_id.label("artefact_id")).where(
+            Report.html_artefact_id.is_not(None)
+        ),
+    ).subquery()
+    statement = (
+        select(Artefact)
+        .where(Artefact.id.not_in(select(referenced.c.artefact_id)))
+        .order_by(Artefact.created_at)
+    )
+    return list(await session.scalars(statement))
+
+
+async def collect_garbage(
+    session: AsyncSession, store: PurgeableStore, *, dry_run: bool = True
+) -> GarbageCollected:
+    """Delete the bytes and the rows for artefacts nothing points at.
+
+    Dry by default. A sweep that deletes on its first invocation is a sweep somebody runs
+    once by accident, and the count it would have deleted is the thing worth seeing first.
+
+    Not :func:`purge_artefact`: that path is for a *licence* demanding deletion of evidence
+    a run still cites, so it keeps the row and the provenance and refuses anything
+    permanent. Here there is no provenance to keep — nothing refers to these — and the row
+    goes with the bytes.
+    """
+    orphans = await unreferenced_artefacts(session)
+    freed = sum(artefact.size_bytes for artefact in orphans)
+
+    if not dry_run:
+        for artefact in orphans:
+            await store.purge(artefact.sha256)
+            await session.delete(artefact)
+        await session.flush()
+
+    _log.info(
+        "retention.collected",
+        artefacts=len(orphans),
+        bytes_freed=freed,
+        dry_run=dry_run,
+    )
+    return GarbageCollected(found=len(orphans), bytes_freed=freed, deleted=not dry_run)

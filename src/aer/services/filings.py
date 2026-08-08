@@ -83,6 +83,51 @@ MIN_EXCERPT_CHARS: Final = 120
 # A paragraph boundary: one blank line, however much whitespace is on it.
 _PARAGRAPH_BREAK: Final[re.Pattern[str]] = re.compile(r"\n[ \t]*\n")
 
+# A statutory item heading at the start of a line. The forms prescribe these, which is what
+# makes cutting on them deterministic rather than a guess about how a filer writes.
+_ITEM_HEADING: Final[re.Pattern[str]] = re.compile(
+    r"^\s*(?P<item>Item\s+\d+[A-Z]?)\s*[.:\u2014-]", re.IGNORECASE | re.MULTILINE
+)
+
+# Where a 10-K is obliged to put the prose a research report wants: the business
+# description, the risk factors, and management's own account of the year. Item 7A —
+# market risk — is deliberately absent: it is mostly tables, and the tables are already in
+# the XBRL facts.
+_WANTED_ITEMS: Final[frozenset[str]] = frozenset({"ITEM1", "ITEM1A", "ITEM7"})
+
+# The vocabulary of the questions a research report asks. Not a model, not a similarity
+# measure — a count of the words that distinguish a paragraph about the business from a
+# paragraph about the transfer agent's address.
+_WORTH_READING: Final[tuple[str, ...]] = (
+    "revenue",
+    "margin",
+    "growth",
+    "segment",
+    "customer",
+    "competition",
+    "competitor",
+    "market share",
+    "pricing",
+    "demand",
+    "cost",
+    "capital",
+    "cash flow",
+    "operating",
+    "risk",
+    "regulat",
+    "litigation",
+    "acquisition",
+    "guidance",
+    "outlook",
+    "strategy",
+    "invest",
+    "dividend",
+    "repurchase",
+    "debt",
+    "currency",
+    "supply",
+)
+
 _EXTRACTORS: Final[dict[str, str]] = {
     "text/html": "html",
     "application/xhtml+xml": "html",
@@ -310,29 +355,103 @@ async def _excerpt(
 
 
 def _paragraphs(extracted: Any) -> list[Excerpt]:
-    """The document's substantial paragraphs, in order, as located excerpts.
+    """The passages most worth citing, in document order, as located excerpts.
+
+    **Document order alone was the first version and it was nearly useless on a 10-K.**
+    Forty paragraphs from the top of an annual report is the cover page, the exchange
+    listing table and the auditor's address — every one of them genuinely present in the
+    artefact and none of them anything a research section wants to cite.
+
+    Two deterministic passes replace it. First the document is cut at its statutory item
+    headings, because a 10-K's structure is prescribed and the useful prose is in three
+    known places: the business description, the risk factors and management's discussion.
+    Then paragraphs inside those items are scored on the vocabulary a research report
+    actually uses, and the best are kept — in document order, because a reader following a
+    citation back expects the filing's own sequence.
+
+    No model call. The selection is reproducible run to run, which the replay harness will
+    need, and a filing whose headings this does not recognise falls back to the whole
+    document rather than to nothing.
 
     Split on blank lines rather than on every newline: the extractor keeps the line breaks
     the filer's own markup had, so a paragraph arrives as several short lines and splitting
-    on each would produce fragments too small to mean anything. A paragraph is what sits
-    between blank lines, internal wrapping and all.
+    on each would produce fragments too small to mean anything.
 
     Located by searching the extracted text for each candidate, so every locator is the
     real offset in the real artefact and the verifier will find exactly what it is shown.
     ``start`` advances so two identical paragraphs — boilerplate, most often — do not both
     resolve to the first one.
     """
+    text: str = extracted.text
+    candidates = [
+        (index, block)
+        for index, block in _blocks(text, _regions(text))
+        if len(block) >= MIN_EXCERPT_CHARS
+    ]
+    if not candidates:
+        return []
+
+    ranked = sorted(candidates, key=lambda pair: (-_score(pair[1]), pair[0]))[:MAX_EXCERPTS]
+
     found: list[Excerpt] = []
     cursor = 0
-    for block in _PARAGRAPH_BREAK.split(extracted.text):
-        candidate = block.strip()
-        if len(candidate) < MIN_EXCERPT_CHARS:
-            continue
-        excerpt = extracted.locate(candidate, start=cursor)
+    for _, block in sorted(ranked, key=lambda pair: pair[0]):
+        excerpt = extracted.locate(block, start=cursor)
         if excerpt is None:  # pragma: no cover -- it came from this text
             continue
         found.append(excerpt)
         cursor = excerpt.locator.char_end
-        if len(found) >= MAX_EXCERPTS:
-            break
     return found
+
+
+def _regions(text: str) -> list[tuple[int, int]]:
+    """The spans of the filing worth reading, or the whole thing if it has no items.
+
+    A 10-K's headings are prescribed by the form, which is what makes this deterministic
+    rather than a guess: ``Item 1.``, ``Item 1A.`` and ``Item 7.`` are where a filer is
+    *required* to put the business description, the risk factors and management's own
+    account of the year. An 8-K has no such structure and no items to find, so it is read
+    whole — which is right, because an 8-K is short and entirely about one event.
+    """
+    starts = sorted(
+        (match.start(), match.group("item").upper().replace(" ", ""))
+        for match in _ITEM_HEADING.finditer(text)
+    )
+    if not starts:
+        return [(0, len(text))]
+
+    regions: list[tuple[int, int]] = []
+    for position, (offset, item) in enumerate(starts):
+        if item not in _WANTED_ITEMS:
+            continue
+        end = starts[position + 1][0] if position + 1 < len(starts) else len(text)
+        regions.append((offset, end))
+    # Every heading matched something the form does not oblige a filer to fill usefully.
+    # Reading the whole document beats reading none of it.
+    return regions or [(0, len(text))]
+
+
+def _blocks(text: str, regions: list[tuple[int, int]]) -> list[tuple[int, str]]:
+    """Paragraphs inside the wanted regions, with where each begins."""
+    found: list[tuple[int, str]] = []
+    for start, end in regions:
+        offset = start
+        for block in _PARAGRAPH_BREAK.split(text[start:end]):
+            stripped = block.strip()
+            if stripped:
+                found.append((offset + block.find(stripped), stripped))
+            offset += len(block) + 2
+    return found
+
+
+def _score(block: str) -> int:
+    """How much a research section is likely to want this paragraph.
+
+    Counting the vocabulary of the questions a report asks — what the business does, what
+    it earns, what could go wrong — rather than measuring similarity to anything. A
+    deliberately blunt instrument: it is choosing between passages of a filed document,
+    not deciding what is true, and a sophisticated ranker here would be a model in
+    everything but name.
+    """
+    lowered = block.lower()
+    return sum(1 for term in _WORTH_READING if term in lowered)
