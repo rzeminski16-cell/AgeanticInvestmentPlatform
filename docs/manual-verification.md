@@ -1155,6 +1155,37 @@ JSONB does, and it means the column type has regressed to `jsonb`.
 - [ ] Open the console for a finished run: no auto-refresh, and a **View the report**
       button.
 
+### 11a. A long step must not look like a dead one
+
+This is the case the console is built for, and the only one where "it looks fine" is not
+enough. A step that calls a model can run for five minutes and change nothing in the
+database, so every static thing on the page stays exactly where it is.
+
+- [ ] While the first step is running, the whole workflow is listed, most of it `QUEUED`.
+      **Wrong:** one line, and no sense of how much is left.
+- [ ] The running step has a pulsing marker and a clock. **Watch the clock for ten
+      seconds: it must advance.** That is the signal separating a model mid-thought from a
+      browser tab that lost its connection.
+- [ ] The clock counts from when the *server* recorded the step as starting, not from when
+      you opened the page. Reload mid-step: the number should barely change.
+- [ ] Below the steps, "Server last checked at …" appears within about fifteen seconds and
+      then keeps updating. That is the event-stream heartbeat. It says the **web process**
+      is alive; it deliberately does not claim the worker is.
+- [ ] Now prove the difference. Stop the worker (`Ctrl-C`) mid-run and leave the console
+      open. The clock keeps ticking and the heartbeat keeps arriving — correctly, because
+      neither can see the worker — and nothing else changes. That standstill, with the
+      elapsed time climbing past ten minutes, is what a dead worker looks like, and the
+      banner tells you where to look for it.
+- [ ] Break a step deliberately (an invalid `AER_ANTHROPIC_API_KEY` is easiest) and let it
+      fail. The console shows the **sentence** — "The Anthropic API call failed …" — with
+      the error code beneath it. **Wrong:** the whole error dictionary printed as one line,
+      with the message buried in the middle of it.
+
+**Where the worker's log is.** There is no log file and no worker container: `arq` writes
+to stdout, so the log is the terminal you ran `just worker` in. To keep a copy:
+`just worker 2>&1 | tee var/worker.log`, or on PowerShell
+`just worker 2>&1 | Tee-Object -FilePath var\worker.log`. `var/` is git-ignored.
+
 ---
 
 ## 12. Things that should be impossible

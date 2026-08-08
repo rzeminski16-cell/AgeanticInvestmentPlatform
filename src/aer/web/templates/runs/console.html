@@ -241,21 +241,62 @@
     </nav>
 
     <section class="mt-8">
-      <h2 class="text-lg font-semibold tracking-tight">Steps</h2>
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="text-lg font-semibold tracking-tight">Steps</h2>
+        <p class="text-xs text-slate-500">
+          <span data-field="steps-done">{{ state.steps_done }}</span> of
+          <span data-field="steps-total">{{ state.steps_total }}</span> done
+        </p>
+      </div>
+
+      {#
+        Every declared step, not only the ones that have started. A run showing one line
+        for its first five minutes tells the operator nothing about how much is left, and
+        "nothing is happening" and "step one of nine is thinking" look identical.
+      #}
       <ol class="mt-3 divide-y divide-slate-200 dark:divide-slate-800" id="run-steps">
         {% for step in state.steps %}
-          <li class="flex flex-wrap items-baseline justify-between gap-2 py-2" data-step="{{ step.key }}">
-            <span class="font-mono text-sm">{{ step.key }}</span>
+          <li
+            class="flex flex-wrap items-baseline justify-between gap-2 py-2"
+            data-step="{{ step.key }}"
+            data-started-at="{{ step.started_at or '' }}"
+          >
+            <span class="flex items-baseline gap-2">
+              {#
+                A pulsing dot on the step that is running. Purely a liveness cue -- it says
+                the server recorded this step as started and not finished, which is exactly
+                what it looks like it says.
+              #}
+              <span
+                class="inline-block h-2 w-2 shrink-0 rounded-full {{ 'animate-pulse bg-sky-500' if step.status == 'RUNNING' else ('bg-emerald-500' if step.status == 'SUCCEEDED' else 'bg-slate-300 dark:bg-slate-700') }}"
+                data-field="dot"
+                aria-hidden="true"
+              ></span>
+              <span class="font-mono text-sm {{ 'text-slate-400' if step.status == 'QUEUED' else '' }}">
+                {{ step.key }}
+              </span>
+            </span>
             <span class="flex items-baseline gap-3 text-xs">
+              <span class="font-mono tabular-nums text-sky-700 dark:text-sky-400" data-field="elapsed"></span>
               <span class="uppercase tracking-wide text-slate-500" data-field="status">
                 {{ step.status }}
               </span>
               <span class="font-mono text-slate-500" data-field="cost">£{{ step.cost_gbp }}</span>
             </span>
             {% if step.error %}
+              {#
+                The message, not the dictionary. A run that failed used to print its whole
+                error payload -- code, context and all -- as one unpunctuated line, which is
+                the least readable form of the most important sentence on the page.
+              #}
               <p class="w-full text-xs text-red-700 dark:text-red-400" data-field="error">
-                {{ step.error }}
+                {{ step.error.message or step.error }}
               </p>
+              {% if step.error.code %}
+                <p class="w-full font-mono text-[11px] text-red-600/80 dark:text-red-400/70" data-field="error-code">
+                  {{ step.error.code }}
+                </p>
+              {% endif %}
             {% endif %}
           </li>
         {% else %}
@@ -263,6 +304,41 @@
         {% endfor %}
       </ol>
     </section>
+
+    {% if not is_terminal %}
+      {#
+        What "still working" looks like when nothing has changed for four minutes. Every
+        figure here comes from the server: the step name and its start time from the
+        database, the last-seen time from the event stream. The elapsed clock is the
+        browser's, counting from the server's start time.
+      #}
+      <section
+        class="mt-6 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-900/40"
+        id="run-progress"
+        role="status"
+        aria-live="polite"
+      >
+        <p class="text-slate-700 dark:text-slate-300" data-field="summary">
+          {% if state.current_step %}
+            Working on <span class="font-mono">{{ state.current_step }}</span>.
+          {% elif awaiting or budget_exceeded %}
+            Stopped for you. Nothing is being spent.
+          {% else %}
+            Queued. The worker picks this up within a second or two.
+          {% endif %}
+        </p>
+        <p class="mt-1 text-xs text-slate-500">
+          A step that calls a model routinely takes two to five minutes: the model reasons
+          before it writes, and nothing is recorded until it has finished. Past about ten
+          minutes on one step, look at the terminal running
+          <span class="font-mono">just worker</span> &mdash; that is where this run is
+          actually happening, and where a failure appears first.
+        </p>
+        <p class="mt-2 text-xs text-slate-500" data-field="last-seen">
+          {# Filled in by the event stream. Absent until the first heartbeat arrives. #}
+        </p>
+      </section>
+    {% endif %}
 
     <p class="mt-6 text-xs text-slate-500" id="stream-note">
       Live updates require JavaScript. Without it this page refreshes itself every

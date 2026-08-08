@@ -4,11 +4,16 @@ Enforced by a test that scans the source tree, not by convention. The rule costs
 nothing today and is the difference between adding a second provider in an afternoon and
 finding every call site in a codebase that has grown around one vendor's API.
 
-**Structured output is requested, not parsed out.** ``messages.parse`` takes the Pydantic
-class, translates it into the wire schema, and returns an instance validated against it.
-Extracting JSON from prose with a regular expression is the alternative, and it fails in
-exactly the cases that matter: a model that hedges, a model that wraps its answer in an
-explanation, a model that emits a trailing comma.
+**Structured output is requested, not parsed out.** ``output_format`` takes the Pydantic
+class, the SDK translates it into the wire schema, and the reply comes back validated
+against it. Extracting JSON from prose with a regular expression is the alternative, and it
+fails in exactly the cases that matter: a model that hedges, a model that wraps its answer
+in an explanation, a model that emits a trailing comma.
+
+**The single call is streamed; the batch path is not.** Not for progress — nothing here
+reads the deltas — but because a non-streamed request holds an idle connection open for the
+whole of a thinking turn, and something between this process and the API closes it long
+before the client's own timeout. See :meth:`AnthropicProvider.complete_structured`.
 
 **The SDK owns the wire format, deliberately.** Every request-shape decision below is a
 property of the vendor's API rather than a preference, and each is stated where it is
@@ -157,7 +162,24 @@ class AnthropicProvider:
         effort: str = "medium",
         max_tokens: int = 4096,
     ) -> StructuredResult[T]:
-        """Produce a validated instance of ``schema``."""
+        """Produce a validated instance of ``schema``.
+
+        **Streamed, and that is not an optimisation.** The first real run of this platform
+        failed here, every time, roughly three minutes in::
+
+            httpx.RemoteProtocolError: Server disconnected without sending a response
+
+        ``count_tokens`` against the same host succeeded in the same worker seconds later,
+        so it was never DNS, TLS, the key or the network. The cause is that the models this
+        platform routes to run adaptive thinking: a hard question can be reasoned about for
+        minutes before the first output token exists, and a non-streamed request spends all
+        of that holding a connection with no bytes on it. Something in the path — a proxy, a
+        NAT table, the API's own idle limit — reaps it. A streamed request carries events
+        throughout, so the connection is never idle.
+
+        Nothing here reads the deltas. ``get_final_message`` waits for the accumulated
+        message, which is the same object ``messages.parse`` would have returned.
+        """
         request = _request_payload(
             system=system,
             messages=messages,
@@ -170,7 +192,8 @@ class AnthropicProvider:
         try:
             # `output_format` rather than a schema in the payload: the SDK translates the
             # Pydantic class into the wire format and validates the reply against it.
-            response = await self._client.messages.parse(output_format=schema, **request)
+            async with self._client.messages.stream(output_format=schema, **request) as stream:
+                response = await stream.get_final_message()
         except PydanticValidationError as exc:
             raise _unreadable_reply(exc, schema=schema, model=model, max_tokens=max_tokens) from exc
         except Exception as exc:
@@ -223,7 +246,7 @@ class AnthropicProvider:
 
         The batch endpoint takes raw message params, so the schema is translated to the
         wire format with the SDK's own :func:`anthropic.transform_schema` — the same
-        transformation ``messages.parse`` applies — and each reply is validated back
+        transformation the single-call path applies — and each reply is validated back
         against the Pydantic class here. Results are matched to requests by ``custom_id``
         and returned in request order, whatever order the API finished them in.
 
@@ -413,7 +436,7 @@ def _request_payload(
 
     Three things are absent on purpose, each because the vendor's API says so:
 
-    * **The schema.** It goes to ``messages.parse`` as ``output_format`` so the SDK owns
+    * **The schema.** It goes to the SDK as ``output_format`` so the SDK owns
       the translation. That is not a formality — the API's JSON-schema mode rejects the
       numerical and string constraints Pydantic emits for ``ge``, ``le`` and ``max_length``,
       and requires ``additionalProperties: false`` on every object. Sending
@@ -486,7 +509,7 @@ def _custom_id(index: int) -> str:
 def _wire_schema(schema: type[BaseModel]) -> dict[str, Any]:
     """The schema as the batch endpoint accepts it.
 
-    The SDK's own transformation — the one ``messages.parse`` applies before sending —
+    The SDK's own transformation — the one ``output_format`` applies before sending —
     moves the constraints the API rejects (``ge``, ``le``, ``max_length``) into
     descriptions and stamps ``additionalProperties: false`` on every object. Re-deriving
     that here by hand would drift from the SDK the first time the API's schema dialect
@@ -560,7 +583,7 @@ def _validate_batch_reply[T: BaseModel](
 def _structured_output(response: Any) -> Any:
     """Pull the parsed object out of a response, whichever shape it arrived in.
 
-    ``messages.parse`` puts it on the text block as ``parsed_output`` and exposes a
+    The SDK puts it on the text block as ``parsed_output`` and exposes a
     message-level property over the top. Both are checked rather than one assumed: the
     property is a convenience that a future SDK could rename, while the field is the thing
     the parser actually writes.
@@ -600,7 +623,7 @@ def _nothing_to_parse(
 def _unreadable_reply(
     exc: PydanticValidationError, *, schema: type[BaseModel], model: str, max_tokens: int
 ) -> ValidationError:
-    """The SDK could not validate the reply, raised from inside ``messages.parse``.
+    """The SDK could not validate the reply, raised while it accumulated the stream.
 
     There is no response object to read a stop reason from, so the cause is inferred from
     the errors instead. Two things cause this, they need different fixes, and Pydantic
@@ -687,7 +710,7 @@ def _response_payload(response: Any) -> dict[str, Any]:
 def _archived(request: dict[str, Any], schema: type[BaseModel]) -> dict[str, Any]:
     """The request as stored. The API key is never in it — the SDK holds that.
 
-    The schema is put back, because the payload sent to ``messages.parse`` deliberately
+    The schema is put back, because the payload sent to the SDK deliberately
     leaves it out and an archived call that does not say what shape it asked for cannot be
     reproduced. It is stored as JSON Schema rather than as the class, since
     ``<class 'aer.agents.planner.ResearchPlanDraft'>`` in an artefact reproduces nothing.

@@ -9,3 +9,7 @@
 
 @source "../templates/**/*.html";
 @source "../../**/*.py";
+/* The run console composes step-status colours in JavaScript. Without this the classes it
+   builds exist in no scanned file, so Tailwind emits nothing for them and a failed step
+   gets a dot with no colour. */
+@source "../static/js/*.js";

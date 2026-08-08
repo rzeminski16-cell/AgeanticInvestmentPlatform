@@ -37,7 +37,16 @@ from aer.version import git_sha
 from aer.workflow.engine import BudgetGuard, WorkflowEngine, spend_so_far
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION, build_steps
 
-__all__ = ["RunOutcome", "execute", "latest_run", "run_state", "start_run"]
+__all__ = [
+    "RunOutcome",
+    "RunState",
+    "TimelineEntry",
+    "declared_steps",
+    "execute",
+    "latest_run",
+    "run_state",
+    "start_run",
+]
 
 _log = structlog.get_logger("aer.services.runs")
 
@@ -201,6 +210,37 @@ async def execute(
     return RunOutcome(job=job, outputs=outputs, status=job.status, spend_gbp=spend)
 
 
+@dataclass(frozen=True, slots=True)
+class TimelineEntry:
+    """One step as the console shows it, whether or not it has started.
+
+    A step the run has not reached yet has no ``job_steps`` row — the engine creates one
+    when it begins. Rendering only the rows that exist means an operator watching the first
+    minute of a run sees a single line and no idea how many follow it, so the declared
+    workflow supplies the rest at ``QUEUED``.
+    """
+
+    key: str
+    status: JobStatus
+    cost_gbp: Decimal
+    attempt: int = 0
+    error: dict[str, Any] | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "key": self.key,
+            "status": self.status.value,
+            "attempt": self.attempt,
+            "cost_gbp": str(self.cost_gbp),
+            "error": self.error,
+            # The server's clock, so the console can tick an elapsed time without asking
+            # the browser to guess when the step began.
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+        }
+
+
 @dataclass(slots=True)
 class RunState:
     """What a run looks like right now, for the console and the API."""
@@ -208,6 +248,11 @@ class RunState:
     job: Job
     steps: list[JobStep]
     spend_gbp: Decimal
+
+    # Every step this run's workflow declares, in order. Empty when the job was produced by
+    # a workflow version this build no longer has, in which case the timeline falls back to
+    # the rows that exist rather than inventing a shape from the wrong definition.
+    declared_steps: tuple[str, ...] = ()
 
     @property
     def current_step(self) -> JobStep | None:
@@ -226,21 +271,55 @@ class RunState:
             JobStatus.CANCELLED,
         }
 
+    @property
+    def timeline(self) -> list[TimelineEntry]:
+        """The declared steps, each carrying whatever the run has recorded against it.
+
+        Declared order rather than ``sequence``, because the point is to show what is still
+        to come. A recorded step whose key is not declared is appended rather than dropped:
+        a run started under a different workflow version is exactly when an operator most
+        needs to see everything that happened.
+        """
+        recorded = {step.step_key: step for step in self.steps}
+        keys = [*self.declared_steps]
+        keys += [key for key in recorded if key not in self.declared_steps]
+
+        entries = []
+        for key in keys:
+            step = recorded.get(key)
+            if step is None:
+                entries.append(TimelineEntry(key=key, status=JobStatus.QUEUED, cost_gbp=Decimal(0)))
+                continue
+            entries.append(
+                TimelineEntry(
+                    key=key,
+                    status=step.status,
+                    cost_gbp=step.cost_gbp,
+                    attempt=step.attempt,
+                    error=step.error,
+                    started_at=step.started_at,
+                    finished_at=step.finished_at,
+                )
+            )
+        return entries
+
     def as_dict(self) -> dict[str, Any]:
+        """The state frame, as the event stream and the console both read it.
+
+        **Nothing derived from the current time belongs in here.** The stream hashes this
+        to decide whether anything has changed, so a wall-clock field would make every poll
+        look like news and turn a one-second poll into a one-second event. Liveness is a
+        heartbeat event of its own; see :mod:`aer.api.sse`.
+        """
+        timeline = self.timeline
         return {
             "job_id": str(self.job.id),
             "status": self.job.status.value,
             "spend_gbp": str(self.spend_gbp),
-            "steps": [
-                {
-                    "key": step.step_key,
-                    "status": step.status.value,
-                    "attempt": step.attempt,
-                    "cost_gbp": str(step.cost_gbp),
-                    "error": step.error,
-                }
-                for step in self.steps
-            ],
+            "steps_total": len(timeline),
+            "steps_done": sum(1 for entry in timeline if entry.status is JobStatus.SUCCEEDED),
+            "current_step": self.current_step.step_key if self.current_step else None,
+            "steps": [entry.as_dict() for entry in timeline],
         }
 
 
@@ -260,4 +339,21 @@ async def run_state(session: AsyncSession, *, job_id: uuid.UUID) -> RunState:
             select(JobStep).where(JobStep.job_id == job_id).order_by(JobStep.sequence)
         )
     )
-    return RunState(job=job, steps=steps, spend_gbp=await spend_so_far(session, job_id=job_id))
+    return RunState(
+        job=job,
+        steps=steps,
+        spend_gbp=await spend_so_far(session, job_id=job_id),
+        declared_steps=declared_steps(job.workflow_version),
+    )
+
+
+def declared_steps(workflow_version: str) -> tuple[str, ...]:
+    """The step keys a workflow version declares, in order.
+
+    Read from the workflow definition rather than stored on the job, so the console cannot
+    show a plan the engine would not follow. A version this build does not have returns
+    nothing — see :attr:`RunState.declared_steps`.
+    """
+    if workflow_version != WORKFLOW_VERSION:
+        return ()
+    return tuple(step.key for step in build_steps())

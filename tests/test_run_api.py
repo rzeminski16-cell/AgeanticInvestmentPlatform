@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import re
 import uuid
 from collections.abc import AsyncIterator
@@ -51,6 +52,7 @@ from aer.db.models import (
 )
 from aer.services import runs as run_service
 from aer.web.csrf import CSRF_FIELD_NAME
+from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
 from tests.api_fixtures import build_app, client_for
 from tests.run_fixtures import Driver, start_run, to_final_gate
 from tests.workflow_fixtures import (
@@ -211,7 +213,7 @@ class TestStartingARun:
 
 
 class TestReadingARun:
-    async def test_the_state_shows_each_step(
+    async def test_the_state_shows_the_steps_that_have_run(
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
         body = await start_run(api, committed["request"].id)
@@ -219,7 +221,63 @@ class TestReadingARun:
 
         state = (await api.get(f"/api/runs/{body['job_id']}")).json()
         assert state["status"] == JobStatus.AWAITING_APPROVAL.value
-        assert [step["key"] for step in state["steps"]] == ["plan", "gate_plan"]
+
+        reached = {step["key"]: step["status"] for step in state["steps"]}
+        assert reached["plan"] == JobStatus.SUCCEEDED.value
+        assert reached["gate_plan"] == JobStatus.AWAITING_APPROVAL.value
+
+    async def test_the_state_also_shows_the_steps_still_to_come(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        """Otherwise the first minute of a run is one line and no sense of scale.
+
+        A step that has not started has no ``job_steps`` row -- the engine writes one when
+        it begins -- so these come from the workflow definition, at ``QUEUED``.
+        """
+        body = await start_run(api, committed["request"].id)
+        await driver.advance(uuid.UUID(body["job_id"]))
+
+        state = (await api.get(f"/api/runs/{body['job_id']}")).json()
+        keys = [step["key"] for step in state["steps"]]
+
+        assert keys == list(run_service.declared_steps(WORKFLOW_VERSION))
+        assert state["steps_total"] == len(keys)
+        assert state["steps_done"] == 1
+        # The declared order, not the order things happened to start in: the point is to
+        # show what is left.
+        unreached = {step["status"] for step in state["steps"][2:]}
+        assert unreached == {JobStatus.QUEUED.value}
+
+    async def test_a_running_step_says_when_it_started(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        """The console's elapsed clock counts from this. Without it there is nothing to
+        distinguish a model call four minutes in from a worker that died."""
+        body = await start_run(api, committed["request"].id)
+        await driver.advance(uuid.UUID(body["job_id"]))
+
+        state = (await api.get(f"/api/runs/{body['job_id']}")).json()
+        started = {step["key"]: step["started_at"] for step in state["steps"]}
+
+        assert datetime.fromisoformat(started["plan"]).tzinfo is not None
+        assert started["render"] is None
+
+    async def test_nothing_in_the_state_changes_on_its_own(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        """The event stream hashes this frame to decide whether to send it.
+
+        A wall-clock field would make every poll look like news, and a one-second poll
+        would become a one-second event for the life of the run. Liveness is a heartbeat of
+        its own; this must be a pure function of stored state.
+        """
+        body = await start_run(api, committed["request"].id)
+        await driver.advance(uuid.UUID(body["job_id"]))
+
+        first = (await api.get(f"/api/runs/{body['job_id']}")).json()
+        second = (await api.get(f"/api/runs/{body['job_id']}")).json()
+
+        assert first == second
 
     async def test_spend_is_a_string_not_a_float(
         self, api: Any, committed: dict, driver: Driver
@@ -234,6 +292,56 @@ class TestReadingARun:
 
     async def test_an_unknown_run_is_a_404(self, api: Any) -> None:
         assert (await api.get(f"/api/runs/{uuid.uuid4()}")).status_code == 404
+
+
+class TestTheTimelineWhenTheWorkflowIsUnknown:
+    """A job recorded under a workflow version this build no longer has.
+
+    Built in memory rather than through the API, because a job cannot be *made* to carry an
+    unknown workflow version through any supported path -- which is exactly why the
+    fallback needs a test of its own.
+    """
+
+    @staticmethod
+    def _state(version: str) -> run_service.RunState:
+        job = Job(
+            request_id=uuid.uuid4(),
+            workflow_version=version,
+            code_version="test",
+            status=JobStatus.RUNNING,
+        )
+        step = JobStep(
+            job_id=uuid.uuid4(),
+            step_key="a_step_that_no_longer_exists",
+            sequence=0,
+            status=JobStatus.SUCCEEDED,
+            attempt=0,
+            idempotency_key="x",
+            input_hash="y",
+        )
+        return run_service.RunState(
+            job=job,
+            steps=[step],
+            spend_gbp=Decimal(0),
+            declared_steps=run_service.declared_steps(version),
+        )
+
+    def test_an_unknown_version_declares_nothing(self) -> None:
+        assert run_service.declared_steps("some_workflow_from_2019") == ()
+
+    def test_the_timeline_falls_back_to_what_was_recorded(self) -> None:
+        """Showing the current workflow's steps against an old run would be a fiction, and
+        showing nothing would hide work that really happened."""
+        timeline = self._state("some_workflow_from_2019").timeline
+
+        assert [entry.key for entry in timeline] == ["a_step_that_no_longer_exists"]
+
+    def test_a_recorded_step_the_workflow_no_longer_declares_is_still_shown(self) -> None:
+        declared = list(run_service.declared_steps(WORKFLOW_VERSION))
+        keys = [entry.key for entry in self._state(WORKFLOW_VERSION).timeline]
+
+        assert keys[: len(declared)] == declared
+        assert keys[-1] == "a_step_that_no_longer_exists"
 
 
 class TestTheGateApi:
@@ -661,6 +769,52 @@ class TestTheEventStream:
 
         assert pool.checkedout() == settled, "the cancelled poll kept its connection"
 
+    async def test_a_quiet_run_still_says_the_server_is_alive(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """The heartbeat is the whole answer to "has it stalled?".
+
+        A step that calls a model changes nothing in the database for minutes, so the
+        stream emits no state frames -- which looks exactly like a dead connection. This
+        used to be an SSE comment, invisible to ``EventSource``; a named event carrying the
+        server's clock is the same keep-alive and also something the console can show.
+        """
+        body = await start_run(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+        await driver.advance(job_id)
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        stream = event_stream(factory, job_id=job_id, poll_seconds=0.01, heartbeat_seconds=0.02)
+
+        frames = [await anext(stream) for _ in range(6)]
+        await stream.aclose()
+
+        beats = [frame for frame in frames if "event: heartbeat" in frame]
+        assert beats, frames
+        payload = json.loads(beats[0].split("data: ", 1)[1].strip())
+        assert datetime.fromisoformat(payload["at"]).tzinfo is not None
+
+    async def test_the_state_frame_is_sent_once_while_nothing_changes(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """The guard on putting a clock in the state payload.
+
+        The stream hashes each frame and sends it only when it differs. A time field would
+        make every poll differ, so a run doing nothing visible would emit a frame a second
+        -- and the heartbeat, which is meant to be the rare signal, would be drowned by it.
+        """
+        body = await start_run(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+        await driver.advance(job_id)
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        stream = event_stream(factory, job_id=job_id, poll_seconds=0.01, heartbeat_seconds=0.02)
+
+        frames = [await anext(stream) for _ in range(6)]
+        await stream.aclose()
+
+        assert len([frame for frame in frames if "event: state" in frame]) == 1
+
     async def test_a_terminal_run_emits_state_then_done(
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
@@ -704,6 +858,89 @@ class TestTheWebPages:
         # The step list is server-rendered, so a browser with no script still sees it.
         assert 'data-step="plan"' in page.text
         assert 'id="awaiting-approval"' in page.text
+
+    async def test_the_console_shows_the_steps_that_have_not_started(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        """A run one step in should look like a run with the rest still to go.
+
+        ``render`` is the last step and has no ``job_steps`` row this early, so its
+        presence proves the console renders the declared workflow rather than only rows.
+        """
+        body = await start_run(api, committed["request"].id)
+        await driver.advance(uuid.UUID(body["job_id"]))
+
+        page = await api.get(f"/runs/{body['job_id']}")
+        declared = list(run_service.declared_steps(WORKFLOW_VERSION))
+
+        assert 'data-step="render"' in page.text
+        assert re.search(r'data-field="steps-total">\s*(\d+)\s*<', page.text) is not None
+        assert re.findall(r'data-step="([^"]+)"', page.text) == declared
+
+    async def test_the_console_says_what_it_is_waiting_for(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        """The reason this page exists: a step can take five minutes and change nothing.
+
+        The banner names the step, and the row carries the server's start time so the
+        browser can tick an elapsed clock against it.
+        """
+        body = await start_run(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+
+        page = await api.get(f"/runs/{job_id}")
+        assert 'id="run-progress"' in page.text
+        # Where to look when the clock passes ten minutes. The console cannot see the
+        # worker, so pointing at it is the most it can honestly offer.
+        assert "just worker" in page.text
+
+        await driver.advance(job_id)
+        page = await api.get(f"/runs/{job_id}")
+        started = re.search(r'data-step="plan"\s+data-started-at="([^"]+)"', page.text)
+        assert started is not None
+        assert datetime.fromisoformat(started.group(1)).tzinfo is not None
+
+    async def test_a_finished_run_stops_offering_reassurance(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        """ "Working on..." under a report that is already written is noise, and wrong."""
+        job_id = await _to_second_gate(api, committed, driver)
+        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+        await driver.advance(job_id)
+
+        page = await api.get(f"/runs/{job_id}")
+        assert 'id="run-progress"' not in page.text
+
+    async def test_a_failed_step_shows_the_sentence_not_the_payload(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """What a live failure actually looked like on this page.
+
+        The whole error dictionary -- code, context, message -- rendered as one
+        unpunctuated line, with the only readable part buried in the middle of it.
+        """
+        body = await start_run(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+        await driver.advance(job_id)
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            row = await session.scalar(
+                select(JobStep).where(JobStep.job_id == job_id, JobStep.step_key == "plan")
+            )
+            assert row is not None
+            row.status = JobStatus.FAILED
+            row.error = {
+                "code": "external_service_error",
+                "message": "The Anthropic API call failed (APIConnectionError).",
+                "context": {"provider": "anthropic", "retryable": True},
+            }
+            await session.commit()
+
+        page = await api.get(f"/runs/{job_id}")
+        assert "The Anthropic API call failed (APIConnectionError)." in page.text
+        assert "external_service_error" in page.text
+        assert "&#39;retryable&#39;" not in page.text
 
     async def test_the_console_falls_back_to_polling(
         self, api: Any, committed: dict, driver: Driver

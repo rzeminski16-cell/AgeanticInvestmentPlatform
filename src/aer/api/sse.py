@@ -13,7 +13,9 @@ right — and it makes the reconnect story free, because there is no backlog to 
 
 **Only changes are sent.** The state is hashed each tick and emitted when it differs, with
 a heartbeat in between so an idle connection is not mistaken for a dead one by whatever
-sits between the browser and the server.
+sits between the browser and the server — nor by the person watching it. A step that calls
+a model changes nothing for minutes, so "no state frames" is the normal appearance of a
+healthy run, and the heartbeat is the only thing separating that from a dead stream.
 
 **The stream ends when the run does.** A terminal run emits a final event and closes,
 rather than leaving the browser holding a connection open against a job that will never
@@ -26,6 +28,7 @@ import asyncio
 import json
 import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import structlog
@@ -80,6 +83,7 @@ async def event_stream(
     job_id: uuid.UUID,
     poll_seconds: float = POLL_SECONDS,
     max_seconds: float = MAX_STREAM_SECONDS,
+    heartbeat_seconds: float = HEARTBEAT_SECONDS,
 ) -> AsyncIterator[str]:
     """Yield SSE frames describing a run until it reaches a terminal state.
 
@@ -117,10 +121,18 @@ async def event_stream(
             yield format_event("done", {"status": payload["status"]})
             return
 
-        if since_heartbeat >= HEARTBEAT_SECONDS:
-            # A comment, not an event. Keeps the connection from being reaped without
-            # making the browser think anything happened.
-            yield ": keep-alive\n\n"
+        if since_heartbeat >= heartbeat_seconds:
+            # A named event carrying the server's clock, rather than the SSE comment this
+            # used to be. Both keep the connection from being reaped, but only one of them
+            # answers the question an operator actually has during a step that takes five
+            # minutes: *is anything still alive at the other end?* A comment is invisible to
+            # `EventSource`, so a console watching a long step could not tell a working
+            # stream from a dead one.
+            #
+            # It says the web process is reading the database, and no more than that. The
+            # console labels it accordingly -- claiming it proved the worker was healthy
+            # would be a worse lie than showing nothing.
+            yield format_event("heartbeat", {"at": _now_iso(), "status": payload["status"]})
             since_heartbeat = 0.0
 
         # Cancellation is *not* suppressed. When the browser navigates away the server
@@ -138,3 +150,7 @@ async def event_stream(
     # The cap, reached. The browser reconnects on its own, so this is a pause rather than
     # an ending, and saying so is better than closing silently.
     yield format_event("timeout", {"reason": "stream lifetime reached; reconnecting"})
+
+
+def _now_iso() -> str:
+    return datetime.now(UTC).isoformat()

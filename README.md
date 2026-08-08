@@ -214,6 +214,27 @@ uv run aer serve              # the GUI and API
 uv run arq aer.worker.WorkerSettings   # the worker that executes runs
 ```
 
+### Watching a run, and where the log is
+
+The console at `/runs/{id}` is the operator's view, and it is built for the case that
+matters: **a step that calls a model changes nothing for minutes.** It shows every step the
+workflow declares — not only those that have started — a pulsing marker and a ticking
+elapsed clock on the one that is running, and a "server last checked at…" line driven by a
+heartbeat on the event stream. Between them they distinguish a healthy run mid-thought from
+a dead worker, without either of them pretending to more certainty than it has.
+
+**The worker's log is the terminal running `just worker`.** There is no log file and no
+worker container: `arq` writes structured JSON to stdout, so whatever started it owns the
+output. A run's failure appears there first and in full, with the traceback the console can
+only summarise. To keep a copy worth pasting into a bug report:
+
+```bash
+just worker 2>&1 | tee var/worker.log                       # bash, zsh
+just worker 2>&1 | Tee-Object -FilePath var\worker.log       # PowerShell
+```
+
+`var/` is git-ignored, so nothing captured this way can be committed by accident.
+
 | Endpoint | Purpose |
 |---|---|
 | `GET /` | Landing page. Renders even with the database down, and says what is wrong |

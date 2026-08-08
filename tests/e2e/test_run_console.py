@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -24,7 +25,7 @@ from sqlalchemy.pool import NullPool
 
 from aer.config import load_settings
 from aer.core.enums import GateKind, JobStatus
-from aer.db.models import Job, Report, ResearchRequest, User
+from aer.db.models import Job, JobStep, Report, ResearchRequest, User
 from aer.services import runs as run_service
 from aer.storage.local import LocalArtefactStore
 from tests.db_fixtures import run_async
@@ -116,6 +117,36 @@ class RunFixture:
         finally:
             await engine.dispose()
 
+    def hold_step(self, step_key: str, *, started_seconds_ago: int) -> None:
+        """Put a step back into ``RUNNING``, as if the worker were still inside it.
+
+        There is no worker in this suite and no way to pause a real step mid-flight, so the
+        one state the console is built for -- a model call several minutes in, with nothing
+        changing -- has to be staged.
+        """
+        run_async(self._hold_step(step_key, started_seconds_ago))
+
+    async def _hold_step(self, step_key: str, started_seconds_ago: int) -> None:
+        engine = await self._engine()
+        try:
+            factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+            async with factory() as session:
+                job = await session.get(Job, self.job_id)
+                row = await session.scalar(
+                    select(JobStep).where(
+                        JobStep.job_id == self.job_id, JobStep.step_key == step_key
+                    )
+                )
+                assert job is not None
+                assert row is not None
+                job.status = JobStatus.RUNNING
+                row.status = JobStatus.RUNNING
+                row.finished_at = None
+                row.started_at = datetime.now(UTC) - timedelta(seconds=started_seconds_ago)
+                await session.commit()
+        finally:
+            await engine.dispose()
+
     def report_id(self) -> uuid.UUID:
         return run_async(self._report_id())
 
@@ -148,6 +179,46 @@ class TestTheConsole:
         expect(page.locator("#run-status")).to_have_text(JobStatus.AWAITING_APPROVAL.value)
         expect(page.locator('[data-step="plan"]')).to_be_visible()
         expect(page.locator("#awaiting-approval")).to_be_visible()
+
+    def test_it_shows_the_steps_that_have_not_started_yet(
+        self, page: Page, live_server: str, waiting_run: RunFixture
+    ) -> None:
+        """``render`` is the last step and has no row this early in the run."""
+        page.goto(f"{live_server}/runs/{waiting_run.job_id}")
+
+        expect(page.locator('[data-step="render"]')).to_be_visible()
+        expect(page.locator('[data-step="render"] [data-field="status"]')).to_have_text(
+            JobStatus.QUEUED.value
+        )
+
+    def test_a_long_step_shows_a_clock_that_moves(
+        self, page: Page, live_server: str, waiting_run: RunFixture
+    ) -> None:
+        """The whole point of the console during a model call.
+
+        Nothing in the database changes for minutes, so the event stream is silent and
+        every static thing on the page stays put. A counter that visibly advances is the
+        one signal separating "thinking" from "the tab is dead" -- and it is only worth
+        anything if it really moves, which is why this is a browser test.
+        """
+        waiting_run.hold_step("plan", started_seconds_ago=125)
+        page.goto(f"{live_server}/runs/{waiting_run.job_id}")
+
+        clock = page.locator('[data-step="plan"] [data-field="elapsed"]')
+        # Counted from the server's start time, not from when the page loaded.
+        expect(clock).to_have_text(re.compile(r"^0[23]:\d\d$"))
+
+        first = clock.inner_text()
+        expect(clock).not_to_have_text(first, timeout=5000)
+
+    def test_it_says_what_it_is_waiting_for_and_where_to_look(
+        self, page: Page, live_server: str, waiting_run: RunFixture
+    ) -> None:
+        waiting_run.hold_step("plan", started_seconds_ago=5)
+        page.goto(f"{live_server}/runs/{waiting_run.job_id}")
+
+        expect(page.locator("#run-progress")).to_contain_text("Working on plan")
+        expect(page.locator("#run-progress")).to_contain_text("just worker")
 
     def test_the_disclaimer_is_on_the_page(
         self, page: Page, live_server: str, waiting_run: RunFixture

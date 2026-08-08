@@ -29,6 +29,7 @@ import pytest
 # file's whole purpose is to check the provider against the SDK, so deferring here would buy
 # nothing and cost readability. The import-boundary test in ``test_providers.py`` scans ``src``
 # and is unaffected.
+from anthropic.lib.streaming import AsyncMessageStream, AsyncMessageStreamManager
 from anthropic.resources.messages.messages import AsyncMessages
 from anthropic.types.output_config_param import OutputConfigParam
 from anthropic.types.parsed_message import ParsedMessage, ParsedTextBlock
@@ -76,7 +77,7 @@ class _StubTextBlock:
 
 
 class _StubResponse:
-    """What ``messages.parse`` returns, in the shape the provider reads.
+    """What ``get_final_message`` returns, in the shape the provider reads.
 
     Hand-written rather than an SDK ``ParsedMessage``, so that a test asserting on the
     provider's handling of a stop reason is not also asserting that a private SDK
@@ -102,19 +103,74 @@ class _StubResponse:
         return {"stop_reason": self.stop_reason, "model": self.model}
 
 
-class _RecordingMessages:
-    """Captures the call and returns whatever it was told to."""
+class _StubStream:
+    """The accumulating half of ``messages.stream``.
 
-    def __init__(self, response: Any = None, *, raises: BaseException | None = None) -> None:
-        self.calls: list[dict[str, Any]] = []
+    Only ``get_final_message`` is implemented, because that is all the provider calls. The
+    real class also exposes ``text_stream`` and per-event iteration; a stub that grew those
+    would be asserting the SDK's behaviour rather than ours.
+    """
+
+    def __init__(self, response: Any, *, raises: BaseException | None) -> None:
         self._response = response
         self._raises = raises
 
-    async def parse(self, **kwargs: Any) -> Any:
-        self.calls.append(kwargs)
+    async def get_final_message(self) -> Any:
         if self._raises is not None:
             raise self._raises
         return self._response
+
+
+class _StubStreamManager:
+    """What ``messages.stream`` returns: an async context manager, not an awaitable.
+
+    The distinction matters. The real manager makes the HTTP request in ``__aenter__``, so a
+    connection failure surfaces on entry rather than from the call that built the manager --
+    which is why the provider's ``try`` has to wrap the ``async with`` and not just its body.
+    ``raises_at`` lets a test choose which of the two moments fails.
+    """
+
+    def __init__(self, response: Any, *, raises: BaseException | None, raises_at: str) -> None:
+        self._response = response
+        self._raises = raises
+        self._raises_at = raises_at
+        self.exited = False
+
+    async def __aenter__(self) -> _StubStream:
+        if self._raises is not None and self._raises_at == "enter":
+            raise self._raises
+        return _StubStream(
+            self._response,
+            raises=self._raises if self._raises_at == "final" else None,
+        )
+
+    async def __aexit__(self, *_: Any) -> bool:
+        self.exited = True
+        return False
+
+
+class _RecordingMessages:
+    """Captures the call and returns whatever it was told to."""
+
+    def __init__(
+        self,
+        response: Any = None,
+        *,
+        raises: BaseException | None = None,
+        raises_at: str = "enter",
+    ) -> None:
+        self.calls: list[dict[str, Any]] = []
+        self.streams: list[_StubStreamManager] = []
+        self._response = response
+        self._raises = raises
+        self._raises_at = raises_at
+
+    def stream(self, **kwargs: Any) -> _StubStreamManager:
+        """Synchronous, like the real one. ``async with`` does the awaiting."""
+        self.calls.append(kwargs)
+        manager = _StubStreamManager(self._response, raises=self._raises, raises_at=self._raises_at)
+        self.streams.append(manager)
+        return manager
 
     async def count_tokens(self, **kwargs: Any) -> Any:
         self.calls.append(kwargs)
@@ -133,9 +189,9 @@ class _StubClient:
 
 
 def _provider(
-    response: Any = None, *, raises: BaseException | None = None
+    response: Any = None, *, raises: BaseException | None = None, raises_at: str = "enter"
 ) -> tuple[AnthropicProvider, _RecordingMessages]:
-    messages = _RecordingMessages(response, raises=raises)
+    messages = _RecordingMessages(response, raises=raises, raises_at=raises_at)
     return AnthropicProvider(api_key="sk-test", client=_StubClient(messages)), messages  # type: ignore[arg-type]
 
 
@@ -150,6 +206,56 @@ async def _call(
         effort=effort,
         max_tokens=max_tokens,
     )
+
+
+# -- How the call is made ------------------------------------------------------------------
+
+
+class TestTheCallIsStreamed:
+    """The fix for the outage that stopped the first real run.
+
+    A non-streamed request holds a connection with no bytes on it for the whole of a
+    thinking turn, and something in the path reaps it: ``RemoteProtocolError: Server
+    disconnected without sending a response``, three minutes in, every time. Nothing here
+    reads the deltas -- streaming is for the connection, not for progress -- so the
+    assertions are about *how* the call is made rather than what comes back.
+    """
+
+    async def test_the_request_goes_out_as_a_stream(self) -> None:
+        provider, messages = _provider(_StubResponse(Plan(summary="ok")))
+        await _call(provider)
+
+        assert len(messages.streams) == 1
+
+    async def test_the_stream_is_closed_even_when_the_reply_is_unusable(self) -> None:
+        """``async with``, not a bare call: a stream left open holds a connection."""
+        provider, messages = _provider(_StubResponse(None, stop_reason="refusal", blocks=[]))
+
+        with pytest.raises(ValidationError):
+            await _call(provider)
+
+        assert messages.streams[0].exited is True
+
+    async def test_a_disconnect_while_the_model_thinks_is_retryable(self) -> None:
+        """The observed failure, in the shape the SDK delivers it.
+
+        ``APIConnectionError`` carries no status code, so the classifier has to reach it by
+        name. Marking this permanent would turn a dropped connection into a dead run.
+        """
+        dropped = type("APIConnectionError", (Exception,), {})("Connection error.")
+        provider, _ = _provider(raises=dropped, raises_at="final")
+
+        with pytest.raises(ExternalServiceError) as caught:
+            await _call(provider)
+
+        assert caught.value.retryable is True
+
+    async def test_a_connection_refused_on_entry_is_caught_too(self) -> None:
+        """The manager makes the request in ``__aenter__``; the ``try`` must wrap that."""
+        provider, _ = _provider(raises=RuntimeError("no route"), raises_at="enter")
+
+        with pytest.raises(ExternalServiceError, match="no route"):
+            await _call(provider)
 
 
 # -- The request shape ---------------------------------------------------------------------
@@ -280,7 +386,7 @@ class TestWhatIsArchived:
 
 class TestReadingTheResponse:
     async def test_the_parsed_object_is_returned_as_it_is(self) -> None:
-        """``messages.parse`` has already validated it; re-validating would be theatre."""
+        """The SDK has already validated it; re-validating would be theatre."""
         plan = Plan(summary="ok", confidence=0.9)
         provider, _ = _provider(_StubResponse(plan))
         result = await _call(provider)
@@ -338,8 +444,9 @@ class TestReadingTheResponse:
 
 
 class TestWhenTheReplyCannotBeRead:
-    """``messages.parse`` raises before the provider sees a response, so the cause has to be
-    inferred from the Pydantic errors. Truncation and a broken bound need different fixes."""
+    """The SDK validates as it accumulates, so ``get_final_message`` raises and there is no
+    response to read a stop reason from. The cause has to be inferred from the Pydantic
+    errors instead, and truncation and a broken bound need different fixes."""
 
     @staticmethod
     def _validation_error(text: str) -> BaseException:
@@ -350,7 +457,7 @@ class TestWhenTheReplyCannotBeRead:
         raise AssertionError("expected the payload to be rejected")  # pragma: no cover
 
     async def test_truncated_json_is_diagnosed_as_the_ceiling(self) -> None:
-        provider, _ = _provider(raises=self._validation_error('{"summary": "ab'))
+        provider, _ = _provider(raises=self._validation_error('{"summary": "ab'), raises_at="final")
 
         with pytest.raises(ValidationError, match="stopped mid-object") as caught:
             await _call(provider)
@@ -362,7 +469,8 @@ class TestWhenTheReplyCannotBeRead:
         description, where they are guidance. Blaming ``max_tokens`` would send someone to
         raise a ceiling that was never the problem."""
         provider, _ = _provider(
-            raises=self._validation_error('{"summary": "ok", "confidence": 1.7}')
+            raises=self._validation_error('{"summary": "ok", "confidence": 1.7}'),
+            raises_at="final",
         )
 
         with pytest.raises(ValidationError, match="constraint the API does not enforce") as caught:
@@ -430,8 +538,14 @@ class TestTheSdkContract:
     depends on, so an upgrade that moves it fails here rather than on the next live run.
     """
 
-    def test_messages_parse_accepts_the_arguments_the_provider_sends(self) -> None:
-        parameters = set(inspect.signature(AsyncMessages.parse).parameters)
+    def test_messages_stream_accepts_the_arguments_the_provider_sends(self) -> None:
+        """``stream`` and ``parse`` are different methods, and only one of them is used.
+
+        ``output_format`` on ``stream`` is the assertion that matters: without it the SDK
+        would still stream, and the reply would come back as prose with nothing validating
+        it.
+        """
+        parameters = set(inspect.signature(AsyncMessages.stream).parameters)
         assert {
             "output_format",
             "output_config",
@@ -440,6 +554,17 @@ class TestTheSdkContract:
             "model",
             "system",
         } <= parameters
+
+    def test_the_stream_is_entered_rather_than_awaited(self) -> None:
+        """``await client.messages.stream(...)`` is the mistake this rules out.
+
+        The method is synchronous and returns a manager; the request happens on entry. A
+        stub that got this wrong would let a provider bug through, so the shape is checked
+        against the SDK rather than assumed.
+        """
+        assert not inspect.iscoroutinefunction(AsyncMessages.stream)
+        assert hasattr(AsyncMessageStreamManager, "__aenter__")
+        assert inspect.iscoroutinefunction(AsyncMessageStream.get_final_message)
 
     def test_output_config_accepts_effort_and_format_and_no_schema(self) -> None:
         """The 400 in one assertion: there is no ``schema`` key at this level."""

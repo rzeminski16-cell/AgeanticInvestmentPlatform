@@ -84,7 +84,14 @@ class RunRead(BaseModel):
     workflow_version: str
     code_version: str
     spend_gbp: str
+
+    # Every step the workflow declares, not only those that have started -- see
+    # `RunState.timeline`. `steps_total` is therefore the length of `steps`, restated so a
+    # caller reading progress does not have to count.
     steps: list[dict[str, Any]]
+    steps_total: int
+    steps_done: int
+    current_step: str | None
 
 
 class CancelRequest(BaseModel):
@@ -412,4 +419,7 @@ async def _read(session: AsyncSession, *, job_id: uuid.UUID) -> RunRead:
         code_version=state.job.code_version,
         spend_gbp=payload["spend_gbp"],
         steps=payload["steps"],
+        steps_total=payload["steps_total"],
+        steps_done=payload["steps_done"],
+        current_step=payload["current_step"],
     )
