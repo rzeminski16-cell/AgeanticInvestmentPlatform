@@ -30,11 +30,12 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Final
 
 import structlog
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.registry import PLATFORM_CONTRACT, RoleDefinitionError, resolve_role
@@ -52,6 +53,11 @@ from aer.storage.protocol import ArtefactStore
 __all__ = ["Agent", "AgentContext", "TokenCapExceededError", "ToolNotPermittedError"]
 
 _log = structlog.get_logger("aer.agents")
+
+# Passes at find-or-create for a prompt row. Two is the shape of the race — look,
+# lose, look again and find the winner — and the third is there so a pathological
+# interleaving raises rather than spins.
+_PROMPT_ATTEMPTS: Final = 3
 
 
 class ToolNotPermittedError(AerError):
@@ -433,31 +439,56 @@ class Agent[InputT, OutputT: BaseModel]:
         Keyed by content hash as well as by key and version, so an edit that forgot to bump
         the version is detected rather than silently reusing the old row and attributing a
         run to an instruction it did not use.
+
+        **Find-or-create, under concurrency, means retrying.** The five research workers run
+        as parallel nodes with a session each, share the ``analysis`` role, and carry a
+        different topic brief — so five different hashes race for ``(agent.analysis, 1)``.
+        All five looked, all five found nothing, all five inserted, and four died on
+        ``uq_prompts_key_version``. That is not a survivable error where it landed: it broke
+        the flush, which broke the session, which broke the commit that records the
+        failure, which is how a run ended up dead with the console still showing it
+        running.
+
+        The insert therefore happens inside a savepoint. A conflict rolls back the savepoint
+        alone, leaving the session usable, and the next pass sees what the winner wrote —
+        PostgreSQL makes the loser wait on the unique index until the winner commits, so by
+        the time the error arrives the row is really there. Either it is the same template,
+        and it is returned, or it is a different one, and this pass takes the hash-suffixed
+        version that only it can want.
         """
         key = f"agent.{self.role}"
         digest = sha256_hex(template.encode("utf-8"))
 
-        existing = await context.session.scalar(
-            select(Prompt).where(Prompt.key == key, Prompt.content_hash == digest)
-        )
-        if existing is not None:
-            return existing
+        for attempt in range(_PROMPT_ATTEMPTS):
+            existing = await context.session.scalar(
+                select(Prompt).where(Prompt.key == key, Prompt.content_hash == digest)
+            )
+            if existing is not None:
+                return existing
 
-        # A new hash under an existing version means the template changed without the
-        # version being bumped. Recorded under a hash-suffixed version rather than
-        # refused: losing the run would be a worse outcome than a version string that
-        # says plainly that somebody edited a prompt in place.
-        version = self.prompt_version
-        clash = await context.session.scalar(
-            select(Prompt).where(Prompt.key == key, Prompt.version == version)
-        )
-        if clash is not None:
-            version = f"{self.prompt_version}+{digest[:8]}"
+            # A new hash under an existing version means the template changed without the
+            # version being bumped -- or, as above, that a sibling role got there first.
+            # Recorded under a hash-suffixed version rather than refused: losing the run
+            # would be a worse outcome than a version string that says plainly that this
+            # text is not the one version 1 originally named.
+            version = self.prompt_version
+            clash = await context.session.scalar(
+                select(Prompt).where(Prompt.key == key, Prompt.version == version)
+            )
+            if clash is not None:
+                version = f"{self.prompt_version}+{digest[:8]}"
 
-        prompt = Prompt(key=key, version=version, template=template, content_hash=digest)
-        context.session.add(prompt)
-        await context.session.flush()
-        return prompt
+            prompt = Prompt(key=key, version=version, template=template, content_hash=digest)
+            try:
+                async with context.session.begin_nested():
+                    context.session.add(prompt)
+                return prompt
+            except IntegrityError:
+                if attempt == _PROMPT_ATTEMPTS - 1:
+                    raise
+                _log.info("agent.prompt_raced", key=key, version=version)
+
+        raise AssertionError("unreachable: the loop returns or raises")  # pragma: no cover
 
     async def _meter(
         self, context: AgentContext, *, result: StructuredResult[Any], agent_run: AgentRun

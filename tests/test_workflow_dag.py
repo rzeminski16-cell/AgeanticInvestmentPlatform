@@ -21,33 +21,67 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from aer.agents.base import Agent, AgentContext
 from aer.calc.basic import ratio
 from aer.calc.engine import CalculationContext
 from aer.calc.units import Quantity, SourceRef
 from aer.core.enums import JobStatus, RequestStatus, UserRole
-from aer.db.models import Calculation, Job, JobCancellation, JobStep, ResearchRequest, User
+from aer.db.models import (
+    Calculation,
+    Job,
+    JobCancellation,
+    JobStep,
+    Prompt,
+    ResearchRequest,
+    User,
+)
 from aer.eval.replay import replay_observations_for_job
 from aer.services.calculations import persist_context
 from aer.workflow.engine import (
     MAX_PARALLEL_NODES,
     BudgetGuard,
     StepContext,
+    StepFunction,
     StepPaused,
     StepResult,
     WorkflowDefinitionError,
     WorkflowEngine,
     WorkflowStep,
 )
+from tests.agent_probes import ProbeAnswer
 
 # A duration long enough that two nodes started together are reliably in flight at once,
 # short enough that a suite full of them stays quick.
 _BREATH = 0.05
+
+
+class _PromptProbe(Agent[str, ProbeAnswer]):
+    """Reaches the base's find-or-create without a provider or a model call.
+
+    ``_ensure_prompt`` needs a session and nothing else from the context, so the wrapper
+    below is honest about that rather than assembling a whole ``AgentContext`` of stubs to
+    satisfy fields it never reads.
+    """
+
+    role = "evaluation-probe"
+    output_schema = ProbeAnswer
+
+    def system_prompt(self, value: str) -> str:  # pragma: no cover -- never invoked
+        return value
+
+    def user_message(self, value: str) -> str:  # pragma: no cover -- never invoked
+        return value
+
+    async def ensure_prompt_for(self, session: AsyncSession, template: str) -> Prompt:
+        context = cast("AgentContext", SimpleNamespace(session=session))
+        return await self._ensure_prompt(context, template)
 
 
 @dataclass(slots=True)
@@ -302,6 +336,88 @@ class TestIndependentNodesRunTogether:
         assert row is not None, "a step in flight was invisible to every other process"
         assert row.status is JobStatus.RUNNING
         assert row.started_at is not None
+
+    async def test_parallel_nodes_sharing_a_role_do_not_collide_on_the_prompt_row(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The unique violation that killed a live run, reproduced.
+
+        The five research workers share the ``analysis`` role and carry a different topic
+        brief each, so five different templates race to create ``(agent.<role>, 1)``. All
+        five looked, all five found nothing, all five inserted, and four died on
+        ``uq_prompts_key_version``.
+
+        Where it landed made it far worse than a lost row: the violation broke the flush,
+        the broken flush made the session refuse to commit, and the commit that refused was
+        the one recording the failure — so the run died with nothing written and the console
+        showed it running for an hour afterwards. Both halves have their own test; this is
+        the cause.
+        """
+
+        def writes_a_prompt(template: str) -> StepFunction:
+            async def step(context: StepContext) -> StepResult:
+                agent = _PromptProbe()
+                prompt = await agent.ensure_prompt_for(context.session, template)
+                return StepResult(output={"version": prompt.version})
+
+            return step
+
+        briefs = [f"Your topic:\nTopic number {index}.\n" for index in range(5)]
+        outputs = await _run(
+            scene,
+            WorkflowEngine(
+                [
+                    WorkflowStep(
+                        key=f"worker_{index}", run=writes_a_prompt(brief), needs=frozenset()
+                    )
+                    for index, brief in enumerate(briefs)
+                ]
+            ),
+        )
+
+        assert len(outputs) == 5, "a node died on the prompt row"
+        async with scene["factory"]() as session:
+            rows = list(
+                await session.scalars(
+                    select(Prompt).where(Prompt.key == f"agent.{_PromptProbe.role}")
+                )
+            )
+
+        # One row per distinct template, each recording the text it really used, and no two
+        # sharing a version.
+        assert len(rows) == 5
+        assert len({row.content_hash for row in rows}) == 5
+        assert len({row.version for row in rows}) == 5
+
+    async def test_a_step_that_breaks_its_session_is_still_recorded_as_failed(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The half that turned a failed run into an invisible one.
+
+        A step that dies inside a *flush* leaves its session in pending-rollback, so the
+        commit that records the failure raises as well. That second exception escaped the
+        node, escaped ``gather`` and killed the queue job — no FAILED step, no FAILED job,
+        and a console that went on reporting a run which had been dead for an hour.
+        """
+
+        async def poison(context: StepContext) -> StepResult:
+            # A valid-looking hash, so the flush breaks on the *unique* constraint the
+            # live run hit rather than on the hash's own check.
+            digest = "a" * 64
+            for _ in range(2):
+                context.session.add(
+                    Prompt(key="agent.poison", version="1", template="x", content_hash=digest)
+                )
+            await context.session.flush()
+            return StepResult(output={})  # pragma: no cover -- the flush raises
+
+        with pytest.raises(Exception, match="uq_prompts_key_version"):
+            await _run(scene, WorkflowEngine([WorkflowStep(key="poisoned", run=poison)]))
+
+        rows = await _rows(scene)
+        assert rows["poisoned"].status is JobStatus.FAILED
+        assert (rows["poisoned"].error or {})["code"] == "unexpected_error"
+        assert await _job_status(scene) is JobStatus.FAILED
 
     async def test_every_node_left_a_succeeded_row(self, scene: dict[str, Any]) -> None:
         engine = WorkflowEngine(

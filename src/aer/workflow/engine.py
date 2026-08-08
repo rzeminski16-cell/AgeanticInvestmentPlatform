@@ -54,6 +54,7 @@ from typing import Any, Final
 
 import structlog
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aer.core.enums import JobStatus
@@ -230,6 +231,17 @@ class BudgetGuard:
                 spent_gbp=str(already),
                 cap_gbp=str(self.per_run_cap_gbp),
             )
+
+
+def _detail_of(exc: Exception) -> dict[str, Any]:
+    """The error as it is stored on the step row.
+
+    ``AerError`` already knows how to describe itself with a stable code; anything else is
+    a defect, and its type name is the most useful thing there is to say about it.
+    """
+    if isinstance(exc, AerError):
+        return exc.to_dict()
+    return {"code": "unexpected_error", "message": f"{type(exc).__name__}: {exc}"}
 
 
 async def spend_so_far(session: AsyncSession, *, job_id: uuid.UUID) -> Decimal:
@@ -594,6 +606,10 @@ class WorkflowEngine:
                 sequence=self._sequence[step.key],
                 outputs=outputs,
             )
+            # Read while the session is certainly healthy. A step that breaks its session
+            # takes attribute loads down with it, so the failure path must already hold
+            # everything it needs to identify the row — see `_record_node_failure`.
+            row_id = row.id
             context = StepContext(
                 session=node_session, job=job, step=row, services=services, outputs=outputs
             )
@@ -626,15 +642,14 @@ class WorkflowEngine:
                     pause_status=JobStatus.BUDGET_EXCEEDED,
                 )
             except Exception as exc:
-                detail = (
-                    exc.to_dict()
-                    if isinstance(exc, AerError)
-                    else {"code": "unexpected_error", "message": f"{type(exc).__name__}: {exc}"}
+                detail = _detail_of(exc)
+                await self._record_node_failure(
+                    node_session,
+                    job_id=job_id,
+                    row_id=row_id,
+                    step_key=step.key,
+                    detail=detail,
                 )
-                row.status = JobStatus.FAILED
-                row.error = detail
-                row.finished_at = datetime.now(UTC)
-                await node_session.commit()
                 _log.error("workflow.step_failed", job_id=str(job_id), step=step.key, **detail)
                 return _NodeReport(step=step, outcome=_Outcome.FAILED, exception=exc)
 
@@ -652,6 +667,65 @@ class WorkflowEngine:
                 elapsed_ms=round((time.perf_counter() - started) * 1000, 2),
             )
             return _NodeReport(step=step, outcome=_Outcome.SUCCEEDED, output=result.output)
+
+    async def _record_node_failure(
+        self,
+        node_session: AsyncSession,
+        *,
+        job_id: uuid.UUID,
+        row_id: uuid.UUID,
+        step_key: str,
+        detail: dict[str, Any],
+    ) -> None:
+        """Write the failure, even when the session that failed cannot write anything.
+
+        **This is the difference between a run recorded as FAILED and a run that says
+        RUNNING for ever.** A step that dies inside a flush — a unique violation, say —
+        leaves its session in a pending-rollback state, so the commit that records the
+        failure raises ``PendingRollbackError`` of its own. That exception escaped the
+        node, escaped ``gather``, escaped the engine and killed the queue job, which meant
+        nobody ever set the step to FAILED and nobody ever set the job to FAILED. The
+        console went on showing a run in progress that had been dead for an hour, and the
+        only trace was a traceback in the worker's terminal.
+
+        So: try the ordinary way, and if the session refuses at any point, roll it back and
+        write the failure on a clean transaction. The rollback discards whatever the step
+        had written before it broke, which is the right trade — that work was already
+        unreachable, and a recorded failure is worth more than an unrecorded fragment.
+
+        **The row is addressed by id, not by instance.** A poisoned session raises on the
+        *attribute access itself*, not merely on the commit: touching an expired column
+        loads it, loading needs the transaction, and the transaction is gone. That is where
+        the live failure actually landed — on ``job.status = FAILED``, three lines before
+        any commit — so holding plain ids from before the step ran is what stops this
+        method's own bookkeeping being the thing that fails.
+        """
+        try:
+            row = await node_session.get(JobStep, row_id)
+            if row is not None:
+                row.status = JobStatus.FAILED
+                row.error = detail
+                row.finished_at = datetime.now(UTC)
+            await node_session.commit()
+            return
+        except SQLAlchemyError as broken:
+            _log.warning(
+                "workflow.failure_commit_refused",
+                job_id=str(job_id),
+                step=step_key,
+                error=str(broken),
+            )
+
+        await node_session.rollback()
+        # The row is there to be found because a step publishes its row before running.
+        fresh = await node_session.get(JobStep, row_id)
+        if fresh is None:  # pragma: no cover -- the row is committed before the step runs
+            _log.error("workflow.failure_unrecorded", job_id=str(job_id), step=step_key)
+            return
+        fresh.status = JobStatus.FAILED
+        fresh.error = detail
+        fresh.finished_at = datetime.now(UTC)
+        await node_session.commit()
 
     async def _record_node_stop(
         self,
@@ -760,6 +834,10 @@ class WorkflowEngine:
                 )
                 return True
 
+        # Read while the session is certainly healthy. A step that breaks its session takes
+        # attribute loads down with it, so the failure path must already hold everything it
+        # needs to identify the row -- see `_record_node_failure`.
+        identity = (job.id, row.id, row.step_key)
         context = StepContext(
             session=session, job=job, step=row, services=services, outputs=outputs
         )
@@ -782,7 +860,7 @@ class WorkflowEngine:
             )
             return True
         except Exception as exc:
-            await self._fail(session, job=job, row=row, exc=exc)
+            await self._fail(session, job=job, identity=identity, exc=exc)
             raise
 
         row.status = JobStatus.SUCCEEDED
@@ -879,7 +957,14 @@ class WorkflowEngine:
         await self._publish(session)
         _log.info("workflow.paused", job_id=str(job.id), step=row.step_key, status=status.value)
 
-    async def _fail(self, session: AsyncSession, *, job: Job, row: JobStep, exc: Exception) -> None:
+    async def _fail(
+        self,
+        session: AsyncSession,
+        *,
+        job: Job,
+        identity: tuple[uuid.UUID, uuid.UUID, str],
+        exc: Exception,
+    ) -> None:
         """Record the failure. **Committed here, because the caller re-raises.**
 
         An exception leaves the worker's ``async with`` without reaching its commit, so a
@@ -887,14 +972,20 @@ class WorkflowEngine:
         reporting the run as queued. The log line would be the only evidence that anything
         had happened, and the operator would be watching a page that never changed.
         """
-        detail = (
-            exc.to_dict()
-            if isinstance(exc, AerError)
-            else {"code": "unexpected_error", "message": f"{type(exc).__name__}: {exc}"}
+        detail = _detail_of(exc)
+        # Handed in, not read here. A poisoned session refuses attribute loads, so by this
+        # point even `job.id` raises — which is precisely where the live failure landed,
+        # three lines before any commit.
+        job_id, row_id, step_key = identity
+
+        # The same hazard the parallel path carries, and the same remedy: a step that died
+        # inside a flush leaves a session that can neither read nor commit, so recording
+        # the failure would fail too and the run would stay RUNNING for ever.
+        await self._record_node_failure(
+            session, job_id=job_id, row_id=row_id, step_key=step_key, detail=detail
         )
-        row.status = JobStatus.FAILED
-        row.error = detail
-        row.finished_at = datetime.now(UTC)
+
+        # Safe now: whichever branch ran, the session is usable on the way out of it.
         job.status = JobStatus.FAILED
         await self._publish(session)
-        _log.error("workflow.step_failed", job_id=str(job.id), step=row.step_key, **detail)
+        _log.error("workflow.step_failed", job_id=str(job_id), step=step_key, **detail)
