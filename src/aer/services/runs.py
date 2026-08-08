@@ -20,7 +20,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Final
 
 import structlog
 from sqlalchemy import select
@@ -210,6 +210,12 @@ async def execute(
     return RunOutcome(job=job, outputs=outputs, status=job.status, spend_gbp=spend)
 
 
+# What a step that has not started has spent, at the scale `job_steps.cost_gbp` stores.
+# `Decimal(0)` would render "£0" beside a finished step's "£0.0000" and read as a different
+# kind of zero.
+_NOT_YET_SPENT: Final = Decimal("0.0000")
+
+
 @dataclass(frozen=True, slots=True)
 class TimelineEntry:
     """One step as the console shows it, whether or not it has started.
@@ -288,7 +294,9 @@ class RunState:
         for key in keys:
             step = recorded.get(key)
             if step is None:
-                entries.append(TimelineEntry(key=key, status=JobStatus.QUEUED, cost_gbp=Decimal(0)))
+                entries.append(
+                    TimelineEntry(key=key, status=JobStatus.QUEUED, cost_gbp=_NOT_YET_SPENT)
+                )
                 continue
             entries.append(
                 TimelineEntry(

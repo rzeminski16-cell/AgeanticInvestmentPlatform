@@ -900,6 +900,39 @@ class TestTheWebPages:
         assert started is not None
         assert datetime.fromisoformat(started.group(1)).tzinfo is not None
 
+    async def test_the_console_declares_the_status_it_was_rendered_for(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        """What lets the page notice it has gone stale.
+
+        Reaching a gate is not terminal, so the stream's ``done`` event never fires, and a
+        run that stopped for a decision used to sit there with the status chip patched to
+        AWAITING_APPROVAL and no banner and no buttons until the operator refreshed by
+        hand. The script compares each frame against this and re-fetches when they differ.
+        """
+        body = await start_run(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+
+        queued = await api.get(f"/runs/{job_id}")
+        assert f'data-status="{JobStatus.QUEUED.value}"' in queued.text
+
+        await driver.advance(job_id)
+        gated = await api.get(f"/runs/{job_id}")
+        assert f'data-status="{JobStatus.AWAITING_APPROVAL.value}"' in gated.text
+        assert 'id="awaiting-approval"' in gated.text
+
+    async def test_a_step_that_has_not_started_reads_zero_the_same_way(
+        self, api: Any, committed: dict, driver: Driver
+    ) -> None:
+        """£0 beside £0.0000 reads as two different kinds of nothing."""
+        body = await start_run(api, committed["request"].id)
+        await driver.advance(uuid.UUID(body["job_id"]))
+
+        state = (await api.get(f"/api/runs/{body['job_id']}")).json()
+        costs = {step["key"]: step["cost_gbp"] for step in state["steps"]}
+
+        assert costs["render"] == costs["acquire"] == "0.0000"
+
     async def test_a_finished_run_stops_offering_reassurance(
         self, api: Any, committed: dict, driver: Driver
     ) -> None:

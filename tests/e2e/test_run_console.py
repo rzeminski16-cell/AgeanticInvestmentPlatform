@@ -35,6 +35,10 @@ pytestmark = [pytest.mark.e2e, pytest.mark.integration]
 
 CONSOLE_URL = re.compile(r"/runs/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
+# The console polls once a second and then re-fetches, so a status change costs a poll, a
+# navigation and a render. Generous, because the failure this guards is "it never happens".
+REFETCH_TIMEOUT_MS = 20_000
+
 
 class RunFixture:
     """A run in the live server's database, advanced on demand."""
@@ -163,11 +167,30 @@ class RunFixture:
 
 
 @pytest.fixture
+def queued_run(live_server: str, database_url: str) -> RunFixture:
+    """A run that exists and has not started, so the browser can watch it move."""
+    return RunFixture(database_url)
+
+
+@pytest.fixture
 def waiting_run(live_server: str, database_url: str) -> RunFixture:
     """A run stopped at gate 1, in the server the browser will talk to."""
     run = RunFixture(database_url)
     assert run.advance() is JobStatus.AWAITING_APPROVAL
     return run
+
+
+def leave_the_console(page: Page, live_server: str) -> None:
+    """Navigate away before advancing a run from the test.
+
+    The console re-fetches itself when the run's status moves, so a run advanced while it
+    is open starts a navigation of its own — which races the test's next `goto` and
+    surfaces as "interrupted by another navigation" against whichever test was unlucky.
+    This suite already learned that lesson from the no-JavaScript meta refresh; see
+    `tests/e2e/conftest.py`. Tests that are *about* the re-fetch stay on the page and say
+    so.
+    """
+    page.goto(f"{live_server}/requests")
 
 
 class TestTheConsole:
@@ -219,6 +242,24 @@ class TestTheConsole:
 
         expect(page.locator("#run-progress")).to_contain_text("Working on plan")
         expect(page.locator("#run-progress")).to_contain_text("just worker")
+
+    def test_reaching_a_gate_reveals_the_banner_without_a_manual_refresh(
+        self, page: Page, live_server: str, queued_run: RunFixture
+    ) -> None:
+        """The reported bug, in the browser.
+
+        A gate is not a terminal state, so the stream's ``done`` event never fires. The
+        status chip was patched to AWAITING_APPROVAL and nothing else changed: no banner,
+        no "Review the plan" button, no way to act on the run until the operator thought to
+        press F5. There is deliberately no ``page.reload()`` below.
+        """
+        page.goto(f"{live_server}/runs/{queued_run.job_id}")
+        expect(page.locator("#awaiting-approval")).to_have_count(0)
+
+        assert queued_run.advance() is JobStatus.AWAITING_APPROVAL
+
+        expect(page.locator("#awaiting-approval")).to_be_visible(timeout=REFETCH_TIMEOUT_MS)
+        expect(page.locator("#review-plan")).to_be_visible()
 
     def test_the_disclaimer_is_on_the_page(
         self, page: Page, live_server: str, waiting_run: RunFixture
@@ -284,6 +325,7 @@ class TestTheSecondGateAndTheReport:
         page.goto(f"{live_server}/runs/{waiting_run.job_id}/plan")
         page.click("#approve")
         page.wait_for_url(CONSOLE_URL)
+        leave_the_console(page, live_server)
 
         assert waiting_run.advance() is JobStatus.AWAITING_APPROVAL
         return waiting_run
@@ -302,6 +344,7 @@ class TestTheSecondGateAndTheReport:
         page.goto(f"{live_server}/runs/{drafted.job_id}/review")
         page.click("#approve")
         page.wait_for_url(CONSOLE_URL)
+        leave_the_console(page, live_server)
 
         assert drafted.advance() is JobStatus.SUCCEEDED
 
@@ -319,6 +362,7 @@ class TestTheSecondGateAndTheReport:
         page.goto(f"{live_server}/runs/{drafted.job_id}/review")
         page.click("#approve")
         page.wait_for_url(CONSOLE_URL)
+        leave_the_console(page, live_server)
         assert drafted.advance() is JobStatus.SUCCEEDED
 
         page.goto(f"{live_server}/reports/{drafted.report_id()}")
@@ -425,8 +469,13 @@ class TestCancelling:
         # through the rest of the workflow.
         assert waiting_run.advance() is JobStatus.CANCELLED
 
-        page.reload()
-        expect(page.locator("#run-status")).to_have_text(JobStatus.CANCELLED.value)
+        # No reload here. The console re-fetches itself when the status moves, and a
+        # cancelled run whose page still offers a cancel button is the thing that would
+        # go unnoticed.
+        expect(page.locator("#run-status")).to_have_text(
+            JobStatus.CANCELLED.value, timeout=REFETCH_TIMEOUT_MS
+        )
+        expect(page.locator("#cancel-run")).to_have_count(0)
 
     def test_a_finished_run_offers_no_cancel_button(
         self, page: Page, live_server: str, waiting_run: RunFixture
@@ -459,6 +508,7 @@ class TestCancellingIsNotADeadEnd:
         page.goto(f"{live_server}/runs/{run.job_id}")
         page.click("#cancel-run")
         page.wait_for_url(CONSOLE_URL)
+        leave_the_console(page, live_server)
         assert run.advance() is JobStatus.CANCELLED
         return run.request_path(live_server)
 

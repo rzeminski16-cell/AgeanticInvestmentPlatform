@@ -810,10 +810,26 @@ class WorkflowEngine:
         sequence: int,
         outputs: dict[str, dict[str, Any]],
     ) -> JobStep:
-        """Find or create the row for this attempt.
+        """Find or create the row for this attempt, and **publish it before running**.
 
         A retried step reuses its row and increments ``attempt`` rather than creating a
         second, so "how many times did this run?" is a column rather than a count.
+
+        **The commit here is what makes a running step visible at all.** Flushing alone
+        keeps the row inside this transaction, so for the whole of a step — minutes, for a
+        model call — no other process could see that it had started. The console showed the
+        job as RUNNING in its header while every step below read QUEUED, and the elapsed
+        clock that exists to prove a long step is alive never appeared, because from a
+        reader's side nothing was ever running.
+
+        This does not weaken :meth:`_publish`'s rule. A row saying "this step began at T,
+        attempt N" is a whole state: the step has not run, so there is no half-written
+        output to expose. What a reader cannot see is the *outcome*, and that is exactly
+        what ``RUNNING`` says.
+
+        A worker that dies now leaves a ``RUNNING`` row rather than no row. That is the
+        better of the two: the resume path already reuses it and increments ``attempt``,
+        and "this step was attempted and never finished" is worth more than silence.
         """
         existing = await session.scalar(
             select(JobStep).where(JobStep.job_id == job.id, JobStep.step_key == step.key)
@@ -830,7 +846,7 @@ class WorkflowEngine:
             existing.input_hash = input_hash
             existing.started_at = datetime.now(UTC)
             existing.error = None
-            await session.flush()
+            await self._publish(session)
             return existing
 
         row = JobStep(
@@ -844,7 +860,7 @@ class WorkflowEngine:
             started_at=datetime.now(UTC),
         )
         session.add(row)
-        await session.flush()
+        await self._publish(session)
         return row
 
     async def _pause(

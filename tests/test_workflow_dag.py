@@ -272,6 +272,37 @@ class TestIndependentNodesRunTogether:
         assert tracker.started.index("d") > tracker.finished.index("b")
         assert tracker.started.index("d") > tracker.finished.index("c")
 
+    async def test_a_node_is_visible_as_running_while_it_runs(self, scene: dict[str, Any]) -> None:
+        """The step row is committed before the step body, not after it.
+
+        Flushing alone kept it inside the engine's transaction, so for the whole of a step
+        -- minutes, for a model call -- nothing else could see it had begun. The console
+        showed the job RUNNING in its header and every step below it QUEUED, and the
+        elapsed clock that exists to prove a long step is alive never appeared.
+
+        Read from a *separate session*, because that is the only way to distinguish
+        "committed" from "flushed": the engine's own session would see its uncommitted row
+        either way.
+        """
+        seen: dict[str, Any] = {}
+
+        async def peek(context: StepContext) -> StepResult:
+            async with scene["factory"]() as onlooker:
+                row = await onlooker.scalar(
+                    select(JobStep).where(
+                        JobStep.job_id == scene["job_id"], JobStep.step_key == "watched"
+                    )
+                )
+                seen["row"] = row
+            return StepResult(output={})
+
+        await _run(scene, WorkflowEngine([WorkflowStep(key="watched", run=peek)]))
+
+        row = seen["row"]
+        assert row is not None, "a step in flight was invisible to every other process"
+        assert row.status is JobStatus.RUNNING
+        assert row.started_at is not None
+
     async def test_every_node_left_a_succeeded_row(self, scene: dict[str, Any]) -> None:
         engine = WorkflowEngine(
             [

@@ -33,6 +33,14 @@
     data-job-id="{{ job.id }}"
     data-events-url="/api/runs/{{ job.id }}/events"
     data-terminal="{{ 'true' if is_terminal else 'false' }}"
+    {#
+      The status this markup was rendered for. Most of what a status implies is *chrome*
+      the event stream cannot patch -- the approval banner and its buttons, the budget
+      notice, the report link -- all of it server-rendered from this value. `console.js`
+      compares each frame against it and re-fetches the page when they diverge, rather
+      than rendering the same banners a second time in JavaScript.
+    #}
+    data-status="{{ state.status }}"
   >
     <nav class="text-sm">
       <a
