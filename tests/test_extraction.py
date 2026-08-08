@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import subprocess
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -318,6 +320,58 @@ class TestTheHtmlExtractor:
 
 
 @pytest.mark.usefixtures("no_real_sockets")
+class TestTheMemoryCapIsHonestAboutItself:
+    """The one control that is not available on every platform, and says so.
+
+    ``resource`` is POSIX-only, so on Windows the cap cannot be applied and the child
+    reports ``memory_capped: false`` rather than pretending. Two things have to hold for
+    that to stay true, and both have broken before:
+
+    * the child must *return* on Windows rather than raise, so a parse still happens; and
+    * the module must type-check on Windows, where typeshed hides ``resource``'s
+      attributes — a Windows ``mypy`` run failed on exactly this, and the platform
+      branch that fixes it is easy to "simplify" into something that fails again on one
+      platform or the other.
+    """
+
+    def test_the_cap_is_applied_on_posix_and_declined_on_windows(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from aer.extract import _child  # noqa: PLC0415 -- run as a module, imported here
+
+        assert _child._apply_memory_cap(1 << 30) is (sys.platform != "win32")
+
+        # And the Windows path is exercised wherever this suite runs, so the branch that
+        # reports the absence is covered rather than merely believed.
+        monkeypatch.setattr(sys, "platform", "win32")
+        assert _child._apply_memory_cap(1 << 30) is False
+
+    def test_it_type_checks_on_windows_as_well_as_here(self) -> None:
+        """The regression guard for the branch itself.
+
+        Running the real type checker is what makes this a test rather than a comment: a
+        ``type: ignore`` would be flagged unused on Linux, an early return leaves the POSIX
+        body unreachable on Windows, and a trailing return is unreachable on Linux. Only the
+        explicit platform branch satisfies both, and nothing else in the suite would notice
+        it being replaced.
+        """
+        result = subprocess.run(  # noqa: S603 -- fixed argv, no shell
+            [
+                sys.executable,
+                "-m",
+                "mypy",
+                "--platform",
+                "win32",
+                str(Path("src/aer/extract/_child.py")),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode == 0, result.stdout or result.stderr
+
+
 class TestTheSandbox:
     async def test_a_document_over_the_ceiling_is_refused_before_parsing(
         self, settings: Settings

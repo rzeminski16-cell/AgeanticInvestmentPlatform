@@ -40,14 +40,28 @@ def _apply_memory_cap(limit_bytes: int) -> bool:
     these bytes are handed over, and ``aer.extract.xml`` refuses to resolve entities at all, so
     a billion-laughs document has nothing to expand. The cap is a backstop for the unknown
     case, and its absence is reported rather than assumed.
-    """
-    try:
-        import resource  # noqa: PLC0415 -- POSIX-only, and its absence is the point
-    except ImportError:  # pragma: no cover -- exercised on Windows, not in CI
-        return False
 
-    resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))
-    return True
+    **Both platforms are branches of one ``sys.platform`` test because the type checker
+    reads it.** Typeshed marks ``resource`` Unix-only, so a Windows ``mypy`` run resolves
+    the module but none of its attributes. mypy drops the non-matching side of a platform
+    conditional without counting it as unreachable, but only for a branch — so this needs
+    an explicit ``else`` rather than an early return, which would leave the POSIX body
+    unreachable on Windows, or a trailing return, which would be unreachable on Linux. A
+    ``type: ignore`` is no way out either: it would be unused on Linux, and
+    ``warn_unused_ignores`` is on. The ``ImportError`` is not redundant with the branch —
+    it covers the non-Windows platforms that also ship no ``resource`` module, and this
+    control's absence must be reported rather than raised.
+    """
+    if sys.platform == "win32":
+        return False
+    else:  # noqa: RET505 -- the else is load-bearing; see above
+        try:
+            import resource  # noqa: PLC0415 -- POSIX-only, and its absence is the point
+        except ImportError:  # pragma: no cover -- CI is POSIX and Windows never gets here
+            return False
+
+        resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))
+        return True
 
 
 def main(argv: list[str]) -> int:
