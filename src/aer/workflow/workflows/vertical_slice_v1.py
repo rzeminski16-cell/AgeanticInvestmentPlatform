@@ -37,6 +37,7 @@ from aer.agents.planner import PlannerAgent, PlannerInput
 from aer.agents.worker import ResearchTopic
 from aer.calc.basic import cagr
 from aer.calc.comps import MultipleBasis, WithheldComps, align_peers
+from aer.calc.engine import CalculationContext
 from aer.calc.units import SourceRef, money
 from aer.core.enums import Decision, FactBasis, GateKind, JobStatus, Provider, SourceTier
 from aer.core.escalation import FiredTrigger
@@ -68,6 +69,7 @@ from aer.sections.registry import create_report_sections, resolve_sections, sect
 from aer.sections.writing import execute_builtin_section
 from aer.services import calculations as calculation_service
 from aer.services.acquisition import record_acquisition
+from aer.services.analysis import analyse_company
 from aer.services.artefacts import store_artefact
 from aer.services.citations import review_evidence
 from aer.services.comps import (
@@ -986,10 +988,63 @@ async def _extract(context: StepContext) -> StepResult:
 
 
 async def _calculate(context: StepContext) -> StepResult:
-    """Compute the slice's one figure, traced to the facts it came from."""
+    """The run's financial analysis, every figure traced to the facts behind it.
+
+    **This step used to compute one number.** A revenue CAGR, which was the right scope for
+    a vertical slice proving the chain and the wrong scope for a research platform: the
+    statement assembler, the seventeen ratios and the earnings-quality signals were all
+    built, tested and never called, so the balance-sheet and cash-flow sections had nothing
+    to write about and the valuation page said the run had produced nothing.
+
+    Both now happen, in one ledger and one transaction. The CAGR is kept rather than folded
+    into the suite — it is the headline growth figure the summary reaches for, and it spans
+    the whole filed history rather than sitting inside one period.
+    """
+    request = await _request_for(context)
     acquired = context.output_of("acquire")
     company_id = _uuid(acquired["company_id"])
+    calc_context = calculation_service.new_context()
 
+    analysis = await analyse_company(
+        context.session, calc_context, company_id=company_id, request=request
+    )
+
+    growth = await _revenue_growth(context, company_id=company_id, ledger=calc_context)
+
+    if not calc_context.records:
+        # Nothing derived at all: no annual facts, and fewer than two periods of revenue.
+        # Not an error — a company with one filed year genuinely has no trend — but the
+        # report must say so rather than showing empty tables with no explanation.
+        _log.info("workflow.no_calculation_possible", periods=len(analysis.periods))
+        return StepResult(
+            output={
+                "calculation_id": None,
+                "reason": "no annual facts to analyse",
+                **analysis.as_dict(),
+            }
+        )
+
+    rows = await calculation_service.persist_context(
+        context.session, calc_context, job_id=context.job.id
+    )
+
+    output: dict[str, Any] = {"calculation_id": str(rows[-1].id), **analysis.as_dict()}
+    output["calculations"] = len(rows)
+    if growth is not None:
+        output.update(growth)
+    return StepResult(output=output)
+
+
+async def _revenue_growth(
+    context: StepContext, *, company_id: uuid.UUID, ledger: CalculationContext
+) -> dict[str, Any] | None:
+    """The compound growth rate across the whole filed revenue history, or nothing.
+
+    Kept separate from the period-by-period analysis because it is not a period figure: it
+    spans the earliest filed year to the latest, and the executive summary wants exactly
+    that. Returns ``None`` when there is only one year, which is a fact about the company
+    rather than a failure of the run.
+    """
     facts = list(
         await context.session.scalars(
             select(FinancialFact)
@@ -1004,36 +1059,23 @@ async def _calculate(context: StepContext) -> StepResult:
 
     minimum_for_a_growth_rate = 2
     if len(facts) < minimum_for_a_growth_rate:
-        # Not an error: a company with one year of filed revenue genuinely has no growth
-        # rate. The report says so rather than the run failing.
-        _log.info("workflow.no_calculation_possible", facts=len(facts))
-        return StepResult(output={"calculation_id": None, "reason": "fewer than two periods"})
+        return None
 
     first, last = facts[0], facts[-1]
-    calc_context = calculation_service.new_context()
-
     result = cagr(
-        calc_context,
+        ledger,
         start=money(first.value, "USD", source=SourceRef.fact(first.id, label="revenue")),
         end=money(last.value, "USD", source=SourceRef.fact(last.id, label="revenue")),
         years=last.period_end.year - first.period_end.year,
     )
-
-    rows = await calculation_service.persist_context(
-        context.session, calc_context, job_id=context.job.id
-    )
-
-    return StepResult(
-        output={
-            "calculation_id": str(rows[-1].id),
-            "concept": SLICE_CONCEPT,
-            "value": str(result.value),
-            "unit": result.unit.symbol,
-            "from_period": first.period_end.isoformat(),
-            "to_period": last.period_end.isoformat(),
-            "source_document_id": str(first.source_document_id),
-        }
-    )
+    return {
+        "concept": SLICE_CONCEPT,
+        "value": str(result.value),
+        "unit": result.unit.symbol,
+        "from_period": first.period_end.isoformat(),
+        "to_period": last.period_end.isoformat(),
+        "source_document_id": str(first.source_document_id),
+    }
 
 
 # ==========================================================================================

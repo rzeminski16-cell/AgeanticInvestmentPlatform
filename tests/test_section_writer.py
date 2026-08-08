@@ -210,7 +210,10 @@ def _scripted(drafts: list[SectionDraft]) -> FakeProvider:
     remaining = list(drafts)
 
     def answer(schema: type) -> Any:
-        assert schema is SectionDraft
+        # A subclass, not the class: the call narrows `content` to this section's contract,
+        # so what the provider is handed is built for the section. Still the role's
+        # envelope, which is what this double is asserting.
+        assert issubclass(schema, SectionDraft)
         return remaining.pop(0)
 
     return FakeProvider(answer)
