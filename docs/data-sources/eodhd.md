@@ -19,20 +19,38 @@ derived-data safe harbour anywhere in them.
 
 **Two consequences, both load-bearing:**
 
-1. **Nothing computed from this data leaves the machine.** Not a multiple, not a beta, not a
-   market capitalisation, not a chart. A comparables table built on these prices is an
-   internal working paper. `aer/fetch/policy.py` records this as the licence note on every
-   source document, in the terms' own words rather than in a summary somebody would have to
-   trust.
+1. **The series itself never leaves the machine.** Not the bars, not a chart of them. That
+   is what "displaying in original or repackaged form" prohibits, and it is not ambiguous.
+   `price_relative` is built with `exportable=False` and the report assembler refuses any
+   non-exportable chart outright, so the containment is structural rather than a rule a
+   template has to remember.
 2. **Every copy must be destroyed within one month of the subscription ending.** An artefact
    store with no delete path cannot honour that, which is why one now exists. Everything
    EODHD touches carries `RetentionClass.LICENSED` and is purgeable; see
-   `docs/adr/0031-erasure-is-an-appended-event.md`. One `purge_provider` call satisfies the
-   obligation and leaves the provenance intact.
+   `docs/adr/0031-erasure-is-an-appended-event.md`. `aer purge-licensed --provider eodhd
+   --reason "…"` satisfies the obligation in one command and leaves the provenance intact.
 
-A statement previously in `aer/fetch/policy.py` — "derived figures may be published, raw
-series may not" — **was not supported by the terms and has been removed.** It would have been
-stamped on every price document as though somebody had determined it.
+## Derived figures: permitted, by the operator's determination
+
+On **2026-08-09** the operator — who is the subscriber and can read the executed agreement —
+determined that figures *computed from* this data may be published: multiples, ratios, other
+derived values. `FetchPolicy.derived_figures_publishable` records it, and a comparables table
+now reaches an exported report.
+
+**The basis matters as much as the permission.** The public terms contain no derived-data
+exemption, so this is not something the code can infer and must never be written as though
+it were. The licence note stamped on every price document says whose determination it is and
+when it was made, in those words.
+
+This is the second time the note has said derived figures may be published. The first time
+— removed on 5 August 2026 — asserted it as though the terms said so, when they say nothing
+of the kind, and it would have been stamped on every price document as a determination
+nobody had made. The sentence is similar; the honesty of it is not, and
+`tests/test_fetch_policy.py::TestTheEodhdLicenceNote` pins the difference.
+
+The permission is scoped. It covers derived figures and stops there: the series and any
+plot of it remain prohibited, and `CompsTable.for_audience` still withholds by default, so a
+paid feed added tomorrow inherits nothing from this decision.
 
 ## The two limits, which are different quantities
 

@@ -20,6 +20,8 @@ from aer.fetch.errors import UrlNotAllowedError
 from aer.fetch.policy import (
     DEFAULT_POLICIES,
     REFUSED_HOSTS,
+    FetchPolicy,
+    RetentionClass,
     host_matches,
     policy_for,
     policy_for_url,
@@ -205,21 +207,63 @@ class TestRefusedHosts:
 class TestTheEodhdLicenceNote:
     """The note this platform stamps on every price document, pinned.
 
-    It said "derived figures may be published, raw series may not" until 5 August 2026, when
-    reading the terms showed they say no such thing — they prohibit *display* of information
-    in "original or repackaged form" and contain no derived-data exemption at all. A licence
-    note is what answers "may we quote this?" long after the run, so an overstatement here is
-    worse than an absence. ADR 0030 records the determination; these tests keep it from
-    drifting back.
+    It has been wrong once and the shape of the error is worth keeping in view. Until
+    5 August 2026 it said "derived figures may be published, raw series may not" as though
+    the terms said so; reading them showed they contain no derived-data exemption at all,
+    and the note was corrected to say the question was unresolved. On 9 August 2026 the
+    operator determined, having read the executed agreement, that derived figures may in
+    fact be published — so the note says that again, and this time it says **who decided**.
+
+    That is the distinction these tests exist to hold. The permission is the same; its basis
+    is not. A note asserting a right with no stated basis is the original error, and it is
+    the one that matters, because this sentence is what answers "may we quote this?" long
+    after everybody has forgotten who read what.
     """
 
     def _note(self) -> str:
         return DEFAULT_POLICIES[Provider.EODHD].licence_note
 
-    def test_it_does_not_claim_a_right_to_publish_derived_figures(self):
+    def test_it_permits_derived_figures(self):
         note = self._note().lower()
-        assert "derived figures may be published" not in note
-        assert "unresolved" in note
+        assert "may be published" in note
+
+    def test_it_says_whose_determination_that_is(self):
+        """The whole difference between this note and the wrong one it replaced."""
+        note = self._note().lower()
+        assert "the operator determined" in note
+        assert "rather than an inference from the published terms" in note
+
+    def test_it_does_not_extend_the_permission_to_the_series_itself(self):
+        """A chart of the price history is the information in repackaged form, which the
+        terms prohibit without ambiguity. The determination was about derived figures."""
+        note = self._note().lower()
+        assert "does not extend to" in note
+        assert "repackaged form" in note
+
+    def test_the_flag_and_the_note_agree(self):
+        """A flag permitting more than the note claims would be a permission with no stated
+        basis, which is exactly the error of the note this replaced."""
+        policy = DEFAULT_POLICIES[Provider.EODHD]
+
+        assert policy.derived_figures_publishable is True
+        assert "may be published" in policy.licence_note.lower()
+
+    def test_a_provider_with_no_determination_publishes_nothing_derived(self):
+        """Silence is not permission. Every other provider is either openly licensed — where
+        the question does not arise — or has had no determination made, and starts closed."""
+        undetermined = [
+            provider
+            for provider, policy in DEFAULT_POLICIES.items()
+            if policy.retention is RetentionClass.LICENSED
+            and "the operator determined" not in policy.licence_note.lower()
+        ]
+
+        for provider in undetermined:
+            assert not DEFAULT_POLICIES[provider].derived_figures_publishable, provider.value
+
+    def test_the_default_is_closed(self):
+        """A paid feed added tomorrow inherits no permission from this one."""
+        assert FetchPolicy.__dataclass_fields__["derived_figures_publishable"].default is False
 
     def test_it_names_the_display_and_repackaging_prohibition(self):
         """Not just redistribution. The wider wording is the whole reason the note changed."""

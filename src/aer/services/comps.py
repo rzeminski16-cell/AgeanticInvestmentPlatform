@@ -12,10 +12,18 @@ The refusal is a **type**, not a check. :func:`build` returns a
 unconfirmed set. That is the same argument ADR 0029 made for the sector block: a rule enforced
 by what a function can return is one a later caller cannot forget.
 
-**Nothing here is shareable.** Every multiple is computed from a price, and the price arrives
-under a personal-use subscription whose terms grant no derived-data exemption (ADR 0030 route
-2). :meth:`~aer.calc.comps.CompsTable.for_audience` is how that is enforced, and the licence
-note recorded on the table is the terms' own wording rather than a summary.
+**What may leave the machine is a licence question, and the answer travels with the table.**
+Every multiple here is computed from a price that arrived under a subscription, so whether a
+computed figure may be published is not this module's judgement to make. It reads the
+determination off the provider's :class:`~aer.fetch.policy.FetchPolicy` and puts it on the
+table, where :meth:`~aer.calc.comps.CompsTable.for_audience` acts on it. For EODHD the
+operator determined on 2026-08-09 that derived figures may be published (ADR 0030, amended),
+so a shareable audience now receives the multiples; the *series* and any chart of it remain
+internal, because those are the information in repackaged form and the terms are not
+ambiguous about them.
+
+The licence note recorded on the table is the terms' own wording plus the determination that
+was made about them, rather than a summary of either.
 """
 
 from __future__ import annotations
@@ -359,6 +367,10 @@ async def build(
         as_of=as_of,
         peer_set_confirmed=True,
         licence_note=DEFAULT_POLICIES[Provider.EODHD].licence_note,
+        # Read from the policy rather than decided here. `aer.calc.comps` is pure and may
+        # not consult a table, so the licence determination has to arrive as data — and
+        # this is the boundary where a licence fact becomes one.
+        derived_figures_publishable=DEFAULT_POLICIES[Provider.EODHD].derived_figures_publishable,
     )
 
     _log.info(

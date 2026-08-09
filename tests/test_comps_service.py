@@ -14,6 +14,7 @@ set.
 from __future__ import annotations
 
 import inspect
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -35,6 +36,7 @@ from aer.db.models import (
     SourceDocument,
     User,
 )
+from aer.fetch.policy import DEFAULT_POLICIES
 from aer.render.document import assemble_document
 from aer.render.markdown import _comps_block, render_markdown
 from aer.services import approvals as approval_service
@@ -435,7 +437,15 @@ class TestAnExcludedPeerIsRecordedNotDropped:
 # -- The licence -----------------------------------------------------------------------------
 
 
-class TestTheTableIsInternalOnly:
+class TestTheLicenceTravelsWithTheTable:
+    """What may be published is read off the provider's policy, never decided here.
+
+    `aer.calc.comps` is pure and may not consult a policy table, so the determination has
+    to arrive as data — and this is the boundary where a licence fact becomes one. The
+    operator determined on 2026-08-09 that EODHD-derived figures may be published (ADR
+    0030, amended), so a shareable audience now receives the multiples.
+    """
+
     async def test_it_carries_the_licence_note_verbatim(self, db_session, scene):
         output = await record_proposal(db_session, scene)
         await confirm(db_session, scene, output)
@@ -449,9 +459,63 @@ class TestTheTableIsInternalOnly:
             as_of=AS_OF,
         )
 
-        assert "no derived-data exemption" in table.licence_note
+        assert "the operator determined" in table.licence_note
 
-    async def test_the_shareable_form_carries_no_figure(self, db_session, scene):
+    async def test_the_determination_is_read_from_the_policy(self, db_session, scene, monkeypatch):
+        """**Read, not asserted**, and the patched policy is what proves the difference.
+
+        Comparing the table's flag to the policy's passes trivially while both happen to
+        say the same thing — a sabotage that hard-coded `True` here escaped exactly that
+        assertion. Turning the policy off and watching the table follow is the only form
+        of this test that can fail when the service stops consulting it.
+        """
+        monkeypatch.setitem(
+            DEFAULT_POLICIES,
+            Provider.EODHD,
+            replace(DEFAULT_POLICIES[Provider.EODHD], derived_figures_publishable=False),
+        )
+        output = await record_proposal(db_session, scene)
+        await confirm(db_session, scene, output)
+
+        table = await service.build(
+            db_session,
+            scene["job"],
+            subject=subject_row(),
+            peer_multiples={"PEER1": (result("ev_ebitda", "10"),)},
+            basis=calc.MultipleBasis.TRAILING_TWELVE_MONTHS,
+            as_of=AS_OF,
+        )
+
+        assert table.derived_figures_publishable is False
+        assert isinstance(table.for_audience(calc.Audience.SHAREABLE), calc.WithheldComps)
+
+    async def test_it_follows_the_policy_when_the_policy_permits(
+        self, db_session, scene, monkeypatch
+    ):
+        """The other direction, so the test above cannot pass by always returning false."""
+        monkeypatch.setitem(
+            DEFAULT_POLICIES,
+            Provider.EODHD,
+            replace(DEFAULT_POLICIES[Provider.EODHD], derived_figures_publishable=True),
+        )
+        output = await record_proposal(db_session, scene)
+        await confirm(db_session, scene, output)
+
+        table = await service.build(
+            db_session,
+            scene["job"],
+            subject=subject_row(),
+            peer_multiples={"PEER1": (result("ev_ebitda", "10"),)},
+            basis=calc.MultipleBasis.TRAILING_TWELVE_MONTHS,
+            as_of=AS_OF,
+        )
+
+        assert table.derived_figures_publishable is True
+        assert table.for_audience(calc.Audience.SHAREABLE) is table
+
+    async def test_a_shareable_audience_now_receives_the_multiples(self, db_session, scene):
+        """The user-visible effect of the determination: the comps section of an exported
+        report shows figures where it used to show a withholding paragraph."""
         output = await record_proposal(db_session, scene)
         await confirm(db_session, scene, output)
         table = await service.build(
@@ -466,10 +530,31 @@ class TestTheTableIsInternalOnly:
             as_of=AS_OF,
         )
 
-        withheld = table.for_audience(calc.Audience.SHAREABLE)
+        shared = table.for_audience(calc.Audience.SHAREABLE)
+
+        assert shared is table
+        assert len(shared.peers) == 2
+
+    async def test_withdrawing_the_determination_closes_it_again(self, db_session, scene):
+        """The gate survived the decision that opened it. A determination is about one
+        agreement and can be revisited, so the machinery that enforces the closed state
+        stays reachable and tested rather than being deleted as dead."""
+        output = await record_proposal(db_session, scene)
+        await confirm(db_session, scene, output)
+        table = await service.build(
+            db_session,
+            scene["job"],
+            subject=subject_row(),
+            peer_multiples={"PEER1": (result("ev_ebitda", "10"),)},
+            basis=calc.MultipleBasis.TRAILING_TWELVE_MONTHS,
+            as_of=AS_OF,
+        )
+
+        closed = replace(table, derived_figures_publishable=False)
+        withheld = closed.for_audience(calc.Audience.SHAREABLE)
 
         assert isinstance(withheld, calc.WithheldComps)
-        assert withheld.peer_count == 2
+        assert withheld.peer_count == 1
         assert "withheld" in withheld.as_paragraph()
 
 

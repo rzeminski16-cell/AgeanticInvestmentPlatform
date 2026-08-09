@@ -469,10 +469,23 @@ class TestTheClientNeverTakesAUrl:
 
     @respx.mock
     async def test_the_licence_note_states_what_may_not_be_done(self, client):
+        """The prohibitions the terms state, which the 2026-08-09 determination did not
+        touch. It settled what may be done with a *computed* figure; displaying the series
+        itself in original or repackaged form is prohibited either way."""
         note = client.licence_note
         assert "prohibited" in note
-        assert "no derived-data exemption" in note
+        assert "repackaged form" in note
         assert "deleted within one month" in note
+
+    @respx.mock
+    async def test_the_licence_note_states_what_may_be_done_and_on_whose_word(self, client):
+        """The other half, and the half that has been wrong before. A note permitting
+        something with no stated basis is the error the 5 August correction removed."""
+        note = client.licence_note
+
+        assert "may be published" in note
+        assert "the operator determined" in note
+        assert "rather than an inference from the published terms" in note
 
 
 class TestAMissingSubscriptionFailsByName:

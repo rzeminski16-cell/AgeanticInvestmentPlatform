@@ -85,6 +85,21 @@ class FetchPolicy:
     # whether an archive can comply with its own terms.
     retention: RetentionClass = RetentionClass.PERMANENT
 
+    # Whether a figure *computed from* this provider's data may leave the machine — a
+    # multiple, a ratio, a score — as distinct from the series itself.
+    #
+    # **Closed by default, and that default is the point.** For an open licence the
+    # question does not arise, because the raw data may be published too. It arises only
+    # for a paid feed, where the terms usually prohibit redistributing the information and
+    # then say nothing at all about what is derived from it. Silence is not permission, so
+    # a provider added tomorrow starts unable to publish anything derived, and opening it
+    # is a decision somebody has to make and record.
+    #
+    # When this is true for a licensed provider, the reason is written into the licence
+    # note beside it, naming who determined it and when. A flag flipped with no such
+    # sentence would be the most consequential undocumented change in this file.
+    derived_figures_publishable: bool = False
+
     burst: int = 1
 
     # Longest a single request may take. A provider that hangs must not hold a research
@@ -161,11 +176,20 @@ DEFAULT_POLICIES: Final[dict[Provider, FetchPolicy]] = {
         licence_note=(
             "Licensed market data under a subscription agreement. Selling, retransmitting, "
             "redistributing or displaying the information in original or repackaged form is "
-            "prohibited without prior written approval. The terms contain no derived-data "
-            "exemption, so whether a figure computed from this series may be published "
-            "externally is unresolved and must not be assumed. Copies must be deleted within "
-            "one month of the subscription ending."
+            "prohibited without prior written approval. Figures computed from it — multiples, "
+            "ratios and other derived values — may be published: the operator determined this "
+            "on 2026-08-09, having read the executed agreement, and the determination is "
+            "theirs rather than an inference from the published terms. It does not extend to "
+            "the series itself or to a chart of it, which remain the information in "
+            "repackaged form. Copies must be deleted within one month of the subscription "
+            "ending."
         ),
+        # Set by the operator's determination of 2026-08-09, recorded in the note above and
+        # in ADR 0030's amendment. **The note and this flag must agree**: the note is what
+        # is stamped on every source document and what answers "may we quote this?" years
+        # later, and a flag that permitted more than the note claimed would be a permission
+        # with no stated basis. `TestTheEodhdLicenceNote` holds them together.
+        derived_figures_publishable=True,
         # From the published limit of 1,000 requests per minute (16.6 per second), with the
         # same headroom the SEC policy keeps below its own published rate. This platform pulls
         # a handful of series per run, roughly weekly, so the ceiling is nowhere near binding

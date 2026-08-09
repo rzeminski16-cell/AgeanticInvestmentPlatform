@@ -191,3 +191,54 @@ what the withholding enforces.
 If the executed agreement at checkout differs from the public marketing pages — which the
 "What would settle this" section above flags as common — finding 1 may soften and route 1
 may become unnecessary rather than merely expensive. Reading it remains worth ten minutes.
+
+---
+
+## Amendment, 2026-08-09 — derived figures may be published
+
+**Finding 2 above is superseded by an operator determination.** The operator, who is the
+subscriber and can read the executed agreement, has determined that figures *computed from*
+EODHD data — multiples, ratios, other derived values — may be published. The platform now
+behaves accordingly.
+
+**The basis is the determination, not the published terms**, and the distinction is the
+whole reason this amendment is written rather than the flag simply being flipped. Finding 2
+recorded that the public terms contain no derived-data exemption and that the question was
+therefore unresolved. That finding was, and remains, an accurate reading of what could be
+read from this repository. What has changed is that somebody with access to the actual
+agreement has answered the question. The licence note says so in those words — "the operator
+determined this on 2026-08-09, having read the executed agreement, and the determination is
+theirs rather than an inference from the published terms" — because the note is what answers
+"may we quote this?" years later, and a permission with no stated basis is precisely the
+error the 5 August correction existed to fix.
+
+### What the determination does not cover
+
+**The series itself, and any chart of it.** The terms prohibit selling, retransmitting,
+redistributing or *displaying* the information in its "original or repackaged form", and
+that prohibition is not ambiguous. A computed P/E is derived; a plot of the price history is
+the series redrawn. So `price_relative` keeps `exportable=False`, the report assembler keeps
+refusing a non-exportable chart, and the determination is scoped in the licence note to
+match.
+
+### How it is encoded
+
+`FetchPolicy.derived_figures_publishable`, defaulting to **false**. For an openly licensed
+source the question does not arise; for a paid feed, silence in the terms is not permission,
+so a provider added tomorrow starts closed and opening it is a decision somebody makes and
+records. `aer.services.comps.build` reads the flag off the policy and puts it on the
+`CompsTable`, because `aer.calc.comps` is pure and may not consult a table — so a licence
+fact becomes data at exactly one boundary.
+
+**`CompsTable.for_audience` and `WithheldComps` survive.** Deleting them would have made the
+permission unconditional and undated, and the next paid feed would silently inherit a
+decision made about a different agreement.
+`test_withdrawing_the_determination_closes_it_again` keeps the closed path reachable and
+tested, so revisiting this is a one-line change rather than a rebuild.
+
+### Consequence
+
+The comps section of an exported report now shows the multiples where it previously showed a
+withholding paragraph. Route 2's other halves are unaffected: the internal-only price chart,
+the retention path, the weighted-call ledger and the personal-use limitation on future
+commercial use of the software all stand exactly as recorded above.

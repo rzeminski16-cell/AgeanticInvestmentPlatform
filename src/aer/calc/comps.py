@@ -257,10 +257,15 @@ class MultipleBand:
 class CompsTable:
     """A subject, its confirmed peers, and everything left out.
 
-    **Not renderable on its own.** :meth:`for_audience` is the only way to reach the rows, and
-    it returns nothing at all for a shareable audience. See :class:`Audience`, and the same
-    argument ADR 0029 made for the sector block: a rule enforced by a type is one a later
-    template cannot forget.
+    **Not renderable on its own.** :meth:`for_audience` is the only way to reach the rows,
+    and for a shareable audience it returns them only when the licence behind the data
+    permits a computed figure to be published. See :class:`Audience`, and the same argument
+    ADR 0029 made for the sector block: a rule enforced by a type is one a later template
+    cannot forget.
+
+    The gate survived the determination that opened it (ADR 0030, amended 2026-08-09).
+    Deleting it would have made the permission unconditional and undated, and the next
+    paid feed would inherit a decision made about a different agreement.
     """
 
     subject: PeerRow
@@ -276,15 +281,34 @@ class CompsTable:
 
     licence_note: str = ""
 
+    # Whether the data behind these multiples may leave the machine in computed form.
+    #
+    # **Passed in, never looked up.** This module is pure: it may not read a policy table,
+    # a setting or a clock. So the licence determination arrives as data from
+    # :func:`aer.services.comps.build`, which reads it from the provider's `FetchPolicy`.
+    # That also makes the property testable at both settings without a provider existing.
+    #
+    # Defaults to false, so a table constructed by a caller that has not thought about the
+    # licence withholds. The safe answer is the one you get by not deciding.
+    derived_figures_publishable: bool = False
+
     def for_audience(self, audience: Audience) -> CompsTable | WithheldComps:
         """The table, or a notice standing in its place.
 
-        A shareable audience gets a :class:`WithheldComps`, which **has no rows**. A renderer
-        handed one cannot print a figure from it because there is no figure in it — the
-        licence restriction is enforced by what the object contains rather than by a flag the
-        template is trusted to read.
+        **Two questions, and only one of them is about the audience.** An internal surface
+        always gets the table. A shareable one gets it only if the licence behind the data
+        permits a computed figure to be published — and if it does not, what comes back is
+        a :class:`WithheldComps`, which *has no rows*. A renderer handed one cannot print a
+        figure from it because there is no figure in it; the restriction is enforced by
+        what the object contains rather than by a flag a template is trusted to read.
+
+        The multiples are the only thing in here. A :class:`PeerRow` carries an identifier,
+        a name, a period and ratios — no price, no market capitalisation, nothing that is
+        the vendor's series in another shape. So "may a derived figure be published?" is
+        the whole question for this object, and a source whose answer is yes has nothing
+        left to withhold.
         """
-        if audience is Audience.INTERNAL:
+        if audience is Audience.INTERNAL or self.derived_figures_publishable:
             return self
         return WithheldComps(
             peer_count=len(self.peers),
