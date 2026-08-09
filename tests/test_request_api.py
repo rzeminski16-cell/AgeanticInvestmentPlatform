@@ -16,8 +16,8 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from aer.core.enums import RequestStatus, UserRole
-from aer.db.models import AuditEvent, Job, ResearchRequest, User
+from aer.core.enums import JobStatus, Provider, RequestStatus, SourceTier, UserRole
+from aer.db.models import Artefact, AuditEvent, Job, ResearchRequest, SourceDocument, User
 from aer.services import runs as run_service
 from tests.api_fixtures import build_app, client_for
 
@@ -100,6 +100,54 @@ async def _start_a_run(engine, request_id: str) -> None:
         request = await session.get(ResearchRequest, uuid.UUID(request_id))
         assert request is not None
         await run_service.start_run(session, request=request)
+        await session.commit()
+
+
+async def _finish_the_run(engine, request_id: str) -> None:
+    """Bring a request's run to a terminal state, the way a completed run would.
+
+    A purge refuses while a worker might still be writing, so a test about *removing* a
+    researched request has to research it and then let the run finish.
+    """
+    factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+    async with factory() as session:
+        job = await session.scalar(
+            select(Job).where(Job.request_id == uuid.UUID(request_id)).order_by(Job.id.desc())
+        )
+        assert job is not None
+        job.status = JobStatus.SUCCEEDED
+        job.finished_at = datetime.now(UTC)
+        await session.commit()
+
+
+async def _leave_evidence(engine, request_id: str) -> None:
+    """Give a request a gathered source document.
+
+    What makes `delete_request` refuse is not that a run happened but that it left
+    something behind, so a test contrasting the safe deletion with the destructive one has
+    to leave something behind.
+    """
+    factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+    async with factory() as session:
+        job = await session.scalar(
+            select(Job).where(Job.request_id == uuid.UUID(request_id)).order_by(Job.id.desc())
+        )
+        artefact = Artefact(
+            sha256="e" * 64, media_type="text/html", size_bytes=11, storage_key="ee/e"
+        )
+        session.add(artefact)
+        await session.flush()
+        session.add(
+            SourceDocument(
+                request_id=uuid.UUID(request_id),
+                job_id=job.id if job is not None else None,
+                artefact_id=artefact.id,
+                url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",
+                provider=Provider.SEC_EDGAR,
+                source_tier=SourceTier.T1_REGULATORY,
+                retrieved_at=datetime.now(UTC),
+            )
+        )
         await session.commit()
 
 
@@ -426,3 +474,108 @@ class TestRead:
         assert (await api.get(f"{ENDPOINT}?limit=0")).status_code == 422
         assert (await api.get(f"{ENDPOINT}?limit=500")).status_code == 422
         assert (await api.get(f"{ENDPOINT}?offset=-1")).status_code == 422
+
+
+class TestArchiveAndRestore:
+    """The reversible removal, and the one thing `DELETE` could never offer: it works on a
+    request that has been researched, because it destroys nothing."""
+
+    async def test_a_request_with_a_run_can_be_archived(self, api, db_engine):
+        created = (await api.post(ENDPOINT, json=payload())).json()
+        await _start_a_run(db_engine, created["id"])
+
+        response = await api.post(f"{ENDPOINT}/{created['id']}/archive")
+
+        assert response.status_code == 200
+        assert response.json()["archived_at"] is not None
+
+    async def test_an_archived_request_leaves_the_default_listing(self, api):
+        created = (await api.post(ENDPOINT, json=payload())).json()
+        await api.post(f"{ENDPOINT}/{created['id']}/archive")
+
+        live = (await api.get(ENDPOINT)).json()
+        archived = (await api.get(ENDPOINT, params={"archived": True})).json()
+
+        assert created["id"] not in [row["id"] for row in live]
+        assert created["id"] in [row["id"] for row in archived]
+
+    async def test_it_is_still_readable_by_id(self, api):
+        """Archived is out of the way, not gone. A bookmark still resolves."""
+        created = (await api.post(ENDPOINT, json=payload())).json()
+        await api.post(f"{ENDPOINT}/{created['id']}/archive")
+
+        assert (await api.get(f"{ENDPOINT}/{created['id']}")).status_code == 200
+
+    async def test_restoring_puts_it_back_on_the_list(self, api):
+        created = (await api.post(ENDPOINT, json=payload())).json()
+        await api.post(f"{ENDPOINT}/{created['id']}/archive")
+
+        response = await api.post(f"{ENDPOINT}/{created['id']}/restore")
+
+        assert response.status_code == 200
+        assert response.json()["archived_at"] is None
+        assert created["id"] in [row["id"] for row in (await api.get(ENDPOINT)).json()]
+
+    async def test_archiving_twice_is_a_409(self, api):
+        created = (await api.post(ENDPOINT, json=payload())).json()
+        await api.post(f"{ENDPOINT}/{created['id']}/archive")
+
+        response = await api.post(f"{ENDPOINT}/{created['id']}/archive")
+
+        assert response.status_code == 409
+
+    async def test_archiving_an_unknown_request_is_a_404(self, api):
+        response = await api.post(f"{ENDPOINT}/00000000-0000-0000-0000-000000000000/archive")
+        assert response.status_code == 404
+
+
+class TestPurge:
+    """The destructive endpoint. Its own path rather than a flag on `DELETE`, so a caller
+    that wanted the safe deletion cannot get this one by setting a query parameter."""
+
+    async def test_it_removes_a_request_a_delete_would_refuse(self, api, db_engine, db_session):
+        created = (await api.post(ENDPOINT, json=payload())).json()
+        await _start_a_run(db_engine, created["id"])
+        await _leave_evidence(db_engine, created["id"])
+        await _finish_the_run(db_engine, created["id"])
+        assert (await api.delete(f"{ENDPOINT}/{created['id']}")).status_code == 409
+
+        response = await api.post(f"{ENDPOINT}/{created['id']}/purge")
+
+        assert response.status_code == 200
+        assert (await api.get(f"{ENDPOINT}/{created['id']}")).status_code == 404
+
+    async def test_it_reports_what_it_removed(self, api, db_engine):
+        created = (await api.post(ENDPOINT, json=payload())).json()
+        await _start_a_run(db_engine, created["id"])
+        await _finish_the_run(db_engine, created["id"])
+
+        removed = (await api.post(f"{ENDPOINT}/{created['id']}/purge")).json()
+
+        assert removed["jobs"] == 1
+
+    async def test_the_preview_matches_and_removes_nothing(self, api, db_engine):
+        created = (await api.post(ENDPOINT, json=payload())).json()
+        await _start_a_run(db_engine, created["id"])
+        await _finish_the_run(db_engine, created["id"])
+
+        preview = (await api.get(f"{ENDPOINT}/{created['id']}/removal-preview")).json()
+
+        assert preview["jobs"] == 1
+        assert (await api.get(f"{ENDPOINT}/{created['id']}")).status_code == 200
+        assert (await api.post(f"{ENDPOINT}/{created['id']}/purge")).json() == preview
+
+    async def test_a_live_run_is_a_409(self, api, db_engine, db_session):
+        """Deleting rows a worker is writing to is a crash in the worker and a half-deleted
+        request here. `_start_a_run` leaves the job queued, which is exactly that state."""
+        created = (await api.post(ENDPOINT, json=payload())).json()
+        await _start_a_run(db_engine, created["id"])
+
+        response = await api.post(f"{ENDPOINT}/{created['id']}/purge")
+
+        assert response.status_code == 409
+        assert await db_session.get(ResearchRequest, uuid.UUID(created["id"])) is not None
+
+    async def test_purging_an_unknown_request_is_a_404(self, api):
+        response = await api.post(f"{ENDPOINT}/00000000-0000-0000-0000-000000000000/purge")
+        assert response.status_code == 404

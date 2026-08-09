@@ -27,6 +27,7 @@ from sqlalchemy import (
     ARRAY,
     CheckConstraint,
     Date,
+    DateTime,
     ForeignKey,
     Index,
     Numeric,
@@ -132,6 +133,24 @@ class ResearchRequest(Base):
 
     created_at: Mapped[Timestamp] = created_at_column()
 
+    # When the operator put this request out of the way, or NULL while it is on the list.
+    #
+    # **A timestamp rather than a boolean, and nullable rather than defaulted.** "Archived"
+    # is an event somebody performed on a date, and the date is the useful half: a list of
+    # things hidden six months ago reads differently from one hidden this morning. A
+    # boolean would answer only the question the list page asks and none of the questions
+    # asked of it afterwards.
+    #
+    # Archiving is deliberately *not* a `RequestStatus`. Status describes where a request
+    # is in the research lifecycle, and being filed away is orthogonal to that — an
+    # archived request keeps the status it earned, so restoring it does not have to guess
+    # what it used to be.
+    archived_at: Mapped[Timestamp | None] = mapped_column(DateTime(timezone=True))
+
+    @property
+    def is_archived(self) -> bool:
+        return self.archived_at is not None
+
     # -- Relationships -----------------------------------------------------------------
     user: Mapped[User] = relationship(back_populates="requests")
     plans: Mapped[list[ResearchPlan]] = relationship(
@@ -188,4 +207,12 @@ class ResearchRequest(Base):
         ),
         Index("ix_research_requests_user_id_created_at", "user_id", text("created_at DESC")),
         Index("ix_research_requests_ticker_as_of_date", "ticker", "as_of_date"),
+        # Partial, because the list page's default question is "what is not archived?" and
+        # a partial index answers it without carrying the rows it is there to exclude.
+        Index(
+            "ix_research_requests_live",
+            "user_id",
+            text("created_at DESC"),
+            postgresql_where=text("archived_at IS NULL"),
+        ),
     )

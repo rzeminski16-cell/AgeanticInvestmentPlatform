@@ -24,11 +24,19 @@ fetched anything and the request became permanently uneditable and undeletable, 
 nothing anywhere to justify it — a dead end the operator could not get out of. A run that
 gathered nothing, cited nothing and spent nothing leaves nothing an edit could falsify.
 
-Deletion follows the same line, which is threat T16's retention rule arriving early in its
-safest form: nothing that has evidence or a report behind it can be removed by this code at
-all. Spend is deliberately *not* on that list — since migration 0009 the ``costs`` rows
-outlive the request, so the month's total is unaffected by what gets deleted and there is
-nothing left for a refusal to protect.
+**Three ways to get rid of a request, and the difference between them is the point.**
+:func:`delete_request` is the safe one and follows the line above exactly — it refuses
+anything with evidence or a report behind it, which is threat T16's retention rule arriving
+early in its safest form. :func:`archive_request` destroys nothing at all and therefore
+refuses nothing; it is the one the list page offers, and the one an operator wanting a
+tidier list actually needs. :func:`purge_request` is the destructive one, added because
+"researched, therefore permanent" left the operator with no way to remove a finished run at
+all. It deletes the request and everything derived from it and keeps the three things that
+would be a lie to lose: the audit chain, the spend ledger and the artefacts.
+
+Spend is deliberately not a reason to refuse any of them — since migration 0009 the
+``costs`` rows outlive the request, so the month's total is unaffected by what gets deleted
+and there is nothing left for a refusal to protect.
 """
 
 from __future__ import annotations
@@ -38,10 +46,10 @@ from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Any
+from typing import Any, Final
 
 import structlog
-from sqlalchemy import Select, func, select
+from sqlalchemy import ColumnElement, Select, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
@@ -53,9 +61,11 @@ from aer.core.schemas.request import (
     check_limits,
 )
 from aer.core.universe import Exclusion, ExclusionRule, check_universe
+from aer.db.base import Base
 from aer.db.models import (
     AuditEvent,
     Cost,
+    FinancialFact,
     Job,
     Report,
     ResearchRequest,
@@ -65,6 +75,7 @@ from aer.db.models import (
 from aer.errors import ConflictError, ValidationError
 
 __all__ = [
+    "archive_request",
     "count_requests",
     "create_request",
     "delete_request",
@@ -72,10 +83,27 @@ __all__ = [
     "immutable_reason",
     "limits_from",
     "list_requests",
+    "purge_request",
+    "removal_preview",
+    "request_spend",
+    "restore_request",
     "update_request",
 ]
 
 _log = structlog.get_logger("aer.services.requests")
+
+# The only foreign-key action that means "this row is part of that one" — the path the
+# database would itself propagate a delete along. `SET NULL` says the row outlives its
+# referent, and `RESTRICT` says only "remove me first", which constrains the *order* of a
+# deletion and says nothing about who owns what. See `_owned_scopes`.
+_OWNING_EDGE: Final = "CASCADE"
+
+# The one table a purge takes that the schema does not declare as owned. A fact is pinned
+# to the source document that supplied it by a `RESTRICT`, so it has no cascade path to the
+# request — but the document cannot be removed while the fact is there, so leaving facts
+# behind would simply make the purge fail. Named as a constant so the exception is visible
+# and so a test can assert it is still the only one.
+FACTS_FOLLOW_THEIR_DOCUMENT: Final = "financial_facts"
 
 # Which input an exclusion is the operator's fault for, so a form can highlight the field
 # they can actually change. Getting an "this is a fund" message next to the exchange box
@@ -493,6 +521,300 @@ async def delete_request(
     )
 
 
+# ==========================================================================================
+# Getting a request out of the way, and — separately — destroying it
+# ==========================================================================================
+#
+# Two verbs, deliberately far apart in what they cost to get wrong. **Archiving is the one
+# an operator should reach for**, and it is the one the list page offers: it hides the row,
+# keeps every byte, and is undone by clicking again. Purging is the other one, and there is
+# no version of it that can be undone.
+
+
+async def archive_request(
+    session: AsyncSession,
+    *,
+    request: ResearchRequest,
+    actor: User,
+) -> ResearchRequest:
+    """Put a request out of the way without destroying anything.
+
+    **No immutability check, and that is the point.** Everything :func:`immutable_reason`
+    protects — the report, the provenance of gathered evidence — is exactly as intact after
+    this as before it, because nothing is removed. A finished run is in fact the *usual*
+    thing to archive; refusing it would leave the operator with the problem this exists to
+    solve.
+
+    Raises:
+        ConflictError: If it is already archived. A second archive is not a second event,
+            and recording it as one would put a false date on the first.
+    """
+    if request.archived_at is not None:
+        message = (
+            f"This request was archived on {request.archived_at:%-d %B %Y}. Restore it "
+            "first if you meant to change that."
+        )
+        raise ConflictError(message, context={"request_id": str(request.id)})
+
+    request.archived_at = datetime.now(UTC)
+    await _record(
+        session,
+        actor=str(actor.id),
+        event_type="request.archived",
+        request_id=request.id,
+        payload={"request_id": str(request.id), "ticker": request.ticker},
+    )
+    await session.flush()
+
+    _log.info("request.archived", request_id=str(request.id), actor=str(actor.id))
+    return request
+
+
+async def restore_request(
+    session: AsyncSession,
+    *,
+    request: ResearchRequest,
+    actor: User,
+) -> ResearchRequest:
+    """Put an archived request back on the list.
+
+    Raises:
+        ConflictError: If it was not archived.
+    """
+    if request.archived_at is None:
+        message = "This request is not archived, so there is nothing to restore."
+        raise ConflictError(message, context={"request_id": str(request.id)})
+
+    request.archived_at = None
+    await _record(
+        session,
+        actor=str(actor.id),
+        event_type="request.restored",
+        request_id=request.id,
+        payload={"request_id": str(request.id), "ticker": request.ticker},
+    )
+    await session.flush()
+
+    _log.info("request.restored", request_id=str(request.id), actor=str(actor.id))
+    return request
+
+
+async def removal_preview(session: AsyncSession, *, request: ResearchRequest) -> dict[str, int]:
+    """How many rows a purge would delete, by table, excluding the empty ones.
+
+    Shown in the confirmation before anything happens. A destructive action whose dialog
+    says "are you sure?" and nothing else is asking the operator to confirm a number they
+    have not been told.
+    """
+    counts: dict[str, int] = {}
+    for name, scope in _owned_scopes(request.id):
+        found = await session.scalar(select(func.count()).select_from(scope.subquery()))
+        if found:
+            counts[name] = int(found)
+    return counts
+
+
+async def purge_request(
+    session: AsyncSession,
+    *,
+    request: ResearchRequest,
+    actor: User,
+) -> dict[str, int]:
+    """Delete a request and everything derived from it. Returns what was removed.
+
+    **This is the destructive one**, and unlike :func:`delete_request` it does not refuse a
+    request that has been researched — refusing was the whole complaint. What it keeps
+    instead is everything that would be a lie to lose:
+
+    * **The audit chain.** ``audit_events`` carries ``request_id`` as a plain column with
+      no foreign key, precisely so the record of a deletion survives the thing deleted.
+    * **The spend.** ``costs`` references its job with ``SET NULL`` since migration 0009,
+      so the month's total is unchanged. A monthly cap you can get under by deleting what
+      you spent it on is not a cap.
+    * **The artefacts.** Content-addressed and shared between runs, so they are never a
+      request's to destroy. ``aer gc-artefacts`` collects the ones nothing points at.
+
+    The order comes from SQLAlchemy's own dependency sort, reversed, so a ``RESTRICT``
+    reference — a citation pinning its extraction, a claim pinning its calculation — is
+    never asked to break. If one cannot be honoured this fails saying which table, rather
+    than steamrollering it.
+
+    Raises:
+        ConflictError: If a run is still live, or if something outside this request holds a
+            ``RESTRICT`` reference to evidence inside it.
+    """
+    latest = await session.scalar(
+        select(Job).where(Job.request_id == request.id).order_by(Job.started_at.desc().nullslast())
+    )
+    if latest is not None and not latest.status.is_terminal:
+        message = (
+            f"A run is {latest.status.value.lower().replace('_', ' ')} for this request. "
+            "Cancel it first — deleting what a worker is still writing to would fail "
+            "halfway and leave the request in pieces."
+        )
+        raise ConflictError(message, context={"request_id": str(request.id)})
+
+    await _refuse_if_others_depend_on_it(session, request=request)
+
+    request_id = request.id
+    spent = await _spend_on(session, request_id=request_id)
+    removed = await removal_preview(session, request=request)
+
+    await _record(
+        session,
+        actor=str(actor.id),
+        event_type="request.purged",
+        request_id=request_id,
+        payload={
+            "request_id": str(request_id),
+            "ticker": request.ticker,
+            "exchange": request.exchange,
+            "company_name": request.company_name,
+            "as_of_date": request.as_of_date.isoformat(),
+            "status": request.status.value,
+            # The cost rows outlive this and lose their job reference. Without this line
+            # the money would still be counted and no longer explicable.
+            "spend_gbp": str(spent),
+            # What went, by table. "A request was deleted" is not an answer to "where did
+            # those four hundred facts go?"
+            "removed": removed,
+        },
+    )
+
+    for name, scope in _owned_scopes(request_id):
+        table = Base.metadata.tables[name]
+        await session.execute(delete(table).where(table.c.id.in_(scope)))
+
+    await session.delete(request)
+    await session.flush()
+
+    _log.warning(
+        "request.purged",
+        request_id=str(request_id),
+        actor=str(actor.id),
+        spend_gbp=str(spent),
+        removed=removed,
+    )
+    return removed
+
+
+async def _refuse_if_others_depend_on_it(
+    session: AsyncSession, *, request: ResearchRequest
+) -> None:
+    """Refuse a purge that another request's research is resting on.
+
+    **Facts are shared and the schema knows it.** They are deduplicated on an observation
+    key that deliberately excludes the source document, so the second run of a company
+    inserts none of them and reads the first run's — through the first run's source
+    document, pinned by a ``RESTRICT``. Purging that first request would take facts a
+    surviving report cites.
+
+    The database would refuse anyway, which is the point of ``RESTRICT``; this exists so
+    the refusal arrives as a sentence naming the table rather than as a foreign-key
+    violation from inside a half-finished transaction, with the session already aborted and
+    the page unable to say what went wrong.
+
+    Checked over every ``RESTRICT`` edge rather than the fact table alone, so the guard
+    keeps up with a schema that grows one.
+    """
+    scopes = dict(_owned_scopes(request.id))
+    blocked: list[str] = []
+
+    for referring in Base.metadata.sorted_tables:
+        for key in sorted(referring.foreign_keys, key=lambda fk: fk.parent.name):
+            target = key.column.table.name
+            if key.ondelete != "RESTRICT" or target not in scopes:
+                continue
+            outsiders = (
+                select(func.count()).select_from(referring).where(key.parent.in_(scopes[target]))
+            )
+            if referring.name in scopes:
+                # Its own rows go too, so only rows belonging to some *other* request are
+                # a reason to stop.
+                outsiders = outsiders.where(referring.c.id.not_in(scopes[referring.name]))
+            if await session.scalar(outsiders):
+                blocked.append(f"{referring.name} → {target}")
+
+    if not blocked:
+        return
+
+    message = (
+        "Another request's research depends on evidence gathered by this one, so removing "
+        f"it would break that: {', '.join(sorted(set(blocked)))}. This is what happens when "
+        "the same company has been researched twice — the later run reads the earlier run's "
+        "facts rather than storing a second copy. Remove the other request first, or "
+        "archive this one instead."
+    )
+    raise ConflictError(message, context={"request_id": str(request.id), "blocked": blocked})
+
+
+def _owned_scopes(request_id: uuid.UUID) -> tuple[tuple[str, Select[Any]], ...]:
+    """Every table a purge may empty for one request, in the order it must be emptied.
+
+    Walked from the foreign keys rather than listed, for the reason
+    :func:`aer.cli._research_tables` gives: a hand-written list that has gone stale is how
+    a "deleted" request keeps half its rows.
+
+    **Ownership follows ``CASCADE`` and only ``CASCADE``**, because that is the schema
+    saying "this row is part of that one" — it is the path the database would itself
+    propagate a delete along. The other two actions say something different and neither
+    means ownership:
+
+    * ``SET NULL`` says the row outlives its referent. Four tables reach a request only
+      this way and each would be a real loss: ``costs`` (the spend ledger, nulled to its
+      job since migration 0009), ``price_bars`` and ``corporate_actions`` (per security,
+      shared by every request that looked at it), and ``macro_observations`` (a vintage
+      belongs to nobody's run).
+    * ``RESTRICT`` says "remove me before you remove that", which is a constraint on the
+      order of deletion and not a statement about who owns what. Following it was this
+      walk's first bug: ``claims.financial_fact_id`` is a ``RESTRICT`` reference, so a
+      *later* request's claim that happened to cite this request's fact was pulled into
+      the scope and silently deleted with it.
+
+    ``financial_facts`` is the single exception, and it is a policy decision rather than
+    something the schema declares. A fact has no ``CASCADE`` path to a request — it is
+    pinned to the source document that supplied it by a ``RESTRICT``, so the document
+    cannot go while the fact remains. Deleting the request's research and leaving its facts
+    behind would fail on that pin, so the facts go too, scoped through the documents this
+    request acquired. ``TestOnlyOneTableIsAnException`` fails if the schema ever grows a
+    second table in this position, so the exception cannot quietly become a list.
+    """
+    # One forward pass over the dependency sort, which puts every parent before its
+    # children — so by the time a table is reached, the scope of everything it references
+    # has already been built and can simply be nested as a subquery.
+    scopes: dict[str, Select[Any]] = {
+        "research_requests": select(ResearchRequest.id).where(ResearchRequest.id == request_id)
+    }
+    for table in Base.metadata.sorted_tables:
+        if table.name in scopes:
+            continue
+        owning = [
+            fk.parent.in_(scopes[fk.column.table.name])
+            for fk in sorted(table.foreign_keys, key=lambda fk: fk.parent.name)
+            if fk.ondelete == _OWNING_EDGE and fk.column.table.name in scopes
+        ]
+        if table.name == FACTS_FOLLOW_THEIR_DOCUMENT:
+            owning.append(FinancialFact.source_document_id.in_(scopes["source_documents"]))
+        if owning:
+            scopes[table.name] = select(table.c.id).where(or_(*owning))
+
+    return tuple(
+        (table.name, scopes[table.name])
+        for table in reversed(Base.metadata.sorted_tables)
+        if table.name in scopes and table.name != "research_requests"
+    )
+
+
+async def request_spend(session: AsyncSession, *, request: ResearchRequest) -> Decimal:
+    """What this request's runs have cost so far.
+
+    Public because the removal confirmation shows it: money already spent is the one thing
+    a deletion cannot give back, and an operator deciding whether to destroy a run should
+    see what it cost to produce.
+    """
+    return await _spend_on(session, request_id=request.id)
+
+
 async def _spend_on(session: AsyncSession, *, request_id: uuid.UUID) -> Decimal:
     """What this request's runs have cost, read before its jobs are deleted."""
     total = await session.scalar(
@@ -530,11 +852,17 @@ async def list_requests(
     user_id: uuid.UUID,
     limit: int = 50,
     offset: int = 0,
+    archived: bool = False,
 ) -> Sequence[ResearchRequest]:
-    """Most recent first."""
+    """Most recent first, live by default.
+
+    ``archived`` selects *only* the archived ones rather than adding them to the live
+    list. Archiving is for getting something out of the way, and a filter that quietly
+    kept it in view would not be archiving.
+    """
     result = await session.scalars(
         select(ResearchRequest)
-        .where(ResearchRequest.user_id == user_id)
+        .where(ResearchRequest.user_id == user_id, _archived_filter(archived))
         .order_by(ResearchRequest.created_at.desc(), ResearchRequest.id.desc())
         .limit(limit)
         .offset(offset)
@@ -542,11 +870,20 @@ async def list_requests(
     return result.all()
 
 
-async def count_requests(session: AsyncSession, *, user_id: uuid.UUID) -> int:
+async def count_requests(
+    session: AsyncSession, *, user_id: uuid.UUID, archived: bool = False
+) -> int:
     total = await session.scalar(
-        select(func.count()).select_from(ResearchRequest).where(ResearchRequest.user_id == user_id)
+        select(func.count())
+        .select_from(ResearchRequest)
+        .where(ResearchRequest.user_id == user_id, _archived_filter(archived))
     )
     return int(total or 0)
+
+
+def _archived_filter(archived: bool) -> ColumnElement[bool]:
+    column = ResearchRequest.archived_at
+    return column.is_not(None) if archived else column.is_(None)
 
 
 # -- Audit and diffing -----------------------------------------------------------------

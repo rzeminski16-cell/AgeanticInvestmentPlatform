@@ -293,6 +293,11 @@ class ResearchRequestSummary(BaseModel):
     status: RequestStatus
     created_at: datetime
 
+    # When the operator filed this away, or null while it is on the list. On the summary
+    # rather than only the detail because the listing is where the distinction is acted on,
+    # and a client filtering by it should not have to fetch each row to find out.
+    archived_at: datetime | None = None
+
 
 class ResearchRequestRead(ResearchRequestSummary):
     """A persisted request, as returned by the API."""

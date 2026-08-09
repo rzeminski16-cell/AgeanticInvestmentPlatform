@@ -1,6 +1,6 @@
 # Gap analysis — what is missing, as of 2026-08-08
 
-*Updated after A1–A4, then A21, B13 and A9 were closed. Items struck through are done; the
+*Updated after A1–A4, then A21, B13 and A9, and then B1. Items struck through are done; the
 reasoning is kept because a gap and the shape of its fix are worth reading together.*
 
 Written after the first end-to-end live runs, from the code rather than from the plan. The
@@ -106,7 +106,7 @@ before it needs code.
 
 | # | Gap | Notes |
 |---|---|---|
-| B1 | **No way to delete or archive a research request** | `aer reset-research` is all-or-nothing. The requests list offers no per-row control. |
+| ~~B1~~ | ~~**No way to delete or archive a research request**~~ | **Closed, with both verbs.** Archive is one click on the list, destroys nothing and is undone by one more; it is accepted whatever state the request is in, which is the case `delete_request` had to refuse. Remove is a confirmation page listing what would be destroyed by table, what survives, and what the run cost — then deletes the request and everything derived from it, walking the schema's own dependency sort. The audit chain, the spend ledger and the content-addressed artefacts all survive, and a purge is refused when a later run's claims cite evidence this one gathered, which is the common case for a company researched twice. |
 | B2 | **Valuation, DCF, scenarios and sensitivities never appear in a run** | Not A1 any more: the analysis runs, and the valuation is blocked on confirmed assumptions by design. See the section above. |
 | B3 | **Comparables never appear** | A20, and the same assumption question for the multiples that need a forecast. |
 | ~~B4~~ | ~~**A run reads one filing**~~ | **Closed.** A run now reads the annual report and the recent current reports as well as the aggregate. Whether the recent-developments worker does better with them is the next live run's question. |
@@ -148,17 +148,16 @@ Tasks 29–32 remain genuinely outstanding.
 
 ## Suggested order
 
-**A1 to A4, A21, B13 and A9 are done.** What that leaves, in the order it is worth doing:
+**A1 to A4, A21, B13, A9 and B1 are done.** What that leaves, in the order it is worth doing:
 
-1. **B1 — delete or archive a request.** Small, asked for repeatedly, and still not built.
-2. **A14 — prompt caching.** The composition is already ordered for it and never asks for
+1. **A14 — prompt caching.** The composition is already ordered for it and never asks for
    it. The cheapest remaining saving by a distance, now that A2 means the meter can show
    what it saves.
-3. **The valuation path.** Not a line above, because it is a design question rather than a
+2. **The valuation path.** Not a line above, because it is a design question rather than a
    gap: a DCF needs confirmed assumptions, so it needs either an operator working through
    the assumptions page or a proposing agent — and the second needs an ADR before it needs
    code.
-4. **A10 to A12** — backups, audit-chain verification, run replay. A9 made the first of
+3. **A10 to A12** — backups, audit-chain verification, run replay. A9 made the first of
    these more pressing rather than less: the sweep can now tell an operator the store has
    lost a document, and there is still nothing to restore it from.
-5. The rest of Phase 6 in the order `docs/PLAN.md` gives.
+4. The rest of Phase 6 in the order `docs/PLAN.md` gives.

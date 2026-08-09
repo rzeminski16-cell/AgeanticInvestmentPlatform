@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Remove {{ item.ticker }} &middot; Ageiantic Equity Research{% endblock %}
+
+{#
+  The confirmation for the one destructive action in the application, and it is a page
+  rather than a browser dialogue for a single reason: the operator has to read the counts
+  before deciding, and confirm() cannot hold them. What survives is stated as plainly as
+  what goes, because "everything will be deleted" is not true and a warning that overstates
+  is a warning people learn to click through.
+#}
+
+{% block content %}
+  <nav class="text-sm">
+    <a href="/requests" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
+      Research requests
+    </a>
+    <span class="px-1 text-slate-400">/</span>
+    <a
+      href="/requests/{{ item.id }}"
+      class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
+    >
+      {{ item.ticker }}
+    </a>
+  </nav>
+
+  <h1 class="mt-4 text-2xl font-semibold tracking-tight">
+    Remove {{ item.company_name }}?
+  </h1>
+  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+    This destroys the request for
+    <span class="font-mono">{{ item.ticker }}</span>
+    as at {{ item.as_of_date.isoformat() }}, and everything its runs produced.
+    <strong class="font-semibold text-slate-900 dark:text-slate-100">It cannot be undone.</strong>
+    Archiving takes it off the list and keeps all of it.
+  </p>
+
+  {% if removed %}
+    <section class="mt-6 rounded-lg border border-red-300 bg-red-50 p-5 dark:border-red-900 dark:bg-red-950/30">
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-red-900 dark:text-red-300">
+        What will be deleted
+      </h2>
+      <table class="mt-3 text-sm">
+        <tbody>
+          {% for table, count in removed | dictsort %}
+            <tr id="removing-{{ table }}">
+              <td class="py-0.5 pr-6 text-right font-mono tabular-nums">{{ '{:,}'.format(count) }}</td>
+              <td class="py-0.5">{{ table | replace('_', ' ') }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% else %}
+    <section class="mt-6 rounded-lg border border-slate-300 p-5 dark:border-slate-700">
+      <p class="text-sm text-slate-600 dark:text-slate-400">
+        Nothing has been researched against this request, so only the request itself goes.
+      </p>
+    </section>
+  {% endif %}
+
+  <section class="mt-4 rounded-lg border border-slate-300 p-5 dark:border-slate-700">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">What survives</h2>
+    <ul class="mt-3 space-y-1.5 text-sm text-slate-600 dark:text-slate-400">
+      <li>
+        <strong class="font-semibold text-slate-800 dark:text-slate-200">The audit trail.</strong>
+        The removal is appended to it, along with what was here.
+      </li>
+      <li>
+        <strong class="font-semibold text-slate-800 dark:text-slate-200">The spend.</strong>
+        {% if spend %}
+          &pound;{{ '%.4f' | format(spend) }} has been spent on this request and stays
+          counted against the monthly budget. A cap you can get under by deleting what you
+          spent it on is not a cap.
+        {% else %}
+          Nothing has been spent on this request.
+        {% endif %}
+      </li>
+      <li>
+        <strong class="font-semibold text-slate-800 dark:text-slate-200">The archived documents.</strong>
+        Stored by content hash and shared between runs, so they are never one request's to
+        destroy. <span class="font-mono text-xs">aer gc-artefacts</span> collects the ones
+        nothing points at.
+      </li>
+    </ul>
+  </section>
+
+  <div class="mt-6 flex flex-wrap items-center gap-4">
+    <form method="post" action="/requests/{{ item.id }}/remove">
+      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+      <button
+        type="submit"
+        id="confirm-remove"
+        class="rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-800"
+      >
+        Remove permanently
+      </button>
+    </form>
+
+    {% if not item.is_archived %}
+      <form method="post" action="/requests/{{ item.id }}/archive">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        <button
+          type="submit"
+          id="archive-instead"
+          class="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          Archive instead
+        </button>
+      </form>
+    {% endif %}
+
+    <a
+      href="/requests"
+      id="cancel-remove"
+      class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
+    >
+      Cancel
+    </a>
+  </div>
+{% endblock %}

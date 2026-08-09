@@ -195,9 +195,35 @@ async def index(request: Request, session: DbSession) -> Response:
 
 
 @router.get("/requests", response_class=HTMLResponse, summary="Your research requests")
-async def list_requests_page(request: Request, session: DbSession, user: CurrentUser) -> Response:
-    rows = await request_service.list_requests(session, user_id=user.id, limit=200)
-    response: Response = render(request, "requests/list.html", {"requests": rows})
+async def list_requests_page(
+    request: Request,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+    archived: bool = False,
+) -> Response:
+    rows = await request_service.list_requests(
+        session, user_id=user.id, limit=200, archived=archived
+    )
+    # The other list's size, so the link to it can say how many are over there. A link to an
+    # empty page is a link nobody should have been offered.
+    counterpart = await request_service.count_requests(
+        session, user_id=user.id, archived=not archived
+    )
+
+    token = new_csrf_token(settings)
+    response: Response = render(
+        request,
+        "requests/list.html",
+        {
+            "requests": rows,
+            "archived": archived,
+            "counterpart": counterpart,
+            "csrf_token": token,
+            "csrf_field": CSRF_FIELD_NAME,
+        },
+    )
+    set_csrf_cookie(response, token)
     return response
 
 
@@ -373,6 +399,159 @@ async def delete_request_action(
 
     await session.commit()
     return _go_to(request, "/requests")
+
+
+# -- Getting a request out of the way, and destroying one ----------------------------------
+#
+# Two controls, and the asymmetry between them is the design. Archiving is one click with no
+# dialogue, because it is reversible by one more click. Purging gets its own page, listing
+# what will be destroyed by table before anything happens — a destructive action whose
+# confirmation says only "are you sure?" is asking the operator to agree to a number nobody
+# has shown them.
+
+
+@router.post("/requests/{request_id}/archive", summary="Archive a request")
+async def archive_request_action(
+    request: Request,
+    request_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Hide a request from the list. Accepted whatever state it is in — nothing is lost."""
+    return await _set_archived(
+        request, request_id, session, settings, user, archive=True, verb="archived"
+    )
+
+
+@router.post("/requests/{request_id}/restore", summary="Restore an archived request")
+async def restore_request_action(
+    request: Request,
+    request_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    return await _set_archived(
+        request, request_id, session, settings, user, archive=False, verb="restored"
+    )
+
+
+async def _set_archived(
+    request: Request,
+    request_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+    *,
+    archive: bool,
+    verb: str,
+) -> Response:
+    found = await request_service.get_request(session, request_id, user_id=user.id)
+    if found is None:
+        return _request_not_found(request, request_id)
+
+    if not await _csrf_ok(request, settings):
+        return _immutable(
+            request,
+            item=found,
+            reason=(
+                f"This page's security token was missing or had expired, so nothing was "
+                f"{verb}. Reload the list and try again."
+            ),
+            verb=verb,
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    change = request_service.archive_request if archive else request_service.restore_request
+    try:
+        await change(session, request=found, actor=user)
+    except ConflictError as exc:
+        return _immutable(request, item=found, reason=exc.message, verb=verb)
+
+    await session.commit()
+    # Back to the list the operator was looking at. Archiving from the archive view would be
+    # odd, but restoring from it is the normal path and dumping them on the live list would
+    # lose their place.
+    return _go_to(request, "/requests?archived=1" if not archive else "/requests")
+
+
+@router.get(
+    "/requests/{request_id}/remove",
+    response_class=HTMLResponse,
+    summary="Confirm destroying a request",
+)
+async def confirm_removal(
+    request: Request,
+    request_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """The confirmation page, listing exactly what would be destroyed.
+
+    A page rather than a browser dialogue, because the counts have to be read before the
+    decision and a `confirm()` box cannot hold them.
+    """
+    found = await request_service.get_request(session, request_id, user_id=user.id)
+    if found is None:
+        return _request_not_found(request, request_id)
+
+    token = new_csrf_token(settings)
+    response: Response = render(
+        request,
+        "requests/remove.html",
+        {
+            "item": found,
+            "removed": await request_service.removal_preview(session, request=found),
+            "spend": await request_service.request_spend(session, request=found),
+            "csrf_token": token,
+            "csrf_field": CSRF_FIELD_NAME,
+        },
+    )
+    set_csrf_cookie(response, token)
+    return response
+
+
+@router.post("/requests/{request_id}/remove", summary="Destroy a request and its research")
+async def remove_request_action(
+    request: Request,
+    request_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Irreversible. The audit chain, the spend ledger and the artefacts survive."""
+    found = await request_service.get_request(session, request_id, user_id=user.id)
+    if found is None:
+        return _request_not_found(request, request_id)
+
+    if not await _csrf_ok(request, settings):
+        return _immutable(
+            request,
+            item=found,
+            reason=(
+                "This page's security token was missing or had expired, so nothing was "
+                "removed. Reload the page and try again."
+            ),
+            verb="removed",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        await request_service.purge_request(session, request=found, actor=user)
+    except ConflictError as exc:
+        return _immutable(request, item=found, reason=exc.message, verb="removed")
+
+    await session.commit()
+    return _go_to(request, "/requests")
+
+
+async def _csrf_ok(request: Request, settings: SettingsDep) -> bool:
+    """Whether the submitted form carried a valid token."""
+    form = await request.form()
+    token = form.get(CSRF_FIELD_NAME)
+    return csrf_is_valid(request, str(token) if isinstance(token, str) else None, settings)
 
 
 @router.get(

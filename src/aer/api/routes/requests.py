@@ -72,8 +72,11 @@ async def list_requests(
     user: CurrentUser,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    archived: Annotated[bool, Query(description="Return the archived ones instead.")] = False,
 ) -> list[ResearchRequestSummary]:
-    rows = await request_service.list_requests(session, user_id=user.id, limit=limit, offset=offset)
+    rows = await request_service.list_requests(
+        session, user_id=user.id, limit=limit, offset=offset, archived=archived
+    )
     return [ResearchRequestSummary.model_validate(row) for row in rows]
 
 
@@ -134,6 +137,91 @@ async def delete_request(
     await request_service.delete_request(session, request=found, actor=user)
     await session.commit()
     return Response(status_code=HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/{request_id}/archive", response_model=ResearchRequestRead, summary="Archive a request"
+)
+async def archive_request(
+    request_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+) -> ResearchRequestRead:
+    """Hide a request from the list without destroying anything.
+
+    Accepted whatever the request's state — a finished run is the usual thing to archive,
+    and nothing an edit or a deletion would damage is touched by hiding a row.
+
+    Raises:
+        ConflictError: 409 if it is already archived.
+    """
+    found = await _owned(session, request_id, user)
+    archived = await request_service.archive_request(session, request=found, actor=user)
+    await session.commit()
+    return ResearchRequestRead.model_validate(archived)
+
+
+@router.post(
+    "/{request_id}/restore", response_model=ResearchRequestRead, summary="Restore a request"
+)
+async def restore_request(
+    request_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+) -> ResearchRequestRead:
+    """Put an archived request back on the list.
+
+    Raises:
+        ConflictError: 409 if it was not archived.
+    """
+    found = await _owned(session, request_id, user)
+    restored = await request_service.restore_request(session, request=found, actor=user)
+    await session.commit()
+    return ResearchRequestRead.model_validate(restored)
+
+
+@router.get(
+    "/{request_id}/removal-preview",
+    response_model=dict[str, int],
+    summary="What purging this request would delete",
+)
+async def removal_preview(
+    request_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+) -> dict[str, int]:
+    """Row counts by table. Reads only; nothing is removed."""
+    found = await _owned(session, request_id, user)
+    return await request_service.removal_preview(session, request=found)
+
+
+@router.post(
+    "/{request_id}/purge",
+    response_model=dict[str, int],
+    summary="Delete a request and everything derived from it",
+)
+async def purge_request(
+    request_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+) -> dict[str, int]:
+    """Irreversibly delete a researched request. Returns what was removed, by table.
+
+    **Its own endpoint rather than a flag on ``DELETE``.** The safe deletion refuses
+    anything with evidence behind it, and that refusal is worth keeping reachable — a
+    caller that wanted the safe one and got the destructive one because a query parameter
+    was set has no way back.
+
+    The audit chain, the spend ledger and the content-addressed artefacts all survive; see
+    :func:`aer.services.requests.purge_request` for why each of the three has to.
+
+    Raises:
+        ConflictError: 409 if a run is still live. Cancel it first.
+    """
+    found = await _owned(session, request_id, user)
+    removed = await request_service.purge_request(session, request=found, actor=user)
+    await session.commit()
+    return removed
 
 
 async def _owned(session: DbSession, request_id: uuid.UUID, user: CurrentUser) -> ResearchRequest:

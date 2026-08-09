@@ -636,3 +636,155 @@ class TestTheLandingPageWarnsAboutAPendingMigration:
 
     async def test_a_migrated_database_shows_no_such_banner(self, web):
         assert 'id="startup-problem"' not in (await web.get("/")).text
+
+
+# -- Archiving and removing, through the form surface -----------------------------------------
+
+
+LIST = "/requests"
+_LIST_TOKEN = re.compile(r'name="csrf_token" value="([^"]+)"')
+
+
+async def a_saved_request(client) -> str:
+    """Create one through the form and return its id."""
+    token = await fresh_token(client)
+    created = await client.post(NEW, data=valid_form(csrf_token=token))
+    assert created.status_code == 303
+    return created.headers["location"].rsplit("/", 1)[-1]
+
+
+async def list_token(client, url: str = LIST) -> str:
+    """The token the list page renders into its per-row forms.
+
+    Takes the URL because the archive view is a different page with its own token, and
+    restoring is done from there — an empty live list renders no rows and so no token,
+    which is correct: there is nothing on it to protect.
+    """
+    page = await client.get(url)
+    match = _LIST_TOKEN.search(page.text)
+    assert match, f"{url} must issue a CSRF token for its per-row actions"
+    return match.group(1)
+
+
+class TestTheListPageIssuesATokenForItsActions:
+    async def test_it_renders_one(self, web):
+        await a_saved_request(web)
+
+        assert _LIST_TOKEN.search((await web.get(LIST)).text) is not None
+
+    async def test_the_row_offers_both_actions(self, web):
+        request_id = await a_saved_request(web)
+
+        body = (await web.get(LIST)).text
+
+        assert f'action="/requests/{request_id}/archive"' in body
+        assert f'href="/requests/{request_id}/remove"' in body
+
+
+class TestTheDestructiveRoutesAreCsrfProtected:
+    """Three POST routes were added, and a state-changing POST without this check is a
+    cross-site request forgery waiting to be written. The archive one matters least and is
+    tested anyway: the pattern is what has to hold, not the blast radius of one route.
+    """
+
+    @pytest.mark.parametrize("action", ["archive", "restore", "remove"])
+    async def test_a_submission_without_a_token_is_refused(self, web, db_engine, action):
+        request_id = await a_saved_request(web)
+
+        response = await web.post(f"/requests/{request_id}/{action}")
+
+        assert response.status_code == 403
+        assert "security token" in response.text
+        assert await count_requests(db_engine) == 1
+
+    @pytest.mark.parametrize("action", ["archive", "restore", "remove"])
+    async def test_a_forged_token_is_refused(self, web, db_engine, action):
+        request_id = await a_saved_request(web)
+
+        response = await web.post(
+            f"/requests/{request_id}/{action}",
+            data={"csrf_token": "forged.9999999999.deadbeef"},
+        )
+
+        assert response.status_code == 403
+        assert await count_requests(db_engine) == 1
+
+    async def test_a_token_from_a_different_key_cannot_remove_a_request(self, web, db_engine):
+        """The property that makes this a *signed* double submit: setting the cookie is not
+        enough, because the value has to carry this server's signature."""
+        request_id = await a_saved_request(web)
+        foreign = issue_csrf_token(b"an-entirely-different-signing-key")
+        web.cookies.set(CSRF_COOKIE_NAME, foreign)
+
+        response = await web.post(f"/requests/{request_id}/remove", data={"csrf_token": foreign})
+
+        assert response.status_code == 403
+        assert await count_requests(db_engine) == 1
+
+
+class TestArchivingThroughTheList:
+    async def test_a_valid_token_archives_and_returns_to_the_list(self, web, db_engine):
+        request_id = await a_saved_request(web)
+        token = await list_token(web)
+
+        response = await web.post(f"/requests/{request_id}/archive", data={"csrf_token": token})
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/requests"
+        assert "Microsoft Corporation" not in (await web.get(LIST)).text
+        # Archived, not deleted.
+        assert await count_requests(db_engine) == 1
+
+    async def test_restoring_returns_to_the_archive_it_was_restored_from(self, web):
+        request_id = await a_saved_request(web)
+        await web.post(
+            f"/requests/{request_id}/archive", data={"csrf_token": await list_token(web)}
+        )
+
+        response = await web.post(
+            f"/requests/{request_id}/restore",
+            data={"csrf_token": await list_token(web, "/requests?archived=1")},
+        )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/requests?archived=1"
+        assert "Microsoft Corporation" in (await web.get(LIST)).text
+
+
+class TestTheRemovalConfirmation:
+    async def test_it_states_what_will_go_and_what_survives(self, web):
+        request_id = await a_saved_request(web)
+
+        body = (await web.get(f"/requests/{request_id}/remove")).text
+
+        assert "What survives" in body, (
+            "a page that lists only the destruction overstates it, and a warning that "
+            "overstates is one people learn to click through"
+        )
+        assert "The audit trail." in body
+        assert "The spend." in body
+        assert "The archived documents." in body
+
+    async def test_a_draft_says_only_the_request_goes(self, web):
+        request_id = await a_saved_request(web)
+
+        body = (await web.get(f"/requests/{request_id}/remove")).text
+
+        assert "Nothing has been researched against this request" in body
+
+    async def test_looking_at_it_removes_nothing(self, web, db_engine):
+        request_id = await a_saved_request(web)
+
+        await web.get(f"/requests/{request_id}/remove")
+
+        assert await count_requests(db_engine) == 1
+
+    async def test_confirming_removes_it(self, web, db_engine):
+        request_id = await a_saved_request(web)
+        token = await list_token(web)
+
+        response = await web.post(f"/requests/{request_id}/remove", data={"csrf_token": token})
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/requests"
+        assert await count_requests(db_engine) == 0

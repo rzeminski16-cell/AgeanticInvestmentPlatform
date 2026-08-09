@@ -4,13 +4,30 @@
 
 {% block content %}
   <div class="flex flex-wrap items-center justify-between gap-4">
-    <h1 class="text-2xl font-semibold tracking-tight">Research requests</h1>
-    <a
-      href="/requests/new"
-      class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
-    >
-      New request
-    </a>
+    <h1 class="text-2xl font-semibold tracking-tight">
+      {% if archived %}Archived requests{% else %}Research requests{% endif %}
+    </h1>
+    <div class="flex items-center gap-3">
+      {% if archived %}
+        <a href="/requests" class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400">
+          Back to active
+        </a>
+      {% elif counterpart %}
+        <a
+          href="/requests?archived=1"
+          id="show-archived"
+          class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
+        >
+          Archived ({{ counterpart }})
+        </a>
+      {% endif %}
+      <a
+        href="/requests/new"
+        class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+      >
+        New request
+      </a>
+    </div>
   </div>
 
   {% if requests %}
@@ -23,7 +40,10 @@
             <th scope="col" class="py-2 pr-4 font-medium">Exchange</th>
             <th scope="col" class="py-2 pr-4 font-medium">As at</th>
             <th scope="col" class="py-2 pr-4 font-medium">Depth</th>
-            <th scope="col" class="py-2 font-medium">Status</th>
+            <th scope="col" class="py-2 pr-4 font-medium">Status</th>
+            <th scope="col" class="py-2 text-right font-medium">
+              <span class="sr-only">Actions</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -41,15 +61,68 @@
               <td class="py-2 pr-4">{{ item.exchange | replace('_', ' ') }}</td>
               <td class="py-2 pr-4">{{ item.as_of_date.isoformat() }}</td>
               <td class="py-2 pr-4">{{ item.analysis_mode.value | capitalize }}</td>
-              <td class="py-2">
+              <td class="py-2 pr-4">
                 <span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide dark:bg-slate-800">
                   {{ item.status.value }}
                 </span>
+              </td>
+              {#
+                Archive is one click and no dialogue, because one more click undoes it.
+                Removing is a link to a page that lists what would be destroyed — the
+                counts have to be read before the decision, and a browser confirm() box
+                cannot hold them.
+              #}
+              <td class="py-2 text-right whitespace-nowrap">
+                {% if archived %}
+                  <form
+                    method="post"
+                    action="/requests/{{ item.id }}/restore"
+                    class="inline"
+                  >
+                    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                    <button
+                      type="submit"
+                      class="restore-request rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                      data-request-id="{{ item.id }}"
+                    >
+                      Restore
+                    </button>
+                  </form>
+                {% else %}
+                  <form
+                    method="post"
+                    action="/requests/{{ item.id }}/archive"
+                    class="inline"
+                  >
+                    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                    <button
+                      type="submit"
+                      class="archive-request rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                      data-request-id="{{ item.id }}"
+                    >
+                      Archive
+                    </button>
+                  </form>
+                {% endif %}
+                <a
+                  href="/requests/{{ item.id }}/remove"
+                  class="remove-request ml-1 rounded-md border border-red-300 px-2 py-1 text-xs font-semibold text-red-800 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/40"
+                  data-request-id="{{ item.id }}"
+                >
+                  Remove
+                </a>
               </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
+    </div>
+  {% elif archived %}
+    <div class="mt-8 rounded-lg border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
+      <p class="text-sm text-slate-600 dark:text-slate-400">
+        Nothing is archived. Archiving takes a request off the active list and keeps
+        everything it produced.
+      </p>
     </div>
   {% else %}
     <div class="mt-8 rounded-lg border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
