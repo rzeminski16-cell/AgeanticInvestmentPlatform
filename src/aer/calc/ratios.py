@@ -70,6 +70,7 @@ __all__ = [
     "return_on_assets",
     "return_on_equity",
     "return_on_invested_capital",
+    "working_capital",
 ]
 
 
@@ -189,6 +190,28 @@ def ebitda(
 def net_debt(_context: CalculationContext, *, total_debt: Quantity, cash: Quantity) -> Quantity:
     """Borrowings net of cash."""
     return total_debt - cash
+
+
+@traced(
+    name="working_capital",
+    formula="working capital = current assets - current liabilities",
+    assumptions=(
+        "Every current asset is as realisable as every current liability is payable. A "
+        "business carrying slow inventory or a large receivable from one customer has less "
+        "usable working capital than this figure says.",
+        _PERIOD_END,
+    ),
+)
+def working_capital(
+    _context: CalculationContext, *, current_assets: Quantity, current_liabilities: Quantity
+) -> Quantity:
+    """Net working capital: the level, not the movement.
+
+    Derived rather than read off a line, because no filer reports it as a tagged concept —
+    it is a subtraction everybody does and nobody files. Negative is normal for a business
+    paid before it pays, and is returned as it stands rather than floored at zero.
+    """
+    return current_assets - current_liabilities
 
 
 @traced(

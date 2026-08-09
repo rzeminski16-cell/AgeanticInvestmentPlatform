@@ -323,6 +323,10 @@ class TestTheWholeRun:
             # equity risk premium have no source in this workflow, so the set is
             # incomplete and stopping for a person would leave the run unresumable.
             "gate_assumptions",
+            # The forecast itself. On this run it records why there is none: the
+            # cost-of-capital inputs have no source in this workflow, so nothing was
+            # confirmed and there is no discount rate to discount with.
+            "value",
             "draft",
             # Validation before the gate (task 39): the eight run-time evaluation rows
             # are written here, so gate 2 shows scores rather than promising them.

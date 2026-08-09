@@ -43,6 +43,14 @@ from aer.core.enums import Decision, FactBasis, GateKind, JobStatus, Provider, S
 from aer.core.escalation import FiredTrigger
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.core.schemas.request import ResearchRequestRead
+from aer.core.sectors import (
+    ModelNotPermittedError,
+    ValuationMandate,
+    ValuationModel,
+    mandate_for,
+    profile_for,
+    unclassified_mandate,
+)
 from aer.db.models import (
     Approval,
     Calculation,
@@ -100,6 +108,7 @@ from aer.services.sectors import (
     propose_from_sic,
     sector_gate_required,
 )
+from aer.services.valuation_run import value_the_business
 from aer.skills.execution import execute_custom_section
 from aer.skills.resolution import (
     custom_definitions_for_pins,
@@ -116,6 +125,7 @@ from aer.workflow.engine import StepContext, StepPaused, StepResult, WorkflowSte
 __all__ = [
     "ASSUMPTIONS_STEP",
     "FORECAST_YEARS",
+    "VALUE_STEP",
     "WORKFLOW_VERSION",
     "assumptions_gate_payload",
     "assumptions_gate_required",
@@ -167,6 +177,7 @@ ASSUMPTIONS_ESTIMATE_GBP: Final = Decimal("0.20")
 FORECAST_YEARS: Final = 5
 
 ASSUMPTIONS_STEP: Final = "propose_assumptions"
+VALUE_STEP: Final = "value"
 
 # What the gate shows as a runtime estimate. A constant for the slice, which does one
 # fetch and one calculation; Phase 3 derives it from the plan.
@@ -288,6 +299,10 @@ def build_steps() -> list[WorkflowStep]:
             run=_gate_assumptions,
             gate=GateKind.ASSUMPTIONS.value,
         ),
+        # The forecast itself, once a person has agreed the numbers behind it. Before the
+        # draft, because the valuation and scenario sections have nothing to write from
+        # otherwise — which is the state gap B2 described.
+        WorkflowStep(key=VALUE_STEP, run=_value, needs=frozenset({"gate_assumptions"})),
         WorkflowStep(
             key="draft",
             run=_draft,
@@ -295,6 +310,7 @@ def build_steps() -> list[WorkflowStep]:
                 {
                     "calculate",
                     "gate_assumptions",
+                    VALUE_STEP,
                     "research_company",
                     "research_industry",
                     "research_macro",
@@ -695,6 +711,103 @@ async def _gate_assumptions(context: StepContext) -> StepResult:
         )
 
     return await _require_approval(context, gate=GateKind.ASSUMPTIONS, of_step=ASSUMPTIONS_STEP)
+
+
+async def _value(context: StepContext) -> StepResult:
+    """Build the forecast the operator agreed the inputs for, or say why there is none.
+
+    **The first step in this platform's history to produce a discounted cash flow.** Every
+    piece existed and nothing called them: `aer/calc/dcf.py`, `aer/calc/wacc.py` and
+    `aer/services/valuation.py` were built with unit and property tests through Phase 3, and
+    the valuation page has been empty since the first live run because no workflow step ever
+    assembled their inputs.
+
+    **A run without a valuation is an ordinary outcome, not a failure.** Most runs reach
+    here with assumptions nobody has confirmed — the risk-free rate, the beta and the
+    premium have no source in this workflow — so the step records why and the report says
+    so. Stopping the run would throw away the analysis, the research and the draft over a
+    number the operator has not typed yet.
+
+    The mandate is rebuilt here rather than carried: `ValuationMandate` refuses to exist for
+    a blocked model, so constructing one is the permission check, and doing it at the point
+    of use means no earlier step can hand this one a permission it did not earn.
+    """
+    produced = context.outputs.get(ASSUMPTIONS_STEP, {})
+    if not produced.get("dcf_permitted", False):
+        return StepResult(
+            output={
+                "valued": False,
+                "reason": (
+                    "This company's sector mandate does not permit a discounted cash flow, "
+                    "so none was attempted."
+                ),
+            }
+        )
+
+    request = await _request_for(context)
+    acquired = context.output_of("acquire")
+    sector_key = sector_key_of(context.outputs)
+
+    # Recomputed rather than re-read, for the reason `_propose_assumptions` gives: the
+    # analysis object lives only inside `calculate`. This ledger is never persisted, so the
+    # run's calculations are still recorded exactly once.
+    analysis = await analyse_company(
+        context.session,
+        calculation_service.new_context(),
+        company_id=_uuid(acquired["company_id"]),
+        request=request,
+    )
+
+    try:
+        mandate = _mandate_for(request, sector_key=sector_key)
+    except ModelNotPermittedError as refused:
+        return StepResult(output={"valued": False, "reason": str(refused)})
+
+    outcome = await value_the_business(
+        context.session,
+        request=request,
+        job_id=context.job.id,
+        analysis=analysis,
+        mandate=mandate,
+        years=FORECAST_YEARS,
+    )
+    return StepResult(output=outcome.as_dict())
+
+
+def _mandate_for(request: ResearchRequest, *, sector_key: str) -> ValuationMandate:
+    """Permission to run the standard model on this company.
+
+    An unclassified company takes :func:`aer.core.sectors.unclassified_mandate`, which is
+    the permissive state and the right answer for most listed companies. A classified one
+    goes through :func:`aer.core.sectors.mandate_for`, which raises for a blocked model —
+    and the raise is the enforcement, because a mandate for a bank does not exist to be
+    passed to :func:`aer.calc.dcf.discounted_cash_flow`.
+    """
+    if not sector_key:
+        return unclassified_mandate(ValuationModel.DCF_FCFF, subject=request.ticker)
+
+    profile = profile_for(sector_key)
+    if profile is None:
+        message = (
+            f"This run is classified as {sector_key!r}, which names no sector profile this "
+            "build carries. An unrecognised classification is treated as a specialist one: "
+            "no discounted cash flow is attempted."
+        )
+        raise ModelNotPermittedError(message, context={"sector_key": sector_key})
+
+    return mandate_for(
+        ValuationModel.DCF_FCFF,
+        subject=request.ticker,
+        profile=profile,
+        # The sector gate is what confirmed the classification; reaching this step at all
+        # means it was approved, and the mandate records the decision it rests on.
+        confirmed_by=_SECTOR_GATE,
+    )
+
+
+# What a mandate records when the classification came through the sector gate. The gate's
+# `approvals` row carries who and when; this names the decision the permission rests on.
+_SECTOR_GATE: Final = "gate:SECTOR_SPECIALIST"
 
 
 async def _validate(context: StepContext) -> StepResult:

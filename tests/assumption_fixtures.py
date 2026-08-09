@@ -29,7 +29,7 @@ from aer.db.models import (
 from aer.services.analysis import ANNUAL, analyse_company
 from aer.services.calculations import new_context
 
-__all__ = ["a_year", "analysed", "scene", "seed_years"]
+__all__ = ["a_year", "analysed", "scene", "seed_years", "unit_for"]
 
 AS_OF = date(2024, 6, 30)
 
@@ -117,6 +117,16 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     }
 
 
+# Concepts counted rather than priced. A share count filed in the reporting currency is a
+# figure with the right number and the wrong meaning, and `aer.calc.dcf` refuses to divide
+# by it — correctly, so the fixture has to be right rather than the check relaxed.
+_COUNTED = ("shares_outstanding", "basic_shares_outstanding", "diluted_shares_outstanding")
+
+
+def unit_for(concept: str) -> str:
+    return "shares" if concept in _COUNTED else "USD"
+
+
 async def seed_years(scene: dict[str, Any], years: dict[date, dict[str, str]]) -> None:
     for period_end, values in years.items():
         scene["session"].add_all(
@@ -127,7 +137,7 @@ async def seed_years(scene: dict[str, Any], years: dict[date, dict[str, str]]) -
                 raw_concept=concept,
                 taxonomy="us-gaap",
                 value=Decimal(value),
-                unit="USD",
+                unit=unit_for(concept),
                 period_start=date(period_end.year, 1, 1),
                 period_end=period_end,
                 fiscal_year=period_end.year,
