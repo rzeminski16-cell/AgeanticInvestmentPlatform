@@ -32,6 +32,14 @@ depends_on = None
 _GATE = "ASSUMPTIONS"
 
 # The order the type is rebuilt in on the way down: GateKind without ASSUMPTIONS.
+# Every column typed `gate_kind`, which the downgrade has to convert before the type can be
+# dropped. `approvals.gate` created it in 0001; `disagreements.escalated_to_gate` arrived in
+# 0014 and is nullable, which the text cast handles without a special case.
+_COLUMNS_ON_THE_TYPE = (
+    ("approvals", "gate"),
+    ("disagreements", "escalated_to_gate"),
+)
+
 _WITHOUT_ASSUMPTIONS = (
     "PLAN",
     "UK_FINANCIALS",
@@ -50,10 +58,18 @@ def upgrade() -> None:
 def downgrade() -> None:
     values = ", ".join(f"'{value}'" for value in _WITHOUT_ASSUMPTIONS)
     op.execute(f"CREATE TYPE gate_kind_old AS ENUM ({values})")
-    # No USING expression: a row carrying the removed value fails the cast and takes the
-    # downgrade with it, which is the intended outcome.
-    op.execute(
-        "ALTER TABLE approvals ALTER COLUMN gate TYPE gate_kind_old USING gate::text::gate_kind_old"
-    )
+    # **Every** column on the type, not just the obvious one. `approvals.gate` created
+    # `gate_kind` in 0001 and `disagreements.escalated_to_gate` joined it in 0014; a
+    # downgrade that converted only the first left the type undroppable and failed here
+    # rather than in production, which is what the round-trip test is for.
+    #
+    # The cast goes through `text` with no fallback expression, so a row carrying the
+    # removed value fails and takes the downgrade with it. That is deliberate: an approval
+    # silently relabelled as a different gate is worse than a migration that stops.
+    for table, column in _COLUMNS_ON_THE_TYPE:
+        op.execute(
+            f"ALTER TABLE {table} ALTER COLUMN {column} TYPE gate_kind_old "
+            f"USING {column}::text::gate_kind_old"
+        )
     op.execute("DROP TYPE gate_kind")
     op.execute("ALTER TYPE gate_kind_old RENAME TO gate_kind")
