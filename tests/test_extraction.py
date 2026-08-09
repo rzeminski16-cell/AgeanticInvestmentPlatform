@@ -357,16 +357,49 @@ class TestTheMemoryCapIsHonestAboutItself:
       platform or the other.
     """
 
-    def test_the_cap_is_applied_on_posix_and_declined_on_windows(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_the_cap_is_applied_on_posix(self) -> None:
+        """Checked in a child process, because applying the cap cannot be undone.
+
+        This assertion used to run in the pytest process, and it was the whole of gap A16.
+        ``_apply_memory_cap`` sets ``RLIMIT_AS`` soft *and hard*, and an unprivileged
+        process may never raise a hard limit again — so one call capped the entire session
+        at 1 GiB. The suite's own address space passes that around forty test files in;
+        from there every ``mmap`` fails, ``pthread_create`` cannot allocate a thread stack,
+        and the next ``Thread.start()`` blocks for ever on ``self._started.wait()``. The
+        victim was the sandbox timeout test two classes below, which needs a child-watcher
+        thread — and it hung *before* arming its own timeout, so nothing could rescue it.
+
+        The child also reports the limit it ended up with, so this now checks the cap was
+        really applied rather than only that a boolean came back.
+        """
+        applied = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import resource\n"
+                "from aer.extract import _child\n"
+                "ok = _child._apply_memory_cap(1 << 30)\n"
+                "print(ok, resource.getrlimit(resource.RLIMIT_AS)[0])\n",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60,
+        )
+
+        assert applied.stdout.split() == ["True", str(1 << 30)]
+
+    def test_the_cap_is_declined_on_windows(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The Windows branch is exercised wherever this suite runs, so the branch that
+        reports the control's absence is covered rather than merely believed.
+
+        Safe in-process, unlike the POSIX case above: it returns before touching
+        ``resource``, so there is no limit to leak.
+        """
         from aer.extract import _child  # noqa: PLC0415 -- run as a module, imported here
 
-        assert _child._apply_memory_cap(1 << 30) is (sys.platform != "win32")
-
-        # And the Windows path is exercised wherever this suite runs, so the branch that
-        # reports the absence is covered rather than merely believed.
         monkeypatch.setattr(sys, "platform", "win32")
+
         assert _child._apply_memory_cap(1 << 30) is False
 
     def test_it_type_checks_on_windows_as_well_as_here(self) -> None:

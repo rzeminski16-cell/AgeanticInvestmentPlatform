@@ -51,6 +51,15 @@ def _apply_memory_cap(limit_bytes: int) -> bool:
     ``warn_unused_ignores`` is on. The ``ImportError`` is not redundant with the branch —
     it covers the non-Windows platforms that also ship no ``resource`` module, and this
     control's absence must be reported rather than raised.
+
+    **Only ever call this in the child.** It sets the soft *and* hard limit, and an
+    unprivileged process cannot raise a hard limit once lowered — so this is a one-way door
+    for whatever process runs it. In the child that is exactly right: it exists for the
+    length of one parse and a cap it cannot lift is a cap it cannot be talked out of. In
+    any longer-lived process it is a slow trap, because nothing fails until the address
+    space grows past the limit, and what fails first is ``mmap`` — which means thread
+    creation, not allocation, and so presents as an unkillable hang rather than a
+    ``MemoryError``. That is precisely what gap A16 was; see ``docs/adr/0047``.
     """
     if sys.platform == "win32":
         return False

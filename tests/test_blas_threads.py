@@ -1,16 +1,15 @@
-"""The BLAS thread pool is pinned to one thread, and why that is a correctness control.
+"""The BLAS thread pool is pinned to one thread.
 
-Gap A16 presented as "``tests/test_extraction.py`` deadlocks in a full-suite run", which
-reads like a test-ordering nuisance. It is not. numpy's bundled OpenBLAS starts a worker
-thread per core when it loads, and with those threads present the parse sandbox's
-``asyncio.create_subprocess_exec`` can wedge for good: the child watcher calls
-``Thread.start()``, the operating system thread is never created, and ``start()`` blocks
-forever on ``self._started.wait()``. That happens *before* the sandbox arms its parse
-timeout, so nothing rescues it.
+**This is hygiene, not the fix for gap A16.** During that investigation the pin looked like
+the cure — it made a two-file reproduction pass three times against two hangs — but it was
+only keeping a shortened run under the address-space cap that a leaked ``RLIMIT_AS`` had
+imposed. The real cause and its fix are in ``docs/adr/0047``.
 
-The worker imports numpy too — transitively, through ``arelle`` — so the same three BLAS
-threads sit in the process that stores artefacts and then parses them. These tests hold the
-guard that keeps them out. See ``docs/adr/0047``.
+What is left is still worth holding. No module in this package does linear algebra. numpy
+arrives transitively anyway — ``arelle`` needs it for iXBRL, ``fakeredis`` for its vector
+commands — and its bundled OpenBLAS starts one ``blas_thread_server`` per core the moment
+the shared library loads. The worker and the API were each carrying three idle threads, and
+their address space, for a library neither of them calls.
 """
 
 from __future__ import annotations
