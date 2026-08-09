@@ -26,15 +26,17 @@ from typing import Final
 
 import structlog
 
+from aer.calc.fx import FxRate
+from aer.calc.units import SourceRef
 from aer.core.enums import Provider, SourceTier
 from aer.errors import ValidationError
 from aer.fetch.client import FetchResult, SafeFetcher
 from aer.fetch.credentials import redact_credentials
-from aer.sources.macro import fred, ons
+from aer.sources.macro import ecb, fred, ons
 from aer.sources.macro.series import MacroSeries, series_for
 from aer.storage.protocol import ArtefactStore
 
-__all__ = ["MacroClient", "MacroResponse", "redacted"]
+__all__ = ["MacroClient", "MacroResponse", "ReferenceRateResponse", "redacted"]
 
 _log = structlog.get_logger("aer.sources.macro")
 
@@ -42,6 +44,12 @@ _log = structlog.get_logger("aer.sources.macro")
 # notice is refused by the fetcher rather than reaching a parser that would call it a
 # malformed series.
 _JSON_TYPES: Final[frozenset[str]] = frozenset({"application/json"})
+
+# The ECB Data Portal serves SDMX-CSV. Declared for the same reason as the JSON set above:
+# a maintenance page or a portal error would otherwise reach a parser that would report it
+# as a series with no observations, which reads as "no rates today" rather than "the
+# request failed".
+_CSV_TYPES: Final[frozenset[str]] = frozenset({"text/csv", "application/vnd.sdmx.data+csv"})
 
 
 def redacted(url: str) -> str:
@@ -77,8 +85,31 @@ class MacroResponse:
         return SourceTier.T3_OFFICIAL_STATS
 
 
+@dataclass(frozen=True, slots=True)
+class ReferenceRateResponse:
+    """A currency's euro reference rates, with the fetch that produced them.
+
+    Its own type rather than a :class:`MacroResponse`: that one carries a `MacroSeries` and
+    a vintage, and an exchange rate has neither. The ECB Data Portal is not an archive — it
+    serves the series as it stands — so there is no vintage to record and pretending
+    otherwise would borrow ALFRED's guarantee for a source that does not offer it.
+    """
+
+    rates: ecb.ReferenceRates
+    as_of: date
+    fetch: FetchResult
+
+    @property
+    def tier(self) -> SourceTier:
+        return SourceTier.T3_OFFICIAL_STATS
+
+    def fx_rates(self, *, source: SourceRef) -> tuple[FxRate, ...]:
+        """The observations as `FxRate` values, each quoted as ``<currency>/EUR``."""
+        return ecb.as_fx_rates(self.rates, source=source)
+
+
 class MacroClient:
-    """Retrieves macro series at a vintage. Never takes a URL."""
+    """Retrieves macro series at a vintage, and euro reference rates. Never takes a URL."""
 
     def __init__(
         self, fetcher: SafeFetcher, store: ArtefactStore, *, fred_api_key: str | None = None
@@ -172,6 +203,43 @@ class MacroClient:
             is_archived=False,
             fetch=result,
         )
+
+    async def fetch_reference_rates(
+        self, currency: str, *, as_of: date, start_date: date | None = None
+    ) -> ReferenceRateResponse:
+        """One currency's daily euro reference rates, up to and including ``as_of``.
+
+        Args:
+            currency: The quote currency, which must be in
+                :data:`~aer.sources.macro.ecb.REFERENCE_CURRENCIES`. Never a URL, and never
+                a code that has not had a determination made — the allowlist is the control.
+            as_of: Bounds the request itself, so the portal is not asked for observations
+                the run may not use. **The bound is a saving, not the point-in-time check**:
+                :func:`aer.calc.fx.select_rate` applies that again over what comes back,
+                because a control that lives only in a query parameter is a control that
+                disappears the day somebody caches a response.
+
+        Raises:
+            ValidationError: If the currency is not allowlisted.
+            ExternalServiceError: If the response is not an SDMX-CSV observation set.
+        """
+        url = ecb.reference_rate_url(currency, start_date=start_date, end_date=as_of)
+
+        result = await self._fetcher.fetch(
+            url, provider=Provider.ECB, expected_media_types=_CSV_TYPES
+        )
+        payload = await self._store.read(result.sha256)
+        parsed = ecb.parse_reference_rates(payload, currency=currency)
+
+        _log.info(
+            "macro.reference_rates_retrieved",
+            currency=parsed.currency,
+            provider=Provider.ECB.value,
+            as_of=as_of.isoformat(),
+            observations=len(parsed.observations),
+            url=url,
+        )
+        return ReferenceRateResponse(rates=parsed, as_of=as_of, fetch=result)
 
     def _require_key(self, series: MacroSeries) -> str:
         if not self._fred_api_key:

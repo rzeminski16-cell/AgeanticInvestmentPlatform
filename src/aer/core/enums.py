@@ -233,6 +233,7 @@ class Provider(StrEnum):
     EODHD = "eodhd"
     FRED = "fred"
     ONS = "ons"
+    ECB = "ecb"
     ISSUER_IR = "issuer_ir"
     WEB_SEARCH = "web_search"
     USER_SUPPLIED = "user_supplied"

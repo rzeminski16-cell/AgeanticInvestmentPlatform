@@ -210,6 +210,22 @@ DEFAULT_POLICIES: Final[dict[Provider, FetchPolicy]] = {
         requests_per_second=2.0,
         honours_robots=False,
     ),
+    Provider.ECB: FetchPolicy(
+        provider=Provider.ECB,
+        source_tier=SourceTier.T3_OFFICIAL_STATS,
+        allowed_hosts=("data-api.ecb.europa.eu", ".ecb.europa.eu"),
+        licence_note=(
+            "European Central Bank. Free to use, including commercially, with the ECB "
+            "credited as the source. Euro foreign-exchange reference rates are indicative "
+            "and not intended for use in market transactions."
+        ),
+        # The Data Portal is a documented machine-readable API rather than a site being
+        # crawled — and unlike the Bank of England's (ADR 0026) its `robots.txt` does not
+        # disallow the route the ECB itself documents for programmatic access. A handful of
+        # currency series per run needs nothing faster than this.
+        requests_per_second=2.0,
+        honours_robots=False,
+    ),
     Provider.ISSUER_IR: FetchPolicy(
         provider=Provider.ISSUER_IR,
         source_tier=SourceTier.T2_ISSUER,

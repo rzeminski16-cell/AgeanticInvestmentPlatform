@@ -1,7 +1,7 @@
 # Gap analysis — what is missing, as of 2026-08-08
 
-*Updated after A1–A4, then A21, B13 and A9, and then B1. Items struck through are done; the
-reasoning is kept because a gap and the shape of its fix are worth reading together.*
+*Updated after A1–A4, then A21, B13 and A9, then B1 and A19. Items struck through are done;
+the reasoning is kept because a gap and the shape of its fix are worth reading together.*
 
 Written after the first end-to-end live runs, from the code rather than from the plan. The
 phase specifications in `docs/PLAN.md` remain the authority on *scope*; this document is an
@@ -95,7 +95,7 @@ before it needs code.
 
 | # | Gap | Notes |
 |---|---|---|
-| A19 | **Bank of England macro adapter not built** | ALFRED and ONS are done (task 25 partial). |
+| ~~A19~~ | ~~**Bank of England macro adapter not built**~~ | **Closed differently from how it was framed, and the framing was the error.** The BoE adapter is not "not built" — it is *determined against*: ADR 0026 found the Bank documents a CSV download route for programmatic use and disallows that same route in its own `robots.txt`, and reaching it through the unlisted viewer path would be circumventing a stated restriction. So the euro is the pivot instead. `aer.sources.macro.ecb` reads the ECB's daily reference rates through a documented API with no such conflict, and because every ECB rate has the euro on one side, a GBP/USD rate is a **cross** — `aer.calc.fx.cross` divides two published figures as a *traced calculation*, so a derived rate never looks published. ADR 0045. **The GBP risk-free rate is still missing** and this did not fix it: the UK proxy is a gilt yield, which is BoE data, so `risk_free_series_for("GBP")` still refuses rather than discounting sterling at a US Treasury yield. |
 | A20 | **EODHD unresolved** | Prices, corporate actions and comparables are conditional on the subscription, and ADR 0030 holds that nothing price-derived may leave the machine even with it. |
 
 ---
@@ -140,7 +140,9 @@ before it needs code.
 * **Task 26 (cost of capital)** — done. `src/aer/calc/wacc.py`.
 * **Task 27 (the discounted cash flow)** — done. `src/aer/calc/dcf.py`, `services/valuation.py`.
 * **Task 28 (sector enforcement)** — done.
-* **Task 25 (macro with vintages)** — ALFRED and ONS done; Bank of England outstanding (A19).
+* **Task 25 (macro with vintages)** — ALFRED and ONS done. The Bank of England is not
+  outstanding but *refused* (ADR 0026); the euro reference rates replace it as the FX
+  source (ADR 0045), and the GBP risk-free rate remains genuinely open.
 
 Tasks 29–32 remain genuinely outstanding.
 

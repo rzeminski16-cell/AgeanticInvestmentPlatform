@@ -87,6 +87,10 @@ _TABLE: Final[dict[tuple[Provider, DocumentKind], SourceTier]] = {
     # -- Official statistics.
     (Provider.FRED, DocumentKind.STRUCTURED_DATA): SourceTier.T3_OFFICIAL_STATS,
     (Provider.ONS, DocumentKind.STRUCTURED_DATA): SourceTier.T3_OFFICIAL_STATS,
+    # A central bank's own published reference rates. Official statistics rather than market
+    # data: the ECB says plainly that these are not intended for market transactions, and
+    # T4 would claim a tradability they do not have.
+    (Provider.ECB, DocumentKind.STRUCTURED_DATA): SourceTier.T3_OFFICIAL_STATS,
     # -- Licensed market data.
     (Provider.EODHD, DocumentKind.STRUCTURED_DATA): SourceTier.T4_LICENSED_MARKET,
     # -- Everything found by searching. Reporting at best.

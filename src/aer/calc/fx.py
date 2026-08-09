@@ -25,8 +25,12 @@ multiply. A reviewer asking "what rate did this use, and where did it come from?
 answer from the calculation ledger rather than from reading the code that produced it.
 
 Pure and side-effect free. It is given rates; it does not go and get them. Where rates come
-from is `docs/data-sources/bank-of-england-iadb.md`, and at the time of writing that
-question is **not settled** -- see `docs/adr/0026`.
+from is `aer.sources.macro.ecb` — the ECB's daily euro reference rates, chosen because the
+Bank of England disallows in `robots.txt` the very download route it documents for
+programmatic use (ADR 0026, resolved against). Every ECB rate has the euro on one side, so
+a pair that does not involve the euro is a **cross-rate**: :func:`cross` divides two
+published observations, and does it as a recorded calculation because a derived rate must
+not look like a published one. ADR 0045.
 """
 
 from __future__ import annotations
@@ -48,6 +52,8 @@ __all__ = [
     "StaleRateError",
     "convert",
     "convert_at",
+    "cross",
+    "cross_rate",
     "invert",
     "round_trips",
     "select_rate",
@@ -326,6 +332,111 @@ def invert(rate: FxRate) -> FxRate:
         quote=rate.base,
         rate=reciprocal,
         observed_on=rate.observed_on,
+    )
+
+
+@traced(
+    name="fx_cross_rate",
+    formula="cross = quote_leg / base_leg",
+    assumptions=(
+        "Both legs are published against the same pivot currency and were observed on the "
+        "same date.",
+        "A cross-rate is arithmetic on two reference rates, not a quoted market rate: no "
+        "bid-offer spread or cross-currency basis is modelled.",
+    ),
+)
+def cross_rate(
+    _context: CalculationContext, *, base_leg: Quantity, quote_leg: Quantity
+) -> Quantity:
+    """A rate for a pair neither leg is quoted against, from two that share a pivot.
+
+    **The ECB publishes rates *of the euro* and nothing else** — one figure per currency,
+    in units of that currency per euro. So GBP/USD does not exist at the source, and the
+    only honest way to get one is to divide: pounds-per-euro over dollars-per-euro leaves
+    pounds per dollar, and the euro cancels in the unit algebra rather than in a comment.
+
+    Traced, because that division is the whole difference between a published observation
+    and a derived one. A reader following a converted figure back reaches two source
+    documents and a formula, rather than a number that looks as though somebody published
+    it. That distinction is the reason this is a calculation and not a helper.
+
+    Args:
+        base_leg: The pivot rate for the currency being converted *from*, e.g. USD/EUR.
+        quote_leg: The pivot rate for the currency being converted *into*, e.g. GBP/EUR.
+
+    Raises:
+        UnitMismatchError: If the two legs do not share a pivot currency, which is what
+            makes the division meaningless rather than merely wrong.
+        UnsourcedValueError: If either leg has no source.
+    """
+    pivot = _shared_pivot(base_leg, quote_leg)
+    if pivot is None:
+        message = (
+            f"A cross-rate needs two rates against the same pivot currency, and "
+            f"{quote_leg.unit.symbol} over {base_leg.unit.symbol} share none. Dividing them "
+            "would produce a number with a unit no amount can be converted into."
+        )
+        raise CalculationError(
+            message,
+            context={"base_leg": base_leg.unit.symbol, "quote_leg": quote_leg.unit.symbol},
+        )
+
+    return quote_leg / base_leg
+
+
+def _shared_pivot(base_leg: Quantity, quote_leg: Quantity) -> str | None:
+    """The currency both legs are quoted against, or ``None``.
+
+    A pivot appears in the denominator of both, so it is the code carrying a negative power
+    in each. Read off the units rather than passed in, so a caller cannot assert a pivot the
+    quantities do not have.
+    """
+    denominators = [
+        {symbol for symbol, power in leg.unit.dimensions if power < 0}
+        for leg in (base_leg, quote_leg)
+    ]
+    shared = denominators[0] & denominators[1]
+    return next(iter(shared)) if len(shared) == 1 else None
+
+
+def cross(context: CalculationContext, *, base_leg: FxRate, quote_leg: FxRate) -> FxRate:
+    """:func:`cross_rate`, as an :class:`FxRate` for the pair it actually converts.
+
+    Refuses two legs observed on different dates. Mixing a Tuesday's dollar rate with a
+    Wednesday's sterling one produces a cross nobody could have transacted at and a figure
+    that cannot be attributed to a date — and since both come from the same daily
+    publication, a mismatch means one of them was selected wrongly.
+
+    Raises:
+        CalculationError: If the legs share no pivot, are the same currency, or were
+            observed on different dates.
+    """
+    if base_leg.observed_on != quote_leg.observed_on:
+        message = (
+            f"The legs of a cross-rate must be from the same day: {base_leg.quote} is dated "
+            f"{base_leg.observed_on.isoformat()} and {quote_leg.quote} "
+            f"{quote_leg.observed_on.isoformat()}. Both come from one daily publication, so "
+            "a mismatch means one of them was selected wrongly."
+        )
+        raise CalculationError(
+            message,
+            context={
+                "base_observed_on": base_leg.observed_on.isoformat(),
+                "quote_observed_on": quote_leg.observed_on.isoformat(),
+            },
+        )
+    if base_leg.quote == quote_leg.quote:
+        message = (
+            f"Both legs are {base_leg.quote} rates, so the cross would be one. Select the "
+            "two currencies actually being converted between."
+        )
+        raise CalculationError(message, context={"currency": base_leg.quote})
+
+    return FxRate(
+        base=base_leg.quote,
+        quote=quote_leg.quote,
+        rate=cross_rate(context, base_leg=base_leg.rate, quote_leg=quote_leg.rate),
+        observed_on=base_leg.observed_on,
     )
 
 
