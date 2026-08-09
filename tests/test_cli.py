@@ -12,7 +12,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from typer.testing import CliRunner
 
@@ -29,6 +29,7 @@ from aer.db.models import (
 from aer.fetch.policy import DEFAULT_POLICIES, RetentionClass
 from aer.storage.local import LocalArtefactStore
 from aer.version import version
+from tests.db_cleanup import empty_the_database
 
 runner = CliRunner()
 
@@ -58,14 +59,19 @@ def cli_env(settings_env, tmp_path, database_url):
 
 
 async def _truncate(database_url: str) -> None:
-    engine = create_async_engine(database_url)
-    try:
-        async with engine.begin() as connection:
-            # users CASCADEs into requests; audit_events carries no foreign keys by
-            # design, so it has to be named explicitly.
-            await connection.execute(text("TRUNCATE users, audit_events RESTART IDENTITY CASCADE"))
-    finally:
-        await engine.dispose()
+    """Empty everything these commands touch, without an exclusive lock (gap A17).
+
+    ``TRUNCATE … CASCADE`` is what this used to be, and it is the statement the gap is
+    about: it needs an ``ACCESS EXCLUSIVE`` lock on every table at once, so it deadlocks
+    against the transactional fixtures the moment a command opens its own engine and really
+    commits — which is exactly what the commands under test do. It also overrode the
+    schema's ``RESTRICT`` rules wholesale, so a cleanup could reach a state the application
+    itself is forbidden to.
+
+    Deleting in dependency order takes row locks and honours every foreign key. See
+    `tests/db_cleanup.py`.
+    """
+    await empty_the_database(database_url)
 
 
 @pytest.fixture
@@ -356,14 +362,8 @@ class TestResetResearch:
 
 
 async def _truncate_artefacts(database_url: str) -> None:
-    engine = create_async_engine(database_url)
-    try:
-        async with engine.begin() as connection:
-            await connection.execute(
-                text("TRUNCATE users, audit_events, artefacts RESTART IDENTITY CASCADE")
-            )
-    finally:
-        await engine.dispose()
+    """The same, for the sweeps. See :func:`_truncate` for why it is not a ``TRUNCATE``."""
+    await empty_the_database(database_url)
 
 
 @pytest.fixture

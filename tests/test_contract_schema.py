@@ -30,6 +30,7 @@ from aer.agents.contract_schema import content_model_for, draft_model_for
 from aer.agents.custom_section import CustomSectionDraft
 from aer.agents.registry import _REGISTRY
 from aer.agents.section_writer import SectionDraft, SectionWriterAgent, SectionWriterInput
+from tests.schema_guard import inexpressible_fields
 
 _EXECUTIVE_SUMMARY: dict[str, Any] = {
     "type": "object",
@@ -53,26 +54,6 @@ _EXECUTIVE_SUMMARY: dict[str, Any] = {
 }
 
 
-def _inexpressible(node: Any, path: str) -> list[str]:
-    """Object schemas that permit no keys at all: no properties, and no additional ones.
-
-    The exact shape a free-form mapping collapses to once the API's dialect has been
-    applied, and the exact shape that silently empties a section.
-    """
-    found: list[str] = []
-    if isinstance(node, dict):
-        closed = node.get("additionalProperties") is False
-        if node.get("type") == "object" and closed and not node.get("properties"):
-            found.append(path)
-        for key, value in node.items():
-            if isinstance(value, dict):
-                found.extend(_inexpressible(value, f"{path}.{key}"))
-            elif isinstance(value, list):
-                for index, item in enumerate(value):
-                    found.extend(_inexpressible(item, f"{path}.{key}[{index}]"))
-    return found
-
-
 def _agents_by_role() -> dict[str, type[Agent[Any, Any]]]:
     found: dict[str, type[Agent[Any, Any]]] = {}
     pending: list[type[Agent[Any, Any]]] = list(Agent.__subclasses__())
@@ -91,7 +72,7 @@ class TestNoRoleAsksForSomethingItCannotReceive:
     @pytest.mark.parametrize("role", sorted(_REGISTRY))
     def test_a_free_form_field_is_narrowed_by_the_agent_that_owns_it(self, role: str) -> None:
         schema = _REGISTRY[role].output_schema()
-        empty = _inexpressible(transform_schema(schema), schema.__name__)
+        empty = inexpressible_fields(transform_schema(schema), schema.__name__)
         if not empty:
             return
 
@@ -116,7 +97,7 @@ class TestNoRoleAsksForSomethingItCannotReceive:
         )
         wire = transform_schema(SectionWriterAgent().response_schema(payload))
 
-        assert _inexpressible(wire, "draft") == []
+        assert inexpressible_fields(wire, "draft") == []
         content = wire["$defs"]["ExecutiveSummaryContent"]
         assert set(content["properties"]) == {"thesis", "key_points", "headline_figures"}
 

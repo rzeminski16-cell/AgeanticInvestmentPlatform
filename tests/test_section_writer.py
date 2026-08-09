@@ -39,7 +39,7 @@ from aer.db.models import (
     User,
 )
 from aer.extract.html import extract_html
-from aer.providers.fake import FakeProvider
+from aer.providers.fake import FakeProvider, ScriptedResponse
 from aer.providers.protocol import SpentButUnusableError, Usage
 from aer.providers.router import Router
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
@@ -207,7 +207,7 @@ def _context(scene: dict[str, Any], provider: FakeProvider) -> AgentContext:
     )
 
 
-def _scripted(drafts: list[SectionDraft]) -> FakeProvider:
+def _scripted(drafts: list[SectionDraft | ScriptedResponse]) -> FakeProvider:
     remaining = list(drafts)
 
     def answer(schema: type) -> Any:
@@ -271,10 +271,22 @@ def _good_draft(scene: dict[str, Any]) -> SectionDraft:
     )
 
 
-def _undeclared_field_draft() -> SectionDraft:
-    return SectionDraft(
-        content={"commentary": "Prose.", "figures": [], "surprise": "not in the contract"},
-        claims=[],
+def _undeclared_field_draft() -> ScriptedResponse:
+    """A reply carrying a field the section's contract does not declare.
+
+    **Marked unchecked, because the API could not have sent this.** The narrowed schema
+    goes to the wire with `additionalProperties: false`, so the model is structurally
+    unable to add `surprise` — and since gap A18 the fake enforces that too. What is under
+    test here is not whether such a reply can arrive but whether the executor *notices* if
+    one ever does, which is defence in depth and is worth keeping: the schema mode is the
+    outer wall, and this is the check behind it.
+    """
+    return ScriptedResponse(
+        SectionDraft(
+            content={"commentary": "Prose.", "figures": [], "surprise": "not in the contract"},
+            claims=[],
+        ),
+        unchecked=True,
     )
 
 

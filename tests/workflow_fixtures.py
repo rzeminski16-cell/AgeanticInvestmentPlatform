@@ -40,6 +40,7 @@ from aer.sources.sec.submissions import parse_submissions
 from aer.storage.local import LocalArtefactStore
 from aer.version import git_sha
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
+from tests.schema_guard import refuse_unanswerable_schema
 from tests.sec_fixtures import MSFT_CIK, fixture_bytes
 
 COMPANY_FACTS_FIXTURE = "companyfacts_msft.json"
@@ -214,6 +215,11 @@ def make_provider(**kwargs: Any) -> FakeProvider:
     verdict is an honest "nothing found", not an absence.
     """
     brain = ScriptedSectionBrain()
+    # The SDK-backed schema check (gap A18). Every call a run makes now goes through the
+    # same question the live run asked — on the schema that call actually composed, which
+    # is stronger than checking the registered contracts alone, because the section writer
+    # narrows its contract per section and that narrowing is where it broke.
+    kwargs.setdefault("inspect_schema", refuse_unanswerable_schema)
     provider = FakeProvider(brain, **kwargs)
     brain.provider = provider
     return provider
