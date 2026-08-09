@@ -40,6 +40,7 @@ _KNOWN_ROLES: Final[frozenset[str]] = frozenset(
         "source_triage",
         "extraction",
         "analysis",
+        "assumption_proposal",
         "valuation_interpretation",
         "red_team",
         "validator",

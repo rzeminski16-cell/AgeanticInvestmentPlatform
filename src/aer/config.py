@@ -93,6 +93,8 @@ DEFAULT_MODEL_ROUTES: Final[dict[str, ModelRoute]] = {
     "source_triage": ModelRoute(model="claude-haiku-4-5", effort="low"),
     "extraction": ModelRoute(model="claude-sonnet-5", effort="medium"),
     "analysis": ModelRoute(model="claude-sonnet-5", effort="medium"),
+    # Two numbers the whole valuation rests on, twice per report at most (ADR 0046).
+    "assumption_proposal": ModelRoute(model="claude-opus-5", effort="high"),
     "valuation_interpretation": ModelRoute(model="claude-opus-5", effort="high"),
     "red_team": ModelRoute(model="claude-opus-5", effort="high"),
     "validator": ModelRoute(model="claude-sonnet-5", effort="medium"),

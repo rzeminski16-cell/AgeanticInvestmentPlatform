@@ -44,6 +44,16 @@ the operator's". So a DCF needs an operator working through the assumptions page
 agent that proposes assumptions — and that is a new role, which ADR 0035 says needs an ADR
 before it needs code.
 
+**That ADR is now written (0046) and two thirds of the answer is built.** Six of the eight
+assumptions have a history in the filings the run already holds, so
+`aer.services.assumption_proposals` derives them arithmetically with their basis stated.
+The two that no filing answers — the perpetual growth rate and the exit multiple — come
+from the `assumption_proposal` role, whose output contract has a field for each and no
+other fields, whose bounds are checked in code, and whose out-of-band value is *refused*
+rather than clamped. What remains for B2 is the gate that shows an operator every proposed
+value with its justification, and the workflow step that runs the valuation once they have
+confirmed them.
+
 ---
 
 ## List A — backend, safety, security, optimisation, operations
@@ -63,7 +73,7 @@ before it needs code.
 | # | Gap | Notes |
 |---|---|---|
 | A5 | **No authentication** | `get_current_user` returns the first row of `users`. Correct for a local single-user tool; blocking for anything reachable from a network. Phase 6 keeps it behind a flag. |
-| A6 | **The FRED API key is compromised** | ADR 0033. Needs rotating by the operator; no code change will fix it. |
+| ~~A6~~ | ~~**The FRED API key is compromised**~~ | **Closed 2026-08-09.** ADR 0033. The operator rotated the key locally; the old one is dead. No code change was ever going to fix this one. |
 | A7 | **No inbound rate limiting** | The token bucket protects outbound fetches. The web application has none. |
 | A8 | **No production deployment story** | No `docker-compose.prod.yml`, no TLS or reverse-proxy configuration, no deployment guide. |
 

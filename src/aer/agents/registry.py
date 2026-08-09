@@ -179,6 +179,27 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         adr="0036",
     ),
     RoleDefinition(
+        role="assumption_proposal",
+        purpose=(
+            "Propose the two discounted-cash-flow assumptions no filing answers — the "
+            "perpetual growth rate and the exit multiple — each with a justification. "
+            "Proposes only; a person confirms before any calculation reads them."
+        ),
+        output_schema_ref="aer.agents.assumptions:AssumptionProposalDraft",
+        # No tools. It is handed the derived history, the run's findings and the discount
+        # rate, and returns two numbers; a role that could fetch would be choosing a
+        # valuation input from material nobody gated.
+        allowed_tools=frozenset(),
+        # The derived assumptions and a digest of the findings. Nowhere near this, so the
+        # cap trips on a caller that passed the evidence pack instead of the summary.
+        max_input_tokens=20_000,
+        # Two justifications is a few hundred tokens; the rest is headroom, because
+        # max_tokens bounds adaptive thinking and visible output together and this role
+        # routes to opus at high effort.
+        max_output_tokens=8_192,
+        adr="0046",
+    ),
+    RoleDefinition(
         role="custom_section",
         purpose=(
             "Draft one user-authored section under its pinned composed policy: content "
