@@ -32,6 +32,8 @@ from aer.fetch.limits import CircuitBreaker, RateLimiter
 from aer.fetch.robots import RobotsCache, RobotsFetcher
 from aer.providers.protocol import LLMProvider
 from aer.providers.router import Router
+from aer.sources.eodhd.budget import WeightedCallBudget
+from aer.sources.eodhd.client import EodhdClient
 from aer.sources.sec.client import SecEdgarClient
 from aer.sources.uk.companies_house import basic_auth_header
 from aer.storage.local import LocalArtefactStore
@@ -53,6 +55,12 @@ class ServiceBundle:
     sec_client: SecEdgarClient
     fetcher: SafeFetcher
 
+    # ``None`` when no subscription is configured, which is the ordinary state on a machine
+    # without one. Absent rather than a stub that raises: a workflow step asks whether it
+    # has a price client and says so in its output when it does not, and a stub would push
+    # that decision to a failure several layers down.
+    eodhd_client: EodhdClient | None = None
+
     def as_mapping(self) -> dict[str, Any]:
         """The form the workflow engine passes to steps."""
         return {
@@ -62,6 +70,7 @@ class ServiceBundle:
             "store": self.store,
             "sec_client": self.sec_client,
             "fetcher": self.fetcher,
+            "eodhd_client": self.eodhd_client,
         }
 
 
@@ -128,7 +137,24 @@ def build_services(
         store=artefact_store,
         sec_client=SecEdgarClient(fetcher, store=artefact_store),
         fetcher=fetcher,
+        eodhd_client=_eodhd_client(settings, fetcher=fetcher, store=artefact_store, redis=redis),
     )
+
+
+def _eodhd_client(
+    settings: Settings, *, fetcher: SafeFetcher, store: ArtefactStore, redis: Redis
+) -> EodhdClient | None:
+    """The market-data client, when a subscription is configured.
+
+    ``None`` otherwise, and deliberately not an error. The feed is licensed and optional:
+    ADR 0030 route 2 treats it as a capability the platform works without, so a machine
+    with no key runs every step and reports the price-derived figures as unavailable
+    rather than refusing to start.
+    """
+    key = settings.eodhd_api_key
+    if key is None or not key.get_secret_value().strip():
+        return None
+    return EodhdClient(fetcher, store, settings=settings, budget=WeightedCallBudget(redis))
 
 
 def _credentials(settings: Settings) -> dict[Provider, str]:

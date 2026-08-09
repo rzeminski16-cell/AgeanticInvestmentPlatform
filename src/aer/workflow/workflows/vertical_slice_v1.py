@@ -38,7 +38,7 @@ from aer.agents.worker import ResearchTopic
 from aer.calc.basic import cagr
 from aer.calc.comps import MultipleBasis, WithheldComps, align_peers
 from aer.calc.engine import CalculationContext
-from aer.calc.units import SourceRef, money
+from aer.calc.units import Quantity, SourceRef, Unit, money
 from aer.core.enums import Decision, FactBasis, GateKind, JobStatus, Provider, SourceTier
 from aer.core.escalation import FiredTrigger
 from aer.core.hashing import canonical_json, sha256_hex
@@ -91,6 +91,7 @@ from aer.services.comps import (
     peer_set_required,
     propose_peers_from_sic,
 )
+from aer.services.comps_run import build_comps_table
 from aer.services.disagreements import escalations_for_job
 from aer.services.escalation import triggers_for_job
 from aer.services.evaluations import evaluate_run
@@ -98,6 +99,7 @@ from aer.services.exhibits import exportable_charts_for
 from aer.services.extractions import record_excerpts
 from aer.services.facts import persist_facts, upsert_company
 from aer.services.filings import acquire_filings
+from aer.services.price_acquisition import acquire_prices
 from aer.services.red_team import run_red_team
 from aer.services.research import build_executors, run_worker
 from aer.services.sectors import (
@@ -124,7 +126,9 @@ from aer.workflow.engine import StepContext, StepPaused, StepResult, WorkflowSte
 
 __all__ = [
     "ASSUMPTIONS_STEP",
+    "COMPS_STEP",
     "FORECAST_YEARS",
+    "PRICES_STEP",
     "VALUE_STEP",
     "WORKFLOW_VERSION",
     "assumptions_gate_payload",
@@ -178,6 +182,8 @@ FORECAST_YEARS: Final = 5
 
 ASSUMPTIONS_STEP: Final = "propose_assumptions"
 VALUE_STEP: Final = "value"
+PRICES_STEP: Final = "acquire_prices"
+COMPS_STEP: Final = "comps"
 
 # What the gate shows as a runtime estimate. A constant for the slice, which does one
 # fetch and one calculation; Phase 3 derives it from the plan.
@@ -226,6 +232,11 @@ def build_steps() -> list[WorkflowStep]:
             run=_gate_peer_set,
             gate=GateKind.PEER_SET.value,
         ),
+        # Prices (gap B3). After the peer gate because the comps table needs both, and
+        # before the assumptions are proposed because the beta this regresses is one of
+        # them — without it the operator types a beta by hand and the valuation waits.
+        # Conditional on a subscription: no key, no prices, and the step says so.
+        WorkflowStep(key=PRICES_STEP, run=_acquire_prices),
         WorkflowStep(key="extract", run=_extract),
         # Conditional: it passes straight through unless the extraction left tags the concept
         # map does not know. Declared unconditionally because a gate that only exists on the
@@ -271,6 +282,12 @@ def build_steps() -> list[WorkflowStep]:
             needs=frozenset({"gate_uk_financials"}),
             estimated_cost_gbp=WORKER_ESTIMATE_GBP,
         ),
+        # Comparables (gap B3). After the peer gate, which confirmed the set, and after
+        # the prices, which supply the market capitalisation the enterprise-value multiples
+        # need. **Before the assumptions gate rather than after it**: a comps table is a
+        # relative judgement that waits on no forecast, and an operator deciding a terminal
+        # growth rate is better off able to see what the market pays for the peers.
+        WorkflowStep(key=COMPS_STEP, run=_comps, needs=frozenset({"calculate", PRICES_STEP})),
         # The assumptions a discounted cash flow rests on (gap B2c, ADR 0046). After the
         # analysis because six of them are derived from it, and after the research because
         # the two that are judgements are proposed against what the run found. Conditional
@@ -309,6 +326,7 @@ def build_steps() -> list[WorkflowStep]:
             needs=frozenset(
                 {
                     "calculate",
+                    COMPS_STEP,
                     "gate_assumptions",
                     VALUE_STEP,
                     "research_company",
@@ -810,6 +828,70 @@ def _mandate_for(request: ResearchRequest, *, sector_key: str) -> ValuationManda
 _SECTOR_GATE: Final = "gate:SECTOR_SPECIALIST"
 
 
+async def _comps(context: StepContext) -> StepResult:
+    """Build the comparables table, with every peer this run had no data for named.
+
+    **The comparables page has been empty since the first live run**, and not because the
+    table was hard to build: `aer.services.comps.build` has always known how, and nothing
+    called it.
+
+    A table today is the subject's own multiples plus a list of confirmed peers excluded
+    for want of their filings and prices. That is thin and it is honest — this workflow
+    acquires data for the company it is researching and for nobody else, so a peer row
+    would have to be assembled from figures the platform does not hold. The exclusions say
+    exactly that, which is what stops a one-row table reading as "this company has no
+    comparables".
+    """
+    request = await _request_for(context)
+    acquired = context.output_of("acquire")
+    prices = context.outputs.get(PRICES_STEP, {})
+
+    analysis = await analyse_company(
+        context.session,
+        calculation_service.new_context(),
+        company_id=_uuid(acquired["company_id"]),
+        request=request,
+    )
+
+    ledger = calculation_service.new_context()
+    outcome = await build_comps_table(
+        context.session,
+        ledger,
+        job=context.job,
+        company_name=request.company_name,
+        ticker=request.ticker,
+        analysis=analysis,
+        market_capitalisation=_market_capitalisation_from(prices, currency=request.base_currency),
+        as_of=request.as_of_date,
+    )
+
+    if ledger.records:
+        await calculation_service.persist_context(context.session, ledger, job_id=context.job.id)
+
+    return StepResult(output=outcome.as_dict())
+
+
+def _market_capitalisation_from(prices: Mapping[str, Any], *, currency: str) -> Quantity | None:
+    """The market capitalisation the price step computed, read back as a quantity.
+
+    Round-tripped through the step output rather than passed as an object, because that is
+    what the engine carries between steps — and it is re-sourced to the calculation that
+    produced it rather than left bare, since the unit system refuses an unsourced input and
+    a figure with no lineage has no business in a multiple.
+    """
+    value = prices.get("market_capitalisation")
+    if not value:
+        return None
+    return Quantity.of(
+        Decimal(str(value)),
+        Unit.currency(currency),
+        source=SourceRef.calculation(
+            prices.get("security_id", "market_capitalisation"),
+            label="market capitalisation",
+        ),
+    )
+
+
 async def _validate(context: StepContext) -> StepResult:
     """Write the run's eight §2.10 evaluation rows — scores, never a pause.
 
@@ -1250,6 +1332,49 @@ async def _gate_peer_set(context: StepContext) -> StepResult:
 # ==========================================================================================
 # 4. Extract
 # ==========================================================================================
+
+
+async def _acquire_prices(context: StepContext) -> StepResult:
+    """Fetch the subject's price history and its market's, and propose a beta from them.
+
+    **The step that makes the valuation reachable on an ordinary run.** `beta` is one of the
+    three cost-of-capital inputs the assumptions gate needs, and until this existed the only
+    way to supply it was to type it. The regression is proposed, never confirmed: the proxy
+    is a judgement and the window changes the answer, so an operator agrees to it like any
+    other number.
+
+    Conditional on a subscription, and silent about its absence in the only way that
+    matters — by saying so. A machine with no key runs every other step and the run reports
+    which figures it could not compute.
+
+    The calculations this writes — the market capitalisation, the beta and the adjustments
+    beneath them — are persisted; the price series itself is stored as a hashed artefact
+    with the licence note on its provenance row. Under ADR 0030 route 2 the series may not
+    be exported, and the containment for that lives in the comps table and the exhibit
+    layer rather than here.
+    """
+    request = await _request_for(context)
+    acquired = context.output_of("acquire")
+    company = await context.session.get(Company, _uuid(acquired["company_id"]))
+    if company is None:  # pragma: no cover -- written by the prior step
+        message = "The acquire step's company row is missing."
+        raise StepPaused(message, gate=None)
+
+    ledger = calculation_service.new_context()
+    outcome = await acquire_prices(
+        context.session,
+        context.optional_service("eodhd_client"),
+        context.service("store"),
+        request=request,
+        company=company,
+        job_id=context.job.id,
+        context=ledger,
+    )
+
+    if ledger.records:
+        await calculation_service.persist_context(context.session, ledger, job_id=context.job.id)
+
+    return StepResult(output=outcome.as_dict())
 
 
 async def _extract(context: StepContext) -> StepResult:

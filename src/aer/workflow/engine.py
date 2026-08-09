@@ -157,6 +157,20 @@ class StepContext:
     def service(self, name: str) -> Any:
         return self.services[name]
 
+    def optional_service(self, name: str) -> Any:
+        """A service that may legitimately not be there, or ``None``.
+
+        For capabilities rather than dependencies. A licensed market-data client is
+        configured on some machines and not others, and a step that handles its absence
+        should not also have to distinguish "no subscription" from "this workflow harness
+        does not supply that key" — both mean the same thing to the step, and the
+        distinction has no action attached to it.
+
+        Not a general escape from :meth:`service`. Anything a step cannot proceed without
+        goes through that one, so a missing dependency still fails loudly.
+        """
+        return self.services.get(name)
+
 
 StepFunction = Callable[[StepContext], Awaitable[StepResult]]
 

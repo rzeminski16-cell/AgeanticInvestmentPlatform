@@ -301,6 +301,10 @@ class TestTheWholeRun:
             # passes straight through.
             "propose_peers",
             "gate_peer_set",
+            # Prices (gap B3). Skipped-but-recorded here: this harness configures no
+            # market-data subscription, so the step reports that the beta and the market
+            # capitalisation could not be computed rather than failing.
+            "acquire_prices",
             "extract",
             # A step even on the runs it does not apply to. It succeeds without stopping
             # when every tag mapped, which is what this fixture's filing does.
@@ -315,6 +319,11 @@ class TestTheWholeRun:
             "research_macro",
             "research_recent_developments",
             "research_technical_context",
+            # Comparables (gap B3). The subject's own multiples plus every confirmed peer
+            # excluded by name for want of its filings and prices — this database holds no
+            # other company, so the exclusion list is the honest content of the table.
+            # Before the assumptions gate: a relative judgement waits on no forecast.
+            "comps",
             # The assumptions a discounted cash flow rests on (gap B2c, ADR 0046). After
             # the analysis, which six of them are derived from, and after the research,
             # which the two judgements are proposed against.
