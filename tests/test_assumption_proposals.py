@@ -20,27 +20,17 @@ defect, and the operator cannot tell whether to wait for it or type it.
 from __future__ import annotations
 
 import inspect
-from datetime import UTC, date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.dcf import DRIVER_NAMES
-from aer.core.enums import FactBasis, JobStatus, Provider, SourceTier, UserRole
 from aer.db.models import (
-    Artefact,
     Assumption,
-    Company,
-    FinancialFact,
-    Job,
-    ResearchRequest,
-    SourceDocument,
-    User,
 )
-from aer.services.analysis import ANNUAL, analyse_company
 from aer.services.assumption_proposals import (
     DERIVED_NAMES,
     PROPOSED_BY,
@@ -48,136 +38,14 @@ from aer.services.assumption_proposals import (
     propose_derived,
 )
 from aer.services.assumptions import UnconfirmedAssumptionError, as_quantity
-from aer.services.calculations import new_context
 from aer.services.valuation import SCALAR_NAMES
+from tests.assumption_fixtures import a_year, analysed, seed_years
 
 pytestmark = pytest.mark.integration
-
-AS_OF = date(2024, 6, 30)
-
-
-def a_year(**overrides: str) -> dict[str, str]:
-    """A plausible filer's year, in canonical concepts."""
-    values = {
-        "revenue": "1000",
-        "cost_of_revenue": "400",
-        "gross_profit": "600",
-        "operating_income": "250",
-        "net_income": "180",
-        "income_tax_expense": "50",
-        "pre_tax_income": "230",
-        "cash_and_equivalents": "300",
-        "accounts_receivable": "150",
-        "inventory": "90",
-        "current_assets": "540",
-        "assets": "1400",
-        "accounts_payable": "110",
-        "current_liabilities": "260",
-        "long_term_debt": "400",
-        "liabilities": "700",
-        "equity": "700",
-        "operating_cash_flow": "260",
-        "capital_expenditure": "80",
-        "depreciation_and_amortisation": "70",
-    }
-    values.update(overrides)
-    return values
-
-
-@pytest.fixture
-async def scene(db_session: AsyncSession) -> dict[str, Any]:
-    user = User(email="proposals@example.invalid", display_name="P", role=UserRole.OWNER)
-    db_session.add(user)
-    await db_session.flush()
-
-    request = ResearchRequest(
-        user_id=user.id,
-        company_name="Contoso Corporation",
-        ticker="CTSO",
-        exchange="NASDAQ",
-        as_of_date=AS_OF,
-        base_currency="USD",
-        investment_horizon_months=12,
-        max_cost_gbp="2.50",
-        portfolio_context={},
-        point_in_time=True,
-    )
-    company = Company(
-        name="Contoso Corporation", ticker="CTSO", exchange="NASDAQ", cik="0000000002"
-    )
-    artefact = Artefact(
-        sha256="d" * 64, size_bytes=10, media_type="application/json", storage_key="dd/d"
-    )
-    db_session.add_all([request, company, artefact])
-    await db_session.flush()
-
-    document = SourceDocument(
-        request_id=request.id,
-        artefact_id=artefact.id,
-        url="https://data.sec.gov/api/xbrl/companyfacts/CIK0000000002.json",
-        provider=Provider.SEC_EDGAR,
-        source_tier=SourceTier.T1_REGULATORY,
-        title="Contoso XBRL company facts",
-        retrieved_at=datetime.now(UTC),
-    )
-    job = Job(
-        request_id=request.id,
-        workflow_version="test",
-        code_version="abc",
-        status=JobStatus.RUNNING,
-        started_at=datetime.now(UTC),
-    )
-    db_session.add_all([document, job])
-    await db_session.flush()
-
-    return {
-        "session": db_session,
-        "request": request,
-        "company": company,
-        "job": job,
-        "document": document,
-    }
-
-
-async def seed_years(scene: dict[str, Any], years: dict[date, dict[str, str]]) -> None:
-    for period_end, values in years.items():
-        scene["session"].add_all(
-            FinancialFact(
-                company_id=scene["company"].id,
-                source_document_id=scene["document"].id,
-                concept=concept,
-                raw_concept=concept,
-                taxonomy="us-gaap",
-                value=Decimal(value),
-                unit="USD",
-                period_start=date(period_end.year, 1, 1),
-                period_end=period_end,
-                fiscal_year=period_end.year,
-                fiscal_period=ANNUAL,
-                filed_date=date(period_end.year + 1, 2, 1),
-                form="10-K",
-                accession=f"000000000{period_end.year % 10}-00-000000",
-                basis=FactBasis.AS_REPORTED,
-            )
-            for concept, value in values.items()
-        )
-    await scene["session"].flush()
-
-
-async def analysed(scene: dict[str, Any]) -> Any:
-    return await analyse_company(
-        scene["session"],
-        new_context(),
-        company_id=scene["company"].id,
-        request=scene["request"],
-    )
 
 
 def named(outcome: Any, name: str) -> Any:
     return next((item for item in outcome.derived if item.name == name), None)
-
-
-# -- What the filings can answer ---------------------------------------------------------------
 
 
 class TestTheSixThatHistoryAnswers:

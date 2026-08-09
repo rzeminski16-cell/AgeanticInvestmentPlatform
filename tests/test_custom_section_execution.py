@@ -68,6 +68,7 @@ from tests.test_workflow import approve, run_to_next_stop
 from tests.workflow_fixtures import (
     AS_OF_DATE,
     StubSecClient,
+    assumption_proposal_draft,
     declared_schema_name,
     planner_response,
     section_draft_for,
@@ -816,17 +817,20 @@ def moat_provider() -> FakeProvider:
             # The built-in spine drafts alongside the custom section since task 45; the
             # shared scripted writer answers for it so this fixture stays about the moat.
             return section_draft_for(holder["provider"].calls[-1])
-        if name == "ValidatorAdvisory":
-            return ValidatorAdvisory(
+        # The roles this fixture is not about: an honest empty answer each, so the run
+        # reaches the custom section without the fixture growing opinions about the bear
+        # case, the validator or the valuation's assumptions.
+        static = {
+            "ValidatorAdvisory": lambda: ValidatorAdvisory(
                 found=False, rationale="Scripted fixture: nothing to add.", confidence=0.1
-            )
-        if name == "RedTeamReport":
-            # The moat draft records claims, so the adversary runs. An honest empty
-            # report keeps this fixture about the custom section rather than the bear
-            # case, which has its own suite.
-            return RedTeamReport(
+            ),
+            "RedTeamReport": lambda: RedTeamReport(
                 challenges=[], coverage_note="Scripted fixture: no challenge raised."
-            )
+            ),
+            "AssumptionProposalDraft": assumption_proposal_draft,
+        }
+        if name in static:
+            return static[name]()
         message = f"unexpected schema {name}"
         raise AssertionError(message)
 

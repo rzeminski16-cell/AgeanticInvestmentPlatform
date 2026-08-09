@@ -16,7 +16,7 @@ from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.status import HTTP_404_NOT_FOUND
@@ -27,6 +27,7 @@ from aer.errors import AerError, ValidationError
 from aer.services import assumptions as assumption_service
 from aer.services import scenarios as scenario_service
 from aer.services.approvals import payload_hash_for
+from aer.services.assumption_gate import PROPOSABLE_NAMES
 
 __all__ = ["assumptions_payload", "router"]
 
@@ -48,6 +49,36 @@ class AmendRequest(BaseModel):
     value: Decimal
     justification: str = Field(min_length=1, max_length=4000)
     unit: str | None = Field(default=None, max_length=32)
+
+
+class ProposeRequest(BaseModel):
+    """A value a person is putting forward for an assumption that has none.
+
+    ``name`` is bounded to the vocabulary a valuation actually reads. An arbitrary name
+    would be accepted, stored, shown on the page and then silently ignored by
+    :func:`aer.services.valuation.inputs_from`, which looks assumptions up by name — and an
+    operator who typed `terminal_growth_rate` would spend a long time wondering why their
+    forecast still would not run.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=64)
+    value: Decimal
+    unit: str = Field(min_length=1, max_length=32)
+    justification: str = Field(min_length=1, max_length=4000)
+
+    @field_validator("name")
+    @classmethod
+    def _known_name(cls, value: str) -> str:
+        if value in PROPOSABLE_NAMES:
+            return value
+        message = (
+            f"{value!r} is not an assumption this platform reads. Known names: "
+            f"{', '.join(PROPOSABLE_NAMES)}. A driver may also be given per year as "
+            "`<driver>_y1` through `<driver>_y5` for a path that changes."
+        )
+        raise ValueError(message)
 
 
 class ConfirmRequest(BaseModel):
@@ -119,6 +150,52 @@ async def read_assumptions(
         unconfirmed=sum(1 for row in rows if not row.approved),
         payload_hash=payload_hash_for(payload),
     )
+
+
+@router.post(
+    "/{request_id}/assumptions",
+    response_model=AssumptionsRead,
+    summary="Put forward an assumption the run could not propose",
+)
+async def create_assumption(
+    request_id: uuid.UUID,
+    *,
+    payload: Annotated[ProposeRequest, Body()],
+    session: DbSession,
+    user: CurrentUser,
+) -> AssumptionsRead:
+    """A person supplies a value nothing in this run could source.
+
+    **Without this the assumptions gate could never be cleared.** A discounted cash flow
+    needs a risk-free rate, a beta and an equity risk premium; this workflow acquires no
+    macroeconomic series and no price history, and the premium is a judgement with no
+    series behind it at all. Amending and confirming operate on rows that exist, so a run
+    that proposed eight of eleven had no route to the other three and the valuation stayed
+    permanently out of reach.
+
+    Recorded as a human proposal — ``by_human`` and the operator's own address — and
+    **still unconfirmed**, because :func:`aer.services.assumptions.propose` makes every
+    proposal unconfirmed whatever its caller says. Typing a number and agreeing to it are
+    two acts here, exactly as they are for a value a model put forward.
+
+    Proposing a name that already exists supersedes it, which makes this idempotent in the
+    way that matters: a repeated submission leaves one assumption and a visible history,
+    not two rows disagreeing about the same thing.
+    """
+    await _owned_request(session, request_id=request_id, user=user)
+
+    await assumption_service.propose(
+        session,
+        request_id=request_id,
+        name=payload.name,
+        value=payload.value,
+        unit=payload.unit,
+        justification=payload.justification,
+        proposed_by=user.email,
+        by_human=True,
+    )
+    await session.commit()
+    return await read_assumptions(request_id, session, user)
 
 
 @router.post(

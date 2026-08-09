@@ -124,10 +124,18 @@ class AssumptionProposalInput(BaseModel):
     as_of_date: str
     base_currency: str
 
-    # The discount rate this valuation will use, as a decimal. Supplied because the terminal
-    # growth rate has to sit below it, and a model told the constraint proposes inside it
-    # rather than having a plausible answer thrown away by the bounds check.
-    discount_rate: Decimal
+    # The discount rate this valuation will use, as a decimal, when the run already knows it.
+    # Supplied because the terminal growth rate has to sit below it, and a model told the
+    # constraint proposes inside it rather than having a plausible answer thrown away.
+    #
+    # **None is a real state, not a missing value.** The rate is decomposed by
+    # `aer.calc.wacc` from a risk-free rate, a beta and a premium, each of which is itself an
+    # assumption somebody has to confirm — so at the moment these two are proposed the run
+    # frequently does not have it yet. Inventing one to fill the field would be exactly the
+    # house number this platform refuses elsewhere. The stated ceiling still applies, and the
+    # binding check is `aer.calc.dcf.gordon_terminal_value`, which refuses a growth rate at or
+    # above the discount rate when the valuation actually runs.
+    discount_rate: Decimal | None = None
 
     # The derived assumptions, already computed, as "name = value — justification" lines.
     # A terminal rate proposed without knowing the company grew at 3% is a guess about a
@@ -165,13 +173,20 @@ class BoundedProposal:
 
 
 def within_bounds(
-    draft: AssumptionProposalDraft, *, discount_rate: Decimal
+    draft: AssumptionProposalDraft, *, discount_rate: Decimal | None
 ) -> tuple[BoundedProposal, ...]:
     """Apply the deterministic bounds to a draft. Never clamps; refuses.
 
     The discount-rate check is the one that is not a matter of taste: at or above it the
     Gordon terminal value is undefined or negative, so a forecast built on such a rate
     would not be wrong by a little.
+
+    ``discount_rate`` of ``None`` means the run does not know it yet — see
+    :class:`AssumptionProposalInput`. The check is then **skipped rather than guessed**: the
+    stated ceiling still applies here, and :func:`aer.calc.dcf.gordon_terminal_value` applies
+    the real comparison when the valuation runs, on the confirmed rate rather than a
+    provisional one. Skipping it can only ever let a *proposal* through, and a proposal
+    reaches nothing until a person confirms it.
     """
     growth = draft.terminal_growth
     multiple = draft.exit_multiple
@@ -194,8 +209,8 @@ def within_bounds(
     )
 
 
-def _growth_refusal(value: Decimal, *, discount_rate: Decimal) -> str | None:
-    if value >= discount_rate:
+def _growth_refusal(value: Decimal, *, discount_rate: Decimal | None) -> str | None:
+    if discount_rate is not None and value >= discount_rate:
         return (
             f"A perpetual growth rate of {value} is at or above the discount rate of "
             f"{discount_rate}, which makes the terminal value undefined or negative rather "
@@ -241,11 +256,23 @@ class AssumptionProposalAgent(Agent[AssumptionProposalInput, AssumptionProposalD
         return _SYSTEM_PROMPT
 
     def user_message(self, payload: AssumptionProposalInput) -> str:
+        rate = (
+            str(payload.discount_rate)
+            if payload.discount_rate is not None
+            # Said plainly rather than omitted. A model given no rate and no explanation
+            # tends to assume one and reason from it silently.
+            else (
+                "not yet determined — its components are themselves assumptions awaiting "
+                "confirmation. Propose a perpetual rate that would sit below any ordinary "
+                "cost of capital for this business, and say in your justification what "
+                "discount rate you took it to be below."
+            )
+        )
         lines = [
             f"Company: {payload.company_name} ({payload.ticker})",
             f"As-of date: {payload.as_of_date}",
             f"Reporting currency: {payload.base_currency}",
-            f"Discount rate for this valuation: {payload.discount_rate}",
+            f"Discount rate for this valuation: {rate}",
         ]
         if payload.sector:
             lines.append(f"Sector model: {payload.sector}")

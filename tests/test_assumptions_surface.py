@@ -411,3 +411,118 @@ class TestTheScenarioSurface:
         assert 'id="scenarios"' in page.text
         assert "Bear case" in page.text
         assert "Contracts expire unsigned." in page.text
+
+
+class TestSupplyingAnAssumptionTheRunCouldNotPropose:
+    """Gap B2c. Without this route the assumptions gate is unreachable.
+
+    A discounted cash flow needs a risk-free rate, a beta and an equity risk premium. The
+    workflow acquires no macroeconomic series and no price history, and the premium has no
+    series behind it at all — so a run proposes eight of eleven, and amend and confirm only
+    operate on rows that already exist. The gate fires on a complete set; without a way to
+    add the other three, it never fires and the valuation never runs.
+    """
+
+    async def test_a_supplied_value_is_recorded_against_the_person_who_typed_it(
+        self, api, committed
+    ):
+        response = await api.post(
+            f"/api/requests/{committed['request'].id}/assumptions",
+            json={
+                "name": "equity_risk_premium",
+                "value": "0.055",
+                "unit": "pure",
+                "justification": "Damodaran's implied US premium at the as-of date.",
+            },
+        )
+
+        assert response.status_code == 200
+        row = next(
+            item for item in response.json()["assumptions"] if item["name"] == "equity_risk_premium"
+        )
+        assert row["proposed_by"] == "owner@example.invalid"
+
+    async def test_it_is_still_unconfirmed(self, api, committed):
+        """Typing a number and agreeing to it are two acts, exactly as for a model's."""
+        response = await api.post(
+            f"/api/requests/{committed['request'].id}/assumptions",
+            json={
+                "name": "beta",
+                "value": "1.15",
+                "unit": "pure",
+                "justification": "Five-year monthly beta against the S&P 500.",
+            },
+        )
+
+        row = next(item for item in response.json()["assumptions"] if item["name"] == "beta")
+        assert row["approved"] is False
+
+    async def test_a_name_no_valuation_reads_is_refused(self, api, committed):
+        """Otherwise it is stored, listed, confirmed — and then silently ignored by
+        `inputs_from`, which looks assumptions up by name."""
+        response = await api.post(
+            f"/api/requests/{committed['request'].id}/assumptions",
+            json={
+                "name": "terminal_growth_rate",
+                "value": "0.02",
+                "unit": "pure",
+                "justification": "A plausible long-run rate.",
+            },
+        )
+
+        assert response.status_code == 422
+
+    async def test_proposing_the_same_name_twice_supersedes_rather_than_duplicates(
+        self, api, committed
+    ):
+        url = f"/api/requests/{committed['request'].id}/assumptions"
+        body = {
+            "name": "risk_free_rate",
+            "value": "0.042",
+            "unit": "pure",
+            "justification": "Ten-year Treasury at the as-of date.",
+        }
+        await api.post(url, json=body)
+        response = await api.post(url, json={**body, "value": "0.044"})
+
+        matching = [
+            item for item in response.json()["assumptions"] if item["name"] == "risk_free_rate"
+        ]
+        assert len(matching) == 1
+        assert matching[0]["value"].startswith("0.044")
+
+    async def test_somebody_elses_request_is_not_reachable(self, api, committed, db_engine):
+        """An assumption is a judgement about somebody else's analysis; neither half is
+        public, and the create route must check ownership like every other route here."""
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            stranger = User(email="stranger@example.invalid", display_name="S", role=UserRole.OWNER)
+            session.add(stranger)
+            await session.flush()
+            theirs = ResearchRequest(
+                user_id=stranger.id,
+                company_name="Somebody Else Ltd",
+                ticker="SEL",
+                exchange="LSE",
+                as_of_date=AS_OF_DATE,
+                point_in_time=True,
+                base_currency="GBP",
+                reporting_currency="GBP",
+                investment_horizon_months=12,
+                max_cost_gbp="2.50",
+            )
+            session.add(theirs)
+            await session.commit()
+            other_id = theirs.id
+
+        response = await api.post(
+            f"/api/requests/{other_id}/assumptions",
+            json={
+                "name": "beta",
+                "value": "1.0",
+                "unit": "pure",
+                "justification": "Reaching into another operator's request.",
+            },
+        )
+
+        assert response.status_code == 404

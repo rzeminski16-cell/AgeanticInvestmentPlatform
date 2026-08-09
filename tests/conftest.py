@@ -35,6 +35,7 @@ from tests.api_fixtures import (  # noqa: F401
     broken_redis,
     fake_redis,
 )
+from tests.assumption_fixtures import scene  # noqa: F401
 from tests.db_fixtures import (  # noqa: F401
     anyio_backend,
     database_url,

@@ -71,6 +71,10 @@ from aer.services import calculations as calculation_service
 from aer.services.acquisition import record_acquisition
 from aer.services.analysis import analyse_company
 from aer.services.artefacts import store_artefact
+from aer.services.assumption_gate import assemble as assemble_assumptions
+from aer.services.assumption_gate import dcf_permitted, gate_required
+from aer.services.assumption_gate import gate_payload as gate_payload_for_assumptions
+from aer.services.assumptions import assumptions_for_request
 from aer.services.citations import review_evidence
 from aer.services.comps import (
     PEER_SET_STEP,
@@ -110,13 +114,18 @@ from aer.verify.citations import verify_job_citations
 from aer.workflow.engine import StepContext, StepPaused, StepResult, WorkflowStep
 
 __all__ = [
+    "ASSUMPTIONS_STEP",
+    "FORECAST_YEARS",
     "WORKFLOW_VERSION",
+    "assumptions_gate_payload",
+    "assumptions_gate_required",
     "build_steps",
     "comps_note_for",
     "final_gate_payload",
     "peer_gate_payload",
     "plan_gate_payload",
     "sector_gate_payload",
+    "sector_key_of",
     "sector_note_for",
     "unmapped_gate_payload",
     "unmapped_gate_required",
@@ -144,6 +153,20 @@ VALIDATOR_ESTIMATE_GBP: Final = Decimal("0.05")
 # batch path (~£0.85 at current rates). Generous for the same reason as every estimate
 # here, and zero-cost on the runs that skip it for want of claims.
 RED_TEAM_ESTIMATE_GBP: Final = Decimal("1.00")
+
+# The assumption proposals (gap B2c, ADR 0046): one Opus call at high effort returning two
+# short justifications. Small, but the input carries the derived history and the run's
+# findings, so it is not free.
+ASSUMPTIONS_ESTIMATE_GBP: Final = Decimal("0.20")
+
+# How long the explicit forecast runs before the terminal value takes over. Five years is
+# the convention, and the derived proposals are flat across it in any case — an operator who
+# wants a fade enters `revenue_growth_y1` through `_y5` and the flat proposal steps aside.
+# Not a request field, because a horizon somebody picks per run is a modelling choice this
+# platform has no way to justify differently for each company.
+FORECAST_YEARS: Final = 5
+
+ASSUMPTIONS_STEP: Final = "propose_assumptions"
 
 # What the gate shows as a runtime estimate. A constant for the slice, which does one
 # fetch and one calculation; Phase 3 derives it from the plan.
@@ -237,12 +260,41 @@ def build_steps() -> list[WorkflowStep]:
             needs=frozenset({"gate_uk_financials"}),
             estimated_cost_gbp=WORKER_ESTIMATE_GBP,
         ),
+        # The assumptions a discounted cash flow rests on (gap B2c, ADR 0046). After the
+        # analysis because six of them are derived from it, and after the research because
+        # the two that are judgements are proposed against what the run found. Conditional
+        # on the sector mandate: a bank is proposed nothing, because it is never going to be
+        # given a forecast.
+        WorkflowStep(
+            key=ASSUMPTIONS_STEP,
+            run=_propose_assumptions,
+            needs=frozenset(
+                {
+                    "calculate",
+                    "research_company",
+                    "research_industry",
+                    "research_macro",
+                    "research_recent_developments",
+                    "research_technical_context",
+                }
+            ),
+            estimated_cost_gbp=ASSUMPTIONS_ESTIMATE_GBP,
+        ),
+        # **The one gate that guards work which has not happened yet.** Every other gate
+        # approves something produced; this approves the numbers a valuation is about to be
+        # built on, some of them a model's. Skipped when the run has nothing to confirm.
+        WorkflowStep(
+            key="gate_assumptions",
+            run=_gate_assumptions,
+            gate=GateKind.ASSUMPTIONS.value,
+        ),
         WorkflowStep(
             key="draft",
             run=_draft,
             needs=frozenset(
                 {
                     "calculate",
+                    "gate_assumptions",
                     "research_company",
                     "research_industry",
                     "research_macro",
@@ -503,6 +555,146 @@ async def _gate_uk_financials(context: StepContext) -> StepResult:
         )
 
     return await _require_approval(context, gate=GateKind.UK_FINANCIALS, of_step="extract")
+
+
+def sector_key_of(outputs: Mapping[str, Mapping[str, Any]]) -> str:
+    """The classification this run settled on, or ``""`` for an ordinary company.
+
+    A named function rather than two lines inside the step, because what it returns decides
+    whether a discounted cash flow is proposed at all — and reading the wrong step's output,
+    or the wrong key of the right step's, would silently return ``""`` and hand a bank the
+    standard model. An empty string is a real answer here and an error looks exactly like
+    one, so the lookup is worth being able to test on its own.
+    """
+    return str(outputs.get(CLASSIFY_STEP, {}).get("sector_key", ""))
+
+
+def assumptions_gate_payload(produced: Mapping[str, Any]) -> dict[str, Any]:
+    """Exactly what the assumptions gate approves, as one structure.
+
+    Assembled from the step's own output rather than re-read from the database, so the hash
+    covers what the run actually produced. A row amended between the proposal and the
+    approval changes the payload and therefore the hash, and `_require_approval` refuses —
+    which is the point: confirming a list is confirming *those numbers*.
+    """
+    return {
+        "assumptions": list(produced.get("assumptions", [])),
+        "outstanding": list(produced.get("outstanding", [])),
+        "refused": list(produced.get("refused", [])),
+        "skipped": list(produced.get("skipped", [])),
+    }
+
+
+def assumptions_gate_required(produced: Mapping[str, Any]) -> bool:
+    """Whether this run has assumptions for a person to confirm.
+
+    Delegates, so the rule has one definition. Restating it here is how the workflow and
+    the service came to disagree in the first place — the condition grew a third clause in
+    :func:`aer.services.assumption_gate.gate_required` and the copy kept the old two, which
+    would have stopped runs at a gate they could not clear.
+    """
+    return gate_required(dict(produced))
+
+
+async def _propose_assumptions(context: StepContext) -> StepResult:
+    """Put a number against every assumption this run can, and name the rest.
+
+    **Six from the filings, two from a model, three left for the operator.** The derived six
+    come from :mod:`aer.services.assumption_proposals`; the terminal growth rate and the exit
+    multiple from the ADR 0046 role, bounded in code; and the three the discount rate
+    decomposes into — a risk-free rate, a beta and an equity risk premium — are named as
+    outstanding with the reason, because this workflow acquires neither a macro series nor a
+    price history and a beta invented here would be indistinguishable in the output from one
+    somebody sourced.
+
+    The analysis is **recomputed rather than re-read**. `_calculate` holds the
+    :class:`~aer.services.analysis.AnalysisOutcome` only for the length of its own step, and
+    the alternative — folding the proposals into that step — would put a model call inside
+    the deterministic calculation step. The recomputation writes nothing: its ledger is
+    never persisted, so the run's calculations are recorded exactly once.
+    """
+    request = await _request_for(context)
+    acquired = context.output_of("acquire")
+    sector_key = sector_key_of(context.outputs)
+
+    analysis = await analyse_company(
+        context.session,
+        calculation_service.new_context(),
+        company_id=_uuid(acquired["company_id"]),
+        request=request,
+    )
+
+    permitted = dcf_permitted(sector_key)
+    agent_context: AgentContext | None = None
+    if permitted:
+        agent_context = AgentContext(
+            session=context.session,
+            provider=context.service("provider"),
+            router=context.service("router"),
+            settings=context.service("settings"),
+            store=context.service("store"),
+            job_step=context.step,
+        )
+
+    outcome = await assemble_assumptions(
+        context.session,
+        agent_context,
+        request=request,
+        analysis=analysis,
+        sector_key=sector_key,
+        findings=_findings_for(context),
+        years=FORECAST_YEARS,
+        job_id=context.job.id,
+    )
+
+    rows = await assumptions_for_request(context.session, request.id)
+    output: dict[str, Any] = {
+        "dcf_permitted": permitted,
+        "sector_key": sector_key,
+        **gate_payload_for_assumptions(rows, outcome),
+        "model_consulted": outcome.model_consulted,
+    }
+    output["payload_hash"] = sha256_hex(canonical_json(assumptions_gate_payload(output)))
+    return StepResult(
+        output=output,
+        cost_gbp=agent_context.spend_gbp if agent_context is not None else Decimal(0),
+    )
+
+
+def _findings_for(context: StepContext) -> tuple[str, ...]:
+    """What the research workers concluded, as plain statements.
+
+    Findings rather than documents. The proposing role holds no tools and reads no fetched
+    text; a summary of what the run established is what it is entitled to see.
+    """
+    found: list[str] = []
+    for key, produced in context.outputs.items():
+        if not key.startswith("research_"):
+            continue
+        for finding in produced.get("findings", []) or []:
+            statement = finding.get("statement") if isinstance(finding, dict) else None
+            if statement:
+                found.append(str(statement))
+    return tuple(found)
+
+
+async def _gate_assumptions(context: StepContext) -> StepResult:
+    """Stop until a person has agreed the numbers the valuation will use.
+
+    **Skipped, not approved, when there is nothing to agree.** A run whose sector blocks a
+    discounted cash flow is never given a forecast and must not wait to approve one.
+    """
+    produced = context.outputs.get(ASSUMPTIONS_STEP, {})
+    if not assumptions_gate_required(produced):
+        return StepResult(
+            output={
+                "gate": GateKind.ASSUMPTIONS.value,
+                "required": False,
+                "dcf_permitted": produced.get("dcf_permitted", False),
+            }
+        )
+
+    return await _require_approval(context, gate=GateKind.ASSUMPTIONS, of_step=ASSUMPTIONS_STEP)
 
 
 async def _validate(context: StepContext) -> StepResult:

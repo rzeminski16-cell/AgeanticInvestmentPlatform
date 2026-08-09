@@ -47,6 +47,7 @@ GATE_ORDER: Final[tuple[GateKind, ...]] = (
     GateKind.UK_FINANCIALS,
     GateKind.PEER_SET,
     GateKind.SECTOR_SPECIALIST,
+    GateKind.ASSUMPTIONS,
     GateKind.BUDGET,
     GateKind.FINAL,
 )
@@ -58,6 +59,10 @@ _CONDITIONAL: Final[frozenset[GateKind]] = frozenset(
         GateKind.UK_FINANCIALS,
         GateKind.PEER_SET,
         GateKind.SECTOR_SPECIALIST,
+        # Conditional because a run whose sector mandate blocks a discounted cash flow has
+        # no assumptions to confirm, and a bank must not sit waiting to approve a forecast
+        # it is never going to be given.
+        GateKind.ASSUMPTIONS,
         GateKind.BUDGET,
     }
 )

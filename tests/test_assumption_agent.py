@@ -225,6 +225,20 @@ class TestTheBoundsRefuseRatherThanClamp:
             for refusal in refusals:
                 assert "Not proposed" in refusal
 
+    def test_an_unknown_discount_rate_skips_that_check_and_keeps_the_ceiling(self) -> None:
+        # The rate decomposes into three assumptions that are themselves awaiting
+        # confirmation, so at proposal time the run frequently does not have it. Inventing
+        # one to fill the field would be the house number this platform refuses elsewhere.
+        skipped = _bounded(_draft(growth="0.03"), discount_rate=None)
+        assert skipped["terminal_growth"].accepted
+
+        still_bounded = _bounded(_draft(growth="0.09"), discount_rate=None)
+        assert not still_bounded["terminal_growth"].accepted
+        assert str(TERMINAL_GROWTH_CEILING) in (still_bounded["terminal_growth"].refusal or "")
+
+    def test_an_unknown_rate_does_not_disable_the_multiple_band(self) -> None:
+        assert not _bounded(_draft(multiple="900"), discount_rate=None)["exit_multiple"].accepted
+
     def test_the_bounds_are_a_pure_function_of_the_draft_and_the_rate(self) -> None:
         # No session, no clock, no settings: the check must be reproducible from the
         # recorded draft alone when somebody asks why an assumption is missing.
@@ -319,6 +333,13 @@ class TestThePromptTellsTheModelWhatWillBeRefused:
     def test_the_user_message_carries_the_discount_rate(self) -> None:
         message = AssumptionProposalAgent().user_message(_input())
         assert "0.085" in message
+
+    def test_an_unknown_discount_rate_is_said_rather_than_omitted(self) -> None:
+        # A model given no rate and no explanation assumes one and reasons from it
+        # silently, which is the failure this sentence exists to prevent.
+        message = AssumptionProposalAgent().user_message(_input(discount_rate=None))
+        assert "not yet determined" in message
+        assert "None" not in message
 
     def test_the_derived_history_reaches_the_model(self) -> None:
         message = AssumptionProposalAgent().user_message(

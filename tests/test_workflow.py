@@ -315,6 +315,14 @@ class TestTheWholeRun:
             "research_macro",
             "research_recent_developments",
             "research_technical_context",
+            # The assumptions a discounted cash flow rests on (gap B2c, ADR 0046). After
+            # the analysis, which six of them are derived from, and after the research,
+            # which the two judgements are proposed against.
+            "propose_assumptions",
+            # Conditional, and skipped on this run: the risk-free rate, the beta and the
+            # equity risk premium have no source in this workflow, so the set is
+            # incomplete and stopping for a person would leave the run unresumable.
+            "gate_assumptions",
             "draft",
             # Validation before the gate (task 39): the eight run-time evaluation rows
             # are written here, so gate 2 shows scores rather than promising them.
@@ -426,7 +434,9 @@ class TestTheWholeRun:
         assert "SectionDraft" not in schemas
         assert schemas.count("ValidatorAdvisory") == 0
         assert schemas.count("RedTeamReport") == 1
-        assert finished["provider"].call_count == 23
+        # The two opinions no filing answers (ADR 0046). One call, once per run.
+        assert schemas.count("AssumptionProposalDraft") == 1
+        assert finished["provider"].call_count == 24
 
     async def test_the_writer_receives_the_planners_approved_focus(self, finished: dict) -> None:
         """The plan's per-section brief — text a human approved at gate 1 — reaches the

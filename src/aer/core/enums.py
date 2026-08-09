@@ -112,13 +112,19 @@ class GateKind(StrEnum):
     ``PLAN`` and ``FINAL`` are the two gates every run passes through. The rest fire
     conditionally: UK filings need their extracted financials confirmed, comparable-company
     analysis needs its peer set confirmed, specialist sectors need an acknowledgement that
-    the standard model does not apply, and a run projected over budget needs a decision.
+    the standard model does not apply, a discounted cash flow needs its assumptions
+    confirmed, and a run projected over budget needs a decision.
+
+    ``ASSUMPTIONS`` is the one gate that guards work which has *not* happened yet. Every
+    other gate approves something already produced; this one approves the numbers a
+    valuation is about to be built on, some of which a model proposed. See ADR 0046.
     """
 
     PLAN = "PLAN"
     UK_FINANCIALS = "UK_FINANCIALS"
     PEER_SET = "PEER_SET"
     SECTOR_SPECIALIST = "SECTOR_SPECIALIST"
+    ASSUMPTIONS = "ASSUMPTIONS"
     BUDGET = "BUDGET"
     FINAL = "FINAL"
 

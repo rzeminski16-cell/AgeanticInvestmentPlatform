@@ -265,25 +265,73 @@ class ScriptedSectionBrain:
             # so one builder answers both.
             assert self.provider is not None, "bind the provider before the first call"
             return custom_section_draft_for(self.provider.calls[-1])
-        if name == "RedTeamReport":
-            from aer.agents.red_team import RedTeamReport  # noqa: PLC0415 -- keeps import light
-
-            return RedTeamReport(
-                challenges=[], coverage_note="Scripted adversary; no challenges raised."
-            )
-        if name == "ValidatorAdvisory":
-            # The slice's source is undated and, since task 45, has readable extracted
-            # text — so the date-adjudication assist genuinely fires. The honest scripted
-            # answer is "nothing established": advice, deciding nothing.
-            from aer.agents.validator import ValidatorAdvisory  # noqa: PLC0415
-
-            return ValidatorAdvisory(
-                found=False,
-                rationale="Scripted assist; the text establishes no publication date.",
-                confidence=0.1,
-            )
+        answer = _STATIC_ANSWERS.get(name)
+        if answer is not None:
+            return answer()
         message = f"The scripted brain has no answer for schema {name!r}."
         raise AssertionError(message)
+
+
+# The roles whose scripted answer depends on nothing: no prompt to read back, no run ids to
+# cite. A mapping rather than another `if` each, because the dispatcher above is the one
+# place a reader looks to find out what the fake says, and a wall of branches stops being
+# that at about six.
+
+
+def assumption_proposal_draft() -> Any:
+    """ADR 0046's two opinions.
+
+    Both inside the deterministic bounds on purpose: a scripted answer that tripped them
+    would exercise the refusal path on every workflow run, and the refusal has its own
+    tests where the value is the point.
+    """
+    from aer.agents.assumptions import (  # noqa: PLC0415 -- keeps import light
+        AssumptionProposalDraft,
+        OpinionProposal,
+    )
+
+    return AssumptionProposalDraft(
+        terminal_growth=OpinionProposal(
+            value=Decimal("0.02"),
+            justification="Scripted proposal: long-run nominal growth for a mature filer.",
+            confidence=0.5,
+        ),
+        exit_multiple=OpinionProposal(
+            value=Decimal("10"),
+            justification="Scripted proposal: a mid-range EV/EBITDA for the sector.",
+            confidence=0.5,
+        ),
+    )
+
+
+def red_team_report() -> Any:
+    """A scripted adversary that raises nothing. An honest "nothing found", not an absence."""
+    from aer.agents.red_team import RedTeamReport  # noqa: PLC0415 -- keeps import light
+
+    return RedTeamReport(challenges=[], coverage_note="Scripted adversary; no challenges raised.")
+
+
+def validator_advisory() -> Any:
+    """Advice that decides nothing.
+
+    The slice's source is undated and, since task 45, has readable extracted text — so the
+    date-adjudication assist genuinely fires, and the honest scripted answer is "nothing
+    established".
+    """
+    from aer.agents.validator import ValidatorAdvisory  # noqa: PLC0415
+
+    return ValidatorAdvisory(
+        found=False,
+        rationale="Scripted assist; the text establishes no publication date.",
+        confidence=0.1,
+    )
+
+
+_STATIC_ANSWERS: dict[str, Any] = {
+    "AssumptionProposalDraft": assumption_proposal_draft,
+    "RedTeamReport": red_team_report,
+    "ValidatorAdvisory": validator_advisory,
+}
 
 
 def section_draft_for(call: dict[str, Any]) -> Any:
