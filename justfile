@@ -76,6 +76,12 @@ verify-artefacts:
 gc-artefacts *ARGS:
     uv run aer gc-artefacts {{ARGS}}
 
+# Delete every stored payload from a licensed provider, under a stated obligation. Asks
+# first. Keeps the artefact rows, the citations and the lineage; only the bytes go, and
+# every deletion is recorded in artefact_purges. ADR 0030, ADR 0031.
+purge-licensed provider reason:
+    uv run aer purge-licensed --provider "{{provider}}" --reason "{{reason}}"
+
 # Rebuild the Tailwind stylesheet. Needs Node; the OUTPUT is committed, so CI does not.
 css:
     npm run build:css

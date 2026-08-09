@@ -1,7 +1,7 @@
 # ADR 0030 — EODHD is not €19.99, and the immutable archive cannot comply with its terms
 
-**Status.** Proposed — the decision belongs to the operator; this records the findings and the
-options
+**Status.** Accepted (2026-08-09) — **route 2**. The findings below are unchanged; the
+decision that was left open has been taken and is recorded at the end.
 **Date.** 2026-08-05
 **Supersedes in part.** `docs/PLAN.md` §1.4's recommendation, whose central premise turns out
 to be wrong.
@@ -95,10 +95,13 @@ rolling request limiter cannot see consumption units — and `X-RateLimit-Limit`
 `X-RateLimit-Remaining` should drive back-off. That is adapter work, and it is the one part of
 this finding that is straightforwardly good news.
 
-## Decision
+## Decision (recorded 2026-08-09)
 
-**Not taken here.** Tasks 29 and 30 are held. Three routes, and the choice is a spending and
-risk decision rather than a technical one:
+**Route 2: keep the personal plan and build for internal use only.** The three options as
+they stood are kept below, because the reasoning for the one chosen is only legible against
+the two that were not.
+
+The routes, as they stood:
 
 1. **Internal Use at $399/month.** Resolves the commercial-use question outright. Roughly 4×
    the stated ≤£100/month ceiling, before any Claude spend. Still leaves the derived-data
@@ -135,3 +138,56 @@ licence page. If those differ from the public marketing pages — which is commo
 labelling of self-service tiers as "personal use" is exactly the sort of thing that reads
 differently in the executed terms — finding 1 may soften. It is worth ten minutes before
 spending $399 or dropping two tasks.
+
+---
+
+## The decision, taken 2026-08-09
+
+**Route 2.** The personal subscription is kept, and the platform is built so that nothing
+price-derived can leave the machine. This is coherent for the tool as it stands — it
+publishes nothing, and the reports are local — and it accepts, explicitly, that a future
+commercial version needs a different licence. The personal-use limitation is recorded here
+the way yfinance's was in §1.4, so a later reader finds the constraint rather than
+rediscovering it.
+
+Route 1 was declined on cost: $399/month against a stated ≤£100/month ceiling that also has
+to cover model spend, for a resolution the tool does not currently need. Route 3 was
+declined because task 28 blocks FCFF for banks, insurers, REITs and pre-revenue biotech and
+offers comparables as the alternative — dropping comparables would leave four sector
+profiles with no valuation route at all.
+
+### What route 2 required, and where each part is
+
+Most of it was already built by the tasks that followed this ADR, which is why adopting the
+route is a small change rather than a large one:
+
+| Requirement | Where it lives |
+|---|---|
+| The comps section marked internal-only | `CompsTable.for_audience` returns `WithheldComps`, which **has no rows** — the restriction is what the object contains, not a flag a template is trusted to read (ADR 0034) |
+| No price-derived chart in anything shared | `exportable_charts_for` and `internal_charts_for` are separate functions, and `aer.render.document` refuses any chart that is not exportable |
+| The corrected licence note | `aer/fetch/policy.py`, pinned by `tests/test_fetch_policy.py::TestTheEodhdLicenceNote` |
+| Payload separable from provenance | ADR 0031: `artefact_purges` keeps the row, the hash and the lineage; the bytes go |
+| The daily weighted-call ledger | `aer/sources/eodhd/budget.py` — reserves before the request, refuses rather than warns |
+| **A retention path that can actually be run** | **Was missing.** `purge_provider` existed with no caller in `src/` at all, so the obligation could be honoured only by writing Python at a REPL against a live database. `aer purge-licensed` is that caller. |
+
+### The one gap this closed
+
+`aer purge-licensed --provider eodhd --reason "…"` deletes every stored payload from a
+licensed provider and records each deletion in `artefact_purges` with the reason, the actor
+and the terms in force at the time. It refuses a provider with no deletion obligation, and
+it refuses a blank reason — "licence" is not a reason; the obligation has to be named,
+because somebody reads it two years later when a citation will not resolve.
+
+This is what makes route 2 honest rather than aspirational. The subscription can now lapse
+and the agreement can be complied with, from a command, in one step, with a record.
+
+### What is still true and still uncomfortable
+
+The derived-data question is **unresolved, not resolved in our favour**. The terms contain
+no derived-data exemption, so "may we publish a P/E computed from this?" has no answer and
+the platform behaves as though the answer is no. That is the conservative reading and it is
+what the withholding enforces.
+
+If the executed agreement at checkout differs from the public marketing pages — which the
+"What would settle this" section above flags as common — finding 1 may soften and route 1
+may become unnecessary rather than merely expensive. Reading it remains worth ten minutes.

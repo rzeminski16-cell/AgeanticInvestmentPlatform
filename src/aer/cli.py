@@ -22,7 +22,7 @@ import uvicorn
 from sqlalchemy import select, text
 
 from aer.config import Settings, load_settings
-from aer.core.enums import UserRole
+from aer.core.enums import Provider, UserRole
 from aer.db.engine import create_engine, create_session_factory
 from aer.db.models import AuditEvent, User
 from aer.errors import AerError
@@ -31,7 +31,11 @@ from aer.obsidian import ObsidianExportError, export_report
 from aer.services.retention import (
     GarbageCollected,
     IntegrityReport,
+    PurgeOutcome,
     collect_garbage,
+    licensed_providers,
+    purge_provider,
+    purgeable_artefacts,
     verify_store,
 )
 from aer.storage.local import LocalArtefactStore
@@ -401,6 +405,125 @@ def gc_artefacts(
             f"{outcome.found:,} unreferenced artefact(s) holding {megabytes:,.1f} MiB. "
             "Re-run with --delete to remove them."
         )
+
+
+@app.command(name="purge-licensed")
+def purge_licensed(
+    provider: Annotated[
+        str, typer.Option("--provider", help="Which licensed feed. Currently only 'eodhd'.")
+    ],
+    reason: Annotated[
+        str,
+        typer.Option(
+            "--reason",
+            help="The obligation being honoured: which agreement, which date, which clause.",
+        ),
+    ],
+    actor: Annotated[
+        str, typer.Option("--actor", help="Who is doing this. Recorded on every purge row.")
+    ] = "operator",
+    yes: Annotated[
+        bool, typer.Option("--yes", help="Skip the confirmation. For scripts, not for haste.")
+    ] = False,
+) -> None:
+    """Delete every stored payload from one licensed provider, and record that it happened.
+
+    **The command a terminated subscription needs, and the reason ADR 0030's route 2 is
+    coherent.** EODHD's agreement requires every copy deleted within a month of the
+    subscription ending, and an immutable archive cannot honour that — so the payload was
+    separated from the provenance (ADR 0031) and the purge path was built. It then sat with
+    no caller, which meant the obligation could be honoured only by somebody writing Python
+    at a REPL against a live database.
+
+    What goes is the bytes. What stays is everything that makes the deletion defensible:
+    the artefact row, its hash and size, every source document pointing at it, every
+    citation resolved against it, and an ``artefact_purges`` row naming the reason, the
+    actor and the terms in force at the time. A citation into a purged payload can still be
+    shown to *have been* verified on a date against a hash — and can never be re-verified,
+    which is a real loss and is stated rather than engineered around.
+
+    Refuses any provider whose material is retained permanently. Asking to purge the SEC is
+    a question with one safe answer.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+
+    chosen = _licensed_provider_or_exit(provider)
+    if not reason.strip():
+        typer.secho(
+            "A purge needs a stated reason. 'Licence' is not one; name the obligation — "
+            "which agreement, which date, which clause. Somebody reads it in two years "
+            "when a citation will not resolve.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    outstanding = asyncio.run(_purgeable_count(settings, chosen))
+    if not outstanding:
+        typer.echo(f"No {chosen.value} payloads are stored; nothing to do.")
+        return
+
+    typer.secho(
+        f"This will permanently delete {outstanding:,} {chosen.value} payload(s).",
+        fg=typer.colors.YELLOW,
+    )
+    typer.echo("Citations over them will remain, and will never be re-verifiable.")
+    if not yes and not typer.confirm("Delete them?"):
+        typer.echo("Nothing was deleted.")
+        raise typer.Exit(code=1)
+
+    outcome = asyncio.run(_purge_licensed(settings, chosen, reason=reason, actor=actor))
+    megabytes = outcome.bytes_freed / 1_048_576
+    typer.secho(
+        f"Purged {outcome.purged:,} artefact(s) from {chosen.value}, "
+        f"freeing {megabytes:,.1f} MiB. Every deletion is recorded in artefact_purges.",
+        fg=typer.colors.GREEN,
+    )
+
+
+def _licensed_provider_or_exit(name: str) -> Provider:
+    """Resolve a provider name, refusing anything with no deletion obligation."""
+    allowed = {found.value: found for found in licensed_providers()}
+    chosen = allowed.get(name.strip().lower())
+    if chosen is not None:
+        return chosen
+
+    typer.secho(
+        f"{name!r} is not a licensed provider. Only a provider whose terms oblige deletion "
+        f"may be purged, which is currently {', '.join(sorted(allowed)) or 'none of them'}. "
+        "Everything else is retained permanently, and a filing erased is a report that can "
+        "no longer be checked.",
+        fg=typer.colors.RED,
+        err=True,
+    )
+    raise typer.Exit(code=2)
+
+
+async def _purgeable_count(settings: Settings, provider: Provider) -> int:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            return len(await purgeable_artefacts(session, provider=provider))
+    finally:
+        await engine.dispose()
+
+
+async def _purge_licensed(
+    settings: Settings, provider: Provider, *, reason: str, actor: str
+) -> PurgeOutcome:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            outcome = await purge_provider(
+                session, _store_for(settings), provider=provider, reason=reason, actor=actor
+            )
+            await session.commit()
+            return outcome
+    finally:
+        await engine.dispose()
 
 
 async def _verify_artefacts(settings: Settings) -> IntegrityReport:

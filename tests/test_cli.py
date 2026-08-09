@@ -8,7 +8,7 @@ second insert; the test that runs it twice is what keeps it true.
 from __future__ import annotations
 
 import asyncio
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
@@ -17,8 +17,16 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from typer.testing import CliRunner
 
 from aer.cli import _research_tables, app
-from aer.core.enums import UserRole
-from aer.db.models import Artefact, AuditEvent, ResearchRequest, User
+from aer.core.enums import Provider, SourceTier, UserRole
+from aer.db.models import (
+    Artefact,
+    ArtefactPurge,
+    AuditEvent,
+    ResearchRequest,
+    SourceDocument,
+    User,
+)
+from aer.fetch.policy import DEFAULT_POLICIES, RetentionClass
 from aer.storage.local import LocalArtefactStore
 from aer.version import version
 
@@ -451,3 +459,206 @@ class TestGcArtefacts:
         result = invoke_ok(["gc-artefacts", "--delete"])
 
         assert "nothing to do" in result.output
+
+
+# -- The licensed purge ------------------------------------------------------------------------
+
+
+def _seed_licensed_artefact(database_url: str, root: Path, payload: bytes) -> str:
+    """A committed EODHD acquisition: bytes on disk, artefact row, source document."""
+    store = LocalArtefactStore(root, max_bytes=1_048_576)
+
+    async def run() -> str:
+        stored = await store.put_bytes(payload)
+        engine = create_async_engine(database_url)
+        try:
+            async with async_sessionmaker(bind=engine, expire_on_commit=False)() as session:
+                user = User(email="purge@example.invalid", display_name="P", role=UserRole.OWNER)
+                session.add(user)
+                await session.flush()
+                request = ResearchRequest(
+                    user_id=user.id,
+                    company_name="Microsoft Corporation",
+                    ticker="MSFT",
+                    exchange="NASDAQ",
+                    as_of_date=date(2023, 1, 1),
+                    base_currency="USD",
+                    investment_horizon_months=12,
+                    max_cost_gbp="2.50",
+                    portfolio_context={},
+                )
+                artefact = Artefact(
+                    sha256=stored.sha256,
+                    media_type="application/json",
+                    size_bytes=stored.size_bytes,
+                    storage_key=store.storage_key_for(stored.sha256),
+                )
+                session.add_all([request, artefact])
+                await session.flush()
+                session.add(
+                    SourceDocument(
+                        request_id=request.id,
+                        artefact_id=artefact.id,
+                        url="https://eodhd.com/api/eod/MSFT.US",
+                        title="MSFT end-of-day prices",
+                        provider=Provider.EODHD,
+                        source_tier=SourceTier.T4_LICENSED_MARKET,
+                        retrieved_at=datetime.now(UTC),
+                        licence_note=DEFAULT_POLICIES[Provider.EODHD].licence_note,
+                    )
+                )
+                await session.commit()
+        finally:
+            await engine.dispose()
+        return stored.sha256
+
+    return asyncio.run(run())
+
+
+REASON = "The EODHD subscription ended 2027-03-01; the agreement requires deletion in a month."
+
+
+class TestPurgeLicensed:
+    """The caller `purge_provider` never had.
+
+    ADR 0030's route 2 is only coherent if the subscription can lapse and the agreement can
+    be complied with. The machinery for that existed and had no entry point at all, so the
+    obligation could be honoured only by writing Python at a REPL against a live database.
+    """
+
+    def test_it_deletes_the_payload_and_keeps_the_record(
+        self, clean_artefacts, read_scalar, database_url, tmp_path
+    ):
+        root = tmp_path / "artefacts"
+        sha256 = _seed_licensed_artefact(database_url, root, b'{"close": 446.95}')
+
+        result = invoke_ok(["purge-licensed", "--provider", "eodhd", "--reason", REASON, "--yes"])
+
+        assert "Purged 1 artefact(s)" in result.output
+        assert not LocalArtefactStore(root, max_bytes=1_048_576).path_for(sha256).is_file()
+        # Everything that makes the deletion defensible survives.
+        assert read_scalar(select(func.count()).select_from(Artefact)) == 1
+        assert read_scalar(select(func.count()).select_from(ArtefactPurge)) == 1
+
+    def test_the_purge_row_carries_the_reason_and_the_actor(
+        self, clean_artefacts, read_scalar, database_url, tmp_path
+    ):
+        """Somebody reads this in two years when a citation will not resolve."""
+        _seed_licensed_artefact(database_url, tmp_path / "artefacts", b'{"close": 446.95}')
+
+        invoke_ok(
+            [
+                "purge-licensed",
+                "--provider",
+                "eodhd",
+                "--reason",
+                REASON,
+                "--actor",
+                "compliance",
+                "--yes",
+            ]
+        )
+
+        row = read_scalar(select(ArtefactPurge).limit(1))
+        assert row.reason == REASON
+        assert row.actor == "compliance"
+        assert row.licence_note
+
+    def test_a_permanent_provider_is_refused(self, clean_artefacts):
+        """Asking to purge the SEC is a question with one safe answer."""
+        result = runner.invoke(
+            app, ["purge-licensed", "--provider", "sec_edgar", "--reason", REASON, "--yes"]
+        )
+
+        assert result.exit_code == 2
+        assert "not a licensed provider" in result.output
+
+    def test_the_refusal_says_which_providers_are_purgeable(self, clean_artefacts):
+        result = runner.invoke(
+            app, ["purge-licensed", "--provider", "sec_edgar", "--reason", REASON, "--yes"]
+        )
+
+        assert "eodhd" in result.output
+
+    def test_a_blank_reason_is_refused_before_anything_is_deleted(
+        self, clean_artefacts, read_scalar, database_url, tmp_path
+    ):
+        """ "Licence" is not a reason. Name the obligation."""
+        _seed_licensed_artefact(database_url, tmp_path / "artefacts", b'{"close": 446.95}')
+
+        result = runner.invoke(
+            app, ["purge-licensed", "--provider", "eodhd", "--reason", "   ", "--yes"]
+        )
+
+        assert result.exit_code == 2
+        assert read_scalar(select(func.count()).select_from(ArtefactPurge)) == 0
+
+    def test_declining_the_confirmation_deletes_nothing(
+        self, clean_artefacts, read_scalar, database_url, tmp_path
+    ):
+        root = tmp_path / "artefacts"
+        sha256 = _seed_licensed_artefact(database_url, root, b'{"close": 446.95}')
+
+        result = runner.invoke(
+            app, ["purge-licensed", "--provider", "eodhd", "--reason", REASON], input="n\n"
+        )
+
+        assert result.exit_code != 0
+        assert LocalArtefactStore(root, max_bytes=1_048_576).path_for(sha256).is_file()
+        assert read_scalar(select(func.count()).select_from(ArtefactPurge)) == 0
+
+    def test_the_confirmation_says_what_is_lost(self, clean_artefacts, database_url, tmp_path):
+        """A citation into a purged payload can never be re-verified, and an operator
+        should be told that before agreeing rather than after."""
+        _seed_licensed_artefact(database_url, tmp_path / "artefacts", b'{"close": 446.95}')
+
+        result = runner.invoke(
+            app, ["purge-licensed", "--provider", "eodhd", "--reason", REASON], input="n\n"
+        )
+
+        assert "never be re-verifiable" in result.output
+
+    def test_nothing_stored_is_not_an_error(self, clean_artefacts):
+        result = invoke_ok(["purge-licensed", "--provider", "eodhd", "--reason", REASON])
+
+        assert "nothing to do" in result.output
+
+
+class TestEveryLicensedFeedHasAWayOut:
+    """The invariant ADR 0030's route 2 rests on.
+
+    A provider whose terms oblige deletion, with no command that can perform it, is data
+    with an expiry date and no way to meet it. That was the state `purge_provider` was in
+    for as long as it had no caller, and it is the state a second paid feed would silently
+    create — so the check is over the policy table rather than over the one provider that
+    happens to be in it today.
+    """
+
+    def test_the_command_accepts_every_provider_the_policies_call_licensed(self, clean_artefacts):
+        licensed = [
+            provider
+            for provider, policy in DEFAULT_POLICIES.items()
+            if policy.retention is RetentionClass.LICENSED
+        ]
+        assert licensed, "the check is vacuous if nothing is licensed"
+
+        for provider in licensed:
+            result = invoke_ok(["purge-licensed", "--provider", provider.value, "--reason", REASON])
+            assert "nothing to do" in result.output, provider.value
+
+    def test_a_permanent_provider_is_refused_for_every_one_of_them(self, clean_artefacts):
+        """The other half. A command that accepted everything would be a way to erase a
+        filing, which is the opposite of what invariant 1 asks for."""
+        permanent = [
+            provider
+            for provider, policy in DEFAULT_POLICIES.items()
+            if policy.retention is RetentionClass.PERMANENT
+        ]
+        assert permanent
+
+        for provider in permanent:
+            result = runner.invoke(
+                app,
+                ["purge-licensed", "--provider", provider.value, "--reason", REASON, "--yes"],
+            )
+            assert result.exit_code == 2, provider.value
