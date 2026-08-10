@@ -45,6 +45,7 @@ from aer.db.models.security import (
     Security,
 )
 from aer.db.models.sensitivity import Sensitivity, SensitivityCell
+from aer.db.models.settings_override import SettingsOverride
 from aer.db.models.skill import Skill, SkillVersion
 from aer.db.models.source_document import SourceDocument
 from aer.db.models.user import User
@@ -89,6 +90,7 @@ __all__ = [
     "Security",
     "Sensitivity",
     "SensitivityCell",
+    "SettingsOverride",
     "Skill",
     "SkillVersion",
     "SourceDocument",

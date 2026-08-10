@@ -41,6 +41,7 @@ from aer.db.engine import create_engine
 from aer.logging import configure_logging
 from aer.runtime import build_services
 from aer.services import runs as run_service
+from aer.services.configuration import effective_settings
 from aer.tracing import configure_tracing
 from aer.version import version
 
@@ -70,9 +71,15 @@ async def run_research(ctx: dict[str, Any], job_id: str) -> dict[str, Any]:
     redis: Redis = ctx["aer_redis"]
 
     parsed = uuid.UUID(job_id)
-    services = build_services(settings, redis=redis)
 
     async with session_factory() as session:
+        # Read once, here, rather than per step. A run whose routing or budget changed
+        # halfway through would have a provenance record describing two platforms; this way
+        # a change applies to runs that start after it, which is what an operator means by
+        # "change the model". See ADR 0050.
+        settings = await effective_settings(session, settings)
+        services = build_services(settings, redis=redis)
+
         state = await run_service.run_state(session, job_id=parsed)
 
         outcome = await run_service.execute(

@@ -21,6 +21,7 @@ implementation.
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Mapping
 from datetime import UTC, datetime
@@ -33,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import (
     HTTP_303_SEE_OTHER,
+    HTTP_400_BAD_REQUEST,
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
     HTTP_409_CONFLICT,
@@ -47,6 +49,7 @@ from aer.charts import (
     svg_data_uri,
     valuation_history,
 )
+from aer.config import Settings
 from aer.core.enums import Decision, GateKind, JobStatus
 from aer.core.escalation import COST_ALERT_RATIO
 from aer.db.models import (
@@ -70,8 +73,8 @@ from aer.render.markdown import render_markdown
 from aer.services import approvals as approval_service
 from aer.services import calculations as calculation_service
 from aer.services import cancellation as cancellation_service
+from aer.services import configuration, provenance
 from aer.services import history as history_service
-from aer.services import provenance
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
 from aer.services.comps import (
@@ -1043,6 +1046,91 @@ async def calculation_detail(
         },
     )
     return page
+
+
+@router.get("/settings", response_class=HTMLResponse, summary="Change models and budgets")
+async def settings_page(
+    request: Request,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Cost and method, editable. Credentials, shown as present or absent and nothing more."""
+    del user
+    token = new_csrf_token(settings)
+    context = await _settings_context(session, settings, token=token)
+    context["saved"] = request.query_params.get("saved") == "1"
+    page: Response = render(request, "settings/index.html", context)
+    set_csrf_cookie(page, token)
+    return page
+
+
+@router.post("/settings", summary="Save one setting")
+async def save_settings(
+    request: Request,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Store one override, or re-render saying why it was refused.
+
+    One field per submission rather than a single save-everything form: a routing table that
+    fails to parse must not silently discard a budget change made at the same time.
+    """
+    form = await request.form()
+    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was changed.",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        await configuration.save_override(
+            session,
+            key=submitted.get("key", ""),
+            raw=submitted.get("value", ""),
+            actor=user,
+        )
+    except ValidationError as refused:
+        token = new_csrf_token(settings)
+        context = await _settings_context(session, settings, token=token)
+        context["error"] = refused.message
+        rejected: Response = render(request, "settings/index.html", context)
+        rejected.status_code = HTTP_400_BAD_REQUEST
+        set_csrf_cookie(rejected, token)
+        return rejected
+
+    await session.commit()
+    return RedirectResponse("/settings?saved=1", status_code=HTTP_303_SEE_OTHER)
+
+
+async def _settings_context(
+    session: DbSession, settings: Settings, *, token: str
+) -> dict[str, Any]:
+    """What the settings form renders from: current effective values, and what is overridden."""
+    effective = await configuration.effective_settings(session, settings)
+    overrides = await configuration.current_overrides(session)
+    return {
+        "overridable": configuration.OVERRIDABLE,
+        "overrides": overrides,
+        "values": {
+            "model_routes": json.dumps(
+                {role: route.model_dump() for role, route in effective.model_routes.items()},
+                indent=2,
+                sort_keys=True,
+            ),
+            "per_run_budget_gbp": str(effective.per_run_budget_gbp),
+            "monthly_budget_gbp": str(effective.monthly_budget_gbp),
+            "budget_warn_ratio": str(effective.budget_warn_ratio),
+        },
+        "secrets": configuration.secret_presence(effective),
+        "saved": False,
+        "error": None,
+        "csrf_field": CSRF_FIELD_NAME,
+        "csrf_token": token,
+    }
 
 
 @router.get("/costs", response_class=HTMLResponse, summary="What the platform has spent")

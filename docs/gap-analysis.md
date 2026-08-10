@@ -132,12 +132,12 @@ confirmed them.
 
 | # | Gap | Notes |
 |---|---|---|
-| B6 | **Settings screen** | Change models, budgets and methodology without editing `.env`. |
+| ~~B6~~ | ~~**Settings screen**~~ | **Closed for cost and method; credentials deliberately excluded — ADR 0050.** `/settings` edits model routing, the per-run and monthly budgets and the warning ratio, stored in `settings_overrides` and applied to runs that *start* after the change (a run whose routing moved mid-flight would have a record describing two platforms). Credentials stay in `.env` and are shown as present-or-absent only: A10's `aer backup` pg_dumps the database, so a key in a settings table is a key in every backup. The allowlist is enforced at the write, and a test walks `Settings` for every `SecretStr` field to assert none is overridable — so a credential added next year cannot quietly become editable. |
 | ~~B7~~ | ~~**Cost dashboard**~~ | **Closed with A15.** `/costs` shows total spend, spend by category, a per-role breakdown split by model, and the prompt-cache hit rate. |
 | ~~B8~~ | ~~**"Reproduce this run" button**~~ | **Closed.** A POST from the run console to `/runs/{id}/replay`, rendering A12's four legs. A POST rather than a link because re-verifying a citation writes its verdict back — it reads like a report but changes stored state, and on loopback with no auth a plain link would let any open tab rewrite verification state. Offered whatever the run's status: a failed or cancelled run is often the one worth interrogating. |
 | B9 | **Watchlists and scheduled runs** | APScheduler in the worker. |
 | B10 | **Skill export/import with a confirmation diff** | Threat T20, plus a starter library of example custom sections so the feature is not a blank page. |
-| B11 | **Provider and model configuration UI** | Overlaps B6. |
+| ~~B11~~ | ~~**Provider and model configuration UI**~~ | **Closed with B6** for model and effort per role. Provider *keys* are out of scope by the same ADR 0050 reasoning; if wanted, the honest form is an OS keyring rather than a database column. |
 
 ### Deliberately out of scope
 
