@@ -54,7 +54,7 @@ from aer.db.models import (
     User,
 )
 from aer.extract.html import extract_html
-from aer.providers.fake import FakeProvider
+from aer.providers.fake import FakeProvider, ScriptedResponse
 from aer.providers.router import Router
 from aer.sections.registry import create_report_sections, sections_for_job
 from aer.services.extractions import record_excerpt
@@ -295,6 +295,30 @@ class TestTheNumeralScan:
         problems = unsourced_numerals({"durability_years": 8}, [])
         assert any("content.durability_years" in p and "8" in p for p in problems)
 
+    def test_an_integral_float_is_the_same_figure_as_its_integer(self) -> None:
+        """A contract's ``number`` becomes a float, and the claim that sources it says "8".
+
+        This is not cosmetic. A skill declaring ``{"type": "number"}`` gets ``8.0`` back
+        once the reply is validated into the pinned contract, while the numeric claim
+        carrying its lineage reads "durable for 8 years". Comparing spellings rather than
+        numbers made those two look like different figures and refused a section that was
+        properly sourced — in production, not only under the fake.
+        """
+        content = {"durability_years": 8.0}
+        covered = ["A durability of 8 years rests on the recorded revenue growth."]
+
+        assert unsourced_numerals(content, covered) == []
+
+    def test_the_match_is_on_the_number_not_a_looser_prefix(self) -> None:
+        """The canonical form must not make 8.05 pass on the strength of an 8."""
+        assert unsourced_numerals({"years": 8.05}, ["sourced at 8"]) != []
+        assert unsourced_numerals({"years": 8.5}, ["sourced at 85"]) != []
+        assert unsourced_numerals({"years": 80.0}, ["sourced at 8"]) != []
+
+    def test_a_trailing_zero_in_prose_matches_the_number_too(self) -> None:
+        """Normalisation applies to both sides, or it just moves the mismatch."""
+        assert unsourced_numerals({"years": 8}, ["sourced at 8.0"]) == []
+
     def test_confidence_is_metadata_and_exempt(self) -> None:
         assert unsourced_numerals({"confidence": 0.7}, []) == []
 
@@ -504,7 +528,7 @@ def _context(scene: dict[str, Any], provider: FakeProvider) -> AgentContext:
     )
 
 
-def _scripted(drafts: list[CustomSectionDraft]) -> FakeProvider:
+def _scripted(drafts: list[CustomSectionDraft | ScriptedResponse]) -> FakeProvider:
     remaining = list(drafts)
 
     def answer(schema: type) -> Any:
@@ -608,7 +632,13 @@ class TestTheExecutionLadder:
         undeclared = CustomSectionDraft(
             content={"summary": "s", "durability_years": 8, "sneaky": "x"}, claims=[]
         )
-        provider = _scripted([undeclared, undeclared])
+        # Scripted `unchecked`, because the API could not actually return this: the call
+        # narrows `content` to the pinned contract, which forbids extras, so
+        # `anthropic._validated` would reject `sneaky` before any draft existed. The
+        # ladder's own refusal is defence in depth behind that, and the only way to test
+        # the inner layer is to defeat the outer one on purpose.
+        impossible = ScriptedResponse(undeclared, unchecked=True)
+        provider = _scripted([impossible, impossible])
 
         outcome = await _run(scene, provider)
 

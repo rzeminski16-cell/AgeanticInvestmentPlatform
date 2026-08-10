@@ -117,7 +117,26 @@ def reserved_fields_in(contract: dict[str, Any]) -> frozenset[str]:
 
 def numerals_in(text: str) -> frozenset[str]:
     """Every numeral token in a piece of text, normalised (separators stripped)."""
-    return frozenset(match.replace(",", "") for match in _NUMERAL.findall(text))
+    return frozenset(_canonical_numeral(match.replace(",", "")) for match in _NUMERAL.findall(text))
+
+
+def _canonical_numeral(token: str) -> str:
+    """One spelling per number, so lineage survives a round trip through the contract.
+
+    A skill declaring ``{"type": "number"}`` gets a Python ``float`` once the reply is
+    validated, and an integral one reprs as ``8.0`` while the claim that sources it says
+    "8 years". Comparing the spellings rather than the numbers made that pair look like two
+    different figures, and refused a section whose figure was properly sourced.
+
+    Trailing zeros in the fractional part are the whole of the difference, so they are the
+    whole of what is stripped: ``8.0`` and ``8.00`` become ``8``, ``8.10`` becomes ``8.1``,
+    and ``8.05`` is left exactly as it is.
+    """
+    if "." not in token:
+        return token
+    whole, _, fraction = token.partition(".")
+    fraction = fraction.rstrip("0")
+    return f"{whole}.{fraction}" if fraction else whole
 
 
 def unsourced_numerals(content: dict[str, Any], covered_by: Iterable[str]) -> list[str]:
