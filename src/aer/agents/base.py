@@ -263,13 +263,13 @@ class Agent[InputT, OutputT: BaseModel]:
     def compose_turn(self, payload: InputT) -> Message:
         """The user turn exactly as it goes to the provider — from **every** path.
 
-        Three call sites need this: :meth:`run`, :meth:`run_batch`, and
-        :meth:`estimate_input_tokens`. Each used to build it for itself, and two of the
-        three predated :meth:`stable_context` and silently left it out — so a batch call
-        sent a prompt with its evidence missing, and the estimator counted a call nobody
-        would make. Neither raises; both just quietly send or count the wrong thing.
+        :meth:`run` and :meth:`run_batch` both need it, and both used to build it for
+        themselves. The batch one predated :meth:`stable_context` and silently left it out,
+        so a batch call sent a prompt with its evidence missing — no exception, no failed
+        schema, just a model asked to write from nothing. A third caller, an input-token
+        estimator, had the same omission and no callers of its own; it is gone.
 
-        One method, so a fourth path cannot diverge either.
+        One method, so a further path cannot diverge either.
         """
         return Message(
             role="user",
@@ -451,25 +451,6 @@ class Agent[InputT, OutputT: BaseModel]:
             latency_ms=round(elapsed_ms, 2),
         )
         return values
-
-    async def estimate_input_tokens(self, context: AgentContext, payload: InputT) -> int:
-        """Count what this agent's call would consume, without making it.
-
-        Counted by the provider rather than estimated from characters: a figure somebody
-        reads before agreeing to spend money is worse than no figure if it is wrong. The
-        turn comes from :meth:`compose_turn` for the same reason — the two largest parts of
-        a call are the quoted documents and the stable context, and both are easy to leave
-        out of a hand-built copy.
-
-        **Not currently called.** The budget guard compares each step's declared
-        ``estimated_cost_gbp`` instead.
-        """
-        choice = context.router.resolve(self.role)
-        return await context.provider.count_tokens(
-            system=self.composed_system_prompt(payload),
-            messages=[self.compose_turn(payload)],
-            model=choice.model,
-        )
 
     def require_tool(self, name: str) -> None:
         """Confirm a tool is on this agent's allowlist.

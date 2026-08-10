@@ -191,12 +191,12 @@ class TestTheCountedCallIsTheWholeCall:
 
 
 class TestEveryPathComposesTheSameTurn:
-    """Three call sites need the user turn, and two of them used to build it by hand.
+    """Two call sites need the user turn, and one of them used to build it by hand.
 
-    ``run_batch`` and ``estimate_input_tokens`` both predate :meth:`Agent.stable_context`, so
-    both left it out — the batch path sending a prompt with its evidence missing, the
-    estimator counting a call nobody would make. Neither raises, and neither shows up in a
-    diff of the caching work, because the omission is a line that was never written.
+    ``run_batch`` predates :meth:`Agent.stable_context` and left it out, so a batch call sent
+    a prompt with its evidence **missing** and an input-cap check that under-counted to
+    match. Nothing raises; the omission is a line that was never written, so it shows up in
+    no diff of the caching work either.
     """
 
     def test_the_turn_splits_the_repeated_head_from_the_ask(self) -> None:
