@@ -1,8 +1,12 @@
 # Gap analysis — what is missing, as of 2026-08-08
 
-*Updated after A1–A4, then A21, B13 and A9, then B1, A19 and A20. Items struck through are
-done; the reasoning is kept because a gap and the shape of its fix are worth reading
-together.*
+*Updated after A1–A4, then A21, B13 and A9, then B1, A19 and A20, then B2 and B3, and most
+recently the test-suite health items A16–A18. Items struck through are done; the reasoning
+is kept because a gap and the shape of its fix are worth reading together.*
+
+*Since A16 was closed the whole suite runs in one process again — 4102 unit tests in 16m25s
+and 75 browser tests in 2m33s, both green — so the figures quoted below are measured rather
+than remembered.*
 
 Written after the first end-to-end live runs, from the code rather than from the plan. The
 phase specifications in `docs/PLAN.md` remain the authority on *scope*; this document is an
@@ -99,8 +103,8 @@ confirmed them.
 | # | Gap | Notes |
 |---|---|---|
 | ~~A16~~ | ~~**`tests/test_extraction.py` deadlocks in a full-suite run**~~ | **Closed — ADR 0047.** One line of test code, not a threading interaction: the memory-cap test called the child-only `_apply_memory_cap(1 << 30)` in the *pytest* process, and it sets `RLIMIT_AS` soft **and hard**, which an unprivileged process can never raise again. The session was capped at 1 GiB permanently; once its address space passed that (`VmSize: 1225312 kB` by the sandbox tests) every `mmap` failed, so `pthread_create` could not get a stack — `start_new_thread` returned, `/proc` showed `Threads: 1`, and `Thread.start()` blocked for ever. It wedged one statement *before* `_run_child` armed its parse timeout, so a memory limit presented as an unkillable hang. The assertion now runs in a subprocess and also checks the cap took effect. Worth recording that an earlier fix attempt blamed OpenBLAS and looked convincing on a two-file reproduction — it was only keeping that short run under the cap. |
-| A17 | **DB-touching CLI tests contend for locks** | The transactional fixtures and a command that opens its own engine and really commits will deadlock on a `TRUNCATE`. Worked around in `reset-research` by deleting in dependency order; the pattern remains fragile. |
-| A18 | **The fake provider does not enforce schemas** | Exactly how the empty-report bug survived every test for weeks: a fake answers from a script, so a response schema the API would reject passes silently. `tests/test_contract_schema.py` closes this for output schemas; nothing covers the request shape the same way. |
+| ~~A17~~ | ~~**DB-touching CLI tests contend for locks**~~ | **Closed.** `tests/db_cleanup.py` empties the database by deleting in reverse `Base.metadata.sorted_tables` order — dependency-sorted parents-first, so reversed is a safe deletion order — instead of taking the table lock a `TRUNCATE` needs. The transactional fixtures and a command that opens its own engine can now both be in flight without deadlocking. One trap found while writing it: the first version also deleted the reference data the migrations seed, and the twelve failures that caused surfaced in `test_section_writer.py`, a file with no visible connection to the change. `SEEDED_BY_MIGRATIONS` names `section_definitions` and `sector_profiles` and leaves them alone. |
+| ~~A18~~ | ~~**The fake provider does not enforce schemas**~~ | **Closed, and it immediately earned its keep.** `FakeProvider` now refuses what the API would refuse: an unknown effort level, an unsendable request, and — through `_validated` — a scripted reply the declared contract does not permit, serialised and re-validated exactly as a real reply is. `ScriptedResponse(..., unchecked=True)` is the named, per-response opt-out for the one test that must inject an impossible reply to exercise a consumer's own defences. `tests/schema_guard.py` and `tests/test_fake_fidelity.py` hold it. **The first thing it caught was a production bug**, not a test bug: a skill declaring `{"type": "number"}` gets a float once the reply is validated into the pinned contract, so `8` arrives as `8.0` while the claim carrying its lineage reads "8 years" — and `unsourced_numerals` compared spellings, refusing a properly sourced section. `aer.providers.anthropic` had always validated this way; only the fake had been passing scripted ints through untouched, so no test could see it. `numerals_in` now canonicalises trailing fractional zeros on both sides. |
 
 ### Data sources
 
@@ -161,8 +165,13 @@ Tasks 29–32 remain genuinely outstanding.
 
 ## Suggested order
 
-**A1 to A4, A21, B13, A9, B1, A19 and A20 are done.** What that leaves, in the order it is
-worth doing:
+**A1 to A4, A21, B13, A9, B1, A19, A20, B2 and B3 are done, and the whole test-suite health
+section — A16, A17 and A18 — is now closed.** That last one is worth a sentence of its own:
+until A16 was fixed the suite could not complete in one process, so every "verified" claim
+in this document rested on a subset. It completes now, which is what makes the rest of these
+entries checkable.
+
+What that leaves, in the order it is worth doing:
 
 1. **A14 — prompt caching.** The composition is already ordered for it and never asks for
    it. The cheapest remaining saving by a distance, now that A2 means the meter can show
