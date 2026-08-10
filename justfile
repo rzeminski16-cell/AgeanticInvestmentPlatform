@@ -82,6 +82,11 @@ verify-backup source:
 restore source:
     uv run aer restore --from {{source}}
 
+# Re-derive everything a run produced from what the run wrote down. Fetches nothing and
+# calls no model. Exits non-zero if any leg no longer holds.
+replay-run job_id:
+    uv run aer replay-run {{job_id}}
+
 # Walk the audit log and check every record still links to the one before it. Exits
 # non-zero on a break, so it can be a cron line beside verify-artefacts.
 verify-audit:

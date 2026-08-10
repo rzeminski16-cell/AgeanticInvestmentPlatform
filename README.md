@@ -191,6 +191,7 @@ With `just`:
 | `just verify-backup var/backups/today` | Re-hash a backup against its manifest; needs no database |
 | `just restore var/backups/today` | Put a backup back (destructive; verifies first and asks) |
 | `just verify-audit` | Walk the audit log and check every record still links to the one before it |
+| `just replay-run <job-id>` | Re-derive a run from its own record: calculations, citations, artefacts, exchanges |
 | `just verify-artefacts` | Re-read every archived artefact and check it still hashes to its name |
 | `just gc-artefacts` | Report archived bytes nothing points at (add `--delete` to remove them) |
 | `just purge-licensed` | Delete every payload from a licensed feed, when its agreement requires it |

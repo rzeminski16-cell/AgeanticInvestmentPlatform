@@ -46,6 +46,7 @@ from aer.services.retention import (
     purgeable_artefacts,
     verify_store,
 )
+from aer.services.run_replay import RunReplay, replay_run
 from aer.storage.local import LocalArtefactStore
 from aer.version import build_identity, git_sha, version
 
@@ -489,6 +490,45 @@ def restore(
     )
 
 
+@app.command(name="replay-run")
+def replay_run_command(
+    job_id: Annotated[uuid.UUID, typer.Argument(help="The run to reproduce.")],
+) -> None:
+    """Re-derive everything a run produced, from what the run wrote down.
+
+    Fetches nothing and calls no model: every leg is re-checked against stored rows and
+    archived bytes, so this costs nothing and gives the same answer in a year as today.
+
+    Four legs, each able to fail on its own — the calculations replay from their own
+    records, the citations still find their excerpts in the artefacts, the artefacts still
+    read back by hash, and every model call still has both halves of its exchange archived.
+
+    Exits 1 if any of them no longer holds.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+
+    report = asyncio.run(_replay_run(settings, job_id=job_id))
+    if report.reproduces:
+        typer.secho(
+            f"Run {job_id} reproduces: {report.calculations_checked:,} calculation(s), "
+            f"{report.citations_checked:,} citation(s), {report.artefacts_checked:,} "
+            f"artefact(s) and {report.model_calls_checked:,} model call(s) all still hold.",
+            fg=typer.colors.GREEN,
+        )
+        return
+
+    for problem in report.problems():
+        typer.secho(f"  {problem}", fg=typer.colors.RED, err=True)
+    typer.secho(
+        f"Run {job_id} does not reproduce: {len(report.problems())} of "
+        f"{report.checked:,} checked thing(s) no longer hold.",
+        fg=typer.colors.RED,
+        err=True,
+    )
+    raise typer.Exit(code=1)
+
+
 @app.command(name="verify-audit")
 def verify_audit() -> None:
     """Walk the audit log and check every record still links to the one before it.
@@ -700,6 +740,16 @@ async def _schema_revision(settings: Settings) -> str:
         async with factory() as session:
             revision = await session.scalar(text("SELECT version_num FROM alembic_version"))
             return str(revision) if revision else "unknown"
+    finally:
+        await engine.dispose()
+
+
+async def _replay_run(settings: Settings, *, job_id: uuid.UUID) -> RunReplay:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            return await replay_run(session, _store_for(settings), job_id=job_id, settings=settings)
     finally:
         await engine.dispose()
 

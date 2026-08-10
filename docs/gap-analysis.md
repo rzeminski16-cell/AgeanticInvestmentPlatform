@@ -1,7 +1,7 @@
 # Gap analysis — what is missing, as of 2026-08-08
 
 *Updated after A1–A4, then A21, B13 and A9, then B1, A19 and A20, then B2 and B3, and most
-recently the test-suite health items A16–A18. Items struck through are done; the reasoning
+recently the test-suite health items A16–A18 and the data-lifecycle items A10–A12. Items struck through are done; the reasoning
 is kept because a gap and the shape of its fix are worth reading together.*
 
 *Since A16 was closed the whole suite runs in one process again — 4102 unit tests in 16m25s
@@ -86,9 +86,9 @@ confirmed them.
 | # | Gap | Notes |
 |---|---|---|
 | ~~A9~~ | ~~**No retention policy, no GC, no integrity sweep**~~ | **Closed, with a correction to the original claim.** `services/retention.py` did exist and did have no caller — but what it held was the *licensed purge* path, which answers a publisher's demand to destroy copies and is correctly idle while nothing licensed is in the store. The two sweeps a single-machine platform actually needs each week were simply absent, and are now there: `verify_store` re-reads every artefact and checks it still hashes to its name, and `collect_garbage` clears bytes no source document, report or agent run points at. `aer verify-artefacts` exits non-zero on a bad store so it can be a cron line; `aer gc-artefacts` reports and only deletes with `--delete`. Two traps closed on the way: a purged artefact is *expected* to be absent and is skipped rather than reported as loss, and every reference branch filters its nulls — `x NOT IN (…, NULL)` is never true, so one agent run with no archived response payload would have made the sweep return no orphans at all and look exactly like a clean store. |
-| A10 | **No backups** | Of the database or of the artefact store. A9's sweep now says when the store has lost something; nothing can put it back. |
-| A11 | **No audit-chain verification command** | The chain is written on every event and nothing ever checks it. |
-| A12 | **No run-level replay** | `aer.eval.replay` replays *calculations* inside the evaluation suite. "Reproduce this run" does not exist. |
+| ~~A10~~ | ~~**No backups**~~ | **Closed.** `aer backup --to DIR` writes a `pg_dump` and the artefact store into one directory with a manifest hashing both — both halves or neither, since a database restored beside an empty store is a set of citations into nothing. A backup nobody has read is not a backup, so `aer verify-backup` re-hashes the dump and every archived file against the manifest and touches no database; it can run wherever the backup lives, which is where a restore is first attempted. `aer backup` runs it before reporting success and `aer restore` refuses without it. Credentials go to `pg_dump` through `PGPASSWORD`, never argv, because `ps` is world-readable — two tests hold that. The restore test restores into a scratch database and reads the rows back, so the source cannot be what it is reading. |
+| ~~A11~~ | ~~**No audit-chain verification command**~~ | **Closed.** `aer verify-audit` walks the log in id order and stops at the first break, naming the event id so an operator can go and look at the row. Three things it had to get right: the log is paged, and the seam between two pages is the one place a break is invisible — the first record of a page has no predecessor in its own sequence — so `find_chain_break` now takes an anchor and the service carries it across; deleting the *beginning* of the log leaves every survivor self-consistent, so the first row is checked for a `prev_hash` it should not have; and an empty log reports as empty rather than sound, because "the chain is intact" printed against a truncated table is reassuring at the worst possible moment. Sabotage caught the page-seam test not testing the seam — deleting a row shifts every later row up a place. |
+| ~~A12~~ | ~~**No run-level replay**~~ | **Closed.** `aer replay-run <job-id>` re-derives a run from its own record on four legs, each able to fail it alone: calculations re-execute and match, citations still find their excerpts in the artefacts, artefacts still read back by hash, and every model call still has both halves of its exchange archived. Nothing is fetched and no model is called — reproduction is a question about the record, not about the world, so it costs nothing and answers the same in a year. The fourth leg is the one that looks optional: an `agent_run` whose archived response has gone leaves prose in the report with no accounting behind it. Sabotage found the artefact leg was only passing because deleting a cited filing also fails the citation check; the test now uses an artefact nothing quotes, so only that leg can be the cause. |
 
 ### Observability and cost
 
@@ -180,7 +180,8 @@ What that leaves, in the order it is worth doing:
    gap: a DCF needs confirmed assumptions, so it needs either an operator working through
    the assumptions page or a proposing agent — and the second needs an ADR before it needs
    code.
-3. **A10 to A12** — backups, audit-chain verification, run replay. A9 made the first of
-   these more pressing rather than less: the sweep can now tell an operator the store has
-   lost a document, and there is still nothing to restore it from.
-4. The rest of Phase 6 in the order `docs/PLAN.md` gives.
+3. The rest of Phase 6 in the order `docs/PLAN.md` gives. **A10 to A12 are done** —
+   backups with a verifier and a working restore, audit-chain verification, and run-level
+   replay — which closes the whole data-lifecycle section. What A9 made pressing is now
+   answered: the sweep can tell an operator the store has lost a document, and there is
+   something to restore it from.

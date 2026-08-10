@@ -132,7 +132,9 @@ class TestTakingOne:
 class TestTheCredentialNeverReachesACommandLine:
     """`ps` is world-readable. A password in argv is a worse leak than one in a log."""
 
-    def test_the_password_goes_in_the_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_the_password_goes_in_the_environment(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         captured: dict[str, Any] = {}
 
         def fake_run(command: list[str], password: object, *, what: str) -> None:
@@ -142,7 +144,7 @@ class TestTheCredentialNeverReachesACommandLine:
         monkeypatch.setattr(backup_module, "_run", fake_run)
         backup_module._dump_database(
             "postgresql+asyncpg://aer:hunter2@127.0.0.1:5432/aer",  # pragma: allowlist secret
-            Path("/tmp/unused.dump"),
+            tmp_path / "unused.dump",
         )
 
         assert "hunter2" not in " ".join(captured["command"])
@@ -291,7 +293,7 @@ class TestRestoring:
         The reference data the migrations seed is the thing to count: it is committed, so
         `pg_dump` sees it, and it is not something the restore could invent.
         """
-        destination, store = _take(tmp_path)
+        destination, _ = _take(tmp_path)
 
         restore_backup(
             directory=destination,
