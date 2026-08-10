@@ -88,6 +88,7 @@ from aer.services.sectors import (
     classification_payload,
     sector_gate_required,
 )
+from aer.services.spend import recent_runs, spend_by_role, spend_summary
 from aer.services.valuation_view import lineage_rows, valuation_view
 from aer.skills.resolution import pinned_skills_for_plan
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
@@ -1002,6 +1003,35 @@ async def calculation_detail(
             "request_id": job.request_id,
             "job_id": job.id,
             "back_href": f"/runs/{job.id}/valuation",
+        },
+    )
+    return page
+
+
+@router.get("/costs", response_class=HTMLResponse, summary="What the platform has spent")
+async def costs_page(
+    request: Request,
+    session: DbSession,
+    user: CurrentUser,
+) -> Response:
+    """Spend, and whether the prompt cache is earning its keep.
+
+    The second half is the point. A14 asks every call for a cache; whether any call *gets*
+    one is invisible from the code, because every way of missing is silent — a prefix under
+    the model's minimum, a dictionary serialised in a different order, a per-call string in
+    front of the shared block. The hit rate is the only evidence, so it is on the page
+    rather than in a log line somebody would have to know to look for.
+    """
+    del user  # scoped by the single-user deployment; see A5
+
+    summary = await spend_summary(session)
+    page: Response = render(
+        request,
+        "spend/index.html",
+        {
+            "summary": summary,
+            "roles": await spend_by_role(session),
+            "runs": await recent_runs(session),
         },
     )
     return page
