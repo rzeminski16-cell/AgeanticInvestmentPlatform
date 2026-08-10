@@ -275,6 +275,22 @@ class RunState:
         return [s.step_key for s in self.steps if s.status is JobStatus.SUCCEEDED]
 
     @property
+    def budget_scope(self) -> str | None:
+        """Which ceiling stopped the run — ``per_run``, ``monthly``, or ``None``.
+
+        Read back off the step that recorded the refusal rather than recomputed, so the
+        console reports the cap that actually fired. The distinction is not cosmetic: raising
+        the request's own cap releases a per-run stop and does nothing at all to a monthly
+        one.
+        """
+        for step in reversed(self.steps):
+            error = step.error or {}
+            if error.get("code") == "budget_exceeded":
+                scope = error.get("context", {}).get("scope")
+                return str(scope) if scope else None
+        return None
+
+    @property
     def is_terminal(self) -> bool:
         return self.job.status in {
             JobStatus.SUCCEEDED,

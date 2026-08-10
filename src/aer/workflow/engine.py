@@ -73,6 +73,7 @@ __all__ = [
     "WorkflowEngine",
     "WorkflowStep",
     "spend_so_far",
+    "spend_this_month",
 ]
 
 _log = structlog.get_logger("aer.workflow.engine")
@@ -206,14 +207,29 @@ class BudgetGuard:
     Two ceilings, and both matter: the per-run cap the operator set on this request, and
     the monthly cap on everything. A run that respects its own budget while blowing the
     month's is still a run nobody agreed to.
+
+    **The refusal names which ceiling it hit**, because the remedies are different and only
+    one of them is on the request: raising a request's own cap does nothing whatever to a
+    monthly stop.
     """
 
     per_run_cap_gbp: Decimal
     monthly_cap_gbp: Decimal
     warn_ratio: float = 0.75
 
-    async def check(self, session: AsyncSession, *, job: Job, projected_gbp: Decimal) -> None:
-        """Confirm a step's projected cost fits.
+    async def check(
+        self,
+        session: AsyncSession,
+        *,
+        job: Job,
+        projected_gbp: Decimal,
+        now: datetime | None = None,
+    ) -> None:
+        """Confirm a step's projected cost fits under **both** ceilings.
+
+        Args:
+            now: The moment that decides which calendar month is being counted. Injected
+                so the boundary can be tested without waiting for one.
 
         Raises:
             BudgetExceededError: If it does not. The engine turns this into a paused run
@@ -221,30 +237,69 @@ class BudgetGuard:
                 and lost it would be a cap people disable.
         """
         already = await spend_so_far(session, job_id=job.id)
-        projected_total = already + projected_gbp
+        self._refuse_if_over(
+            scope="per_run",
+            noun="run",
+            spent=already,
+            projected_gbp=projected_gbp,
+            cap=self.per_run_cap_gbp,
+            remedy="Raise the cap on this request to continue.",
+        )
 
-        if projected_total > self.per_run_cap_gbp:
-            message = (
-                f"This step is projected to cost £{projected_gbp:.4f}, which would take the "
-                f"run to £{projected_total:.4f} against a cap of £{self.per_run_cap_gbp:.2f}. "
-                "The run is paused for a decision rather than continuing."
-            )
-            raise BudgetExceededError(
-                message,
-                context={
-                    "spent_gbp": str(already),
-                    "projected_gbp": str(projected_gbp),
-                    "cap_gbp": str(self.per_run_cap_gbp),
-                    "scope": "per_run",
-                },
-            )
+        # This run's own rows are inside the window too, so the month's total is
+        # `this_month + projected` — the run's spend is not added a second time.
+        this_month = await spend_this_month(session, now=now or datetime.now(UTC))
+        self._refuse_if_over(
+            scope="monthly",
+            noun="month",
+            spent=this_month,
+            projected_gbp=projected_gbp,
+            cap=self.monthly_cap_gbp,
+            remedy=(
+                "This is the ceiling across every run this month, so raising this "
+                "request's own cap will not release it."
+            ),
+        )
 
-        if already >= self.per_run_cap_gbp * Decimal(str(self.warn_ratio)):
+        self._warn_if_near(job, scope="per_run", spent=already, cap=self.per_run_cap_gbp)
+        self._warn_if_near(job, scope="monthly", spent=this_month, cap=self.monthly_cap_gbp)
+
+    def _refuse_if_over(
+        self,
+        *,
+        scope: str,
+        noun: str,
+        spent: Decimal,
+        projected_gbp: Decimal,
+        cap: Decimal,
+        remedy: str,
+    ) -> None:
+        total = spent + projected_gbp
+        if total <= cap:
+            return
+        message = (
+            f"This step is projected to cost £{projected_gbp:.4f}, which would take the "
+            f"{noun} to £{total:.4f} against a cap of £{cap:.2f}. The run is paused for a "
+            f"decision rather than continuing. {remedy}"
+        )
+        raise BudgetExceededError(
+            message,
+            context={
+                "spent_gbp": str(spent),
+                "projected_gbp": str(projected_gbp),
+                "cap_gbp": str(cap),
+                "scope": scope,
+            },
+        )
+
+    def _warn_if_near(self, job: Job, *, scope: str, spent: Decimal, cap: Decimal) -> None:
+        if spent >= cap * Decimal(str(self.warn_ratio)):
             _log.warning(
                 "budget.approaching_cap",
+                scope=scope,
                 job_id=str(job.id),
-                spent_gbp=str(already),
-                cap_gbp=str(self.per_run_cap_gbp),
+                spent_gbp=str(spent),
+                cap_gbp=str(cap),
             )
 
 
@@ -257,6 +312,24 @@ def _detail_of(exc: Exception) -> dict[str, Any]:
     if isinstance(exc, AerError):
         return exc.to_dict()
     return {"code": "unexpected_error", "message": f"{type(exc).__name__}: {exc}"}
+
+
+async def spend_this_month(session: AsyncSession, *, now: datetime) -> Decimal:
+    """Everything every run has spent in ``now``'s calendar month, in pounds.
+
+    The month is UTC's, because ``occurred_at`` is stored in UTC. A boundary that moved with
+    the reader's timezone would reset the cap at a different instant depending on where the
+    operator happened to be standing.
+
+    **No join.** ``costs.job_id`` is ``SET NULL`` rather than ``CASCADE`` precisely so that
+    deleting a request cannot erase what it cost (migration 0009); reaching the month's total
+    through the job would hand that escape straight back.
+    """
+    start = now.astimezone(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    total = await session.scalar(
+        select(func.coalesce(func.sum(Cost.amount_gbp), 0)).where(Cost.occurred_at >= start)
+    )
+    return Decimal(str(total))
 
 
 async def spend_so_far(session: AsyncSession, *, job_id: uuid.UUID) -> Decimal:

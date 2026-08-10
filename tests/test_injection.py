@@ -89,9 +89,19 @@ class TestContainmentDoesNotDependOnDetection:
 
     @staticmethod
     def _agents() -> list[type[Agent[Any, Any]]]:
+        """Every agent class the *platform* defines.
+
+        Classes declared inside a test are excluded, and that is not a convenience. Some of
+        them exist precisely to be invalid — ``test_agent_registry`` defines one whose role
+        is deliberately unregistered, to prove construction refuses it — and a throwaway
+        class stays in ``Agent.__subclasses__()`` for the rest of the process, because
+        ``pytest.raises`` holds the traceback that holds the frame that holds the class. So
+        this walk saw it and failed, depending only on whether that file happened to run
+        first: a green suite and a red one from the same code and a different ordering.
+        """
         import aer.agents.planner  # noqa: F401,PLC0415 -- imported for its side effect
 
-        return list(_subclasses(Agent))
+        return [agent for agent in _subclasses(Agent) if not agent.__module__.startswith("tests.")]
 
     def test_no_role_has_a_network_tool(self) -> None:
         """Threat T3's real control. An injected "send the database to evil.invalid" has

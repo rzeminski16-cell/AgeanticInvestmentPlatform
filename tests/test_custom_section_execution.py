@@ -319,6 +319,37 @@ class TestTheNumeralScan:
         """Normalisation applies to both sides, or it just moves the mismatch."""
         assert unsourced_numerals({"years": 8}, ["sourced at 8.0"]) == []
 
+    def test_a_row_naming_its_calculation_covers_its_own_numerals(self) -> None:
+        """The figure-row convention: an object that says which figure it is needs no claim."""
+        row = {"metric": "ROIC", "value": 0.184, "calculation_id": str(uuid.uuid4())}
+
+        assert unsourced_numerals({"figures": [row]}, []) == []
+
+    def test_a_row_naming_its_fact_covers_its_own_numerals(self) -> None:
+        row = {"metric": "Revenue", "value": 198270, "financial_fact_id": str(uuid.uuid4())}
+
+        assert unsourced_numerals({"figures": [row]}, []) == []
+
+    def test_naming_the_document_a_numeral_came_from_is_not_naming_the_figure(self) -> None:
+        """``source_document_id`` must never join the figure-naming keys.
+
+        It is the plausible-looking widening — a section citing a filing feels sourced — and
+        it is the one that empties the rule. A document reference says where some prose came
+        from; it does not say which stored fact or recorded calculation a *number* is, which
+        is the only thing §2.12 accepts. Add it to the list and every numeral inside any
+        object that mentions a document stops needing lineage at all.
+        """
+        row = {"metric": "Revenue", "value": 198270, "source_document_id": str(uuid.uuid4())}
+
+        problems = unsourced_numerals({"figures": [row]}, [])
+
+        assert any("198270" in problem for problem in problems)
+
+    def test_an_id_that_is_blank_or_missing_does_not_name_anything(self) -> None:
+        """Otherwise the convention is satisfied by declaring the key and leaving it empty."""
+        assert unsourced_numerals({"figures": [{"value": 12, "calculation_id": ""}]}, []) != []
+        assert unsourced_numerals({"figures": [{"value": 12, "calculation_id": None}]}, []) != []
+
     def test_confidence_is_metadata_and_exempt(self) -> None:
         assert unsourced_numerals({"confidence": 0.7}, []) == []
 

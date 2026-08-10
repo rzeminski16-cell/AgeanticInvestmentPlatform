@@ -196,6 +196,7 @@ async def run_console(
             "is_terminal": state.is_terminal,
             "awaiting": job.status is JobStatus.AWAITING_APPROVAL,
             "budget_exceeded": job.status is JobStatus.BUDGET_EXCEEDED,
+            "budget_scope": state.budget_scope,
             "pending_gate": pending.value if pending else None,
             "report_id": str(report.id) if report else None,
             "poll_seconds": POLL_SECONDS,

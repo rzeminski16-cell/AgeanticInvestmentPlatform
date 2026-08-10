@@ -38,6 +38,14 @@ just test                    # ~16 minutes, expect all green
 `AER_HTTP_USER_AGENT` must name you and give a contact address. SEC rejects a generic agent,
 and the failure presents as a network problem rather than a configuration one.
 
+**One behaviour changed since this guide was written, and it can stop a run.** The monthly
+budget ceiling is now enforced, having been dead code since the engine was built (A22, ADR
+0051). Four runs at two or three pounds each sit well under the £80 default, so you should
+never meet it — but if you do, the console says **"Stopped on the monthly budget"** rather
+than the usual banner, and raising the request's own cap will do nothing. Change it at
+`/settings`, or set `AER_MONTHLY_BUDGET_GBP` before starting. Check where you are with
+`/costs` if a run stops for a reason that does not match what the request allows.
+
 Take a backup first. You are about to spend money and write real data:
 
 ```bash
@@ -298,7 +306,7 @@ one for a single command.
 
 - Spend per run for all four, and the total.
 - The cache hit rate from `/costs` after all four, and the per-role split.
-- Cache-read tokens either side of the pause in §4b.
+- Cache-read tokens either side of the pause in §4c.
 
 **Judgements — these are the ones I cannot get any other way:**
 
@@ -316,6 +324,16 @@ this document and the least likely to be caught by anything I can write.
 Passing all of the above means the platform works across the shapes you care about, the
 controls fire, the numbers trace, and a run can be reproduced and restored. That is a
 reasonable bar for relying on it yourself.
+
+**What was done at my end, so you know what your half is being added to.** The suite is green
+(4244 unit tests, 75 browser tests), and beyond that the eight invariants in `CLAUDE.md` were
+attacked directly: thirty-six mutations, each breaking one of them the way a careless edit
+would, each run against the tests meant to notice. Thirty-one were caught. One escape was an
+equivalent mutant and four were real gaps in the suite, all now closed and each re-broken
+afterwards to watch the new test fail. Two defects that no mutation could have found came out
+of reading instead — a monthly cap that was never enforced and two call paths that composed a
+prompt differently from the one they claimed to — because both were claims made only in prose,
+and a test suite cannot fail on a claim nobody encoded. See A22–A25 in `docs/gap-analysis.md`.
 
 It still would not establish:
 

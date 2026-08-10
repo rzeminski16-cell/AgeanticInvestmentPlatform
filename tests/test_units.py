@@ -143,6 +143,25 @@ class TestArithmetic:
         with pytest.raises(UnitMismatchError):
             money(1000, "USD") + ratio("0.15")
 
+    def test_it_raises_with_the_operands_the_other_way_round_too(self):
+        # `a + b` dispatches on `a`, so a guard phrased as "is *this* one just a number?"
+        # refuses one order and waves the other through -- and only the refused order was
+        # tested. A dimensionless left operand is the likely one in practice: a margin or a
+        # growth rate is what an expression tends to start with.
+        with pytest.raises(UnitMismatchError):
+            ratio("0.15") + money(1000, "USD")
+
+    def test_subtraction_refuses_in_either_order(self):
+        with pytest.raises(UnitMismatchError):
+            ratio("0.15") - money(1000, "USD")
+        with pytest.raises(UnitMismatchError):
+            money(1000, "USD") - ratio("0.15")
+
+    def test_a_dimensionless_left_operand_does_not_absorb_shares_either(self):
+        # Not only currencies: `pure` must not act as a wildcard for any dimension.
+        with pytest.raises(UnitMismatchError):
+            ratio(3) + shares(4)
+
     def test_addition_of_matching_units_works(self):
         assert (money(2, "USD") + money(3, "USD")) == money(5, "USD")
 
@@ -269,6 +288,14 @@ class TestEquality:
     def test_comparison_across_units_raises(self):
         with pytest.raises(UnitMismatchError, match="compare"):
             _ = money(5, "USD") < money(5, "GBP")
+
+    def test_comparing_a_plain_number_with_money_raises_either_way(self):
+        # `_require_same_unit` guards the comparisons as well as the sums, so it has to be
+        # symmetric here for the same reason.
+        with pytest.raises(UnitMismatchError, match="compare"):
+            _ = ratio(5) < money(5, "USD")
+        with pytest.raises(UnitMismatchError, match="compare"):
+            _ = money(5, "USD") < ratio(5)
 
     def test_comparison_within_a_unit_works(self):
         assert money(4, "USD") < money(5, "USD")

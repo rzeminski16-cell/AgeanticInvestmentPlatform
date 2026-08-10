@@ -145,10 +145,19 @@
         role="alert"
         id="budget-exceeded"
       >
-        <h2 class="text-sm font-semibold text-amber-900 dark:text-amber-200">Stopped on budget</h2>
+        <h2 class="text-sm font-semibold text-amber-900 dark:text-amber-200">
+          {% if budget_scope == "monthly" %}Stopped on the monthly budget{% else %}Stopped on budget{% endif %}
+        </h2>
         <p class="mt-1 text-sm text-amber-900/90 dark:text-amber-100/90">
           The next step would take this run past a spending cap, so it stopped before making
-          the call rather than after paying for it. Raise the cap on the request to continue.
+          the call rather than after paying for it.
+          {% if budget_scope == "monthly" %}
+            The cap it reached is the ceiling across every run this month, so raising this
+            request&rsquo;s own cap will not release it &mdash; change the monthly budget in
+            <a class="underline" href="/settings">settings</a>, or wait for the month to turn.
+          {% else %}
+            Raise the cap on the request to continue.
+          {% endif %}
         </p>
       </section>
     {% endif %}

@@ -14,12 +14,16 @@ bytes of the request, and on the ordering property the cache depends on.
 
 from __future__ import annotations
 
+import ast
 import json
+from pathlib import Path
 from typing import Any
 
 from aer.agents.section_writer import SectionWriterAgent, SectionWriterInput
 from aer.providers.anthropic import _message_payload, _request_payload, _system_blocks
 from aer.providers.protocol import Message
+
+SRC_ROOT = Path(__file__).resolve().parent.parent / "src"
 
 
 def _payload(**overrides: Any) -> SectionWriterInput:
@@ -184,6 +188,46 @@ class TestTheCountedCallIsTheWholeCall:
         )
 
         assert counted > 20_000, "a 200k-character prefix must not count as a short turn"
+
+
+class TestEveryPathComposesTheSameTurn:
+    """Three call sites need the user turn, and two of them used to build it by hand.
+
+    ``run_batch`` and ``estimate_input_tokens`` both predate :meth:`Agent.stable_context`, so
+    both left it out — the batch path sending a prompt with its evidence missing, the
+    estimator counting a call nobody would make. Neither raises, and neither shows up in a
+    diff of the caching work, because the omission is a line that was never written.
+    """
+
+    def test_the_turn_splits_the_repeated_head_from_the_ask(self) -> None:
+        turn = SectionWriterAgent().compose_turn(_payload())
+
+        assert turn.cache_prefix is not None
+        assert "198270" in turn.cache_prefix, "the evidence belongs in the cached head"
+        assert "198270" not in turn.content, "and not also in the part that varies"
+
+    def test_the_base_builds_a_user_turn_in_exactly_one_place(self) -> None:
+        """The structural form of the property, checked on the source.
+
+        Three integration tests would assert the same thing at more cost and would still
+        miss a fourth path added later. What actually holds here is *there is one
+        constructor*: any other ``Message(...)`` in the base is a turn composed by hand,
+        which is precisely how the batch path lost its cache prefix.
+        """
+        tree = ast.parse((SRC_ROOT / "aer" / "agents" / "base.py").read_text(encoding="utf-8"))
+
+        built = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "Message"
+        ]
+
+        assert len(built) == 1, (
+            f"{len(built)} places in aer/agents/base.py build a user turn; there must be "
+            "exactly one, and it must be compose_turn"
+        )
 
 
 class TestTheDefaultIsNotToAsk:

@@ -86,6 +86,21 @@ class TestNoSecretIsEverEditable:
         assert secrets, "the model has no secret fields; this test is no longer meaningful"
         assert not (secrets & overridable)
 
+    def test_both_ways_of_declaring_a_secret_are_recognised(self) -> None:
+        """The walk above cannot exercise this, and that is the point.
+
+        `Settings` declares every credential as `SecretStr | None` today, so only the
+        parametrised branch of `_is_secret` ever runs — the bare-annotation branch is dead
+        code that nothing would notice breaking. A required credential added later as a
+        plain `SecretStr` would then slip past both this allowlist and `secret_presence`
+        with no test failing. Checked directly, against the schema as it will be rather
+        than as it happens to be.
+        """
+        assert configuration._is_secret(SecretStr)
+        assert configuration._is_secret(SecretStr | None)
+        assert not configuration._is_secret(str)
+        assert not configuration._is_secret(Decimal | None)
+
     async def test_a_post_naming_a_secret_is_refused(self, db_session: AsyncSession) -> None:
         """The allowlist is enforced at the write, not only in the template that renders it."""
         actor = await _actor(db_session)

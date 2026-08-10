@@ -260,6 +260,23 @@ class Agent[InputT, OutputT: BaseModel]:
             return self.user_message(payload)
         return f"{self.user_message(payload)}\n\n{quoted}"
 
+    def compose_turn(self, payload: InputT) -> Message:
+        """The user turn exactly as it goes to the provider — from **every** path.
+
+        Three call sites need this: :meth:`run`, :meth:`run_batch`, and
+        :meth:`estimate_input_tokens`. Each used to build it for itself, and two of the
+        three predated :meth:`stable_context` and silently left it out — so a batch call
+        sent a prompt with its evidence missing, and the estimator counted a call nobody
+        would make. Neither raises; both just quietly send or count the wrong thing.
+
+        One method, so a fourth path cannot diverge either.
+        """
+        return Message(
+            role="user",
+            content=self.composed_user_message(payload),
+            cache_prefix=self.stable_context(payload) or None,
+        )
+
     # -- The one public operation ------------------------------------------------------------
 
     async def run(self, context: AgentContext, payload: InputT) -> OutputT:
@@ -268,14 +285,8 @@ class Agent[InputT, OutputT: BaseModel]:
         # Composed, never raw. Untrusted content is wrapped and the containment rule attached
         # here, where an agent has no opportunity to skip either.
         system = self.composed_system_prompt(payload)
-        repeated = self.stable_context(payload)
-        messages = [
-            Message(
-                role="user",
-                content=self.composed_user_message(payload),
-                cache_prefix=repeated or None,
-            )
-        ]
+        turn = self.compose_turn(payload)
+        messages = [turn]
 
         # The role's input cap, checked against a real count before any money moves. The
         # count itself is free, and a refused call costs nothing at all.
@@ -307,7 +318,7 @@ class Agent[InputT, OutputT: BaseModel]:
                     "aer.model": choice.model,
                     "aer.effort": choice.effort,
                     "aer.input_tokens_projected": projected,
-                    "aer.cache_prefix": bool(repeated),
+                    "aer.cache_prefix": turn.cache_prefix is not None,
                 },
             ):
                 result = await context.provider.complete_structured(
@@ -388,7 +399,7 @@ class Agent[InputT, OutputT: BaseModel]:
         requests: list[BatchRequest] = []
         for payload in payloads:
             system = self.composed_system_prompt(payload)
-            messages = (Message(role="user", content=self.composed_user_message(payload)),)
+            messages = (self.compose_turn(payload),)
             projected = await context.provider.count_tokens(
                 system=system, messages=messages, model=choice.model
             )
@@ -444,18 +455,19 @@ class Agent[InputT, OutputT: BaseModel]:
     async def estimate_input_tokens(self, context: AgentContext, payload: InputT) -> int:
         """Count what this agent's call would consume, without making it.
 
-        What the approval gate shows and what the budget guard compares against. Counted
-        by the provider rather than estimated from characters, because the gate is where a
-        person decides whether to spend money and a misleading figure there is worse than
-        no figure.
+        Counted by the provider rather than estimated from characters: a figure somebody
+        reads before agreeing to spend money is worse than no figure if it is wrong. The
+        turn comes from :meth:`compose_turn` for the same reason — the two largest parts of
+        a call are the quoted documents and the stable context, and both are easy to leave
+        out of a hand-built copy.
+
+        **Not currently called.** The budget guard compares each step's declared
+        ``estimated_cost_gbp`` instead.
         """
         choice = context.router.resolve(self.role)
-        # The composed forms, because those are what will be sent. Counting the bare prompt
-        # would under-report by the length of every quoted document, which is most of the call
-        # — and the figure this produces is what a person sees before agreeing to spend money.
         return await context.provider.count_tokens(
             system=self.composed_system_prompt(payload),
-            messages=[Message(role="user", content=self.composed_user_message(payload))],
+            messages=[self.compose_turn(payload)],
             model=choice.model,
         )
 
