@@ -57,10 +57,18 @@ class Message:
     ``role`` is ``user`` or ``assistant``. The system prompt is a separate argument rather
     than a message, because that is what it is in every provider's API and pretending
     otherwise means each implementation has to pull it back out of the list.
+
+    ``cache_prefix`` is the head of this turn that repeats across calls — a run's evidence
+    listing, say, which several sections and every retry of one section send identically.
+    Set, it is sent as its own content block with a cache breakpoint after it, and
+    ``content`` follows as a second block. **Caching is a prefix match**, so the split is
+    the whole mechanism: what repeats has to physically precede what varies, or the
+    repeated part sits behind changing bytes and can never be reused.
     """
 
     role: str
     content: str
+    cache_prefix: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

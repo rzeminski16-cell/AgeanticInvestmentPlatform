@@ -108,7 +108,36 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
             contract=json.dumps(payload.output_contract, indent=2, sort_keys=False)
         )
 
+    def stable_context(self, payload: SectionWriterInput) -> str:
+        """The evidence policy and the evidence, which repeat across calls.
+
+        Both are a function of the section's evidence policy, not of the section — the
+        nineteen built-in sections resolve to a handful of distinct policies, so sections
+        sharing one are handed a byte-identical listing, and every retry of a single
+        section is handed the same listing again. Sent ahead of the ask, with a cache
+        breakpoint after it, that block is written once and read thereafter.
+
+        ``sort_keys=True`` on both dumps is load-bearing rather than tidiness: a dictionary
+        serialised in a different order is different bytes, and different bytes are a cache
+        miss on everything downstream of them.
+        """
+        return "\n\n".join(
+            [
+                "Evidence policy for this section, enforced in code:\n"
+                + json.dumps(payload.evidence_policy, sort_keys=True),
+                "The run's evidence, as data:\n"
+                + json.dumps(payload.internal_evidence, sort_keys=True),
+            ]
+        )
+
     def user_message(self, payload: SectionWriterInput) -> str:
+        """What differs between calls: which section, its focus, and any refusals to fix.
+
+        The evidence is not here — see :meth:`stable_context`. It arrives as the preceding
+        block, so this reads as the instruction that follows the material, which is both
+        the shape prompt caching needs and the safer order for a turn that carries quoted
+        documents.
+        """
         parts = [
             f"Write the section {payload.title!r} ({payload.section_key}) for "
             f"{payload.company_name} ({payload.ticker}), as of {payload.as_of_date}"
@@ -117,14 +146,6 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
         ]
         if payload.focus.strip():
             parts.append(f"The approved plan's focus for this section: {payload.focus.strip()}")
-        parts.extend(
-            [
-                "Evidence policy for this section, enforced in code:\n"
-                + json.dumps(payload.evidence_policy, sort_keys=True),
-                "The run's evidence, as data:\n"
-                + json.dumps(payload.internal_evidence, sort_keys=True),
-            ]
-        )
         if payload.evidence_truncated:
             parts.append(
                 "The evidence listing was truncated to this section's token budget; "

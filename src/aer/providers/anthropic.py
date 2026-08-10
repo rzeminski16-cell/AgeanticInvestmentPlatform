@@ -400,7 +400,11 @@ class AnthropicProvider:
                 system=system,
                 # The SDK types `role` as a literal union; Message carries it as a string
                 # so the protocol stays free of any one vendor's type vocabulary.
-                messages=[{"role": _role(m.role), "content": m.content} for m in messages],
+                # Built by the same function the real call uses, so a turn split at a
+                # cache boundary is counted whole. Counting only `content` would omit the
+                # cache prefix — which is the largest part of the turn, and the omission
+                # would silently raise every role's effective input cap.
+                messages=cast("Any", [_message_payload(m) for m in messages]),
             )
         except Exception as exc:
             message = f"Counting tokens failed ({type(exc).__name__}: {exc})."
@@ -433,6 +437,39 @@ class AnthropicProvider:
         return _validated(response, schema, model=model, max_tokens=max_tokens)
 
 
+# What a cache breakpoint looks like on the wire. Five-minute ephemeral rather than the
+# one-hour form: a research run makes its calls in a burst of minutes, so the shorter TTL
+# covers the reuse that actually happens, and it costs a 1.25x write premium against the
+# 1h form's 2x. Break-even is two requests rather than three.
+_CACHE_BREAKPOINT: Final[dict[str, str]] = {"type": "ephemeral"}
+
+
+def _system_blocks(system: str) -> list[dict[str, Any]]:
+    """The system prompt as one cached text block.
+
+    Marked unconditionally. The system prompt is stable for a role — the platform contract
+    then the role's instruction — so every call after the first can read it rather than pay
+    for it again. Where the prompt is shorter than the model's minimum cacheable prefix the
+    marker is simply ignored: no entry is written, nothing is charged, and
+    ``cache_creation_input_tokens`` comes back zero. That silence is why the cache-hit
+    figures on the costs page matter — a marker is a request, not a guarantee.
+    """
+    return [{"type": "text", "text": system, "cache_control": _CACHE_BREAKPOINT}]
+
+
+def _message_payload(message: Message) -> dict[str, Any]:
+    """One turn, split at its cache boundary when it has one."""
+    if message.cache_prefix is None:
+        return {"role": _role(message.role), "content": message.content}
+    return {
+        "role": _role(message.role),
+        "content": [
+            {"type": "text", "text": message.cache_prefix, "cache_control": _CACHE_BREAKPOINT},
+            {"type": "text", "text": message.content},
+        ],
+    }
+
+
 def _request_payload(
     *,
     system: str,
@@ -461,8 +498,8 @@ def _request_payload(
     payload: dict[str, Any] = {
         "model": model,
         "max_tokens": max_tokens,
-        "system": system,
-        "messages": [{"role": _role(m.role), "content": m.content} for m in messages],
+        "system": _system_blocks(system),
+        "messages": [_message_payload(m) for m in messages],
     }
 
     applied = _effort_for(model, effort)

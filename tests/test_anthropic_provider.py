@@ -326,7 +326,11 @@ class TestTheRequestShape:
         await _call(provider, max_tokens=4321)
 
         assert messages.last["max_tokens"] == 4321
-        assert messages.last["system"] == "be brief"
+        # A list of blocks rather than a bare string since A14: the system prompt carries a
+        # cache breakpoint, and the API takes a breakpoint only on a structured block.
+        assert messages.last["system"] == [
+            {"type": "text", "text": "be brief", "cache_control": {"type": "ephemeral"}}
+        ]
         assert messages.last["model"] == OPUS
         assert messages.last["messages"] == [{"role": "user", "content": "plan it"}]
 
@@ -368,7 +372,9 @@ class TestWhatIsArchived:
         provider, _ = _provider(_StubResponse(Plan(summary="ok")))
         result = await _call(provider)
 
-        assert result.request_payload["system"] == "be brief"
+        assert result.request_payload["system"] == [
+            {"type": "text", "text": "be brief", "cache_control": {"type": "ephemeral"}}
+        ]
         assert result.request_payload["max_tokens"] == 8192
 
     async def test_archiving_a_haiku_call_does_not_invent_an_effort(self) -> None:

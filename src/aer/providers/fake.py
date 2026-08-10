@@ -304,6 +304,11 @@ def _validated[T: BaseModel](scripted: BaseModel, schema: type[T]) -> T:
 
 
 def _token_estimate(system: str, messages: Sequence[Message]) -> int:
-    """Tokens a prompt would consume, near enough for the budget arithmetic under test."""
-    characters = len(system) + sum(len(m.content) for m in messages)
+    """Tokens a prompt would consume, near enough for the budget arithmetic under test.
+
+    The cache prefix counts. It is sent as part of the turn and billed as part of the turn
+    — at a discount when it is read from cache, but never at nothing — so leaving it out
+    would make the fake disagree with the API about whether a call fits its role's cap.
+    """
+    characters = len(system) + sum(len(m.content) + len(m.cache_prefix or "") for m in messages)
     return max(1, characters // _CHARS_PER_TOKEN)

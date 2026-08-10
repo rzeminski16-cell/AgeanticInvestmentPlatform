@@ -231,8 +231,29 @@ class Agent[InputT, OutputT: BaseModel]:
             return composed
         return f"{composed}\n\n{CONTAINMENT_RULE}"
 
+    def stable_context(self, payload: InputT) -> str:
+        """The head of the user turn that repeats across calls, or empty for none.
+
+        Overridden by roles that send the same large block more than once — a run's
+        evidence listing goes to every section that shares an evidence policy, and to every
+        retry of one section. Returning it here rather than from :meth:`user_message` is
+        what lets it be cached: it becomes its own content block with a breakpoint after
+        it, ahead of the part that varies.
+
+        **Empty by default, and that is the safe answer.** A role that returns something
+        which is not in fact identical between calls gets no cache hits and pays a write
+        premium each time, which is worse than not asking. Only override where the block
+        genuinely repeats byte for byte.
+        """
+        del payload
+        return ""
+
     def composed_user_message(self, payload: InputT) -> str:
-        """The agent's request, with any fetched content quoted beneath it."""
+        """The agent's request, with any fetched content quoted beneath it.
+
+        The stable context is deliberately *not* here: it is sent as a separate leading
+        block by :meth:`run`. This method returns what changes from call to call.
+        """
         quoted = wrap_untrusted(self.untrusted_sources(payload))
         if not quoted:
             return self.user_message(payload)
@@ -246,7 +267,14 @@ class Agent[InputT, OutputT: BaseModel]:
         # Composed, never raw. Untrusted content is wrapped and the containment rule attached
         # here, where an agent has no opportunity to skip either.
         system = self.composed_system_prompt(payload)
-        messages = [Message(role="user", content=self.composed_user_message(payload))]
+        repeated = self.stable_context(payload)
+        messages = [
+            Message(
+                role="user",
+                content=self.composed_user_message(payload),
+                cache_prefix=repeated or None,
+            )
+        ]
 
         # The role's input cap, checked against a real count before any money moves. The
         # count itself is free, and a refused call costs nothing at all.
