@@ -187,6 +187,10 @@ With `just`:
 | `just worker` | Run the background worker that executes research runs |
 | `just seed-user you@example.com` | Create the local user (idempotent) |
 | `just reset-research` | Delete every research request and everything derived from one |
+| `just backup var/backups/today` | Copy the database and the artefact store into one directory, verified |
+| `just verify-backup var/backups/today` | Re-hash a backup against its manifest; needs no database |
+| `just restore var/backups/today` | Put a backup back (destructive; verifies first and asks) |
+| `just verify-audit` | Walk the audit log and check every record still links to the one before it |
 | `just verify-artefacts` | Re-read every archived artefact and check it still hashes to its name |
 | `just gc-artefacts` | Report archived bytes nothing points at (add `--delete` to remove them) |
 | `just purge-licensed` | Delete every payload from a licensed feed, when its agreement requires it |

@@ -66,6 +66,27 @@ seed-user email:
 reset-research:
     uv run aer reset-research
 
+# Copy the database and the artefact store into one directory, and verify what was
+# written before reporting success. Both halves or neither: a database restored beside an
+# empty store is a set of citations into nothing.
+backup destination:
+    uv run aer backup --to {{destination}}
+
+# Re-hash a backup against its own manifest. Touches no database, so it can be run
+# wherever the backup lives. Exits non-zero on any problem, so it can be a cron line.
+verify-backup source:
+    uv run aer verify-backup --from {{source}}
+
+# Put a backup back. DESTRUCTIVE: drops and rebuilds every table. Verifies the backup
+# first and refuses if it does not check out. Asks before it does anything.
+restore source:
+    uv run aer restore --from {{source}}
+
+# Walk the audit log and check every record still links to the one before it. Exits
+# non-zero on a break, so it can be a cron line beside verify-artefacts.
+verify-audit:
+    uv run aer verify-audit
+
 # Re-read every archived artefact and confirm it still hashes to its name. Exits non-zero
 # on anything corrupt or missing, so it can be a cron line.
 verify-artefacts:

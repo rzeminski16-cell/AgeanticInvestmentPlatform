@@ -15,11 +15,13 @@ import asyncio
 import sys
 import uuid
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Annotated
 
 import typer
 import uvicorn
 from sqlalchemy import select, text
+from sqlalchemy.engine import make_url
 
 from aer.config import Settings, load_settings
 from aer.core.enums import Provider, UserRole
@@ -29,6 +31,11 @@ from aer.errors import AerError
 from aer.logging import configure_logging, get_logger
 from aer.obsidian import ObsidianExportError, export_report
 from aer.services.audit_verify import ChainReport, verify_audit_chain
+from aer.services.backup import (
+    create_backup,
+    restore_backup,
+    verify_backup,
+)
 from aer.services.retention import (
     GarbageCollected,
     IntegrityReport,
@@ -371,6 +378,117 @@ def verify_artefacts() -> None:
     raise typer.Exit(code=1)
 
 
+@app.command(name="backup")
+def backup(
+    to: Annotated[Path, typer.Option("--to", help="Directory to write the backup into.")],
+) -> None:
+    """Copy the database and the artefact store into one directory.
+
+    Both halves or neither: the database holds every claim, calculation and citation, and
+    the store holds the bytes those citations point at. A database restored beside an empty
+    store is a set of citations into nothing.
+
+    Refuses to write over an existing backup, and verifies what it just wrote before
+    reporting success — an unread backup is not a backup.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+
+    revision = asyncio.run(_schema_revision(settings))
+    manifest = create_backup(
+        database_url=settings.database_url,
+        artefact_root=settings.artefact_root,
+        destination=to,
+        schema_revision=revision,
+    )
+    report = verify_backup(to)
+    if not report.is_sound:
+        for problem in report.problems:
+            typer.secho(f"  {problem}", fg=typer.colors.RED, err=True)
+        typer.secho(
+            "The backup was written but does not verify. Treat it as unusable.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    megabytes = (manifest.database_bytes + manifest.artefact_bytes) / 1_048_576
+    typer.secho(
+        f"Backed up to {to}: schema {manifest.schema_revision}, "
+        f"{manifest.artefact_count:,} artefact(s), {megabytes:,.1f} MiB, verified.",
+        fg=typer.colors.GREEN,
+    )
+
+
+@app.command(name="verify-backup")
+def verify_backup_command(
+    directory: Annotated[Path, typer.Option("--from", help="The backup directory to check.")],
+) -> None:
+    """Re-hash a backup and check it against its own manifest.
+
+    Touches no database, so it can be run wherever the backup lives — which is where a
+    restore is usually first attempted, and where finding out the copy is bad is still
+    cheap. Exits 1 on any problem, so it can be a cron line.
+    """
+    report = verify_backup(directory)
+    if report.is_sound:
+        assert report.manifest is not None
+        typer.secho(
+            f"{directory} verifies: {report.checked:,} artefact(s) and the database dump "
+            f"match the manifest taken at {report.manifest.created_at}.",
+            fg=typer.colors.GREEN,
+        )
+        return
+
+    for problem in report.problems:
+        typer.secho(f"  {problem}", fg=typer.colors.RED, err=True)
+    typer.secho(
+        f"{len(report.problems)} problem(s). This backup should not be restored from.",
+        fg=typer.colors.RED,
+        err=True,
+    )
+    raise typer.Exit(code=1)
+
+
+@app.command(name="restore")
+def restore(
+    directory: Annotated[Path, typer.Option("--from", help="The backup directory to restore.")],
+    yes: Annotated[
+        bool, typer.Option("--yes", help="Skip the confirmation prompt. For scripts.")
+    ] = False,
+) -> None:
+    """Put a backup back. **This drops and rebuilds the target database.**
+
+    The backup is verified first and the restore refuses if it does not check out:
+    restoring an unverified copy over a working database is how one bad backup becomes two.
+
+    Artefacts are copied in rather than replacing the store, because they are
+    content-addressed — a file already present under a digest *is* the file in the backup.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+
+    target = make_url(settings.database_url)
+    if not yes:
+        typer.secho(
+            f"This will DROP and rebuild every table in {target.database} on "
+            f"{target.host}:{target.port}.",
+            fg=typer.colors.YELLOW,
+        )
+        typer.confirm("Restore over it?", abort=True)
+
+    report = restore_backup(
+        directory=directory,
+        database_url=settings.database_url,
+        artefact_root=settings.artefact_root,
+    )
+    typer.secho(
+        f"Restored {directory} into {target.database}: "
+        f"{report.checked:,} artefact(s) verified on the way in.",
+        fg=typer.colors.GREEN,
+    )
+
+
 @app.command(name="verify-audit")
 def verify_audit() -> None:
     """Walk the audit log and check every record still links to the one before it.
@@ -566,6 +684,22 @@ async def _purge_licensed(
             )
             await session.commit()
             return outcome
+    finally:
+        await engine.dispose()
+
+
+async def _schema_revision(settings: Settings) -> str:
+    """The migration the database is currently at, recorded in the backup manifest.
+
+    A restore into a codebase expecting a different schema is the failure a manifest can
+    warn about, and it cannot warn about what it did not write down.
+    """
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            revision = await session.scalar(text("SELECT version_num FROM alembic_version"))
+            return str(revision) if revision else "unknown"
     finally:
         await engine.dispose()
 
