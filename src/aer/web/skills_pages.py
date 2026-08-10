@@ -24,7 +24,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 from sqlalchemy import select
-from starlette.responses import HTMLResponse, RedirectResponse, Response
+from starlette.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from aer.api.deps import (
@@ -42,6 +42,7 @@ from aer.services import skills as skill_service
 from aer.services.skill_authoring import import_diff, validate_skill_source
 from aer.services.skill_dry_run import DRY_RUN_WORKFLOW, dry_run_skill
 from aer.skills.frontmatter import SkillFileError
+from aer.skills.library import starter_library
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
 
@@ -118,6 +119,46 @@ async def new_skill(
     user: CurrentUser,  # noqa: ARG001 -- the auth dependency
 ) -> Response:
     return _editor(request, settings, source=STARTER_SOURCE, key=None, preview=None)
+
+
+@router.get("/skills/examples", response_class=HTMLResponse, summary="The starter library")
+async def examples_page(request: Request, settings: SettingsDep, user: CurrentUser) -> Response:
+    """Worked examples to read, import and edit into something of your own.
+
+    Listed rather than installed. An example reaches the platform through the ordinary
+    import path, diff and confirmation included — pre-installing them would make that step
+    look optional, which is the habit the diff exists to prevent (threat T20).
+    """
+    del user
+    token = new_csrf_token(settings)
+    page: Response = render(
+        request,
+        "skills/examples.html",
+        {"examples": starter_library(), "csrf_field": CSRF_FIELD_NAME, "csrf_token": token},
+    )
+    set_csrf_cookie(page, token)
+    return page
+
+
+@router.get("/skills/{key}/export", summary="Download a skill file")
+async def export_skill(key: str, session: DbSession, user: CurrentUser) -> Response:
+    """The stored source, byte for byte, as a file.
+
+    The *source* rather than a re-serialisation of the parsed frontmatter: what comes back
+    must be what would go in, or a round trip through export and import would rewrite an
+    operator's file — reordering keys, dropping comments — and the import diff would show
+    changes nobody made.
+    """
+    del user
+    version = await skill_service.current_version(session, key=key)
+    if version is None:
+        return PlainTextResponse(f"No skill {key}.", status_code=HTTP_404_NOT_FOUND)
+
+    return PlainTextResponse(
+        version.source,
+        media_type="text/markdown; charset=utf-8",
+        headers={"content-disposition": f'attachment; filename="{key}.md"'},
+    )
 
 
 @router.get("/skills/import", response_class=HTMLResponse, summary="Import a skill file")
