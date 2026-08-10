@@ -1,15 +1,20 @@
 # Manual acceptance — the things the test suite cannot tell you
 
-*Written 2026-08-10, against `da91aaa`.*
+*Written 2026-08-10, against `da91aaa`. Widened 2026-08-10 to four live runs.*
 
-The automated suite is 4,200-odd tests and it is structurally blind to four things. Every
-one of them needs a human, real money, or both. This is that list, in the order worth doing
-it, with the specific thing to look at rather than "check it works".
+The automated suite is 4,200-odd tests and it is structurally blind to a handful of things.
+Every one of them needs a human, real money, or both. This is that list, in the order worth
+doing it, with the specific thing to look at rather than "check it works".
+
+**Four live runs, not one.** A single US large-cap is the easy path and proves the least. The
+four in §1 are chosen because each one exercises code the others never touch: a different
+data source, a blocked valuation model, and an evidence assembly with almost nothing to
+assemble. Budget £5–10 for the set.
 
 Two rules for the whole document. **Write down what you see, not whether it passed** — a
-number recorded is worth more later than a tick. And **if something looks wrong, stop and
-say so before continuing**; several of these steps build on the one before, and a bad result
-carried forward is hard to unpick afterwards.
+number recorded is worth more later than a tick. And **if something looks wrong, stop and say
+so before continuing**; several steps build on the one before, and a bad result carried
+forward is hard to unpick afterwards.
 
 ---
 
@@ -21,9 +26,17 @@ uv run alembic upgrade head  # should reach 0028
 just test                    # ~16 minutes, expect all green
 ```
 
-Confirm `.env` has `AER_ANTHROPIC_API_KEY` set and `AER_HTTP_USER_AGENT` naming you — SEC
-EDGAR rejects a generic agent, and that failure looks like a network problem rather than a
-configuration one.
+`.env` needs:
+
+| Variable | Needed for | If missing |
+|---|---|---|
+| `AER_ANTHROPIC_API_KEY` | everything | nothing runs |
+| `AER_HTTP_USER_AGENT` | SEC EDGAR | 403s that look like network faults |
+| `AER_COMPANIES_HOUSE_API_KEY` | **run B only** (UK) | run B cannot be done — free key from developer.company-information.service.gov.uk |
+| `AER_EODHD_API_KEY` | prices, beta, comps | those sections say so and carry on |
+
+`AER_HTTP_USER_AGENT` must name you and give a contact address. SEC rejects a generic agent,
+and the failure presents as a network problem rather than a configuration one.
 
 Take a backup first. You are about to spend money and write real data:
 
@@ -34,18 +47,30 @@ just verify-backup var/backups/before-acceptance
 
 ---
 
-## 1. The live run — the one that matters most
+## 1. The live runs — everything else is secondary
 
-Everything below is secondary to this. Nothing in the suite has ever made a real model call
-with the current prompts.
+Nothing in the suite has ever made a real model call with the current prompts. Start the
+server and worker (`just dev`, `just worker`) and work through the four below **in order** —
+A is the one most likely to work, so a failure there means stop rather than continue.
 
-Start the server and worker (`just dev`, `just worker`), then create a request for a US
-company you know well. **Pick one you can judge** — the point is to read the output
-critically, which you cannot do for a company you have no view on. Microsoft, Costco, John
-Deere: something with a long filing history.
+| | Run | Why this one | Exercises |
+|---|---|---|---|
+| **A** | A US large-cap you can judge | The baseline, and the only one where you can assess quality | SEC EDGAR, companyfacts, the full DCF path |
+| **B** | A UK company on the LSE | Half the product's universe, never run live | Companies House, iXBRL, GBP handling |
+| **C** | A bank or an insurer | The sector block is supposed to *refuse* a DCF | Sector enforcement, ADR 0028 |
+| **D** | Something small or loss-making | Evidence assembly with little to assemble | Thin-evidence banners, negative denominators |
 
-Drive it through the gates. Expect to be stopped at the plan, possibly at UK financials or
-the peer set, at assumptions, and at the final report.
+Supported exchanges are `NASDAQ`, `NYSE`, `NYSE_AMERICAN` and `LSE`. Anything else is
+refused at the request form, which is itself worth seeing once.
+
+### Run A — US large-cap
+
+**Pick one you can judge.** The point is to read the output critically, which you cannot do
+for a company you have no view on. Microsoft, Costco, John Deere: a long filing history and a
+business you could describe from memory.
+
+Drive it through the gates. Expect to stop at the plan, possibly the peer set, at assumptions,
+and at the final report.
 
 **Record as you go:**
 
@@ -56,8 +81,54 @@ the peer set, at assumptions, and at the final report.
 | Sections generated | the report page | Most of 19, with content |
 | Claims recorded | `/runs/<id>/claims` | More than zero |
 | Citations verified | same page | All confirmed, none "failed" |
+| A DCF exists | the valuation page | A value, with WACC and the assumptions behind it |
+
+### Run B — a UK company
+
+**Needs `AER_COMPANIES_HOUSE_API_KEY`.** Skip and say so if you would rather not get one, but
+note that this is the half of the universe with no live evidence behind it at all.
+
+Something with an ordinary annual report: Unilever, Diageo, Sage. Exchange `LSE`.
+
+What to watch, beyond the run completing:
+
+- **Currency.** Figures should be GBP throughout, or explicitly converted with the rate shown.
+  A GBP company reported in USD without a stated conversion is a real fault.
+- **iXBRL.** UK annual reports are inline XBRL — a different parser from the US path. Check
+  the facts on `/runs/<id>/financials` look like the filing, not like nothing.
+- **Whether it stops at the UK financials gate.** That gate exists for this case.
+
+### Run C — a bank or insurer
+
+Pick a clear one: Lloyds, HSBC, JPMorgan, Aviva. The seeded sector profiles block
+`dcf_fcff` for `banks`, `insurers` and `reits`, and `biotech_pre_revenue` blocks both DCF
+variants.
+
+**The expected outcome is a refusal, not a valuation.** Specifically:
+
+- The valuation page should say the DCF was **blocked for this sector**, naming why.
+- It should not quietly produce a DCF with odd inputs, and it should not fail the run.
+- The sector's required metrics should appear instead — for a bank: net interest margin,
+  CET1 ratio, cost-income ratio, loan-loss provisions, tangible book value per share.
+
+A bank with a discounted cash flow on the page is the most serious single thing you could
+find in this exercise. It would mean the block is a footnote rather than a control.
+
+### Run D — small or loss-making
+
+A recent IPO, a company with two or three years of filings, or one with negative earnings.
+
+This one is about honesty under thin evidence:
+
+- Sections with little to work from should carry a **thin-evidence banner**, not fabricate.
+- Ratios with negative or zero denominators should be **absent or marked**, never rendered as
+  a confident figure.
+- The run should still complete. A company with a short history is a legitimate subject, not
+  an error.
 
 ### 1a. The prompt reorder — the highest-risk unvalidated change
+
+*Do this on run A, where you can judge the subject.*
 
 ADR 0048 moved the evidence block *ahead* of the instruction in every section-writer call.
 No live model has ever seen the new shape; the fake returns scripted drafts and cannot tell
@@ -76,7 +147,10 @@ If they read worse than you expect, say so. Reverting `stable_context` in
 
 ### 1b. The cache hit rate — whether A14 bought anything
 
-Go to `/costs` after the run.
+**Read this after all four runs**, not after one. The first run of a fresh prompt pays the
+write premium and reads nothing; reuse shows up across runs and across sections within a run.
+
+Go to `/costs`.
 
 - **"Served from cache" above zero** — caching is working. Note the percentage.
 - **Exactly 0% with more than one call** — the page will show an amber banner. This is the
@@ -90,9 +164,20 @@ Also note the split of fresh / cache-read / cache-write tokens per role. The sec
 is where reuse should show, because sections sharing an evidence policy get an identical
 block.
 
+### 1c. Totals, after all four runs
+
+| What | Where | Note |
+|---|---|---|
+| Total across four runs | `/costs` | The extrapolation to a month is your real budget answer |
+| Spend by role | `/costs` | Which role dominates is what routing should target |
+| Cache hit rate | `/costs` | See §1b — read it *after* all four, not after one |
+
 ---
 
 ## 2. Reproduce the run (B8)
+
+*On run A, then once more on run C — a blocked-valuation run has a different shape and is
+the one most likely to have nothing on a leg.*
 
 On the run console, press **Reproduce this run**. It costs nothing.
 
@@ -111,15 +196,20 @@ echo "not the original bytes" > <that path>
 Press the button again. It must now report that artefact as unreadable. **Restore from the
 backup afterwards** — or accept the loss, since it is a test artefact.
 
+One thing to look for on run C: a leg with **zero checked** is not the same as a leg that
+passed. A blocked-valuation run may legitimately have fewer calculations; it should not have
+zero citations or zero archived exchanges.
+
 ---
 
 ## 3. Settings (B6/B11)
 
 Go to `/settings`.
 
-1. **Change routing.** Point `source_triage` at `claude-haiku-4-5` and save. Start a new run
-   and confirm on `/costs` that the new run used Haiku for that role while the old run still
-   shows whatever it used. This is the "applies to runs that start after it" property.
+1. **Change routing.** Point `source_triage` at `claude-haiku-4-5` and save. Do this *between*
+   two of the four runs, and confirm on `/costs` that the later run used Haiku for that role
+   while the earlier one still shows what it used. This is the "applies to runs that start
+   after it" property, and comparing two real runs is the only way to see it.
 2. **Set a budget you will hit.** Per-run budget to £0.20, start a run, confirm it stops at
    the budget rather than running on. This is the one that costs real money if it does not
    work.
@@ -141,6 +231,23 @@ Go to `/settings`.
    *no changes* — if it shows spurious ones, export is re-serialising rather than returning
    the source.
 5. Enable a custom section and run it. This is the extensibility story end to end.
+
+---
+
+## 4c. A resumed run — the cache TTL nobody has measured
+
+The prompt cache has a **five-minute TTL**. A run that stops at a gate while you go and read
+the plan properly comes back to a cold cache, so the hit rate from an uninterrupted run
+flatters what a real gated workflow achieves.
+
+Worth one deliberate measurement. On any run, stop at a gate, **wait ten minutes**, then
+approve and let it continue. Compare the cache-read tokens before and after the pause on
+`/costs`.
+
+If reuse across a gate is near zero, that is a genuine finding: the five-minute choice in
+ADR 0048 suits a run that proceeds without pause and not the way this platform actually
+works, and the one-hour TTL — at a 2× write premium instead of 1.25× — would be the better
+trade. That is a one-line change, but only worth making on evidence.
 
 ---
 
@@ -187,8 +294,35 @@ one for a single command.
 
 ## What to send back
 
-- The spend figure and the cache hit rate from `/costs`.
-- Your honest read on section quality (§1a) — worse, same, or better than you expected.
-- Anything that failed, with the page you were on.
-- Anything that worked but felt wrong to use. That last one is the most valuable and the
-  least likely to be caught by anything I can write.
+**Numbers:**
+
+- Spend per run for all four, and the total.
+- The cache hit rate from `/costs` after all four, and the per-role split.
+- Cache-read tokens either side of the pause in §4b.
+
+**Judgements — these are the ones I cannot get any other way:**
+
+- §1a: did the sections read worse, the same, or better than you expected?
+- Run C: was the DCF actually refused, and did the page say why in terms you would accept?
+- Run D: did thin evidence produce an honest banner or a confident-sounding paragraph?
+
+**And anything that worked but felt wrong to use.** That is the most valuable single thing in
+this document and the least likely to be caught by anything I can write.
+
+---
+
+## What this does and does not establish
+
+Passing all of the above means the platform works across the shapes you care about, the
+controls fire, the numbers trace, and a run can be reproduced and restored. That is a
+reasonable bar for relying on it yourself.
+
+It still would not establish:
+
+- **A steady-state monthly cost.** Four runs give a per-run figure and an extrapolation.
+  Phase 6's acceptance criterion is a measured month.
+- **Behaviour under live failure.** SEC rate-limiting, a filing that will not parse, a model
+  refusal mid-run. The suite covers these with fakes; nothing has seen them for real.
+- **Anything about A5, A7 or A8.** No authentication, no inbound rate limiting, no deployment
+  story — all deliberately skipped for personal use, all blocking the moment anyone else
+  touches it.
