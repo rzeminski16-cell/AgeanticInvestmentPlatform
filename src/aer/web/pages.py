@@ -83,6 +83,7 @@ from aer.services.disagreements import disagreements_for_job
 from aer.services.escalation import cost_scene_for_job
 from aer.services.evaluations import evaluations_for_job, section_coverage_for_job
 from aer.services.exhibits import exportable_charts_for, internal_charts_for
+from aer.services.run_replay import replay_run
 from aer.services.sectors import (
     CLASSIFY_STEP,
     classification_payload,
@@ -91,6 +92,7 @@ from aer.services.sectors import (
 from aer.services.spend import recent_runs, spend_by_role, spend_summary
 from aer.services.valuation_view import lineage_rows, valuation_view
 from aer.skills.resolution import pinned_skills_for_plan
+from aer.storage.local import LocalArtefactStore
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
 from aer.workflow.workflows.vertical_slice_v1 import (
@@ -619,6 +621,41 @@ async def _run_document(
             licence_note=comps.licence_note if comps else "",
         ),
     )
+
+
+@router.post("/runs/{job_id}/replay", summary="Reproduce this run from its own record")
+async def replay_run_page(
+    request: Request,
+    job_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Re-derive everything the run produced and show what still holds.
+
+    A POST rather than a link, and not only for the CSRF token: re-verifying a citation
+    writes its verdict back onto the row, so this changes stored state even though it reads
+    like a report. It fetches nothing and calls no model, so it costs nothing to press.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was replayed.",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    store = LocalArtefactStore(settings.artefact_root, max_bytes=settings.max_artefact_bytes)
+    report = await replay_run(session, store, job_id=job_id, settings=settings)
+    await session.commit()
+
+    page: Response = render(request, "runs/replay.html", {"job": job, "report": report})
+    return page
 
 
 @router.post("/runs/{job_id}/gates/{gate}", summary="Record a gate decision")

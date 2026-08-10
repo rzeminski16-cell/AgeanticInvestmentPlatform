@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{# The "reproduce this run" answer. Not a progress page: the replay has already finished by
+   the time this renders, because it fetches nothing and calls no model. #}
+
+{% block title %}Replay &middot; Ageiantic Equity Research{% endblock %}
+
+{% block content %}
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">Reproduce this run</h1>
+    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+      Re-derived from what the run wrote down. Nothing was fetched and no model was called,
+      so this is a question about the record rather than about the world &mdash; it will give
+      the same answer in a year.
+    </p>
+  </div>
+
+  {% if report.reproduces %}
+    <p
+      class="mt-6 rounded-md border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+      id="reproduces"
+    >
+      <strong>This run reproduces.</strong> {{ report.checked }} checked thing(s) still hold.
+    </p>
+  {% else %}
+    <div
+      class="mt-6 rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200"
+      id="does-not-reproduce"
+    >
+      <strong>This run no longer reproduces.</strong>
+      <ul class="mt-2 list-disc space-y-1 pl-5">
+        {% for problem in report.problems() %}
+          <li>{{ problem }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <dl class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+      <dt class="text-xs uppercase tracking-wide text-slate-500">Calculations</dt>
+      <dd class="mt-1 text-2xl font-semibold tabular-nums" id="calculations">
+        {{ report.calculations_checked }}
+      </dd>
+      <dd class="text-xs text-slate-500">
+        {{ report.calculations_diverged|length }} diverged
+      </dd>
+    </div>
+    <div class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+      <dt class="text-xs uppercase tracking-wide text-slate-500">Citations</dt>
+      <dd class="mt-1 text-2xl font-semibold tabular-nums" id="citations">
+        {{ report.citations_checked }}
+      </dd>
+      <dd class="text-xs text-slate-500">{{ report.citations_failed|length }} failed</dd>
+    </div>
+    <div class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+      <dt class="text-xs uppercase tracking-wide text-slate-500">Artefacts</dt>
+      <dd class="mt-1 text-2xl font-semibold tabular-nums" id="artefacts">
+        {{ report.artefacts_checked }}
+      </dd>
+      <dd class="text-xs text-slate-500">
+        {{ report.artefacts_unreadable|length }} unreadable
+      </dd>
+    </div>
+    <div class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+      <dt class="text-xs uppercase tracking-wide text-slate-500">Model calls</dt>
+      <dd class="mt-1 text-2xl font-semibold tabular-nums" id="model-calls">
+        {{ report.model_calls_checked }}
+      </dd>
+      <dd class="text-xs text-slate-500">
+        {{ report.model_calls_unarchived|length }} unarchived
+      </dd>
+    </div>
+  </dl>
+
+  <p class="mt-8 text-sm">
+    <a href="/runs/{{ job.id }}" class="text-sky-700 dark:text-sky-400">&larr; Back to the run</a>
+  </p>
+{% endblock %}

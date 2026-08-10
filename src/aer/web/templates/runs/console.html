@@ -190,6 +190,21 @@
       </section>
     {% endif %}
 
+    {# Reproduce this run. Offered whatever the run's state, because a failed or cancelled
+       run is often the one worth interrogating. Costs nothing to press: no fetch, no model. #}
+    <form method="post" action="/runs/{{ job.id }}/replay" class="mt-6" id="replay-form">
+      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+      <button
+        type="submit"
+        class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+      >
+        Reproduce this run
+      </button>
+      <span class="ml-2 text-xs text-slate-500">
+        Re-checks the calculations, citations, artefacts and archived exchanges.
+      </span>
+    </form>
+
     {% if can_cancel and not cancellation %}
       {# A POST, because stopping a run changes something. No confirmation dialogue: the
          worst case is a run you start again, and a modal that has to be dismissed to stop

@@ -133,8 +133,8 @@ confirmed them.
 | # | Gap | Notes |
 |---|---|---|
 | B6 | **Settings screen** | Change models, budgets and methodology without editing `.env`. |
-| B7 | **Cost dashboard** | Spend per run, per role, per model, against the monthly cap. |
-| B8 | **"Reproduce this run" button** | Depends on A12. |
+| ~~B7~~ | ~~**Cost dashboard**~~ | **Closed with A15.** `/costs` shows total spend, spend by category, a per-role breakdown split by model, and the prompt-cache hit rate. |
+| ~~B8~~ | ~~**"Reproduce this run" button**~~ | **Closed.** A POST from the run console to `/runs/{id}/replay`, rendering A12's four legs. A POST rather than a link because re-verifying a citation writes its verdict back — it reads like a report but changes stored state, and on loopback with no auth a plain link would let any open tab rewrite verification state. Offered whatever the run's status: a failed or cancelled run is often the one worth interrogating. |
 | B9 | **Watchlists and scheduled runs** | APScheduler in the worker. |
 | B10 | **Skill export/import with a confirmation diff** | Threat T20, plus a starter library of example custom sections so the feature is not a blank page. |
 | B11 | **Provider and model configuration UI** | Overlaps B6. |

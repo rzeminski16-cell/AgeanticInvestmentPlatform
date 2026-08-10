@@ -575,6 +575,55 @@ async def someone_elses_run(committed: dict, db_engine: Any) -> uuid.UUID:
         return job.id
 
 
+class TestReproducingARun:
+    """B8. The work is A12's service; this is the surface that makes it reachable."""
+
+    async def test_the_console_offers_it(self, api: Any, committed: dict) -> None:
+        body = await start_run(api, committed["request"].id)
+        page = await api.get(f"/runs/{body['job_id']}")
+
+        assert 'id="replay-form"' in page.text
+
+    async def test_it_reports_a_run_that_still_holds(self, api: Any, committed: dict) -> None:
+        body = await start_run(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+        page = await api.get(f"/runs/{job_id}")
+
+        replayed = await api.post(
+            f"/runs/{job_id}/replay",
+            data={CSRF_FIELD_NAME: _hidden_value(page.text, CSRF_FIELD_NAME)},
+        )
+
+        assert replayed.status_code == 200
+        assert 'id="reproduces"' in replayed.text
+
+    async def test_a_post_without_a_token_replays_nothing(self, api: Any, committed: dict) -> None:
+        """A POST because re-verifying a citation writes its verdict back onto the row.
+
+        It reads like a report, so the temptation is a plain link; that would let any page
+        in any tab rewrite verification state on loopback.
+        """
+        body = await start_run(api, committed["request"].id)
+
+        refused = await api.post(f"/runs/{body['job_id']}/replay", data={})
+
+        assert refused.status_code == 403
+
+    async def test_an_unknown_run_is_refused_rather_than_reported_as_sound(
+        self, api: Any, committed: dict
+    ) -> None:
+        """A replay of a run that does not exist checks nothing, and nothing reproduces."""
+        body = await start_run(api, committed["request"].id)
+        page = await api.get(f"/runs/{body['job_id']}")
+
+        missing = await api.post(
+            f"/runs/{uuid.uuid4()}/replay",
+            data={CSRF_FIELD_NAME: _hidden_value(page.text, CSRF_FIELD_NAME)},
+        )
+
+        assert missing.status_code == 404
+
+
 class TestCancellingARun:
     """The surface of the cancel feature. The behaviour is in ``test_cancellation.py``."""
 
