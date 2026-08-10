@@ -42,6 +42,7 @@ from aer.config import Settings, load_settings
 from aer.db.engine import create_engine, create_session_factory
 from aer.db.schema_check import schema_drift
 from aer.logging import configure_logging
+from aer.tracing import configure_tracing
 from aer.version import build_identity, version
 from aer.web import pages as web_pages
 from aer.web import routes as web_routes
@@ -179,4 +180,6 @@ def bootstrap() -> FastAPI:
     """
     settings = load_settings()
     configure_logging(level=settings.log_level, json_output=settings.log_json)
+    # Off unless AER_OTEL_ENDPOINT is set, and never a reason startup fails. See ADR 0049.
+    configure_tracing(service_version=version())
     return create_app(settings)

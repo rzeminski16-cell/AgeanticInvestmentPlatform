@@ -41,6 +41,8 @@ from aer.db.engine import create_engine
 from aer.logging import configure_logging
 from aer.runtime import build_services
 from aer.services import runs as run_service
+from aer.tracing import configure_tracing
+from aer.version import version
 
 __all__ = ["WorkerSettings", "run_research"]
 
@@ -106,6 +108,9 @@ async def run_research(ctx: dict[str, Any], job_id: str) -> dict[str, Any]:
 async def _startup(ctx: dict[str, Any]) -> None:
     """Build the engine, the session factory and a Redis client, once per worker."""
     configure_logging()
+    # The worker is where a run actually happens, so it is the process whose spans matter.
+    # Off unless AER_OTEL_ENDPOINT is set; see ADR 0049.
+    configure_tracing(service_version=version())
     settings = get_settings()
 
     engine = create_engine(settings)

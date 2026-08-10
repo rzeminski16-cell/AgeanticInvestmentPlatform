@@ -55,6 +55,7 @@ from aer.providers.protocol import (
 from aer.providers.router import Router
 from aer.services.artefacts import store_artefact
 from aer.storage.protocol import ArtefactStore
+from aer.tracing import span
 
 __all__ = ["Agent", "AgentContext", "TokenCapExceededError", "ToolNotPermittedError"]
 
@@ -299,14 +300,24 @@ class Agent[InputT, OutputT: BaseModel]:
 
         started = time.perf_counter()
         try:
-            result = await context.provider.complete_structured(
-                self.response_schema(payload),
-                system=system,
-                messages=messages,
-                model=choice.model,
-                effort=choice.effort,
-                max_tokens=self.definition.max_output_tokens,
-            )
+            with span(
+                f"model.{self.role}",
+                **{
+                    "aer.role": self.role,
+                    "aer.model": choice.model,
+                    "aer.effort": choice.effort,
+                    "aer.input_tokens_projected": projected,
+                    "aer.cache_prefix": bool(repeated),
+                },
+            ):
+                result = await context.provider.complete_structured(
+                    self.response_schema(payload),
+                    system=system,
+                    messages=messages,
+                    model=choice.model,
+                    effort=choice.effort,
+                    max_tokens=self.definition.max_output_tokens,
+                )
         except SpentButUnusableError as unusable:
             # The reply is no good and the money is gone. Recording it is not bookkeeping
             # for its own sake: the budget cap reads the `costs` table, so spend it cannot

@@ -145,7 +145,13 @@ class FakeProvider:
             {
                 "schema": schema.__name__,
                 "system": system,
-                "messages": [{"role": m.role, "content": m.content} for m in messages],
+                "messages": [
+                    # The cache prefix is part of the turn, so it is part of the record. A
+                    # fake that logged less than was sent would let a test assert against a
+                    # call that never happened — the failure A18 exists to prevent.
+                    {"role": m.role, "content": m.content, "cache_prefix": m.cache_prefix}
+                    for m in messages
+                ],
                 "model": model,
                 "effort": effort,
                 "max_tokens": max_tokens,
@@ -176,7 +182,13 @@ class FakeProvider:
                 "model": model,
                 "effort": effort,
                 "system": system,
-                "messages": [{"role": m.role, "content": m.content} for m in messages],
+                "messages": [
+                    # The cache prefix is part of the turn, so it is part of the record. A
+                    # fake that logged less than was sent would let a test assert against a
+                    # call that never happened — the failure A18 exists to prevent.
+                    {"role": m.role, "content": m.content, "cache_prefix": m.cache_prefix}
+                    for m in messages
+                ],
                 "schema": schema.__name__,
             },
             response_payload={"parsed": value.model_dump(mode="json")},

@@ -61,6 +61,7 @@ from aer.core.enums import JobStatus
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import Cost, Job, JobCancellation, JobStep
 from aer.errors import AerError, BudgetExceededError
+from aer.tracing import span
 
 __all__ = [
     "MAX_PARALLEL_NODES",
@@ -630,7 +631,10 @@ class WorkflowEngine:
             started = time.perf_counter()
 
             try:
-                result = await step.run(context)
+                with span(
+                    f"step.{step.key}", **{"aer.job_id": str(job.id), "aer.step_key": step.key}
+                ):
+                    result = await step.run(context)
             except StepPaused as paused:
                 await self._record_node_stop(
                     node_session,
@@ -858,7 +862,8 @@ class WorkflowEngine:
         started = time.perf_counter()
 
         try:
-            result = await step.run(context)
+            with span(f"step.{step.key}", **{"aer.job_id": str(job.id), "aer.step_key": step.key}):
+                result = await step.run(context)
         except StepPaused as paused:
             await self._pause(
                 session,

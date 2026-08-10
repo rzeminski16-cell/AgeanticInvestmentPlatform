@@ -469,10 +469,13 @@ def _contract_from_system(system: str) -> dict[str, Any]:
 def _evidence_from_messages(messages: list[dict[str, str]]) -> list[dict[str, Any]]:
     marker = "The run's evidence, as data:\n"
     for message in messages:
-        content = message.get("content", "")
-        if marker in content:
-            line = content.split(marker, 1)[1].split("\n\n", 1)[0]
-            return list(json.loads(line))
+        # Both blocks: since ADR 0048 the writer sends the evidence as the turn's cache
+        # prefix, ahead of the ask, so a parser that read only `content` would find nothing
+        # and quietly build a draft with no claims.
+        for part in (message.get("cache_prefix") or "", message.get("content") or ""):
+            if marker in part:
+                line = part.split(marker, 1)[1].split("\n\n", 1)[0]
+                return list(json.loads(line))
     return []
 
 
