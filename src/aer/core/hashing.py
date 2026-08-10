@@ -102,7 +102,9 @@ class ChainLink(Protocol):
     def payload(self) -> Any: ...
 
 
-def find_chain_break(links: Sequence[ChainLink]) -> int | None:
+def find_chain_break(
+    links: Sequence[ChainLink], *, expected_previous: str | None = None
+) -> int | None:
     """Return the index of the first record that fails verification, or ``None``.
 
     Two failure modes are checked, and both matter:
@@ -114,10 +116,21 @@ def find_chain_break(links: Sequence[ChainLink]) -> int | None:
     Returning the index rather than a bare boolean means an operator can be told *where*
     the log stopped being trustworthy, which is the difference between an actionable
     alert and an unfalsifiable one.
+
+    Args:
+        expected_previous: The ``this_hash`` the first record must link back to, for a
+            caller verifying a *slice* of a longer chain. A log too large to hold in memory
+            has to be read in pages, and without this the join between two pages is the one
+            place a break cannot be seen: the first record of a page has no predecessor in
+            its own sequence, so its ``prev_hash`` would go unchecked and a record deleted
+            exactly at a page boundary would verify. Left ``None`` for the true start of a
+            chain, where there is no predecessor to demand.
     """
-    expected_previous: str | None = None
     for index, link in enumerate(links):
-        if index > 0 and link.prev_hash != expected_previous:
+        if index == 0:
+            if expected_previous is not None and link.prev_hash != expected_previous:
+                return index
+        elif link.prev_hash != expected_previous:
             return index
         if link.this_hash != chain_hash(link.prev_hash, link.payload):
             return index

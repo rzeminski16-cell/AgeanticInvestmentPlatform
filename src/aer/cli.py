@@ -28,6 +28,7 @@ from aer.db.models import AuditEvent, User
 from aer.errors import AerError
 from aer.logging import configure_logging, get_logger
 from aer.obsidian import ObsidianExportError, export_report
+from aer.services.audit_verify import ChainReport, verify_audit_chain
 from aer.services.retention import (
     GarbageCollected,
     IntegrityReport,
@@ -370,6 +371,49 @@ def verify_artefacts() -> None:
     raise typer.Exit(code=1)
 
 
+@app.command(name="verify-audit")
+def verify_audit() -> None:
+    """Walk the audit log and check every record still links to the one before it.
+
+    The chain has been written on every event since Task 3 and read back by nothing, which
+    buys the cost of tamper-evidence without the benefit: the property is not "the rows are
+    linked", it is "somebody would notice".
+
+    What it catches is a row edited, deleted, inserted or reordered in place. What it cannot
+    catch is a rewrite of the whole table with every hash recomputed — that needs the
+    database to refuse UPDATE and DELETE, which waits on a migration role of its own.
+
+    Exits 1 on a break, so it can be a cron line beside `verify-artefacts`.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+
+    report = asyncio.run(_verify_audit(settings))
+    if report.is_empty:
+        typer.echo("The audit log is empty; nothing to verify.")
+        return
+    if report.is_sound:
+        typer.secho(
+            f"{report.checked:,} audit event(s) checked, the chain is intact.",
+            fg=typer.colors.GREEN,
+        )
+        return
+
+    typer.secho(
+        f"The audit chain breaks at event {report.broken_at_id}: {report.reason}.",
+        fg=typer.colors.RED,
+        err=True,
+    )
+    typer.secho(
+        f"{report.checked:,} of {report.total:,} event(s) verified before the break. "
+        "Every event after it is unverifiable, which is the chain working, not a second "
+        "fault.",
+        fg=typer.colors.RED,
+        err=True,
+    )
+    raise typer.Exit(code=1)
+
+
 @app.command(name="gc-artefacts")
 def gc_artefacts(
     delete: Annotated[
@@ -522,6 +566,16 @@ async def _purge_licensed(
             )
             await session.commit()
             return outcome
+    finally:
+        await engine.dispose()
+
+
+async def _verify_audit(settings: Settings) -> ChainReport:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            return await verify_audit_chain(session)
     finally:
         await engine.dispose()
 
