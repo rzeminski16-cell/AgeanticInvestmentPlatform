@@ -375,6 +375,24 @@ class TestItRefusesRatherThanProducingAVastNumber:
                 terminal_growth=rate("0.02"),
             )
 
+    def test_a_perpetuity_of_a_nil_cash_flow(self, context):
+        """Zero is refused as well as negative, and only the negative half was tested.
+
+        The guard reads "not positive" for a reason. A nil final year does not raise from the
+        arithmetic — it returns a terminal value of nought, confidently, and the enterprise
+        value silently becomes the forecast years alone with nothing anywhere recording that
+        the perpetuity contributed nothing. The exit-multiple guard beside this one has had a
+        nil test since it was written; this one had only the negative case, so moving the
+        comparison to `< 0` broke nothing.
+        """
+        with pytest.raises(CalculationError, match="Growing a"):
+            gordon_terminal_value(
+                context,
+                final_cash_flow=usd("0"),
+                wacc=rate("0.10"),
+                terminal_growth=rate("0.02"),
+            )
+
     def test_an_exit_multiple_on_negative_ebitda(self, context):
         with pytest.raises(CalculationError, match="negative price"):
             exit_multiple_terminal_value(context, terminal_ebitda=usd("-100"), multiple=rate("8"))

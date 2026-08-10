@@ -32,6 +32,7 @@ from aer.calc.ratios import (
     nopat,
     return_on_equity,
     return_on_invested_capital,
+    working_capital,
 )
 from aer.calc.statements import assemble
 from aer.calc.units import (
@@ -336,6 +337,50 @@ class TestEverythingResolvesToFacts:
         assert results["gross_margin"].present
         assert results["gross_margin"].value == Decimal("0.4")
         assert "subtotal_difference" in [record.name for record in context.records]
+
+
+class TestWorkingCapital:
+    """The one aggregate the suite never reaches, and it feeds the valuation.
+
+    `working_capital` is not in `RATIO_DEFINITIONS`, so `compute_ratios` never computes it
+    and the coverage the suite's tests provide says nothing about it. Nor did anything else:
+    a mutation turning the subtraction into an addition passed every one of the fifty-nine
+    test files that can reach `aer.calc.ratios`.
+
+    Its only caller is `aer.services.valuation_run`, where it becomes the DCF's
+    `opening_working_capital`. So a sign error here would not surface as a wrong ratio on the
+    ratios page — it would surface as a wrong free cash flow in year one, and from there as a
+    wrong valuation, with a full provenance trail behind it.
+    """
+
+    def test_it_is_current_assets_less_current_liabilities(self, context):
+        result = working_capital(context, current_assets=usd("300"), current_liabilities=usd("120"))
+        assert result.value == Decimal(180)
+
+    def test_it_is_negative_when_the_liabilities_are_the_larger(self, context):
+        """Allowed, and interesting rather than wrong: a retailer funded by its suppliers.
+
+        Refusing it would refuse a real and common capital structure.
+        """
+        result = working_capital(context, current_assets=usd("100"), current_liabilities=usd("150"))
+        assert result.value == Decimal(-50)
+
+    def test_it_keeps_the_currency(self, context):
+        result = working_capital(context, current_assets=usd("300"), current_liabilities=usd("120"))
+        assert result.unit == Unit.currency("USD")
+
+    def test_two_currencies_are_refused_rather_than_netted(self, context):
+        gbp = money("120", "GBP", source=SOURCE)
+        with pytest.raises(UnitMismatchError):
+            working_capital(context, current_assets=usd("300"), current_liabilities=gbp)
+
+    def test_it_is_recorded_as_a_calculation_with_both_inputs(self, context):
+        """The reason `valuation_run` calls this rather than subtracting two quantities:
+        bare arithmetic produces a value with no source, and the DCF refuses one."""
+        working_capital(context, current_assets=usd("300"), current_liabilities=usd("120"))
+
+        [record] = [row for row in context.records if row.name == "working_capital"]
+        assert len(record.inputs) == 2
 
 
 class TestTheAggregates:

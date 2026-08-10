@@ -416,3 +416,21 @@ class TestThePrimitives:
     def test_a_rate_change_is_proportional_to_the_opening_level(self, context):
         result = rate_change(context, opening=usd("0.15"), closing=usd("0.10"))
         assert result.value == a_third_off()
+
+    def test_the_denominator_is_the_magnitude_so_a_rise_from_a_negative_base_reads_as_a_rise(
+        self, context
+    ):
+        """The `abs()` in the formula, which nothing exercised.
+
+        Dividing by a signed opening inverts the answer whenever that opening is negative: a
+        margin moving from -10% to -5% is an improvement, and the signed form reports it as
+        a fall of a half. Today's only caller measures a depreciation rate, which cannot be
+        negative — so the mutation that removes the `abs()` survives every test. The function
+        is general, the formula says `|opening|`, and a signal that reports an improvement as
+        a deterioration is the kind of wrong that reads as analysis.
+        """
+        improving = rate_change(context, opening=usd("-0.10"), closing=usd("-0.05"))
+        worsening = rate_change(context, opening=usd("-0.10"), closing=usd("-0.20"))
+
+        assert improving.value == Decimal("0.5")
+        assert worsening.value == Decimal(-1)

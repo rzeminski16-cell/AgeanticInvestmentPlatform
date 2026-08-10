@@ -18,6 +18,8 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from aer.calc import dcf
 from aer.calc.comps import (
@@ -375,6 +377,42 @@ class TestTheMedianNotTheMean:
 
         assert median_multiple(context, observations=ordinary).value == Decimal("11.5")
         assert median_multiple(context, observations=with_outlier).value == Decimal(12)
+
+    def test_the_order_the_peers_arrive_in_does_not_change_it(self, context):
+        """Every other test in this class hands the median an already-sorted list.
+
+        That is the one input for which sorting is not needed, so removing the sort passed
+        all of them — and passed all fifty-six test files that can reach this module. Peers
+        arrive in whatever order the peer set was assembled, which is a person's ordering,
+        not an ascending one.
+        """
+        unsorted = [pure(v) for v in ("13", "9", "15", "11")]
+
+        assert median_multiple(context, observations=unsorted).value == Decimal(12)
+
+    @given(
+        values=st.lists(
+            st.integers(min_value=1, max_value=100_000).map(lambda n: Decimal(n) / Decimal(100)),
+            min_size=1,
+            max_size=15,
+        ),
+        rotation=st.integers(min_value=0, max_value=14),
+    )
+    def test_it_is_the_same_median_however_the_peers_are_ordered(self, values, rotation):
+        """The property the concrete case above is one instance of.
+
+        Stated over any peer set rather than one: a median that depended on arrival order
+        would produce a different peer benchmark for the same companies listed differently,
+        and nothing downstream could tell.
+        """
+        context = CalculationContext(code_version="testsha")
+        turned = values[rotation:] + values[:rotation]
+
+        ordered = median_multiple(context, observations=[pure(str(v)) for v in sorted(values)])
+        rotated = median_multiple(context, observations=[pure(str(v)) for v in turned])
+        reversed_ = median_multiple(context, observations=[pure(str(v)) for v in reversed(values)])
+
+        assert ordered.value == rotated.value == reversed_.value
 
     def test_no_observations_is_refused(self, context):
         with pytest.raises(CalculationError):
