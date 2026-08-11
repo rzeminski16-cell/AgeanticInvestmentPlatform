@@ -19,7 +19,7 @@ import hashlib
 from datetime import UTC, date, datetime
 
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.exc import IntegrityError as DbIntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -101,7 +101,13 @@ class TestStoringArtefacts:
         assert second.was_new is False
         assert second.artefact.id == first.artefact.id
 
-        rows = (await db_session.scalars(select(Artefact))).all()
+        # Counted for *this* digest rather than over the whole table. The claim is that
+        # identical bytes deduplicate, which is a statement about one row; asking whether
+        # the artefacts table holds exactly one row is a statement about every test that
+        # ever committed, and a committed row left behind by another file used to fail it.
+        rows = (
+            await db_session.scalars(select(Artefact).where(Artefact.sha256 == FILING_SHA256))
+        ).all()
         assert len(rows) == 1
 
     async def test_a_stream_stores_the_same_artefact(self, db_session, store):
@@ -114,10 +120,14 @@ class TestStoringArtefacts:
         assert record.artefact.sha256 == FILING_SHA256
 
     async def test_an_oversized_payload_creates_no_row(self, db_session, store):
+        # The count either side, not the table's emptiness: "this refusal wrote nothing" is
+        # what the test means, and it stays true whatever else the database happens to hold.
+        before = await db_session.scalar(select(func.count()).select_from(Artefact))
+
         with pytest.raises(ValidationError):
             await store_artefact(db_session, store, data=b"x" * (store.max_bytes + 1))
 
-        assert (await db_session.scalars(select(Artefact))).all() == []
+        assert await db_session.scalar(select(func.count()).select_from(Artefact)) == before
 
 
 class TestConcurrentStores:

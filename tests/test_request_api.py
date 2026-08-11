@@ -60,11 +60,23 @@ async def clean_slate(db_engine):
     it here cannot contend with a transaction a finished test still has open. The
     statement timeout turns a lock conflict into a fast, readable failure instead of a
     suite that hangs.
+
+    **``artefacts`` is on the list because nothing cascades to it.** Source documents go
+    when their request does, but an artefact is content-addressed and belongs to no
+    request, so `_leave_evidence_behind` used to commit a row here that outlived the whole
+    file — and `tests/test_source_documents.py` asserts on the artefact table as a whole.
+    Alphabetically this file runs first and that one runs later, with enough between them
+    that something else truncated in the gap; a shuffled ordering removed the gap and both
+    of its tests failed. Setup-time truncation cleans up after the *previous* test, so a
+    table this file writes to and does not name is a table that leaks.
     """
     async with db_engine.begin() as connection:
         await connection.execute(text("SET LOCAL statement_timeout = '5s'"))
         await connection.execute(
-            text("TRUNCATE research_requests, audit_events, users RESTART IDENTITY CASCADE")
+            text(
+                "TRUNCATE research_requests, audit_events, users, artefacts "
+                "RESTART IDENTITY CASCADE"
+            )
         )
 
 

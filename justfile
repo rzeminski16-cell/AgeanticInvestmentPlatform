@@ -181,6 +181,31 @@ test-e2e:
 # alternative is a suite whose result depends on collection order.
 test-all: test test-e2e
 
+# Run the suite with the test files in a different order, to find tests that only pass
+# because of what ran before them.
+#
+# `just test` always runs the files in the same order, so a test coupled to another file's
+# committed rows or module-level state passes for ever and fails the first time anything
+# moves. Two have been found that way: a leaked `Agent` subclass, and an artefact row a
+# fixture committed and did not truncate. Both were invisible in the default order.
+#
+# Takes a seed so a failure is reproducible -- `just test-shuffled 20260811` runs the exact
+# ordering that found the second one. Omit it for a fresh order each time; the seed used is
+# printed either way, so a red run can always be repeated.
+test-shuffled seed="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    seed="{{ seed }}"
+    if [ -z "$seed" ]; then seed=$RANDOM; fi
+    echo "test-shuffled seed: $seed"
+    files=$(uv run python -c "
+import random, sys, pathlib
+paths = sorted(p.as_posix() for p in pathlib.Path('tests').glob('test_*.py'))
+random.Random(int(sys.argv[1])).shuffle(paths)
+print(' '.join(paths))
+" "$seed")
+    uv run pytest $files -q --no-header
+
 # Run the test suite with coverage.
 test-cov:
     uv run pytest --ignore=tests/e2e --cov --cov-report=term-missing
