@@ -337,3 +337,39 @@ class TestNothingUnderSrcIsIgnored:
         assert result.stdout.strip() == "", (
             f"these files are git-ignored and would be missing from a checkout:\n{result.stdout}"
         )
+
+
+class TestPortability:
+    """The platform's own machines are Linux; the operator's is Windows.
+
+    What belongs here is anything that runs fine on every Linux CI pass and breaks the
+    first time the operator's machine executes it. Those cannot be caught by running the
+    code — this suite *is* the Linux pass — so they are caught by reading it.
+    """
+
+    def test_no_source_uses_a_glibc_only_strftime_code(self):
+        """`%-d` and friends strip the leading zero on glibc and raise on Windows.
+
+        Found live: `archive_request` formatted its refusal date with `%-d`, so archiving
+        twice — a path with a test, passing green on Linux — returned a 500 instead of the
+        intended 409 on the operator's machine. Format the day with `.day` instead.
+        """
+        # Two shapes reach strftime: an explicit `.strftime("%-d ...")` call, and an
+        # f-string format spec, where the code sits directly after the colon. Matched as
+        # usage rather than as a bare `%-d`, so prose about the hazard does not trip it;
+        # this file is excluded because its examples must be allowed to show the shapes.
+        used_as_format = re.compile(r"strftime\([^)]*%-[a-zA-Z]|:%-[a-zA-Z]")
+
+        offenders = []
+        for tree in ("src", "tests", "migrations"):
+            for path in (Path(__file__).parent.parent / tree).rglob("*.py"):
+                if path == Path(__file__):
+                    continue
+                for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                    if used_as_format.search(line):
+                        offenders.append(f"{path}:{number}: {line.strip()}")
+
+        assert not offenders, (
+            "glibc-only strftime codes break on Windows; use `.day` or a zero-padded "
+            "code instead:\n" + "\n".join(offenders)
+        )

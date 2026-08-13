@@ -107,6 +107,11 @@ class TestThePin:
         assert os.environ["OPENBLAS_NUM_THREADS"] == "1"
 
 
+@pytest.mark.skipif(
+    sys.platform != "linux",
+    reason="the thread count is read from /proc/self/task, which only Linux has; the pin "
+    "itself is cross-platform and TestThePin covers it wherever the suite runs",
+)
 class TestTheProcessItActuallyProtects:
     """What the pin is for: a process that imports numpy stays single-threaded."""
 

@@ -357,6 +357,11 @@ class TestTheMemoryCapIsHonestAboutItself:
       platform or the other.
     """
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="the child imports `resource`, which Windows does not have; the Windows "
+        "branch is the declined-cap test below, which runs everywhere",
+    )
     def test_the_cap_is_applied_on_posix(self) -> None:
         """Checked in a child process, because applying the cap cannot be undone.
 

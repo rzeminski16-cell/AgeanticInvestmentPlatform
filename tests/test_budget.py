@@ -23,10 +23,9 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -165,7 +164,12 @@ class TestTheMonthlyWindow:
         """
         job = await _job(db_session)
         await _spend(db_session, job=job, gbp="5.00", occurred_at=MONTH_START + timedelta(hours=2))
-        ahead = datetime(2026, 8, 17, 2, 30, tzinfo=UTC).astimezone(ZoneInfo("Pacific/Auckland"))
+        # A fixed offset rather than a named zone: `ZoneInfo("Pacific/Auckland")` needs a
+        # tz database, which Windows does not ship and this project does not depend on —
+        # so the named form failed on the first Windows machine, for a reason that had
+        # nothing to do with the property under test. Thirteen hours ahead is the same
+        # reader, minus the dependency.
+        ahead = datetime(2026, 8, 17, 2, 30, tzinfo=UTC).astimezone(timezone(timedelta(hours=13)))
 
         assert await spend_this_month(db_session, now=ahead) == Decimal("5.00")
 
@@ -330,12 +334,20 @@ class TestWhatTheConsoleSays:
 
     @pytest.fixture
     async def stopped_run(self, db_engine: Any) -> Any:
-        """Commits a run halted on budget, and clears it away afterwards.
+        """Commits a run halted on budget, cleaning the slate on **both** sides of the test.
 
         Committed rather than flushed, because the console reads through its own session and
-        a savepoint-scoped write is invisible to it. Cleared afterwards for the matching
-        reason: a row left behind is a row every later test in the process can see.
+        a savepoint-scoped write is invisible to it.
+
+        The clean *before* is as load-bearing as the one after, and it was missing. The
+        console resolves "the current user" as the **oldest** row in ``users``, and shows a
+        run only to its owner — so a user left behind by an earlier file (they truncate at
+        setup, serving the next test rather than this one) became the current user, this
+        fixture's newer user did not, and an entirely correct ownership check turned the
+        page into a 404. Only ever visible when such a file ran *first*, an ordering none
+        of the three suite runs had produced.
         """
+        await delete_all(db_engine)
         factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
 
         async def make(*, scope: str | None) -> uuid.UUID:

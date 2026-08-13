@@ -550,8 +550,12 @@ async def archive_request(
             and recording it as one would put a false date on the first.
     """
     if request.archived_at is not None:
+        # `.day` rather than a `%-d` format: the no-leading-zero codes are a glibc
+        # extension, and on Windows strftime raises for them — which turned this refusal
+        # into a 500 on the first machine that was not Linux.
         message = (
-            f"This request was archived on {request.archived_at:%-d %B %Y}. Restore it "
+            f"This request was archived on "
+            f"{request.archived_at.day} {request.archived_at:%B %Y}. Restore it "
             "first if you meant to change that."
         )
         raise ConflictError(message, context={"request_id": str(request.id)})
