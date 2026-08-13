@@ -18,9 +18,9 @@ narrow selector has found the edge of the selector, not a gap in the suite**, an
 survivors were only called holes after being re-run against every test file that can
 transitively reach the module.*
 
-*Since A16 was closed the whole suite runs in one process again — 4102 unit tests in 16m25s
-and 75 browser tests in 2m33s, both green — so the figures quoted below are measured rather
-than remembered.*
+*Since A16 was closed the whole suite runs in one process again — 4256 unit tests in about
+21 minutes and 75 browser tests in about 3, both green, and green in three different file
+orderings — so the figures quoted below are measured rather than remembered.*
 
 Written after the first end-to-end live runs, from the code rather than from the plan. The
 phase specifications in `docs/PLAN.md` remain the authority on *scope*; this document is an

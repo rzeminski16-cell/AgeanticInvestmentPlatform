@@ -326,7 +326,8 @@ controls fire, the numbers trace, and a run can be reproduced and restored. That
 reasonable bar for relying on it yourself.
 
 **What was done at my end, so you know what your half is being added to.** The suite is green
-(4247 unit tests, 75 browser tests), and beyond that the eight invariants in `CLAUDE.md` were
+(4256 unit tests, 75 browser tests, and green in three different file orderings), and beyond
+that the eight invariants in `CLAUDE.md` were
 attacked directly: thirty-six mutations, each breaking one of them the way a careless edit
 would, each run against the tests meant to notice. Thirty-one were caught. One escape was an
 equivalent mutant and four were real gaps in the suite, all now closed and each re-broken
