@@ -193,18 +193,7 @@ test-all: test test-e2e
 # ordering that found the second one. Omit it for a fresh order each time; the seed used is
 # printed either way, so a red run can always be repeated.
 test-shuffled seed="":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    seed="{{ seed }}"
-    if [ -z "$seed" ]; then seed=$RANDOM; fi
-    echo "test-shuffled seed: $seed"
-    files=$(uv run python -c "
-import random, sys, pathlib
-paths = sorted(p.as_posix() for p in pathlib.Path('tests').glob('test_*.py'))
-random.Random(int(sys.argv[1])).shuffle(paths)
-print(' '.join(paths))
-" "$seed")
-    uv run pytest $files -q --no-header
+    uv run python -m tests.shuffled {{seed}}
 
 # Run the test suite with coverage.
 test-cov:
