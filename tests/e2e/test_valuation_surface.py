@@ -28,7 +28,7 @@ from aer.core.sectors import ValuationModel, unclassified_mandate
 from aer.db.models import ResearchRequest, User
 from aer.services import valuation as valuation_service
 from tests.db_fixtures import run_async
-from tests.workflow_fixtures import AS_OF_DATE, seed_job
+from tests.workflow_fixtures import AS_OF_DATE, DEFAULT_PER_RUN_BUDGET_GBP, seed_job
 
 pytestmark = [pytest.mark.e2e, pytest.mark.integration]
 
@@ -111,7 +111,8 @@ class ValuationFixture:
             base_currency="USD",
             reporting_currency="USD",
             investment_horizon_months=12,
-            max_cost_gbp="2.50",
+            # The platform default, read rather than restated (A33).
+            max_cost_gbp=DEFAULT_PER_RUN_BUDGET_GBP,
         )
         session.add(research_request)
         await session.flush()

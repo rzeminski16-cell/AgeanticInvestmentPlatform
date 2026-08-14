@@ -29,7 +29,12 @@ from aer.db.models import Job, JobStep, Report, ResearchRequest, User
 from aer.services import runs as run_service
 from aer.storage.local import LocalArtefactStore
 from tests.db_fixtures import run_async
-from tests.workflow_fixtures import AS_OF_DATE, StubSecClient, make_provider
+from tests.workflow_fixtures import (
+    AS_OF_DATE,
+    DEFAULT_PER_RUN_BUDGET_GBP,
+    StubSecClient,
+    make_provider,
+)
 
 pytestmark = [pytest.mark.e2e, pytest.mark.integration]
 
@@ -86,7 +91,10 @@ class RunFixture:
                     base_currency="USD",
                     reporting_currency="USD",
                     investment_horizon_months=12,
-                    max_cost_gbp="2.50",
+                    # The platform default, read rather than restated (A33): a run driven to
+                    # gate 2 passes through the draft step, whose estimate a
+                    # £2.50 ceiling now refuses.
+                    max_cost_gbp=DEFAULT_PER_RUN_BUDGET_GBP,
                 )
                 session.add(request)
                 await session.flush()
