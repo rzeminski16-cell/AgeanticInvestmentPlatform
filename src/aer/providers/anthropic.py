@@ -163,6 +163,19 @@ class AnthropicProvider:
     def name(self) -> str:
         return PROVIDER_NAME
 
+    async def aclose(self) -> None:
+        """Release the SDK client's connection pool, while the event loop still exists.
+
+        The worker holds one provider for the life of its process, so it never needs
+        this. A short-lived caller does — the live contract tests found out on Windows,
+        where the proactor loop closes before the client's finaliser runs and the
+        leftover sockets surface as "Event loop is closed" against a test whose
+        assertions had all passed. Closing is idempotent and makes no request.
+        """
+        closer = getattr(self._client, "close", None)
+        if callable(closer):  # the test stubs have no pool to release
+            await closer()
+
     async def complete_structured[T: BaseModel](
         self,
         schema: type[T],

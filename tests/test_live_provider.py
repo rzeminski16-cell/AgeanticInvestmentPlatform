@@ -25,6 +25,7 @@ Run with `just test-live` (or `pytest -m live_llm`). `pyproject.toml` excludes t
 from __future__ import annotations
 
 import os
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
@@ -100,19 +101,35 @@ class Answer(BaseModel):
     confidence: float = Field(ge=0, le=1)
 
 
-def _provider() -> AnthropicProvider:
+@pytest.fixture
+async def provider() -> AsyncIterator[AnthropicProvider]:
+    """A provider whose HTTP pool is released before the event loop goes away.
+
+    Not optional hygiene. The first run of these tests on Windows had every assertion
+    pass and the test still fail: the un-closed SDK client outlived the test's event
+    loop, its finaliser tried to schedule cleanup on the closed loop, and pytest turned
+    the resulting "unclosed transport" warnings into a failure. Closing inside the
+    fixture happens while the loop is still running, so nothing is left for a finaliser
+    to mishandle.
+    """
     key = _configured_key()
     if not key:
         pytest.skip(
             "no Anthropic key found in the environment or in .env; "
             "the live contract cannot be checked"
         )
-    return AnthropicProvider(api_key=key, batch_deadline_seconds=BATCH_DEADLINE_SECONDS)
+    instance = AnthropicProvider(api_key=key, batch_deadline_seconds=BATCH_DEADLINE_SECONDS)
+    try:
+        yield instance
+    finally:
+        await instance.aclose()
 
 
 class TestTheApiStillAcceptsWhatWeSend:
-    async def test_a_single_structured_call_comes_back_validated_and_metered(self) -> None:
-        result = await _provider().complete_structured(
+    async def test_a_single_structured_call_comes_back_validated_and_metered(
+        self, provider: AnthropicProvider
+    ) -> None:
+        result = await provider.complete_structured(
             Answer,
             system=SYSTEM,
             messages=[Message(role="user", content=QUESTION)],
@@ -130,7 +147,9 @@ class TestTheApiStillAcceptsWhatWeSend:
         assert result.usage.stop_reason == "end_turn"
         assert result.request_payload["model"] == SINGLE_MODEL
 
-    async def test_a_batch_call_is_accepted_with_the_schema_under_output_config(self) -> None:
+    async def test_a_batch_call_is_accepted_with_the_schema_under_output_config(
+        self, provider: AnthropicProvider
+    ) -> None:
         """A30's regression check, and the one that had no offline equivalent.
 
         The failure this reproduces was not a rejection at submission — it was an accepted
@@ -139,7 +158,7 @@ class TestTheApiStillAcceptsWhatWeSend:
         that a result arrives at all: reaching `results[0]` means the item succeeded, and the
         item succeeding means the field names were the current ones.
         """
-        results = await _provider().complete_structured_batch(
+        results = await provider.complete_structured_batch(
             Answer,
             requests=[
                 BatchRequest(system=SYSTEM, messages=(Message(role="user", content=QUESTION),))
