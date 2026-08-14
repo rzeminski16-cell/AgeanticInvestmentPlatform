@@ -25,10 +25,12 @@ Run with `just test-live` (or `pytest -m live_llm`). `pyproject.toml` excludes t
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 from pydantic import BaseModel, ConfigDict, Field
 
+from aer.config import Settings
 from aer.providers.anthropic import AnthropicProvider
 from aer.providers.protocol import BatchRequest, Message
 
@@ -39,6 +41,35 @@ pytestmark = pytest.mark.live_llm
 # from ever reaching a real credential, and it is not being worked around here so much as
 # stepped in front of, once, deliberately, in the one file that needs a key.
 _API_KEY = os.environ.get("AER_ANTHROPIC_API_KEY", "").strip()
+
+
+def _configured_key() -> str:
+    """The key as the platform itself would find it: the environment, then ``.env``.
+
+    The first version read only ``os.environ`` — and skipped on the one machine that
+    mattered, because the operator's key lives in ``.env``, which pydantic-settings reads
+    and the process environment never sees. A skip that reports itself as "not set" against
+    a key that *is* set is worse than a failure: it looks like a passing precondition check.
+
+    ``hermetic_environment`` disables dotenv loading for every test by rewriting the
+    *default* in ``Settings.model_config``; passing ``_env_file`` explicitly takes
+    precedence over that default, so this reads the operator's real file without touching
+    the machinery that keeps the offline suite hermetic. And it runs only from inside a
+    ``live_llm`` test — deselected by default — so an ordinary run still never reads a
+    credential into the process.
+    """
+    if _API_KEY:
+        return _API_KEY
+    dotenv = Path(__file__).resolve().parent.parent / ".env"
+    if not dotenv.exists():
+        return ""
+    try:
+        settings = Settings(_env_file=dotenv)
+    except Exception:  # an unloadable .env answers the same as none
+        return ""
+    secret = settings.anthropic_api_key
+    return secret.get_secret_value().strip() if secret is not None else ""
+
 
 # Cheap on both paths, and different on purpose: haiku takes no `effort` parameter, sonnet
 # does, so between them the two calls prove the payload is accepted with the key and without
@@ -70,9 +101,13 @@ class Answer(BaseModel):
 
 
 def _provider() -> AnthropicProvider:
-    if not _API_KEY:
-        pytest.skip("AER_ANTHROPIC_API_KEY is not set; the live contract cannot be checked")
-    return AnthropicProvider(api_key=_API_KEY, batch_deadline_seconds=BATCH_DEADLINE_SECONDS)
+    key = _configured_key()
+    if not key:
+        pytest.skip(
+            "no Anthropic key found in the environment or in .env; "
+            "the live contract cannot be checked"
+        )
+    return AnthropicProvider(api_key=key, batch_deadline_seconds=BATCH_DEADLINE_SECONDS)
 
 
 class TestTheApiStillAcceptsWhatWeSend:
