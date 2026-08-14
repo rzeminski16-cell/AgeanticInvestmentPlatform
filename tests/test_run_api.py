@@ -57,6 +57,7 @@ from tests.api_fixtures import build_app, client_for
 from tests.run_fixtures import Driver, start_run, to_final_gate
 from tests.workflow_fixtures import (
     AS_OF_DATE,
+    DEFAULT_PER_RUN_BUDGET_GBP,
     SPINE_KEYS,
     seed_starved_section,
 )
@@ -122,7 +123,9 @@ async def committed(clean_slate: None, db_engine: Any) -> dict[str, Any]:
             base_currency="USD",
             reporting_currency="USD",
             investment_horizon_months=12,
-            max_cost_gbp="2.50",
+            # The platform default, read rather than restated -- a fixture budgeting a
+            # different ceiling than production drifts the moment either moves (A33).
+            max_cost_gbp=DEFAULT_PER_RUN_BUDGET_GBP,
         )
         session.add(request)
         await session.commit()

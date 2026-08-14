@@ -4,11 +4,16 @@ Enforced by a test that scans the source tree, not by convention. The rule costs
 nothing today and is the difference between adding a second provider in an afternoon and
 finding every call site in a codebase that has grown around one vendor's API.
 
-**Structured output is requested, not parsed out.** ``output_format`` takes the Pydantic
-class, the SDK translates it into the wire schema, and the reply comes back validated
-against it. Extracting JSON from prose with a regular expression is the alternative, and it
-fails in exactly the cases that matter: a model that hedges, a model that wraps its answer
-in an explanation, a model that emits a trailing comma.
+**Structured output is requested, not parsed out.** The schema goes on the wire as
+``output_config.format``, so the server constrains generation and the reply is a JSON
+document by construction. Extracting JSON from prose with a regular expression is the
+alternative, and it fails in exactly the cases that matter: a model that hedges, a model
+that wraps its answer in an explanation, a model that emits a trailing comma.
+
+``output_format`` — the top-level field, and the SDK argument of the same name — is the
+older spelling. The argument is still the way to ask on ``messages.stream``, because the
+SDK merges it into ``output_config`` client-side; the *field* is deprecated, and only the
+batch path is close enough to the wire for the difference to matter.
 
 **The single call is streamed; the batch path is not.** Not for progress — nothing here
 reads the deltas — but because a non-streamed request holds an idle connection open for the
@@ -286,6 +291,15 @@ class AnthropicProvider:
         against the Pydantic class here. Results are matched to requests by ``custom_id``
         and returned in request order, whatever order the API finished them in.
 
+        **Raw params means the SDK's conveniences are ours to reproduce.** On
+        ``messages.stream`` the ``output_format`` argument is a client-side one: the SDK
+        merges it into ``output_config.format`` before anything is sent (there is a comment
+        saying exactly that in ``anthropic.resources.messages.messages``). Nothing merges
+        anything here, so writing ``output_format`` into these params put a deprecated
+        field on the wire — and because the Batches API validates at result-fetch time
+        rather than at submission, it came back as an errored *item* an hour later instead
+        of a 400 in the first second.
+
         All or nothing: an errored or expired item fails the whole call, because a
         partial list would silently shift every later result onto the wrong request.
         """
@@ -302,7 +316,10 @@ class AnthropicProvider:
                 effort=effort,
                 max_tokens=max_tokens,
             )
-            request["output_format"] = {"type": "json_schema", "schema": wire_schema}
+            # `setdefault`, not assignment: `_request_payload` has already put `effort`
+            # here for a model that takes one, and overwriting the key would drop it.
+            output_config = request.setdefault("output_config", {})
+            output_config["format"] = {"type": "json_schema", "schema": wire_schema}
             params.append(request)
 
         started = time.perf_counter()
@@ -345,9 +362,7 @@ class AnthropicProvider:
                     request_payload={
                         "batch_id": str(batch.id),
                         "custom_id": _custom_id(index),
-                        **_archived(
-                            {k: v for k, v in request.items() if k != "output_format"}, schema
-                        ),
+                        **_archived(request, schema),
                     },
                     response_payload=_response_payload(response),
                 )

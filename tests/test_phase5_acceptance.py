@@ -48,7 +48,7 @@ from aer.services.skills import save_skill, set_enabled
 from tests.api_fixtures import build_app, client_for
 from tests.run_fixtures import Driver, to_final_gate
 from tests.test_skill_frontmatter import MOAT_DURABILITY
-from tests.workflow_fixtures import AS_OF_DATE
+from tests.workflow_fixtures import AS_OF_DATE, DEFAULT_PER_RUN_BUDGET_GBP
 
 pytestmark = pytest.mark.integration
 
@@ -125,7 +125,9 @@ async def committed(clean_slate: None, db_engine: Any, settings: Settings) -> di
             base_currency="USD",
             reporting_currency="USD",
             investment_horizon_months=12,
-            max_cost_gbp="2.50",
+            # The platform's own per-run default, read rather than restated. A hard-coded
+            # £2.50 here would have gone on admitting a run the real ceiling refuses.
+            max_cost_gbp=DEFAULT_PER_RUN_BUDGET_GBP,
         )
         session.add(request)
         await session.flush()

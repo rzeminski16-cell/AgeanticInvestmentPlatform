@@ -172,6 +172,18 @@ test:
 test-e2e:
     uv run pytest tests/e2e
 
+# The wire contract, against the real API. **Costs money** -- a fraction of a penny, on the
+# cheap models, for answers a few tokens long.
+#
+# Deliberately outside `test` and outside `ci`. What it buys is the one question the offline
+# suite cannot ask: the fake provider is an alternative implementation of the protocol, not a
+# fake transport, so it never sees a payload and cannot notice when the API stops accepting
+# one. A deprecated field reached a live report that way, and the Batches API validates at
+# result-fetch time, so it failed an hour and five pounds into the run rather than at the
+# first request. Run this before a live run; it answers in under a minute.
+test-live:
+    uv run pytest -m live_llm
+
 # Everything, including the browser tests.
 #
 # Two processes, not one. Playwright's synchronous API drives an asyncio loop on the main

@@ -9,7 +9,9 @@ doing it, with the specific thing to look at rather than "check it works".
 **Four live runs, not one.** A single US large-cap is the easy path and proves the least. The
 four in §1 are chosen because each one exercises code the others never touch: a different
 data source, a blocked valuation model, and an evidence assembly with almost nothing to
-assemble. Budget £5–10 for the set.
+assemble. **Budget £30–40 for the set**, not the £5–10 this guide first said: that figure was
+written before any complete run existed to measure, and the first one came to a little over
+eight pounds — £5.17 of it in the drafting step alone.
 
 Two rules for the whole document. **Write down what you see, not whether it passed** — a
 number recorded is worth more later than a tick. And **if something looks wrong, stop and say
@@ -26,6 +28,20 @@ uv run alembic upgrade head  # should reach 0028
 just test                    # ~16 minutes, expect all green
 ```
 
+Use `just test`, not a bare `pytest`. The recipe is `pytest --ignore=tests/e2e`, and the
+browser tests are a separate recipe on purpose: Playwright's synchronous API keeps an asyncio
+loop running on the main thread, so every async fixture collected after it in the same
+process fails with "Runner.run() cannot be called from a running event loop". A bare `pytest`
+therefore reports thousands of errors that say nothing about the code. `just test-e2e` runs
+the browser half.
+
+There is also `just test-live`, which makes two real, billable API calls — a fraction of a
+penny — to check that the request shapes this codebase builds are still shapes the API
+accepts. Nothing else can answer that question: the offline suite runs against a fake
+provider that never sees a payload, which is how a deprecated field reached a live run. Worth
+running once before the four runs below, since it costs seconds and pence rather than an hour
+and five pounds.
+
 `.env` needs:
 
 | Variable | Needed for | If missing |
@@ -38,13 +54,26 @@ just test                    # ~16 minutes, expect all green
 `AER_HTTP_USER_AGENT` must name you and give a contact address. SEC rejects a generic agent,
 and the failure presents as a network problem rather than a configuration one.
 
-**One behaviour changed since this guide was written, and it can stop a run.** The monthly
-budget ceiling is now enforced, having been dead code since the engine was built (A22, ADR
-0051). Four runs at two or three pounds each sit well under the £80 default, so you should
-never meet it — but if you do, the console says **"Stopped on the monthly budget"** rather
-than the usual banner, and raising the request's own cap will do nothing. Change it at
-`/settings`, or set `AER_MONTHLY_BUDGET_GBP` before starting. Check where you are with
-`/costs` if a run stops for a reason that does not match what the request allows.
+**Two things about money changed since this guide was written, and either can stop a run.**
+
+*The monthly ceiling is now enforced*, having been dead code since the engine was built (A22,
+ADR 0051). At eight-odd pounds a run, four runs is around a third of the £80 default, so you
+should still not meet it — but if you do, the console says **"Stopped on the monthly
+budget"** rather than the usual banner, and raising the request's own cap will do nothing.
+Change it at `/settings`, or set `AER_MONTHLY_BUDGET_GBP` before starting.
+
+*The per-run default moves from £2.50 to £12.00* (A33, ADR 0052), and the reason is worth
+knowing before you see it. The drafting step — one Opus call per section, and the largest
+single item in a run — carried no cost estimate, and the engine only consults the budget
+guard for steps that declare one. So the step that took your AAPL run past eight pounds was
+invisible to a £2.50 ceiling, which is why that run finished rather than stopping. The
+estimate now exists, which means £2.50 would stop *every* run at the draft step; £12.00 is
+sized to a measured run. **If you set a per-run cap below about £7.50 you will now see
+`budget_exceeded` at `draft`** where before you saw a finished report and a larger bill. That
+is the guard working, not a regression.
+
+Check where you are with `/costs` if a run stops for a reason that does not match what the
+request allows.
 
 Take a backup first. You are about to spend money and write real data:
 
@@ -84,7 +113,7 @@ and at the final report.
 
 | What | Where | Expected |
 |---|---|---|
-| Total spend | `/costs` | Under £3 for one run |
+| Total spend | `/costs` | £6–10 for one run; the first measured one was a little over £8, £5.17 of it in `draft` |
 | Where it stopped | the run console | A gate, not an error |
 | Sections generated | the report page | Most of 19, with content |
 | Claims recorded | `/runs/<id>/claims` | More than zero |
@@ -220,7 +249,10 @@ Go to `/settings`.
    after it" property, and comparing two real runs is the only way to see it.
 2. **Set a budget you will hit.** Per-run budget to £0.20, start a run, confirm it stops at
    the budget rather than running on. This is the one that costs real money if it does not
-   work.
+   work. At £0.20 it should stop at `plan`, the very first spending step — so it costs
+   nothing to run. Worth also trying **£3.00**, which now stops at `draft` instead: that is
+   the step whose missing estimate made the cap unenforceable (A33), and stopping there is
+   the specific behaviour that did not exist before.
 3. **Break something on purpose.** Paste malformed JSON into the routing table. Expect a
    refusal with a reason, and the previous value still in force.
 4. **Look at the credentials list.** It should say *set* or *not set* and never show a value.

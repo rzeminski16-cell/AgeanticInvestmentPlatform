@@ -160,6 +160,40 @@ class TestTheDefinitionsThemselves:
         with pytest.raises(RoleDefinitionError, match="does not resolve"):
             dangling.output_schema()
 
+    def test_a_role_that_thinks_hard_has_room_to_answer_as_well(self):
+        """The two tables are one decision, and they were drifting apart silently.
+
+        ``max_tokens`` bounds thinking and visible output *together* on the models this
+        platform routes to. So a role sent to opus at high effort spends an unknown part of
+        its ceiling reasoning, and whatever is left is all it has to write with — a ceiling
+        chosen from the expected length of the answer is a ceiling chosen from the wrong
+        number.
+
+        It failed exactly that way in a live run: ``report_writer`` at 8,192 returned
+        ``stop_reason: max_tokens`` and no draft for five of one report's sections. Nothing
+        connected the routing table to the registry, so the roles that had the headroom had
+        it because somebody thought of it, and the roles that did not were the ones that
+        had not been run yet.
+
+        The floor is the figure the roles that survived already carried. Asserted against
+        the **defaults** rather than enforced in ``_build``: routes are operator-overridable
+        through ``AER_MODEL_ROUTES``, and a configuration edit must never be able to stop
+        the package importing.
+        """
+        floor = 16_384
+        hard = {"high", "xhigh", "max"}
+        routes = Settings(http_user_agent="Test test@example.invalid").model_routes
+
+        for definition in registry_module._DEFINITIONS:
+            route = routes[definition.role]
+            if route.effort not in hard:
+                continue
+            assert definition.max_output_tokens >= floor, (
+                f"{definition.role} routes to {route.model} at {route.effort} effort with "
+                f"only {definition.max_output_tokens} output tokens; thinking can spend "
+                f"that before a word of the answer is written"
+            )
+
     def test_the_probe_roles_are_registered_for_this_suite(self):
         # The session fixture in conftest; asserted so a future rearrangement that drops
         # it fails here with a name rather than in forty containment tests.

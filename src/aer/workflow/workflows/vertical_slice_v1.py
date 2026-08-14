@@ -173,6 +173,21 @@ RED_TEAM_ESTIMATE_GBP: Final = Decimal("1.00")
 # findings, so it is not free.
 ASSUMPTIONS_ESTIMATE_GBP: Final = Decimal("0.20")
 
+# The draft: one Opus call per model-written section, and by a wide margin the most
+# expensive step in the workflow — a measured £5.17 on the first full live run.
+#
+# It carried no estimate at all until that run, which meant it carried no *guard*: both
+# budget-check sites are written `if step.estimated_cost_gbp > 0`, so a step with no estimate
+# is a step the cap silently waves through. The most expensive step in the run was the one
+# ceiling could not pause, which is invariant 6's failure mode exactly — a cap that does not
+# see the biggest spender is a cap that does not work.
+#
+# Generous for the reason every estimate here is generous: understating lets a run through
+# the guard that should have paused it. The guard is still only checked *before* the step, so
+# this bounds when the draft may start, not what it may spend once running; per-section
+# checking is a larger change than this one and is recorded as a gap rather than smuggled in.
+DRAFT_ESTIMATE_GBP: Final = Decimal("6.00")
+
 # How long the explicit forecast runs before the terminal value takes over. Five years is
 # the convention, and the derived proposals are flat across it in any case — an operator who
 # wants a fade enters `revenue_growth_y1` through `_y5` and the flat proposal steps aside.
@@ -336,6 +351,7 @@ def build_steps() -> list[WorkflowStep]:
                     "research_technical_context",
                 }
             ),
+            estimated_cost_gbp=DRAFT_ESTIMATE_GBP,
         ),
         # Validation before the gate (task 39): the eight §2.10 run-time rows are written
         # here, so gate 2 shows scores rather than promising them. The step never pauses

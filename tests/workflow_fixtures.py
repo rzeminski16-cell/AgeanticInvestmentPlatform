@@ -43,6 +43,10 @@ from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
 from tests.schema_guard import refuse_unanswerable_schema
 from tests.sec_fixtures import MSFT_CIK, fixture_bytes
 
+# Read from the model rather than restated, so the fixture cannot drift away from the
+# production ceiling it is standing in for.
+DEFAULT_PER_RUN_BUDGET_GBP: Decimal = Settings.model_fields["per_run_budget_gbp"].default
+
 COMPANY_FACTS_FIXTURE = "companyfacts_msft.json"
 SUBMISSIONS_FIXTURE = "submissions_msft.json"
 
@@ -589,7 +593,12 @@ async def seed_request(
     session: AsyncSession,
     *,
     user: User,
-    max_cost_gbp: Decimal = Decimal("2.50"),
+    # The platform's own default (`Settings.per_run_budget_gbp`), which is what a request
+    # made through the form is capped at. Deliberately the same number: a fixture that
+    # budgets more generously than production can never notice a step growing past the
+    # ceiling real runs are held to, and this one did not — the draft step's estimate was
+    # missing, so £2.50 admitted a run that measured over eight pounds.
+    max_cost_gbp: Decimal = DEFAULT_PER_RUN_BUDGET_GBP,
     as_of_date: date = AS_OF_DATE,
 ) -> ResearchRequest:
     request = ResearchRequest(

@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -296,6 +297,43 @@ class TestLoggingConfiguration:
         captured = capsys.readouterr().out
         assert "should not appear" not in captured
         assert "should appear" in captured
+
+
+class TestTheDefaultRunCannotSpendMoney:
+    """`CLAUDE.md`: "Tests must run with no network access and no model spend by default."
+
+    The `live_llm` marker's own description in `pyproject.toml` says it is "excluded from the
+    default suite" — and for as long as no test carried the marker, nothing had to be true for
+    that sentence to look true. There was no exclusion anywhere; the first live test added
+    would have billed on every developer's run and on every CI run, and the description would
+    have gone on reading correctly.
+
+    So the promise is asserted against the mechanism that has to keep it. This is the same
+    shape of defect as a budget ceiling that is stored and never compared: a claim nobody
+    encoded cannot fail.
+    """
+
+    def test_addopts_deselects_the_billable_marker(self) -> None:
+        config = tomllib.loads(
+            (Path(__file__).resolve().parent.parent / "pyproject.toml").read_text(encoding="utf-8")
+        )
+        addopts = config["tool"]["pytest"]["ini_options"]["addopts"]
+
+        assert "not live_llm" in addopts, (
+            "pyproject declares a marker for billable tests and promises they are excluded "
+            "by default; addopts is where that promise is kept"
+        )
+
+    def test_the_marker_is_declared_so_a_typo_cannot_silently_include_them(self) -> None:
+        # `--strict-markers` turns a misspelt marker into an error rather than an unmarked
+        # test. Without it, `@pytest.mark.live_lm` would run — and bill — in every default run.
+        config = tomllib.loads(
+            (Path(__file__).resolve().parent.parent / "pyproject.toml").read_text(encoding="utf-8")
+        )
+        ini = config["tool"]["pytest"]["ini_options"]
+
+        assert "--strict-markers" in ini["addopts"]
+        assert any(marker.startswith("live_llm:") for marker in ini["markers"])
 
 
 class TestNothingUnderSrcIsIgnored:

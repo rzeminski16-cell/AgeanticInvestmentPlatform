@@ -76,7 +76,10 @@ class TestLoading:
         assert settings.log_json is True
         assert settings.artefact_root == Path("./var/artefacts")
         assert settings.point_in_time_default is True
-        assert settings.per_run_budget_gbp == Decimal("2.50")
+        # £12.00, not the £2.50 this was written with. The old figure predated any run to
+        # measure: the first full live run spent £5.17 on the draft step alone, and got past
+        # the cap only because that step carried no estimate for the guard to read.
+        assert settings.per_run_budget_gbp == Decimal("12.00")
         assert settings.monthly_budget_gbp == Decimal("80.00")
         assert settings.max_artefact_bytes == 52_428_800
         assert settings.is_production is False

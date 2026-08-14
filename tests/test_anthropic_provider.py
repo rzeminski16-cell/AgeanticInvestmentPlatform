@@ -32,6 +32,7 @@ import pytest
 from anthropic.lib.streaming import AsyncMessageStream, AsyncMessageStreamManager
 from anthropic.resources.messages.messages import AsyncMessages
 from anthropic.types.json_output_format_param import JSONOutputFormatParam
+from anthropic.types.messages.batch_create_params import MessageCreateParamsNonStreaming
 from anthropic.types.output_config_param import OutputConfigParam
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -780,9 +781,62 @@ class TestTheBatchPath:
 
         assert batches.created is not None
         params = batches.created["requests"][0]["params"]
-        schema = params["output_format"]["schema"]
+        schema = params["output_config"]["format"]["schema"]
         assert schema["additionalProperties"] is False
         assert "maximum" not in schema["properties"]["confidence"]
+
+    async def test_the_schema_goes_under_output_config_beside_the_effort(self) -> None:
+        """The deprecated field, and the assignment that would drop ``effort`` with it.
+
+        ``output_format`` at the top level is the older spelling. On ``messages.stream`` the
+        SDK merges the argument of that name into ``output_config`` before sending, so the
+        single-call path was right on the wire while looking identical to this one; the
+        batch endpoint takes raw params and merges nothing, so the batch path sent the
+        deprecated field for as long as it existed.
+
+        It failed late, too. The Batches API validates when results are fetched, not when
+        the batch is submitted, so a live red-team step ran to completion and then returned
+        "item 0 did not succeed (errored)" — an hour of latency between the mistake and any
+        sign of it.
+
+        ``effort`` is asserted in the same breath because the obvious fix — assigning
+        ``output_config`` outright — trades a deprecation warning for a silently cheaper
+        model call, and nothing downstream would say so.
+        """
+        provider, batches = _batch_provider([_entry("item-0", payload='{"summary": "ok"}')])
+
+        await provider.complete_structured_batch(
+            Plan, requests=_batch_requests(1), model=OPUS, effort="xhigh"
+        )
+
+        assert batches.created is not None
+        params = batches.created["requests"][0]["params"]
+        assert "output_format" not in params
+        assert params["output_config"]["format"]["type"] == "json_schema"
+        assert params["output_config"]["effort"] == "xhigh"
+
+    async def test_batch_params_carry_only_keys_the_sdk_declares(self) -> None:
+        """The general form of the bug, asked of the SDK rather than enumerated by hand.
+
+        ``batch_create_params.Request["params"]`` is ``MessageCreateParamsNonStreaming`` —
+        the exact TypedDict the endpoint accepts. It has no ``output_format`` member, which
+        is the whole failure in one lookup, and it will not have the next removed field
+        either. Listing the permitted keys here instead would have needed updating by
+        whoever already knew.
+        """
+        provider, batches = _batch_provider([_entry("item-0", payload='{"summary": "ok"}')])
+
+        await provider.complete_structured_batch(
+            Plan, requests=_batch_requests(1), model=OPUS, effort="high"
+        )
+
+        assert batches.created is not None
+        params = batches.created["requests"][0]["params"]
+        declared = set(MessageCreateParamsNonStreaming.__annotations__)
+        assert set(params) <= declared, (
+            f"not accepted by the batch endpoint: {set(params) - declared}"
+        )
+        assert "output_format" not in declared
 
     async def test_an_errored_item_fails_the_whole_batch(self) -> None:
         entries = [

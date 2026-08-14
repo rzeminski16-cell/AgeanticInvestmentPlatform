@@ -43,6 +43,7 @@ from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.services.citations import record_claim
 from aer.storage.local import LocalArtefactStore
+from aer.workflow.workflows.vertical_slice_v1 import build_steps
 from tests.workflow_fixtures import (
     SPINE_KEYS,
     StubSecClient,
@@ -484,6 +485,55 @@ class TestTheWholeRun:
         assert rows
         assert {row.extractor for row in rows} == {"json", "html"}
         assert any("168088000000" in row.excerpt for row in rows)
+
+
+class TestEveryStepThatSpendsIsOneTheGuardCanSee:
+    """Both budget-check sites read `if step.estimated_cost_gbp > 0`.
+
+    So a step left without an estimate is not a step that is *cheap* — it is a step the cap
+    never looks at. `draft` was that step: one Opus call per model-written section, £5.17 on
+    the first full live run, and by a wide margin the most expensive thing the workflow does.
+    The guard waved it through every time, and the operator's projected cost at the plan gate
+    omitted it too.
+
+    Stated as an allowlist rather than by trying to detect spend, because the honest version
+    of this rule is a decision, not a measurement: adding a step means saying whether it calls
+    a model. A new step lands in neither list and fails here with its own name.
+    """
+
+    # Deterministic: parsing, arithmetic, storage, gates and rendering. No model, no cost row.
+    FREE_STEPS = frozenset(
+        {
+            "acquire",
+            "classify",
+            "propose_peers",
+            "acquire_prices",
+            "extract",
+            "calculate",
+            "comps",
+            "value",
+            "render",
+        }
+    )
+
+    def test_no_spending_step_is_invisible_to_the_cap(self) -> None:
+        unguarded = {
+            step.key for step in build_steps() if step.estimated_cost_gbp <= 0 and step.gate is None
+        }
+
+        assert unguarded <= self.FREE_STEPS, (
+            f"these steps carry no estimate, so the budget guard skips them entirely: "
+            f"{sorted(unguarded - self.FREE_STEPS)}. Give each one an estimate, or add it to "
+            "FREE_STEPS if it genuinely calls no model."
+        )
+
+    def test_the_draft_is_the_most_expensive_step_and_is_guarded(self) -> None:
+        # Not a stylistic preference: it is the one whose estimate being zero cost the most,
+        # and the ranking is what makes "the biggest spender is guarded" checkable.
+        estimates = {step.key: step.estimated_cost_gbp for step in build_steps()}
+
+        assert estimates["draft"] > 0
+        assert estimates["draft"] == max(estimates.values())
 
 
 class TestTheBudgetGuard:

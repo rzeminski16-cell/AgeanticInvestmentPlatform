@@ -184,7 +184,12 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = "--strict-markers --strict-config -ra"
+# `-m "not live_llm"` is the enforcement of "no model spend by default", not a hint: the
+# marker's own description promises exclusion, and before this line nothing delivered it —
+# a live test would have billed on every run, including in CI. A command-line `-m` still
+# wins, because addopts are prepended and pytest takes the last one, which is how
+# `just test-live` reaches them.
+addopts = "--strict-markers --strict-config -ra -m 'not live_llm'"
 markers = [
   "integration: requires the Docker Compose services (Postgres, Redis)",
   "live_llm: performs a real, billable model call; excluded from the default suite",

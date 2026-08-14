@@ -232,7 +232,20 @@ class Settings(BaseSettings):
 
     # -- Cost control ------------------------------------------------------------------
 
-    per_run_budget_gbp: Decimal = Field(default=Decimal("2.50"), gt=0)
+    # £2.50 until the first full live run measured one: the draft step alone came to £5.17,
+    # and the whole run to something over eight. The old figure was chosen before any run
+    # existed to measure, and it never stopped that run — because the draft step carried no
+    # estimate, so the guard could not see the largest thing in the workflow at all (the
+    # `estimated_cost_gbp` comment in `vertical_slice_v1`). Now that it can, £2.50 would stop
+    # *every* run at the draft step instead, which is the same wrong number failing loudly
+    # rather than silently.
+    #
+    # £12.00 admits a measured run with headroom and leaves the monthly ceiling as the thing
+    # that actually bounds the total. **Tune it.** It is the operator's money and the right
+    # figure depends on how many reports a month they want; `AER_PER_RUN_BUDGET_GBP` sets it
+    # without a code change, and the plan gate shows the projected cost before anything is
+    # spent.
+    per_run_budget_gbp: Decimal = Field(default=Decimal("12.00"), gt=0)
     monthly_budget_gbp: Decimal = Field(default=Decimal("80.00"), gt=0)
     budget_warn_ratio: float = Field(default=0.75, gt=0, le=1)
     usd_to_gbp: Decimal = Field(default=Decimal("0.79"), gt=0)

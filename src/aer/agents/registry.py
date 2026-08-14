@@ -195,8 +195,10 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         max_input_tokens=20_000,
         # Two justifications is a few hundred tokens; the rest is headroom, because
         # max_tokens bounds adaptive thinking and visible output together and this role
-        # routes to opus at high effort.
-        max_output_tokens=8_192,
+        # routes to opus at high effort. Raised with the report writer's — a short answer
+        # is no protection when the ceiling is spent before the answer starts, and these
+        # are the two numbers a whole valuation rests on.
+        max_output_tokens=16_384,
         adr="0046",
     ),
     RoleDefinition(
@@ -236,7 +238,14 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         # budgets the whole spine at 100k in; per section the definitions cap evidence at
         # 2-5k tokens, so the role cap trips on a caller composing far past any budget.
         max_input_tokens=20_000,
-        max_output_tokens=8_192,
+        # 8,192 here, and five of one report's sections came back with `stop_reason:
+        # max_tokens` and no draft at all. A section is a couple of thousand tokens of
+        # prose, so the ceiling looked generous — but this role routes to opus at high
+        # effort, and `max_tokens` bounds thinking and visible output *together*, so a
+        # section that needed thinking spent the whole allowance reaching a view and had
+        # nothing left to write it down with. Same figure as the planner and the red team,
+        # for the same reason.
+        max_output_tokens=16_384,
         adr="0042",
     ),
     RoleDefinition(

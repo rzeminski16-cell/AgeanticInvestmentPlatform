@@ -438,8 +438,8 @@ class TestTheAgentRunsThroughTheBase:
         # The registry's cap reached the provider. Pinned to a literal as well as to the
         # definition: comparing the provider's value against the same constant the code
         # read would pass however the cap was changed.
-        assert resolve_role("assumption_proposal").max_output_tokens == 8_192
-        assert provider.calls[0]["max_tokens"] == 8_192
+        assert resolve_role("assumption_proposal").max_output_tokens == 16_384
+        assert provider.calls[0]["max_tokens"] == 16_384
 
 
 # ==========================================================================================
