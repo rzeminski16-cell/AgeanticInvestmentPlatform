@@ -35,7 +35,12 @@ from aer.agents.user_skill import wrap_user_skill
 from aer.agents.validator import ValidatorAdvisory
 from aer.config import Settings
 from aer.core.enums import FactBasis, GateKind, JobStatus, Provider, SourceTier
-from aer.core.section_output import contract_violations, numerals_in, unsourced_numerals
+from aer.core.section_output import (
+    contract_violations,
+    numerals_in,
+    unsourced_numerals,
+    without_document_references,
+)
 from aer.db.models import (
     Artefact,
     Calculation,
@@ -365,6 +370,67 @@ class TestTheNumeralScan:
         assert numerals_in("for fiscal year 2022.") == frozenset({"2022"})
         # And a decimal is one numeral, not a whole and a fraction.
         assert numerals_in("a ratio of 0.18.") == frozenset({"0.18"})
+
+
+class TestAReferenceIsNotAFigure:
+    """ADR 0054: a numeral inside a recognisable date or document reference is provenance.
+
+    A live run burnt retries refusing the year 2026, Apple's CIK and item numbers such as
+    2.02 and 99.1 — numerals that denote no quantity, refused by the rule that exists to
+    protect provenance. The operator's decision: excuse the recognisable reference *span*,
+    never the value, because only the surrounding characters can tell "in 2026" apart from
+    "2,026 million".
+    """
+
+    def test_the_refusals_from_the_live_run_are_excused(self) -> None:
+        content = {
+            "summary": (
+                "The Form 8-K filed by CIK 0000320193 in March 2026 reports, under "
+                "Items 2.02 and 9.01 and in Exhibit 99.1, a change of auditor."
+            )
+        }
+        assert unsourced_numerals(content, []) == []
+
+    def test_a_year_in_temporal_company_is_a_date(self) -> None:
+        assert unsourced_numerals({"s": "Guidance was withdrawn in 2026."}, []) == []
+        assert unsourced_numerals({"s": "Trading between 2019 and 2024 was flat."}, []) == []
+        assert unsourced_numerals({"s": "Delivery slipped to mid-2025."}, []) == []
+        assert unsourced_numerals({"s": "Filed on 2026-08-14."}, []) == []
+
+    def test_fiscal_markers_are_dates(self) -> None:
+        assert unsourced_numerals({"s": "Q3 2025 and FY2026 both improved."}, []) == []
+        assert unsourced_numerals({"s": "Reported for the fourth quarter of 2024."}, []) == []
+
+    def test_a_bare_unanchored_year_still_needs_lineage(self) -> None:
+        """The remedy for a refused year is anchoring it, not a claim — the prompt says so."""
+        problems = unsourced_numerals({"s": "2026 saw a change of auditor."}, [])
+        assert any("2026" in problem for problem in problems)
+
+    def test_a_quantity_wearing_a_years_digits_still_needs_lineage(self) -> None:
+        """The false negative the span rule exists to prevent: same value, different span."""
+        problems = unsourced_numerals({"s": "Revenue grew in 2026 to $2,026 million."}, [])
+        assert any("2026" in problem for problem in problems)
+
+    def test_an_unlabelled_reference_number_still_needs_lineage(self) -> None:
+        assert unsourced_numerals({"s": "See 2.02 for the details."}, []) != []
+        assert unsourced_numerals({"s": "Filed under 0000320193."}, []) != []
+
+    def test_the_erasure_is_a_span_not_a_value(self) -> None:
+        # The date's token disappears; every other token survives untouched.
+        text = "In 2026 margins reached 34%."
+        assert numerals_in(without_document_references(text)) == frozenset({"34"})
+
+    def test_cover_from_claims_is_not_narrowed(self) -> None:
+        """Stripping applies to content only, so it can only reduce what the scan flags.
+
+        A claim mentioning the year covers a bare year in content exactly as it did
+        before the exemption existed — were claims stripped too, the exemption would
+        *create* refusals, and a carve-out that widens the rule has been miswired.
+        """
+        content = {"s": "2024 closed strongly."}
+        covered = ["Revenue for fiscal year 2024 was $1,000 million."]
+        problems = unsourced_numerals(content, covered)
+        assert not any("2024" in problem for problem in problems)
 
 
 # ==========================================================================================

@@ -15,8 +15,11 @@ reference facts and calculations by id, and *"a section that emits a bare numera
 resolvable to one is a validation failure"*. The scan walks every string and number in the
 content and demands that each numeral token also appears in the text of a numeric claim —
 which, by schema and by database constraint, names exactly one stored fact or recorded
-calculation. The rule is deliberately strict about years and percentages alike: a numeral
-the platform cannot trace is a numeral the report cannot carry, whatever it denotes.
+calculation. One carve-out, decided by the operator and recorded in ADR 0054: a numeral
+inside a recognisable date or document reference — "March 2026", "Q3 2025", "Item 2.02",
+a labelled CIK — denotes no quantity, and refusing it was provenance tripping the rule
+that exists to protect provenance. The exemption is by *span*, never by value: those
+exact characters are excused, and the same digits anywhere else still need lineage.
 
 Pure and ``mypy --strict``: dictionaries in, problem strings out, nothing else consulted.
 """
@@ -35,6 +38,7 @@ __all__ = [
     "numerals_in",
     "reserved_fields_in",
     "unsourced_numerals",
+    "without_document_references",
 ]
 
 # Keys whose values are section metadata rather than assertions about the world.
@@ -52,6 +56,51 @@ NUMERAL_EXEMPT_KEYS: Final[frozenset[str]] = frozenset(
 # trailing guard refuses only a *mid-decimal* stop (".<digit>"), so a numeral ending a
 # sentence — "in 2022." — still counts.
 _NUMERAL: Final[re.Pattern[str]] = re.compile(r"(?<![\w.])(\d[\d,]*(?:\.\d+)?)%?(?!\w)(?!\.\d)")
+
+_MONTHS: Final = (
+    "January|February|March|April|May|June|July|August|September|October|November|December"
+)
+
+# What a reference looks like when a reader meets one. Every alternative is anchored by
+# context a quantity does not have — a month name, a fiscal marker, a temporal word, a
+# filing label — so "revenue of 2,026 million" anchors to none of them and still needs
+# lineage. ADR 0054 records the decision and the trade.
+_REFERENCE: Final[re.Pattern[str]] = re.compile(
+    "|".join(
+        (
+            # A calendar date in either order, day optional: "15 March 2026",
+            # "March 15, 2026", "March 2026".
+            rf"\b(?:\d{{1,2}}\s+)?(?:{_MONTHS})(?:\s+\d{{1,2}})?(?:,?\s+\d{{4}})?\b",
+            # An ISO date is reference-shaped all by itself.
+            r"\b\d{4}-\d{2}-\d{2}\b",
+            # Fiscal markers: "Q3 2026", "H1 2026", "FY2026", "FY26", "fiscal 2026",
+            # "fiscal year 2026", "the fourth quarter of 2026".
+            r"\b(?:Q[1-4]|H[12])\s?(?:19|20)\d{2}\b",
+            r"\bFY\s?\d{2,4}\b",
+            r"\bfiscal(?:\s+year)?\s+(?:19|20)\d{2}\b",
+            r"\b(?:first|second|third|fourth)\s+quarter\s+of\s+(?:19|20)\d{2}\b",
+            # A year in temporal company: "in 2026", "since 2024", "mid-2025", and the
+            # paired form "between 2019 and 2024". The anchors deliberately exclude
+            # "of", "to" and "for", each of which reads naturally in front of a
+            # quantity.
+            r"\b(?:in|by|since|until|through|throughout|during|before|after|between|"
+            r"around|calendar|year|early|late|mid)[\s-](?:19|20)\d{2}"
+            r"(?:\s*(?:and|to|[-\u2013\u2014])\s*(?:19|20)\d{2})?\b",
+            # A year-to-year range on its own: "2019-2024", hyphen or en/em dash.
+            r"\b(?:19|20)\d{2}\s*[-\u2013\u2014]\s*(?:19|20)\d{2}\b",
+            # A year the sentence itself marks as one: "the 2026 fiscal year".
+            r"\b(?:19|20)\d{2}\s+(?:fiscal|financial|calendar)\b",
+            # Filing references, where the label is the anchor and an enumeration keeps
+            # its cover: "Item 2.02", "Items 2.02 and 9.01", "Exhibit 99.1", "Form 4".
+            r"\b(?:Item|Exhibit|Note|Form|Rule|Section)s?\s+\d+(?:\.\d+)?[A-Za-z]?"
+            r"(?:\s*(?:,|and|&|through|to)\s*\d+(?:\.\d+)?[A-Za-z]?)*",
+            # A labelled CIK, and an accession number whose 10-2-6 shape is its own label.
+            r"\bCIK\s*(?:No\.?\s*|Number\s*)?#?\d+\b",
+            r"\b\d{10}-\d{2}-\d{6}\b",
+        )
+    ),
+    re.IGNORECASE,
+)
 
 _JSON_SCALARS: Final[dict[str, type | tuple[type, ...]]] = {
     "string": str,
@@ -139,10 +188,24 @@ def _canonical_numeral(token: str) -> str:
     return f"{whole}.{fraction}" if fraction else whole
 
 
+def without_document_references(text: str) -> str:
+    """The text with recognised date and document-reference spans removed.
+
+    Applied to content before the numeral scan, never to the claims that provide cover —
+    so it can only narrow what the scan flags, and a draft that passed before this
+    function existed still passes. A span-based erasure rather than a value-based
+    allowlist, because the same four digits are a year in "in 2026" and a quantity in
+    "2,026 million", and only the surrounding characters can tell them apart.
+    """
+    return _REFERENCE.sub(" ", text)
+
+
 def unsourced_numerals(content: dict[str, Any], covered_by: Iterable[str]) -> list[str]:
     """Numerals in the content that nothing accounts for, with where they sit.
 
-    A numeral has lineage two ways, and either satisfies the rule:
+    Numerals inside recognised date and document-reference spans are not figures and are
+    not scanned — see :func:`without_document_references` and ADR 0054. For the rest, a
+    numeral has lineage two ways, and either satisfies the rule:
 
     * it appears in a numeric claim's statement (``covered_by``) — each of which, by
       schema, names exactly one stored fact or recorded calculation; or
@@ -179,7 +242,7 @@ def _numerals_by_path(value: Any, *, path: str) -> list[tuple[str, frozenset[str
     to assert one without lineage.
     """
     if isinstance(value, str):
-        found = numerals_in(value)
+        found = numerals_in(without_document_references(value))
         return [(path, found)] if found else []
     if isinstance(value, bool):
         return []

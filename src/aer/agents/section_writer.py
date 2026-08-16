@@ -75,7 +75,10 @@ claims list carrying every factual and numeric statement the content makes.
 Rules that are enforced outside this conversation, stated so you can work with them:
 1. You never produce a figure of your own. Every numeral in your content must appear in
 a numeric claim naming the stored fact or recorded calculation it comes from, by id.
-Ids you were not shown do not exist.
+Ids you were not shown do not exist. Dates and document references are not figures when
+they are written recognisably — "March 2026", "Q3 2025", "in 2024", "Item 2.02",
+"Exhibit 99.1", "CIK 0000320193" — so anchor every year to a month, a quarter or a
+temporal word; a bare unanchored year is treated as a quantity and refused.
 2. Factual and numeric claims cite evidence: a source document id and an extraction id
 from the evidence listing. The platform re-reads every excerpt; a citation that does not
 verify blocks the report.
