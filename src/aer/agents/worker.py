@@ -329,7 +329,9 @@ finding: if your point is that the evidence is silent on something, that is a le
 2a. An id is a UUID, and the only ids that exist are in the `fact_id` and \
 `source_document_id` fields of the results you were given. Copy one of those, character \
 for character. A value, a concept name or a title from the same result is not an id, and \
-citing one is refused.
+citing one is refused. Document numbers are the trap: an accession number such as \
+0001193125-11-282113 names a filing but is never its id — the id is the UUID in that \
+result's `source_document_id` field.
 3. Tool requests are executed by the platform's code, only within your remaining budget, \
 and only for the tools listed below. There are no others. Asking for a tool that is not \
 listed is refused and wastes a turn.
@@ -486,6 +488,11 @@ async def investigate(
     is fed back exactly as a validator's refusal is, and bounded harder, because each
     attempt is spend the ledger never sees. See :data:`MAX_UNREADABLE_REPLIES`.
 
+    **A validator refusal on the last round narrows the report rather than killing it.**
+    Feedback is always preferred while a round remains to act on it; when none does, and
+    the refusal is down to specific findings, those findings are dropped and the
+    validated remainder is delivered — see :func:`_narrowed_report`.
+
     Raises:
         WorkerExhaustedError: If the rounds run out without a report the validator
             accepts. Deliberately an error — the workflow node fails visibly rather than
@@ -558,6 +565,18 @@ async def investigate(
             if not found:
                 return Investigation(
                     topic=topic, report=turn.report, executed=executed, rounds=round_number
+                )
+            rescued = await _rescued_at_exhaustion(
+                turn.report,
+                validate,
+                topic=topic,
+                round_number=round_number,
+                max_rounds=max_rounds,
+                problems=found,
+            )
+            if rescued is not None:
+                return Investigation(
+                    topic=topic, report=rescued, executed=executed, rounds=round_number
                 )
             problems = found
             _log.info(
@@ -655,6 +674,74 @@ def _salvaged_turn(  # noqa: PLR0911 -- each return is a distinct reason not to 
     if turn.report is None:  # pragma: no cover -- a requests turn was refused above
         return None
     return turn, len(findings) - len(kept)
+
+
+async def _rescued_at_exhaustion(
+    report: WorkerReport,
+    validate: ReportValidator,
+    *,
+    topic: ResearchTopic,
+    round_number: int,
+    max_rounds: int,
+    problems: list[str],
+) -> WorkerReport | None:
+    """The refused report, narrowed and delivered — only when no round remains to fix it.
+
+    Feedback is always preferred while a round can act on it, so before the final round
+    this declines without looking: the refusal goes back to the model, which can fix the
+    citation and *keep* the finding. On the final round, feeding back is dying with a
+    good diagnosis, and dropping what the validator refuses is the repair code can make —
+    the same narrowing :func:`_salvaged_turn` performs one layer down (ADR 0036).
+    """
+    if round_number != max_rounds:
+        return None
+    narrowed = await _narrowed_report(report, validate)
+    if narrowed is None:
+        return None
+    survivors, dropped = narrowed
+    # Warning, not info: findings the model asserted have been discarded, and an audit
+    # should see the report is narrower than what was delivered.
+    _log.warning(
+        "worker.findings_dropped_at_exhaustion",
+        topic=topic.value,
+        round=round_number,
+        dropped=dropped,
+        kept=len(survivors.findings),
+        problems=problems,
+    )
+    return survivors
+
+
+async def _narrowed_report(
+    report: WorkerReport, validate: ReportValidator
+) -> tuple[WorkerReport, int] | None:
+    """The report with the findings the validator refuses removed — when that satisfies it.
+
+    A live run died on its final round citing accession numbers where UUIDs belong: the
+    validator's refusal named the one broken finding, the feedback that would have fixed
+    it had no round left to run in, and the whole topic — three sound findings included —
+    went down with the run. The remedy the feedback would have asked for, *drop or fix
+    that finding*, has a half code can perform.
+
+    Which findings are refused is discovered by asking the validator, not by parsing its
+    messages: each finding is validated alone, and only the clean ones are kept. That
+    keeps this function independent of the refusal wording, and it means a report-level
+    problem — one no singleton escapes — refuses every finding and lands on ``None``,
+    which is the existing exhaustion path. The survivors are then validated **together**
+    before they are accepted, because passing alone does not prove they pass as a set.
+    """
+    kept = [
+        finding
+        for finding in report.findings
+        if not await validate(report.model_copy(update={"findings": [finding]}))
+    ]
+    if not kept or len(kept) == len(report.findings):
+        # Nothing survived, or the findings were not what was wrong: no repair here.
+        return None
+    survivors = report.model_copy(update={"findings": kept})
+    if await validate(survivors):
+        return None
+    return survivors, len(report.findings) - len(kept)
 
 
 def _tool_menu(available: list[str]) -> str:

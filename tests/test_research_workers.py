@@ -41,6 +41,7 @@ from aer.agents.worker import (
     WorkerReport,
     WorkerTurn,
     _cap,
+    _narrowed_report,
     _salvaged_turn,
     investigate,
 )
@@ -99,6 +100,41 @@ def _report_turn(
             coverage_note="Investigated within the scripted evidence.",
         )
     )
+
+
+def _report_of(*statements: str) -> WorkerTurn:
+    """A report whose findings carry the given statements, each cited to a real-shaped id."""
+    return WorkerTurn(
+        report=WorkerReport(
+            findings=[
+                WorkerFinding(
+                    statement=statement,
+                    kind="factual",
+                    fact_ids=[str(uuid.uuid4())],
+                    confidence=0.7,
+                )
+                for statement in statements
+            ],
+            leads=[WorkerLead(question="What next?", why_it_matters="Coverage.")],
+            coverage_note="Investigated within the scripted evidence.",
+        )
+    )
+
+
+def _refusing(marker: str) -> Any:
+    """A validator that refuses each finding whose statement carries the marker.
+
+    Shaped like the real one: per-finding problems naming the finding, empty when sound.
+    """
+
+    async def validate(report: WorkerReport) -> list[str]:
+        return [
+            f"Finding {index} cites source document '{marker}', which is not an id at all."
+            for index, finding in enumerate(report.findings, start=1)
+            if marker in finding.statement
+        ]
+
+    return validate
 
 
 def _worker_input(
@@ -1095,6 +1131,107 @@ class TestSalvageOfABilledReport:
         }
 
         assert _salvaged_turn(_billed_rejection(confused)) is None
+
+
+class TestTheLastRoundNarrowsRatherThanDies:
+    """A validator refusal with no round left to act on it costs the finding, not the run.
+
+    A live run died at `technical_context`: the final report's finding 3 cited accession
+    numbers where UUIDs belong, the validator refused it — correctly, and with the exact
+    remedy in the message — but the refusal landed on round 5 of 5, so the feedback had
+    no round left to run in and three sound findings died with the run. The narrowing is
+    discovered by re-asking the validator, never by parsing its messages, and feedback
+    stays preferred whenever a round remains.
+    """
+
+    async def test_a_finding_refused_on_the_last_round_costs_the_finding_not_the_run(
+        self, loop_scene: dict[str, Any]
+    ) -> None:
+        provider = _scripted([_report_of("sound observation", "cites the accession number")])
+
+        outcome = await investigate(
+            _context(loop_scene, provider),
+            topic=ResearchTopic.COMPANY,
+            company_name="Contoso",
+            ticker="CTSO",
+            as_of_date="2023-01-01",
+            executors={},
+            validate=_refusing("accession"),
+            max_rounds=1,
+        )
+
+        assert outcome.rounds == 1
+        assert [finding.statement for finding in outcome.report.findings] == ["sound observation"]
+
+    async def test_feedback_is_preferred_while_a_round_remains(
+        self, loop_scene: dict[str, Any]
+    ) -> None:
+        """Dropping is the last resort, not the first: with a round left, the model gets
+        the refusal back and the chance to fix the citation and keep the finding."""
+        provider = _scripted(
+            [
+                _report_of("sound observation", "cites the accession number"),
+                _report_of("sound observation", "now cited properly"),
+            ]
+        )
+
+        outcome = await investigate(
+            _context(loop_scene, provider),
+            topic=ResearchTopic.COMPANY,
+            company_name="Contoso",
+            ticker="CTSO",
+            as_of_date="2023-01-01",
+            executors={},
+            validate=_refusing("accession"),
+            max_rounds=2,
+        )
+
+        assert outcome.rounds == 2
+        assert len(outcome.report.findings) == 2
+        second = provider.calls[1]["messages"][0]["content"]
+        assert "Finding 2" in second
+
+    async def test_a_report_level_refusal_still_exhausts(self, loop_scene: dict[str, Any]) -> None:
+        """A problem no singleton escapes refuses every finding, and nothing survives —
+        narrowing cannot manufacture a report the validator never accepted."""
+
+        async def report_level(report: WorkerReport) -> list[str]:
+            return ["The coverage note contradicts the evidence."]
+
+        provider = _scripted([_report_of("sound observation", "another sound one")])
+
+        with pytest.raises(WorkerExhaustedError, match="contradicts"):
+            await investigate(
+                _context(loop_scene, provider),
+                topic=ResearchTopic.COMPANY,
+                company_name="Contoso",
+                ticker="CTSO",
+                as_of_date="2023-01-01",
+                executors={},
+                validate=report_level,
+                max_rounds=1,
+            )
+
+    async def test_what_survives_is_still_validated_together(self) -> None:
+        """Passing alone does not prove the survivors pass as a set."""
+
+        async def no_duplicates(report: WorkerReport) -> list[str]:
+            problems = [
+                f"Finding {index} cites source document 'accession', which is not an id."
+                for index, finding in enumerate(report.findings, start=1)
+                if "accession" in finding.statement
+            ]
+            duplicates = [f for f in report.findings if "duplicate" in f.statement]
+            if len(duplicates) > 1:
+                problems.append("Findings assert the same thing twice.")
+            return problems
+
+        report = _report_of(
+            "duplicate claim one", "duplicate claim two", "cites the accession number"
+        ).report
+        assert report is not None
+
+        assert await _narrowed_report(report, no_duplicates) is None
 
 
 class TestTheLimitsAreStated:
