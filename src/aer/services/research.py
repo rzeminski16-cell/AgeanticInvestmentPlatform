@@ -36,7 +36,7 @@ from aer.agents.worker import (
 )
 from aer.config import Settings
 from aer.core.enums import Provider, SourceTier
-from aer.db.models import Company, FinancialFact, ResearchRequest, SourceDocument
+from aer.db.models import Artefact, Company, FinancialFact, ResearchRequest, SourceDocument
 from aer.errors import AerError
 from aer.extract import extract_text
 from aer.services.acquisition import record_acquisition
@@ -206,6 +206,38 @@ def build_executors(
                 tool=tool_request.tool, query=url, executed=False, refusal=f"Refused: {exc.message}"
             )
 
+        # A page the run already holds is answered from the record it already has —
+        # highest tier, unquarantined first (gap A43). Recording it again minted a fresh
+        # id at T5 with a quarantine flag for the very bytes the acquire step held at T1,
+        # and the competing ids poisoned every citation of the document downstream.
+        held = await _already_held(session, request=request, sha256=result.sha256)
+        if held is not None:
+            document_id = str(held.id)
+            text, note = await _text_of(store, result=result, settings=settings)
+            return ExecutedTool(
+                tool=tool_request.tool,
+                query=url,
+                executed=True,
+                internal_results=[
+                    {
+                        "source_document_id": document_id,
+                        "tier": held.source_tier.value,
+                        "status_code": result.status_code,
+                        "media_type": result.media_type,
+                        "quarantined": held.quarantined,
+                        "extraction": note,
+                    }
+                ],
+                untrusted_evidence=[
+                    {
+                        "source_document_id": document_id,
+                        "tier": held.source_tier.value,
+                        "title": url,
+                        "text": text,
+                    }
+                ],
+            )
+
         acquisition = await record_acquisition(
             session,
             store,
@@ -330,6 +362,28 @@ def build_executors(
     if sec_client is not None:
         executors["search_filings_full_text"] = search_filings_full_text
     return executors
+
+
+async def _already_held(
+    session: AsyncSession, *, request: ResearchRequest, sha256: str
+) -> SourceDocument | None:
+    """The request's best existing record of these bytes, or ``None`` for new bytes.
+
+    Best means highest tier and unquarantined first: the acquire step's T1 record of a
+    filing must answer for it, not the T5 quarantined duplicate a re-fetch would mint.
+    Matching is by artefact digest — the content-addressed store's own identity — so a
+    URL variant of the same document still resolves to the record already held.
+    """
+    rows = list(
+        await session.scalars(
+            select(SourceDocument)
+            .join(Artefact, Artefact.id == SourceDocument.artefact_id)
+            .where(SourceDocument.request_id == request.id, Artefact.sha256 == sha256)
+        )
+    )
+    if not rows:
+        return None
+    return min(rows, key=lambda row: (row.quarantined, row.source_tier.rank))
 
 
 async def _established_host(

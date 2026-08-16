@@ -415,6 +415,16 @@ class TestAReferenceIsNotAFigure:
         assert unsourced_numerals({"s": "See 2.02 for the details."}, []) != []
         assert unsourced_numerals({"s": "Filed under 0000320193."}, []) != []
 
+    def test_a_bare_form_type_is_a_reference_without_the_word_form(self) -> None:
+        """Gap A44: "as disclosed in the 10-K" is how a writer actually says it, and the
+        first exemption only covered the "Form 10-K" spelling — a live section lost a
+        retry to the bare one. Statute years anchor the same way."""
+        assert unsourced_numerals({"s": "As disclosed in the 10-K and the latest 10-Q."}, []) == []
+        assert unsourced_numerals({"s": "The 8-K announcing the change was filed."}, []) == []
+        assert unsourced_numerals({"s": "Registered under the Securities Act of 1933."}, []) == []
+        # The letterless neighbours stay figures: a ratio is not a form type.
+        assert unsourced_numerals({"s": "A 10-4 split of the shares."}, []) != []
+
     def test_the_erasure_is_a_span_not_a_value(self) -> None:
         # The date's token disappears; every other token survives untouched.
         text = "In 2026 margins reached 34%."

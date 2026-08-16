@@ -33,7 +33,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.base import AgentContext
-from aer.agents.planner import PlannerAgent, PlannerInput
+from aer.agents.planner import PlannerAgent, PlannerInput, salvaged_plan
 from aer.agents.worker import ResearchTopic
 from aer.calc.basic import cagr
 from aer.calc.comps import MultipleBasis, WithheldComps, align_peers
@@ -68,6 +68,7 @@ from aer.db.models.plan_skill_pin import SKIPPED_NOT_APPLICABLE, PlanSkillPin
 from aer.db.models.section_definition import BUILTIN, SKILL
 from aer.extract import extract_bytes
 from aer.fetch.policy import DEFAULT_POLICIES
+from aer.providers.protocol import SpentButUnusableError
 from aer.render.document import assemble_document
 from aer.render.html import render_html
 from aer.render.markdown import SectorNote, serialise_markdown
@@ -400,13 +401,24 @@ async def _plan(context: StepContext) -> StepResult:
         job_step=context.step,
     )
 
-    draft = await agent.run(
-        agent_context,
-        PlannerInput(
-            request=ResearchRequestRead.model_validate(request, from_attributes=True),
-            available_section_keys=[definition.key for definition in definitions],
-        ),
-    )
+    try:
+        draft = await agent.run(
+            agent_context,
+            PlannerInput(
+                request=ResearchRequestRead.model_validate(request, from_attributes=True),
+                available_section_keys=[definition.key for definition in definitions],
+            ),
+        )
+    except SpentButUnusableError as unusable:
+        # The planner is one call with no retry, so an over-full list — eleven risks
+        # against a bound of ten, on a live run — killed the whole run at step one.
+        # When cutting the lists to their bounds repairs the reply, the trimmed plan
+        # proceeds to gate 1, where the operator sees exactly what will run (gap A42).
+        rescued = salvaged_plan(unusable)
+        if rescued is None:
+            raise
+        draft, trimmed = rescued
+        _log.warning("planner.lists_trimmed", job_id=str(context.job.id), trimmed=trimmed)
 
     payload = draft.model_dump(mode="json")
     # The spine as data, alongside the model's proposal: which sections this run owes, in

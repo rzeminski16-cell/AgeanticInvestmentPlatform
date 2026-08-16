@@ -94,6 +94,12 @@ _REFERENCE: Final[re.Pattern[str]] = re.compile(
             # its cover: "Item 2.02", "Items 2.02 and 9.01", "Exhibit 99.1", "Form 4".
             r"\b(?:Item|Exhibit|Note|Form|Rule|Section)s?\s+\d+(?:\.\d+)?[A-Za-z]?"
             r"(?:\s*(?:,|and|&|through|to)\s*\d+(?:\.\d+)?[A-Za-z]?)*",
+            # The bare form types themselves — "the 10-K", "a 10-Q", "an 8-K" — which is
+            # how a writer names a filing far more often than "Form 10-K". The letter is
+            # the anchor, and the closed list keeps "2-for-1" and its kin out of scope.
+            r"\b(?:10-K|10-Q|8-K|20-F|40-F|6-K|11-K|S-1|S-3|S-4|13D|13G|14A)(?:/A)?\b",
+            # A statute's year is its name: "the Securities Exchange Act of 1934".
+            r"\bAct\s+of\s+(?:18|19|20)\d{2}\b",
             # A labelled CIK, and an accession number whose 10-2-6 shape is its own label.
             r"\bCIK\s*(?:No\.?\s*|Number\s*)?#?\d+\b",
             r"\b\d{10}-\d{2}-\d{6}\b",

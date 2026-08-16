@@ -17,14 +17,23 @@ these three things".
 
 from __future__ import annotations
 
+import json
 from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ValidationError as PydanticValidationError
 
 from aer.agents.base import Agent
 from aer.core.schemas.request import ResearchRequestRead
+from aer.errors import ValidationError
 
-__all__ = ["PlannedSource", "PlannerAgent", "PlannerInput", "ResearchPlanDraft"]
+__all__ = [
+    "PlannedSource",
+    "PlannerAgent",
+    "PlannerInput",
+    "ResearchPlanDraft",
+    "salvaged_plan",
+]
 
 MAX_SECTIONS = 12
 MAX_SOURCES = 20
@@ -145,7 +154,10 @@ around it silently.
 6. Keep each field within its length: `summary` under {_SUMMARY_BUDGET} characters, each \
 section's `focus` under {_FOCUS_BUDGET}, and each source's `what` and `why` under \
 {_REASON_BUDGET}. These are hard limits on the stored plan, not suggestions. Write a second \
-section rather than one long one.
+section rather than one long one. The lists are bounded the same way: at most \
+{MAX_SECTIONS} sections, {MAX_SOURCES} planned sources and {MAX_RISKS} known risks. Order \
+each list strongest first and stop at the bound — an over-full list is refused after the \
+call has been paid for.
 
 Be specific. "Consult SEC filings" is not a plan; "retrieve the FY2022 10-K for revenue \
 and operating income, and the FY2021 10-K for the comparative" is."""
@@ -160,10 +172,12 @@ class PlannerAgent(Agent[PlannerInput, ResearchPlanDraft]):
     # Tools and token caps are deliberately absent: they live in this role's
     # `aer.agents.registry` definition, and a declaration here would grant nothing.
 
-    # Bumped because rule 6 was added deliberately. `_ensure_prompt` records an unbumped
-    # edit under a hash-suffixed version so a run is never attributed to the wrong
-    # instruction — that safety net is for accidents, and this was not one.
-    prompt_version: ClassVar[str] = "2"
+    # Bumped when rule 6 was added, and again when it grew the list bounds (gap A42) —
+    # a live run died at step one over an eleventh known risk the prompt never said was
+    # one too many. `_ensure_prompt` records an unbumped edit under a hash-suffixed
+    # version so a run is never attributed to the wrong instruction — that safety net is
+    # for accidents, and neither of these was one.
+    prompt_version: ClassVar[str] = "3"
 
     def system_prompt(self, payload: PlannerInput) -> str:  # noqa: ARG002
         """The planner's instruction, which does not vary with the request.
@@ -202,3 +216,47 @@ class PlannerAgent(Agent[PlannerInput, ResearchPlanDraft]):
         lines.extend(f"  - {key}" for key in payload.available_section_keys)
 
         return "\n".join(lines)
+
+
+def salvaged_plan(rejected: ValidationError) -> tuple[ResearchPlanDraft, dict[str, int]] | None:
+    """The rejected plan with its over-full lists cut to their bounds — when that repairs it.
+
+    A live run died at step one: eleven ``known_risks`` against a bound of ten, one call
+    with no retry, and the whole run failed carrying a £0.12 bill and a plan that was
+    sound in every other respect. Cutting a list back to its bound is a pure narrowing of
+    what the model proposed — the prompt asks for each list strongest-first, so the tail
+    is by the model's own ordering the weakest — and the decision to cut is code's
+    (ADR 0036), made from the billed reply's archived payload. Declines (``None``) on
+    any condition where trimming is not the repair, and the original error stands.
+    The plan gate then shows the operator the trimmed plan, exactly as it will run.
+    """
+    payload = getattr(rejected, "response_payload", None)
+    if not isinstance(payload, dict):
+        return None
+    text = "".join(
+        str(block.get("text", ""))
+        for block in payload.get("content") or []
+        if isinstance(block, dict) and block.get("type") == "text"
+    )
+    try:
+        raw = json.loads(text)
+    except ValueError:
+        return None
+    if not isinstance(raw, dict):
+        return None
+
+    bounds = {"sections": MAX_SECTIONS, "planned_sources": MAX_SOURCES, "known_risks": MAX_RISKS}
+    trimmed: dict[str, int] = {}
+    for name, bound in bounds.items():
+        value = raw.get(name)
+        if isinstance(value, list) and len(value) > bound:
+            trimmed[name] = len(value) - bound
+            raw[name] = value[:bound]
+    if not trimmed:
+        # The lists were not what was wrong, so there is nothing here to repair.
+        return None
+    try:
+        draft = ResearchPlanDraft.model_validate(raw)
+    except PydanticValidationError:
+        return None
+    return draft, trimmed

@@ -9,6 +9,7 @@ the real searches against seeded rows, and the validator against ids from the wr
 
 from __future__ import annotations
 
+import hashlib
 import json
 import uuid
 from datetime import UTC, date, datetime
@@ -785,6 +786,78 @@ class TestFetchingAKnownUrl:
         assert stored is not None
         assert stored.source_tier is SourceTier.T5_SECONDARY
         assert record["tier"] == SourceTier.T5_SECONDARY.value
+
+    async def test_bytes_the_run_already_holds_answer_from_the_held_record(
+        self, fetch_scene: dict[str, Any]
+    ) -> None:
+        """Gap A43. A live run re-recorded its own 10-K three times: the fetch minted a
+        fresh id at T5, quarantined, for the very bytes the acquire step held at T1 —
+        and the competing ids poisoned citations of the document downstream. The same
+        bytes now answer from the best record already held, and no new row is minted.
+        """
+        body = b"<html><body><p>The very filing the acquire step already holds.</p></body></html>"
+        digest = hashlib.sha256(body).hexdigest()
+        held_artefact = Artefact(
+            sha256=digest, media_type="text/html", size_bytes=len(body), storage_key="cc/c"
+        )
+        fetch_scene["session"].add(held_artefact)
+        await fetch_scene["session"].flush()
+        held = SourceDocument(
+            request_id=fetch_scene["request"].id,
+            artefact_id=held_artefact.id,
+            url="https://www.sec.gov/Archives/edgar/contoso-10k-annual.htm",
+            title="Contoso 10-K",
+            provider=Provider.SEC_EDGAR,
+            source_tier=SourceTier.T1_REGULATORY,
+            publication_date=date(2022, 6, 1),
+            retrieved_at=datetime.now(UTC),
+        )
+        fetch_scene["session"].add(held)
+        # The live failure's second record of the same bytes: T5 and quarantined. The
+        # answer must be the best record, not merely any record.
+        fetch_scene["session"].add(
+            SourceDocument(
+                request_id=fetch_scene["request"].id,
+                artefact_id=held_artefact.id,
+                url="https://www.sec.gov/news/contoso-10k",
+                provider=Provider.SEC_EDGAR,
+                source_tier=SourceTier.T5_SECONDARY,
+                quarantined=True,
+                quarantine_reason="no_publication_date",
+                retrieved_at=datetime.now(UTC),
+            )
+        )
+        await fetch_scene["session"].flush()
+        before = len(
+            list(
+                await fetch_scene["session"].scalars(
+                    select(SourceDocument).where(
+                        SourceDocument.request_id == fetch_scene["request"].id
+                    )
+                )
+            )
+        )
+
+        executors = self._executors(fetch_scene, _RecordingFetcher(body=body))
+        outcome = await executors["fetch_known_url"](
+            _tool_request("fetch_known_url", "https://www.sec.gov/news/contoso-10k")
+        )
+
+        assert outcome.executed is True
+        [record] = outcome.internal_results
+        assert record["source_document_id"] == str(held.id)
+        assert record["tier"] == SourceTier.T1_REGULATORY.value
+        assert record["quarantined"] is False
+        after = len(
+            list(
+                await fetch_scene["session"].scalars(
+                    select(SourceDocument).where(
+                        SourceDocument.request_id == fetch_scene["request"].id
+                    )
+                )
+            )
+        )
+        assert after == before, "a held document must not be re-recorded"
 
     async def test_a_refusal_from_the_fetch_layer_is_reported_not_raised(
         self, fetch_scene: dict[str, Any]
