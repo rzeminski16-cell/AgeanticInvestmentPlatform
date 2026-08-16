@@ -32,6 +32,7 @@ from aer.charts import Chart
 from aer.db.models import (
     Calculation,
     Company,
+    Evaluation,
     Job,
     ReportSection,
     ResearchRequest,
@@ -48,6 +49,7 @@ __all__ = [
     "AppendixRow",
     "CalculationFootnote",
     "ChartView",
+    "CoverageNote",
     "Footnote",
     "HeaderView",
     "ReportDocument",
@@ -71,6 +73,11 @@ _HASH_PREFIX = 12
 
 # How much of a code version a calculation footnote prints, on the same reasoning.
 _CODE_PREFIX = 12
+
+# Footnote display precision for calculated values: four decimal places, marked when
+# the rounding cut anything. The stored value is never touched.
+_DISPLAY_EXPONENT = -4
+_DISPLAY_QUANTUM = Decimal("0.0001")
 
 # Sorts undated sources first in the appendix rather than raising on the comparison.
 _EPOCH = date(1970, 1, 1)
@@ -122,7 +129,9 @@ class SectionView:
 
     ``origin`` is what the contents page groups by — ``'skill'`` sections appear under
     the "Custom analysis" heading so bespoke methodology is attributed as the operator's
-    own — while the body keeps position order regardless.
+    own — while the body keeps position order regardless. ``generated`` is what the
+    contents page marks: a reader should learn a section is missing from the contents,
+    not by turning to it.
     """
 
     key: str
@@ -131,6 +140,38 @@ class SectionView:
     position: Decimal
     fragments: tuple[Fragment, ...]
     citations: tuple[CitationRef, ...]
+    generated: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class CoverageNote:
+    """What this report could not cover, said once, at the front (gap A40).
+
+    The operator's decision on thin runs: still render the research note, with a small
+    warning and the sources in reach. This is that warning — derived from recorded state
+    (section statuses and failed evaluation metrics), never from prose, so it cannot
+    drift from what actually happened.
+    """
+
+    sections_failed: tuple[str, ...]
+    sections_total: int
+    checks_failed: tuple[str, ...]
+
+    @property
+    def sentence(self) -> str:
+        """The notice, minus the sources link — each notation attaches its own."""
+        parts: list[str] = []
+        if self.sections_failed:
+            named = ", ".join(self.sections_failed)
+            parts.append(
+                f"{len(self.sections_failed)} of {self.sections_total} sections could "
+                f"not be generated ({named})"
+            )
+        if self.checks_failed:
+            checks = ", ".join(self.checks_failed)
+            plural = "checks" if len(self.checks_failed) > 1 else "check"
+            parts.append(f"the {checks} validation {plural} failed")
+        return "; and ".join(parts) + "." if parts else ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,6 +275,7 @@ class ReportDocument:
     charts: tuple[ChartView, ...] = ()
     disclaimer: str = DISCLAIMER
     job_id: uuid.UUID | None = None
+    coverage: CoverageNote | None = None
 
     @property
     def section_keys(self) -> list[str]:
@@ -305,7 +347,12 @@ async def assemble_document(
             # finds the third marker in the report rather than the third in some section.
             footnote_start=len(citations) + 1,
             status_note=_STATUS_NOTES.get(section.status),
-            warning=section.low_confidence_reason,
+            # A failed section's recorded reason is the validator's diagnostics — raw
+            # ids and schema paths, written for the operator's console. The reader gets
+            # the status line and the coverage notice; the diagnostics stay in the run.
+            warning=(
+                None if section.status is SectionStatus.FAILED else section.low_confidence_reason
+            ),
         )
         views.append(
             SectionView(
@@ -315,6 +362,7 @@ async def assemble_document(
                 position=Decimal(str(section.position)),
                 fragments=rendered.fragments,
                 citations=tuple(rendered.citations),
+                generated=section.status not in (SectionStatus.FAILED, SectionStatus.PENDING),
             )
         )
         citations.extend(rendered.citations)
@@ -339,6 +387,7 @@ async def assemble_document(
 
     footnotes = await _footnotes(session, citations)
     appendix = await _appendix(session, citations)
+    coverage = await _coverage(session, job=job, sections=sections, definitions=definitions)
 
     return ReportDocument(
         header=HeaderView(
@@ -360,10 +409,49 @@ async def assemble_document(
         citations=citations,
         charts=tuple(chart_views),
         job_id=job.id,
+        coverage=coverage,
     )
 
 
 # -- Resolution ------------------------------------------------------------------------------
+
+
+async def _coverage(
+    session: AsyncSession,
+    *,
+    job: Job,
+    sections: list[ReportSection],
+    definitions: dict[uuid.UUID, SectionDefinition],
+) -> CoverageNote | None:
+    """The coverage notice's inputs, from recorded state only. ``None`` when full.
+
+    Derived rather than written: the section statuses and the evaluation rows are what
+    actually happened, so the notice cannot say less than the run recorded — the failure
+    mode gap A40 exists to prevent is a note-perfect document shape wrapped around
+    content that is not there, with nothing at the front saying so.
+    """
+    failed = tuple(
+        (
+            definitions[section.section_definition_id].title
+            if section.section_definition_id in definitions
+            else section.section_key
+        )
+        for section in sections
+        if section.status in (SectionStatus.FAILED, SectionStatus.PENDING)
+    )
+    checks = await session.scalars(
+        select(Evaluation.metric)
+        .where(Evaluation.job_id == job.id, Evaluation.passed.is_(False))
+        .order_by(Evaluation.metric)
+    )
+    failed_checks = tuple(checks)
+    if not failed and not failed_checks:
+        return None
+    return CoverageNote(
+        sections_failed=failed,
+        sections_total=len(sections),
+        checks_failed=failed_checks,
+    )
 
 
 async def _footnotes(session: AsyncSession, citations: list[CitationRef]) -> tuple[Footnote, ...]:
@@ -392,8 +480,11 @@ async def _footnotes(session: AsyncSession, citations: list[CitationRef]) -> tup
                 CalculationFootnote(
                     number=number,
                     formula=calculation.formula,
-                    value=str(calculation.output_value),
-                    unit=calculation.output_unit,
+                    value=_display_value(calculation.output_value),
+                    # "pure" is the unit algebra's own vocabulary for a dimensionless
+                    # ratio; to a reader it is noise beside the number. The stored row
+                    # keeps it — this is display, and the drill-down shows everything.
+                    unit=("" if calculation.output_unit == "pure" else calculation.output_unit),
                     function_ref=calculation.function_ref,
                     code_version_prefix=calculation.code_version[:_CODE_PREFIX],
                 )
@@ -479,6 +570,22 @@ async def _load_calculations(
         return {}
     rows = await session.scalars(select(Calculation).where(Calculation.id.in_(ids)))
     return {str(row.id): row for row in rows}
+
+
+def _display_value(value: Decimal) -> str:
+    """A calculation's value as a reader meets it: four decimal places, marked when cut.
+
+    The live report printed ``0.437565271053`` in a footnote — twelve decimal places of
+    asset turnover, which is storage precision leaking into prose. The stored value is
+    untouched and the drill-down page shows it in full; this is presentation, and it
+    says so when it rounds rather than pretending the shorter number is the recorded one.
+    """
+    exponent = value.as_tuple().exponent
+    needs_rounding = isinstance(exponent, int) and exponent < _DISPLAY_EXPONENT
+    quantised = value.quantize(_DISPLAY_QUANTUM) if needs_rounding else value
+    if quantised == value:
+        return str(value)
+    return f"{quantised.normalize():f} (rounded; full precision stored)"
 
 
 def _uuids(citations: list[CitationRef], *, kind: str) -> list[uuid.UUID]:

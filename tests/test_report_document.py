@@ -34,6 +34,7 @@ from aer.db.models import (
     Artefact,
     Calculation,
     Company,
+    Evaluation,
     Job,
     ReportSection,
     ResearchRequest,
@@ -43,7 +44,12 @@ from aer.db.models import (
     SourceDocument,
     User,
 )
-from aer.render.document import ReportDocument, assemble_document
+from aer.render.document import (
+    CoverageNote,
+    ReportDocument,
+    _display_value,
+    assemble_document,
+)
 from aer.render.html import _blocks, _emphasise, render_html
 from aer.render.markdown import (
     RenderedReport,
@@ -51,7 +57,7 @@ from aer.render.markdown import (
     render_markdown,
     serialise_markdown,
 )
-from aer.sections.render import Heading
+from aer.sections.render import Banner, Heading, _unescaped
 from tests.workflow_fixtures import AS_OF_DATE
 
 pytestmark = pytest.mark.anyio
@@ -419,6 +425,79 @@ async def _render(scene: dict[str, Any]) -> RenderedReport:
         confidence=0.62,
         generated_at=GENERATED_AT,
     )
+
+
+class TestTheReportFacesTheReader:
+    """Gap A40. The live report opened with eight raw validator lines and UUIDs where the
+    Executive Summary belongs, printed twelve-decimal ratios in its notes, and marked
+    nothing in the contents for the reader who would find four sections missing. The
+    document now says what it could not cover once, at the front, and keeps the
+    diagnostics in the run where they belong.
+    """
+
+    async def test_the_coverage_notice_derives_from_recorded_state(
+        self, scene: dict[str, Any]
+    ) -> None:
+        scene["session"].add(
+            Evaluation(
+                job_id=scene["job"].id,
+                metric="source_coverage",
+                value=Decimal("0.8462"),
+                threshold=Decimal("0.90"),
+                passed=False,
+                details={},
+            )
+        )
+        await scene["session"].flush()
+
+        document = await assemble_document(
+            scene["session"],
+            job=scene["job"],
+            request=scene["request"],
+            generated_at=GENERATED_AT,
+        )
+
+        assert document.coverage is not None
+        assert "Golden Failed" in document.coverage.sections_failed
+        assert "Golden Pending" in document.coverage.sections_failed
+        assert document.coverage.checks_failed == ("source_coverage",)
+        assert "source_coverage" in document.coverage.sentence
+
+    async def test_a_failed_sections_diagnostics_stay_out_of_the_document(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The reader gets the status line; the validator's raw problems stay in the run."""
+        document = await assemble_document(
+            scene["session"],
+            job=scene["job"],
+            request=scene["request"],
+            generated_at=GENERATED_AT,
+        )
+
+        failed = next(view for view in document.sections if view.key == "golden_failed")
+        assert not failed.generated
+        assert not any(isinstance(fragment, Banner) for fragment in failed.fragments)
+        # A degraded-but-generated section keeps its banner: the suppression is for
+        # diagnostics, not for honest warnings.
+        warned = next(view for view in document.sections if view.key == "golden_warnings")
+        assert any(isinstance(fragment, Banner) for fragment in warned.fragments)
+
+    def test_a_full_report_carries_no_notice(self) -> None:
+        assert CoverageNote(sections_failed=(), sections_total=18, checks_failed=()).sentence == ""
+
+    def test_display_values_read_like_prose_not_storage(self) -> None:
+        assert _display_value(Decimal("0.437565271053")) == (
+            "0.4376 (rounded; full precision stored)"
+        )
+        assert _display_value(Decimal("15")) == "15"
+        assert _display_value(Decimal("0.025")) == "0.025"
+
+    def test_literal_escapes_are_decoded_at_render(self) -> None:
+        assert _unescaped("no view \\u2014 favourable or unfavourable \\u2014 here") == (
+            "no view — favourable or unfavourable — here"
+        )
+        assert _unescaped({"a": ["x \\u00e9"]}) == {"a": ["x é"]}
+        assert _unescaped(42) == 42
 
 
 class TestTheGoldenMarkdown:

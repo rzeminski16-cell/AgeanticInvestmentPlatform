@@ -102,10 +102,18 @@
     border-left: 3pt solid var(--amber); background: #fbf6ea; color: var(--amber);
     padding: 0.5rem 0.8rem; margin: 0.6rem 0; font-size: 0.9rem; break-inside: avoid;
   }
+  .coverage {
+    border-left: 3pt solid var(--amber); background: #fbf6ea; color: var(--amber);
+    padding: 0.5rem 0.8rem; margin: 0.8rem 0 0; font-size: 0.85rem; break-inside: avoid;
+  }
   .status-note { font-style: italic; color: var(--muted); }
+  .not-generated { font-size: 0.85rem; color: var(--muted); font-style: italic; }
 
+  /* Tables break across pages by the row, never by the cell: an unbreakable long table
+     pushed a whole page blank before it. The header repeats via the paged-media engine. */
   table { width: 100%; border-collapse: collapse; margin: 0.6rem 0 1rem;
-          font-size: 0.92rem; break-inside: avoid; }
+          font-size: 0.92rem; break-inside: auto; }
+  tr { break-inside: avoid; }
   th { font-family: "DejaVu Sans", sans-serif; font-size: 0.7rem; text-transform: uppercase;
        letter-spacing: 0.06em; color: var(--muted); text-align: left;
        border-bottom: 1.2pt solid var(--ink); padding: 0.3rem 0.6rem 0.3rem 0; }
@@ -146,17 +154,21 @@
     <dt>Confidence</dt><dd>62%</dd>
   </dl>
   <div class="disclaimer">This is a personal research tool. It is <strong>not</strong> regulated investment advice, and nothing in this document is a recommendation to buy, sell or hold any security. Any rating expressed is a non-binding personal view.</div>
+  <aside class="coverage" role="note">
+    <strong>Coverage notice:</strong> 2 of 6 sections could not be generated (Golden Pending, Golden Failed).
+    The evidence this report rests on is listed in <a href="#sources">Sources</a>.
+  </aside>
 </header>
 
 <nav class="toc" id="contents">
   <h2>Contents</h2>
   <ol>
-    <li><a href="#section-golden_overview">Golden Overview</a></li>
-    <li><a href="#section-golden_warnings">Golden Warnings</a></li>
-    <li><a href="#section-golden_pending">Golden Pending</a></li>
-    <li><a href="#section-golden_failed">Golden Failed</a></li>
-    <li><a href="#section-golden_skipped">Golden Skipped</a></li>
-    <li><a href="#section-golden_unresolved">Golden Unresolved</a></li>
+    <li><a href="#section-golden_overview">Golden Overview</a>    </li>
+    <li><a href="#section-golden_warnings">Golden Warnings</a>    </li>
+    <li><a href="#section-golden_pending">Golden Pending</a> <span class="not-generated">(not generated)</span>    </li>
+    <li><a href="#section-golden_failed">Golden Failed</a> <span class="not-generated">(not generated)</span>    </li>
+    <li><a href="#section-golden_skipped">Golden Skipped</a>    </li>
+    <li><a href="#section-golden_unresolved">Golden Unresolved</a>    </li>
   </ol>
 </nav>
 
@@ -184,7 +196,7 @@
   </section>
   <section class="report-section"
            id="section-golden_failed">
-    <h2>Golden Failed</h2><div class="banner" role="note">The golden scene fails this one on purpose.</div><p class="status-note">This section could not be generated.</p>
+    <h2>Golden Failed</h2><p class="status-note">This section could not be generated.</p>
   </section>
   <section class="report-section"
            id="section-golden_skipped">

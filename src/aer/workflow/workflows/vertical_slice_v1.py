@@ -973,6 +973,15 @@ async def _red_team(context: StepContext) -> StepResult:
     )
     outcome = await run_red_team(agent_context, context.session, job=context.job, request=request)
 
+    # Refilled *after* the challenges land and *before* the payload is hashed (gap A41).
+    # The validate step wrote this section a step earlier, when the disagreements table
+    # was still empty — so a live report said "no disagreements recorded" above eight
+    # recorded challenges, two of them material. The builders overwrite, so the refill
+    # is the same fill with the red team's rows now in its denominator.
+    await fill_deterministic_sections(
+        context.session, job=context.job, request=request, stage=SectionStage.VALIDATE
+    )
+
     payload = await final_gate_payload(context.session, job_id=context.job.id)
     return StepResult(
         output={

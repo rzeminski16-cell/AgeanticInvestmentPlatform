@@ -12,6 +12,8 @@
 
 ---
 
+> **Coverage notice:** 2 of 6 sections could not be generated (Golden Pending, Golden Failed). The evidence this report rests on is listed in [Sources](#sources).
+
 ## Sector: Banks
 
 **This report does not run dcf.** The model is blocked for this sector rather than discouraged: it was not run and no figure below came from it.
@@ -67,8 +69,6 @@ Written under a banner, deliberately.
 *This section was not generated.*
 
 ## Golden Failed
-
-> **The golden scene fails this one on purpose.**
 
 *This section could not be generated.*
 

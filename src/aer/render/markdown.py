@@ -24,6 +24,7 @@ from aer.render.document import (
     AppendixRow,
     CalculationFootnote,
     ChartView,
+    CoverageNote,
     Footnote,
     HeaderView,
     ReportDocument,
@@ -117,6 +118,7 @@ def serialise_markdown(document: ReportDocument) -> str:
     return "\n".join(
         [
             *_header(document.header),
+            *_coverage_block(document.coverage),
             *_sector_block(document.sector),
             *body,
             *_comps_block(document.comps_paragraph),
@@ -150,6 +152,22 @@ def _header(header: HeaderView) -> list[str]:
 
     lines.extend(["", f"> {DISCLAIMER}", "", "---", ""])
     return lines
+
+
+def _coverage_block(coverage: CoverageNote | None) -> list[str]:
+    """The coverage notice, at the front, once (gap A40).
+
+    The operator's decision for a thin run: the research note still renders, with a
+    small warning and the sources in reach — instead of nine sections each independently
+    rediscovering the same shortfall at four hundred words apiece.
+    """
+    if coverage is None:
+        return []
+    return [
+        f"> **Coverage notice:** {coverage.sentence} The evidence this report rests on "
+        "is listed in [Sources](#sources).",
+        "",
+    ]
 
 
 def _sector_block(sector: SectorNote | None) -> list[str]:
@@ -246,9 +264,12 @@ def _footnotes(footnotes: tuple[Footnote, ...]) -> list[str]:
 def _footnote_text(footnote: Footnote) -> str:
     match footnote:
         case CalculationFootnote():
+            # The unit is blank for a dimensionless ratio; joining the present pieces
+            # keeps "= 0.4376 (…)" from carrying a stray double space.
+            shown = " ".join(piece for piece in (footnote.value, footnote.unit) if piece)
             return (
                 f"Calculated: `{footnote.formula}` "
-                f"= {footnote.value} {footnote.unit} "
+                f"= {shown} "
                 f"(`{footnote.function_ref}`, code version `{footnote.code_version_prefix}`)."
             )
         case SourceFootnote():

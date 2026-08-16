@@ -102,10 +102,18 @@
     border-left: 3pt solid var(--amber); background: #fbf6ea; color: var(--amber);
     padding: 0.5rem 0.8rem; margin: 0.6rem 0; font-size: 0.9rem; break-inside: avoid;
   }
+  .coverage {
+    border-left: 3pt solid var(--amber); background: #fbf6ea; color: var(--amber);
+    padding: 0.5rem 0.8rem; margin: 0.8rem 0 0; font-size: 0.85rem; break-inside: avoid;
+  }
   .status-note { font-style: italic; color: var(--muted); }
+  .not-generated { font-size: 0.85rem; color: var(--muted); font-style: italic; }
 
+  /* Tables break across pages by the row, never by the cell: an unbreakable long table
+     pushed a whole page blank before it. The header repeats via the paged-media engine. */
   table { width: 100%; border-collapse: collapse; margin: 0.6rem 0 1rem;
-          font-size: 0.92rem; break-inside: avoid; }
+          font-size: 0.92rem; break-inside: auto; }
+  tr { break-inside: avoid; }
   th { font-family: "DejaVu Sans", sans-serif; font-size: 0.7rem; text-transform: uppercase;
        letter-spacing: 0.06em; color: var(--muted); text-align: left;
        border-bottom: 1.2pt solid var(--ink); padding: 0.3rem 0.6rem 0.3rem 0; }
@@ -148,13 +156,21 @@
     {% endif %}
   </dl>
   <div class="disclaimer">{{ disclaimer_html }}</div>
+  {% if document.coverage %}
+  <aside class="coverage" role="note">
+    <strong>Coverage notice:</strong> {{ document.coverage.sentence }}
+    The evidence this report rests on is listed in <a href="#sources">Sources</a>.
+  </aside>
+  {% endif %}
 </header>
 
 <nav class="toc" id="contents">
   <h2>Contents</h2>
   <ol>
     {% for section in builtin_sections %}
-    <li><a href="#section-{{ section.key }}">{{ section.title }}</a></li>
+    <li><a href="#section-{{ section.key }}">{{ section.title }}</a>
+      {%- if not section.generated %} <span class="not-generated">(not generated)</span>{% endif %}
+    </li>
     {% endfor %}
   </ol>
   {% if custom_sections %}
@@ -166,7 +182,9 @@
   </p>
   <ol>
     {% for section in custom_sections %}
-    <li><a href="#section-{{ section.key }}">{{ section.title }}</a></li>
+    <li><a href="#section-{{ section.key }}">{{ section.title }}</a>
+      {%- if not section.generated %} <span class="not-generated">(not generated)</span>{% endif %}
+    </li>
     {% endfor %}
   </ol>
   {% endif %}

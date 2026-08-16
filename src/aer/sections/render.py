@@ -30,8 +30,9 @@ generic output would be an override nobody could tell was necessary.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Final
 
 __all__ = [
     "Banner",
@@ -195,6 +196,11 @@ def render_section(
         )
         return _rendered(title=title, key=key, fragments=fragments, citations=citations)
 
+    # Model prose intermittently arrives double-escaped: a literal backslash-u-2014 in
+    # the stored text where an em dash belongs, which a live report printed verbatim
+    # mid-sentence. Normalised at render, once, for every notation.
+    content = _unescaped(content)
+
     for name, subschema in _ordered_properties(contract):
         if name in _METADATA_KEYS or name not in content:
             continue
@@ -215,6 +221,24 @@ def render_section(
         )
 
     return _rendered(title=title, key=key, fragments=fragments, citations=citations)
+
+
+_LITERAL_ESCAPE: Final[re.Pattern[str]] = re.compile(r"\\u([0-9a-fA-F]{4})")
+
+
+def _unescaped(value: Any) -> Any:
+    """The value with literal ``\\uXXXX`` sequences decoded to their characters.
+
+    Applied to prose only at render time; the stored content is untouched, so the
+    artefact trail still shows exactly what the model produced.
+    """
+    if isinstance(value, str):
+        return _LITERAL_ESCAPE.sub(lambda match: chr(int(match.group(1), 16)), value)
+    if isinstance(value, dict):
+        return {key: _unescaped(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_unescaped(item) for item in value]
+    return value
 
 
 def _rendered(

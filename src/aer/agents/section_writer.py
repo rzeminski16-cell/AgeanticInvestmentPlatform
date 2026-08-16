@@ -91,6 +91,12 @@ policy admits them.
 and a `basis` under {basis_budget}. These are asked for here because the schema's own
 bounds reach you as description text rather than as a rule the server applies — a reply
 that overruns them is thrown away after it has been paid for.
+6. Write for the reader of a research note, never for the platform's operator. Do not
+mention evidence budgets, token limits, truncation, retrieval, extraction, re-running,
+or what a future revision should fetch — those are the platform's internals, not
+analysis. Where the evidence is silent on something, say so in one clause and move on
+to what it does support; a section that spends its length describing its own
+limitations has not analysed anything.
 
 This section's output contract — your content object must carry exactly these fields:
 {contract}

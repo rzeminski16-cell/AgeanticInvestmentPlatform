@@ -60,6 +60,7 @@ def render_html(document: ReportDocument) -> str:
             "key": section.key,
             "title": section.title,
             "origin": section.origin,
+            "generated": section.generated,
             "body": _blocks(section.fragments, seen=seen, titles=titles),
         }
         for section in document.sections
@@ -189,8 +190,9 @@ def _hover(footnote: Footnote) -> str:
     """One footnote as the plain sentence its markers show on hover — no markup, no JS."""
     match footnote:
         case CalculationFootnote():
+            shown = " ".join(piece for piece in (footnote.value, footnote.unit) if piece)
             return (
-                f"Calculated: {footnote.formula} = {footnote.value} {footnote.unit}. "
+                f"Calculated: {footnote.formula} = {shown}. "
                 "Follow the note to walk it back to its inputs."
             )
         case SourceFootnote():
@@ -241,9 +243,12 @@ def _footnote(footnote: Footnote, *, job_id: object = None) -> dict[str, object]
     """
     match footnote:
         case CalculationFootnote():
+            # The unit is blank for a dimensionless ratio; joining the present pieces
+            # keeps "= 0.4376 (…)" from carrying a stray double space.
+            shown = " ".join(piece for piece in (footnote.value, footnote.unit) if piece)
             text = Markup(
                 f"Calculated: <code>{escape(footnote.formula)}</code> = "
-                f"{escape(footnote.value)} {escape(footnote.unit)} "
+                f"{escape(shown)} "
                 f"(<code>{escape(footnote.function_ref)}</code>, code version "
                 f"<code>{escape(footnote.code_version_prefix)}</code>)."
             )

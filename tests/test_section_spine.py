@@ -10,6 +10,7 @@ after the payload was sealed.
 
 from __future__ import annotations
 
+import inspect
 import uuid
 from decimal import Decimal
 from typing import Any
@@ -36,6 +37,7 @@ from aer.sections.deterministic import SectionStage, fill_deterministic_sections
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.skills.resolution import pinned_skills_for_plan
+from aer.workflow.workflows import vertical_slice_v1
 from aer.workflow.workflows.vertical_slice_v1 import final_gate_payload, plan_gate_payload
 from tests.workflow_fixtures import SPINE_KEYS, seed_job, seed_request, seed_user
 
@@ -440,6 +442,61 @@ class TestTheDeterministicSections:
         sealed = {entry["key"]: entry for entry in payload["sections"] if isinstance(entry, dict)}
         assert sealed["validation_disagreements"]["status"] == SectionStatus.GENERATED.value
         assert sealed["validation_disagreements"]["content"]["validations"]
+
+    async def test_the_red_teams_challenges_reach_the_section_it_wrote_over(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Gap A41's mechanism: the fill is an overwrite, so refilling after the red team
+        records its challenges replaces "no disagreements recorded" with the rows.
+
+        A live report said none were recorded above eight recorded challenges, because
+        the section was written by the validate step, one step before the red team ran.
+        """
+        await _to_second_gate(scene)
+        before = await _section(scene, "validation_disagreements")
+        assert "No disagreements" in before.content["summary"]
+
+        scene["session"].add(
+            Disagreement(
+                job_id=scene["job"].id,
+                topic="Red team (valuation): the margin path is asserted, not evidenced",
+                kind=DisagreementKind.THESIS_CONFLICT,
+                position_a={"claim": "margin holds"},
+                position_b={"challenge": "depreciation outruns revenue"},
+                resolution=ResolutionOutcome.ESCALATED,
+                rule=ResolutionRule.THESIS_CONFLICT,
+                resolved_by=ResolvedBy.RULE,
+                resolution_rationale="Escalated to gate 2.",
+                escalated_to_gate=GateKind.FINAL,
+                fingerprint="a" * 64,
+            )
+        )
+        await scene["session"].flush()
+
+        refilled = await fill_deterministic_sections(
+            scene["session"],
+            job=scene["job"],
+            request=scene["request"],
+            stage=SectionStage.VALIDATE,
+        )
+
+        assert "validation_disagreements" in refilled
+        after = await _section(scene, "validation_disagreements")
+        assert "1 disagreement(s)" in after.content["summary"]
+        assert after.content["disagreements"], "the recorded challenge never reached the section"
+
+    def test_the_red_team_step_refills_after_recording_and_before_sealing(self) -> None:
+        """The ordering itself, pinned at the source: record, refill, then hash.
+
+        A refill moved after ``final_gate_payload`` would seal a payload the operator
+        approves without the challenges in its disagreements section — the live failure
+        with an extra step of indirection.
+        """
+        source = inspect.getsource(vertical_slice_v1._red_team)
+        recorded = source.index("run_red_team(")
+        refilled = source.index("fill_deterministic_sections(")
+        sealed = source.index("final_gate_payload(")
+        assert recorded < refilled < sealed
 
     def test_a_settled_disagreement_names_the_rule_that_settled_it(self) -> None:
         row = Disagreement(

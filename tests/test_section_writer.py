@@ -26,6 +26,8 @@ from aer.agents.custom_section import (
     CLAIM_BASIS_CEILING,
     CLAIM_STATEMENT_BUDGET,
     CLAIM_STATEMENT_CEILING,
+    CustomSectionAgent,
+    CustomSectionInput,
     ProposedClaim,
 )
 from aer.agents.registry import resolve_role
@@ -628,3 +630,38 @@ class TestTheClaimLengthsAreAskedForNotJustEnforced:
                 f"{path.name} feeds the exception's own message to the retry, which names "
                 "a count rather than the fields"
             )
+
+
+class TestTheWriterSpeaksToTheReader:
+    """Gap A40: nine live sections narrated evidence budgets, retrieval plans and
+    re-run instructions — the platform's internals, addressed to its operator. The rule
+    is in both drafting prompts; asserted on the rendered prompt so a template edit
+    that drops it fails by name."""
+
+    def test_the_rule_reaches_both_drafting_prompts(self) -> None:
+        builtin = SectionWriterAgent().system_prompt(
+            SectionWriterInput(
+                section_key="business_overview",
+                title="Business overview",
+                company_name="Microsoft Corporation",
+                ticker="MSFT",
+                as_of_date="2024-06-30",
+                point_in_time=True,
+                output_contract={"properties": {"commentary": {"type": "string"}}},
+            )
+        )
+        custom = CustomSectionAgent().system_prompt(
+            CustomSectionInput(
+                section_key="my_section",
+                title="My section",
+                company_name="Microsoft Corporation",
+                ticker="MSFT",
+                as_of_date="2024-06-30",
+                output_contract={"properties": {"commentary": {"type": "string"}}},
+                skill_body="Analyse the moat.",
+            )
+        )
+
+        for prompt in (builtin, custom):
+            assert "never for the platform's operator" in prompt
+            assert "say so in one clause" in prompt
