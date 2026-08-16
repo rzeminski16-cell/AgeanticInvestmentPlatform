@@ -870,3 +870,31 @@ class TestTheBatchPath:
             await provider.complete_structured_batch(
                 Plan, requests=_batch_requests(1), model=OPUS, effort="high"
             )
+
+    async def test_an_unusable_reply_carries_the_whole_batchs_bill(self) -> None:
+        """Gap A36: the batch completed at the API — every item billed — then one reply
+        failed validation here, and the bare error carried no usage, so no cost row was
+        ever written for money that moved. The failure now travels as the same billed
+        type the single-call path meters, and the bill is the *sum*: the sibling items
+        were billed too, and metering only the failed item's share would hide most of it.
+        """
+        entries = [
+            _entry("item-0", payload='{"summary": "sound", "confidence": 0.5}'),
+            _entry("item-1", payload='{"confidence": 0.5}'),  # no summary: unreadable
+        ]
+        provider, _ = _batch_provider(entries)
+
+        with pytest.raises(SpentButUnusableError) as caught:
+            await provider.complete_structured_batch(
+                Plan, requests=_batch_requests(2), model=OPUS, effort="high"
+            )
+
+        spent = caught.value
+        assert "Batch item 1" in spent.message
+        assert spent.usage.input_tokens == 240  # both items, not the failed one's 120
+        assert spent.usage.output_tokens == 68
+        assert spent.usage.cache_read_tokens == 14
+        assert spent.context["item"] == 1
+        assert spent.context["items_billed"] == 2
+        # The archived pair is the failed exchange — the one somebody will want to read.
+        assert spent.request_payload["custom_id"] == "item-1"

@@ -14,6 +14,7 @@ from typing import Any, cast
 
 import pytest
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import aer.agents.registry as registry_module
@@ -29,9 +30,10 @@ from aer.agents.registry import (
 )
 from aer.config import ModelRoute, Settings
 from aer.core.enums import JobStatus
-from aer.db.models import Job, JobStep
+from aer.db.models import AgentRun, Cost, Job, JobStep
 from aer.errors import BudgetExceededError
 from aer.providers.fake import FakeProvider
+from aer.providers.protocol import SpentButUnusableError, Usage
 from aer.providers.router import Router
 from aer.storage.local import LocalArtefactStore
 from aer.storage.protocol import ArtefactStore
@@ -376,6 +378,44 @@ class TestWhatTheProviderBoundaryRefuses:
     def test_the_output_cap_is_the_registrys_not_a_default(self):
         assert _Probe().definition.max_output_tokens == 4096
         assert PlannerAgent().definition.max_output_tokens == 16_384
+
+
+class TestABilledBatchFailureIsMetered:
+    """Gap A36. The failed AMZN red team showed it: the batch completed at the API —
+    tokens billed — then failed validation here, and the raise carried no usage, so
+    ``run_batch`` wrote no cost row for money that moved. Invariant 6's own words apply:
+    spend the meter cannot see is spend the cap cannot cap. The single-call path solved
+    exactly this with ``SpentButUnusableError``; the batch path now inherits it.
+    """
+
+    async def test_the_spend_reaches_the_ledger_before_the_error_continues(
+        self, db_session: AsyncSession, tmp_path: Path
+    ):
+        billed = SpentButUnusableError(
+            "Batch item 0: claude-haiku-4-5's reply could not be read as ProbeAnswer.",
+            usage=Usage(input_tokens=2_000, output_tokens=800, model="claude-haiku-4-5"),
+            request_payload={"batch_id": "batch_1", "custom_id": "item-0"},
+            response_payload={"content": []},
+            context={"item": 0, "items_billed": 2},
+        )
+
+        def refuse(schema: type) -> Any:
+            raise billed
+
+        step = await _seeded_step(db_session)
+        provider = FakeProvider(refuse)
+        context = _probe_context(db_session, step, provider, tmp_path)
+
+        with pytest.raises(SpentButUnusableError):
+            await _Probe().run_batch(context, ["one", "two"])
+
+        run = await db_session.scalar(select(AgentRun).where(AgentRun.job_step_id == step.id))
+        assert run is not None
+        assert run.stop_reason == "schema_rejected"
+        rows = list(await db_session.scalars(select(Cost).where(Cost.agent_run_id == run.id)))
+        assert rows
+        # Priced off the usage the failure carried — the whole batch's bill, not zero.
+        assert sum(row.amount_gbp for row in rows) > 0
 
 
 class TestThePlatformContract:

@@ -357,13 +357,38 @@ class AnthropicProvider:
             ) from exc
         elapsed_ms = (time.perf_counter() - started) * 1000
 
-        results: list[StructuredResult[T]] = []
-        for index, request in enumerate(params):
+        # Success at the API is settled for every item before any reply is read, because
+        # a validation failure below claims the whole batch's bill: only once every item
+        # has succeeded — and so been billed — is that claim honest.
+        replies: list[Any] = []
+        for index in range(len(params)):
             entry = by_id.get(_custom_id(index))
-            response = _succeeded_message(entry, index=index, batch_id=str(batch.id))
-            value = _validate_batch_reply(
-                response, schema, model=model, max_tokens=max_tokens, index=index
-            )
+            replies.append(_succeeded_message(entry, index=index, batch_id=str(batch.id)))
+
+        results: list[StructuredResult[T]] = []
+        for index, (request, response) in enumerate(zip(params, replies, strict=True)):
+            try:
+                value = _validate_batch_reply(
+                    response, schema, model=model, max_tokens=max_tokens, index=index
+                )
+            except ValidationError as unusable:
+                # The batch completed and was billed — every item, not only this one. A
+                # bare ValidationError here left the whole batch's spend off the ledger
+                # (gap A36): the caller meters this type, and a budget cap that cannot
+                # see spend cannot cap it. The archived pair is the failed exchange, the
+                # one somebody will want to read.
+                raise SpentButUnusableError(
+                    unusable.message,
+                    usage=_billed_together([_usage_from(reply, model=model) for reply in replies]),
+                    request_payload={
+                        "batch_id": str(batch.id),
+                        "custom_id": _custom_id(index),
+                        **_archived(request, schema),
+                    },
+                    response_payload=_response_payload(response),
+                    latency_ms=elapsed_ms,
+                    context={**unusable.context, "items_billed": len(replies)},
+                ) from unusable
             results.append(
                 StructuredResult(
                     value=value,
@@ -632,6 +657,24 @@ def _succeeded_message(entry: Any, *, index: int, batch_id: str) -> Any:
             context={"batch": batch_id, "item": index, "kind": kind},
         )
     return reply
+
+
+def _billed_together(usages: Sequence[Usage]) -> Usage:
+    """Every item's usage as one bill.
+
+    A batch is one call in the protocol, so when one item's reply is unusable the failure
+    carries the sum: the other items were billed too, and metering only the failed item's
+    share would hide most of the money that moved — gap A36's exact shape, one level down.
+    ``stop_reason`` is left unset because the aggregate has none; the caller stamps the
+    run row with the schema's verdict instead.
+    """
+    return Usage(
+        input_tokens=sum(item.input_tokens for item in usages),
+        output_tokens=sum(item.output_tokens for item in usages),
+        model=usages[0].model,
+        cache_read_tokens=sum(item.cache_read_tokens for item in usages),
+        cache_write_tokens=sum(item.cache_write_tokens for item in usages),
+    )
 
 
 def _validate_batch_reply[T: BaseModel](

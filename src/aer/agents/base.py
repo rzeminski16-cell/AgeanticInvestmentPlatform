@@ -571,8 +571,10 @@ class Agent[InputT, OutputT: BaseModel]:
         Everything :meth:`run` guarantees, per item: the same composition (so nothing can
         skip the wrapping), the same input-cap refusal *before* any money moves, and one
         archived, metered ``agent_runs`` row per item — a batch is a transport choice,
-        not a different audit standard. Results come back in payload order, which the
-        provider protocol makes part of its contract.
+        not a different audit standard. That includes the failure book-keeping: a reply
+        that fails validation arrives as the same billed error the single path meters,
+        and it is metered here before it continues. Results come back in payload order,
+        which the provider protocol makes part of its contract.
         """
         if not payloads:
             return []
@@ -602,13 +604,26 @@ class Agent[InputT, OutputT: BaseModel]:
         )
 
         started = time.perf_counter()
-        results = await context.provider.complete_structured_batch(
-            self.output_schema,
-            requests=requests,
-            model=choice.model,
-            effort=choice.effort,
-            max_tokens=self.definition.max_output_tokens,
-        )
+        try:
+            results = await context.provider.complete_structured_batch(
+                self.output_schema,
+                requests=requests,
+                model=choice.model,
+                effort=choice.effort,
+                max_tokens=self.definition.max_output_tokens,
+            )
+        except SpentButUnusableError as unusable:
+            # The same book-keeping the single path does, for the same reason: the batch
+            # completed at the API and was billed before any reply could fail validation
+            # here (gap A36). The bill it carries covers every item, so one row puts the
+            # whole of the money on the ledger; the archived exchange is the failed
+            # item's, whose system prompt names the row.
+            item = unusable.context.get("item")
+            which = item if isinstance(item, int) and 0 <= item < len(requests) else 0
+            await self._meter_a_failure(
+                context, unusable, choice_model=choice.model, system=requests[which].system
+            )
+            raise
         elapsed_ms = (time.perf_counter() - started) * 1000
 
         values: list[OutputT] = []
