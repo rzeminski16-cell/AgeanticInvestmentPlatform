@@ -72,6 +72,13 @@ sized to a measured run. **If you set a per-run cap below about £7.50 you will 
 `budget_exceeded` at `draft`** where before you saw a finished report and a larger bill. That
 is the guard working, not a regression.
 
+*And the token allowances are gone* (A34, ADR 0053). The AAPL retry that failed with
+`token_cap_exceeded` at the analysis step cannot recur: no role has an input-token
+allowance any more. Every model call is instead priced in pounds before it is made and
+checked against the run's remaining budget and the month's — so an over-budget run now
+pauses *mid-step* at the first call it cannot afford, with the banner naming which ceiling,
+rather than only between steps.
+
 Check where you are with `/costs` if a run stops for a reason that does not match what the
 request allows.
 

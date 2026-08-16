@@ -236,10 +236,12 @@ case if it feeds the evaluation gate. Never a default parameter in `calc/wacc.py
 determination recorded in an ADR *before* the first request — two sources (FCA NSM, BoE)
 were declined at that step, and that outcome must stay reachable.
 
-**Add an agent role.** A `RoleDefinition` in `agents/registry.py` (tools, token caps,
-output contract) plus the ADR the registry test demands, and a route in `config.py`'s
-`DEFAULT_MODEL_ROUTES`. Capability lives only in the registry; a subclass declaring its
-own is refused at class definition.
+**Add an agent role.** A `RoleDefinition` in `agents/registry.py` (tools, output
+ceiling, output contract) plus the ADR the registry test demands, and a route in
+`config.py`'s `DEFAULT_MODEL_ROUTES`. Capability lives only in the registry; a subclass
+declaring its own is refused at class definition. There is deliberately no input-token
+allowance to set — a call is bounded by the model's context window and by money, per call
+(ADR 0053).
 
 **Add or change a skill.** User-authored Markdown with validated frontmatter; the
 additive-only composer intersects its requests against what the role already holds. If a
@@ -257,9 +259,11 @@ been re-litigated at least once already, which is why it is recorded here.
 - **No FCA NSM fetching.** ToS determination against it (ADR 0022).
 - **No Langfuse / external tracing vendor.** OpenTelemetry spans exist behind a setting;
   a collector nobody can run is a dependency nobody can trust (gap A13, ADR 0049).
-- **No per-call budgeting inside a step.** The guard runs before a step, so the nineteen
-  drafting calls run unchecked between checks. Recorded as an open consequence in ADR 0052,
-  not quietly implied to be solved.
+- **No per-role input-token allowances.** They existed, and a live run died on one that a
+  big company's evidence legitimately outgrew. Every call is now priced in pounds at the
+  provider boundary against the run's own budget and the month's — which also closed
+  ADR 0052's open consequence, since the calls *inside* a step are each guarded now. The
+  only token-shaped bound left is the routed model's context window (ADR 0053).
 - **The numeral rule stays strict** (gap A32, open). Dates, CIKs and exhibit numbers in
   prose trip it and are recovered by retry. Relaxing it moves invariant 3's boundary and
   needs an ADR and an operator decision.

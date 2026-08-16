@@ -260,12 +260,6 @@ class TestTheRoleIsRegisteredAndRoutable:
     def test_the_role_holds_no_tools(self) -> None:
         assert resolve_role("assumption_proposal").allowed_tools == frozenset()
 
-    def test_the_input_cap_is_a_tripwire_rather_than_a_context_window(self) -> None:
-        # The role is handed two short summaries. A cap anywhere near the model's context
-        # would happily carry the whole evidence pack, which is the composition this cap
-        # exists to catch — so the number is pinned, not merely present.
-        assert resolve_role("assumption_proposal").max_input_tokens == 20_000
-
     def test_the_agent_constructs_and_cannot_reach_a_tool(self) -> None:
         agent = AssumptionProposalAgent()
 

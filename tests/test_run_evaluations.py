@@ -16,6 +16,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import aer.providers.costs as costs_module
 from aer.agents.base import Agent, AgentContext, TokenCapExceededError
 from aer.agents.registry import resolve_role
 from aer.agents.validator import AssistInput, ValidatorAdvisory, ValidatorAssist
@@ -633,9 +634,14 @@ class TestTheBatchTransportKeepsTheAuditStandard:
         costs = list(await session.scalars(select(Cost).where(Cost.job_id == scene["job"].id)))
         assert len(costs) >= 2
 
-    async def test_an_oversized_batch_item_is_refused_before_any_money_moves(
-        self, scene: dict[str, Any]
+    async def test_an_unrunnable_batch_item_is_refused_before_any_money_moves(
+        self, scene: dict[str, Any], monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """The refusal used to come from the validator's 16k input allowance; ADR 0053
+        removed the allowances, so what remains unrunnable is a composition the routed
+        model's context window cannot hold — shrunk here, since no sane payload
+        outgrows the real one."""
+
         class _Bloated(Agent[str, ValidatorAdvisory]):
             role = "validator"
             output_schema = ValidatorAdvisory
@@ -646,8 +652,9 @@ class TestTheBatchTransportKeepsTheAuditStandard:
             def user_message(self, payload: str) -> str:
                 return payload
 
+        monkeypatch.setitem(costs_module.CONTEXT_WINDOW_TOKENS, "claude-sonnet-5", 5_000)
         provider = _advisory_provider()
-        with pytest.raises(TokenCapExceededError):
+        with pytest.raises(TokenCapExceededError, match="cannot fit"):
             await _Bloated().run_batch(_context(scene, provider), ["x" * 100_000])
 
         assert provider.call_count == 0

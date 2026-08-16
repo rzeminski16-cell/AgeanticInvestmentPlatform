@@ -28,10 +28,13 @@ from typing import Final
 from aer.providers.protocol import Usage
 
 __all__ = [
+    "CONTEXT_WINDOW_TOKENS",
+    "DEFAULT_CONTEXT_WINDOW_TOKENS",
     "DEFAULT_PRICES",
     "CostCategory",
     "CostLine",
     "ModelPrices",
+    "context_window_for",
     "price_usage",
     "unknown_model_prices",
 ]
@@ -203,3 +206,25 @@ def estimate_gbp(
         + Decimal(expected_output_tokens) * model_prices.output_usd
     ) / _MILLION
     return usd * usd_to_gbp
+
+
+# What each model can hold, in tokens, prompt and reply together. The vendor's limit, not
+# ours: a composition past it is a guaranteed 400 *after* the prompt has been uploaded, so
+# refusing it here is the same refusal for free. ADR 0053 is why this is the only
+# token-shaped bound left anywhere in the platform — every other ceiling is priced in
+# pounds.
+CONTEXT_WINDOW_TOKENS: Final[dict[str, int]] = {
+    "claude-opus-5": 1_000_000,
+    "claude-sonnet-5": 1_000_000,
+    "claude-haiku-4-5": 200_000,
+}
+
+# For a model not in the table: the smallest window any current model has. Conservative in
+# the same direction as `unknown_model_prices` — an unknown model refused early pauses a
+# step, an unknown model assumed roomy fails after the money moved.
+DEFAULT_CONTEXT_WINDOW_TOKENS: Final = 200_000
+
+
+def context_window_for(model: str) -> int:
+    """The model's context window, or the conservative default for one nobody listed."""
+    return CONTEXT_WINDOW_TOKENS.get(model, DEFAULT_CONTEXT_WINDOW_TOKENS)

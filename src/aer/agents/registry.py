@@ -86,18 +86,19 @@ class RoleDefinitionError(AerError):
 class RoleDefinition:
     """Everything a role is permitted, in one row.
 
-    ``max_input_tokens`` and ``max_output_tokens`` are enforced at the provider boundary by
-    the base agent: a call projected past the input cap is refused before it is made, and
-    the output cap is passed to the provider as a hard ``max_tokens``. ``adr`` names the
-    decision record that admitted the role — see the module docstring for why that field
-    refuses to be empty.
+    ``max_output_tokens`` is enforced at the provider boundary by the base agent, passed
+    through as the API's hard ``max_tokens``. There is deliberately no input counterpart:
+    the per-role input allowances were guesses that a live run outgrew, and what actually
+    bounds a composition is the routed model's context window and the money — both checked
+    per call by the base agent, the money in pounds against the run's own budget
+    (ADR 0053). ``adr`` names the decision record that admitted the role — see the module
+    docstring for why that field refuses to be empty.
     """
 
     role: str
     purpose: str
     output_schema_ref: str
     allowed_tools: frozenset[str]
-    max_input_tokens: int
     max_output_tokens: int
     adr: str
 
@@ -143,9 +144,6 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         # No tools. The planner reads the request and nothing else; an agent with no need
         # for a capability should not have it.
         allowed_tools=frozenset(),
-        # The request, the section vocabulary and the instruction — nowhere near this,
-        # so the cap is a tripwire for a caller interpolating something it should not.
-        max_input_tokens=20_000,
         # Headroom, not an expectation. `max_tokens` bounds thinking and visible output
         # together on the models this role routes to, and adaptive thinking at high effort
         # will happily spend 4,096 tokens reasoning before writing a word of the plan.
@@ -172,9 +170,6 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         allowed_tools=frozenset(
             {"search_facts", "search_sources", "search_filings_full_text", "fetch_known_url"}
         ),
-        # Evidence digests accumulate across the loop's rounds; the cap bounds the whole
-        # composed turn, not the first one.
-        max_input_tokens=30_000,
         max_output_tokens=8_192,
         adr="0036",
     ),
@@ -190,9 +185,6 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         # rate, and returns two numbers; a role that could fetch would be choosing a
         # valuation input from material nobody gated.
         allowed_tools=frozenset(),
-        # The derived assumptions and a digest of the findings. Nowhere near this, so the
-        # cap trips on a caller that passed the evidence pack instead of the summary.
-        max_input_tokens=20_000,
         # Two justifications is a few hundred tokens; the rest is headroom, because
         # max_tokens bounds adaptive thinking and visible output together and this role
         # routes to opus at high effort. Raised with the report writer's — a short answer
@@ -215,10 +207,6 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         # composer and the registry cannot drift apart — a skill can never be granted a
         # tool this role does not hold.
         allowed_tools=frozenset({"search_facts", "search_sources", "fetch_known_url"}),
-        # §1.8 budgets a custom section at up to 12k evidence tokens; the cap adds room
-        # for the contract, the platform frame and the operator's own text, and trips on
-        # a caller composing something the section was never budgeted to carry.
-        max_input_tokens=20_000,
         max_output_tokens=8_192,
         adr="0037",
     ),
@@ -237,7 +225,6 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         # A section's budgeted evidence plus its contract and the platform frame. §1.8
         # budgets the whole spine at 100k in; per section the definitions cap evidence at
         # 2-5k tokens, so the role cap trips on a caller composing far past any budget.
-        max_input_tokens=20_000,
         # 8,192 here, and five of one report's sections came back with `stop_reason:
         # max_tokens` and no draft at all. A section is a couple of thousand tokens of
         # prose, so the ceiling looked generous — but this role routes to opus at high
@@ -261,9 +248,6 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         # window of document text — and proposes. A validator's helper that could search
         # or fetch would be a validator with an input nobody reviewed.
         allowed_tools=frozenset(),
-        # A claim plus a bounded document window. The window is truncated by the caller;
-        # the cap is the tripwire for a caller that forgot.
-        max_input_tokens=16_000,
         max_output_tokens=4_096,
         adr="0038",
     ),
@@ -283,7 +267,6 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         # §1.8 budgets the bear case at 90k in / 10k out on the batch path. The output
         # cap carries headroom beyond the budget because max_tokens bounds thinking and
         # visible output together.
-        max_input_tokens=90_000,
         max_output_tokens=16_384,
         adr="0039",
     ),

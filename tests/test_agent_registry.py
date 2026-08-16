@@ -7,14 +7,17 @@ registry does not name — each of which must refuse loudly rather than default 
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import aer.agents.registry as registry_module
+import aer.providers.costs as costs_module
 from aer.agents.base import Agent, AgentContext, TokenCapExceededError, ToolNotPermittedError
 from aer.agents.planner import PlannerAgent
 from aer.agents.registry import (
@@ -25,11 +28,15 @@ from aer.agents.registry import (
     registered_roles,
 )
 from aer.config import ModelRoute, Settings
-from aer.db.models import JobStep
+from aer.core.enums import JobStatus
+from aer.db.models import Job, JobStep
+from aer.errors import BudgetExceededError
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
+from aer.storage.local import LocalArtefactStore
 from aer.storage.protocol import ArtefactStore
 from tests.agent_probes import ProbeAnswer
+from tests.workflow_fixtures import WORKFLOW_VERSION, seed_request, seed_user
 
 ADR_ROOT = Path(__file__).resolve().parent.parent / "docs" / "adr"
 
@@ -130,7 +137,6 @@ class TestTheDefinitionsThemselves:
             purpose="",
             output_schema_ref="tests.agent_probes:ProbeAnswer",
             allowed_tools=frozenset(),
-            max_input_tokens=1,
             max_output_tokens=1,
             adr="  ",
         )
@@ -152,7 +158,6 @@ class TestTheDefinitionsThemselves:
             purpose="",
             output_schema_ref="aer.agents.planner:AClassThatWasRenamed",
             allowed_tools=frozenset(),
-            max_input_tokens=1,
             max_output_tokens=1,
             adr="0035",
         )
@@ -200,26 +205,84 @@ class TestTheDefinitionsThemselves:
         assert {"injection-probe", "evaluation-probe"} <= registered_roles()
 
 
-class TestTheTokenCapAtTheProviderBoundary:
-    async def test_a_call_projected_past_the_input_cap_is_refused_unmade(
+async def _seeded_step(
+    db_session: AsyncSession, *, max_cost_gbp: Decimal = Decimal("12.00")
+) -> JobStep:
+    """A job step attached to a run and a request, which the spend guard walks up to."""
+    user = await seed_user(db_session)
+    request = await seed_request(db_session, user=user, max_cost_gbp=max_cost_gbp)
+    job = Job(
+        request_id=request.id,
+        workflow_version=WORKFLOW_VERSION,
+        code_version="test",
+        status=JobStatus.RUNNING,
+        started_at=datetime.now(UTC),
+    )
+    db_session.add(job)
+    await db_session.flush()
+    step = JobStep(
+        job_id=job.id,
+        step_key="probe",
+        sequence=0,
+        status=JobStatus.RUNNING,
+        attempt=0,
+        idempotency_key=f"{job.id}:probe",
+        input_hash="0" * 64,
+        started_at=datetime.now(UTC),
+    )
+    db_session.add(step)
+    await db_session.flush()
+    return step
+
+
+def _probe_context(
+    db_session: AsyncSession,
+    step: JobStep,
+    provider: FakeProvider,
+    tmp_path: Path,
+    **settings_overrides: Any,
+) -> AgentContext:
+    settings = Settings(
+        http_user_agent="Test test@example.invalid",
+        artefact_root=tmp_path / "artefacts",
+        model_routes={"injection-probe": ModelRoute(model="claude-haiku-4-5", effort="low")},
+        **settings_overrides,
+    )
+    return AgentContext(
+        session=db_session,
+        provider=provider,
+        router=Router(settings),
+        settings=settings,
+        store=LocalArtefactStore(settings.artefact_root, max_bytes=settings.max_artefact_bytes),
+        job_step=step,
+    )
+
+
+class TestWhatTheProviderBoundaryRefuses:
+    """ADR 0053: two refusals precede every call, and neither is a per-role token guess.
+
+    A live run died at 40,367 input tokens against an `analysis` allowance of 30,000 —
+    a big company's evidence doing its job, refused by a number chosen before any run
+    existed to measure it. The allowances are gone. What remains is the model's own
+    context window (a 400 refused for free) and the money, priced per call against the
+    budgets the operator actually set.
+    """
+
+    async def test_a_composition_no_model_can_run_is_refused_unmade(
         self, monkeypatch: pytest.MonkeyPatch
     ):
-        tiny = RoleDefinition(
-            role="injection-probe",
-            purpose="Probe with a cap nothing fits under.",
-            output_schema_ref="tests.agent_probes:ProbeAnswer",
-            allowed_tools=frozenset(),
-            max_input_tokens=3,
-            max_output_tokens=4096,
-            adr="0035",
-        )
-        monkeypatch.setitem(registry_module._REGISTRY, "injection-probe", tiny)
+        # Shrink the routed model's window below the probe's own output ceiling, so any
+        # composition at all is unrunnable. The dict is the patch point; the check reads
+        # it through `context_window_for` at call time.
+        monkeypatch.setitem(costs_module.CONTEXT_WINDOW_TOKENS, "claude-haiku-4-5", 10)
 
         provider = FakeProvider({"ProbeAnswer": ProbeAnswer(verdict="unreachable")})
         settings = Settings(
             http_user_agent="Test test@example.invalid",
             model_routes={"injection-probe": ModelRoute(model="claude-haiku-4-5", effort="low")},
         )
+        # No session on purpose: the window check needs nothing persistent, and reaching
+        # for the DB before it would mean the free refusal had stopped being free.
         context = AgentContext(
             session=cast(AsyncSession, None),
             provider=provider,
@@ -229,15 +292,62 @@ class TestTheTokenCapAtTheProviderBoundary:
             job_step=cast(JobStep, None),
         )
 
-        with pytest.raises(TokenCapExceededError, match="refused before it was made"):
-            await _Probe().run(context, "A message far longer than three tokens.")
+        with pytest.raises(TokenCapExceededError, match="cannot fit"):
+            await _Probe().run(context, "Any message at all.")
 
         # Refused unmade: the count endpoint was consulted, the completion never was.
         assert provider.call_count == 0
         assert len(provider.token_counts) == 1
 
-    async def test_an_ordinary_call_passes_the_cap_and_completes(
-        self, monkeypatch: pytest.MonkeyPatch
+    async def test_a_call_the_run_cannot_afford_is_refused_unmade(
+        self, db_session: AsyncSession, tmp_path: Path
+    ):
+        # A cap below the worst case of even a tiny probe call — the probe's 4,096-token
+        # output ceiling alone prices past two pence on haiku. A penny is the smallest
+        # cap the column holds: NUMERIC(10,2), and the check constraint wants > 0.
+        step = await _seeded_step(db_session, max_cost_gbp=Decimal("0.01"))
+        provider = FakeProvider({"ProbeAnswer": ProbeAnswer(verdict="unreachable")})
+        context = _probe_context(db_session, step, provider, tmp_path)
+
+        with pytest.raises(BudgetExceededError, match="refused before it was made") as caught:
+            await _Probe().run(context, "Brief.")
+
+        assert caught.value.context["scope"] == "per_run"
+        assert provider.call_count == 0
+
+    async def test_the_monthly_ceiling_binds_each_call_too(
+        self, db_session: AsyncSession, tmp_path: Path
+    ):
+        step = await _seeded_step(db_session)
+        provider = FakeProvider({"ProbeAnswer": ProbeAnswer(verdict="unreachable")})
+        context = _probe_context(
+            db_session, step, provider, tmp_path, monthly_budget_gbp=Decimal("0.000001")
+        )
+
+        with pytest.raises(BudgetExceededError) as caught:
+            await _Probe().run(context, "Brief.")
+
+        assert caught.value.context["scope"] == "monthly"
+        assert provider.call_count == 0
+
+    async def test_an_unaffordable_batch_is_refused_whole_before_any_money_moves(
+        self, db_session: AsyncSession, tmp_path: Path
+    ):
+        # The batch prices as one question: three items' output ceilings together breach
+        # a cap that any single item might have crept under. Refused whole — a partially
+        # affordable batch would be items silently shifted onto the wrong answers.
+        step = await _seeded_step(db_session, max_cost_gbp=Decimal("0.04"))
+        provider = FakeProvider({"ProbeAnswer": ProbeAnswer(verdict="unreachable")})
+        context = _probe_context(db_session, step, provider, tmp_path)
+
+        with pytest.raises(BudgetExceededError) as caught:
+            await _Probe().run_batch(context, ["one", "two", "three"])
+
+        assert caught.value.context["scope"] == "per_run"
+        assert provider.call_count == 0
+
+    async def test_an_affordable_call_that_fits_completes(
+        self, db_session: AsyncSession, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
         # A distinctive output cap, so the assertion below can tell "the registry's value
         # reached the provider" apart from "some default happened to match it".
@@ -246,33 +356,18 @@ class TestTheTokenCapAtTheProviderBoundary:
             purpose="Probe with a recognisable output cap.",
             output_schema_ref="tests.agent_probes:ProbeAnswer",
             allowed_tools=frozenset(),
-            max_input_tokens=50_000,
             max_output_tokens=1234,
             adr="0035",
         )
         monkeypatch.setitem(registry_module._REGISTRY, "injection-probe", distinctive)
 
+        step = await _seeded_step(db_session)
         provider = FakeProvider({"ProbeAnswer": ProbeAnswer(verdict="fine")})
-        settings = Settings(
-            http_user_agent="Test test@example.invalid",
-            model_routes={"injection-probe": ModelRoute(model="claude-haiku-4-5", effort="low")},
-        )
-        # The cap check happens before any use of the persistence half of the context, so
-        # a failure of this test with a None-related error means the boundary moved.
-        context = AgentContext(
-            session=cast(AsyncSession, None),
-            provider=provider,
-            router=Router(settings),
-            settings=settings,
-            store=cast(ArtefactStore, None),
-            job_step=cast(JobStep, None),
-        )
+        context = _probe_context(db_session, step, provider, tmp_path)
 
-        with pytest.raises(AttributeError):
-            # Persistence needs the real session this test deliberately does not carry;
-            # reaching persistence is the assertion that the cap let the call through.
-            await _Probe().run(context, "Brief.")
+        answer = await _Probe().run(context, "Brief.")
 
+        assert answer.verdict == "fine"
         assert provider.call_count == 1
         # The provider received the registry's output cap, not a default that happened
         # to coincide with it.

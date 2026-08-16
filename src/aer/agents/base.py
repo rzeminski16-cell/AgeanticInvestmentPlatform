@@ -19,9 +19,14 @@ permitted happens in Python before the tool runs. A class attribute grants nothi
 inside a fetched document can ask for anything it likes; there is no path from what a model
 emits — or what an agent's own module declares — to what the role is permitted.
 
-**Refuse an oversized call before it is made.** The role's input cap is checked against a
-real token count at the provider boundary, so a runaway composition fails for free instead
-of spending its way to the budget guard.
+**Refuse an unrunnable call before it is made.** Every composed call is checked at the
+provider boundary against the two limits that are real, and only those (ADR 0053): the
+model's context window, because a prompt that cannot fit is a guaranteed 400 after the
+upload; and the money — the projected cost of the call against what remains of the
+request's own budget and the month's. There is no per-role token allowance. A role that
+composes a large turn on a large company is doing its job; what it may not do is spend
+past a ceiling the operator set, and that refusal names pounds, arrives before the call,
+and pauses the run for a decision exactly as the step-level guard does.
 """
 
 from __future__ import annotations
@@ -29,6 +34,7 @@ from __future__ import annotations
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, ClassVar, Final
 
@@ -42,9 +48,13 @@ from aer.agents.registry import PLATFORM_CONTRACT, RoleDefinitionError, resolve_
 from aer.agents.untrusted import CONTAINMENT_RULE, UntrustedSource, wrap_untrusted
 from aer.config import Settings
 from aer.core.hashing import canonical_json, sha256_hex
-from aer.db.models import AgentRun, Cost, JobStep, Prompt
-from aer.errors import AerError
-from aer.providers.costs import price_usage
+from aer.db.models import AgentRun, Cost, Job, JobStep, Prompt, ResearchRequest
+
+# Aliased: `sqlalchemy.exc.IntegrityError` is already in this namespace for the
+# prompt-row race, and a shadowed exception is caught by nobody.
+from aer.errors import AerError, BudgetExceededError
+from aer.errors import IntegrityError as BrokenRecordError
+from aer.providers.costs import context_window_for, estimate_gbp, price_usage
 from aer.providers.protocol import (
     BatchRequest,
     LLMProvider,
@@ -78,12 +88,15 @@ class ToolNotPermittedError(AerError):
 
 
 class TokenCapExceededError(AerError):
-    """A composed call would exceed the role's input cap, and was refused unmade.
+    """A composed call cannot fit the routed model's context window, and was refused unmade.
 
-    The registry's cap is a statement about what a role's input *can legitimately be* —
-    the planner reads a request, not a filing. Exceeding it means a caller composed
-    something the role was never meant to carry, and the right failure is here, before
-    any money is spent, rather than at the budget guard afterwards.
+    The window is the vendor's limit, not this platform's: past it the API answers 400,
+    but only after the whole prompt has been uploaded. The per-role input allowances that
+    used to raise this error are gone — a live run died at 40,367 tokens against a cap of
+    30,000 that had been guessed before any run existed to measure, on a composition that
+    was simply a big company's evidence doing its job. Affordability is the budget guard's
+    question now, asked in pounds (ADR 0053); this error remains only for the composition
+    no model can physically run, which no retry and no setting can fix.
     """
 
     code = "token_cap_exceeded"
@@ -277,6 +290,137 @@ class Agent[InputT, OutputT: BaseModel]:
             cache_prefix=self.stable_context(payload) or None,
         )
 
+    # -- The two refusals that precede every call (ADR 0053) ---------------------------------
+
+    def _refuse_what_cannot_fit(self, *, model: str, projected_input_tokens: int) -> None:
+        """Refuse a composition the routed model cannot physically run.
+
+        The vendor's limit, not ours: `max_tokens` is carved out of the same window the
+        prompt occupies, so the sum has to fit. Past it the API answers 400 — but only
+        after the whole prompt has been uploaded, so this is the same refusal for free.
+        """
+        window = context_window_for(model)
+        ceiling = self.definition.max_output_tokens
+        if projected_input_tokens + ceiling <= window:
+            return
+        message = (
+            f"The {self.role} agent composed a call of {projected_input_tokens:,} input "
+            f"tokens which, with its {ceiling:,}-token output ceiling, cannot fit "
+            f"{model}'s {window:,}-token context window. The call was refused before it "
+            "was made; no smaller retry exists, so the composition itself has to shrink."
+        )
+        raise TokenCapExceededError(
+            message,
+            context={
+                "role": self.role,
+                "model": model,
+                "projected": projected_input_tokens,
+                "window": window,
+            },
+        )
+
+    async def _refuse_what_cannot_be_afforded(
+        self,
+        context: AgentContext,
+        *,
+        model: str,
+        input_tokens: int,
+        output_ceiling_tokens: int,
+    ) -> None:
+        """Refuse a call whose worst case breaks a ceiling the operator set — in pounds.
+
+        This is the per-call half of invariant 6, the piece ADR 0052 recorded as missing:
+        the step-level guard runs before a step, so the many calls inside one ran
+        unchecked between checks. Here every call's worst case — the counted input at the
+        uncached rate plus the full output ceiling, since `max_tokens` is the only hard
+        bound on the expensive direction — is priced and compared against what remains of
+        the request's own budget and of the month's, using the same scope names the
+        step-level guard writes, so the run console's banner needs no second vocabulary.
+
+        Worst case deliberately ignores prompt caching: a projection that assumed cache
+        hits would under-guard exactly when the cache goes cold.
+        """
+        # Deferred: `aer.workflow` pulls in the workflow definitions, which import the
+        # agents package — a module-level import here would be a cycle.
+        from aer.workflow.engine import spend_so_far, spend_this_month  # noqa: PLC0415
+
+        projected_gbp = estimate_gbp(
+            model=model,
+            input_tokens=input_tokens,
+            expected_output_tokens=output_ceiling_tokens,
+            usd_to_gbp=context.settings.usd_to_gbp,
+        )
+
+        job = await context.session.get(Job, context.job_step.job_id)
+        request = (
+            None if job is None else await context.session.get(ResearchRequest, job.request_id)
+        )
+        if job is None or request is None:
+            # Referential breakage, not a budget question — and a guard that shrugged
+            # here would be a guard any orphaned step walks straight past.
+            message = (
+                f"The {self.role} agent's job step is not attached to a request, so the "
+                "spend guard has no per-run cap to read. Refusing the call."
+            )
+            raise BrokenRecordError(message, context={"job_step_id": str(context.job_step.id)})
+
+        spent = await spend_so_far(context.session, job_id=job.id)
+        self._refuse_over_ceiling(
+            scope="per_run",
+            noun="run",
+            model=model,
+            spent=spent,
+            projected_gbp=projected_gbp,
+            cap=Decimal(str(request.max_cost_gbp)),
+            remedy="Raise the cap on this request to continue.",
+        )
+
+        this_month = await spend_this_month(context.session, now=datetime.now(UTC))
+        self._refuse_over_ceiling(
+            scope="monthly",
+            noun="month",
+            model=model,
+            spent=this_month,
+            projected_gbp=projected_gbp,
+            cap=context.settings.monthly_budget_gbp,
+            remedy=(
+                "This is the ceiling across every run this month, so raising this "
+                "request's own cap will not release it."
+            ),
+        )
+
+    def _refuse_over_ceiling(
+        self,
+        *,
+        scope: str,
+        noun: str,
+        model: str,
+        spent: Decimal,
+        projected_gbp: Decimal,
+        cap: Decimal,
+        remedy: str,
+    ) -> None:
+        total = spent + projected_gbp
+        if total <= cap:
+            return
+        message = (
+            f"The {self.role} agent's next call is projected to cost up to "
+            f"£{projected_gbp:.4f}, which would take the {noun} to £{total:.4f} against a "
+            f"cap of £{cap:.2f}. The call was refused before it was made and the run is "
+            f"paused for a decision. {remedy}"
+        )
+        raise BudgetExceededError(
+            message,
+            context={
+                "spent_gbp": str(spent),
+                "projected_gbp": str(projected_gbp),
+                "cap_gbp": str(cap),
+                "scope": scope,
+                "role": self.role,
+                "model": model,
+            },
+        )
+
     # -- The one public operation ------------------------------------------------------------
 
     async def run(self, context: AgentContext, payload: InputT) -> OutputT:
@@ -288,26 +432,18 @@ class Agent[InputT, OutputT: BaseModel]:
         turn = self.compose_turn(payload)
         messages = [turn]
 
-        # The role's input cap, checked against a real count before any money moves. The
-        # count itself is free, and a refused call costs nothing at all.
+        # Checked against a real count before any money moves. The count itself is free,
+        # and a refused call costs nothing at all.
         projected = await context.provider.count_tokens(
             system=system, messages=messages, model=choice.model
         )
-        if projected > self.definition.max_input_tokens:
-            message = (
-                f"The {self.role} agent composed a call of {projected} input tokens against "
-                f"its registered cap of {self.definition.max_input_tokens}. The call was "
-                "refused before it was made — a composition this size means something was "
-                "included that this role is not meant to carry."
-            )
-            raise TokenCapExceededError(
-                message,
-                context={
-                    "role": self.role,
-                    "projected": projected,
-                    "cap": self.definition.max_input_tokens,
-                },
-            )
+        self._refuse_what_cannot_fit(model=choice.model, projected_input_tokens=projected)
+        await self._refuse_what_cannot_be_afforded(
+            context,
+            model=choice.model,
+            input_tokens=projected,
+            output_ceiling_tokens=self.definition.max_output_tokens,
+        )
 
         started = time.perf_counter()
         try:
@@ -397,27 +533,27 @@ class Agent[InputT, OutputT: BaseModel]:
 
         choice = context.router.resolve(self.role)
         requests: list[BatchRequest] = []
+        batch_input_tokens = 0
         for payload in payloads:
             system = self.composed_system_prompt(payload)
             messages = (self.compose_turn(payload),)
             projected = await context.provider.count_tokens(
                 system=system, messages=messages, model=choice.model
             )
-            if projected > self.definition.max_input_tokens:
-                message = (
-                    f"The {self.role} agent composed a batch item of {projected} input "
-                    f"tokens against its registered cap of {self.definition.max_input_tokens}. "
-                    "The whole batch was refused before it was made."
-                )
-                raise TokenCapExceededError(
-                    message,
-                    context={
-                        "role": self.role,
-                        "projected": projected,
-                        "cap": self.definition.max_input_tokens,
-                    },
-                )
+            # The window is per item — each is its own call at the API — but the money is
+            # one question for the whole batch, asked once below: the items are submitted
+            # together, so item three cannot be affordable in any sense that items one and
+            # two are not.
+            self._refuse_what_cannot_fit(model=choice.model, projected_input_tokens=projected)
+            batch_input_tokens += projected
             requests.append(BatchRequest(system=system, messages=messages))
+
+        await self._refuse_what_cannot_be_afforded(
+            context,
+            model=choice.model,
+            input_tokens=batch_input_tokens,
+            output_ceiling_tokens=self.definition.max_output_tokens * len(requests),
+        )
 
         started = time.perf_counter()
         results = await context.provider.complete_structured_batch(
