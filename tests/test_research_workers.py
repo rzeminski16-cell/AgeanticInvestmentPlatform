@@ -9,6 +9,7 @@ the real searches against seeded rows, and the validator against ids from the wr
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -40,6 +41,7 @@ from aer.agents.worker import (
     WorkerReport,
     WorkerTurn,
     _cap,
+    _salvaged_turn,
     investigate,
 )
 from aer.config import Settings, load_settings
@@ -59,6 +61,7 @@ from aer.fetch.client import FetchResult
 from aer.fetch.errors import UrlNotAllowedError
 from aer.providers.anthropic import _unreadable_reply
 from aer.providers.fake import FakeProvider
+from aer.providers.protocol import SpentButUnusableError, Usage
 from aer.providers.router import Router
 from aer.services.research import _ID_FIELDS, build_executors, validate_report
 from aer.sources.sec.fulltext import FullTextHit, SearchResults
@@ -149,6 +152,55 @@ def _reply_rejection(payload: dict[str, Any]) -> AerValidationError:
     except PydanticValidationError as broken:
         return _unreadable_reply(broken, schema=WorkerTurn, model="claude-opus-5", max_tokens=8192)
     raise AssertionError("the payload under test must not validate")  # pragma: no cover
+
+
+def _billed_rejection(payload: dict[str, Any]) -> SpentButUnusableError:
+    """The error a billed reply really raises, carrying the archived exchange.
+
+    Built the same way as :func:`_reply_rejection` — validate a genuinely bad payload and
+    let the provider's own translation shape the failure — then wrapped as the billed
+    variant, with the reply archived exactly as the real provider archives it: JSON text
+    inside a content block.
+    """
+    try:
+        WorkerTurn.model_validate(payload)
+    except PydanticValidationError as broken:
+        inner = _unreadable_reply(broken, schema=WorkerTurn, model="claude-opus-5", max_tokens=8192)
+        return SpentButUnusableError(
+            inner.message,
+            usage=Usage(input_tokens=1000, output_tokens=500, model="claude-opus-5"),
+            request_payload={"model": "claude-opus-5"},
+            response_payload={"content": [{"type": "text", "text": json.dumps(payload)}]},
+            context=inner.context,
+        )
+    raise AssertionError("the payload under test must not validate")  # pragma: no cover
+
+
+def _report_payload(*findings: dict[str, Any], coverage_note: str | None = None) -> dict[str, Any]:
+    return {
+        "report": {
+            "findings": list(findings),
+            "leads": [{"question": "What next?", "why_it_matters": "Coverage."}],
+            "coverage_note": coverage_note or "Investigated within the scripted evidence.",
+        }
+    }
+
+
+def _cited_finding() -> dict[str, Any]:
+    return {
+        "statement": "The evidence shown supports this statement.",
+        "kind": "factual",
+        "fact_ids": [str(uuid.uuid4())],
+        "confidence": 0.7,
+    }
+
+
+def _uncited_finding() -> dict[str, Any]:
+    return {
+        "statement": "No evidence of this was found anywhere.",
+        "kind": "context",
+        "confidence": 0.4,
+    }
 
 
 def _rejected_by_the_contract() -> AerValidationError:
@@ -936,6 +988,113 @@ class TestAReplyTheContractCannotReadIsFedBack:
                 executors={},
                 validate=never,
             )
+
+
+class TestSalvageOfABilledReport:
+    """One inadmissible finding costs the finding, not the worker.
+
+    A live run died because finding ten of ten arrived without a citation: nine admissible
+    findings and the whole reply's spend were thrown away with it, and four sibling topics
+    went down with the node. Dropping the hunch is a pure narrowing decided by code (ADR
+    0036) — nothing the model did not assert is added — and everything that survives still
+    faces the caller's validator over real evidence.
+    """
+
+    async def test_one_uncited_finding_costs_the_finding_not_the_run(
+        self, loop_scene: dict[str, Any]
+    ) -> None:
+        provider = _scripted(
+            [_billed_rejection(_report_payload(_cited_finding(), _uncited_finding()))]
+        )
+
+        outcome = await investigate(
+            _context(loop_scene, provider),
+            topic=ResearchTopic.COMPANY,
+            company_name="Contoso",
+            ticker="CTSO",
+            as_of_date="2023-01-01",
+            executors={},
+            validate=_accept_all,
+        )
+
+        assert outcome.rounds == 1
+        assert provider.call_count == 1
+        assert len(outcome.report.findings) == 1
+
+    async def test_what_survives_still_faces_the_validator_over_real_evidence(
+        self, loop_scene: dict[str, Any]
+    ) -> None:
+        """Salvage repairs the *shape*; whether the citations resolve is not its call."""
+        seen: list[WorkerReport] = []
+
+        async def refuse_first(report: WorkerReport) -> list[str]:
+            seen.append(report)
+            if len(seen) == 1:
+                return ["Finding 1 cites fact 'f-1', which this run does not hold."]
+            return []
+
+        provider = _scripted(
+            [
+                _billed_rejection(_report_payload(_cited_finding(), _uncited_finding())),
+                _report_turn(fact_ids=[str(uuid.uuid4())]),
+            ]
+        )
+
+        outcome = await investigate(
+            _context(loop_scene, provider),
+            topic=ResearchTopic.COMPANY,
+            company_name="Contoso",
+            ticker="CTSO",
+            as_of_date="2023-01-01",
+            executors={},
+            validate=refuse_first,
+        )
+
+        assert outcome.rounds == 2
+        assert len(seen) == 2
+
+    async def test_salvage_declines_when_findings_are_not_the_problem(
+        self, loop_scene: dict[str, Any]
+    ) -> None:
+        """An over-long coverage note is not repairable by dropping findings, and inventing
+        any other repair would put words in the model's mouth. It goes back as feedback."""
+        provider = _scripted(
+            [
+                _billed_rejection(_report_payload(_cited_finding(), coverage_note="x" * 2_000)),
+                _report_turn(),
+            ]
+        )
+
+        outcome = await investigate(
+            _context(loop_scene, provider),
+            topic=ResearchTopic.COMPANY,
+            company_name="Contoso",
+            ticker="CTSO",
+            as_of_date="2023-01-01",
+            executors={},
+            validate=_accept_all,
+        )
+
+        assert outcome.rounds == 2
+        second = provider.calls[1]["messages"][0]["content"]
+        assert "coverage_note" in second
+
+    async def test_a_rejection_with_no_archived_reply_is_declined(self) -> None:
+        """The plain rejection carries no payload to salvage from — say-it-back instead."""
+        assert _salvaged_turn(_rejected_by_the_contract()) is None
+
+    async def test_a_tool_request_turn_is_never_salvaged(self) -> None:
+        """A turn asking for tools and reporting at once is confused, not over-strict.
+
+        Removing its bad finding cannot make it admissible: ``WorkerTurn`` itself refuses
+        a turn carrying both, so the revalidation inside salvage declines it.
+        """
+        confused = {
+            "requests": [{"tool": "search_facts", "query": "revenue", "why": "the test"}],
+            **_report_payload(_cited_finding(), _uncited_finding()),
+        }
+
+        assert _salvaged_turn(_billed_rejection(confused)) is None
 
 
 class TestTheLimitsAreStated:

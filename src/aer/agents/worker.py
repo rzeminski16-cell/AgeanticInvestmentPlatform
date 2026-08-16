@@ -35,6 +35,7 @@ away from being a good report. See :func:`investigate` and :data:`_LIMITS`.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -42,6 +43,7 @@ from typing import Any, ClassVar, Final, Literal
 
 import structlog
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import ValidationError as PydanticValidationError
 
 from aer.agents.base import Agent, AgentContext, ToolNotPermittedError, schema_problems
 from aer.agents.untrusted import UntrustedSource
@@ -521,21 +523,35 @@ async def investigate(
         try:
             turn = await worker.run(context, payload)
         except ValidationError as rejected:
-            unreadable += 1
-            problems = schema_problems(rejected)
-            _log.warning(
-                "worker.reply_unreadable",
-                topic=topic.value,
-                round=round_number,
-                attempt=unreadable,
-                problems=problems,
-            )
-            if unreadable >= MAX_UNREADABLE_REPLIES:
-                # Which worker, on the way past. The provider knows the model and the
-                # schema; only this frame knows which of the five topics just died.
-                rejected.context["topic"] = topic.value
-                raise
-            continue
+            salvaged = _salvaged_turn(rejected)
+            if salvaged is not None:
+                turn, dropped = salvaged
+                # Warning, not info: findings the model asserted have been discarded, and
+                # anyone auditing the run should see the report is narrower than the reply
+                # that was billed.
+                _log.warning(
+                    "worker.findings_salvaged",
+                    topic=topic.value,
+                    round=round_number,
+                    dropped=dropped,
+                    kept=len(turn.report.findings) if turn.report is not None else 0,
+                )
+            else:
+                unreadable += 1
+                problems = schema_problems(rejected)
+                _log.warning(
+                    "worker.reply_unreadable",
+                    topic=topic.value,
+                    round=round_number,
+                    attempt=unreadable,
+                    problems=problems,
+                )
+                if unreadable >= MAX_UNREADABLE_REPLIES:
+                    # Which worker, on the way past. The provider knows the model and the
+                    # schema; only this frame knows which of the five topics just died.
+                    rejected.context["topic"] = topic.value
+                    raise
+                continue
 
         if turn.report is not None:
             found = await validate(turn.report)
@@ -582,6 +598,63 @@ async def investigate(
             "problems": problems,
         },
     )
+
+
+def _salvaged_turn(  # noqa: PLR0911 -- each return is a distinct reason not to salvage
+    rejected: ValidationError,
+) -> tuple[WorkerTurn, int] | None:
+    """The rejected reply with its inadmissible findings removed — when that repairs it.
+
+    A live run died because one finding in ten arrived without a citation: the other nine
+    were admissible, the reply was already paid for, and the loop threw all of it away.
+    Dropping the inadmissible finding is a pure narrowing — nothing the model did not
+    assert is added, and the decision to discard is code's, not the model's (ADR 0036).
+    Returns ``None`` on any condition where a repair would not be safe or would not be a
+    repair at all, which lands the loop on the existing say-it-back path instead. What
+    survives salvage still faces the caller's ``validate`` over real evidence.
+    """
+    payload = getattr(rejected, "response_payload", None)
+    if not isinstance(payload, dict):
+        return None
+    text = "".join(
+        str(block.get("text", ""))
+        for block in payload.get("content") or []
+        if isinstance(block, dict) and block.get("type") == "text"
+    )
+    try:
+        raw = json.loads(text)
+    except ValueError:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    report = raw.get("report")
+    if not isinstance(report, dict):
+        return None
+    # No explicit refusal of tool-request turns is needed: a turn carrying requests and a
+    # report together fails ``WorkerTurn``'s own validator below, and a pure request turn
+    # has no report dict to reach here with. The test pinning the property proved the
+    # explicit check was an equivalent mutant and it was removed rather than kept as
+    # decoration.
+    findings = report.get("findings")
+    if not isinstance(findings, list):
+        return None
+    kept = []
+    for finding in findings:
+        try:
+            WorkerFinding.model_validate(finding)
+        except PydanticValidationError:
+            continue
+        kept.append(finding)
+    if len(kept) == len(findings):
+        # The findings were not what was wrong, so there is nothing here to repair.
+        return None
+    try:
+        turn = WorkerTurn.model_validate({**raw, "report": {**report, "findings": kept}})
+    except PydanticValidationError:
+        return None
+    if turn.report is None:  # pragma: no cover -- a requests turn was refused above
+        return None
+    return turn, len(findings) - len(kept)
 
 
 def _tool_menu(available: list[str]) -> str:
