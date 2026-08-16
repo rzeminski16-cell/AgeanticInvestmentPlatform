@@ -24,11 +24,13 @@ Three properties the sharing preserves:
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Final
 
 from sqlalchemy import select
 
+from aer.core.concepts import is_canonical_concept
 from aer.core.enums import ClaimKind, SourceTier
 from aer.core.section_output import contract_violations, unsourced_numerals
 from aer.db.models import (
@@ -70,10 +72,108 @@ MAX_GENERATION_ATTEMPTS: Final = 2
 # queries; the budget bounds the composition.
 EVIDENCE_ITEM_CAP: Final = 40
 
+# The pools the ranking chooses from. Wider than the caps above on purpose: ranking can
+# only surface what the query returned, and a live large-cap run proved that a pool the
+# size of the cap makes the *ordering clause* the real selector (gap A39 — forty facts
+# ordered newest-period-then-alphabetically delivered "Accrued…, Accumulated…,
+# AvailableForSale…" to every section, and Revenue never survived the alphabet).
+_FACT_POOL: Final = 400
+_EXCERPT_POOL: Final = 200
+
+# How much of a section's token budget the compact listings may consume, leaving the
+# remainder for excerpts. Without the reservation the listings — gathered first because
+# they are id-bearing and cheap — starved every excerpt out of the composition, and the
+# writers were left describing prose they were never shown.
+_FACT_BUDGET_SHARE: Final = 0.45
+_LISTING_BUDGET_SHARE: Final = 0.6
+
 # The estimate the truncation works in. Four characters per token matches the fake
 # provider's arithmetic and is close enough for a *budget* — the role's hard input cap is
 # still enforced against a real count at the provider boundary.
 _CHARS_PER_TOKEN: Final = 4
+
+# -- What a section most wants to see (gap A39) ----------------------------------------------
+#
+# Deterministic relevance, not a model's: facts are ranked by where their canonical
+# concept sits in the section's declared preference order, excerpts by keyword affinity
+# with the section's subject. The preferences are **data on the section definition's
+# ``evidence_policy``** (migration 0029) — sections are rows, and the hardcoded-key
+# guard rightly refused the first cut that keyed them in code. A policy that declares
+# none — every custom section — gets the default ordering below, which still puts the
+# statements' own lines ahead of footnote debris.
+
+_INCOME_CONCEPTS: Final[tuple[str, ...]] = (
+    "revenue",
+    "cost_of_revenue",
+    "gross_profit",
+    "operating_expenses",
+    "sg_and_a",
+    "research_and_development",
+    "operating_income",
+    "interest_expense",
+    "interest_income",
+    "pre_tax_income",
+    "income_tax_expense",
+    "net_income",
+    "earnings_per_share_basic",
+    "earnings_per_share_diluted",
+)
+_BALANCE_CONCEPTS: Final[tuple[str, ...]] = (
+    "cash_and_equivalents",
+    "short_term_investments",
+    "accounts_receivable",
+    "inventory",
+    "current_assets",
+    "property_plant_and_equipment",
+    "goodwill",
+    "intangible_assets",
+    "assets",
+    "accounts_payable",
+    "deferred_revenue",
+    "short_term_debt",
+    "current_liabilities",
+    "long_term_debt",
+    "lease_liabilities",
+    "liabilities",
+    "total_debt",
+    "retained_earnings",
+    "equity",
+)
+_CASH_FLOW_CONCEPTS: Final[tuple[str, ...]] = (
+    "operating_cash_flow",
+    "investing_cash_flow",
+    "financing_cash_flow",
+    "capital_expenditure",
+    "depreciation_and_amortisation",
+    "share_based_compensation",
+    "share_repurchases",
+    "dividends_paid",
+    "proceeds_from_debt",
+    "repayments_of_debt",
+    "net_change_in_cash",
+)
+_SHARE_CONCEPTS: Final[tuple[str, ...]] = (
+    "shares_outstanding",
+    "diluted_shares_outstanding",
+    "basic_shares_outstanding",
+    "dividends_per_share",
+)
+
+_DEFAULT_CONCEPT_ORDER: Final[tuple[str, ...]] = (
+    _INCOME_CONCEPTS + _BALANCE_CONCEPTS + _CASH_FLOW_CONCEPTS + _SHARE_CONCEPTS
+)
+
+# Text a filing carries that no analysis rests on. An excerpt matching one of these is
+# administrative furniture — the live failure delivered a signature block to fourteen
+# sections in a row, each of which then truthfully reported it had nothing to work with.
+_NON_SUBSTANTIVE_MARKERS: Final[tuple[str, ...]] = (
+    "pursuant to the requirements of the securities exchange act",
+    "duly caused this report to be signed",
+    "thereunto duly authorized",
+    "duly authorised",
+    "power of attorney",
+    "signature page",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +192,12 @@ class SectionPolicy:
     max_tier_rank: int
     allow_forward_looking: bool
     token_budget: int
+
+    # The section's evidence preferences, read from its definition row (migration 0029).
+    # Empty means the module's default concept order and no keyword affinity — which is
+    # every custom section, and every definition seeded before the row carried them.
+    concept_priority: tuple[str, ...] = ()
+    excerpt_keywords: tuple[str, ...] = ()
 
     def as_prompt_payload(self) -> dict[str, Any]:
         """What the model is told about the floor. The budget is not the model's business."""
@@ -179,40 +285,60 @@ async def gather_evidence(
     policy: SectionPolicy,
     categories: frozenset[str],
 ) -> Evidence:
-    """Assemble what a section may see, category by category, inside the budget.
+    """Assemble what a section may see, ranked by relevance, inside the budget.
 
     Deterministic on purpose: ``categories`` decides which listings are assembled — a
     custom section's pinned tool grant, the full set for a built-in — and code enumerates
     what the run already holds rather than a model asking round by round. §2.12 gives the
     generation exactly one call, and a section's evidence should not depend on a model
     thinking to ask for it.
+
+    Ranked on purpose too (gap A39). A live large-cap run held 18,588 facts and 69
+    excerpts and still starved every section: forty facts chosen newest-period-then-
+    alphabetically delivered footnote debris and never Revenue, excerpts chosen
+    oldest-first delivered the same signature page to every section, and the compact
+    listings consumed the budget so the excerpts were pure overflow. Selection is now the
+    section's: facts by the section's concept preference then recency, excerpts by
+    keyword affinity with the section's subject, and the listings capped to a share of
+    the budget so the excerpts always keep a seat. The preferences are the policy's —
+    data from the section's definition row — and a policy declaring none falls back to
+    the default order, which still puts the statements' own lines ahead of the alphabet.
     """
     units: list[EvidenceUnit] = []
+    concept_rank = _concept_rank_for(policy.concept_priority)
+    fact_budget = int(policy.token_budget * _FACT_BUDGET_SHARE)
+    listing_budget = int(policy.token_budget * _LISTING_BUDGET_SHARE)
+    spent_on_listings = 0
 
     if "search_facts" in categories:
-        facts = await session.scalars(
-            select(FinancialFact)
-            .join(SourceDocument, SourceDocument.id == FinancialFact.source_document_id)
-            .where(SourceDocument.request_id == request.id)
-            .order_by(FinancialFact.period_end.desc(), FinancialFact.concept)
-            .limit(EVIDENCE_ITEM_CAP)
+        pool = list(
+            await session.scalars(
+                select(FinancialFact)
+                .join(SourceDocument, SourceDocument.id == FinancialFact.source_document_id)
+                .where(SourceDocument.request_id == request.id)
+                .order_by(FinancialFact.period_end.desc(), FinancialFact.concept)
+                .limit(_FACT_POOL)
+            )
         )
-        for row in facts:
+        pool.sort(key=lambda row: (concept_rank(row.concept), _period_recency(row)))
+        for row in pool:
             identifier = str(row.id)
             source_id = str(row.source_document_id)
-            units.append(
-                EvidenceUnit(
-                    internal={
-                        "fact_id": identifier,
-                        "concept": row.concept,
-                        "value": str(row.value),
-                        "unit": row.unit,
-                        "period_end": row.period_end.isoformat(),
-                        "source_document_id": source_id,
-                    },
-                    fact_source=(identifier, source_id),
-                )
+            unit = EvidenceUnit(
+                internal={
+                    "fact_id": identifier,
+                    "concept": row.concept,
+                    "value": str(row.value),
+                    "unit": row.unit,
+                    "period_end": row.period_end.isoformat(),
+                    "source_document_id": source_id,
+                },
+                fact_source=(identifier, source_id),
             )
+            if spent_on_listings + unit.cost > fact_budget:
+                break
+            spent_on_listings += unit.cost
+            units.append(unit)
 
         # Recorded calculations travel with the facts: both are the deterministic
         # layer's own figures, and the numeral rule is unusable without them.
@@ -224,17 +350,19 @@ async def gather_evidence(
         )
         for calc in calculations:
             identifier = str(calc.id)
-            units.append(
-                EvidenceUnit(
-                    internal={
-                        "calculation_id": identifier,
-                        "name": calc.name,
-                        "value": str(calc.output_value),
-                        "unit": calc.output_unit,
-                    },
-                    calculation_id=identifier,
-                )
+            unit = EvidenceUnit(
+                internal={
+                    "calculation_id": identifier,
+                    "name": calc.name,
+                    "value": str(calc.output_value),
+                    "unit": calc.output_unit,
+                },
+                calculation_id=identifier,
             )
+            if spent_on_listings + unit.cost > listing_budget:
+                break
+            spent_on_listings += unit.cost
+            units.append(unit)
 
     if "search_sources" in categories:
         sources = list(
@@ -267,14 +395,22 @@ async def gather_evidence(
             )
 
         if admissible:
-            extractions = await session.scalars(
-                select(Extraction)
-                .where(Extraction.source_document_id.in_([source.id for source in admissible]))
-                .order_by(Extraction.created_at)
-                .limit(EVIDENCE_ITEM_CAP)
+            extractions = list(
+                await session.scalars(
+                    select(Extraction)
+                    .where(Extraction.source_document_id.in_([source.id for source in admissible]))
+                    .order_by(Extraction.created_at)
+                    .limit(_EXCERPT_POOL)
+                )
+            )
+            keywords = policy.excerpt_keywords
+            substantive = [row for row in extractions if _is_substantive(row.excerpt)]
+            ranked = sorted(
+                enumerate(substantive),
+                key=lambda item: (-_keyword_hits(item[1].excerpt, keywords), item[0]),
             )
             tier_by_source = {str(source.id): source.source_tier.value for source in admissible}
-            for extraction in extractions:
+            for _, extraction in ranked:
                 source_id = str(extraction.source_document_id)
                 extraction_id = str(extraction.id)
                 units.append(
@@ -317,11 +453,59 @@ async def gather_evidence(
     return evidence
 
 
+def _concept_rank_for(declared: tuple[str, ...]) -> Callable[[str], int]:
+    """How early a fact's concept sits in this section's preference order.
+
+    Preferred canonical concepts rank by their position; canonical concepts the section
+    did not name come next — the statements' own lines still beat the alphabet — and
+    everything else (unmapped tags, footnote debris) ranks last. The live failure is the
+    argument: 18,588 facts ordered alphabetically within the newest period delivered
+    "Accrued…, Accumulated…, AvailableForSale…" to every section and Revenue to none.
+    """
+    order = declared or _DEFAULT_CONCEPT_ORDER
+    preferred = {concept: index for index, concept in enumerate(order)}
+    after_preferred = len(order)
+
+    def rank(concept: str) -> int:
+        found = preferred.get(concept)
+        if found is not None:
+            return found
+        if is_canonical_concept(concept):
+            return after_preferred
+        return after_preferred + 1
+
+    return rank
+
+
+def _period_recency(row: FinancialFact) -> float:
+    """Newest period first, as a sort key ascending."""
+    return -row.period_end.toordinal()
+
+
+def _is_substantive(excerpt: str) -> bool:
+    """Whether an excerpt carries anything an analysis could rest on.
+
+    A signature block or a power of attorney is administrative furniture: the live run
+    delivered one to fourteen sections in a row, and each spent budget faithfully
+    reporting that it said nothing. Filtered at gathering rather than at extraction so
+    already-extracted runs benefit too.
+    """
+    lowered = excerpt.lower()
+    return not any(marker in lowered for marker in _NON_SUBSTANTIVE_MARKERS)
+
+
+def _keyword_hits(excerpt: str, keywords: tuple[str, ...]) -> int:
+    """How many of the section's keywords the excerpt mentions. Zero when it has none."""
+    lowered = excerpt.lower()
+    return sum(1 for keyword in keywords if keyword in lowered)
+
+
 def _within_budget(units: list[EvidenceUnit], *, budget: int) -> Evidence:
     """The evidence the budget admits, whole units at a time, in gathering order.
 
-    Compact id-bearing listings were gathered first and the bulky excerpts last, so the
-    excerpts are the natural overflow. A dropped unit drops entirely — listing, excerpt
+    Compact id-bearing listings were gathered first — already capped to a share of the
+    budget — and the ranked excerpts last, so what overflows is the *least relevant*
+    excerpt rather than every excerpt. A dropped unit drops entirely — listing, excerpt
     and index entry together — so an id the model was not shown is also an id the
     validator refuses.
     """

@@ -19,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.core.concepts import is_canonical_concept
 from aer.core.disagreement import DisagreementKind, ResolutionOutcome, ResolutionRule, ResolvedBy
 from aer.core.enums import Decision, GateKind
 from aer.db.models import (
@@ -182,6 +183,34 @@ class TestTheSeed:
                 )
             ]
             assert carriers, f"{row.key} has no citation-carrying field"
+
+    async def test_every_model_written_definition_declares_its_evidence_preferences(
+        self, db_session: AsyncSession
+    ) -> None:
+        """Migration 0029's deliverable: the ranking preferences are rows, not code.
+
+        Every model-written definition must carry a non-empty ``concept_priority`` and
+        ``excerpt_keywords`` in its evidence policy, and every priority entry must be a
+        canonical concept — a typo here matches no fact's concept and so would silently
+        rank nothing, which is the starvation of gap A39 back under another name.
+        """
+        rows = await db_session.scalars(
+            select(SectionDefinition)
+            .where(
+                SectionDefinition.key.in_([k for k in SPINE_KEYS if k not in DETERMINISTIC_KEYS])
+            )
+            .order_by(SectionDefinition.version)
+        )
+        latest = {row.key: row for row in rows}
+        assert len(latest) == 16
+        for row in latest.values():
+            policy = row.evidence_policy or {}
+            assert policy.get("concept_priority"), f"{row.key} declares no concept_priority"
+            assert policy.get("excerpt_keywords"), f"{row.key} declares no excerpt_keywords"
+            unknown = [
+                name for name in policy["concept_priority"] if not is_canonical_concept(name)
+            ]
+            assert not unknown, f"{row.key} names non-canonical concept(s): {unknown}"
 
     async def test_a_negative_budget_is_still_refused(self, db_session: AsyncSession) -> None:
         db_session.add(

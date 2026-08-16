@@ -1,0 +1,354 @@
+"""Evidence reaches a section ranked by relevance — gap A39.
+
+A live large-cap run held 18,588 facts and 69 excerpts and still starved every section:
+forty facts chosen newest-period-then-alphabetically delivered "Accrued…, Accumulated…,
+AvailableForSale…" and never Revenue, excerpts chosen oldest-first delivered the same
+signature page to fourteen sections in a row, and the compact listings consumed the
+budget so every excerpt was overflow. The report then truthfully described its own
+starvation for twenty-three pages. These tests pin the selection rules that stop that:
+concept-ranked facts, keyword-ranked excerpts, a substance filter, and a budget share
+that keeps excerpts a seat.
+
+The preferences arrive on the :class:`SectionPolicy` — they are rows on the section
+definitions (migration 0029), not code keyed by section, so these tests drive the policy
+directly and the seed pin in ``test_section_spine`` proves the rows carry them.
+"""
+
+from __future__ import annotations
+
+import hashlib
+from datetime import UTC, date, datetime
+from decimal import Decimal
+from pathlib import Path
+from typing import Any
+
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from aer.core.enums import ExtractionKind, FactBasis, JobStatus, Provider, SourceTier, UserRole
+from aer.db.models import (
+    Artefact,
+    Company,
+    Extraction,
+    FinancialFact,
+    Job,
+    ResearchRequest,
+    SourceDocument,
+    User,
+)
+from aer.sections.evidence import (
+    SectionPolicy,
+    _is_substantive,
+    gather_evidence,
+)
+from tests.workflow_fixtures import WORKFLOW_VERSION
+
+pytestmark = pytest.mark.integration
+
+_SIGNATURE_BLOCK = (
+    "Pursuant to the requirements of the Securities Exchange Act of 1934, the registrant "
+    "has duly caused this report to be signed on its behalf by the undersigned, "
+    "thereunto duly authorized, in the City of Redmond."
+)
+
+_DEBT_NOTE = (
+    "The components of long-term debt and the maturity schedule are set out below. The "
+    "company maintains a commercial paper programme and a committed credit facility, "
+    "and liquidity is managed against contractual lease obligations."
+)
+
+_SEGMENT_NOTE = (
+    "LinkedIn connects the world's professionals and is monetised through Talent "
+    "Solutions, Marketing Solutions, Premium Subscriptions and Sales Solutions, with "
+    "segment revenue driven by member engagement."
+)
+
+# Preferences in the shape migration 0029 seeds them: the history section leads with the
+# income statement, the cash-flow section with its own statement, and the balance-sheet
+# section names the liquidity vocabulary.
+_HISTORY_PRIORITY = (
+    "revenue",
+    "cost_of_revenue",
+    "operating_expenses",
+    "operating_income",
+    "net_income",
+    "operating_cash_flow",
+)
+_CASH_FLOW_PRIORITY = (
+    "operating_cash_flow",
+    "investing_cash_flow",
+    "financing_cash_flow",
+    "capital_expenditure",
+    "revenue",
+    "net_income",
+)
+_LIQUIDITY_KEYWORDS = (
+    "debt",
+    "maturit",
+    "liquidity",
+    "credit facilit",
+    "commercial paper",
+    "lease",
+    "unearned revenue",
+    "cash and cash equivalents",
+)
+
+
+def _policy(
+    token_budget: int = 4_000,
+    *,
+    concept_priority: tuple[str, ...] = (),
+    excerpt_keywords: tuple[str, ...] = (),
+) -> SectionPolicy:
+    return SectionPolicy(
+        min_sources=1,
+        requires_primary=True,
+        max_tier_rank=SourceTier.T5_SECONDARY.rank,
+        allow_forward_looking=False,
+        token_budget=token_budget,
+        concept_priority=concept_priority,
+        excerpt_keywords=excerpt_keywords,
+    )
+
+
+@pytest.fixture
+async def scene(db_session: AsyncSession, tmp_path: Path) -> dict[str, Any]:
+    """A request holding many alphabetically-early facts, a few core ones, and three
+    excerpts of very different worth — the live starvation, in miniature."""
+    user = User(email="evidence@example.invalid", display_name="Evidence", role=UserRole.OWNER)
+    db_session.add(user)
+    await db_session.flush()
+    request = ResearchRequest(
+        user_id=user.id,
+        company_name="Microsoft Corporation",
+        ticker="MSFT",
+        exchange="NASDAQ",
+        as_of_date=date(2026, 8, 16),
+        base_currency="USD",
+        investment_horizon_months=12,
+        max_cost_gbp="12.00",
+        portfolio_context={},
+    )
+    db_session.add(request)
+    await db_session.flush()
+    job = Job(
+        request_id=request.id,
+        workflow_version=WORKFLOW_VERSION,
+        code_version="test",
+        status=JobStatus.RUNNING,
+        started_at=datetime.now(UTC),
+    )
+    db_session.add(job)
+    await db_session.flush()
+
+    artefact = Artefact(
+        sha256=hashlib.sha256(b"filing").hexdigest(),
+        media_type="text/html",
+        size_bytes=6,
+        storage_key="aa/bb/filing",
+    )
+    db_session.add(artefact)
+    await db_session.flush()
+    document = SourceDocument(
+        request_id=request.id,
+        job_id=job.id,
+        artefact_id=artefact.id,
+        url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",
+        provider=Provider.SEC_EDGAR,
+        source_tier=SourceTier.T1_REGULATORY,
+        retrieved_at=datetime.now(UTC),
+        quarantined=False,
+    )
+    db_session.add(document)
+    company = Company(name="MICROSOFT CORP", cik="0000789019", ticker="MSFT", exchange="NASDAQ")
+    db_session.add(company)
+    await db_session.flush()
+
+    # Sixty alphabetically-early footnote facts for the newest period — the debris that
+    # crowded out the statements on the live run — plus the core lines behind them.
+    for index in range(60):
+        db_session.add(
+            FinancialFact(
+                company_id=company.id,
+                source_document_id=document.id,
+                concept=f"AccruedFootnoteItem{index:02d}",
+                value=Decimal(1_000 + index),
+                unit="USD",
+                period_end=date(2026, 6, 30),
+                basis=FactBasis.AS_REPORTED,
+                filed_date=date(2026, 7, 29),
+            )
+        )
+    for year, value in ((2026, "281000"), (2025, "245000"), (2024, "211000")):
+        for concept in ("revenue", "operating_income", "net_income", "operating_cash_flow"):
+            db_session.add(
+                FinancialFact(
+                    company_id=company.id,
+                    source_document_id=document.id,
+                    concept=concept,
+                    value=Decimal(value),
+                    unit="USD",
+                    period_end=date(year, 6, 30),
+                    basis=FactBasis.AS_REPORTED,
+                    filed_date=date(year, 7, 29),
+                )
+            )
+
+    # Three excerpts, created oldest-first in exactly the wrong order: the signature
+    # block first (the live failure's constant companion), the segment note second, the
+    # debt note last.
+    for offset, text in enumerate((_SIGNATURE_BLOCK, _SEGMENT_NOTE, _DEBT_NOTE)):
+        db_session.add(
+            Extraction(
+                source_document_id=document.id,
+                kind=ExtractionKind.TEXT,
+                extractor="test",
+                extractor_version="1",
+                locator={"kind": "test", "index": offset},
+                locator_hash=hashlib.sha256(f"loc-{offset}".encode()).hexdigest(),
+                excerpt=text,
+                content_hash=hashlib.sha256(text.encode()).hexdigest(),
+                created_at=datetime(2026, 8, 16, 10, offset, tzinfo=UTC),
+            )
+        )
+    await db_session.flush()
+
+    return {"session": db_session, "request": request, "job": job}
+
+
+def _concepts(evidence: Any) -> list[str]:
+    return [item["concept"] for item in evidence.internal if "concept" in item]
+
+
+def _excerpts(evidence: Any) -> list[str]:
+    return [item["text"] for item in evidence.untrusted]
+
+
+class TestFactsAreRankedByTheSectionsConcepts:
+    async def test_the_statements_lines_beat_the_alphabet(self, scene: dict[str, Any]) -> None:
+        """The live failure inverted: revenue must outrank sixty alphabetically-earlier
+        footnote items, however new their period."""
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(concept_priority=_HISTORY_PRIORITY),
+            categories=frozenset({"search_facts"}),
+        )
+
+        concepts = _concepts(evidence)
+        assert concepts, "no facts were gathered at all"
+        assert concepts[0] == "revenue"
+        core = {"revenue", "operating_income", "net_income", "operating_cash_flow"}
+        assert core <= set(concepts), "a core statement line was crowded out"
+
+    async def test_a_core_concept_arrives_with_its_history(self, scene: dict[str, Any]) -> None:
+        """Three periods of revenue, newest first — a history section needs the series,
+        not one year of it."""
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(concept_priority=_HISTORY_PRIORITY),
+            categories=frozenset({"search_facts"}),
+        )
+
+        revenue_periods = [
+            item["period_end"] for item in evidence.internal if item.get("concept") == "revenue"
+        ]
+        assert revenue_periods == ["2026-06-30", "2025-06-30", "2024-06-30"]
+
+    async def test_a_cash_flow_priority_leads_with_cash_flow(self, scene: dict[str, Any]) -> None:
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(concept_priority=_CASH_FLOW_PRIORITY),
+            categories=frozenset({"search_facts"}),
+        )
+
+        concepts = _concepts(evidence)
+        assert concepts[0] == "operating_cash_flow"
+
+    async def test_an_empty_priority_still_prefers_the_statements(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """A policy that declares nothing — every custom section, and every definition
+        seeded before migration 0029 — must still beat the alphabet."""
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(),
+            categories=frozenset({"search_facts"}),
+        )
+
+        concepts = _concepts(evidence)
+        assert concepts[0] == "revenue"
+
+
+class TestExcerptsAreRankedAndFiltered:
+    async def test_the_debt_note_outranks_the_segment_note_for_the_balance_sheet(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Created last, most relevant: keyword affinity must beat creation order."""
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(excerpt_keywords=_LIQUIDITY_KEYWORDS),
+            categories=frozenset({"search_sources"}),
+        )
+
+        texts = _excerpts(evidence)
+        assert texts, "no excerpts survived at all"
+        assert texts[0] == _DEBT_NOTE
+
+    async def test_a_signature_block_never_enters_evidence(self, scene: dict[str, Any]) -> None:
+        """The excerpt the live run delivered to fourteen sections is refused a seat."""
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(excerpt_keywords=_LIQUIDITY_KEYWORDS),
+            categories=frozenset({"search_sources"}),
+        )
+
+        assert _SIGNATURE_BLOCK not in _excerpts(evidence)
+
+    def test_the_substance_filter_names_the_furniture(self) -> None:
+        assert not _is_substantive(_SIGNATURE_BLOCK)
+        assert _is_substantive(_DEBT_NOTE)
+        assert _is_substantive(_SEGMENT_NOTE)
+
+
+class TestTheBudgetKeepsExcerptsASeat:
+    async def test_excerpts_survive_a_budget_the_facts_could_fill(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The starvation mechanism itself: listings are capped to a share, so a budget
+        the facts alone could exhaust still delivers at least one excerpt."""
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(token_budget=1_200, excerpt_keywords=_LIQUIDITY_KEYWORDS),
+            categories=frozenset({"search_facts", "search_sources"}),
+        )
+
+        assert evidence.untrusted, "the listings consumed the whole budget again"
+        assert _excerpts(evidence)[0] == _DEBT_NOTE
+
+    async def test_a_dropped_excerpt_is_dropped_whole(self, scene: dict[str, Any]) -> None:
+        """The closed world survives the ranking: an excerpt the budget dropped has no
+        entry in the citation index either."""
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(token_budget=1_200, excerpt_keywords=_LIQUIDITY_KEYWORDS),
+            categories=frozenset({"search_facts", "search_sources"}),
+        )
+
+        listed = {item["extraction_id"] for item in evidence.internal if "extraction_id" in item}
+        assert listed == set(evidence.extraction_sources)

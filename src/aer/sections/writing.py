@@ -56,7 +56,16 @@ def policy_of_definition(definition: SectionDefinition) -> SectionPolicy:
         max_tier_rank=_tier_rank(stated.get("max_tier")),
         allow_forward_looking=bool(stated.get("allow_forward_looking", False)),
         token_budget=definition.token_budget,
+        concept_priority=_names(stated.get("concept_priority")),
+        excerpt_keywords=_names(stated.get("excerpt_keywords")),
     )
+
+
+def _names(value: object) -> tuple[str, ...]:
+    """A policy's list of names as a tuple, and anything else as none declared."""
+    if isinstance(value, list):
+        return tuple(str(item) for item in value)
+    return ()
 
 
 def _tier_rank(value: object) -> int:
