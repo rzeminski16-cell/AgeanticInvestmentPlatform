@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import structlog
 
-from aer.agents.base import AgentContext, TokenCapExceededError
+from aer.agents.base import AgentContext, TokenCapExceededError, schema_problems
 from aer.agents.section_writer import SectionDraft, SectionWriterAgent, SectionWriterInput
 from aer.core.enums import SourceTier
 from aer.db.models import ReportSection, ResearchRequest, SectionDefinition, SectionStatus
@@ -126,7 +126,10 @@ async def execute_builtin_section(
                 section, attempts=attempt, problems=[str(refused)], truncated=evidence.truncated
             )
         except ValidationError as unparsable:
-            problems = [f"The output did not satisfy the response schema: {unparsable}"]
+            # The field-level detail, not the count. A retry told only that "22 field(s)
+            # broke a constraint" has nothing to act on and makes the same mistake again,
+            # which is how three sections of one live report died at two attempts each.
+            problems = schema_problems(unparsable)
             continue
 
         problems = validate_draft(candidate, contract=contract, evidence=evidence, policy=policy)

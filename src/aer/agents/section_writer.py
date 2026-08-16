@@ -25,7 +25,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from aer.agents.base import Agent
 from aer.agents.contract_schema import draft_model_for
-from aer.agents.custom_section import CustomSectionDraft
+from aer.agents.custom_section import (
+    CLAIM_BASIS_BUDGET,
+    CLAIM_STATEMENT_BUDGET,
+    CustomSectionDraft,
+)
 from aer.agents.untrusted import UntrustedSource
 
 __all__ = ["SectionDraft", "SectionWriterAgent", "SectionWriterInput"]
@@ -80,6 +84,10 @@ your confidence low. An honest gap is publishable; filler is not.
 4. Forward-looking statements and opinions carry a stated basis instead of a citation,
 are written as judgements, never as facts, and appear only where this section's evidence
 policy admits them.
+5. Keep each claim within its length: a `statement` under {statement_budget} characters
+and a `basis` under {basis_budget}. These are asked for here because the schema's own
+bounds reach you as description text rather than as a rule the server applies — a reply
+that overruns them is thrown away after it has been paid for.
 
 This section's output contract — your content object must carry exactly these fields:
 {contract}
@@ -105,7 +113,9 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
 
     def system_prompt(self, payload: SectionWriterInput) -> str:
         return _SYSTEM_PROMPT.format(
-            contract=json.dumps(payload.output_contract, indent=2, sort_keys=False)
+            contract=json.dumps(payload.output_contract, indent=2, sort_keys=False),
+            statement_budget=CLAIM_STATEMENT_BUDGET,
+            basis_budget=CLAIM_BASIS_BUDGET,
         )
 
     def stable_context(self, payload: SectionWriterInput) -> str:

@@ -43,7 +43,7 @@ from typing import Any, ClassVar, Final, Literal
 import structlog
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from aer.agents.base import Agent, AgentContext, ToolNotPermittedError
+from aer.agents.base import Agent, AgentContext, ToolNotPermittedError, schema_problems
 from aer.agents.untrusted import UntrustedSource
 from aer.errors import AerError, ValidationError
 
@@ -522,7 +522,7 @@ async def investigate(
             turn = await worker.run(context, payload)
         except ValidationError as rejected:
             unreadable += 1
-            problems = _schema_problems(rejected)
+            problems = schema_problems(rejected)
             _log.warning(
                 "worker.reply_unreadable",
                 topic=topic.value,
@@ -582,39 +582,6 @@ async def investigate(
             "problems": problems,
         },
     )
-
-
-def _schema_problems(rejected: ValidationError) -> list[str]:
-    """A rejected reply, said back to the model in terms it can act on.
-
-    The exception's own message is written for whoever reads the failed step: it names the
-    model, the schema, the count, and — for a truncation — that ``max_output_tokens`` wants
-    raising, which is advice the model can do nothing with. What the worker needs is
-    narrower and more useful: which field, and what was wrong with it.
-    """
-    errors = rejected.context.get("errors")
-    if not isinstance(errors, list) or not errors:
-        # No field-level detail, which at this layer means the reply carried no structured
-        # output at all — a refusal, or the token ceiling reached before the JSON began.
-        return [
-            "Your last reply could not be read as a turn. It must be one JSON object "
-            "matching the schema, and short enough to finish."
-        ]
-
-    problems: list[str] = []
-    for error in errors:
-        if not isinstance(error, dict):  # pragma: no cover -- context is ours; belt and braces
-            continue
-        if error.get("type") == "json_invalid":
-            problems.append(
-                "Your last reply was cut off before it was complete. Say the same thing in "
-                "fewer words: fewer findings, shorter statements."
-            )
-            continue
-        where = str(error.get("loc") or "your reply")
-        detail = str(error.get("msg") or error.get("type") or "was rejected")
-        problems.append(f"{where}: {detail}")
-    return problems
 
 
 def _tool_menu(available: list[str]) -> str:

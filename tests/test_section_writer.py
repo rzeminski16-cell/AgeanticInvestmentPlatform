@@ -12,15 +12,24 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.agents.base import AgentContext
+from aer.agents.base import AgentContext, schema_problems
+from aer.agents.custom_section import (
+    CLAIM_BASIS_BUDGET,
+    CLAIM_BASIS_CEILING,
+    CLAIM_STATEMENT_BUDGET,
+    CLAIM_STATEMENT_CEILING,
+    ProposedClaim,
+)
 from aer.agents.registry import resolve_role
-from aer.agents.section_writer import SectionDraft
+from aer.agents.section_writer import SectionDraft, SectionWriterAgent, SectionWriterInput
 from aer.config import Settings
 from aer.core.enums import FactBasis, JobStatus, Provider, SourceTier
 from aer.db.models import (
@@ -38,6 +47,7 @@ from aer.db.models import (
     SourceDocument,
     User,
 )
+from aer.errors import ValidationError
 from aer.extract.html import extract_html
 from aer.providers.fake import FakeProvider, ScriptedResponse
 from aer.providers.protocol import SpentButUnusableError, Usage
@@ -499,3 +509,122 @@ class TestSpentPerSection:
         assert run is not None
         assert run.request_payload_ref is not None
         assert run.response_payload_ref is not None
+
+
+class TestTheClaimLengthsAreAskedForNotJustEnforced:
+    """The planner's lesson (`TestThePlannerAsksForWhatItValidates`), applied where it was not.
+
+    `max_length` reaches the model as *description text* — the SDK moves it there, because
+    the API's schema mode rejects the constraint itself — so it is guidance, not a rule the
+    server applies. A reply that overruns it is therefore structurally perfect, paid for,
+    and thrown away.
+
+    That is exactly what a live run did: `historical_financial_analysis` came back with
+    twenty-two claims over the 600-character `statement` bound, `balance_sheet_liquidity`
+    with twenty, `management_governance` with nine. All three sections were lost, at two
+    attempts each, from a prompt that never mentioned a length. The planner had already
+    been fixed this way; the section writer inherited its bounds without the lesson.
+    """
+
+    _PAIRS = (
+        ("statement", CLAIM_STATEMENT_BUDGET, CLAIM_STATEMENT_CEILING),
+        ("basis", CLAIM_BASIS_BUDGET, CLAIM_BASIS_CEILING),
+    )
+
+    @pytest.mark.parametrize(("field", "budget", "ceiling"), _PAIRS)
+    def test_the_ceiling_leaves_real_headroom_over_the_budget(
+        self, field: str, budget: int, ceiling: int
+    ) -> None:
+        """ "It went half again over" must not be a lost section."""
+        assert ceiling >= budget * 2, (
+            f"{field} allows {ceiling} and asks for {budget}; a model that overruns its "
+            "budget by half would lose the section after the call was paid for"
+        )
+
+    @pytest.mark.parametrize(("field", "budget", "ceiling"), _PAIRS)
+    def test_the_prompt_states_the_budget(self, field: str, budget: int, ceiling: int) -> None:
+        # The only channel the model reliably reads a limit on. Asserted against the
+        # rendered prompt rather than the template, so an unformatted placeholder fails.
+        rendered = SectionWriterAgent().system_prompt(
+            SectionWriterInput(
+                section_key="business_overview",
+                title="Business overview",
+                company_name="Microsoft Corporation",
+                ticker="MSFT",
+                as_of_date="2024-06-30",
+                point_in_time=True,
+                output_contract={"properties": {"commentary": {"type": "string"}}},
+            )
+        )
+
+        assert str(budget) in rendered
+        assert "{" not in rendered.split("output contract")[0], "a placeholder went unformatted"
+
+    def test_a_claim_at_the_stated_budget_validates(self) -> None:
+        # The contract as one object: write what was asked for, and it is accepted.
+        claim = ProposedClaim(
+            statement="s" * CLAIM_STATEMENT_BUDGET,
+            kind="opinion",
+            basis="b" * CLAIM_BASIS_BUDGET,
+        )
+
+        assert len(claim.statement) == CLAIM_STATEMENT_BUDGET
+
+    def test_the_ceiling_still_refuses_a_runaway(self) -> None:
+        # The ceiling is a sanity bound, not a style rule — it must still stop a blob.
+        with pytest.raises(PydanticValidationError):
+            ProposedClaim(statement="s" * (CLAIM_STATEMENT_CEILING + 1), kind="factual")
+
+    def test_a_rejected_reply_is_said_back_field_by_field(self) -> None:
+        """What the retry gets, and why both attempts used to fail the same way.
+
+        The message says "22 field(s) broke a constraint", which is true, unactionable, and
+        was handed to the retry verbatim. `schema_problems` reads the field-level detail the
+        exception carried all along.
+        """
+        rejected = ValidationError(
+            "claude-opus-5's reply could not be read as X: 2 field(s) broke a constraint",
+            context={
+                "errors": [
+                    {
+                        "loc": "claims.3.statement",
+                        "type": "string_too_long",
+                        "msg": "String should have at most 1500 characters",
+                    },
+                    {"loc": "claims.7.basis", "type": "string_too_long", "msg": "too long"},
+                ]
+            },
+        )
+
+        problems = schema_problems(rejected)
+
+        assert problems == [
+            "claims.3.statement: String should have at most 1500 characters",
+            "claims.7.basis: too long",
+        ]
+
+    def test_every_retry_loop_says_it_back_field_by_field(self) -> None:
+        """The function existing is not the property; being *called* is.
+
+        A mutation that reverted either loop to stringifying the exception passed every
+        other test in this class — the helper was still correct, still tested, and no
+        longer reached. Both drafting loops are scanned, because the defect this closes was
+        one of them doing it right (the research worker) while the others did not.
+        """
+        root = Path(__file__).resolve().parent.parent / "src" / "aer"
+        loops = [
+            root / "sections" / "writing.py",
+            root / "skills" / "execution.py",
+            root / "agents" / "worker.py",
+        ]
+
+        for path in loops:
+            body = path.read_text(encoding="utf-8")
+            assert "schema_problems(" in body, (
+                f"{path.name} handles a rejected reply without saying the fields back; "
+                "a retry given only the count repeats the mistake"
+            )
+            assert "response schema: {unparsable}" not in body, (
+                f"{path.name} feeds the exception's own message to the retry, which names "
+                "a count rather than the fields"
+            )

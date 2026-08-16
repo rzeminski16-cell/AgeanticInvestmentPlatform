@@ -28,7 +28,7 @@ from typing import Any
 
 import structlog
 
-from aer.agents.base import AgentContext, TokenCapExceededError
+from aer.agents.base import AgentContext, TokenCapExceededError, schema_problems
 from aer.agents.custom_section import CustomSectionAgent, CustomSectionDraft, CustomSectionInput
 from aer.core.section_output import reserved_fields_in
 from aer.db.models import PlanSkillPin, ReportSection, ResearchRequest, SectionStatus
@@ -140,7 +140,9 @@ async def execute_custom_section(
                 truncated=evidence.truncated,
             )
         except ValidationError as unparsable:
-            problems = [f"The output did not satisfy the response schema: {unparsable}"]
+            # As in `aer.sections.writing`: the fields, not the count, or the retry has
+            # nothing to act on.
+            problems = schema_problems(unparsable)
             continue
 
         problems = validate_draft(candidate, contract=contract, evidence=evidence, policy=policy)

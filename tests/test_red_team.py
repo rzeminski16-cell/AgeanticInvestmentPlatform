@@ -20,6 +20,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.base import AgentContext
 from aer.agents.red_team import (
+    _SYSTEM_PROMPT,
+    CHALLENGE_BASIS_BUDGET,
+    CHALLENGE_BASIS_CEILING,
+    CHALLENGE_STATEMENT_BUDGET,
+    CHALLENGE_STATEMENT_CEILING,
+    COVERAGE_NOTE_BUDGET,
+    COVERAGE_NOTE_CEILING,
     ChallengeDimension,
     RedTeamChallenge,
     RedTeamInput,
@@ -116,6 +123,58 @@ class TestAChallengeStandsOnEvidenceOrDoesNotExist:
                 basis="Enthusiasm.",
                 fact_ids=["some-fact"],
             )
+
+
+class TestTheLengthsAreAskedForNotJustEnforced:
+    """The section writers' live failure, which the red team then reproduced exactly.
+
+    Six challenge statements and the coverage note came back over the old 600-character
+    bounds — bounds the model had never been told about, because `max_length` reaches it
+    as description text. On the batch path there is no retry, so the one unreadable reply
+    failed the whole red_team step and with it the run. Same cure as the planner and the
+    section writers: the ceiling gets headroom, the prompt states the budget, and both
+    come from the same constants so they cannot drift apart.
+    """
+
+    _PAIRS = (
+        ("statement", CHALLENGE_STATEMENT_BUDGET, CHALLENGE_STATEMENT_CEILING),
+        ("basis", CHALLENGE_BASIS_BUDGET, CHALLENGE_BASIS_CEILING),
+        ("coverage_note", COVERAGE_NOTE_BUDGET, COVERAGE_NOTE_CEILING),
+    )
+
+    @pytest.mark.parametrize(("field", "budget", "ceiling"), _PAIRS)
+    def test_the_ceiling_leaves_real_headroom_over_the_budget(
+        self, field: str, budget: int, ceiling: int
+    ) -> None:
+        assert ceiling >= budget * 2, (
+            f"{field} allows {ceiling} and asks for {budget}; an overrun of half would "
+            "fail the whole run, because the batch path has no retry"
+        )
+
+    @pytest.mark.parametrize(("field", "budget", "ceiling"), _PAIRS)
+    def test_the_prompt_states_the_budget(self, field: str, budget: int, ceiling: int) -> None:
+        assert str(budget) in _SYSTEM_PROMPT
+        assert "{" not in _SYSTEM_PROMPT, "a placeholder went unformatted"
+
+    def test_a_reply_at_the_stated_budgets_validates(self) -> None:
+        report = RedTeamReport(
+            challenges=[
+                RedTeamChallenge(
+                    dimension=ChallengeDimension.GROWTH,
+                    severity=3,
+                    statement="s" * CHALLENGE_STATEMENT_BUDGET,
+                    basis="b" * CHALLENGE_BASIS_BUDGET,
+                    fact_ids=["some-fact"],
+                )
+            ],
+            coverage_note="c" * COVERAGE_NOTE_BUDGET,
+        )
+
+        assert len(report.coverage_note) == COVERAGE_NOTE_BUDGET
+
+    def test_the_ceiling_still_refuses_a_runaway(self) -> None:
+        with pytest.raises(PydanticValidationError):
+            RedTeamReport(coverage_note="c" * (COVERAGE_NOTE_CEILING + 1))
 
 
 class TestTheRoleIsRegistered:

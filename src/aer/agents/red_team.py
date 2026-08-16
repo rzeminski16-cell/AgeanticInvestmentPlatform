@@ -52,6 +52,23 @@ class ChallengeDimension(StrEnum):
     MACRO = "macro"
 
 
+# The same budget-versus-ceiling split as `aer.agents.custom_section`, learned the same
+# expensive way: the API's schema mode rejects `max_length` itself, so the SDK moves it
+# into description text where it binds nothing, and a live run's red team came back with
+# six challenges over the old 600-character bound and one coverage note — a structurally
+# perfect reply, paid for, unreadable. On the batch path there is no retry, so that one
+# reply failed the whole step. The prompt now asks for the budget; the ceiling exists to
+# stop a blob, not to enforce a house style.
+CHALLENGE_STATEMENT_BUDGET: Final = 600
+CHALLENGE_STATEMENT_CEILING: Final = 1_500
+
+CHALLENGE_BASIS_BUDGET: Final = 500
+CHALLENGE_BASIS_CEILING: Final = 1_200
+
+COVERAGE_NOTE_BUDGET: Final = 600
+COVERAGE_NOTE_CEILING: Final = 1_500
+
+
 class ClaimRecord(BaseModel):
     """One recorded claim from the draft, as the red team sees it."""
 
@@ -70,8 +87,8 @@ class RedTeamChallenge(BaseModel):
 
     dimension: ChallengeDimension
     severity: int = Field(ge=1, le=5)
-    statement: str = Field(min_length=1, max_length=600)
-    basis: str = Field(min_length=1, max_length=500)
+    statement: str = Field(min_length=1, max_length=CHALLENGE_STATEMENT_CEILING)
+    basis: str = Field(min_length=1, max_length=CHALLENGE_BASIS_CEILING)
     fact_ids: list[str] = Field(default_factory=list, max_length=6)
     calculation_ids: list[str] = Field(default_factory=list, max_length=6)
     source_document_ids: list[str] = Field(default_factory=list, max_length=6)
@@ -94,7 +111,7 @@ class RedTeamReport(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     challenges: list[RedTeamChallenge] = Field(default_factory=list, max_length=8)
-    coverage_note: str = Field(min_length=1, max_length=600)
+    coverage_note: str = Field(min_length=1, max_length=COVERAGE_NOTE_CEILING)
 
 
 class RedTeamInput(BaseModel):
@@ -116,7 +133,7 @@ class RedTeamInput(BaseModel):
     sources: list[dict[str, Any]] = Field(default_factory=list)
 
 
-_SYSTEM_PROMPT: Final = """\
+_SYSTEM_PROMPT: Final = f"""\
 You are the red team inside an equity research platform. A draft report has been written \
 by other roles; your entire job is to attack its thesis. You did not help write it, you \
 have not seen its prose, and you owe it nothing. Your whole output is one JSON object \
@@ -137,7 +154,12 @@ leave it out and mention the gap in your coverage note.
 is thin — that is itself a finding.
 5. If the claims genuinely survive your attack, say so in the coverage note and return \
 few or no challenges. A manufactured objection wastes the reader's trust in the real \
-ones."""
+ones.
+6. Keep each field within its length: a challenge `statement` under \
+{CHALLENGE_STATEMENT_BUDGET} characters, its `basis` under {CHALLENGE_BASIS_BUDGET}, and \
+the `coverage_note` under {COVERAGE_NOTE_BUDGET}. These are asked for here because the \
+schema's own bounds reach you as description text rather than as a rule the server \
+applies — a reply that overruns them is thrown away after it has been paid for."""
 
 
 class RedTeamAgent(Agent[RedTeamInput, RedTeamReport]):

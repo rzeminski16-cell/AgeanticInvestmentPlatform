@@ -642,10 +642,18 @@ class TestTheDryRun:
         billed = await session.scalar(
             select(func.coalesce(func.sum(Cost.amount_gbp), 0)).where(Cost.job_id == outcome.job_id)
         )
-        # To the column's own six places: `costs.amount_gbp` is NUMERIC(12, 6) and the
-        # running total is unrounded, so demanding exact equality would assert against
-        # the storage precision rather than against the meter.
-        assert Decimal(billed) == outcome.cost_gbp.quantize(Decimal("0.000001"))
+        rows = await session.scalar(
+            select(func.count()).select_from(Cost).where(Cost.job_id == outcome.job_id)
+        )
+        # `costs.amount_gbp` is NUMERIC(12, 6): each row is rounded to six places as it is
+        # stored, while the running total sums the unrounded lines — and the sum of rounded
+        # rows is not the rounding of the summed total. The first version quantized the
+        # total and demanded equality, which held only while no row landed on a rounding
+        # boundary; lengthening a prompt by one sentence moved a call's price half a
+        # micro-pound and broke it. The honest bound is the storage rounding itself: at
+        # most half a micro-pound per row, asserted with a whole one per row for slack.
+        assert rows > 0
+        assert abs(Decimal(billed) - outcome.cost_gbp) <= Decimal("0.000001") * rows
 
     async def test_a_run_past_its_cap_is_refused_before_the_call(
         self, finished_run: dict[str, Any], section_provider: FakeProvider

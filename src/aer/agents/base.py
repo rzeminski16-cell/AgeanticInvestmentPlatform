@@ -52,7 +52,7 @@ from aer.db.models import AgentRun, Cost, Job, JobStep, Prompt, ResearchRequest
 
 # Aliased: `sqlalchemy.exc.IntegrityError` is already in this namespace for the
 # prompt-row race, and a shadowed exception is caught by nobody.
-from aer.errors import AerError, BudgetExceededError
+from aer.errors import AerError, BudgetExceededError, ValidationError
 from aer.errors import IntegrityError as BrokenRecordError
 from aer.providers.costs import context_window_for, estimate_gbp, price_usage
 from aer.providers.protocol import (
@@ -67,7 +67,13 @@ from aer.services.artefacts import store_artefact
 from aer.storage.protocol import ArtefactStore
 from aer.tracing import span
 
-__all__ = ["Agent", "AgentContext", "TokenCapExceededError", "ToolNotPermittedError"]
+__all__ = [
+    "Agent",
+    "AgentContext",
+    "TokenCapExceededError",
+    "ToolNotPermittedError",
+    "schema_problems",
+]
 
 _log = structlog.get_logger("aer.agents")
 
@@ -100,6 +106,46 @@ class TokenCapExceededError(AerError):
     """
 
     code = "token_cap_exceeded"
+
+
+def schema_problems(rejected: ValidationError) -> list[str]:
+    """A rejected reply, said back to the model in terms it can act on.
+
+    The exception's own message is written for whoever reads the failed step: it names the
+    model, the schema, the count, and — for a truncation — that ``max_output_tokens`` wants
+    raising, which is advice the model can do nothing with. What a retry needs is narrower
+    and more useful: which field, and what was wrong with it.
+
+    Shared rather than the research worker's own, which is where it was until a live run
+    showed what its absence costs everywhere else. Three sections of one report failed
+    with "22 field(s) broke a constraint the API does not enforce" — true, unactionable,
+    and handed verbatim to a retry that then made the same mistake and burned the
+    section. The detail was in the exception's context the whole time; only the worker
+    was reading it.
+    """
+    errors = rejected.context.get("errors")
+    if not isinstance(errors, list) or not errors:
+        # No field-level detail, which at this layer means the reply carried no structured
+        # output at all — a refusal, or the token ceiling reached before the JSON began.
+        return [
+            "Your last reply could not be read as a turn. It must be one JSON object "
+            "matching the schema, and short enough to finish."
+        ]
+
+    problems: list[str] = []
+    for error in errors:
+        if not isinstance(error, dict):  # pragma: no cover -- context is ours; belt and braces
+            continue
+        if error.get("type") == "json_invalid":
+            problems.append(
+                "Your last reply was cut off before it was complete. Say the same thing in "
+                "fewer words: fewer findings, shorter statements."
+            )
+            continue
+        where = str(error.get("loc") or "your reply")
+        detail = str(error.get("msg") or error.get("type") or "was rejected")
+        problems.append(f"{where}: {detail}")
+    return problems
 
 
 @dataclass(slots=True)

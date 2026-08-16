@@ -42,6 +42,23 @@ __all__ = [
 ]
 
 
+# A ceiling is a sanity bound; a budget is what the prompt asks for. The distinction is
+# ADR-less but hard-won — the planner learned it when a 660-character reply against a
+# 600-character `max_length` threw away a paid-for call, and the section writer inherited
+# the bounds without the lesson. `max_length` reaches the model as *description text*, not
+# as a server-side rule, so a structurally perfect reply can still miss it: three sections
+# of one live report died that way, one of them with twenty-two over-long claims at once.
+#
+# So the ceiling is set well clear of the budget, ordinary variance costs nothing, and the
+# prompts interpolate the budgets from these same constants — instruction and validation
+# cannot drift apart.
+CLAIM_STATEMENT_BUDGET: Final = 600
+CLAIM_STATEMENT_CEILING: Final = 1_500
+
+CLAIM_BASIS_BUDGET: Final = 400
+CLAIM_BASIS_CEILING: Final = 1_000
+
+
 class ProposedCitation(BaseModel):
     """One excerpt a claim rests on, named by ids the evidence listing supplied."""
 
@@ -62,11 +79,11 @@ class ProposedClaim(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    statement: str = Field(min_length=1, max_length=600)
+    statement: str = Field(min_length=1, max_length=CLAIM_STATEMENT_CEILING)
     kind: Literal["numeric", "factual", "forward_looking", "opinion"]
     financial_fact_id: str | None = None
     calculation_id: str | None = None
-    basis: str | None = Field(default=None, max_length=400)
+    basis: str | None = Field(default=None, max_length=CLAIM_BASIS_CEILING)
     citations: list[ProposedCitation] = Field(default_factory=list, max_length=4)
 
     @model_validator(mode="after")
@@ -145,6 +162,10 @@ verify blocks the report.
 content and keep your confidence low. An honest gap is publishable; filler is not.
 4. Forward-looking statements and opinions carry a stated basis instead of a citation,
 and are written as judgements, never as facts.
+5. Keep each claim within its length: a `statement` under {statement_budget} characters
+and a `basis` under {basis_budget}. These are asked for here because the schema's own
+bounds reach you as description text rather than as a rule the server applies — a reply
+that overruns them is thrown away after it has been paid for.
 
 {user_skill_rule}
 
@@ -176,6 +197,8 @@ class CustomSectionAgent(Agent[CustomSectionInput, CustomSectionDraft]):
         return _SYSTEM_PROMPT.format(
             user_skill_rule=USER_SKILL_RULE,
             contract=json.dumps(payload.output_contract, indent=2, sort_keys=False),
+            statement_budget=CLAIM_STATEMENT_BUDGET,
+            basis_budget=CLAIM_BASIS_BUDGET,
         )
 
     def user_message(self, payload: CustomSectionInput) -> str:
