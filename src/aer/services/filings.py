@@ -9,8 +9,9 @@ to say what the company *said* had only numbers to say it from.
 The pieces to fix that were all built and none of them were called. The submissions index
 lists every filing with the date it was accepted; :class:`~aer.sources.sec.submissions.Filing`
 turns one into a reference the fetch layer accepts; the fetcher archives and hashes. This
-module joins them: the latest annual report and the recent current reports, inside the
-point-in-time window, fetched, dated, archived and excerpted.
+module joins them: the latest annual report, the quarterly reports filed since it, and the
+recent current reports, inside the point-in-time window, fetched, dated, archived and
+excerpted.
 
 **Every document is dated by its acceptance, not by the period it covers.** The date a
 filing became public is the only one a point-in-time rule can honestly use, and it is what
@@ -44,12 +45,13 @@ from aer.extract import extract_text
 from aer.services.acquisition import record_acquisition
 from aer.services.extractions import record_excerpts
 from aer.sources.base import ResolvedEntity
-from aer.sources.sec.submissions import ANNUAL_FORMS, Filing, SubmissionsIndex
+from aer.sources.sec.submissions import ANNUAL_FORMS, QUARTERLY_FORMS, Filing, SubmissionsIndex
 from aer.storage.protocol import ArtefactStore
 
 __all__ = [
     "CURRENT_FORMS",
     "MAX_CURRENT_REPORTS",
+    "MAX_QUARTERLY_REPORTS",
     "AcquiredFilings",
     "acquire_filings",
 ]
@@ -66,11 +68,18 @@ CURRENT_FORMS: Final[frozenset[str]] = frozenset({"8-K", "6-K"})
 # will be. Bounded because each is a fetch under SEC's rate limit and an artefact to keep.
 MAX_CURRENT_REPORTS: Final = 5
 
+# How many quarterly reports to take: every one filed since the annual report, and there
+# are at most three of those between two annuals. A quarterly the annual has since covered
+# is not fetched — its narrative is a subset of a document the run already reads.
+MAX_QUARTERLY_REPORTS: Final = 3
+
 # Paragraphs excerpted per document. Enough that a section has something to cite, small
 # enough that one 10-K does not fill an evidence pack on its own — the pack is assembled
 # against a token budget and a document that crowded out every other source would be worse
-# than the silence this module exists to end.
-MAX_EXCERPTS: Final = 40
+# than the silence this module exists to end. Sixty rather than the original forty: a live
+# run's whole prose base came to thirty-seven excerpts, and the pack assembler can only
+# choose from what was recorded.
+MAX_EXCERPTS: Final = 60
 
 # The shortest run of text worth recording as an excerpt. Below this it is a heading, a
 # page number or a table cell adrift from its table: a citation pointing at "12" verifies
@@ -89,11 +98,27 @@ _ITEM_HEADING: Final[re.Pattern[str]] = re.compile(
     r"^\s*(?P<item>Item\s+\d+[A-Z]?)\s*[.:\u2014-]", re.IGNORECASE | re.MULTILINE
 )
 
-# Where a 10-K is obliged to put the prose a research report wants: the business
-# description, the risk factors, and management's own account of the year. Item 7A —
-# market risk — is deliberately absent: it is mostly tables, and the tables are already in
-# the XBRL facts.
-_WANTED_ITEMS: Final[frozenset[str]] = frozenset({"ITEM1", "ITEM1A", "ITEM7"})
+# A part heading. A 10-K numbers its items uniquely across the whole filing; a 10-Q
+# restarts at "Item 1" inside each part, so without the part an MD&A cut lands on the
+# condensed financial statements instead.
+_PART_HEADING: Final[re.Pattern[str]] = re.compile(
+    r"^\s*PART\s+(?P<part>[IVX]+)\b", re.IGNORECASE | re.MULTILINE
+)
+
+# Where each form is obliged to put the prose a research report wants. The first version
+# of this was one 10-K-shaped set applied to everything, and on a 10-Q it selected nothing
+# a section could use: a 10-Q's management discussion is Item 2 *of Part I*, not Item 7.
+#
+# 10-K: the business description, the risk factors, and management's account of the year.
+# Item 7A — market risk — is deliberately absent: it is mostly tables, and the tables are
+# already in the XBRL facts. 20-F: the closest equivalents under that form's numbering.
+# 10-Q: the quarter's management discussion, and the risk-factor *updates* in Part II.
+# A form not listed here — an 8-K, a 6-K — is read whole in `_regions`.
+_PROSE_ITEMS: Final[dict[str, frozenset[str]]] = {
+    "10-K": frozenset({"ITEM1", "ITEM1A", "ITEM7"}),
+    "20-F": frozenset({"ITEM3", "ITEM4", "ITEM5"}),
+    "10-Q": frozenset({"PARTI.ITEM2", "PARTII.ITEM1A"}),
+}
 
 # The vocabulary of the questions a research report asks. Not a model, not a similarity
 # measure — a count of the words that distinguish a paragraph about the business from a
@@ -175,7 +200,8 @@ async def acquire_filings(
     job_id: uuid.UUID | None = None,
     max_current: int = MAX_CURRENT_REPORTS,
 ) -> AcquiredFilings:
-    """Fetch this entity's latest annual report and its recent current reports.
+    """Fetch this entity's latest annual report, the quarterlies since it, and its
+    recent current reports.
 
     Args:
         client: The SEC client. Typed loosely so a test can substitute a stub without
@@ -244,6 +270,22 @@ def _wanted(
     annual = index.latest(ANNUAL_FORMS, as_of_date=as_of)
 
     candidates = index.filed_on_or_before(as_of) if as_of else index.filings
+
+    # The quarters the annual report has not yet caught up with. A run as at mid-year was
+    # reading a narrative up to three quarters stale — the live report's freshest company
+    # prose predated three filed 10-Qs — and a quarterly the annual has since covered is
+    # deliberately absent, because its account of the year is a subset of the annual's.
+    quarterly = sorted(
+        (
+            item
+            for item in candidates
+            if item.form in QUARTERLY_FORMS
+            and (annual is None or item.filing_date > annual.filing_date)
+        ),
+        key=lambda item: (item.filing_date, item.accession),
+        reverse=True,
+    )[:MAX_QUARTERLY_REPORTS]
+
     current = sorted(
         (item for item in candidates if item.form in CURRENT_FORMS),
         key=lambda item: (item.filing_date, item.accession),
@@ -262,7 +304,8 @@ def _wanted(
             "there is nothing recent beyond the periodic filings."
         )
 
-    return ([annual, *current] if annual else list(current)), missing
+    wanted = [annual, *quarterly, *current] if annual else [*quarterly, *current]
+    return wanted, missing
 
 
 async def _acquire_one(
@@ -306,7 +349,9 @@ async def _acquire_one(
     )
     document = acquisition.source_document
 
-    recorded = await _excerpt(session, store, document=document, settings=settings)
+    recorded = await _excerpt(
+        session, store, document=document, settings=settings, form=filing.form
+    )
     return document, recorded
 
 
@@ -316,6 +361,7 @@ async def _excerpt(
     *,
     document: SourceDocument,
     settings: Settings,
+    form: str,
 ) -> int:
     """Record the document's paragraphs as excerpts. Returns how many.
 
@@ -344,7 +390,7 @@ async def _excerpt(
         _log.info("filings.not_extracted", url=document.url, reason=unreadable.message)
         return 0
 
-    excerpts = _paragraphs(extracted.text)
+    excerpts = _paragraphs(extracted.text, form=form)
     if not excerpts:
         return 0
 
@@ -354,7 +400,7 @@ async def _excerpt(
     return len(rows)
 
 
-def _paragraphs(extracted: Any) -> list[Excerpt]:
+def _paragraphs(extracted: Any, *, form: str) -> list[Excerpt]:
     """The passages most worth citing, in document order, as located excerpts.
 
     **Document order alone was the first version and it was nearly useless on a 10-K.**
@@ -385,7 +431,7 @@ def _paragraphs(extracted: Any) -> list[Excerpt]:
     text: str = extracted.text
     candidates = [
         (index, block)
-        for index, block in _blocks(text, _regions(text))
+        for index, block in _blocks(text, _regions(text, form=form))
         if len(block) >= MIN_EXCERPT_CHARS
     ]
     if not candidates:
@@ -404,15 +450,25 @@ def _paragraphs(extracted: Any) -> list[Excerpt]:
     return found
 
 
-def _regions(text: str) -> list[tuple[int, int]]:
+def _regions(text: str, *, form: str) -> list[tuple[int, int]]:
     """The spans of the filing worth reading, or the whole thing if it has no items.
 
-    A 10-K's headings are prescribed by the form, which is what makes this deterministic
-    rather than a guess: ``Item 1.``, ``Item 1A.`` and ``Item 7.`` are where a filer is
-    *required* to put the business description, the risk factors and management's own
-    account of the year. An 8-K has no such structure and no items to find, so it is read
+    A periodic form's headings are prescribed, which is what makes this deterministic
+    rather than a guess: ``Item 1.``, ``Item 1A.`` and ``Item 7.`` are where a 10-K filer
+    is *required* to put the business description, the risk factors and management's own
+    account of the year, and :data:`_PROSE_ITEMS` records the equivalent places for the
+    other periodic forms. An 8-K has no such structure and no items to find, so it is read
     whole — which is right, because an 8-K is short and entirely about one event.
+
+    An item is matched both bare and part-qualified, so a form whose item numbers are
+    unique across the filing (a 10-K) needs no part headings present, while one whose
+    numbering restarts each part (a 10-Q) cuts only where the part agrees. An amended
+    form (``10-K/A``) cuts as the form it amends.
     """
+    wanted = _PROSE_ITEMS.get(form.split("/", 1)[0].strip().upper())
+    if wanted is None:
+        return [(0, len(text))]
+
     starts = sorted(
         (match.start(), match.group("item").upper().replace(" ", ""))
         for match in _ITEM_HEADING.finditer(text)
@@ -420,15 +476,31 @@ def _regions(text: str) -> list[tuple[int, int]]:
     if not starts:
         return [(0, len(text))]
 
+    parts = sorted(
+        (match.start(), match.group("part").upper()) for match in _PART_HEADING.finditer(text)
+    )
+
     regions: list[tuple[int, int]] = []
     for position, (offset, item) in enumerate(starts):
-        if item not in _WANTED_ITEMS:
+        part = _part_at(parts, offset)
+        names = {item} if part is None else {item, f"PART{part}.{item}"}
+        if not (names & wanted):
             continue
         end = starts[position + 1][0] if position + 1 < len(starts) else len(text)
         regions.append((offset, end))
     # Every heading matched something the form does not oblige a filer to fill usefully.
     # Reading the whole document beats reading none of it.
     return regions or [(0, len(text))]
+
+
+def _part_at(parts: list[tuple[int, str]], offset: int) -> str | None:
+    """The part an offset falls in — the last part heading before it — or ``None``."""
+    current: str | None = None
+    for start, part in parts:
+        if start > offset:
+            break
+        current = part
+    return current
 
 
 def _blocks(text: str, regions: list[tuple[int, int]]) -> list[tuple[int, str]]:

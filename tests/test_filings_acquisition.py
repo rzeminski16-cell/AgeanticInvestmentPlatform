@@ -11,6 +11,7 @@ A run that reads one generated document is a run with nothing to say and no way 
 from __future__ import annotations
 
 from datetime import date
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -26,7 +27,7 @@ from aer.extract import extract_text
 from aer.services.filings import MAX_EXCERPTS, MIN_EXCERPT_CHARS, acquire_filings
 from aer.sources.base import ResolvedEntity
 from aer.sources.sec.companyfacts import parse_company_facts
-from aer.sources.sec.submissions import parse_submissions
+from aer.sources.sec.submissions import Filing, SubmissionsIndex, parse_submissions
 from aer.storage.local import LocalArtefactStore
 from tests.sec_fixtures import MSFT_CIK, fixture_bytes
 from tests.workflow_fixtures import (
@@ -138,6 +139,112 @@ class TestTheRunReadsMoreThanOneDocument:
         outcome = await _acquire(scene, max_current=1)
 
         assert len(outcome.documents) <= 2
+
+
+def _index_with(*filings: Filing) -> SubmissionsIndex:
+    return SubmissionsIndex(
+        cik=MSFT_CIK,
+        name="MICROSOFT CORP",
+        tickers=("MSFT",),
+        exchanges=("NASDAQ",),
+        filings=tuple(sorted(filings, key=lambda f: (f.filing_date, f.accession), reverse=True)),
+    )
+
+
+def _filing(form: str, filed: date, *, sequence: int) -> Filing:
+    return Filing(
+        accession=f"0000789019-{filed:%y}-{sequence:06d}",
+        form=form,
+        filing_date=filed,
+        report_date=None,
+        primary_document=f"doc-{form.lower().replace('/', '')}-{filed:%Y%m%d}.htm",
+        description="",
+        is_xbrl=True,
+    )
+
+
+class _IndexClient(StubSecClient):
+    """The stub, serving a submissions index built in the test instead of the fixture."""
+
+    def __init__(self, store: Any, index: SubmissionsIndex) -> None:
+        super().__init__(store)
+        self._index = index
+
+    async def fetch_submissions(self, cik: str) -> Any:
+        self.submissions_calls.append(cik)
+        return SimpleNamespace(data=self._index)
+
+
+class TestQuarterlyReports:
+    """The freshest structured narrative a mid-year run can read is the last 10-Q's MD&A.
+
+    The live report's newest company prose was an annual report three filed quarters
+    stale — every 10-Q since it existed, was public, and was never fetched.
+    """
+
+    ANNUAL = _filing("10-K", date(2022, 7, 28), sequence=1)
+    QUARTERS = (
+        _filing("10-Q", date(2022, 10, 25), sequence=2),
+        _filing("10-Q", date(2023, 1, 24), sequence=3),
+        _filing("10-Q", date(2023, 4, 25), sequence=4),
+    )
+    SUPERSEDED = _filing("10-Q", date(2022, 4, 26), sequence=5)
+
+    async def test_the_quarterlies_since_the_annual_are_acquired(
+        self, scene: dict[str, Any]
+    ) -> None:
+        client = _IndexClient(scene["store"], _index_with(self.ANNUAL, *self.QUARTERS))
+
+        outcome = await _acquire(scene, client=client)
+
+        fetched = {url.rsplit("/", 1)[-1] for url in client.document_calls}
+        assert {q.primary_document for q in self.QUARTERS} <= fetched
+        assert len(outcome.documents) == 1 + len(self.QUARTERS)
+
+    async def test_a_quarterly_the_annual_has_covered_is_not(self, scene: dict[str, Any]) -> None:
+        """Its narrative is a subset of a document the run already reads, and each fetch
+        is SEC rate-limit budget and an artefact kept for ever."""
+        client = _IndexClient(scene["store"], _index_with(self.ANNUAL, self.SUPERSEDED))
+
+        await _acquire(scene, client=client)
+
+        assert not any(self.SUPERSEDED.primary_document in url for url in client.document_calls)
+
+    async def test_the_point_in_time_window_applies_to_quarterlies_too(
+        self, scene: dict[str, Any]
+    ) -> None:
+        scene["request"].as_of_date = date(2023, 2, 1)
+        await scene["session"].flush()
+        client = _IndexClient(scene["store"], _index_with(self.ANNUAL, *self.QUARTERS))
+
+        await _acquire(scene, client=client)
+
+        assert not any(self.QUARTERS[2].primary_document in url for url in client.document_calls)
+
+    async def test_a_company_with_no_annual_still_yields_its_quarterlies(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """A young filer mid-year has 10-Qs and no 10-K yet. The missing annual is noted;
+        the quarters it does have are still read."""
+        client = _IndexClient(scene["store"], _index_with(*self.QUARTERS))
+
+        outcome = await _acquire(scene, client=client)
+
+        assert len(outcome.documents) == len(self.QUARTERS)
+        assert any("annual report" in note for note in outcome.skipped)
+
+    async def test_the_quarterlies_are_bounded(self, scene: dict[str, Any]) -> None:
+        """Amendments can push the count past three; the newest win, because the bound
+        exists for the same reason the current reports': fetch budget and storage."""
+        extra = _filing("10-Q/A", date(2023, 5, 2), sequence=6)
+        client = _IndexClient(scene["store"], _index_with(self.ANNUAL, *self.QUARTERS, extra))
+
+        await _acquire(scene, client=client)
+
+        assert not any(self.QUARTERS[0].primary_document in url for url in client.document_calls), (
+            "the oldest of four quarterlies should be the one displaced"
+        )
+        assert any(extra.primary_document in url for url in client.document_calls)
 
 
 class TestPointInTime:
@@ -367,6 +474,80 @@ class TestWhichPassagesAreKept:
 
         excerpts = list(await scene["session"].scalars(select(Extraction.excerpt)))
         assert excerpts
+
+
+# A 10-Q in miniature. Its item numbers restart inside each part — "Item 1" is the
+# condensed financial statements in Part I and legal proceedings in Part II — so a
+# 10-K-shaped cut on bare item numbers reads the accounts and the lawyers and misses
+# the management discussion entirely, which is what the live run did.
+TEN_Q = b"""<!DOCTYPE html><html><body>
+<p>UNITED STATES SECURITIES AND EXCHANGE COMMISSION Washington, D.C. 20549 FORM 10-Q
+QUARTERLY REPORT PURSUANT TO SECTION 13 OR 15(d) OF THE SECURITIES EXCHANGE ACT OF 1934.</p>
+<p>PART I. FINANCIAL INFORMATION</p>
+<p>Item 1. Financial Statements</p>
+<p>The condensed consolidated balance sheets and the related notes are set out on the
+following pages and have been prepared in accordance with generally accepted accounting
+principles applicable to interim reporting periods in the United States.</p>
+<p>Item 2. Management's Discussion and Analysis of Financial Condition and Results of Operations</p>
+<p>Revenue for the quarter grew across the commercial cloud segment, with operating margin
+ahead of the guidance given last quarter, and management describes demand from enterprise
+customers for capacity as the principal driver of the growth reported.</p>
+<p>Item 3. Quantitative and Qualitative Disclosures About Market Risk</p>
+<p>The interest rate and foreign currency exposures described in the annual report have
+not changed materially during the period, and the sensitivity tables presented there
+remain representative of the position at the end of this quarter.</p>
+<p>PART II. OTHER INFORMATION</p>
+<p>Item 1. Legal Proceedings</p>
+<p>The information set forth under the contingencies note to the condensed consolidated
+financial statements included in Part I of this report is incorporated herein by this
+reference, and counsel continues to represent the registrant in each matter.</p>
+<p>Item 1A. Risk Factors</p>
+<p>Regulatory scrutiny of large platforms intensified during the quarter, and the company
+records a new risk around demand for capacity outrunning the supply of components in the
+markets where its infrastructure competitors also invest.</p>
+<p>Item 2. Unregistered Sales of Equity Securities and Use of Proceeds</p>
+<p>The registrant repurchased shares during the quarter under the programme previously
+announced, and the average price paid per share in each month is set out in the table
+that follows together with the value remaining under the programme.</p>
+</body></html>"""
+
+
+class TestTheTenQIsCutAtItsOwnHeadings:
+    """A 10-Q's prose lives at Item 2 of Part I and Item 1A of Part II, not at Item 7."""
+
+    @pytest.fixture
+    async def filed(self, scene: dict[str, Any]) -> list[str]:
+        quarterly = _filing("10-Q", date(2023, 4, 25), sequence=7)
+
+        class _TenQ(_IndexClient):
+            async def fetch_document(self, ref: Any) -> Any:
+                self.document_calls.append(ref.url)
+                stored = await self._store.put_bytes(TEN_Q)
+                return _stub_fetch(ref.url, stored, media_type="text/html")
+
+        client = _TenQ(scene["store"], _index_with(quarterly))
+        await _acquire(scene, client=client, max_current=0)
+        return list(await scene["session"].scalars(select(Extraction.excerpt)))
+
+    async def test_the_management_discussion_is_read(self, filed: list[str]) -> None:
+        body = " ".join(filed)
+
+        assert "commercial cloud segment" in body
+
+    async def test_the_risk_factor_updates_are_read(self, filed: list[str]) -> None:
+        """Part II's Item 1A is where a quarter's *new* risks appear."""
+        body = " ".join(filed)
+
+        assert "outrunning the supply of components" in body
+
+    async def test_the_accounts_and_the_lawyers_are_not(self, filed: list[str]) -> None:
+        """Part I Item 1 is tables the XBRL facts already carry; Part II Items 1 and 2
+        are boilerplate a research section would never cite."""
+        body = " ".join(filed)
+
+        assert "condensed consolidated balance sheets" not in body
+        assert "counsel continues to represent" not in body
+        assert "average price paid per share" not in body
 
 
 def _crowded_ten_k() -> bytes:
