@@ -107,7 +107,10 @@
     padding: 0.5rem 0.8rem; margin: 0.8rem 0 0; font-size: 0.85rem; break-inside: avoid;
   }
   .status-note { font-style: italic; color: var(--muted); }
-  .not-generated { font-size: 0.85rem; color: var(--muted); font-style: italic; }
+  /* The gap is structural rather than a text node (gap R8): a live PDF's text layer
+     collapsed the inter-element space and the contents read "Business Overview(not
+     generated)". A margin cannot be collapsed by whitespace handling. */
+  .not-generated { font-size: 0.85rem; color: var(--muted); font-style: italic; margin-left: 0.35em; }
 
   /* Tables break across pages by the row, never by the cell: an unbreakable long table
      pushed a whole page blank before it. The header repeats via the paged-media engine. */
@@ -128,6 +131,7 @@
 
   sup.fn-ref { font-size: 0.7em; line-height: 0; }
   sup.fn-ref a { text-decoration: none; }
+  sup.fn-sep { font-size: 0.7em; line-height: 0; }
   .footnotes, .appendix { font-size: 0.88rem; }
   .footnotes ol { margin: 0.4rem 0 0 1.4rem; padding: 0; }
   .footnotes li { margin: 0.35rem 0; }

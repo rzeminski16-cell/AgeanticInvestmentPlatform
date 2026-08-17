@@ -23,6 +23,17 @@ is the only coupling between content and provenance, and it is a key name rather
 position, so a section author gets citations by naming a field rather than by knowing where
 the renderer looks.
 
+**Prose blocks are one more.** An array of objects carrying ``text`` and, optionally, a
+``lead_in`` renders as paragraphs — the lead-in emphasised as the opening run — rather
+than as a two-column table. It is the structured home for what a model reaches for when
+it bolds a sentence opener (gap R6), and like citation, it is a key-name convention
+rather than a section's.
+
+**Markdown in prose is stripped, not obeyed.** Model text intermittently arrives with
+``**bold**`` markers a live report printed as literal asterisks. Instructions to the
+model are advisory; the renderer is not — paired emphasis markers are removed from every
+prose string at render, and the stored content keeps exactly what the model produced.
+
 Built-in sections may register an override template later. The generic path is the default,
 and it is the one the tests exercise — an override that was never compared against the
 generic output would be an override nobody could tell was necessary.
@@ -206,8 +217,10 @@ def render_section(
 
     # Model prose intermittently arrives double-escaped: a literal backslash-u-2014 in
     # the stored text where an em dash belongs, which a live report printed verbatim
-    # mid-sentence. Normalised at render, once, for every notation.
-    content = _unescaped(content)
+    # mid-sentence. Normalised at render, once, for every notation — and markdown
+    # emphasis is stripped on the same pass (gap R6): the stored content is untouched,
+    # and no notation shows a reader literal asterisks.
+    content = _unbolded(_unescaped(content))
     active = style if style is not None else HouseStyle()
 
     for name, subschema in _ordered_properties(contract):
@@ -248,6 +261,28 @@ def _unescaped(value: Any) -> Any:
         return {key: _unescaped(item) for key, item in value.items()}
     if isinstance(value, list):
         return [_unescaped(item) for item in value]
+    return value
+
+
+# Paired emphasis only. A lone ``**`` is left exactly as written: stripping it would turn
+# a literal the author meant into silence, and an unpaired marker never renders as bold
+# anywhere either.
+_INLINE_BOLD: Final[re.Pattern[str]] = re.compile(r"\*\*(.+?)\*\*", re.DOTALL)
+
+
+def _unbolded(value: Any) -> Any:
+    """The value with paired ``**`` markers removed from every string (gap R6).
+
+    The text between the markers survives; only the notation goes. Emphasis a section
+    wants is expressed through structure — a ``lead_in`` prose block — which every
+    serialiser renders in its own notation instead of one notation leaking into another.
+    """
+    if isinstance(value, str):
+        return _INLINE_BOLD.sub(r"\1", value)
+    if isinstance(value, dict):
+        return {key: _unbolded(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_unbolded(item) for item in value]
     return value
 
 
@@ -388,6 +423,18 @@ def _list_fragments(
             Bullets(items=tuple(Bullet(text=display.scalar(item, style=style)) for item in values)),
         ]
 
+    if _prose_blocks(values):
+        fragments: list[Fragment] = [heading]
+        for item in values:
+            markers = _cite(item, citations=citations, footnote_start=footnote_start)
+            lead = str(item.get("lead_in") or "").strip()
+            text = str(item.get("text") or "")
+            if lead:
+                fragments.append(Paragraph(markers=markers, pairs=((lead, text),)))
+            else:
+                fragments.append(Paragraph(text=text, markers=markers))
+        return fragments
+
     columns = _shared_columns(values, subschema=subschema)
     if columns:
         rows = []
@@ -412,6 +459,23 @@ def _list_fragments(
         else:
             items.append(Bullet(text=display.scalar(item, style=style)))
     return [heading, Bullets(items=tuple(items))]
+
+
+def _prose_blocks(values: list[Any]) -> bool:
+    """Whether a list is prose blocks: objects of ``text`` with an optional ``lead_in``.
+
+    Judged over the whole list, because the alternative rendering is a table and a table
+    must hold every row. Content keys only — a block still cites through the metadata
+    keys, exactly as a table row does.
+    """
+    if not values:
+        return False
+    for item in values:
+        if not isinstance(item, dict) or "text" not in item:
+            return False
+        if {key for key in item if key not in _METADATA_KEYS} - {"lead_in", "text"}:
+            return False
+    return True
 
 
 def _shared_columns(values: list[Any], *, subschema: dict[str, Any] | None = None) -> list[str]:

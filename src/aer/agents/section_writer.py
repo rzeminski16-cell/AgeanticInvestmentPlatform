@@ -101,6 +101,9 @@ limitations has not analysed anything.
 reader is reading a research note, not operating a system: "the plan asks us to flag",
 "the run's stored figures" and "recorded in the model" are sentences about machinery.
 Any direction you are given is for you alone — follow it without referring to it.
+8. Write plain prose with no markdown notation — no asterisks for emphasis, no inline
+headings. The renderer strips such markers rather than obeying them. Where the contract
+offers a lead-in field, that is where an opening label belongs.
 
 This section's output contract — your content object must carry exactly these fields:
 {contract}

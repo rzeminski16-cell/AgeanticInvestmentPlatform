@@ -152,12 +152,16 @@ def _blocks(fragments: tuple[Fragment, ...], *, seen: set[int], titles: dict[int
                 parts.append(Markup(f'<p class="status-note">{escape(text)}</p>'))
             case Paragraph(markers=markers) as paragraph:
                 parts.append(
-                    Markup(f"<p>{_prose(paragraph)}{_marks(markers, seen=seen, titles=titles)}</p>")
+                    Markup(
+                        f"<p>{_prose(paragraph)}{_joint(_tail(paragraph), markers)}"
+                        f"{_marks(markers, seen=seen, titles=titles)}</p>"
+                    )
                 )
             case Bullets(items=items):
                 bullets = Markup("").join(
                     Markup(
-                        f"<li>{_prose(item)}{_marks(item.markers, seen=seen, titles=titles)}</li>"
+                        f"<li>{_prose(item)}{_joint(_tail(item), item.markers)}"
+                        f"{_marks(item.markers, seen=seen, titles=titles)}</li>"
                     )
                     for item in items
                 )
@@ -173,7 +177,7 @@ def _blocks(fragments: tuple[Fragment, ...], *, seen: set[int], titles: dict[int
                         # The marker goes on the last cell, which is where a reader looks
                         # for the provenance of a row.
                         cells[-1] = Markup(
-                            f"<td>{escape(row.cells[-1])}"
+                            f"<td>{escape(row.cells[-1])}{_joint(row.cells[-1], row.markers)}"
                             f"{_marks(row.markers, seen=seen, titles=titles)}</td>"
                         )
                     body_rows.append(Markup(f"<tr>{Markup('').join(cells)}</tr>"))
@@ -202,6 +206,9 @@ def _marks(markers: tuple[int, ...], *, seen: set[int], titles: dict[int, str]) 
     stays in-document (``#fn-{n}``), which is what keeps the archived HTML and the PDF
     self-contained, and the notation-agreement test anchors on ``href`` being the final
     attribute.
+
+    Adjacent markers are joined with a superscript comma (gap R7): markers 2 and 3 set
+    flush against each other read as twenty-three, in the PDF's text layer above all.
     """
     parts: list[Markup] = []
     for number in markers:
@@ -212,7 +219,26 @@ def _marks(markers: tuple[int, ...], *, seen: set[int], titles: dict[int, str]) 
         parts.append(
             Markup(f'<sup class="fn-ref"{anchor}><a{title} href="#fn-{number}">{number}</a></sup>')
         )
-    return Markup("").join(parts)
+    return Markup('<sup class="fn-sep">,</sup>').join(parts)
+
+
+def _tail(fragment: Paragraph | Bullet) -> str:
+    """The last prose character before this fragment's markers land."""
+    if fragment.pairs is None:
+        return fragment.text
+    return fragment.pairs[-1][1] if fragment.pairs else ""
+
+
+def _joint(tail: str, markers: tuple[int, ...]) -> Markup:
+    """A no-break space before a marker that follows a word rather than punctuation.
+
+    "share" against marker 76 printed as "share76" in a live table (gap R7); after a full
+    stop the marker sits flush, which is the typographic convention. No-break, so the
+    marker cannot be orphaned onto the next line alone.
+    """
+    if markers and tail and tail[-1].isalnum():
+        return Markup("\N{NO-BREAK SPACE}")
+    return Markup("")
 
 
 def _hover(footnote: Footnote, *, style: HouseStyle) -> str:
@@ -253,7 +279,8 @@ def _chart(chart: ChartView, *, seen: set[int], titles: dict[int, str]) -> dict[
         "title": chart.title,
         "uri": svg_data_uri(chart.svg),
         "caption": Markup(
-            f"{escape(chart.caption)}{_marks(chart.markers, seen=seen, titles=titles)}"
+            f"{escape(chart.caption)}{_joint(chart.caption, chart.markers)}"
+            f"{_marks(chart.markers, seen=seen, titles=titles)}"
         ),
         "placeholder": chart.placeholder,
     }

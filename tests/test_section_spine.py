@@ -162,6 +162,28 @@ class TestTheSeed:
             assert row.evidence_policy["min_sources"] == 0
             assert row.evidence_policy["requires_primary"] is False
 
+    async def test_the_bold_opener_has_a_structured_home(self, db_session: AsyncSession) -> None:
+        """Migration 0037 (gap R6): the sections a live note bolded sentence openers in
+        now write commentary as prose blocks, each with a lead-in the renderer
+        emphasises — so the urge has a field and the notation never reaches a reader."""
+        for key in ("growth_outlook", "scenarios_sensitivities"):
+            row = await db_session.scalar(
+                select(SectionDefinition)
+                .where(SectionDefinition.key == key, SectionDefinition.origin == "builtin")
+                .order_by(SectionDefinition.version.desc())
+                .limit(1)
+            )
+            assert row is not None
+            assert row.version >= 2
+            commentary = row.output_contract["properties"]["commentary"]
+            assert commentary["type"] == "array"
+            assert commentary["items"]["required"] == ["text"]
+            assert "lead_in" in commentary["items"]["properties"]
+            # The rest of the contract is the previous version's, order included.
+            assert "figures" in row.output_contract["properties"] or (
+                "scenarios" in row.output_contract["properties"]
+            )
+
     async def test_every_model_written_contract_can_carry_a_citation(
         self, db_session: AsyncSession
     ) -> None:

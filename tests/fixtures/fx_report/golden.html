@@ -107,7 +107,10 @@
     padding: 0.5rem 0.8rem; margin: 0.8rem 0 0; font-size: 0.85rem; break-inside: avoid;
   }
   .status-note { font-style: italic; color: var(--muted); }
-  .not-generated { font-size: 0.85rem; color: var(--muted); font-style: italic; }
+  /* The gap is structural rather than a text node (gap R8): a live PDF's text layer
+     collapsed the inter-element space and the contents read "Business Overview(not
+     generated)". A margin cannot be collapsed by whitespace handling. */
+  .not-generated { font-size: 0.85rem; color: var(--muted); font-style: italic; margin-left: 0.35em; }
 
   /* Tables break across pages by the row, never by the cell: an unbreakable long table
      pushed a whole page blank before it. The header repeats via the paged-media engine. */
@@ -128,6 +131,7 @@
 
   sup.fn-ref { font-size: 0.7em; line-height: 0; }
   sup.fn-ref a { text-decoration: none; }
+  sup.fn-sep { font-size: 0.7em; line-height: 0; }
   .footnotes, .appendix { font-size: 0.88rem; }
   .footnotes ol { margin: 0.4rem 0 0 1.4rem; padding: 0; }
   .footnotes li { margin: 0.35rem 0; }
@@ -184,7 +188,7 @@
 <main>
   <section class="report-section"
            id="section-golden_overview">
-    <h2>Golden Overview</h2><h3>Thesis</h3><p>A fixed thesis sentence with no figures in it.</p><h3>Headcount</h3><p>221,000</p><h3>Key Points</h3><ul><li>First fixed point.</li><li>Second fixed point.</li></ul><h3>Flagship Product</h3><p><strong>Name:</strong> Azure — <strong>Role:</strong> Growth engine<sup class="fn-ref" id="fnref-1"><a title="Form 10-K, fiscal 2022, US Securities and Exchange Commission, tier T1_REGULATORY, retrieved 1 July 2022. Follow the note to the excerpt behind it." href="#fn-1">1</a></sup><sup class="fn-ref" id="fnref-2"><a title="Calculated: cagr = (end / start) ** (1 / years) - 1 = 0.180000000000 ratio. Follow the note to walk it back to its inputs." href="#fn-2">2</a></sup></p><h3>Figures</h3><table><thead><tr><th scope="col">Label</th><th scope="col">Value</th></tr></thead><tbody><tr><td>Revenue CAGR</td><td>18%<sup class="fn-ref" id="fnref-3"><a title="Form 10-K, fiscal 2022, US Securities and Exchange Commission, tier T1_REGULATORY, retrieved 1 July 2022. Follow the note to the excerpt behind it." href="#fn-3">3</a></sup><sup class="fn-ref" id="fnref-4"><a title="Calculated: cagr = (end / start) ** (1 / years) - 1 = 0.180000000000 ratio. Follow the note to walk it back to its inputs." href="#fn-4">4</a></sup></td></tr><tr><td>Revenue CAGR</td><td>18%<sup class="fn-ref" id="fnref-5"><a title="Segment data pack, tier T2_ISSUER, retrieved 1 July 2022. Follow the note to the excerpt behind it." href="#fn-5">5</a></sup><sup class="fn-ref"><a title="Calculated: cagr = (end / start) ** (1 / years) - 1 = 0.180000000000 ratio. Follow the note to walk it back to its inputs." href="#fn-4">4</a></sup></td></tr></tbody></table><h3>Mixed Notes</h3><ul><li><strong>Observation:</strong> An object with its own shape.</li><li><strong>Label:</strong> Odd item — <strong>Detail:</strong> A different shape, cited.<sup class="fn-ref" id="fnref-6"><a title="Segment data pack, tier T2_ISSUER, retrieved 1 July 2022. Follow the note to the excerpt behind it." href="#fn-6">6</a></sup></li><li>A bare string in a mixed list.</li></ul>
+    <h2>Golden Overview</h2><h3>Thesis</h3><p>A fixed thesis sentence with no figures in it.</p><h3>Headcount</h3><p>221,000</p><h3>Key Points</h3><ul><li>First fixed point.</li><li>Second fixed point.</li></ul><h3>Flagship Product</h3><p><strong>Name:</strong> Azure — <strong>Role:</strong> Growth engine <sup class="fn-ref" id="fnref-1"><a title="Form 10-K, fiscal 2022, US Securities and Exchange Commission, tier T1_REGULATORY, retrieved 1 July 2022. Follow the note to the excerpt behind it." href="#fn-1">1</a></sup><sup class="fn-sep">,</sup><sup class="fn-ref" id="fnref-2"><a title="Calculated: cagr = (end / start) ** (1 / years) - 1 = 0.180000000000 ratio. Follow the note to walk it back to its inputs." href="#fn-2">2</a></sup></p><h3>Figures</h3><table><thead><tr><th scope="col">Label</th><th scope="col">Value</th></tr></thead><tbody><tr><td>Revenue CAGR</td><td>18%<sup class="fn-ref" id="fnref-3"><a title="Form 10-K, fiscal 2022, US Securities and Exchange Commission, tier T1_REGULATORY, retrieved 1 July 2022. Follow the note to the excerpt behind it." href="#fn-3">3</a></sup><sup class="fn-sep">,</sup><sup class="fn-ref" id="fnref-4"><a title="Calculated: cagr = (end / start) ** (1 / years) - 1 = 0.180000000000 ratio. Follow the note to walk it back to its inputs." href="#fn-4">4</a></sup></td></tr><tr><td>Revenue CAGR</td><td>18%<sup class="fn-ref" id="fnref-5"><a title="Segment data pack, tier T2_ISSUER, retrieved 1 July 2022. Follow the note to the excerpt behind it." href="#fn-5">5</a></sup><sup class="fn-sep">,</sup><sup class="fn-ref"><a title="Calculated: cagr = (end / start) ** (1 / years) - 1 = 0.180000000000 ratio. Follow the note to walk it back to its inputs." href="#fn-4">4</a></sup></td></tr></tbody></table><h3>Mixed Notes</h3><ul><li><strong>Observation:</strong> An object with its own shape.</li><li><strong>Label:</strong> Odd item — <strong>Detail:</strong> A different shape, cited.<sup class="fn-ref" id="fnref-6"><a title="Segment data pack, tier T2_ISSUER, retrieved 1 July 2022. Follow the note to the excerpt behind it." href="#fn-6">6</a></sup></li><li>A bare string in a mixed list.</li></ul>
   </section>
   <section class="report-section"
            id="section-golden_warnings">
@@ -204,7 +208,7 @@
   </section>
   <section class="report-section"
            id="section-golden_unresolved">
-    <h2>Golden Unresolved</h2><h3>Figures</h3><table><thead><tr><th scope="col">Label</th><th scope="col">Value</th></tr></thead><tbody><tr><td>Ghost figure</td><td>1.23<sup class="fn-ref" id="fnref-7"><a title="Unresolved citation: the cited source document is no longer present. Do not rely on the figure it supports." href="#fn-7">7</a></sup><sup class="fn-ref" id="fnref-8"><a title="Unresolved citation: the cited calculation is no longer present. Do not rely on the figure it supports." href="#fn-8">8</a></sup></td></tr></tbody></table>
+    <h2>Golden Unresolved</h2><h3>Figures</h3><table><thead><tr><th scope="col">Label</th><th scope="col">Value</th></tr></thead><tbody><tr><td>Ghost figure</td><td>1.23 <sup class="fn-ref" id="fnref-7"><a title="Unresolved citation: the cited source document is no longer present. Do not rely on the figure it supports." href="#fn-7">7</a></sup><sup class="fn-sep">,</sup><sup class="fn-ref" id="fnref-8"><a title="Unresolved citation: the cited calculation is no longer present. Do not rely on the figure it supports." href="#fn-8">8</a></sup></td></tr></tbody></table>
   </section>
 
   <section class="report-section" id="section-comparable-companies">

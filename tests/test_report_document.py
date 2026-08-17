@@ -22,7 +22,7 @@ import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 from sqlalchemy import select
@@ -50,14 +50,14 @@ from aer.render.document import (
     _display_value,
     assemble_document,
 )
-from aer.render.html import _blocks, _emphasise, render_html
+from aer.render.html import _blocks, _emphasise, _joint, _marks, render_html
 from aer.render.markdown import (
     RenderedReport,
     SectorNote,
     render_markdown,
     serialise_markdown,
 )
-from aer.sections.render import Banner, Heading, _unescaped
+from aer.sections.render import Banner, Heading, _unescaped, render_section
 from tests.workflow_fixtures import AS_OF_DATE
 
 pytestmark = pytest.mark.anyio
@@ -610,6 +610,9 @@ class TestTheGoldenHtml:
         assert "<strong>Unresolved citation</strong>" in html
         assert 'id="sources"' in html
         assert "e3b0c4429" in html  # the artefact digest prefix, checkable
+        # Gap R8: the contents annotation's gap is structural — a margin, not a text
+        # node a PDF text layer can collapse into "Business Overview(not generated)".
+        assert re.search(r"\.not-generated \{[^}]*margin-left", html)
 
     async def test_both_notations_agree_on_every_marker(self, scene: dict[str, Any]) -> None:
         """One assembly, two serialisations: the marker sequences are the same sequence.
@@ -715,6 +718,98 @@ class TestTheHtmlNotationEdges:
     def test_heading_depth_is_capped_at_what_html_has(self) -> None:
         rendered = _blocks((Heading(level=9, text="Deep"),), seen=set(), titles={})
         assert str(rendered) == "<h6>Deep</h6>"
+
+    def test_adjacent_markers_are_separated_never_a_number(self) -> None:
+        """Gap R7: markers 2 and 3 set flush read as twenty-three in the PDF's text."""
+        rendered = str(_marks((2, 3), seen=set(), titles={}))
+        assert '</sup><sup class="fn-sep">,</sup><sup class="fn-ref"' in rendered
+        # The visible text a PDF's text layer carries: separated digits, never "23".
+        assert re.sub(r"<[^>]+>", "", rendered) == "2,3"
+
+    def test_a_marker_after_a_word_gets_a_space_and_after_punctuation_does_not(self) -> None:
+        """Gap R7's other half: "share76" in a live table cell; "supports.76" is fine."""
+        assert str(_joint("share", (7,))) == "\N{NO-BREAK SPACE}"
+        assert str(_joint("the evidence supports.", (7,))) == ""
+        assert str(_joint("18%", (7,))) == ""
+        assert str(_joint("share", ())) == ""
+
+
+class TestTheWalkStripsNotation:
+    """Gap R6: markdown in model prose is stripped at render, never printed as asterisks."""
+
+    CONTRACT: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {
+            "commentary": {"type": "string", "title": "Commentary"},
+            "blocks": {
+                "type": "array",
+                "title": "Commentary",
+                "items": {
+                    "type": "object",
+                    "required": ["text"],
+                    "properties": {
+                        "lead_in": {"type": "string"},
+                        "text": {"type": "string"},
+                    },
+                },
+            },
+        },
+    }
+
+    def test_paired_emphasis_is_stripped_from_prose(self) -> None:
+        rendered = render_section(
+            key="probe",
+            title="Probe",
+            contract=self.CONTRACT,
+            content={"commentary": "**Base case.** Growth holds while **mix** improves."},
+        )
+        assert "Base case. Growth holds while mix improves." in rendered.markdown
+        assert "**" not in rendered.markdown.replace("## Probe", "")
+
+    def test_an_unpaired_marker_is_left_exactly_as_written(self) -> None:
+        rendered = render_section(
+            key="probe",
+            title="Probe",
+            contract=self.CONTRACT,
+            content={"commentary": "The result of 3 ** 2 is nine."},
+        )
+        assert "3 ** 2" in rendered.markdown
+
+    def test_prose_blocks_render_as_paragraphs_with_the_lead_in_emphasised(self) -> None:
+        """The structured home for the bold opener: paragraphs, never a two-column table."""
+        rendered = render_section(
+            key="probe",
+            title="Probe",
+            contract=self.CONTRACT,
+            content={
+                "blocks": [
+                    {"lead_in": "Base case", "text": "Revenue compounds at the stated rate."},
+                    {"text": "A block with no lead-in reads as an ordinary paragraph."},
+                ]
+            },
+        )
+        assert "**Base case:** Revenue compounds at the stated rate." in rendered.markdown
+        assert "A block with no lead-in reads as an ordinary paragraph." in rendered.markdown
+        assert "| Lead In | Text |" not in rendered.markdown
+
+    def test_a_prose_block_still_cites_through_the_metadata_keys(self) -> None:
+        source_id = "0b6c0d8e-58a1-4a67-9418-000000000001"
+        rendered = render_section(
+            key="probe",
+            title="Probe",
+            contract=self.CONTRACT,
+            content={
+                "blocks": [
+                    {
+                        "lead_in": "What the filing shows",
+                        "text": "Margins are disclosed by segment.",
+                        "source_document_id": source_id,
+                    }
+                ]
+            },
+        )
+        assert "[^1]" in rendered.markdown
+        assert [str(ref) for ref in rendered.citations] == [f"source_document:{source_id}"]
 
 
 class TestCustomSectionsInTheDocument:
