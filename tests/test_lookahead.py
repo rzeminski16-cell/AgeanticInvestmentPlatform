@@ -19,6 +19,7 @@ afterwards.
 
 from __future__ import annotations
 
+import hashlib
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
@@ -28,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
 from aer.core.enums import ClaimKind, Provider, SourceTier
-from aer.db.models import Citation
+from aer.db.models import Artefact, Citation
 from aer.errors import ConflictError, ValidationError
 from aer.extract.dates import (
     DateCandidate,
@@ -508,6 +509,26 @@ async def scene(db_session: AsyncSession, store: LocalArtefactStore) -> dict[str
     return await build_scene(db_session, store)
 
 
+async def _fresh_artefact(session: AsyncSession, tag: str) -> Any:
+    """Distinct bytes for one recording under test.
+
+    These tests each record a document and assert the quarantine decision that recording
+    produced. They once shared the scene's artefact, which gap C4 now merges — one record
+    per artefact per request — so a shared artefact answers with the scene's admissible
+    document instead of the state under test.
+    """
+    payload = f"<html><body>lookahead {tag}</body></html>".encode()
+    artefact = Artefact(
+        sha256=hashlib.sha256(payload).hexdigest(),
+        media_type="text/html",
+        size_bytes=len(payload),
+        storage_key=f"lookahead/{tag}",
+    )
+    session.add(artefact)
+    await session.flush()
+    return artefact
+
+
 async def _cited_claim(session: AsyncSession, scene: dict[str, Any]) -> Citation:
     claim = await record_claim(
         session, section=scene["section"], kind=ClaimKind.FACTUAL, text="Revenue grew."
@@ -533,7 +554,7 @@ class TestAtAcquisitionTime:
         source = await record_source_document(
             db_session,
             request=scene["request"],
-            artefact=scene["artefact"],
+            artefact=await _fresh_artefact(db_session, "late"),
             url="https://example.invalid/late.htm",
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
@@ -555,7 +576,7 @@ class TestAtAcquisitionTime:
         source = await record_source_document(
             db_session,
             request=scene["request"],
-            artefact=scene["artefact"],
+            artefact=await _fresh_artefact(db_session, "report"),
             url="https://example.invalid/report.pdf",
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
@@ -590,7 +611,7 @@ class TestAtAcquisitionTime:
         source = await record_source_document(
             db_session,
             request=scene["request"],
-            artefact=scene["artefact"],
+            artefact=await _fresh_artefact(db_session, "disputed"),
             url="https://example.invalid/disputed.htm",
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
@@ -610,7 +631,7 @@ class TestAtAcquisitionTime:
         source = await record_source_document(
             db_session,
             request=scene["request"],
-            artefact=scene["artefact"],
+            artefact=await _fresh_artefact(db_session, "tenk"),
             url="https://example.invalid/10-k.htm",
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
@@ -631,7 +652,7 @@ class TestTheOverride:
         source = await record_source_document(
             db_session,
             request=scene["request"],
-            artefact=scene["artefact"],
+            artefact=await _fresh_artefact(db_session, "undated"),
             url="https://example.invalid/undated.htm",
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
@@ -658,7 +679,7 @@ class TestTheOverride:
         source = await record_source_document(
             db_session,
             request=scene["request"],
-            artefact=scene["artefact"],
+            artefact=await _fresh_artefact(db_session, "undated2"),
             url="https://example.invalid/undated2.htm",
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
@@ -675,7 +696,7 @@ class TestTheOverride:
         source = await record_source_document(
             db_session,
             request=scene["request"],
-            artefact=scene["artefact"],
+            artefact=await _fresh_artefact(db_session, "fine"),
             url="https://example.invalid/fine.htm",
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,

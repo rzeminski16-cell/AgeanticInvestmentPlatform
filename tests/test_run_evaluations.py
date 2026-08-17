@@ -8,6 +8,7 @@ slice, whose validate step must leave all eight rows behind.
 
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
@@ -679,10 +680,21 @@ class TestTheTemporalRows:
         self, scene: dict[str, Any]
     ) -> None:
         session = scene["session"]
+        # Its own bytes: one record per artefact per request (gap C4), so a trap sharing
+        # the scene's artefact would be refused by the constraint rather than planted.
+        payload = b"<html>the late filing</html>"
+        trap_artefact = Artefact(
+            sha256=hashlib.sha256(payload).hexdigest(),
+            media_type="text/html",
+            size_bytes=len(payload),
+            storage_key="traps/late-filing",
+        )
+        session.add(trap_artefact)
+        await session.flush()
         trap = SourceDocument(
             request_id=scene["request"].id,
             job_id=scene["job"].id,
-            artefact_id=scene["document"].artefact_id,
+            artefact_id=trap_artefact.id,
             url="https://example.invalid/late-filing.htm",
             provider=Provider.ISSUER_IR,
             source_tier=SourceTier.T2_ISSUER,
