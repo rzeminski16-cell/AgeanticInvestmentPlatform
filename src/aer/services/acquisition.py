@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import Provider, SourceTier
 from aer.db.models import Artefact, ResearchRequest, SourceDocument
+from aer.extract.dates import PublicationDate
 from aer.fetch.client import FetchResult
 from aer.services.artefacts import ArtefactRecord, record_fetched_artefact
 from aer.services.sources import record_source_document
@@ -69,6 +70,7 @@ async def record_acquisition(
     source_tier: SourceTier,
     publication_date: date | None = None,
     publication_date_confidence: float | None = None,
+    published: PublicationDate | None = None,
     title: str | None = None,
     publisher: str | None = None,
     retrieved_at: datetime | None = None,
@@ -84,6 +86,10 @@ async def record_acquisition(
             ``None`` for a generated aggregate such as an API index — and under
             point-in-time rules a document with no date is quarantined, which is the
             correct outcome for something that is not a published document at all.
+        published: The extractor's whole conclusion, for a caller that derived the date
+            rather than being handed one — passed through to
+            :func:`~aer.services.sources.record_source_document`, whose admissibility
+            decision then reads the conservative ``latest`` rather than the estimate.
 
     Returns:
         Both rows, so a caller can link facts to the source document without a second
@@ -113,6 +119,7 @@ async def record_acquisition(
         publisher=publisher,
         publication_date=publication_date,
         publication_date_confidence=publication_date_confidence,
+        published=published,
         http_status=result.status_code,
         licence_note=result.licence_note or None,
         robots_allowed=result.robots_allowed,

@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import UTC, date, datetime
 from typing import Any, Final
 from urllib.parse import urlsplit
 
@@ -39,7 +41,9 @@ from aer.core.enums import Provider, SourceTier
 from aer.db.models import Artefact, Company, FinancialFact, ResearchRequest, SourceDocument
 from aer.errors import AerError
 from aer.extract import extract_text
+from aer.extract.dates import extract_publication_date
 from aer.services.acquisition import record_acquisition
+from aer.sources.tiering import DocumentKind, tier_for
 
 __all__ = [
     "MAX_HITS",
@@ -58,15 +62,36 @@ MAX_HITS: Final = 10
 # loop accumulates evidence across rounds, so one page must not be able to fill it.
 MAX_FETCHED_CHARS: Final = 20_000
 
+# What a page the worker chose enters at when nothing establishes more. Named once and
+# used for both the row and the answer: a literal in each place is a literal that can
+# drift, and the sabotage pass found exactly that — the recorded tier could be raised to
+# T1 with the reported tier still reading T5, which is the one combination nobody would
+# notice. A page the regulator's own index named is the exception — see _RegulatorHit.
+_FETCHED_TIER: Final = SourceTier.T5_SECONDARY
+
+
+@dataclass(frozen=True, slots=True)
+class _RegulatorHit:
+    """A filing the regulator's index returned to this worker, keyed by its URL.
+
+    The live run recorded five EDGAR filings as undated T5 secondary material — the
+    worker found them through full-text search, whose hits carry the regulator's own
+    filed date and form, and then fetched them through a path that threw both away. The
+    executors share this registry so a fetch of a searched-for URL enters at the tier and
+    date the index established, exactly as the acquire step's documents do.
+
+    Populated only from the index's replies — never from page content — so an injected
+    URL in a fetched document cannot claim a tier this way.
+    """
+
+    filed: date
+    form: str
+    accession: str
+
+
 # Which extractor reads which kind. Anything else is archived and cited but not read: the
 # platform holds the bytes either way, and guessing at an extractor is how a parser meets
 # content it was not written for.
-# What a page the worker chose enters at. Named once and used for both the row and the
-# answer: a literal in each place is a literal that can drift, and the sabotage pass
-# found exactly that — the recorded tier could be raised to T1 with the reported tier
-# still reading T5, which is the one combination nobody would notice.
-_FETCHED_TIER: Final = SourceTier.T5_SECONDARY
-
 _EXTRACTORS: Final[dict[str, str]] = {
     "text/html": "html",
     "application/xhtml+xml": "html",
@@ -96,6 +121,9 @@ def build_executors(
     ``search_filings_full_text`` only when a client is; a caller that omits them gets
     exactly the two searches it always did.
     """
+    # Filings the index has named to this worker, by URL — the bridge that lets a fetch
+    # of a searched-for filing keep the tier and date the search established.
+    regulator_hits: dict[str, _RegulatorHit] = {}
 
     async def search_facts(tool_request: ToolRequest) -> ExecutedTool:
         company_id = await _company_id_for(session, request=request)
@@ -179,9 +207,13 @@ def build_executors(
         that document's provider is reused, because provider is what decides the licence,
         the rate limit and the standing allowlist the host was admitted under.
 
-        The tier is not inherited. A page a model picked off a host is not the artefact the
-        adapter for that host was built to fetch, so it enters at the weakest tier and has
-        to earn its weight like any other secondary source.
+        The tier is not inherited from the host — but it is granted by the index. A page a
+        model picked off a host is not the artefact the adapter for that host was built to
+        fetch, so it enters at the weakest tier; a filing the regulator's *own index* named
+        to this worker, with its form and filed date, is exactly that artefact, and the
+        live run mis-tiering five EDGAR filings as undated T5 is what this distinction
+        fixes. Anything else gets its publication date derived from the response headers
+        where they establish one, and stays honestly undated where they do not.
         """
         url = tool_request.query.strip()
         established = await _established_host(session, request=request, url=url)
@@ -240,16 +272,41 @@ def build_executors(
                 ],
             )
 
-        acquisition = await record_acquisition(
-            session,
-            store,
-            request=request,
-            job_id=job_id,
-            result=result,
-            provider=provider,
-            source_tier=_FETCHED_TIER,
-            title=url,
-        )
+        hit = regulator_hits.get(url) or regulator_hits.get(result.final_url)
+        if hit is not None:
+            # The regulator's index named this URL to this worker, with its form and
+            # filed date — the same authority the acquire step's documents enter under.
+            tier = tier_for(provider, DocumentKind.REGULATORY_FILING)
+            acquisition = await record_acquisition(
+                session,
+                store,
+                request=request,
+                job_id=job_id,
+                result=result,
+                provider=provider,
+                source_tier=tier,
+                publication_date=hit.filed,
+                publication_date_confidence=1.0,
+                title=f"{hit.form} {hit.accession}",
+            )
+        else:
+            tier = _FETCHED_TIER
+            acquisition = await record_acquisition(
+                session,
+                store,
+                request=request,
+                job_id=job_id,
+                result=result,
+                provider=provider,
+                source_tier=tier,
+                # Best effort from the response headers alone. Page content is a hostile
+                # surface — a date parsed out of attacker-controlled text would let the
+                # page pick its own admissibility — so an undatable page stays undated.
+                published=extract_publication_date(
+                    headers=result.headers, not_after=datetime.now(UTC).date()
+                ),
+                title=url,
+            )
         document_id = str(acquisition.source_document.id)
         text, note = await _text_of(store, result=result, settings=settings)
 
@@ -260,7 +317,7 @@ def build_executors(
             internal_results=[
                 {
                     "source_document_id": document_id,
-                    "tier": _FETCHED_TIER.value,
+                    "tier": tier.value,
                     "status_code": result.status_code,
                     "media_type": result.media_type,
                     "quarantined": acquisition.quarantined,
@@ -273,7 +330,7 @@ def build_executors(
             untrusted_evidence=[
                 {
                     "source_document_id": document_id,
-                    "tier": _FETCHED_TIER.value,
+                    "tier": tier.value,
                     "title": url,
                     "text": text,
                 }
@@ -326,7 +383,13 @@ def build_executors(
             request.as_of_date if request.point_in_time else None
         )
         # Ids, forms, dates and URLs are the index's, which is ours to trust — the
-        # documents' own words are not here, and reading one costs a fetch.
+        # documents' own words are not here, and reading one costs a fetch. Trusted is
+        # also why each hit joins the registry: a later fetch of this URL enters at the
+        # tier and date the index established rather than as undated secondary material.
+        for hit in usable:
+            regulator_hits[hit.url] = _RegulatorHit(
+                filed=hit.filed, form=hit.form, accession=hit.accession
+            )
         results: list[dict[str, Any]] = [
             {
                 "form": hit.form,

@@ -605,9 +605,11 @@ class _RecordingFetcher:
         *,
         body: bytes = b"<html><body><p>Nothing much.</p></body></html>",
         raises: Exception | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         self._body = body
         self._raises = raises
+        self._headers = headers or {}
         self.urls: list[str] = []
         self.providers: list[Provider] = []
         self.extra_hosts: list[tuple[str, ...]] = []
@@ -630,7 +632,7 @@ class _RecordingFetcher:
             size_bytes=len(self._body),
             media_type="text/html",
             declared_media_type="text/html",
-            headers={},
+            headers=dict(self._headers),
             redirect_chain=(),
             elapsed_ms=1.0,
             attempts=1,
@@ -786,6 +788,97 @@ class TestFetchingAKnownUrl:
         assert stored is not None
         assert stored.source_tier is SourceTier.T5_SECONDARY
         assert record["tier"] == SourceTier.T5_SECONDARY.value
+
+    async def test_a_filing_the_index_named_enters_at_the_regulators_tier_with_its_date(
+        self, fetch_scene: dict[str, Any]
+    ) -> None:
+        """Gap C2. The live run recorded five EDGAR filings as undated T5 secondary
+        material — found through full-text search, whose hits carry the regulator's own
+        filed date and form, then fetched through a path that threw both away. That
+        mis-tiering is what failed temporal_compliance and put a warning on page 1."""
+        fetch_scene["session"].add(
+            Company(name="CONTOSO CORP", cik="0001111111", ticker="CTSO", exchange="NASDAQ")
+        )
+        await fetch_scene["session"].flush()
+        fetcher = _RecordingFetcher(body=b"<html><body><p>The 10-K itself.</p></body></html>")
+        fetcher.store = fetch_scene["store"]
+        index = _RecordingSearch(hits=(_hit(filed=date(2022, 7, 30)),))
+        executors = build_executors(
+            fetch_scene["session"],
+            request=fetch_scene["request"],
+            fetcher=fetcher,
+            store=fetch_scene["store"],
+            settings=fetch_scene["settings"],
+            sec_client=index,
+        )
+
+        found = await executors["search_filings_full_text"](
+            _tool_request("search_filings_full_text", "segment reporting")
+        )
+        url = found.internal_results[0]["url"]
+        outcome = await executors["fetch_known_url"](_tool_request("fetch_known_url", url))
+
+        record = outcome.internal_results[0]
+        assert record["tier"] == SourceTier.T1_REGULATORY.value
+        stored = await fetch_scene["session"].get(
+            SourceDocument, uuid.UUID(record["source_document_id"])
+        )
+        assert stored is not None
+        assert stored.source_tier is SourceTier.T1_REGULATORY
+        assert stored.publication_date == date(2022, 7, 30)
+        assert stored.quarantined is False
+
+    async def test_a_url_the_index_never_named_cannot_claim_the_regulators_tier(
+        self, fetch_scene: dict[str, Any]
+    ) -> None:
+        """The registry is populated from the index's replies, never from page content —
+        so a URL a hostile page injected fetches at the weakest tier like any other."""
+        fetch_scene["session"].add(
+            Company(name="CONTOSO CORP", cik="0001111111", ticker="CTSO", exchange="NASDAQ")
+        )
+        await fetch_scene["session"].flush()
+        fetcher = _RecordingFetcher()
+        fetcher.store = fetch_scene["store"]
+        index = _RecordingSearch(hits=(_hit(filed=date(2022, 7, 30)),))
+        executors = build_executors(
+            fetch_scene["session"],
+            request=fetch_scene["request"],
+            fetcher=fetcher,
+            store=fetch_scene["store"],
+            settings=fetch_scene["settings"],
+            sec_client=index,
+        )
+
+        await executors["search_filings_full_text"](
+            _tool_request("search_filings_full_text", "segment reporting")
+        )
+        outcome = await executors["fetch_known_url"](
+            _tool_request("fetch_known_url", "https://www.sec.gov/news/not-the-hit")
+        )
+
+        assert outcome.internal_results[0]["tier"] == SourceTier.T5_SECONDARY.value
+
+    async def test_response_headers_date_a_page_the_index_did_not_name(
+        self, fetch_scene: dict[str, Any]
+    ) -> None:
+        """Best effort from the one part of the response the platform half-trusts. Page
+        content stays out of it: a date parsed from attacker-controlled text would let
+        the page pick its own admissibility."""
+        fetcher = _RecordingFetcher(headers={"Last-Modified": "Tue, 15 Mar 2022 10:00:00 GMT"})
+        executors = self._executors(fetch_scene, fetcher)
+
+        outcome = await executors["fetch_known_url"](
+            _tool_request("fetch_known_url", "https://www.sec.gov/news/contoso")
+        )
+
+        record = outcome.internal_results[0]
+        stored = await fetch_scene["session"].get(
+            SourceDocument, uuid.UUID(record["source_document_id"])
+        )
+        assert stored is not None
+        assert stored.source_tier is SourceTier.T5_SECONDARY
+        assert stored.publication_date == date(2022, 3, 15)
+        assert stored.publication_date_confidence is not None
 
     async def test_bytes_the_run_already_holds_answer_from_the_held_record(
         self, fetch_scene: dict[str, Any]
