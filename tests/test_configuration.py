@@ -20,7 +20,7 @@ import pytest
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from aer.config import ModelRoute, Settings
+from aer.config import HouseStyle, ModelRoute, Settings
 from aer.core.enums import UserRole
 from aer.db.models import User
 from aer.errors import ValidationError
@@ -193,6 +193,52 @@ class TestWhatOverridingDoes:
 
         with pytest.raises(ValidationError, match="not valid JSON"):
             await save_override(db_session, key="model_routes", raw="{not json", actor=actor)
+
+    async def test_a_house_style_override_takes_effect(self, db_session: AsyncSession) -> None:
+        """A partial object restyles only what it names; the rest keeps its default."""
+        actor = await _actor(db_session)
+        await save_override(
+            db_session,
+            key="house_style",
+            raw=json.dumps({"prose_money": "millions"}),
+            actor=actor,
+        )
+
+        effective = await effective_settings(db_session, _settings())
+
+        assert effective.house_style.prose_money == "millions"
+        assert effective.house_style.voice == HouseStyle().voice
+
+    async def test_an_unknown_voice_is_refused_with_the_field_named(
+        self, db_session: AsyncSession
+    ) -> None:
+        actor = await _actor(db_session)
+
+        with pytest.raises(ValidationError, match="voice"):
+            await save_override(
+                db_session,
+                key="house_style",
+                raw=json.dumps({"voice": "royal_we"}),
+                actor=actor,
+            )
+
+    async def test_the_stored_style_round_trips_through_jsonb(
+        self, db_session: AsyncSession
+    ) -> None:
+        """The Decimal threshold must survive storage exactly, not as a float's idea of it."""
+        actor = await _actor(db_session)
+        await save_override(
+            db_session,
+            key="house_style",
+            raw=json.dumps({"billions_from": "2500000000"}),
+            actor=actor,
+        )
+
+        stored = await current_overrides(db_session)
+        effective = await effective_settings(db_session, _settings())
+
+        assert stored["house_style"]["billions_from"] == "2500000000"
+        assert effective.house_style.billions_from == Decimal("2500000000")
 
     async def test_a_stored_value_gone_bad_is_ignored_rather_than_fatal(
         self, db_session: AsyncSession

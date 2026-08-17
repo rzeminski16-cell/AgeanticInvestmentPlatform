@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os.path
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
@@ -21,6 +22,7 @@ from aer.config import (
     ENV_PREFIX,
     PROVIDER_CREDENTIAL_FIELDS,
     SECRET_FIELDS,
+    HouseStyle,
     ModelRoute,
     Settings,
     _contains,
@@ -457,6 +459,48 @@ class TestModelRoutes:
         route = load_settings().model_routes["planner"]
         with pytest.raises(ValidationError):
             route.model = "claude-haiku-4-5"  # type: ignore[misc]
+
+
+class TestHouseStyle:
+    def test_the_defaults_are_the_agreed_style(self, settings_env):
+        style = load_settings().house_style
+        assert style.prose_money == "auto"
+        assert style.billions_from == Decimal("1000000000")
+        assert style.voice == "impersonal"
+
+    def test_the_default_date_format_reads_uk(self, settings_env):
+        rendered = date(2025, 12, 27).strftime(load_settings().house_style.date_format)
+        assert rendered == "27 December 2025"
+
+    def test_a_partial_object_keeps_every_default_it_omits(self, settings_env):
+        settings_env.setenv(env("HOUSE_STYLE"), json.dumps({"prose_money": "millions"}))
+
+        style = load_settings().house_style
+
+        assert style.prose_money == "millions"
+        assert style.voice == "impersonal"
+        assert style.billions_from == Decimal("1000000000")
+
+    def test_blank_means_the_defaults(self, settings_env):
+        settings_env.setenv(env("HOUSE_STYLE"), "")
+        assert load_settings().house_style == HouseStyle()
+
+    def test_an_unknown_voice_is_rejected(self, settings_env):
+        settings_env.setenv(env("HOUSE_STYLE"), json.dumps({"voice": "royal_we"}))
+        with pytest.raises(ConfigError):
+            load_settings()
+
+    def test_a_pattern_strftime_cannot_render_is_rejected(self, settings_env):
+        # A bad pattern must fail at configuration, not in the renderer half way through
+        # a paid-for report.
+        settings_env.setenv(env("HOUSE_STYLE"), json.dumps({"date_format": "%Q"}))
+        with pytest.raises(ConfigError):
+            load_settings()
+
+    def test_the_style_is_immutable(self, settings_env):
+        style = load_settings().house_style
+        with pytest.raises(ValidationError):
+            style.voice = "first_person_plural"  # type: ignore[misc]
 
 
 class TestEnvExampleStaysInStep:

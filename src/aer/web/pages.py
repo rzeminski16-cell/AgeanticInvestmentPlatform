@@ -1125,6 +1125,9 @@ async def _settings_context(
             "per_run_budget_gbp": str(effective.per_run_budget_gbp),
             "monthly_budget_gbp": str(effective.monthly_budget_gbp),
             "budget_warn_ratio": str(effective.budget_warn_ratio),
+            "house_style": json.dumps(
+                effective.house_style.model_dump(mode="json"), indent=2, sort_keys=True
+            ),
         },
         "secrets": configuration.secret_presence(effective),
         "saved": False,

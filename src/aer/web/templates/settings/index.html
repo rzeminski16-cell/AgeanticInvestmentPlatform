@@ -33,11 +33,11 @@
         <input type="hidden" name="key" value="{{ item.key }}" />
         <label for="value-{{ item.key }}" class="block text-sm font-medium">{{ item.label }}</label>
         <p class="text-xs text-slate-500">{{ item.help_text }}</p>
-        {% if item.key == "model_routes" %}
+        {% if item.key in ("model_routes", "house_style") %}
           <textarea
             id="value-{{ item.key }}"
             name="value"
-            rows="14"
+            rows="{{ 14 if item.key == "model_routes" else 7 }}"
             class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-900"
           >{{ values[item.key] }}</textarea>
         {% else %}

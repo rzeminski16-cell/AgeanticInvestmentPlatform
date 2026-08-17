@@ -23,6 +23,7 @@ import json
 import logging
 import os
 import secrets
+from datetime import date
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
@@ -40,6 +41,7 @@ __all__ = [
     "SECRET_FIELDS",
     "AppEnv",
     "Effort",
+    "HouseStyle",
     "ModelRoute",
     "Settings",
     "get_settings",
@@ -84,6 +86,60 @@ class ModelRoute(BaseModel):
 
     model: str
     effort: Effort = "medium"
+
+
+class HouseStyle(BaseModel):
+    """How the finished note presents numbers, dates and itself.
+
+    Presentation decisions made once, here, rather than once per section by whichever
+    writer happens to be drafting — the live AAPL report mixed "$39.5 billion" with
+    "39,544 USD millions" on facing pages because nothing owned this choice. Applied at
+    render and in the writers' style instructions; **never** to stored values. A style
+    changes how a figure is displayed, and invariant 3 keeps the stored value exact
+    underneath it (ADR 0056).
+    """
+
+    model_config = {"frozen": True}
+
+    prose_money: Literal["auto", "millions"] = "auto"
+    """How prose renders large money. ``auto`` switches to billions at the threshold
+    below ("revenue of $109.4bn"); ``millions`` never scales ("revenue of $109,417m").
+    Tables always render in millions either way — columns line up in one scale."""
+
+    billions_from: Decimal = Field(default=Decimal("1000000000"), gt=0)
+    """The magnitude, in the report currency's base units, at which ``auto`` prose
+    switches to billions. At the default, $999m stays millions and $1.2bn does not."""
+
+    date_format: str = "%-d %B %Y"
+    """A ``strftime`` pattern for dates in prose and headings. The default reads
+    "27 December 2025" — UK order, no ordinal suffix, no zero padding."""
+
+    voice: Literal["impersonal", "first_person_plural"] = "impersonal"
+    """The note's register: ``impersonal`` writes "the evidence supports";
+    ``first_person_plural`` writes "we estimate", as most sell-side research does.
+    (Named ``voice`` because pydantic's ``BaseModel`` already owns ``register``.)"""
+
+    @field_validator("date_format", mode="after")
+    @classmethod
+    def _pattern_formats_a_date(cls, value: str) -> str:
+        """Refuse a pattern that does not actually render the date, at configuration time.
+
+        A bad pattern would otherwise surface in the renderer, half way through a
+        paid-for report. Raising is not enough to catch one: glibc passes an unknown
+        directive through as literal text (``%Q`` renders as ``"%Q"``), so the check is
+        behavioural — two different probe dates must render differently, or the pattern
+        is ignoring the date it was given.
+        """
+        probes = (date(2025, 12, 27), date(2024, 3, 1))
+        try:
+            rendered = [probe.strftime(value) for probe in probes]
+        except ValueError as exc:
+            message = f"is not a valid strftime pattern: {exc}"
+            raise ValueError(message) from exc
+        if rendered[0].strip() and rendered[0] != rendered[1]:
+            return value
+        message = "does not render the date; every date would print as the same text"
+        raise ValueError(message)
 
 
 # Opus 5 for judgement, Sonnet 5 as the workhorse, Haiku 4.5 for triage.
@@ -264,6 +320,9 @@ class Settings(BaseSettings):
         default_factory=lambda: dict(DEFAULT_MODEL_ROUTES)
     )
 
+    # Same NoDecode reasoning as model_routes: blank means the defaults, decoded here.
+    house_style: Annotated[HouseStyle, NoDecode] = Field(default_factory=HouseStyle)
+
     # -- Validation --------------------------------------------------------------------
 
     @field_validator(
@@ -314,6 +373,26 @@ class Settings(BaseSettings):
         """Decode the JSON ourselves, treating blank as unset (see NoDecode above)."""
         if value is None or (isinstance(value, str) and not value.strip()):
             return dict(DEFAULT_MODEL_ROUTES)
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError as exc:
+                message = f"must be valid JSON: {exc}"
+                raise ValueError(message) from exc
+        return value
+
+    @field_validator("house_style", mode="before")
+    @classmethod
+    def _parse_house_style(cls, value: Any) -> Any:
+        """Decode the JSON ourselves, treating blank as unset (see NoDecode above).
+
+        No merge validator to pair with it: unlike a routing table, whose absent keys
+        are absent roles, ``HouseStyle`` declares a default per field, so a partial
+        object — ``{"register": "first_person_plural"}`` — validates with the rest of
+        the style intact.
+        """
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return HouseStyle()
         if isinstance(value, str):
             try:
                 return json.loads(value)

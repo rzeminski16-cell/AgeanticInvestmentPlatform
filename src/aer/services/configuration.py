@@ -35,7 +35,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.config import ModelRoute, Settings
+from aer.config import HouseStyle, ModelRoute, Settings
 from aer.db.models import AuditEvent, SettingsOverride, User
 from aer.errors import ValidationError
 
@@ -85,6 +85,14 @@ OVERRIDABLE: Final[tuple[Overridable, ...]] = (
         key="budget_warn_ratio",
         label="Warn at (fraction of budget)",
         help_text="Where the console starts warning, as a fraction between 0 and 1.",
+    ),
+    Overridable(
+        key="house_style",
+        label="House style",
+        help_text=(
+            "How the note presents itself: money scaling in prose, the date format, and "
+            "the writing register. Presentation only — stored values are never restyled."
+        ),
     ),
 )
 
@@ -200,13 +208,17 @@ def _is_secret(annotation: Any) -> bool:
     )
 
 
+# The overridable settings whose value is a JSON object rather than a scalar.
+_OBJECT_KEYS: Final[frozenset[str]] = frozenset({"model_routes", "house_style"})
+
+
 def _parsed(key: str, raw: str) -> Any:
-    if key != "model_routes":
+    if key not in _OBJECT_KEYS:
         return raw.strip()
     try:
         return json.loads(raw)
     except json.JSONDecodeError as exc:
-        message = f"The routing table is not valid JSON: {exc}."
+        message = f"The {key} value is not valid JSON: {exc}."
         raise ValidationError(message, context={"key": key}) from exc
 
 
@@ -217,6 +229,17 @@ def _coerce(key: str, raw: Any) -> Any:
             message = "The routing table must be an object mapping each role to a model."
             raise ValidationError(message, context={"key": key})
         return {role: ModelRoute.model_validate(route) for role, route in raw.items()}
+    if key == "house_style":
+        if not isinstance(raw, Mapping):
+            message = "The house style must be an object; every field it omits keeps its default."
+            raise ValidationError(message, context={"key": key})
+        try:
+            return HouseStyle.model_validate(raw)
+        except PydanticValidationError as exc:
+            first = exc.errors()[0]
+            field = ".".join(str(part) for part in first["loc"]) or "house_style"
+            message = f"The house style is not valid: {field}: {first['msg']}."
+            raise ValidationError(message, context={"key": key}) from exc
     if key == "budget_warn_ratio":
         ratio = float(raw)
         if not 0 < ratio <= 1:
@@ -233,6 +256,9 @@ def _coerce(key: str, raw: Any) -> Any:
 
 def _storable(value: Any) -> Any:
     """The JSON form of a coerced value, for the column and the audit payload."""
+    if isinstance(value, HouseStyle):
+        # mode="json" so the Decimal threshold stores as a string JSONB can hold exactly.
+        return value.model_dump(mode="json")
     if isinstance(value, Mapping):
         return {role: route.model_dump() for role, route in value.items()}
     if isinstance(value, Decimal):
