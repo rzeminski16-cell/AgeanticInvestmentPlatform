@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
 from aer.core.enums import ClaimKind, Provider, SourceTier
-from aer.db.models import Company, Report, SourceDocument
+from aer.db.models import Artefact, Company, Report, SourceDocument
 from aer.obsidian import (
     SENTINEL,
     ObsidianExportError,
@@ -87,10 +87,21 @@ async def scene(db_session: AsyncSession, store: LocalArtefactStore) -> dict[str
         extraction_id=built["extraction"].id,
     )
 
+    # Its own bytes: one record per artefact per request (gap C4) — a quarantined twin
+    # sharing the scene's artefact is a state the constraint now refuses to represent.
+    aggregate_payload = b"<html>the undated aggregate</html>"
+    aggregate_artefact = Artefact(
+        sha256=hashlib.sha256(aggregate_payload).hexdigest(),
+        media_type="text/html",
+        size_bytes=len(aggregate_payload),
+        storage_key="obsidian/undated-aggregate",
+    )
+    db_session.add(aggregate_artefact)
+    await db_session.flush()
     quarantined = SourceDocument(
         request_id=built["request"].id,
         job_id=built["job"].id,
-        artefact_id=built["document"].artefact_id,
+        artefact_id=aggregate_artefact.id,
         url="https://example.invalid/undated-aggregate",
         provider=Provider.WEB_SEARCH,
         source_tier=SourceTier.T6_UNVERIFIED,

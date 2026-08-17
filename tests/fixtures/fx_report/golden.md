@@ -105,7 +105,7 @@ A comparable-company analysis was performed against 3 peer(s) as at 2022-06-30, 
 
 | Source | Publisher | Published | Retrieved | Tier | Artefact |
 |---|---|---|---|---|---|
-| [Segment data pack](https://www.microsoft.com/investor/segment-data.html) | — | — | 2022-07-01 | T2_ISSUER | `e3b0c44298fc` |
+| [Segment data pack](https://www.microsoft.com/investor/segment-data.html) | — | — | 2022-07-01 | T2_ISSUER | `a3b0c44298fc` |
 | [Form 10-K, fiscal 2022](https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm) | US Securities and Exchange Commission | 2022-06-15 | 2022-07-01 | T1_REGULATORY | `e3b0c44298fc` |
 
 

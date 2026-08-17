@@ -206,7 +206,16 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
         size_bytes=len(payload),
         storage_key="golden/e3b0",
     )
-    db_session.add(artefact)
+    # Its own bytes for the second document: one record per artefact per request
+    # (gap C4), and two real documents never share a digest. Fixed sha so the golden
+    # scene stays deterministic.
+    artefact_two = Artefact(
+        sha256="a3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8aa",
+        media_type="text/html",
+        size_bytes=len(payload),
+        storage_key="golden/a3b0",
+    )
+    db_session.add_all([artefact, artefact_two])
     await db_session.flush()
 
     dated = SourceDocument(
@@ -227,7 +236,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
         id=DOC_TWO_ID,
         request_id=request.id,
         job_id=job.id,
-        artefact_id=artefact.id,
+        artefact_id=artefact_two.id,
         url="https://www.microsoft.com/investor/segment-data.html",
         title="Segment data pack",
         publisher=None,
