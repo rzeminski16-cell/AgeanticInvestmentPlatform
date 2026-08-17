@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 
+import sqlalchemy as sa
 from alembic import op
 
 revision = "0029"
@@ -196,19 +197,26 @@ _PREFERENCES: dict[str, dict[str, list[str]]] = {
 
 
 def upgrade() -> None:
+    # Bound, not interpolated. The keys and payloads here are module constants, so nothing
+    # hostile could reach the string — but the hand-rolled quote doubling it replaced is the
+    # kind of escaping that is correct until the day a value contains something it did not
+    # anticipate, and the driver already does this properly.
+    statement = sa.text(
+        "UPDATE section_definitions "
+        "SET evidence_policy = evidence_policy || CAST(:merged AS jsonb) "
+        "WHERE key = :key AND origin = 'builtin'"
+    )
+    bind = op.get_bind()
     for key, preferences in _PREFERENCES.items():
-        merged = json.dumps(preferences).replace("'", "''")
-        op.execute(
-            "UPDATE section_definitions "
-            f"SET evidence_policy = evidence_policy || '{merged}'::jsonb "
-            f"WHERE key = '{key}' AND origin = 'builtin'"
-        )
+        bind.execute(statement, {"merged": json.dumps(preferences), "key": key})
 
 
 def downgrade() -> None:
+    statement = sa.text(
+        "UPDATE section_definitions "
+        "SET evidence_policy = (evidence_policy - 'concept_priority') - 'excerpt_keywords' "
+        "WHERE key = :key AND origin = 'builtin'"
+    )
+    bind = op.get_bind()
     for key in _PREFERENCES:
-        op.execute(
-            "UPDATE section_definitions "
-            "SET evidence_policy = (evidence_policy - 'concept_priority') - 'excerpt_keywords' "
-            f"WHERE key = '{key}' AND origin = 'builtin'"
-        )
+        bind.execute(statement, {"key": key})
