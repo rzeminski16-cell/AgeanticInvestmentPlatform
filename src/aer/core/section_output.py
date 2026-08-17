@@ -39,6 +39,8 @@ __all__ = [
     "reserved_fields_in",
     "unsourced_numerals",
     "without_document_references",
+    "without_plain_counts",
+    "without_unsourced_numeral_sentences",
 ]
 
 # Keys whose values are section metadata rather than assertions about the world.
@@ -79,15 +81,26 @@ _REFERENCE: Final[re.Pattern[str]] = re.compile(
             r"\bFY\s?\d{2,4}\b",
             r"\bfiscal(?:\s+year)?\s+(?:19|20)\d{2}\b",
             r"\b(?:first|second|third|fourth)\s+quarter\s+of\s+(?:19|20)\d{2}\b",
-            # A year in temporal company: "in 2026", "since 2024", "mid-2025", and the
-            # paired form "between 2019 and 2024". The anchors deliberately exclude
-            # "of", "to" and "for", each of which reads naturally in front of a
-            # quantity.
+            # A year in temporal company: "in 2026", "since 2024", "mid-2025", and any
+            # list or range the anchor opens \u2014 "between 2019 and 2024", "in 2014, 2019
+            # and 2024". The whole list is excused, not just the anchored head: a live
+            # section died because the head of its year list was erased and the tail was
+            # flagged. The anchors deliberately exclude "of", "to" and "for", each of
+            # which reads naturally in front of a quantity.
             r"\b(?:in|by|since|until|through|throughout|during|before|after|between|"
-            r"around|calendar|year|early|late|mid)[\s-](?:19|20)\d{2}"
-            r"(?:\s*(?:and|to|[-\u2013\u2014])\s*(?:19|20)\d{2})?\b",
+            r"around|calendar|year|early|late|mid)[\s-](?:19|20)\d{2}(?:/\d{2,4})?"
+            r"(?:\s*(?:,|and|or|to|[-\u2013\u2014])\s*(?:19|20)\d{2}(?:/\d{2,4})?)*\b",
             # A year-to-year range on its own: "2019-2024", hyphen or en/em dash.
             r"\b(?:19|20)\d{2}\s*[-\u2013\u2014]\s*(?:19|20)\d{2}\b",
+            # A fiscal split year is reference-shaped by itself: "2014/15", "2024/2025".
+            # No quantity is written with a slash and a two-digit tail, and the live rule
+            # flagged the "15" of "2014/15" as an unsourced figure.
+            r"\b(?:19|20)\d{2}/\d{2,4}\b",
+            # A bare pair or list of years \u2014 "2014 and 2024", "2019, 2021 and 2023" \u2014
+            # where every element is year-shaped. A money amount cannot back into this
+            # form: written with separators ("2,014") it does not match the year atom,
+            # and a single bare year is deliberately not excused.
+            r"\b(?:19|20)\d{2}(?:\s*(?:,|and|or|to)\s*(?:19|20)\d{2})+\b",
             # A year the sentence itself marks as one: "the 2026 fiscal year".
             r"\b(?:19|20)\d{2}\s+(?:fiscal|financial|calendar)\b",
             # Filing references, where the label is the anchor and an enumeration keeps
@@ -106,6 +119,24 @@ _REFERENCE: Final[re.Pattern[str]] = re.compile(
         )
     ),
     re.IGNORECASE,
+)
+
+# Words that make the number before them a measured figure rather than a count. A small
+# integer followed by one of these — "3 percent", "13 million", "5 basis points" — still
+# needs lineage; followed by anything else — "three segments", "13 quarters" — it is the
+# writer counting the nouns of its own prose, which no stored fact could ever cover.
+_MEASURE_WORDS: Final = (
+    "million|billion|trillion|thousand|hundred|percent|per|basis|bps|times|x|"
+    "usd|gbp|eur|dollars?|pounds?|euros?|cents?|pence|p"
+)
+
+# A plain count: a bare integer under one hundred, no separators, no decimals, not
+# preceded by a currency sign or attached to a larger token, followed by an ordinary
+# lowercase word. Both sections the live run lost died here — Business Overview on the
+# "13" of a market count, Catalysts on the "3" of its own list — figures in no ledger
+# because they are not figures at all. ADR 0057 records the trade.
+_PLAIN_COUNT: Final[re.Pattern[str]] = re.compile(
+    rf"(?<![\w.,$£€])\d{{1,2}}(?=\s+(?!(?:{_MEASURE_WORDS})\b)[a-z])"
 )
 
 _JSON_SCALARS: Final[dict[str, type | tuple[type, ...]]] = {
@@ -206,6 +237,15 @@ def without_document_references(text: str) -> str:
     return _REFERENCE.sub(" ", text)
 
 
+def without_plain_counts(text: str) -> str:
+    """The text with plain counts removed — see :data:`_PLAIN_COUNT` and ADR 0057.
+
+    The same one-way contract as the reference eraser: applied to content before the
+    scan, never to claims, so it can only narrow what gets flagged.
+    """
+    return _PLAIN_COUNT.sub(" ", text)
+
+
 def unsourced_numerals(content: dict[str, Any], covered_by: Iterable[str]) -> list[str]:
     """Numerals in the content that nothing accounts for, with where they sit.
 
@@ -248,7 +288,7 @@ def _numerals_by_path(value: Any, *, path: str) -> list[tuple[str, frozenset[str
     to assert one without lineage.
     """
     if isinstance(value, str):
-        found = numerals_in(without_document_references(value))
+        found = numerals_in(without_plain_counts(without_document_references(value)))
         return [(path, found)] if found else []
     if isinstance(value, bool):
         return []
@@ -278,3 +318,75 @@ _FIGURE_NAMING_KEYS: Final[frozenset[str]] = frozenset({"calculation_id", "finan
 
 def _names_its_figure(row: dict[Any, Any]) -> bool:
     return any(isinstance(row.get(key), str) and row.get(key) for key in _FIGURE_NAMING_KEYS)
+
+
+# Sentence boundaries for the salvage below. Deterministic and deliberately simple: a
+# terminal mark followed by whitespace. Prose that defeats it merely salvages a larger
+# span, which errs towards removing more of the offending text rather than less.
+_SENTENCES: Final[re.Pattern[str]] = re.compile(r"(?<=[.!?])\s+")
+
+
+def without_unsourced_numeral_sentences(
+    content: dict[str, Any], covered_by: Iterable[str]
+) -> dict[str, Any] | None:
+    """The content with every sentence carrying an unsourced numeral removed, or ``None``.
+
+    The salvage behind ADR 0057. Two of a live report's sections were discarded whole —
+    a billed draft each — over a single flagged token, when removing the one offending
+    clause would have kept everything the rule had no quarrel with. This is the same
+    move the plan salvage makes: code narrowing model output, never adding to it.
+
+    ``None`` — salvage declined — whenever removal is not the repair: an unsourced
+    numeral in a non-string field (a JSON number cannot be narrowed, only dropped, and
+    dropping a field is a contract decision, not a salvage), or a string a removal would
+    empty (a field wholly built of unsourced figures should fail loudly, not render
+    blank). Declining leaves the caller exactly where it was: refusing the draft.
+
+    The result must be revalidated in full by the caller. Removal can only narrow the
+    numeral scan, but a shorter text can still break its contract's other rules.
+    """
+    covered: set[str] = set()
+    for statement in covered_by:
+        covered.update(numerals_in(statement))
+
+    def scrub_text(value: str) -> str:
+        sentences = _SENTENCES.split(value)
+        kept = [
+            sentence
+            for sentence in sentences
+            if numerals_in(without_plain_counts(without_document_references(sentence))) <= covered
+        ]
+        if len(kept) == len(sentences):
+            return value
+        narrowed = " ".join(kept).strip()
+        if not narrowed:
+            raise _SalvageDeclinedError
+        return narrowed
+
+    def scrub(value: Any) -> Any:
+        if isinstance(value, str):
+            return scrub_text(value)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            if numerals_in(repr(value)) <= covered:
+                return value
+            raise _SalvageDeclinedError
+        if isinstance(value, dict) and not _names_its_figure(value):
+            return {
+                key: (item if str(key) in NUMERAL_EXEMPT_KEYS else scrub(item))
+                for key, item in value.items()
+            }
+        if isinstance(value, list):
+            return [scrub(item) for item in value]
+        return value
+
+    try:
+        narrowed_content = {key: scrub(item) for key, item in content.items()}
+    except _SalvageDeclinedError:
+        return None
+    if narrowed_content == content:
+        return None
+    return narrowed_content
+
+
+class _SalvageDeclinedError(Exception):
+    """Raised inside the scrub walk when removal is not the repair."""

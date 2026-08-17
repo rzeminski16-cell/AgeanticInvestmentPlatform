@@ -40,6 +40,7 @@ from aer.core.section_output import (
     numerals_in,
     unsourced_numerals,
     without_document_references,
+    without_unsourced_numeral_sentences,
 )
 from aer.db.models import (
     Artefact,
@@ -441,6 +442,93 @@ class TestAReferenceIsNotAFigure:
         covered = ["Revenue for fiscal year 2024 was $1,000 million."]
         problems = unsourced_numerals(content, covered)
         assert not any("2024" in problem for problem in problems)
+
+    def test_a_year_list_is_excused_past_its_anchor(self) -> None:
+        """ADR 0057: a live section died because the head of its year list was erased
+        and the tail was flagged."""
+        assert (
+            unsourced_numerals({"s": "Launches in 2014, 2019 and 2024 built the base."}, []) == []
+        )
+        assert unsourced_numerals({"s": "Comparing 2014 and 2024 shows the shift."}, []) == []
+
+    def test_a_fiscal_split_year_is_a_reference(self) -> None:
+        assert unsourced_numerals({"s": "The 2014/15 financial year was transitional."}, []) == []
+        # The anchored form too, whole.
+        assert unsourced_numerals({"s": "Reported in 2024/25 under the new standard."}, []) == []
+
+    def test_a_money_amount_cannot_wear_the_list_form(self) -> None:
+        # Written with separators, the year atom never matches; both stay figures.
+        problems = unsourced_numerals({"s": "Costs of 2,014 and 2,024 million."}, [])
+        assert any("2014" in p for p in problems)
+        assert any("2024" in p for p in problems)
+
+
+class TestACountIsNotAFigure:
+    """ADR 0057: both sections the live run lost died over a count of their own prose —
+    Business Overview on the "13" of a market count, Catalysts on the "3" of its list.
+    A count is the writer counting nouns; no stored fact could ever cover it."""
+
+    def test_the_refusals_from_the_live_run_are_excused(self) -> None:
+        assert unsourced_numerals({"s": "Present in 13 international markets."}, []) == []
+        assert unsourced_numerals({"s": "There are 3 catalysts worth watching."}, []) == []
+
+    def test_a_measure_word_keeps_the_number_a_figure(self) -> None:
+        assert unsourced_numerals({"s": "Margins grew 13 percent."}, []) != []
+        assert unsourced_numerals({"s": "A cost of 9 million."}, []) != []
+        assert unsourced_numerals({"s": "Priced at 45 basis points."}, []) != []
+
+    def test_a_currency_sign_keeps_the_number_a_figure(self) -> None:
+        assert unsourced_numerals({"s": "Sold for $9 apiece."}, []) != []
+
+    def test_a_large_or_fractional_number_is_never_a_count(self) -> None:
+        assert unsourced_numerals({"s": "Shipped 240 units."}, []) != []
+        assert unsourced_numerals({"s": "A ratio of 0.5 holds."}, []) != []
+
+    def test_a_bare_trailing_number_is_a_figure(self) -> None:
+        # Nothing follows it, so nothing marks it a count; it still needs lineage.
+        assert unsourced_numerals({"s": "Total exposure stands at 42."}, []) != []
+
+
+class TestTheSalvage:
+    """ADR 0057, part three: the offending sentence goes, not the section."""
+
+    def test_the_offending_sentence_is_removed_and_the_rest_stands(self) -> None:
+        content = {
+            "commentary": (
+                "The quarter was solid. Margins expanded 340 basis points. Cash conversion held."
+            )
+        }
+        narrowed = without_unsourced_numeral_sentences(content, [])
+        assert narrowed == {"commentary": "The quarter was solid. Cash conversion held."}
+
+    def test_a_covered_sentence_is_kept(self) -> None:
+        content = {"commentary": "Revenue was $198,270 million. Margins expanded 340 points."}
+        covered = ["Total revenue was $198,270 million for fiscal 2022."]
+        narrowed = without_unsourced_numeral_sentences(content, covered)
+        assert narrowed == {"commentary": "Revenue was $198,270 million."}
+
+    def test_salvage_declines_when_removal_would_empty_a_field(self) -> None:
+        # A field wholly built of unsourced figures should fail loudly, not render blank.
+        assert without_unsourced_numeral_sentences({"s": "Margins grew 42%."}, []) is None
+
+    def test_salvage_declines_on_an_unsourced_json_number(self) -> None:
+        # A number field cannot be narrowed, only dropped, and dropping a field is a
+        # contract decision rather than a salvage.
+        assert without_unsourced_numeral_sentences({"years": 8}, []) is None
+
+    def test_a_clean_draft_is_not_salvaged(self) -> None:
+        # Nothing to remove means nothing to repair: the caller should know the numeral
+        # rule was not the problem.
+        content = {"s": "Nothing numeric here at all."}
+        assert without_unsourced_numeral_sentences(content, []) is None
+
+    def test_a_figure_row_is_left_untouched(self) -> None:
+        row = {"value": 198270, "financial_fact_id": str(uuid.uuid4())}
+        content = {"figures": [row], "commentary": "Prose. Margins grew 340 points."}
+        narrowed = without_unsourced_numeral_sentences(content, [])
+        assert narrowed is not None
+        assert narrowed["figures"] == [row]
+        assert narrowed["commentary"] == "Prose."
 
 
 # ==========================================================================================

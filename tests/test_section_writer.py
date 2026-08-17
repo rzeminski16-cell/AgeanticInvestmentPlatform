@@ -410,6 +410,8 @@ class TestTheFailureLadder:
         assert "evidence does not hold" in str(scene["section"].low_confidence_reason)
 
     async def test_a_bare_numeral_with_no_lineage_is_refused(self, scene: dict[str, Any]) -> None:
+        # A single-sentence field: removing the sentence would empty it, so the ADR 0057
+        # salvage declines and the refusal stands exactly as it always did.
         bare = SectionDraft(
             content={"commentary": "Margins improved by 42% on the year.", "figures": []},
             claims=[],
@@ -417,6 +419,30 @@ class TestTheFailureLadder:
         outcome = await _run(scene, _scripted([bare, bare]))
         assert outcome.status is SectionStatus.FAILED
         assert "42" in str(scene["section"].low_confidence_reason)
+
+    async def test_a_draft_failing_only_the_numeral_rule_is_salvaged_not_discarded(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """ADR 0057. Both sections the live report lost died over one flagged token each
+        — a whole billed draft discarded for a single clause. The offending sentence now
+        goes instead, the narrowed draft is revalidated in full, and the section stands
+        with the removal on the record."""
+        stray = _good_draft(scene)
+        stray.content["commentary"] = (
+            "Operating cash generation covered the capital programme. "
+            "Margins expanded 340 basis points."
+        )
+        outcome = await _run(scene, _scripted([stray, stray]))
+
+        assert outcome.status is SectionStatus.GENERATED
+        assert (
+            scene["section"].content["commentary"]
+            == "Operating cash generation covered the capital programme."
+        )
+        assert "340" not in str(scene["section"].content)
+        reason = str(scene["section"].low_confidence_reason)
+        assert "removed" in reason
+        assert scene["section"].confidence is not None
 
 
 class TestTheDegradationLadder:

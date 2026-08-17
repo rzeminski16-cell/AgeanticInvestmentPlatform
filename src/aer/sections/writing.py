@@ -11,15 +11,19 @@ as the only steer beyond the contract.
 
 from __future__ import annotations
 
+from typing import Any
+
 import structlog
 
 from aer.agents.base import AgentContext, TokenCapExceededError, schema_problems
 from aer.agents.section_writer import SectionDraft, SectionWriterAgent, SectionWriterInput
 from aer.core.enums import SourceTier
+from aer.core.section_output import without_unsourced_numeral_sentences
 from aer.db.models import ReportSection, ResearchRequest, SectionDefinition, SectionStatus
 from aer.errors import ValidationError
 from aer.sections.evidence import (
     MAX_GENERATION_ATTEMPTS,
+    Evidence,
     SectionExecution,
     SectionPolicy,
     confidence_of,
@@ -119,6 +123,7 @@ async def execute_builtin_section(
     agent = SectionWriterAgent()
     problems: list[str] = []
     draft: SectionDraft | None = None
+    last_candidate: SectionDraft | None = None
 
     attempts = 0
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
@@ -153,6 +158,7 @@ async def execute_builtin_section(
             problems = schema_problems(unparsable)
             continue
 
+        last_candidate = candidate
         problems = validate_draft(candidate, contract=contract, evidence=evidence, policy=policy)
         if not problems:
             draft = candidate
@@ -164,6 +170,23 @@ async def execute_builtin_section(
             problems=problems,
         )
 
+    salvage_note: str | None = None
+    if draft is None and last_candidate is not None:
+        draft = _salvaged(last_candidate, contract=contract, evidence=evidence, policy=policy)
+        if draft is not None:
+            # Recorded on the section, not just in a log: a reader of the run console
+            # should see that clauses were removed and why the section stands anyway.
+            salvage_note = (
+                "One or more sentences carrying figures no claim resolved were removed "
+                "from this section rather than discarding the draft (ADR 0057)."
+            )
+            _log.info(
+                "section_writer.draft_salvaged",
+                section=section.section_key,
+                attempts=attempts,
+                problems=problems,
+            )
+
     if draft is None:
         return _failed(section, attempts=attempts, problems=problems, truncated=evidence.truncated)
 
@@ -174,6 +197,10 @@ async def execute_builtin_section(
     # counts them: a figure row citing through content is evidence, not decoration.
     cited_source_ids |= content_source_ids(draft.content)
     shortfalls = policy_shortfalls(cited_source_ids, evidence=evidence, policy=policy)
+    if salvage_note is not None:
+        # A section that lost clauses is a degraded section, and the note travels the
+        # same channel every other degradation does.
+        shortfalls.append(salvage_note)
 
     section.content = draft.content
     section.status = SectionStatus.GENERATED
@@ -225,3 +252,29 @@ def _failed(
         evidence_truncated=truncated,
         problems=problems,
     )
+
+
+def _salvaged(
+    candidate: SectionDraft,
+    *,
+    contract: dict[str, Any],
+    evidence: Evidence,
+    policy: SectionPolicy,
+) -> SectionDraft | None:
+    """The candidate with its unsourced-numeral sentences removed, if that repairs it.
+
+    The section-writer's version of the plan salvage (gap A42): code narrowing model
+    output from the billed reply, never adding to it. Both sections the live report lost
+    died over a single flagged token each — a whole paid-for draft discarded for one
+    clause the rule had a quarrel with. The salvage declines unless the narrowed draft
+    passes **full** revalidation, so it can only ever turn a refused draft into a
+    conforming one, and a draft failing for any other reason still fails (ADR 0057).
+    """
+    covered = [claim.statement for claim in candidate.claims if claim.kind == "numeric"]
+    narrowed = without_unsourced_numeral_sentences(candidate.content, covered)
+    if narrowed is None:
+        return None
+    repaired = candidate.model_copy(update={"content": narrowed})
+    if validate_draft(repaired, contract=contract, evidence=evidence, policy=policy):
+        return None
+    return repaired
