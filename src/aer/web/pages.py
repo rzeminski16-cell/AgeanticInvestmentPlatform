@@ -618,6 +618,7 @@ async def _run_document(
         company=company,
         sector=await sector_note_for(session, job=job),
         comps=comps,
+        style=await configuration.effective_house_style(session),
         charts=await exportable_charts_for(
             session,
             job=job,
@@ -1410,6 +1411,7 @@ async def report_preview(
         company=company,
         sector=await sector_note_for(session, job=job),
         comps=comps,
+        style=await configuration.effective_house_style(session),
         charts=await exportable_charts_for(
             session,
             job=job,

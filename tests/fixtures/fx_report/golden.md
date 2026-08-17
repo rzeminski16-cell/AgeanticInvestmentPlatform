@@ -1,10 +1,10 @@
 # MICROSOFT CORP — Research Note
 
 **Ticker:** MSFT (NASDAQ)  
-**As-of date:** 2022-06-30  
+**As-of date:** 30 June 2022  
 **Base currency:** USD  
 **Point-in-time:** enforced  
-**Generated:** 2022-07-02 09:30 UTC  
+**Generated:** 2 July 2022, 09:30 UTC  
 **Non-binding view:** Constructive (non-binding)  
 **Confidence:** 62%  
 
@@ -32,7 +32,7 @@ A fixed thesis sentence with no figures in it.
 
 ### Headcount
 
-221000
+221,000
 
 ### Key Points
 
@@ -45,10 +45,10 @@ A fixed thesis sentence with no figures in it.
 
 ### Figures
 
-| Label | Value | Unit |
-|---|---|---|
-| Revenue CAGR | 0.18 | ratio[^3][^4] |
-| Revenue CAGR | 0.18 | ratio[^5][^4] |
+| Label | Value |
+|---|---|
+| Revenue CAGR | 18%[^3][^4] |
+| Revenue CAGR | 18%[^5][^4] |
 
 ### Mixed Notes
 
@@ -80,23 +80,23 @@ Written under a banner, deliberately.
 
 ### Figures
 
-| Label | Value | Unit |
-|---|---|---|
-| Ghost figure | 1.23 | x[^7][^8] |
+| Label | Value |
+|---|---|
+| Ghost figure | 1.23[^7][^8] |
 
 ## Comparable companies
 
-A comparable-company analysis was performed against 3 peer(s) as at 2022-06-30, with 1 proposed peer(s) excluded. **The figures are withheld from this version.** They derive from market data licensed for internal use only, under terms that grant no derived-data exemption, so no multiple computed from it appears in anything shareable. The analysis is available in full on the operator's own copy.
+A comparable-company analysis was performed against 3 peer(s) as at 30 June 2022, with 1 proposed peer(s) excluded. **The figures are withheld from this version.** They derive from market data licensed for internal use only, under terms that grant no derived-data exemption, so no multiple computed from it appears in anything shareable. The analysis is available in full on the operator's own copy.
 
 
 ## Notes
 
-[^1]: Form 10-K, fiscal 2022, US Securities and Exchange Commission, published 2022-06-15, retrieved 2022-07-01, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm>
+[^1]: Form 10-K, fiscal 2022, US Securities and Exchange Commission, published 15 June 2022, retrieved 1 July 2022, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm>
 [^2]: Calculated: `cagr = (end / start) ** (1 / years) - 1` = 0.180000000000 ratio (`aer.calc.basic:cagr`, code version `goldencode12`).
-[^3]: Form 10-K, fiscal 2022, US Securities and Exchange Commission, published 2022-06-15, retrieved 2022-07-01, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm>
+[^3]: Form 10-K, fiscal 2022, US Securities and Exchange Commission, published 15 June 2022, retrieved 1 July 2022, tier T1_REGULATORY. <https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm>
 [^4]: Calculated: `cagr = (end / start) ** (1 / years) - 1` = 0.180000000000 ratio (`aer.calc.basic:cagr`, code version `goldencode12`).
-[^5]: Segment data pack, retrieved 2022-07-01, tier T2_ISSUER. <https://www.microsoft.com/investor/segment-data.html>
-[^6]: Segment data pack, retrieved 2022-07-01, tier T2_ISSUER. <https://www.microsoft.com/investor/segment-data.html>
+[^5]: Segment data pack, retrieved 1 July 2022, tier T2_ISSUER. <https://www.microsoft.com/investor/segment-data.html>
+[^6]: Segment data pack, retrieved 1 July 2022, tier T2_ISSUER. <https://www.microsoft.com/investor/segment-data.html>
 [^7]: **Unresolved citation** — this claim references source document `00000000-0000-0000-0000-000000003002`, which is no longer present. Do not rely on the figure it supports.
 [^8]: **Unresolved citation** — this claim references calculation `00000000-0000-0000-0000-000000003001`, which is no longer present. Do not rely on the figure it supports.
 
@@ -105,8 +105,8 @@ A comparable-company analysis was performed against 3 peer(s) as at 2022-06-30, 
 
 | Source | Publisher | Published | Retrieved | Tier | Artefact |
 |---|---|---|---|---|---|
-| [Segment data pack](https://www.microsoft.com/investor/segment-data.html) | — | — | 2022-07-01 | T2_ISSUER | `a3b0c44298fc` |
-| [Form 10-K, fiscal 2022](https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm) | US Securities and Exchange Commission | 2022-06-15 | 2022-07-01 | T1_REGULATORY | `e3b0c44298fc` |
+| [Segment data pack](https://www.microsoft.com/investor/segment-data.html) | — | — | 1 July 2022 | T2_ISSUER | `a3b0c44298fc` |
+| [Form 10-K, fiscal 2022](https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm) | US Securities and Exchange Commission | 15 June 2022 | 1 July 2022 | T1_REGULATORY | `e3b0c44298fc` |
 
 
 ---

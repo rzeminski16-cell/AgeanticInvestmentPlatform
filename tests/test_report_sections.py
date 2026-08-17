@@ -345,12 +345,15 @@ class TestDeclaredOrderSurvivesTheDatabase:
         assert markdown.index("### Key Points") < markdown.index("### Key Risks")
 
     async def test_a_tables_columns_come_from_the_contract(self, run_context: dict) -> None:
-        """``label, value, unit`` as declared — not ``unit, label, value`` by key length."""
+        """``label`` before ``value`` as declared — not reordered by key length. The
+        ``unit`` column the contract also declares is absent deliberately: the display
+        formatter folds each row's unit into its value (gap R1), and a "Unit: USD" column
+        beside "$391,035m" would be the machine's bookkeeping shown to a reader."""
         report = await run_to_report(**_run_args(run_context))
         header = next(
             line for line in report.content["markdown"].splitlines() if line.startswith("| Label")
         )
-        assert header == "| Label | Value | Unit |"
+        assert header == "| Label | Value |"
 
 
 class TestCitationsResolve:

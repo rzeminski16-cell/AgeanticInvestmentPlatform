@@ -146,7 +146,7 @@
   <h1>{{ header.company_name }}</h1>
   <p class="doc-kind">Research Note — {{ header.ticker }} ({{ header.exchange }})</p>
   <dl>
-    <dt>As-of date</dt><dd>{{ header.as_of.isoformat() }}</dd>
+    <dt>As-of date</dt><dd>{{ as_of_text }}</dd>
     <dt>Base currency</dt><dd>{{ header.base_currency }}</dd>
     <dt>Point-in-time</dt><dd>{{ "enforced" if header.point_in_time else "off" }}</dd>
     <dt>Generated</dt><dd>{{ header.generated_at.strftime("%Y-%m-%d %H:%M UTC") }}</dd>
@@ -270,12 +270,12 @@
       </tr>
     </thead>
     <tbody>
-      {% for row in document.appendix %}
+      {% for row in appendix_rows %}
       <tr>
         <td><a href="{{ row.url }}">{{ row.title }}</a></td>
         <td>{{ row.publisher or "—" }}</td>
-        <td>{{ row.publication_date.isoformat() if row.publication_date else "—" }}</td>
-        <td>{{ row.retrieved.isoformat() }}</td>
+        <td>{{ row.published_text }}</td>
+        <td>{{ row.retrieved_text }}</td>
         <td>{{ row.tier }}</td>
         <td>{% if row.digest_prefix %}<code>{{ row.digest_prefix }}</code>{% else %}—{% endif %}</td>
       </tr>

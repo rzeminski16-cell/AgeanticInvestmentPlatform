@@ -1912,6 +1912,7 @@ async def _render(context: StepContext) -> StepResult:
             request=request,
             licence_note=comps.licence_note if comps else "",
         ),
+        style=context.service("settings").house_style,
     )
     markdown = serialise_markdown(document)
     html = render_html(document)

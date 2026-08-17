@@ -22,6 +22,8 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from markupsafe import Markup, escape
 
 from aer.charts import svg_data_uri
+from aer.config import HouseStyle
+from aer.render import display
 from aer.render.document import (
     CalculationFootnote,
     ChartView,
@@ -54,7 +56,9 @@ _ENV = Environment(
 def render_html(document: ReportDocument) -> str:
     """One :class:`ReportDocument`, as a self-contained HTML page."""
     seen: set[int] = set()
-    titles = {footnote.number: _hover(footnote) for footnote in document.footnotes}
+    titles = {
+        footnote.number: _hover(footnote, style=document.style) for footnote in document.footnotes
+    }
     sections = [
         {
             "key": section.key,
@@ -73,10 +77,34 @@ def render_html(document: ReportDocument) -> str:
         custom_sections=custom,
         builtin_sections=[s for s in sections if s["origin"] != "skill"],
         charts=[_chart(chart, seen=seen, titles=titles) for chart in document.charts],
-        footnotes=[_footnote(footnote, job_id=document.job_id) for footnote in document.footnotes],
+        footnotes=[
+            _footnote(footnote, job_id=document.job_id, style=document.style)
+            for footnote in document.footnotes
+        ],
+        as_of_text=display.date_text(document.header.as_of, style=document.style),
+        appendix_rows=[
+            {
+                "title": row.title,
+                "url": row.url,
+                "publisher": row.publisher,
+                "published_text": (
+                    display.date_text(row.publication_date, style=document.style)
+                    if row.publication_date
+                    else "—"
+                ),
+                "retrieved_text": display.date_text(row.retrieved, style=document.style),
+                "tier": row.tier,
+                "digest_prefix": row.digest_prefix,
+            }
+            for row in document.appendix
+        ],
         referenced=sorted(seen),
         disclaimer_html=_emphasise(document.disclaimer),
-        comps_html=(_emphasise(document.comps_paragraph) if document.comps_paragraph else None),
+        comps_html=(
+            _emphasise(display.prose(document.comps_paragraph, style=document.style))
+            if document.comps_paragraph
+            else None
+        ),
     )
 
 
@@ -186,7 +214,7 @@ def _marks(markers: tuple[int, ...], *, seen: set[int], titles: dict[int, str]) 
     return Markup("").join(parts)
 
 
-def _hover(footnote: Footnote) -> str:
+def _hover(footnote: Footnote, *, style: HouseStyle) -> str:
     """One footnote as the plain sentence its markers show on hover — no markup, no JS."""
     match footnote:
         case CalculationFootnote():
@@ -200,7 +228,7 @@ def _hover(footnote: Footnote) -> str:
             if footnote.publisher:
                 pieces.append(footnote.publisher)
             pieces.append(f"tier {footnote.tier}")
-            pieces.append(f"retrieved {footnote.retrieved.isoformat()}")
+            pieces.append(f"retrieved {display.date_text(footnote.retrieved, style=style)}")
             return ", ".join(pieces) + ". Follow the note to the excerpt behind it."
         case UnresolvedFootnote():
             return (
@@ -233,7 +261,9 @@ def _chart(chart: ChartView, *, seen: set[int], titles: dict[int, str]) -> dict[
 # -- Footnotes as display rows ---------------------------------------------------------------
 
 
-def _footnote(footnote: Footnote, *, job_id: object = None) -> dict[str, object]:
+def _footnote(
+    footnote: Footnote, *, job_id: object = None, style: HouseStyle | None = None
+) -> dict[str, object]:
     """One footnote as template data; the entry text is built here, escaped.
 
     ``drill_href`` is the provenance drill-down for this marker — the page that answers
@@ -256,9 +286,16 @@ def _footnote(footnote: Footnote, *, job_id: object = None) -> dict[str, object]
             pieces = [Markup(escape(footnote.title))]
             if footnote.publisher:
                 pieces.append(Markup(escape(footnote.publisher)))
+            active = style if style is not None else HouseStyle()
             if footnote.publication_date:
-                pieces.append(Markup(f"published {footnote.publication_date.isoformat()}"))
-            pieces.append(Markup(f"retrieved {footnote.retrieved.isoformat()}"))
+                pieces.append(
+                    Markup(
+                        f"published {display.date_text(footnote.publication_date, style=active)}"
+                    )
+                )
+            pieces.append(
+                Markup(f"retrieved {display.date_text(footnote.retrieved, style=active)}")
+            )
             pieces.append(Markup(f"tier {escape(footnote.tier)}"))
             joined = Markup(", ").join(pieces)
             text = Markup(

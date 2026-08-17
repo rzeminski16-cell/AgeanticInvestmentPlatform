@@ -105,6 +105,23 @@ async def current_overrides(session: AsyncSession) -> dict[str, Any]:
     return {row.key: row.value for row in rows if row.key in _KEYS}
 
 
+async def effective_house_style(session: AsyncSession) -> HouseStyle:
+    """The house style in force: the stored override when one validates, else defaults.
+
+    A convenience for render surfaces that hold a session and no ``Settings`` object —
+    the report preview, the run document. The same fall-back-and-warn posture as
+    :func:`effective_settings`: a stored style that no longer validates formats nothing.
+    """
+    stored = (await current_overrides(session)).get("house_style")
+    if stored is None:
+        return HouseStyle()
+    try:
+        return HouseStyle.model_validate(stored)
+    except PydanticValidationError:
+        _log.warning("configuration.override_invalid", key="house_style")
+        return HouseStyle()
+
+
 async def effective_settings(session: AsyncSession, base: Settings) -> Settings:
     """``base`` with the stored overrides applied.
 

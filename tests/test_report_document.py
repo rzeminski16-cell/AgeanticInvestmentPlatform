@@ -534,7 +534,9 @@ class TestTheGoldenMarkdown:
         assert "### Headcount" in markdown  # scalar
         assert "- First fixed point." in markdown  # bullets
         assert "**Name:** Azure" in markdown  # described object
-        assert "| Label | Value | Unit |" in markdown  # contract-ordered table
+        # Contract-ordered table; the declared unit column is folded into the value by
+        # the display formatter (gap R1) rather than shown as machine bookkeeping.
+        assert "| Label | Value |" in markdown
         assert "A bare string in a mixed list." in markdown  # mixed list
         assert "> **Insufficient evidence" in markdown  # warning banner
         assert "*This section was not generated.*" in markdown  # pending
@@ -663,11 +665,14 @@ class TestTheGoldenHtml:
             },
             "figures": [
                 {
+                    # The *last* content column, on a row that also cites: the value cell
+                    # takes the marker-appending branch (the unit column is folded away by
+                    # the display formatter), which escapes separately from the plain
+                    # cells and must be planted separately or a regression there hides.
                     "label": "Fig <script>cell()</script>",
                     "value": "<i>1</i>",
-                    # The *last* content column, on a row that also cites: this cell takes
-                    # the marker-appending branch, which escapes separately from the plain
-                    # cells and must be planted separately or a regression there hides.
+                    # Dropped from the page by gap R1; planted anyway, because a dropped
+                    # column that leaked would still have to leak escaped.
                     "unit": "x <script>unit()</script>",
                     "calculation_id": str(CALC_ID),
                     "source_document_id": str(DOC_ONE_ID),
@@ -693,7 +698,7 @@ class TestTheGoldenHtml:
         assert "&lt;script&gt;alert(&#34;x&#34;)&lt;/script&gt;" in html
         assert "&lt;img src=x onerror=alert(1)&gt;" in html
         assert "&lt;script&gt;cell()&lt;/script&gt;" in html  # a table cell
-        assert "&lt;script&gt;unit()&lt;/script&gt;" in html  # the marker-carrying cell
+        assert "&lt;i&gt;1&lt;/i&gt;" in html  # the marker-carrying value cell
         assert "&lt;script&gt;warn()&lt;/script&gt;" in html  # the banner
         assert "&lt;script&gt;title()&lt;/script&gt;" in html  # a footnote title
 

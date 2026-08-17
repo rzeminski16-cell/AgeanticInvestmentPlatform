@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING
 
 import structlog
 
+from aer.config import HouseStyle
+from aer.render import display
 from aer.render.document import (
     DISCLAIMER,
     AppendixRow,
@@ -117,14 +119,14 @@ def serialise_markdown(document: ReportDocument) -> str:
 
     return "\n".join(
         [
-            *_header(document.header),
+            *_header(document.header, style=document.style),
             *_coverage_block(document.coverage),
             *_sector_block(document.sector),
             *body,
-            *_comps_block(document.comps_paragraph),
+            *_comps_block(document.comps_paragraph, style=document.style),
             *_exhibits_block(document.charts),
-            *_footnotes(document.footnotes),
-            *_appendix(document.appendix),
+            *_footnotes(document.footnotes, style=document.style),
+            *_appendix(document.appendix, style=document.style),
             *_footer(),
         ]
     )
@@ -133,15 +135,17 @@ def serialise_markdown(document: ReportDocument) -> str:
 # -- Header and footer ---------------------------------------------------------------------
 
 
-def _header(header: HeaderView) -> list[str]:
+def _header(header: HeaderView, *, style: HouseStyle) -> list[str]:
     lines = [
         f"# {header.company_name} — Research Note",
         "",
         f"**Ticker:** {header.ticker} ({header.exchange})  ",
-        f"**As-of date:** {header.as_of.isoformat()}  ",
+        f"**As-of date:** {display.date_text(header.as_of, style=style)}  ",
         f"**Base currency:** {header.base_currency}  ",
         f"**Point-in-time:** {'enforced' if header.point_in_time else 'off'}  ",
-        f"**Generated:** {header.generated_at.strftime('%Y-%m-%d %H:%M UTC')}  ",
+        f"**Generated:** "
+        f"{display.date_text(header.generated_at.date(), style=style)}"
+        f"{header.generated_at.strftime(', %H:%M UTC')}  ",
     ]
 
     # "No view" is stated rather than omitted. A missing rating and a deliberate abstention
@@ -201,7 +205,7 @@ def _sector_block(sector: SectorNote | None) -> list[str]:
     return lines
 
 
-def _comps_block(paragraph: str | None) -> list[str]:
+def _comps_block(paragraph: str | None, *, style: HouseStyle) -> list[str]:
     """The comparables disclosure — that one was done, and that its figures are not here.
 
     The paragraph arrives from :class:`~aer.calc.comps.WithheldComps` via the assembler,
@@ -212,7 +216,7 @@ def _comps_block(paragraph: str | None) -> list[str]:
     if paragraph is None:
         return []
 
-    return ["## Comparable companies", "", paragraph, ""]
+    return ["## Comparable companies", "", display.prose(paragraph, style=style), ""]
 
 
 def _exhibits_block(charts: tuple[ChartView, ...]) -> list[str]:
@@ -250,18 +254,20 @@ def _footer() -> list[str]:
 # -- Footnotes and appendix ----------------------------------------------------------------
 
 
-def _footnotes(footnotes: tuple[Footnote, ...]) -> list[str]:
+def _footnotes(footnotes: tuple[Footnote, ...], *, style: HouseStyle) -> list[str]:
     """The footnote block: one entry per marker, in marker order."""
     if not footnotes:
         return []
 
     lines = ["", "## Notes", ""]
-    lines.extend(f"[^{footnote.number}]: {_footnote_text(footnote)}" for footnote in footnotes)
+    lines.extend(
+        f"[^{footnote.number}]: {_footnote_text(footnote, style=style)}" for footnote in footnotes
+    )
     lines.append("")
     return lines
 
 
-def _footnote_text(footnote: Footnote) -> str:
+def _footnote_text(footnote: Footnote, *, style: HouseStyle) -> str:
     match footnote:
         case CalculationFootnote():
             # The unit is blank for a dimensionless ratio; joining the present pieces
@@ -277,8 +283,9 @@ def _footnote_text(footnote: Footnote) -> str:
             if footnote.publisher:
                 parts.append(footnote.publisher)
             if footnote.publication_date:
-                parts.append(f"published {footnote.publication_date.isoformat()}")
-            parts.append(f"retrieved {footnote.retrieved.isoformat()}")
+                published = display.date_text(footnote.publication_date, style=style)
+                parts.append(f"published {published}")
+            parts.append(f"retrieved {display.date_text(footnote.retrieved, style=style)}")
             parts.append(f"tier {footnote.tier}")
             return f"{', '.join(parts)}. <{footnote.url}>"
         case UnresolvedFootnote():
@@ -289,7 +296,7 @@ def _footnote_text(footnote: Footnote) -> str:
             )
 
 
-def _appendix(rows: tuple[AppendixRow, ...]) -> list[str]:
+def _appendix(rows: tuple[AppendixRow, ...], *, style: HouseStyle) -> list[str]:
     if not rows:
         return []
 
@@ -307,8 +314,10 @@ def _appendix(rows: tuple[AppendixRow, ...]) -> list[str]:
                 [
                     f"[{row.title}]({row.url})",
                     row.publisher or "—",
-                    row.publication_date.isoformat() if row.publication_date else "—",
-                    row.retrieved.isoformat(),
+                    display.date_text(row.publication_date, style=style)
+                    if row.publication_date
+                    else "—",
+                    display.date_text(row.retrieved, style=style),
                     row.tier,
                     f"`{row.digest_prefix}`" if row.digest_prefix else "`—`",
                 ]

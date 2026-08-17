@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
@@ -29,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.comps import WithheldComps
 from aer.charts import Chart
+from aer.config import HouseStyle
 from aer.db.models import (
     Calculation,
     Company,
@@ -277,6 +279,11 @@ class ReportDocument:
     job_id: uuid.UUID | None = None
     coverage: CoverageNote | None = None
 
+    # The house style the document was assembled under (gap R1, ADR 0056). Carried on the
+    # document so every serialiser prints dates and values the same way; the fragments
+    # were already formatted with it during the walk.
+    style: HouseStyle = dataclass_field(default_factory=HouseStyle)
+
     @property
     def section_keys(self) -> list[str]:
         return [section.key for section in self.sections]
@@ -298,6 +305,7 @@ async def assemble_document(
     rating: str | None = None,
     confidence: float | None = None,
     generated_at: datetime | None = None,
+    style: HouseStyle | None = None,
 ) -> ReportDocument:
     """Assemble a run's sections into one document.
 
@@ -332,6 +340,7 @@ async def assemble_document(
 
     sections = await sections_for_job(session, job.id)
     definitions = await _definitions_for(session, sections)
+    active_style = style if style is not None else HouseStyle()
 
     views: list[SectionView] = []
     citations: list[CitationRef] = []
@@ -353,6 +362,7 @@ async def assemble_document(
             warning=(
                 None if section.status is SectionStatus.FAILED else section.low_confidence_reason
             ),
+            style=active_style,
         )
         views.append(
             SectionView(
@@ -406,6 +416,7 @@ async def assemble_document(
         comps_paragraph=comps.as_paragraph() if comps is not None else None,
         footnotes=footnotes,
         appendix=appendix,
+        style=active_style,
         citations=citations,
         charts=tuple(chart_views),
         job_id=job.id,

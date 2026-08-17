@@ -34,6 +34,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Final
 
+from aer.config import HouseStyle
+from aer.render import display
+
 __all__ = [
     "Banner",
     "Bullet",
@@ -165,6 +168,7 @@ def render_section(
     footnote_start: int = 1,
     status_note: str | None = None,
     warning: str | None = None,
+    style: HouseStyle | None = None,
 ) -> RenderedSection:
     """Render one section's content against its contract.
 
@@ -179,6 +183,10 @@ def render_section(
         warning: A degradation banner — insufficient evidence, truncated evidence, a
             recorded failure reason — rendered above the content so a reader meets the
             limitation before the analysis, never as a footnote after it.
+        style: The house style every published value is formatted in (gap R1, ADR 0056).
+            Defaults so a caller without settings still formats deterministically; the
+            stored content is untouched either way — formatting is a projection applied
+            at render, never a rewrite.
 
     Returns:
         The fragments, their Markdown, and the citations in marker order, so the caller
@@ -200,6 +208,7 @@ def render_section(
     # the stored text where an em dash belongs, which a live report printed verbatim
     # mid-sentence. Normalised at render, once, for every notation.
     content = _unescaped(content)
+    active = style if style is not None else HouseStyle()
 
     for name, subschema in _ordered_properties(contract):
         if name in _METADATA_KEYS or name not in content:
@@ -217,6 +226,7 @@ def render_section(
                 heading_level=heading_level + 1,
                 field_title=field_title,
                 subschema=subschema,
+                style=active,
             )
         )
 
@@ -328,6 +338,7 @@ def _value_fragments(
     heading_level: int,
     field_title: str,
     subschema: dict[str, Any] | None = None,
+    style: HouseStyle,
 ) -> list[Fragment]:
     """Render one field.
 
@@ -348,14 +359,15 @@ def _value_fragments(
             heading_level=heading_level,
             field_title=field_title,
             subschema=subschema,
+            style=style,
         )
 
     heading = Heading(level=heading_level, text=field_title)
     if isinstance(value, dict):
         markers = _cite(value, citations=citations, footnote_start=footnote_start)
-        return [heading, Paragraph(markers=markers, pairs=_pairs(value))]
+        return [heading, Paragraph(markers=markers, pairs=_pairs(value, style=style))]
 
-    return [heading, Paragraph(text=f"{value}")]
+    return [heading, Paragraph(text=display.scalar(value, style=style))]
 
 
 def _list_fragments(
@@ -366,11 +378,15 @@ def _list_fragments(
     heading_level: int,
     field_title: str,
     subschema: dict[str, Any] | None = None,
+    style: HouseStyle,
 ) -> list[Fragment]:
     heading = Heading(level=heading_level, text=field_title)
 
     if all(not isinstance(item, dict) for item in values):
-        return [heading, Bullets(items=tuple(Bullet(text=f"{item}") for item in values))]
+        return [
+            heading,
+            Bullets(items=tuple(Bullet(text=display.scalar(item, style=style)) for item in values)),
+        ]
 
     columns = _shared_columns(values, subschema=subschema)
     if columns:
@@ -379,7 +395,7 @@ def _list_fragments(
             markers = _cite(item, citations=citations, footnote_start=footnote_start)
             rows.append(
                 TableRow(
-                    cells=tuple(str(item.get(column, "")) for column in columns),
+                    cells=tuple(display.cell(item, column, style=style) for column in columns),
                     markers=markers,
                 )
             )
@@ -392,9 +408,9 @@ def _list_fragments(
     for item in values:
         if isinstance(item, dict):
             markers = _cite(item, citations=citations, footnote_start=footnote_start)
-            items.append(Bullet(markers=markers, pairs=_pairs(item)))
+            items.append(Bullet(markers=markers, pairs=_pairs(item, style=style)))
         else:
-            items.append(Bullet(text=f"{item}"))
+            items.append(Bullet(text=display.scalar(item, style=style)))
     return [heading, Bullets(items=tuple(items))]
 
 
@@ -429,11 +445,22 @@ def _shared_columns(values: list[Any], *, subschema: dict[str, Any] | None = Non
         # data rather than as a field this content does not use.
         ordered = [name for name in declared if name in present]
         if set(ordered) == present:
-            return ordered
+            return _without_consumed_unit(ordered)
 
     # No usable contract: fall back to the first row's order, which is at least stable
     # across the rows because they were just checked to share a key set.
-    return [key for key in dicts[0] if key not in _METADATA_KEYS]
+    return _without_consumed_unit([key for key in dicts[0] if key not in _METADATA_KEYS])
+
+
+def _without_consumed_unit(columns: list[str]) -> list[str]:
+    """Drop the ``unit`` column when a ``value`` column will carry the unit itself.
+
+    The formatter renders "$109,417m" in the value cell, and a "Unit" column beside it
+    saying "USD" is the machine's bookkeeping shown to a reader (gap R1).
+    """
+    if "value" in columns and "unit" in columns:
+        return [name for name in columns if name != "unit"]
+    return columns
 
 
 def _declared_item_properties(subschema: dict[str, Any] | None) -> list[str]:
@@ -480,12 +507,17 @@ def _cite(
     return tuple(markers)
 
 
-def _pairs(item: dict[str, Any]) -> tuple[tuple[str, str], ...]:
-    """An object with no shared shape, as label-value runs for a one-line rendering."""
+def _pairs(item: dict[str, Any], *, style: HouseStyle) -> tuple[tuple[str, str], ...]:
+    """An object with no shared shape, as label-value runs for a one-line rendering.
+
+    The ``unit`` run disappears when a ``value`` sits beside it: the formatted value
+    carries its unit — "$109,417m" — and "Unit: USD" after it is the machine talking.
+    """
+    hidden = _METADATA_KEYS | ({"unit"} if "value" in item and "unit" in item else set())
     return tuple(
-        (_humanise(key), f"{value}")
+        (_humanise(key), display.cell(item, key, style=style))
         for key, value in item.items()
-        if key not in _METADATA_KEYS and value not in (None, "", [], {})
+        if key not in hidden and value not in (None, "", [], {})
     )
 
 
