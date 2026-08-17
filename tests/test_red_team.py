@@ -459,9 +459,20 @@ class TestThePlantedContradictionIsChallenged:
         assert "Revenue is growing and the trajectory is durable." in prompt
         assert str(outcome["fact"].id) in prompt
 
-    async def test_the_call_travelled_the_batch_path(self, outcome: dict[str, Any]) -> None:
+    async def test_a_lone_challenge_does_not_wait_on_the_batch_queue(
+        self, outcome: dict[str, Any]
+    ) -> None:
+        """The red team submits through :meth:`run_batch` and is billed and archived per
+        item exactly as a batch is — but one item is not sent to the batch endpoint.
+
+        This asserted the opposite until a live run showed what the batch queue costs for a
+        single item: 2,356 seconds, two thirds of the whole run, to adjudicate one
+        challenge. The audit standard is unchanged, because it never came from the
+        transport; only the queue is gone.
+        """
         calls = [c for c in outcome["provider"].calls if c["schema"] == "RedTeamReport"]
-        assert calls[0].get("batch") is True
+        assert len(calls) == 1
+        assert calls[0].get("batch") is None
 
     async def test_the_escalation_engine_raises_the_thesis_banner(
         self, outcome: dict[str, Any]

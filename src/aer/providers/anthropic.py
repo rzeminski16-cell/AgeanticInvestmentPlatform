@@ -315,9 +315,31 @@ class AnthropicProvider:
 
         All or nothing: an errored or expired item fails the whole call, because a
         partial list would silently shift every later result onto the wrong request.
+
+        **A single item does not go to the batch endpoint at all.** Batching buys a 50%
+        discount by surrendering latency to a queue with no service target, and that trade
+        only makes sense when the queue is amortised over many items. The first full run of
+        this platform spent 2,356 seconds — 39 minutes, two thirds of the entire run —
+        waiting on a batch of *one* red-team challenge, which is longer than every section
+        of the report took to draft put together. One item is therefore sent down the
+        single-call path, which is the same request with the same schema and returns the
+        same validated object; only the transport differs, and the caller cannot tell.
         """
         if not requests:
             return []
+
+        if len(requests) == 1:
+            single = requests[0]
+            return [
+                await self.complete_structured(
+                    schema,
+                    system=single.system,
+                    messages=single.messages,
+                    model=model,
+                    effort=effort,
+                    max_tokens=max_tokens,
+                )
+            ]
 
         wire_schema = _wire_schema(schema)
         params: list[dict[str, Any]] = []

@@ -209,8 +209,15 @@ class FakeProvider:
         identical rows, and it can only mean anything if the fake answers both from one
         source. Each item is recorded as its own call with the batch flagged, so a test
         can still see which path a result travelled.
+
+        **A single item is not flagged, because the real provider does not batch one.**
+        The Anthropic path sends a lone request down the single-call path rather than
+        surrendering it to a queue with no service target, so a fake that flagged it would
+        let a test assert batching that production does not do — the fidelity hole gap A18
+        exists to close.
         """
         results: list[StructuredResult[T]] = []
+        batched = len(requests) > 1
         for request in requests:
             result = await self.complete_structured(
                 schema,
@@ -220,7 +227,8 @@ class FakeProvider:
                 effort=effort,
                 max_tokens=max_tokens,
             )
-            self.calls[-1]["batch"] = True
+            if batched:
+                self.calls[-1]["batch"] = True
             results.append(result)
         return results
 

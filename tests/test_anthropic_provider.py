@@ -728,9 +728,15 @@ class _StubBatches:
 
 
 def _batch_provider(
-    entries: list[Any], *, statuses: list[str] | None = None
+    entries: list[Any], *, statuses: list[str] | None = None, response: Any = None
 ) -> tuple[AnthropicProvider, _StubBatches]:
-    messages = _RecordingMessages()
+    """A provider whose Batches surface is stubbed.
+
+    ``response`` scripts the *sync* surface as well, which a batch test needs only when it
+    submits a single item — that one goes down the single-call path and never touches the
+    entries above.
+    """
+    messages = _RecordingMessages(response)
     batches = _StubBatches(entries, statuses=statuses)
     messages.batches = batches  # type: ignore[attr-defined]
     provider = AnthropicProvider(
@@ -749,7 +755,41 @@ def _batch_requests(count: int) -> list[BatchRequest]:
     ]
 
 
+def _two_succeeded() -> list[Any]:
+    """Two answered items, for the tests that are about the batch endpoint itself.
+
+    Every one of them used to submit a single request, which is the one input the batch
+    endpoint no longer receives: a lone item now takes the single-call path and never
+    reaches these stubs. Two is the smallest batch that is still a batch.
+    """
+    return [
+        _entry("item-0", payload='{"summary": "ok", "confidence": 0.5}'),
+        _entry("item-1", payload='{"summary": "ok", "confidence": 0.5}'),
+    ]
+
+
 class TestTheBatchPath:
+    async def test_a_single_request_never_reaches_the_batch_endpoint(self) -> None:
+        """Gap O2: the queue is only worth its discount when it is amortised.
+
+        A live run spent 2,356 seconds — 39 minutes, two thirds of the run — waiting on a
+        batch holding one red-team challenge, which is longer than drafting all sixteen
+        sections took. The batch endpoint is therefore never created for one item; the
+        result is the same validated object, off the single-call path.
+        """
+        provider, batches = _batch_provider(
+            _two_succeeded(), response=_StubResponse(Plan(summary="ok"))
+        )
+
+        results = await provider.complete_structured_batch(
+            Plan, requests=_batch_requests(1), model=OPUS, effort="high"
+        )
+
+        assert batches.created is None
+        assert len(results) == 1
+        assert isinstance(results[0].value, Plan)
+        assert results[0].value.summary == "ok"
+
     async def test_results_come_back_validated_and_in_request_order(self) -> None:
         # The API finished them backwards; the caller must not notice.
         entries = [
@@ -773,10 +813,10 @@ class TestTheBatchPath:
         Pydantic schema would be the batch path's version of the sync path's first
         live-call failure.
         """
-        provider, batches = _batch_provider([_entry("item-0", payload='{"summary": "ok"}')])
+        provider, batches = _batch_provider(_two_succeeded())
 
         await provider.complete_structured_batch(
-            Plan, requests=_batch_requests(1), model=OPUS, effort="high"
+            Plan, requests=_batch_requests(2), model=OPUS, effort="high"
         )
 
         assert batches.created is not None
@@ -803,10 +843,10 @@ class TestTheBatchPath:
         ``output_config`` outright — trades a deprecation warning for a silently cheaper
         model call, and nothing downstream would say so.
         """
-        provider, batches = _batch_provider([_entry("item-0", payload='{"summary": "ok"}')])
+        provider, batches = _batch_provider(_two_succeeded())
 
         await provider.complete_structured_batch(
-            Plan, requests=_batch_requests(1), model=OPUS, effort="xhigh"
+            Plan, requests=_batch_requests(2), model=OPUS, effort="xhigh"
         )
 
         assert batches.created is not None
@@ -824,10 +864,10 @@ class TestTheBatchPath:
         either. Listing the permitted keys here instead would have needed updating by
         whoever already knew.
         """
-        provider, batches = _batch_provider([_entry("item-0", payload='{"summary": "ok"}')])
+        provider, batches = _batch_provider(_two_succeeded())
 
         await provider.complete_structured_batch(
-            Plan, requests=_batch_requests(1), model=OPUS, effort="high"
+            Plan, requests=_batch_requests(2), model=OPUS, effort="high"
         )
 
         assert batches.created is not None
@@ -852,23 +892,28 @@ class TestTheBatchPath:
 
     async def test_polling_waits_for_the_batch_to_end(self) -> None:
         provider, batches = _batch_provider(
-            [_entry("item-0", payload='{"summary": "ok"}')],
+            _two_succeeded(),
             statuses=["in_progress", "in_progress", "ended"],
         )
 
         results = await provider.complete_structured_batch(
-            Plan, requests=_batch_requests(1), model=OPUS, effort="high"
+            Plan, requests=_batch_requests(2), model=OPUS, effort="high"
         )
 
-        assert len(results) == 1
+        assert len(results) == 2
         assert batches.retrievals >= 3
 
     async def test_a_reply_missing_the_schema_is_a_validation_error(self) -> None:
-        provider, _ = _batch_provider([_entry("item-0", payload='{"confidence": 0.5}')])
+        provider, _ = _batch_provider(
+            [
+                _entry("item-0", payload='{"confidence": 0.5}'),
+                _entry("item-1", payload='{"summary": "ok", "confidence": 0.5}'),
+            ]
+        )
 
         with pytest.raises(ValidationError):
             await provider.complete_structured_batch(
-                Plan, requests=_batch_requests(1), model=OPUS, effort="high"
+                Plan, requests=_batch_requests(2), model=OPUS, effort="high"
             )
 
     async def test_an_unusable_reply_carries_the_whole_batchs_bill(self) -> None:
