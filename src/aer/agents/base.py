@@ -212,6 +212,12 @@ class Agent[InputT, OutputT: BaseModel]:
     def __init__(self) -> None:
         self.definition = resolve_role(type(self).role)
 
+        # The role the router prices, normally the capability role itself (gap O1). A
+        # caller may point one instance at a cheaper configured route without touching
+        # what the role is *permitted* to do — capability comes from the registry and
+        # only from the registry; this changes the bill, never the allowlist or the caps.
+        self.route_role: str = type(self).role
+
         registered = self.definition.output_schema()
         if type(self).output_schema is not registered:
             message = (
@@ -471,7 +477,7 @@ class Agent[InputT, OutputT: BaseModel]:
 
     async def run(self, context: AgentContext, payload: InputT) -> OutputT:
         """Perform the agent's work: one routed, archived, metered model call."""
-        choice = context.router.resolve(self.role)
+        choice = context.router.resolve(self.route_role)
         # Composed, never raw. Untrusted content is wrapped and the containment rule attached
         # here, where an agent has no opportunity to skip either.
         system = self.composed_system_prompt(payload)
@@ -579,7 +585,7 @@ class Agent[InputT, OutputT: BaseModel]:
         if not payloads:
             return []
 
-        choice = context.router.resolve(self.role)
+        choice = context.router.resolve(self.route_role)
         requests: list[BatchRequest] = []
         batch_input_tokens = 0
         for payload in payloads:
@@ -701,7 +707,7 @@ class Agent[InputT, OutputT: BaseModel]:
                 ),
                 system=system,
                 choice_model=choice_model,
-                effort=context.router.resolve(self.role).effort,
+                effort=context.router.resolve(self.route_role).effort,
                 elapsed_ms=unusable.latency_ms,
                 stop_reason="schema_rejected",
             )

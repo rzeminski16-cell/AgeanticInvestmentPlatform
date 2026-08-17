@@ -80,6 +80,12 @@ def _word_budget(value: object) -> int:
     return stated if stated > 0 else 0
 
 
+def _writer_route(definition: SectionDefinition) -> str | None:
+    """The cheaper route this definition row asks its writer to bill at, or ``None``."""
+    stated = (definition.evidence_policy or {}).get("writer_role")
+    return stated if isinstance(stated, str) and stated else None
+
+
 def _basis(value: object) -> str:
     """A declared fact basis, or "any" for absent and for anything unrecognised.
 
@@ -136,7 +142,16 @@ async def execute_builtin_section(
         categories=_ALL_CATEGORIES,
     )
 
-    agent = SectionWriterAgent()
+    # The row may name a cheaper configured route (gap O1). Honoured only when the
+    # router actually configures it — the usual falling-back posture: a mistyped route
+    # name costs the saving, never the section.
+    requested = _writer_route(definition)
+    if requested is not None and requested not in context.router.roles:
+        _log.warning(
+            "section_writer.unrouted_writer_role", section=section.section_key, route=requested
+        )
+        requested = None
+    agent = SectionWriterAgent(route_role=requested)
     problems: list[str] = []
     draft: SectionDraft | None = None
     last_candidate: SectionDraft | None = None

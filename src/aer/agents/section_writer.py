@@ -117,6 +117,16 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
     output_schema: ClassVar[type[BaseModel]] = SectionDraft
     prompt_version: ClassVar[str] = "1"
 
+    def __init__(self, *, route_role: str | None = None) -> None:
+        """A writer, optionally billed at a cheaper configured route (gap O1).
+
+        The route changes which model answers; the role — its allowlist, its caps, its
+        prompt contract — stays ``report_writer``'s, resolved from the registry as ever.
+        """
+        super().__init__()
+        if route_role:
+            self.route_role = route_role
+
     def response_schema(self, payload: SectionWriterInput) -> type[BaseModel]:
         """The declared envelope, with ``content`` replaced by this section's contract.
 

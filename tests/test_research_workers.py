@@ -1987,6 +1987,33 @@ class TestSearchingTheFilingsFullText:
         )
         assert len(list(stored)) == 1, "a search must not acquire anything"
 
+    async def test_the_listing_leads_with_the_newest_filing(
+        self, evidence_scene: dict[str, Any]
+    ) -> None:
+        """Gap O9: a live run spent two of its twelve fetches on decade-old 10-Ks
+        because the listing arrived in index order. Old filings stay listed — a worker
+        may still choose one — but the budget-spending default reads top-down."""
+        index = _RecordingSearch(
+            hits=(
+                _hit(filed=date(2013, 7, 30), accession="0001111111-13-000001"),
+                _hit(filed=date(2022, 7, 30), accession="0001111111-22-000001"),
+                _hit(filed=date(2016, 7, 30), accession="0001111111-16-000001"),
+            )
+        )
+        executors = build_executors(
+            evidence_scene["session"], request=evidence_scene["request"], sec_client=index
+        )
+
+        outcome = await executors["search_filings_full_text"](
+            _tool_request("search_filings_full_text", "segment reporting")
+        )
+
+        assert [found["filed"] for found in outcome.internal_results] == [
+            "2022-07-30",
+            "2016-07-30",
+            "2013-07-30",
+        ]
+
     async def test_hits_after_the_as_of_date_are_counted_rather_than_dropped(
         self, evidence_scene: dict[str, Any]
     ) -> None:

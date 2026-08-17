@@ -382,6 +382,11 @@ def build_executors(
         usable, excluded = found.data.admissible(
             request.as_of_date if request.point_in_time else None
         )
+        # Newest first (gap O9): a live run spent two of its twelve fetches on
+        # decade-old 10-Ks because the listing arrived in index order. Nothing is
+        # excluded — an old filing can still be chosen — but the documents most able to
+        # support a current claim lead the list the worker spends its budget from.
+        usable = sorted(usable, key=lambda hit: hit.filed, reverse=True)
         # Ids, forms, dates and URLs are the index's, which is ours to trust — the
         # documents' own words are not here, and reading one costs a fetch. Trusted is
         # also why each hit joins the registry: a later fetch of this URL enters at the

@@ -46,6 +46,10 @@ _KNOWN_ROLES: Final[frozenset[str]] = frozenset(
         "validator",
         "custom_section",
         "report_writer",
+        # The cheaper route a descriptive section's definition row may name (gap O1).
+        # A route, not a capability: the writer keeps the report_writer role's registry
+        # definition and only its bill changes.
+        "section_writer_workhorse",
         "obsidian_linker",
     }
 )

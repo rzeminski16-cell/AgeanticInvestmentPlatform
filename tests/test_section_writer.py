@@ -45,6 +45,7 @@ from aer.db.models import (
     Job,
     JobStep,
     ResearchRequest,
+    SectionDefinition,
     SectionStatus,
     SourceDocument,
     User,
@@ -56,7 +57,7 @@ from aer.providers.protocol import SpentButUnusableError, Usage
 from aer.providers.router import Router
 from aer.sections.evidence import degradation_note
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
-from aer.sections.writing import execute_builtin_section, policy_of_definition
+from aer.sections.writing import _writer_route, execute_builtin_section, policy_of_definition
 from aer.services.extractions import record_excerpt
 from aer.storage.local import LocalArtefactStore
 from aer.verify.citations import verify_job_citations
@@ -444,6 +445,46 @@ class TestTheFailureLadder:
         reason = str(scene["section"].low_confidence_reason)
         assert "removed" in reason
         assert scene["section"].confidence is not None
+
+
+class TestTheWriterRoute:
+    """Gap O1: the bill is the row's choice; the capability is the registry's."""
+
+    def test_the_route_changes_the_bill_never_the_role(self) -> None:
+        routed = SectionWriterAgent(route_role="section_writer_workhorse")
+        assert routed.role == "report_writer"
+        assert routed.route_role == "section_writer_workhorse"
+        # No route named keeps the role's own — Opus for the judgement sections.
+        assert SectionWriterAgent().route_role == "report_writer"
+
+    def test_the_default_configuration_prices_the_workhorse_cheaper(
+        self, scene: dict[str, Any]
+    ) -> None:
+        router = Router(scene["settings"])
+        assert router.resolve("section_writer_workhorse").model == "claude-sonnet-5"
+        assert router.resolve("report_writer").model == "claude-opus-5"
+
+    def test_a_row_names_its_route_and_a_blank_names_none(self) -> None:
+        def probe(policy: dict[str, Any]) -> SectionDefinition:
+            return SectionDefinition(
+                key="route_probe",
+                version=1,
+                origin="builtin",
+                title="Route Probe",
+                position=Decimal(1),
+                required=False,
+                output_contract={},
+                evidence_policy=policy,
+                token_budget=1,
+                allowed_tools=[],
+                applicability={},
+            )
+
+        assert _writer_route(probe({"writer_role": "section_writer_workhorse"})) == (
+            "section_writer_workhorse"
+        )
+        assert _writer_route(probe({})) is None
+        assert _writer_route(probe({"writer_role": ""})) is None
 
 
 class TestTheEnforcedBudgets:

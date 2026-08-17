@@ -250,6 +250,33 @@ class TestTheSeed:
             assert rows
             assert all(row.evidence_policy.get("one_pager") is True for row in rows)
 
+    async def test_the_descriptive_sections_name_the_workhorse_route(
+        self, db_session: AsyncSession
+    ) -> None:
+        """Migration 0041 (gap O1): the sections that describe rather than judge bill
+        their writer at the workhorse route; the judgement sections name none and keep
+        the report_writer route."""
+        descriptive = (
+            "business_overview",
+            "segment_analysis",
+            "industry_landscape",
+            "management_governance",
+            "capital_allocation",
+            "catalysts",
+        )
+        rows = list(
+            await db_session.scalars(
+                select(SectionDefinition).where(SectionDefinition.origin == "builtin")
+            )
+        )
+        assert rows
+        for row in rows:
+            stated = (row.evidence_policy or {}).get("writer_role")
+            if row.key in descriptive:
+                assert stated == "section_writer_workhorse", row.key
+            else:
+                assert stated is None, row.key
+
     async def test_every_model_written_contract_can_carry_a_citation(
         self, db_session: AsyncSession
     ) -> None:

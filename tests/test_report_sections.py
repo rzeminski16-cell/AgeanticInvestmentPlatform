@@ -435,16 +435,19 @@ def executable_source(path: Path) -> str:
 FULL_GOLDEN = Path(__file__).resolve().parent / "fixtures" / "full_run" / "golden.md"
 
 # What two runs of the same offline workflow legitimately disagree on: generated ids,
-# the render timestamp, and the retrieval clock. Everything else is the fixture's.
+# the render timestamp, the retrieval clock, and the code version each calculation
+# footnote prints (the working tree's own git sha). Everything else is the fixture's.
 _UUID_TOKEN = re.compile(
     r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.IGNORECASE
 )
 _GENERATED_LINE = re.compile(r"\*\*Generated:\*\* .+")
+_CODE_VERSION = re.compile(r"code version `[0-9a-f]{6,40}`")
 
 
 def _normalised(markdown: str) -> str:
     text = _UUID_TOKEN.sub("<id>", markdown)
     text = _GENERATED_LINE.sub("**Generated:** <generated>", text)
+    text = _CODE_VERSION.sub("code version `<code>`", text)
     today = display.date_text(datetime.now(UTC).date(), style=HouseStyle())
     return text.replace(today, "<today>")
 

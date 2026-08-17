@@ -156,6 +156,10 @@ DEFAULT_MODEL_ROUTES: Final[dict[str, ModelRoute]] = {
     "validator": ModelRoute(model="claude-sonnet-5", effort="medium"),
     "custom_section": ModelRoute(model="claude-sonnet-5", effort="medium"),
     "report_writer": ModelRoute(model="claude-opus-5", effort="high"),
+    # Gap O1: the draft step was £5.61 of a £7.34 live run, sixteen sections on Opus at
+    # high effort. Descriptive sections — their definition rows name this route — take
+    # the workhorse; the judgement sections stay on report_writer's route above.
+    "section_writer_workhorse": ModelRoute(model="claude-sonnet-5", effort="medium"),
     "obsidian_linker": ModelRoute(model="claude-haiku-4-5", effort="low"),
 }
 
