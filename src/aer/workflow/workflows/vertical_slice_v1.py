@@ -865,12 +865,11 @@ async def _comps(context: StepContext) -> StepResult:
     table was hard to build: `aer.services.comps.build` has always known how, and nothing
     called it.
 
-    A table today is the subject's own multiples plus a list of confirmed peers excluded
-    for want of their filings and prices. That is thin and it is honest — this workflow
-    acquires data for the company it is researching and for nobody else, so a peer row
-    would have to be assembled from figures the platform does not hold. The exclusions say
-    exactly that, which is what stops a one-row table reading as "this company has no
-    comparables".
+    Each confirmed peer's multiples are computed from figures the platform already defends:
+    the peer's own filed statements — a peer is proposed only because its facts are stored —
+    and a price fetched, archived and licensed exactly as the subject's. A peer that cannot
+    be priced or read is excluded by name with the reason, which is what stops a thin table
+    reading as "this company has no comparables".
     """
     request = await _request_for(context)
     acquired = context.output_of("acquire")
@@ -888,11 +887,14 @@ async def _comps(context: StepContext) -> StepResult:
         context.session,
         ledger,
         job=context.job,
+        request=request,
         company_name=request.company_name,
         ticker=request.ticker,
         analysis=analysis,
         market_capitalisation=_market_capitalisation_from(prices, currency=request.base_currency),
         as_of=request.as_of_date,
+        client=context.optional_service("eodhd_client"),
+        store=context.service("store"),
     )
 
     if ledger.records:

@@ -42,6 +42,7 @@ from aer.charts import (
     SeriesPoint,
     ValueBand,
     football_field,
+    football_field_with_comps,
     price_relative,
     revenue_margin_history,
     scenario_bridge,
@@ -144,7 +145,20 @@ async def internal_charts_for(
     of which template remembers the rule.
     """
     salt = str(job.id)
-    return (price_relative(await _price_input(session, request=request), hashsalt=salt),)
+    charts: list[Chart] = [
+        price_relative(await _price_input(session, request=request), hashsalt=salt)
+    ]
+
+    comps_band = await _comps_band_for(session, job=job)
+    if comps_band is not None:
+        charts.append(
+            football_field_with_comps(
+                await _field_input(session, job=job, request=request, licence_note=""),
+                comps_band=comps_band,
+                hashsalt=salt,
+            )
+        )
+    return tuple(charts)
 
 
 # -- Revenue and margins -----------------------------------------------------------------------
@@ -541,6 +555,60 @@ def _latest_for_case_and_method(
         and str(row.parameters.get("method", "")) == method.value
     ]
     return matching[-1] if matching else None
+
+
+# -- The comparables band (internal only) ------------------------------------------------------
+
+# The implied-value calculations the comps build records, one per band end. Read back by
+# name like the scenario chart reads `value_per_share`: the rows are the lineage, and a
+# band drawn from anything else would be a range no citation can defend.
+_IMPLIED_VALUE_NAMES = (
+    "implied_value_per_share_from_ev_multiple",
+    "implied_value_per_share_from_price_multiple",
+)
+
+_IMPLIED_VALUE_LABELS = {
+    "implied_value_per_share_from_ev_multiple": "Comps (enterprise multiple)",
+    "implied_value_per_share_from_price_multiple": "Comps (per-share multiple)",
+}
+
+
+async def _comps_band_for(session: AsyncSession, *, job: Job) -> ValueBand | None:
+    """The comps band from the run's recorded implied-value calculations, or nothing.
+
+    The band's ends are the extremes of what the run recorded, and each end cites its
+    row. ``None`` when the comps build recorded no implied values — a run with no priced
+    peer — which leaves the internal field off the surface rather than empty.
+    """
+    rows = list(
+        await session.scalars(
+            select(Calculation)
+            .where(Calculation.job_id == job.id, Calculation.name.in_(_IMPLIED_VALUE_NAMES))
+            .order_by(Calculation.created_at, Calculation.sequence)
+        )
+    )
+    # One band, from one multiple: the comps build works through its preference order and
+    # records the first that could be applied, so mixing names here would mix bases.
+    for name in _IMPLIED_VALUE_NAMES:
+        matching = [row for row in rows if row.name == name]
+        if not matching:
+            continue
+        ordered = sorted(matching, key=lambda row: row.output_value)
+        low, high = ordered[0], ordered[-1]
+        return ValueBand(
+            label=_IMPLIED_VALUE_LABELS[name],
+            low=low.output_value,
+            high=high.output_value,
+            citations=tuple(
+                CitationRef(
+                    kind="calculation",
+                    identifier=str(row.id),
+                    label=f"Implied value per share ({row.output_value})",
+                )
+                for row in (low, high)
+            ),
+        )
+    return None
 
 
 # -- Prices (internal only) --------------------------------------------------------------------

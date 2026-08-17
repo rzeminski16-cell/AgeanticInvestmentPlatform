@@ -646,3 +646,37 @@ class TestTheInternalSet:
         )
         assert charts
         assert all(not chart.exportable for chart in charts)
+
+    async def test_no_recorded_implied_values_means_no_comps_field(
+        self, scene: dict[str, Any]
+    ) -> None:
+        charts = await internal_charts_for(
+            scene["session"], job=scene["job"], request=scene["request"]
+        )
+        assert "football_field_internal" not in {chart.key for chart in charts}
+
+    async def test_recorded_implied_values_draw_the_comps_band(self, scene: dict[str, Any]) -> None:
+        """The band's ends are the run's own implied-value calculations, cited row by
+        row — the comps range reaches the field only as recorded figures."""
+        session: AsyncSession = scene["session"]
+        for sequence, value in enumerate(("241.10", "297.40"), start=60):
+            session.add(
+                _calc(
+                    scene["job"].id,
+                    name="implied_value_per_share_from_ev_multiple",
+                    value=value,
+                    sequence=sequence,
+                )
+            )
+        await session.flush()
+
+        charts = await internal_charts_for(
+            scene["session"], job=scene["job"], request=scene["request"]
+        )
+
+        field = next(chart for chart in charts if chart.key == "football_field_internal")
+        assert not field.exportable
+        assert "Comps (enterprise multiple)" in field.svg
+        assert "Internal use only" in field.caption
+        cited = [ref for ref in field.citations if "Implied value per share" in ref.label]
+        assert len(cited) == 2

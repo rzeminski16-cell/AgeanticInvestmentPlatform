@@ -55,6 +55,9 @@ __all__ = [
     "PeerExclusion",
     "PeerRow",
     "align_peers",
+    "book_value_per_share",
+    "implied_value_per_share_from_ev_multiple",
+    "implied_value_per_share_from_price_multiple",
     "market_enterprise_value",
     "median_multiple",
     "multiple",
@@ -397,6 +400,17 @@ MULTIPLE_DEFINITIONS: Final[tuple[MultipleDefinition, ...]] = (
         ),
     ),
     MultipleDefinition(
+        key="p_b",
+        label="P/B",
+        numerator="price_per_share",
+        denominator="book_value_per_share",
+        note=(
+            "Book value is total equity as reported, goodwill and intangibles included — "
+            "the general measure. A bank is properly read on P/TBV instead, which is why "
+            "both exist."
+        ),
+    ),
+    MultipleDefinition(
         key="p_tbv",
         label="P/TBV",
         numerator="price_per_share",
@@ -461,6 +475,84 @@ def market_enterprise_value(
         )
 
     return market_capitalisation + net_debt
+
+
+@traced(
+    name="book_value_per_share",
+    formula="book value per share = total equity / shares outstanding",
+    assumptions=(
+        "Total equity as reported, goodwill and intangibles included.",
+        "The period-end share count, not a weighted average.",
+    ),
+)
+def book_value_per_share(
+    _context: CalculationContext, *, equity: Quantity, shares: Quantity
+) -> Quantity:
+    """The balance sheet per share, for the P/B denominator.
+
+    Negative equity passes through: a company that has bought back more than it ever
+    earned has a negative book value, and :func:`multiple` is the place that says a
+    multiple over it is not meaningful — here it is simply the number the filing implies.
+
+    Raises:
+        CalculationError: If the share count is not positive, which is a data error
+            rather than a state a company can be in.
+    """
+    if shares.value <= 0:
+        message = f"The share count is {shares.value}; a listed company has shares."
+        raise CalculationError(message, context={"shares": str(shares.value)})
+    return equity / shares
+
+
+@traced(
+    name="implied_value_per_share_from_ev_multiple",
+    formula="value per share = (multiple * denominator - net debt) / shares",
+    assumptions=(
+        "The peer multiple prices the subject's whole enterprise the way it prices the "
+        "peer's; differences in growth, margin and risk are exactly what it ignores.",
+        "Net debt is the period-end balance the enterprise-value bridge uses.",
+    ),
+)
+def implied_value_per_share_from_ev_multiple(
+    _context: CalculationContext,
+    *,
+    multiple_observed: Quantity,
+    denominator: Quantity,
+    net_debt: Quantity,
+    shares: Quantity,
+) -> Quantity:
+    """What a peer's enterprise multiple would say one of the subject's shares is worth.
+
+    The arithmetic behind a comps band on a football field: an observed EV/EBITDA (or
+    EV/Sales) applied to the subject's own denominator, bridged back to equity and spread
+    over the share count. The unit algebra carries the proof — a pure multiple times a
+    currency, less a currency, over shares, is a currency per share.
+
+    Raises:
+        CalculationError: If the share count is not positive.
+    """
+    if shares.value <= 0:
+        message = f"The share count is {shares.value}; a listed company has shares."
+        raise CalculationError(message, context={"shares": str(shares.value)})
+    return (multiple_observed * denominator - net_debt) / shares
+
+
+@traced(
+    name="implied_value_per_share_from_price_multiple",
+    formula="value per share = multiple * per-share denominator",
+    assumptions=(
+        "The peer multiple prices the subject's per-share figure the way it prices the "
+        "peer's; differences in growth, margin and risk are exactly what it ignores.",
+    ),
+)
+def implied_value_per_share_from_price_multiple(
+    _context: CalculationContext,
+    *,
+    multiple_observed: Quantity,
+    denominator_per_share: Quantity,
+) -> Quantity:
+    """What a peer's per-share multiple — a P/E, a P/B — implies for the subject."""
+    return multiple_observed * denominator_per_share
 
 
 @traced(

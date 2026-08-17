@@ -28,12 +28,13 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Final, Protocol
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.calc import prices as calc_prices
 from aer.calc.engine import CalculationContext
 from aer.calc.units import Quantity, SourceRef, Unit
 from aer.core.enums import Provider, SourceTier
@@ -43,6 +44,7 @@ from aer.services.acquisition import record_acquisition
 from aer.services.prices import (
     adjusted_series_for,
     market_capitalisation_for,
+    price_quantity,
     propose_computed_beta,
     record_actions,
     record_bars,
@@ -59,8 +61,11 @@ from aer.storage.protocol import ArtefactStore
 
 __all__ = [
     "BETA_WINDOW_YEARS",
+    "PEER_WINDOW_DAYS",
+    "PeerPrices",
     "PriceAcquisition",
     "PriceClient",
+    "acquire_peer_prices",
     "acquire_prices",
 ]
 
@@ -72,6 +77,12 @@ _SHARES: Final = Unit.base("shares")
 # observations — the convention, and enough that one unusual month does not carry the
 # estimate. A longer window measures a company that may no longer exist in the same form.
 BETA_WINDOW_YEARS: Final = 5
+
+# The bar window fetched for a peer. A peer contributes one price — the last close at the
+# as-of date — so five years of history would be spend against the daily allowance for
+# nothing; a year is enough that a thinly traded listing still has a recent bar, with
+# room for the split adjustments a close needs to be comparable.
+PEER_WINDOW_DAYS: Final = 400
 
 
 class PriceClient(Protocol):
@@ -181,6 +192,7 @@ async def acquire_prices(
         exchange=request.exchange,
         since=since,
         name=company.name,
+        ticker=request.ticker,
     )
     if subject.bars == 0:
         return PriceAcquisition(
@@ -250,6 +262,96 @@ async def acquire_prices(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class PeerPrices:
+    """A peer's price inputs for the comps table, or the sentence explaining their absence."""
+
+    price_per_share: Quantity | None = None
+    market_capitalisation: Quantity | None = None
+    reason: str = ""
+
+
+async def acquire_peer_prices(
+    session: AsyncSession,
+    client: PriceClient,
+    store: ArtefactStore,
+    *,
+    request: ResearchRequest,
+    company: Company,
+    job_id: uuid.UUID,
+    context: CalculationContext,
+    filed_shares: Quantity | None,
+) -> PeerPrices:
+    """Fetch and store one confirmed peer's prices, and derive its comps inputs.
+
+    The subject's own path (:func:`acquire_prices`) in miniature: the same provenance —
+    bars archived and hashed, the licence note on the source row, the series stored
+    against the peer's own security — with no beta and a short window, because a peer
+    contributes a close and a market capitalisation, not a regression.
+
+    Never raises for a peer that cannot be priced: an unlisted exchange, an unknown
+    symbol or an empty series returns its reason, and the comps build records the peer
+    as excluded rather than the table failing.
+    """
+    if not company.ticker or not company.exchange:
+        return PeerPrices(
+            reason=f"{company.name} has no stored listing to price, so it has no multiples."
+        )
+
+    try:
+        symbol = vendor_symbol(company.ticker, exchange=company.exchange)
+    except AerError as refused:
+        return PeerPrices(reason=str(refused))
+
+    since = request.as_of_date - timedelta(days=PEER_WINDOW_DAYS)
+    try:
+        listing = await _record_listing(
+            session,
+            client,
+            store,
+            request=request,
+            company=company,
+            job_id=job_id,
+            symbol=symbol,
+            exchange=company.exchange,
+            since=since,
+            name=company.name,
+            ticker=company.ticker,
+        )
+    except AerError as refused:
+        return PeerPrices(reason=f"The market-data provider refused {symbol}: {refused.message}")
+
+    if listing.bars == 0:
+        return PeerPrices(
+            reason=(
+                f"The market-data provider returned no prices for {symbol} on or before "
+                f"{request.as_of_date.isoformat()}."
+            )
+        )
+
+    series = await adjusted_series_for(session, listing.security, as_of=request.as_of_date)
+    if not series.bars:
+        return PeerPrices(reason=f"No usable bar for {symbol} inside the window.")
+
+    price = price_quantity(
+        series,
+        source=SourceRef.fact(listing.security.id, label=f"{symbol} close"),
+    )
+    if series.currency in calc_prices.MINOR_UNITS:
+        price = calc_prices.price_in_major_units(context, quoted=price)
+
+    capitalisation = await _market_capitalisation(
+        session,
+        client,
+        context,
+        security=listing.security,
+        symbol=symbol,
+        as_of=request.as_of_date,
+        filed_shares=filed_shares,
+    )
+    return PeerPrices(price_per_share=price, market_capitalisation=capitalisation)
+
+
 # -- Internals ---------------------------------------------------------------------------
 
 
@@ -293,9 +395,16 @@ async def _record_listing(
     exchange: str,
     since: date,
     name: str,
+    ticker: str | None = None,
     with_actions: bool = True,
 ) -> _Listing:
-    """Fetch one listing's bars, store the artefact, and record the provenance."""
+    """Fetch one listing's bars, store the artefact, and record the provenance.
+
+    ``ticker`` names the security row explicitly. It used to be taken from the request
+    whenever a company was supplied, which was correct while the subject was the only
+    company ever listed — a peer's bars recorded that way would sit under the subject's
+    ticker, which is a provenance error nobody would see until two series disagreed.
+    """
     response = await client.fetch_bars(symbol, as_of=request.as_of_date, since=since)
 
     acquisition = await record_acquisition(
@@ -316,7 +425,7 @@ async def _record_listing(
 
     security = await upsert_security(
         session,
-        ticker=request.ticker if company is not None else symbol.split(".", maxsplit=1)[0],
+        ticker=ticker if ticker is not None else symbol.split(".", maxsplit=1)[0],
         exchange=exchange,
         provider_symbol=symbol,
         quote_currency=_quote_currency(request, exchange=exchange),
