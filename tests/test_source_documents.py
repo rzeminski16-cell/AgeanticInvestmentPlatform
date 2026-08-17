@@ -418,6 +418,45 @@ class TestRecordingSources:
         assert document.robots_allowed is True
         assert document.licence_note
 
+    async def test_the_same_artefact_recorded_twice_returns_the_first_row(
+        self, db_session, request_row, artefact
+    ):
+        """Gap C4. The live run held two source rows for one digest of its own 10-Q: the
+        A43 pre-read closed the sequential duplicate, but the parallel research nodes
+        each hold their own session, and neither sees the other's uncommitted insert.
+        The (request_id, artefact_id) constraint is the arbiter, and losing the insert
+        means the row exists — so the answer is that row, not an error and not a twin."""
+        first = await record_source_document(
+            db_session,
+            request=request_row,
+            artefact=artefact,
+            url="https://www.sec.gov/Archives/edgar/data/789019/msft-10q.htm",
+            provider=Provider.SEC_EDGAR,
+            source_tier=SourceTier.T1_REGULATORY,
+            publication_date=date(2026, 6, 12),
+        )
+        # A different URL form and a different tier: the race's realistic shape, one
+        # worker fetching a URL variant of what the acquire step already recorded.
+        second = await record_source_document(
+            db_session,
+            request=request_row,
+            artefact=artefact,
+            url="https://www.sec.gov/Archives/edgar/data/789019/msft-10q.htm?variant=1",
+            provider=Provider.SEC_EDGAR,
+            source_tier=SourceTier.T5_SECONDARY,
+            publication_date=None,
+        )
+
+        assert second.id == first.id
+        assert second.source_tier is SourceTier.T1_REGULATORY
+        held = await db_session.scalars(
+            select(SourceDocument).where(
+                SourceDocument.request_id == request_row.id,
+                SourceDocument.artefact_id == artefact.id,
+            )
+        )
+        assert len(list(held)) == 1
+
     async def test_an_undated_source_is_auto_quarantined(self, db_session, request_row, artefact):
         assert request_row.point_in_time is True
 
@@ -531,16 +570,24 @@ class TestRecordingSources:
                 retrieved_at=datetime(2026, 7, 1, 12, 0),  # noqa: DTZ001 -- the point of the test
             )
 
-    async def test_the_same_url_retrieved_twice_is_two_records(
-        self, db_session, request_row, artefact
+    async def test_the_same_url_with_changed_content_is_two_records(
+        self, db_session, request_row, artefact, store
     ):
-        # The content may have changed between fetches, and that change is itself worth
-        # recording. One artefact, two acquisitions.
-        for moment in (datetime(2026, 7, 1, tzinfo=UTC), datetime(2026, 7, 2, tzinfo=UTC)):
+        # The rationale for re-acquisition was always that the content may have changed,
+        # and that change is worth recording. Changed content is a different digest —
+        # a different artefact — so both records stand. Identical bytes re-fetched later
+        # are the same evidence and merge into one record (gap C4, the test below).
+        changed = await store_artefact(
+            db_session, store, data=FILING + b" amended", media_type="text/html"
+        )
+        for moment, art in (
+            (datetime(2026, 7, 1, tzinfo=UTC), artefact),
+            (datetime(2026, 7, 2, tzinfo=UTC), changed.artefact),
+        ):
             await record_source_document(
                 db_session,
                 request=request_row,
-                artefact=artefact,
+                artefact=art,
                 url="https://www.sec.gov/same.htm",
                 provider=Provider.SEC_EDGAR,
                 source_tier=SourceTier.T1_REGULATORY,
@@ -551,15 +598,17 @@ class TestRecordingSources:
         stored = (await db_session.scalars(select(SourceDocument))).all()
         assert len(stored) == 2
 
-    async def test_the_identical_acquisition_cannot_be_recorded_twice(
+    async def test_the_identical_acquisition_recorded_twice_is_one_record(
         self, db_session, request_row, artefact
     ):
-        # Same request, same URL, same instant: that is one acquisition being written
-        # down twice, which would double-count the same evidence.
+        # Same request, same URL, same bytes: one acquisition written down twice would
+        # double-count the same evidence. Until gap C4 this raised; now the second write
+        # is answered with the record the first one made, because "you already hold
+        # this" is information a caller can use and an error is not.
         moment = datetime(2026, 7, 1, tzinfo=UTC)
 
-        async def record() -> None:
-            await record_source_document(
+        async def record() -> SourceDocument:
+            return await record_source_document(
                 db_session,
                 request=request_row,
                 artefact=artefact,
@@ -570,10 +619,12 @@ class TestRecordingSources:
                 retrieved_at=moment,
             )
 
-        await record()
-        with pytest.raises(DbIntegrityError):
-            await record()
-        await db_session.rollback()
+        first = await record()
+        second = await record()
+
+        assert second.id == first.id
+        stored = (await db_session.scalars(select(SourceDocument))).all()
+        assert len(stored) == 1
 
 
 class TestSourceDocumentConstraints:

@@ -158,9 +158,17 @@ class StubSecClient:
         Real prose rather than a marker string, because the acquisition path excerpts what
         it fetches and the citation verifier re-reads those excerpts: a document of
         placeholder text would exercise the plumbing and prove nothing about the excerpts.
+
+        Distinct bytes per filing, as real filings are: the stub once served identical
+        bytes for every ref, and once one source record per artefact per request was
+        enforced (gap C4) that collapsed a scene's 10-K and 10-Q into a single document —
+        a merge that can never happen to documents whose content differs.
         """
         self.document_calls.append(ref.url)
-        stored = await self._store.put_bytes(FILING_DOCUMENT)
+        body = FILING_DOCUMENT.replace(
+            b"</body>", b"<p>Archive copy of " + ref.url.encode() + b".</p></body>"
+        )
+        stored = await self._store.put_bytes(body)
         return _stub_fetch(ref.url, stored, media_type="text/html")
 
 

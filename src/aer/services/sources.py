@@ -34,6 +34,7 @@ from datetime import UTC, date, datetime
 
 import structlog
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import Provider, SourceTier
@@ -213,8 +214,33 @@ async def record_source_document(
         quarantined=decision.quarantined,
         quarantine_reason=decision.reason,
     )
-    session.add(document)
-    await session.flush()
+    try:
+        # A savepoint, so the constraint violation below leaves the caller's transaction
+        # usable rather than poisoned.
+        async with session.begin_nested():
+            session.add(document)
+            await session.flush()
+    except IntegrityError:
+        # The race the A43 pre-read cannot see: another session recorded this artefact
+        # for this request between our read and our write. The constraint is the arbiter;
+        # losing it means the row exists, so the answer is that row — same request, same
+        # bytes, one record (uq_source_document_per_artefact). Any other integrity
+        # failure has no such row and propagates unchanged.
+        held = await session.scalar(
+            select(SourceDocument).where(
+                SourceDocument.request_id == request.id,
+                SourceDocument.artefact_id == artefact.id,
+            )
+        )
+        if held is None:
+            raise
+        _log.info(
+            "source.already_recorded",
+            source_document_id=str(held.id),
+            url=url,
+            provider=provider.value,
+        )
+        return held
 
     if decision.quarantined:
         # Audited, not merely logged. "What did this run refuse to use, and why?" is a

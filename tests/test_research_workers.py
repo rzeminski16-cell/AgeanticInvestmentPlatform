@@ -886,7 +886,12 @@ class TestFetchingAKnownUrl:
         """Gap A43. A live run re-recorded its own 10-K three times: the fetch minted a
         fresh id at T5, quarantined, for the very bytes the acquire step held at T1 —
         and the competing ids poisoned citations of the document downstream. The same
-        bytes now answer from the best record already held, and no new row is minted.
+        bytes now answer from the record already held, and no new row is minted.
+
+        This test once seeded the competing T5 record too, to prove the *best* record
+        won. The uq_source_document_per_artefact constraint (gap C4) has since made that
+        state unrepresentable — one artefact, one record per request — so the preference
+        among duplicates has nothing left to choose between.
         """
         body = b"<html><body><p>The very filing the acquire step already holds.</p></body></html>"
         digest = hashlib.sha256(body).hexdigest()
@@ -906,20 +911,6 @@ class TestFetchingAKnownUrl:
             retrieved_at=datetime.now(UTC),
         )
         fetch_scene["session"].add(held)
-        # The live failure's second record of the same bytes: T5 and quarantined. The
-        # answer must be the best record, not merely any record.
-        fetch_scene["session"].add(
-            SourceDocument(
-                request_id=fetch_scene["request"].id,
-                artefact_id=held_artefact.id,
-                url="https://www.sec.gov/news/contoso-10k",
-                provider=Provider.SEC_EDGAR,
-                source_tier=SourceTier.T5_SECONDARY,
-                quarantined=True,
-                quarantine_reason="no_publication_date",
-                retrieved_at=datetime.now(UTC),
-            )
-        )
         await fetch_scene["session"].flush()
         before = len(
             list(

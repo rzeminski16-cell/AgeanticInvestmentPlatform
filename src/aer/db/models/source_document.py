@@ -197,6 +197,13 @@ class SourceDocument(Base):
         # acquisition. Fetching it again later is a new row, which is correct: the content
         # may have changed, and that change is itself worth recording.
         UniqueConstraint("request_id", "url", "retrieved_at", name="uq_source_acquisition"),
+        # One record per artefact per request, enforced where the race actually is. The
+        # A43 pre-read closed the sequential duplicate; parallel research nodes each hold
+        # their own session, so neither can see the other's uncommitted insert, and a
+        # live run recorded its own 10-Q twice. The database is the only participant that
+        # sees both writers, so the database holds the rule; the service turns a
+        # violation into a read of the row that won (gap C4).
+        UniqueConstraint("request_id", "artefact_id", name="uq_source_document_per_artefact"),
         CheckConstraint(
             "publication_date_confidence IS NULL"
             " OR (publication_date_confidence >= 0 AND publication_date_confidence <= 1)",
