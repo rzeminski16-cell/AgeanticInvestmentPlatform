@@ -184,6 +184,28 @@ class TestTheSeed:
                 "scenarios" in row.output_contract["properties"]
             )
 
+    async def test_the_exhibit_claims_are_rows(self, db_session: AsyncSession) -> None:
+        """Migration 0038 (gap N1): the sections that discuss an exhibit's subject claim
+        it in their evidence policy, so a chart renders beside its analysis — mapped in
+        data, because no section key may appear in the renderer's code."""
+        expected = {
+            "historical_financial_analysis": ["revenue_margin_history"],
+            "segment_analysis": ["segment_mix"],
+            "scenarios_sensitivities": ["scenario_bridge", "sensitivity_heatmap"],
+            "valuation_dcf": ["football_field"],
+        }
+        for key, charts in expected.items():
+            rows = list(
+                await db_session.scalars(
+                    select(SectionDefinition).where(
+                        SectionDefinition.key == key, SectionDefinition.origin == "builtin"
+                    )
+                )
+            )
+            assert rows
+            for row in rows:
+                assert row.evidence_policy.get("exhibits") == charts
+
     async def test_every_model_written_contract_can_carry_a_citation(
         self, db_session: AsyncSession
     ) -> None:

@@ -97,10 +97,12 @@ async def exportable_charts_for(
 ) -> tuple[Chart, ...]:
     """The report's chart pack, from the run's own rows.
 
-    Returns the five exportable exhibits — or nothing at all when the run recorded no
-    chart-feeding rows of any kind. A report from a run that computed nothing gains
-    nothing from six pictures of absence; a report where *some* exhibits have data keeps
-    the placeholders, because there a missing exhibit would read as a binding error.
+    Returns only the exhibits with data behind them (gap R11). A live note printed four
+    apologies — "No sensitivity grid was recorded for this run." — around one rendered
+    chart, and a picture of absence tells a reader nothing the coverage notice does not
+    already say honestly. An exhibit without data is omitted from the report entirely;
+    the placeholders still render on the internal surfaces, where a missing binding would
+    otherwise read as an error.
 
     Args:
         licence_note: The comparables licence note, when the run built a peer set. It
@@ -108,7 +110,7 @@ async def exportable_charts_for(
             would otherwise read as an oversight rather than a licence decision.
     """
     salt = str(job.id)
-    charts = (
+    built = (
         revenue_margin_history(
             await _revenue_margin_input(session, job=job, request=request), hashsalt=salt
         ),
@@ -120,14 +122,15 @@ async def exportable_charts_for(
             hashsalt=salt,
         ),
     )
-    if all(chart.placeholder for chart in charts):
+    charts = tuple(chart for chart in built if not chart.placeholder)
+    if not charts:
         return ()
 
     _log.info(
         "exhibits.assembled",
         job_id=str(job.id),
-        rendered=[chart.key for chart in charts if not chart.placeholder],
-        placeholders=[chart.key for chart in charts if chart.placeholder],
+        rendered=[chart.key for chart in charts],
+        omitted=[chart.key for chart in built if chart.placeholder],
     )
     return charts
 

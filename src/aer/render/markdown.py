@@ -116,6 +116,10 @@ def serialise_markdown(document: ReportDocument) -> str:
     body: list[str] = []
     for section in document.sections:
         body.append("\n".join(markdown_lines(section.fragments)))
+        # The exhibits this section claims render beside its analysis (gap N1), the
+        # same text shape the back-of-document pack uses, one heading level down.
+        for chart in section.charts:
+            body.append("\n".join(_exhibit_lines(chart, level=3)))
 
     return "\n".join(
         [
@@ -234,18 +238,20 @@ def _exhibits_block(charts: tuple[ChartView, ...]) -> list[str]:
 
     lines = ["## Exhibits", ""]
     for chart in charts:
-        markers = "".join(f"[^{number}]" for number in chart.markers)
-        lines.extend(
-            [
-                f"### {chart.title}",
-                "",
-                f"{chart.caption}{markers}",
-                "",
-                "*Rendered in the HTML and PDF editions of this report.*",
-                "",
-            ]
-        )
+        lines.extend(_exhibit_lines(chart, level=3))
     return lines
+
+
+def _exhibit_lines(chart: ChartView, *, level: int) -> list[str]:
+    markers = "".join(f"[^{number}]" for number in chart.markers)
+    return [
+        f"{'#' * level} {chart.title}",
+        "",
+        f"{chart.caption}{markers}",
+        "",
+        "*Rendered in the HTML and PDF editions of this report.*",
+        "",
+    ]
 
 
 def _limitations_block(rows: tuple[tuple[str, str], ...]) -> list[str]:

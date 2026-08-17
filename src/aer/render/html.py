@@ -65,7 +65,10 @@ def render_html(document: ReportDocument) -> str:
             "title": section.title,
             "origin": section.origin,
             "generated": section.generated,
+            # Body before charts, in document order: the first marker for a number
+            # carries the back-reference anchor, and reading order decides which.
             "body": _blocks(section.fragments, seen=seen, titles=titles),
+            "charts": [_chart(chart, seen=seen, titles=titles) for chart in section.charts],
         }
         for section in document.sections
     ]

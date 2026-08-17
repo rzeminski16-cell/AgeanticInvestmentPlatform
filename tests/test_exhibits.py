@@ -280,9 +280,9 @@ class TestTheExportablePack:
         )
 
         by_key = {chart.key: chart for chart in charts}
+        # Four exhibits with data; the fifth is omitted below, not apologised for.
         assert set(by_key) == {
             "revenue_margin_history",
-            "segment_mix",
             "scenario_bridge",
             "sensitivity_heatmap",
             "football_field",
@@ -321,9 +321,11 @@ class TestTheExportablePack:
         assert "DCF, terminal methods" in field.svg
         assert "Scenario range" in field.svg
 
-        # The one honest placeholder: this scene records no dimensioned facts, and the
-        # exhibit never estimates a breakdown from prose.
-        assert by_key["segment_mix"].placeholder
+        # The exhibit with no data disappears from the pack rather than printing an
+        # apology into the document (gap R11): this scene records no dimensioned facts,
+        # and the segment mix never estimates a breakdown from prose. The coverage
+        # notice, not a picture of absence, is where a thin run says so.
+        assert "segment_mix" not in by_key
 
     async def test_a_run_that_recorded_nothing_gets_no_exhibits(
         self, scene: dict[str, Any]
@@ -617,6 +619,82 @@ class TestTheDocumentIntegration:
         assert "Rendered in the HTML and PDF editions" in markdown
         assert 'id="section-exhibits"' in html
         assert html.count("data:image/svg+xml;base64,") == len(document.charts)
+
+        md_markers = re.findall(r"\[\^(\d+)\](?!:)", markdown)
+        html_markers = re.findall(r'<sup class="fn-ref"[^>]*><a[^>]*href="#fn-(\d+)">', html)
+        assert md_markers == html_markers
+
+    async def test_a_claimed_exhibit_renders_beside_its_section(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Gap N1: a section's definition claims its chart through data, the chart
+        renders after that section in both notations, and the unclaimed rest keep the
+        pack at the back. Marker numbering follows reading order."""
+        session: AsyncSession = scene["session"]
+        definition = SectionDefinition(
+            key="claiming_probe",
+            version=1,
+            origin="builtin",
+            title="Claiming Probe",
+            position=Decimal(100),
+            required=False,
+            output_contract={
+                "type": "object",
+                "properties": {"commentary": {"type": "string", "title": "Commentary"}},
+            },
+            evidence_policy={
+                "min_sources": 0,
+                "requires_primary": False,
+                "exhibits": ["revenue_margin_history"],
+            },
+            token_budget=1000,
+            allowed_tools=[],
+            applicability={},
+        )
+        session.add(definition)
+        await session.flush()
+        session.add(
+            ReportSection(
+                job_id=scene["job"].id,
+                section_definition_id=definition.id,
+                section_key=definition.key,
+                position=definition.position,
+                status=SectionStatus.GENERATED,
+                content={"commentary": "The revenue trajectory under discussion."},
+            )
+        )
+        await session.flush()
+
+        charts = await exportable_charts_for(session, job=scene["job"], request=scene["request"])
+        document = await assemble_document(
+            session,
+            job=scene["job"],
+            request=scene["request"],
+            company=scene["company"],
+            charts=charts,
+            generated_at=GENERATED_AT,
+        )
+
+        claiming = next(view for view in document.sections if view.key == "claiming_probe")
+        assert [chart.key for chart in claiming.charts] == ["revenue_margin_history"]
+        assert "revenue_margin_history" not in {chart.key for chart in document.charts}
+        assert document.charts  # the unclaimed rest keep the pack at the back
+
+        # Reading order owns the numbers: the claimed chart's markers directly follow
+        # the section's own, and everything at the back is numbered after them.
+        claimed_markers = [m for chart in claiming.charts for m in chart.markers]
+        assert claimed_markers[0] == len(claiming.citations) + 1
+        assert min(m for chart in document.charts for m in chart.markers) > claimed_markers[-1]
+
+        markdown = serialise_markdown(document)
+        html = render_html(document)
+        in_section = markdown.split("## Claiming Probe", 1)[1].split("\n## ", 1)[0]
+        assert "### Revenue and margin history" in in_section
+        section_html = html.split('id="section-claiming_probe"', 1)[1].split("</section>", 1)[0]
+        assert 'id="exhibit-revenue_margin_history"' in section_html
+        assert (
+            'id="exhibit-revenue_margin_history"' not in html.split('id="section-exhibits"', 1)[1]
+        )
 
         md_markers = re.findall(r"\[\^(\d+)\](?!:)", markdown)
         html_markers = re.findall(r'<sup class="fn-ref"[^>]*><a[^>]*href="#fn-(\d+)">', html)

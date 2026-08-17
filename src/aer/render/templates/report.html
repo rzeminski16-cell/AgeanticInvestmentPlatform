@@ -219,6 +219,12 @@
     <div class="custom-chip">Custom analysis</div>
     {% endif %}
     {{ section.body }}
+    {% for chart in section.charts %}
+    <figure id="exhibit-{{ chart.key }}" class="exhibit">
+      <img src="{{ chart.uri }}" alt="{{ chart.title }}" />
+      <figcaption><strong>{{ chart.title }}.</strong> {{ chart.caption }}</figcaption>
+    </figure>
+    {% endfor %}
   </section>
   {% endfor %}
 

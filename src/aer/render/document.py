@@ -144,6 +144,12 @@ class SectionView:
     citations: tuple[CitationRef, ...]
     generated: bool = True
 
+    # The exhibits this section's definition claims (gap N1): a chart supports analysis,
+    # so it renders beside the analysis rather than in a pack at the back. Claimed
+    # through the definition row's ``evidence_policy.exhibits`` — data, never a section
+    # key in code — and an unclaimed chart still lands in the document's own pack.
+    charts: tuple[ChartView, ...] = ()
+
 
 @dataclass(frozen=True, slots=True)
 class CoverageNote:
@@ -350,6 +356,10 @@ async def assemble_document(
     views: list[SectionView] = []
     citations: list[CitationRef] = []
 
+    # A chart renders beside the section whose definition claims it (gap N1) — reading
+    # order, so the interleaved footnote numbering stays "marker 3 is the third marker".
+    unclaimed: dict[str, Chart] = {chart.key: chart for chart in charts}
+
     for section in sections:
         definition = definitions.get(section.section_definition_id)
         rendered = render_section(
@@ -369,6 +379,12 @@ async def assemble_document(
             ),
             style=active_style,
         )
+        citations.extend(rendered.citations)
+        placed = tuple(
+            _chart_view(unclaimed.pop(chart_key), citations)
+            for chart_key in _declared_exhibits(definition)
+            if chart_key in unclaimed
+        )
         views.append(
             SectionView(
                 key=section.section_key,
@@ -378,27 +394,13 @@ async def assemble_document(
                 fragments=rendered.fragments,
                 citations=tuple(rendered.citations),
                 generated=section.status not in (SectionStatus.FAILED, SectionStatus.PENDING),
+                charts=placed,
             )
         )
-        citations.extend(rendered.citations)
 
-    chart_views: list[ChartView] = []
-    for chart in charts:
-        # Numbering continues straight on from the sections: an exhibit's marker is a
-        # footnote like any other, and both notations receive it already assigned.
-        markers = tuple(range(len(citations) + 1, len(citations) + 1 + len(chart.citations)))
-        citations.extend(chart.citations)
-        chart_views.append(
-            ChartView(
-                key=chart.key,
-                title=chart.title,
-                svg=chart.svg,
-                caption=chart.caption,
-                markers=markers,
-                placeholder=chart.placeholder,
-                licence_note=chart.licence_note,
-            )
-        )
+    # Whatever no section claimed keeps the pack at the back — a chart is never dropped
+    # for want of a claim, only relocated by one.
+    chart_views = [_chart_view(chart, citations) for chart in unclaimed.values()]
 
     footnotes = await _footnotes(session, citations)
     appendix = await _appendix(session, citations)
@@ -435,6 +437,38 @@ async def assemble_document(
 
 
 # -- Resolution ------------------------------------------------------------------------------
+
+
+def _declared_exhibits(definition: SectionDefinition | None) -> list[str]:
+    """The chart keys a definition row claims, in its declared order (gap N1).
+
+    Read from ``evidence_policy.exhibits`` — the definition's JSONB, so the mapping from
+    exhibit to section is a row a migration seeds, never a section key in code. Absent or
+    malformed means the section claims nothing, and the charts keep the pack at the back.
+    """
+    stated = (definition.evidence_policy or {}).get("exhibits") if definition else None
+    if not isinstance(stated, list):
+        return []
+    return [str(item) for item in stated]
+
+
+def _chart_view(chart: Chart, citations: list[CitationRef]) -> ChartView:
+    """One chart numbered into the document at the current footnote position.
+
+    An exhibit's marker is a footnote like any other: the numbers are taken where the
+    chart lands in reading order, and both notations receive them already assigned.
+    """
+    markers = tuple(range(len(citations) + 1, len(citations) + 1 + len(chart.citations)))
+    citations.extend(chart.citations)
+    return ChartView(
+        key=chart.key,
+        title=chart.title,
+        svg=chart.svg,
+        caption=chart.caption,
+        markers=markers,
+        placeholder=chart.placeholder,
+        licence_note=chart.licence_note,
+    )
 
 
 async def _coverage(
