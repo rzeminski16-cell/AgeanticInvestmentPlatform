@@ -514,7 +514,11 @@ def _item_for(
     properties: dict[str, Any] = items.get("properties", {})
     row: dict[str, Any] = {}
     for name in items.get("required", []):
-        if name == "value":
+        spec = properties.get(name)
+        if isinstance(spec, dict) and spec.get("type") == "array" and _items_are_objects(spec):
+            # A nested object array — the period-series shape's ``values`` (gap R9).
+            row[name] = [_item_for(spec, calculation=calculation, fact=fact)]
+        elif name == "value":
             row[name] = str(calculation["value"]) if calculation is not None else "n/a"
         elif name == "unit":
             row[name] = str(calculation.get("unit", "ratio")) if calculation else "n/a"
@@ -522,7 +526,7 @@ def _item_for(
             row[name] = f"Scripted {name.replace('_', ' ')} with no figure in it."
     if calculation is not None and "calculation_id" in properties and "value" in row:
         row["calculation_id"] = calculation["calculation_id"]
-    if fact is not None and "source_document_id" in properties:
+    if fact is not None and "source_document_id" in properties and "value" in row:
         row["source_document_id"] = fact["source_document_id"]
     return row
 

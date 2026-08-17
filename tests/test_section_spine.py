@@ -206,6 +206,36 @@ class TestTheSeed:
             for row in rows:
                 assert row.evidence_policy.get("exhibits") == charts
 
+    async def test_the_financial_tables_read_across_periods(self, db_session: AsyncSession) -> None:
+        """Migration 0039 (gap R9): the statement sections write period-indexed line
+        items — the series shape the renderer lays out with periods across the top —
+        slotted directly after the prose, with figures and commentary untouched."""
+        for key in (
+            "historical_financial_analysis",
+            "balance_sheet_liquidity",
+            "cash_flow_analysis",
+        ):
+            row = await db_session.scalar(
+                select(SectionDefinition)
+                .where(SectionDefinition.key == key, SectionDefinition.origin == "builtin")
+                .order_by(SectionDefinition.version.desc())
+                .limit(1)
+            )
+            assert row is not None
+            assert row.version >= 2
+            names = list(row.output_contract["properties"])
+            assert names.index("financials") == names.index("commentary") + 1
+
+            financials = row.output_contract["properties"]["financials"]
+            item = financials["items"]
+            assert item["required"] == ["label", "values"]
+            entry = item["properties"]["values"]["items"]
+            assert entry["required"] == ["period", "value"]
+            # A cell names its stored figure and cites its source — the numeral rule
+            # and the footnote both need their key.
+            assert "financial_fact_id" in entry["properties"]
+            assert "source_document_id" in entry["properties"]
+
     async def test_every_model_written_contract_can_carry_a_citation(
         self, db_session: AsyncSession
     ) -> None:

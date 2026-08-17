@@ -839,6 +839,106 @@ class TestTheWalkStripsNotation:
         assert [str(ref) for ref in rendered.citations] == [f"source_document:{source_id}"]
 
 
+class TestThePeriodSeries:
+    """Gap R9: a period series renders as a financial table — periods across the top,
+    line items down the side, a footnote per cell — never a key-value dump."""
+
+    CONTRACT: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {
+            "financials": {
+                "type": "array",
+                "title": "Financial History",
+                "items": {
+                    "type": "object",
+                    "required": ["label", "values"],
+                    "properties": {
+                        "label": {"type": "string"},
+                        "values": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "required": ["period", "value"],
+                                "properties": {
+                                    "period": {"type": "string"},
+                                    "value": {"type": "string"},
+                                    "unit": {"type": "string"},
+                                    "financial_fact_id": {"type": "string"},
+                                    "calculation_id": {"type": "string"},
+                                    "source_document_id": {"type": "string"},
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }
+
+    SOURCE = "43a1c0de-0000-4000-9000-000000000001"
+    CALC = "43a1c0de-0000-4000-9000-000000000002"
+
+    def _rendered(self) -> Any:
+        content = {
+            "financials": [
+                {
+                    "label": "Revenue",
+                    "values": [
+                        {
+                            "period": "FY2021",
+                            "value": "168088000000",
+                            "unit": "USD",
+                            "financial_fact_id": str(uuid.uuid4()),
+                            "source_document_id": self.SOURCE,
+                        },
+                        {
+                            "period": "FY2022",
+                            "value": "198270000000",
+                            "unit": "USD",
+                            "financial_fact_id": str(uuid.uuid4()),
+                            "source_document_id": self.SOURCE,
+                        },
+                    ],
+                },
+                {
+                    "label": "Operating margin",
+                    "values": [
+                        {
+                            "period": "FY2022",
+                            "value": "0.42",
+                            "unit": "ratio",
+                            "calculation_id": self.CALC,
+                        }
+                    ],
+                },
+            ]
+        }
+        return render_section(key="probe", title="Probe", contract=self.CONTRACT, content=content)
+
+    def test_periods_run_across_and_line_items_down(self) -> None:
+        rendered = self._rendered()
+        assert "|  | FY2021 | FY2022 |" in rendered.markdown
+        # Values in the house style, each cell citing its own figure; the same source
+        # cited twice keeps one marker, exactly as in prose.
+        assert "| Revenue | $168,088m[^1] | $198,270m[^1] |" in rendered.markdown
+        # A period the row does not carry is an em dash, never a blank that reads as
+        # zero — and the margin ratio reads as a percentage off the row's own label.
+        assert "| Operating margin | \N{EM DASH} | 42%[^2] |" in rendered.markdown
+
+    def test_every_cell_resolves_to_its_own_citation(self) -> None:
+        rendered = self._rendered()
+        assert [str(ref) for ref in rendered.citations] == [
+            f"source_document:{self.SOURCE}",
+            f"calculation:{self.CALC}",
+        ]
+
+    def test_the_period_never_bakes_into_the_label(self) -> None:
+        """The live failure, held from the other side: no row label carries a period."""
+        rendered = self._rendered()
+        table = next(f for f in rendered.fragments if f.__class__.__name__ == "Table")
+        assert [row.cells[0] for row in table.rows] == ["Revenue", "Operating margin"]
+
+
 class TestCustomSectionsInTheDocument:
     """Skill-origin sections: attributed in the contents, in place in the body."""
 

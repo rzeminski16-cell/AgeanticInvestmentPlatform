@@ -175,7 +175,17 @@ def _blocks(fragments: tuple[Fragment, ...], *, seen: set[int], titles: dict[int
                 )
                 body_rows: list[Markup] = []
                 for row in rows:
-                    cells = [Markup(f"<td>{escape(cell)}</td>") for cell in row.cells]
+                    if row.cell_markers:
+                        # A period series: every cell is its own cited figure.
+                        cells = [
+                            Markup(
+                                f"<td>{escape(cell)}{_joint(cell, marks)}"
+                                f"{_marks(marks, seen=seen, titles=titles)}</td>"
+                            )
+                            for cell, marks in zip(row.cells, row.cell_markers, strict=True)
+                        ]
+                    else:
+                        cells = [Markup(f"<td>{escape(cell)}</td>") for cell in row.cells]
                     if row.markers:
                         # The marker goes on the last cell, which is where a reader looks
                         # for the provenance of a row.

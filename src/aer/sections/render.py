@@ -29,6 +29,12 @@ than as a two-column table. It is the structured home for what a model reaches f
 it bolds a sentence opener (gap R6), and like citation, it is a key-name convention
 rather than a section's.
 
+**A period series renders as a financial table** (gap R9). An array of objects carrying
+``label`` and ``values`` — each value an object with a ``period`` — becomes a table with
+periods across the top and line items down the side, so a trend is visible without
+arithmetic. Each cell cites its own stored figure; a period a row does not carry renders
+as an em dash, never as a silent blank.
+
 **Markdown in prose is stripped, not obeyed.** Model text intermittently arrives with
 ``**bold**`` markers a live report printed as literal asterisks. Instructions to the
 model are advisory; the renderer is not — paired emphasis markers are removed from every
@@ -143,8 +149,12 @@ class Bullets:
 
 @dataclass(frozen=True, slots=True)
 class TableRow:
+    """``markers`` land on the last cell; ``cell_markers``, when set, align one marker
+    tuple per cell — the period-series shape, where every cell is its own cited figure."""
+
     cells: tuple[str, ...]
     markers: tuple[int, ...] = ()
+    cell_markers: tuple[tuple[int, ...], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -327,6 +337,12 @@ def markdown_lines(fragments: list[Fragment] | tuple[Fragment, ...]) -> list[str
                 lines.append("|" + "|".join("---" for _ in columns) + "|")
                 for row in rows:
                     cells = list(row.cells)
+                    if row.cell_markers:
+                        # A period series: every cell is its own cited figure.
+                        cells = [
+                            f"{cell}{_marks(marks)}"
+                            for cell, marks in zip(cells, row.cell_markers, strict=True)
+                        ]
                     # The marker goes on the last cell, which is where a reader looks for
                     # the provenance of a row.
                     if row.markers:
@@ -435,6 +451,12 @@ def _list_fragments(
                 fragments.append(Paragraph(text=text, markers=markers))
         return fragments
 
+    if _period_series(values):
+        return [
+            heading,
+            _series_table(values, citations=citations, footnote_start=footnote_start, style=style),
+        ]
+
     columns = _shared_columns(values, subschema=subschema)
     if columns:
         rows = []
@@ -476,6 +498,72 @@ def _prose_blocks(values: list[Any]) -> bool:
         if {key for key in item if key not in _METADATA_KEYS} - {"lead_in", "text"}:
             return False
     return True
+
+
+def _period_series(values: list[Any]) -> bool:
+    """Whether a list is a period series: rows of ``label`` and period-keyed ``values``.
+
+    Every row must fit — the rendering is one table and a table must hold every row —
+    and every entry must name its period, because a value without a period has no column
+    to sit in.
+    """
+    if not values:
+        return False
+    for item in values:
+        if not isinstance(item, dict) or "values" not in item:
+            return False
+        if {key for key in item if key not in _METADATA_KEYS} - {"label", "values"}:
+            return False
+        entries = item["values"]
+        if not isinstance(entries, list) or not entries:
+            return False
+        if any(not isinstance(entry, dict) or "period" not in entry for entry in entries):
+            return False
+    return True
+
+
+def _series_table(
+    values: list[Any],
+    *,
+    citations: list[CitationRef],
+    footnote_start: int,
+    style: HouseStyle,
+) -> Table:
+    """A period series as a financial table: periods across, line items down (gap R9).
+
+    Column order is first appearance across the rows — the author writes oldest first
+    and the table reads left to right. Every cell registers its own citations, and a
+    period a row does not carry is an em dash rather than a blank that reads as zero.
+    """
+    periods: list[str] = []
+    for item in values:
+        for entry in item["values"]:
+            period = str(entry["period"])
+            if period not in periods:
+                periods.append(period)
+
+    rows: list[TableRow] = []
+    for item in values:
+        label = str(item.get("label") or "")
+        by_period: dict[str, dict[str, Any]] = {}
+        for entry in item["values"]:
+            by_period.setdefault(str(entry["period"]), entry)
+
+        cells: list[str] = [label]
+        cell_markers: list[tuple[int, ...]] = [()]
+        for period in periods:
+            entry = by_period.get(period)
+            if entry is None:
+                cells.append("\N{EM DASH}")
+                cell_markers.append(())
+                continue
+            # The row's label rides into the cell formatting: "Operating margin" is what
+            # tells the formatter a bare ratio reads as a percentage (ADR 0056).
+            cells.append(display.cell({"label": label, **entry}, "value", style=style))
+            cell_markers.append(_cite(entry, citations=citations, footnote_start=footnote_start))
+        rows.append(TableRow(cells=tuple(cells), cell_markers=tuple(cell_markers)))
+
+    return Table(columns=("", *periods), rows=tuple(rows))
 
 
 def _shared_columns(values: list[Any], *, subschema: dict[str, Any] | None = None) -> list[str]:
