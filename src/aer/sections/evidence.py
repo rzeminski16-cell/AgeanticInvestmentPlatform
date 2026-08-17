@@ -327,7 +327,10 @@ async def gather_evidence(
         selection = (
             select(FinancialFact)
             .join(SourceDocument, SourceDocument.id == FinancialFact.source_document_id)
-            .where(SourceDocument.request_id == request.id)
+            # Consolidated figures only. A fact item carries no dimension field, so a
+            # segment's slice in the pack would be indistinguishable from the company's
+            # line — and a writer citing it would state a fraction as the whole.
+            .where(SourceDocument.request_id == request.id, FinancialFact.dimension_axis.is_(None))
         )
         # The section's declared basis, applied in the query rather than after ranking:
         # a history section that wants annual figures should spend its whole fact budget

@@ -90,6 +90,13 @@ class RawFact(BaseModel):
     fiscal_year: int | None = None
     fiscal_period: str | None = None
 
+    # NULL for the consolidated figure. Set, this is one axis of an XBRL dimensional
+    # breakdown — "revenue, Americas segment" rather than "revenue" — and the two must
+    # never compete for a period's number: a dimensioned fact is excluded from statement
+    # assembly and default selection, and exists to feed segment-level analysis.
+    dimension_axis: str | None = None
+    dimension_member: str | None = None
+
     form: str = Field(min_length=1)
     accession: str
     filed_date: date
@@ -138,6 +145,17 @@ class RawFact(BaseModel):
             raise ValueError(message)
         return self
 
+    @model_validator(mode="after")
+    def _dimension_names_both_halves(self) -> RawFact:
+        if (self.dimension_axis is None) != (self.dimension_member is None):
+            message = (
+                "A dimensioned fact names both the axis and the member. An axis with no "
+                "member says a breakdown exists without saying of what, and a member with "
+                "no axis is a label adrift from what it labels."
+            )
+            raise ValueError(message)
+        return self
+
     @property
     def is_canonical(self) -> bool:
         """Whether ``concept`` is a canonical name rather than an unmapped filer tag."""
@@ -149,15 +167,24 @@ class RawFact(BaseModel):
         return self.period_start is None
 
     @property
-    def period_key(self) -> tuple[str, str, date, str | None]:
+    def period_key(self) -> tuple[str, str, date, str | None, str | None, str | None]:
         """What makes two facts statements about *the same thing*.
 
-        Concept, unit, period end and fiscal period. Two facts sharing this key are rival
-        accounts of one number, and choosing between them is what point-in-time selection
-        does. ``unit`` is in the key because a value in dollars and a value in shares are
-        not rival accounts of anything.
+        Concept, unit, period end, fiscal period — and the dimension, when there is one.
+        Two facts sharing this key are rival accounts of one number, and choosing between
+        them is what point-in-time selection does. ``unit`` is in the key because a value
+        in dollars and a value in shares are not rival accounts of anything; the dimension
+        is in it because two segments' revenue are two numbers, and a selection that
+        treated them as rivals would keep one segment and silently drop the rest.
         """
-        return (self.concept, self.unit, self.period_end, self.fiscal_period)
+        return (
+            self.concept,
+            self.unit,
+            self.period_end,
+            self.fiscal_period,
+            self.dimension_axis,
+            self.dimension_member,
+        )
 
     def __str__(self) -> str:
         return (

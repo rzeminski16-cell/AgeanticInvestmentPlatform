@@ -28,8 +28,11 @@ __all__ = [
     "PERIOD_END",
     "PERIOD_START",
     "REMOTE_TAXONOMY_ONLY",
+    "SEGMENT_AXIS",
+    "SEGMENT_TRUTH",
     "TAXONOMY_URL",
     "WITH_EXTENSION",
+    "WITH_SEGMENTS",
 ]
 
 PERIOD_START: Final = date(2021, 7, 1)
@@ -48,10 +51,12 @@ _NAMESPACES: Final = """xmlns="http://www.w3.org/1999/xhtml"
       xmlns:ix="http://www.xbrl.org/2013/inlineXBRL"
       xmlns:ixt="http://www.xbrl.org/inlineXBRL/transformation/2015-02-26"
       xmlns:xbrli="http://www.xbrl.org/2003/instance"
+      xmlns:xbrldi="http://xbrl.org/2006/xbrldi"
       xmlns:link="http://www.xbrl.org/2003/linkbase"
       xmlns:xlink="http://www.w3.org/1999/xlink"
       xmlns:iso4217="http://www.xbrl.org/2003/iso4217"
       xmlns:ifrs-full="http://xbrl.ifrs.org/taxonomy/2021-03-24/ifrs-full"
+      xmlns:us-gaap="http://fasb.org/us-gaap/2023"
       xmlns:acme="http://www.acme-holdings.test/xbrl/2022\""""
 
 
@@ -137,6 +142,50 @@ WITH_EXTENSION: Final[bytes] = _document(f"""
 <p>Operating profit was {_fact("ifrs-full:ProfitLossFromOperatingActivities", "83383")}.</p>
 <p>Adjusted EBITDA was {_fact(EXTENSION_TAG, "91204")} thousand.</p>
 """)
+
+
+# -- The same filing, with the revenue broken down by reportable segment ------------------------
+
+# The axis US filers are obliged to use for reportable segments, on the short qname the
+# extractor reports.
+SEGMENT_AXIS: Final = "us-gaap:StatementBusinessSegmentsAxis"
+
+# What the segment contexts state: member qname -> value in pounds, after the scale of 3.
+SEGMENT_TRUTH: Final[dict[str, int]] = {
+    "acme:NorthernMember": 121_400_000,
+    "acme:SouthernMember": 76_870_000,
+}
+
+
+def _segment_context(context_id: str, member: str) -> str:
+    """A duration context carrying one explicit segment dimension, EDGAR-style —
+    the ``xbrldi:explicitMember`` sits inside ``xbrli:segment`` on the entity."""
+    return f"""<xbrli:context id="{context_id}">
+      <xbrli:entity>
+        <xbrli:identifier scheme="http://www.companieshouse.gov.uk/">{COMPANY_NUMBER}</xbrli:identifier>
+        <xbrli:segment>
+          <xbrldi:explicitMember dimension="{SEGMENT_AXIS}">{member}</xbrldi:explicitMember>
+        </xbrli:segment>
+      </xbrli:entity>
+      <xbrli:period>
+        <xbrli:startDate>{PERIOD_START.isoformat()}</xbrli:startDate>
+        <xbrli:endDate>{PERIOD_END.isoformat()}</xbrli:endDate>
+      </xbrli:period>
+    </xbrli:context>"""
+
+
+WITH_SEGMENTS: Final[bytes] = _document(f"""
+<p>Revenue for the year was {_fact("ifrs-full:Revenue", "198270")} thousand.</p>
+<p>Northern segment revenue was {_fact("ifrs-full:Revenue", "121400", "D2022N")} thousand.</p>
+<p>Southern segment revenue was {_fact("ifrs-full:Revenue", "76870", "D2022S")} thousand.</p>
+""").replace(
+    b"</ix:resources>",
+    (
+        _segment_context("D2022N", "acme:NorthernMember")
+        + _segment_context("D2022S", "acme:SouthernMember")
+        + "</ix:resources>"
+    ).encode(),
+)
 
 
 # -- Nothing but a taxonomy reference ------------------------------------------------------------

@@ -277,6 +277,35 @@ class TestRawFact:
     def test_a_different_unit_is_a_different_key(self):
         assert make_fact(unit="USD").period_key != make_fact(unit="shares").period_key
 
+    def test_two_segments_are_never_rivals(self):
+        # Two segments' revenue for one period are two numbers. A selection treating them
+        # as rival accounts of one would keep a segment and silently drop the rest.
+        americas = make_fact().model_copy(
+            update={
+                "dimension_axis": "us-gaap:StatementBusinessSegmentsAxis",
+                "dimension_member": "aapl:AmericasSegmentMember",
+            }
+        )
+        europe = americas.model_copy(update={"dimension_member": "aapl:EuropeSegmentMember"})
+
+        assert americas.period_key != europe.period_key
+        assert americas.period_key != make_fact().period_key
+
+    def test_a_dimension_names_both_halves_or_neither(self):
+        with pytest.raises(ValueError, match="both the axis and the member"):
+            RawFact(
+                concept="revenue",
+                raw_concept="Revenues",
+                taxonomy="us-gaap",
+                unit="USD",
+                value=Decimal("1"),
+                period_end=date(2020, 6, 30),
+                form="10-K",
+                accession="0000789019-20-000039",
+                filed_date=date(2021, 1, 1),
+                dimension_axis="us-gaap:StatementBusinessSegmentsAxis",
+            )
+
     def test_is_canonical_reflects_the_alias_table(self):
         assert make_fact(raw_concept="Revenues").is_canonical is True
         assert make_fact(raw_concept="SomethingCustom").is_canonical is False

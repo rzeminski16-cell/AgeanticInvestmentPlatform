@@ -264,7 +264,13 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
         )
     await db_session.flush()
 
-    return {"session": db_session, "job": job, "request": request, "company": company}
+    return {
+        "session": db_session,
+        "job": job,
+        "request": request,
+        "company": company,
+        "source": source,
+    }
 
 
 class TestTheExportablePack:
@@ -315,7 +321,8 @@ class TestTheExportablePack:
         assert "DCF, terminal methods" in field.svg
         assert "Scenario range" in field.svg
 
-        # The one honest placeholder: the schema cannot hold segment facts yet.
+        # The one honest placeholder: this scene records no dimensioned facts, and the
+        # exhibit never estimates a breakdown from prose.
         assert by_key["segment_mix"].placeholder
 
     async def test_a_run_that_recorded_nothing_gets_no_exhibits(
@@ -366,6 +373,147 @@ class TestTheExportablePack:
         bridge = next(chart for chart in charts if chart.key == "scenario_bridge")
         assert "Untagged case" not in bridge.svg
         assert len(bridge.citations) == 3
+
+
+def _segment_fact(
+    scene: dict[str, Any],
+    *,
+    member: str,
+    value: str,
+    axis: str = "us-gaap:StatementBusinessSegmentsAxis",
+    year: int = 2022,
+) -> FinancialFact:
+    return FinancialFact(
+        company_id=scene["company"].id,
+        source_document_id=scene["source"].id,
+        concept="revenue",
+        unit="USD",
+        value=Decimal(value),
+        period_start=date(year - 1, 7, 1),
+        period_end=date(year, 6, 30),
+        fiscal_year=year,
+        fiscal_period="FY",
+        dimension_axis=axis,
+        dimension_member=member,
+        filed_date=date(year, 7, 28),
+    )
+
+
+class TestTheSegmentExhibit:
+    """The chart that rendered its placeholder on the live run, now fed from rows."""
+
+    async def _charts(self, scene: dict[str, Any]) -> dict[str, Chart]:
+        charts = await exportable_charts_for(
+            scene["session"], job=scene["job"], request=scene["request"]
+        )
+        return {chart.key: chart for chart in charts}
+
+    async def test_dimensioned_revenue_draws_the_chart(self, scene: dict[str, Any]) -> None:
+        session: AsyncSession = scene["session"]
+        session.add(_segment_fact(scene, member="msft:CloudSegmentMember", value="91200000000"))
+        session.add(_segment_fact(scene, member="msft:DevicesSegmentMember", value="60300000000"))
+        await session.flush()
+
+        chart = (await self._charts(scene))["segment_mix"]
+
+        assert not chart.placeholder
+        assert "Cloud" in chart.svg
+        assert "Devices" in chart.svg
+        assert "FY2022" in chart.caption
+        assert {ref.kind for ref in chart.citations} == {"source_document"}
+
+    async def test_the_member_qname_becomes_a_readable_label(self, scene: dict[str, Any]) -> None:
+        session: AsyncSession = scene["session"]
+        session.add(
+            _segment_fact(scene, member="msft:GreaterChinaSegmentMember", value="70000000000")
+        )
+        session.add(_segment_fact(scene, member="msft:IPhoneMember", value="20000000000"))
+        await session.flush()
+
+        chart = (await self._charts(scene))["segment_mix"]
+
+        assert "Greater China" in chart.svg
+        assert "IPhone" in chart.svg, "an initialism must not be split into letters"
+
+    async def test_an_elimination_row_is_not_a_segment(self, scene: dict[str, Any]) -> None:
+        session: AsyncSession = scene["session"]
+        session.add(_segment_fact(scene, member="msft:CloudSegmentMember", value="91200000000"))
+        session.add(
+            _segment_fact(
+                scene, member="us-gaap:IntersegmentEliminationMember", value="-1200000000"
+            )
+        )
+        await session.flush()
+
+        chart = (await self._charts(scene))["segment_mix"]
+
+        assert "Elimination" not in chart.svg
+
+    async def test_one_axis_is_drawn_when_the_filing_tags_two(self, scene: dict[str, Any]) -> None:
+        """The reportable segments the company itself defines win over the product split,
+        deterministically — the exhibit must not change subject when a filer adds a row."""
+        session: AsyncSession = scene["session"]
+        session.add(_segment_fact(scene, member="msft:CloudSegmentMember", value="91200000000"))
+        session.add(
+            _segment_fact(
+                scene,
+                member="msft:AzureProductMember",
+                value="45000000000",
+                axis="srt:ProductOrServiceAxis",
+            )
+        )
+        await session.flush()
+
+        chart = (await self._charts(scene))["segment_mix"]
+
+        assert "Cloud" in chart.svg
+        assert "Azure Product" not in chart.svg
+
+    async def test_the_latest_year_is_the_one_drawn(self, scene: dict[str, Any]) -> None:
+        session: AsyncSession = scene["session"]
+        session.add(_segment_fact(scene, member="msft:CloudSegmentMember", value="91200000000"))
+        session.add(
+            _segment_fact(scene, member="msft:CloudSegmentMember", value="80000000000", year=2021)
+        )
+        await session.flush()
+
+        chart = (await self._charts(scene))["segment_mix"]
+
+        assert "FY2022" in chart.caption
+        assert "FY2021" not in chart.caption
+
+    async def test_the_revenue_history_never_reads_a_segment_row(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The exclusion that keeps the aggregate honest: a segment's slice must not win
+        a year from the consolidated line on any chart drawn at company grain."""
+        session: AsyncSession = scene["session"]
+        # Filed later than the consolidated FY2022 fact, so it would win `by_period`
+        # if the query let it compete.
+        session.add(
+            FinancialFact(
+                company_id=scene["company"].id,
+                source_document_id=scene["source"].id,
+                concept="revenue",
+                unit="USD",
+                value=Decimal("91200000000"),
+                period_end=date(2022, 6, 30),
+                fiscal_year=2022,
+                fiscal_period="FY",
+                dimension_axis="us-gaap:StatementBusinessSegmentsAxis",
+                dimension_member="msft:CloudSegmentMember",
+                filed_date=date(2022, 9, 30),
+            )
+        )
+        await session.flush()
+
+        chart = (await self._charts(scene))["revenue_margin_history"]
+
+        # The consolidated bars survive: both years drawn, and the segment's citation
+        # count does not inflate the chart's.
+        assert "FY2021" in chart.svg
+        assert "FY2022" in chart.svg
+        assert len(chart.citations) == 3
 
 
 class TestTheDocumentIntegration:

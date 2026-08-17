@@ -28,7 +28,7 @@ __all__ = [
     "ScenarioBar",
     "ScenarioBridgeInput",
     "SegmentMixInput",
-    "SegmentShare",
+    "SegmentRevenue",
     "SeriesPoint",
     "ValuationHistoryInput",
     "ValuationRangePoint",
@@ -86,16 +86,24 @@ class RevenueMarginInput:
 
 
 @dataclass(frozen=True, slots=True)
-class SegmentShare:
+class SegmentRevenue:
+    """One segment's revenue as the filing tagged it — a stored fact, not a derived share.
+
+    The builder draws the bars from these values directly. Percentages would be
+    arithmetic nobody recorded, and invariant 3 does not stop applying because the
+    figure is a picture.
+    """
+
     label: str
-    share: Decimal
+    value: Decimal
     citation: CitationRef
 
 
 @dataclass(frozen=True, slots=True)
 class SegmentMixInput:
+    currency: str = ""
     period: str = ""
-    segments: tuple[SegmentShare, ...] = ()
+    segments: tuple[SegmentRevenue, ...] = ()
 
     @property
     def is_empty(self) -> bool:

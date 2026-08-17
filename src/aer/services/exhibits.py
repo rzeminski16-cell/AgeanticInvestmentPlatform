@@ -15,6 +15,7 @@ fails loudly rather than leaking a price line into an export (ADR 0043).
 
 from __future__ import annotations
 
+import re
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -37,6 +38,7 @@ from aer.charts import (
     ScenarioBar,
     ScenarioBridgeInput,
     SegmentMixInput,
+    SegmentRevenue,
     SeriesPoint,
     ValueBand,
     football_field,
@@ -165,6 +167,9 @@ async def _revenue_margin_input(
                 SourceDocument.job_id == job.id,
                 FinancialFact.concept == "revenue",
                 FinancialFact.fiscal_period == "FY",
+                # The consolidated line. A segment's revenue here would win the year in
+                # `by_period` below and shrink the bar to one segment's size.
+                FinancialFact.dimension_axis.is_(None),
             )
             .order_by(FinancialFact.period_end)
         )
@@ -257,17 +262,104 @@ def _period_label(fact: FinancialFact) -> str:
 
 # -- Segments ----------------------------------------------------------------------------------
 
+# Which axis to draw when the filing tags more than one breakdown, most meaningful first:
+# the reportable segments the company itself defines, then the product split, then
+# geography. Deterministic preference rather than "most members" because the axis chosen
+# decides what the exhibit *is*, and that should not flip when a filer adds a region.
+_SEGMENT_AXES = (
+    "us-gaap:StatementBusinessSegmentsAxis",
+    "srt:ProductOrServiceAxis",
+    "srt:StatementGeographicalAxis",
+)
+
+# Members that are bookkeeping rather than segments. An elimination row is negative
+# plumbing between segments, and a bar of it would render the exhibit unreadable.
+_NOT_A_SEGMENT = ("Elimination",)
+
 
 async def _segment_input(session: AsyncSession, *, job: Job) -> SegmentMixInput:
-    """Structured segment facts, when the schema can hold them.
+    """The latest full year's revenue by segment, from the run's dimensioned facts.
 
-    Today it cannot: ``financial_facts`` keys one value per concept per period, so two
-    segments' revenue cannot coexist as rows and no pipeline records them. The chart
-    therefore renders its honest placeholder, and this function is the single seam to fill
-    when dimensioned facts arrive — the builder and the report plumbing are already live.
+    One axis and one period, chosen deterministically: the most recent fiscal year that
+    has any dimensioned revenue, and the first axis in `_SEGMENT_AXES` present in it.
+    Values are the stored facts, passed through unchanged — the builder draws them as
+    they are, so nothing here is computed on the way through.
     """
-    del session, job
-    return SegmentMixInput()
+    rows = list(
+        await session.scalars(
+            select(FinancialFact)
+            .join(SourceDocument, SourceDocument.id == FinancialFact.source_document_id)
+            .where(
+                SourceDocument.job_id == job.id,
+                FinancialFact.concept == "revenue",
+                FinancialFact.fiscal_period == "FY",
+                FinancialFact.dimension_axis.is_not(None),
+            )
+            .order_by(FinancialFact.period_end.desc(), FinancialFact.dimension_member)
+        )
+    )
+    rows = [
+        row
+        for row in rows
+        if not any(marker in (row.dimension_member or "") for marker in _NOT_A_SEGMENT)
+    ]
+    if not rows:
+        return SegmentMixInput()
+
+    latest = max(row.period_end for row in rows)
+    in_period = [row for row in rows if row.period_end == latest]
+    axes = {row.dimension_axis for row in in_period if row.dimension_axis is not None}
+    if not axes:  # pragma: no cover -- the query requires an axis on every row
+        return SegmentMixInput()
+    axis = next((name for name in _SEGMENT_AXES if name in axes), min(axes))
+
+    # One row per member, the latest filed winning — the same restatement rule the
+    # revenue history applies.
+    by_member: dict[str, FinancialFact] = {}
+    for row in in_period:
+        if row.dimension_axis != axis or row.dimension_member is None:
+            continue
+        held = by_member.get(row.dimension_member)
+        if held is None or row.filed_date > held.filed_date:
+            by_member[row.dimension_member] = row
+
+    segments = tuple(
+        SegmentRevenue(
+            label=_segment_label(member),
+            value=row.value,
+            citation=CitationRef(
+                kind="source_document",
+                identifier=str(row.source_document_id),
+                label=f"{_segment_label(member)} revenue {_period_label(row)}",
+            ),
+        )
+        for member, row in sorted(by_member.items())
+    )
+    units = {row.unit for row in by_member.values()}
+    representative = next(iter(by_member.values()))
+    return SegmentMixInput(
+        # Left blank when the segments disagree on unit — a mislabelled axis is worse
+        # than an unlabelled one.
+        currency=units.pop() if len(units) == 1 else "",
+        period=_period_label(representative),
+        segments=segments,
+    )
+
+
+_CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+
+
+def _segment_label(member: str) -> str:
+    """A reader's name for a member qname: ``aapl:GreaterChinaSegmentMember`` → "Greater China".
+
+    Deterministic string surgery, not a lookup: strip the namespace prefix and the
+    conventional ``Member`` suffixes, then space the camel-case words. Initialisms
+    survive because the boundary needs a lower-case letter on its left — ``IPhone``
+    stays ``IPhone`` rather than becoming ``I Phone``.
+    """
+    local = member.split(":", 1)[-1]
+    local = local.removesuffix("SegmentMember").removesuffix("Member")
+    return _CAMEL_BOUNDARY.sub(" ", local)
 
 
 # -- Scenarios ---------------------------------------------------------------------------------

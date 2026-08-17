@@ -53,17 +53,20 @@ async def check_report_consistency(session: AsyncSession, *, job_id: uuid.UUID) 
     """
     facts, tiers = await _published_facts(session, job_id=job_id)
 
-    grouped: dict[tuple[str, str, str], list[FinancialFact]] = {}
+    grouped: dict[tuple[str, str, str, str], list[FinancialFact]] = {}
     for fact in facts:
         key = (
             fact.concept,
             fact.period_start.isoformat() if fact.period_start else "",
             fact.period_end.isoformat(),
+            # Two segments' revenue for one span are two numbers, not a contradiction —
+            # the dimension is part of what a fact measures, exactly as the period is.
+            f"{fact.dimension_axis}={fact.dimension_member}" if fact.dimension_axis else "",
         )
         grouped.setdefault(key, []).append(fact)
 
     recorded = 0
-    for (concept, _, _), rows in sorted(grouped.items()):
+    for (concept, _, _, _), rows in sorted(grouped.items()):
         distinct = _one_per_value(rows)
         if len(distinct) == 1:
             # One value for the span, however many rows and sections carry it: the

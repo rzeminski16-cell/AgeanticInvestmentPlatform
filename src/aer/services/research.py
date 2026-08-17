@@ -538,7 +538,12 @@ def _visible_facts(request: ResearchRequest, company_id: uuid.UUID | None) -> Se
     some later run's acquisition. Filtered on ``filed_date``, because what matters is when
     the filing was filed, not when this platform happened to fetch it.
     """
-    statement = select(FinancialFact).where(FinancialFact.company_id == company_id)
+    # Consolidated figures only: a worker shown "revenue" rows that are silently one
+    # segment's slice would cite a fraction of the company as the whole, and nothing in
+    # the row it sees says otherwise.
+    statement = select(FinancialFact).where(
+        FinancialFact.company_id == company_id, FinancialFact.dimension_axis.is_(None)
+    )
     if company_id is None:
         # Before `acquire` resolves the company there is nothing to show. `None` would
         # match no rows anyway; saying so here keeps that an intention rather than a

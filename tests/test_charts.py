@@ -24,7 +24,7 @@ from aer.charts import (
     ScenarioBar,
     ScenarioBridgeInput,
     SegmentMixInput,
-    SegmentShare,
+    SegmentRevenue,
     SeriesPoint,
     ValueBand,
     football_field,
@@ -267,10 +267,11 @@ class TestTheDataUri:
     def test_it_round_trips_the_svg(self):
         chart = segment_mix(
             SegmentMixInput(
+                currency="USD",
                 period="FY2022",
                 segments=(
-                    SegmentShare(label="Cloud", share=Decimal("0.55"), citation=_ref(1)),
-                    SegmentShare(label="Devices", share=Decimal("0.45"), citation=_ref(2)),
+                    SegmentRevenue(label="Cloud", value=Decimal("91200000000"), citation=_ref(1)),
+                    SegmentRevenue(label="Devices", value=Decimal("74600000000"), citation=_ref(2)),
                 ),
             ),
             hashsalt="j",

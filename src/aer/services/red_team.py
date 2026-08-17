@@ -209,7 +209,9 @@ async def _evidence_index(
     facts = await session.scalars(
         select(FinancialFact)
         .join(SourceDocument, SourceDocument.id == FinancialFact.source_document_id)
-        .where(SourceDocument.request_id == request.id)
+        # Consolidated figures only: a segment's slice listed here would read as the
+        # company's own line, and the red team would flag the aggregate as wrong.
+        .where(SourceDocument.request_id == request.id, FinancialFact.dimension_axis.is_(None))
         .order_by(FinancialFact.period_end.desc(), FinancialFact.concept)
         .limit(EVIDENCE_ITEM_CAP)
     )

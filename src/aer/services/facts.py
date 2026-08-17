@@ -140,6 +140,8 @@ async def persist_facts(
             "period_end": fact.period_end,
             "fiscal_year": fact.fiscal_year,
             "fiscal_period": fact.fiscal_period,
+            "dimension_axis": fact.dimension_axis,
+            "dimension_member": fact.dimension_member,
             "filed_date": fact.filed_date,
             "form": fact.form,
             "accession": fact.accession,
@@ -194,4 +196,6 @@ _OBSERVATION_KEY = (
     "fiscal_period",
     "basis",
     "filed_date",
+    "dimension_axis",
+    "dimension_member",
 )

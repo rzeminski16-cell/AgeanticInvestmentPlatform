@@ -219,6 +219,10 @@ async def _annual_facts(
     statement = select(FinancialFact).where(
         FinancialFact.company_id == company_id,
         FinancialFact.fiscal_period == ANNUAL,
+        # Consolidated figures only. A dimensioned fact is one segment's slice of a line,
+        # and letting it compete here would let a segment win a period from the aggregate
+        # and put a fraction of the company through every ratio.
+        FinancialFact.dimension_axis.is_(None),
     )
     if request.point_in_time:
         statement = statement.where(FinancialFact.filed_date <= request.as_of_date)

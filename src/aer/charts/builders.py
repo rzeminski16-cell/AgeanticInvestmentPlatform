@@ -118,7 +118,13 @@ def revenue_margin_history(data: RevenueMarginInput, *, hashsalt: str) -> Chart:
 
 
 def segment_mix(data: SegmentMixInput, *, hashsalt: str) -> Chart:
-    """Where the revenue comes from, when the filing said so in a structured form."""
+    """Where the revenue comes from, when the filing said so in a structured form.
+
+    The bars are the filing's own segment revenue figures, scaled for the axis exactly as
+    the revenue history's bars are. Not shares: a percentage would be arithmetic no
+    calculation row recorded, whereas each of these values is a stored fact whose citation
+    the bar carries.
+    """
     key, title = "segment_mix", "Segment mix"
     if data.is_empty:
         return _placeholder(
@@ -131,18 +137,20 @@ def segment_mix(data: SegmentMixInput, *, hashsalt: str) -> Chart:
             hashsalt=hashsalt,
         )
 
-    ordered = sorted(data.segments, key=lambda segment: segment.share, reverse=True)
+    ordered = sorted(data.segments, key=lambda segment: segment.value, reverse=True)
+    scale, suffix = _money_scale(max(segment.value for segment in ordered))
     with pinned_context(hashsalt=hashsalt):
         figure = Figure(figsize=_SIZE)
         axis = figure.add_subplot()
         labels = [segment.label for segment in ordered]
         axis.barh(
             list(reversed(labels)),
-            [float(segment.share) * 100 for segment in reversed(ordered)],
+            [float(segment.value / scale) for segment in reversed(ordered)],
             color=PALETTE[0],
             height=0.6,
         )
-        axis.set_xlabel("Share of revenue, %")
+        unit_label = f"{data.currency}{suffix}"
+        axis.set_xlabel(f"Revenue, {unit_label}" if unit_label else "Revenue")
         axis.set_title(f"{title} — {data.period}" if data.period else title)
 
     return Chart(

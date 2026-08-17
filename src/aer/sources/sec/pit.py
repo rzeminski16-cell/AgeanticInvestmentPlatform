@@ -147,7 +147,9 @@ def select_point_in_time(
             message, context={"basis": basis.value, "as_of_date": as_of_date.isoformat()}
         )
 
-    groups: dict[tuple[str, str, date, str | None], list[RawFact]] = defaultdict(list)
+    groups: dict[tuple[str, str, date, str | None, str | None, str | None], list[RawFact]] = (
+        defaultdict(list)
+    )
     rejected: list[RejectedFact] = []
 
     for fact in facts:

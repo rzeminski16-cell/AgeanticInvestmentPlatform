@@ -33,8 +33,11 @@ from tests.ixbrl_fixtures import (
     PERIOD_END,
     PERIOD_START,
     REMOTE_TAXONOMY_ONLY,
+    SEGMENT_AXIS,
+    SEGMENT_TRUTH,
     TAXONOMY_URL,
     WITH_EXTENSION,
+    WITH_SEGMENTS,
 )
 
 
@@ -175,6 +178,36 @@ class TestTheConfirmationGate:
 
         assert len(extraction.unmapped_tags) == 1
         assert extraction.needs_confirmation
+
+
+class TestDimensions:
+    """A segment's revenue must never look like the company's.
+
+    The first version of the extractor read no dimensions at all, so a dimensioned fact
+    entered the fact set indistinguishable from the consolidated line — and anything
+    downstream choosing "the" revenue for a period could pick one segment's slice.
+    """
+
+    def test_a_segment_fact_carries_its_axis_and_member(self) -> None:
+        extraction = extract_ixbrl(WITH_SEGMENTS)
+
+        dimensioned = [fact for fact in extraction.facts if fact.is_dimensioned]
+        assert {fact.dimensions[0][0] for fact in dimensioned} == {SEGMENT_AXIS}
+        assert {fact.dimensions[0][1]: int(fact.value) for fact in dimensioned} == SEGMENT_TRUTH
+
+    def test_the_consolidated_figure_carries_none(self) -> None:
+        extraction = extract_ixbrl(WITH_SEGMENTS)
+
+        consolidated = [fact for fact in extraction.facts if not fact.is_dimensioned]
+        assert len(consolidated) == 1
+        assert int(consolidated[0].value) == CLEAN_IFRS_TRUTH["revenue"]
+
+    def test_the_segment_facts_share_the_consolidated_concept(self) -> None:
+        """The tag is the same ``Revenue`` element; only the context differs. What keeps
+        them apart is the dimension, which is the whole reason it is captured."""
+        extraction = extract_ixbrl(WITH_SEGMENTS)
+
+        assert {fact.concept for fact in extraction.facts} == {"revenue"}
 
 
 class TestWhatCannotBeRead:

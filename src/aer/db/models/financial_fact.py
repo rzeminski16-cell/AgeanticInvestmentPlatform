@@ -94,6 +94,13 @@ class FinancialFact(Base):
     fiscal_year: Mapped[int | None] = mapped_column()
     fiscal_period: Mapped[str | None] = mapped_column(String(8))
 
+    # NULL for the consolidated figure; set, this row is one axis of an XBRL dimensional
+    # breakdown — "revenue, Americas segment" rather than "revenue". Both halves or
+    # neither, and every consumer that wants *the* number for a period filters on
+    # ``dimension_axis IS NULL``: a segment must never win a period from the aggregate.
+    dimension_axis: Mapped[str | None] = mapped_column(String(128))
+    dimension_member: Mapped[str | None] = mapped_column(String(256))
+
     # -- When it was said ----------------------------------------------------------------
 
     # The point-in-time key. Everything in this schema that prevents look-ahead bias comes
@@ -130,12 +137,22 @@ class FinancialFact(Base):
             "fiscal_period",
             "basis",
             "filed_date",
+            # The dimension is part of the observation's identity: two segments' revenue
+            # for one period are two observations, and without these columns the second
+            # segment could never be stored. NULLS NOT DISTINCT keeps the consolidated
+            # rows — both columns NULL — deduplicating exactly as before.
+            "dimension_axis",
+            "dimension_member",
             unique=True,
             postgresql_nulls_not_distinct=True,
         ),
         CheckConstraint(
             "period_start IS NULL OR period_start <= period_end",
             name="period_runs_forwards",
+        ),
+        CheckConstraint(
+            "(dimension_axis IS NULL) = (dimension_member IS NULL)",
+            name="dimension_names_both_halves",
         ),
         CheckConstraint("char_length(unit) > 0", name="unit_is_present"),
         CheckConstraint("char_length(concept) > 0", name="concept_is_present"),

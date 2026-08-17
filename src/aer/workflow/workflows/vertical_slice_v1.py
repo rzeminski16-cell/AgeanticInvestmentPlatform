@@ -112,6 +112,7 @@ from aer.services.sectors import (
     propose_from_sic,
     sector_gate_required,
 )
+from aer.services.segments import sweep_segment_facts
 from aer.services.valuation_run import value_the_business
 from aer.skills.execution import execute_custom_section
 from aer.skills.resolution import (
@@ -1476,6 +1477,18 @@ async def _extract(context: StepContext) -> StepResult:
     # a run whose statements are missing lines nobody was told about.
     unmapped = tuple(sorted({f"{c.taxonomy}:{c.tag}" for c in parsed.unmapped}))
 
+    # The aggregate holds only consolidated figures, so the segment breakdown comes from
+    # the annual report itself — inline XBRL, already fetched and hashed by the acquire
+    # step. Its output keys stay disjoint from `unmapped_tags`: the confirmation gate is
+    # for statement lines hanging on filer extensions, not for a supplementary breakdown
+    # the run can do without.
+    segments = await sweep_segment_facts(
+        context.session,
+        store,
+        company=company,
+        filings=list(acquired.get("filings", [])),
+    )
+
     output: dict[str, Any] = {
         "facts_written": written,
         "fact_extractions": len(fact_extractions),
@@ -1485,6 +1498,7 @@ async def _extract(context: StepContext) -> StepResult:
         "exchange": request.exchange,
         "unmapped_tags": list(unmapped),
         "load_errors": [],
+        **segments.as_dict(),
     }
     # The hash of exactly what the gate will display, on the same terms as the plan gate: an
     # approval recorded against a different set of tags is not an approval of this one.
@@ -1562,6 +1576,9 @@ async def _revenue_growth(
                 FinancialFact.company_id == company_id,
                 FinancialFact.concept == SLICE_CONCEPT,
                 FinancialFact.unit == "USD",
+                # The consolidated line only: a segment's revenue as either endpoint
+                # would put one slice's growth forward as the company's.
+                FinancialFact.dimension_axis.is_(None),
             )
             .order_by(FinancialFact.period_end)
         )

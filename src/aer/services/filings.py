@@ -52,6 +52,7 @@ __all__ = [
     "CURRENT_FORMS",
     "MAX_CURRENT_REPORTS",
     "MAX_QUARTERLY_REPORTS",
+    "AcquiredFiling",
     "AcquiredFilings",
     "acquire_filings",
 ]
@@ -163,26 +164,51 @@ _EXTRACTORS: Final[dict[str, str]] = {
 
 
 @dataclass(frozen=True, slots=True)
+class AcquiredFiling:
+    """One filing the sweep brought back: the record, and what the index said it was.
+
+    The form, accession and artefact digest travel here because the extract step reads
+    periodic filings back by hash for the segment sweep, and a ``SourceDocument`` row
+    carries none of the three — reparsing them out of a title would be provenance by
+    string-matching.
+    """
+
+    document: SourceDocument
+    form: str
+    accession: str
+    sha256: str
+
+
+@dataclass(frozen=True, slots=True)
 class AcquiredFilings:
     """What the filing sweep brought back, and what it could not."""
 
-    documents: tuple[SourceDocument, ...] = ()
+    filings: tuple[AcquiredFiling, ...] = ()
     excerpts: int = 0
     skipped: tuple[str, ...] = field(default=())
+
+    @property
+    def documents(self) -> tuple[SourceDocument, ...]:
+        return tuple(item.document for item in self.filings)
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "filings": [
                 {
-                    "source_document_id": str(document.id),
-                    "url": document.url,
-                    "title": document.title,
+                    "source_document_id": str(item.document.id),
+                    "url": item.document.url,
+                    "title": item.document.title,
+                    "form": item.form,
+                    "accession": item.accession,
+                    "artefact_sha256": item.sha256,
                     "publication_date": (
-                        document.publication_date.isoformat() if document.publication_date else None
+                        item.document.publication_date.isoformat()
+                        if item.document.publication_date
+                        else None
                     ),
-                    "quarantined": document.quarantined,
+                    "quarantined": item.document.quarantined,
                 }
-                for document in self.documents
+                for item in self.filings
             ],
             "filing_excerpts": self.excerpts,
             "filings_skipped": list(self.skipped),
@@ -224,7 +250,7 @@ async def acquire_filings(
         )
 
     wanted, missing = _wanted(index, request=request, max_current=max_current)
-    documents: list[SourceDocument] = []
+    acquired: list[AcquiredFiling] = []
     excerpts = 0
     skipped = list(missing)
 
@@ -243,18 +269,18 @@ async def acquire_filings(
         if isinstance(outcome, str):
             skipped.append(outcome)
             continue
-        document, recorded = outcome
-        documents.append(document)
+        record, recorded = outcome
+        acquired.append(record)
         excerpts += recorded
 
     _log.info(
         "filings.acquired",
         cik=index.cik,
-        documents=len(documents),
+        documents=len(acquired),
         excerpts=excerpts,
         skipped=len(skipped),
     )
-    return AcquiredFilings(documents=tuple(documents), excerpts=excerpts, skipped=tuple(skipped))
+    return AcquiredFilings(filings=tuple(acquired), excerpts=excerpts, skipped=tuple(skipped))
 
 
 def _wanted(
@@ -319,7 +345,7 @@ async def _acquire_one(
     filing: Filing,
     settings: Settings,
     job_id: uuid.UUID | None,
-) -> tuple[SourceDocument, int] | str:
+) -> tuple[AcquiredFiling, int] | str:
     """One filing: fetched, recorded, excerpted. Returns the reason on any failure."""
     ref = filing.to_ref(index.cik, entity_name=entity.name)
     try:
@@ -352,7 +378,13 @@ async def _acquire_one(
     recorded = await _excerpt(
         session, store, document=document, settings=settings, form=filing.form
     )
-    return document, recorded
+    record = AcquiredFiling(
+        document=document,
+        form=filing.form,
+        accession=filing.accession,
+        sha256=acquisition.sha256,
+    )
+    return record, recorded
 
 
 async def _excerpt(

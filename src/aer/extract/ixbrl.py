@@ -66,6 +66,7 @@ _TAXONOMY_BY_NAMESPACE: Final[dict[str, str]] = {
     "http://xbrl.frc.org.uk/fr": "uk-core",
     "http://xbrl.frc.org.uk/reports": "uk-core",
     "http://fasb.org/us-gaap": "us-gaap",
+    "http://fasb.org/srt": "srt",
     "http://xbrl.sec.gov/dei": "dei",
 }
 
@@ -96,9 +97,18 @@ class IxbrlFact:
     entity_identifier: str | None = None
     context_id: str | None = None
 
+    # The context's explicit dimensions as ``(axis, member)`` qname pairs, sorted by axis.
+    # Empty for the consolidated figure. This is what distinguishes "revenue" from
+    # "revenue, Americas segment" — two facts that must never compete for one number.
+    dimensions: tuple[tuple[str, str], ...] = ()
+
     @property
     def qname(self) -> str:
         return f"{self.taxonomy}:{self.tag}"
+
+    @property
+    def is_dimensioned(self) -> bool:
+        return bool(self.dimensions)
 
     @property
     def concept(self) -> str | None:
@@ -244,7 +254,8 @@ def _one_fact(fact: Any) -> IxbrlFact | None:
     value = _decimal(getattr(fact, "value", None))
     period = _period(context)
     measure = _unit(unit)
-    if value is None or period is None or measure is None:
+    dimensions = _dimensions(context)
+    if value is None or period is None or measure is None or dimensions is None:
         return None
 
     start, end = period
@@ -260,6 +271,7 @@ def _one_fact(fact: Any) -> IxbrlFact | None:
         entity_scheme=scheme,
         entity_identifier=identifier,
         context_id=str(getattr(fact, "contextID", "") or "") or None,
+        dimensions=dimensions,
     )
 
 
@@ -329,6 +341,36 @@ def _period(context: Any) -> tuple[dt.date | None, dt.date] | None:
 
 def _as_date(value: Any) -> dt.date:
     return value.date() if isinstance(value, dt.datetime) else value
+
+
+def _dimensions(context: Any) -> tuple[tuple[str, str], ...] | None:
+    """The context's explicit dimensions, or ``None`` for a context this cannot state.
+
+    **The first version of this module read no dimensions at all**, which made a segment's
+    revenue indistinguishable from the company's — a dimensioned fact entered the fact set
+    looking like the consolidated line, and downstream selection would happily let a
+    segment win the period. Capturing the dimensions is what lets consumers keep the two
+    apart.
+
+    ``None``, not ``()``, when a dimension cannot be read — a typed member, an unparseable
+    qname. Returning empty would present the fact as the consolidated figure, which is the
+    exact corruption this function exists to prevent; the fact is skipped instead, like any
+    other row missing what makes it usable.
+    """
+    found: list[tuple[str, str]] = []
+    for dimension, entry in (getattr(context, "qnameDims", None) or {}).items():
+        if not getattr(entry, "isExplicit", False):
+            return None
+        member = getattr(entry, "memberQname", None)
+        if dimension is None or member is None:
+            return None
+        found.append((_qname_short(dimension), _qname_short(member)))
+    return tuple(sorted(found))
+
+
+def _qname_short(qname: Any) -> str:
+    """A qname as ``taxonomy:LocalName``, on the same short names facts use."""
+    return f"{_taxonomy(qname)}:{qname.localName}"
 
 
 def _unit(unit: Any) -> str | None:
