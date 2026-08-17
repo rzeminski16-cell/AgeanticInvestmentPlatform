@@ -443,8 +443,28 @@ class TestThePlantedContradictionIsChallenged:
 
         assert growth.position_a["label"].startswith("Base thesis")
         assert "Red team challenge (growth" in growth.position_b["label"]
-        assert str(outcome["fact"].id) in growth.resolution_rationale
-        assert "own revenue" in growth.resolution_rationale
+        # The challenge is a record beside the rationale, never composed into it (gap
+        # R5): the appendix renders columns and footnotes, and a blob of ids cannot be
+        # un-composed once printed.
+        assert growth.detail is not None
+        assert "own revenue" in growth.detail["challenge"]
+        assert growth.detail["basis"].startswith("The claim contradicts")
+        assert growth.detail["severity"] == 5
+        assert growth.detail["dimension"] == "growth"
+        assert growth.detail["evidence"]["facts"] == [str(outcome["fact"].id)]
+        assert str(outcome["fact"].id) not in growth.resolution_rationale
+
+    async def test_a_cited_fact_is_footnoted_through_its_source_document(
+        self, outcome: dict[str, Any]
+    ) -> None:
+        """A fact id names a row in this platform's own tables — provenance no reader can
+        follow — so the record carries the document the fact came from beside it."""
+        rows = await _rows(outcome["session"], outcome["job"].id)
+        growth = next(row for row in rows if row.topic.startswith("Red team (growth)"))
+
+        assert growth.detail is not None
+        expected = str(outcome["fact"].source_document_id)
+        assert growth.detail["evidence"]["sources"] == [expected]
 
     async def test_the_working_note_never_reached_the_adversary(
         self, outcome: dict[str, Any]

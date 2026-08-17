@@ -211,6 +211,15 @@ def _validation_row(row: Evaluation) -> dict[str, str]:
 
 
 def _disagreement_row(row: Disagreement) -> dict[str, str]:
+    """One recorded conflict, in the shape the reader's appendix lays out.
+
+    A red-team challenge — recognised by its structured ``detail`` — renders as topic,
+    severity, challenge and basis, with its evidence as ordinary footnotes through the
+    renderer's citation keys. The statement appears once, where before it appeared three
+    times (truncated in the topic, and twice inside the rationale blob), and no UUID
+    reaches the reader (gap R5). A source conflict has no structure beyond the ladder's
+    rationale and keeps its original shape.
+    """
     resolution = {
         "chose_a": f"resolved by rule '{row.rule.value}': position A selected",
         "chose_b": f"resolved by rule '{row.rule.value}': position B selected",
@@ -218,12 +227,30 @@ def _disagreement_row(row: Disagreement) -> dict[str, str]:
         "agreed": "the positions agree",
     }.get(row.resolution.value, row.resolution.value)
 
-    return {
-        "topic": row.topic,
-        "kind": row.kind.value,
+    detail = row.detail or {}
+    challenge = detail.get("challenge")
+    if not challenge:
+        return {
+            "topic": row.topic,
+            "kind": row.kind.value,
+            "resolution": resolution,
+            "rationale": row.resolution_rationale,
+        }
+
+    dimension = str(detail.get("dimension") or "").replace("_", " ").strip()
+    shown = {
+        "topic": f"Red team \N{EM DASH} {dimension}" if dimension else row.topic,
+        "severity": f"{detail['severity']}/5" if detail.get("severity") else "\N{EM DASH}",
+        "challenge": str(challenge),
+        "basis": str(detail.get("basis") or "\N{EM DASH}"),
         "resolution": resolution,
-        "rationale": row.resolution_rationale,
     }
+    evidence = detail.get("evidence") or {}
+    for kind, key in (("sources", "source_document_id"), ("calculations", "calculation_id")):
+        ids = evidence.get(kind) or []
+        if ids:
+            shown[key] = str(ids[0])
+    return shown
 
 
 BUILDERS: dict[str, DeterministicSection] = {

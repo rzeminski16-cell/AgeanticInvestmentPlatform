@@ -83,6 +83,13 @@ class Disagreement(Base):
 
     resolution_rationale: Mapped[str] = mapped_column(Text, nullable=False)
 
+    # The structured parts of a challenge — statement, basis, severity, evidence ids by
+    # kind — for the report's appendix to lay out as columns and footnotes. NULL for the
+    # ordinary source conflict, whose whole story is the ladder's rationale. Kept apart
+    # from the rationale because a blob can only be reprinted; a record can be rendered
+    # (gap R5 — the live note printed each challenge three times plus a list of UUIDs).
+    detail: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
     # Set when a person settled what the ladder would not. Nullable and not a foreign key
     # requirement on every row: most disagreements are decided by rule and no human ever
     # sees them.

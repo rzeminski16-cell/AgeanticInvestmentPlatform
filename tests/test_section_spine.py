@@ -34,6 +34,7 @@ from aer.db.models import (
 )
 from aer.sections import deterministic as deterministic_sections
 from aer.sections.deterministic import SectionStage, fill_deterministic_sections
+from aer.sections.render import render_section
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.skills.resolution import pinned_skills_for_plan
@@ -153,7 +154,9 @@ class TestTheSeed:
                 select(SectionDefinition).where(SectionDefinition.key.in_(DETERMINISTIC_KEYS))
             )
         )
-        assert len(rows) == 2
+        # Every version of the pair, not just the latest: a revision that grew a budget
+        # would make the fill and the definition disagree about who writes the section.
+        assert {row.key for row in rows} == set(DETERMINISTIC_KEYS)
         for row in rows:
             assert row.token_budget == 0
             assert row.evidence_policy["min_sources"] == 0
@@ -534,6 +537,99 @@ class TestTheDeterministicSections:
         )
         shown = deterministic_sections._disagreement_row(row)
         assert shown["resolution"] == "escalated for human decision at approval"
+
+    def test_a_red_team_challenge_is_laid_out_once_with_footnotes_never_uuids(self) -> None:
+        """Gap R5: the statement appears once, the evidence ids become citation keys the
+        renderer footnotes, and neither a UUID nor the rationale blob reaches the reader.
+
+        The live note printed each challenge three times — truncated in the topic, then
+        twice inside the rationale — followed by ``Evidence: ef2bd367-…`` verbatim.
+        """
+        fact_id = str(uuid.uuid4())
+        source_id = str(uuid.uuid4())
+        statement = "The margin path is asserted, not evidenced."
+        row = Disagreement(
+            topic=f"Red team (competitive_position): {statement[:120]}",
+            kind=DisagreementKind.THESIS_CONFLICT,
+            position_a={},
+            position_b={},
+            resolution=ResolutionOutcome.ESCALATED,
+            rule=ResolutionRule.THESIS_CONFLICT,
+            resolved_by=ResolvedBy.RULE,
+            resolution_rationale="Opposing conclusions; both are published.",
+            detail={
+                "challenge": statement,
+                "basis": "Depreciation outruns revenue in every disclosed period.",
+                "severity": 4,
+                "dimension": "competitive_position",
+                "evidence": {"facts": [fact_id], "calculations": [], "sources": [source_id]},
+            },
+        )
+
+        shown = deterministic_sections._disagreement_row(row)
+
+        assert shown["topic"] == "Red team \N{EM DASH} competitive position"
+        assert shown["severity"] == "4/5"
+        assert shown["challenge"] == statement
+        assert shown["basis"].startswith("Depreciation outruns")
+        assert shown["resolution"] == "escalated for human decision at approval"
+        # The evidence rides the citation key the renderer turns into a footnote; no id
+        # appears in any field a reader sees as text, and the blob fields are gone.
+        assert shown["source_document_id"] == source_id
+        readable = {key: value for key, value in shown.items() if key != "source_document_id"}
+        assert all(fact_id not in value and source_id not in value for value in readable.values())
+        assert "rationale" not in shown
+        assert "kind" not in shown
+        assert sum(value.count(statement) for value in readable.values()) == 1
+
+    async def test_the_appendix_lays_challenges_out_as_a_table_with_footnotes(
+        self, db_session: AsyncSession
+    ) -> None:
+        """Migration 0036's v2 contract and the row shape meet in the renderer: the
+        contract orders the columns, and the evidence id becomes a footnote marker."""
+        definition = await db_session.scalar(
+            select(SectionDefinition)
+            .where(SectionDefinition.key == "validation_disagreements")
+            .order_by(SectionDefinition.version.desc())
+            .limit(1)
+        )
+        assert definition is not None
+        assert definition.version >= 2
+
+        source_id = str(uuid.uuid4())
+        row = Disagreement(
+            topic="Red team (growth): the trajectory is asserted",
+            kind=DisagreementKind.THESIS_CONFLICT,
+            position_a={},
+            position_b={},
+            resolution=ResolutionOutcome.ESCALATED,
+            rule=ResolutionRule.THESIS_CONFLICT,
+            resolved_by=ResolvedBy.RULE,
+            resolution_rationale="Opposing conclusions; both are published.",
+            detail={
+                "challenge": "The trajectory is asserted, not evidenced.",
+                "basis": "No disclosed period supports the slope.",
+                "severity": 4,
+                "dimension": "growth",
+                "evidence": {"facts": [], "calculations": [], "sources": [source_id]},
+            },
+        )
+        content = {
+            "summary": "One disagreement was recorded.",
+            "disagreements": [deterministic_sections._disagreement_row(row)],
+        }
+
+        rendered = render_section(
+            key="validation_disagreements",
+            title=definition.title,
+            contract=definition.output_contract,
+            content=content,
+        )
+
+        assert "| Topic | Severity | Challenge | Basis | Resolution |" in rendered.markdown
+        assert "[^1]" in rendered.markdown
+        assert source_id not in rendered.markdown
+        assert [str(ref) for ref in rendered.citations] == [f"source_document:{source_id}"]
 
     async def test_a_zero_budget_section_with_no_builder_fails_loudly(
         self, scene: dict[str, Any]

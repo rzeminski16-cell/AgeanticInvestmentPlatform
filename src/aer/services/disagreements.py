@@ -19,6 +19,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 from sqlalchemy import select
@@ -127,8 +128,15 @@ async def record_resolution(
     topic: str,
     kind: DisagreementKind,
     resolution: Resolution,
+    detail: dict[str, Any] | None = None,
 ) -> Disagreement | None:
     """Store a resolution the ladder already produced.
+
+    Args:
+        detail: The structured parts of the conflict beyond what the ladder states — a
+            red-team challenge's statement, basis, severity and evidence ids. Stored
+            beside the rationale, never composed into it: the appendix renders these as
+            columns and footnotes, and a blob cannot be un-composed (gap R5).
 
     Returns:
         The row, or ``None`` if the positions agreed and nothing was recorded.
@@ -172,6 +180,7 @@ async def record_resolution(
         rule=resolution.rule,
         resolved_by=ResolvedBy.RULE,
         resolution_rationale=resolution.rationale,
+        detail=detail,
         escalated_to_gate=ESCALATION_GATE if resolution.escalates else None,
         material=resolution.material,
         relative_difference=resolution.relative_difference,

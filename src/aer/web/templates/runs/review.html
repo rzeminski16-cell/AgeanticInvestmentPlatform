@@ -275,6 +275,14 @@
                 </p>
               </div>
             </div>
+            {% if row.detail %}
+              <p class="mt-2 text-xs text-slate-700 dark:text-slate-300">
+                <span class="font-semibold">Challenge:</span> {{ row.detail.challenge }}
+              </p>
+              <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                <span class="font-semibold">Basis:</span> {{ row.detail.basis }}
+              </p>
+            {% endif %}
             <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">
               {{ row.resolution_rationale }}
             </p>

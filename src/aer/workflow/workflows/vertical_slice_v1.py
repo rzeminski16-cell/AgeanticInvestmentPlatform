@@ -1811,6 +1811,9 @@ async def final_gate_payload(session: AsyncSession, *, job_id: uuid.UUID) -> dic
                 "kind": row.kind.value,
                 "rule": row.rule.value,
                 "rationale": row.resolution_rationale,
+                # A red-team challenge's structured record (gap R5). Inside the hash: the
+                # statement and basis are part of what the operator approves over.
+                "detail": row.detail,
                 "material": row.material,
                 "position_a": row.position_a,
                 "position_b": row.position_b,

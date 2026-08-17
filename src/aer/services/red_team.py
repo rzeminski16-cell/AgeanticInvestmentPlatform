@@ -321,21 +321,28 @@ async def _record_challenge(
         topic=f"{challenge.dimension.value}: {challenge.statement}",
         material=challenge.severity >= MATERIAL_SEVERITY,
     )
-    # The ladder's rationale states the rule; the challenge's own argument and evidence
-    # are what a reader needs beside it.
-    evidence = challenge.fact_ids + challenge.calculation_ids + challenge.source_document_ids
-    resolution = type(resolution)(
-        outcome=resolution.outcome,
-        rule=resolution.rule,
-        rationale=(
-            f"{resolution.rationale}\n\nChallenge: {challenge.statement}\n"
-            f"Basis: {challenge.basis}\nEvidence: {', '.join(evidence)}"
-        ),
-        position_a=resolution.position_a,
-        position_b=resolution.position_b,
-        relative_difference=resolution.relative_difference,
-        material=resolution.material,
-    )
+
+    # The challenge's own argument and evidence travel as a record beside the ladder's
+    # rationale, never composed into it (gap R5): the appendix lays these out as columns
+    # and footnotes, and a report reader should meet an id only as a footnote. A cited
+    # fact is footnoted through the document it came from — a fact id names a row in
+    # this platform's own tables, which is provenance no reader can follow.
+    sources = list(challenge.source_document_ids)
+    for fact_id in challenge.fact_ids:
+        source_id = index.fact_sources.get(fact_id)
+        if source_id is not None and source_id not in sources:
+            sources.append(source_id)
+    detail = {
+        "challenge": challenge.statement,
+        "basis": challenge.basis,
+        "severity": challenge.severity,
+        "dimension": challenge.dimension.value,
+        "evidence": {
+            "facts": list(challenge.fact_ids),
+            "calculations": list(challenge.calculation_ids),
+            "sources": sources,
+        },
+    }
 
     row = await record_resolution(
         session,
@@ -343,6 +350,7 @@ async def _record_challenge(
         topic=f"Red team ({challenge.dimension.value}): {challenge.statement[:120]}",
         kind=DisagreementKind.THESIS_CONFLICT,
         resolution=resolution,
+        detail=detail,
     )
     if row is None:  # pragma: no cover -- the thesis rung always escalates, always records
         message = "The thesis rung produced no row, which the ladder makes impossible."
