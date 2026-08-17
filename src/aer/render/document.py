@@ -20,7 +20,7 @@ passing a different argument — there is no argument that would carry them.
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from dataclasses import field as dataclass_field
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -44,10 +44,12 @@ from aer.db.models import (
 )
 from aer.errors import ValidationError
 from aer.sections.registry import sections_for_job
-from aer.sections.render import CitationRef, Fragment, render_section
+from aer.sections.render import CitationRef, Fragment, Heading, render_section
 
 __all__ = [
     "DISCLAIMER",
+    "UNDATED_MARKER",
+    "UNDATED_NOTE",
     "AppendixRow",
     "CalculationFootnote",
     "ChartView",
@@ -66,6 +68,16 @@ DISCLAIMER = (
     "This is a personal research tool. It is **not** regulated investment advice, and "
     "nothing in this document is a recommendation to buy, sell or hold any security. Any "
     "rating expressed is a non-binding personal view."
+)
+
+# The C3 marker: point-in-time is a soft constraint, so a source with no stated
+# publication date is used rather than excluded — and every section resting on one says
+# so with this symbol by its heading, explained once by the note below.
+UNDATED_MARKER = "\N{DAGGER}"
+UNDATED_NOTE = (
+    f"{UNDATED_MARKER} Rests in part on a source without a stated publication date. The "
+    "point-in-time rule cannot be checked against such a source, so it is used with this "
+    "caveat rather than excluded."
 )
 
 # How much of an artefact digest a document prints. Enough to identify the file among a
@@ -149,6 +161,11 @@ class SectionView:
     # through the definition row's ``evidence_policy.exhibits`` — data, never a section
     # key in code — and an unclaimed chart still lands in the document's own pack.
     charts: tuple[ChartView, ...] = ()
+
+    # Whether this section cites a source with no stated publication date (the C3
+    # marker). Point-in-time is a soft constraint: such a source is used rather than
+    # excluded, and the section says so with a small symbol by its heading.
+    undated: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -295,6 +312,11 @@ class ReportDocument:
     # the same sentence through the whole note. The per-section banner stays, one line.
     limitations: tuple[tuple[str, str], ...] = ()
 
+    # The undated-source legend (the C3 marker), present exactly when some section
+    # carries the symbol — a legend with no marker, or a marker with no legend, would
+    # each leave the reader guessing.
+    undated_note: str | None = None
+
     @property
     def section_keys(self) -> list[str]:
         return [section.key for section in self.sections]
@@ -406,6 +428,16 @@ async def assemble_document(
     appendix = await _appendix(session, citations)
     coverage = await _coverage(session, job=job, sections=sections, definitions=definitions)
 
+    # The C3 marker, derived from stored rows: any section citing a source whose
+    # publication date is unknown carries the symbol, and the legend appears once.
+    undated_ids = {
+        identifier
+        for identifier, row in (await _load_source_documents(session, citations)).items()
+        if row.publication_date is None
+    }
+    if undated_ids:
+        views = [_marked_if_undated(view, undated_ids) for view in views]
+
     return ReportDocument(
         header=HeaderView(
             company_name=company.name if company is not None else request.company_name,
@@ -433,10 +465,30 @@ async def assemble_document(
         charts=tuple(chart_views),
         job_id=job.id,
         coverage=coverage,
+        undated_note=UNDATED_NOTE if any(view.undated for view in views) else None,
     )
 
 
 # -- Resolution ------------------------------------------------------------------------------
+
+
+def _marked_if_undated(view: SectionView, undated_ids: set[str]) -> SectionView:
+    """The view with the C3 marker on its heading, when it cites an undated source.
+
+    The symbol travels in the heading fragment's text, so every notation carries it the
+    same way; ``view.title`` stays clean for the contents page and the limitations list.
+    An unresolved citation is not marked — its footnote already says not to rely on it.
+    """
+    rests_on_undated = any(
+        ref.kind == "source_document" and ref.identifier in undated_ids for ref in view.citations
+    )
+    if not rests_on_undated or not view.fragments:
+        return view
+    heading = view.fragments[0]
+    if not isinstance(heading, Heading):  # pragma: no cover -- render_section leads with one
+        return replace(view, undated=True)
+    marked = Heading(level=heading.level, text=f"{heading.text} {UNDATED_MARKER}")
+    return replace(view, fragments=(marked, *view.fragments[1:]), undated=True)
 
 
 def _declared_exhibits(definition: SectionDefinition | None) -> list[str]:

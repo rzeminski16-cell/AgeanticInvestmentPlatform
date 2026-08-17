@@ -111,6 +111,7 @@
      collapsed the inter-element space and the contents read "Business Overview(not
      generated)". A margin cannot be collapsed by whitespace handling. */
   .not-generated { font-size: 0.85rem; color: var(--muted); font-style: italic; margin-left: 0.35em; }
+  .undated-note { font-size: 0.85rem; color: var(--muted); }
 
   /* Tables break across pages by the row, never by the cell: an unbreakable long table
      pushed a whole page blank before it. The header repeats via the paged-media engine. */
@@ -247,6 +248,10 @@
   </section>
   {% endif %}
 </main>
+
+{% if document.undated_note %}
+<p class="undated-note"><em>{{ document.undated_note }}</em></p>
+{% endif %}
 
 {% if footnotes %}
 <section class="footnotes" id="notes">

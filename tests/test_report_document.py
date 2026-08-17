@@ -45,6 +45,8 @@ from aer.db.models import (
     User,
 )
 from aer.render.document import (
+    UNDATED_MARKER,
+    UNDATED_NOTE,
     CoverageNote,
     ReportDocument,
     _display_value,
@@ -500,6 +502,31 @@ class TestTheReportFacesTheReader:
         )
         assert _display_value(Decimal("15")) == "15"
         assert _display_value(Decimal("0.025")) == "0.025"
+
+    async def test_a_section_resting_on_an_undated_source_carries_the_marker(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The C3 marker: point-in-time is a soft constraint, and the reader sees where.
+
+        A source with no stated publication date is used rather than excluded; the
+        section resting on it carries a small symbol by its heading, and the legend
+        explains the symbol exactly once.
+        """
+        document = await _document(scene)
+        marked = next(view for view in document.sections if view.key == "golden_overview")
+        clean = next(view for view in document.sections if view.key == "golden_warnings")
+        assert marked.undated
+        assert not clean.undated
+        assert document.undated_note == UNDATED_NOTE
+
+        markdown = serialise_markdown(document)
+        assert f"## Golden Overview {UNDATED_MARKER}" in markdown
+        assert f"## Golden Warnings {UNDATED_MARKER}" not in markdown
+        assert markdown.count(UNDATED_NOTE) == 1
+
+        html = render_html(document)
+        assert f"Golden Overview {UNDATED_MARKER}</h2>" in html
+        assert html.count(UNDATED_NOTE) == 1
 
     def test_literal_escapes_are_decoded_at_render(self) -> None:
         assert _unescaped("no view \\u2014 favourable or unfavourable \\u2014 here") == (

@@ -24,7 +24,7 @@ CET1 was required for this sector and was not computed.
 
 ---
 
-## Golden Overview
+## Golden Overview †
 
 ### Thesis
 
@@ -92,6 +92,8 @@ A comparable-company analysis was performed against 3 peer(s) as at 30 June 2022
 
 - **Golden Warnings:** Insufficient evidence: the golden scene says so.
 - **Golden Failed:** The golden scene fails this one on purpose.
+
+*† Rests in part on a source without a stated publication date. The point-in-time rule cannot be checked against such a source, so it is used with this caveat rather than excluded.*
 
 
 ## Notes

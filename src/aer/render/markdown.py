@@ -130,6 +130,7 @@ def serialise_markdown(document: ReportDocument) -> str:
             *_comps_block(document.comps_paragraph, style=document.style),
             *_exhibits_block(document.charts),
             *_limitations_block(document.limitations),
+            *_undated_block(document.undated_note),
             *_footnotes(document.footnotes, style=document.style),
             *_appendix(document.appendix, style=document.style),
             *_footer(),
@@ -266,6 +267,13 @@ def _limitations_block(rows: tuple[tuple[str, str], ...]) -> list[str]:
     lines.extend(f"- **{title}:** {note}" for title, note in rows)
     lines.append("")
     return lines
+
+
+def _undated_block(note: str | None) -> list[str]:
+    """The C3 marker's legend, once, when any heading carries the symbol."""
+    if note is None:
+        return []
+    return [f"*{note}*", ""]
 
 
 def _footer() -> list[str]:
