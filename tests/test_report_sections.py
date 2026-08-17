@@ -15,7 +15,9 @@ next section impossible.
 from __future__ import annotations
 
 import ast
+import os
 import re
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -24,10 +26,11 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.config import Settings
+from aer.config import HouseStyle, Settings
 from aer.core.enums import Decision, GateKind
 from aer.db.models import Artefact, Job, JobStep, Report, SectionDefinition, SourceDocument
 from aer.providers.fake import FakeProvider
+from aer.render import display
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.storage.local import LocalArtefactStore
@@ -427,6 +430,47 @@ def executable_source(path: Path) -> str:
             ):
                 node.body = body[1:] or [ast.Pass()]
     return ast.unparse(tree)
+
+
+FULL_GOLDEN = Path(__file__).resolve().parent / "fixtures" / "full_run" / "golden.md"
+
+# What two runs of the same offline workflow legitimately disagree on: generated ids,
+# the render timestamp, and the retrieval clock. Everything else is the fixture's.
+_UUID_TOKEN = re.compile(
+    r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.IGNORECASE
+)
+_GENERATED_LINE = re.compile(r"\*\*Generated:\*\* .+")
+
+
+def _normalised(markdown: str) -> str:
+    text = _UUID_TOKEN.sub("<id>", markdown)
+    text = _GENERATED_LINE.sub("**Generated:** <generated>", text)
+    today = display.date_text(datetime.now(UTC).date(), style=HouseStyle())
+    return text.replace(today, "<today>")
+
+
+class TestTheGoldenFullRun:
+    """Gap O6: the whole offline run, rendered and held byte for byte.
+
+    The ``fx_report`` goldens pin a small fixture; this one pins what the workflow
+    actually produces end to end — spine order, the at-a-glance block, interleaved
+    footnote numbering, the notes and the sources — after the tokens two honest runs
+    legitimately disagree on (ids, clocks) are normalised away. The merged footnote
+    markers and the contents' missing space would each have failed here before a live
+    PDF showed them.
+    """
+
+    async def test_the_rendered_run_matches_the_recorded_golden(self, run_context: dict) -> None:
+        report = await run_to_report(**_run_args(run_context))
+        markdown = _normalised(report.content["markdown"])
+
+        if os.environ.get("UPDATE_GOLDEN"):
+            FULL_GOLDEN.parent.mkdir(parents=True, exist_ok=True)
+            FULL_GOLDEN.write_text(markdown, encoding="utf-8")
+            pytest.fail("full-run golden re-recorded; rerun without UPDATE_GOLDEN")
+
+        assert FULL_GOLDEN.exists(), "record the golden with UPDATE_GOLDEN=1"
+        assert markdown == FULL_GOLDEN.read_text(encoding="utf-8")
 
 
 class TestNoSectionKeyIsHardcoded:

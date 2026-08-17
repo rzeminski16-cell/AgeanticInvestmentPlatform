@@ -65,12 +65,16 @@ from aer.eval.runtime import (
     RunCitation,
     SectionCoverage,
     SourcedClaim,
+    presentation_integrity,
     primary_source_ratio,
     run_citation_accuracy,
     run_hallucinated_citation_rate,
     source_coverage,
 )
 from aer.extract import extract_text
+from aer.render.document import assemble_document
+from aer.render.html import render_html
+from aer.render.markdown import serialise_markdown
 from aer.sections.registry import sections_for_job
 from aer.verify.citations import verify_job_citations
 
@@ -115,7 +119,8 @@ async def evaluate_run(
     request: ResearchRequest,
     use_batch: bool = True,
 ) -> list[Evaluation]:
-    """Verify, measure, advise, and write the run's eight evaluation rows.
+    """Verify, measure, advise, and write the run's evaluation rows — the §2.10
+    run-time set plus the presentation gate (gap O3).
 
     Replaces any rows a previous validation of this run wrote: an evaluation is derived
     data, and "the run's citation score" must be one answer, not a history.
@@ -154,6 +159,19 @@ async def evaluate_run(
     completeness = await completeness_observations_for_job(context.session, job.id)
     results[Metric.ASSUMPTION_COMPLETENESS] = _measure(
         lambda: assumption_completeness(completeness)
+    )
+
+    # The presentation gate (gap O3): the draft rendered exactly as the preview renders
+    # it, scanned for the defect classes a live note once shipped. Assembly is
+    # deterministic and spends nothing; a failure here lands on the coverage notice and
+    # the gate-2 banner like any other failed check.
+    document = await assemble_document(context.session, job=job, request=request)
+    results[Metric.PRESENTATION_INTEGRITY] = _measure(
+        lambda: presentation_integrity(
+            serialise_markdown(document),
+            render_html(document),
+            sections=len(document.sections),
+        )
     )
 
     advisories = await _advise(context, rows, use_batch=use_batch, request=request)

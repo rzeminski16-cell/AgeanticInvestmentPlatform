@@ -44,6 +44,7 @@ from aer.eval.runtime import (
     RunCitation,
     SectionCoverage,
     SourcedClaim,
+    presentation_integrity,
     primary_source_ratio,
     run_citation_accuracy,
     run_hallucinated_citation_rate,
@@ -197,6 +198,51 @@ class TestPrimarySourceRatio:
 # ==========================================================================================
 # The advisory role is registered, and the batch transport is faithful
 # ==========================================================================================
+
+
+class TestPresentationIntegrity:
+    """Gap O3: the defect classes a live note once shipped, each held at zero."""
+
+    def test_a_clean_document_passes(self) -> None:
+        result = presentation_integrity(
+            "## Historical analysis\n\nRevenue grew to $198,270m in FY2022, an 18% rise.",
+            "<p>Revenue grew.</p>",
+            sections=1,
+        )
+        assert result.passed
+        assert result.value == 0
+
+    def test_each_defect_class_is_counted_and_named(self) -> None:
+        markdown = (
+            "Revenue was 143756000000 USD. "
+            "Evidence: ef2bd367-aaaa-4bbb-8ccc-ddddeeeeffff. "
+            "Segment detail was not disclosed. Margin detail was not disclosed either."
+        )
+        result = presentation_integrity(markdown, "<td>**Base case.**</td>", sections=1)
+
+        assert not result.passed
+        assert result.value == 4
+        joined = " ".join(result.failures)
+        assert "unformatted integer" in joined
+        assert "raw UUID" in joined
+        assert "literal '**'" in joined
+        assert "gap sentences" in joined
+
+    def test_deliberate_literals_and_links_stay_invisible(self) -> None:
+        """Code spans and link targets are the two places long digit runs are honest:
+        an artefact digest, a code version, a SEC archive path."""
+        markdown = (
+            "Calculated: `cagr = 0.180000000000 ratio` (code `goldencode123456`). "
+            "[Form 10-K](https://www.sec.gov/Archives/edgar/data/789019/000078901922000005/a.htm) "
+            "and <https://www.sec.gov/Archives/edgar/data/789019/000078901922000005.txt>. "
+            "One gap sentence is not disclosed here, within budget."
+        )
+        result = presentation_integrity(markdown, "<p>clean</p>", sections=1)
+        assert result.passed, result.failures
+
+    def test_an_empty_document_is_not_a_pass(self) -> None:
+        with pytest.raises(EmptyCorpusError):
+            presentation_integrity("", "", sections=0)
 
 
 class TestTheValidatorRole:

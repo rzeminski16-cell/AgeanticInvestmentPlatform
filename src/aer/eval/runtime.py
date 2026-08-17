@@ -22,10 +22,13 @@ is the evaluations table's NULL verdict.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Final
 
+from aer.core.section_output import gap_sentences
 from aer.eval.metrics import (
     THRESHOLDS,
     EmptyCorpusError,
@@ -39,6 +42,7 @@ __all__ = [
     "RunCitation",
     "SectionCoverage",
     "SourcedClaim",
+    "presentation_integrity",
     "primary_source_ratio",
     "run_citation_accuracy",
     "run_hallucinated_citation_rate",
@@ -231,3 +235,66 @@ def _require(metric: Metric, rows: Sequence[object]) -> None:
         "The caller records that as not exercised, never as a pass."
     )
     raise EmptyCorpusError(message, context={"metric": metric.value})
+
+
+# ==========================================================================================
+# Presentation integrity (gap O3)
+# ==========================================================================================
+#
+# The defects below each shipped in a live note once — an eleven-digit integer mid-table,
+# literal asterisks where emphasis was meant, "Evidence: ef2bd367-…" in the appendix, a
+# section spending its length on what the evidence lacks. Each was fixed at its source;
+# this metric is what keeps every fix permanent, the way citation_accuracy holds
+# provenance. Zero, not "low".
+
+# A reader-visible run of five or more bare digits: no separators, no symbol, not part of
+# a word ("FY2026"), not a decimal's fraction. Four digits stay legal — years.
+_BARE_INTEGER: Final[re.Pattern[str]] = re.compile(r"(?<![\w.,$£€/-])\d{5,}(?![\w,.%-])")
+
+_UUID: Final[re.Pattern[str]] = re.compile(
+    r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.IGNORECASE
+)
+
+# What the defect scan must not read: link targets and autolinks (a SEC path carries long
+# digit runs), and code spans (an artefact digest or code version is deliberately literal).
+_INVISIBLE: Final[re.Pattern[str]] = re.compile(r"<https?://[^>]+>|\]\([^)]+\)|`[^`]*`")
+
+
+def presentation_integrity(markdown: str, html: str, *, sections: int) -> MetricResult:
+    """The rendered document's presentation defects, counted — threshold zero.
+
+    Args:
+        markdown: The document's Markdown notation. Integers, UUIDs and gap sentences
+            are counted here, after link targets and code spans are removed.
+        html: The HTML notation. Literal ``**`` is counted here and only here — in
+            Markdown a paired asterisk run is notation, in HTML it is a leak.
+        sections: How many sections the document renders. One gap sentence per section
+            is the drafting budget (gap R4); anything past that is a defect.
+    """
+    if not markdown.strip():
+        message = "presentation_integrity was asked to score an empty document."
+        raise EmptyCorpusError(message, context={"metric": Metric.PRESENTATION_INTEGRITY.value})
+
+    visible = _INVISIBLE.sub(" ", markdown)
+    failures: list[str] = []
+
+    failures.extend(f"unformatted integer {found!r}" for found in _BARE_INTEGER.findall(visible))
+    failures.extend(f"raw UUID {found!r}" for found in _UUID.findall(visible))
+
+    asterisks = html.count("**")
+    if asterisks:
+        failures.append(f"literal '**' appears {asterisks} time(s) in the rendered HTML")
+
+    gaps = len(gap_sentences({"text": visible}))
+    if gaps > sections:
+        failures.append(f"{gaps} gap sentences against {sections} sections (one each allowed)")
+
+    threshold, direction = THRESHOLDS[Metric.PRESENTATION_INTEGRITY]
+    return MetricResult(
+        metric=Metric.PRESENTATION_INTEGRITY,
+        value=Decimal(len(failures)),
+        threshold=threshold,
+        direction=direction,
+        population=max(sections, 1),
+        failures=tuple(failures),
+    )

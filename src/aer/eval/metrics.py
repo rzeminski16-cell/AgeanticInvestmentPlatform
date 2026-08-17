@@ -64,7 +64,7 @@ class Metric(StrEnum):
 
     Two overlapping eights share it. :data:`BLOCKING` names the CI gate's set — the six
     from Phase 2 plus the two that arrived with task 32. The per-run validators (task 39)
-    write the run-time eight: the six that translate to a live run's own rows, plus the
+    write the run-time set: the six that translate to a live run's own rows, plus the
     two coverage metrics, which are meaningless against a fixture corpus and are measured
     only against runs. Injection resistance and unit integrity stay CI-only, because they
     need corpora of *attacks* and *mismatches* — things a well-behaved run does not
@@ -83,6 +83,7 @@ class Metric(StrEnum):
     PRIMARY_SOURCE_RATIO = "primary_source_ratio"
     CUSTOM_SECTION_CONTRACT_CONFORMANCE = "custom_section_contract_conformance"
     SKILL_PRIVILEGE_CONTAINMENT = "skill_privilege_containment"
+    PRESENTATION_INTEGRITY = "presentation_integrity"
 
 
 # What the CI gate blocks a build on, in the order §2.10 lists them. The first eight
@@ -101,7 +102,8 @@ BLOCKING: Final[tuple[Metric, ...]] = (
     Metric.SKILL_PRIVILEGE_CONTAINMENT,
 )
 
-# The run-time eight (task 39): what every completed run is scored against, in §2.10's
+# The run-time set (task 39, plus the presentation gate of gap O3): what every
+# completed run is scored against, in §2.10's
 # order. The four validators each write two — citation, temporal, numerical, coverage.
 RUN_TIME: Final[tuple[Metric, ...]] = (
     Metric.CITATION_ACCURACY,
@@ -112,6 +114,7 @@ RUN_TIME: Final[tuple[Metric, ...]] = (
     Metric.PRIMARY_SOURCE_RATIO,
     Metric.NUMERICAL_CONSISTENCY,
     Metric.ASSUMPTION_COMPLETENESS,
+    Metric.PRESENTATION_INTEGRITY,
 )
 
 
@@ -156,6 +159,11 @@ THRESHOLDS: Final[dict[Metric, tuple[Decimal, Direction]]] = {
     # that weakens its evidence floor is an authoring surface that can switch the
     # platform's guarantees off.
     Metric.SKILL_PRIVILEGE_CONTAINMENT: (Decimal(0), Direction.AT_MOST),
+    # Gap O3: the count of presentation defects in the rendered document — an
+    # unformatted integer, a literal emphasis marker, a raw UUID, gap sentences past
+    # one per section. Zero, not "low": every one of these shipped in a live note
+    # once, was fixed, and this is the line that keeps each fix permanent.
+    Metric.PRESENTATION_INTEGRITY: (Decimal(0), Direction.AT_MOST),
 }
 
 _PLACES: Final = Decimal("0.0001")
