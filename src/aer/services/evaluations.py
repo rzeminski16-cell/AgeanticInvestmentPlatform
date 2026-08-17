@@ -290,6 +290,10 @@ def _source_comparable(rows: _RunRows, source_id: uuid.UUID, *, request: Researc
 
 
 def _source_rows(rows: _RunRows, *, request: ResearchRequest) -> list[SourceObservation]:
+    # The run's own mode travels with each observation: the hallucination metric already
+    # respects request.point_in_time, and the temporal metric judging the same run by a
+    # stricter rule than it ran under is how a point-in-time-off report came to wear a
+    # temporal-compliance failure on its front page.
     return [
         SourceObservation(
             name=row.title or row.url,
@@ -297,6 +301,7 @@ def _source_rows(rows: _RunRows, *, request: ResearchRequest) -> list[SourceObse
             as_of=request.as_of_date,
             admitted=row.is_admissible,
             established=row.publication_date,
+            point_in_time=request.point_in_time,
         )
         for row in rows.sources
     ]

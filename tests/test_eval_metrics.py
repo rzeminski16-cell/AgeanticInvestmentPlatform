@@ -201,6 +201,41 @@ class TestTemporalCompliance:
 
         assert not result.passed
 
+    def test_with_the_mode_off_an_undated_source_is_admissible(self):
+        """The rule the run actually ran under. The live AAPL report ran point-in-time
+        off and still wore this metric's failure on page 1, for seven undated documents
+        the acquisition layer had deliberately admitted."""
+        result = temporal_compliance(
+            [
+                SourceObservation(
+                    name="undated but allowed",
+                    published=None,
+                    as_of=AS_OF,
+                    admitted=True,
+                    point_in_time=False,
+                )
+            ]
+        )
+
+        assert result.passed
+
+    def test_a_post_dated_source_fails_in_any_mode(self):
+        # Post-dated claims knowledge of a future the analysis should not have; switching
+        # point-in-time off relaxes the undatable rule, never this one.
+        result = temporal_compliance(
+            [
+                SourceObservation(
+                    name="leaked",
+                    published=date(2022, 9, 1),
+                    as_of=AS_OF,
+                    admitted=True,
+                    point_in_time=False,
+                )
+            ]
+        )
+
+        assert not result.passed
+
     def test_a_corpus_that_admitted_nothing_raises(self):
         # The degenerate pass. A platform that refused every document would score 100%, so the
         # metric refuses to score it at all.

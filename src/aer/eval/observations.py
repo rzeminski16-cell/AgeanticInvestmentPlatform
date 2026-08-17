@@ -85,6 +85,10 @@ class SourceObservation:
     # reason still counts as refused, and the difference is worth being able to see.
     established: date | None = None
 
+    # Whether the run this document served enforced point-in-time. Defaults to on, which
+    # is what the eval corpus exercises; the live path passes the request's own setting.
+    point_in_time: bool = True
+
     @property
     def is_after_as_of(self) -> bool:
         """Whether this document postdates the as-of date, per the fixture's label."""
@@ -92,8 +96,20 @@ class SourceObservation:
 
     @property
     def must_be_refused(self) -> bool:
-        """Undatable or post-dated. Both are inadmissible under point-in-time rules."""
-        return self.published is None or self.is_after_as_of
+        """What the mode the run actually ran in demands.
+
+        A post-dated document is inadmissible in any mode — it claims knowledge of a
+        future the analysis is not supposed to have. An *undatable* one is inadmissible
+        only under point-in-time rules, where "cannot be shown to predate the as-of date"
+        is disqualifying; with the mode off, the acquisition layer deliberately admits it
+        (``decide_quarantine`` applies exactly this split), and a metric that failed the
+        run anyway was enforcing a rule the operator had switched off. The live AAPL run
+        ran point-in-time off and still wore a temporal-compliance failure on page 1 for
+        seven undated-but-admitted documents.
+        """
+        if self.is_after_as_of:
+            return True
+        return self.point_in_time and self.published is None
 
     @property
     def is_violation(self) -> bool:
