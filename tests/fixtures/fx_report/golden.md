@@ -88,6 +88,11 @@ Written under a banner, deliberately.
 
 A comparable-company analysis was performed against 3 peer(s) as at 30 June 2022, with 1 proposed peer(s) excluded. **The figures are withheld from this version.** They derive from market data licensed for internal use only, under terms that grant no derived-data exemption, so no multiple computed from it appears in anything shareable. The analysis is available in full on the operator's own copy.
 
+## Scope and limitations
+
+- **Golden Warnings:** Insufficient evidence: the golden scene says so.
+- **Golden Failed:** The golden scene fails this one on purpose.
+
 
 ## Notes
 

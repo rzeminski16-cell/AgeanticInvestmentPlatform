@@ -258,6 +258,16 @@
 </section>
 {% endif %}
 
+{% if limitations %}
+<section class="appendix" id="limitations">
+  <h2>Scope and limitations</h2>
+  <ul>
+    {% for title, note in limitations %}
+    <li><strong>{{ title }}:</strong> {{ note }}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
 {% if document.appendix %}
 <section class="appendix" id="sources">
   <h2>Sources</h2>

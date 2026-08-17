@@ -33,7 +33,7 @@ from aer.agents.custom_section import (
 from aer.agents.registry import resolve_role
 from aer.agents.section_writer import SectionDraft, SectionWriterAgent, SectionWriterInput
 from aer.config import Settings
-from aer.core.enums import FactBasis, JobStatus, Provider, SourceTier
+from aer.core.enums import AnalysisMode, FactBasis, JobStatus, Provider, SourceTier
 from aer.db.models import (
     AgentRun,
     Artefact,
@@ -444,6 +444,114 @@ class TestTheFailureLadder:
         reason = str(scene["section"].low_confidence_reason)
         assert "removed" in reason
         assert scene["section"].confidence is not None
+
+
+class TestTheEnforcedBudgets:
+    """Gaps R4 and O4: advisory rules drift, so the budgets are refusals in code."""
+
+    async def test_a_draft_that_dwells_on_its_gaps_is_refused_with_the_instruction(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """A third of the live report's prose described missing evidence. Rule 6 said
+        "one clause and move on"; this is the enforcement — a second gap sentence costs
+        the draft a retry, with the fix stated."""
+        dwelling = _good_draft(scene)
+        dwelling.content["commentary"] = (
+            "Segment figures are not disclosed in the filings. "
+            "Regional detail is not available either. "
+            "Operating cash generation covered the capital programme."
+        )
+        sound = _good_draft(scene)
+        provider = _scripted([dwelling, sound])
+
+        outcome = await _run(scene, provider)
+
+        assert outcome.status is SectionStatus.GENERATED
+        assert outcome.attempts == 2
+        retry = provider.calls[1]
+        composed = "".join(m["content"] for m in retry["messages"])
+        assert "sentences describe missing evidence" in composed
+        assert "one clause" in composed
+
+    async def test_one_gap_sentence_is_allowed(self, scene: dict[str, Any]) -> None:
+        stated = _good_draft(scene)
+        stated.content["commentary"] = (
+            "Segment figures are not disclosed in the filings. "
+            "Operating cash generation covered the capital programme."
+        )
+        outcome = await _run(scene, _scripted([stated]))
+
+        assert outcome.status is SectionStatus.GENERATED
+        assert outcome.attempts == 1
+
+    async def test_a_draft_past_the_word_ceiling_is_refused_naming_the_budget(
+        self, scene: dict[str, Any]
+    ) -> None:
+        definition = scene["section"].definition
+        definition.evidence_policy = {**(definition.evidence_policy or {}), "word_budget": 20}
+        # Pinned to standard depth so the budget the refusal names is the one stated —
+        # the scene's default FULL mode scales it, which is O5 working as intended.
+        scene["request"].analysis_mode = AnalysisMode.STANDARD
+        await scene["session"].flush()
+
+        sprawling = _good_draft(scene)
+        sprawling.content["commentary"] = " ".join(["word"] * 60)
+        tight = _good_draft(scene)
+        provider = _scripted([sprawling, tight])
+
+        outcome = await _run(scene, provider)
+
+        assert outcome.status is SectionStatus.GENERATED
+        assert outcome.attempts == 2
+        retry = "".join(m["content"] for m in provider.calls[1]["messages"])
+        assert "budget of 20" in retry
+
+    async def test_a_quick_run_resolves_the_core_spine_only(self, scene: dict[str, Any]) -> None:
+        """Gap O5: depth decides the section set through each row's own applicability
+        (migration 0035), so no code names a section key and the control controls."""
+        scene["request"].analysis_mode = AnalysisMode.QUICK
+        quick = {d.key for d in await resolve_sections(scene["session"], request=scene["request"])}
+        scene["request"].analysis_mode = AnalysisMode.FULL
+        full = {d.key for d in await resolve_sections(scene["session"], request=scene["request"])}
+
+        assert quick < full
+        assert "executive_summary" in quick
+        assert "valuation_dcf" in quick
+        assert "segment_analysis" in full - quick
+        assert "industry_landscape" in full - quick
+
+    def test_depth_scales_the_budgets_and_never_the_floor(self) -> None:
+        from aer.sections.evidence import SectionPolicy  # noqa: PLC0415
+
+        base = SectionPolicy(
+            min_sources=2,
+            requires_primary=True,
+            max_tier_rank=4,
+            allow_forward_looking=False,
+            token_budget=1000,
+            word_budget=400,
+        )
+        quick = base.scaled(AnalysisMode.QUICK)
+        full = base.scaled(AnalysisMode.FULL)
+
+        assert (quick.token_budget, quick.word_budget) == (600, 240)
+        assert (full.token_budget, full.word_budget) == (1400, 560)
+        assert base.scaled(AnalysisMode.STANDARD) is base
+        # Depth is how much work a run does, never how little support a claim stands on.
+        assert quick.min_sources == full.min_sources == 2
+        assert quick.max_tier_rank == full.max_tier_rank == 4
+
+    async def test_a_draft_at_its_budget_is_not_refused(self, scene: dict[str, Any]) -> None:
+        """The ceiling leaves headroom over the stated budget, as the claim ceilings do:
+        a draft two words over the target costs nothing."""
+        definition = scene["section"].definition
+        definition.evidence_policy = {**(definition.evidence_policy or {}), "word_budget": 200}
+        await scene["session"].flush()
+
+        outcome = await _run(scene, _scripted([_good_draft(scene)]))
+
+        assert outcome.status is SectionStatus.GENERATED
+        assert outcome.attempts == 1
 
 
 class TestTheDegradationLadder:

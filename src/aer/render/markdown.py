@@ -125,6 +125,7 @@ def serialise_markdown(document: ReportDocument) -> str:
             *body,
             *_comps_block(document.comps_paragraph, style=document.style),
             *_exhibits_block(document.charts),
+            *_limitations_block(document.limitations),
             *_footnotes(document.footnotes, style=document.style),
             *_appendix(document.appendix, style=document.style),
             *_footer(),
@@ -244,6 +245,20 @@ def _exhibits_block(charts: tuple[ChartView, ...]) -> list[str]:
                 "",
             ]
         )
+    return lines
+
+
+def _limitations_block(rows: tuple[tuple[str, str], ...]) -> list[str]:
+    """Every degraded section's note, once, near the end (gap R4).
+
+    A reader who wants the caveats finds them gathered; a reader working through the
+    analysis is not handed the same sentence under every heading.
+    """
+    if not rows:
+        return []
+    lines = ["## Scope and limitations", ""]
+    lines.extend(f"- **{title}:** {note}" for title, note in rows)
+    lines.append("")
     return lines
 
 

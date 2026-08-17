@@ -63,6 +63,11 @@ async def resolve_sections(
     for row in rows:
         latest[row.key] = row
 
+    # The depth control controls through the data, not through code (gap O5): the
+    # deep-dive sections' rows declare ``{"analysis_mode": ["standard", "full"]}`` in
+    # their applicability (migration 0035), so a quick run resolves the core spine and
+    # nothing here names a section key. The budgets scale separately in the drafting
+    # policy.
     applicable = [row for row in latest.values() if applies_to(row, request)]
     applicable.sort(key=lambda row: (row.position, row.key))
 

@@ -63,7 +63,21 @@ def policy_of_definition(definition: SectionDefinition) -> SectionPolicy:
         concept_priority=_names(stated.get("concept_priority")),
         excerpt_keywords=_names(stated.get("excerpt_keywords")),
         fact_basis=_basis(stated.get("fact_basis")),
+        word_budget=_word_budget(stated.get("word_budget")),
     )
+
+
+def _word_budget(value: object) -> int:
+    """A declared word budget, or zero — unbounded — for absent and unusable values.
+
+    The same falling-back posture as the other preferences: a mistyped budget costs the
+    budget, never the section.
+    """
+    try:
+        stated = int(str(value))
+    except (TypeError, ValueError):
+        return 0
+    return stated if stated > 0 else 0
 
 
 def _basis(value: object) -> str:
@@ -110,7 +124,9 @@ async def execute_builtin_section(
     """
     definition = section.definition
     contract = definition.output_contract or {}
-    policy = policy_of_definition(definition)
+    # Scaled to the request's depth: the definition states the standard budgets, and
+    # quick/full move them in code rather than in a prompt (gap O5).
+    policy = policy_of_definition(definition).scaled(request.analysis_mode)
 
     evidence = await gather_evidence(
         context.session,

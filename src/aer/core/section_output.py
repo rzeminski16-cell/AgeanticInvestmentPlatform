@@ -33,9 +33,12 @@ from typing import Any, Final
 from aer.core.schemas.skill import RESERVED_OUTPUT_FIELDS
 
 __all__ = [
+    "MAX_GAP_SENTENCES",
     "NUMERAL_EXEMPT_KEYS",
     "contract_violations",
+    "gap_sentences",
     "numerals_in",
+    "prose_word_count",
     "reserved_fields_in",
     "unsourced_numerals",
     "without_document_references",
@@ -324,6 +327,88 @@ def _names_its_figure(row: dict[Any, Any]) -> bool:
 # terminal mark followed by whitespace. Prose that defeats it merely salvages a larger
 # span, which errs towards removing more of the offending text rather than less.
 _SENTENCES: Final[re.Pattern[str]] = re.compile(r"(?<=[.!?])\s+")
+
+# The vocabulary of a sentence about missing evidence rather than about the company.
+# Phrases, not a model: the question is whether the sentence's subject is the disclosure
+# rather than the business, and these are the words that make it so.
+_GAP_PHRASES: Final[tuple[str, ...]] = (
+    "not disclosed",
+    "no disclosure",
+    "does not disclose",
+    "not available",
+    "is unavailable",
+    "were not provided",
+    "not reported",
+    "does not report",
+    "cannot be computed",
+    "cannot compute",
+    "could not be computed",
+    "could not be determined",
+    "insufficient evidence",
+    "no evidence",
+    "the evidence does not",
+    "evidence is silent",
+    "no segment data",
+    "data is missing",
+    "is not stated",
+)
+
+# How many sentences a section may spend on its own gaps. One: rule 6 of the drafting
+# prompt says "in one clause and move on", and a live report spent a third of its prose
+# describing absence because nothing enforced it (gap R4). Advisory rules drift; budgets
+# refused in code do not.
+MAX_GAP_SENTENCES: Final = 1
+
+
+def prose_word_count(content: dict[str, Any]) -> int:
+    """How many words the content's prose runs to, metadata ids excluded.
+
+    The count behind the section word budget (gap O4): whitespace-delimited tokens over
+    every string the reader will meet. Deliberately blunt — a budget needs a count both
+    sides can predict, not a typographer's opinion.
+    """
+    words = 0
+
+    def walk(value: Any) -> None:
+        nonlocal words
+        if isinstance(value, str):
+            words += len(value.split())
+        elif isinstance(value, dict):
+            for key, item in value.items():
+                if str(key) not in NUMERAL_EXEMPT_KEYS:
+                    walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+
+    walk(content)
+    return words
+
+
+def gap_sentences(content: dict[str, Any]) -> list[str]:
+    """Every sentence in the content's prose whose subject is missing evidence.
+
+    Deterministic and phrase-based, like the numeral rule beside it. A sentence matching
+    none of the phrases is about the company however hedged its verbs; matching one, it
+    is about the disclosure — which the reader needs once, not per paragraph.
+    """
+    found: list[str] = []
+
+    def walk(value: Any) -> None:
+        if isinstance(value, str):
+            for sentence in _SENTENCES.split(value):
+                lowered = sentence.lower()
+                if any(phrase in lowered for phrase in _GAP_PHRASES):
+                    found.append(sentence.strip())
+        elif isinstance(value, dict):
+            for item in value.values():
+                walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+
+    walk(content)
+    return found
 
 
 def without_unsourced_numeral_sentences(

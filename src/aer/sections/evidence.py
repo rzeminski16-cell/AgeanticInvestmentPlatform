@@ -25,14 +25,20 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Final
 
 from sqlalchemy import select
 
 from aer.core.concepts import is_canonical_concept
-from aer.core.enums import ClaimKind, SourceTier
-from aer.core.section_output import contract_violations, unsourced_numerals
+from aer.core.enums import AnalysisMode, ClaimKind, SourceTier
+from aer.core.section_output import (
+    MAX_GAP_SENTENCES,
+    contract_violations,
+    gap_sentences,
+    prose_word_count,
+    unsourced_numerals,
+)
 from aer.db.models import (
     Calculation,
     Extraction,
@@ -67,6 +73,14 @@ __all__ = [
 
 # §2.12: one structured-output call, one retry on a validation failure, then failed.
 MAX_GENERATION_ATTEMPTS: Final = 2
+
+# How a request's depth scales the drafting budgets (gap O5). Quick reads and writes
+# roughly half, full half as much again; standard is the calibrated baseline.
+_MODE_FACTORS: Final[dict[AnalysisMode, float]] = {
+    AnalysisMode.QUICK: 0.6,
+    AnalysisMode.STANDARD: 1.0,
+    AnalysisMode.FULL: 1.4,
+}
 
 # Rows per evidence category before the token budget is even consulted. Bounds the
 # queries; the budget bounds the composition.
@@ -211,15 +225,41 @@ class SectionPolicy:
     # against an annual EBITDA in one sentence because nothing declared this.
     fact_basis: str = "any"
 
+    # The section's target length in words, stated to the model and refused in code past
+    # a headroom factor (gap O4). Zero means unbounded — every definition seeded before
+    # the row carried one, and every custom section.
+    word_budget: int = 0
+
     def as_prompt_payload(self) -> dict[str, Any]:
         """What the model is told about the floor. The budget is not the model's business."""
-        return {
+        payload = {
             "min_sources": self.min_sources,
             "requires_primary": self.requires_primary,
             "max_tier": self.max_tier_rank,
             "allow_forward_looking": self.allow_forward_looking,
             "fact_basis": self.fact_basis,
         }
+        if self.word_budget > 0:
+            # The one budget the model is told: it is asked to write to it, and the
+            # ceiling that refuses an overrun is enforced in `validate_draft`.
+            payload["target_words"] = self.word_budget
+        return payload
+
+    def scaled(self, mode: AnalysisMode) -> SectionPolicy:
+        """This policy at a request's depth (gap O5): budgets multiplied, floors kept.
+
+        Quick runs read and write less, full runs more; the evidence floor and the tier
+        ceiling never move, because depth is how much work a run does — not how little
+        support a claim may stand on.
+        """
+        factor = _MODE_FACTORS[mode]
+        if factor == 1:
+            return self
+        return replace(
+            self,
+            token_budget=max(1, int(self.token_budget * factor)),
+            word_budget=int(self.word_budget * factor),
+        )
 
 
 @dataclass(slots=True)
@@ -565,6 +605,12 @@ def _within_budget(units: list[EvidenceUnit], *, budget: int) -> Evidence:
     return evidence
 
 
+# The refusal line sits above the stated budget, as the claim ceilings do: the budget is
+# the instruction, the ceiling is the rule, and the gap between them is what stops a
+# draft two words over from costing a retry.
+_WORD_CEILING_FACTOR: Final = 1.25
+
+
 def validate_draft(
     draft: CustomSectionDraft,
     *,
@@ -617,6 +663,29 @@ def validate_draft(
 
     covered = [claim.statement for claim in draft.claims if claim.kind == "numeric"]
     problems.extend(unsourced_numerals(draft.content, covered))
+
+    # The gap budget (R4). A live report spent a third of its prose describing absent
+    # disclosure — honestly, and uselessly: rule 6 said "one clause and move on", nothing
+    # enforced it, and advisory rules drift. One sentence per section may be about what
+    # is missing; the rest must be about the company.
+    gaps = gap_sentences(draft.content)
+    if len(gaps) > MAX_GAP_SENTENCES:
+        shown = "; ".join(f"{sentence[:80]!r}" for sentence in gaps[:4])
+        problems.append(
+            f"{len(gaps)} sentences describe missing evidence ({shown}). At most "
+            f"{MAX_GAP_SENTENCES} is allowed: state the gap in one clause and spend the "
+            "rest of the section on what the evidence does support."
+        )
+
+    if policy.word_budget > 0:
+        words = prose_word_count(draft.content)
+        ceiling = int(policy.word_budget * _WORD_CEILING_FACTOR)
+        if words > ceiling:
+            problems.append(
+                f"The content runs to {words} words against this section's budget of "
+                f"{policy.word_budget}. Cut it to the budget: keep the analysis, drop "
+                "the restatement and the narration."
+            )
     return problems
 
 

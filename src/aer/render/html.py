@@ -98,6 +98,7 @@ def render_html(document: ReportDocument) -> str:
             }
             for row in document.appendix
         ],
+        limitations=document.limitations,
         referenced=sorted(seen),
         disclaimer_html=_emphasise(document.disclaimer),
         comps_html=(

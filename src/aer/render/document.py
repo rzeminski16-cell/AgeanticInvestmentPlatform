@@ -284,6 +284,11 @@ class ReportDocument:
     # were already formatted with it during the walk.
     style: HouseStyle = dataclass_field(default_factory=HouseStyle)
 
+    # Every degraded section's note, consolidated (gap R4): the reader meets each
+    # limitation once, in one place near the end, instead of a recurring banner carrying
+    # the same sentence through the whole note. The per-section banner stays, one line.
+    limitations: tuple[tuple[str, str], ...] = ()
+
     @property
     def section_keys(self) -> list[str]:
         return [section.key for section in self.sections]
@@ -417,6 +422,11 @@ async def assemble_document(
         footnotes=footnotes,
         appendix=appendix,
         style=active_style,
+        limitations=tuple(
+            (view.title, str(section.low_confidence_reason))
+            for section, view in zip(sections, views, strict=True)
+            if section.low_confidence_reason
+        ),
         citations=citations,
         charts=tuple(chart_views),
         job_id=job.id,
