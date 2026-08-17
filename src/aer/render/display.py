@@ -129,7 +129,7 @@ def _unit_reading(
 
     if "/" in unit:
         top, bottom = unit.split("/", 1)
-        if top.upper() in _SYMBOLS and bottom.strip().lower() == "shares":
+        if top.upper() in _SYMBOLS and bottom.strip().lower() in {"share", "shares"}:
             symbol = _SYMBOLS[top.upper()]
             return f"{symbol}{_grouped(number.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))}"
         return None

@@ -70,6 +70,7 @@ from aer.queue import enqueue_run
 from aer.render.document import UnresolvedFootnote, assemble_document
 from aer.render.html import render_html
 from aer.render.markdown import render_markdown
+from aer.render.summary import summary_document
 from aer.services import approvals as approval_service
 from aer.services import calculations as calculation_service
 from aer.services import cancellation as cancellation_service
@@ -591,6 +592,45 @@ async def run_preview(
 
     document = await _run_document(session, job=job, research_request=research_request)
     return HTMLResponse(render_html(document))
+
+
+@router.get(
+    "/runs/{job_id}/summary",
+    response_class=HTMLResponse,
+    summary="The one-page summary",
+)
+async def run_summary(
+    request: Request,
+    job_id: uuid.UUID,
+    session: DbSession,
+    user: CurrentUser,
+) -> Response:
+    """The run's document narrowed to one page (gap O8).
+
+    A second renderer over the same assembly, never new analysis: the front matter, the
+    at-a-glance numbers, and the sections whose definition rows claim a place. Footnote
+    numbers match the full note, so a marker here is an entry point into it.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    research_request = await session.get(ResearchRequest, job.request_id)
+    if research_request is None:  # pragma: no cover -- a job cannot exist without its request
+        return _problem(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
+
+    exists = await session.scalar(
+        select(ReportSection.id).where(ReportSection.job_id == job_id).limit(1)
+    )
+    if exists is None:
+        return _problem(
+            request,
+            "This run has no sections yet, so there is no document to summarise.",
+            status=HTTP_404_NOT_FOUND,
+        )
+
+    document = await _run_document(session, job=job, research_request=research_request)
+    return HTMLResponse(render_html(summary_document(document), contents=False))
 
 
 async def _run_document(

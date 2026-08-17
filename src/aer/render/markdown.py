@@ -124,6 +124,9 @@ def serialise_markdown(document: ReportDocument) -> str:
     return "\n".join(
         [
             *_header(document.header, style=document.style),
+            # The front page's numbers (gap R10): first thing after the header, so the
+            # reader meets the figures before the prose.
+            *(markdown_lines(document.glance) if document.glance else []),
             *_coverage_block(document.coverage),
             *_sector_block(document.sector),
             *body,

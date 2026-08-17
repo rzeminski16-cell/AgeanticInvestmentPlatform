@@ -169,6 +169,12 @@
   {% endif %}
 </header>
 
+{% if glance_html %}
+<section class="report-section at-a-glance" id="at-a-glance">
+  {{ glance_html }}
+</section>
+{% endif %}
+{% if contents %}
 <nav class="toc" id="contents">
   <h2>Contents</h2>
   <ol>
@@ -194,6 +200,7 @@
   </ol>
   {% endif %}
 </nav>
+{% endif %}
 
 {% if document.sector and document.sector.label %}
 <aside class="sector">

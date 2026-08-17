@@ -236,6 +236,20 @@ class TestTheSeed:
             assert "financial_fact_id" in entry["properties"]
             assert "source_document_id" in entry["properties"]
 
+    async def test_the_one_pager_claims_are_rows(self, db_session: AsyncSession) -> None:
+        """Migration 0040 (gap O8): the view and its counterweight claim the one-page
+        summary in data, for the same reason the exhibit claims do."""
+        for key in ("executive_summary", "key_risks"):
+            rows = list(
+                await db_session.scalars(
+                    select(SectionDefinition).where(
+                        SectionDefinition.key == key, SectionDefinition.origin == "builtin"
+                    )
+                )
+            )
+            assert rows
+            assert all(row.evidence_policy.get("one_pager") is True for row in rows)
+
     async def test_every_model_written_contract_can_carry_a_citation(
         self, db_session: AsyncSession
     ) -> None:

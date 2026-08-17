@@ -75,8 +75,10 @@ __all__ = [
 CITATION_KEYS = ("source_document_id", "calculation_id")
 
 # Keys that carry provenance rather than content: never rendered as text, only turned into
-# footnotes.
-_METADATA_KEYS = frozenset({*CITATION_KEYS, "confidence"})
+# footnotes. ``financial_fact_id`` and ``extraction_id`` are provenance the numeral rule
+# reads and no reader can follow — they name rows in this platform's own tables — so they
+# are hidden here exactly as the numeral rule exempts them.
+_METADATA_KEYS = frozenset({*CITATION_KEYS, "confidence", "financial_fact_id", "extraction_id"})
 
 _HEADING_BASE = 2
 

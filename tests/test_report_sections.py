@@ -350,10 +350,9 @@ class TestDeclaredOrderSurvivesTheDatabase:
         formatter folds each row's unit into its value (gap R1), and a "Unit: USD" column
         beside "$391,035m" would be the machine's bookkeeping shown to a reader."""
         report = await run_to_report(**_run_args(run_context))
-        header = next(
-            line for line in report.content["markdown"].splitlines() if line.startswith("| Label")
-        )
-        assert header == "| Label | Value |"
+        # Presence, not first match: the at-a-glance block (gap R10) leads the document
+        # with its own three-column table, and the section tables keep this shape.
+        assert "| Label | Value |" in report.content["markdown"].splitlines()
 
 
 class TestCitationsResolve:

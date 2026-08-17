@@ -43,6 +43,7 @@ from aer.db.models import (
     SourceDocument,
 )
 from aer.errors import ValidationError
+from aer.render.glance import GLANCE_CONTRACT, GLANCE_TITLE, glance_content
 from aer.sections.registry import sections_for_job
 from aer.sections.render import CitationRef, Fragment, Heading, render_section
 
@@ -166,6 +167,10 @@ class SectionView:
     # marker). Point-in-time is a soft constraint: such a source is used rather than
     # excluded, and the section says so with a small symbol by its heading.
     undated: bool = False
+
+    # Whether the definition row claims a place on the one-page summary (gap O8) —
+    # ``evidence_policy.one_pager``, data for the same reason the exhibit claims are.
+    one_pager: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -312,6 +317,10 @@ class ReportDocument:
     # the same sentence through the whole note. The per-section banner stays, one line.
     limitations: tuple[tuple[str, str], ...] = ()
 
+    # The front page's numbers (gap R10), already walked into fragments — empty when the
+    # run holds nothing to show. Its markers are the document's first.
+    glance: tuple[Fragment, ...] = ()
+
     # The undated-source legend (the C3 marker), present exactly when some section
     # carries the symbol — a legend with no marker, or a marker with no legend, would
     # each leave the reader guessing.
@@ -378,6 +387,23 @@ async def assemble_document(
     views: list[SectionView] = []
     citations: list[CitationRef] = []
 
+    # The front page's numbers (gap R10), first in reading order so its markers are the
+    # document's first. Assembled from stored rows alone; an empty run shows nothing
+    # here and the coverage notice carries the honest account.
+    glance_fragments: tuple[Fragment, ...] = ()
+    glance = await glance_content(session, job=job, request=request)
+    if glance:
+        rendered_glance = render_section(
+            key="at_a_glance",
+            title=GLANCE_TITLE,
+            contract=GLANCE_CONTRACT,
+            content=glance,
+            footnote_start=1,
+            style=active_style,
+        )
+        citations.extend(rendered_glance.citations)
+        glance_fragments = rendered_glance.fragments
+
     # A chart renders beside the section whose definition claims it (gap N1) — reading
     # order, so the interleaved footnote numbering stays "marker 3 is the third marker".
     unclaimed: dict[str, Chart] = {chart.key: chart for chart in charts}
@@ -417,6 +443,9 @@ async def assemble_document(
                 citations=tuple(rendered.citations),
                 generated=section.status not in (SectionStatus.FAILED, SectionStatus.PENDING),
                 charts=placed,
+                one_pager=bool(
+                    (definition.evidence_policy or {}).get("one_pager") if definition else False
+                ),
             )
         )
 
@@ -466,6 +495,7 @@ async def assemble_document(
         job_id=job.id,
         coverage=coverage,
         undated_note=UNDATED_NOTE if any(view.undated for view in views) else None,
+        glance=glance_fragments,
     )
 
 

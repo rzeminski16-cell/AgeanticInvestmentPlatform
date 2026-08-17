@@ -35,6 +35,7 @@ from aer.db.models import (
     Calculation,
     Company,
     Evaluation,
+    FinancialFact,
     Job,
     ReportSection,
     ResearchRequest,
@@ -45,6 +46,7 @@ from aer.db.models import (
     User,
 )
 from aer.render.document import (
+    DISCLAIMER,
     UNDATED_MARKER,
     UNDATED_NOTE,
     CoverageNote,
@@ -59,6 +61,7 @@ from aer.render.markdown import (
     render_markdown,
     serialise_markdown,
 )
+from aer.render.summary import summary_document
 from aer.sections.render import Banner, Heading, _unescaped, render_section
 from tests.workflow_fixtures import AS_OF_DATE
 
@@ -937,6 +940,135 @@ class TestThePeriodSeries:
         rendered = self._rendered()
         table = next(f for f in rendered.fragments if f.__class__.__name__ == "Table")
         assert [row.cells[0] for row in table.rows] == ["Revenue", "Operating margin"]
+
+
+class TestTheFrontPageNumbers:
+    """Gap R10: an at-a-glance block from stored rows, first in reading order — and
+    silence, not apology, when the run holds nothing to show."""
+
+    async def _with_figures(self, scene: dict[str, Any]) -> dict[str, Any]:
+        session: AsyncSession = scene["session"]
+        for year, value in ((2020, "143015000000"), (2021, "168088000000"), (2022, "198270000000")):
+            session.add(
+                FinancialFact(
+                    company_id=scene["company"].id,
+                    source_document_id=DOC_ONE_ID,
+                    concept="revenue",
+                    unit="USD",
+                    value=Decimal(value),
+                    period_end=date(year, 6, 30),
+                    fiscal_year=year,
+                    fiscal_period="FY",
+                    filed_date=date(year, 7, 28),
+                )
+            )
+        session.add(
+            FinancialFact(
+                company_id=scene["company"].id,
+                source_document_id=DOC_ONE_ID,
+                concept="earnings_per_share_diluted",
+                unit="USD/share",
+                value=Decimal("9.65"),
+                period_end=date(2022, 6, 30),
+                fiscal_year=2022,
+                fiscal_period="FY",
+                filed_date=date(2022, 7, 28),
+            )
+        )
+        session.add(
+            Calculation(
+                job_id=scene["job"].id,
+                name="net_margin",
+                formula="net_margin = net_income / revenue",
+                function_ref="aer.calc.basic:net_margin",
+                code_version="goldencode123456",
+                inputs=[],
+                output_value=Decimal("0.367"),
+                output_unit="ratio",
+                sequence=5,
+            )
+        )
+        await session.flush()
+        return scene
+
+    async def test_the_block_leads_the_document_with_the_first_markers(
+        self, scene: dict[str, Any]
+    ) -> None:
+        document = await _document(await self._with_figures(scene))
+        assert document.glance
+
+        markdown = serialise_markdown(document)
+        assert markdown.index("## At a glance") < markdown.index("## Golden Overview")
+        assert "### Latest reported figures" in markdown
+        # House-style values, one marker per figure — and no raw id column: the fact id
+        # is metadata the numeral rule reads, never text a reader sees.
+        assert "| Revenue | FY2022 | $198,270m[^1] |" in markdown
+        assert "| EPS (diluted) | FY2022 | $9.65[^2] |" in markdown
+        # The annual strip is the R9 series shape: periods across the top.
+        assert "|  | FY2020 | FY2021 | FY2022 |" in markdown
+        assert "| Net margin | \N{EM DASH} | 36.7%[^4] |" in markdown
+
+        html = render_html(document)
+        assert html.index('id="at-a-glance"') < html.index('id="contents"')
+
+    async def test_a_run_with_nothing_to_show_shows_nothing(self, scene: dict[str, Any]) -> None:
+        """The golden scene holds no facts and no curated calculation: no block, no
+        apology — the coverage notice owns the honest account."""
+        document = await _document(scene)
+        assert document.glance == ()
+        assert "At a glance" not in serialise_markdown(document)
+
+
+class TestTheOnePageSummary:
+    """Gap O8: a second renderer over the same document — the view, the numbers, the
+    risks — with footnote numbers that match the full note."""
+
+    async def _summary(self, scene: dict[str, Any]) -> tuple[ReportDocument, ReportDocument]:
+        session: AsyncSession = scene["session"]
+        flagged = await session.scalars(
+            select(SectionDefinition).where(
+                SectionDefinition.key.in_(["golden_overview", "golden_warnings"])
+            )
+        )
+        for definition in flagged:
+            definition.evidence_policy = {
+                **(definition.evidence_policy or {}),
+                "one_pager": True,
+            }
+        await session.flush()
+        document = await _document(scene)
+        return document, summary_document(document)
+
+    async def test_only_the_claiming_sections_survive(self, scene: dict[str, Any]) -> None:
+        document, summary = await self._summary(scene)
+        assert [view.key for view in summary.sections] == ["golden_overview", "golden_warnings"]
+        assert summary.charts == ()
+        assert summary.comps_paragraph is None
+        # The claim is data on the definition row, read into the view at assembly.
+        assert [view.key for view in document.sections if view.one_pager] == [
+            "golden_overview",
+            "golden_warnings",
+        ]
+
+    async def test_footnote_numbers_match_the_full_note(self, scene: dict[str, Any]) -> None:
+        """The one-pager is an entry point into the reference document: kept markers
+        keep their numbers, and notes for dropped sections are dropped with them."""
+        _, summary = await self._summary(scene)
+        markdown = serialise_markdown(summary)
+
+        assert "## Golden Overview \N{DAGGER}" in markdown
+        assert "## Golden Unresolved" not in markdown
+        kept = {note.number for note in summary.footnotes}
+        assert kept == {1, 2, 3, 4, 5, 6}  # the overview's markers; the ghost 7/8 gone
+        assert DISCLAIMER in markdown  # the footer travels with every edition
+        assert "[^7]" not in markdown
+
+    async def test_the_summary_page_drops_the_contents(self, scene: dict[str, Any]) -> None:
+        _, summary = await self._summary(scene)
+        html = render_html(summary, contents=False)
+        assert 'id="contents"' not in html
+        assert 'id="at-a-glance"' not in html  # this scene holds no front-page numbers
+        assert "Golden Overview" in html
 
 
 class TestCustomSectionsInTheDocument:

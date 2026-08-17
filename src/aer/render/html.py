@@ -53,12 +53,19 @@ _ENV = Environment(
 )
 
 
-def render_html(document: ReportDocument) -> str:
-    """One :class:`ReportDocument`, as a self-contained HTML page."""
+def render_html(document: ReportDocument, *, contents: bool = True) -> str:
+    """One :class:`ReportDocument`, as a self-contained HTML page.
+
+    ``contents=False`` drops the contents page — the one-page summary's shape (gap O8),
+    where a table of contents for two sections would be furniture without a house.
+    """
     seen: set[int] = set()
     titles = {
         footnote.number: _hover(footnote, style=document.style) for footnote in document.footnotes
     }
+    # Before the sections, in document order: the glance's markers are the document's
+    # first, and the first marker for a number carries the back-reference anchor.
+    glance_html = _blocks(document.glance, seen=seen, titles=titles) if document.glance else None
     sections = [
         {
             "key": section.key,
@@ -75,6 +82,8 @@ def render_html(document: ReportDocument) -> str:
     custom = [section for section in sections if section["origin"] == "skill"]
     return _ENV.get_template("report.html").render(
         document=document,
+        glance_html=glance_html,
+        contents=contents,
         header=document.header,
         sections=sections,
         custom_sections=custom,

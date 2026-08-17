@@ -602,9 +602,11 @@ class TestTheDocumentIntegration:
         document = await self._document_with_charts(scene)
 
         assert document.charts
-        section_markers = sum(len(view.citations) for view in document.sections)
+        # Reading order owns the numbers: the back-of-document pack's markers are the
+        # document's last, after the glance block (gap R10) and every section.
+        pack_markers = sum(len(chart.markers) for chart in document.charts)
         first_chart_marker = min(marker for chart in document.charts for marker in chart.markers)
-        assert first_chart_marker == section_markers + 1
+        assert first_chart_marker == document.footnote_count - pack_markers + 1
         assert document.footnote_count == len(document.citations)
         assert len(document.footnotes) == document.footnote_count
 
@@ -681,9 +683,15 @@ class TestTheDocumentIntegration:
         assert document.charts  # the unclaimed rest keep the pack at the back
 
         # Reading order owns the numbers: the claimed chart's markers directly follow
-        # the section's own, and everything at the back is numbered after them.
+        # the section's own — offset by the glance block, whose markers come first —
+        # and everything at the back is numbered after them.
+        glance_markers = document.footnote_count - (
+            sum(len(view.citations) for view in document.sections)
+            + sum(len(chart.markers) for chart in document.charts)
+            + sum(len(chart.markers) for view in document.sections for chart in view.charts)
+        )
         claimed_markers = [m for chart in claiming.charts for m in chart.markers]
-        assert claimed_markers[0] == len(claiming.citations) + 1
+        assert claimed_markers[0] == glance_markers + len(claiming.citations) + 1
         assert min(m for chart in document.charts for m in chart.markers) > claimed_markers[-1]
 
         markdown = serialise_markdown(document)
