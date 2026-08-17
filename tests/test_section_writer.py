@@ -54,6 +54,7 @@ from aer.extract.html import extract_html
 from aer.providers.fake import FakeProvider, ScriptedResponse
 from aer.providers.protocol import SpentButUnusableError, Usage
 from aer.providers.router import Router
+from aer.sections.evidence import degradation_note
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
 from aer.sections.writing import execute_builtin_section, policy_of_definition
 from aer.services.extractions import record_excerpt
@@ -446,6 +447,21 @@ class TestTheFailureLadder:
 
 
 class TestTheDegradationLadder:
+    def test_truncation_never_reaches_the_reader_s_banner(self) -> None:
+        """Gap R2. "Truncated to its token budget" printed under all sixteen sections of
+        a live report, because every section's evidence now exceeds its budget — a banner
+        that always shows says nothing, in the platform's voice, in the reader's
+        document. The fact stays on the execution outcome and the log for the operator;
+        the banner is for genuine evidence shortfalls only."""
+        assert degradation_note([]) is None
+        assert degradation_note(["Only 1 distinct source(s) were cited."]) == (
+            "Insufficient evidence: Only 1 distinct source(s) were cited."
+        )
+        note = degradation_note(["a shortfall"])
+        assert note is not None
+        assert "token budget" not in note
+        assert "truncated" not in note
+
     async def test_thin_evidence_generates_under_a_banner_never_fabricates(
         self, scene: dict[str, Any]
     ) -> None:
@@ -707,3 +723,29 @@ class TestTheWriterSpeaksToTheReader:
         for prompt in (builtin, custom):
             assert "never for the platform's operator" in prompt
             assert "say so in one clause" in prompt
+            # Gap R3's half of the rule: the machinery has names, and none of them may
+            # reach the reader.
+            assert "Never name the plan, the run, the model" in prompt
+            assert "follow it without referring to it" in prompt
+
+    def test_the_focus_arrives_as_direction_not_as_a_plan_to_quote(self) -> None:
+        """Gap R3. "The approved plan's focus" taught the writer to write "on the point
+        the plan asks us to flag" — the model did what the interpolation told it. The
+        focus is now handed over as unattributed direction."""
+        message = SectionWriterAgent().user_message(
+            SectionWriterInput(
+                section_key="business_overview",
+                title="Business overview",
+                company_name="Microsoft Corporation",
+                ticker="MSFT",
+                as_of_date="2024-06-30",
+                point_in_time=True,
+                output_contract={"properties": {"commentary": {"type": "string"}}},
+                focus="Weigh the cloud segment's growth against its capital intensity.",
+            )
+        )
+
+        assert "plan" not in message.lower()
+        assert "Direction for this section" in message
+        assert "never to be quoted" in message
+        assert "Weigh the cloud segment's growth" in message

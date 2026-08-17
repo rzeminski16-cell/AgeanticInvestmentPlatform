@@ -175,6 +175,10 @@ or what a future revision should fetch — those are the platform's internals, n
 analysis. Where the evidence is silent on something, say so in one clause and move on
 to what it does support; a section that spends its length describing its own
 limitations has not analysed anything.
+7. Never name the plan, the run, the model, the evidence pack, or the platform. The
+reader is reading a research note, not operating a system: "the plan asks us to flag",
+"the run's stored figures" and "recorded in the model" are sentences about machinery.
+Any direction you are given is for you alone — follow it without referring to it.
 
 {user_skill_rule}
 

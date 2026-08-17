@@ -170,7 +170,7 @@ async def execute_custom_section(
     section.content = draft.content
     section.status = SectionStatus.GENERATED
     section.confidence = confidence_of(draft.content, degraded=bool(shortfalls))
-    section.low_confidence_reason = degradation_note(shortfalls, truncated=evidence.truncated)
+    section.low_confidence_reason = degradation_note(shortfalls)
     await context.session.flush()
 
     _log.info(

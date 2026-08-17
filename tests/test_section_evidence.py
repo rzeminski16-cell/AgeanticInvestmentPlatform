@@ -324,6 +324,27 @@ class TestExcerptsAreRankedAndFiltered:
         assert _is_substantive(_DEBT_NOTE)
         assert _is_substantive(_SEGMENT_NOTE)
 
+    async def test_a_source_listing_says_what_each_source_is(self, scene: dict[str, Any]) -> None:
+        """Gap R12. Shown only ids and tiers, a live writer described twenty footnotes
+        of XBRL-aggregate figures as "a single primary filing, the Form 10-Q" — a right
+        citation under a wrong sentence. The listing now carries each source's recorded
+        title, so the writer describes what it actually has."""
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(),
+            categories=frozenset({"search_sources"}),
+        )
+
+        listings = [
+            item
+            for item in evidence.internal
+            if "source_document_id" in item and "extraction_id" not in item
+        ]
+        assert listings, "no source listing survived at all"
+        assert all(item.get("title") for item in listings)
+
 
 class TestTheBudgetKeepsExcerptsASeat:
     async def test_excerpts_survive_a_budget_the_facts_could_fill(

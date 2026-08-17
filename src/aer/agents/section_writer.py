@@ -97,6 +97,10 @@ or what a future revision should fetch — those are the platform's internals, n
 analysis. Where the evidence is silent on something, say so in one clause and move on
 to what it does support; a section that spends its length describing its own
 limitations has not analysed anything.
+7. Never name the plan, the run, the model, the evidence pack, or the platform. The
+reader is reading a research note, not operating a system: "the plan asks us to flag",
+"the run's stored figures" and "recorded in the model" are sentences about machinery.
+Any direction you are given is for you alone — follow it without referring to it.
 
 This section's output contract — your content object must carry exactly these fields:
 {contract}
@@ -164,7 +168,14 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
             + ".",
         ]
         if payload.focus.strip():
-            parts.append(f"The approved plan's focus for this section: {payload.focus.strip()}")
+            # Plain direction, deliberately unattributed. The first wording — "the
+            # approved plan's focus" — taught the writer to tell the reader about the
+            # plan (gap R3): the model wrote "on the point the plan asks us to flag"
+            # because the prompt had named a plan that asks.
+            parts.append(
+                f"Direction for this section, for you and never to be quoted: "
+                f"{payload.focus.strip()}"
+            )
         if payload.evidence_truncated:
             parts.append(
                 "The evidence listing was truncated to this section's token budget; "

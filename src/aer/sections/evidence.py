@@ -423,6 +423,12 @@ async def gather_evidence(
                 EvidenceUnit(
                     internal={
                         "source_document_id": identifier,
+                        # What this source actually is, in its recorded words. A live
+                        # report described twenty footnotes of XBRL-aggregate figures as
+                        # "a single primary filing, the Form 10-Q" (gap R12): the writer
+                        # was shown ids and tiers and invented the rest, and a wrong
+                        # description of a right citation is still a wrong sentence.
+                        "title": source.title or source.url,
                         "tier": source.source_tier.value,
                         "publication_date": (
                             source.publication_date.isoformat() if source.publication_date else None
@@ -741,17 +747,19 @@ def confidence_of(content: dict[str, Any], *, degraded: bool) -> float:
     return min(chosen, 0.3) if degraded else chosen
 
 
-def degradation_note(shortfalls: list[str], *, truncated: bool) -> str | None:
-    """The banner text, §2.12's own words first so a reader cannot mistake the state."""
-    notes = []
-    if shortfalls:
-        notes.append("Insufficient evidence: " + " ".join(shortfalls))
-    if truncated:
-        notes.append(
-            "The evidence offered to this section was truncated to its token budget; "
-            "the analysis rests on what remained."
-        )
-    return " ".join(notes) if notes else None
+def degradation_note(shortfalls: list[str]) -> str | None:
+    """The banner text, §2.12's own words first so a reader cannot mistake the state.
+
+    Evidence shortfalls only — deliberately not truncation (gap R2). The truncation
+    sentence printed under every section of a live report, because every section's
+    evidence now exceeds its budget; a banner that always shows carries no information,
+    and "token budget" is the platform talking to its operator in the reader's document.
+    The fact itself survives where the people watching the run look: the execution
+    outcome, the step output and the structured log all carry ``evidence_truncated``.
+    """
+    if not shortfalls:
+        return None
+    return "Insufficient evidence: " + " ".join(shortfalls)
 
 
 def _uuid_or_none(value: str | None) -> uuid.UUID | None:
