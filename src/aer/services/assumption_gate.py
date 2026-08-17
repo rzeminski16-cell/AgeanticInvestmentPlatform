@@ -193,25 +193,22 @@ def dcf_permitted(sector_key: str) -> bool:
 def gate_required(produced: dict[str, Any]) -> bool:
     """Whether stopping this run for a person would achieve anything.
 
-    Three conditions, and the third is the one worth explaining.
+    A run whose sector mandate blocks a discounted cash flow never reaches a forecast, so
+    it must not wait to approve one. Otherwise the run stops whenever there is anything
+    for the operator to act on: proposals to confirm, or gaps to fill.
 
-    A run whose sector mandate blocks a discounted cash flow never reaches a forecast, so it
-    must not wait to approve one. A run that proposed nothing has nothing to show. And **a
-    run with any assumption still outstanding is not stopped either** — because a gate is
-    only a control if the operator can clear it, and today they cannot: the assumptions
-    surface amends and confirms rows that exist and offers no way to create one that does
-    not. Pausing a run over a missing beta would leave it pausable and not resumable, which
-    is worse than proceeding without a valuation and saying so.
-
-    The proposals are written either way. They appear on the assumptions page, and the step
-    output names every gap with its reason, so the run is honest about what it could not do
-    rather than silently skipping a valuation.
+    **A run with outstanding assumptions used to proceed rather than pause** — a gate is
+    only a control if the operator can clear it, and the assumptions surface could amend
+    and confirm rows that existed but not create one that did not, so pausing over a
+    missing beta left a run pausable and not resumable. The surface now creates rows (gap
+    S2), which is what turned this branch around: the live AAPL run sailed through this
+    gate in 9ms with four inputs missing and produced a report whose red team called the
+    absent valuation material. Stopping is now the useful act — the operator supplies the
+    risk-free rate or the beta, confirms, and resumes into a forecast.
     """
     if not produced.get("dcf_permitted", False):
         return False
-    if produced.get("outstanding"):
-        return False
-    return bool(produced.get("assumptions"))
+    return bool(produced.get("assumptions")) or bool(produced.get("outstanding"))
 
 
 def gate_payload(rows: Sequence[Assumption], outcome: AssumptionGateOutcome) -> dict[str, Any]:

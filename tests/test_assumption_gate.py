@@ -109,10 +109,12 @@ class TestWhenStoppingTheRunAchievesSomething:
     def test_a_run_with_nothing_proposed_does_not_stop(self) -> None:
         assert gate_required({"dcf_permitted": True, "assumptions": [], "outstanding": []}) is False
 
-    def test_a_run_missing_an_input_does_not_stop(self) -> None:
-        # The condition worth explaining. Pausing over a missing beta would leave the run
-        # pausable and not resumable: the operator has to add it, and adding it is a thing
-        # they do to the request rather than to the paused run.
+    def test_a_run_missing_an_input_stops_so_the_operator_can_supply_it(self) -> None:
+        # This asserted the opposite while the assumptions surface could amend rows but
+        # not create one — pausing over a missing beta left the run stopped for nothing.
+        # The surface creates rows now (gap S2), so a gap is exactly what stopping is
+        # for: the live AAPL run sailed through in 9ms with four inputs missing and its
+        # own red team called the absent valuation material.
         assert (
             gate_required(
                 {
@@ -121,7 +123,21 @@ class TestWhenStoppingTheRunAchievesSomething:
                     "outstanding": [{"name": "beta", "reason": "no price history"}],
                 }
             )
-            is False
+            is True
+        )
+
+    def test_a_run_with_only_gaps_still_stops(self) -> None:
+        # Nothing proposed, everything missing: the operator supplying the first value
+        # is the only way this run ever reaches a forecast.
+        assert (
+            gate_required(
+                {
+                    "dcf_permitted": True,
+                    "assumptions": [],
+                    "outstanding": [{"name": "risk_free_rate", "reason": "no macro adapter"}],
+                }
+            )
+            is True
         )
 
     def test_a_complete_set_stops(self) -> None:

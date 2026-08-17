@@ -70,7 +70,7 @@ from aer.skills.resolution import PLANNED_CUSTOM_SECTION_TOOLS, resolve_skills_f
 from aer.storage.local import LocalArtefactStore
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
 from tests.test_skill_frontmatter import MOAT_DURABILITY
-from tests.test_workflow import approve, run_to_next_stop
+from tests.test_workflow import approve, run_clearing_the_assumptions_gate, run_to_next_stop
 from tests.workflow_fixtures import (
     AS_OF_DATE,
     StubSecClient,
@@ -1128,7 +1128,7 @@ class TestTheMoatDurabilityExampleEndToEnd:
 
         await run_to_next_stop(**args)
         await approve(db_session, job=job, gate=GateKind.PLAN, actor=user, step="plan")
-        await run_to_next_stop(**args)
+        await run_clearing_the_assumptions_gate(actor=user, **args)
         await approve(db_session, job=job, gate=GateKind.FINAL, actor=user, step="red_team")
         outcome = await run_to_next_stop(**args)
 

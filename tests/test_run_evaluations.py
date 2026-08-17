@@ -58,7 +58,7 @@ from aer.services.evaluations import evaluate_run, evaluations_for_job
 from aer.services.extractions import record_excerpt
 from aer.storage.local import LocalArtefactStore
 from tests.ledger_fixtures import record_valuation_ledger
-from tests.test_workflow import approve, run_to_next_stop
+from tests.test_workflow import approve, run_clearing_the_assumptions_gate, run_to_next_stop
 from tests.workflow_fixtures import (
     AS_OF_DATE,
     StubSecClient,
@@ -789,7 +789,7 @@ class TestTheSliceWritesItsRows:
 
         await run_to_next_stop(**args)
         await approve(db_session, job=job, gate=GateKind.PLAN, actor=user, step="plan")
-        await run_to_next_stop(**args)
+        await run_clearing_the_assumptions_gate(actor=user, **args)
         await approve(db_session, job=job, gate=GateKind.FINAL, actor=user, step="red_team")
         outcome = await run_to_next_stop(**args)
 

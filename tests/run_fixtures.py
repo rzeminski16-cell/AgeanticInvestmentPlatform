@@ -80,6 +80,13 @@ class Driver:
             )
             await session.commit()
 
+    async def has_run(self, job_id: uuid.UUID, step: str) -> bool:
+        async with self._factory() as session:
+            row = await session.scalar(
+                select(JobStep).where(JobStep.job_id == job_id, JobStep.step_key == step)
+            )
+            return row is not None
+
 
 async def start_run(api: Any, request_id: uuid.UUID) -> dict[str, Any]:
     response = await api.post("/api/runs", json={"request_id": str(request_id)})
@@ -89,11 +96,20 @@ async def start_run(api: Any, request_id: uuid.UUID) -> dict[str, Any]:
 
 
 async def to_final_gate(api: Any, request_id: uuid.UUID, driver: Driver) -> uuid.UUID:
-    """Start a run and drive it to the final gate, approving the plan on the way."""
+    """Start a run and drive it to the final gate, approving the gates on the way.
+
+    The assumptions gate pauses on outstanding inputs now (gap S2); it is cleared here
+    the way an operator choosing to proceed without a valuation would, so the drive still
+    ends waiting at the final gate. Whether the middle pause is that gate is read from
+    the run's own record — the final gate's sealing step cannot have run yet.
+    """
     body = await start_run(api, request_id)
     job_id = uuid.UUID(body["job_id"])
 
     await driver.advance(job_id)
     await driver.approve(job_id, gate=GateKind.PLAN, step="plan")
-    await driver.advance(job_id)
+    status = await driver.advance(job_id)
+    if status is JobStatus.AWAITING_APPROVAL and not await driver.has_run(job_id, "red_team"):
+        await driver.approve(job_id, gate=GateKind.ASSUMPTIONS, step="propose_assumptions")
+        await driver.advance(job_id)
     return job_id

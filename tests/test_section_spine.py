@@ -96,9 +96,15 @@ async def _approve(scene: dict[str, Any], *, gate: GateKind, step: str) -> None:
 
 
 async def _to_second_gate(scene: dict[str, Any]) -> None:
-    """Run to the gate-1 pause, approve, and run to the gate-2 pause."""
+    """Run to the gate-1 pause, approve, and run to the gate-2 pause.
+
+    The assumptions gate pauses in between now (gap S2); it is cleared here as an
+    operator proceeding without a valuation, so the scene still ends at gate 2.
+    """
     await _execute(scene)
     await _approve(scene, gate=GateKind.PLAN, step="plan")
+    await _execute(scene)
+    await _approve(scene, gate=GateKind.ASSUMPTIONS, step="propose_assumptions")
     await _execute(scene)
 
 

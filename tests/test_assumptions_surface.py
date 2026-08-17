@@ -303,6 +303,54 @@ class TestThePage:
         body = (await api.get(f"/api/requests/{request_id}/assumptions")).json()
         assert body["unconfirmed"] == 1
 
+    async def test_creating_through_the_form_uses_the_same_rules_as_the_api(self, api, committed):
+        """Gap S2's page half: the form proposes through the same bounded vocabulary the
+        JSON surface enforces, so the two ways of typing a value cannot drift."""
+        request_id = committed["request"].id
+        page = await api.get(f"/requests/{request_id}/assumptions")
+        token = page.cookies.get("aer_csrf") or ""
+
+        response = await api.post(
+            f"/requests/{request_id}/assumptions/create",
+            data={
+                CSRF_FIELD_NAME: token,
+                "name": "equity_risk_premium",
+                "value": "0.055",
+                "unit": "pure",
+                "justification": "Damodaran's implied US premium at the as-of date.",
+            },
+            follow_redirects=False,
+        )
+        assert response.status_code == 303, response.text
+
+        body = (await api.get(f"/api/requests/{request_id}/assumptions")).json()
+        row = next(r for r in body["assumptions"] if r["name"] == "equity_risk_premium")
+        assert row["proposed_by"] == "owner@example.invalid"
+        assert row["approved"] is False, "typing a value and agreeing to it are separate acts"
+
+    async def test_the_form_refuses_a_name_no_valuation_reads(self, api, committed):
+        request_id = committed["request"].id
+        page = await api.get(f"/requests/{request_id}/assumptions")
+        token = page.cookies.get("aer_csrf") or ""
+
+        response = await api.post(
+            f"/requests/{request_id}/assumptions/create",
+            data={
+                CSRF_FIELD_NAME: token,
+                "name": "terminal_growth_rate",
+                "value": "0.02",
+                "unit": "pure",
+                "justification": "A plausible long-run rate.",
+            },
+            follow_redirects=False,
+        )
+        assert response.status_code == 422
+
+    async def test_the_page_offers_the_names_the_forecast_still_lacks(self, api, committed):
+        page = await api.get(f"/requests/{committed['request'].id}/assumptions")
+        assert 'id="create-assumption"' in page.text
+        assert 'id="outstanding-names"' in page.text
+
     async def test_the_history_page_shows_the_proposal_that_was_replaced(
         self, api, committed, db_engine
     ):

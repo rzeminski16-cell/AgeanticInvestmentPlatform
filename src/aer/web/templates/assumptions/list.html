@@ -162,6 +162,88 @@
     </ul>
   {% endif %}
 
+  <section class="mt-10" id="create-assumption">
+    <h2 class="text-lg font-semibold tracking-tight">Add an assumption</h2>
+    <p class="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+      For a value no run could derive — a risk-free rate, a beta, a forecast driver.
+      What you add here is a proposal like any other: the run cannot rest on it until
+      you also confirm it above.
+    </p>
+    {% if outstanding %}
+      <p class="mt-2 max-w-3xl text-sm text-amber-900 dark:text-amber-100" id="outstanding-names">
+        The forecast still has no value at all for:
+        {% for name in outstanding %}
+          <button
+            type="button"
+            class="font-mono underline underline-offset-2"
+            onclick="document.getElementById('create-name').value='{{ name }}'; document.getElementById('create-name').focus()"
+          >{{ name }}</button>{{ '' if loop.last else ', ' }}
+        {% endfor %}
+      </p>
+    {% endif %}
+    <form
+      method="post"
+      action="/requests/{{ research_request.id }}/assumptions/create"
+      class="mt-4 max-w-xl space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+    >
+      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+      <div>
+        <label for="create-name" class="block text-sm font-medium">Name</label>
+        <input
+          type="text"
+          id="create-name"
+          name="name"
+          required
+          class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
+          placeholder="risk_free_rate"
+        />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label for="create-value" class="block text-sm font-medium">Value</label>
+          <input
+            type="text"
+            id="create-value"
+            name="value"
+            required
+            inputmode="decimal"
+            class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
+            placeholder="0.042"
+          />
+        </div>
+        <div>
+          <label for="create-unit" class="block text-sm font-medium">Unit</label>
+          <input
+            type="text"
+            id="create-unit"
+            name="unit"
+            required
+            class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
+            placeholder="ratio"
+          />
+        </div>
+      </div>
+      <div>
+        <label for="create-why" class="block text-sm font-medium">Where this number comes from</label>
+        <textarea
+          id="create-why"
+          name="justification"
+          rows="2"
+          maxlength="4000"
+          required
+          class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+          placeholder="e.g. 10-year gilt yield, Bank of England, 16 August 2026."
+        ></textarea>
+      </div>
+      <button
+        type="submit"
+        class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-900"
+      >
+        Propose
+      </button>
+    </form>
+  </section>
+
   {% if scenarios %}
     <section class="mt-10">
       <h2 class="text-lg font-semibold tracking-tight">Cases</h2>

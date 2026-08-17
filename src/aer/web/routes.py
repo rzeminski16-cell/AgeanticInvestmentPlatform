@@ -19,6 +19,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from fastapi import APIRouter, Request
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.responses import HTMLResponse, RedirectResponse, Response
@@ -31,7 +32,7 @@ from starlette.status import (
 )
 
 from aer.api.deps import CurrentUser, DbSession, SettingsDep, get_current_user
-from aer.api.routes.assumptions import assumptions_payload
+from aer.api.routes.assumptions import ProposeRequest, assumptions_payload
 from aer.core.enums import AnalysisMode
 from aer.core.schemas.request import (
     SUPPORTED_CURRENCIES,
@@ -48,10 +49,12 @@ from aer.services import requests as request_service
 from aer.services import runs as run_service
 from aer.services import scenarios as scenario_service
 from aer.services.approvals import payload_hash_for
+from aer.services.assumption_gate import outstanding_for
 from aer.version import build_identity
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.forms import ParsedForm, form_values_from, parse_request_form
 from aer.web.templating import render
+from aer.workflow.workflows.vertical_slice_v1 import FORECAST_YEARS
 
 __all__ = ["router"]
 
@@ -790,6 +793,10 @@ async def assumptions_page(
             # confirming a page that has since changed is refused rather than recorded.
             "payload_hash": payload_hash_for(payload),
             "unconfirmed": sum(1 for row in rows if not row.approved),
+            # What the forecast still has no value for at all — each name prefills the
+            # create form below, which is what lets the assumptions gate pause over a gap
+            # rather than proceeding without a valuation (gap S2).
+            "outstanding": list(outstanding_for(rows, years=FORECAST_YEARS)),
             "scenarios": cases,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
@@ -946,6 +953,70 @@ async def amend_assumption_page(
             justification=submitted.get("justification", ""),
             actor=user,
             unit=submitted.get("unit") or None,
+        )
+    except ValidationError as refused:
+        return _problem_page(request, refused.message, HTTP_422_UNPROCESSABLE_CONTENT)
+
+    await session.commit()
+    return _go_to(request, f"/requests/{request_id}/assumptions")
+
+
+@router.post(
+    "/requests/{request_id}/assumptions/create",
+    summary="Put a value forward for an assumption no run could derive",
+)
+async def create_assumption_page(
+    request: Request,
+    request_id: uuid.UUID,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """The half the surface was missing, and the reason the gate could not pause.
+
+    A run that cannot derive a risk-free rate or a beta names the gap and used to proceed
+    without a valuation, because pausing over a row the operator could not create left the
+    run stopped for nothing (gap S2). Creating goes through the same ``propose`` the model
+    uses — the result is a proposal, never a confirmation, because typing a value and
+    agreeing the run may rest on it are separate acts.
+    """
+    found = await request_service.get_request(session, request_id, user_id=user.id)
+    if found is None:
+        return _request_not_found(request, request_id)
+
+    form = await request.form()
+    submitted = {k: str(v) for k, v in form.multi_items() if isinstance(v, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem_page(
+            request,
+            "This form's security token was missing or had expired. Nothing was created.",
+            HTTP_403_FORBIDDEN,
+        )
+
+    # The JSON surface's own validation, so the two ways of typing a value cannot drift:
+    # the same bounded name vocabulary, the same refusal for a name no valuation reads.
+    try:
+        proposed = ProposeRequest(
+            name=submitted.get("name", "").strip(),
+            value=submitted.get("value", ""),  # type: ignore[arg-type]
+            unit=submitted.get("unit", "").strip(),
+            justification=submitted.get("justification", ""),
+        )
+    except PydanticValidationError as invalid:
+        first = invalid.errors()[0]
+        return _problem_page(request, str(first["msg"]), HTTP_422_UNPROCESSABLE_CONTENT)
+
+    try:
+        await assumption_service.propose(
+            session,
+            request_id=request_id,
+            name=proposed.name,
+            value=proposed.value,
+            unit=proposed.unit,
+            justification=proposed.justification,
+            proposed_by=user.email,
+            by_human=True,
         )
     except ValidationError as refused:
         return _problem_page(request, refused.message, HTTP_422_UNPROCESSABLE_CONTENT)

@@ -14,6 +14,7 @@ enforce order and singularity.
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Any
 
 import pytest
 from pydantic import ValidationError as PydanticValidationError
@@ -92,6 +93,34 @@ async def approve(
         actor=actor,  # type: ignore[arg-type]
         payload_hash=str((row.output_ref or {})["payload_hash"]),
     )
+
+
+async def run_clearing_the_assumptions_gate(
+    session: AsyncSession, *, job: Job, actor: object, **kwargs: Any
+) -> run_service.RunOutcome:
+    """Run to the next stop, approving the assumptions gate as an operator would.
+
+    The gate pauses on outstanding inputs now that the surface can create them (gap S2).
+    A flow whose subject is somewhere downstream clears it the way an operator choosing
+    to proceed without a valuation does — approve as-is and resume; a test whose subject
+    *is* the gate keeps calling :func:`run_to_next_stop` and asserts the pause itself.
+
+    Whether the pause is this gate is read from the run's own record: the final gate's
+    sealing step (``red_team``) cannot have run while the run is still waiting at the
+    assumptions gate, and has always run by the time the final gate pauses.
+    """
+    outcome = await run_service.execute(session, job=job, **kwargs)
+    if outcome.status is not JobStatus.AWAITING_APPROVAL:
+        return outcome
+    sealed = await session.scalar(
+        select(JobStep).where(JobStep.job_id == job.id, JobStep.step_key == "red_team")
+    )
+    if sealed is not None:
+        return outcome
+    await approve(
+        session, job=job, gate=GateKind.ASSUMPTIONS, actor=actor, step="propose_assumptions"
+    )
+    return await run_service.execute(session, job=job, **kwargs)
 
 
 @pytest.fixture
@@ -266,7 +295,7 @@ class TestTheWholeRun:
         await run_to_next_stop(**_args(scenario))
         await approve(session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="plan")
 
-        await run_to_next_stop(**_args(scenario))
+        await run_clearing_the_assumptions_gate(actor=scenario["user"], **_args(scenario))
         await approve(
             session, job=job, gate=GateKind.FINAL, actor=scenario["user"], step="red_team"
         )
@@ -622,7 +651,7 @@ class TestResumability:
         await approve(session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="plan")
         await run_to_next_stop(**_args(scenario), stop_after="acquire")
 
-        outcome = await run_to_next_stop(**_args(scenario))
+        outcome = await run_clearing_the_assumptions_gate(actor=scenario["user"], **_args(scenario))
         assert outcome.status is JobStatus.AWAITING_APPROVAL
 
         row = await session.scalar(
@@ -731,7 +760,7 @@ class TestTheApprovalGates:
         job = scenario["job"]
         await run_to_next_stop(**_args(scenario))
         await approve(session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="plan")
-        await run_to_next_stop(**_args(scenario))
+        await run_clearing_the_assumptions_gate(actor=scenario["user"], **_args(scenario))
 
         await approval_service.record_decision(
             session,
@@ -797,7 +826,7 @@ class TestGateTwoWillNotOpenOnUnsupportedEvidence:
         session, job = scenario["session"], scenario["job"]
         await run_to_next_stop(**_args(scenario))
         await approve(session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="plan")
-        await run_to_next_stop(**_args(scenario))
+        await run_clearing_the_assumptions_gate(actor=scenario["user"], **_args(scenario))
 
     async def test_a_run_with_no_claims_reaches_the_gate_as_before(self, scenario: dict) -> None:
         """The Phase 1 workflow makes no claims yet. The check must not invent a failure for a

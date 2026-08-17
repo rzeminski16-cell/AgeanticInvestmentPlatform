@@ -57,7 +57,7 @@ from aer.services.skills import save_skill
 from aer.storage.local import LocalArtefactStore
 from aer.workflow.workflows.vertical_slice_v1 import final_gate_payload
 from tests.test_skill_frontmatter import MOAT_DURABILITY
-from tests.test_workflow import approve, run_to_next_stop
+from tests.test_workflow import approve, run_clearing_the_assumptions_gate, run_to_next_stop
 from tests.workflow_fixtures import (
     AS_OF_DATE,
     StubSecClient,
@@ -828,7 +828,7 @@ async def driven(
     }
     await run_to_next_stop(**args)
     await approve(db_session, job=job, gate=GateKind.PLAN, actor=user, step="plan")
-    outcome = await run_to_next_stop(**args)
+    outcome = await run_clearing_the_assumptions_gate(actor=user, **args)
     return {
         "session": db_session,
         "user": user,

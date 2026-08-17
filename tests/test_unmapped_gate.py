@@ -175,7 +175,13 @@ async def api(
 
 
 async def run_to_the_financials_gate(api: Any, runner: Runner, request_id: uuid.UUID) -> uuid.UUID:
-    """Start a run, approve the plan, and let it stop wherever it stops next."""
+    """Start a run, approve the plan, and let it stop wherever it stops next.
+
+    "Next" excludes the assumptions gate, which pauses on outstanding inputs now (gap
+    S2): a mapped filing's run would otherwise never get past it, so it is cleared here
+    as an operator proceeding without a valuation. An unmapped filing stops at the
+    financials gate before assumptions are ever proposed, so the clearing never fires.
+    """
     response = await api.post("/api/runs", json={"request_id": str(request_id)})
     assert response.status_code == 202, response.text
     job_id = uuid.UUID(response.json()["job_id"])
@@ -185,6 +191,14 @@ async def run_to_the_financials_gate(api: Any, runner: Runner, request_id: uuid.
     assert plan is not None
     await runner.approve(job_id, gate=GateKind.PLAN, payload_hash=str(plan["payload_hash"]))
     await runner.advance(job_id)
+
+    proposed = await runner.output_of(job_id, "propose_assumptions")
+    sealed = await runner.output_of(job_id, "red_team")
+    if proposed is not None and sealed is None:
+        await runner.approve(
+            job_id, gate=GateKind.ASSUMPTIONS, payload_hash=str(proposed["payload_hash"])
+        )
+        await runner.advance(job_id)
     return job_id
 
 
