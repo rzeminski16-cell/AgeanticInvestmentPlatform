@@ -115,7 +115,9 @@ def build_executors(
                     "concept": row.concept,
                     "value": str(row.value),
                     "unit": row.unit,
+                    "period_start": (row.period_start.isoformat() if row.period_start else None),
                     "period_end": row.period_end.isoformat(),
+                    "fiscal_period": row.fiscal_period,
                     "basis": row.basis.value if hasattr(row.basis, "value") else str(row.basis),
                 }
                 for row in rows

@@ -449,6 +449,22 @@ class TestTheDegradationLadder:
         # The seeded tier name resolves to its rank; an unknown name would fall to 5.
         assert policy.max_tier_rank == 4
 
+    async def test_a_declared_fact_basis_reaches_the_policy(self, scene: dict[str, Any]) -> None:
+        definition = scene["section"].definition
+        definition.evidence_policy = {**(definition.evidence_policy or {}), "fact_basis": "annual"}
+
+        assert policy_of_definition(definition).fact_basis == "annual"
+
+    async def test_a_mistyped_basis_costs_the_preference_not_the_section(
+        self, scene: dict[str, Any]
+    ) -> None:
+        # The same fallback rule max_tier applies: a definition row with a typo in a
+        # preference should lose that preference, not refuse to build a policy.
+        definition = scene["section"].definition
+        definition.evidence_policy = {**(definition.evidence_policy or {}), "fact_basis": "anual"}
+
+        assert policy_of_definition(definition).fact_basis == "any"
+
 
 class TestSpentPerSection:
     async def test_the_call_is_metered_against_the_draft_step(self, scene: dict[str, Any]) -> None:

@@ -25,10 +25,11 @@ that is worse than absent because it looks like it can.
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, String, Text, text
+from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, Numeric, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -92,6 +93,14 @@ class Calculation(Base):
 
     output_value: Mapped[Decimal] = mapped_column(Numeric(38, 12), nullable=False)
     output_unit: Mapped[str] = mapped_column(String(32), nullable=False)
+
+    # The reporting period the calculation was struck on — "FY2025" and its bounds — or
+    # NULL for one whose result is not a statement-period figure (a discount rate, a
+    # multiple as at a date). The live report published an EBITDA above its own revenue
+    # because the ratio was annual, the fact quarterly, and no row said which.
+    period_label: Mapped[str | None] = mapped_column(String(32))
+    period_start: Mapped[date | None] = mapped_column(Date)
+    period_end: Mapped[date | None] = mapped_column(Date)
 
     # **Where this calculation sat in its ledger.** `aer.calc.engine` is explicit that order
     # is significant — a calculation can only cite ones that came before it — and without this

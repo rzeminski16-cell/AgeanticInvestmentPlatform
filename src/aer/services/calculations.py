@@ -145,6 +145,9 @@ def _row_for(record: CalculationRecord, *, job_id: uuid.UUID, sequence: int) -> 
         assumptions=list(record.assumptions),
         output_value=record.output_value,
         output_unit=record.output_unit,
+        period_label=record.period.label if record.period else None,
+        period_start=record.period.start if record.period else None,
+        period_end=record.period.end if record.period else None,
     )
 
 

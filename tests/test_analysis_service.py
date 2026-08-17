@@ -187,6 +187,23 @@ class TestTheAnalysisRuns:
         assert len(rows) > 1
         assert all(row.formula for row in rows)
 
+    async def test_every_derivation_is_stamped_with_its_fiscal_year(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The live report put an annual EBITDA beside a quarterly revenue and called the
+        pair a margin; the stamp is what makes an analysis figure's basis visible."""
+        await _seed(scene, _facts(scene, period_end=date(2023, 12, 31), filed=date(2024, 2, 1)))
+        context = new_context()
+
+        await analyse_company(
+            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+        )
+        rows = await persist_context(scene["session"], context, job_id=scene["job"].id)
+
+        assert all(row.period_label == "FY2023" for row in rows)
+        assert all(row.period_end == date(2023, 12, 31) for row in rows)
+        assert all(row.period_start == date(2023, 1, 1) for row in rows)
+
     async def test_periods_come_back_most_recent_first(self, scene: dict[str, Any]) -> None:
         for year in (2021, 2022, 2023):
             await _seed(

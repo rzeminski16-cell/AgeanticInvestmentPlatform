@@ -162,17 +162,24 @@ async def analyse_company(
     previous: StatementSet | None = None
     for period_end in reversed(ordered):
         rows = facts[period_end]
-        statements = assemble(context, _quantities(rows))
-        unplaced.update(statements.unplaced)
-        periods.append(
-            PeriodAnalysis(
-                period_end=period_end,
-                fiscal_year=next((row.fiscal_year for row in rows if row.fiscal_year), None),
-                statements=statements,
-                ratios=compute_ratios(context, statements),
-                quality=assess_quality(context, statements, prior=previous),
+        fiscal_year = next((row.fiscal_year for row in rows if row.fiscal_year), None)
+        # Every derivation this pass strikes — subtotals, ratios, quality signals — is a
+        # figure *of this fiscal year*, and the stamp is what lets a reader (and the
+        # consistency check) tell an annual ratio from the quarterly fact beside it.
+        label = f"FY{fiscal_year}" if fiscal_year else period_end.isoformat()
+        start = min((row.period_start for row in rows if row.period_start), default=None)
+        with context.period(label, start=start, end=period_end):
+            statements = assemble(context, _quantities(rows))
+            unplaced.update(statements.unplaced)
+            periods.append(
+                PeriodAnalysis(
+                    period_end=period_end,
+                    fiscal_year=fiscal_year,
+                    statements=statements,
+                    ratios=compute_ratios(context, statements),
+                    quality=assess_quality(context, statements, prior=previous),
+                )
             )
-        )
         previous = statements
 
     skipped: list[str] = []

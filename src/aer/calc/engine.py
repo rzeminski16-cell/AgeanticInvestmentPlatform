@@ -39,8 +39,10 @@ from __future__ import annotations
 
 import inspect
 import uuid
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import date
 from decimal import Decimal
 from typing import Any, Concatenate, Final, ParamSpec
 
@@ -58,6 +60,7 @@ __all__ = [
     "CalculationContext",
     "CalculationInput",
     "CalculationRecord",
+    "PeriodStamp",
     "traced",
 ]
 
@@ -103,6 +106,25 @@ class CalculationInput:
 
 
 @dataclass(frozen=True, slots=True)
+class PeriodStamp:
+    """The reporting period a calculation was struck on.
+
+    The live AAPL report printed an EBITDA above its own revenue because the ratio was an
+    annual figure and the fact beside it a quarterly one, and nothing anywhere said so. A
+    figure's period is part of what the figure *is*: a record without one can only be
+    compared to another by hoping both meant the same span.
+
+    ``label`` is the human form a reader compares by — "FY2025", "Q3 2026". The dates
+    bound the span exactly for code that needs more than a name; either may be ``None``
+    when the source facts did not state it.
+    """
+
+    label: str
+    start: date | None = None
+    end: date | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class CalculationRecord:
     """Everything needed to re-check one computation.
 
@@ -121,6 +143,12 @@ class CalculationRecord:
     output_unit: str
     parameters: Mapping[str, Any] = field(default_factory=dict)
     assumptions: tuple[str, ...] = ()
+
+    # The period scope in force when the calculation was struck, or None for one whose
+    # result is not a statement-period figure at all (a discount rate, a price multiple
+    # as at a date). Stamped by the context, not passed by callers — see
+    # CalculationContext.period.
+    period: PeriodStamp | None = None
 
     @property
     def source_ref(self) -> SourceRef:
@@ -146,6 +174,15 @@ class CalculationRecord:
             "output_value": str(self.output_value),
             "output_unit": self.output_unit,
             "assumptions": list(self.assumptions),
+            "period": (
+                {
+                    "label": self.period.label,
+                    "start": self.period.start.isoformat() if self.period.start else None,
+                    "end": self.period.end.isoformat() if self.period.end else None,
+                }
+                if self.period
+                else None
+            ),
         }
 
     def __str__(self) -> str:
@@ -165,11 +202,36 @@ class CalculationContext:
     passes :func:`aer.version.git_sha`'s answer in.
     """
 
-    __slots__ = ("_records", "code_version")
+    __slots__ = ("_period", "_records", "code_version")
 
     def __init__(self, *, code_version: str = UNKNOWN_CODE_VERSION) -> None:
         self.code_version = code_version or UNKNOWN_CODE_VERSION
         self._records: list[CalculationRecord] = []
+        self._period: PeriodStamp | None = None
+
+    @property
+    def current_period(self) -> PeriodStamp | None:
+        """The period scope in force, stamped onto every record struck while it holds."""
+        return self._period
+
+    @contextmanager
+    def period(
+        self, label: str, *, start: date | None = None, end: date | None = None
+    ) -> Iterator[None]:
+        """Stamp every calculation struck inside the block with this reporting period.
+
+        A scope on the ledger rather than a parameter on every call, because the period
+        is a property of the *pass* — "now computing FY2025" — and threading it through
+        forty traced signatures would make every calculation's interface about something
+        none of their arithmetic uses. Scopes restore what they replaced, so nesting is
+        safe and leaving the block always returns to the enclosing state.
+        """
+        previous = self._period
+        self._period = PeriodStamp(label=label, start=start, end=end)
+        try:
+            yield
+        finally:
+            self._period = previous
 
     @property
     def records(self) -> tuple[CalculationRecord, ...]:
@@ -248,6 +310,7 @@ def traced(
                     output_unit=result.unit.symbol,
                     parameters=parameters,
                     assumptions=tuple(assumptions),
+                    period=context.current_period,
                 )
             )
             # Attributed to its own record, so passing this result into another traced

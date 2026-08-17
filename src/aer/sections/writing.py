@@ -58,7 +58,19 @@ def policy_of_definition(definition: SectionDefinition) -> SectionPolicy:
         token_budget=definition.token_budget,
         concept_priority=_names(stated.get("concept_priority")),
         excerpt_keywords=_names(stated.get("excerpt_keywords")),
+        fact_basis=_basis(stated.get("fact_basis")),
     )
+
+
+def _basis(value: object) -> str:
+    """A declared fact basis, or "any" for absent and for anything unrecognised.
+
+    Falling back rather than raising, for the same reason max_tier does: a definition
+    row with a mistyped preference should cost that preference, not the section.
+    """
+    if isinstance(value, str) and value in {"annual", "interim", "any"}:
+        return value
+    return "any"
 
 
 def _names(value: object) -> tuple[str, ...]:

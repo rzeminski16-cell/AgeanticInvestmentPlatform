@@ -195,6 +195,56 @@ class TestTheRecord:
         assert isinstance(payload["inputs"][0]["value"], str)
 
 
+class TestThePeriodStamp:
+    """The reporting period travels on the record, set as a scope on the ledger.
+
+    The live report printed an annual EBITDA beside a quarterly revenue and called the
+    pair a margin; the stamp is what makes that mixture visible instead of silent.
+    """
+
+    def test_a_scope_stamps_every_record_struck_inside_it(self, context):
+        with context.period("FY2025", start=date(2024, 9, 29), end=date(2025, 9, 27)):
+            cagr(context, start=usd(100), end=usd(200), years=3)
+
+        stamp = context.records[0].period
+        assert stamp is not None
+        assert stamp.label == "FY2025"
+        assert stamp.start == date(2024, 9, 29)
+        assert stamp.end == date(2025, 9, 27)
+
+    def test_no_scope_means_no_stamp(self, context):
+        # A discount rate or a multiple as at a date is not a statement-period figure,
+        # and pretending otherwise would be a false provenance claim.
+        cagr(context, start=usd(100), end=usd(200), years=3)
+
+        assert context.records[0].period is None
+
+    def test_leaving_the_scope_restores_what_it_replaced(self, context):
+        with context.period("FY2024"):
+            with context.period("FY2025"):
+                cagr(context, start=usd(100), end=usd(200), years=3)
+            growth_rate(context, start=usd(100), end=usd(110))
+        cagr(context, start=usd(100), end=usd(300), years=2)
+
+        labels = [r.period.label if r.period else None for r in context.records]
+        assert labels == ["FY2025", "FY2024", None]
+
+    def test_a_raise_unwinds_to_the_enclosing_scope_not_to_nothing(self, context):
+        with context.period("FY2024"):
+            with pytest.raises(UnsourcedValueError), context.period("FY2025"):
+                cagr(context, start=Decimal(100), end=usd(200), years=3)
+
+            assert context.current_period is not None
+            assert context.current_period.label == "FY2024"
+
+    def test_the_stamp_serialises_with_the_record(self, context):
+        with context.period("FY2025", end=date(2025, 9, 27)):
+            cagr(context, start=usd(100), end=usd(200), years=3)
+
+        payload = context.records[0].as_dict()
+        assert payload["period"] == {"label": "FY2025", "start": None, "end": "2025-09-27"}
+
+
 class TestChaining:
     def test_a_result_is_attributed_to_its_own_calculation(self, context):
         result = growth_rate(context, start=usd(100), end=usd(110))
@@ -393,6 +443,27 @@ class TestPersistence:
 
         assert row is not None
         assert row.output_value == Decimal("0.309624864525")
+
+    async def test_the_period_stamp_reaches_the_row(self, db_session, job, context):
+        with context.period("FY2025", start=date(2024, 9, 29), end=date(2025, 9, 27)):
+            margin(context, part=usd(30), whole=usd(100))
+        # Struck outside any scope: not a statement-period figure, and honestly so.
+        growth_rate(context, start=usd(100), end=usd(110))
+
+        await calculation_service.persist_context(db_session, context, job_id=job.id)
+        rows = list(
+            await db_session.scalars(
+                select(Calculation)
+                .where(Calculation.job_id == job.id)
+                .order_by(Calculation.sequence)
+            )
+        )
+
+        assert rows[0].period_label == "FY2025"
+        assert rows[0].period_start == date(2024, 9, 29)
+        assert rows[0].period_end == date(2025, 9, 27)
+        assert rows[1].period_label is None
+        assert rows[1].period_end is None
 
     async def test_persisting_an_empty_context_raises(self, db_session, job):
         # Almost always a caller that passed its traced functions a different context from

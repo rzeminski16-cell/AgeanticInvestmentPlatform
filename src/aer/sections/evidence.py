@@ -80,6 +80,11 @@ EVIDENCE_ITEM_CAP: Final = 40
 _FACT_POOL: Final = 400
 _EXCERPT_POOL: Final = 200
 
+# The fiscal_period value a full-year fact carries — the same marker the analysis pass
+# filters on. A section declaring fact_basis "annual" sees only these; "interim" sees
+# only the rest.
+_ANNUAL_PERIOD: Final = "FY"
+
 # How much of a section's token budget the compact listings may consume, leaving the
 # remainder for excerpts. Without the reservation the listings — gathered first because
 # they are id-bearing and cheap — starved every excerpt out of the composition, and the
@@ -199,6 +204,13 @@ class SectionPolicy:
     concept_priority: tuple[str, ...] = ()
     excerpt_keywords: tuple[str, ...] = ()
 
+    # Which reporting basis this section's facts should come from: "annual" for the
+    # sections whose argument is built on full-year figures (the history, the earnings
+    # quality signals — both computed FY-only), "interim" for one that wants only the
+    # newest quarters, "any" for the rest. The live report put a quarterly revenue
+    # against an annual EBITDA in one sentence because nothing declared this.
+    fact_basis: str = "any"
+
     def as_prompt_payload(self) -> dict[str, Any]:
         """What the model is told about the floor. The budget is not the model's business."""
         return {
@@ -206,6 +218,7 @@ class SectionPolicy:
             "requires_primary": self.requires_primary,
             "max_tier": self.max_tier_rank,
             "allow_forward_looking": self.allow_forward_looking,
+            "fact_basis": self.fact_basis,
         }
 
 
@@ -311,13 +324,23 @@ async def gather_evidence(
     spent_on_listings = 0
 
     if "search_facts" in categories:
+        selection = (
+            select(FinancialFact)
+            .join(SourceDocument, SourceDocument.id == FinancialFact.source_document_id)
+            .where(SourceDocument.request_id == request.id)
+        )
+        # The section's declared basis, applied in the query rather than after ranking:
+        # a history section that wants annual figures should spend its whole fact budget
+        # on them, not on whatever quarterly rows out-ranked them on recency.
+        if policy.fact_basis == "annual":
+            selection = selection.where(FinancialFact.fiscal_period == _ANNUAL_PERIOD)
+        elif policy.fact_basis == "interim":
+            selection = selection.where(FinancialFact.fiscal_period != _ANNUAL_PERIOD)
         pool = list(
             await session.scalars(
-                select(FinancialFact)
-                .join(SourceDocument, SourceDocument.id == FinancialFact.source_document_id)
-                .where(SourceDocument.request_id == request.id)
-                .order_by(FinancialFact.period_end.desc(), FinancialFact.concept)
-                .limit(_FACT_POOL)
+                selection.order_by(FinancialFact.period_end.desc(), FinancialFact.concept).limit(
+                    _FACT_POOL
+                )
             )
         )
         pool.sort(key=lambda row: (concept_rank(row.concept), _period_recency(row)))
@@ -330,7 +353,14 @@ async def gather_evidence(
                     "concept": row.concept,
                     "value": str(row.value),
                     "unit": row.unit,
+                    # The full span, not just its end. A June quarter and a nine-month
+                    # year-to-date share a period_end, and the live report compared one
+                    # against an annual ratio without any of the three saying which
+                    # basis it was on.
+                    "period_start": row.period_start.isoformat() if row.period_start else None,
                     "period_end": row.period_end.isoformat(),
+                    "fiscal_period": row.fiscal_period,
+                    "fiscal_year": row.fiscal_year,
                     "source_document_id": source_id,
                 },
                 fact_source=(identifier, source_id),
@@ -356,6 +386,11 @@ async def gather_evidence(
                     "name": calc.name,
                     "value": str(calc.output_value),
                     "unit": calc.output_unit,
+                    # "FY2025", or None for a figure that is not of any statement
+                    # period. Beside the facts' fiscal fields this is what lets the
+                    # writer put an annual ratio and a quarterly fact in one sentence
+                    # without presenting them as the same basis.
+                    "period": calc.period_label,
                 },
                 calculation_id=identifier,
             )

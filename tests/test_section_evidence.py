@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import ExtractionKind, FactBasis, JobStatus, Provider, SourceTier, UserRole
@@ -99,6 +100,7 @@ def _policy(
     *,
     concept_priority: tuple[str, ...] = (),
     excerpt_keywords: tuple[str, ...] = (),
+    fact_basis: str = "any",
 ) -> SectionPolicy:
     return SectionPolicy(
         min_sources=1,
@@ -108,6 +110,7 @@ def _policy(
         token_budget=token_budget,
         concept_priority=concept_priority,
         excerpt_keywords=excerpt_keywords,
+        fact_basis=fact_basis,
     )
 
 
@@ -352,3 +355,94 @@ class TestTheBudgetKeepsExcerptsASeat:
 
         listed = {item["extraction_id"] for item in evidence.internal if "extraction_id" in item}
         assert listed == set(evidence.extraction_sources)
+
+
+class TestTheFactBasisFilter:
+    """The section's declared basis decides which facts it is even offered.
+
+    Page 11 of the live report compared a quarterly revenue against an annual EBITDA in
+    one sentence, because the gatherer handed every section its facts newest-first with
+    no regard for basis. A section that declares "annual" now spends its whole fact
+    budget on full-year rows.
+    """
+
+    @staticmethod
+    async def _seed_mixed_bases(scene: dict[str, Any]) -> None:
+        session: AsyncSession = scene["session"]
+        document_id = (await session.scalars(select(SourceDocument.id).limit(1))).first()
+        company_id = (await session.scalars(select(Company.id).limit(1))).first()
+        for concept, fiscal_period, start, end in (
+            ("annual_revenue", "FY", date(2024, 7, 1), date(2025, 6, 30)),
+            ("quarterly_revenue", "Q4", date(2026, 4, 1), date(2026, 6, 30)),
+        ):
+            session.add(
+                FinancialFact(
+                    company_id=company_id,
+                    source_document_id=document_id,
+                    concept=concept,
+                    value=Decimal(1),
+                    unit="USD",
+                    period_start=start,
+                    period_end=end,
+                    fiscal_year=end.year,
+                    fiscal_period=fiscal_period,
+                    basis=FactBasis.AS_REPORTED,
+                    filed_date=end,
+                )
+            )
+        await session.flush()
+
+    async def test_an_annual_section_is_offered_no_interim_facts(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await self._seed_mixed_bases(scene)
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(fact_basis="annual"),
+            categories=frozenset({"search_facts"}),
+        )
+
+        concepts = _concepts(evidence)
+        assert "annual_revenue" in concepts
+        assert "quarterly_revenue" not in concepts
+
+    async def test_an_interim_section_is_offered_no_full_year_facts(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await self._seed_mixed_bases(scene)
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(fact_basis="interim"),
+            categories=frozenset({"search_facts"}),
+        )
+
+        concepts = _concepts(evidence)
+        assert "quarterly_revenue" in concepts
+        assert "annual_revenue" not in concepts
+
+    async def test_every_fact_item_names_its_span_and_fiscal_period(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The label the writer physically lacked: a June quarter and a nine-month
+        year-to-date share a period_end, and only the span tells them apart."""
+        await self._seed_mixed_bases(scene)
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            # Prioritised so the sixty debris facts cannot budget these two out — the
+            # subject here is the item's fields, not the ranking.
+            policy=_policy(concept_priority=("annual_revenue", "quarterly_revenue")),
+            categories=frozenset({"search_facts"}),
+        )
+
+        annual = next((i for i in evidence.internal if i.get("concept") == "annual_revenue"), None)
+        assert annual is not None
+        assert annual["fiscal_period"] == "FY"
+        assert annual["period_start"] == "2024-07-01"
+        assert annual["period_end"] == "2025-06-30"
+        assert annual["fiscal_year"] == 2025
