@@ -34,6 +34,7 @@ from aer.agents.registry import PLATFORM_CONTRACT, resolve_role
 from aer.agents.user_skill import wrap_user_skill
 from aer.agents.validator import ValidatorAdvisory
 from aer.config import Settings
+from aer.core.concepts import CANONICAL_CONCEPTS
 from aer.core.enums import FactBasis, GateKind, JobStatus, Provider, SourceTier
 from aer.core.section_output import (
     contract_violations,
@@ -42,6 +43,7 @@ from aer.core.section_output import (
     trimmed_to_word_count,
     unsourced_numerals,
     without_document_references,
+    without_product_names,
     without_unsourced_numeral_sentences,
 )
 from aer.db.models import (
@@ -533,6 +535,77 @@ class TestTheSalvage:
         assert narrowed is not None
         assert narrowed["figures"] == [row]
         assert narrowed["commentary"] == "Prose."
+
+
+class TestAProductNameIsNotAFigure:
+    """ADR 0060. A live report lost five sections to the "365" of Microsoft 365.
+
+    The head word decides, so the cases that matter are the pairs: the same three digits
+    after a product name and after a line item must come out differently.
+    """
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Seats on Microsoft 365 continued to expand across the installed base.",
+            "Adoption of Windows 11 accelerated in the commercial channel.",
+            "The Xbox 360 era is long past.",
+            "Deliveries of the Boeing 737 resumed.",
+        ],
+    )
+    def test_a_number_inside_a_name_is_excused(self, text: str) -> None:
+        assert unsourced_numerals({"s": text}, []) == []
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            # The head is a line item the platform's own vocabulary knows.
+            "Revenue 365 was the headline number.",
+            "EBITDA 1234 was reported.",
+            "Cash 500 sat on the balance sheet.",
+            # A measure word makes it a measurement whatever precedes it.
+            "Azure 12 million seats were added.",
+            # Separators and decimals are how figures are written and names are not.
+            "Azure 1,234 was the figure.",
+            "Azure 12.4 was the figure.",
+            "Azure 365% was the growth.",
+            # No capital in the head: ordinary prose, so the number is doing ordinary work.
+            "the segment reached 365 during the period.",
+            # Sentence-initial capitalisation is grammar, not a name — and trusting it
+            # excused a real quantity, which the count suite above caught.
+            "Shipped 240 units.",
+            "Together 365 stores opened.",
+        ],
+    )
+    def test_a_number_that_is_a_figure_still_needs_lineage(self, text: str) -> None:
+        assert unsourced_numerals({"s": text}, []) != []
+
+    def test_a_name_opening_a_sentence_keeps_its_figure(self) -> None:
+        """The accepted cost of the mid-sentence rule, pinned so it stays deliberate.
+
+        Every sentence capitalises its first word, so that capital says nothing about
+        whether "Microsoft" is a name or "Shipped" is a verb. The conservative reading is
+        the only safe one, and ADR 0057's salvage means the cost is a sentence rather than
+        the section.
+        """
+        assert unsourced_numerals({"s": "Microsoft 365 seats grew."}, []) != []
+        assert unsourced_numerals({"s": "Seats on Microsoft 365 grew."}, []) == []
+
+    def test_the_denylist_comes_from_the_concept_map(self) -> None:
+        """Derived rather than listed, so it grows with the vocabulary.
+
+        Asserted through behaviour on a concept word that no hand-written list would
+        think to include.
+        """
+        assert "goodwill" in CANONICAL_CONCEPTS
+        assert unsourced_numerals({"s": "Goodwill 365 remained on the balance sheet."}, []) != []
+
+    def test_the_eraser_only_ever_narrows(self) -> None:
+        """The one-way contract ADR 0054 set: applied to content, never to the claims that
+        provide cover, so a draft that passed before this existed still passes."""
+        text = "Nothing here has any product name in it at all."
+
+        assert without_product_names(text) == text
 
 
 class TestTheLengthSalvage:

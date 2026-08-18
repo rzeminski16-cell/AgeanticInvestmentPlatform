@@ -15,11 +15,13 @@ reference facts and calculations by id, and *"a section that emits a bare numera
 resolvable to one is a validation failure"*. The scan walks every string and number in the
 content and demands that each numeral token also appears in the text of a numeric claim —
 which, by schema and by database constraint, names exactly one stored fact or recorded
-calculation. One carve-out, decided by the operator and recorded in ADR 0054: a numeral
+calculation. Three carve-outs, each decided by the operator and each recorded: a numeral
 inside a recognisable date or document reference — "March 2026", "Q3 2025", "Item 2.02",
-a labelled CIK — denotes no quantity, and refusing it was provenance tripping the rule
-that exists to protect provenance. The exemption is by *span*, never by value: those
-exact characters are excused, and the same digits anywhere else still need lineage.
+a labelled CIK (ADR 0054); a plain count of the prose's own nouns (ADR 0057); and the
+number inside a product name — "Microsoft 365", "Windows 11" (ADR 0060). Each was
+provenance tripping the rule that exists to protect provenance. Every exemption is by
+*span*, never by value: those exact characters are excused, and the same digits anywhere
+else still need lineage.
 
 Pure and ``mypy --strict``: dictionaries in, problem strings out, nothing else consulted.
 """
@@ -31,6 +33,7 @@ from collections.abc import Iterable
 from copy import deepcopy
 from typing import Any, Final
 
+from aer.core.concepts import CANONICAL_CONCEPTS
 from aer.core.schemas.skill import RESERVED_OUTPUT_FIELDS
 
 __all__ = [
@@ -45,6 +48,7 @@ __all__ = [
     "unsourced_numerals",
     "without_document_references",
     "without_plain_counts",
+    "without_product_names",
     "without_unsourced_numeral_sentences",
 ]
 
@@ -142,6 +146,29 @@ _MEASURE_WORDS: Final = (
 # because they are not figures at all. ADR 0057 records the trade.
 _PLAIN_COUNT: Final[re.Pattern[str]] = re.compile(
     rf"(?<![\w.,$£€])\d{{1,2}}(?=\s+(?!(?:{_MEASURE_WORDS})\b)[a-z])"
+)
+
+# The financial vocabulary, derived from the concept map rather than listed here. A word
+# the platform already knows as a line item cannot be the head of a product name, and
+# deriving the set means it grows when the vocabulary does instead of drifting behind it.
+_CONCEPT_WORDS: Final[frozenset[str]] = frozenset(
+    word for concept in CANONICAL_CONCEPTS for word in concept.split("_")
+)
+
+# The prose finance terms the machine vocabulary does not spell, because no filer tags
+# them: a reader writes "EBITDA" and "margin" where a taxonomy writes `operating_income`.
+_PROSE_FINANCE_WORDS: Final[frozenset[str]] = frozenset(
+    {"ebitda", "ebit", "eps", "margin", "margins", "sales", "capex", "opex", "fcf", "arr"}
+)
+
+_FINANCIAL_WORDS: Final[frozenset[str]] = _CONCEPT_WORDS | _PROSE_FINANCE_WORDS
+
+# A number that is part of a name: "Microsoft 365", "Windows 11", "Boeing 737". Matched as
+# the pair, so the guards below can read the word that owns the number — a bare regex
+# cannot tell "Microsoft 365" from "Revenue 365", and only one of those is a product.
+_NAMED_NUMBER: Final[re.Pattern[str]] = re.compile(
+    rf"(?<![\w.,$£€])([A-Za-z][A-Za-z'\u2019&.\-]*)(\s)(\d{{1,4}})(?!\s*%)"
+    rf"(?!\s+(?:{_MEASURE_WORDS})\b)(?![\w.,])"
 )
 
 _JSON_SCALARS: Final[dict[str, type | tuple[type, ...]]] = {
@@ -242,6 +269,63 @@ def without_document_references(text: str) -> str:
     return _REFERENCE.sub(" ", text)
 
 
+def _erased(text: str) -> str:
+    """Every one-way erasure, composed once.
+
+    Written here rather than spelled out at each scan site: the numeral scan and the
+    salvage that removes offending sentences must agree exactly about what counts as a
+    figure, and they drifted apart the moment there were three erasers instead of two.
+    """
+    return without_plain_counts(without_product_names(without_document_references(text)))
+
+
+def without_product_names(text: str) -> str:
+    """The text with the numbers that belong to product names removed.
+
+    "Microsoft 365" is not a figure, and a live report lost five sections to it: the same
+    three digits were flagged in the executive summary, the business overview, the
+    financial analysis and the catalysts, in prose that never once asserted a quantity.
+    ADR 0060 records the decision and the trade.
+
+    **The word that owns the number decides.** A regex alone cannot separate "Microsoft
+    365" from "Revenue 365", so the pair is matched and the head word is read against
+    three tests, all of which it must pass:
+
+    * **It is capitalised mid-sentence.** That is the proper-noun signal. Capitalisation
+      at the *start* of a sentence says nothing — every sentence has it — and trusting
+      it excused "Shipped 240 units", which an existing test caught. The cost is that a
+      product name opening a sentence keeps its figure; the alternative was a rule that
+      lets a real quantity through whenever a sentence begins with a verb.
+    * **It is not a word the platform knows as a line item.** That denylist is *derived*
+      from :data:`~aer.core.concepts.CANONICAL_CONCEPTS`, so it grows with the vocabulary
+      rather than drifting behind it: "Revenue 365", "Cash 500" and "Goodwill 365" stay
+      figures, as does "EBITDA 1234" through the prose terms no filer tags.
+    * **It carries a capital at all**, which the mid-sentence test implies but which is
+      checked plainly because it is the cheapest way to say what a name looks like.
+
+    The number itself is bounded to four bare digits with no separator, no decimal and no
+    per-cent sign, and must not be followed by a measure word: "Azure 12 million" is a
+    measurement whatever precedes it. A product name carries none of those.
+
+    The same one-way contract as the erasers beside it: applied to content before the
+    scan, never to the claims that provide cover, so it can only narrow what gets flagged.
+    """
+
+    def erase(match: re.Match[str]) -> str:
+        name = match.group(1)
+        if not any(character.isupper() for character in name):
+            return match.group(0)
+        if name.strip(".'\u2019&-").lower() in _FINANCIAL_WORDS:
+            return match.group(0)
+        preceding = text[: match.start(1)].rstrip()
+        if not preceding or preceding[-1] in ".!?":
+            # Sentence-initial: the capital is grammar rather than a name.
+            return match.group(0)
+        return f"{name}{match.group(2)}"
+
+    return _NAMED_NUMBER.sub(erase, text)
+
+
 def without_plain_counts(text: str) -> str:
     """The text with plain counts removed — see :data:`_PLAIN_COUNT` and ADR 0057.
 
@@ -293,7 +377,7 @@ def _numerals_by_path(value: Any, *, path: str) -> list[tuple[str, frozenset[str
     to assert one without lineage.
     """
     if isinstance(value, str):
-        found = numerals_in(without_plain_counts(without_document_references(value)))
+        found = numerals_in(_erased(value))
         return [(path, found)] if found else []
     if isinstance(value, bool):
         return []
@@ -438,11 +522,7 @@ def without_unsourced_numeral_sentences(
 
     def scrub_text(value: str) -> str:
         sentences = _SENTENCES.split(value)
-        kept = [
-            sentence
-            for sentence in sentences
-            if numerals_in(without_plain_counts(without_document_references(sentence))) <= covered
-        ]
+        kept = [sentence for sentence in sentences if numerals_in(_erased(sentence)) <= covered]
         if len(kept) == len(sentences):
             return value
         narrowed = " ".join(kept).strip()
