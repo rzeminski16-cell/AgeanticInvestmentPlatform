@@ -87,6 +87,22 @@ class Driver:
             )
             return row is not None
 
+    async def waiting_at(self, job_id: uuid.UUID) -> str | None:
+        """The gate this run is paused at, read from its own steps.
+
+        A driver that guessed which gate a pause belonged to would need updating every time
+        a conditional gate starts firing — which is exactly what happened when the peer set
+        stopped being empty (ADR 0059).
+        """
+        async with self._factory() as session:
+            row = await session.scalar(
+                select(JobStep)
+                .where(JobStep.job_id == job_id, JobStep.status == JobStatus.AWAITING_APPROVAL)
+                .order_by(JobStep.sequence.desc())
+                .limit(1)
+            )
+            return None if row is None else row.step_key
+
 
 async def start_run(api: Any, request_id: uuid.UUID) -> dict[str, Any]:
     response = await api.post("/api/runs", json={"request_id": str(request_id)})
@@ -95,21 +111,38 @@ async def start_run(api: Any, request_id: uuid.UUID) -> dict[str, Any]:
     return body
 
 
+# The gates a drive-to-the-end clears on the operator's behalf, by the step whose output
+# each one approves. Both are conditional and both now fire on an ordinary run: the peer set
+# because a model proposes one (ADR 0059), the assumptions because the gate pauses on
+# outstanding inputs the surface can supply (gap S2). A test whose subject *is* one of these
+# gates drives the run itself and asserts the pause.
+_CLEARED_ON_THE_WAY: dict[str, tuple[GateKind, str]] = {
+    "gate_peer_set": (GateKind.PEER_SET, "propose_peers"),
+    "gate_assumptions": (GateKind.ASSUMPTIONS, "propose_assumptions"),
+}
+
+
 async def to_final_gate(api: Any, request_id: uuid.UUID, driver: Driver) -> uuid.UUID:
     """Start a run and drive it to the final gate, approving the gates on the way.
 
-    The assumptions gate pauses on outstanding inputs now (gap S2); it is cleared here
-    the way an operator choosing to proceed without a valuation would, so the drive still
-    ends waiting at the final gate. Whether the middle pause is that gate is read from
-    the run's own record — the final gate's sealing step cannot have run yet.
+    Each intermediate pause is cleared the way an operator who agrees with the proposal
+    would, so the drive ends waiting at the final gate however many conditional gates fired.
+    Which gate a pause belongs to is read from the run's own steps rather than assumed:
+    guessing is what made this fragile the last two times a conditional gate started firing.
     """
     body = await start_run(api, request_id)
     job_id = uuid.UUID(body["job_id"])
 
     await driver.advance(job_id)
     await driver.approve(job_id, gate=GateKind.PLAN, step="plan")
+
     status = await driver.advance(job_id)
-    if status is JobStatus.AWAITING_APPROVAL and not await driver.has_run(job_id, "red_team"):
-        await driver.approve(job_id, gate=GateKind.ASSUMPTIONS, step="propose_assumptions")
-        await driver.advance(job_id)
+    while status is JobStatus.AWAITING_APPROVAL and not await driver.has_run(job_id, "red_team"):
+        paused_at = await driver.waiting_at(job_id)
+        clearing = _CLEARED_ON_THE_WAY.get(paused_at or "")
+        if clearing is None:
+            break
+        gate, step = clearing
+        await driver.approve(job_id, gate=gate, step=step)
+        status = await driver.advance(job_id)
     return job_id

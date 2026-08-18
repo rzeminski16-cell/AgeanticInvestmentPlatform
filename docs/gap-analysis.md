@@ -235,11 +235,14 @@ the two roles that use the batch endpoint had only ever been run against it.*
   PIT clamp in the adapter, the comps table with each confirmed peer priced and read from
   its own filings (gap S3), the valuation surface reading from the ledger, and the replay
   harness with the gate at ten blocking metrics against the acceptance's eight. The one
-  scoped remainder is recorded on `propose_peers_from_sic` itself: peers are proposed only
-  from companies this database already holds, so a fresh database proposes nobody — honest,
-  and deliberate. A model proposing peers with a written rationale "is better and comes
-  later", and it is a new capability that needs its decision made first, not a stale row on
-  a task board.
+  scoped remainder was recorded on `propose_peers_from_sic` itself: peers were proposed only
+  from companies this database already holds, so a fresh database proposed nobody — honest,
+  and deliberate, but it meant no run had ever produced a comps table. **Closed on
+  2026-08-18 by ADR 0059**: the `peer_proposal` role names comparables by ticker with a
+  rationale, `aer.services.peer_discovery` resolves each one against EDGAR and refuses what
+  it cannot find, and a resolved peer's facts are acquired down the subject's own chain. The
+  SIC lookup stays underneath as the fallback, and the gate is unchanged — the confirmation
+  and the refusal were always indifferent to who proposed.
 
 ---
 
@@ -259,13 +262,11 @@ the order is a summary, and a summary that contradicts its own table is worse th
    decision rather than three tasks: they matter exactly when this stops being a tool on
    one machine, and not before. `docs/PLAN.md` keeps them behind a flag for that reason.
 2. **B9 — watchlists and scheduled runs**, the last unbuilt item of Phase 6's list.
-3. **Peer discovery — the one scoped remainder of the comps chain.** Tasks 30 and 32
-   stood here until the record was checked: both are delivered, and what B3 called "Task
-   30's" — peer filings and prices — gap S3 built. What is left is a decision, not a task:
-   `propose_peers_from_sic` proposes only companies this database already holds, so the
-   comps table stays empty until either a model proposes peers (a new capability, its
-   decision first) or the operator can add one by ticker at the gate and have its facts
-   fetched.
+3. ~~Peer discovery~~ — **done on 2026-08-18** (ADR 0059). It stood here as a decision
+   rather than a task, and the decision was taken: a model proposes, the registry resolves,
+   a person still confirms. One consequence worth knowing before the next live run — the
+   peer-set gate now fires on an ordinary run, where it used to pass straight through on an
+   empty proposal, so a run stops once more than it did.
 4. The rest of Phase 6 in the order `docs/PLAN.md` gives. **A10 to A12 are done** —
    backups with a verifier and a working restore, audit-chain verification, and run-level
    replay — which closes the whole data-lifecycle section. What A9 made pressing is now

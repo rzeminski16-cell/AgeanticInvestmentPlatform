@@ -13,6 +13,7 @@ enforce order and singularity.
 
 from __future__ import annotations
 
+import uuid
 from decimal import Decimal
 from typing import Any
 
@@ -24,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.agents import planner
 from aer.config import Settings
 from aer.core.enums import ClaimKind, Decision, GateKind, JobStatus
+from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import (
     AgentRun,
     Approval,
@@ -44,7 +46,7 @@ from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.services.citations import record_claim
 from aer.storage.local import LocalArtefactStore
-from aer.workflow.workflows.vertical_slice_v1 import build_steps
+from aer.workflow.workflows.vertical_slice_v1 import build_steps, peer_gate_payload
 from tests.workflow_fixtures import (
     SPINE_KEYS,
     StubSecClient,
@@ -95,32 +97,49 @@ async def approve(
     )
 
 
+# The conditional gates a downstream-subject flow clears, by the step each one pauses at.
+# Both fire on an ordinary run: the peer set because a model proposes one (ADR 0059), the
+# assumptions because the gate pauses on outstanding inputs the surface can supply (gap S2).
+_CLEARED_ON_THE_WAY: dict[str, tuple[GateKind, str]] = {
+    "gate_peer_set": (GateKind.PEER_SET, "propose_peers"),
+    "gate_assumptions": (GateKind.ASSUMPTIONS, "propose_assumptions"),
+}
+
+
 async def run_clearing_the_assumptions_gate(
     session: AsyncSession, *, job: Job, actor: object, **kwargs: Any
 ) -> run_service.RunOutcome:
-    """Run to the next stop, approving the assumptions gate as an operator would.
+    """Run to the next stop, approving the intermediate gates as an operator would.
 
-    The gate pauses on outstanding inputs now that the surface can create them (gap S2).
-    A flow whose subject is somewhere downstream clears it the way an operator choosing
-    to proceed without a valuation does — approve as-is and resume; a test whose subject
-    *is* the gate keeps calling :func:`run_to_next_stop` and asserts the pause itself.
+    A flow whose subject is somewhere downstream clears each pause the way an operator who
+    agrees with the proposal does; a test whose subject *is* one of these gates keeps
+    calling :func:`run_to_next_stop` and asserts the pause itself.
 
-    Whether the pause is this gate is read from the run's own record: the final gate's
-    sealing step (``red_team``) cannot have run while the run is still waiting at the
-    assumptions gate, and has always run by the time the final gate pauses.
+    **Which gate a pause belongs to is read from the run's own steps**, rather than assumed
+    from how far along it should be. The version that assumed broke the moment a second
+    conditional gate started firing, and it broke as "the propose_assumptions step has not
+    run" — a message about the wrong gate entirely.
     """
     outcome = await run_service.execute(session, job=job, **kwargs)
-    if outcome.status is not JobStatus.AWAITING_APPROVAL:
-        return outcome
-    sealed = await session.scalar(
-        select(JobStep).where(JobStep.job_id == job.id, JobStep.step_key == "red_team")
-    )
-    if sealed is not None:
-        return outcome
-    await approve(
-        session, job=job, gate=GateKind.ASSUMPTIONS, actor=actor, step="propose_assumptions"
-    )
-    return await run_service.execute(session, job=job, **kwargs)
+    while outcome.status is JobStatus.AWAITING_APPROVAL:
+        sealed = await session.scalar(
+            select(JobStep).where(JobStep.job_id == job.id, JobStep.step_key == "red_team")
+        )
+        if sealed is not None:
+            return outcome
+        paused = await session.scalar(
+            select(JobStep)
+            .where(JobStep.job_id == job.id, JobStep.status == JobStatus.AWAITING_APPROVAL)
+            .order_by(JobStep.sequence.desc())
+            .limit(1)
+        )
+        clearing = _CLEARED_ON_THE_WAY.get(paused.step_key if paused is not None else "")
+        if clearing is None:
+            return outcome
+        gate, step = clearing
+        await approve(session, job=job, gate=gate, actor=actor, step=step)
+        outcome = await run_service.execute(session, job=job, **kwargs)
+    return outcome
 
 
 @pytest.fixture
@@ -479,7 +498,12 @@ class TestTheWholeRun:
         assert schemas.count("RedTeamReport") == 1
         # The two opinions no filing answers (ADR 0046). One call, once per run.
         assert schemas.count("AssumptionProposalDraft") == 1
-        assert finished["provider"].call_count == 24
+        # The peer set, once (ADR 0059). The deterministic lookup underneath it proposes
+        # only companies already stored, so on a first run it proposed nobody and no run
+        # ever produced a comps table; naming comparables is the judgement this platform
+        # asks a model for, and every ticker it returns is resolved against EDGAR in code.
+        assert schemas.count("PeerSlate") == 1
+        assert finished["provider"].call_count == 25
 
     async def test_the_writer_receives_the_planners_approved_focus(self, finished: dict) -> None:
         """The plan's per-section brief — text a human approved at gate 1 — reaches the
@@ -516,6 +540,91 @@ class TestTheWholeRun:
         assert any("168088000000" in row.excerpt for row in rows)
 
 
+class TestThePeerSetAModelProposed:
+    """ADR 0059, at the step rather than at the service.
+
+    `test_peer_discovery.py` covers what happens to one proposed ticker. What this covers
+    is the step around it: that the run reaches the gate with a set, that the set says who
+    proposed it, and that a model call which fails leaves the run proposing rather than
+    failing — the last being the reason the enrichment is wrapped at all.
+    """
+
+    @pytest.fixture
+    async def proposed(self, scenario: dict) -> dict:
+        session = scenario["session"]
+        await run_to_next_stop(**_args(scenario))
+        await approve(
+            session, job=scenario["job"], gate=GateKind.PLAN, actor=scenario["user"], step="plan"
+        )
+        await run_to_next_stop(**_args(scenario), stop_after="propose_peers")
+
+        row = await session.scalar(
+            select(JobStep).where(
+                JobStep.job_id == scenario["job"].id, JobStep.step_key == "propose_peers"
+            )
+        )
+        assert row is not None
+        return {**scenario, "produced": row.output_ref or {}}
+
+    async def test_the_run_reaches_the_gate_with_a_peer(self, proposed: dict) -> None:
+        """The whole point. A fresh database proposed nobody before this existed."""
+        assert proposed["produced"]["peers"]
+
+    async def test_the_set_says_the_model_proposed_it(self, proposed: dict) -> None:
+        assert "aer.agents.peers" in proposed["produced"]["proposed_by"]
+
+    async def test_the_peer_carries_the_model_s_rationale(self, proposed: dict) -> None:
+        assert "comparable software" in proposed["produced"]["peers"][0]["rationale"]
+
+    async def test_the_peer_s_facts_were_acquired(self, proposed: dict) -> None:
+        """A peer with no stored facts cannot be aligned, so acquiring them is the step."""
+        session = proposed["session"]
+        peer_id = proposed["produced"]["peers"][0]["identifier"]
+
+        facts = await session.scalar(
+            select(func.count(FinancialFact.id)).where(
+                FinancialFact.company_id == uuid.UUID(peer_id)
+            )
+        )
+        assert facts is not None
+        assert facts > 0
+
+    async def test_the_hash_covers_the_set_and_not_the_refusals(self, proposed: dict) -> None:
+        """A refusal is context for the reviewer; approving is approving the *peers*."""
+        produced = proposed["produced"]
+        expected = sha256_hex(canonical_json(peer_gate_payload(produced)))
+
+        assert produced["payload_hash"] == expected
+        assert "refused" not in peer_gate_payload(produced)
+
+    async def test_a_model_that_fails_leaves_the_deterministic_proposal(
+        self, scenario: dict
+    ) -> None:
+        """A provider outage must not cost the run its peer step."""
+        session = scenario["session"]
+        await run_to_next_stop(**_args(scenario))
+        await approve(
+            session, job=scenario["job"], gate=GateKind.PLAN, actor=scenario["user"], step="plan"
+        )
+
+        broken = FakeProvider(fail_with=ValidationError("the provider is unavailable"))
+        outcome = await run_to_next_stop(
+            **{**_args(scenario), "provider": broken}, stop_after="propose_peers"
+        )
+
+        row = await session.scalar(
+            select(JobStep).where(
+                JobStep.job_id == scenario["job"].id, JobStep.step_key == "propose_peers"
+            )
+        )
+        assert outcome.status is not JobStatus.FAILED
+        assert row is not None
+        assert row.status is JobStatus.SUCCEEDED
+        # No peers, because this database holds no other company in the subject's industry
+        # — but the step produced a proposal rather than an exception, and says who made it.
+        assert (row.output_ref or {})["proposed_by"] == "sic_group_lookup"
+
+
 class TestEveryStepThatSpendsIsOneTheGuardCanSee:
     """Both budget-check sites read `if step.estimated_cost_gbp > 0`.
 
@@ -535,7 +644,8 @@ class TestEveryStepThatSpendsIsOneTheGuardCanSee:
         {
             "acquire",
             "classify",
-            "propose_peers",
+            # `propose_peers` was here until ADR 0059 gave it a model call, and it moved out
+            # by failing this test rather than by anybody remembering to look.
             "acquire_prices",
             "extract",
             "calculate",
@@ -640,8 +750,12 @@ class TestResumability:
         assert scenario["sec_client"].facts_calls == ["0000789019"]
 
         # It restarts and resumes. The acquire step must not fetch a second time.
+        #
+        # Counted rather than compared to the whole list: the peer step fetches its own
+        # companyfacts for each peer it resolves (ADR 0059), so what makes this test about
+        # resumability is that the *subject's* CIK appears once, not that nothing else does.
         await run_to_next_stop(**_args(scenario))
-        assert scenario["sec_client"].facts_calls == ["0000789019"]
+        assert scenario["sec_client"].facts_calls.count("0000789019") == 1
 
     async def test_the_resumed_run_reaches_the_second_gate(self, scenario: dict) -> None:
         session = scenario["session"]

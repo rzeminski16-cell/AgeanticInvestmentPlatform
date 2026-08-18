@@ -15,6 +15,7 @@ stubbing the parsed result would have meant no artefact and nothing to cite.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import uuid
 from datetime import UTC, date, datetime
@@ -103,10 +104,21 @@ class StubSecClient:
         self.document_calls: list[str] = []
 
     async def resolve_entity(self, ticker: str, *, exchange: str | None = None) -> ResolvedEntity:
+        """The fixture's filer for the subject's ticker, a distinct filer for anything else.
+
+        It used to answer ``MSFT_CIK`` for every ticker, which was harmless while only the
+        acquire step resolved anything. The peer proposal (ADR 0059) resolves the tickers a
+        model returns, and a stub that maps them all onto the subject would have every peer
+        refused as the subject under another listing — a run that differs from a live one
+        for a reason that is entirely about the stub. The facts served are still the
+        fixture's, because what a peer needs from this stub is a real parse, not a second
+        company's history.
+        """
         self.entity_calls.append(ticker)
+        known = ticker.upper() == "MSFT"
         return ResolvedEntity(
-            identifier=MSFT_CIK,
-            name="MICROSOFT CORP",
+            identifier=MSFT_CIK if known else _peer_cik(ticker),
+            name="MICROSOFT CORP" if known else f"{ticker.upper()} CORP",
             ticker=ticker,
             exchange=exchange,
         )
@@ -170,6 +182,18 @@ class StubSecClient:
         )
         stored = await self._store.put_bytes(body)
         return _stub_fetch(ref.url, stored, media_type="text/html")
+
+
+def _peer_cik(ticker: str) -> str:
+    """A stable ten-digit CIK for a ticker that is not the subject's.
+
+    Derived by digest rather than by ``hash``, which is salted per process: an identifier
+    that changed between runs would make the discovery step's own deduplication untestable
+    and would occasionally collide with the subject's. Zero-padded to ten characters
+    because `companies.cik` carries a check constraint for exactly that.
+    """
+    digest = hashlib.sha256(ticker.upper().encode()).hexdigest()
+    return str(int(digest[:12], 16) % 10**9).rjust(10, "9")
 
 
 def _stub_fetch(url: str, stored: Any, *, media_type: str) -> FetchResult:
@@ -345,8 +369,31 @@ def validator_advisory() -> Any:
     )
 
 
+def peer_slate() -> Any:
+    """One peer, whose ticker :class:`StubSecClient` resolves (ADR 0059).
+
+    A slate rather than an empty list, because an empty one would leave every slice run
+    exercising the fallback path and nothing exercising the real one. One entry rather
+    than several: the stub resolves every ticker to the same CIK, so a second would be
+    refused as a duplicate and the run would differ from a live one for a reason that is
+    about the stub.
+    """
+    from aer.agents.peers import PeerSlate, ProposedPeer  # noqa: PLC0415 -- keeps import light
+
+    return PeerSlate(
+        peers=[
+            ProposedPeer(
+                ticker="PEER",
+                name="Peer Corporation",
+                rationale="Scripted proposal: sells comparable software to comparable buyers.",
+            )
+        ]
+    )
+
+
 _STATIC_ANSWERS: dict[str, Any] = {
     "AssumptionProposalDraft": assumption_proposal_draft,
+    "PeerSlate": peer_slate,
     "RedTeamReport": red_team_report,
     "ValidatorAdvisory": validator_advisory,
 }

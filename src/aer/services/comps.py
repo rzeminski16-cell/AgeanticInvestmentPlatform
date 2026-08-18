@@ -161,14 +161,17 @@ async def propose_peers_from_sic(
 ) -> tuple[PeerProposal, ...]:
     """Companies already in this database sharing the subject's industry group.
 
-    **Deterministic, free and reproducible, which makes it the right floor rather than the
-    finished article.** A model proposing peers with a written rationale is better and comes
-    later; this exists so the gate and its refusal are exercised on every run without a model
-    call, exactly as :func:`aer.services.sectors.propose_from_sic` does for classification.
+    **Deterministic, free and reproducible, which makes it the right floor — and it is now
+    a floor rather than the whole proposal.** ADR 0059's `peer_proposal` role names
+    comparables with a written rationale and `aer.services.peer_discovery` resolves and
+    acquires them; this runs alongside, and its entries are merged in underneath the
+    model's. It still costs nothing and still works when the model call fails, which is
+    what a fallback is for.
 
-    A fresh database proposes nobody, and that is the honest answer: this platform has not
-    researched a comparable company yet, so it has none to compare against. The run then has
-    no comps table and the report says so, rather than inventing a peer set.
+    A fresh database proposes nobody *from here*, and that is the honest answer for this
+    lookup: the platform has not researched a comparable company yet, so it holds none. It
+    used to be the answer for the whole step, which is why no run ever produced a comps
+    table until a second proposer existed.
 
     A candidate with no stored financial facts is skipped, because a peer with no period end
     cannot be aligned against the subject and would be excluded a step later anyway.

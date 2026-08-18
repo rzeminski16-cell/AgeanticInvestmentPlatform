@@ -200,6 +200,25 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         adr="0046",
     ),
     RoleDefinition(
+        role="peer_proposal",
+        purpose=(
+            "Propose comparable companies for the peer-set gate, each named by ticker "
+            "with a written rationale. Proposes only: every ticker is resolved against "
+            "the regulator's registry in code, and a person confirms the set."
+        ),
+        output_schema_ref="aer.agents.peers:PeerSlate",
+        # No tools. It is handed the subject's identity and classification and answers
+        # from its own knowledge of the market; the resolution of what it names — and the
+        # fetching of anything about those companies — is code's, so a role that could
+        # fetch would be duplicating a containment that already exists downstream of it.
+        allowed_tools=frozenset(),
+        # A slate is at most eight short entries, but this routes to a model that thinks,
+        # and max_tokens bounds thinking and visible output together (the lesson every
+        # 16_384 in this file records).
+        max_output_tokens=16_384,
+        adr="0059",
+    ),
+    RoleDefinition(
         role="custom_section",
         purpose=(
             "Draft one user-authored section under its pinned composed policy: content "

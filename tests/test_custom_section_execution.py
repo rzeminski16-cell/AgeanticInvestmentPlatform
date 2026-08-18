@@ -76,6 +76,7 @@ from tests.workflow_fixtures import (
     StubSecClient,
     assumption_proposal_draft,
     declared_schema_name,
+    peer_slate,
     planner_response,
     section_draft_for,
     seed_job,
@@ -1053,6 +1054,7 @@ def moat_provider() -> FakeProvider:
                 challenges=[], coverage_note="Scripted fixture: no challenge raised."
             ),
             "AssumptionProposalDraft": assumption_proposal_draft,
+            "PeerSlate": peer_slate,
         }
         if name in static:
             return static[name]()

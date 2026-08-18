@@ -33,6 +33,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.base import AgentContext
+from aer.agents.peers import PROPOSED_BY as PEERS_PROPOSED_BY
+from aer.agents.peers import PeerProposalAgent, PeerProposalInput
 from aer.agents.planner import PlannerAgent, PlannerInput, salvaged_plan
 from aer.agents.worker import ResearchTopic, WorkerExhaustedError, degraded_report
 from aer.calc.basic import cagr
@@ -66,7 +68,7 @@ from aer.db.models import (
 from aer.db.models.plan_skill_pin import PLANNED as PIN_PLANNED
 from aer.db.models.plan_skill_pin import SKIPPED_NOT_APPLICABLE, PlanSkillPin
 from aer.db.models.section_definition import BUILTIN, SKILL
-from aer.errors import ValidationError
+from aer.errors import AerError, ValidationError
 from aer.extract import extract_bytes
 from aer.fetch.policy import DEFAULT_POLICIES
 from aer.providers.protocol import SpentButUnusableError
@@ -102,6 +104,7 @@ from aer.services.exhibits import exportable_charts_for
 from aer.services.extractions import record_excerpts
 from aer.services.facts import persist_facts, upsert_company
 from aer.services.filings import acquire_filings
+from aer.services.peer_discovery import DiscoveredPeers, discover_peers, merged_with
 from aer.services.price_acquisition import acquire_prices
 from aer.services.red_team import run_red_team
 from aer.services.research import build_executors, run_worker
@@ -177,6 +180,13 @@ RED_TEAM_ESTIMATE_GBP: Final = Decimal("1.00")
 # findings, so it is not free.
 ASSUMPTIONS_ESTIMATE_GBP: Final = Decimal("0.20")
 
+# The peer proposal (ADR 0059): one workhorse call at medium effort whose input is the
+# company's identity and classification and whose output is at most eight short entries.
+# The cheapest model call in the workflow, and it carries an estimate for the reason the
+# draft eventually did — a step with no estimate is a step the budget guard waves through,
+# and ADR 0052 makes that a test rather than a convention.
+PEER_PROPOSAL_ESTIMATE_GBP: Final = Decimal("0.05")
+
 # The draft: one Opus call per model-written section, and by a wide margin the most
 # expensive step in the workflow — a measured £5.17 on the first full live run.
 #
@@ -242,7 +252,11 @@ def build_steps() -> list[WorkflowStep]:
         # PEER_SET before SECTOR_SPECIALIST, and that is about approval precedence rather than
         # about step order** — both are conditional, so an undecided one never blocks the
         # other, and the workflow is free to propose in the sequence that makes sense.
-        WorkflowStep(key=PEER_SET_STEP, run=_propose_peers),
+        WorkflowStep(
+            key=PEER_SET_STEP,
+            run=_propose_peers,
+            estimated_cost_gbp=PEER_PROPOSAL_ESTIMATE_GBP,
+        ),
         # Conditional: passes straight through when nothing comparable is in the database.
         # A run with no peers has no comparison to defend and should not wait at a gate to
         # confirm an empty list.
@@ -1338,16 +1352,20 @@ def peer_gate_payload(produced: Mapping[str, Any]) -> dict[str, Any]:
 
 
 async def _propose_peers(context: StepContext) -> StepResult:
-    """Put forward comparable companies, from what this database already holds.
+    """Put forward comparable companies — the model's, resolved and acquired, then the floor.
 
-    **Deterministic in this slice, and a floor rather than the finished article** — the same
-    shape as `_classify`. Companies sharing the subject's SIC group are proposed with the
-    reason stated; a model writing a real rationale per peer replaces the proposal and nothing
-    else, because the confirmation and the refusal are indifferent to who proposed.
+    **A model names them and code decides whether they exist** (ADR 0059). The deterministic
+    lookup underneath proposes only companies this database already holds, so on a first run
+    it proposed nobody and no run ever had a comparison; the companies most comparable to a
+    subject are precisely the ones this platform has not researched yet.
 
-    A database holding no comparable company proposes nobody, no gate fires, and the report
-    says no comparison was performed. That is the honest answer for the first company anybody
-    researches.
+    Every ticker the model returns is resolved against EDGAR's own index, and only a
+    resolved one is fetched — so a hallucinated company appears in ``refused`` rather than
+    at the gate. What survives has had its facts acquired down the subject's own chain,
+    which is why a peer's figures trace to a hashed artefact like everything else here.
+
+    **The floor stays underneath.** A model call that fails leaves the run proposing what
+    the database can support rather than dying, because the enrichment is not the step.
     """
     acquired = context.output_of("acquire")
     company = await context.session.get(Company, _uuid(acquired["company_id"]))
@@ -1356,20 +1374,109 @@ async def _propose_peers(context: StepContext) -> StepResult:
         raise StepPaused(message, gate=None)
 
     request = await _request_for(context)
-    proposals = await propose_peers_from_sic(
-        context.session, subject=company, as_of=request.as_of_date
+    floor = await propose_peers_from_sic(context.session, subject=company, as_of=request.as_of_date)
+
+    agent_context = AgentContext(
+        session=context.session,
+        provider=context.service("provider"),
+        router=context.service("router"),
+        settings=context.service("settings"),
+        store=context.service("store"),
+        job_step=context.step,
     )
+    discovered, consulted = await _peers_from_model(
+        context,
+        agent_context,
+        request=request,
+        company=company,
+        sector_key=sector_key_of(context.outputs),
+    )
+
+    peers = merged_with(discovered.peers, floor)
 
     output: dict[str, Any] = {
         "subject": str(company.id),
         "subject_name": company.name,
         "subject_period_end": request.as_of_date.isoformat(),
         "basis": MultipleBasis.TRAILING_TWELVE_MONTHS.value,
-        "proposed_by": "sic_group_lookup",
-        "peers": [peer.as_dict() for peer in proposals],
+        # Who actually contributed, rather than who was asked. A run whose model call
+        # failed, or whose every suggestion was refused, is one whose peers came from the
+        # lookup — and the gate should say so, because a reviewer weighs a rationale by
+        # knowing what wrote it.
+        "proposed_by": _proposer_names(
+            from_model=len(discovered.peers), total=len(peers), consulted=consulted
+        ),
+        "peers": [peer.as_dict() for peer in peers],
+        # Outside the gate payload on purpose: a refusal is context for the reviewer, not
+        # a thing being approved, and putting it in the hash would make an approval depend
+        # on what the model got wrong rather than on the set being confirmed.
+        "refused": [item.as_dict() for item in discovered.refused],
     }
     output["payload_hash"] = sha256_hex(canonical_json(peer_gate_payload(output)))
-    return StepResult(output=output)
+    return StepResult(output=output, cost_gbp=agent_context.spend_gbp)
+
+
+# What the deterministic proposal has always called itself in the step's output. Named here
+# so the two proposers are written down in one place rather than as a literal in each branch.
+_SIC_LOOKUP: Final = "sic_group_lookup"
+
+
+def _proposer_names(*, from_model: int, total: int, consulted: bool) -> str:
+    """Which proposers put a peer in this set, joined."""
+    names = []
+    if consulted and from_model:
+        names.append(PEERS_PROPOSED_BY)
+    if total > from_model:
+        names.append(_SIC_LOOKUP)
+    return "+".join(names) if names else _SIC_LOOKUP
+
+
+async def _peers_from_model(
+    context: StepContext,
+    agent_context: AgentContext,
+    *,
+    request: ResearchRequest,
+    company: Company,
+    sector_key: str,
+) -> tuple[DiscoveredPeers, bool]:
+    """Ask for a slate and resolve it, or fall back to the floor alone and say so.
+
+    The failure path is the reason this is a function. A provider outage, a budget refusal
+    or an unusable reply must not cost the run its peer step: the deterministic proposal is
+    still there, still gated, still honest about who proposed it — which is what
+    ``proposed_by`` carries.
+    """
+    try:
+        slate = await PeerProposalAgent().run(
+            agent_context,
+            PeerProposalInput(
+                company_name=company.name,
+                ticker=request.ticker,
+                exchange=request.exchange,
+                as_of_date=request.as_of_date.isoformat(),
+                sic=company.sic or "",
+                sic_description=company.sic_description or "",
+                sector=sector_key,
+            ),
+        )
+    except (AerError, ValueError) as exc:
+        _log.warning(
+            "peers.model_unavailable",
+            job_id=str(context.job.id),
+            error_code=getattr(exc, "code", ""),
+        )
+        return DiscoveredPeers(), False
+
+    discovered = await discover_peers(
+        context.session,
+        context.service("store"),
+        client=context.service("sec_client"),
+        request=request,
+        subject=company,
+        proposals=slate.peers,
+        job_id=context.job.id,
+    )
+    return discovered, True
 
 
 async def _gate_peer_set(context: StepContext) -> StepResult:

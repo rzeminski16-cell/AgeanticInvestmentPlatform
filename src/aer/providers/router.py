@@ -46,6 +46,7 @@ _KNOWN_ROLES: Final[frozenset[str]] = frozenset(
         "validator",
         "custom_section",
         "report_writer",
+        "peer_proposal",
         # The cheaper route a descriptive section's definition row may name (gap O1).
         # A route, not a capability: the writer keeps the report_writer role's registry
         # definition and only its bill changes.
