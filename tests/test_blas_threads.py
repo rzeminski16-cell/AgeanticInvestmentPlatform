@@ -153,11 +153,19 @@ class TestTheProcessItActuallyProtects:
 
         That is the exact sequence that deadlocks, so it is the process worth naming in a
         test rather than leaving to inference from the library-level check above.
+
+        The child is given the one setting with no default: arq's ``WorkerSettings``
+        class body reads the configuration at import, so without it the child dies on
+        ``AER_HTTP_USER_AGENT`` before numpy ever loads — which made this test pass only
+        on machines whose working directory happened to hold a filled-in ``.env``.
         """
-        threads = _run_child("""
+        threads = _run_child(
+            """
             import aer.worker  # noqa: F401
             import os
             print(len(os.listdir("/proc/self/task")))
-        """)
+            """,
+            env={"AER_HTTP_USER_AGENT": "Test test@example.invalid"},
+        )
 
         assert threads == "1"

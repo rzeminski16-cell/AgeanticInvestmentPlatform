@@ -253,6 +253,10 @@ async def build_evidence(
     assert filing_artefact is not None
     filing_digest = filing_artefact.sha256
 
+    markers = await _walk_markers(
+        session, job=job, request=request, filing=filing, calculation=calculation
+    )
+
     return {
         "user": user,
         "request": request,
@@ -271,11 +275,44 @@ async def build_evidence(
         "bad_citation": bad_citation,
         "calculation": calculation,
         "walk_section": walk_section,
-        # The document's marker numbers, fixed by the walk: within a cited item the
-        # source marker precedes the calculation marker (CITATION_KEYS order), and the
-        # items render in list order.
-        "markers": {"source": 1, "calculation": 2, "missing_source": 3, "missing_calc": 4},
+        # The document's marker numbers, read off the same assembly the preview and the
+        # drill-down share. Hardcoding them broke the moment the at-a-glance panel began
+        # claiming the leading footnote numbers; derived, they follow the document.
+        "markers": markers,
     }
+
+
+async def _walk_markers(
+    session: AsyncSession,
+    *,
+    job: Job,
+    request: ResearchRequest,
+    filing: SourceDocument,
+    calculation: Calculation,
+) -> dict[str, int]:
+    """The walk section's four marker numbers, as the served document assigns them.
+
+    Read from :func:`aer.web.pages._run_document` — the one assembly the preview and the
+    footnote drill-down share — so these numbers mean what a browser's do by
+    construction rather than by arithmetic this fixture would have to keep in step.
+    """
+    from aer.web.pages import _run_document  # noqa: PLC0415 -- avoids a web import for every user
+
+    document = await _run_document(session, job=job, research_request=request)
+    walk = next(view for view in document.sections if view.key == WALK_SECTION_KEY)
+    targets = {
+        ("source_document", str(filing.id)): "source",
+        ("calculation", str(calculation.id)): "calculation",
+        ("source_document", str(MISSING_SOURCE_ID)): "missing_source",
+        ("calculation", str(MISSING_CALC_ID)): "missing_calc",
+    }
+    markers: dict[str, int] = {}
+    for ref in walk.citations:
+        name = targets.get((ref.kind, ref.identifier))
+        if name is not None:
+            markers[name] = list(document.citations).index(ref) + 1
+    assert set(markers) == set(targets.values()), markers
+    return markers
 
 
 async def _lineage_chain(

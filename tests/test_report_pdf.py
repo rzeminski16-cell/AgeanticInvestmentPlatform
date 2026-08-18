@@ -18,6 +18,7 @@ import pikepdf
 import pytest
 from weasyprint import HTML
 
+from aer.render.document import UNDATED_MARKER
 from aer.render.pdf import PDF_PRODUCER, finish_pdf, render_pdf
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "fx_report"
@@ -107,8 +108,13 @@ class TestTheXmp:
 class TestTheBookmarks:
     def test_every_section_of_the_golden_document_is_bookmarked(self, golden_pdf: bytes) -> None:
         """One bookmark per section heading, from the heading structure alone — which is
-        what makes a bookmark appear for a custom section with no code change."""
-        titles = _outline_titles(golden_pdf)
+        what makes a bookmark appear for a custom section with no code change.
+
+        Compared with the undated-source marker stripped: the C3 dagger travels in the
+        heading's own text, and a bookmark built from the heading faithfully carries it,
+        so a section resting on an undated source is bookmarked as "Title †".
+        """
+        titles = {title.removesuffix(f" {UNDATED_MARKER}") for title in _outline_titles(golden_pdf)}
 
         for expected in (
             "Golden Overview",

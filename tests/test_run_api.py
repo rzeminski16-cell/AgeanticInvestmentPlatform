@@ -1284,12 +1284,13 @@ class TestTheWebPages:
         report = await db_session.scalar(select(Report).where(Report.job_id == job_id))
         assert report is not None
         markdown = str(report.content["markdown"])
-        assert "## Exhibits" in markdown
-        assert "Scenario bridge" in markdown
+        # Beside the analysis it supports, not under a trailing "## Exhibits" pack: the
+        # section that claims the chart carries it (gap N1), at the sub-heading level.
+        assert "### Scenario bridge" in markdown
         assert "Rendered in the HTML and PDF editions" in markdown
 
         preview = await api.get(f"/reports/{report.id}/preview")
-        assert 'id="section-exhibits"' in preview.text
+        assert "Scenario bridge" in preview.text
         assert "data:image/svg+xml;base64," in preview.text
 
     async def test_an_approved_run_freezes_all_three_notations(
