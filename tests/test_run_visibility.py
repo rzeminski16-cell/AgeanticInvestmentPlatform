@@ -44,7 +44,9 @@ from aer.workflow.engine import StepContext, StepResult
 from aer.workflow.workflows import vertical_slice_v1
 from tests.workflow_fixtures import (
     StubSecClient,
+    gate_for,
     make_provider,
+    paused_at,
     seed_job,
     seed_request,
     seed_user,
@@ -143,6 +145,29 @@ class Worker:
         """
         with pytest.raises(Exception):  # noqa: B017, PT011 -- see the docstring
             await self.run(job_id)
+
+    async def waiting_at(self, job_id: uuid.UUID) -> str | None:
+        """Which step this run is paused at, if any."""
+        async with self._factory() as session:
+            return await paused_at(session, job_id)
+
+    async def approve_the_pause(self, job_id: uuid.UUID) -> bool:
+        """Approve whichever conditional gate this run stopped at. **Does not run on.**
+
+        The peer set (ADR 0059) pauses between the plan gate and the second leg's steps,
+        so a test whose subject is further down never reached it — these two failed as
+        "DID NOT RAISE", several steps before the one they make explode.
+
+        Deliberately not "approve and continue": the caller installs a fault *after* this
+        and before the next leg runs, and a helper that advanced would execute the very
+        step the test is about with the real function still in place.
+        """
+        clearing = gate_for(await self.waiting_at(job_id))
+        if clearing is None:
+            return False
+        gate, step = clearing
+        await self.approve(job_id, gate=gate, step=step)
+        return True
 
     async def approve(self, job_id: uuid.UUID, *, gate: GateKind, step: str) -> None:
         """Approve a gate, so the next call runs the following leg."""
@@ -286,6 +311,10 @@ class TestACrashDoesNotUnspendCompletedWork:
 
         await worker.run(job_id)
         await worker.approve(job_id, gate=GateKind.PLAN, step=_PLAN)
+        # The run now stops at the peer-set gate; clearing it puts `calculate` in the next
+        # leg, which is the leg this test makes fail.
+        await worker.run(job_id)
+        assert await worker.approve_the_pause(job_id)
 
         monkeypatch.setattr(vertical_slice_v1, "_calculate", _step_that_explodes)
         await worker.run_expecting_failure(job_id)
@@ -315,6 +344,10 @@ class TestACrashDoesNotUnspendCompletedWork:
 
         await worker.run(job_id)
         await worker.approve(job_id, gate=GateKind.PLAN, step=_PLAN)
+        # The run now stops at the peer-set gate; clearing it puts `calculate` in the next
+        # leg, which is the leg this test makes fail.
+        await worker.run(job_id)
+        assert await worker.approve_the_pause(job_id)
 
         monkeypatch.setattr(vertical_slice_v1, "_calculate", _step_that_explodes)
         await worker.run_expecting_failure(job_id)

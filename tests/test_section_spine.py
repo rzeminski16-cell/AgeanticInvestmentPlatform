@@ -40,7 +40,14 @@ from aer.services import runs as run_service
 from aer.skills.resolution import pinned_skills_for_plan
 from aer.workflow.workflows import vertical_slice_v1
 from aer.workflow.workflows.vertical_slice_v1 import final_gate_payload, plan_gate_payload
-from tests.workflow_fixtures import SPINE_KEYS, seed_job, seed_request, seed_user
+from tests.workflow_fixtures import (
+    SPINE_KEYS,
+    gate_for,
+    paused_at,
+    seed_job,
+    seed_request,
+    seed_user,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -97,16 +104,22 @@ async def _approve(scene: dict[str, Any], *, gate: GateKind, step: str) -> None:
 
 
 async def _to_second_gate(scene: dict[str, Any]) -> None:
-    """Run to the gate-1 pause, approve, and run to the gate-2 pause.
+    """Run to the gate-1 pause, approve, and run on to the gate-2 pause.
 
-    The assumptions gate pauses in between now (gap S2); it is cleared here as an
-    operator proceeding without a valuation, so the scene still ends at gate 2.
+    **Every conditional gate in between is cleared by asking the run where it stopped**,
+    rather than from a list of the pauses this scene is expected to meet. The list version
+    broke the day the peer set stopped being empty (ADR 0059): a gate that had always
+    passed straight through began firing, and a driver that knew the order walked into a
+    pause it had no case for.
     """
     await _execute(scene)
     await _approve(scene, gate=GateKind.PLAN, step="plan")
     await _execute(scene)
-    await _approve(scene, gate=GateKind.ASSUMPTIONS, step="propose_assumptions")
-    await _execute(scene)
+
+    while (clearing := gate_for(await paused_at(scene["session"], scene["job"].id))) is not None:
+        gate, step = clearing
+        await _approve(scene, gate=gate, step=step)
+        await _execute(scene)
 
 
 async def _section(scene: dict[str, Any], key: str) -> ReportSection:

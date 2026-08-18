@@ -34,7 +34,13 @@ from aer.workflow.workflows.vertical_slice_v1 import (
 )
 from tests.api_fixtures import build_app, client_for
 from tests.sec_fixtures import fixture_bytes
-from tests.workflow_fixtures import DEFAULT_PER_RUN_BUDGET_GBP, StubSecClient, make_provider
+from tests.workflow_fixtures import (
+    DEFAULT_PER_RUN_BUDGET_GBP,
+    StubSecClient,
+    gate_for,
+    make_provider,
+    paused_at,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -127,6 +133,11 @@ class Runner:
             )
             return None if row is None else dict(row.output_ref or {})
 
+    async def waiting_at(self, job_id: uuid.UUID) -> str | None:
+        """Which step this run is paused at, if any."""
+        async with self._factory() as session:
+            return await paused_at(session, job_id)
+
     async def approve(self, job_id: uuid.UUID, *, gate: GateKind, payload_hash: str) -> None:
         async with self._factory() as session:
             job = await session.get(Job, job_id)
@@ -177,10 +188,10 @@ async def api(
 async def run_to_the_financials_gate(api: Any, runner: Runner, request_id: uuid.UUID) -> uuid.UUID:
     """Start a run, approve the plan, and let it stop wherever it stops next.
 
-    "Next" excludes the assumptions gate, which pauses on outstanding inputs now (gap
-    S2): a mapped filing's run would otherwise never get past it, so it is cleared here
-    as an operator proceeding without a valuation. An unmapped filing stops at the
-    financials gate before assumptions are ever proposed, so the clearing never fires.
+    "Next" excludes the gates an operator would clear on the way — the peer set (ADR 0059)
+    and the assumptions (gap S2) — which are cleared below by reading the run's own state.
+    An unmapped filing stops at the financials gate before either is reached, so on that
+    path the loop never runs; a mapped filing meets both and would otherwise never arrive.
     """
     response = await api.post("/api/runs", json={"request_id": str(request_id)})
     assert response.status_code == 202, response.text
@@ -192,12 +203,15 @@ async def run_to_the_financials_gate(api: Any, runner: Runner, request_id: uuid.
     await runner.approve(job_id, gate=GateKind.PLAN, payload_hash=str(plan["payload_hash"]))
     await runner.advance(job_id)
 
-    proposed = await runner.output_of(job_id, "propose_assumptions")
-    sealed = await runner.output_of(job_id, "red_team")
-    if proposed is not None and sealed is None:
-        await runner.approve(
-            job_id, gate=GateKind.ASSUMPTIONS, payload_hash=str(proposed["payload_hash"])
-        )
+    # Every conditional gate between the plan and the financials one, cleared by asking the
+    # run where it stopped. The peer set (ADR 0059) joined the assumptions gate here without
+    # this file changing, and a driver that knew the sequence stopped one gate short — the
+    # financials gate stayed QUEUED and every test in this module failed on it.
+    while (clearing := gate_for(await runner.waiting_at(job_id))) is not None:
+        gate, step = clearing
+        produced = await runner.output_of(job_id, step)
+        assert produced is not None, f"the {step} step has not run"
+        await runner.approve(job_id, gate=gate, payload_hash=str(produced["payload_hash"]))
         await runner.advance(job_id)
     return job_id
 

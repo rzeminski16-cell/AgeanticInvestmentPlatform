@@ -34,7 +34,9 @@ from tests.workflow_fixtures import (
     AS_OF_DATE,
     DEFAULT_PER_RUN_BUDGET_GBP,
     StubSecClient,
+    gate_for,
     make_provider,
+    paused_at,
 )
 
 pytestmark = [pytest.mark.e2e, pytest.mark.integration]
@@ -131,14 +133,15 @@ class RunFixture:
             await engine.dispose()
 
     def advance_to_the_final_gate(self) -> JobStatus:
-        """Run until the final gate pauses, clearing the assumptions gate on the way.
+        """Run until the final gate pauses, clearing the interim gates on the way.
 
-        The workflow has grown gates between the plan and the final review; the one that
-        fires for this scene is the assumptions gate (ADR 0046), and these tests are not
-        about it. Whether a pause is the final gate is read from the run's own record,
-        exactly as ``tests.test_workflow.run_clearing_the_assumptions_gate`` reads it:
-        ``red_team`` — the final gate's sealing step — has always run by the time the
-        final gate pauses, and can never have run before it.
+        The workflow has grown gates between the plan and the final review — the
+        assumptions (ADR 0046) and now the peer set (ADR 0059) — and these tests are about
+        neither. Which gate a pause belongs to is read from the run's own record and
+        looked up in ``CONDITIONAL_GATES``, so a gate that starts firing for this scene is
+        cleared rather than asserted against. Whether a pause is the *final* gate is read
+        the same way: ``red_team`` — the final gate's sealing step — has always run by the
+        time the final gate pauses, and can never have run before it.
         """
         return run_async(self._advance_to_the_final_gate())
 
@@ -170,40 +173,35 @@ class RunFixture:
                     )
                     if sealed is not None:
                         return outcome.status
-                    await self._approve_the_assumptions(session, job)
+                    await self._approve_the_interim_gate(session, job)
                 raise AssertionError("the run kept pausing at interim gates")
         finally:
             await engine.dispose()
 
-    async def _approve_the_assumptions(self, session: Any, job: Job) -> None:
-        paused = await session.scalar(
-            select(JobStep)
-            .where(
-                JobStep.job_id == self.job_id,
-                JobStep.status == JobStatus.AWAITING_APPROVAL,
-            )
-            .order_by(JobStep.sequence.desc())
-        )
+    async def _approve_the_interim_gate(self, session: Any, job: Job) -> None:
+        """Approve whichever conditional gate this run stopped at, as an operator would."""
+        paused = await paused_at(session, self.job_id)
         assert paused is not None, "the run pauses awaiting approval with no recorded gate step"
-        assert paused.step_key == "gate_assumptions", (
-            f"the run paused at {paused.step_key!r}; a gate this fixture does not know "
-            "how to clear now fires for this scene"
+        clearing = gate_for(paused)
+        assert clearing is not None, (
+            f"the run paused at {paused!r}; a gate this fixture does not know how to clear "
+            "now fires for this scene. Add it to CONDITIONAL_GATES if an operator would "
+            "clear it on the way to the final review."
         )
-        proposed = await session.scalar(
-            select(JobStep).where(
-                JobStep.job_id == self.job_id, JobStep.step_key == "propose_assumptions"
-            )
+        gate, step = clearing
+        produced = await session.scalar(
+            select(JobStep).where(JobStep.job_id == self.job_id, JobStep.step_key == step)
         )
-        assert proposed is not None
+        assert produced is not None, f"the {step} step has not run"
         user = await session.scalar(select(User))
         assert user is not None
         await approval_service.record_decision(
             session,
             job=job,
-            gate=GateKind.ASSUMPTIONS,
+            gate=gate,
             decision=Decision.APPROVED,
             actor=user,
-            payload_hash=str((proposed.output_ref or {})["payload_hash"]),
+            payload_hash=str((produced.output_ref or {})["payload_hash"]),
         )
         await session.commit()
 

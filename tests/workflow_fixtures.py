@@ -23,6 +23,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.custom_section import CustomSectionDraft
@@ -30,8 +31,8 @@ from aer.agents.planner import PlannedSection, PlannedSource, ResearchPlanDraft
 from aer.agents.section_writer import SectionDraft
 from aer.agents.worker import WorkerLead, WorkerReport, WorkerTurn
 from aer.config import Settings
-from aer.core.enums import JobStatus, UserRole
-from aer.db.models import Job, ResearchRequest, SectionDefinition, User
+from aer.core.enums import GateKind, JobStatus, UserRole
+from aer.db.models import Job, JobStep, ResearchRequest, SectionDefinition, User
 from aer.fetch.client import FetchResult
 from aer.providers.fake import FakeProvider
 from aer.sources.base import ResolvedEntity
@@ -719,3 +720,41 @@ def provider() -> FakeProvider:
 
 def uuid_of(value: Any) -> uuid.UUID:
     return uuid.UUID(str(value))
+
+
+# The conditional gates a run reaches on its way to the end, by the step each one pauses
+# at and the gate an approval must name. **One mapping, imported by every driver**, because
+# each suite used to hardcode its own sequence and ADR 0059 broke four of them at once: the
+# peer set stopped being empty, the peer gate started firing on ordinary runs, and every
+# driver that "knew" the order walked into a pause it had no case for.
+#
+# A test whose subject *is* one of these gates drives the run itself and asserts the pause.
+CONDITIONAL_GATES: dict[str, tuple[GateKind, str]] = {
+    "gate_peer_set": (GateKind.PEER_SET, "propose_peers"),
+    "gate_assumptions": (GateKind.ASSUMPTIONS, "propose_assumptions"),
+}
+
+
+async def paused_at(session: AsyncSession, job_id: uuid.UUID) -> str | None:
+    """The step key this run is waiting at, or ``None`` if it is not waiting.
+
+    Read from the run's own steps rather than inferred from how far along it ought to be.
+    Inferring is what made these drivers fragile: the failure arrived as "the
+    propose_assumptions step has not run", which is a message about the wrong gate.
+    """
+    row = await session.scalar(
+        select(JobStep)
+        .where(JobStep.job_id == job_id, JobStep.status == JobStatus.AWAITING_APPROVAL)
+        .order_by(JobStep.sequence.desc())
+        .limit(1)
+    )
+    return None if row is None else str(row.step_key)
+
+
+def gate_for(step_key: str | None) -> tuple[GateKind, str] | None:
+    """The gate and approving step for a pause a driver may clear, or ``None``.
+
+    ``None`` for the final gate and for anything unrecognised, so a driver clears the
+    intermediate stops and leaves the ones its test is about.
+    """
+    return CONDITIONAL_GATES.get(step_key or "")

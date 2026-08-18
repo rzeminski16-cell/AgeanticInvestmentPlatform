@@ -34,7 +34,15 @@ from aer.render import display
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.storage.local import LocalArtefactStore
-from tests.workflow_fixtures import SPINE_KEYS, StubSecClient, seed_job, seed_request, seed_user
+from tests.workflow_fixtures import (
+    SPINE_KEYS,
+    StubSecClient,
+    gate_for,
+    paused_at,
+    seed_job,
+    seed_request,
+    seed_user,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -116,15 +124,16 @@ async def run_to_report(
     job: Job,
     user: Any,
 ) -> Report:
-    """Drive a whole run, approving both gates, and return the report it produced."""
-    # The FINAL hash is sealed by the red_team step since task 40 — the last step that
-    # can change what the operator is shown. The assumptions gate pauses between the two
-    # now (gap S2), cleared here as an operator proceeding without a valuation.
-    for gate, step in (
-        (GateKind.PLAN, "plan"),
-        (GateKind.ASSUMPTIONS, "propose_assumptions"),
-        (GateKind.FINAL, "red_team"),
-    ):
+    """Drive a whole run, approving every gate on the way, and return its report.
+
+    The FINAL hash is sealed by the red_team step since task 40 — the last step that can
+    change what the operator is shown. Everything before it is cleared by **asking the run
+    which gate it stopped at** rather than from a list: the peer set (ADR 0059) and the
+    assumptions (gap S2) are both conditional, and a fixed sequence goes wrong the moment
+    one of them starts firing where it used to pass through.
+    """
+
+    async def advance() -> None:
         await run_service.execute(
             session,
             job=job,
@@ -133,10 +142,12 @@ async def run_to_report(
             store=store,
             sec_client=sec_client,
         )
+
+    async def approve(gate: GateKind, step: str) -> None:
         row = await session.scalar(
             select(JobStep).where(JobStep.job_id == job.id, JobStep.step_key == step)
         )
-        assert row is not None
+        assert row is not None, f"the {step} step has not run"
         await approval_service.record_decision(
             session,
             job=job,
@@ -146,14 +157,16 @@ async def run_to_report(
             payload_hash=str((row.output_ref or {})["payload_hash"]),
         )
 
-    await run_service.execute(
-        session,
-        job=job,
-        settings=settings,
-        provider=provider,
-        store=store,
-        sec_client=sec_client,
-    )
+    await advance()
+    await approve(GateKind.PLAN, "plan")
+    await advance()
+
+    while (clearing := gate_for(await paused_at(session, job.id))) is not None:
+        await approve(*clearing)
+        await advance()
+
+    await approve(GateKind.FINAL, "red_team")
+    await advance()
 
     report = await session.scalar(select(Report).where(Report.job_id == job.id))
     assert report is not None
