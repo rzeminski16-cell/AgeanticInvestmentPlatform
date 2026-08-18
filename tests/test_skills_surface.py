@@ -56,7 +56,7 @@ from aer.storage.local import LocalArtefactStore
 from aer.web.csrf import CSRF_FIELD_NAME
 from tests.api_fixtures import build_app, client_for
 from tests.test_skill_frontmatter import MOAT_DURABILITY
-from tests.workflow_fixtures import AS_OF_DATE, declared_schema_name
+from tests.workflow_fixtures import declared_schema_name
 
 pytestmark = pytest.mark.anyio
 
@@ -199,7 +199,7 @@ class TestThePreviewMatchesWhatARunComposes:
             company_name="Microsoft Corporation",
             ticker="MSFT",
             exchange="NASDAQ",
-            as_of_date=AS_OF_DATE,
+            as_of_date=date(2022, 9, 30),
             base_currency="USD",
             reporting_currency="USD",
             investment_horizon_months=12,
@@ -379,7 +379,7 @@ async def _seed_finished_run(
         company_name="Microsoft Corporation",
         ticker=ticker,
         exchange="NASDAQ",
-        as_of_date=AS_OF_DATE,
+        as_of_date=date(2022, 9, 30),
         point_in_time=True,
         base_currency="USD",
         reporting_currency="USD",
@@ -450,6 +450,13 @@ async def _seed_finished_run(
         )
         session.add(company)
         await session.flush()
+
+    # The subject, as `acquire` records it (ADR 0061). A dry run reads the *source run's*
+    # facts through the source run's request, so the stamp has to be on that request or
+    # the rehearsal is offered nothing to cite.
+    request.company_id = company.id
+    document.company_id = company.id
+    await session.flush()
 
     session.add(
         FinancialFact(

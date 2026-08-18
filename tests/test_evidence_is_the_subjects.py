@@ -9,7 +9,7 @@ handed an annual pool in which the subject did not appear at all.
 The predicate that fixes it is two lines. **These tests are the deliverable**, because two
 lines are exactly what a later refactor drops without noticing.
 
-Four properties, each tied to a way the live failure actually happened:
+Five properties, each tied to a way the live failure actually happened:
 
 1. A peer's facts and documents never reach a pack, for any section in the spine.
 2. The subject survives a peer that sorts *above* it — a later period end and a later
@@ -20,6 +20,11 @@ Four properties, each tied to a way the live failure actually happened:
    a key that excludes the source document, so re-scoping to the request would have hidden
    every fact the first run wrote — the failure `aer.services.research` already met once,
    and the one that would have made the acceptance rerun worse than the run it verifies.
+5. A fact filed after the as-of date does not reach a pack. Request scoping used to bound a
+   section to one acquisition and so kept later filings out by accident; company scoping
+   does not, which is why the date filter travels with it. Twelve tests failed on this when
+   the predicate landed — every one of them a scene dated 30 June carrying facts filed
+   28 July, which is a look-ahead the old pack showed a writer without comment.
 """
 
 from __future__ import annotations
@@ -309,6 +314,37 @@ class TestTheSubjectSurvivesAPeerThatOutranksIt:
             if "source_document_id" in item
         ]
         assert str(scene["subject_doc"].id) in listed
+
+
+class TestALaterFilingIsNotShownToAnEarlierRun:
+    async def test_a_fact_filed_after_the_as_of_date_stays_out_of_the_pack(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Scoping by company removed the accidental bound request scoping provided.
+
+        The old pack joined to this run's documents, which happened to keep a later run's
+        filings out. Company scope does not, so the date filter is part of the same change
+        rather than a separate improvement — and this is the section-level statement of it.
+        Twelve existing tests failed on this when the predicate landed: their scenes were
+        dated 30 June and carried facts filed 28 July.
+        """
+        session = scene["session"]
+        await _fact(
+            session,
+            company=scene["subject"],
+            document=scene["subject_doc"],
+            concept="revenue",
+            # `_fact` files thirty days after the period ends, so this lands on
+            # 30 September — six weeks past the as-of date.
+            period_end=date(2026, 8, 31),
+            value="7777",
+        )
+        await session.flush()
+
+        evidence = await _gather(scene)
+        assert "7777" not in str(_internals(evidence)), (
+            "a fact filed after the as-of date reached a section's evidence pack"
+        )
 
 
 class TestADocumentAboutNoIssuerStaysVisible:

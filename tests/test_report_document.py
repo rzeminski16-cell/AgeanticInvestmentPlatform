@@ -203,6 +203,10 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     company = Company(name="MICROSOFT CORP", cik="0000789019", ticker="MSFT", exchange="NASDAQ")
     db_session.add(company)
     await db_session.flush()
+    # The subject, as `acquire` records it (ADR 0061). Without it the request names no
+    # company and every fact query scoped to the subject returns nothing.
+    request.company_id = company.id
+    await db_session.flush()
 
     payload = b"golden artefact bytes\n"
     artefact = Artefact(
@@ -948,6 +952,11 @@ class TestTheFrontPageNumbers:
 
     async def _with_figures(self, scene: dict[str, Any]) -> dict[str, Any]:
         session: AsyncSession = scene["session"]
+        # Dated after the filings this scene carries. The figures are fiscal years
+        # ending 30 June, filed the following month, so a run as at 30 June could not
+        # have seen the latest of them — and under ADR 0061 the evidence pack now says
+        # so rather than showing a fact filed after the as-of date.
+        scene["request"].as_of_date = date(2022, 9, 30)
         for year, value in ((2020, "143015000000"), (2021, "168088000000"), (2022, "198270000000")):
             session.add(
                 FinancialFact(

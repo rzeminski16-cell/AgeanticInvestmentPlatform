@@ -77,7 +77,6 @@ from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
 from tests.test_skill_frontmatter import MOAT_DURABILITY
 from tests.test_workflow import approve, run_clearing_the_assumptions_gate, run_to_next_stop
 from tests.workflow_fixtures import (
-    AS_OF_DATE,
     StubSecClient,
     assumption_proposal_draft,
     declared_schema_name,
@@ -739,7 +738,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
         company_name="Microsoft Corporation",
         ticker="MSFT",
         exchange="NASDAQ",
-        as_of_date=AS_OF_DATE,
+        as_of_date=date(2022, 9, 30),
         point_in_time=True,
         base_currency="USD",
         reporting_currency="USD",
@@ -809,6 +808,10 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
 
     company = Company(name="MICROSOFT CORP", cik="0000789019", ticker="MSFT", exchange="NASDAQ")
     db_session.add(company)
+    await db_session.flush()
+    # The subject, as `acquire` records it (ADR 0061). Without it the request names no
+    # company and every fact query scoped to the subject returns nothing.
+    request.company_id = company.id
     await db_session.flush()
 
     fact = FinancialFact(
