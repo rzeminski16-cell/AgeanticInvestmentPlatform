@@ -59,6 +59,12 @@ appended after, carrying their code-written rationale; the merged set is capped 
 step logs it and falls back to the floor alone, because a proposal the deterministic path
 can still make must not die for the enrichment.
 
+**A budget refusal is not a failed model call**, and the fallback must not absorb one.
+`BudgetExceededError` is the signal the engine turns into a stopped run awaiting a
+person's decision; catching it alongside the outages would spend past the ceiling and
+carry on, which is invariant 6's failure wearing the costume of graceful degradation. It
+is re-raised, and a test holds the distinction.
+
 **Nothing downstream moves.** The step's output shape, the gate payload and its hash, the
 approval flow, `confirmed_peer_set` and the comps build are all unchanged — the
 confirmation and the refusal were always indifferent to who proposed. The human at the
@@ -77,8 +83,11 @@ empty list.
 * Those artefacts are recorded against this run, so the sources surface lists a peer's
   XBRL aggregate alongside the subject's documents. That is the honest record — the run
   did fetch them — and it is why they carry the peer's own name in the title.
-* Refusals are part of the step's recorded output, so a reviewer can see what the model
-  proposed that the registry rejected — a hallucinated ticker is visible, not vanished.
+* Refusals are part of the step's recorded output **and are rendered at the gate**, so a
+  reviewer sees what the model proposed that the registry rejected — a hallucinated ticker
+  is visible, not vanished. They stay outside the hashed payload: what is being confirmed
+  is the peer set, and an approval that moved with what the model got wrong would be an
+  approval of the wrong thing.
 * **Peers are US-listed, because resolution is EDGAR-only.** The prompt says so rather
   than leaving the model to discover it through refusals. That is the slice's existing
   limit rather than a new one — this workflow acquires the subject from EDGAR too — and it

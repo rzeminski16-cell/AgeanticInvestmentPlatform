@@ -212,9 +212,10 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         # fetching of anything about those companies — is code's, so a role that could
         # fetch would be duplicating a containment that already exists downstream of it.
         allowed_tools=frozenset(),
-        # A slate is at most eight short entries, but this routes to a model that thinks,
-        # and max_tokens bounds thinking and visible output together (the lesson every
-        # 16_384 in this file records).
+        # A slate is at most eight short entries, so this is headroom rather than an
+        # expectation — the same figure the other roles carry, for the reason they carry
+        # it: `max_tokens` bounds thinking and visible output together, and a ceiling
+        # chosen from the length of the answer is a ceiling chosen from the wrong number.
         max_output_tokens=16_384,
         adr="0059",
     ),

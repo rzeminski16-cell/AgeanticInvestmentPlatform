@@ -205,6 +205,30 @@ async def _seed_gate(engine: Any, *, peers: list[dict[str, str]] | None, refused
                 output_ref=produced,
             )
         )
+        # The paused gate step, shaped as `StepPaused` records it. `pending_gate` reads the
+        # gate out of exactly this context, and that is what puts the link on the console —
+        # the mechanism that was missing when a run stopped at the assumptions gate with
+        # nowhere to go.
+        if produced["peers"]:
+            session.add(
+                JobStep(
+                    job_id=job.id,
+                    step_key="gate_peer_set",
+                    sequence=7,
+                    status=JobStatus.AWAITING_APPROVAL,
+                    idempotency_key=f"{job.id}:gate_peer_set",
+                    input_hash="0" * 64,
+                    error={
+                        "code": "step_paused",
+                        "message": (
+                            "This run is waiting for the PEER_SET gate. Nothing further "
+                            "happens, and nothing further is spent, until somebody approves "
+                            "or rejects it."
+                        ),
+                        "context": {"gate": GateKind.PEER_SET.value},
+                    },
+                )
+            )
         await session.commit()
         return {"job": job, "request": request, "user": user, "produced": produced}
 
@@ -513,6 +537,19 @@ class TestWhatTheReviewerIsShown:
         page = await api.get(f"/runs/{at_the_gate['job'].id}/peers")
 
         assert at_the_gate["produced"]["payload_hash"] in page.text
+
+    async def test_the_console_offers_the_link_when_the_run_stopped_here(
+        self, api: Any, at_the_gate: Any
+    ) -> None:
+        """A gate an operator cannot reach is a run that pauses and never resumes.
+
+        The peer gate used to pass straight through on every run, so nobody had met this
+        page; a model proposing peers is what makes it a stop an operator actually hits.
+        """
+        console = await api.get(f"/runs/{at_the_gate['job'].id}")
+
+        assert 'id="review-peers"' in console.text
+        assert f"/runs/{at_the_gate['job'].id}/peers" in console.text
 
     async def test_a_run_that_resolved_nobody_says_what_it_tried(
         self, api: Any, db_engine: Any
