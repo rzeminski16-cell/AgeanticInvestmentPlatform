@@ -32,6 +32,7 @@ from typing import Annotated, Any, Final, Literal
 from pydantic import BaseModel, Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from aer.core.dates import format_date
 from aer.errors import ConfigError
 
 __all__ = [
@@ -110,9 +111,14 @@ class HouseStyle(BaseModel):
     """The magnitude, in the report currency's base units, at which ``auto`` prose
     switches to billions. At the default, $999m stays millions and $1.2bn does not."""
 
-    date_format: str = "%-d %B %Y"
+    date_format: str = Field(default="%-d %B %Y", validate_default=True)
     """A ``strftime`` pattern for dates in prose and headings. The default reads
-    "27 December 2025" — UK order, no ordinal suffix, no zero padding."""
+    "27 December 2025" — UK order, no ordinal suffix, no zero padding.
+
+    ``validate_default=True`` because pydantic does not validate a default otherwise, and
+    the default is precisely the value that broke: it carries ``%-d``, the check below
+    never ran against it, and the pattern's first contact with a ``strftime`` was inside a
+    finished report."""
 
     voice: Literal["impersonal", "first_person_plural"] = "impersonal"
     """The note's register: ``impersonal`` writes "the evidence supports";
@@ -129,10 +135,14 @@ class HouseStyle(BaseModel):
         directive through as literal text (``%Q`` renders as ``"%Q"``), so the check is
         behavioural — two different probe dates must render differently, or the pattern
         is ignoring the date it was given.
+
+        Through :func:`aer.core.dates.format_date`, which is what the renderer uses. A
+        check that formatted dates differently from the code it is checking would pass a
+        pattern the report then dies on — which is exactly what ``%-d`` did on Windows.
         """
         probes = (date(2025, 12, 27), date(2024, 3, 1))
         try:
-            rendered = [probe.strftime(value) for probe in probes]
+            rendered = [format_date(probe, value) for probe in probes]
         except ValueError as exc:
             message = f"is not a valid strftime pattern: {exc}"
             raise ValueError(message) from exc

@@ -27,6 +27,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Final
 
 from aer.config import HouseStyle
+from aer.core.dates import format_date
 
 __all__ = ["cell", "date_text", "money", "prose", "scalar"]
 
@@ -89,8 +90,14 @@ def money(value: Decimal, currency: str, *, style: HouseStyle, in_table: bool = 
 
 
 def date_text(value: date, *, style: HouseStyle) -> str:
-    """A date as the house style prints one."""
-    return value.strftime(style.date_format)
+    """A date as the house style prints one.
+
+    Through :func:`aer.core.dates.format_date` rather than ``strftime`` directly, because
+    the default pattern uses ``%-d`` and that directive does not exist outside glibc. This
+    line raised ``ValueError: Invalid format string`` on Windows for every report, at the
+    end of the run.
+    """
+    return format_date(value, style.date_format)
 
 
 def scalar(
