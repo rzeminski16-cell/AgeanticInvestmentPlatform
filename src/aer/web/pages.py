@@ -100,6 +100,9 @@ from aer.storage.local import LocalArtefactStore
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
 from aer.workflow.workflows.vertical_slice_v1 import (
+    ASSUMPTIONS_STEP,
+    assumptions_gate_payload,
+    assumptions_gate_required,
     comps_note_for,
     final_gate_payload,
     plan_gate_payload,
@@ -457,6 +460,77 @@ async def peer_review(
             "payload_hash": payload_hash_for(payload),
             "decided": decided,
             "gate": GateKind.PEER_SET.value,
+            "csrf_field": CSRF_FIELD_NAME,
+            "csrf_token": token,
+        },
+    )
+    set_csrf_cookie(response, token)
+    return response
+
+
+@router.get(
+    "/runs/{job_id}/assumptions",
+    response_class=HTMLResponse,
+    summary="Confirm the assumptions a valuation will rest on",
+)
+async def assumptions_review(
+    request: Request,
+    job_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """The one gate that approves work which has **not happened yet** (ADR 0046).
+
+    Every other gate confirms something the run produced and can be read back. This one
+    confirms the numbers a discounted cash flow is about to be built on, some of them a
+    model's proposal — so each row is shown with its value, its justification and who
+    proposed it, and the names nobody could put a number against are shown as outstanding
+    rather than quietly defaulted.
+
+    **The gate shipped without this page.** The workflow paused, the console showed the
+    banner, and every review link it offered belonged to a different gate — so a run that
+    stopped here could not be cleared from a browser at all. A gate an operator cannot
+    clear is a run that pauses and never resumes.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    produced = await _step_output(session, job_id=job_id, step_key=ASSUMPTIONS_STEP)
+    if produced is None:
+        return _problem(
+            request,
+            "This run has not proposed any assumptions yet. There is nothing to confirm.",
+            status=HTTP_404_NOT_FOUND,
+        )
+
+    if not assumptions_gate_required(produced):
+        return _problem(
+            request,
+            "This run has nothing to confirm here: either its sector mandate does not "
+            "permit a discounted cash flow, or the run proposed no assumptions and left "
+            "no gaps. Either way it does not stop at this gate.",
+            status=HTTP_404_NOT_FOUND,
+        )
+
+    payload = assumptions_gate_payload(produced)
+    decided = await _decision_for(session, job_id=job_id, gate=GateKind.ASSUMPTIONS)
+    token = new_csrf_token(settings)
+
+    response: Response = render(
+        request,
+        "runs/assumptions.html",
+        {
+            "job": job,
+            "payload": payload,
+            "payload_hash": payload_hash_for(payload),
+            "decided": decided,
+            "gate": GateKind.ASSUMPTIONS.value,
+            # Where an operator goes to change one before agreeing to the set. The
+            # assumptions surface is per-request, which is why this page links out to it
+            # rather than editing in place.
+            "request_id": str(job.request_id),
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },

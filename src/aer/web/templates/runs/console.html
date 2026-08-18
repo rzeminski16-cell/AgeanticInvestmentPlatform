@@ -119,6 +119,15 @@
               Confirm the peer set
             </a>
           {% endif %}
+          {% if pending_gate == 'ASSUMPTIONS' %}
+            <a
+              href="/runs/{{ job.id }}/assumptions"
+              class="rounded-md border border-sky-700 px-3 py-1.5 text-sm font-semibold text-sky-800 hover:bg-sky-100 dark:text-sky-300 dark:hover:bg-sky-900/40"
+              id="review-assumptions"
+            >
+              Confirm the assumptions
+            </a>
+          {% endif %}
           {% if pending_gate == 'UK_FINANCIALS' %}
             <a
               href="/runs/{{ job.id }}/financials"

@@ -23,19 +23,21 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aer.agents.assumptions import PROPOSED_BY as OPINION_BY
 from aer.agents.assumptions import AssumptionProposalDraft, OpinionProposal
 from aer.agents.base import AgentContext
 from aer.calc.dcf import DRIVER_NAMES
 from aer.config import Settings
-from aer.core.enums import GateKind, JobStatus
+from aer.core.enums import Decision, GateKind, JobStatus, UserRole
+from aer.core.hashing import canonical_json, sha256_hex
 from aer.core.sectors import profile_for
-from aer.db.models import Assumption, JobStep
+from aer.db.models import Approval, Assumption, JobStep, ResearchRequest, User
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
+from aer.services import approvals as approval_service
 from aer.services.approvals import GATE_ORDER
 from aer.services.assumption_gate import (
     COST_OF_CAPITAL_NAMES,
@@ -54,12 +56,15 @@ from aer.services.assumption_proposals import PROPOSED_BY as DERIVED_BY
 from aer.services.prices import BETA_ASSUMPTION
 from aer.services.valuation import SCALAR_NAMES
 from aer.storage.local import LocalArtefactStore
+from aer.web.csrf import CSRF_FIELD_NAME
 from aer.workflow.workflows.vertical_slice_v1 import (
     assumptions_gate_payload,
     assumptions_gate_required,
     sector_key_of,
 )
+from tests.api_fixtures import build_app, client_for
 from tests.assumption_fixtures import a_year, analysed, seed_years
+from tests.workflow_fixtures import AS_OF_DATE, seed_job
 
 pytestmark = pytest.mark.integration
 
@@ -537,3 +542,218 @@ class TestAnOperatorCanSupplyWhatTheRunCouldNot:
         # then silently ignored.
         assert "terminal_growth_rate" not in PROPOSABLE_NAMES
         assert "wacc" not in PROPOSABLE_NAMES
+
+
+# ==========================================================================================
+# The page an operator clears the gate from
+# ==========================================================================================
+
+
+_GATE_TABLES = "research_requests, audit_events, users, artefacts, prompts, companies"
+
+
+def _proposed_output(*, dcf_permitted_: bool = True) -> dict[str, Any]:
+    """What `_propose_assumptions` writes to its step row, hashed as the workflow hashes it."""
+    output: dict[str, Any] = {
+        "dcf_permitted": dcf_permitted_,
+        "sector_key": "",
+        "assumptions": [
+            {
+                "name": "terminal_growth",
+                "value": "0.025",
+                "unit": "pure",
+                "justification": "Long-run nominal growth, below the economy's own rate.",
+                "proposed_by": OPINION_BY,
+                "confidence": 0.6,
+            }
+        ],
+        "outstanding": [
+            {"name": "risk_free_rate", "reason": "No macro series is acquired by this workflow."}
+        ],
+        "refused": [],
+        "skipped": [],
+        "model_consulted": True,
+    }
+    output["payload_hash"] = sha256_hex(canonical_json(assumptions_gate_payload(output)))
+    return output
+
+
+async def _seed_paused_run(engine: Any, *, dcf_permitted_: bool = True) -> dict[str, Any]:
+    """A run stopped at the assumptions gate, committed so the application's session sees it."""
+    async with engine.begin() as connection:
+        await connection.execute(text("SET LOCAL statement_timeout = '5s'"))
+        await connection.execute(text(f"TRUNCATE {_GATE_TABLES} RESTART IDENTITY CASCADE"))
+
+    factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+    async with factory() as session:
+        user = User(email="owner@example.invalid", display_name="Owner", role=UserRole.OWNER)
+        session.add(user)
+        await session.flush()
+
+        research_request = ResearchRequest(
+            user_id=user.id,
+            company_name="Microsoft Corporation",
+            ticker="MSFT",
+            exchange="NASDAQ",
+            as_of_date=AS_OF_DATE,
+            point_in_time=True,
+            base_currency="USD",
+            reporting_currency="USD",
+            investment_horizon_months=12,
+            max_cost_gbp="2.50",
+        )
+        session.add(research_request)
+        await session.flush()
+
+        job = await seed_job(session, request=research_request)
+        job.status = JobStatus.AWAITING_APPROVAL
+        # Gates are passed in order, so this one needs the plan gate behind it. Without it
+        # the approval service refuses out of order and the page's form would look broken
+        # for a reason that has nothing to do with the page.
+        await approval_service.record_decision(
+            session,
+            job=job,
+            gate=GateKind.PLAN,
+            decision=Decision.APPROVED,
+            actor=user,
+            payload_hash="1" * 64,
+        )
+
+        produced = _proposed_output(dcf_permitted_=dcf_permitted_)
+        session.add(
+            JobStep(
+                job_id=job.id,
+                step_key="propose_assumptions",
+                sequence=10,
+                status=JobStatus.SUCCEEDED,
+                idempotency_key=f"{job.id}:propose_assumptions",
+                input_hash="0" * 64,
+                output_ref=produced,
+            )
+        )
+        # The paused gate step, shaped as `StepPaused` records it: `pending_gate` reads the
+        # gate out of exactly this field, which is what puts the link on the console. A run
+        # whose sector blocks a forecast never pauses here — `_gate_assumptions` returns
+        # rather than raising — so seeding one would be a state the workflow cannot reach.
+        if dcf_permitted_:
+            session.add(
+                JobStep(
+                    job_id=job.id,
+                    step_key="gate_assumptions",
+                    sequence=11,
+                    status=JobStatus.AWAITING_APPROVAL,
+                    idempotency_key=f"{job.id}:gate_assumptions",
+                    input_hash="0" * 64,
+                    # The shape `StepPaused.to_dict` really records — code, message and
+                    # context together. `pending_gate` reads the gate out of the context,
+                    # and the console prints the message, so a fixture missing either half
+                    # would be testing a state the platform never writes.
+                    error={
+                        "code": "step_paused",
+                        "message": (
+                            "This run is waiting for the ASSUMPTIONS gate. Nothing further "
+                            "happens, and nothing further is spent, until somebody approves "
+                            "or rejects it."
+                        ),
+                        "context": {"gate": GateKind.ASSUMPTIONS.value},
+                    },
+                )
+            )
+        else:
+            job.status = JobStatus.RUNNING
+        await session.commit()
+        return {"job": job, "request": research_request, "user": user, "produced": produced}
+
+
+@pytest.fixture
+async def at_the_gate(db_engine: Any) -> Any:
+    return await _seed_paused_run(db_engine)
+
+
+@pytest.fixture
+async def api(api_settings: Settings, db_engine: Any, fake_redis: Any) -> Any:
+    async for client in client_for(build_app(api_settings, engine=db_engine, redis=fake_redis)):
+        yield client
+
+
+class TestTheOperatorCanReachTheGate:
+    """The gate paused runs with nowhere to go.
+
+    `gate_assumptions` shipped with the workflow and without a surface: the console offered
+    links for the plan, the sector, the peer set, the financials and the draft, and a run
+    that stopped here showed a banner with no button and no page behind it. A gate an
+    operator cannot clear is a run that pauses and never resumes — the same failure
+    `TestWhenStoppingTheRunAchievesSomething` refuses one step earlier.
+    """
+
+    async def test_the_page_shows_every_proposal_with_its_justification(
+        self, api: Any, at_the_gate: dict
+    ) -> None:
+        page = await api.get(f"/runs/{at_the_gate['job'].id}/assumptions")
+
+        assert page.status_code == 200
+        assert "terminal_growth" in page.text
+        assert "0.025" in page.text
+        assert "Long-run nominal growth" in page.text
+        # And the gap, said plainly rather than defaulted to a number nobody chose.
+        assert "risk_free_rate" in page.text
+        assert "No macro series" in page.text
+
+    async def test_the_form_carries_the_hash_the_workflow_will_check(
+        self, api: Any, at_the_gate: dict
+    ) -> None:
+        """The whole point of the hash: approving this page approves these figures."""
+        page = await api.get(f"/runs/{at_the_gate['job'].id}/assumptions")
+
+        assert at_the_gate["produced"]["payload_hash"] in page.text
+
+    async def test_the_console_offers_the_link_when_the_run_stopped_here(
+        self, api: Any, at_the_gate: dict
+    ) -> None:
+        console = await api.get(f"/runs/{at_the_gate['job'].id}")
+
+        assert 'id="review-assumptions"' in console.text
+        assert f"/runs/{at_the_gate['job'].id}/assumptions" in console.text
+
+    async def test_approving_records_the_decision_and_resumes_the_run(
+        self, api: Any, at_the_gate: dict, db_engine: Any
+    ) -> None:
+        """The acceptance line: a person can clear this gate from a browser."""
+        job_id = at_the_gate["job"].id
+        page = await api.get(f"/runs/{job_id}/assumptions")
+        token = page.cookies.get("aer_csrf") or ""
+
+        response = await api.post(
+            f"/runs/{job_id}/gates/{GateKind.ASSUMPTIONS.value}",
+            data={
+                CSRF_FIELD_NAME: token,
+                "payload_hash": at_the_gate["produced"]["payload_hash"],
+                "decision": "APPROVED",
+            },
+            follow_redirects=False,
+        )
+        assert response.status_code == 303, response.text
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            approval = await session.scalar(
+                select(Approval).where(
+                    Approval.job_id == job_id, Approval.gate == GateKind.ASSUMPTIONS
+                )
+            )
+        assert approval is not None
+        # The hash the workflow compares against, so `_require_approval` continues rather
+        # than pausing again on an approval of something else.
+        assert approval.payload_hash == at_the_gate["produced"]["payload_hash"]
+
+    async def test_a_run_whose_sector_blocks_a_forecast_is_told_there_is_nothing_to_confirm(
+        self, api: Any, db_engine: Any
+    ) -> None:
+        """A link to a page that says "nothing to confirm" is worse than no link."""
+        blocked = await _seed_paused_run(db_engine, dcf_permitted_=False)
+
+        page = await api.get(f"/runs/{blocked['job'].id}/assumptions")
+
+        assert page.status_code == 404
+        assert "does not permit a discounted cash flow" in page.text
+        assert "review-assumptions" not in (await api.get(f"/runs/{blocked['job'].id}")).text

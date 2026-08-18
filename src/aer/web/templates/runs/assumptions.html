@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{#
+  The assumptions gate (ADR 0046). Everything below is rendered from `payload`, whose hash sits
+  in the hidden field -- rendering one thing and hashing another is the failure a gate exists to
+  prevent.
+
+  Every other gate confirms something the run produced. This one confirms the numbers a valuation
+  is about to be built on, so each row shows its justification and its proposer at full length: a
+  number from the filings and a number a model suggested are different kinds of thing, and a page
+  that showed only the figures would invite agreeing to the difference without seeing it.
+#}
+
+{% block title %}Confirm the assumptions &middot; Ageiantic Equity Research{% endblock %}
+
+{% block content %}
+  <nav class="text-sm">
+    <a href="/runs/{{ job.id }}" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
+      &larr; Back to the run
+    </a>
+  </nav>
+
+  <h1 class="mt-4 text-2xl font-semibold tracking-tight">Confirm the numbers the valuation will use</h1>
+  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+    This is the one gate that approves work which has not happened yet. Everything below is an
+    input to a discounted cash flow that has not been run: agreeing to these figures is agreeing
+    to the forecast built from them.
+  </p>
+
+  {% if payload.assumptions %}
+    <section class="mt-8">
+      <h2 class="text-lg font-semibold tracking-tight">Proposed assumptions</h2>
+      <ul class="mt-3 space-y-4" id="proposed-assumptions">
+        {% for row in payload.assumptions %}
+          <li class="rounded-md border border-slate-200 p-4 dark:border-slate-700">
+            <p class="font-semibold">
+              <span class="font-mono">{{ row.name }}</span>
+              &mdash;
+              <span class="font-mono">{{ row.value }}</span>
+              {% if row.unit %}<span class="text-sm text-slate-500">{{ row.unit }}</span>{% endif %}
+            </p>
+            <p class="mt-1 text-xs text-slate-500">
+              Proposed by <span class="font-mono">{{ row.proposed_by }}</span>{% if row.confidence is not none %},
+              confidence {{ row.confidence }}{% endif %}.
+            </p>
+            {% if row.justification %}
+              <p class="mt-2 text-sm">{{ row.justification }}</p>
+            {% else %}
+              <p class="mt-2 text-sm font-semibold text-amber-800 dark:text-amber-300">
+                No justification was recorded for this number. That is worth resolving before you
+                agree to it.
+              </p>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% else %}
+    <p class="mt-8 text-sm" id="no-assumptions">
+      No assumptions carry a value yet. Everything this valuation needs is outstanding below.
+    </p>
+  {% endif %}
+
+  {% if payload.outstanding %}
+    <section class="mt-8">
+      <h2 class="text-lg font-semibold tracking-tight">Still outstanding</h2>
+      <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+        No number could be put against these, and none was invented. A valuation that needs one of
+        them will say it could not be produced rather than filling the gap.
+      </p>
+      <ul class="mt-3 space-y-3" id="outstanding-assumptions">
+        {% for row in payload.outstanding %}
+          <li class="rounded-md border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40">
+            <p class="font-semibold font-mono">{{ row.name }}</p>
+            <p class="mt-1 text-sm text-slate-700 dark:text-slate-300">{{ row.reason }}</p>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  {% if payload.refused %}
+    <section class="mt-8">
+      <h2 class="text-lg font-semibold tracking-tight">Refused</h2>
+      <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+        Proposed and rejected in code, for breaking a bound the platform enforces rather than
+        argues about. Shown so the refusal is visible rather than silent.
+      </p>
+      <ul class="mt-3 space-y-3" id="refused-assumptions">
+        {% for row in payload.refused %}
+          <li class="rounded-md border border-slate-200 p-4 dark:border-slate-700">
+            <p class="font-semibold">
+              <span class="font-mono">{{ row.name }}</span>
+              &mdash;
+              <span class="font-mono">{{ row.value }}</span>
+            </p>
+            <p class="mt-1 text-sm text-slate-700 dark:text-slate-300">{{ row.reason }}</p>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  {% if payload.skipped %}
+    <section class="mt-8">
+      <h2 class="text-lg font-semibold tracking-tight">Not derived</h2>
+      <ul class="mt-3 list-inside list-disc text-sm text-slate-700 dark:text-slate-300" id="skipped-assumptions">
+        {% for note in payload.skipped %}
+          <li>{{ note }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  <p class="mt-8 text-sm">
+    <a
+      href="/requests/{{ request_id }}/assumptions"
+      class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
+      id="amend-assumptions"
+    >
+      Amend an assumption before agreeing to the set
+    </a>
+  </p>
+
+  {% if decided %}
+    <section
+      class="mt-8 rounded-md border border-slate-300 bg-slate-100 p-4 dark:border-slate-700 dark:bg-slate-800"
+      role="status"
+      id="already-decided"
+    >
+      <p class="text-sm text-slate-800 dark:text-slate-200">
+        This gate was already <strong>{{ decided | lower }}</strong>. A decision is not a state
+        to be re-asserted; changing it needs a new run.
+      </p>
+    </section>
+  {% else %}
+    <form method="post" action="/runs/{{ job.id }}/gates/{{ gate }}" class="mt-8 space-y-4" id="gate-form">
+      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+      <input type="hidden" name="payload_hash" id="payload-hash" value="{{ payload_hash }}" />
+
+      <div>
+        <label for="notes" class="block text-sm font-medium">Notes (optional)</label>
+        <textarea
+          id="notes"
+          name="notes"
+          rows="3"
+          maxlength="4000"
+          class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+          placeholder="Which numbers you doubt, and why. Recorded in the audit trail."
+        ></textarea>
+      </div>
+
+      <div class="flex flex-wrap gap-3">
+        <button
+          type="submit"
+          name="decision"
+          value="APPROVED"
+          id="approve"
+          class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+        >
+          Confirm and continue
+        </button>
+        <button
+          type="submit"
+          name="decision"
+          value="REJECTED"
+          id="reject"
+          class="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          Reject and stop
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-500">
+        Confirming records a hash of exactly the figures above. An approval of one set of numbers
+        is not an approval of a revised one, so amending a row after this point needs a fresh
+        decision.
+      </p>
+    </form>
+  {% endif %}
+{% endblock %}
