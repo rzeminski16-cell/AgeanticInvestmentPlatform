@@ -8,22 +8,28 @@ produce a sentence rather than an exception, and none of them may produce a numb
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.core.enums import JobStatus, SourceTier, UserRole
+from aer.calc.units import Quantity, SourceRef, Unit
+from aer.core.enums import FactBasis, JobStatus, Provider, SourceTier, UserRole
 from aer.db.models import (
+    Artefact,
     Assumption,
     Company,
+    FinancialFact,
     Job,
     PriceBar,
     ResearchRequest,
     Security,
+    SourceDocument,
     User,
 )
 from aer.fetch.client import FetchResult
@@ -33,6 +39,7 @@ from aer.services.prices import BETA_ASSUMPTION
 from aer.sources.eodhd import api
 from aer.sources.eodhd.client import ActionsResponse, PriceResponse, SharesResponse
 from aer.storage.local import LocalArtefactStore
+from aer.workflow.workflows.vertical_slice_v1 import _filed_share_count
 
 pytestmark = pytest.mark.integration
 
@@ -219,6 +226,11 @@ async def _acquire(scene: dict[str, Any], client: Any) -> Any:
     )
 
 
+def _step_context(scene: dict[str, Any]) -> Any:
+    """The slice of a `StepContext` `_filed_share_count` actually touches: a session."""
+    return SimpleNamespace(session=scene["session"])
+
+
 class TestWithoutASubscription:
     async def test_no_client_is_a_sentence_not_a_failure(self, scene: dict[str, Any]) -> None:
         # ADR 0030 treats the feed as a capability the platform works without. A machine
@@ -376,3 +388,148 @@ class TestTheWindow:
 
         start = _window_start(date(2024, 6, 28))
         assert start.year == 2024 - BETA_WINDOW_YEARS - 1
+
+
+# ==========================================================================================
+# Where the share count comes from — gap A47
+# ==========================================================================================
+
+
+async def _share_document(scene: dict[str, Any]) -> Any:
+    """The filing a share count came from. A fact without one is refused by the schema,
+    which is the provenance invariant doing its job."""
+    held = scene.get("share_document")
+    if held is not None:
+        return held
+    artefact = Artefact(
+        sha256="d" * 64, size_bytes=10, media_type="application/json", storage_key="dd/d"
+    )
+    scene["session"].add(artefact)
+    await scene["session"].flush()
+    document = SourceDocument(
+        request_id=scene["request"].id,
+        artefact_id=artefact.id,
+        url="https://data.sec.gov/api/xbrl/companyfacts/CIK0000000009.json",
+        provider=Provider.SEC_EDGAR,
+        source_tier=SourceTier.T1_REGULATORY,
+        title="Contoso XBRL company facts",
+        retrieved_at=datetime.now(UTC),
+    )
+    scene["session"].add(document)
+    await scene["session"].flush()
+    scene["share_document"] = document
+    return document
+
+
+async def _seed_share_fact(
+    scene: dict[str, Any], *, on: date, filed: date, shares: str
+) -> FinancialFact:
+    """A cover-page share count, as the concept map stores it.
+
+    `dei:EntityCommonStockSharesOutstanding` is dated the day the annual report was signed,
+    which is why it is the freshest count a filing carries and why it is an instant.
+    """
+    document = await _share_document(scene)
+    fact = FinancialFact(
+        company_id=scene["company"].id,
+        source_document_id=document.id,
+        concept="shares_outstanding",
+        raw_concept="EntityCommonStockSharesOutstanding",
+        taxonomy="dei",
+        value=Decimal(shares),
+        unit="shares",
+        period_start=None,
+        period_end=on,
+        fiscal_year=on.year,
+        fiscal_period="FY",
+        filed_date=filed,
+        form="10-K",
+        accession="0000000000-00-000009",
+        basis=FactBasis.AS_REPORTED,
+    )
+    scene["session"].add(fact)
+    await scene["session"].flush()
+    return fact
+
+
+class TestTheFiledShareCountIsPreferred:
+    """The vendor's fundamentals document is a ten-weight request for one number, and on the
+    operator's subscription it is a feed the account does not carry at all. The count is on
+    the cover of every annual report, and the run already holds it."""
+
+    async def test_the_vendor_is_not_asked_when_the_filings_answer(
+        self, scene: dict[str, Any]
+    ) -> None:
+        client = StubPriceClient(scene["store"], shares=None)
+
+        outcome = await acquire_prices(
+            scene["session"],
+            client,
+            scene["store"],
+            request=scene["request"],
+            company=scene["company"],
+            job_id=scene["job_id"],
+            context=new_context(),
+            shares_outstanding=Quantity.of(
+                Decimal("1000000"),
+                Unit.base("shares"),
+                source=SourceRef.fact(uuid.uuid4(), label="shares outstanding"),
+            ),
+        )
+
+        assert outcome.acquired
+        assert client.share_calls == [], "the filings answered; the vendor was asked anyway"
+
+    async def test_the_step_reads_the_count_the_run_stored(self, scene: dict[str, Any]) -> None:
+        """The wiring that was missing: `acquire_prices` has always preferred a filed count
+        and nothing ever passed one, so every run fell through to the vendor."""
+        await _seed_share_fact(
+            scene, on=date(2024, 1, 24), filed=date(2024, 2, 1), shares="1234567"
+        )
+
+        found = await _filed_share_count(
+            _step_context(scene), company_id=scene["company"].id, request=scene["request"]
+        )
+
+        assert found is not None
+        assert found.value == Decimal("1234567")
+        assert found.unit.symbol == "shares"
+
+    async def test_the_newest_count_wins(self, scene: dict[str, Any]) -> None:
+        """A market capitalisation wants the count as it stands, not the oldest on file."""
+        await _seed_share_fact(
+            scene, on=date(2023, 1, 25), filed=date(2023, 2, 1), shares="1000000"
+        )
+        await _seed_share_fact(
+            scene, on=date(2024, 1, 24), filed=date(2024, 2, 1), shares="1234567"
+        )
+
+        found = await _filed_share_count(
+            _step_context(scene), company_id=scene["company"].id, request=scene["request"]
+        )
+
+        assert found is not None
+        assert found.value == Decimal("1234567")
+
+    async def test_a_count_filed_after_the_as_of_date_is_not_read(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Point-in-time applies to a share count exactly as it does to a fact."""
+        await _seed_share_fact(
+            scene, on=date(2026, 1, 24), filed=date(2026, 2, 1), shares="9999999"
+        )
+
+        found = await _filed_share_count(
+            _step_context(scene), company_id=scene["company"].id, request=scene["request"]
+        )
+
+        assert found is None
+
+    async def test_no_filed_count_is_nothing_rather_than_a_guess(
+        self, scene: dict[str, Any]
+    ) -> None:
+        found = await _filed_share_count(
+            _step_context(scene), company_id=scene["company"].id, request=scene["request"]
+        )
+
+        assert found is None

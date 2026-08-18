@@ -126,13 +126,15 @@
                 </div>
                 <div>
                   <label for="unit-{{ assumption.id }}" class="block text-sm font-medium">Unit</label>
-                  <input
-                    type="text"
+                  <select
                     id="unit-{{ assumption.id }}"
                     name="unit"
-                    value="{{ assumption.unit }}"
                     class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
-                  />
+                  >
+                    {% for choice in unit_choices %}
+                      <option value="{{ choice }}"{{ " selected" if choice == assumption.unit else "" }}>{{ choice }}</option>
+                    {% endfor %}
+                  </select>
                 </div>
               </div>
               <div>
@@ -149,6 +151,10 @@
                   placeholder="Recorded on the assumption's history. The proposal above is kept whatever you enter."
                 ></textarea>
               </div>
+              <label class="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
+                <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5" />
+                <span>I mean this figure, even if it falls outside the usual range.</span>
+              </label>
               <button
                 type="submit"
                 class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -213,16 +219,30 @@
         </div>
         <div>
           <label for="create-unit" class="block text-sm font-medium">Unit</label>
-          <input
-            type="text"
+          {#
+            A list rather than a box (gap B14). Every assumption a forecast needs is
+            dimensionless, so `pure` leads and the currencies are here only for a name the
+            vocabulary does not know. A free-text field let `USD` be entered against a tax
+            rate, which parses perfectly and is nonsense.
+          #}
+          <select
             id="create-unit"
             name="unit"
             required
             class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
-            placeholder="ratio"
-          />
+          >
+            {% for choice in unit_choices %}
+              <option value="{{ choice }}"{{ " selected" if choice == "pure" else "" }}>{{ choice }}</option>
+            {% endfor %}
+          </select>
         </div>
       </div>
+      <p class="text-xs text-slate-500" id="fraction-rule">
+        Rates and ratios are decimal fractions: a 4.5% risk-free rate is
+        <span class="font-mono">0.045</span>, not <span class="font-mono">4.5</span>. An
+        exit multiple is the multiple itself &mdash; <span class="font-mono">12</span>, not
+        <span class="font-mono">0.12</span>.
+      </p>
       <div>
         <label for="create-why" class="block text-sm font-medium">Where this number comes from</label>
         <textarea
@@ -235,6 +255,14 @@
           placeholder="e.g. 10-year gilt yield, Bank of England, 16 August 2026."
         ></textarea>
       </div>
+      <label class="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
+        <input type="checkbox" name="accepted_anyway" value="1" id="create-accepted-anyway" class="mt-0.5" />
+        <span>
+          I mean this figure, even if it falls outside the usual range. Tick only after
+          re-reading it &mdash; the check exists because a factor of a hundred looks exactly
+          like a number somebody chose.
+        </span>
+      </label>
       <button
         type="submit"
         class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-900"

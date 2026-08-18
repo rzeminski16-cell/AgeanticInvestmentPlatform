@@ -15,11 +15,20 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from aer.calc.units import Unit
 from aer.config import Settings
+from aer.core.assumption_scales import (
+    EXPECTED_UNIT,
+    PLAUSIBLE_RANGE,
+    UNIT_CHOICES,
+    scale_complaint,
+    unit_complaint,
+)
 from aer.core.enums import UserRole
 from aer.db.models import Assumption, ResearchRequest, User
 from aer.services import assumptions as assumption_service
 from aer.services import scenarios as scenario_service
+from aer.services.assumption_gate import REQUIRED_NAMES
 from aer.web.csrf import CSRF_FIELD_NAME
 from tests.api_fixtures import build_app, client_for
 from tests.workflow_fixtures import AS_OF_DATE
@@ -574,3 +583,138 @@ class TestSupplyingAnAssumptionTheRunCouldNotPropose:
         )
 
         assert response.status_code == 404
+
+
+# ==========================================================================================
+# What a unit may be, and what a number may look like — gap B14
+# ==========================================================================================
+
+
+class TestTheUnitIsTheOneTheAssumptionIsMeasuredIn:
+    """`_require_unit` asked whether the algebra could read it. This asks whether it is right.
+
+    `USD` for a tax rate parses perfectly and is nonsense, and it survived entry to fail
+    inside arithmetic that cannot say which of its inputs was the mistake.
+    """
+
+    def test_the_right_unit_passes(self) -> None:
+        assert unit_complaint("tax_rate", "pure") is None
+
+    def test_a_parseable_but_wrong_unit_is_named(self) -> None:
+        complaint = unit_complaint("tax_rate", "USD")
+        assert complaint is not None
+        assert "'pure'" in complaint
+
+    def test_a_name_outside_the_vocabulary_is_left_alone(self) -> None:
+        """Per-year paths and anything an operator adds are stored the same way; this
+        module knows better only about the eleven it knows about."""
+        assert unit_complaint("revenue_growth_y1", "USD") is None
+
+    async def test_the_service_refuses_it(self, api: Any, committed: dict) -> None:
+        response = await api.post(
+            f"/api/requests/{committed['request'].id}/assumptions",
+            json={
+                "name": "risk_free_rate",
+                "value": "0.042",
+                "unit": "USD",
+                "justification": "10-year Treasury, 18 August 2026.",
+            },
+        )
+
+        assert response.status_code == 422, response.text
+        assert "measured in 'pure'" in response.text
+
+
+class TestAValueThatReadsAsATypingMistake:
+    """The dangerous one: 4.5 where 0.045 was meant is well formed, in the right unit, and
+    discounts at 450%."""
+
+    def test_a_fraction_passes(self) -> None:
+        assert scale_complaint("risk_free_rate", Decimal("0.042")) is None
+
+    def test_a_percentage_is_caught(self) -> None:
+        complaint = scale_complaint("risk_free_rate", Decimal("4.5"))
+        assert complaint is not None
+        assert "0.045 rather than 4.5" in complaint
+
+    def test_an_exit_multiple_is_not_a_fraction(self) -> None:
+        """The opposite convention, and the range has to know it: twelve times is 12."""
+        assert scale_complaint("exit_multiple", Decimal("12")) is None
+
+    def test_a_deeply_negative_margin_is_still_plausible(self) -> None:
+        """A loss-making company is a real company, and the band exists to catch slips."""
+        assert scale_complaint("ebit_margin", Decimal("-1.5")) is None
+
+    async def test_the_service_refuses_it(self, api: Any, committed: dict) -> None:
+        response = await api.post(
+            f"/api/requests/{committed['request'].id}/assumptions",
+            json={
+                "name": "risk_free_rate",
+                "value": "4.5",
+                "unit": "pure",
+                "justification": "10-year Treasury, 18 August 2026.",
+            },
+        )
+
+        assert response.status_code == 422, response.text
+        assert "plausible range" in response.text
+
+    async def test_the_operator_can_say_they_mean_it(self, api: Any, committed: dict) -> None:
+        """A check an operator cannot get past is the gate-nobody-can-clear failure again."""
+        response = await api.post(
+            f"/api/requests/{committed['request'].id}/assumptions",
+            json={
+                "name": "revenue_growth",
+                "value": "4.5",
+                "unit": "pure",
+                "justification": "Hyperinflationary market; the figure is nominal and meant.",
+                "accepted_anyway": True,
+            },
+        )
+
+        assert response.status_code == 200, response.text
+
+
+class TestTheFormOffersTheVocabularyRatherThanABox:
+    async def test_the_unit_field_is_a_list(self, api: Any, committed: dict) -> None:
+        page = await api.get(f"/requests/{committed['request'].id}/assumptions")
+
+        assert page.status_code == 200
+        assert "<select" in page.text
+        assert 'id="create-unit"' in page.text
+
+    async def test_it_defaults_to_pure(self, api: Any, committed: dict) -> None:
+        page = await api.get(f"/requests/{committed['request'].id}/assumptions")
+
+        assert '<option value="pure" selected>' in page.text
+
+    async def test_the_decimal_fraction_rule_is_stated(self, api: Any, committed: dict) -> None:
+        """The convention that makes 4.5 wrong is not obvious, so the form says it."""
+        page = await api.get(f"/requests/{committed['request'].id}/assumptions")
+
+        assert 'id="fraction-rule"' in page.text
+        assert "0.045" in page.text
+
+    async def test_the_override_is_offered(self, api: Any, committed: dict) -> None:
+        page = await api.get(f"/requests/{committed['request'].id}/assumptions")
+
+        assert 'name="accepted_anyway"' in page.text
+
+    def test_every_offered_unit_parses(self) -> None:
+        """A list offering something the calculation layer would refuse is a worse trap
+        than the free-text box it replaced."""
+        for choice in UNIT_CHOICES:
+            assert Unit.parse(choice) is not None
+
+
+class TestTheVocabularyMatchesWhatAValuationNeeds:
+    def test_every_required_name_has_a_unit_and_a_range(self) -> None:
+        """Pinned rather than imported: `assumption_gate` imports `assumptions`, so the
+        table has to live below both and cannot read `REQUIRED_NAMES` at import time."""
+        for name in REQUIRED_NAMES:
+            assert name in EXPECTED_UNIT, name
+            assert name in PLAUSIBLE_RANGE, name
+
+    def test_it_claims_nothing_a_valuation_does_not_read(self) -> None:
+        assert set(EXPECTED_UNIT) == set(REQUIRED_NAMES)
+        assert set(PLAUSIBLE_RANGE) == set(REQUIRED_NAMES)

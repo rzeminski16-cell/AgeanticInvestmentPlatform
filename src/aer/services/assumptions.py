@@ -35,6 +35,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.units import Quantity, SourceRef, Unit
+from aer.core.assumption_scales import scale_complaint, unit_complaint
 from aer.db.models import Assumption, AssumptionProposal, User
 from aer.errors import AerError, ValidationError
 
@@ -77,6 +78,7 @@ async def propose(
     by_human: bool = False,
     confidence: float | None = None,
     job_id: uuid.UUID | None = None,
+    accepted_anyway: bool = False,
 ) -> Assumption:
     """Put a value forward for an assumption, creating it if this is the first.
 
@@ -87,13 +89,25 @@ async def propose(
     Proposing again for an existing assumption supersedes the previous proposal and, if the
     assumption was confirmed, un-confirms it. See the module docstring.
 
+    Args:
+        accepted_anyway: Proceed despite an implausible value. The operator saying they
+            mean it — hyperinflation, a distressed year — because a check they cannot get
+            past is a gate nobody can clear. Recorded by the caller in the justification,
+            which is where a reader will look for the reason.
+
     Raises:
-        ValidationError: If the justification is blank or the unit is not one this platform
-            understands. Both are refused here rather than at the database, so the message
-            names the assumption.
+        ValidationError: If the justification is blank, the unit is not one this platform
+            understands, the unit is not the one this *assumption* is measured in, or the
+            value is outside the plausible range for its name and nobody said otherwise.
+            All refused here rather than at the database, so the message names the
+            assumption — and here rather than at first use, so a valuation does not die
+            several layers from the row that caused it.
     """
     _require_justification(name, justification)
     _require_unit(name, unit)
+    _require_expected_unit(name, unit)
+    if not accepted_anyway:
+        _require_plausible(name, value)
 
     existing = await session.scalar(
         select(Assumption).where(Assumption.request_id == request_id, Assumption.name == name)
@@ -172,6 +186,7 @@ async def amend(
     justification: str,
     actor: User,
     unit: str | None = None,
+    accepted_anyway: bool = False,
 ) -> Assumption:
     """A person replaces the current value with one of their own.
 
@@ -182,6 +197,8 @@ async def amend(
     Raises:
         ValidationError: If the justification is blank. An amendment without a reason
             overrides a reasoned figure with an unreasoned one and leaves no way to tell.
+            Also for a unit or a value :func:`propose` refuses — the checks belong to the
+            value, not to the route that supplied it.
     """
     return await propose(
         session,
@@ -194,6 +211,7 @@ async def amend(
         by_human=True,
         confidence=None,
         job_id=assumption.job_id,
+        accepted_anyway=accepted_anyway,
     )
 
 
@@ -341,6 +359,35 @@ def _require_justification(name: str, justification: str) -> None:
             "allowed the table fills with them."
         )
         raise ValidationError(message, context={"name": name})
+
+
+def _require_expected_unit(name: str, unit: str) -> None:
+    """Refuse a unit that parses but is not what this assumption is measured in.
+
+    `_require_unit` asks whether the algebra can read it; this asks whether it is *right*.
+    `USD` for a tax rate parses perfectly and is nonsense, and a dimensioned quantity where
+    the forecast expects a fraction fails much later, inside arithmetic that cannot say
+    which of its inputs was wrong.
+    """
+    complaint = unit_complaint(name, unit)
+    if complaint is None:
+        return
+    raise ValidationError(complaint, context={"name": name, "unit": unit})
+
+
+def _require_plausible(name: str, value: Decimal) -> None:
+    """Refuse a value that reads as a typing mistake, naming the mistake.
+
+    The one this exists for is the decimal fraction: `4.5` where `0.045` was meant is a
+    well-formed number in the right unit that discounts at 450%, and nothing downstream can
+    tell it from a figure somebody chose. Refused rather than corrected — a value quietly
+    moved into range is a number nobody chose standing where one somebody chose should be —
+    and escapable, because the operator may mean it.
+    """
+    complaint = scale_complaint(name, value)
+    if complaint is None:
+        return
+    raise ValidationError(complaint, context={"name": name, "value": str(value)})
 
 
 def _require_unit(name: str, unit: str) -> None:

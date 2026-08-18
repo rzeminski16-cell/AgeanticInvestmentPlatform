@@ -1426,12 +1426,62 @@ async def _acquire_prices(context: StepContext) -> StepResult:
         company=company,
         job_id=context.job.id,
         context=ledger,
+        # Gap A47. `acquire_prices` has always preferred the filed count to the vendor's —
+        # a fact with a hashed filing behind it beats a number in a JSON document — and
+        # nothing ever passed one, so every run fell through to `/api/fundamentals`. That
+        # endpoint is a ten-weight request, and it is a feed the operator's subscription
+        # does not include, so the fallback could only ever fail: no market capitalisation,
+        # and with it no enterprise-value multiple in the comps table.
+        shares_outstanding=await _filed_share_count(
+            context, company_id=company.id, request=request
+        ),
     )
 
     if ledger.records:
         await calculation_service.persist_context(context.session, ledger, job_id=context.job.id)
 
     return StepResult(output=outcome.as_dict())
+
+
+async def _filed_share_count(
+    context: StepContext, *, company_id: uuid.UUID, request: ResearchRequest
+) -> Quantity | None:
+    """The most recent share count the filings carry, or nothing.
+
+    The cover page of every annual report states the shares outstanding on the day it was
+    signed (``dei:EntityCommonStockSharesOutstanding``), and the concept map already
+    resolves it. So the newest observation wins here rather than the newest *fiscal year*:
+    a market capitalisation wants the count as it stands, and the cover-page figure is
+    both the freshest and — unlike the vendor's — a fact with an archived filing behind it.
+
+    Deliberately not restricted to annual periods. A share count is an instant, and after
+    gap A45 an instant no longer defines a period at all; that rule is about which years
+    have statements, and this is a different question asked of the same rows.
+    """
+    statement = (
+        select(FinancialFact)
+        .where(
+            FinancialFact.company_id == company_id,
+            FinancialFact.concept == "shares_outstanding",
+            FinancialFact.unit == "shares",
+            # Consolidated only, for the reason `analysis` gives: a dimensioned row is one
+            # class of stock, and a class is not the company.
+            FinancialFact.dimension_axis.is_(None),
+        )
+        .order_by(FinancialFact.period_end.desc(), FinancialFact.filed_date.desc())
+        .limit(1)
+    )
+    if request.point_in_time:
+        statement = statement.where(FinancialFact.filed_date <= request.as_of_date)
+
+    fact = await context.session.scalar(statement)
+    if fact is None:
+        return None
+    return Quantity.of(
+        fact.value,
+        Unit.base("shares"),
+        source=SourceRef.fact(fact.id, label="shares outstanding"),
+    )
 
 
 async def _extract(context: StepContext) -> StepResult:

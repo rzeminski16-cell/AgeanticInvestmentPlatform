@@ -49,6 +49,8 @@ class AmendRequest(BaseModel):
     value: Decimal
     justification: str = Field(min_length=1, max_length=4000)
     unit: str | None = Field(default=None, max_length=32)
+    accepted_anyway: bool = False
+    """The operator saying they mean a value outside its plausible range (gap B14)."""
 
 
 class ProposeRequest(BaseModel):
@@ -67,6 +69,8 @@ class ProposeRequest(BaseModel):
     value: Decimal
     unit: str = Field(min_length=1, max_length=32)
     justification: str = Field(min_length=1, max_length=4000)
+    accepted_anyway: bool = False
+    """The operator saying they mean a value outside its plausible range (gap B14)."""
 
     @field_validator("name")
     @classmethod
@@ -193,6 +197,7 @@ async def create_assumption(
         justification=payload.justification,
         proposed_by=user.email,
         by_human=True,
+        accepted_anyway=payload.accepted_anyway,
     )
     await session.commit()
     return await read_assumptions(request_id, session, user)
@@ -226,6 +231,7 @@ async def amend_assumption(
         justification=payload.justification,
         actor=user,
         unit=payload.unit,
+        accepted_anyway=payload.accepted_anyway,
     )
     await session.commit()
     return await read_assumptions(request_id, session, user)

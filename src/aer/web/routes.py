@@ -33,6 +33,7 @@ from starlette.status import (
 
 from aer.api.deps import CurrentUser, DbSession, SettingsDep, get_current_user
 from aer.api.routes.assumptions import ProposeRequest, assumptions_payload
+from aer.core.assumption_scales import UNIT_CHOICES
 from aer.core.enums import AnalysisMode
 from aer.core.schemas.request import (
     SUPPORTED_CURRENCIES,
@@ -793,6 +794,10 @@ async def assumptions_page(
             # confirming a page that has since changed is refused rather than recorded.
             "payload_hash": payload_hash_for(payload),
             "unconfirmed": sum(1 for row in rows if not row.approved),
+            # The unit vocabulary the form offers (gap B14). `pure` first because every
+            # assumption a forecast needs is dimensionless; the currencies are here for a
+            # name outside that vocabulary, not as an invitation.
+            "unit_choices": UNIT_CHOICES,
             # What the forecast still has no value for at all — each name prefills the
             # create form below, which is what lets the assumptions gate pause over a gap
             # rather than proceeding without a valuation (gap S2).
@@ -953,6 +958,8 @@ async def amend_assumption_page(
             justification=submitted.get("justification", ""),
             actor=user,
             unit=submitted.get("unit") or None,
+            # The operator ticking "I mean this figure" against the plausible range (B14).
+            accepted_anyway=bool(submitted.get("accepted_anyway")),
         )
     except ValidationError as refused:
         return _problem_page(request, refused.message, HTTP_422_UNPROCESSABLE_CONTENT)
@@ -1002,6 +1009,7 @@ async def create_assumption_page(
             value=submitted.get("value", ""),  # type: ignore[arg-type]
             unit=submitted.get("unit", "").strip(),
             justification=submitted.get("justification", ""),
+            accepted_anyway=bool(submitted.get("accepted_anyway")),
         )
     except PydanticValidationError as invalid:
         first = invalid.errors()[0]
@@ -1017,6 +1025,7 @@ async def create_assumption_page(
             justification=proposed.justification,
             proposed_by=user.email,
             by_human=True,
+            accepted_anyway=proposed.accepted_anyway,
         )
     except ValidationError as refused:
         return _problem_page(request, refused.message, HTTP_422_UNPROCESSABLE_CONTENT)
