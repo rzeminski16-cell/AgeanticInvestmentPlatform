@@ -261,10 +261,19 @@ US_GAAP_ALIASES: Final[dict[str, str]] = {
     "EffectOfExchangeRateOnCashAndCashEquivalents": "effect_of_exchange_rate_on_cash",
     "DepreciationDepletionAndAmortization": "depreciation_and_amortisation",
     "DepreciationAmortizationAndAccretionNet": "depreciation_and_amortisation",
+    # The plainest spelling of the same combined line, and common among large filers.
+    # Only tags meaning *depreciation and amortisation together* belong here: bare
+    # `Depreciation` is a smaller number and mapping it would understate the driver
+    # wherever a company reports the two separately.
+    "DepreciationAndAmortization": "depreciation_and_amortisation",
     "ShareBasedCompensation": "share_based_compensation",
     "DeferredIncomeTaxExpenseBenefit": "deferred_income_tax_expense",
     "IncreaseDecreaseInOperatingCapital": "change_in_working_capital",
     "PaymentsToAcquirePropertyPlantAndEquipment": "capital_expenditure",
+    # The broader element, used by filers whose capital spending is not only property and
+    # equipment. Same line of the cash-flow statement, so it competes with the tag above
+    # rather than adding to it — which is correct, since a filer uses one or the other.
+    "PaymentsToAcquireProductiveAssets": "capital_expenditure",
     "PaymentsForRepurchaseOfCommonStock": "share_repurchases",
     "PaymentsOfDividendsCommonStock": "dividends_paid",
     "PaymentsOfDividends": "dividends_paid",

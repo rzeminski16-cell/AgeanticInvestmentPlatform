@@ -20,6 +20,7 @@ from typing import Any
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.core.concepts import canonical_concept
 from aer.core.enums import FactBasis, JobStatus, Provider, SourceTier, UserRole
 from aer.db.models import (
     Artefact,
@@ -30,7 +31,7 @@ from aer.db.models import (
     SourceDocument,
     User,
 )
-from aer.services.analysis import ANNUAL, analyse_company
+from aer.services.analysis import ANNUAL, FORECAST_CONCEPTS, analyse_company
 from aer.services.calculations import new_context, persist_context
 
 pytestmark = pytest.mark.integration
@@ -488,3 +489,260 @@ class TestTheWorkflowActuallyCallsIt:
         names = {row.name for row in rows}
         assert len(rows) > 10, f"only {len(rows)} calculations: {sorted(names)}"
         assert str(uuid.UUID(str(rows[0].job_id))) == str(scene["job"].id)
+
+
+# ==========================================================================================
+# What counts as a year, and what a run can see of its own coverage
+# ==========================================================================================
+
+
+def _instant(
+    scene: dict[str, Any],
+    *,
+    on: date,
+    filed: date,
+    concept: str = "shares_outstanding",
+    value: str = "1000000",
+) -> FinancialFact:
+    """A point-in-time fact: a balance-sheet line, or a cover-page share count.
+
+    `dei:EntityCommonStockSharesOutstanding` is the one that mattered — dated the day the
+    annual report was signed, filed under `fp: FY`, and describing no period at all.
+    """
+    return FinancialFact(
+        company_id=scene["company"].id,
+        source_document_id=scene["document"].id,
+        concept=concept,
+        raw_concept="EntityCommonStockSharesOutstanding",
+        taxonomy="dei",
+        value=Decimal(value),
+        unit="shares",
+        period_start=None,
+        period_end=on,
+        fiscal_year=on.year,
+        fiscal_period=ANNUAL,
+        filed_date=filed,
+        form="10-K",
+        accession="0000000000-00-000001",
+        basis=FactBasis.AS_REPORTED,
+    )
+
+
+def _quarter(
+    scene: dict[str, Any], *, period_end: date, filed: date, values: dict[str, str]
+) -> list[FinancialFact]:
+    """A three-month duration ending on the year end, filed under `FY` by the 10-K."""
+    facts = _facts(scene, period_end=period_end, filed=filed, values=values)
+    for fact in facts:
+        fact.period_start = date(period_end.year, 10, 1)
+    return facts
+
+
+class TestOnlyAFullYearMakesAFiscalYear:
+    """Gap A45, reproduced from the live AMZN run.
+
+    `fiscal_period` is EDGAR's `fp`, which describes the filing rather than the fact. A 10-K
+    files its cover-page share count and its fourth-quarter stubs under `FY` alongside the
+    twelve-month figures, and the old selection took the label at its word.
+    """
+
+    async def test_a_cover_date_does_not_become_a_period(self, scene: dict[str, Any]) -> None:
+        """The live failure: one fact, dated after the year end, minting a period.
+
+        Every annual report added one, each newer than the year it reported on, so the
+        newest-five window filled with them and the fiscal years fell out of it.
+        """
+        await _seed(
+            scene,
+            [
+                *_facts(scene, period_end=date(2022, 12, 31), filed=date(2023, 2, 1)),
+                *_facts(scene, period_end=date(2023, 12, 31), filed=date(2024, 2, 1)),
+                _instant(scene, on=date(2024, 1, 24), filed=date(2024, 2, 1)),
+            ],
+        )
+
+        outcome = await analyse_company(
+            scene["session"],
+            new_context(),
+            company_id=scene["company"].id,
+            request=scene["request"],
+        )
+
+        assert [period.period_end for period in outcome.periods] == [
+            date(2023, 12, 31),
+            date(2022, 12, 31),
+        ]
+
+    async def test_a_balance_sheet_still_joins_the_year_it_closes(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The other half: an instant dated the year end belongs to that year.
+
+        Dropping instants wholesale would have taken the balance sheet with the furniture.
+        """
+        await _seed(
+            scene,
+            [
+                *_facts(scene, period_end=date(2023, 12, 31), filed=date(2024, 2, 1)),
+                _instant(scene, on=date(2023, 12, 31), filed=date(2024, 2, 1)),
+            ],
+        )
+
+        outcome = await analyse_company(
+            scene["session"],
+            new_context(),
+            company_id=scene["company"].id,
+            request=scene["request"],
+        )
+
+        [period] = outcome.periods
+        assert "shares_outstanding" in period.statements.supplementary.present_concepts
+
+    async def test_a_fourth_quarter_stub_cannot_win_the_year(self, scene: dict[str, Any]) -> None:
+        """The dangerous one: a quarter's revenue standing in for a year's.
+
+        Both durations end on the year end and both arrive from the same filing, so they
+        tie on `(filed_date, accession)` and the winner was whichever row was read first.
+        A missing figure is recoverable; a wrong one that looks right is not.
+        """
+        await _seed(
+            scene,
+            [
+                *_facts(scene, period_end=date(2023, 12, 31), filed=date(2024, 2, 1)),
+                # Filed *later* than the annual figure and still inside the as-of window,
+                # which is what made it dangerous: the tie-break prefers the most recent
+                # filing, so the stub won. It has to come from a different filing at all,
+                # because the unique index over an observation excludes `period_start`.
+                *_quarter(
+                    scene,
+                    period_end=date(2023, 12, 31),
+                    filed=date(2024, 3, 1),
+                    values={"revenue": "250"},
+                ),
+            ],
+        )
+
+        outcome = await analyse_company(
+            scene["session"],
+            new_context(),
+            company_id=scene["company"].id,
+            request=scene["request"],
+        )
+
+        [period] = outcome.periods
+        revenue = period.statements.income.get("revenue")
+        assert revenue is not None
+        assert revenue.value == Decimal("1000"), "the twelve-month figure, not the quarter"
+
+    async def test_a_transition_period_is_not_a_year(self, scene: dict[str, Any]) -> None:
+        """A company that moved its year end files a short stub. It is not a year."""
+        short = _facts(scene, period_end=date(2023, 6, 30), filed=date(2023, 8, 1))
+        for fact in short:
+            fact.period_start = date(2023, 1, 1)
+        await _seed(
+            scene, [*short, *_facts(scene, period_end=date(2022, 12, 31), filed=date(2023, 2, 1))]
+        )
+
+        outcome = await analyse_company(
+            scene["session"],
+            new_context(),
+            company_id=scene["company"].id,
+            request=scene["request"],
+        )
+
+        assert [period.period_end for period in outcome.periods] == [date(2022, 12, 31)]
+
+    async def test_a_fifty_two_week_year_still_counts(self, scene: dict[str, Any]) -> None:
+        """364 days is a year on a retailer's calendar, and the band has to admit it."""
+        retail = _facts(scene, period_end=date(2024, 1, 27), filed=date(2024, 3, 1))
+        for fact in retail:
+            fact.period_start = date(2023, 1, 29)
+        await _seed(scene, retail)
+
+        outcome = await analyse_company(
+            scene["session"],
+            new_context(),
+            company_id=scene["company"].id,
+            request=scene["request"],
+        )
+
+        assert [period.period_end for period in outcome.periods] == [date(2024, 1, 27)]
+
+
+class TestTheRunMeasuresItsOwnCoverage:
+    """Gap A46: coverage was invisible until the assumptions gate asked for nine values."""
+
+    async def test_every_forecast_concept_is_counted(self, scene: dict[str, Any]) -> None:
+        await _seed(
+            scene,
+            [
+                *_facts(scene, period_end=date(2022, 12, 31), filed=date(2023, 2, 1)),
+                *_facts(scene, period_end=date(2023, 12, 31), filed=date(2024, 2, 1)),
+            ],
+        )
+
+        outcome = await analyse_company(
+            scene["session"],
+            new_context(),
+            company_id=scene["company"].id,
+            request=scene["request"],
+        )
+
+        coverage = outcome.forecast_coverage
+        assert set(coverage) == set(FORECAST_CONCEPTS)
+        assert coverage["revenue"] == 2
+        assert coverage["depreciation_and_amortisation"] == 2
+
+    async def test_a_concept_the_filer_never_reports_counts_zero(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The live symptom, as a number the run records rather than a surprise at the gate."""
+        thin = {name: value for name, value in _YEAR.items() if name != "capital_expenditure"}
+        await _seed(
+            scene,
+            [
+                *_facts(scene, period_end=date(2022, 12, 31), filed=date(2023, 2, 1), values=thin),
+                *_facts(scene, period_end=date(2023, 12, 31), filed=date(2024, 2, 1), values=thin),
+            ],
+        )
+
+        outcome = await analyse_company(
+            scene["session"],
+            new_context(),
+            company_id=scene["company"].id,
+            request=scene["request"],
+        )
+
+        assert outcome.forecast_coverage["capital_expenditure"] == 0
+        assert outcome.as_dict()["forecast_coverage"]["capital_expenditure"] == 0
+
+    async def test_the_step_output_carries_it(self, scene: dict[str, Any]) -> None:
+        """Recorded, not only logged: "why did the gate ask me for six drivers?" has to be
+        answerable from the run's own rows after the fact."""
+        await _seed(scene, _facts(scene, period_end=date(2023, 12, 31), filed=date(2024, 2, 1)))
+
+        outcome = await analyse_company(
+            scene["session"],
+            new_context(),
+            company_id=scene["company"].id,
+            request=scene["request"],
+        )
+
+        assert outcome.as_dict()["forecast_coverage"]["revenue"] == 1
+
+
+class TestTheMapCarriesTheSpellingsFilersUse:
+    def test_the_plain_depreciation_and_amortisation_tag_maps(self) -> None:
+        assert canonical_concept("us-gaap", "DepreciationAndAmortization") == (
+            "depreciation_and_amortisation"
+        )
+
+    def test_the_broader_capital_expenditure_tag_maps(self) -> None:
+        assert canonical_concept("us-gaap", "PaymentsToAcquireProductiveAssets") == (
+            "capital_expenditure"
+        )
+
+    def test_bare_depreciation_is_left_alone(self) -> None:
+        """It is a smaller number than the combined line, and mapping it would understate
+        the driver wherever a company reports depreciation and amortisation separately."""
+        assert canonical_concept("us-gaap", "Depreciation") is None
