@@ -40,7 +40,7 @@ from aer.db.models import (
     ResearchPlan,
     SourceDocument,
 )
-from aer.errors import ValidationError
+from aer.errors import BudgetExceededError, ValidationError
 from aer.providers.fake import FakeProvider
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
@@ -623,6 +623,29 @@ class TestThePeerSetAModelProposed:
         # No peers, because this database holds no other company in the subject's industry
         # — but the step produced a proposal rather than an exception, and says who made it.
         assert (row.output_ref or {})["proposed_by"] == "sic_group_lookup"
+
+    async def test_a_budget_refusal_is_not_absorbed_as_a_failed_model_call(
+        self, scenario: dict
+    ) -> None:
+        """The one exception that must not be caught here.
+
+        A cap is a control-flow signal the engine turns into a stopped run awaiting a
+        decision. Swallowing it alongside the provider outages would spend past the ceiling
+        and carry on, wearing the costume of graceful degradation — which is how a cap that
+        only warns gets written by somebody being careful.
+        """
+        session = scenario["session"]
+        await run_to_next_stop(**_args(scenario))
+        await approve(
+            session, job=scenario["job"], gate=GateKind.PLAN, actor=scenario["user"], step="plan"
+        )
+
+        capped = FakeProvider(fail_with=BudgetExceededError("the run is at its ceiling"))
+        outcome = await run_to_next_stop(
+            **{**_args(scenario), "provider": capped}, stop_after="propose_peers"
+        )
+
+        assert outcome.status is JobStatus.BUDGET_EXCEEDED
 
 
 class TestEveryStepThatSpendsIsOneTheGuardCanSee:

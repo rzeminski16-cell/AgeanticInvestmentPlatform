@@ -48,6 +48,7 @@ from aer.errors import AerError
 from aer.services.acquisition import record_acquisition
 from aer.services.comps import MAX_PROPOSED_PEERS, PeerProposal
 from aer.services.facts import persist_facts, upsert_company
+from aer.sources.base import ResolvedEntity
 from aer.sources.sec.companyfacts import parse_company_facts
 from aer.sources.sec.pit import select_point_in_time
 from aer.storage.protocol import ArtefactStore
@@ -185,7 +186,7 @@ def merged_with(
 
 async def _identified(
     *, client: Any, subject: Company, proposal: ProposedPeer, seen: set[str]
-) -> Any | RefusedPeer:
+) -> ResolvedEntity | RefusedPeer:
     """The company this ticker names, or the reason it names no peer.
 
     Everything that can be decided *without fetching anything about the peer* happens here,
@@ -202,7 +203,7 @@ async def _identified(
         )
 
     try:
-        entity = await client.resolve_entity(ticker)
+        entity: ResolvedEntity = await client.resolve_entity(ticker)
     except AerError as exc:
         return RefusedPeer(
             ticker=ticker,
@@ -302,7 +303,7 @@ async def _acquire_peer_facts(
     *,
     client: Any,
     request: ResearchRequest,
-    entity: Any,
+    entity: ResolvedEntity,
     job_id: uuid.UUID | None,
 ) -> Company | None:
     """The subject's acquisition chain, run for a peer. ``None`` if it could not be had.
@@ -312,8 +313,28 @@ async def _acquire_peer_facts(
     inserts on conflict do nothing. A peer already in the database from an earlier run is
     therefore re-fetched at most once per run and duplicates nothing.
     """
+    # Everything about *this peer's document* is guarded together, because a fetch that
+    # fails and a payload that will not parse are the same event to the caller: this peer
+    # cannot be compared against, and the run carries on without it. The guard is
+    # `AerError` rather than `Exception` deliberately — a database failure is not a fact
+    # about the peer, and absorbing one here would turn a broken machine into a run that
+    # quietly proposed fewer companies.
     try:
         response = await client.fetch_company_facts(entity.identifier)
+        acquisition = await record_acquisition(
+            session,
+            store,
+            request=request,
+            job_id=job_id,
+            result=response.fetch,
+            provider=Provider.SEC_EDGAR,
+            source_tier=SourceTier.T1_REGULATORY,
+            title=f"{entity.name} XBRL company facts",
+            publisher="US Securities and Exchange Commission",
+            publication_date=response.data.latest_filed,
+            publication_date_confidence=_DERIVED_FROM_CONTENTS,
+        )
+        parsed = parse_company_facts(await store.read(acquisition.sha256))
     except AerError as exc:
         _log.warning(
             "peers.facts_unavailable",
@@ -321,20 +342,6 @@ async def _acquire_peer_facts(
             error_code=getattr(exc, "code", ""),
         )
         return None
-
-    acquisition = await record_acquisition(
-        session,
-        store,
-        request=request,
-        job_id=job_id,
-        result=response.fetch,
-        provider=Provider.SEC_EDGAR,
-        source_tier=SourceTier.T1_REGULATORY,
-        title=f"{entity.name} XBRL company facts",
-        publisher="US Securities and Exchange Commission",
-        publication_date=response.data.latest_filed,
-        publication_date_confidence=_DERIVED_FROM_CONTENTS,
-    )
 
     company = await upsert_company(
         session,
@@ -346,7 +353,6 @@ async def _acquire_peer_facts(
         exchange=entity.exchange or "",
     )
 
-    parsed = parse_company_facts(await store.read(acquisition.sha256))
     selection = select_point_in_time(parsed.facts, as_of_date=request.as_of_date)
     await persist_facts(
         session,

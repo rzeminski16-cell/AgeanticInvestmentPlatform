@@ -68,7 +68,7 @@ from aer.db.models import (
 from aer.db.models.plan_skill_pin import PLANNED as PIN_PLANNED
 from aer.db.models.plan_skill_pin import SKIPPED_NOT_APPLICABLE, PlanSkillPin
 from aer.db.models.section_definition import BUILTIN, SKILL
-from aer.errors import AerError, ValidationError
+from aer.errors import AerError, BudgetExceededError, ValidationError
 from aer.extract import extract_bytes
 from aer.fetch.policy import DEFAULT_POLICIES
 from aer.providers.protocol import SpentButUnusableError
@@ -1441,10 +1441,14 @@ async def _peers_from_model(
 ) -> tuple[DiscoveredPeers, bool]:
     """Ask for a slate and resolve it, or fall back to the floor alone and say so.
 
-    The failure path is the reason this is a function. A provider outage, a budget refusal
-    or an unusable reply must not cost the run its peer step: the deterministic proposal is
-    still there, still gated, still honest about who proposed it — which is what
-    ``proposed_by`` carries.
+    The failure path is the reason this is a function. A provider outage or an unusable
+    reply must not cost the run its peer step: the deterministic proposal is still there,
+    still gated, still honest about who proposed it — which is what ``proposed_by`` carries.
+
+    **A budget refusal is not one of those failures.** It is a control-flow signal the
+    engine turns into a paused run awaiting a person's decision, and absorbing it here
+    would spend past a cap and carry on — invariant 6's failure exactly, in the one place
+    that looks like graceful degradation.
     """
     try:
         slate = await PeerProposalAgent().run(
@@ -1459,6 +1463,8 @@ async def _peers_from_model(
                 sector=sector_key,
             ),
         )
+    except BudgetExceededError:
+        raise
     except (AerError, ValueError) as exc:
         _log.warning(
             "peers.model_unavailable",

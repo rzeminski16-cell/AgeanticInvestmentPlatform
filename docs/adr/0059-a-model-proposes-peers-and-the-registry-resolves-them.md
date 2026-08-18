@@ -79,5 +79,9 @@ empty list.
   did fetch them — and it is why they carry the peer's own name in the title.
 * Refusals are part of the step's recorded output, so a reviewer can see what the model
   proposed that the registry rejected — a hallucinated ticker is visible, not vanished.
+* **Peers are US-listed, because resolution is EDGAR-only.** The prompt says so rather
+  than leaving the model to discover it through refusals. That is the slice's existing
+  limit rather than a new one — this workflow acquires the subject from EDGAR too — and it
+  is where a Companies House resolver would attach when a UK run needs UK comparables.
 * The peers step gains an `estimated_cost_gbp`, keeping ADR 0052's rule that every step
   either declares an estimate or is named deterministic.
