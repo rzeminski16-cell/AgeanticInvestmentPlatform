@@ -17,8 +17,8 @@ from datetime import UTC, date, datetime
 from typing import Any
 
 import pytest
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aer.agents.peers import (
     PEER_SLATE_LIMIT,
@@ -27,15 +27,29 @@ from aer.agents.peers import (
     PeerSlate,
     ProposedPeer,
 )
-from aer.core.enums import JobStatus, UserRole
-from aer.db.models import Company, FinancialFact, Job, ResearchRequest, SourceDocument, User
+from aer.calc.comps import MultipleBasis
+from aer.config import Settings
+from aer.core.enums import Decision, GateKind, JobStatus, UserRole
+from aer.core.hashing import canonical_json, sha256_hex
+from aer.db.models import (
+    Company,
+    FinancialFact,
+    Job,
+    JobStep,
+    ResearchRequest,
+    SourceDocument,
+    User,
+)
 from aer.errors import ValidationError
-from aer.services.comps import MAX_PROPOSED_PEERS, PeerProposal
+from aer.services import approvals as approval_service
+from aer.services.comps import MAX_PROPOSED_PEERS, PEER_SET_STEP, PeerProposal
 from aer.services.peer_discovery import discover_peers, merged_with
 from aer.sources.base import ResolvedEntity
 from aer.storage.local import LocalArtefactStore
+from aer.workflow.workflows.vertical_slice_v1 import peer_gate_payload
+from tests.api_fixtures import build_app, client_for
 from tests.sec_fixtures import MSFT_CIK
-from tests.workflow_fixtures import AS_OF_DATE, StubSecClient
+from tests.workflow_fixtures import AS_OF_DATE, StubSecClient, seed_job
 
 pytestmark = pytest.mark.integration
 
@@ -111,6 +125,99 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
         "store": store,
         "client": RegistryStub(store),
     }
+
+
+_GATE_TABLES = "research_requests, audit_events, users, artefacts, prompts, companies"
+
+REFUSED_ROW = {
+    "ticker": "NOPE",
+    "name": "Nonexistent Holdings",
+    "reason": "Not resolved: EDGAR does not list NOPE unambiguously. Nothing was fetched for it.",
+}
+
+
+async def _seed_gate(engine: Any, *, peers: list[dict[str, str]] | None, refused: bool) -> Any:
+    """A run paused at the peer-set gate, committed so the application's session sees it."""
+    async with engine.begin() as connection:
+        await connection.execute(text("SET LOCAL statement_timeout = '5s'"))
+        await connection.execute(text(f"TRUNCATE {_GATE_TABLES} RESTART IDENTITY CASCADE"))
+
+    factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+    async with factory() as session:
+        user = User(email="owner@example.invalid", display_name="Owner", role=UserRole.OWNER)
+        session.add(user)
+        await session.flush()
+
+        request = ResearchRequest(
+            user_id=user.id,
+            company_name="Contoso Corporation",
+            ticker="CTSO",
+            exchange="NASDAQ",
+            as_of_date=AS_OF_DATE,
+            point_in_time=True,
+            base_currency="USD",
+            reporting_currency="USD",
+            investment_horizon_months=12,
+            max_cost_gbp="2.50",
+        )
+        session.add(request)
+        await session.flush()
+
+        job = await seed_job(session, request=request)
+        job.status = JobStatus.AWAITING_APPROVAL
+        # Gates are passed in order, so this one needs the plan gate behind it.
+        await approval_service.record_decision(
+            session,
+            job=job,
+            gate=GateKind.PLAN,
+            decision=Decision.APPROVED,
+            actor=user,
+            payload_hash="1" * 64,
+        )
+
+        produced: dict[str, Any] = {
+            "subject": str(uuid.uuid4()),
+            "subject_name": "Contoso Corporation",
+            "subject_period_end": AS_OF_DATE.isoformat(),
+            "basis": MultipleBasis.TRAILING_TWELVE_MONTHS.value,
+            "proposed_by": "aer.agents.peers",
+            "peers": peers
+            if peers is not None
+            else [
+                {
+                    "identifier": str(uuid.uuid4()),
+                    "name": "Peer Corporation",
+                    "rationale": "Sells comparable software to comparable buyers.",
+                    "period_end": AS_OF_DATE.isoformat(),
+                }
+            ],
+            "refused": [REFUSED_ROW] if refused else [],
+        }
+        produced["payload_hash"] = sha256_hex(canonical_json(peer_gate_payload(produced)))
+        session.add(
+            JobStep(
+                job_id=job.id,
+                step_key=PEER_SET_STEP,
+                sequence=6,
+                status=JobStatus.SUCCEEDED,
+                idempotency_key=f"{job.id}:{PEER_SET_STEP}",
+                input_hash="0" * 64,
+                output_ref=produced,
+            )
+        )
+        await session.commit()
+        return {"job": job, "request": request, "user": user, "produced": produced}
+
+
+@pytest.fixture
+async def at_the_gate(db_engine: Any) -> Any:
+    return await _seed_gate(db_engine, peers=None, refused=True)
+
+
+@pytest.fixture
+async def api(api_settings: Settings, db_engine: Any, fake_redis: Any) -> Any:
+    async for client in client_for(build_app(api_settings, engine=db_engine, redis=fake_redis)):
+        yield client
 
 
 def proposed(ticker: str, *, name: str = "", rationale: str = "Same end market.") -> ProposedPeer:
@@ -383,6 +490,41 @@ class TestTheSlateCannotCarryMoreThanTheGateWants:
 
         assert "EDGAR" in prompt
         assert "never produce a figure" in prompt
+
+
+class TestWhatTheReviewerIsShown:
+    """A refusal recorded in a step's output that no page renders is not visible."""
+
+    async def test_the_page_lists_the_peers_and_what_was_refused(
+        self, api: Any, at_the_gate: Any
+    ) -> None:
+        page = await api.get(f"/runs/{at_the_gate['job'].id}/peers")
+
+        assert page.status_code == 200
+        assert 'id="proposed-peers"' in page.text
+        assert 'id="refused-peers"' in page.text
+        assert "NOPE" in page.text
+        assert "does not list NOPE" in page.text
+
+    async def test_the_hash_is_of_the_set_and_moves_with_it(
+        self, api: Any, at_the_gate: Any
+    ) -> None:
+        """What is confirmed is the peers; a refusal alongside them changes nothing."""
+        page = await api.get(f"/runs/{at_the_gate['job'].id}/peers")
+
+        assert at_the_gate["produced"]["payload_hash"] in page.text
+
+    async def test_a_run_that_resolved_nobody_says_what_it_tried(
+        self, api: Any, db_engine: Any
+    ) -> None:
+        """Otherwise "no comparable companies" reads as a model that proposed none."""
+        seeded = await _seed_gate(db_engine, peers=[], refused=True)
+
+        page = await api.get(f"/runs/{seeded['job'].id}/peers")
+
+        assert page.status_code == 404
+        assert "none could be used" in page.text
+        assert "does not list NOPE" in page.text
 
 
 def _peer(identifier: str, rationale: str = "because") -> PeerProposal:

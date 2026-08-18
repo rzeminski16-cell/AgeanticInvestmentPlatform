@@ -82,6 +82,26 @@
     </p>
   {% endif %}
 
+  {% if refused %}
+    <section class="mt-8">
+      <h2 class="text-lg font-semibold tracking-tight">Proposed and not used</h2>
+      <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+        These were put forward and did not become peers. They are shown so a proposal of six
+        that arrives as four does not read as a proposal of four &mdash; and they are not part
+        of what you are confirming.
+      </p>
+      <ul class="mt-3 space-y-3" id="refused-peers">
+        {% for item in refused %}
+          <li class="rounded-md border border-slate-200 p-3 text-sm dark:border-slate-700">
+            <span class="font-mono font-semibold">{{ item.ticker }}</span>
+            {% if item.name %}<span class="text-slate-600 dark:text-slate-400">&mdash; {{ item.name }}</span>{% endif %}
+            <p class="mt-1 text-slate-600 dark:text-slate-400">{{ item.reason }}</p>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
   {% if decided %}
     <section
       class="mt-8 rounded-md border border-slate-300 bg-slate-100 p-4 dark:border-slate-700 dark:bg-slate-800"

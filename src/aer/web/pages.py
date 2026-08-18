@@ -426,6 +426,11 @@ async def peer_review(
     Every peer's rationale is rendered at full length. A page that truncated them would be a
     page that invites approving a set nobody read, which is the failure this gate exists to
     prevent.
+
+    **Refusals are shown beside the set, and are deliberately not part of what is hashed**
+    (ADR 0059). A model proposing peers will name companies the registry cannot resolve, and
+    a reviewer judging the ones that did resolve is better off knowing what did not — but
+    what they are approving is the peer set, so the hash covers that and nothing else.
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
@@ -439,11 +444,21 @@ async def peer_review(
             status=HTTP_404_NOT_FOUND,
         )
 
+    refused = [item for item in produced.get("refused", []) if isinstance(item, dict)]
     if not peer_set_required(produced):
+        # Names were put forward and none of them survived resolution: a different situation
+        # from a run that put nothing forward, and one an operator would otherwise have to
+        # read the step's output to tell apart.
+        tried = (
+            f" {len(refused)} compan{'y was' if len(refused) == 1 else 'ies were'} proposed "
+            "and none could be used: " + "; ".join(str(item.get("reason", "")) for item in refused)
+            if refused
+            else ""
+        )
         return _problem(
             request,
             "This run proposed no comparable companies, so this gate does not apply to it. "
-            "No comparables table will be produced and the report says so.",
+            "No comparables table will be produced and the report says so." + tried,
             status=HTTP_404_NOT_FOUND,
         )
 
@@ -458,6 +473,7 @@ async def peer_review(
             "job": job,
             "payload": payload,
             "payload_hash": payload_hash_for(payload),
+            "refused": [item for item in produced.get("refused", []) if isinstance(item, dict)],
             "decided": decided,
             "gate": GateKind.PEER_SET.value,
             "csrf_field": CSRF_FIELD_NAME,
