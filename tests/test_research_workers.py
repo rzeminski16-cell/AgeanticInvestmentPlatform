@@ -44,6 +44,7 @@ from aer.agents.worker import (
     _cap,
     _narrowed_report,
     _salvaged_turn,
+    degraded_report,
     investigate,
 )
 from aer.config import Settings, load_settings
@@ -61,13 +62,15 @@ from aer.db.models import (
 from aer.errors import ValidationError as AerValidationError
 from aer.fetch.client import FetchResult
 from aer.fetch.errors import UrlNotAllowedError
-from aer.providers.anthropic import _unreadable_reply
+from aer.providers.anthropic import _unreadable_reply, _validated
 from aer.providers.fake import FakeProvider
 from aer.providers.protocol import SpentButUnusableError, Usage
 from aer.providers.router import Router
 from aer.services.research import _ID_FIELDS, build_executors, validate_report
 from aer.sources.sec.fulltext import FullTextHit, SearchResults
 from aer.storage.local import LocalArtefactStore
+from aer.workflow.engine import StepContext
+from aer.workflow.workflows.vertical_slice_v1 import _findings_for, _research
 
 pytestmark = pytest.mark.integration
 
@@ -267,6 +270,22 @@ def _cut_off_mid_reply() -> AerValidationError:
     except PydanticValidationError as broken:
         return _unreadable_reply(broken, schema=WorkerTurn, model="claude-opus-5", max_tokens=8192)
     raise AssertionError("truncated JSON must not validate")  # pragma: no cover
+
+
+def _stopped_at_the_ceiling() -> AerValidationError:
+    """What the provider raises when ``stop_reason: max_tokens`` arrives with no text at all.
+
+    The live shape: the whole allowance went on thinking, so there is not even a truncated
+    JSON to mis-parse. Built by handing the provider's own validation a response in that
+    state, so the context these tests rely on is the real interface rather than a
+    hand-made copy of it.
+    """
+    response = SimpleNamespace(stop_reason="max_tokens", content=[])
+    try:
+        _validated(response, WorkerTurn, model="claude-opus-5", max_tokens=8192)
+    except AerValidationError as err:
+        return err
+    raise AssertionError("a max_tokens stop must not validate")  # pragma: no cover
 
 
 @pytest.fixture
@@ -1084,7 +1103,12 @@ class TestAReplyTheContractCannotReadIsFedBack:
             validate=_accept_all,
         )
 
-        assert outcome.rounds == 2
+        # One round, two attempts: the retry runs inside the round it broke, because an
+        # unreadable reply moved the investigation nowhere. When it consumed a round, an
+        # unreadable reply on the *final* round got its feedback delivered into a loop
+        # with no round left to act on it — the death a live worker died.
+        assert outcome.rounds == 1
+        assert provider.call_count == 2
 
     async def test_the_model_is_told_which_field_it_overran(
         self, loop_scene: dict[str, Any]
@@ -1140,6 +1164,11 @@ class TestAReplyTheContractCannotReadIsFedBack:
         # Which of the five died. The provider knows the model and the schema; only the
         # loop knows the topic, and "a worker failed" is not a diagnosis.
         assert caught.value.context["topic"] == "industry"
+        # Both attempts were the same round — the retry consumes the unreadable-reply
+        # allowance, never the round budget — and the audit trail travels out with the
+        # failure, so the workflow's degraded step can record what the worker did do.
+        assert caught.value.context["rounds"] == 1
+        assert caught.value.context["requests"] == []
 
     async def test_a_truncated_reply_is_told_to_be_shorter(
         self, loop_scene: dict[str, Any]
@@ -1161,6 +1190,60 @@ class TestAReplyTheContractCannotReadIsFedBack:
         assert "cut off" in second
         assert "fewer words" in second
 
+    async def test_a_reply_that_died_at_the_ceiling_retries_within_the_final_round(
+        self, loop_scene: dict[str, Any]
+    ) -> None:
+        """The live failure, in miniature: the final report turn stops at ``max_tokens``.
+
+        A recent-developments worker reached its final round with nine tool calls of
+        evidence behind it, spent the whole output allowance before finishing its report,
+        and was failed — the retry the loop owed it would have needed a sixth round that
+        did not exist. The retry must land inside the round, still framed as the final
+        turn.
+        """
+        provider = _scripted([_stopped_at_the_ceiling(), _report_turn()])
+
+        outcome = await investigate(
+            _context(loop_scene, provider),
+            topic=ResearchTopic.RECENT_DEVELOPMENTS,
+            company_name="Contoso",
+            ticker="CTSO",
+            as_of_date="2023-01-01",
+            executors={},
+            validate=_accept_all,
+            max_rounds=1,
+        )
+
+        assert outcome.rounds == 1
+        retry = provider.calls[1]["messages"][0]["content"]
+        assert "This is your final turn" in retry
+
+    async def test_the_ceiling_is_answered_with_shorter_not_with_a_shrug(
+        self, loop_scene: dict[str, Any]
+    ) -> None:
+        """``stop_reason: max_tokens`` has a remedy the model can apply, so name it.
+
+        The generic wording — "could not be read as a turn" — names no fix at all, and a
+        live worker died being fed exactly that.
+        """
+        provider = _scripted([_stopped_at_the_ceiling(), _report_turn()])
+
+        await investigate(
+            _context(loop_scene, provider),
+            topic=ResearchTopic.RECENT_DEVELOPMENTS,
+            company_name="Contoso",
+            ticker="CTSO",
+            as_of_date="2023-01-01",
+            executors={},
+            validate=_accept_all,
+            max_rounds=1,
+        )
+
+        retry = provider.calls[1]["messages"][0]["content"]
+        assert "ran out of room" in retry
+        assert "fewer" in retry
+        assert "could not be read as a turn" not in retry
+
     async def test_exhaustion_names_what_the_final_attempt_was_refused_for(
         self, loop_scene: dict[str, Any]
     ) -> None:
@@ -1181,6 +1264,153 @@ class TestAReplyTheContractCannotReadIsFedBack:
                 executors={},
                 validate=never,
             )
+
+    async def test_exhaustion_carries_the_audit_trail_out(self, loop_scene: dict[str, Any]) -> None:
+        """What the worker did do travels with the failure, for the degraded step record."""
+
+        async def never(report: WorkerReport) -> list[str]:
+            return ["Not good enough."]
+
+        provider = _scripted(
+            [_request_turn(("fetch_known_url", "https://example.invalid/ir")), _report_turn()]
+        )
+
+        with pytest.raises(WorkerExhaustedError) as caught:
+            await investigate(
+                _context(loop_scene, provider),
+                topic=ResearchTopic.MACRO,
+                company_name="Contoso",
+                ticker="CTSO",
+                as_of_date="2023-01-01",
+                executors={},
+                validate=never,
+                max_rounds=2,
+            )
+
+        [attempt] = caught.value.context["requests"]
+        assert attempt["tool"] == "fetch_known_url"
+        assert attempt["executed"] is False
+
+
+class TestTheAnalysisCeiling:
+    def test_thinking_and_the_report_share_one_allowance(self) -> None:
+        """8,192 killed a live worker: five rounds of evidence to reason over and the
+        whole report still to write, out of one bound. Same figure as the planner, the
+        writers and the red team, for the same reason."""
+        assert resolve_role("analysis").max_output_tokens == 16_384
+
+
+class TestTheDegradedReport:
+    """The stand-in for a dead investigation asserts nothing and says why it is empty."""
+
+    def test_it_asserts_nothing_and_names_the_failure(self) -> None:
+        report = degraded_report(ResearchTopic.MACRO, "the model never produced a report")
+
+        assert report.findings == []
+        assert report.leads == []
+        assert "macro investigation did not complete" in report.coverage_note
+        assert "never produced a report" in report.coverage_note
+
+    def test_the_note_respects_the_contracts_own_bound(self) -> None:
+        report = degraded_report(ResearchTopic.MACRO, "x" * 2000)
+
+        assert len(report.coverage_note) == _cap(WorkerReport, "coverage_note")
+        assert report.coverage_note.endswith("…")
+
+
+class TestADeadWorkerDegradesItsStepNotTheRun:
+    """One dead topic must not abandon four finished ones and everything downstream.
+
+    A live run lost its draft, its validation and roughly a pound of finished work when
+    the recent-developments worker's final reply died at the token ceiling: the step
+    failed, the engine raised the step's failure as the run's, and every step after the
+    research wave was abandoned. The node now records the death as a visible degradation
+    — an empty report whose coverage note is the failure — and the run continues.
+    """
+
+    async def _node_context(self, scene: dict[str, Any], provider: FakeProvider) -> StepContext:
+        job = await scene["session"].get(Job, scene["job_step"].job_id)
+        assert job is not None
+        return StepContext(
+            session=scene["session"],
+            job=job,
+            step=scene["job_step"],
+            services={
+                "provider": provider,
+                "router": Router(scene["settings"]),
+                "settings": scene["settings"],
+                "store": scene["store"],
+            },
+        )
+
+    async def test_exhaustion_becomes_a_recorded_degradation(
+        self, loop_scene: dict[str, Any]
+    ) -> None:
+        # Every scripted report cites a fact id this run does not hold, so the real
+        # validator refuses each round and the worker exhausts — the same death as the
+        # live run's, reached through real validation rather than a stubbed error.
+        provider = _scripted(
+            [_report_turn(fact_ids=[str(uuid.uuid4())]) for _ in range(MAX_ROUNDS)]
+        )
+        context = await self._node_context(loop_scene, provider)
+
+        result = await _research(ResearchTopic.RECENT_DEVELOPMENTS)(context)
+
+        assert result.output["degraded"]["code"] == "worker_exhausted"
+        assert result.output["topic"] == "recent_developments"
+        report = result.output["report"]
+        assert report["findings"] == []
+        assert "did not complete" in report["coverage_note"]
+
+    async def test_two_unreadable_replies_degrade_the_same_way(
+        self, loop_scene: dict[str, Any]
+    ) -> None:
+        provider = _scripted([_stopped_at_the_ceiling(), _stopped_at_the_ceiling()])
+        context = await self._node_context(loop_scene, provider)
+
+        result = await _research(ResearchTopic.RECENT_DEVELOPMENTS)(context)
+
+        assert result.output["degraded"]["code"] == AerValidationError.code
+        assert result.output["report"]["findings"] == []
+
+
+class TestTheAssumptionDigestReadsTheStepsRealShape:
+    async def test_findings_are_read_from_under_the_report_key(
+        self, loop_scene: dict[str, Any]
+    ) -> None:
+        """`_findings_for` used to read a top-level "findings" that has never existed —
+        the research step stores the whole WorkerReport under "report" — so the
+        assumption proposer was shown an empty digest on every run, and nobody noticed
+        because an empty tuple is also what a run with no findings legitimately
+        produces."""
+        job = await loop_scene["session"].get(Job, loop_scene["job_step"].job_id)
+        assert job is not None
+        context = StepContext(
+            session=loop_scene["session"],
+            job=job,
+            step=loop_scene["job_step"],
+            services={},
+            outputs={
+                "acquire": {"company_id": str(uuid.uuid4())},
+                "research_company": {
+                    "topic": "company",
+                    "report": {
+                        "findings": [
+                            {"statement": "Margins are widening.", "kind": "factual"},
+                            {"statement": ""},
+                        ],
+                        "leads": [],
+                        "coverage_note": "Done.",
+                    },
+                },
+                "research_macro": {
+                    "topic": "macro",
+                    "report": {"findings": [], "leads": [], "coverage_note": "Nothing."},
+                },
+            },
+        )
+
+        assert _findings_for(context) == ("Margins are widening.",)
 
 
 class TestSalvageOfABilledReport:
@@ -1268,7 +1498,9 @@ class TestSalvageOfABilledReport:
             validate=_accept_all,
         )
 
-        assert outcome.rounds == 2
+        # The feedback runs as a retry inside the same round; see the fed-back tests.
+        assert outcome.rounds == 1
+        assert provider.call_count == 2
         second = provider.calls[1]["messages"][0]["content"]
         assert "coverage_note" in second
 

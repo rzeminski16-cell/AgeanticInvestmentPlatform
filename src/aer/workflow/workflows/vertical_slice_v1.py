@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.base import AgentContext
 from aer.agents.planner import PlannerAgent, PlannerInput, salvaged_plan
-from aer.agents.worker import ResearchTopic
+from aer.agents.worker import ResearchTopic, WorkerExhaustedError, degraded_report
 from aer.calc.basic import cagr
 from aer.calc.comps import MultipleBasis, WithheldComps, align_peers
 from aer.calc.engine import CalculationContext
@@ -66,6 +66,7 @@ from aer.db.models import (
 from aer.db.models.plan_skill_pin import PLANNED as PIN_PLANNED
 from aer.db.models.plan_skill_pin import SKIPPED_NOT_APPLICABLE, PlanSkillPin
 from aer.db.models.section_definition import BUILTIN, SKILL
+from aer.errors import ValidationError
 from aer.extract import extract_bytes
 from aer.fetch.policy import DEFAULT_POLICIES
 from aer.providers.protocol import SpentButUnusableError
@@ -735,7 +736,14 @@ def _findings_for(context: StepContext) -> tuple[str, ...]:
     for key, produced in context.outputs.items():
         if not key.startswith("research_"):
             continue
-        for finding in produced.get("findings", []) or []:
+        # Nested under "report": the research step stores the whole WorkerReport there.
+        # This used to read a top-level "findings" that has never existed, so the
+        # proposing role was shown an empty digest on every run and nobody noticed —
+        # an empty tuple is also what a run with no findings legitimately produces.
+        report = produced.get("report")
+        if not isinstance(report, dict):
+            continue
+        for finding in report.get("findings", []) or []:
             statement = finding.get("statement") if isinstance(finding, dict) else None
             if statement:
                 found.append(str(statement))
@@ -1630,24 +1638,53 @@ def _research(topic: ResearchTopic) -> Any:
             store=context.service("store"),
             job_step=context.step,
         )
-        investigation = await run_worker(
-            agent_context,
-            context.session,
-            topic=topic,
-            request=request,
-            # `fetch_known_url` appears on the worker's menu only where a fetcher was
-            # bundled. The registry grants the capability either way; this decides whether
-            # the run can act on it -- see `build_executors`.
-            executors=build_executors(
+        try:
+            investigation = await run_worker(
+                agent_context,
                 context.session,
+                topic=topic,
                 request=request,
-                fetcher=context.services.get("fetcher"),
-                store=context.service("store"),
-                settings=context.service("settings"),
-                job_id=context.job.id,
-                sec_client=context.services.get("sec_client"),
-            ),
-        )
+                # `fetch_known_url` appears on the worker's menu only where a fetcher was
+                # bundled. The registry grants the capability either way; this decides
+                # whether the run can act on it -- see `build_executors`.
+                executors=build_executors(
+                    context.session,
+                    request=request,
+                    fetcher=context.services.get("fetcher"),
+                    store=context.service("store"),
+                    settings=context.service("settings"),
+                    job_id=context.job.id,
+                    sec_client=context.services.get("sec_client"),
+                ),
+            )
+        except (WorkerExhaustedError, ValidationError) as failed:
+            # One dead topic must not abandon four finished ones and everything
+            # downstream — a live run lost its draft, its validation and roughly a
+            # pound of finished work to a single worker's final reply. The step
+            # succeeds with a degraded product that says so everywhere the real one
+            # would have spoken: an empty report whose coverage note is the failure,
+            # the audit trail the error carried out, and the spend, which is real
+            # whether or not the reply was usable. ValidationError is caught alongside
+            # exhaustion because from `run_worker` it means exactly one thing — the
+            # model's replies could not be read twice — which is the same class of
+            # death with a different bound.
+            _log.warning(
+                "workflow.research_degraded",
+                topic=topic.value,
+                code=failed.code,
+                error=failed.message,
+            )
+            return StepResult(
+                output={
+                    "topic": topic.value,
+                    "report": degraded_report(topic, failed.message).model_dump(mode="json"),
+                    "tool_calls": int(failed.context.get("tool_calls", 0) or 0),
+                    "rounds": int(failed.context.get("rounds", 0) or 0),
+                    "requests": list(failed.context.get("requests", []) or []),
+                    "degraded": {"code": failed.code, "detail": failed.message},
+                },
+                cost_gbp=agent_context.spend_gbp,
+            )
         return StepResult(
             output={
                 "topic": topic.value,

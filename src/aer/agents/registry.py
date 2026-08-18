@@ -170,7 +170,13 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         allowed_tools=frozenset(
             {"search_facts", "search_sources", "search_filings_full_text", "fetch_known_url"}
         ),
-        max_output_tokens=8_192,
+        # 8,192 here, and a live run's recent-developments worker died on its final turn
+        # with `stop_reason: max_tokens` and no report. The turn that kills a worker is
+        # the last one: five rounds of accumulated evidence to reason over and the whole
+        # report still to write, out of one allowance that bounds thinking and visible
+        # output together. Same figure as the planner, the writers and the red team, for
+        # the same reason.
+        max_output_tokens=16_384,
         adr="0036",
     ),
     RoleDefinition(

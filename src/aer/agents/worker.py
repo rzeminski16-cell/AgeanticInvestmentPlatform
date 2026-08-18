@@ -64,6 +64,7 @@ __all__ = [
     "WorkerLead",
     "WorkerReport",
     "WorkerTurn",
+    "degraded_report",
     "investigate",
 ]
 
@@ -78,21 +79,22 @@ MAX_TOOL_CALLS: Final = 12
 MAX_ROUNDS: Final = 5
 
 # Replies the schema could not read, before the worker gives up. Deliberately much smaller
-# than MAX_ROUNDS, and not for the reason the other bounds are small.
-#
-# A reply that breaks a field constraint is rejected while the SDK is still accumulating the
-# stream, so there is no response object, no usage figure and therefore **no cost row**: the
-# tokens were spent and the ledger never sees them. Every re-ask is money the budget cap
-# cannot count, which makes this the one loop here that must not be generous. Naming the
-# field the model overran fixes it on the next attempt or it does not get fixed at all.
+# than MAX_ROUNDS, because it is the bound that actually limits the retrying: an unreadable
+# reply is retried within the same round rather than consuming one (see :func:`investigate`),
+# so this is the whole of the allowance. Naming the field the model overran fixes it on the
+# next attempt or it does not get fixed at all — a third identical failure would be a third
+# identical bill.
 MAX_UNREADABLE_REPLIES: Final = 2
 
 
 class WorkerExhaustedError(AerError):
     """A worker reached its bounds without producing a report.
 
-    A deliberate failure rather than a shrug: the workflow node goes red and says which
-    bound was hit, instead of the run continuing with a silently absent investigation.
+    A deliberate failure rather than a shrug: it says which bound was hit and carries the
+    audit trail of what the worker did do. What a caller makes of it is the caller's
+    policy — the vertical slice records the dead topic as a visible degradation
+    (:func:`degraded_report`) rather than abandoning the four sibling topics and every
+    step downstream of them, which is what re-raising through the engine used to cost.
     """
 
     code = "worker_exhausted"
@@ -484,9 +486,12 @@ async def investigate(
     (see :data:`_LIMITS`), so an otherwise sound report can arrive forty characters too long
     and be rejected on the way in. That used to propagate straight out of here and kill the
     node — losing four other topics along with it — when it is the most trivially fixable
-    failure the loop can see: naming the field that overran is usually the whole remedy. It
-    is fed back exactly as a validator's refusal is, and bounded harder, because each
-    attempt is spend the ledger never sees. See :data:`MAX_UNREADABLE_REPLIES`.
+    failure the loop can see: naming the field that overran is usually the whole remedy.
+    The retry runs **within the same round**, bounded by :data:`MAX_UNREADABLE_REPLIES`
+    rather than by the round budget: an unreadable reply moved the investigation nowhere,
+    and when it consumed a round the likeliest place for one — the final round, with the
+    whole report to write against the output ceiling — was also the one place the
+    feedback had no round left to run in. A live worker died exactly there.
 
     **A validator refusal on the last round narrows the report rather than killing it.**
     Feedback is always preferred while a round remains to act on it; when none does, and
@@ -495,11 +500,12 @@ async def investigate(
 
     Raises:
         WorkerExhaustedError: If the rounds run out without a report the validator
-            accepts. Deliberately an error — the workflow node fails visibly rather than
-            the run continuing with a silently absent investigation.
+            accepts. Deliberately an error, with the audit trail in its context; the
+            caller decides whether that fails the node or degrades it visibly.
         ValidationError: If the model produced :data:`MAX_UNREADABLE_REPLIES` replies the
             contract could not read. Re-raised rather than translated: it names the field
-            and the constraint, which is what whoever reads the failed step needs.
+            and the constraint, which is what whoever reads the failed step needs — with
+            the topic and the audit trail added on the way past.
     """
     worker = ResearchWorker()
     # Permission ∩ availability, settled once. The registry says what the role may ask for;
@@ -513,37 +519,39 @@ async def investigate(
     unreadable = 0
 
     for round_number in range(1, max_rounds + 1):
-        payload = WorkerInput(
-            topic=topic,
-            company_name=company_name,
-            ticker=ticker,
-            as_of_date=as_of_date,
-            remaining_tool_calls=max_tool_calls - spent,
-            remaining_rounds=max_rounds - round_number + 1,
-            available_tools=available,
-            internal_results=internal,
-            untrusted_evidence=untrusted,
-            problems=problems,
-        )
-        problems = []
+        turn: WorkerTurn | None = None
+        while turn is None:
+            payload = WorkerInput(
+                topic=topic,
+                company_name=company_name,
+                ticker=ticker,
+                as_of_date=as_of_date,
+                remaining_tool_calls=max_tool_calls - spent,
+                remaining_rounds=max_rounds - round_number + 1,
+                available_tools=available,
+                internal_results=internal,
+                untrusted_evidence=untrusted,
+                problems=problems,
+            )
+            problems = []
 
-        try:
-            turn = await worker.run(context, payload)
-        except ValidationError as rejected:
-            salvaged = _salvaged_turn(rejected)
-            if salvaged is not None:
-                turn, dropped = salvaged
-                # Warning, not info: findings the model asserted have been discarded, and
-                # anyone auditing the run should see the report is narrower than the reply
-                # that was billed.
-                _log.warning(
-                    "worker.findings_salvaged",
-                    topic=topic.value,
-                    round=round_number,
-                    dropped=dropped,
-                    kept=len(turn.report.findings) if turn.report is not None else 0,
-                )
-            else:
+            try:
+                turn = await worker.run(context, payload)
+            except ValidationError as rejected:
+                salvaged = _salvaged_turn(rejected)
+                if salvaged is not None:
+                    turn, dropped = salvaged
+                    # Warning, not info: findings the model asserted have been discarded,
+                    # and anyone auditing the run should see the report is narrower than
+                    # the reply that was billed.
+                    _log.warning(
+                        "worker.findings_salvaged",
+                        topic=topic.value,
+                        round=round_number,
+                        dropped=dropped,
+                        kept=len(turn.report.findings) if turn.report is not None else 0,
+                    )
+                    continue
                 unreadable += 1
                 problems = schema_problems(rejected)
                 _log.warning(
@@ -552,13 +560,27 @@ async def investigate(
                     round=round_number,
                     attempt=unreadable,
                     problems=problems,
+                    # The provider's own diagnosis — the ceiling, the refusal, the broken
+                    # field. `problems` is written for the model to act on; whoever reads
+                    # this log needs the version that names the fix.
+                    error=rejected.message,
                 )
                 if unreadable >= MAX_UNREADABLE_REPLIES:
-                    # Which worker, on the way past. The provider knows the model and the
-                    # schema; only this frame knows which of the five topics just died.
+                    # What this frame knows and the provider does not: which of the five
+                    # topics just died, and the audit trail of what it had done. The
+                    # workflow's degraded step is built from exactly this context.
                     rejected.context["topic"] = topic.value
+                    rejected.context["tool_calls"] = spent
+                    rejected.context["rounds"] = round_number
+                    rejected.context["requests"] = [item.as_dict() for item in executed]
                     raise
-                continue
+                # Retry within the same round. The round bound exists for turns that
+                # moved the investigation; this one moved nothing, and consuming a round
+                # on it meant an unreadable reply on the *final* round — the likeliest
+                # place, with the whole report to write — got its feedback delivered
+                # into a loop with no round left to act on it. A live worker died
+                # exactly there. The retries stay bounded by MAX_UNREADABLE_REPLIES,
+                # which is the bound that was doing the work anyway.
 
         if turn.report is not None:
             found = await validate(turn.report)
@@ -615,8 +637,28 @@ async def investigate(
             "tool_calls": spent,
             "rounds": max_rounds,
             "problems": problems,
+            # The audit trail travels with the failure: the workflow's degraded step
+            # records what the worker did do, not only that it died.
+            "requests": [item.as_dict() for item in executed],
         },
     )
+
+
+def degraded_report(topic: ResearchTopic, reason: str) -> WorkerReport:
+    """An empty report standing in for an investigation that died, saying why.
+
+    For the workflow layer, which continues a run past a dead worker rather than
+    abandoning four finished topics and everything downstream of them. The stand-in
+    asserts nothing — no findings, no leads — and its coverage note is the failure,
+    so every consumer of worker output sees an honest absence instead of a hole.
+    Built here because this module owns the contract: the note is trimmed to the
+    coverage note's own bound, read off the model exactly as :data:`_LIMITS` reads it.
+    """
+    limit = _cap(WorkerReport, "coverage_note")
+    note = f"The {topic.value} investigation did not complete: {reason}"
+    if len(note) > limit:
+        note = note[: limit - 1] + "…"
+    return WorkerReport(coverage_note=note)
 
 
 def _salvaged_turn(  # noqa: PLR0911 -- each return is a distinct reason not to salvage

@@ -125,8 +125,16 @@ def schema_problems(rejected: ValidationError) -> list[str]:
     """
     errors = rejected.context.get("errors")
     if not isinstance(errors, list) or not errors:
-        # No field-level detail, which at this layer means the reply carried no structured
-        # output at all — a refusal, or the token ceiling reached before the JSON began.
+        # No field-level detail, so the reply carried no readable structured output at
+        # all. The stop reason splits that into the case with a remedy and the rest: at
+        # the ceiling the model wrote too much (or thought too long) for the room it had,
+        # and "shorter" is an instruction it can actually follow — a live worker died
+        # being told only that its reply "could not be read", which names no fix at all.
+        if rejected.context.get("stop_reason") == "max_tokens":
+            return [
+                "Your last reply ran out of room before it was complete. Say the same "
+                "thing in fewer words: fewer findings, shorter statements."
+            ]
         return [
             "Your last reply could not be read as a turn. It must be one JSON object "
             "matching the schema, and short enough to finish."
