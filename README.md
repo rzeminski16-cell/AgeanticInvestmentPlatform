@@ -448,6 +448,7 @@ tests/              test suite; runs with no network access and no model spend
 docs/
   PLAN.md           the full research, architecture and build plan
   adr/              architecture decision records
+  polish-phase-1.md the fix sequence from the first complete run
   anatomy-of-a-research-run.html   the pipeline, the gates and the agents, drawn
   notebooks/        explainers that read the live code rather than describing it
 docker-compose.yml  Postgres, Redis, and MinIO under the `objectstore` profile

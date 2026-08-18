@@ -7,6 +7,13 @@ A45–A47 and B14 from the AMZN run of 2026-08-18, all four now closed. Items
 struck through are done; the reasoning is kept because a gap and the shape of its fix are
 worth reading together.*
 
+*The **first complete** run of the same workflow, later on 2026-08-18, found more than this
+register is shaped to hold: a cross-company contamination of the evidence pack, a fiscal
+year taken from the wrong field, and a valuation section describing a method nothing
+executed. Those and the rest are tracked as a task sequence in `docs/polish-phase-1.md`
+rather than as entries here, because they have a dependency order and several share one
+root cause.*
+
 *A22 and A23 are worth reading before the rest of List A, because neither was found by a
 failing test: both are things the code **said** it did. A guard populated with a ceiling it
 never compared, and a docstring promising three call paths composed the same prompt when two
