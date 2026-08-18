@@ -98,6 +98,28 @@ capitalisation.
 | `/api/div/{symbol}` | Cash dividends | 1 |
 | `/api/fundamentals/{symbol}` | Share count only | 10 |
 
+## What this subscription actually entitles, and the one mismatch
+
+Confirmed against the operator's account on **2026-08-18**. Entitlements are per feed rather
+than per plan, so the table above is a statement about the *code* and this one about the
+*account*; where they disagree the account wins, and the run gets an entitlement error
+rather than data.
+
+| Feed | Enabled | What this platform does with it |
+|---|---|---|
+| EOD Historical Data | yes | `/api/eod` — the price series. Used. |
+| Split Data Feed | yes | `/api/splits` — used, and load-bearing: an unadjusted series across a split is a chart that lies. |
+| Dividends Data Feed | yes | `/api/div` — used, for the total-return adjustment. |
+| Exchanges List | yes | Not used. Would replace the hand-maintained market-proxy table in `sources/eodhd/proxies.py`. |
+| News API | yes | Not used — see *What is deliberately not used*. |
+| **Fundamental Data** | **no** | **`/api/fundamentals` is called anyway** — gap A47. It is the only source of the share count, so the market capitalisation, every enterprise-value multiple and the equity bridge's share count all rest on an endpoint this account cannot reach. |
+| Technical, Calendar, Exchange Details, Tick, All-In-One | no | Not used, and none is wanted. |
+
+**The share count should come from the filings regardless.** It is already in the concept
+map, and `dei:EntityCommonStockSharesOutstanding` sits on the cover page of every 10-K,
+dated and primary. A vendor was the weaker source before the entitlement made it the
+unavailable one, and dropping the call removes ten weighted units from every run.
+
 ## Response shapes, and what has not been verified
 
 The parsers were written against EODHD's published documentation. **This build environment
@@ -154,8 +176,16 @@ an empty series — an empty series is indistinguishable from a company that has
 
 - **Bulk endpoints.** A hundred weighted calls each, and this platform researches one company
   at a time.
-- **News, sentiment and technical indicators.** Interpretation is the model's job over
+- **Sentiment scores and technical indicators.** Interpretation is the model's job over
   primary sources, not a vendor's score.
+- **The News feed — not on principle, and worth revisiting.** It is enabled on this
+  subscription and unused. The objection above is to a vendor's *score*; a dated headline
+  with a link is ordinary evidence, and the recent-developments worker currently has nothing
+  current to read but filings. Three things would have to be settled first: it enters at
+  tier 4 (licensed), so it may support colour and never a figure; ADR 0030's withholding
+  rules apply in full, so a shareable report carries the reading and not the feed; and
+  article text is untrusted content reaching a model only inside the wrapper, exactly as a
+  fetched page does. Not built, not refused — recorded so it stays a decision.
 - **Intraday.** `docs/PLAN.md` fixes end-of-day as the granularity; intraday is a different
   subscription and answers no question this platform asks.
 - **The vendor's `adjusted_close` as an answer.** It is stored as a cross-check against this
