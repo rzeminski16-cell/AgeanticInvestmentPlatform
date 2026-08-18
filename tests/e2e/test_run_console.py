@@ -24,8 +24,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from aer.config import load_settings
-from aer.core.enums import GateKind, JobStatus
+from aer.core.enums import Decision, GateKind, JobStatus
 from aer.db.models import Job, JobStep, Report, ResearchRequest, User
+from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.storage.local import LocalArtefactStore
 from tests.db_fixtures import run_async
@@ -128,6 +129,83 @@ class RunFixture:
                 return outcome.status
         finally:
             await engine.dispose()
+
+    def advance_to_the_final_gate(self) -> JobStatus:
+        """Run until the final gate pauses, clearing the assumptions gate on the way.
+
+        The workflow has grown gates between the plan and the final review; the one that
+        fires for this scene is the assumptions gate (ADR 0046), and these tests are not
+        about it. Whether a pause is the final gate is read from the run's own record,
+        exactly as ``tests.test_workflow.run_clearing_the_assumptions_gate`` reads it:
+        ``red_team`` — the final gate's sealing step — has always run by the time the
+        final gate pauses, and can never have run before it.
+        """
+        return run_async(self._advance_to_the_final_gate())
+
+    async def _advance_to_the_final_gate(self) -> JobStatus:
+        engine = await self._engine()
+        try:
+            factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+            async with factory() as session:
+                # Bounded: the interim gates are few, and a run that keeps pausing is a
+                # failure to surface, not to orbit.
+                for _ in range(4):
+                    job = await session.get(Job, self.job_id)
+                    assert job is not None
+                    outcome = await run_service.execute(
+                        session,
+                        job=job,
+                        settings=self._settings,
+                        provider=self._provider,
+                        store=self._store,
+                        sec_client=self._sec_client,
+                    )
+                    await session.commit()
+                    if outcome.status is not JobStatus.AWAITING_APPROVAL:
+                        return outcome.status
+                    sealed = await session.scalar(
+                        select(JobStep).where(
+                            JobStep.job_id == self.job_id, JobStep.step_key == "red_team"
+                        )
+                    )
+                    if sealed is not None:
+                        return outcome.status
+                    await self._approve_the_assumptions(session, job)
+                raise AssertionError("the run kept pausing at interim gates")
+        finally:
+            await engine.dispose()
+
+    async def _approve_the_assumptions(self, session: Any, job: Job) -> None:
+        paused = await session.scalar(
+            select(JobStep)
+            .where(
+                JobStep.job_id == self.job_id,
+                JobStep.status == JobStatus.AWAITING_APPROVAL,
+            )
+            .order_by(JobStep.sequence.desc())
+        )
+        assert paused is not None, "the run pauses awaiting approval with no recorded gate step"
+        assert paused.step_key == "gate_assumptions", (
+            f"the run paused at {paused.step_key!r}; a gate this fixture does not know "
+            "how to clear now fires for this scene"
+        )
+        proposed = await session.scalar(
+            select(JobStep).where(
+                JobStep.job_id == self.job_id, JobStep.step_key == "propose_assumptions"
+            )
+        )
+        assert proposed is not None
+        user = await session.scalar(select(User))
+        assert user is not None
+        await approval_service.record_decision(
+            session,
+            job=job,
+            gate=GateKind.ASSUMPTIONS,
+            decision=Decision.APPROVED,
+            actor=user,
+            payload_hash=str((proposed.output_ref or {})["payload_hash"]),
+        )
+        await session.commit()
 
     def hold_step(self, step_key: str, *, started_seconds_ago: int) -> None:
         """Put a step back into ``RUNNING``, as if the worker were still inside it.
@@ -335,7 +413,7 @@ class TestTheSecondGateAndTheReport:
         page.wait_for_url(CONSOLE_URL)
         leave_the_console(page, live_server)
 
-        assert waiting_run.advance() is JobStatus.AWAITING_APPROVAL
+        assert waiting_run.advance_to_the_final_gate() is JobStatus.AWAITING_APPROVAL
         return waiting_run
 
     def test_the_draft_is_shown_as_a_document(
@@ -493,7 +571,7 @@ class TestCancelling:
         page.goto(f"{live_server}/runs/{waiting_run.job_id}/plan")
         page.click("#approve")
         page.wait_for_url(CONSOLE_URL)
-        assert waiting_run.advance() is JobStatus.AWAITING_APPROVAL
+        assert waiting_run.advance_to_the_final_gate() is JobStatus.AWAITING_APPROVAL
 
         page.goto(f"{live_server}/runs/{waiting_run.job_id}/review")
         page.click("#approve")
