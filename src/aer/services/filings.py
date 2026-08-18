@@ -39,7 +39,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.config import Settings
 from aer.core.enums import Provider, SourceTier
 from aer.core.schemas.extraction import Excerpt
-from aer.db.models import ResearchRequest, SourceDocument
+from aer.db.models import Company, ResearchRequest, SourceDocument
 from aer.errors import AerError
 from aer.extract import extract_text
 from aer.services.acquisition import record_acquisition
@@ -222,6 +222,7 @@ async def acquire_filings(
     client: Any,
     request: ResearchRequest,
     entity: ResolvedEntity,
+    company: Company,
     settings: Settings,
     job_id: uuid.UUID | None = None,
     max_current: int = MAX_CURRENT_REPORTS,
@@ -261,6 +262,7 @@ async def acquire_filings(
             client=client,
             request=request,
             entity=entity,
+            company=company,
             index=index,
             filing=filing,
             settings=settings,
@@ -341,6 +343,7 @@ async def _acquire_one(
     client: Any,
     request: ResearchRequest,
     entity: ResolvedEntity,
+    company: Company,
     index: SubmissionsIndex,
     filing: Filing,
     settings: Settings,
@@ -361,6 +364,7 @@ async def _acquire_one(
         store,
         request=request,
         job_id=job_id,
+        company_id=company.id,
         result=result,
         provider=Provider.SEC_EDGAR,
         # A filing is the regulatory record itself, which is what T1 means. The company

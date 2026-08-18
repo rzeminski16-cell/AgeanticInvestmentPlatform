@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.config import Settings
 from aer.core.enums import Provider, SourceTier, UserRole
 from aer.core.schemas.extraction import Locator
-from aer.db.models import Extraction, ResearchRequest, SourceDocument, User
+from aer.db.models import Company, Extraction, ResearchRequest, SourceDocument, User
 from aer.errors import ExternalServiceError
 from aer.extract import extract_text
 from aer.services.filings import MAX_EXCERPTS, MIN_EXCERPT_CHARS, acquire_filings
@@ -68,6 +68,12 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     db_session.add(request)
     await db_session.flush()
 
+    company = Company(name=ENTITY.name, cik=ENTITY.identifier, ticker="MSFT", exchange="NASDAQ")
+    db_session.add(company)
+    await db_session.flush()
+    request.company_id = company.id
+    await db_session.flush()
+
     settings = Settings(
         http_user_agent="Test test@example.invalid", artefact_root=tmp_path / "artefacts"
     )
@@ -75,6 +81,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     return {
         "session": db_session,
         "request": request,
+        "company": company,
         "settings": settings,
         "store": store,
         "client": StubSecClient(store),
@@ -88,6 +95,7 @@ async def _acquire(scene: dict[str, Any], **kwargs: Any) -> Any:
         client=kwargs.pop("client", scene["client"]),
         request=scene["request"],
         entity=ENTITY,
+        company=scene["company"],
         settings=scene["settings"],
         **kwargs,
     )

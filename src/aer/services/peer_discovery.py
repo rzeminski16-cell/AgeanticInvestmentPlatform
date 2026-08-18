@@ -312,6 +312,13 @@ async def _acquire_peer_facts(
     content-addressed, ``upsert_company`` finds an existing row, and ``persist_facts``
     inserts on conflict do nothing. A peer already in the database from an earlier run is
     therefore re-fetched at most once per run and duplicates nothing.
+
+    **The company row is created before the fetch, not after**, so the document can record
+    whose it is as it is written (ADR 0061). The cost is a company row for a peer whose
+    facts could not be had — inert, and honest: EDGAR resolved the entity, so the company
+    exists whether or not this run managed to read its filings. The subject's own
+    acquisition orders itself the same way, and one order for both paths is worth more than
+    saving a row nothing reads.
     """
     # Everything about *this peer's document* is guarded together, because a fetch that
     # fails and a payload that will not parse are the same event to the caller: this peer
@@ -319,6 +326,16 @@ async def _acquire_peer_facts(
     # `AerError` rather than `Exception` deliberately — a database failure is not a fact
     # about the peer, and absorbing one here would turn a broken machine into a run that
     # quietly proposed fewer companies.
+    company = await upsert_company(
+        session,
+        entity=entity,
+        # The peer's own listing, not the subject's. `entity.ticker` is EDGAR's spelling,
+        # which is the one that resolved; the exchange comes with it or is left unstated
+        # rather than borrowed from the company that happens to be under research.
+        ticker=entity.ticker or "",
+        exchange=entity.exchange or "",
+    )
+
     try:
         response = await client.fetch_company_facts(entity.identifier)
         acquisition = await record_acquisition(
@@ -326,6 +343,12 @@ async def _acquire_peer_facts(
             store,
             request=request,
             job_id=job_id,
+            # **The peer's own identity on the peer's own document.** This is what keeps a
+            # peer's filings out of the subject's evidence pack: the document says whose it
+            # is, and every section's query asks for the subject's (ADR 0061). Recorded
+            # against this run's request all the same, because this run is what fetched it
+            # and the sources page answers "what did this run acquire?".
+            company_id=company.id,
             result=response.fetch,
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
@@ -342,16 +365,6 @@ async def _acquire_peer_facts(
             error_code=getattr(exc, "code", ""),
         )
         return None
-
-    company = await upsert_company(
-        session,
-        entity=entity,
-        # The peer's own listing, not the subject's. `entity.ticker` is EDGAR's spelling,
-        # which is the one that resolved; the exchange comes with it or is left unstated
-        # rather than borrowed from the company that happens to be under research.
-        ticker=entity.ticker or "",
-        exchange=entity.exchange or "",
-    )
 
     selection = select_point_in_time(parsed.facts, as_of_date=request.as_of_date)
     await persist_facts(

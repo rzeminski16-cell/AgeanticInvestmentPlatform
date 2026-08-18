@@ -31,9 +31,10 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from typing import Any
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import Select, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -51,7 +52,29 @@ __all__ = [
     "decide_quarantine",
     "override_admissibility",
     "record_source_document",
+    "visible_sources",
 ]
+
+
+def visible_sources(request: ResearchRequest, company_id: uuid.UUID | None) -> Select[Any]:
+    """The source documents a run may show: this run's, about the subject or about nobody.
+
+    The companion to :func:`aer.services.facts.visible_facts`, and scoped differently on
+    purpose (ADR 0061). A fact is scoped to the **company** alone, because an observation
+    outlives the run that fetched it. A source document is scoped to the **request as well**,
+    because "what did this run acquire?" is exactly the question the sources page asks, and
+    a document fetched by some other run is not part of this run's account of itself.
+
+    Issuer-less documents stay in: a macro series or a regulator's note has no company, and
+    excluding it would lose the evidence that a section legitimately rests on. NULL here
+    means "not about an issuer", never "we did not record it" — the acquisition path stamps
+    the company whenever it has one.
+    """
+    return select(SourceDocument).where(
+        SourceDocument.request_id == request.id,
+        or_(SourceDocument.company_id == company_id, SourceDocument.company_id.is_(None)),
+    )
+
 
 _log = structlog.get_logger("aer.services.sources")
 
@@ -138,6 +161,7 @@ async def record_source_document(
     licence_note: str | None = None,
     robots_allowed: bool | None = None,
     job_id: uuid.UUID | None = None,
+    company_id: uuid.UUID | None = None,
 ) -> SourceDocument:
     """Record where an artefact came from, applying the admissibility rules.
 
@@ -154,6 +178,11 @@ async def record_source_document(
         publication_date: A bare date, for callers that have one from somewhere other than the
             extractor — an adapter with an authoritative filing date, or a test. Ignored when
             ``published`` is given, because the richer value already carries it.
+        company_id: Which issuer this document is about, where it is about one. ``None`` for a
+            macro series, a regulator's note or an index page — an honest absence rather than
+            an unknown, and those stay visible to every run that fetched them. A caller that
+            *has* a company and omits it produces a document nothing can attribute, which
+            under ADR 0061 is a document no section will be shown.
 
     Raises:
         ValidationError: If ``retrieved_at`` is naive. A provenance timestamp without a
@@ -184,6 +213,7 @@ async def record_source_document(
     document = SourceDocument(
         request_id=request.id,
         job_id=job_id,
+        company_id=company_id,
         artefact_id=artefact.id,
         url=url,
         canonical_url=canonical_url,

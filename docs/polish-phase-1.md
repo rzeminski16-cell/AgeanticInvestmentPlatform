@@ -99,6 +99,20 @@ against the artefacts in this file.
 ## Task P1 — Evidence is scoped to the subject company
 
 **Severity: critical.** Closes findings 1 and 2 of the post-mortem.
+**Status: done** — ADR 0061, migration 0042, `tests/test_evidence_is_the_subjects.py`.
+
+Three things were built differently from the sketch below, each because the code said so:
+
+- **The predicates are shared helpers, not repeated clauses.** `aer.services.facts.
+  visible_facts` and `aer.services.sources.visible_sources`, called by all four consumers.
+  Three copies of a predicate is how the first two diverged, and `research.py` had already
+  written the correct one — this promotes it rather than paraphrasing it a third time.
+- **The subject is read from the request, not passed as a parameter.** A
+  `subject_company_id` argument threaded through three call chains is an argument a caller
+  can get wrong; `research_requests.company_id`, written once by `acquire`, cannot be.
+- **The acquisition API takes `company_id`, not a `Company`.** It sits beside `job_id` and
+  matches it, and it lets `research.py` stamp a regulator-named filing without loading a row
+  it does not otherwise need.
 
 ### The defect
 
@@ -627,7 +641,7 @@ beside `docs/manual-acceptance.md` as the platform's first end-to-end baseline.
 
 | Migration | Change |
 |---|---|
-| 0042 | `source_document.company_id`, nullable, indexed with `request_id` |
+| 0042 | `source_document.company_id` and `research_request.company_id`, nullable, backfilled |
 | 0043 | Recompute `financial_fact.fiscal_year` from `period_end` |
 | 0044 | Built-in `section_definition.word_budget` × 1.45 (Task P7 experiment) |
 | 0045 | `GateKind.UK_FINANCIALS` → `UNMAPPED_CONCEPTS`, with `approvals` history |

@@ -22,20 +22,22 @@ history is not a handful of rows — see :data:`_PARAMETER_LIMIT`.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Sequence
 from typing import Any, Final
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import Select, select
+from sqlalchemy import false as sa_false
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import FactBasis
 from aer.core.schemas.facts import RawFact
-from aer.db.models import Company, FinancialFact, SourceDocument
+from aer.db.models import Company, FinancialFact, ResearchRequest, SourceDocument
 from aer.sources.base import ResolvedEntity
 
-__all__ = ["persist_facts", "upsert_company"]
+__all__ = ["persist_facts", "upsert_company", "visible_facts"]
 
 _log = structlog.get_logger("aer.services.facts")
 
@@ -48,6 +50,49 @@ _log = structlog.get_logger("aer.services.facts")
 # ``the number of query arguments cannot exceed 32767``. This is not an edge case — it is
 # every US large cap with a decade of filings, which is the platform's whole subject.
 _PARAMETER_LIMIT: Final = 32_767
+
+
+def visible_facts(request: ResearchRequest, company_id: uuid.UUID | None) -> Select[Any]:
+    """The facts a run may see: the subject's consolidated figures, as at the as-of date.
+
+    **Scoped by company, not by request** (ADR 0061). Every consumer of a fact needs the
+    same three predicates, and each one exists because getting it wrong produced a specific
+    live failure.
+
+    *Company, because a request is not a company.* Peer acquisition put eight other issuers'
+    filings under one request, and the two consumers that joined through
+    ``source_documents.request_id`` handed a section writer an annual pool in which the
+    subject did not appear at all. An Amazon note cited Walmart, Alibaba, eBay, JD.com,
+    MercadoLibre and Target as its evidence.
+
+    *Company rather than company **and** request, because facts outlive the run that
+    fetched them.* Facts deduplicate on an observation key that deliberately excludes the
+    source document — an observation is an observation — so the *second* run of a company
+    inserts nothing, and "supplied 18588, inserted 0" is the dedupe working. Those rows hang
+    off the first run's document, so adding the request back would hide them: five research
+    workers once spent sixty tool calls searching a table that was full and looked empty.
+
+    *The date filter is part of the scope, not a separate improvement.* Request scope
+    happened to bound a consumer to one acquisition; company scope does not, so without this
+    a point-in-time run could be shown a fact filed after its as-of date by some later run.
+    Filtered on ``filed_date``, because what matters is when the filing was filed, not when
+    this platform happened to fetch it.
+
+    *Consolidated only*, under ADR 0058: a segment's slice is indistinguishable from the
+    company's own line once it is in a pack, and a writer citing it would state a fraction
+    as the whole.
+    """
+    statement = select(FinancialFact).where(
+        FinancialFact.company_id == company_id, FinancialFact.dimension_axis.is_(None)
+    )
+    if company_id is None:
+        # Before `acquire` resolves the company there is nothing to show. `None` would match
+        # no rows anyway; saying so here keeps that an intention rather than a coincidence
+        # of SQL null semantics.
+        return statement.where(sa_false())
+    if request.point_in_time:
+        statement = statement.where(FinancialFact.filed_date <= request.as_of_date)
+    return statement
 
 
 async def upsert_company(

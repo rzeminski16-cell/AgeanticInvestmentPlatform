@@ -23,8 +23,7 @@ from typing import Any, Final
 from urllib.parse import urlsplit
 
 import structlog
-from sqlalchemy import Select, or_, select
-from sqlalchemy import false as sa_false
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.base import AgentContext
@@ -43,6 +42,8 @@ from aer.errors import AerError
 from aer.extract import extract_text
 from aer.extract.dates import extract_publication_date
 from aer.services.acquisition import record_acquisition
+from aer.services.facts import visible_facts
+from aer.services.sources import visible_sources
 from aer.sources.tiering import DocumentKind, tier_for
 
 __all__ = [
@@ -128,7 +129,7 @@ def build_executors(
     async def search_facts(tool_request: ToolRequest) -> ExecutedTool:
         company_id = await _company_id_for(session, request=request)
         rows = await session.scalars(
-            _visible_facts(request, company_id)
+            visible_facts(request, company_id)
             .where(FinancialFact.concept.ilike(f"%{tool_request.query.strip()}%"))
             .order_by(FinancialFact.period_end.desc())
             .limit(MAX_HITS)
@@ -154,12 +155,13 @@ def build_executors(
 
     async def search_sources(tool_request: ToolRequest) -> ExecutedTool:
         needle = f"%{tool_request.query.strip()}%"
+        # The column directly, with no ticker fallback, because this listing is already
+        # scoped to *this run's* documents: the step that stamps them is the step that
+        # writes `request.company_id`, so a NULL here means acquire has not run and there
+        # is nothing stamped to find (ADR 0061).
         rows = await session.scalars(
-            select(SourceDocument)
-            .where(
-                SourceDocument.request_id == request.id,
-                or_(SourceDocument.title.ilike(needle), SourceDocument.url.ilike(needle)),
-            )
+            visible_sources(request, request.company_id)
+            .where(or_(SourceDocument.title.ilike(needle), SourceDocument.url.ilike(needle)))
             .order_by(SourceDocument.retrieved_at.desc())
             .limit(MAX_HITS)
         )
@@ -282,6 +284,9 @@ def build_executors(
                 store,
                 request=request,
                 job_id=job_id,
+                # The full-text search is scoped to the subject's CIK, so a filing the
+                # index named to this worker is the subject's own (ADR 0061).
+                company_id=request.company_id,
                 result=result,
                 provider=provider,
                 source_tier=tier,
@@ -510,53 +515,22 @@ async def _text_of(store: Any, *, result: Any, settings: Settings | None) -> tup
 
 
 async def _company_id_for(session: AsyncSession, *, request: ResearchRequest) -> uuid.UUID | None:
-    """The company this request researches, or ``None`` before it has been resolved."""
+    """The company this request researches, or ``None`` before it has been resolved.
+
+    The column first, because ``acquire`` writes the id it actually resolved against the
+    registry and that is authoritative. The ticker-and-exchange lookup stays as the fallback
+    it was written to be: a request can be looked at before ``acquire`` has run, and the
+    listing is the only key there is until then. It is the weaker key — a re-used or
+    re-listed ticker defeats it — which is why nothing prefers it any more.
+    """
+    if request.company_id is not None:
+        return request.company_id
     found: uuid.UUID | None = await session.scalar(
         select(Company.id).where(
             Company.ticker == request.ticker, Company.exchange == request.exchange
         )
     )
     return found
-
-
-def _visible_facts(request: ResearchRequest, company_id: uuid.UUID | None) -> Select[Any]:
-    """Facts a worker on this run may see: the company's, as at the as-of date.
-
-    **Scoped by company, not by request, and that is the fix for a run that found nothing.**
-    Facts are deduplicated on an observation key that deliberately excludes the source
-    document — an observation is an observation, and storing MSFT's 2023 revenue twice
-    because two runs both read the same filing would be a second copy of the same truth. So
-    the *second* run of a company inserts nothing: "supplied 18588, inserted 0" is the
-    dedupe working. But every consumer here joined through ``source_documents`` to
-    ``request_id``, so those facts belonged to the earlier run's document and this run could
-    not see one of them. Five workers spent sixty tool calls searching an empty table, three
-    exhausted, and the two that finished reported no findings at all.
-
-    ``calculate`` never had the problem because it scopes by ``company_id``, which is the
-    established shape: the fact is about the company, and the source document records where
-    it came from — possibly an earlier run, whose artefact is hashed and traceable exactly
-    the same way.
-
-    **The date filter is part of the fix, not a separate improvement.** Request scope
-    happened to bound what a worker saw to one acquisition; company scope does not, so
-    without this a point-in-time run could now be shown a fact filed after its as-of date by
-    some later run's acquisition. Filtered on ``filed_date``, because what matters is when
-    the filing was filed, not when this platform happened to fetch it.
-    """
-    # Consolidated figures only: a worker shown "revenue" rows that are silently one
-    # segment's slice would cite a fraction of the company as the whole, and nothing in
-    # the row it sees says otherwise.
-    statement = select(FinancialFact).where(
-        FinancialFact.company_id == company_id, FinancialFact.dimension_axis.is_(None)
-    )
-    if company_id is None:
-        # Before `acquire` resolves the company there is nothing to show. `None` would
-        # match no rows anyway; saying so here keeps that an intention rather than a
-        # coincidence of SQL null semantics.
-        return statement.where(sa_false())
-    if request.point_in_time:
-        statement = statement.where(FinancialFact.filed_date <= request.as_of_date)
-    return statement
 
 
 async def validate_report(
@@ -593,7 +567,7 @@ async def validate_report(
     # refuse the worker's own evidence back at it, which is a loop with no exit.
     valid_facts = await _existing(
         session,
-        _visible_facts(request, await _company_id_for(session, request=request)).with_only_columns(
+        visible_facts(request, await _company_id_for(session, request=request)).with_only_columns(
             FinancialFact.id
         ),
         column=FinancialFact.id,

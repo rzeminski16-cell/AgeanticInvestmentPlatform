@@ -412,6 +412,11 @@ async def _record_listing(
         store,
         request=request,
         job_id=job_id,
+        # Whose series this is (ADR 0061). The subject's listing passes its company; the
+        # market proxy passes ``None``, which is the honest answer — an index is not an
+        # issuer — and leaves it visible to every section, which is what a beta regression
+        # needs it to be.
+        company_id=company.id if company is not None else None,
         result=response.fetch,
         provider=Provider.EODHD,
         source_tier=SourceTier.T4_LICENSED_MARKET,

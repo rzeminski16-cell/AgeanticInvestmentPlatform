@@ -43,7 +43,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from aer.core.enums import AnalysisMode, RequestStatus
 from aer.db.base import Base, created_at_column
-from aer.db.types import Timestamp, UuidFk, UuidPk
+from aer.db.types import Timestamp, UuidFk, UuidFkOptional, UuidPk
 
 if TYPE_CHECKING:
     from aer.db.models.approval import Approval
@@ -129,6 +129,22 @@ class ResearchRequest(Base):
     # nullable "we did not record it" state for older rows would make that unanswerable.
     resolved: Mapped[bool] = mapped_column(
         nullable=False, default=False, server_default=text("false")
+    )
+
+    # Which company this request is about, once `acquire` has resolved the ticker against a
+    # registry and upserted the row. NULL until then, and that is a real state: a request is
+    # written from a string somebody typed, and no company exists for it yet.
+    #
+    # **The reason this is a column and not a lookup.** Every consumer of a fact needs to
+    # know whose fact it is, and the alternative — matching `Company.ticker` and
+    # `Company.exchange` back to the request's strings — is a weaker key that a re-used or
+    # re-listed ticker defeats silently. One authoritative id, written once by the step that
+    # resolved it, is what makes "scoped to the subject" checkable in SQL (ADR 0061).
+    #
+    # SET NULL rather than CASCADE: deleting a company must not delete the record that
+    # somebody asked about it.
+    company_id: Mapped[UuidFkOptional] = mapped_column(
+        ForeignKey("companies.id", ondelete="SET NULL")
     )
 
     created_at: Mapped[Timestamp] = created_at_column()

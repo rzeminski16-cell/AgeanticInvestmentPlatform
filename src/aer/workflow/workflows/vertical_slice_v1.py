@@ -1208,12 +1208,33 @@ async def _acquire(context: StepContext) -> StepResult:
     store = context.service("store")
 
     entity = await client.resolve_entity(request.ticker, exchange=request.exchange)
+
+    # Upserted before anything is fetched, because every document recorded below has to say
+    # which company it is about (ADR 0061) and the answer has to exist first. It used to be
+    # created after the acquisition, which was fine while a request could only concern one
+    # company and stopped being fine the moment peer acquisition existed.
+    company = await upsert_company(
+        context.session,
+        entity=entity,
+        ticker=request.ticker,
+        exchange=request.exchange,
+    )
+
+    # Marks the request's identity as confirmed against a registry, and records *which*
+    # company it was confirmed to be. Everything downstream can now tell a resolved company
+    # from a string somebody typed, and can scope a fact query to the subject without
+    # matching tickers back to strings.
+    request.resolved = True
+    request.company_id = company.id
+    await context.session.flush()
+
     response = await client.fetch_company_facts(entity.identifier)
 
     acquisition = await record_acquisition(
         context.session,
         store,
         request=request,
+        company_id=company.id,
         # Which run fetched it. Optional on the service because a document can be supplied
         # by hand or gathered while planning — but a run that omits it produces provenance
         # attributable to a request and to no particular run, and the sources table, which
@@ -1232,24 +1253,13 @@ async def _acquire(context: StepContext) -> StepResult:
         publication_date_confidence=_DERIVED_FROM_CONTENTS,
     )
 
-    company = await upsert_company(
-        context.session,
-        entity=entity,
-        ticker=request.ticker,
-        exchange=request.exchange,
-    )
-
-    # Marks the request's identity as confirmed against a registry. Everything downstream
-    # can now tell a resolved company from a string somebody typed.
-    request.resolved = True
-    await context.session.flush()
-
     filings = await acquire_filings(
         context.session,
         store,
         client=client,
         request=request,
         entity=entity,
+        company=company,
         settings=context.service("settings"),
         job_id=context.job.id,
     )

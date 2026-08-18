@@ -20,7 +20,8 @@ from typing import Any, Final
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.db.models import Calculation, FinancialFact, Job, ResearchRequest, SourceDocument
+from aer.db.models import Calculation, FinancialFact, Job, ResearchRequest
+from aer.services.facts import visible_facts
 
 __all__ = ["GLANCE_CONTRACT", "GLANCE_TITLE", "glance_content"]
 
@@ -129,12 +130,14 @@ async def _consolidated_facts(
     session: AsyncSession, *, request: ResearchRequest
 ) -> list[FinancialFact]:
     rows = await session.scalars(
-        select(FinancialFact)
-        .join(SourceDocument, SourceDocument.id == FinancialFact.source_document_id)
-        # Consolidated figures only: a segment's slice on the front page would read as
-        # the company's own line (ADR 0058).
-        .where(SourceDocument.request_id == request.id, FinancialFact.dimension_axis.is_(None))
-        .order_by(FinancialFact.period_end.desc(), FinancialFact.concept)
+        # The subject's consolidated figures, and nobody else's (ADR 0061). This block is
+        # the first thing a reader sees, and the unscoped version put three issuers' figures
+        # on one front page: a revenue, a net income and an earnings per share that could
+        # not all belong to the same company, since the last two imply a share count
+        # two orders of magnitude from the filer's own.
+        visible_facts(request, request.company_id).order_by(
+            FinancialFact.period_end.desc(), FinancialFact.concept
+        )
     )
     return list(rows)
 

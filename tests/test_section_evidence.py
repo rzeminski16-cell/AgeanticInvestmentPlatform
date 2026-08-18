@@ -162,9 +162,14 @@ async def scene(db_session: AsyncSession, tmp_path: Path) -> dict[str, Any]:
         retrieved_at=datetime.now(UTC),
         quarantined=False,
     )
-    db_session.add(document)
     company = Company(name="MICROSOFT CORP", cik="0000789019", ticker="MSFT", exchange="NASDAQ")
     db_session.add(company)
+    await db_session.flush()
+    # The subject, on the request and on its documents (ADR 0061). Without both, the pack is
+    # scoped to a company nothing names and comes back empty — which is the point.
+    request.company_id = company.id
+    document.company_id = company.id
+    db_session.add(document)
     await db_session.flush()
 
     # Sixty alphabetically-early footnote facts for the newest period — the debris that

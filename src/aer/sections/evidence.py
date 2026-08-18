@@ -49,6 +49,8 @@ from aer.db.models import (
     SourceDocument,
 )
 from aer.services.citations import record_citation, record_claim
+from aer.services.facts import visible_facts
+from aer.services.sources import visible_sources
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -358,20 +360,23 @@ async def gather_evidence(
     the default order, which still puts the statements' own lines ahead of the alphabet.
     """
     units: list[EvidenceUnit] = []
+    # Read from the request rather than taken as a parameter: one authoritative answer to
+    # "whose report is this", written by `acquire`, and no way for a caller to pass a
+    # different one by mistake. `None` before the ticker has been resolved, which the
+    # helpers below turn into an empty pack rather than an unscoped one.
+    subject_company_id = request.company_id
     concept_rank = _concept_rank_for(policy.concept_priority)
     fact_budget = int(policy.token_budget * _FACT_BUDGET_SHARE)
     listing_budget = int(policy.token_budget * _LISTING_BUDGET_SHARE)
     spent_on_listings = 0
 
     if "search_facts" in categories:
-        selection = (
-            select(FinancialFact)
-            .join(SourceDocument, SourceDocument.id == FinancialFact.source_document_id)
-            # Consolidated figures only. A fact item carries no dimension field, so a
-            # segment's slice in the pack would be indistinguishable from the company's
-            # line — and a writer citing it would state a fraction as the whole.
-            .where(SourceDocument.request_id == request.id, FinancialFact.dimension_axis.is_(None))
-        )
+        # Scoped to the subject, and to nothing else (ADR 0061). This query used to join
+        # through `source_documents` to `request_id`, which was a working proxy for "the
+        # subject's" right up until a run acquired a peer's filings under the same request:
+        # the pool then sorted by period end, a March year end outranked a December one, and
+        # a section asking for annual figures was handed a pool with no subject in it.
+        selection = visible_facts(request, subject_company_id)
         # The section's declared basis, applied in the query rather than after ranking:
         # a history section that wants annual figures should spend its whole fact budget
         # on them, not on whatever quarterly rows out-ranked them on recency.
@@ -443,13 +448,14 @@ async def gather_evidence(
             units.append(unit)
 
     if "search_sources" in categories:
+        # The subject's documents and the issuer-less ones, from this run (ADR 0061). The
+        # ordering is what made the unscoped version so damaging: peers are acquired after
+        # the subject, so `retrieved_at DESC` put every one of them above the subject's own
+        # filings in a listing capped at forty.
         sources = list(
             await session.scalars(
-                select(SourceDocument)
-                .where(
-                    SourceDocument.request_id == request.id,
-                    SourceDocument.quarantined.is_(False),
-                )
+                visible_sources(request, subject_company_id)
+                .where(SourceDocument.quarantined.is_(False))
                 .order_by(SourceDocument.retrieved_at.desc())
                 .limit(EVIDENCE_ITEM_CAP)
             )

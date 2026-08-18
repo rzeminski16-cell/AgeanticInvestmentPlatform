@@ -75,12 +75,18 @@ async def record_acquisition(
     publisher: str | None = None,
     retrieved_at: datetime | None = None,
     job_id: uuid.UUID | None = None,
+    company_id: uuid.UUID | None = None,
 ) -> Acquisition:
     """Record the artefact and the provenance for one completed fetch.
 
     Args:
         request: The request this was gathered for. Supplies the point-in-time setting
             that decides admissibility.
+        company_id: Which issuer the document is about, passed straight through to
+            :func:`~aer.services.sources.record_source_document`. See ADR 0061: a request
+            can hold documents about more than one company, so the document has to say
+            which, and "none" is a legitimate answer for anything that is not about an
+            issuer at all.
         result: What the fetcher returned, successful or not.
         publication_date: When the document was published, where that is knowable.
             ``None`` for a generated aggregate such as an API index — and under
@@ -124,6 +130,7 @@ async def record_acquisition(
         licence_note=result.licence_note or None,
         robots_allowed=result.robots_allowed,
         job_id=job_id,
+        company_id=company_id,
     )
 
     _log.info(

@@ -73,6 +73,22 @@ class SourceDocument(Base):
     # evidence of what it looked at.
     job_id: Mapped[UuidFkOptional] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
 
+    # Which company this document is about, where it is about one. NULL is not "unknown":
+    # a macro series, a regulator's guidance note or an index page legitimately has no
+    # issuer, and forcing an answer would invite a wrong one where an honest absence
+    # belongs. Those documents stay visible to every run that fetched them.
+    #
+    # Added by ADR 0061. Before peer acquisition existed, `request_id` was a sufficient
+    # proxy for "about the subject" because a request only ever touched one company. It
+    # stopped being one the moment a run fetched a peer's filings, and an Amazon report
+    # cited Walmart, Alibaba and four others as evidence.
+    #
+    # SET NULL rather than CASCADE, for the reason `job_id` gives above: provenance must
+    # outlive the rows it points at.
+    company_id: Mapped[UuidFkOptional] = mapped_column(
+        ForeignKey("companies.id", ondelete="SET NULL")
+    )
+
     artefact_id: Mapped[UuidFk] = mapped_column(
         ForeignKey("artefacts.id", ondelete="RESTRICT"), nullable=False
     )
@@ -219,6 +235,9 @@ class SourceDocument(Base):
         ),
         Index("ix_source_documents_request_id_publication_date", "request_id", "publication_date"),
         Index("ix_source_documents_artefact_id", "artefact_id"),
+        # The shape every source listing now asks for: this run's documents, narrowed to
+        # the subject and the issuer-less ones (ADR 0061).
+        Index("ix_source_documents_request_id_company_id", "request_id", "company_id"),
         # A flag with no findings, or findings with no flag, would be a record nobody could
         # act on: the page shows the passages, and the badge is what sends a reviewer to them.
         CheckConstraint(
