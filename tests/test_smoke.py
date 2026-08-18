@@ -391,6 +391,15 @@ class TestPortability:
         Found live: `archive_request` formatted its refusal date with `%-d`, so archiving
         twice — a path with a test, passing green on Linux — returned a 500 instead of the
         intended 409 on the operator's machine. Format the day with `.day` instead.
+
+        **This catches call sites, and the second live failure was not one.** The house
+        style's default `date_format` is `"%-d %B %Y"` — a plain string that travels as
+        configuration and meets `strftime` several modules away, matching neither shape
+        below. Every report on Windows died on it. Pattern *values* are now expanded by
+        `aer.core.dates.format_date` before the C library sees them (see
+        `tests/test_core_dates.py`, which emulates a strftime that refuses the flag); this
+        test remains the guard for the direct-call shape, which that expansion does not
+        cover.
         """
         # Two shapes reach strftime: an explicit `.strftime("%-d ...")` call, and an
         # f-string format spec, where the code sits directly after the colon. Matched as
@@ -398,13 +407,18 @@ class TestPortability:
         # this file is excluded because its examples must be allowed to show the shapes.
         used_as_format = re.compile(r"strftime\([^)]*%-[a-zA-Z]|:%-[a-zA-Z]")
 
+        # `format_date` is the sanctioned path: it expands the flag itself, so a pattern
+        # handed to *it* is portable by construction and a line calling it is not an
+        # offender. Without this the rule would forbid the very function that fixes it.
+        made_portable = re.compile(r"\bformat_date\(")
+
         offenders = []
         for tree in ("src", "tests", "migrations"):
             for path in (Path(__file__).parent.parent / tree).rglob("*.py"):
                 if path == Path(__file__):
                     continue
                 for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-                    if used_as_format.search(line):
+                    if used_as_format.search(line) and not made_portable.search(line):
                         offenders.append(f"{path}:{number}: {line.strip()}")
 
         assert not offenders, (
