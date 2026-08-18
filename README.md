@@ -1310,6 +1310,18 @@ subject's is excluded with its reason recorded, because a March year-end against
 one compares three months of a different economy — and every exclusion is listed, since "we
 left out the two peers that would have moved the median" is what a reader needs to notice.
 
+**Where the peers come from is a model, and whether they exist is not** (ADR 0059). The
+deterministic proposal underneath can only put forward companies this database already
+holds, so on a first run it proposed nobody and no report had a comparables table — the
+companies most comparable to a subject are precisely the ones nobody has researched yet. So
+a model names them by ticker with a reason, and code decides what those names are worth:
+every ticker is resolved against EDGAR's own index, one it does not carry is refused and
+never fetched, the subject is refused as its own peer, and what survives has its filings
+acquired down the same chain the subject's came down. The refusals are shown at the gate
+beside the set, so a proposal of six that arrives as four does not read as four. A run now
+stops here where it used to pass straight through, which is the gate doing its job for the
+first time rather than a new obstacle.
+
 The subject against its **own history** is often the more honest comparison. A company at 14x
 against peers at 11x may be expensive, or may be a company that has traded at 14x for a decade
 against peers that have always been cheaper for a reason.
