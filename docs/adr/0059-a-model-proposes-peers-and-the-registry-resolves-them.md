@@ -74,6 +74,9 @@ empty list.
   That is contained three ways: only EDGAR (already allowlisted, T1) is reachable, only
   tickers that resolve are fetched, and nothing computed from them reaches a report
   without the gate's approval of the set.
+* Those artefacts are recorded against this run, so the sources surface lists a peer's
+  XBRL aggregate alongside the subject's documents. That is the honest record — the run
+  did fetch them — and it is why they carry the peer's own name in the title.
 * Refusals are part of the step's recorded output, so a reviewer can see what the model
   proposed that the registry rejected — a hallucinated ticker is visible, not vanished.
 * The peers step gains an `estimated_cost_gbp`, keeping ADR 0052's rule that every step

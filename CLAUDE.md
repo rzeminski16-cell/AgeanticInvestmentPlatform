@@ -76,6 +76,13 @@ single most common way systems like this produce confidently wrong numbers.
 - Tests that make real, billable model calls are marked `live_llm` and are excluded from
   the default suite.
 - Property-based tests (`hypothesis`) are expected for anything in `calc/`.
+- **One pytest process per database.** The suite empties tables between tests, so two runs
+  sharing `aer_test` delete each other's rows and fail in whichever one was mid-test — as
+  "no user exists" moments after a fixture committed one, nowhere near the cause. Give each
+  concurrent run its own `AER_TEST_DATABASE_URL`.
+- **The full suite is two processes**, `pytest --ignore=tests/e2e` then `pytest tests/e2e`:
+  Playwright's sync API leaves a running loop on the main thread that wedges every
+  pytest-asyncio test after it.
 
 ## Security
 
