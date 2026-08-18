@@ -25,6 +25,7 @@ from sqlalchemy import text
 from aer.calc import comps as calc
 from aer.calc.engine import CalculationContext
 from aer.calc.units import DIMENSIONLESS, Quantity, SourceRef
+from aer.config import HouseStyle
 from aer.core.enums import Decision, GateKind, JobStatus, Provider, SourceTier, UserRole
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import (
@@ -680,11 +681,11 @@ class TestTheRenderedReportCarriesNoMultiple:
 
     def test_a_run_with_no_peers_says_nothing(self):
         """ "No comps table" and "a comps table you are not shown" are different claims."""
-        assert _comps_block(None) == []
+        assert _comps_block(None, style=HouseStyle()) == []
 
     def test_a_run_with_peers_discloses_the_withholding(self):
         withheld = calc.WithheldComps(peer_count=3, excluded_count=1, as_of=AS_OF)
-        block = _comps_block(withheld.as_paragraph())
+        block = _comps_block(withheld.as_paragraph(), style=HouseStyle())
 
         joined = "\n".join(block)
         assert "## Comparable companies" in joined
