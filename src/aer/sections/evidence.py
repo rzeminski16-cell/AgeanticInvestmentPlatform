@@ -611,6 +611,17 @@ def _within_budget(units: list[EvidenceUnit], *, budget: int) -> Evidence:
 _WORD_CEILING_FACTOR: Final = 1.25
 
 
+def word_ceiling(budget: int) -> int:
+    """The word count above which a draft is refused, for a stated budget.
+
+    A function rather than the arithmetic written out at each site, because the salvage
+    trims *to* this line (ADR 0057) and the validator refuses *above* it. Two copies of
+    the factor would eventually disagree, and the failure would be a salvage that shortens
+    a section to a length the validator still rejects — an edit for nothing.
+    """
+    return int(budget * _WORD_CEILING_FACTOR)
+
+
 def validate_draft(
     draft: CustomSectionDraft,
     *,
@@ -679,7 +690,7 @@ def validate_draft(
 
     if policy.word_budget > 0:
         words = prose_word_count(draft.content)
-        ceiling = int(policy.word_budget * _WORD_CEILING_FACTOR)
+        ceiling = word_ceiling(policy.word_budget)
         if words > ceiling:
             problems.append(
                 f"The content runs to {words} words against this section's budget of "

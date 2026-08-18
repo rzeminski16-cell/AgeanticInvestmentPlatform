@@ -49,11 +49,34 @@ so any draft that passed before still passes.
    records that clauses were removed, in its degradation note and in the log, and its
    confidence is degraded accordingly.
 
+4. **Nor is the word budget** — amended 2026-08-18, after a live run in which nine of
+   sixteen sections overran their budget and several were refused for nothing else. A
+   complete, fully cited draft discarded for being long is the worst trade in the
+   pipeline: the evidence work is done and paid for, and the remedy is an edit. So a
+   draft over the ceiling is **trimmed by dropping trailing sentences** — the longest
+   field first, so the field that overran pays and a short lead-in is left whole — and
+   revalidated in full like any other salvage.
+
+   Three bounds make this an edit rather than a rewrite. It trims to the *ceiling* the
+   validator refuses above, never to the stated budget, because prose the rule has no
+   quarrel with is not the platform's to remove. It never empties a field: every string
+   keeps its first sentence. And it never drops a list item or a field, because shedding
+   one is a contract decision rather than an edit — a draft that cannot fit by shedding
+   trailing sentences fails exactly as it did before. A shortened section says so in its
+   degradation note and is confidence-degraded, on the same channel the numeral salvage
+   uses: the platform edited a person's report, and that is not something to do quietly.
+
 ## Consequences
 
 - A section can no longer be lost to a count of its own catalysts, and the failure mode
   for a genuinely unsourced figure becomes "that sentence disappears and the section
   says so" rather than "the section disappears".
+- Nor is it lost to its own length. The cost is that the reader may meet a section whose
+  final sentence was cut by code rather than by its author; the note on the section says
+  so, and the alternative was the section not existing at all.
+- The trim target and the refusal line are now one function (`word_ceiling`), because two
+  copies of the factor would drift into a salvage that shortens a section to a length the
+  validator still rejects — an edit for nothing.
 - The pressure on the writer to phrase prose in raw resolvable integers is reduced,
   which the display formatter (R1) then no longer has to fight.
 - The scan is measurably laxer in the count corner, as recorded above. The presentation

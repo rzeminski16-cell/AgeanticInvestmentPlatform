@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from copy import deepcopy
 from typing import Any, Final
 
 from aer.core.schemas.skill import RESERVED_OUTPUT_FIELDS
@@ -40,6 +41,7 @@ __all__ = [
     "numerals_in",
     "prose_word_count",
     "reserved_fields_in",
+    "trimmed_to_word_count",
     "unsourced_numerals",
     "without_document_references",
     "without_plain_counts",
@@ -475,3 +477,78 @@ def without_unsourced_numeral_sentences(
 
 class _SalvageDeclinedError(Exception):
     """Raised inside the scrub walk when removal is not the repair."""
+
+
+def trimmed_to_word_count(content: dict[str, Any], ceiling: int) -> dict[str, Any] | None:
+    """The content shortened to ``ceiling`` words by dropping trailing sentences, or ``None``.
+
+    The length half of ADR 0057's salvage. Nine of one live report's sixteen sections were
+    refused for overrunning their budget — several for *nothing else* — and a section
+    refused only for length is a fully cited, contract-conforming draft thrown away for
+    being long. That is the worst trade in the pipeline: the evidence work is done and paid
+    for, and the remedy is an edit.
+
+    **Trailing sentences, longest field first.** The refusal tells the writer to "keep the
+    analysis, drop the restatement and the narration", and in a section that overruns, both
+    sit at the end. Taking from the longest remaining field each time spreads the cut rather
+    than gutting one field to save another, and ties break on document order so the same
+    draft always trims the same way.
+
+    **It removes as little as it can.** The target is the *ceiling* the validator refuses
+    above, not the budget the prompt asks for: trimming further would discard prose the
+    rule has no quarrel with, and this function has no opinion about prose it is not
+    obliged to remove.
+
+    Two things it will not do, both of which return ``None`` — declining, and leaving the
+    caller exactly where it was:
+
+    * **Empty a field.** Every string keeps its first sentence, so a one-sentence
+      ``lead_in`` is never removed and no field renders blank.
+    * **Reach the ceiling by other means.** Dropping list items or whole fields is a
+      contract decision rather than an edit, so a draft that cannot fit by shedding
+      trailing sentences fails as it did before.
+
+    The result must be revalidated in full by the caller: a shorter text satisfies the word
+    budget by construction, and can still break any other rule its contract carries.
+    """
+    if ceiling <= 0 or prose_word_count(content) <= ceiling:
+        return None
+
+    narrowed = deepcopy(content)
+    while prose_word_count(narrowed) > ceiling:
+        slots = [slot for slot in _prose_slots(narrowed) if len(_SENTENCES.split(slot[2])) > 1]
+        if not slots:
+            # Nothing left that can shed a sentence without emptying a field.
+            return None
+        container, key, text, _ = max(slots, key=lambda slot: (len(slot[2].split()), slot[3]))
+        kept = _SENTENCES.split(text)[:-1]
+        container[key] = " ".join(kept).strip()
+
+    return narrowed
+
+
+def _prose_slots(value: Any, *, order: int = 0) -> list[tuple[Any, Any, str, int]]:
+    """Every string the reader meets, with the container and key that hold it.
+
+    Container and key rather than a path, so the caller can replace one string in place.
+    The walk mirrors :func:`prose_word_count` exactly — the same keys skipped, the same
+    strings counted — because a trim that removed text the count does not measure would
+    shorten the section without ever satisfying the budget.
+    """
+    collected: list[tuple[Any, Any, str, int]] = []
+
+    def walk(node: Any, container: Any, key: Any) -> None:
+        nonlocal order
+        if isinstance(node, str):
+            order += 1
+            collected.append((container, key, node, order))
+        elif isinstance(node, dict):
+            for item_key, item in node.items():
+                if str(item_key) not in NUMERAL_EXEMPT_KEYS:
+                    walk(item, node, item_key)
+        elif isinstance(node, list):
+            for index, item in enumerate(node):
+                walk(item, node, index)
+
+    walk(value, None, None)
+    return [slot for slot in collected if slot[0] is not None]

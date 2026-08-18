@@ -38,6 +38,8 @@ from aer.core.enums import FactBasis, GateKind, JobStatus, Provider, SourceTier
 from aer.core.section_output import (
     contract_violations,
     numerals_in,
+    prose_word_count,
+    trimmed_to_word_count,
     unsourced_numerals,
     without_document_references,
     without_unsourced_numeral_sentences,
@@ -62,6 +64,7 @@ from aer.db.models import (
 from aer.extract.html import extract_html
 from aer.providers.fake import FakeProvider, ScriptedResponse
 from aer.providers.router import Router
+from aer.sections.evidence import word_ceiling
 from aer.sections.registry import create_report_sections, sections_for_job
 from aer.services.extractions import record_excerpt
 from aer.services.skills import save_skill, set_enabled
@@ -530,6 +533,95 @@ class TestTheSalvage:
         assert narrowed is not None
         assert narrowed["figures"] == [row]
         assert narrowed["commentary"] == "Prose."
+
+
+class TestTheLengthSalvage:
+    """ADR 0057, the other half: the tail goes, not the section.
+
+    Nine of one live report's sixteen sections overran their budget and several were
+    refused for nothing else — complete, cited drafts discarded for being long.
+    """
+
+    def test_it_drops_trailing_sentences_until_the_content_fits(self) -> None:
+        content = {"commentary": "One two three. Four five six. Seven eight nine."}
+
+        trimmed = trimmed_to_word_count(content, 6)
+
+        assert trimmed == {"commentary": "One two three. Four five six."}
+        assert prose_word_count(trimmed or {}) <= 6
+
+    def test_it_removes_no_more_than_it_must(self) -> None:
+        """The target is the ceiling, not a tidier number below it."""
+        content = {"commentary": "One two three. Four five six. Seven eight nine."}
+
+        assert trimmed_to_word_count(content, 8) == {"commentary": "One two three. Four five six."}
+
+    def test_content_already_inside_the_ceiling_is_not_touched(self) -> None:
+        # Declining tells the caller length was not the problem, exactly as the numeral
+        # salvage declines on a draft with no unsourced figure in it.
+        assert trimmed_to_word_count({"commentary": "Short enough."}, 50) is None
+
+    def test_it_takes_from_the_longest_field_first(self) -> None:
+        """The field that overran pays, and the short one is left whole.
+
+        Eighteen words against a ceiling of fourteen. The commentary is the longest field
+        at every step, so both cuts come out of it; the lead-in is never the longest and
+        survives intact — which is the point, because a trimmed opener reads as broken
+        where a shortened body reads as edited.
+        """
+        content = {
+            "lead_in": "A short lead. And a second.",
+            "commentary": "One two three four five. Six seven eight nine ten. Eleven twelve.",
+        }
+
+        trimmed = trimmed_to_word_count(content, 14)
+
+        assert trimmed is not None
+        assert trimmed["lead_in"] == "A short lead. And a second."
+        assert trimmed["commentary"] == "One two three four five."
+
+    def test_no_field_is_ever_emptied(self) -> None:
+        """A field trimmed to nothing would render blank, which is worse than a refusal."""
+        content = {"commentary": "A single sentence that runs well past any budget given."}
+
+        assert trimmed_to_word_count(content, 3) is None
+
+    def test_it_declines_rather_than_dropping_list_items(self) -> None:
+        """Shedding an item is a contract decision, not an edit — so it is not made here."""
+        content = {"points": ["First point here.", "Second point here.", "Third point here."]}
+
+        assert trimmed_to_word_count(content, 4) is None
+
+    def test_an_id_field_is_neither_counted_nor_cut(self) -> None:
+        """The walk mirrors `prose_word_count`: a trim of text it does not measure would
+        shorten the section without ever satisfying the budget."""
+        row = {"label": "Revenue.", "calculation_id": str(uuid.uuid4())}
+        content = {"figures": [row], "commentary": "One two three. Four five six."}
+
+        trimmed = trimmed_to_word_count(content, 4)
+
+        assert trimmed is not None
+        assert trimmed["figures"][0]["calculation_id"] == row["calculation_id"]
+        assert trimmed["commentary"] == "One two three."
+
+    def test_the_original_is_left_alone(self) -> None:
+        """The draft is revalidated against the copy; mutating the candidate in place
+        would leave a rejected salvage having already edited the thing it rejected."""
+        content = {"commentary": "One two three. Four five six."}
+
+        trimmed_to_word_count(content, 3)
+
+        assert content == {"commentary": "One two three. Four five six."}
+
+    def test_the_trim_target_is_the_line_the_validator_refuses_above(self) -> None:
+        """Two copies of the factor would drift, and the drift is a shortened section the
+        validator still rejects — an edit for nothing."""
+        content = {"commentary": " ".join(f"Sentence {index} here." for index in range(40))}
+
+        trimmed = trimmed_to_word_count(content, word_ceiling(20))
+
+        assert trimmed is not None
+        assert prose_word_count(trimmed) <= word_ceiling(20)
 
 
 # ==========================================================================================

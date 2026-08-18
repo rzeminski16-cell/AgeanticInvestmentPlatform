@@ -34,6 +34,7 @@ from aer.agents.registry import resolve_role
 from aer.agents.section_writer import SectionDraft, SectionWriterAgent, SectionWriterInput
 from aer.config import Settings
 from aer.core.enums import AnalysisMode, FactBasis, JobStatus, Provider, SourceTier
+from aer.core.section_output import prose_word_count
 from aer.db.models import (
     AgentRun,
     Artefact,
@@ -55,7 +56,7 @@ from aer.extract.html import extract_html
 from aer.providers.fake import FakeProvider, ScriptedResponse
 from aer.providers.protocol import SpentButUnusableError, Usage
 from aer.providers.router import Router
-from aer.sections.evidence import degradation_note
+from aer.sections.evidence import degradation_note, word_ceiling
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
 from aer.sections.writing import _writer_route, execute_builtin_section, policy_of_definition
 from aer.services.extractions import record_excerpt
@@ -445,6 +446,96 @@ class TestTheFailureLadder:
         reason = str(scene["section"].low_confidence_reason)
         assert "removed" in reason
         assert scene["section"].confidence is not None
+
+
+class TestASectionRefusedOnlyForLength:
+    """ADR 0057. Nine of one live report's sixteen sections overran their budget, and
+    several were refused for nothing else: complete, cited drafts thrown away for being
+    long, when the remedy is an edit and the evidence work is already paid for."""
+
+    @pytest.fixture
+    def budgeted(self, scene: dict[str, Any]) -> dict[str, Any]:
+        definition = scene["section"].definition
+        definition.evidence_policy = {**(definition.evidence_policy or {}), "word_budget": 20}
+        # Standard depth so the budget in play is the one stated rather than the scaled one.
+        scene["request"].analysis_mode = AnalysisMode.STANDARD
+        return scene
+
+    @staticmethod
+    def _long_draft(scene: dict[str, Any]) -> SectionDraft:
+        draft = _good_draft(scene)
+        draft.content["commentary"] = (
+            "Operating cash generation covered the capital programme. "
+            "The balance sheet carries no near-term maturity. "
+            "Management has kept its allocation priorities unchanged. "
+            "Working capital absorbed less cash than in the comparable period. "
+            "The segment mix continued to shift towards recurring revenue."
+        )
+        return draft
+
+    async def test_the_section_is_published_rather_than_discarded(
+        self, budgeted: dict[str, Any]
+    ) -> None:
+        draft = self._long_draft(budgeted)
+
+        outcome = await _run(budgeted, _scripted([draft, draft]))
+
+        assert outcome.status is SectionStatus.GENERATED
+
+    async def test_it_was_shortened_to_the_ceiling_and_no_further(
+        self, budgeted: dict[str, Any]
+    ) -> None:
+        """The cut stops at the line the validator refuses above, not at the stated budget.
+
+        Both satisfy the rule, and the difference is prose: this draft trims to 25 words
+        against the ceiling and to 18 against the budget. The extra sentence is analysis
+        the rule has no quarrel with, and a salvage that removed it would be editing for
+        tidiness rather than for conformance.
+        """
+        draft = self._long_draft(budgeted)
+
+        await _run(budgeted, _scripted([draft, draft]))
+
+        words = prose_word_count(budgeted["section"].content)
+        assert words <= word_ceiling(20)
+        assert words > 20
+
+    async def test_it_keeps_the_opening_and_loses_the_tail(self, budgeted: dict[str, Any]) -> None:
+        """Which end goes is the whole editorial claim: the refusal says keep the analysis
+        and drop the restatement, and in an overrunning section the restatement trails."""
+        draft = self._long_draft(budgeted)
+
+        await _run(budgeted, _scripted([draft, draft]))
+
+        commentary = budgeted["section"].content["commentary"]
+        assert commentary.startswith("Operating cash generation covered the capital programme.")
+        assert "recurring revenue" not in commentary
+
+    async def test_the_cut_is_on_the_record_and_the_section_reads_as_degraded(
+        self, budgeted: dict[str, Any]
+    ) -> None:
+        """The platform edited a person's report; that is not something to do quietly."""
+        draft = self._long_draft(budgeted)
+
+        await _run(budgeted, _scripted([draft, draft]))
+
+        reason = str(budgeted["section"].low_confidence_reason)
+        assert "shortened" in reason
+        assert "word budget" in reason
+        assert budgeted["section"].confidence is not None
+
+    async def test_a_draft_that_cannot_fit_by_trimming_still_fails(
+        self, budgeted: dict[str, Any]
+    ) -> None:
+        """One sentence cannot shed its tail without emptying the field, so the refusal
+        stands exactly as it did — the salvage narrows, and declines when it cannot."""
+        draft = _good_draft(budgeted)
+        draft.content["commentary"] = " ".join(["word"] * 60)
+
+        outcome = await _run(budgeted, _scripted([draft, draft]))
+
+        assert outcome.status is SectionStatus.FAILED
+        assert "word" in str(budgeted["section"].low_confidence_reason)
 
 
 class TestTheWriterRoute:

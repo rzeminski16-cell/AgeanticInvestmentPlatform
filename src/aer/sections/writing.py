@@ -11,14 +11,15 @@ as the only steer beyond the contract.
 
 from __future__ import annotations
 
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Final
 
 import structlog
 
 from aer.agents.base import AgentContext, TokenCapExceededError, schema_problems
 from aer.agents.section_writer import SectionDraft, SectionWriterAgent, SectionWriterInput
 from aer.core.enums import SourceTier
-from aer.core.section_output import without_unsourced_numeral_sentences
+from aer.core.section_output import trimmed_to_word_count, without_unsourced_numeral_sentences
 from aer.db.models import ReportSection, ResearchRequest, SectionDefinition, SectionStatus
 from aer.errors import ValidationError
 from aer.sections.evidence import (
@@ -33,6 +34,7 @@ from aer.sections.evidence import (
     policy_shortfalls,
     record_draft_claims,
     validate_draft,
+    word_ceiling,
 )
 
 __all__ = ["execute_builtin_section", "policy_of_definition"]
@@ -201,21 +203,19 @@ async def execute_builtin_section(
             problems=problems,
         )
 
-    salvage_note: str | None = None
+    salvage_notes: tuple[str, ...] = ()
     if draft is None and last_candidate is not None:
-        draft = _salvaged(last_candidate, contract=contract, evidence=evidence, policy=policy)
-        if draft is not None:
+        salvage = _salvaged(last_candidate, contract=contract, evidence=evidence, policy=policy)
+        if salvage is not None:
             # Recorded on the section, not just in a log: a reader of the run console
-            # should see that clauses were removed and why the section stands anyway.
-            salvage_note = (
-                "One or more sentences carrying figures no claim resolved were removed "
-                "from this section rather than discarding the draft (ADR 0057)."
-            )
+            # should see that the platform edited the draft, and which way.
+            draft, salvage_notes = salvage.draft, salvage.notes
             _log.info(
                 "section_writer.draft_salvaged",
                 section=section.section_key,
                 attempts=attempts,
                 problems=problems,
+                repairs=len(salvage_notes),
             )
 
     if draft is None:
@@ -228,10 +228,9 @@ async def execute_builtin_section(
     # counts them: a figure row citing through content is evidence, not decoration.
     cited_source_ids |= content_source_ids(draft.content)
     shortfalls = policy_shortfalls(cited_source_ids, evidence=evidence, policy=policy)
-    if salvage_note is not None:
-        # A section that lost clauses is a degraded section, and the note travels the
-        # same channel every other degradation does.
-        shortfalls.append(salvage_note)
+    # A section the platform edited is a degraded section, and the notes travel the same
+    # channel every other degradation does — into the confidence and onto the row.
+    shortfalls.extend(salvage_notes)
 
     section.content = draft.content
     section.status = SectionStatus.GENERATED
@@ -285,27 +284,73 @@ def _failed(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class _Salvage:
+    """A repaired draft and the edits that repaired it, for the record."""
+
+    draft: SectionDraft
+    notes: tuple[str, ...]
+
+
+# What a salvaged section says about itself. Recorded on the row rather than only logged:
+# a reader of the console should see that the platform edited the draft, and which way.
+_NUMERAL_NOTE: Final = (
+    "One or more sentences carrying figures no claim resolved were removed from this "
+    "section rather than discarding the draft (ADR 0057)."
+)
+_LENGTH_NOTE: Final = (
+    "This section ran past its word budget and was shortened by dropping trailing "
+    "sentences rather than discarding the draft (ADR 0057). The analysis is the model's; "
+    "the cut is the platform's."
+)
+
+
 def _salvaged(
     candidate: SectionDraft,
     *,
     contract: dict[str, Any],
     evidence: Evidence,
     policy: SectionPolicy,
-) -> SectionDraft | None:
-    """The candidate with its unsourced-numeral sentences removed, if that repairs it.
+) -> _Salvage | None:
+    """The candidate narrowed until it conforms, if narrowing is the repair.
 
     The section-writer's version of the plan salvage (gap A42): code narrowing model
-    output from the billed reply, never adding to it. Both sections the live report lost
-    died over a single flagged token each — a whole paid-for draft discarded for one
-    clause the rule had a quarrel with. The salvage declines unless the narrowed draft
-    passes **full** revalidation, so it can only ever turn a refused draft into a
-    conforming one, and a draft failing for any other reason still fails (ADR 0057).
+    output from the billed reply, never adding to it. Two repairs, applied in order and
+    either sufficient on its own:
+
+    * **Unsourced-numeral sentences removed.** Both sections the first live report lost
+      died over a single flagged token each — a whole paid-for draft discarded for one
+      clause the rule had a quarrel with.
+    * **Length trimmed to the ceiling.** Nine of the next report's sixteen sections
+      overran their budget, several for *nothing else*: complete, fully cited drafts
+      thrown away for being long, which is the worst trade in the pipeline.
+
+    Order matters and is deliberate: removing unsourced sentences also removes words, so
+    the numeral repair runs first and the trim only takes what is still over.
+
+    The salvage declines unless the narrowed draft passes **full** revalidation, so it can
+    only ever turn a refused draft into a conforming one, and a draft failing for any
+    other reason still fails (ADR 0057).
     """
+    content = candidate.content
+    notes: list[str] = []
+
     covered = [claim.statement for claim in candidate.claims if claim.kind == "numeric"]
-    narrowed = without_unsourced_numeral_sentences(candidate.content, covered)
-    if narrowed is None:
+    narrowed = without_unsourced_numeral_sentences(content, covered)
+    if narrowed is not None:
+        content = narrowed
+        notes.append(_NUMERAL_NOTE)
+
+    if policy.word_budget > 0:
+        shortened = trimmed_to_word_count(content, word_ceiling(policy.word_budget))
+        if shortened is not None:
+            content = shortened
+            notes.append(_LENGTH_NOTE)
+
+    if not notes:
         return None
-    repaired = candidate.model_copy(update={"content": narrowed})
+
+    repaired = candidate.model_copy(update={"content": content})
     if validate_draft(repaired, contract=contract, evidence=evidence, policy=policy):
         return None
-    return repaired
+    return _Salvage(draft=repaired, notes=tuple(notes))
