@@ -229,7 +229,17 @@ the two roles that use the batch endpoint had only ever been run against it.*
   outstanding but *refused* (ADR 0026); the euro reference rates replace it as the FX
   source (ADR 0045), and the GBP risk-free rate remains genuinely open.
 
-Tasks 29–32 remain genuinely outstanding.
+* **Tasks 29–32** — this section said they "remain genuinely outstanding", and the phase
+  plan it names as the authority records all four **delivered** (29–31 on 2026-08-05, 32 on
+  2026-08-06), verified again on 2026-08-18 by their own suites: prices and actions with the
+  PIT clamp in the adapter, the comps table with each confirmed peer priced and read from
+  its own filings (gap S3), the valuation surface reading from the ledger, and the replay
+  harness with the gate at ten blocking metrics against the acceptance's eight. The one
+  scoped remainder is recorded on `propose_peers_from_sic` itself: peers are proposed only
+  from companies this database already holds, so a fresh database proposes nobody — honest,
+  and deliberate. A model proposing peers with a written rationale "is better and comes
+  later", and it is a new capability that needs its decision made first, not a stale row on
+  a task board.
 
 ---
 
@@ -241,20 +251,22 @@ until A16 was fixed the suite could not complete in one process, so every "verif
 in this document rested on a subset. It completes now, which is what makes the rest of these
 entries checkable.
 
-What that leaves, in the order it is worth doing:
+What that leaves, in the order it is worth doing (A14 came off this list late: it was
+closed by ADR 0048 and the entry above says how, but this section still recommended it —
+the order is a summary, and a summary that contradicts its own table is worse than none):
 
-1. **A14 — prompt caching.** The composition is already ordered for it and never asks for
-   it. The cheapest remaining saving by a distance, now that A2 means the meter can show
-   what it saves.
-2. **A5, A7 and A8 — authentication, inbound rate limiting and a deployment story.** One
+1. **A5, A7 and A8 — authentication, inbound rate limiting and a deployment story.** One
    decision rather than three tasks: they matter exactly when this stops being a tool on
    one machine, and not before. `docs/PLAN.md` keeps them behind a flag for that reason.
-3. **B9 — watchlists and scheduled runs**, the last unbuilt item of Phase 6's list.
-4. **Tasks 30 and 32.** Task 30 is the honest remainder of B3: a peer's multiple needs
-   that peer's filings and prices, this workflow acquires neither, so every confirmed peer
-   is excluded by name with the reason. Task 32 extends the CI gate over golden
-   calculations. Both are ordinary build work with no open question in front of them.
-5. The rest of Phase 6 in the order `docs/PLAN.md` gives. **A10 to A12 are done** —
+2. **B9 — watchlists and scheduled runs**, the last unbuilt item of Phase 6's list.
+3. **Peer discovery — the one scoped remainder of the comps chain.** Tasks 30 and 32
+   stood here until the record was checked: both are delivered, and what B3 called "Task
+   30's" — peer filings and prices — gap S3 built. What is left is a decision, not a task:
+   `propose_peers_from_sic` proposes only companies this database already holds, so the
+   comps table stays empty until either a model proposes peers (a new capability, its
+   decision first) or the operator can add one by ticker at the gate and have its facts
+   fetched.
+4. The rest of Phase 6 in the order `docs/PLAN.md` gives. **A10 to A12 are done** —
    backups with a verifier and a working restore, audit-chain verification, and run-level
    replay — which closes the whole data-lifecycle section. What A9 made pressing is now
    answered: the sweep can tell an operator the store has lost a document, and there is
