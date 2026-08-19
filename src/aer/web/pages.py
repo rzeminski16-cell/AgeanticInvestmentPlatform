@@ -50,7 +50,7 @@ from aer.charts import (
     valuation_history,
 )
 from aer.config import Settings
-from aer.core.enums import Decision, GateKind, JobStatus
+from aer.core.enums import CatalystOutcomeKind, Decision, GateKind, JobStatus
 from aer.core.escalation import COST_ALERT_RATIO
 from aer.db.models import (
     Calculation,
@@ -74,6 +74,7 @@ from aer.render.summary import summary_document
 from aer.services import approvals as approval_service
 from aer.services import calculations as calculation_service
 from aer.services import cancellation as cancellation_service
+from aer.services import catalysts as catalyst_service
 from aer.services import configuration, provenance
 from aer.services import history as history_service
 from aer.services import runs as run_service
@@ -1435,6 +1436,7 @@ async def company_page(
     request: Request,
     company_id: uuid.UUID,
     session: DbSession,
+    settings: SettingsDep,
     user: CurrentUser,
 ) -> Response:
     """The section 2.7 page: timeline, valuation history, prior catalysts and what happened.
@@ -1479,6 +1481,18 @@ async def company_page(
             await history_service.catalyst_outcomes_for(session, prior=prior, as_of=today)
         )
 
+    resolutions = await catalyst_service.resolutions_for(session, company_id=company.id)
+    # The labels a resolution may attach to: passed or undated windows nobody has
+    # answered yet. Pending ones wait — resolving a window that has not closed would be
+    # recording the future.
+    unresolved = sorted(
+        {
+            outcome.label
+            for outcome in catalyst_rows
+            if outcome.status != "pending" and outcome.label not in resolutions
+        }
+    )
+    token = new_csrf_token(settings)
     page: Response = render(
         request,
         "companies/detail.html",
@@ -1489,9 +1503,72 @@ async def company_page(
             "chart_caption": chart.caption,
             "chart_is_placeholder": chart.placeholder,
             "catalyst_outcomes": catalyst_rows,
+            "resolutions": resolutions,
+            "unresolved_labels": unresolved,
+            "outcome_kinds": list(CatalystOutcomeKind),
+            "csrf_field": CSRF_FIELD_NAME,
+            "csrf_token": token,
         },
     )
+    set_csrf_cookie(page, token)
     return page
+
+
+@router.post(
+    "/companies/{company_id}/catalysts",
+    response_class=HTMLResponse,
+    summary="Record what happened to a catalyst",
+)
+async def resolve_catalyst(
+    request: Request,
+    company_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """The operator's answer to a closed window (K4). Never a model's.
+
+    The service validates everything that matters — the label must name a catalyst an
+    approved report proposed, the reason must not be blank — so this route decides
+    nothing beyond ownership and the CSRF token, the export form's own division.
+    """
+    company = await history_service.company_for_user(
+        session, company_id=company_id, user_id=user.id
+    )
+    if company is None:
+        return _problem(request, f"No company {company_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was recorded.",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        outcome = CatalystOutcomeKind(submitted.get("outcome", ""))
+    except ValueError:
+        return _problem(
+            request,
+            "The outcome must be one of: occurred, did not occur, superseded.",
+            status=HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+    try:
+        await catalyst_service.record_catalyst_resolution(
+            session,
+            company_id=company.id,
+            label=submitted.get("label", ""),
+            outcome=outcome,
+            reason=submitted.get("reason", ""),
+            actor=user,
+        )
+    except ValidationError as exc:
+        return _problem(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
+
+    await session.commit()
+    return RedirectResponse(f"/companies/{company_id}", status_code=HTTP_303_SEE_OTHER)
 
 
 @router.get("/reports/{report_id}", response_class=HTMLResponse, summary="A finished report")

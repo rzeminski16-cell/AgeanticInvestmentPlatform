@@ -603,6 +603,7 @@ def _write_catalyst_notes(
     for catalyst in graph.catalyst_views:
         title = _catalyst_note_title(catalyst.company, catalyst.label)
         resolved = catalyst.resolved_by
+        recorded = catalyst.operator_resolution
         if resolved is not None:
             status = "passed"
         elif catalyst.deadline is not None:
@@ -621,8 +622,13 @@ def _write_catalyst_notes(
             deadline=catalyst.deadline,
             status=status,
             thesis_refs=list(catalyst.thesis_refs),
+            # The operator's recorded outcome wins the frontmatter field (K4): "occurred"
+            # is an answer where a run link is only a boundary. The calendar keeps
+            # `status`; only a person's record may claim what happened.
             resolution=(
-                f"[[{_run_note_title(resolved.request)}]]" if resolved is not None else None
+                f"{recorded.outcome.value}: {recorded.reason}"
+                if recorded is not None
+                else (f"[[{_run_note_title(resolved.request)}]]" if resolved is not None else None)
             ),
         )
         lines = [f"# {title}", "", "## Thesis references", ""]
@@ -632,7 +638,13 @@ def _write_catalyst_notes(
                 f"(as of {run.report.as_of_date.isoformat()}): {rationale}"
             )
         lines.extend(["", "## Resolution", ""])
-        if resolved is not None:
+        if recorded is not None:
+            lines.append(
+                f"**{recorded.outcome.value.replace('_', ' ').capitalize()}** — "
+                f"{recorded.reason} (recorded by {recorded.recorded_by} on "
+                f"{recorded.recorded_at.date().isoformat()})."
+            )
+        elif resolved is not None:
             lines.append(
                 f"The stated window ({catalyst.expected_timing}) had closed by the approved "
                 f"run [[{_run_note_title(resolved.request)}]], as of "

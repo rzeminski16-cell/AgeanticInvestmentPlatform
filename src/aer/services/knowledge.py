@@ -43,6 +43,7 @@ from aer.db.models import (
     ThemeMembership,
 )
 from aer.obsidian.graph import peer_edges, reachable_from
+from aer.services.catalysts import resolutions_for
 from aer.services.history import (
     approved_reports_for,
     catalyst_outcomes_for,
@@ -209,9 +210,9 @@ class StaleCompany:
 class OpenCatalyst:
     """A catalyst whose window has closed, with nothing recorded about what happened.
 
-    Until K4 gives an operator somewhere to record an outcome, *every* passed catalyst is
-    open — so this is the full backlog rather than a filtered one, and the count is
-    honest about that.
+    Since K4 this means exactly what the name says: a closed window with **no operator
+    resolution** — the genuine to-do list. A catalyst somebody has resolved (occurred,
+    did not, superseded) leaves it, because the question it represents has been answered.
     """
 
     company_id: uuid.UUID
@@ -541,6 +542,7 @@ async def _freshness(
         priors = await approved_reports_for(session, company_id=company_id)
         if not priors:  # pragma: no cover -- researched means at least one
             continue
+        resolved_labels = set(await resolutions_for(session, company_id=company_id))
         dates = [prior.as_of_date for prior in priors]
         latest = max(dates)
         earliest = min(dates)
@@ -561,7 +563,7 @@ async def _freshness(
 
         for prior in priors:
             for outcome in await catalyst_outcomes_for(session, prior=prior, as_of=today):
-                if outcome.status == "passed":
+                if outcome.status == "passed" and outcome.label not in resolved_labels:
                     passed.append(
                         OpenCatalyst(
                             company_id=company_id,

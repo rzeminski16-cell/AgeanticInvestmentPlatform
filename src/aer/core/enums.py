@@ -106,6 +106,20 @@ TERMINAL_JOB_STATUSES: frozenset[JobStatus] = frozenset(
 )
 
 
+class CatalystOutcomeKind(StrEnum):
+    """What an operator recorded about a catalyst whose window closed (K4).
+
+    Three values and no "pending": a pending catalyst simply has no resolution row.
+    ``SUPERSEDED`` is for the event that stopped mattering — an acquisition closed a
+    different way, a product line was sold — where neither "occurred" nor "did not"
+    would be honest.
+    """
+
+    OCCURRED = "occurred"
+    DID_NOT_OCCUR = "did_not_occur"
+    SUPERSEDED = "superseded"
+
+
 class GateKind(StrEnum):
     """Which human approval gate a decision belongs to.
 

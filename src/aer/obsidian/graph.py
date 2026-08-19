@@ -30,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.sectors import ModelNotPermittedError, SectorProfile
 from aer.db.models import (
+    CatalystResolution,
     Company,
     Job,
     ObsidianExport,
@@ -38,6 +39,7 @@ from aer.db.models import (
     Theme,
     ThemeMembership,
 )
+from aer.services.catalysts import resolutions_for
 from aer.services.comps import PeerSetNotConfirmedError, confirmed_peer_set
 from aer.services.history import (
     DriverAccuracy,
@@ -112,6 +114,9 @@ class CatalystView:
     thesis_refs: tuple[str, ...]
     proposals: tuple[tuple[RunView, str], ...]
     resolved_by: RunView | None
+    # The operator's recorded answer to "did it happen?" (K4), or None while nobody has
+    # said. The calendar half above never claims it; this is the only field that may.
+    operator_resolution: CatalystResolution | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -404,6 +409,7 @@ async def _catalyst_views(
     for company_id in order:
         view = companies[company_id]
         gathered: dict[str, _Gathered] = {}
+        recorded = await resolutions_for(session, company_id=company_id)
         for run in view.runs:
             outcomes = await catalyst_outcomes_for(
                 session, prior=run.report, as_of=run.report.as_of_date
@@ -430,6 +436,7 @@ async def _catalyst_views(
                     thesis_refs=tuple(entry.refs),
                     proposals=tuple(entry.proposals),
                     resolved_by=_resolver(view.runs, deadline),
+                    operator_resolution=recorded.get(label),
                 )
             )
     return tuple(views)

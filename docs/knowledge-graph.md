@@ -31,17 +31,19 @@ decision that changes an invariant.
 | Themes — cross-company connective tissue | **Built** (K1) | `services/themes.py`, ADR 0065 |
 | Feed-forward: prior research informing a new run | **Built** (K2) | `history.prior_digest_for`, ADR 0064 |
 | Assumption outcomes measured across runs | **Built** (K3) | `calc/outcomes.py`, `history.assumption_outcomes_for` |
-| **Catalyst resolution beyond the calendar** | **Partial** | `CatalystView.resolved_by` |
+| Catalyst resolution beyond the calendar | **Built** (K4) | `catalyst_resolutions`, `services/catalysts.py` |
 | Statistics and monitoring of the graph | **Built** (K5) | `services/knowledge.py` |
 | **In-app graph view** | **Not built** | Obsidian's own view only |
 | `obsidian_linker` model route | **Deleted** (K6) | superseded by `theme_proposal`, ADR 0065 |
 
-The honest summary: **everything but catalyst resolution works.** The map records what
+The honest summary: **the layer this document planned is built.** The map records what
 you have researched, compares a company against its own past, reports its own size and
 decay, puts prior conclusions in front of a new run's planner as questions to ask, links
-companies across industries through confirmed themes, and measures each confirmed
-forecast driver against the first fiscal year it forecast. What remains is K4: whether a
-catalyst *happened* is still not recordable, so the calendar is all the platform can say.
+companies across industries through confirmed themes, measures each confirmed forecast
+driver against the first fiscal year it forecast, and lets the operator record what
+actually happened when a catalyst's window closed. The one deliberate absence left is the
+in-app graph *view* (K4b) — the statistics measure the graph and the vault draws it, and
+that division has so far cost nothing.
 
 ---
 
@@ -397,6 +399,31 @@ into the vault, which is a projection — and projected into `CatalystNoteMeta.r
 and a factual claim needs a citation; if it ever becomes automatic it goes through the
 normal evidence path with a source, not through the graph layer.
 
+**Delivered (2026-08-19).** Migration 0049: `catalyst_resolutions`, one row per
+``(company, label)`` — the catalyst node's own identity — carrying an outcome from the
+closed set, a mandatory non-blank reason, who recorded it and when. Re-recording
+*updates* the row: this is operator bookkeeping, not a gate decision, and the current
+answer is one row with its current author. `services/catalysts.py` refuses a blank
+reason and refuses a label no approved report ever proposed, so the table cannot fill
+with verdicts about events nobody forecast.
+
+The projection follows the spec exactly: never edited into the vault — the note
+regenerates from the row. `CatalystView` carries the operator's record, the catalyst
+note's frontmatter ``resolution`` becomes ``occurred: <reason>`` where a run link used to
+stand, and the body states outcome, reason, recorder and date. ``status`` stays a
+calendar statement — only a person's record may claim what happened. The knowledge page's
+open list finally means what its name says: a closed window **nobody has answered**, so
+recording a resolution removes it. The company page gained the small surface the spec
+asked for — a recorded-outcome column and a form offering only the unresolved closed
+windows, with the outcome select and the required reason.
+
+Tested: recording with who and why, correction-not-duplication, both refusals, the open
+list shrinking on resolution, and the graph carrying the record (and ``None`` before
+one exists). A five-mutation sabotage pass — blank reason accepted, unforecast label
+accepted, duplication, resolved-still-open, projection dropped — was caught in full on
+the first run. No ADR: no invariant moved, and the one rule that mattered ("never a
+model's answer") was already this section's own text.
+
 ### K5 — Statistics and monitoring
 
 **Why.** There is currently *no* way to ask how big the map is, how connected, how stale
@@ -437,14 +464,13 @@ relation *is* the graph: the vault is one projection of it and this service meas
 so neither may own the definition privately, and components are found by the same walk the
 exporter uses.
 
-One figure this section asks for remains absent because what it measures does not exist
-yet, and inventing a zero would be worse than an omission: **catalysts passed *but
-unresolved*** — with no resolution to record until K4, every passed catalyst is open, so
-the list is the full backlog and `OpenCatalyst` says so rather than implying a filter
-that is not applied. What the calendar knows is all that is claimed; whether an event
-happened is not something the platform can know from its rows. The **themes** count
-joined with K1, and **accuracy** joined with K3: per-driver measured counts and mean
-absolute deltas, aggregated over the graph and weighted by measured count.
+Every figure this section asked for now exists. The **themes** count joined with K1,
+**accuracy** joined with K3 (per-driver measured counts and mean absolute deltas,
+weighted by measured count), and with K4 the open-catalyst list finally means **passed
+and unresolved**: recording an outcome removes the window from the list, so what remains
+is the genuine to-do. Whether an event happened is still never inferred from rows — it
+is read from the operator's record, which is the only place that answer can honestly
+live.
 
 One asymmetry worth recording. `confirmed_classification` raises when a specialist sector
 was proposed and nobody confirmed it — right for a caller that would act on it, since that
@@ -479,8 +505,10 @@ connections is the same shape of judgement. ADR 0065 records both halves.
 K5 first: it is small, it has no dependencies, and it makes the effect of everything
 after it visible. Then K2, the largest single improvement to research quality per line
 changed. Then K1, the biggest build, which resolved K6 in passing. Then K3, the
-evaluative half's deterministic part. All five are delivered; what remains is K4,
-catalyst resolution — an operator-recorded outcome, never a model's.
+evaluative half's deterministic part. Then K4, the operator's answer to a closed window.
+**All six are delivered.** What this plan leaves open is K4b alone — the in-app graph
+view — kept deliberately small and deliberately last, because a picture of a graph is
+worth much less than the statistics about it, and the vault already draws one.
 
 ---
 

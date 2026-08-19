@@ -16,6 +16,7 @@ from aer.db.models.assumption import Assumption
 from aer.db.models.assumption_proposal import AssumptionProposal
 from aer.db.models.audit_event import AuditEvent
 from aer.db.models.calculation import Calculation
+from aer.db.models.catalyst_resolution import CatalystResolution
 from aer.db.models.citation import Citation
 from aer.db.models.claim import Claim
 from aer.db.models.company import Company
@@ -60,6 +61,7 @@ __all__ = [
     "AssumptionProposal",
     "AuditEvent",
     "Calculation",
+    "CatalystResolution",
     "Citation",
     "Claim",
     "Company",
