@@ -30,18 +30,18 @@ decision that changes an invariant.
 | Idempotent regeneration, personal half preserved | **Built** | `vault.py`, `SENTINEL` |
 | Themes — cross-company connective tissue | **Built** (K1) | `services/themes.py`, ADR 0065 |
 | Feed-forward: prior research informing a new run | **Built** (K2) | `history.prior_digest_for`, ADR 0064 |
-| **Assumption outcomes measured across runs** | **Not built** | — |
+| Assumption outcomes measured across runs | **Built** (K3) | `calc/outcomes.py`, `history.assumption_outcomes_for` |
 | **Catalyst resolution beyond the calendar** | **Partial** | `CatalystView.resolved_by` |
 | Statistics and monitoring of the graph | **Built** (K5) | `services/knowledge.py` |
 | **In-app graph view** | **Not built** | Obsidian's own view only |
 | `obsidian_linker` model route | **Deleted** (K6) | superseded by `theme_proposal`, ADR 0065 |
 
-The honest summary: **the projection, the look-back, the measurement, the feed-forward
-and the connective tissue work; the evaluative half does not.** The map records what you
-have researched, compares a company against its own past, reports its own size and decay,
-puts prior conclusions in front of a new run's planner as questions to ask, and links
-companies across industries through confirmed themes. It does not yet evaluate whether
-what you believed turned out to be true — that is K3 and K4.
+The honest summary: **everything but catalyst resolution works.** The map records what
+you have researched, compares a company against its own past, reports its own size and
+decay, puts prior conclusions in front of a new run's planner as questions to ask, links
+companies across industries through confirmed themes, and measures each confirmed
+forecast driver against the first fiscal year it forecast. What remains is K4: whether a
+catalyst *happened* is still not recordable, so the calendar is all the platform can say.
 
 ---
 
@@ -345,6 +345,43 @@ this is the part that can be done deterministically. A prior run assumed revenue
 whose period has not closed produces "not yet observable", never a zero. A prior run whose
 concept the map cannot place is skipped with a stated reason rather than silently.
 
+**Delivered (2026-08-19).** The arithmetic lives in `calc/outcomes.py`: each realised
+driver is computed from **exactly the line concepts its proposal derivation used**
+(`ratio` over `operating_income / revenue` for the margin, `growth_rate` for revenue,
+the same working-capital subtraction), because a delta between two differently-derived
+quantities would measure a methodology change and call it an error. Fact selection and
+statement assembly go through the analysis module's own `annual_facts` and `assemble` —
+promoted to public precisely so a second implementation could not diverge from the first.
+
+`history.assumption_outcomes_for(session, context, prior=…, as_of=…, point_in_time=…)`
+measures each **approved** assumption of a prior run against the *first full fiscal year
+after that run's as-of date* — the first year the forecast actually forecast — and every
+outcome is one of four stated things: measured (with the delta), not yet observable (the
+year has not filed; never a zero, because a zero would claim the forecast was exactly
+right), not measurable (`terminal_growth` and `exit_multiple` — no filed year can falsify
+a perpetuity or price a future exit), or skipped with the reason (an unplaceable name, a
+line the filer did not report). Point-in-time binds on `filed_date`: a year that closed
+but had not filed by the reading run's as-of date is still unobservable.
+
+The rows join `prior_research_comparison` in the existing comparison shape — no contract
+change — and every realised value and delta is **persisted as a traced calculation
+against the reading run** before the content leaves the builder (invariant 3: these
+figures reach the report). The company note gains an "Assumption accuracy" section above
+the sentinel — per-driver mean absolute delta over the measured runs — and the knowledge
+page, `/api/knowledge` and `aer knowledge` gain the same aggregate over the whole graph,
+weighted by measured count. Per driver, never one score: a single number over
+incommensurable assumptions invites exactly the false confidence this platform exists to
+avoid.
+
+Tested with hand arithmetic (106.4 over 100 is growth of 0.064 and a delta of −0.026
+against the 9% assumption, and nothing else), plus the spec's three cases, the filed-date
+half of point-in-time, the persistence of the deltas as calculations, the accuracy
+aggregation, and an unapproved proposal never appearing — even as skipped. An
+eight-mutation sabotage pass (unapproved measured, zero-for-absence, PIT dropped, deltas
+unpersisted, wrong year, sign flip, silent skip, and the gate refusal) was caught in
+full; three catches required a second realised year, an unconfirmed proposal and a
+closed-but-unfiled window in the scene, which is what the scene now holds.
+
 ### K4 — Catalyst resolution beyond the calendar
 
 **Why.** `resolved_by` currently means "an approved run's as-of date is past the parsed
@@ -400,14 +437,14 @@ relation *is* the graph: the vault is one projection of it and this service meas
 so neither may own the definition privately, and components are found by the same walk the
 exporter uses.
 
-Two figures this section asks for remain absent because what they measure does not exist
-yet, and inventing a zero would be worse than an omission: **accuracy** (K3), and
-**catalysts passed *but unresolved*** — with no resolution to record until K4, every
-passed catalyst is open, so the list is the full backlog and `OpenCatalyst` says so
-rather than implying a filter that is not applied. What the calendar knows is all that is
-claimed; whether an event happened is not something the platform can know from its rows.
-The **themes** count joined with K1: themes with at least one membership through an
-approved report, the same standard every other edge is held to.
+One figure this section asks for remains absent because what it measures does not exist
+yet, and inventing a zero would be worse than an omission: **catalysts passed *but
+unresolved*** — with no resolution to record until K4, every passed catalyst is open, so
+the list is the full backlog and `OpenCatalyst` says so rather than implying a filter
+that is not applied. What the calendar knows is all that is claimed; whether an event
+happened is not something the platform can know from its rows. The **themes** count
+joined with K1, and **accuracy** joined with K3: per-driver measured counts and mean
+absolute deltas, aggregated over the graph and weighted by measured count.
 
 One asymmetry worth recording. `confirmed_classification` raises when a specialist sector
 was proposed and nobody confirmed it — right for a caller that would act on it, since that
@@ -441,9 +478,9 @@ connections is the same shape of judgement. ADR 0065 records both halves.
 
 K5 first: it is small, it has no dependencies, and it makes the effect of everything
 after it visible. Then K2, the largest single improvement to research quality per line
-changed. Then K1, the biggest build, which resolved K6 in passing. All four are
-delivered. What remains is the evaluative half: K3 (assumption outcomes, arithmetic in
-`calc/`), then K4 (catalyst resolution).
+changed. Then K1, the biggest build, which resolved K6 in passing. Then K3, the
+evaluative half's deterministic part. All five are delivered; what remains is K4,
+catalyst resolution — an operator-recorded outcome, never a model's.
 
 ---
 

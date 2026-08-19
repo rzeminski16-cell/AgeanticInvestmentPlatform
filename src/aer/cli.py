@@ -248,6 +248,14 @@ def knowledge_command() -> None:
         f"{stats.coverage.single_member_industries} single-member industr(ies)"
     )
 
+    if stats.accuracy.drivers:
+        typer.secho("Assumption accuracy", fg=typer.colors.CYAN, bold=True)
+        for driver in stats.accuracy.drivers:
+            typer.echo(
+                f"  {driver.name.replace('_', ' ')}: mean absolute delta "
+                f"{driver.mean_absolute_delta} over {driver.measured} measured run(s)"
+            )
+
     freshness = stats.freshness
     typer.secho("Freshness", fg=typer.colors.CYAN, bold=True)
     typer.echo(f"  research spans {freshness.oldest or '—'} to {freshness.newest or '—'}")

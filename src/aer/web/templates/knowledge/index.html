@@ -75,6 +75,35 @@
     </ul>
   </section>
 
+  {% if stats.accuracy.drivers %}
+    <section class="mt-8" id="knowledge-accuracy">
+      <h2 class="text-lg font-semibold tracking-tight">Assumption accuracy</h2>
+      <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+        How confirmed forecast drivers held up against the first fiscal year each prior
+        run forecast. Deltas, not verdicts &mdash; and per driver, never one score, because
+        a single number over incommensurable assumptions invites false confidence.
+      </p>
+      <table class="mt-3 w-full text-left text-sm" id="driver-accuracy">
+        <thead class="text-slate-600 dark:text-slate-400">
+          <tr>
+            <th class="py-1">Driver</th>
+            <th class="py-1">Measured</th>
+            <th class="py-1">Mean absolute delta</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in stats.accuracy.drivers %}
+            <tr class="border-t border-slate-200 dark:border-slate-800">
+              <td class="py-1">{{ row.name.replace('_', ' ') }}</td>
+              <td class="py-1">{{ row.measured }}</td>
+              <td class="py-1 font-mono">{{ row.mean_absolute_delta }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% endif %}
+
   <section class="mt-8" id="knowledge-freshness">
     <h2 class="text-lg font-semibold tracking-tight">Freshness</h2>
     <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">

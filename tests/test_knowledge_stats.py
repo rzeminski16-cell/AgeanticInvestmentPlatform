@@ -455,7 +455,15 @@ class TestTheStructureSerialises:
         """The JSON endpoint and the CLI read this; a missing key is a broken surface."""
         body = (await knowledge_stats(scene["session"], as_of=AS_OF)).as_dict()
 
-        assert set(body) == {"size", "shape", "coverage", "freshness", "vault", "measured_at"}
+        assert set(body) == {
+            "size",
+            "shape",
+            "coverage",
+            "accuracy",
+            "freshness",
+            "vault",
+            "measured_at",
+        }
         assert body["size"]["stubs"] == 1
         assert body["shape"]["edges"] == 2
 

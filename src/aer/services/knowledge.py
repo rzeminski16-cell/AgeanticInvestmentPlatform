@@ -43,11 +43,17 @@ from aer.db.models import (
     ThemeMembership,
 )
 from aer.obsidian.graph import peer_edges, reachable_from
-from aer.services.history import approved_reports_for, catalyst_outcomes_for
+from aer.services.history import (
+    approved_reports_for,
+    catalyst_outcomes_for,
+    driver_accuracy_for,
+)
 from aer.services.sectors import confirmed_classification
 
 __all__ = [
     "STALE_AFTER_DAYS",
+    "DriverRecord",
+    "GraphAccuracy",
     "GraphCoverage",
     "GraphFreshness",
     "GraphShape",
@@ -155,6 +161,40 @@ class GraphCoverage:
 
 
 @dataclass(frozen=True, slots=True)
+class DriverRecord:
+    """One forecast driver's record across every measured prior run in the graph (K3)."""
+
+    name: str
+    measured: int
+    mean_absolute_delta: str
+
+
+@dataclass(frozen=True, slots=True)
+class GraphAccuracy:
+    """Whether what past research assumed turned out to hold.
+
+    Aggregated per driver rather than per run, deliberately: a single score over
+    incommensurable assumptions invites exactly the false confidence this platform
+    exists to avoid. Empty until some prior run's first forecast year has filed — an
+    absence, never a zero, because a zero would claim the forecasts were exactly right.
+    """
+
+    drivers: tuple[DriverRecord, ...] = ()
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "drivers": [
+                {
+                    "name": row.name,
+                    "measured": row.measured,
+                    "mean_absolute_delta": row.mean_absolute_delta,
+                }
+                for row in self.drivers
+            ]
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class StaleCompany:
     """A company whose newest approved research is older than the horizon."""
 
@@ -251,6 +291,7 @@ class KnowledgeStats:
     size: GraphSize
     shape: GraphShape
     coverage: GraphCoverage
+    accuracy: GraphAccuracy
     freshness: GraphFreshness
     vault: VaultHealth
     measured_at: datetime = field(default_factory=lambda: datetime.now(UTC))
@@ -260,6 +301,7 @@ class KnowledgeStats:
             "size": self.size.as_dict(),
             "shape": self.shape.as_dict(),
             "coverage": self.coverage.as_dict(),
+            "accuracy": self.accuracy.as_dict(),
             "freshness": self.freshness.as_dict(),
             "vault": self.vault.as_dict(),
             "measured_at": self.measured_at.isoformat(),
@@ -290,6 +332,7 @@ async def knowledge_stats(
     size = await _size(session, nodes=nodes, researched=researched, today=today)
     shape = _shape(nodes=nodes, edges=edges)
     coverage = await _coverage(session, nodes=nodes, researched=researched)
+    accuracy = await _accuracy(session, researched=researched)
     freshness = await _freshness(
         session, researched=researched, today=today, stale_after_days=stale_after_days
     )
@@ -304,7 +347,12 @@ async def knowledge_stats(
         unexported=len(vault.unexported),
     )
     return KnowledgeStats(
-        size=size, shape=shape, coverage=coverage, freshness=freshness, vault=vault
+        size=size,
+        shape=shape,
+        coverage=coverage,
+        accuracy=accuracy,
+        freshness=freshness,
+        vault=vault,
     )
 
 
@@ -445,6 +493,36 @@ async def _coverage(
         unclassified=unclassified,
         single_member_industries=sum(1 for holders in members.values() if len(holders) == 1),
     )
+
+
+async def _accuracy(
+    session: AsyncSession, *, researched: dict[uuid.UUID, Company]
+) -> GraphAccuracy:
+    """Per-driver measured counts and mean absolute deltas, over every researched company.
+
+    The per-company means are combined weighted by their measured counts, which is the
+    overall mean of the underlying deltas — not a mean of means, which would let a
+    company measured once weigh as much as one measured five times.
+    """
+    totals: dict[str, tuple[int, Decimal]] = {}
+    for company_id in researched:
+        for row in await driver_accuracy_for(session, company_id=company_id):
+            count, weighted = totals.get(row.name, (0, Decimal(0)))
+            totals[row.name] = (
+                count + row.measured,
+                weighted + Decimal(row.mean_absolute_delta) * row.measured,
+            )
+
+    drivers = tuple(
+        DriverRecord(
+            name=name,
+            measured=count,
+            mean_absolute_delta=str((weighted / count).quantize(Decimal("0.000001"))),
+        )
+        for name, (count, weighted) in sorted(totals.items())
+        if count
+    )
+    return GraphAccuracy(drivers=drivers)
 
 
 async def _freshness(

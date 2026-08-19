@@ -40,7 +40,14 @@ from aer.calc.statements import StatementSet, assemble
 from aer.calc.units import CalculationError, Quantity, SourceRef, Unit
 from aer.db.models import FinancialFact, ResearchRequest
 
-__all__ = ["FORECAST_CONCEPTS", "AnalysisOutcome", "PeriodAnalysis", "analyse_company"]
+__all__ = [
+    "FORECAST_CONCEPTS",
+    "AnalysisOutcome",
+    "PeriodAnalysis",
+    "analyse_company",
+    "annual_facts",
+    "quantities_of",
+]
 
 _log = structlog.get_logger("aer.services.analysis")
 
@@ -198,7 +205,12 @@ async def analyse_company(
     mismatch: two lines in different currencies is a mapping error, and the module whose job
     is to notice problems is the wrong place to hide one.
     """
-    facts = await _annual_facts(session, company_id=company_id, request=request)
+    facts = await annual_facts(
+        session,
+        company_id=company_id,
+        as_of=request.as_of_date,
+        point_in_time=request.point_in_time,
+    )
     if not facts:
         return AnalysisOutcome(
             skipped=(
@@ -223,7 +235,7 @@ async def analyse_company(
         label = f"FY{fiscal_year}" if fiscal_year else period_end.isoformat()
         start = min((row.period_start for row in rows if row.period_start), default=None)
         with context.period(label, start=start, end=period_end):
-            statements = assemble(context, _quantities(rows))
+            statements = assemble(context, quantities_of(rows))
             unplaced.update(statements.unplaced)
             periods.append(
                 PeriodAnalysis(
@@ -267,14 +279,24 @@ async def analyse_company(
     return outcome
 
 
-async def _annual_facts(
-    session: AsyncSession, *, company_id: uuid.UUID, request: ResearchRequest
+async def annual_facts(
+    session: AsyncSession,
+    *,
+    company_id: uuid.UUID,
+    as_of: date | None,
+    point_in_time: bool,
 ) -> dict[date, list[FinancialFact]]:
     """The company's full-year facts by period, one observation per concept.
 
-    Point-in-time filtered on ``filed_date`` when the request asks for it: the store holds
-    everything every run has ever fetched, so a run as at 2022 must not read a 2024 filing
-    that happens to be sitting beside it.
+    Public because the assumption-outcome measurement (K3) must select facts exactly as
+    the analysis that proposed the assumptions did, or assumed and actual are not
+    commensurable — the selection subtleties below (gap A45) are precisely the ones a
+    second implementation would get wrong. ``as_of=None`` reads everything the store
+    holds, which is what an evergreen projection wants; a run passes its own date.
+
+    Point-in-time filtered on ``filed_date`` when asked: the store holds everything every
+    run has ever fetched, so a run as at 2022 must not read a 2024 filing that happens to
+    be sitting beside it.
 
     **A period is a fiscal year only when a full-year duration ends on it** — gap A45, and
     the reason a live AMZN run reached the assumptions gate with six drivers each derivable
@@ -300,8 +322,8 @@ async def _annual_facts(
         # and put a fraction of the company through every ratio.
         FinancialFact.dimension_axis.is_(None),
     )
-    if request.point_in_time:
-        statement = statement.where(FinancialFact.filed_date <= request.as_of_date)
+    if point_in_time and as_of is not None:
+        statement = statement.where(FinancialFact.filed_date <= as_of)
 
     rows = list(await session.scalars(statement))
 
@@ -350,7 +372,7 @@ def _spans_a_year(row: FinancialFact) -> bool:
     """Whether this fact describes a full year, from its own dates rather than its label.
 
     An instant — a balance-sheet line, a share count — has no start and describes a moment,
-    so it is never a year by itself. See :func:`_annual_facts` for why the distinction
+    so it is never a year by itself. See :func:`annual_facts` for why the distinction
     decides which periods exist at all.
     """
     if row.period_start is None:
@@ -358,8 +380,11 @@ def _spans_a_year(row: FinancialFact) -> bool:
     return _ANNUAL_DAYS_MIN <= (row.period_end - row.period_start).days <= _ANNUAL_DAYS_MAX
 
 
-def _quantities(rows: Sequence[FinancialFact]) -> Mapping[str, Quantity]:
+def quantities_of(rows: Sequence[FinancialFact]) -> Mapping[str, Quantity]:
     """One period's facts as sourced quantities, keyed by canonical concept.
+
+    Public for the same reason :func:`annual_facts` is: the outcome measurement must
+    source its statement lines exactly as the analysis does.
 
     Every quantity carries a :class:`~aer.calc.units.SourceRef` naming its fact row, which
     is what makes each derived subtotal traceable to the filed numbers underneath it. A row

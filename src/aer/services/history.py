@@ -24,7 +24,17 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.dcf import TerminalMethod
+from aer.calc.engine import CalculationContext
+from aer.calc.outcomes import (
+    MEASURABLE_DRIVERS,
+    UNMEASURABLE_JUDGEMENTS,
+    assumption_delta,
+    realised_driver,
+)
+from aer.calc.statements import StatementSet, assemble
+from aer.calc.units import Quantity, SourceRef
 from aer.db.models import (
+    Assumption,
     Calculation,
     Company,
     Report,
@@ -32,15 +42,21 @@ from aer.db.models import (
     ResearchRequest,
     SectionStatus,
 )
+from aer.services.analysis import annual_facts, quantities_of
+from aer.services.calculations import new_context, persist_context
 
 __all__ = [
     "PRIOR_DIGEST_LIMIT",
+    "AssumptionOutcome",
     "CatalystOutcome",
+    "DriverAccuracy",
     "PriorDigest",
     "PriorReportView",
     "approved_reports_for",
+    "assumption_outcomes_for",
     "catalyst_outcomes_for",
     "company_for_user",
+    "driver_accuracy_for",
     "prior_comparison_content",
     "prior_digest_for",
     "prior_risks_for",
@@ -150,6 +166,245 @@ def report_view(report: Report) -> PriorReportView:
         ),
         valuation_currency=report.valuation_currency,
     )
+
+
+# The states an assumption outcome can be in. Strings rather than an enum because they
+# travel into section content (JSONB) and a renderer reads them as text.
+MEASURED: Final = "measured"
+NOT_YET_OBSERVABLE: Final = "not_yet_observable"
+NOT_MEASURABLE: Final = "not_measurable"
+SKIPPED: Final = "skipped"
+
+
+@dataclass(frozen=True, slots=True)
+class AssumptionOutcome:
+    """One confirmed assumption of a prior run, measured against what was later filed.
+
+    ``assumed``, ``actual`` and ``delta`` are rendered strings — the comparison section
+    and the vault read them, and the recorded calculations behind them carry the exact
+    values. ``basis`` states which fiscal year was measured and how, because a delta
+    whose provenance a reader cannot restate is a number they cannot argue with.
+    """
+
+    name: str
+    status: str
+    assumed: str
+    basis: str
+    actual: str | None = None
+    delta: str | None = None
+    prior_report_id: uuid.UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DriverAccuracy:
+    """One driver's record across every measured prior run of a company."""
+
+    name: str
+    measured: int
+    mean_absolute_delta: str
+
+
+async def assumption_outcomes_for(
+    session: AsyncSession,
+    context: CalculationContext,
+    *,
+    prior: Report,
+    as_of: date | None,
+    point_in_time: bool,
+) -> list[AssumptionOutcome]:
+    """The prior run's confirmed assumptions, each measured, waiting, or explained.
+
+    The measured year is the **first full fiscal year after the prior run's as-of date**
+    — the first year the forecast actually forecast. An assumption held flat across five
+    years is one number; its first realised year is the cleanest single measurement, and
+    the basis says exactly that rather than implying more.
+
+    Every realised value and delta goes through ``context`` as a traced calculation, so a
+    caller that puts these figures in front of a reader persists the context and the
+    numbers are recorded calculations (invariant 3). Only **approved** assumptions are
+    measured: a proposal nobody confirmed was never the run's forecast.
+    """
+    if prior.company_id is None:
+        return []
+    assumptions = list(
+        await session.scalars(
+            select(Assumption)
+            .where(Assumption.request_id == prior.request_id, Assumption.approved.is_(True))
+            .order_by(Assumption.name)
+        )
+    )
+    if not assumptions:
+        return []
+
+    measured_year, previous_year, year_label = await _measured_year(
+        session,
+        context,
+        company_id=prior.company_id,
+        after=prior.as_of_date,
+        as_of=as_of,
+        point_in_time=point_in_time,
+    )
+
+    ordered = sorted(
+        assumptions,
+        key=lambda row: (
+            MEASURABLE_DRIVERS.index(row.name)
+            if row.name in MEASURABLE_DRIVERS
+            else len(MEASURABLE_DRIVERS)
+        ),
+    )
+    outcomes: list[AssumptionOutcome] = []
+    for row in ordered:
+        outcomes.append(
+            _outcome_for(
+                context,
+                row,
+                prior=prior,
+                measured_year=measured_year,
+                previous_year=previous_year,
+                year_label=year_label,
+            )
+        )
+    return outcomes
+
+
+def _outcome_for(
+    context: CalculationContext,
+    row: Assumption,
+    *,
+    prior: Report,
+    measured_year: StatementSet | None,
+    previous_year: StatementSet | None,
+    year_label: str,
+) -> AssumptionOutcome:
+    assumed_text = _trim(row.value)
+    if row.name in UNMEASURABLE_JUDGEMENTS:
+        return AssumptionOutcome(
+            name=row.name,
+            status=NOT_MEASURABLE,
+            assumed=assumed_text,
+            basis=f"cannot be measured from filings: {UNMEASURABLE_JUDGEMENTS[row.name]}",
+            prior_report_id=prior.id,
+        )
+    if row.name not in MEASURABLE_DRIVERS:
+        return AssumptionOutcome(
+            name=row.name,
+            status=SKIPPED,
+            assumed=assumed_text,
+            basis=(
+                f"skipped: the concept map cannot place an assumption named {row.name!r}, "
+                "so no filed line answers it"
+            ),
+            prior_report_id=prior.id,
+        )
+    if measured_year is None:
+        return AssumptionOutcome(
+            name=row.name,
+            status=NOT_YET_OBSERVABLE,
+            assumed=assumed_text,
+            basis=(
+                "not yet observable: no full fiscal year after "
+                f"{prior.as_of_date.isoformat()} is in the store, so the first forecast "
+                "year has not been filed"
+            ),
+            prior_report_id=prior.id,
+        )
+
+    actual = realised_driver(context, row.name, statements=measured_year, previous=previous_year)
+    if isinstance(actual, str):
+        return AssumptionOutcome(
+            name=row.name,
+            status=SKIPPED,
+            assumed=assumed_text,
+            basis=f"skipped for {year_label}: {actual}",
+            prior_report_id=prior.id,
+        )
+
+    assumed_quantity = Quantity(
+        value=row.value,
+        unit=actual.unit,
+        source=SourceRef.assumption(row.id, label=row.name),
+    )
+    delta = assumption_delta(context, assumed=assumed_quantity, actual=actual)
+    return AssumptionOutcome(
+        name=row.name,
+        status=MEASURED,
+        assumed=assumed_text,
+        actual=_trim(_rounded_outcome(actual.value)),
+        delta=_trim(_rounded_outcome(delta.value)),
+        basis=(
+            f"realised over {year_label}, the first full fiscal year after the prior "
+            "run's as-of date, from the same filed lines the proposal derivation used"
+        ),
+        prior_report_id=prior.id,
+    )
+
+
+async def _measured_year(
+    session: AsyncSession,
+    context: CalculationContext,
+    *,
+    company_id: uuid.UUID,
+    after: date,
+    as_of: date | None,
+    point_in_time: bool,
+) -> tuple[StatementSet | None, StatementSet | None, str]:
+    """The first full fiscal year after ``after``, assembled, with its predecessor.
+
+    Selection and assembly go through :func:`aer.services.analysis.annual_facts` and
+    :func:`~aer.calc.statements.assemble` — the exact path the proposal derivations used —
+    so assumed and actual are commensurable by construction.
+    """
+    facts = await annual_facts(
+        session, company_id=company_id, as_of=as_of, point_in_time=point_in_time
+    )
+    if as_of is not None:
+        facts = {period: rows for period, rows in facts.items() if period <= as_of}
+    future = sorted(period for period in facts if period > after)
+    if not future:
+        return None, None, ""
+    target = future[0]
+    prior_periods = sorted(period for period in facts if period < target)
+    previous = assemble(context, quantities_of(facts[prior_periods[-1]])) if prior_periods else None
+    measured = assemble(context, quantities_of(facts[target]))
+    return measured, previous, f"the fiscal year ending {target.isoformat()}"
+
+
+def _rounded_outcome(value: Decimal) -> Decimal:
+    """Six places, matching the proposal derivations' own rounding."""
+    return value.quantize(Decimal("0.000001"))
+
+
+async def driver_accuracy_for(
+    session: AsyncSession, *, company_id: uuid.UUID
+) -> list[DriverAccuracy]:
+    """Each driver's measured count and mean absolute delta, over every prior run.
+
+    Read for the company note, which is an evergreen projection: the measurement uses
+    everything the store holds (``as_of=None``), and the context is deliberately thrown
+    away — nothing here reaches a report, and the recorded copies live with the runs
+    whose comparison sections measured the same deltas.
+    """
+    context = CalculationContext(code_version="projection")
+    deltas: dict[str, list[Decimal]] = {}
+    for prior in await approved_reports_for(session, company_id=company_id):
+        outcomes = await assumption_outcomes_for(
+            session, context, prior=prior, as_of=None, point_in_time=False
+        )
+        for outcome in outcomes:
+            if outcome.status == MEASURED and outcome.delta is not None:
+                deltas.setdefault(outcome.name, []).append(abs(Decimal(outcome.delta)))
+
+    accuracy: list[DriverAccuracy] = []
+    for name in MEASURABLE_DRIVERS:
+        observed = deltas.get(name)
+        if not observed:
+            continue
+        mean = (sum(observed, Decimal(0)) / Decimal(len(observed))).quantize(Decimal("0.000001"))
+        accuracy.append(
+            DriverAccuracy(name=name, measured=len(observed), mean_absolute_delta=_trim(mean))
+        )
+    return accuracy
 
 
 # How many prior reports feed forward into a new run's planner (K2). Three, not "all":
@@ -396,6 +651,11 @@ async def prior_comparison_content(
         },
     ]
 
+    # Every realised driver and delta below is a traced calculation in this context,
+    # persisted against the run before the content leaves this function — a figure in a
+    # report must be a recorded calculation (invariant 3), and these reach the report.
+    outcome_context = new_context()
+
     for prior in priors:
         for outcome in await catalyst_outcomes_for(session, prior=prior, as_of=request.as_of_date):
             comparisons.append(
@@ -415,6 +675,17 @@ async def prior_comparison_content(
                     "prior_report_id": risk["prior_report_id"],
                 }
             )
+        for measured in await assumption_outcomes_for(
+            session,
+            outcome_context,
+            prior=prior,
+            as_of=request.as_of_date,
+            point_in_time=request.point_in_time,
+        ):
+            comparisons.append(_assumption_row(measured))
+
+    if outcome_context.records:
+        await persist_context(session, outcome_context, job_id=job_id)
 
     _log.info(
         "history.comparison_built",
@@ -429,6 +700,23 @@ async def prior_comparison_content(
             "Every row below names the prior report it was read from."
         ),
         "comparisons": comparisons,
+    }
+
+
+def _assumption_row(outcome: AssumptionOutcome) -> dict[str, str]:
+    """One outcome as a comparison row — the existing shape, so no contract changes."""
+    if outcome.status == MEASURED:
+        current = (
+            f"Realised {outcome.actual}; delta {outcome.delta} against the assumption "
+            f"({outcome.basis})."
+        )
+    else:
+        current = outcome.basis[:1].upper() + outcome.basis[1:] + "."
+    return {
+        "aspect": f"Assumption — {outcome.name.replace('_', ' ')}",
+        "prior": f"Confirmed at {outcome.assumed}, held flat across the forecast.",
+        "current": current,
+        "prior_report_id": str(outcome.prior_report_id or ""),
     }
 
 

@@ -40,8 +40,10 @@ from aer.db.models import (
 )
 from aer.services.comps import PeerSetNotConfirmedError, confirmed_peer_set
 from aer.services.history import (
+    DriverAccuracy,
     approved_reports_for,
     catalyst_outcomes_for,
+    driver_accuracy_for,
     timing_deadline,
 )
 from aer.services.sectors import confirmed_classification
@@ -87,6 +89,9 @@ class CompanyView:
     runs: tuple[RunView, ...]
     competitor_ids: tuple[uuid.UUID, ...]
     industry: SectorProfile | None
+    # Each measurable driver's record across this company's measured prior runs (K3).
+    # Empty for a stub, and for a company none of whose forecast years have filed yet.
+    driver_accuracy: tuple[DriverAccuracy, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,6 +180,9 @@ async def build_graph(
             runs=runs,
             competitor_ids=competitor_ids,
             industry=runs[-1].industry if runs else None,
+            driver_accuracy=(
+                tuple(await driver_accuracy_for(session, company_id=company_id)) if runs else ()
+            ),
         )
 
     order = _ordered(companies, subject_id=company.id if company is not None else None)

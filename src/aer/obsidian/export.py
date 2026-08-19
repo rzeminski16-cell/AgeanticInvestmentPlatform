@@ -485,6 +485,25 @@ def _company_generated(
         body_lines.extend(["## Competitors", "", *[f"- {link}" for link in competitors], ""])
     if theme_links:
         body_lines.extend(["## Themes", "", *[f"- {link}" for link in theme_links], ""])
+    if view.driver_accuracy:
+        # K3: how the confirmed forecast drivers held up, measured against the first
+        # filed year after each prior run. Deltas, not verdicts — whether a miss mattered
+        # is the reader's judgement, and the recorded calculations live with the runs.
+        body_lines.extend(
+            [
+                "## Assumption accuracy",
+                "",
+                "Mean absolute delta between each confirmed driver and its first realised "
+                "fiscal year, across the measured approved runs.",
+                "",
+                *[
+                    f"- {row.name.replace('_', ' ')}: {row.mean_absolute_delta} over "
+                    f"{row.measured} measured run(s)"
+                    for row in view.driver_accuracy
+                ],
+                "",
+            ]
+        )
     body_lines.extend(
         [
             "Everything below the marker is yours; the platform regenerates only what is above it.",
