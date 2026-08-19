@@ -24,7 +24,7 @@
         ("Stubs", stats.size.stubs, "stubs"),
         ("Approved reports", stats.size.approved_reports, "reports"),
         ("Industries", stats.size.industries, "industries"),
-        ("Catalysts", stats.size.catalysts, "catalysts"),
+        ("Catalysts", stats.size.catalyst_nodes, "catalysts"),
         ("Sources", stats.size.sources, "sources"),
       ] %}
         <div class="rounded-md border border-slate-200 p-3 dark:border-slate-800">
@@ -103,14 +103,14 @@
       </table>
     {% endif %}
 
-    {% if stats.freshness.passed_catalysts %}
+    {% if stats.freshness.closed_windows %}
       <h3 class="mt-4 text-sm font-semibold">Catalyst windows that have closed</h3>
       <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
         The calendar says the window has passed. Whether the event happened is not
         something the platform can know from its own rows, so nothing here claims it did.
       </p>
       <ul class="mt-2 list-disc space-y-1 pl-5 text-sm" id="passed-catalysts">
-        {% for catalyst in stats.freshness.passed_catalysts %}
+        {% for catalyst in stats.freshness.closed_windows %}
           <li>
             <span class="font-mono">{{ catalyst.ticker }}</span> &mdash; {{ catalyst.label }}
             <span class="text-slate-600 dark:text-slate-400">(expected {{ catalyst.expected_timing }})</span>

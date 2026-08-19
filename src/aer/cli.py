@@ -230,7 +230,7 @@ def knowledge_command() -> None:
     )
     typer.echo(
         f"  {size.approved_reports} approved report(s), {size.industries} industr(ies), "
-        f"{size.catalysts} catalyst(s), {size.sources} source(s)"
+        f"{size.catalyst_nodes} catalyst(s), {size.sources} source(s)"
     )
 
     typer.secho("Shape", fg=typer.colors.CYAN, bold=True)
@@ -254,13 +254,13 @@ def knowledge_command() -> None:
         typer.secho(f"  {len(freshness.stale)} stale:", fg=typer.colors.YELLOW)
         for row in freshness.stale:
             typer.echo(f"    {row.ticker}: {row.days_since} days since {row.newest_as_of}")
-    if freshness.passed_catalysts:
+    if freshness.closed_windows:
         typer.secho(
-            f"  {len(freshness.passed_catalysts)} catalyst window(s) closed, "
+            f"  {len(freshness.closed_windows)} catalyst window(s) closed, "
             "nothing recorded about what happened:",
             fg=typer.colors.YELLOW,
         )
-        for catalyst in freshness.passed_catalysts:
+        for catalyst in freshness.closed_windows:
             typer.echo(f"    {catalyst.ticker}: {catalyst.label} ({catalyst.expected_timing})")
 
     vault = stats.vault

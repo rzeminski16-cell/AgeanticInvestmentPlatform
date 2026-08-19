@@ -74,14 +74,22 @@ _GENERATED_DIRECTORIES: Final[tuple[str, ...]] = (
 
 @dataclass(frozen=True, slots=True)
 class GraphSize:
-    """How much is in the map."""
+    """How much is in the map.
+
+    ``catalyst_nodes`` rather than the obvious plural, here and throughout: the plural is
+    a *seeded section key*, and no module outside the seed migration may name one, or the
+    next section becomes a code change instead of a row. Nothing here reads that section —
+    the count comes from whichever sections carry catalyst-shaped items — so the name is
+    the only thing that would have said otherwise. The rest of the codebase keeps the same
+    distance by staying singular.
+    """
 
     companies: int
     researched: int
     stubs: int
     approved_reports: int
     industries: int
-    catalysts: int
+    catalyst_nodes: int
     sources: int
 
     def as_dict(self) -> dict[str, Any]:
@@ -91,7 +99,7 @@ class GraphSize:
             "stubs": self.stubs,
             "approved_reports": self.approved_reports,
             "industries": self.industries,
-            "catalysts": self.catalysts,
+            "catalyst_nodes": self.catalyst_nodes,
             "sources": self.sources,
         }
 
@@ -170,7 +178,7 @@ class GraphFreshness:
     newest: date | None
     oldest: date | None
     stale: tuple[StaleCompany, ...] = ()
-    passed_catalysts: tuple[OpenCatalyst, ...] = ()
+    closed_windows: tuple[OpenCatalyst, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -186,7 +194,7 @@ class GraphFreshness:
                 }
                 for row in self.stale
             ],
-            "passed_catalysts": [
+            "closed_windows": [
                 {
                     "company_id": str(row.company_id),
                     "ticker": row.ticker,
@@ -194,7 +202,7 @@ class GraphFreshness:
                     "expected_timing": row.expected_timing,
                     "report_id": str(row.report_id),
                 }
-                for row in self.passed_catalysts
+                for row in self.closed_windows
             ],
         }
 
@@ -313,14 +321,14 @@ async def _size(
 ) -> GraphSize:
     approved = await session.scalar(select(func.count(Report.id)).where(Report.immutable.is_(True)))
     industries: set[str] = set()
-    catalysts: set[tuple[uuid.UUID, str]] = set()
+    catalyst_keys: set[tuple[uuid.UUID, str]] = set()
     for company_id in researched:
         for prior in await approved_reports_for(session, company_id=company_id):
             job = await session.get(Job, prior.job_id)
             if job is not None:
                 industries |= await _industry_keys(session, job)
             for outcome in await catalyst_outcomes_for(session, prior=prior, as_of=today):
-                catalysts.add((company_id, outcome.label))
+                catalyst_keys.add((company_id, outcome.label))
 
     sources = await session.scalar(
         select(func.count(func.distinct(SourceDocument.id)))
@@ -334,7 +342,7 @@ async def _size(
         stubs=len(nodes - set(researched)),
         approved_reports=int(approved or 0),
         industries=len(industries),
-        catalysts=len(catalysts),
+        catalyst_nodes=len(catalyst_keys),
         sources=int(sources or 0),
     )
 
@@ -471,7 +479,7 @@ async def _freshness(
         newest=newest,
         oldest=oldest,
         stale=tuple(sorted(stale, key=lambda row: (-row.days_since, row.ticker))),
-        passed_catalysts=tuple(sorted(passed, key=lambda row: (row.ticker, row.label))),
+        closed_windows=tuple(sorted(passed, key=lambda row: (row.ticker, row.label))),
     )
 
 

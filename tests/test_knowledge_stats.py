@@ -366,8 +366,8 @@ class TestFreshness:
 
         stats = await knowledge_stats(db_session, as_of=date(2026, 12, 31))
 
-        assert [row.label for row in stats.freshness.passed_catalysts] == ["FY2026 results"]
-        assert stats.size.catalysts == 2
+        assert [row.label for row in stats.freshness.closed_windows] == ["FY2026 results"]
+        assert stats.size.catalyst_nodes == 2
 
 
 class TestVaultHealth:
