@@ -56,6 +56,7 @@ from aer.extract.html import extract_html
 from aer.providers.fake import FakeProvider, ScriptedResponse
 from aer.providers.protocol import SpentButUnusableError, Usage
 from aer.providers.router import Router
+from aer.sections.deterministic import AUGMENTERS, SectionAugmenter
 from aer.sections.evidence import degradation_note, word_ceiling
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
 from aer.sections.writing import _writer_route, execute_builtin_section, policy_of_definition
@@ -989,3 +990,56 @@ class TestTheWriterSpeaksToTheReader:
         assert "Direction for this section" in message
         assert "never to be quoted" in message
         assert "Weigh the cloud segment's growth" in message
+
+
+class TestThePlatformFilledFields:
+    """ADR 0063: an augmenter's block is merged in, and its check can refuse a draft.
+
+    Exercised through a stub augmenter registered for this scene's section, because the
+    mechanism is the subject here — the valuation block itself is pinned in
+    `test_valuation_method_section.py` against a genuine ledger.
+    """
+
+    @staticmethod
+    def _register(monkeypatch: Any, check: Any) -> dict[str, Any]:
+        block = {"method_note": "Rendered from the record."}
+
+        async def build(session: Any, *, job_id: Any, request: Any) -> dict[str, Any]:
+            return dict(block)
+
+        monkeypatch.setitem(AUGMENTERS, SECTION_KEY, SectionAugmenter(build=build, check=check))
+        return block
+
+    async def test_a_refused_commentary_is_retried_and_the_block_merged(
+        self, scene: dict[str, Any], monkeypatch: Any
+    ) -> None:
+        seen: list[dict[str, Any]] = []
+
+        def check(content: dict[str, Any], rendered: dict[str, Any]) -> list[str]:
+            seen.append(content)
+            return [] if len(seen) > 1 else ["the commentary describes work that did not happen"]
+
+        self._register(monkeypatch, check)
+        outcome = await _run(scene, _scripted([_good_draft(scene), _good_draft(scene)]))
+
+        assert outcome.attempts == 2
+        assert outcome.status is SectionStatus.GENERATED
+        content = scene["section"].content or {}
+        assert content["method_note"] == "Rendered from the record."
+        # The model's own fields survive the merge untouched.
+        assert content["commentary"]
+
+    async def test_a_draft_refused_every_time_still_keeps_the_rendered_block(
+        self, scene: dict[str, Any], monkeypatch: Any
+    ) -> None:
+        """The record is true whatever the commentary did, so a failure renders it."""
+
+        def check(content: dict[str, Any], rendered: dict[str, Any]) -> list[str]:
+            return ["the commentary describes work that did not happen"]
+
+        self._register(monkeypatch, check)
+        outcome = await _run(scene, _scripted([_good_draft(scene)] * 4))
+
+        assert outcome.status is SectionStatus.FAILED
+        assert scene["section"].content == {"method_note": "Rendered from the record."}
+        assert "did not happen" in (scene["section"].low_confidence_reason or "")

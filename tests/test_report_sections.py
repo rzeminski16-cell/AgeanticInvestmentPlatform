@@ -61,6 +61,10 @@ SEEDED_KEYS = SPINE_KEYS
 # which is therefore the one source module allowed to name them — it is the seed's
 # counterpart: the row says "code fills me" and the registry is where that code is bound.
 DETERMINISTIC_KEYS = ("prior_research_comparison", "validation_disagreements")
+# Sections whose *platform-filled fields* are bound in the registry (ADR 0063). The same
+# seed-counterpart standing as the deterministic keys: the row's contract marks fields
+# code must fill, and the registry is where that code attaches.
+AUGMENTED_KEYS = ("valuation_dcf",)
 DETERMINISTIC_REGISTRY = SRC_ROOT / "aer" / "sections" / "deterministic.py"
 
 # What the inserted section is called. Deliberately nothing like any built-in, so a
@@ -508,14 +512,17 @@ class TestNoSectionKeyIsHardcoded:
 
     @pytest.mark.parametrize("key", SEEDED_KEYS)
     def test_no_source_file_names_a_seeded_section(self, key: str) -> None:
-        """One scoped exception: the deterministic registry may name a deterministic key.
+        """One scoped exception: the deterministic registry may name the keys it binds.
 
-        A ``token_budget = 0`` row says "code fills me", and the registry in
+        A ``token_budget = 0`` row says "code fills me", and a ``platform_filled`` field
+        on a contract says the same of that field (ADR 0063); the registry in
         `aer/sections/deterministic.py` is where that code is bound — it is the seed's
         counterpart, not a leak. Every other module is held to the rule for every key,
-        and the registry itself is held to it for the sixteen model-written keys.
+        and the registry itself is held to it for the purely model-written keys.
         """
-        allowed = {DETERMINISTIC_REGISTRY} if key in DETERMINISTIC_KEYS else set()
+        allowed = (
+            {DETERMINISTIC_REGISTRY} if key in (*DETERMINISTIC_KEYS, *AUGMENTED_KEYS) else set()
+        )
         offenders = self._code_mentioning(key) - allowed
         assert offenders == set(), (
             f"{key!r} appears in the code of {sorted(str(p) for p in offenders)}. Sections "
@@ -525,7 +532,7 @@ class TestNoSectionKeyIsHardcoded:
     def test_the_deterministic_registry_does_bind_its_keys(self) -> None:
         """Guards the exception above from outliving a rename of the registry."""
         text = executable_source(DETERMINISTIC_REGISTRY)
-        for key in DETERMINISTIC_KEYS:
+        for key in (*DETERMINISTIC_KEYS, *AUGMENTED_KEYS):
             assert key in text
 
     def test_the_seed_migrations_do_name_them(self) -> None:

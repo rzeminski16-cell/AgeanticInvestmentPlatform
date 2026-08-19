@@ -396,6 +396,22 @@ multiple computable, and it comes back behind P1's scoping rule.
 
 **Severity: high.** The most interesting finding in the run, because every existing defence
 passed it.
+**Status: done** — ADR 0063, migration 0044 (contract version 2),
+`aer/sections/valuation_method.py`, and the `SectionAugmenter` mechanism in
+`deterministic.py`/`writing.py`. Four things settled against the code rather than the
+sketch: the block's fields live on the *stored contract* marked `platform_filled` (the
+render order and headings come from the contract, so the fields had to), while the model
+is bound by the contract minus them — its schema forbids unknown keys, so the method
+fields are unrepresentable rather than discouraged; the ledger is read at the *first*
+base-case row per name, because a sensitivity grid's cells are whole DCFs recorded after
+the base run under the same `case="base"` label and the tail of the ledger is a grid
+corner (mutation-verified); the terminal spread reaches the reader as the valuation's own
+recorded caveats (`METHOD_DISAGREEMENT_CAVEAT` at the calc module's stated quarter) rather
+than as a new number, which invariant 3 would have refused; and a failed commentary keeps
+the rendered block under the failure banner, because the record is true whatever the model
+did. The commentary check is a fixed word-boundary vocabulary — inputs never held (prices,
+bond yields, return regressions) refused outright, component terms refused unless the
+block states them — and the ADR records the paraphrase residual that accepts.
 
 ### The defect
 

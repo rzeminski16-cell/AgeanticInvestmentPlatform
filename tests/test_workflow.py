@@ -398,6 +398,30 @@ class TestTheWholeRun:
         ]
         assert all(row.status is JobStatus.SUCCEEDED for row in rows)
 
+    async def test_the_valuation_section_carries_the_rendered_method(self, finished: dict) -> None:
+        """ADR 0063: the method fields are the platform's, merged into the model's draft.
+
+        This run's value step honestly records that no valuation was possible, so the
+        merged block is the one-line state — rendered from the step's own output, with
+        the model's commentary beside it and the withdrawn fields nowhere.
+        """
+        session = finished["session"]
+        row = await session.scalar(
+            select(ReportSection).where(
+                ReportSection.job_id == finished["job"].id,
+                ReportSection.section_key == "valuation_dcf",
+            )
+        )
+        assert row is not None
+        content = row.content or {}
+
+        assert "No discounted cash flow was produced" in content["method_note"]
+        assert content["commentary"]
+        # Version 2 of the contract withdrew the model-written record fields; a draft
+        # carrying one would mean the model was handed the wrong schema.
+        assert "figures" not in content
+        assert "key_assumptions" not in content
+
     async def test_the_source_document_is_hashed_and_stored(self, finished: dict) -> None:
         session = finished["session"]
         document = await session.scalar(select(SourceDocument))

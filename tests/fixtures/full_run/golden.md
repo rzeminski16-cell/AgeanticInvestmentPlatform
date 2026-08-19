@@ -246,19 +246,13 @@ Scripted text with no figure in it.
 
 ## Valuation — Discounted Cash Flow
 
+### How These Figures Were Produced
+
+No discounted cash flow was produced for this run, so there is no method to describe: The discount rate needs risk_free_rate, beta, equity_risk_premium, and no confirmed assumption of that name exists on this request. The rate is decomposed rather than taken as one number, so each part has to be agreed on its own terms.
+
 ### Commentary
 
 Scripted analysis from the recorded evidence; see the figures.
-
-### Key Assumptions
-
-- A scripted observation with no figure in it.
-
-### Valuation Figures
-
-| Label | Value |
-|---|---|
-| Scripted label with no figure in it. | 0.309624864525[^38][^39] |
 
 ## Scenarios & Sensitivities
 
@@ -270,7 +264,7 @@ Scripted text with no figure in it.
 
 | Label | Value |
 |---|---|
-| Scripted label with no figure in it. | 0.309624864525[^40][^41] |
+| Scripted label with no figure in it. | 0.309624864525[^38][^39] |
 
 ### Sensitivity Commentary
 
@@ -372,8 +366,6 @@ A comparable-company analysis was performed against 0 peer(s) as at 30 June 2022
 [^37]: Calculated: `net margin = net income / revenue` = 0.3096 (rounded; full precision stored) (`aer.calc.ratios:net_margin`, code version `<code>`).
 [^38]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
 [^39]: Calculated: `net margin = net income / revenue` = 0.3096 (rounded; full precision stored) (`aer.calc.ratios:net_margin`, code version `<code>`).
-[^40]: MICROSOFT CORP XBRL company facts, US Securities and Exchange Commission, published 28 July 2022, retrieved <today>, tier T1_REGULATORY. <https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json>
-[^41]: Calculated: `net margin = net income / revenue` = 0.3096 (rounded; full precision stored) (`aer.calc.ratios:net_margin`, code version `<code>`).
 
 
 ## Sources

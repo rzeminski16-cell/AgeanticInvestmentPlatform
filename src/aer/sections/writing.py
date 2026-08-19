@@ -22,6 +22,7 @@ from aer.core.enums import SourceTier
 from aer.core.section_output import trimmed_to_word_count, without_unsourced_numeral_sentences
 from aer.db.models import ReportSection, ResearchRequest, SectionDefinition, SectionStatus
 from aer.errors import ValidationError
+from aer.sections.deterministic import AUGMENTERS, SectionAugmenter, model_facing_contract
 from aer.sections.evidence import (
     MAX_GENERATION_ATTEMPTS,
     Evidence,
@@ -131,7 +132,12 @@ async def execute_builtin_section(
     and every failure mode is a visible state on the row rather than an absent section.
     """
     definition = section.definition
-    contract = definition.output_contract or {}
+    # The model is bound by the contract minus any platform-filled fields (ADR 0063):
+    # those are rendered from the run's records by the section's augmenter and merged
+    # into the content after the draft passes, at the positions the stored contract
+    # declares. The model cannot write them — its schema forbids unknown fields.
+    contract = model_facing_contract(definition.output_contract or {})
+    augmenter, block = await _augmentation(context, section=section, request=request)
     # Scaled to the request's depth: the definition states the standard budgets, and
     # quick/full move them in code rather than in a prompt (gap O5).
     policy = policy_of_definition(definition).scaled(request.analysis_mode)
@@ -182,7 +188,11 @@ async def execute_builtin_section(
             # Deterministic in the composition: a retry would compose the same call and
             # be refused the same way, so the section fails now, visibly and for free.
             return _failed(
-                section, attempts=attempt, problems=[str(refused)], truncated=evidence.truncated
+                section,
+                attempts=attempt,
+                problems=[str(refused)],
+                truncated=evidence.truncated,
+                block=block,
             )
         except ValidationError as unparsable:
             # The field-level detail, not the count. A retry told only that "22 field(s)
@@ -193,6 +203,12 @@ async def execute_builtin_section(
 
         last_candidate = candidate
         problems = validate_draft(candidate, contract=contract, evidence=evidence, policy=policy)
+        if augmenter is not None:
+            # The deterministic edge of what the model may say beside the rendered block
+            # (ADR 0063): a commentary describing method inputs the record does not hold
+            # is a refusal like any other, and the problem text tells the retry what to
+            # remove rather than what to invent.
+            problems.extend(augmenter.check(candidate.content, block))
         if not problems:
             draft = candidate
             break
@@ -205,7 +221,14 @@ async def execute_builtin_section(
 
     salvage_notes: tuple[str, ...] = ()
     if draft is None and last_candidate is not None:
-        salvage = _salvaged(last_candidate, contract=contract, evidence=evidence, policy=policy)
+        salvage = _salvaged(
+            last_candidate,
+            contract=contract,
+            evidence=evidence,
+            policy=policy,
+            augmenter=augmenter,
+            block=block,
+        )
         if salvage is not None:
             # Recorded on the section, not just in a log: a reader of the run console
             # should see that the platform edited the draft, and which way.
@@ -219,7 +242,13 @@ async def execute_builtin_section(
             )
 
     if draft is None:
-        return _failed(section, attempts=attempts, problems=problems, truncated=evidence.truncated)
+        return _failed(
+            section,
+            attempts=attempts,
+            problems=problems,
+            truncated=evidence.truncated,
+            block=block,
+        )
 
     recorded, cited_source_ids = await record_draft_claims(
         context.session, section=section, draft=draft, evidence=evidence
@@ -232,7 +261,10 @@ async def execute_builtin_section(
     # channel every other degradation does — into the confidence and onto the row.
     shortfalls.extend(salvage_notes)
 
-    section.content = draft.content
+    # The platform-filled fields join the model's, at the positions the stored contract
+    # declares (ADR 0063). The merge is one-way: the model's schema cannot carry these
+    # keys, so nothing of the draft is overwritten.
+    section.content = {**draft.content, **block} if block else draft.content
     section.status = SectionStatus.GENERATED
     section.confidence = confidence_of(draft.content, degraded=bool(shortfalls))
     section.low_confidence_reason = degradation_note(shortfalls)
@@ -263,10 +295,16 @@ def _failed(
     attempts: int,
     problems: list[str],
     truncated: bool = False,
+    block: dict[str, Any] | None = None,
 ) -> SectionExecution:
-    """Mark the section failed with its reasons on the row. The run continues."""
+    """Mark the section failed with its reasons on the row. The run continues.
+
+    A section with platform-filled fields keeps them even when the model's part failed:
+    the rendered record is true whatever the commentary did, and a reader is better served
+    by the method tables under a failure banner than by a blank section (ADR 0063).
+    """
     section.status = SectionStatus.FAILED
-    section.content = None
+    section.content = block or None
     section.confidence = None
     section.low_confidence_reason = " ".join(problems)[:2000] or None
     _log.warning(
@@ -305,12 +343,32 @@ _LENGTH_NOTE: Final = (
 )
 
 
+async def _augmentation(
+    context: AgentContext,
+    *,
+    section: ReportSection,
+    request: ResearchRequest,
+) -> tuple[SectionAugmenter | None, dict[str, Any]]:
+    """This section's platform-filled fields, rendered before the model is called.
+
+    Built once, ahead of the attempt loop: the block depends only on the run's records,
+    and every retry validates the model's commentary against the same rendered record.
+    """
+    augmenter = AUGMENTERS.get(section.section_key)
+    if augmenter is None:
+        return None, {}
+    block = await augmenter.build(context.session, job_id=context.job_step.job_id, request=request)
+    return augmenter, block
+
+
 def _salvaged(
     candidate: SectionDraft,
     *,
     contract: dict[str, Any],
     evidence: Evidence,
     policy: SectionPolicy,
+    augmenter: SectionAugmenter | None = None,
+    block: dict[str, Any] | None = None,
 ) -> _Salvage | None:
     """The candidate narrowed until it conforms, if narrowing is the repair.
 
@@ -352,5 +410,9 @@ def _salvaged(
 
     repaired = candidate.model_copy(update={"content": content})
     if validate_draft(repaired, contract=contract, evidence=evidence, policy=policy):
+        return None
+    if augmenter is not None and augmenter.check(repaired.content, block or {}):
+        # Full revalidation includes the augmenter's edge (ADR 0063): a trim that happened
+        # to keep an offending method claim must not smuggle it through.
         return None
     return _Salvage(draft=repaired, notes=tuple(notes))

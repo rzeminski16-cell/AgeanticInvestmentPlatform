@@ -35,9 +35,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.db.models import Disagreement, Evaluation, Job, ResearchRequest, SectionStatus
 from aer.eval import THRESHOLDS, Direction, Metric
 from aer.sections.registry import sections_for_job
+from aer.sections.valuation_method import commentary_problems, valuation_method_block
 from aer.services.history import prior_comparison_content
 
-__all__ = ["BUILDERS", "SectionStage", "fill_deterministic_sections"]
+__all__ = [
+    "AUGMENTERS",
+    "BUILDERS",
+    "SectionAugmenter",
+    "SectionStage",
+    "fill_deterministic_sections",
+    "model_facing_contract",
+]
 
 _log = structlog.get_logger("aer.sections.deterministic")
 
@@ -261,3 +269,58 @@ BUILDERS: dict[str, DeterministicSection] = {
         stage=SectionStage.VALIDATE, build=_validation_disagreements
     ),
 }
+
+
+# -- Platform-filled fields inside model-written sections ------------------------------------
+#
+# ADR 0063. A builder fills a whole zero-budget section; an *augmenter* fills the fields of
+# a model-written section whose subject is the platform's own record — a method
+# description, a provenance table — where a model's paraphrase can only be equal or wrong.
+# The contract marks those fields ``"platform_filled": true``; the writer never sees them
+# (:func:`model_facing_contract` strips them from the model's schema, and ``extra="forbid"``
+# makes them unrepresentable in its reply), and the executed draft has them merged in from
+# ``build`` before the section is stored.
+
+
+@dataclass(frozen=True, slots=True)
+class SectionAugmenter:
+    """The code-owned fields of one model-written section.
+
+    ``build`` renders them from the run's records. ``check`` is the deterministic edge of
+    the model's remaining field: given the draft's content and the rendered block, it
+    returns the problems that refuse the draft — the valuation section uses it to reject a
+    commentary describing method inputs the record does not hold.
+    """
+
+    build: Callable[..., Awaitable[dict[str, Any]]]
+    check: Callable[[dict[str, Any], dict[str, Any]], list[str]]
+
+
+AUGMENTERS: dict[str, SectionAugmenter] = {
+    "valuation_dcf": SectionAugmenter(build=valuation_method_block, check=commentary_problems),
+}
+
+
+def model_facing_contract(contract: dict[str, Any]) -> dict[str, Any]:
+    """The contract with the platform-filled fields removed — what the model is bound by.
+
+    The stored contract keeps every field, because it is also the render order and the
+    headings; this narrowing exists so the model's schema — and therefore its reply —
+    cannot carry a field the platform owns. Rendering walks the full contract, so the
+    merged fields come back at their declared positions.
+    """
+    properties = contract.get("properties")
+    if not isinstance(properties, dict):
+        return contract
+    kept = {
+        name: spec
+        for name, spec in properties.items()
+        if not (isinstance(spec, dict) and spec.get("platform_filled"))
+    }
+    if len(kept) == len(properties):
+        return contract
+    narrowed = {**contract, "properties": kept}
+    required = contract.get("required")
+    if isinstance(required, list):
+        narrowed["required"] = [name for name in required if name in kept]
+    return narrowed
