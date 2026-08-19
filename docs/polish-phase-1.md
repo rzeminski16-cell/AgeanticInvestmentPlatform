@@ -519,6 +519,15 @@ every future run.
 ## Task P7 — Word budgets recalibrated
 
 **Severity: medium.**
+**Status: done** — migration 0045 (the plan said 0044; P5 took that number). One
+statement over every built-in row carrying a budget rather than a key list, so both
+versions of `valuation_dcf` and any later-seeded section scale identically:
+250→363, 300→435, 350→508, 400→580, 500→725. The downgrade divides back and was
+verified to restore the exact seeded values. Nothing else changed — the 1.25 ceiling
+factor and the prompt's `target_words` wording stand — and the experiment's reading
+happens on the P11 rerun: overruns vanished means the budgets were wrong; overruns
+rescaled to ~1.46x the new numbers means the prompt does not bind and the limit
+becomes a hard constraint.
 
 Seven sections were refused for length at ratios 1.38, 1.42, 1.43, 1.44, 1.46, 1.46 and
 1.63 — mean 1.46× against a ceiling factor of 1.25. A model missing a target by a
