@@ -11,11 +11,11 @@ unchanged report rewrites identical files. What changes between exports is only 
 ``obsidian_exports`` row recording the act.
 
 **Every link the export writes resolves.** The export covers the connected component of
-the competitor relation around the subject (see :mod:`aer.obsidian.graph`): run and
-source notes for every approved run of every company in it, a company note for each —
-a stub, honestly labelled, where a company was named as a comparable but never
-researched — plus the catalyst and industry notes those runs' notes point at. Closure
-is what makes the vault a journal rather than a folder of exports.
+the competitor *and theme* relations around the subject (see :mod:`aer.obsidian.graph`):
+run and source notes for every approved run of every company in it, a company note for
+each — a stub, honestly labelled, where a company was named as a comparable but never
+researched — plus the catalyst, industry and theme notes those runs' notes point at.
+Closure is what makes the vault a journal rather than a folder of exports.
 """
 
 from __future__ import annotations
@@ -45,13 +45,14 @@ from aer.db.models import (
     SourceDocument,
 )
 from aer.errors import AerError
-from aer.obsidian.graph import CompanyView, LinkGraph, RunView, build_graph
+from aer.obsidian.graph import CompanyView, LinkGraph, RunView, ThemeView, build_graph
 from aer.obsidian.notes import (
     CatalystNoteMeta,
     CompanyNoteMeta,
     IndustryNoteMeta,
     RunNoteMeta,
     SourceNoteMeta,
+    ThemeNoteMeta,
     render_note,
 )
 from aer.obsidian.vault import VaultWriter
@@ -189,6 +190,7 @@ async def export_report(
 
     written.extend(_write_catalyst_notes(writer, graph, stamp=stamp, generator=generator))
     written.extend(_write_industry_notes(writer, graph, stamp=stamp, generator=generator))
+    written.extend(_write_theme_notes(writer, graph, stamp=stamp, generator=generator))
 
     current_titles = {_company_title(view.company) for view in graph.companies.values()}
     current_titles.add(subject_title)
@@ -435,6 +437,7 @@ def _company_generated(
     title = _company_title(company)
     run_links = [f"[[{_run_note_title(run.request)}]]" for run in view.runs]
     competitors = _peer_links(graph, view.competitor_ids)
+    theme_links = _company_theme_links(graph).get(company.id, [])
     industry_link = (
         f"[[{_industry_note_title(view.industry)}]]" if view.industry is not None else None
     )
@@ -450,6 +453,7 @@ def _company_generated(
         run_notes=run_links,
         industry_note=industry_link,
         competitors=competitors,
+        themes=theme_links,
     )
 
     if not view.runs:
@@ -479,6 +483,8 @@ def _company_generated(
         ]
     if competitors:
         body_lines.extend(["## Competitors", "", *[f"- {link}" for link in competitors], ""])
+    if theme_links:
+        body_lines.extend(["## Themes", "", *[f"- {link}" for link in theme_links], ""])
     body_lines.extend(
         [
             "Everything below the marker is yours; the platform regenerates only what is above it.",
@@ -545,6 +551,8 @@ def _lone_company_generated(
     ]
     if competitors:
         body_lines.extend(["## Competitors", "", *[f"- {link}" for link in competitors], ""])
+    # No themes block: a membership needs a company row, and this builder exists for the
+    # report that has none — `record_confirmed_themes` records nothing for it.
     body_lines.extend(
         [
             "Everything below the marker is yours; the platform regenerates only what is above it.",
@@ -664,6 +672,77 @@ def _write_industry_notes(
             )
         body_lines.append("")
         relative = f"30-Industries/{_industry_note_title(profile)}.md"
+        writer.regenerate(relative, render_note(meta, "\n".join(body_lines)))
+        written.append(relative)
+    return written
+
+
+def _theme_note_title(view: ThemeView) -> str:
+    return _safe(view.label)
+
+
+def _company_theme_links(graph: LinkGraph) -> dict[uuid.UUID, list[str]]:
+    """Theme note links per company, for the company notes' back-link arrays."""
+    links: dict[uuid.UUID, list[str]] = {}
+    for view in graph.theme_views:
+        link = f"[[{_theme_note_title(view)}]]"
+        for company_id, _report_id, _rationale in view.members:
+            held = links.setdefault(company_id, [])
+            if link not in held:
+                held.append(link)
+    return links
+
+
+def _write_theme_notes(
+    writer: VaultWriter, graph: LinkGraph, *, stamp: datetime, generator: str
+) -> list[str]:
+    """One evergreen note per confirmed theme with a member in the component (K1).
+
+    Every company and run a theme note links is in the component by construction — theme
+    edges join the reachability walk — so closure holds without a special case here.
+    """
+    written: list[str] = []
+    for view in graph.theme_views:
+        company_links: list[str] = []
+        run_links: list[str] = []
+        member_lines: list[str] = []
+        for company_id, report_id, rationale in view.members:
+            company_view = graph.companies.get(company_id)
+            if company_view is None:  # pragma: no cover -- in-component by construction
+                continue
+            company_link = f"[[{_company_title(company_view.company)}]]"
+            if company_link not in company_links:
+                company_links.append(company_link)
+            run = next((run for run in company_view.runs if run.report.id == report_id), None)
+            run_link = f"[[{_run_note_title(run.request)}]]" if run is not None else ""
+            if run_link and run_link not in run_links:
+                run_links.append(run_link)
+            joined = f" (claimed by {run_link})" if run_link else ""
+            member_lines.append(f"- {company_link}{joined}: {rationale}")
+
+        meta = ThemeNoteMeta(
+            aer_id=f"theme-{view.key}",
+            generated_at=stamp,
+            generator=generator,
+            tags=["aer/theme"],
+            theme_key=view.key,
+            label=view.label,
+            companies=company_links,
+            runs=run_links,
+        )
+        body_lines = [
+            f"# {view.label}",
+            "",
+            "Companies whose approved research claimed membership of this theme, each "
+            "confirmed at a gate. A membership is one run's judgement with a person's "
+            "agreement — never a market taxonomy.",
+            "",
+            "## Members",
+            "",
+            *member_lines,
+            "",
+        ]
+        relative = f"40-Themes/{_theme_note_title(view)}.md"
         writer.regenerate(relative, render_note(meta, "\n".join(body_lines)))
         written.append(relative)
     return written

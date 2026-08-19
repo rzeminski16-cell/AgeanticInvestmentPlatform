@@ -36,6 +36,8 @@ from aer.agents.base import AgentContext
 from aer.agents.peers import PROPOSED_BY as PEERS_PROPOSED_BY
 from aer.agents.peers import PeerProposalAgent, PeerProposalInput
 from aer.agents.planner import PlannerAgent, PlannerInput, PriorResearch, salvaged_plan
+from aer.agents.themes import PROPOSED_BY as THEMES_PROPOSED_BY
+from aer.agents.themes import ThemeProposalAgent, ThemeProposalInput, ThemeSlate
 from aer.agents.worker import ResearchTopic, WorkerExhaustedError, degraded_report
 from aer.calc.basic import cagr
 from aer.calc.comps import MultipleBasis, WithheldComps, align_peers
@@ -118,6 +120,14 @@ from aer.services.sectors import (
     sector_gate_required,
 )
 from aer.services.segments import sweep_segment_facts
+from aer.services.themes import (
+    THEME_STEP,
+    existing_vocabulary,
+    normalised_slate,
+    record_confirmed_themes,
+    theme_set_payload,
+    theme_set_required,
+)
 from aer.services.valuation_run import value_the_business
 from aer.skills.execution import execute_custom_section
 from aer.skills.resolution import (
@@ -149,6 +159,7 @@ __all__ = [
     "sector_gate_payload",
     "sector_key_of",
     "sector_note_for",
+    "theme_gate_payload",
     "unmapped_gate_payload",
     "unmapped_gate_required",
 ]
@@ -190,6 +201,10 @@ ASSUMPTIONS_ESTIMATE_GBP: Final = Decimal("0.10")
 # for the reason the draft eventually did: a step with no estimate is a step the budget
 # guard waves through, and ADR 0052 makes that a test rather than a convention.
 PEER_PROPOSAL_ESTIMATE_GBP: Final = Decimal("0.02")
+
+# The theme proposer is the same shape of call as the peer proposer — one short slate
+# from identity and classification — so it carries the same estimate.
+THEME_PROPOSAL_ESTIMATE_GBP: Final = Decimal("0.02")
 
 # The draft: one Opus call per model-written section, and by a wide margin the most
 # expensive step in the workflow — a measured £5.17 on the first full live run.
@@ -269,6 +284,22 @@ def build_steps() -> list[WorkflowStep]:
             key="gate_peer_set",
             run=_gate_peer_set,
             gate=GateKind.PEER_SET.value,
+        ),
+        # Themes after classification for the same reason peers are: what kind of business
+        # this is shapes which larger stories it belongs to (K1, ADR 0065). A failed model
+        # call proposes nothing and the run continues — there is no deterministic floor for
+        # a judgement about the market, and no themes is a fact rather than a failure.
+        WorkflowStep(
+            key=THEME_STEP,
+            run=_propose_themes,
+            estimated_cost_gbp=THEME_PROPOSAL_ESTIMATE_GBP,
+        ),
+        # Conditional: passes straight through when nothing was proposed. A run with no
+        # themes has no edges to defend and should not wait to confirm an empty list.
+        WorkflowStep(
+            key="gate_theme_set",
+            run=_gate_theme_set,
+            gate=GateKind.THEME_SET.value,
         ),
         # Prices (gap B3). After the peer gate because the comps table needs both, and
         # before the assumptions are proposed because the beta this regresses is one of
@@ -1576,6 +1607,119 @@ async def _gate_peer_set(context: StepContext) -> StepResult:
     return await _require_approval(context, gate=GateKind.PEER_SET, of_step=PEER_SET_STEP)
 
 
+def theme_gate_payload(produced: Mapping[str, Any]) -> dict[str, Any]:
+    """What the theme-set gate approves. Delegates, so one definition serves both halves."""
+    return theme_set_payload(produced)
+
+
+async def _propose_themes(context: StepContext) -> StepResult:
+    """Ask which larger stories this company belongs to, and record the slate for the gate.
+
+    **A model names them and code decides what they are** (ADR 0065): every key is slugged
+    to one identity and matched against the ``themes`` table, so the reviewer sees which
+    proposals join a tracked theme and which would found a new one. Membership is the
+    subject alone — other companies join a theme through their own runs, each behind its
+    own gate.
+
+    **No floor, and a failed call is an empty slate.** Peers have a deterministic fallback
+    because the database can name industry neighbours; there is no query that names a
+    theme, so a provider outage simply means this run contributes none. That is a fact
+    about the run, not a failure of it, and the step's output says which it was.
+    """
+    acquired = context.output_of("acquire")
+    company = await context.session.get(Company, _uuid(acquired["company_id"]))
+    if company is None:  # pragma: no cover -- written by the prior step
+        message = "The acquire step's company row is missing."
+        raise StepPaused(message, gate=None)
+    request = await _request_for(context)
+
+    agent_context = AgentContext(
+        session=context.session,
+        provider=context.service("provider"),
+        router=context.service("router"),
+        settings=context.service("settings"),
+        store=context.service("store"),
+        job_step=context.step,
+    )
+    slate, consulted = await _themes_from_model(
+        context,
+        agent_context,
+        request=request,
+        company=company,
+        sector_key=sector_key_of(context.outputs),
+    )
+
+    # Slugging, dedupe and the existing-theme check live in the service, where a test
+    # can reach them with a messy key; the step only maps the model's reply into it.
+    themes = await normalised_slate(
+        context.session,
+        [(proposal.key, proposal.label, proposal.rationale) for proposal in slate.themes],
+    )
+
+    output: dict[str, Any] = {
+        "subject": str(company.id),
+        "subject_name": company.name,
+        "themes": themes,
+        "proposed_by": THEMES_PROPOSED_BY if consulted else "",
+    }
+    output["payload_hash"] = sha256_hex(canonical_json(theme_gate_payload(output)))
+    return StepResult(output=output, cost_gbp=agent_context.spend_gbp)
+
+
+async def _themes_from_model(
+    context: StepContext,
+    agent_context: AgentContext,
+    *,
+    request: ResearchRequest,
+    company: Company,
+    sector_key: str,
+) -> tuple[ThemeSlate, bool]:
+    """Ask for a slate, or return an empty one and say so.
+
+    The same failure discipline as the peer proposer: an outage or an unusable reply must
+    not cost the run its step, and a budget refusal is control flow the engine turns into
+    a paused run — absorbing it here would spend past a cap and carry on.
+    """
+    try:
+        slate = await ThemeProposalAgent().run(
+            agent_context,
+            ThemeProposalInput(
+                company_name=company.name,
+                ticker=request.ticker,
+                exchange=request.exchange,
+                as_of_date=request.as_of_date.isoformat(),
+                sic=company.sic or "",
+                sic_description=company.sic_description or "",
+                sector=sector_key,
+                existing=await existing_vocabulary(context.session),
+            ),
+        )
+    except BudgetExceededError:
+        raise
+    except (AerError, ValueError) as exc:
+        _log.warning(
+            "themes.model_unavailable",
+            job_id=str(context.job.id),
+            error_code=getattr(exc, "code", ""),
+        )
+        return ThemeSlate(), False
+    return slate, True
+
+
+async def _gate_theme_set(context: StepContext) -> StepResult:
+    """Stop until a person agrees which stories this company is filed under.
+
+    **Skipped, not approved, when nothing was proposed.** A theme shapes how every later
+    reader of the library weighs the company, so a slate that exists needs a person — and
+    an empty one needs nobody, because there is nothing to defend.
+    """
+    produced = context.outputs.get(THEME_STEP, {})
+    if not theme_set_required(produced):
+        return StepResult(output={"gate": GateKind.THEME_SET.value, "required": False, "themes": 0})
+
+    return await _require_approval(context, gate=GateKind.THEME_SET, of_step=THEME_STEP)
+
+
 # ==========================================================================================
 # 4. Extract
 # ==========================================================================================
@@ -2243,6 +2387,13 @@ async def _render(context: StepContext) -> StepResult:
     context.session.add(report)
     await context.session.flush()
 
+    # The confirmed themes land in rows only now, pointed at this report, so the edge
+    # stays inert until the report is immutable — the graph and the vault read
+    # memberships through approved reports alone (K1, ADR 0065). Structurally this cannot
+    # raise for an undecided slate: the theme gate sits earlier in the DAG, so reaching
+    # here means it was approved or never required.
+    recorded_themes = await record_confirmed_themes(context.session, job=context.job, report=report)
+
     pdf_sha256 = None
     if approval is not None and approval.decided_at is not None:
         stored_html = await store.read(html_artefact.sha256)
@@ -2274,6 +2425,7 @@ async def _render(context: StepContext) -> StepResult:
             "footnotes": document.footnote_count,
             "sections": document.section_keys,
             "characters": len(markdown),
+            "themes_recorded": list(recorded_themes),
         }
     )
 

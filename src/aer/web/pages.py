@@ -96,6 +96,7 @@ from aer.services.sectors import (
     sector_gate_required,
 )
 from aer.services.spend import recent_runs, spend_by_role, spend_summary
+from aer.services.themes import THEME_STEP, theme_set_payload, theme_set_required
 from aer.services.valuation_view import lineage_rows, valuation_view
 from aer.skills.resolution import pinned_skills_for_plan
 from aer.storage.local import LocalArtefactStore
@@ -478,6 +479,64 @@ async def peer_review(
             "refused": [item for item in produced.get("refused", []) if isinstance(item, dict)],
             "decided": decided,
             "gate": GateKind.PEER_SET.value,
+            "csrf_field": CSRF_FIELD_NAME,
+            "csrf_token": token,
+        },
+    )
+    set_csrf_cookie(response, token)
+    return response
+
+
+@router.get("/runs/{job_id}/themes", response_class=HTMLResponse, summary="Confirm the themes")
+async def theme_review(
+    request: Request,
+    job_id: uuid.UUID,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """The conditional gate that decides which stories this company is filed under.
+
+    Every rationale is rendered at full length, exactly as the peer gate renders its
+    reasons: a page that truncated them would invite approving a slate nobody read, and a
+    theme shapes how every later reader of the library weighs the company (K1, ADR 0065).
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    produced = await _step_output(session, job_id=job_id, step_key=THEME_STEP)
+    if produced is None:
+        return _problem(
+            request,
+            "This run has not proposed themes yet. There is nothing to confirm.",
+            status=HTTP_404_NOT_FOUND,
+        )
+    if not theme_set_required(produced):
+        return _problem(
+            request,
+            "This run proposed no themes, so this gate does not apply to it. The company "
+            "is filed under nothing new, and that is a fact rather than a failure.",
+            status=HTTP_404_NOT_FOUND,
+        )
+
+    payload = theme_set_payload(produced)
+    # The subject's display name travels beside the payload rather than inside it: the
+    # hash covers what is being approved, and the name is presentation.
+    payload_for_page = dict(payload)
+    payload_for_page["subject_name"] = str(produced.get("subject_name", ""))
+    decided = await _decision_for(session, job_id=job_id, gate=GateKind.THEME_SET)
+    token = new_csrf_token(settings)
+
+    response: Response = render(
+        request,
+        "runs/themes.html",
+        {
+            "job": job,
+            "payload": payload_for_page,
+            "payload_hash": payload_hash_for(payload),
+            "decided": decided,
+            "gate": GateKind.THEME_SET.value,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },

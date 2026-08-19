@@ -176,7 +176,7 @@ DEFAULT_MODEL_ROUTES: Final[dict[str, ModelRoute]] = {
     # high effort. Descriptive sections — their definition rows name this route — take
     # the workhorse; the judgement sections stay on report_writer's route above.
     "section_writer_workhorse": ModelRoute(model="claude-sonnet-5", effort="medium"),
-    "obsidian_linker": ModelRoute(model="claude-haiku-4-5", effort="low"),
+    "theme_proposal": ModelRoute(model="claude-sonnet-5", effort="medium"),
 }
 
 

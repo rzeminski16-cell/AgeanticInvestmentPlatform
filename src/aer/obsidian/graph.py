@@ -29,7 +29,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.sectors import ModelNotPermittedError, SectorProfile
-from aer.db.models import Company, Job, ObsidianExport, Report, ResearchRequest
+from aer.db.models import (
+    Company,
+    Job,
+    ObsidianExport,
+    Report,
+    ResearchRequest,
+    Theme,
+    ThemeMembership,
+)
 from aer.services.comps import PeerSetNotConfirmedError, confirmed_peer_set
 from aer.services.history import (
     approved_reports_for,
@@ -43,9 +51,11 @@ __all__ = [
     "CompanyView",
     "LinkGraph",
     "RunView",
+    "ThemeView",
     "build_graph",
     "peer_edges",
     "reachable_from",
+    "theme_edges",
 ]
 
 _log = structlog.get_logger("aer.obsidian.graph")
@@ -100,6 +110,21 @@ class CatalystView:
 
 
 @dataclass(frozen=True, slots=True)
+class ThemeView:
+    """One confirmed theme, and the memberships inside the exported component.
+
+    Members carry ``(company_id, report_id, rationale)`` — enough for the exporter to
+    link the company note, the run note that made the claim, and the reason a person
+    approved. A member outside the component cannot occur by construction: theme edges
+    join the reachability walk, so every company a theme names is exported with it.
+    """
+
+    key: str
+    label: str
+    members: tuple[tuple[uuid.UUID, uuid.UUID, str], ...]
+
+
+@dataclass(frozen=True, slots=True)
 class LinkGraph:
     companies: dict[uuid.UUID, CompanyView]
     order: tuple[uuid.UUID, ...]
@@ -108,6 +133,7 @@ class LinkGraph:
     industry_members: dict[str, tuple[Company, ...]] = field(default_factory=dict)
     subject_industry: SectorProfile | None = None
     subject_peer_ids: tuple[uuid.UUID, ...] = ()
+    theme_views: tuple[ThemeView, ...] = ()
 
 
 async def build_graph(
@@ -115,13 +141,17 @@ async def build_graph(
 ) -> LinkGraph:
     """The connected component of the peer relation around the exported report."""
     edges = await peer_edges(session)
+    themed = await theme_edges(session)
     subject_peer_ids = await _confirmed_peers(session, job)
     subject_industry = await _confirmed_industry(session, job)
 
     seeds: set[uuid.UUID] = set(subject_peer_ids)
     if company is not None:
         seeds.add(company.id)
-    component = reachable_from(seeds, edges)
+    # The walk covers both relations, because closure must: a theme note links every
+    # company it names, so every company a theme reaches is part of what this export
+    # writes (K1). Competitor arrays still read the peer relation alone.
+    component = reachable_from(seeds, _union(edges, themed))
 
     rows = {
         row.id: row
@@ -159,6 +189,7 @@ async def build_graph(
                 industries[run.industry.key] = run.industry
 
     members = await _industry_members(session, companies, industries)
+    themes = await _theme_views(session, component=set(companies), rows=rows)
 
     _log.info(
         "obsidian.graph_built",
@@ -166,6 +197,7 @@ async def build_graph(
         companies=len(companies),
         catalyst_count=len(catalyst_views),
         industries=sorted(industries),
+        themes=[view.key for view in themes],
     )
     return LinkGraph(
         companies=companies,
@@ -175,6 +207,7 @@ async def build_graph(
         industry_members=members,
         subject_industry=subject_industry,
         subject_peer_ids=tuple(peer for peer in subject_peer_ids if peer in component),
+        theme_views=themes,
     )
 
 
@@ -227,6 +260,73 @@ async def peer_edges(session: AsyncSession) -> dict[uuid.UUID, set[uuid.UUID]]:
             edges.setdefault(report.company_id, set()).add(peer_id)
             edges.setdefault(peer_id, set()).add(report.company_id)
     return edges
+
+
+async def theme_edges(session: AsyncSession) -> dict[uuid.UUID, set[uuid.UUID]]:
+    """Companies joined by a shared confirmed theme, both directions.
+
+    Read through approved reports only — a membership whose report was never approved
+    contributes nothing, exactly as an unconfirmed peer set does. Public for the same
+    reason :func:`peer_edges` is: the relation is the knowledge graph's, and the vault is
+    one projection of it.
+    """
+    rows = await session.execute(
+        select(ThemeMembership.theme_id, ThemeMembership.company_id)
+        .join(Report, Report.id == ThemeMembership.report_id)
+        .where(Report.immutable.is_(True))
+        .distinct()
+    )
+    by_theme: dict[uuid.UUID, set[uuid.UUID]] = {}
+    for theme_id, company_id in rows:
+        by_theme.setdefault(theme_id, set()).add(company_id)
+
+    edges: dict[uuid.UUID, set[uuid.UUID]] = {}
+    for companies in by_theme.values():
+        for company_id in companies:
+            edges.setdefault(company_id, set()).update(companies - {company_id})
+    return edges
+
+
+def _union(
+    left: dict[uuid.UUID, set[uuid.UUID]], right: dict[uuid.UUID, set[uuid.UUID]]
+) -> dict[uuid.UUID, set[uuid.UUID]]:
+    merged: dict[uuid.UUID, set[uuid.UUID]] = {node: set(peers) for node, peers in left.items()}
+    for node, peers in right.items():
+        merged.setdefault(node, set()).update(peers)
+    return merged
+
+
+async def _theme_views(
+    session: AsyncSession, *, component: set[uuid.UUID], rows: dict[uuid.UUID, Company]
+) -> tuple[ThemeView, ...]:
+    """Every confirmed theme with a member in the component, members in company order."""
+    found = await session.execute(
+        select(Theme, ThemeMembership)
+        .join(ThemeMembership, ThemeMembership.theme_id == Theme.id)
+        .join(Report, Report.id == ThemeMembership.report_id)
+        .where(Report.immutable.is_(True), ThemeMembership.company_id.in_(component))
+    )
+    grouped: dict[str, tuple[Theme, list[ThemeMembership]]] = {}
+    for theme, membership in found:
+        grouped.setdefault(theme.key, (theme, []))[1].append(membership)
+
+    views: list[ThemeView] = []
+    for key in sorted(grouped):
+        theme, memberships = grouped[key]
+        ordered = sorted(
+            memberships,
+            key=lambda item: (_company_sort_key(rows[item.company_id]), str(item.report_id)),
+        )
+        views.append(
+            ThemeView(
+                key=theme.key,
+                label=theme.label,
+                members=tuple(
+                    (item.company_id, item.report_id, item.rationale) for item in ordered
+                ),
+            )
+        )
+    return tuple(views)
 
 
 async def _confirmed_peers(session: AsyncSession, job: Job) -> tuple[uuid.UUID, ...]:

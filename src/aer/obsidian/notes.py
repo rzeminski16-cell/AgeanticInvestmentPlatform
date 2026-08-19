@@ -22,6 +22,7 @@ __all__ = [
     "IndustryNoteMeta",
     "RunNoteMeta",
     "SourceNoteMeta",
+    "ThemeNoteMeta",
     "render_note",
 ]
 
@@ -86,6 +87,22 @@ class CompanyNoteMeta(_NoteMeta):
     run_notes: list[str] = Field(default_factory=list)
     industry_note: str | None = None
     competitors: list[str] = Field(default_factory=list)
+    themes: list[str] = Field(default_factory=list)
+
+
+class ThemeNoteMeta(_NoteMeta):
+    """A theme note names its member companies and the runs that claimed them.
+
+    The back-link half lives on the company note's ``themes`` array, recomputed on every
+    regeneration — membership is a statement about confirmed gates and approved reports,
+    never about which export ran last.
+    """
+
+    aer_kind: Literal["theme"] = "theme"
+    theme_key: str
+    label: str
+    companies: list[str] = Field(default_factory=list)
+    runs: list[str] = Field(default_factory=list)
 
 
 class IndustryNoteMeta(_NoteMeta):

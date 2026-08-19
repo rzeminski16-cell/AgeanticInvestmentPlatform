@@ -47,6 +47,7 @@ GATE_ORDER: Final[tuple[GateKind, ...]] = (
     GateKind.UNMAPPED_CONCEPTS,
     GateKind.PEER_SET,
     GateKind.SECTOR_SPECIALIST,
+    GateKind.THEME_SET,
     GateKind.ASSUMPTIONS,
     GateKind.BUDGET,
     GateKind.FINAL,
@@ -59,6 +60,9 @@ _CONDITIONAL: Final[frozenset[GateKind]] = frozenset(
         GateKind.UNMAPPED_CONCEPTS,
         GateKind.PEER_SET,
         GateKind.SECTOR_SPECIALIST,
+        # Conditional because a run whose proposer named no themes — or whose model call
+        # failed — has no edges to defend, and must not wait to confirm an empty list.
+        GateKind.THEME_SET,
         # Conditional because a run whose sector mandate blocks a discounted cash flow has
         # no assumptions to confirm, and a bank must not sit waiting to approve a forecast
         # it is never going to be given.

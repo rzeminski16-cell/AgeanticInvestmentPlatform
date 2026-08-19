@@ -24,7 +24,7 @@ from aer.providers.fake import FakeProvider
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.storage.local import LocalArtefactStore
-from tests.workflow_fixtures import StubSecClient, make_provider
+from tests.workflow_fixtures import CONDITIONAL_GATES, StubSecClient, make_provider
 
 __all__ = ["Driver", "start_run", "to_final_gate"]
 
@@ -111,15 +111,10 @@ async def start_run(api: Any, request_id: uuid.UUID) -> dict[str, Any]:
     return body
 
 
-# The gates a drive-to-the-end clears on the operator's behalf, by the step whose output
-# each one approves. Both are conditional and both now fire on an ordinary run: the peer set
-# because a model proposes one (ADR 0059), the assumptions because the gate pauses on
-# outstanding inputs the surface can supply (gap S2). A test whose subject *is* one of these
-# gates drives the run itself and asserts the pause.
-_CLEARED_ON_THE_WAY: dict[str, tuple[GateKind, str]] = {
-    "gate_peer_set": (GateKind.PEER_SET, "propose_peers"),
-    "gate_assumptions": (GateKind.ASSUMPTIONS, "propose_assumptions"),
-}
+# The gates a drive-to-the-end clears on the operator's behalf — the one shared mapping,
+# because a local copy is how a newly conditional gate breaks four drivers at once. A test
+# whose subject *is* one of these gates drives the run itself and asserts the pause.
+_CLEARED_ON_THE_WAY = CONDITIONAL_GATES
 
 
 async def to_final_gate(api: Any, request_id: uuid.UUID, driver: Driver) -> uuid.UUID:

@@ -220,6 +220,25 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         adr="0059",
     ),
     RoleDefinition(
+        role="theme_proposal",
+        purpose=(
+            "Propose the investment themes a subject belongs to, each a key with a "
+            "written rationale. Proposes only: keys are slugged and matched against the "
+            "themes table in code, and a person confirms the slate at the THEME_SET gate "
+            "before anything becomes an edge."
+        ),
+        output_schema_ref="aer.agents.themes:ThemeSlate",
+        # No tools. It is handed the subject's identity, classification and the existing
+        # theme vocabulary, and answers from its own knowledge of the market; matching,
+        # persistence and membership are all code's.
+        allowed_tools=frozenset(),
+        # A slate is at most five short entries, so this is headroom rather than an
+        # expectation — the same figure the other roles carry, for the reason they carry
+        # it: `max_tokens` bounds thinking and visible output together.
+        max_output_tokens=16_384,
+        adr="0065",
+    ),
+    RoleDefinition(
         role="custom_section",
         purpose=(
             "Draft one user-authored section under its pinned composed policy: content "

@@ -48,6 +48,7 @@ from aer.services.citations import record_claim
 from aer.storage.local import LocalArtefactStore
 from aer.workflow.workflows.vertical_slice_v1 import build_steps, peer_gate_payload
 from tests.workflow_fixtures import (
+    CONDITIONAL_GATES,
     SPINE_KEYS,
     StubSecClient,
     _peer_cik,
@@ -101,10 +102,9 @@ async def approve(
 # The conditional gates a downstream-subject flow clears, by the step each one pauses at.
 # Both fire on an ordinary run: the peer set because a model proposes one (ADR 0059), the
 # assumptions because the gate pauses on outstanding inputs the surface can supply (gap S2).
-_CLEARED_ON_THE_WAY: dict[str, tuple[GateKind, str]] = {
-    "gate_peer_set": (GateKind.PEER_SET, "propose_peers"),
-    "gate_assumptions": (GateKind.ASSUMPTIONS, "propose_assumptions"),
-}
+# The one shared mapping — a local copy here is exactly the drift its docstring warns
+# about, and the theme gate (K1) caught this file carrying one.
+_CLEARED_ON_THE_WAY = CONDITIONAL_GATES
 
 
 async def run_clearing_the_assumptions_gate(
@@ -351,6 +351,10 @@ class TestTheWholeRun:
             # passes straight through.
             "propose_peers",
             "gate_peer_set",
+            # Themes after peers (K1, ADR 0065). Conditional like the peer gate — the
+            # scripted brain proposes one theme, so the gate genuinely fires on this run.
+            "propose_themes",
+            "gate_theme_set",
             # Prices (gap B3). Skipped-but-recorded here: this harness configures no
             # market-data subscription, so the step reports that the beta and the market
             # capitalisation could not be computed rather than failing.
@@ -511,6 +515,7 @@ class TestTheWholeRun:
         """
         schemas = [call["schema"] for call in finished["provider"].calls]
         assert schemas.count("ResearchPlanDraft") == 1
+        assert schemas.count("ThemeSlate") == 1
         assert schemas.count("WorkerTurn") == 5
         # Named for the section it was built for; see `declared_schema_name`.
         assert sum(1 for name in schemas if name.endswith("SectionDraft")) == 16
@@ -528,7 +533,7 @@ class TestTheWholeRun:
         # ever produced a comps table; naming comparables is the judgement this platform
         # asks a model for, and every ticker it returns is resolved against EDGAR in code.
         assert schemas.count("PeerSlate") == 1
-        assert finished["provider"].call_count == 25
+        assert finished["provider"].call_count == 26
 
     async def test_the_writer_receives_the_planners_approved_focus(self, finished: dict) -> None:
         """The plan's per-section brief — text a human approved at gate 1 — reaches the

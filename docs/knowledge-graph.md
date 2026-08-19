@@ -28,20 +28,20 @@ decision that changes an invariant.
 | Methodology-drift attribution (skill version pins) | **Built** | `RunNoteMeta.custom_sections` |
 | Anti-contamination (prior runs are never evidence) | **Built** | `verify/citations.py:237` |
 | Idempotent regeneration, personal half preserved | **Built** | `vault.py`, `SENTINEL` |
-| **Themes — cross-company connective tissue** | **Not built** | — |
+| Themes — cross-company connective tissue | **Built** (K1) | `services/themes.py`, ADR 0065 |
 | Feed-forward: prior research informing a new run | **Built** (K2) | `history.prior_digest_for`, ADR 0064 |
 | **Assumption outcomes measured across runs** | **Not built** | — |
 | **Catalyst resolution beyond the calendar** | **Partial** | `CatalystView.resolved_by` |
 | Statistics and monitoring of the graph | **Built** (K5) | `services/knowledge.py` |
 | **In-app graph view** | **Not built** | Obsidian's own view only |
-| `obsidian_linker` model route | **Configured, unbuilt** | `config.py:179` — no agent role |
+| `obsidian_linker` model route | **Deleted** (K6) | superseded by `theme_proposal`, ADR 0065 |
 
-The honest summary: **the projection, the look-back, the measurement and the feed-forward
-work; the connective and evaluative halves do not.** The map records what you have
-researched, lets you compare a company against its own past, reports its own size and
-decay, and puts prior conclusions in front of a new run's planner as questions to ask. It
-does not yet connect companies through anything other than the peer sets of individual
-runs, and it does not evaluate whether what you believed turned out to be true.
+The honest summary: **the projection, the look-back, the measurement, the feed-forward
+and the connective tissue work; the evaluative half does not.** The map records what you
+have researched, compares a company against its own past, reports its own size and decay,
+puts prior conclusions in front of a new run's planner as questions to ask, and links
+companies across industries through confirmed themes. It does not yet evaluate whether
+what you believed turned out to be true — that is K3 and K4.
 
 ---
 
@@ -49,7 +49,7 @@ runs, and it does not evaluate whether what you believed turned out to be true.
 
 ### 2.1 Node kinds
 
-Six exist; a seventh is proposed in §6.1.
+Seven exist; the theme joined with K1.
 
 | Node | Identity | Source of truth | Grows when |
 |---|---|---|---|
@@ -59,7 +59,7 @@ Six exist; a seventh is proposed in §6.1.
 | **Catalyst** | `(company, label)` | `catalysts` in an approved run's section content | Any approved run proposes one |
 | **Source** | `src-<digest12> — <title>` | `source_documents` row | A run cites it in an approved report |
 | **MOC / README** | fixed | Derived index | Every export |
-| *(proposed)* **Theme** | `theme.key` | Confirmed theme gate | §6.1 |
+| **Theme** | `themes.key`, slugged | THEME_SET gate + report approval | A confirmed slate's report is approved |
 
 Two identity rules matter more than the rest. **A catalyst is `(company, label)`, not
 `(run, label)`** — two runs naming the same expected event are refining one expectation,
@@ -77,7 +77,7 @@ you have only partly explored.
 | Company → Run | One-to-many | Report approval | `run_notes` / `company_note` |
 | Run → Catalyst | Many-to-many | Report approval | `catalyst_notes` / `thesis_refs` |
 | Run → Source | Many-to-many | Citation in an approved report | `source_notes` |
-| *(proposed)* Company ↔ Theme | Many-to-many | THEME_SET gate | §6.1 |
+| Company ↔ Theme | Many-to-many | THEME_SET gate + report approval | `theme_memberships` |
 
 **Only confirmed state produces an edge.** A proposed-but-unapproved peer set or
 classification contributes nothing — not even a line in a journal. This is the same
@@ -134,7 +134,7 @@ function of the values alone. A test holds this.
 ├── 10-Companies/     TICKER — Name.md          (evergreen, regenerated)
 ├── 20-Runs/          <as-of> <TICKER> <mode>.md (immutable once written)
 ├── 30-Industries/    <label>.md                 (evergreen, regenerated)
-├── 40-Themes/        — NOT IMPLEMENTED (§6.1)
+├── 40-Themes/        <label>.md               (evergreen, regenerated)
 ├── 50-Catalysts/     <TICKER> <label>.md        (evergreen, regenerated)
 ├── 90-Sources/       src-<digest12> — <title>.md
 └── 99-Personal/      NEVER written by the application
@@ -241,6 +241,33 @@ links all resolve. Re-export is idempotent.
 
 **ADR.** *Themes are proposed by a model, confirmed by a person, and only then are they
 edges* — recording that the third option was chosen over the other two and why.
+
+**Delivered (2026-08-19).** ADR 0065, migration 0048. The peer pattern end to end: a
+`theme_proposal` role returns a bounded slate of `{key, label, rationale}` and nothing
+else has a field; keys are slugged in code and matched against the `themes` table, so the
+reviewer sees which proposals join a tracked theme and which found a new one — a
+distinction inside the gate's hash. The `THEME_SET` gate is conditional (an empty slate
+waits for nobody), a failed model call proposes nothing and the run continues, and
+membership is the subject alone — other companies join through their own gated runs.
+Confirmation lands at report creation as `themes` and `theme_memberships` rows pointing
+at the run's report, inert until that report is `immutable`; the graph, the vault and the
+statistics read memberships through approved reports only.
+
+The vault projects it: `40-Themes/<label>.md`, a `themes` back-link array on company
+notes, and — the piece closure demanded — the export component now walks the **union** of
+the competitor and theme relations, so every company a theme note links is exported with
+it. The `theme_proposal` route took the `obsidian_linker` slot (K6, below), and the
+knowledge page counts themes with confirmed members.
+
+Tested: an unconfirmed slate refuses (withheld and empty mean opposite things), an
+approval of a different slate is not an approval, a second run joins the theme it names
+rather than founding a rival spelling and the founder's label survives, recording twice
+is a no-op, a membership through a draft report is no edge, two approved members are a
+symmetric edge, the export component walks theme edges (the broken-closure case: two
+companies joined by nothing but the theme), and a theme counts in the statistics only
+once its report is approved — plus the full workflow suite driving the gate on every
+scripted run, where the scripted brain proposes one theme precisely so the gate fires
+rather than every driver exercising the bypass.
 
 ### K2 — Feed-forward: prior research as labelled hypothesis material
 
@@ -373,12 +400,14 @@ relation *is* the graph: the vault is one projection of it and this service meas
 so neither may own the definition privately, and components are found by the same walk the
 exporter uses.
 
-Three figures this section asks for are absent because what they measure does not exist
-yet, and inventing a zero would be worse than an omission: **themes** (K1), **accuracy**
-(K3), and **catalysts passed *but unresolved*** — with no resolution to record until K4,
-every passed catalyst is open, so the list is the full backlog and `OpenCatalyst` says so
+Two figures this section asks for remain absent because what they measure does not exist
+yet, and inventing a zero would be worse than an omission: **accuracy** (K3), and
+**catalysts passed *but unresolved*** — with no resolution to record until K4, every
+passed catalyst is open, so the list is the full backlog and `OpenCatalyst` says so
 rather than implying a filter that is not applied. What the calendar knows is all that is
 claimed; whether an event happened is not something the platform can know from its rows.
+The **themes** count joined with K1: themes with at least one membership through an
+approved report, the same standard every other edge is held to.
 
 One asymmetry worth recording. `confirmed_classification` raises when a specialist sector
 was proposed and nobody confirmed it — right for a caller that would act on it, since that
@@ -398,21 +427,23 @@ ADR: every figure is a read of rows that already existed, and no invariant moved
 
 ### K6 — Decide the `obsidian_linker` route
 
-`config.py` routes an `obsidian_linker` role to Haiku 4.5 at low effort, and
-`providers/router.py` lists it among the permitted route names — so the configuration
-resolves, and a reader of the routing table would reasonably conclude the platform has a
-linker. It does not: no agent declares that role, and nothing ever asks the router for it.
-Either build it — its plausible job, proposing links, is exactly what K1's
-`theme_proposal` does — or **delete the route and the allowlist entry**, so the
-configuration stops advertising a capability that does not exist. Recommend deleting it as
-part of K1, which supersedes it.
+`config.py` routed an `obsidian_linker` role to Haiku 4.5 at low effort, and
+`providers/router.py` listed it among the permitted route names — so the configuration
+resolved, and a reader of the routing table would reasonably conclude the platform had a
+linker. It did not: no agent declared the role, and nothing ever asked the router for it.
+
+**Resolved with K1 (2026-08-19), as this section recommended:** the route and the
+allowlist entry are deleted, and `theme_proposal` supersedes them — routed to the
+workhorse model at medium effort like the peer proposer, because naming market
+connections is the same shape of judgement. ADR 0065 records both halves.
 
 ### Sequencing
 
 K5 first: it is small, it has no dependencies, and it makes the effect of everything
 after it visible. Then K2, the largest single improvement to research quality per line
-changed. Both are delivered. Next K1, the biggest build. K3 after K1 (they touch the same
-section). K4 and K6 whenever convenient.
+changed. Then K1, the biggest build, which resolved K6 in passing. All four are
+delivered. What remains is the evaluative half: K3 (assumption outcomes, arithmetic in
+`calc/`), then K4 (catalyst resolution).
 
 ---
 

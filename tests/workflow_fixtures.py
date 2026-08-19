@@ -391,10 +391,32 @@ def peer_slate() -> Any:
     )
 
 
+def theme_slate() -> Any:
+    """One scripted theme, so the THEME_SET gate fires on an ordinary run (K1).
+
+    The same reasoning as the scripted peer: a fake that proposed nothing would leave the
+    gate permanently skipped, with every driver exercising the bypass and nothing
+    exercising the path a real run takes. One entry, because the reviewer-fatigue bound is
+    the slate's own concern and one is enough to make the gate real.
+    """
+    from aer.agents.themes import ProposedTheme, ThemeSlate  # noqa: PLC0415 -- keeps import light
+
+    return ThemeSlate(
+        themes=[
+            ProposedTheme(
+                key="scripted-theme",
+                label="Scripted theme",
+                rationale="Scripted proposal: the subject sits squarely in this recurring story.",
+            )
+        ]
+    )
+
+
 _STATIC_ANSWERS: dict[str, Any] = {
     "AssumptionProposalDraft": assumption_proposal_draft,
     "PeerSlate": peer_slate,
     "RedTeamReport": red_team_report,
+    "ThemeSlate": theme_slate,
     "ValidatorAdvisory": validator_advisory,
 }
 
@@ -730,6 +752,7 @@ def uuid_of(value: Any) -> uuid.UUID:
 # A test whose subject *is* one of these gates drives the run itself and asserts the pause.
 CONDITIONAL_GATES: dict[str, tuple[GateKind, str]] = {
     "gate_peer_set": (GateKind.PEER_SET, "propose_peers"),
+    "gate_theme_set": (GateKind.THEME_SET, "propose_themes"),
     "gate_assumptions": (GateKind.ASSUMPTIONS, "propose_assumptions"),
 }
 

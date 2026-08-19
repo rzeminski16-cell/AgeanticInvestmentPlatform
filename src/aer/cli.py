@@ -230,7 +230,8 @@ def knowledge_command() -> None:
     )
     typer.echo(
         f"  {size.approved_reports} approved report(s), {size.industries} industr(ies), "
-        f"{size.catalyst_nodes} catalyst(s), {size.sources} source(s)"
+        f"{size.theme_nodes} theme(s), {size.catalyst_nodes} catalyst(s), "
+        f"{size.sources} source(s)"
     )
 
     typer.secho("Shape", fg=typer.colors.CYAN, bold=True)

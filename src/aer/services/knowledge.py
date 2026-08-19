@@ -33,7 +33,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
 from aer.core.sectors import ModelNotPermittedError
-from aer.db.models import Company, Job, ObsidianExport, Report, ResearchRequest, SourceDocument
+from aer.db.models import (
+    Company,
+    Job,
+    ObsidianExport,
+    Report,
+    ResearchRequest,
+    SourceDocument,
+    ThemeMembership,
+)
 from aer.obsidian.graph import peer_edges, reachable_from
 from aer.services.history import approved_reports_for, catalyst_outcomes_for
 from aer.services.sectors import confirmed_classification
@@ -89,6 +97,7 @@ class GraphSize:
     stubs: int
     approved_reports: int
     industries: int
+    theme_nodes: int
     catalyst_nodes: int
     sources: int
 
@@ -99,6 +108,7 @@ class GraphSize:
             "stubs": self.stubs,
             "approved_reports": self.approved_reports,
             "industries": self.industries,
+            "theme_nodes": self.theme_nodes,
             "catalyst_nodes": self.catalyst_nodes,
             "sources": self.sources,
         }
@@ -330,6 +340,12 @@ async def _size(
             for outcome in await catalyst_outcomes_for(session, prior=prior, as_of=today):
                 catalyst_keys.add((company_id, outcome.label))
 
+    themes = await session.scalar(
+        select(func.count(func.distinct(ThemeMembership.theme_id)))
+        .join(Report, Report.id == ThemeMembership.report_id)
+        .where(Report.immutable.is_(True))
+    )
+
     sources = await session.scalar(
         select(func.count(func.distinct(SourceDocument.id)))
         .join(ResearchRequest, ResearchRequest.id == SourceDocument.request_id)
@@ -342,6 +358,9 @@ async def _size(
         stubs=len(nodes - set(researched)),
         approved_reports=int(approved or 0),
         industries=len(industries),
+        # A theme counts once it has a confirmed membership through an approved report —
+        # the same standard every other edge is held to (K1, ADR 0065).
+        theme_nodes=int(themes or 0),
         catalyst_nodes=len(catalyst_keys),
         sources=int(sources or 0),
     )
