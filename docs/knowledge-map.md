@@ -47,8 +47,8 @@ flowchart TD
     classify --> gate_sector_specialist{{gate_sector_specialist}}
     gate_sector_specialist --> propose_peers --> gate_peer_set{{gate_peer_set}}
     gate_peer_set --> acquire_prices --> extract
-    extract --> gate_uk_financials{{gate_uk_financials}}
-    gate_uk_financials --> calculate
+    extract --> gate_unmapped_concepts{{gate_unmapped_concepts}}
+    gate_unmapped_concepts --> calculate
     calculate --> research["research_company / research_industry / research_macro / research_recent_developments / research_technical_context (parallel)"]
     calculate --> comps
     research --> propose_assumptions --> gate_assumptions{{gate_assumptions}}

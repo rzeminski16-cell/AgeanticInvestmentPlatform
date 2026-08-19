@@ -13,7 +13,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import Integer, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
@@ -728,10 +728,22 @@ class TestTheServiceReadsTheRecordedRows:
         self, scene: dict[str, Any]
     ) -> None:
         session: AsyncSession = scene["session"]
+        # A required section that *has* a source floor, named by the predicate rather
+        # than taken from an unordered `LIMIT 1`. The arbitrary pick silently became a
+        # deterministic section — those are seeded `min_sources: 0`, so there was no
+        # floor to fall below and the trigger was right not to fire. Postgres moved the
+        # pick when migration 0045 rewrote every budgeted definition row; the same
+        # latent shape as the appendix-hash flake (P2).
         definition = await session.scalar(
-            select(SectionDefinition).where(SectionDefinition.required).limit(1)
+            select(SectionDefinition)
+            .where(
+                SectionDefinition.required,
+                SectionDefinition.evidence_policy["min_sources"].astext.cast(Integer) > 0,
+            )
+            .order_by(SectionDefinition.position, SectionDefinition.key)
+            .limit(1)
         )
-        assert definition is not None, "the migration seeds a required section"
+        assert definition is not None, "the migration seeds a required section with a floor"
         session.add(
             ReportSection(
                 job_id=scene["job"].id,
