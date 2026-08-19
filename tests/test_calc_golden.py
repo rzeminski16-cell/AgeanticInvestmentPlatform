@@ -38,7 +38,9 @@ GOLDEN_CASES: list[dict[str, Any]] = json.loads(FIXTURE.read_text())["cases"]
 # a hand-computed case with exact inputs has nothing to round.
 GOLDEN_TOLERANCE = Decimal("0.0001")
 
-EXPECTED_CORPUS_SIZE = 30
+# Raised from thirty when K3's assumption_delta gained its hand-computed case — the
+# deliberate act this pin exists to force.
+EXPECTED_CORPUS_SIZE = 31
 
 
 def _replayed(case: dict[str, Any]) -> ReplayObservation:
@@ -80,7 +82,7 @@ class TestTheThirtyGoldenCalculations:
 
 
 class TestTheCorpusItself:
-    def test_exactly_thirty_cases(self):
+    def test_exactly_the_pinned_number_of_cases(self):
         # The number is the spec's, and pinning it stops the corpus quietly shrinking. Adding
         # a thirty-first golden case means raising this deliberately, which is the point.
         assert len(GOLDEN_CASES) == EXPECTED_CORPUS_SIZE
