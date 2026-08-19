@@ -29,18 +29,19 @@ decision that changes an invariant.
 | Anti-contamination (prior runs are never evidence) | **Built** | `verify/citations.py:237` |
 | Idempotent regeneration, personal half preserved | **Built** | `vault.py`, `SENTINEL` |
 | **Themes — cross-company connective tissue** | **Not built** | — |
-| **Feed-forward: prior research informing a new run** | **Not built** | — |
+| Feed-forward: prior research informing a new run | **Built** (K2) | `history.prior_digest_for`, ADR 0064 |
 | **Assumption outcomes measured across runs** | **Not built** | — |
 | **Catalyst resolution beyond the calendar** | **Partial** | `CatalystView.resolved_by` |
 | Statistics and monitoring of the graph | **Built** (K5) | `services/knowledge.py` |
 | **In-app graph view** | **Not built** | Obsidian's own view only |
 | `obsidian_linker` model route | **Configured, unbuilt** | `config.py:179` — no agent role |
 
-The honest summary: **the projection and the look-back work; the connective and
-evaluative halves do not.** The map records what you have researched and lets you compare
-a company against its own past. It does not yet connect companies through anything other
-than the peer sets of individual runs, and it does not evaluate whether what you believed
-turned out to be true.
+The honest summary: **the projection, the look-back, the measurement and the feed-forward
+work; the connective and evaluative halves do not.** The map records what you have
+researched, lets you compare a company against its own past, reports its own size and
+decay, and puts prior conclusions in front of a new run's planner as questions to ask. It
+does not yet connect companies through anything other than the peer sets of individual
+runs, and it does not evaluate whether what you believed turned out to be true.
 
 ---
 
@@ -269,6 +270,34 @@ approving a different one.
 
 **ADR.** *Prior research may shape the questions, never the answers.*
 
+**Delivered (2026-08-19).** ADR 0064. `history.prior_digest_for(company_id, before, limit=3)`
+renders the last three approved reports before the run's as-of date into strings — view,
+confidence, valuation range, named risks, catalysts with their calendar status already
+judged — and never an excerpt of evidence, because an excerpt is what a citation quotes.
+The planner declares the digests through ``untrusted_sources``, so the base class does the
+wrapping and the delimiter neutralisation; the blocks carry ``tier="not_evidence"`` where
+a filing would carry ``regulatory`` (the sketched ``<prior_research trust=…>`` label
+became the existing wrapper's vocabulary rather than a second wrapper). The system prompt
+gains the may-shape-questions-never-support-claims rule only on calls that carry priors —
+two variants, hashing to two ``prompts`` rows, each describing the run it served —
+and ``prompt_version`` moved to 4. The plan's stored body and ``plan_gate_payload`` carry
+the one-line note, inside the hash, shown on the review page: a plan informed by history
+and one planned blind are different proposals.
+
+Tested at three depths: the digest against seeded rows (newest first, the as-of bound and
+the limit hold, a draft is not history, the dataclass carries nothing citable), the
+planner's composition (a first run says nothing about history; a repeat quotes it inside
+the wrapper under the rule; a prior containing ``</untrusted_source>`` cannot close its
+own quotation), and the workflow end to end — where the gate note and the provider's
+*recorded prompt* are asserted to agree, because a note claiming the planner saw history
+while the prompt carried none would be the platform lying to its operator. A seven-mutation
+sabotage pass (rule dropped, wrapper bypassed, before-bound ignored, limit ignored, note
+out of the body, note out of the payload, digests never passed) was caught in full — the
+last only after the workflow test learned to read the fake provider's record, which is
+what it exists for. The verifier's ``INTERNAL_PRIOR_RUN`` hard rejection stays pinned in
+``tests/test_obsidian.py``; the feed-forward tests add that the digest gives a model
+nothing that could reach it. No migration: nothing new is stored.
+
 ### K3 — Assumption outcomes measured across runs
 
 **Why.** "Evaluate assumptions and see if they held" is the requirement's own wording, and
@@ -381,9 +410,9 @@ part of K1, which supersedes it.
 ### Sequencing
 
 K5 first: it is small, it has no dependencies, and it makes the effect of everything
-after it visible. Then K2, which is the largest single improvement to research quality per
-line changed. Then K1, the biggest build. K3 after K1 (they touch the same section). K4
-and K6 whenever convenient.
+after it visible. Then K2, the largest single improvement to research quality per line
+changed. Both are delivered. Next K1, the biggest build. K3 after K1 (they touch the same
+section). K4 and K6 whenever convenient.
 
 ---
 

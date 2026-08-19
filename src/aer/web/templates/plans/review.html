@@ -28,6 +28,15 @@
     </p>
   </section>
 
+  {% if payload.prior_research %}
+    {# Inside the hashed payload, so approving a plan informed by history is a distinct
+       act from approving one planned blind (ADR 0064). #}
+    <p class="mt-4 max-w-3xl rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+       id="prior-research-note">
+      {{ payload.prior_research }}
+    </p>
+  {% endif %}
+
   <section class="mt-8">
     <h2 class="text-lg font-semibold tracking-tight">Sections it will write</h2>
     {% if payload.sections %}

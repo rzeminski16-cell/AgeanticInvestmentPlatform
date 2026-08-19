@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic import ValidationError as PydanticValidationError
 
 from aer.agents.base import Agent
+from aer.agents.untrusted import UntrustedSource
 from aer.core.schemas.request import ResearchRequestRead
 from aer.errors import ValidationError
 
@@ -31,6 +32,7 @@ __all__ = [
     "PlannedSource",
     "PlannerAgent",
     "PlannerInput",
+    "PriorResearch",
     "ResearchPlanDraft",
     "salvaged_plan",
 ]
@@ -125,6 +127,25 @@ class ResearchPlanDraft(BaseModel):
     confidence: float = Field(ge=0, le=1, default=0.5)
 
 
+class PriorResearch(BaseModel):
+    """One prior approved report, digested for the planner (K2).
+
+    Every field is already a rendered string — see ``history.PriorDigest``, which this
+    mirrors. The planner reads conclusions; it is never handed a value it could quote as
+    a figure, and it is never handed evidence it could cite.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    report_id: str
+    as_of_date: str
+    rating: str
+    confidence: str
+    valuation_range: str
+    named_risks: list[str] = Field(default_factory=list)
+    catalyst_lines: list[str] = Field(default_factory=list)
+
+
 class PlannerInput(BaseModel):
     """What the planner is told. Typed, so nothing reaches the prompt unvalidated."""
 
@@ -132,6 +153,11 @@ class PlannerInput(BaseModel):
 
     request: ResearchRequestRead
     available_section_keys: list[str] = Field(default_factory=list)
+    # Prior approved research on the same company, oldest conclusions the platform holds
+    # about it. Hypothesis material only: it enters the prompt as an untrusted quotation
+    # labelled not-evidence, and the citation verifier hard-rejects any claim resting on a
+    # prior run regardless of what a prompt says (ADR 0064).
+    prior_research: list[PriorResearch] = Field(default_factory=list)
 
 
 _SYSTEM_PROMPT = f"""\
@@ -162,6 +188,15 @@ call has been paid for.
 Be specific. "Consult SEC filings" is not a plan; "retrieve the FY2022 10-K for revenue \
 and operating income, and the FY2021 10-K for the comparative" is."""
 
+_PRIOR_RESEARCH_RULE = """\
+This request comes with prior approved research on the same company, quoted below as \
+untrusted material labelled not-evidence. It may shape which questions the plan asks — \
+what changed since the last view, whether a named risk materialised, whether a catalyst \
+window closed — and it may never support a claim. Do not repeat its ratings, figures or \
+conclusions as findings; do not plan to cite it as a source. Every claim in the eventual \
+report must rest on primary evidence fetched by this run, and the platform rejects a \
+citation of prior research in code regardless of what any prompt says."""
+
 
 class PlannerAgent(Agent[PlannerInput, ResearchPlanDraft]):
     """Proposes a research plan for a request."""
@@ -172,22 +207,42 @@ class PlannerAgent(Agent[PlannerInput, ResearchPlanDraft]):
     # Tools and token caps are deliberately absent: they live in this role's
     # `aer.agents.registry` definition, and a declaration here would grant nothing.
 
-    # Bumped when rule 6 was added, and again when it grew the list bounds (gap A42) —
-    # a live run died at step one over an eleventh known risk the prompt never said was
-    # one too many. `_ensure_prompt` records an unbumped edit under a hash-suffixed
-    # version so a run is never attributed to the wrong instruction — that safety net is
-    # for accidents, and neither of these was one.
-    prompt_version: ClassVar[str] = "3"
+    # Bumped when rule 6 was added, again when it grew the list bounds (gap A42), and
+    # again when prior research began feeding forward (K2, ADR 0064). `_ensure_prompt`
+    # records an unbumped edit under a hash-suffixed version so a run is never attributed
+    # to the wrong instruction — that safety net is for accidents, and none of these was
+    # one.
+    prompt_version: ClassVar[str] = "4"
 
-    def system_prompt(self, payload: PlannerInput) -> str:  # noqa: ARG002
-        """The planner's instruction, which does not vary with the request.
+    def system_prompt(self, payload: PlannerInput) -> str:
+        """The planner's instruction. One constant, plus one rule that travels with priors.
 
-        ``payload`` is part of the interface because other agents do vary -- a section
-        writer's system prompt carries that section's evidence policy. Taking it here and
-        ignoring it keeps the signature uniform, and keeps the prompt a constant that
-        hashes to one ``prompts`` row rather than one per request.
+        The prior-research rule is appended only when this call carries prior research —
+        the same shape as the base's containment rule: a prompt recorded against a run
+        should describe that run, and the variants hash to different ``prompts`` rows,
+        which is correct because they are different instructions.
         """
-        return _SYSTEM_PROMPT
+        if not payload.prior_research:
+            return _SYSTEM_PROMPT
+        return f"{_SYSTEM_PROMPT}\n\n{_PRIOR_RESEARCH_RULE}"
+
+    def untrusted_sources(self, payload: PlannerInput) -> list[UntrustedSource]:
+        """The prior digests, quoted rather than interpolated (K2).
+
+        Declared here so the base does the wrapping and the delimiter neutralisation —
+        the one path that cannot forget. ``tier`` reads ``not_evidence`` so the label a
+        reviewer sees in the archived prompt states the digest's standing, in the same
+        place a filing would state ``regulatory``.
+        """
+        return [
+            UntrustedSource(
+                source_document_id=f"prior-report:{prior.report_id}",
+                tier="not_evidence",
+                title=f"Prior approved research, as of {prior.as_of_date}",
+                text=_digest_text(prior),
+            )
+            for prior in payload.prior_research
+        ]
 
     def user_message(self, payload: PlannerInput) -> str:
         request = payload.request
@@ -216,6 +271,21 @@ class PlannerAgent(Agent[PlannerInput, ResearchPlanDraft]):
         lines.extend(f"  - {key}" for key in payload.available_section_keys)
 
         return "\n".join(lines)
+
+
+def _digest_text(prior: PriorResearch) -> str:
+    """One prior report as plain lines. Conclusions and their standing, never evidence."""
+    lines = [
+        f"Non-binding view: {prior.rating} (confidence {prior.confidence})",
+        f"Valuation range: {prior.valuation_range}",
+    ]
+    if prior.named_risks:
+        lines.append("Key risks named:")
+        lines.extend(f"  - {risk}" for risk in prior.named_risks)
+    if prior.catalyst_lines:
+        lines.append("Catalysts:")
+        lines.extend(f"  - {catalyst}" for catalyst in prior.catalyst_lines)
+    return "\n".join(lines)
 
 
 def salvaged_plan(rejected: ValidationError) -> tuple[ResearchPlanDraft, dict[str, int]] | None:

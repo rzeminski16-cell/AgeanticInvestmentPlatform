@@ -35,7 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.agents.base import AgentContext
 from aer.agents.peers import PROPOSED_BY as PEERS_PROPOSED_BY
 from aer.agents.peers import PeerProposalAgent, PeerProposalInput
-from aer.agents.planner import PlannerAgent, PlannerInput, salvaged_plan
+from aer.agents.planner import PlannerAgent, PlannerInput, PriorResearch, salvaged_plan
 from aer.agents.worker import ResearchTopic, WorkerExhaustedError, degraded_report
 from aer.calc.basic import cagr
 from aer.calc.comps import MultipleBasis, WithheldComps, align_peers
@@ -104,6 +104,7 @@ from aer.services.exhibits import exportable_charts_for
 from aer.services.extractions import record_excerpts
 from aer.services.facts import persist_facts, upsert_company
 from aer.services.filings import acquire_filings
+from aer.services.history import prior_digest_for
 from aer.services.peer_discovery import DiscoveredPeers, discover_peers, merged_with
 from aer.services.price_acquisition import acquire_prices
 from aer.services.red_team import run_red_team
@@ -422,12 +423,19 @@ async def _plan(context: StepContext) -> StepResult:
         job_step=context.step,
     )
 
+    # Prior approved research on this company, digested for the planner (K2, ADR 0064).
+    # Hypothesis material bounded by the as-of date: a plan may ask what changed since the
+    # last view; it may never inherit an answer. A first run — or a company the platform
+    # has not resolved yet — feeds forward nothing, and the prompt says nothing about it.
+    priors = await _prior_digests(context.session, request=request)
+
     try:
         draft = await agent.run(
             agent_context,
             PlannerInput(
                 request=ResearchRequestRead.model_validate(request, from_attributes=True),
                 available_section_keys=[definition.key for definition in definitions],
+                prior_research=priors,
             ),
         )
     except SpentButUnusableError as unusable:
@@ -467,6 +475,11 @@ async def _plan(context: StepContext) -> StepResult:
         )
         for definition in definitions
     }
+    # One line the operator reads at gate 1: whether prior research was in front of the
+    # planner, and how much. Inside the stored body, so it is inside the hash — a plan
+    # informed by history and one planned blind are different proposals, and approving
+    # one must not approve the other.
+    payload["prior_research"] = _prior_research_note(priors)
     payload["section_listing"] = [
         {
             "key": definition.key,
@@ -550,6 +563,52 @@ async def _plan(context: StepContext) -> StepResult:
 # ==========================================================================================
 
 
+async def _prior_digests(session: AsyncSession, *, request: ResearchRequest) -> list[PriorResearch]:
+    """This company's prior approved conclusions, as the planner's typed input.
+
+    The company is found by listing, exactly as the prior-run comparison finds it; a
+    request the platform has never resolved has no company row and no history. The
+    ``before`` bound is the request's as-of date, so a point-in-time run cannot be shaped
+    by a view recorded in its future.
+    """
+    company = await session.scalar(
+        select(Company).where(
+            Company.ticker == request.ticker, Company.exchange == request.exchange
+        )
+    )
+    if company is None:
+        return []
+    return [
+        PriorResearch(
+            report_id=str(digest.report_id),
+            as_of_date=digest.as_of_date.isoformat(),
+            rating=digest.rating,
+            confidence=digest.confidence,
+            valuation_range=digest.valuation_range,
+            named_risks=list(digest.named_risks),
+            catalyst_lines=list(digest.catalyst_lines),
+        )
+        for digest in await prior_digest_for(
+            session, company_id=company.id, before=request.as_of_date
+        )
+    ]
+
+
+def _prior_research_note(priors: Sequence[PriorResearch]) -> str:
+    """The gate-1 sentence saying what the planner had in front of it. Empty for none."""
+    if not priors:
+        return ""
+    newest = priors[0].as_of_date
+    count = len(priors)
+    plural = "s" if count != 1 else ""
+    return (
+        f"The planner was shown {count} prior approved report{plural} on this company "
+        f"(newest as-of {newest}) as hypothesis material, labelled not-evidence. It may "
+        "have shaped which questions this plan asks; it cannot support a claim, and the "
+        "citation verifier rejects any attempt in code."
+    )
+
+
 def plan_gate_payload(plan: ResearchPlan, pins: Sequence[PlanSkillPin] = ()) -> dict[str, Any]:
     """Exactly what gate 1 approves, as one structure.
 
@@ -573,6 +632,7 @@ def plan_gate_payload(plan: ResearchPlan, pins: Sequence[PlanSkillPin] = ()) -> 
         "section_listing": list(body.get("section_listing", [])),
         "planned_sources": list(plan.planned_sources or []),
         "known_risks": list(plan.known_risks or []),
+        "prior_research": body.get("prior_research", ""),
         "estimated_cost_gbp": str(plan.estimated_cost_gbp),
         "estimated_runtime_seconds": plan.estimated_runtime_seconds,
         "skills": [

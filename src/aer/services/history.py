@@ -17,7 +17,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Any
+from typing import Any, Final
 
 import structlog
 from sqlalchemy import select
@@ -34,12 +34,15 @@ from aer.db.models import (
 )
 
 __all__ = [
+    "PRIOR_DIGEST_LIMIT",
     "CatalystOutcome",
+    "PriorDigest",
     "PriorReportView",
     "approved_reports_for",
     "catalyst_outcomes_for",
     "company_for_user",
     "prior_comparison_content",
+    "prior_digest_for",
     "prior_risks_for",
     "timing_deadline",
     "valuation_history_for",
@@ -147,6 +150,75 @@ def report_view(report: Report) -> PriorReportView:
         ),
         valuation_currency=report.valuation_currency,
     )
+
+
+# How many prior reports feed forward into a new run's planner (K2). Three, not "all":
+# the digest goes into a prompt, and a company researched twenty times would otherwise
+# drown the request it is meant to inform. The newest views are the ones a planner would
+# actually re-examine; anything older is in the vault for a person to read.
+PRIOR_DIGEST_LIMIT: Final = 3
+
+
+@dataclass(frozen=True, slots=True)
+class PriorDigest:
+    """One prior approved report, compact enough to hand a planner as hypothesis material.
+
+    Every field is a *rendered string* rather than a value: the digest exists to be read,
+    not computed with, and a planner handed a bare Decimal is one prompt-edit away from
+    quoting it as a figure. The catalyst lines carry the calendar status already judged
+    against the new run's as-of date, so the model is never asked to do date arithmetic.
+    """
+
+    report_id: uuid.UUID
+    as_of_date: date
+    rating: str
+    confidence: str
+    valuation_range: str
+    named_risks: tuple[str, ...]
+    catalyst_lines: tuple[str, ...]
+
+
+async def prior_digest_for(
+    session: AsyncSession,
+    *,
+    company_id: uuid.UUID,
+    before: date,
+    limit: int = PRIOR_DIGEST_LIMIT,
+) -> list[PriorDigest]:
+    """The last ``limit`` approved reports before ``before``, newest first. Rows only.
+
+    Built for the planner's feed-forward (K2): prior research may shape which questions a
+    plan asks and may never support a claim, so what leaves here is a summary of recorded
+    conclusions — never an excerpt of evidence, which would invite citing it.
+    """
+    digests: list[PriorDigest] = []
+    for prior in (await approved_reports_for(session, company_id=company_id, before=before))[
+        :limit
+    ]:
+        view = report_view(prior)
+        catalyst_lines = tuple(
+            f"{outcome.label} (expected {outcome.expected_timing}) — "
+            f"{_CATALYST_STATUS[outcome.status]}"
+            for outcome in await catalyst_outcomes_for(session, prior=prior, as_of=before)
+        )
+        risks = tuple(
+            f"{risk['risk']}: {risk['why_it_matters']}"
+            for risk in await prior_risks_for(session, prior=prior)
+        )
+        digests.append(
+            PriorDigest(
+                report_id=prior.id,
+                as_of_date=prior.as_of_date,
+                rating=view.rating or "no view reached",
+                confidence=(
+                    f"{view.confidence:.0%}" if view.confidence is not None else "not recorded"
+                ),
+                valuation_range=view.valuation_range,
+                named_risks=risks,
+                catalyst_lines=catalyst_lines,
+            )
+        )
+    return digests
 
 
 async def valuation_history_for(
