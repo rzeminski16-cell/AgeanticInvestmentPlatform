@@ -28,6 +28,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import aer.render.glance as glance_module
 from aer.calc.comps import WithheldComps
 from aer.core.enums import JobStatus, Provider, SourceTier, UserRole
 from aer.db.models import (
@@ -1026,6 +1027,35 @@ class TestTheFrontPageNumbers:
         document = await _document(scene)
         assert document.glance == ()
         assert "At a glance" not in serialise_markdown(document)
+
+    async def test_a_glance_that_would_mix_issuers_is_withheld_and_the_reader_is_told(
+        self, scene: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Task P2 (ADR 0061), end to end: the guard's reason reaches the printed page.
+
+        The query cannot produce a mixed set any more, so the scene defeats it — the
+        future this guard exists for — and the assertion is on the serialised Markdown,
+        because the live failure was only visible in a signed PDF: three issuers' figures
+        presented as one company's quarter, with nothing anywhere saying so.
+        """
+        scene = await self._with_figures(scene)
+        foreign = FinancialFact(company_id=uuid.uuid4())
+        genuine = glance_module._consolidated_facts
+
+        async def defeated(session: AsyncSession, *, request: Any) -> list[Any]:
+            return [*await genuine(session, request=request), foreign]
+
+        monkeypatch.setattr(glance_module, "_consolidated_facts", defeated)
+        document = await _document(scene)
+
+        assert document.glance == (), "a block that would mix issuers must not render"
+        assert document.coverage is not None
+        assert "withheld" in document.coverage.sentence
+
+        markdown = serialise_markdown(document)
+        assert "At a glance" not in markdown
+        assert "Coverage notice" in markdown
+        assert "front page must not mix issuers" in markdown
 
 
 class TestTheOnePageSummary:

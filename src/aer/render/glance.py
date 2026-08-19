@@ -15,15 +15,20 @@ notations.
 
 from __future__ import annotations
 
+import uuid
+from dataclasses import dataclass
 from typing import Any, Final
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.db.models import Calculation, FinancialFact, Job, ResearchRequest
 from aer.services.facts import visible_facts
 
-__all__ = ["GLANCE_CONTRACT", "GLANCE_TITLE", "glance_content"]
+__all__ = ["GLANCE_CONTRACT", "GLANCE_TITLE", "Glance", "glance_content"]
+
+_log = structlog.get_logger("aer.render.glance")
 
 GLANCE_TITLE: Final = "At a glance"
 
@@ -107,11 +112,57 @@ _MINIMUM_HISTORY: Final = 2
 _ANNUAL: Final = "FY"
 
 
-async def glance_content(
-    session: AsyncSession, *, job: Job, request: ResearchRequest
-) -> dict[str, Any] | None:
-    """The at-a-glance content, or ``None`` when the run holds nothing to show."""
+@dataclass(frozen=True, slots=True)
+class Glance:
+    """The block's outcome: content to render, or the stated reason there is none.
+
+    A refusal is an ordinary outcome, not an exception — the document still assembles,
+    the coverage notice carries the reason, and the reader is told rather than shown a
+    front page that mixes companies.
+    """
+
+    content: dict[str, Any] | None
+    refused: str | None = None
+
+
+def _mixing_refusal(facts: list[FinancialFact], subject_id: uuid.UUID | None) -> str | None:
+    """The stated reason to withhold the block, or ``None`` when every figure is the
+    subject's.
+
+    Deliberately redundant with the query that feeds it (ADR 0061): the predicate in
+    :func:`~aer.services.facts.visible_facts` is two lines a refactor can drop, and this
+    block is the first thing a reader sees — the live failure it guards against put three
+    issuers' figures on one front page as a single company's quarter. So the rows are
+    re-checked at the point of rendering, against the subject rather than against each
+    other: a set that agrees on the *wrong* company is refused just as firmly as a mix.
+    """
+    foreign = sum(1 for fact in facts if fact.company_id != subject_id)
+    if not foreign:
+        return None
+    noun = "figure" if len(facts) == 1 else "figures"
+    verb = "belongs" if foreign == 1 else "belong"
+    return (
+        f"the at-a-glance block was withheld — {foreign} of the {len(facts)} stored "
+        f"{noun} offered to it {verb} to a company other than the subject, and a "
+        "front page must not mix issuers (ADR 0061)"
+    )
+
+
+async def glance_content(session: AsyncSession, *, job: Job, request: ResearchRequest) -> Glance:
+    """The at-a-glance block, empty when the run holds nothing to show, and **withheld
+    with the reason stated** when the figures offered to it are not all the subject's."""
     facts = await _consolidated_facts(session, request=request)
+
+    refusal = _mixing_refusal(facts, request.company_id)
+    if refusal is not None:
+        _log.warning(
+            "glance.withheld",
+            job_id=str(job.id),
+            request_id=str(request.id),
+            facts=len(facts),
+            reason=refusal,
+        )
+        return Glance(content=None, refused=refusal)
 
     content: dict[str, Any] = {}
     latest = _latest_rows(facts)
@@ -123,7 +174,7 @@ async def glance_content(
     ratios = await _headline_rows(session, job=job)
     if ratios:
         content["ratios"] = ratios
-    return content or None
+    return Glance(content=content or None)
 
 
 async def _consolidated_facts(

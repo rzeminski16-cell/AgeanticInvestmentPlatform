@@ -35,8 +35,10 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import aer.render.glance as glance_module
 from aer.core.enums import FactBasis, JobStatus, Provider, SourceTier, UserRole
 from aer.db.models import (
     Artefact,
@@ -412,9 +414,10 @@ class TestASecondRunStillSeesTheFirstRunsFacts:
 
 class TestTheFrontPageCarriesOneIssuer:
     async def test_the_glance_holds_only_the_subjects_figures(self, scene: dict[str, Any]) -> None:
-        content = await glance_content(scene["session"], job=scene["job"], request=scene["request"])
-        assert content is not None
-        assert "9999" not in str(content)
+        glance = await glance_content(scene["session"], job=scene["job"], request=scene["request"])
+        assert glance.refused is None
+        assert glance.content is not None
+        assert "9999" not in str(glance.content)
 
     async def test_an_unresolved_request_shows_nothing_rather_than_everything(
         self, scene: dict[str, Any]
@@ -423,5 +426,60 @@ class TestTheFrontPageCarriesOneIssuer:
         answer is an empty block rather than every issuer the request has touched."""
         scene["request"].company_id = None
         await scene["session"].flush()
-        content = await glance_content(scene["session"], job=scene["job"], request=scene["request"])
-        assert content is None or "9999" not in str(content)
+        glance = await glance_content(scene["session"], job=scene["job"], request=scene["request"])
+        assert glance.content is None or "9999" not in str(glance.content)
+
+
+class TestTheFrontPageRefusesToMixIssuers:
+    """Task P2: the guard behind the query, checked at the point of rendering.
+
+    Under ADR 0061 the query cannot hand the glance another issuer's figures, so these
+    scenes reach the guard by defeating the query — which is the exact future this guard
+    exists for: the predicate is two lines a refactor can drop, and the front page is
+    where that mistake reached a signed PDF.
+    """
+
+    async def test_a_mixed_set_is_withheld_with_the_reason_stated(
+        self, scene: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        async def defeated(session: Any, *, request: Any) -> list[Any]:
+            facts = await session.scalars(
+                select(FinancialFact).order_by(FinancialFact.period_end.desc())
+            )
+            return list(facts)
+
+        monkeypatch.setattr(glance_module, "_consolidated_facts", defeated)
+        glance = await glance_content(scene["session"], job=scene["job"], request=scene["request"])
+        assert glance.content is None, "a block that mixes issuers must not render at all"
+        assert glance.refused is not None
+        assert "withheld" in glance.refused
+        assert "ADR 0061" in glance.refused
+
+    async def test_a_set_that_agrees_on_the_wrong_company_is_refused_too(
+        self, scene: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Internal agreement is not the test — the subject is. A pool that is uniformly
+        the peer's would pass a facts-agree-with-each-other check and still be wrong."""
+
+        async def only_the_peer(session: Any, *, request: Any) -> list[Any]:
+            facts = await session.scalars(
+                select(FinancialFact).where(FinancialFact.company_id == scene["peer"].id)
+            )
+            return list(facts)
+
+        monkeypatch.setattr(glance_module, "_consolidated_facts", only_the_peer)
+        glance = await glance_content(scene["session"], job=scene["job"], request=scene["request"])
+        assert glance.content is None
+        assert glance.refused is not None
+
+    async def test_an_empty_set_is_silence_not_refusal(
+        self, scene: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Nothing to show stays silent (gap R10); the refusal is only for wrong figures."""
+
+        async def nothing(session: Any, *, request: Any) -> list[Any]:
+            return []
+
+        monkeypatch.setattr(glance_module, "_consolidated_facts", nothing)
+        glance = await glance_content(scene["session"], job=scene["job"], request=scene["request"])
+        assert glance.refused is None

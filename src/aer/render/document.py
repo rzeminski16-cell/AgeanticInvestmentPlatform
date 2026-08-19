@@ -187,6 +187,12 @@ class CoverageNote:
     sections_total: int
     checks_failed: tuple[str, ...]
 
+    # The at-a-glance block's stated reason for not rendering, or None when it rendered
+    # (or had honestly nothing to show, which stays silent). Set only by the mixing guard
+    # (ADR 0061), and carried here because a withheld front page needs its account in the
+    # same place every other shortfall gives one.
+    glance_withheld: str | None = None
+
     @property
     def sentence(self) -> str:
         """The notice, minus the sources link — each notation attaches its own."""
@@ -201,6 +207,8 @@ class CoverageNote:
             checks = ", ".join(self.checks_failed)
             plural = "checks" if len(self.checks_failed) > 1 else "check"
             parts.append(f"the {checks} validation {plural} failed")
+        if self.glance_withheld:
+            parts.append(self.glance_withheld)
         return "; and ".join(parts) + "." if parts else ""
 
 
@@ -392,12 +400,12 @@ async def assemble_document(
     # here and the coverage notice carries the honest account.
     glance_fragments: tuple[Fragment, ...] = ()
     glance = await glance_content(session, job=job, request=request)
-    if glance:
+    if glance.content:
         rendered_glance = render_section(
             key="at_a_glance",
             title=GLANCE_TITLE,
             contract=GLANCE_CONTRACT,
-            content=glance,
+            content=glance.content,
             footnote_start=1,
             style=active_style,
         )
@@ -455,7 +463,13 @@ async def assemble_document(
 
     footnotes = await _footnotes(session, citations)
     appendix = await _appendix(session, citations)
-    coverage = await _coverage(session, job=job, sections=sections, definitions=definitions)
+    coverage = await _coverage(
+        session,
+        job=job,
+        sections=sections,
+        definitions=definitions,
+        glance_withheld=glance.refused,
+    )
 
     # The C3 marker, derived from stored rows: any section citing a source whose
     # publication date is unknown carries the symbol, and the legend appears once.
@@ -559,6 +573,7 @@ async def _coverage(
     job: Job,
     sections: list[ReportSection],
     definitions: dict[uuid.UUID, SectionDefinition],
+    glance_withheld: str | None = None,
 ) -> CoverageNote | None:
     """The coverage notice's inputs, from recorded state only. ``None`` when full.
 
@@ -582,12 +597,13 @@ async def _coverage(
         .order_by(Evaluation.metric)
     )
     failed_checks = tuple(checks)
-    if not failed and not failed_checks:
+    if not failed and not failed_checks and glance_withheld is None:
         return None
     return CoverageNote(
         sections_failed=failed,
         sections_total=len(sections),
         checks_failed=failed_checks,
+        glance_withheld=glance_withheld,
     )
 
 

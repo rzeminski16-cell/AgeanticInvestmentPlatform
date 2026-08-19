@@ -245,6 +245,10 @@ fails when the predicate is removed; `mypy --strict` and `ruff` clean.
 
 **Severity: critical.** Belt and braces on P1, because this block is the first thing a
 reader sees and it reached a signed PDF.
+**Status: done** — the guard in `render/glance.py`, the reason carried on the
+`CoverageNote`, and one detail sharpened in building it: the check is against the
+*subject*, not for internal agreement, because a pool that is uniformly the wrong company
+would pass a facts-agree-with-each-other test and still be wrong.
 
 `glance.py` asserts that every fact feeding the block shares one `company_id`. If they do
 not, the block does not render and states why. A front page that silently mixes issuers is
