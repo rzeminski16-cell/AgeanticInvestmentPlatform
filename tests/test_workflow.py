@@ -13,7 +13,6 @@ enforce order and singularity.
 
 from __future__ import annotations
 
-import uuid
 from decimal import Decimal
 from typing import Any
 
@@ -50,6 +49,7 @@ from aer.workflow.workflows.vertical_slice_v1 import build_steps, peer_gate_payl
 from tests.workflow_fixtures import (
     SPINE_KEYS,
     StubSecClient,
+    _peer_cik,
     seed_job,
     seed_request,
     seed_user,
@@ -576,18 +576,19 @@ class TestThePeerSetAModelProposed:
     async def test_the_peer_carries_the_model_s_rationale(self, proposed: dict) -> None:
         assert "comparable software" in proposed["produced"]["peers"][0]["rationale"]
 
-    async def test_the_peer_s_facts_were_acquired(self, proposed: dict) -> None:
-        """A peer with no stored facts cannot be aligned, so acquiring them is the step."""
-        session = proposed["session"]
+    async def test_nothing_of_the_peer_was_fetched(self, proposed: dict) -> None:
+        """Confirming records the set; it fetches nothing (ADR 0059, amended).
+
+        A peer's multiple needs prices as well as filings, and no price feed exists yet, so
+        acquiring the filings would spend fetches on rows nothing can use. The step's whole
+        output for a company this database has never seen is its registry identity: the
+        identifier is the CIK the registry answered, not a company row's id, and the
+        subject's remains the only companyfacts fetch of the run.
+        """
         peer_id = proposed["produced"]["peers"][0]["identifier"]
 
-        facts = await session.scalar(
-            select(func.count(FinancialFact.id)).where(
-                FinancialFact.company_id == uuid.UUID(peer_id)
-            )
-        )
-        assert facts is not None
-        assert facts > 0
+        assert peer_id == _peer_cik("PEER")
+        assert proposed["sec_client"].facts_calls == ["0000789019"]
 
     async def test_the_hash_covers_the_set_and_not_the_refusals(self, proposed: dict) -> None:
         """A refusal is context for the reviewer; approving is approving the *peers*."""
@@ -772,13 +773,11 @@ class TestResumability:
         await run_to_next_stop(**_args(scenario), stop_after="acquire")
         assert scenario["sec_client"].facts_calls == ["0000789019"]
 
-        # It restarts and resumes. The acquire step must not fetch a second time.
-        #
-        # Counted rather than compared to the whole list: the peer step fetches its own
-        # companyfacts for each peer it resolves (ADR 0059), so what makes this test about
-        # resumability is that the *subject's* CIK appears once, not that nothing else does.
+        # It restarts and resumes. The acquire step must not fetch a second time — and
+        # since the peer step stopped acquiring (ADR 0059, amended), the subject's fetch
+        # is the run's only one, so the whole list can be compared.
         await run_to_next_stop(**_args(scenario))
-        assert scenario["sec_client"].facts_calls.count("0000789019") == 1
+        assert scenario["sec_client"].facts_calls == ["0000789019"]
 
     async def test_the_resumed_run_reaches_the_second_gate(self, scenario: dict) -> None:
         session = scenario["session"]

@@ -70,6 +70,17 @@ PEER_SET_STEP: Final = "propose_peers"
 """The workflow step whose output carries the proposal. One name, used by both halves."""
 
 
+# Why a peer recorded by name alone contributes no multiple today. One constant so the
+# gate page, the report and the run payload all say it identically — a dated peer whose
+# pricing failed gets a different reason, in ``build``, because for that one the filings
+# *are* held.
+UNACQUIRED_PEER_REASON: Final = (
+    "recorded by name for when a price series is subscribed — computing a peer's multiple "
+    "needs its filings and its prices, and this workflow deliberately acquires neither "
+    "(ADR 0059)"
+)
+
+
 class PeerSetNotConfirmedError(AerError):
     """A comps table was asked for and nobody has agreed to the peer set.
 
@@ -93,14 +104,21 @@ class PeerProposal:
     identifier: str
     name: str
     rationale: str
-    period_end: date
+    # The latest reported period this platform holds for the peer, or ``None`` for one
+    # recorded by name alone — resolved against the registry but never fetched, which is
+    # every newly proposed peer since ADR 0059 was amended: acquiring a peer's filings
+    # bought nothing a comps table could use without its prices, and the acquisition was
+    # what let eight issuers' facts into the subject's evidence pool (ADR 0061).
+    period_end: date | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "identifier": self.identifier,
             "name": self.name,
             "rationale": self.rationale,
-            "period_end": self.period_end.isoformat(),
+            # Empty string rather than None, so the gate payload — and therefore the
+            # approval hash — is built from strings the same way in both states.
+            "period_end": self.period_end.isoformat() if self.period_end else "",
         }
 
 
@@ -282,7 +300,7 @@ async def confirmed_peer_set(session: AsyncSession, job: Job) -> tuple[PeerPropo
             identifier=peer["identifier"],
             name=peer["name"],
             rationale=peer["rationale"],
-            period_end=date.fromisoformat(peer["period_end"]),
+            period_end=(date.fromisoformat(peer["period_end"]) if peer["period_end"] else None),
         )
         for peer in payload["peers"]
     )
@@ -329,8 +347,27 @@ async def build(
     """
     confirmed = await confirmed_peer_set(session, job)
 
+    # A peer recorded by name alone has no period to align: it was resolved against the
+    # registry and deliberately not fetched (ADR 0059 as amended), so it is excluded with
+    # that reason — the true one — rather than asked to align a date it does not have.
+    dated = [peer for peer in confirmed if peer.period_end is not None]
+    undated = tuple(
+        calc.PeerExclusion(
+            identifier=peer.identifier,
+            name=peer.name,
+            period_end=as_of,
+            reason=UNACQUIRED_PEER_REASON,
+        )
+        for peer in confirmed
+        if peer.period_end is None
+    )
+
     kept, excluded = calc.align_peers(
-        [(peer.identifier, peer.name, peer.period_end) for peer in confirmed],
+        [
+            (peer.identifier, peer.name, peer.period_end)
+            for peer in dated
+            if peer.period_end is not None  # the split above; restated for the type-checker
+        ],
         subject_period_end=subject.period_end,
     )
     rationales = {peer.identifier: peer.rationale for peer in confirmed}
@@ -340,14 +377,16 @@ async def build(
     for identifier, name, period_end in kept:
         computed = peer_multiples.get(identifier)
         if computed is None:
+            # Distinct from the unacquired reason above: a dated peer's filings are held —
+            # that is where the date came from — so what failed here is the pricing.
             missing.append(
                 calc.PeerExclusion(
                     identifier=identifier,
                     name=name,
                     period_end=period_end,
                     reason=(
-                        "no multiple could be computed — the filings or the price series "
-                        "this platform holds do not cover this company for the period"
+                        "no multiple could be computed — this platform holds the company's "
+                        "filed figures but no price series for it on the as-of date"
                     ),
                 )
             )
@@ -365,7 +404,7 @@ async def build(
     table = calc.CompsTable(
         subject=subject,
         peers=tuple(rows),
-        excluded=(*excluded, *missing),
+        excluded=(*excluded, *missing, *undated),
         basis=basis,
         as_of=as_of,
         peer_set_confirmed=True,

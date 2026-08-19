@@ -20,10 +20,15 @@
 
   <h1 class="mt-4 text-2xl font-semibold tracking-tight">Confirm which companies this one is compared with</h1>
   <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-    Every multiple in the comparables table is computed against these
+    Any multiple this platform computes is computed against these
     {{ payload.peers | length }} compan{{ 'y' if payload.peers | length == 1 else 'ies' }}.
     A badly chosen peer moves a median more than most modelling choices do, and it does so
     invisibly &mdash; the arithmetic is right and the company should not have been in the set.
+  </p>
+  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+    Confirming records the set; it fetches nothing. Computing a peer&rsquo;s multiple needs
+    its filings and its prices, and this run acquires neither &mdash; the confirmed set is
+    held for when a price subscription makes the comparison computable.
   </p>
 
   <section
@@ -47,7 +52,11 @@
           <li class="rounded-md border border-slate-200 p-4 dark:border-slate-700">
             <p class="font-semibold">{{ peer.name }}</p>
             <p class="mt-1 text-xs text-slate-500">
-              Reports to <span class="font-mono">{{ peer.period_end }}</span>
+              {% if peer.period_end %}
+                Reports to <span class="font-mono">{{ peer.period_end }}</span>
+              {% else %}
+                Recorded by name &mdash; nothing of this company has been fetched
+              {% endif %}
             </p>
             {% if peer.rationale %}
               <p class="mt-2 text-sm">{{ peer.rationale }}</p>

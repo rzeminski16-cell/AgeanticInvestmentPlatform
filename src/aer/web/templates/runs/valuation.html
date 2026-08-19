@@ -237,10 +237,10 @@
         </table>
       </div>
 
-      {% if view.comps.excluded %}
+      {% if comps_excluded %}
         <h3 class="mt-4 text-sm font-semibold">Excluded, and why</h3>
         <ul class="mt-2 list-disc space-y-1 pl-5 text-sm" id="comps-excluded">
-          {% for excluded in view.comps.excluded %}
+          {% for excluded in comps_excluded %}
             <li><strong>{{ excluded.name }}</strong> &mdash; {{ excluded.reason }}</li>
           {% endfor %}
         </ul>

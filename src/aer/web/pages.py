@@ -83,6 +83,7 @@ from aer.services.comps import (
     peer_set_payload,
     peer_set_required,
 )
+from aer.services.comps_run import grouped_exclusions
 from aer.services.disagreements import disagreements_for_job
 from aer.services.escalation import cost_scene_for_job
 from aer.services.evaluations import evaluations_for_job, section_coverage_for_job
@@ -1126,6 +1127,9 @@ async def valuation_page(
                 ("value_per_share", "Value per share"),
             ),
             "comps_rows": rows,
+            # Grouped rather than listed per peer: eight companies excluded for the same
+            # one reason must not read as eight repeated paragraphs (polish P4).
+            "comps_excluded": grouped_exclusions(table.excluded) if table is not None else (),
             "comps_keys": tuple(
                 (definition.key, definition.label) for definition in MULTIPLE_DEFINITIONS
             ),

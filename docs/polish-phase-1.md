@@ -335,6 +335,17 @@ week-based filer needs the reasoning rather than the constant.
 ## Task P4 — Peer acquisition withdrawn until prices exist
 
 **Severity: medium**, and it removes today's contamination vector as a side effect.
+**Status: done** — ADR 0059 amended; `_acquire_peer_facts` deleted from
+`peer_discovery.py`. Three things settled against the code rather than the sketch:
+`PeerProposal.period_end` became `date | None` (an unfetched peer has no period, and
+inventing an alignment date would fabricate the comparison — the gate payload serialises
+`None` as `""` so the approval hash stays string-built); a peer whose facts are *already*
+stored keeps its company id and latest stored period, so a past subject still aligns; and
+the one-reason rule landed as `UNACQUIRED_PEER_REASON` at source in `comps.build` plus
+reason-grouping in `comps_run.as_dict`, not a table-level short-circuit — a dated peer
+whose *pricing* failed keeps its own distinct reason, because for that one the filings are
+held. `TestNothingIsFetchedForAPeer` pins the withdrawal with row-count and
+unreachable-client proofs.
 
 ### The defect
 

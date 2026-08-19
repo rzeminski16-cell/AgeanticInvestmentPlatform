@@ -1369,10 +1369,11 @@ async def _propose_peers(context: StepContext) -> StepResult:
     it proposed nobody and no run ever had a comparison; the companies most comparable to a
     subject are precisely the ones this platform has not researched yet.
 
-    Every ticker the model returns is resolved against EDGAR's own index, and only a
-    resolved one is fetched — so a hallucinated company appears in ``refused`` rather than
-    at the gate. What survives has had its facts acquired down the subject's own chain,
-    which is why a peer's figures trace to a hashed artefact like everything else here.
+    Every ticker the model returns is resolved against EDGAR's own index — a hallucinated
+    company appears in ``refused`` rather than at the gate — and **nothing is fetched for
+    any of them** (ADR 0059 as amended): the set is recorded for the day a price feed
+    makes a peer multiple computable, and until then a peer's only figures are whatever
+    an earlier run of that company already banked.
 
     **The floor stays underneath.** A model call that fails leaves the run proposing what
     the database can support rather than dying, because the enrichment is not the step.
@@ -1485,12 +1486,10 @@ async def _peers_from_model(
 
     discovered = await discover_peers(
         context.session,
-        context.service("store"),
         client=context.service("sec_client"),
         request=request,
         subject=company,
         proposals=slate.peers,
-        job_id=context.job.id,
     )
     return discovered, True
 
@@ -2084,13 +2083,22 @@ async def comps_note_for(
     if not confirmed:
         return None
 
+    # A peer recorded by name alone (ADR 0059 as amended) has no period to align, was
+    # never priced, and belongs in the excluded count: the disclosure's `peer_count` is
+    # "compared against", and nothing was.
+    dated = [peer for peer in confirmed if peer.period_end is not None]
+    undated = len(confirmed) - len(dated)
     aligned, excluded = align_peers(
-        [(peer.identifier, peer.name, peer.period_end) for peer in confirmed],
+        [
+            (peer.identifier, peer.name, peer.period_end)
+            for peer in dated
+            if peer.period_end is not None  # the split above; restated for the type-checker
+        ],
         subject_period_end=request.as_of_date,
     )
     return WithheldComps(
         peer_count=len(aligned),
-        excluded_count=len(excluded),
+        excluded_count=len(excluded) + undated,
         as_of=request.as_of_date,
         licence_note=DEFAULT_POLICIES[Provider.EODHD].licence_note,
     )

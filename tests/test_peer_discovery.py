@@ -12,8 +12,10 @@ this file adds is what happens when there are two proposers.
 
 from __future__ import annotations
 
+import hashlib
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -29,9 +31,10 @@ from aer.agents.peers import (
 )
 from aer.calc.comps import MultipleBasis
 from aer.config import Settings
-from aer.core.enums import Decision, GateKind, JobStatus, UserRole
+from aer.core.enums import Decision, FactBasis, GateKind, JobStatus, Provider, SourceTier, UserRole
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import (
+    Artefact,
     Company,
     FinancialFact,
     Job,
@@ -251,12 +254,10 @@ def proposed(ticker: str, *, name: str = "", rationale: str = "Same end market."
 async def discover(scene: dict[str, Any], *proposals: ProposedPeer, **kwargs: Any) -> Any:
     return await discover_peers(
         scene["session"],
-        scene["store"],
         client=kwargs.pop("client", scene["client"]),
         request=scene["request"],
         subject=scene["subject"],
         proposals=proposals,
-        job_id=scene["job"].id,
         **kwargs,
     )
 
@@ -269,7 +270,9 @@ class TestOnlyATickerTheRegistryKnowsBecomesAPeer:
 
         assert len(outcome.peers) == 1
         assert outcome.refused == ()
-        assert outcome.peers[0].period_end <= scene["request"].as_of_date
+        # Resolving is all that happened: nothing of this company has been fetched, so
+        # there is no reporting period to state (ADR 0059).
+        assert outcome.peers[0].period_end is None
 
     async def test_the_model_s_rationale_is_what_the_reviewer_sees(
         self, scene: dict[str, Any]
@@ -329,114 +332,159 @@ class TestOnlyATickerTheRegistryKnowsBecomesAPeer:
         assert scene["client"].entity_calls == []
 
 
-class TestWhatAPeerHasToHaveToBeOne:
-    async def test_a_peer_with_no_facts_by_the_as_of_date_is_refused(
+class TestAPeerNeedsOnlyToResolve:
+    """ADR 0059 as amended: recording the name is the step's whole product."""
+
+    async def test_a_peer_this_platform_has_never_met_is_recorded_by_name(
         self, scene: dict[str, Any]
     ) -> None:
-        """Point-in-time applies to the comparison, not only to the subject."""
-        scene["request"].as_of_date = date(1995, 1, 1)
-        await scene["session"].flush()
+        """No facts, no company row, no period — and still on the list, because the set
+        exists for the day a price feed makes the comparison computable."""
+        outcome = await discover(scene, proposed("PEER"))
+
+        (peer,) = outcome.peers
+        assert peer.identifier == PEER_CIK
+        assert peer.period_end is None
+        assert outcome.refused == ()
+
+    async def test_a_peer_already_in_the_database_keeps_its_id_and_period(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Facts an earlier run banked are free and honest — those are used, not re-fetched."""
+        session = scene["session"]
+        company = Company(name="PEER Corporation", ticker="PEER", exchange="NASDAQ", cik=PEER_CIK)
+        session.add(company)
+        await session.flush()
+        document = await _peer_document(scene, company)
+        session.add(
+            FinancialFact(
+                company_id=company.id,
+                source_document_id=document.id,
+                concept="revenue",
+                value=Decimal("100"),
+                unit="USD",
+                period_end=date(2021, 12, 31),
+                fiscal_period="FY",
+                fiscal_year=2021,
+                filed_date=date(2022, 2, 1),
+                basis=FactBasis.AS_REPORTED,
+            )
+        )
+        await session.flush()
 
         outcome = await discover(scene, proposed("PEER"))
 
-        assert outcome.peers == ()
-        assert "no financial facts at or before 1995-01-01" in outcome.refused[0].reason
+        (peer,) = outcome.peers
+        assert peer.identifier == str(company.id)
+        assert peer.period_end == date(2021, 12, 31)
+
+    async def test_a_stored_period_after_the_as_of_date_is_not_offered(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Point-in-time applies to the comparison too: a known company whose only stored
+        year postdates the as-of date aligns nothing, and says so with a None period
+        rather than a refusal — the name is still worth recording."""
+        session = scene["session"]
+        company = Company(name="PEER Corporation", ticker="PEER", exchange="NASDAQ", cik=PEER_CIK)
+        session.add(company)
+        await session.flush()
+        document = await _peer_document(scene, company)
+        session.add(
+            FinancialFact(
+                company_id=company.id,
+                source_document_id=document.id,
+                concept="revenue",
+                value=Decimal("100"),
+                unit="USD",
+                period_end=scene["request"].as_of_date + timedelta(days=200),
+                fiscal_period="FY",
+                fiscal_year=scene["request"].as_of_date.year + 1,
+                filed_date=scene["request"].as_of_date + timedelta(days=230),
+                basis=FactBasis.AS_REPORTED,
+            )
+        )
+        await session.flush()
+
+        outcome = await discover(scene, proposed("PEER"))
+
+        (peer,) = outcome.peers
+        assert peer.period_end is None
 
     async def test_a_refusal_names_what_was_proposed(self, scene: dict[str, Any]) -> None:
         """A proposal of six arriving as four must not look like a proposal of four."""
-        scene["request"].as_of_date = date(1995, 1, 1)
-        await scene["session"].flush()
+        outcome = await discover(scene, proposed("GHOST", name="Ghost Corporation"))
 
-        outcome = await discover(scene, proposed("PEER", name="Peer Corporation"))
+        assert outcome.peers == ()
+        assert outcome.refused[0].name == "Ghost Corporation"
+        assert outcome.refused[0].ticker == "GHOST"
 
-        assert outcome.refused[0].name == "Peer Corporation"
-        assert outcome.refused[0].ticker == "PEER"
 
-    async def test_a_fetch_that_fails_refuses_rather_than_raising(
-        self, scene: dict[str, Any]
-    ) -> None:
-        """One bad suggestion must not cost the run its peer step."""
+class TestNothingIsFetchedForAPeer:
+    """The withdrawal itself. The first complete run fetched 26 MB for eight peers to
+    feed a table no price feed existed to build — and the acquisition was the vector
+    that put other issuers' facts into the subject's evidence pool (ADR 0061). This
+    class is what stops it coming back by accident."""
+
+    async def test_discovery_writes_no_rows_of_any_kind(self, scene: dict[str, Any]) -> None:
+        session = scene["session"]
+
+        async def counts() -> tuple[int, int, int]:
+            return (
+                len(list(await session.scalars(select(Company)))),
+                len(list(await session.scalars(select(FinancialFact)))),
+                len(list(await session.scalars(select(SourceDocument)))),
+            )
+
+        before = await counts()
+        outcome = await discover(scene, proposed("PEER"))
+        after = await counts()
+
+        assert outcome.peers, "the peer resolved; the point is what did not happen next"
+        assert after == before, (
+            "discovering a peer wrote rows — the acquisition ADR 0059's amendment "
+            "withdrew has come back"
+        )
+
+    async def test_the_facts_endpoint_is_never_asked(self, scene: dict[str, Any]) -> None:
+        """The stub's fetch raises; a discovery that never fetches never notices."""
 
         class Unreachable(RegistryStub):
             async def fetch_company_facts(self, cik: str) -> Any:
-                message = "EDGAR returned 500."
-                raise ValidationError(message, context={"cik": cik})
+                message = "fetch_company_facts was called for a peer."
+                raise AssertionError(message)
 
         outcome = await discover(scene, proposed("PEER"), client=Unreachable(scene["store"]))
 
-        assert outcome.peers == ()
-        assert "could not be acquired" in outcome.refused[0].reason
+        (peer,) = outcome.peers
+        assert peer.identifier == PEER_CIK
 
 
-class TestThePeerSFactsAreAcquiredLikeTheSubjectS:
-    async def test_the_company_row_is_written(self, scene: dict[str, Any]) -> None:
-        await discover(scene, proposed("PEER"))
-
-        found = await scene["session"].scalar(select(Company).where(Company.cik == PEER_CIK))
-        assert found is not None
-
-    async def test_its_facts_are_persisted_against_it(self, scene: dict[str, Any]) -> None:
-        outcome = await discover(scene, proposed("PEER"))
-
-        count = await scene["session"].scalar(
-            select(FinancialFact).where(FinancialFact.company_id == _uuid(outcome.peers[0]))
-        )
-        assert count is not None
-
-    async def test_every_fact_traces_to_a_source_document(self, scene: dict[str, Any]) -> None:
-        """Invariant 1, for a company the operator never named."""
-        outcome = await discover(scene, proposed("PEER"))
-
-        facts = list(
-            await scene["session"].scalars(
-                select(FinancialFact).where(FinancialFact.company_id == _uuid(outcome.peers[0]))
-            )
-        )
-        assert facts
-        for fact in facts:
-            assert fact.source_document_id is not None
-
-        document = await scene["session"].get(SourceDocument, facts[0].source_document_id)
-        assert document is not None
-        assert document.publication_date is not None
-
-    async def test_no_fact_postdates_the_as_of_date(self, scene: dict[str, Any]) -> None:
-        """Point-in-time is enforced at acquisition, in code — for peers too."""
-        outcome = await discover(scene, proposed("PEER"))
-
-        facts = list(
-            await scene["session"].scalars(
-                select(FinancialFact).where(FinancialFact.company_id == _uuid(outcome.peers[0]))
-            )
-        )
-        assert facts
-        for fact in facts:
-            assert fact.filed_date is None or fact.filed_date <= scene["request"].as_of_date
-
-    async def test_proposing_the_same_peer_twice_over_two_calls_duplicates_nothing(
-        self, scene: dict[str, Any]
-    ) -> None:
-        """The chain is idempotent by construction, which is what lets a second run rerun it."""
-        first = await discover(scene, proposed("PEER"))
-        before = len(
-            list(
-                await scene["session"].scalars(
-                    select(FinancialFact).where(FinancialFact.company_id == _uuid(first.peers[0]))
-                )
-            )
-        )
-
-        second = await discover(scene, proposed("PEER"))
-        after = len(
-            list(
-                await scene["session"].scalars(
-                    select(FinancialFact).where(FinancialFact.company_id == _uuid(second.peers[0]))
-                )
-            )
-        )
-
-        assert first.peers[0].identifier == second.peers[0].identifier
-        assert after == before
+async def _peer_document(scene: dict[str, Any], company: Company) -> SourceDocument:
+    """A stored provenance row for a peer an earlier run acquired."""
+    session = scene["session"]
+    artefact = Artefact(
+        sha256=hashlib.sha256(company.cik.encode()).hexdigest(),
+        media_type="application/json",
+        size_bytes=3,
+        storage_key=f"peer/{company.cik}",
+    )
+    session.add(artefact)
+    await session.flush()
+    document = SourceDocument(
+        request_id=scene["request"].id,
+        job_id=scene["job"].id,
+        company_id=company.id,
+        artefact_id=artefact.id,
+        url=f"https://example.invalid/{company.cik}",
+        provider=Provider.SEC_EDGAR,
+        source_tier=SourceTier.T1_REGULATORY,
+        retrieved_at=datetime.now(UTC),
+        publication_date=date(2022, 2, 1),
+        quarantined=False,
+    )
+    session.add(document)
+    await session.flush()
+    return document
 
 
 class TestTheSetStaysSmallEnoughToReview:

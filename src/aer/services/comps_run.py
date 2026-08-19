@@ -25,6 +25,7 @@ determination off the fetch policy; nothing here decides it.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -48,7 +49,7 @@ from aer.services.price_acquisition import PriceClient, acquire_peer_prices
 from aer.services.prices import adjusted_series_for, price_quantity
 from aer.storage.protocol import ArtefactStore
 
-__all__ = ["CompsOutcome", "build_comps_table"]
+__all__ = ["CompsOutcome", "build_comps_table", "grouped_exclusions"]
 
 _log = structlog.get_logger("aer.services.comps_run")
 
@@ -83,9 +84,11 @@ class CompsOutcome:
         return {
             "comps": True,
             "peers": len(self.table.peers),
-            "excluded": [
-                {"name": item.name, "reason": item.reason} for item in self.table.excluded
-            ],
+            # Grouped by reason, because since ADR 0059 was amended every confirmed
+            # peer shares one — recorded, unpriced — and a surface that printed it eight
+            # times taught the reader to stop reading exclusions. A genuinely individual
+            # reason (a period that would not align) still gets its own row.
+            "excluded": grouped_exclusions(self.table.excluded),
             "basis": self.table.basis.value,
             "as_of": self.table.as_of.isoformat(),
             "subject_multiples": [
@@ -116,6 +119,14 @@ class CompsOutcome:
             ],
             "comps_band": self.band,
         }
+
+
+def grouped_exclusions(excluded: Sequence[calc.PeerExclusion]) -> list[dict[str, str]]:
+    """One row per distinct reason, the affected peers named together, first-seen order."""
+    by_reason: dict[str, list[str]] = {}
+    for item in excluded:
+        by_reason.setdefault(item.reason, []).append(item.name)
+    return [{"name": ", ".join(names), "reason": reason} for reason, names in by_reason.items()]
 
 
 async def build_comps_table(

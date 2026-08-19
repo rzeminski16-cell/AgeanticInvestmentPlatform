@@ -18,6 +18,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.calc import comps as calc
 from aer.core.enums import Decision, GateKind, JobStatus, Provider, SourceTier, UserRole
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import (
@@ -33,7 +34,7 @@ from aer.services import approvals as approval_service
 from aer.services import comps as comps_service
 from aer.services.analysis import analyse_company
 from aer.services.calculations import new_context
-from aer.services.comps_run import build_comps_table
+from aer.services.comps_run import build_comps_table, grouped_exclusions
 from aer.services.price_acquisition import acquire_prices
 from aer.storage.local import LocalArtefactStore
 from tests.test_price_acquisition import StubPriceClient
@@ -376,3 +377,50 @@ class TestTheStepOutput:
         [peer] = body["peer_multiples"]
         assert peer["name"] == "Fabrikam Inc"
         assert any(row["value"] is not None for row in peer["multiples"])
+
+
+class TestTheExclusionsAreGroupedByReason:
+    """Eight peers excluded for the same one reason must not be eight repeated paragraphs.
+
+    The first complete run's approval page said the identical sentence eight times, once
+    per peer. The output states each distinct reason once, naming together the peers it
+    covers, in the order the reasons first appeared.
+    """
+
+    @staticmethod
+    def _excluded(name: str, reason: str) -> calc.PeerExclusion:
+        return calc.PeerExclusion(
+            identifier=name.lower(), name=name, period_end=AS_OF, reason=reason
+        )
+
+    def test_one_shared_reason_becomes_one_row_naming_everyone(self) -> None:
+        rows = grouped_exclusions(
+            [
+                self._excluded("Alpha plc", comps_service.UNACQUIRED_PEER_REASON),
+                self._excluded("Beta Inc", comps_service.UNACQUIRED_PEER_REASON),
+                self._excluded("Gamma SE", comps_service.UNACQUIRED_PEER_REASON),
+            ]
+        )
+
+        assert rows == [
+            {
+                "name": "Alpha plc, Beta Inc, Gamma SE",
+                "reason": comps_service.UNACQUIRED_PEER_REASON,
+            }
+        ]
+
+    def test_distinct_reasons_keep_their_own_rows_in_first_seen_order(self) -> None:
+        rows = grouped_exclusions(
+            [
+                self._excluded("Alpha plc", "reporting period too far from the subject's"),
+                self._excluded("Beta Inc", comps_service.UNACQUIRED_PEER_REASON),
+                self._excluded("Gamma SE", "reporting period too far from the subject's"),
+            ]
+        )
+
+        assert [row["reason"] for row in rows] == [
+            "reporting period too far from the subject's",
+            comps_service.UNACQUIRED_PEER_REASON,
+        ]
+        assert rows[0]["name"] == "Alpha plc, Gamma SE"
+        assert rows[1]["name"] == "Beta Inc"

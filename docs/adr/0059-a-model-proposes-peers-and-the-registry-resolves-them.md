@@ -1,7 +1,8 @@
 # 0059 — A model proposes peers, the registry resolves them, and a person still decides
 
 Date: 2026-08-18
-Status: accepted
+Status: accepted, amended 2026-08-19 — a peer is recorded by name and nothing is fetched
+for it (see the amendment at the end)
 
 ## Context
 
@@ -94,3 +95,45 @@ empty list.
   is where a Companies House resolver would attach when a UK run needs UK comparables.
 * The peers step gains an `estimated_cost_gbp`, keeping ADR 0052's rule that every step
   either declares an estimate or is named deterministic.
+
+---
+
+## Amendment, 2026-08-19 — a peer is recorded by name, and nothing is fetched for it
+
+**The third decision above — acquiring a resolved peer's facts on demand — is withdrawn.**
+A proposed ticker is still resolved against the registry, the subject is still refused as
+its own peer, and the human at the PEER_SET gate still decides. What changes is what
+confirmation buys: the set is *recorded*, and no filing, aggregate or document is fetched
+for any peer.
+
+Two findings from the first complete run drove this, and each alone would have sufficed:
+
+1. **The acquisition bought nothing a comps table could use.** A peer's multiple needs the
+   peer's *price* as well as its filings, and no price feed is subscribed (task 29 is
+   conditional on one). Every acquired peer therefore ended excluded anyway — eight
+   companyfacts fetches and eight companies' fact rows, for a table with no peer in it.
+2. **It was the vector for evidence contamination.** The acquired peers' facts landed in
+   the same store the subject's evidence queries read, and under the then request-scoped
+   queries (fixed by ADR 0061) eight issuers' figures entered the subject's evidence pool.
+   ADR 0061's subject scoping now contains that class of defect on its own; not fetching
+   removes the exposure entirely while the fetch buys nothing.
+
+Concretely: `PeerProposal` carries `period_end: date | None`, and a peer this database has
+never held resolves with `None` — recorded by registry identity (CIK) and name, with the
+model's rationale. A peer whose facts *are* already stored (a past subject, say) keeps its
+company id and its latest stored period at or before the as-of date, and proceeds into
+alignment as before. An undated peer reaches the comps build and is excluded there with
+the one reason (`UNACQUIRED_PEER_REASON`): computing its multiple needs its filings and
+its prices, and this workflow deliberately acquires neither. The gate page says the same
+thing — confirming records the set; it fetches nothing.
+
+**The return condition is a price feed.** When task 29's subscription exists, peer
+acquisition can come back — behind ADR 0061's subject scoping, so a peer's facts are
+scoped to the *peer's* company row and can never surface as the subject's evidence — and
+the recorded-by-name peers a reviewer confirmed become the acquisition list. The refusal
+for "resolves but no usable facts" also returns then; today it cannot arise, because
+nothing is fetched to be found unusable.
+
+The consequences above that describe peer artefacts on the sources surface and the up to
+eight companyfacts fetches no longer apply. The step's cost estimate is untouched — it
+always covered the model call, which is the only thing the step spends money on.

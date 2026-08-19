@@ -111,9 +111,8 @@ class StubSecClient:
         acquire step resolved anything. The peer proposal (ADR 0059) resolves the tickers a
         model returns, and a stub that maps them all onto the subject would have every peer
         refused as the subject under another listing — a run that differs from a live one
-        for a reason that is entirely about the stub. The facts served are still the
-        fixture's, because what a peer needs from this stub is a real parse, not a second
-        company's history.
+        for a reason that is entirely about the stub. Resolving is all discovery does with
+        the answer now (ADR 0059, amended): nothing is fetched for a peer.
         """
         self.entity_calls.append(ticker)
         known = ticker.upper() == "MSFT"
