@@ -39,7 +39,7 @@ from aer.db.models import (
     Theme,
     ThemeMembership,
 )
-from aer.services.catalysts import resolutions_for
+from aer.services.catalyst_resolutions import resolutions_for
 from aer.services.comps import PeerSetNotConfirmedError, confirmed_peer_set
 from aer.services.history import (
     DriverAccuracy,

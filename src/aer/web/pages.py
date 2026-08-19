@@ -74,7 +74,7 @@ from aer.render.summary import summary_document
 from aer.services import approvals as approval_service
 from aer.services import calculations as calculation_service
 from aer.services import cancellation as cancellation_service
-from aer.services import catalysts as catalyst_service
+from aer.services import catalyst_resolutions as catalyst_service
 from aer.services import configuration, provenance
 from aer.services import history as history_service
 from aer.services import runs as run_service
@@ -1515,7 +1515,7 @@ async def company_page(
 
 
 @router.post(
-    "/companies/{company_id}/catalysts",
+    "/companies/{company_id}/catalyst-resolutions",
     response_class=HTMLResponse,
     summary="Record what happened to a catalyst",
 )

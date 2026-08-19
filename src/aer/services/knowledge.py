@@ -43,7 +43,7 @@ from aer.db.models import (
     ThemeMembership,
 )
 from aer.obsidian.graph import peer_edges, reachable_from
-from aer.services.catalysts import resolutions_for
+from aer.services.catalyst_resolutions import resolutions_for
 from aer.services.history import (
     approved_reports_for,
     catalyst_outcomes_for,

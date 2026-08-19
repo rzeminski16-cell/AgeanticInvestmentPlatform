@@ -33,7 +33,7 @@ __all__ = [
     "resolutions_for",
 ]
 
-_log = structlog.get_logger("aer.services.catalysts")
+_log = structlog.get_logger("aer.services.catalyst_resolutions")
 
 
 async def known_catalyst_labels(session: AsyncSession, *, company_id: uuid.UUID) -> set[str]:
@@ -88,8 +88,8 @@ async def record_catalyst_resolution(
     if label not in known:
         message = (
             f"No approved report on this company proposed a catalyst labelled {label!r}, "
-            "so there is nothing to resolve. Resolutions attach to the catalysts the "
-            "research actually named."
+            "so there is nothing to resolve. Resolutions attach to the catalyst labels "
+            "the research actually named."
         )
         raise ValidationError(message, context={"label": label, "known": sorted(known)[:20]})
 

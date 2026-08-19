@@ -30,7 +30,7 @@ from aer.db.models import (
 )
 from aer.errors import ValidationError
 from aer.obsidian.graph import build_graph
-from aer.services.catalysts import (
+from aer.services.catalyst_resolutions import (
     known_catalyst_labels,
     record_catalyst_resolution,
     resolutions_for,

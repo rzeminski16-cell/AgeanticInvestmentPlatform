@@ -68,7 +68,7 @@ from aer.eval.metrics import (
     temporal_compliance,
     unit_integrity,
 )
-from aer.eval.replay import completeness_observations_for_job, registry, replay
+from aer.eval.replay import CALC_MODULES, completeness_observations_for_job, registry, replay
 from aer.extract.dates import extract_publication_date
 from aer.extract.html import extract_html
 from aer.extract.injection import scan_markup, scan_text
@@ -81,6 +81,7 @@ from tests import citation_corpus, injection_fixtures, lookahead_fixtures, skill
 from tests.agent_probes import ProbeAnswer
 from tests.ledger_fixtures import record_valuation_ledger
 from tests.scene_fixtures import build_scene
+from tests.test_calc_golden import EXPECTED_CORPUS_SIZE
 from tests.workflow_fixtures import AS_OF_DATE
 
 pytestmark = pytest.mark.integration
@@ -570,10 +571,13 @@ class TestTheCorporaAreWorthScoring:
         assert sum(1 for row in units if row.compatible) >= 3
         assert all(not row.raised for row in units if row.compatible)
 
-    def test_the_golden_corpus_is_the_thirty_the_plan_asks_for(
+    def test_the_golden_corpus_is_exactly_the_pinned_corpus(
         self, replays: list[ReplayObservation]
     ) -> None:
-        assert len(replays) == 30
+        # One source of truth: `tests/test_calc_golden.py` pins the corpus size, and this
+        # module replaying a different number would mean the two suites read different
+        # corpora. A second literal here is how K3's thirty-first case broke this file.
+        assert len(replays) == EXPECTED_CORPUS_SIZE
 
     def test_the_golden_corpus_covers_every_calc_module(
         self, replays: list[ReplayObservation]
@@ -584,7 +588,7 @@ class TestTheCorporaAreWorthScoring:
         reg = registry()
         covered = {reg[case["name"]].__module__ for case in corpus["cases"]}
 
-        assert len(covered) == 10
+        assert covered == set(CALC_MODULES)
 
     async def test_the_completeness_corpus_actually_rests_on_an_assumption(
         self, completeness: list[CompletenessObservation]
