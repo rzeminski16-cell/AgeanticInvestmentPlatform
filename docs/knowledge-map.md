@@ -46,7 +46,8 @@ flowchart TD
     gate_plan --> acquire --> classify
     classify --> gate_sector_specialist{{gate_sector_specialist}}
     gate_sector_specialist --> propose_peers --> gate_peer_set{{gate_peer_set}}
-    gate_peer_set --> acquire_prices --> extract
+    gate_peer_set --> propose_themes --> gate_theme_set{{gate_theme_set}}
+    gate_theme_set --> acquire_prices --> extract
     extract --> gate_unmapped_concepts{{gate_unmapped_concepts}}
     gate_unmapped_concepts --> calculate
     calculate --> research["research_company / research_industry / research_macro / research_recent_developments / research_technical_context (parallel)"]
@@ -66,6 +67,8 @@ What to know per step, beyond the diagram:
 | `acquire` | `services` + `sources/sec` or `sources/uk` | no | Filings fetched, hashed, stored |
 | `classify` | `services` | no | Filing types; may trigger the sector gate |
 | `propose_peers`, `acquire_prices` | `sources/eodhd` | no (API quota, not model spend) | Conditional on the EODHD subscription |
+| `propose_themes` | `agents/themes` | yes (~£0.02) | K1, ADR 0065: a bounded slate; a failed call proposes nothing |
+| `gate_theme_set` | `services/approvals` | no | Conditional; skipped on an empty slate |
 | `extract` | `extract/` | no | Bytes → text with locators; iXBRL/PDF/HTML |
 | `calculate` | `calc/` via `services` | no | Statements, ratios, quality — all traced |
 | `research_*` (five, parallel) | `agents/worker` | yes (~£0.10 each) | Tool *requests* executed by code (ADR 0036) |

@@ -311,8 +311,10 @@ class TestACrashDoesNotUnspendCompletedWork:
 
         await worker.run(job_id)
         await worker.approve(job_id, gate=GateKind.PLAN, step=_PLAN)
-        # The run now stops at the peer-set gate; clearing it puts `calculate` in the next
-        # leg, which is the leg this test makes fail.
+        # Two conditional gates now pause this stretch — the peer set (ADR 0059) and the
+        # theme set (K1) — and both sit before the leg this test makes fail. Clear each.
+        await worker.run(job_id)
+        assert await worker.approve_the_pause(job_id)
         await worker.run(job_id)
         assert await worker.approve_the_pause(job_id)
 
@@ -344,8 +346,10 @@ class TestACrashDoesNotUnspendCompletedWork:
 
         await worker.run(job_id)
         await worker.approve(job_id, gate=GateKind.PLAN, step=_PLAN)
-        # The run now stops at the peer-set gate; clearing it puts `calculate` in the next
-        # leg, which is the leg this test makes fail.
+        # Two conditional gates now pause this stretch — the peer set (ADR 0059) and the
+        # theme set (K1) — and both sit before the leg this test makes fail. Clear each.
+        await worker.run(job_id)
+        assert await worker.approve_the_pause(job_id)
         await worker.run(job_id)
         assert await worker.approve_the_pause(job_id)
 

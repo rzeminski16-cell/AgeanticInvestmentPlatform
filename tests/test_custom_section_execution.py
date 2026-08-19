@@ -86,6 +86,7 @@ from tests.workflow_fixtures import (
     seed_job,
     seed_request,
     seed_user,
+    theme_slate,
     worker_report_turn,
 )
 
@@ -1227,6 +1228,7 @@ def moat_provider() -> FakeProvider:
             ),
             "AssumptionProposalDraft": assumption_proposal_draft,
             "PeerSlate": peer_slate,
+            "ThemeSlate": theme_slate,
         }
         if name in static:
             return static[name]()
