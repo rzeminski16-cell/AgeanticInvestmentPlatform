@@ -71,6 +71,10 @@ class TestUnitParsing:
             ("USD/shares", "USD/shares"),
             ("pure", "pure"),
             ("", "pure"),
+            # A count of segments is a bare number, not a dimension (polish P9): filers
+            # tag NumberOfOperatingSegments with it, and the old refusal warned six
+            # times on every clean run.
+            ("segment", "pure"),
         ],
     )
     def test_the_forms_edgar_uses_all_parse(self, text, expected):

@@ -279,44 +279,44 @@ def build_steps() -> list[WorkflowStep]:
         # map does not know. Declared unconditionally because a gate that only exists on the
         # runs that need it is a gate nobody can find when a run needs it.
         WorkflowStep(
-            key="gate_uk_financials",
-            run=_gate_uk_financials,
-            gate=GateKind.UK_FINANCIALS.value,
+            key="gate_unmapped_concepts",
+            run=_gate_unmapped_concepts,
+            gate=GateKind.UNMAPPED_CONCEPTS.value,
         ),
         # The first real fan-out (task 37): the calculation and the five research workers
         # are independent of each other and all of the financials gate, so they form one
         # wave — six nodes, inside the §2.5 bound of seven. Where the run has no session
         # factory (every savepoint-fixtured test) the engine takes them one at a time on
         # the caller's session, in this declared order.
-        WorkflowStep(key="calculate", run=_calculate, needs=frozenset({"gate_uk_financials"})),
+        WorkflowStep(key="calculate", run=_calculate, needs=frozenset({"gate_unmapped_concepts"})),
         WorkflowStep(
             key="research_company",
             run=_research(ResearchTopic.COMPANY),
-            needs=frozenset({"gate_uk_financials"}),
+            needs=frozenset({"gate_unmapped_concepts"}),
             estimated_cost_gbp=WORKER_ESTIMATE_GBP,
         ),
         WorkflowStep(
             key="research_industry",
             run=_research(ResearchTopic.INDUSTRY),
-            needs=frozenset({"gate_uk_financials"}),
+            needs=frozenset({"gate_unmapped_concepts"}),
             estimated_cost_gbp=WORKER_ESTIMATE_GBP,
         ),
         WorkflowStep(
             key="research_macro",
             run=_research(ResearchTopic.MACRO),
-            needs=frozenset({"gate_uk_financials"}),
+            needs=frozenset({"gate_unmapped_concepts"}),
             estimated_cost_gbp=WORKER_ESTIMATE_GBP,
         ),
         WorkflowStep(
             key="research_recent_developments",
             run=_research(ResearchTopic.RECENT_DEVELOPMENTS),
-            needs=frozenset({"gate_uk_financials"}),
+            needs=frozenset({"gate_unmapped_concepts"}),
             estimated_cost_gbp=WORKER_ESTIMATE_GBP,
         ),
         WorkflowStep(
             key="research_technical_context",
             run=_research(ResearchTopic.TECHNICAL_CONTEXT),
-            needs=frozenset({"gate_uk_financials"}),
+            needs=frozenset({"gate_unmapped_concepts"}),
             estimated_cost_gbp=WORKER_ESTIMATE_GBP,
         ),
         # Comparables (gap B3). After the peer gate, which confirmed the set, and after
@@ -624,7 +624,7 @@ def unmapped_gate_required(produced: Mapping[str, Any]) -> bool:
     return bool(produced.get("unmapped_tags"))
 
 
-async def _gate_uk_financials(context: StepContext) -> StepResult:
+async def _gate_unmapped_concepts(context: StepContext) -> StepResult:
     """Stop until a human confirms an extraction that left tags unmapped.
 
     **Skipped, not approved, when there is nothing to confirm.** A run whose every tag mapped
@@ -634,10 +634,14 @@ async def _gate_uk_financials(context: StepContext) -> StepResult:
     produced = context.outputs.get("extract", {})
     if not unmapped_gate_required(produced):
         return StepResult(
-            output={"gate": GateKind.UK_FINANCIALS.value, "required": False, "unmapped_tags": []}
+            output={
+                "gate": GateKind.UNMAPPED_CONCEPTS.value,
+                "required": False,
+                "unmapped_tags": [],
+            }
         )
 
-    return await _require_approval(context, gate=GateKind.UK_FINANCIALS, of_step="extract")
+    return await _require_approval(context, gate=GateKind.UNMAPPED_CONCEPTS, of_step="extract")
 
 
 def sector_key_of(outputs: Mapping[str, Mapping[str, Any]]) -> str:

@@ -42,15 +42,27 @@ async def record_findings(
         if findings
         else None
     )
-    document.injection_flagged = bool(findings)
+    # The flag — and the warning — follow the findings that mean something (polish P9).
+    # Informational rows describe a format's own mechanics (inline XBRL's hidden facts)
+    # and stay stored for the reviewer, but a badge that lights on every clean filing is
+    # a badge nobody reads on the day one matters.
+    flagged = [finding for finding in findings if not finding.informational]
+    document.injection_flagged = bool(flagged)
     await session.flush()
 
-    if findings:
+    if flagged:
         _log.warning(
             "source.injection_flagged",
             source_document_id=str(document.id),
             url=document.url,
-            signals=sorted({finding.signal.value for finding in findings}),
+            signals=sorted({finding.signal.value for finding in flagged}),
+            findings=len(flagged),
+        )
+    elif findings:
+        _log.info(
+            "source.injection_informational",
+            source_document_id=str(document.id),
+            url=document.url,
             findings=len(findings),
         )
     return document

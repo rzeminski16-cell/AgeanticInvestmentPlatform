@@ -225,7 +225,7 @@ class TestTheGateFiresOnARealExtraction:
         state = (await api.get(f"/api/runs/{job_id}")).json()
         assert state["status"] == JobStatus.AWAITING_APPROVAL.value
 
-        gate_step = next(s for s in state["steps"] if s["key"] == "gate_uk_financials")
+        gate_step = next(s for s in state["steps"] if s["key"] == "gate_unmapped_concepts")
         assert gate_step["status"] == JobStatus.AWAITING_APPROVAL.value
 
     async def test_the_tag_is_named_rather_than_counted(
@@ -254,14 +254,14 @@ class TestTheGateFiresOnARealExtraction:
 
         body = (await api.get(f"/api/runs/{job_id}/financials")).json()
         response = await api.post(
-            f"/api/runs/{job_id}/gates/UK_FINANCIALS/decide",
+            f"/api/runs/{job_id}/gates/UNMAPPED_CONCEPTS/decide",
             json={"decision": "APPROVED", "payload_hash": body["payload_hash"]},
         )
         assert response.status_code == 202, response.text
 
         await unmapped_runner.advance(job_id)
         state = (await api.get(f"/api/runs/{job_id}")).json()
-        gate_step = next(s for s in state["steps"] if s["key"] == "gate_uk_financials")
+        gate_step = next(s for s in state["steps"] if s["key"] == "gate_unmapped_concepts")
         assert gate_step["status"] == JobStatus.SUCCEEDED.value
 
     async def test_confirming_a_different_set_of_tags_is_not_confirming_these(
@@ -271,7 +271,7 @@ class TestTheGateFiresOnARealExtraction:
         job_id = await run_to_the_financials_gate(api, unmapped_runner, committed["request"].id)
 
         response = await api.post(
-            f"/api/runs/{job_id}/gates/UK_FINANCIALS/decide",
+            f"/api/runs/{job_id}/gates/UNMAPPED_CONCEPTS/decide",
             json={"decision": "APPROVED", "payload_hash": "0" * 64},
         )
         assert response.status_code == 202, response.text
@@ -286,7 +286,7 @@ class TestTheGateStaysOutOfTheWayOtherwise:
     ) -> None:
         job_id = await run_to_the_financials_gate(api, mapped_runner, committed["request"].id)
 
-        gate = await mapped_runner.output_of(job_id, "gate_uk_financials")
+        gate = await mapped_runner.output_of(job_id, "gate_unmapped_concepts")
         assert gate is not None
         assert gate["required"] is False
 
@@ -320,7 +320,7 @@ class TestTheGateStaysOutOfTheWayOtherwise:
             decided = list(
                 await session.scalars(select(Approval.gate).where(Approval.job_id == job_id))
             )
-        assert GateKind.UK_FINANCIALS not in decided
+        assert GateKind.UNMAPPED_CONCEPTS not in decided
 
 
 class TestThePageShowsWhatItHashes:

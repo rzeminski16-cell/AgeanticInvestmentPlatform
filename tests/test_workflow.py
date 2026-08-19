@@ -358,7 +358,7 @@ class TestTheWholeRun:
             "extract",
             # A step even on the runs it does not apply to. It succeeds without stopping
             # when every tag mapped, which is what this fixture's filing does.
-            "gate_uk_financials",
+            "gate_unmapped_concepts",
             # The task 37 wave: the calculation and the five research workers share their
             # dependency on the financials gate. Without a session factory in services —
             # this test's shape — the engine takes them one at a time, in declared order,

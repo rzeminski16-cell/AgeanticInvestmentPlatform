@@ -25,9 +25,11 @@ from sqlalchemy.exc import IntegrityError as DbIntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.core.enums import Provider, RequestStatus, SourceTier, UserRole
+from aer.core.schemas.injection import Finding, InjectionSignal
 from aer.db.models import Artefact, AuditEvent, ResearchRequest, SourceDocument, User
 from aer.errors import IntegrityError, ValidationError
 from aer.services.artefacts import store_artefact, store_artefact_stream, verify_artefact
+from aer.services.injection import record_findings
 from aer.services.sources import (
     NO_PUBLICATION_DATE,
     NOT_CITABLE,
@@ -730,3 +732,58 @@ class TestVerifyingThroughTheService:
         assert event is not None
         assert event.payload["sha256"] == artefact.sha256
         assert event.actor == "nightly-check"
+
+
+class TestInformationalFindingsDoNotFlag:
+    """Polish P9: the badge follows the findings that mean something.
+
+    Inline XBRL's hidden facts are recorded for the reviewer but marked informational by
+    the scanner; a document carrying only those must not light the injection badge — a
+    badge on every clean filing is a badge nobody reads on the day one matters.
+    """
+
+    @staticmethod
+    async def _document(db_session, request_row, artefact):
+        return await record_source_document(
+            db_session,
+            request=request_row,
+            artefact=artefact,
+            url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",
+            provider=Provider.SEC_EDGAR,
+            source_tier=SourceTier.T1_REGULATORY,
+            publication_date=date(2026, 6, 12),
+        )
+
+    async def test_informational_only_findings_store_without_flagging(
+        self, db_session, request_row, artefact
+    ):
+        document = await self._document(db_session, request_row, artefact)
+
+        recorded = await record_findings(
+            db_session,
+            document=document,
+            findings=(
+                Finding.of(InjectionSignal.HIDDEN_TEXT, detail="inline XBRL header").model_copy(
+                    update={"informational": True}
+                ),
+            ),
+        )
+
+        assert recorded.injection_flagged is False
+        assert recorded.injection_findings, "the reviewer still sees the record"
+
+    async def test_one_full_weight_finding_flags_as_before(self, db_session, request_row, artefact):
+        document = await self._document(db_session, request_row, artefact)
+
+        recorded = await record_findings(
+            db_session,
+            document=document,
+            findings=(
+                Finding.of(InjectionSignal.HIDDEN_TEXT, detail="inline XBRL header").model_copy(
+                    update={"informational": True}
+                ),
+                Finding.of(InjectionSignal.INSTRUCTION_OVERRIDE, detail="asks to be obeyed"),
+            ),
+        )
+
+        assert recorded.injection_flagged is True

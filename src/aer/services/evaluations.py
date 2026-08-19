@@ -78,7 +78,13 @@ from aer.render.markdown import serialise_markdown
 from aer.sections.registry import sections_for_job
 from aer.verify.citations import verify_job_citations
 
-__all__ = ["MAX_ASSISTS", "evaluate_run", "evaluations_for_job", "section_coverage_for_job"]
+__all__ = [
+    "MAX_ASSISTS",
+    "NUMERIC_CEILING",
+    "evaluate_run",
+    "evaluations_for_job",
+    "section_coverage_for_job",
+]
 
 _log = structlog.get_logger("aer.services.evaluations")
 
@@ -95,8 +101,10 @@ _QUESTION_CHARS: Final = 600
 _PRIMARY_RANK: Final = 2
 
 # The largest value NUMERIC(20, 8) can hold — what an infinite replay delta is stored
-# as, with the true value kept in the details.
-_NUMERIC_CEILING: Final = Decimal("999999999999.99999999")
+# as, with the true value kept in the details. Public because the renderer needs to
+# recognise a clamped score: twelve nines in a validation table read as a crashed
+# validator, not as "unbounded" (polish P9).
+NUMERIC_CEILING: Final = Decimal("999999999999.99999999")
 
 
 @dataclass(slots=True)
@@ -628,7 +636,7 @@ async def _write(
             # the failing verdict stands either way.
             if not value.is_finite():
                 details["value"] = str(value)
-                value = _NUMERIC_CEILING
+                value = NUMERIC_CEILING
             row = Evaluation(
                 job_id=job_id,
                 metric=metric.value,

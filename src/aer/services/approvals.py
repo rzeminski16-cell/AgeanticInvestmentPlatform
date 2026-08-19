@@ -44,7 +44,7 @@ _log = structlog.get_logger("aer.services.approvals")
 # has been approved.
 GATE_ORDER: Final[tuple[GateKind, ...]] = (
     GateKind.PLAN,
-    GateKind.UK_FINANCIALS,
+    GateKind.UNMAPPED_CONCEPTS,
     GateKind.PEER_SET,
     GateKind.SECTOR_SPECIALIST,
     GateKind.ASSUMPTIONS,
@@ -56,7 +56,7 @@ GATE_ORDER: Final[tuple[GateKind, ...]] = (
 # because a run that never needed a peer set should not be stuck waiting to approve one.
 _CONDITIONAL: Final[frozenset[GateKind]] = frozenset(
     {
-        GateKind.UK_FINANCIALS,
+        GateKind.UNMAPPED_CONCEPTS,
         GateKind.PEER_SET,
         GateKind.SECTOR_SPECIALIST,
         # Conditional because a run whose sector mandate blocks a discounted cash flow has

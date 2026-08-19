@@ -98,8 +98,11 @@ _CURRENCY_PATTERN: Final = re.compile(r"\A[A-Z]{3}\Z")
 _KNOWN_SYMBOLS: Final[frozenset[str]] = frozenset({"shares", "year", "day"})
 
 # EDGAR writes a dimensionless ratio as "pure". Mapped rather than treated as a base
-# symbol, because it is not a dimension -- it is the absence of one.
-_DIMENSIONLESS_ALIASES: Final[frozenset[str]] = frozenset({"pure", "ratio", "", "1"})
+# symbol, because it is not a dimension -- it is the absence of one. "segment" joins the
+# aliases as a dimensionless count (polish P9): filers tag NumberOfOperatingSegments and
+# NumberOfReportableSegments with it, and a count of segments is a bare number, not a
+# dimension anything divides by -- the alternative warned six times on every clean run.
+_DIMENSIONLESS_ALIASES: Final[frozenset[str]] = frozenset({"pure", "ratio", "", "1", "segment"})
 
 
 class CalculationError(AerError):

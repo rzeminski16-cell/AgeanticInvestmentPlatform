@@ -594,6 +594,22 @@ Two further changes:
 
 **Severity: low**, all of them, and all cheap. Grouped because they share a commit and none
 justifies its own.
+**Status: done**, all six. (1) A clamped score renders as "unbounded (clamped at 1e12)" —
+`NUMERIC_CEILING` went public and the validation-row builder recognises it. (2) The
+validation summary names the CI-only metrics, derived as `BLOCKING − RUN_TIME` so a
+metric that moves between the gate and the runtime moves in the sentence without an
+edit. (3) `Finding` gained `informational`; on a document carrying `<ix:` fact tags the
+scanner marks `hidden_text`/`invisible_styling` informational — still stored for the
+reviewer, but `record_findings` flags and warns only on full-weight findings, and the
+detection cannot be bought by naming a content type because it reads the markup itself.
+An instruction phrase inside an iXBRL filing keeps full weight. (4) `segment` joined the
+dimensionless aliases. (5) Migration 0046 renames the gate to `UNMAPPED_CONCEPTS` —
+`ALTER TYPE ... RENAME VALUE` carries the historical `approvals` rows through the
+catalog, and the migration also renames the historical step keys, idempotency keys and
+recorded step outputs, verified both directions against seeded old-named rows. (6) The
+no-subscription price reason now names every consequence: no beta, no market
+capitalisation, no multiple for the subject or any peer — the assumptions gate's
+per-name explanation had already landed in an earlier fix.
 
 1. **The saturation sentinel reaches print.** `_NUMERIC_CEILING` (`evaluations.py:99`) is
    `999999999999.99999999`, and it appeared in the published PDF against a threshold of

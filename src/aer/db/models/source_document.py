@@ -241,7 +241,11 @@ class SourceDocument(Base):
         # A flag with no findings, or findings with no flag, would be a record nobody could
         # act on: the page shows the passages, and the badge is what sends a reviewer to them.
         CheckConstraint(
-            "injection_flagged = (injection_findings IS NOT NULL"
+            # One direction only since migration 0047 (polish P9): a flag with no
+            # findings is a badge nobody can act on, but findings no longer force the
+            # flag — informational rows (inline XBRL's own hidden facts) are recorded
+            # for the reviewer without lighting it.
+            "NOT injection_flagged OR (injection_findings IS NOT NULL"
             " AND jsonb_array_length(injection_findings) > 0)",
             name="ck_source_documents_flagged_has_findings",
         ),

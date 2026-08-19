@@ -33,9 +33,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.db.models import Disagreement, Evaluation, Job, ResearchRequest, SectionStatus
-from aer.eval import THRESHOLDS, Direction, Metric
+from aer.eval import BLOCKING, RUN_TIME, THRESHOLDS, Direction, Metric
 from aer.sections.registry import sections_for_job
 from aer.sections.valuation_method import commentary_problems, valuation_method_block
+from aer.services.evaluations import NUMERIC_CEILING
 from aer.services.history import prior_comparison_content
 
 __all__ = [
@@ -173,9 +174,17 @@ def _summary(evaluations: list[Evaluation], disagreements: list[Disagreement]) -
     failed = sum(1 for row in evaluations if row.passed is False)
     unexercised = sum(1 for row in evaluations if row.passed is None)
 
+    # The guarantees this run did not measure, named rather than left to inference
+    # (polish P9): they need corpora of attacks and mismatches a well-behaved run does
+    # not contain, and four guarantees a reader cannot account for is worse than four
+    # they can see are covered elsewhere. Derived from the metric sets, so a metric that
+    # moves between the CI gate and the runtime moves here without an edit.
+    ci_only = sorted(metric.value for metric in set(BLOCKING) - set(RUN_TIME))
     parts = [
         f"The run's validators measured {len(evaluations)} metric(s): "
-        f"{passed} passed, {failed} failed, {unexercised} not exercised."
+        f"{passed} passed, {failed} failed, {unexercised} not exercised. "
+        f"{_spoken_list(ci_only)} are corpus metrics, measured by the CI evaluation "
+        "gate against adversarial fixtures rather than against any one run."
     ]
     if disagreements:
         escalated = sum(1 for row in disagreements if row.resolution == "escalated")
@@ -190,6 +199,13 @@ def _summary(evaluations: list[Evaluation], disagreements: list[Disagreement]) -
     else:
         parts.append("No disagreements between sources were recorded.")
     return " ".join(parts)
+
+
+def _spoken_list(names: list[str]) -> str:
+    """``a, b and c`` — a sentence's list, not a repr's."""
+    if len(names) <= 1:
+        return "".join(names)
+    return f"{', '.join(names[:-1])} and {names[-1]}"
 
 
 def _validation_row(row: Evaluation) -> dict[str, str]:
@@ -210,9 +226,19 @@ def _validation_row(row: Evaluation) -> dict[str, str]:
     else:
         verdict = "not exercised"
 
+    if row.value is None:
+        score = "\N{EM DASH}"
+    elif row.value == NUMERIC_CEILING:
+        # The column's saturation value, not a measurement: an infinite replay delta is
+        # stored clamped (the true value lives in the details). Twelve nines in a printed
+        # table read as a crashed validator, so the rendering says what the row means.
+        score = "unbounded (clamped at 1e12)"
+    else:
+        score = str(row.value)
+
     return {
         "metric": row.metric,
-        "score": str(row.value) if row.value is not None else "—",
+        "score": score,
         "threshold": threshold,
         "verdict": verdict,
     }

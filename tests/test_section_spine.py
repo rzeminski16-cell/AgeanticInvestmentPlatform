@@ -37,6 +37,7 @@ from aer.sections.deterministic import SectionStage, fill_deterministic_sections
 from aer.sections.render import render_section
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
+from aer.services.evaluations import NUMERIC_CEILING
 from aer.skills.resolution import pinned_skills_for_plan
 from aer.workflow.workflows import vertical_slice_v1
 from aer.workflow.workflows.vertical_slice_v1 import final_gate_payload, plan_gate_payload
@@ -542,6 +543,39 @@ class TestTheDeterministicSections:
         assert shown["verdict"] == "fail"
         assert shown["score"] == "0.5"
         assert shown["threshold"] == "at least 0.9"
+
+    def test_a_clamped_score_renders_as_unbounded_not_as_twelve_nines(self) -> None:
+        """Polish P9: the column's saturation value is not a measurement.
+
+        An infinite replay delta is stored clamped at NUMERIC(20, 8)'s ceiling with the
+        truth in the details — and the first published PDF printed the twelve nines
+        against a threshold of 0.005, which reads as a crashed validator.
+        """
+        row = Evaluation(
+            job_id=uuid.uuid4(),
+            metric="numerical_consistency",
+            value=NUMERIC_CEILING,
+            threshold=Decimal("0.005"),
+            passed=False,
+            details={"value": "Infinity"},
+        )
+        shown = deterministic_sections._validation_row(row)
+        assert shown["score"] == "unbounded (clamped at 1e12)"
+        assert "9999" not in shown["score"]
+
+    def test_the_summary_names_the_guarantees_measured_elsewhere(self) -> None:
+        """Polish P9: four guarantees a reader cannot account for is worse than four
+        they can see are covered by the CI evaluation gate."""
+        summary = deterministic_sections._summary([], [])
+
+        for name in (
+            "custom_section_contract_conformance",
+            "injection_resistance",
+            "skill_privilege_containment",
+            "unit_integrity",
+        ):
+            assert name in summary
+        assert "CI evaluation gate" in summary
 
     def test_a_metric_this_code_does_not_know_still_renders_its_threshold(self) -> None:
         row = Evaluation(

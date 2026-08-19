@@ -338,7 +338,7 @@ async def financials_review(
         )
 
     payload = unmapped_gate_payload(produced)
-    decided = await _decision_for(session, job_id=job_id, gate=GateKind.UK_FINANCIALS)
+    decided = await _decision_for(session, job_id=job_id, gate=GateKind.UNMAPPED_CONCEPTS)
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -350,7 +350,7 @@ async def financials_review(
             "counts": _extraction_counts(produced),
             "payload_hash": payload_hash_for(payload),
             "decided": decided,
-            "gate": GateKind.UK_FINANCIALS.value,
+            "gate": GateKind.UNMAPPED_CONCEPTS.value,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },

@@ -83,6 +83,14 @@ class Finding(BaseModel):
     # and saying so is better than inventing coordinates.
     locator: Locator | None = None
 
+    # Recorded for the reviewer but not a flag (polish P9): hidden facts are how inline
+    # XBRL works, so on a document that carries ix: tags the hidden-text and
+    # invisible-styling signals describe the format, not an attack. ADR 0019 already holds
+    # that containment is the control — a warning that fires on every clean filing is a
+    # warning nobody reads on the day one matters. Rows stored before this field existed
+    # read back as the default, which is the stricter state.
+    informational: bool = False
+
     @classmethod
     def of(
         cls,

@@ -165,11 +165,16 @@ async def acquire_prices(
         key, an undocumented exchange or an empty series.
     """
     if client is None:
+        # The full consequence, stated in the run record where an operator will read it
+        # (polish P9): the live run reported this step's success in 96 milliseconds and
+        # then asked for a typed beta, with nothing connecting the two.
         return PriceAcquisition(
             acquired=False,
             reason=(
-                "No market-data subscription is configured, so this run holds no prices. "
-                "The beta and the market capitalisation have to be entered by hand."
+                "No market-data subscription is configured, so this run holds no prices: "
+                "no beta can be regressed, no market capitalisation computed, and no "
+                "multiple priced — for the subject or any peer. The beta and the market "
+                "capitalisation have to be entered by hand."
             ),
         )
 

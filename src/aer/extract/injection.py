@@ -201,7 +201,41 @@ def scan_markup(tree: HTMLParser, text: str) -> tuple[Finding, ...]:
 
     findings += _instructive_comments(tree.html or "")
 
+    if _is_inline_xbrl(tree):
+        # Hidden facts are how inline XBRL works: the format's own header is a hidden
+        # block, and a clean 10-K trips these two signals a hundred times over (polish
+        # P9). The findings stay recorded — a reviewer can still read them — but marked
+        # informational, so they no longer flag the document or fill the log. ADR 0019:
+        # containment is the control, and detection loses nothing the security argument
+        # depends on. Every other signal, and every other document type, keeps full
+        # weight.
+        findings = [
+            finding.model_copy(update={"informational": True})
+            if finding.signal in _IXBRL_STRUCTURAL_SIGNALS
+            else finding
+            for finding in findings
+        ]
+
     return tuple(findings)
+
+
+# The signals that describe inline XBRL's own mechanics rather than an attack, on the
+# documents that carry it. Hidden text and invisible styling only: an instructive comment
+# or an override phrase is as suspicious inside an iXBRL filing as anywhere else.
+_IXBRL_STRUCTURAL_SIGNALS: Final = frozenset(
+    {InjectionSignal.HIDDEN_TEXT, InjectionSignal.INVISIBLE_STYLING}
+)
+
+
+def _is_inline_xbrl(tree: HTMLParser) -> bool:
+    """Whether this document carries inline XBRL tagging.
+
+    Decided by the presence of ``<ix:`` fact elements — the tags that *are* the format —
+    rather than by anything the caller declares, so the downgrade cannot be bought by
+    naming a content type. A substring over the serialised tree rather than a CSS
+    selector, because the selector engine cannot address namespaced tag names.
+    """
+    return "<ix:" in (tree.html or "").lower()
 
 
 # -- Internals -------------------------------------------------------------------------------
