@@ -555,6 +555,13 @@ subject.
 ## Task P8 — Cost estimates recalibrated
 
 **Severity: medium.**
+**Status: done** — the seven constants in `vertical_slice_v1.py` now carry the table's
+new figures with each measurement recorded beside it (total £6.94), and
+`test_the_shipped_configuration_can_run_the_shipped_workflow` parses `.env.example` and
+asserts the estimate sum fits the shipped per-run budget (mutation-verified: an £11
+draft estimate fails it). One item was already closed by an earlier fix: `.env.example`
+ships `AER_PER_RUN_BUDGET_GBP=12.00`, not the 2.50 this plan was written against, so no
+raise to 10.00 was needed — the test is what keeps that true.
 
 | Step | Estimate | Actual | New estimate |
 |---|---|---|---|

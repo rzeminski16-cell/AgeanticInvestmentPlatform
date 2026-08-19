@@ -157,35 +157,38 @@ _log = structlog.get_logger("aer.workflow.vertical_slice")
 WORKFLOW_VERSION: Final = "vertical_slice_v1"
 
 # What the planner step is expected to cost. Used by the budget guard *before* the call, so
-# it is necessarily an estimate; the real figure is metered afterwards. Deliberately
-# generous — a guard that underestimates lets a run through it should have paused.
-PLANNER_ESTIMATE_GBP: Final = Decimal("0.15")
+# it is necessarily an estimate; the real figure is metered afterwards. Every figure below
+# was recalibrated against the first complete run (polish P8): an estimate sits at or a
+# little above the observed cost, because the guard checks each step's projection before
+# running it and a figure 2.4x low is 2.4x less protection at that step — while one 4x
+# high pauses runs the budget could actually afford. The planner measured £0.171.
+PLANNER_ESTIMATE_GBP: Final = Decimal("0.20")
 
 # Per research worker (task 37): a bounded request/execute loop on the analysis route.
-# Generous for the same reason as the planner's — an estimate that understates lets a run
-# through the guard that it should have paused.
-WORKER_ESTIMATE_GBP: Final = Decimal("0.10")
+# Measured £0.083-£0.241 across the five workers; the estimate covers the dearest.
+WORKER_ESTIMATE_GBP: Final = Decimal("0.25")
 
 # The validate step (task 39): at most a handful of capped advisory calls on the
-# validator route, and frequently none at all — the deterministic rows cost nothing.
-VALIDATOR_ESTIMATE_GBP: Final = Decimal("0.05")
+# validator route, and frequently none at all — the run measured £0.00, and the
+# deterministic rows cost nothing.
+VALIDATOR_ESTIMATE_GBP: Final = Decimal("0.02")
 
-# The red team (task 40): §1.8 budgets the bear case at 90k in / 10k out on Opus via the
-# batch path (~£0.85 at current rates). Generous for the same reason as every estimate
-# here, and zero-cost on the runs that skip it for want of claims.
-RED_TEAM_ESTIMATE_GBP: Final = Decimal("1.00")
+# The red team (task 40): §1.8 budgeted the bear case at 90k in / 10k out on Opus via the
+# batch path; the run measured £0.251. Zero-cost on the runs that skip it for want of
+# claims.
+RED_TEAM_ESTIMATE_GBP: Final = Decimal("0.35")
 
 # The assumption proposals (gap B2c, ADR 0046): one Opus call at high effort returning two
-# short justifications. Small, but the input carries the derived history and the run's
-# findings, so it is not free.
-ASSUMPTIONS_ESTIMATE_GBP: Final = Decimal("0.20")
+# short justifications. The input carries the derived history and the run's findings, so
+# it is not free — but it measured £0.065, a third of the original guess.
+ASSUMPTIONS_ESTIMATE_GBP: Final = Decimal("0.10")
 
 # The peer proposal (ADR 0059): one workhorse call at medium effort whose input is the
 # company's identity and classification and whose output is at most eight short entries.
-# The cheapest model call in the workflow, and it carries an estimate for the reason the
-# draft eventually did — a step with no estimate is a step the budget guard waves through,
-# and ADR 0052 makes that a test rather than a convention.
-PEER_PROPOSAL_ESTIMATE_GBP: Final = Decimal("0.05")
+# The cheapest model call in the workflow — measured £0.014 — and it carries an estimate
+# for the reason the draft eventually did: a step with no estimate is a step the budget
+# guard waves through, and ADR 0052 makes that a test rather than a convention.
+PEER_PROPOSAL_ESTIMATE_GBP: Final = Decimal("0.02")
 
 # The draft: one Opus call per model-written section, and by a wide margin the most
 # expensive step in the workflow — a measured £5.17 on the first full live run.
@@ -196,11 +199,12 @@ PEER_PROPOSAL_ESTIMATE_GBP: Final = Decimal("0.05")
 # ceiling could not pause, which is invariant 6's failure mode exactly — a cap that does not
 # see the biggest spender is a cap that does not work.
 #
-# Generous for the reason every estimate here is generous: understating lets a run through
-# the guard that should have paused it. The guard is still only checked *before* the step, so
+# Recalibrated to the measurement: £4.84 on the complete run (the earlier, crashed run's
+# £5.17 predates the length salvage that stopped paid drafts being discarded), with the
+# margin above it. The guard is still only checked *before* the step, so
 # this bounds when the draft may start, not what it may spend once running; per-section
 # checking is a larger change than this one and is recorded as a gap rather than smuggled in.
-DRAFT_ESTIMATE_GBP: Final = Decimal("6.00")
+DRAFT_ESTIMATE_GBP: Final = Decimal("5.00")
 
 # How long the explicit forecast runs before the terminal value takes over. Five years is
 # the convention, and the derived proposals are flat across it in any case — an operator who

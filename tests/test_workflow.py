@@ -14,6 +14,7 @@ enforce order and singularity.
 from __future__ import annotations
 
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -721,6 +722,30 @@ class TestEveryStepThatSpendsIsOneTheGuardCanSee:
 
         assert estimates["draft"] > 0
         assert estimates["draft"] == max(estimates.values())
+
+    def test_the_shipped_configuration_can_run_the_shipped_workflow(self) -> None:
+        """Polish P8: the example env's per-run budget covers the workflow's estimates.
+
+        Request validation refuses a ``max_cost_gbp`` above the configured budget, and the
+        budget guard projects each step's estimate before running it — so if the estimate
+        sum ever exceeds what ``.env.example`` ships, anyone setting up from the example
+        cannot request the workflow this repository is built around. That breaks only for
+        a new user, who is the least equipped to diagnose it, which is why it is a test.
+        """
+        example = Path(__file__).resolve().parent.parent / ".env.example"
+        stated = next(
+            line
+            for line in example.read_text(encoding="utf-8").splitlines()
+            if line.startswith("AER_PER_RUN_BUDGET_GBP=")
+        )
+        shipped_budget = Decimal(stated.split("=", 1)[1].strip())
+
+        total = sum(step.estimated_cost_gbp for step in build_steps())
+
+        assert total <= shipped_budget, (
+            f"the workflow's step estimates sum to £{total}, above the £{shipped_budget} "
+            "per-run budget .env.example ships — a fresh setup could never run it"
+        )
 
 
 class TestTheBudgetGuard:
