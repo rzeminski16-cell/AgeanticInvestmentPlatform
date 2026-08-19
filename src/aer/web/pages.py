@@ -89,6 +89,7 @@ from aer.services.disagreements import disagreements_for_job
 from aer.services.escalation import cost_scene_for_job
 from aer.services.evaluations import evaluations_for_job, section_coverage_for_job
 from aer.services.exhibits import exportable_charts_for, internal_charts_for
+from aer.services.graph_view import graph_picture
 from aer.services.knowledge import knowledge_stats
 from aer.services.run_replay import replay_run
 from aer.services.sectors import (
@@ -1426,6 +1427,23 @@ async def knowledge_page(
     """
     stats = await knowledge_stats(session, settings=settings)
     page: Response = render(request, "knowledge/index.html", {"stats": stats})
+    return page
+
+
+@router.get("/knowledge/graph", response_class=HTMLResponse, summary="The knowledge graph, drawn")
+async def knowledge_graph_page(
+    request: Request,
+    session: DbSession,
+    user: CurrentUser,  # noqa: ARG001 -- authentication; the graph is the installation's
+) -> Response:
+    """The in-app picture (K4b): confirmed relations laid out server-side as static SVG.
+
+    Unscoped for the same reason the measurements are, and drawn entirely in Python — the
+    page carries coordinates, not a script, so what the browser shows is exactly what the
+    rows say.
+    """
+    picture = await graph_picture(session)
+    page: Response = render(request, "knowledge/graph.html", {"picture": picture})
     return page
 
 

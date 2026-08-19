@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{# The knowledge graph drawn (docs/knowledge-graph.md, K4b). Every coordinate was
+   computed server-side from confirmed rows; the SVG is static and monochrome —
+   currentColor follows the page's own text colour, so the picture needs no stylesheet
+   of its own and no script. #}
+
+{% block title %}Knowledge graph{% endblock %}
+
+{% block content %}
+  <h1 class="text-2xl font-semibold tracking-tight">Knowledge graph</h1>
+  <p class="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+    The confirmed relations, drawn. A filled circle is a researched company, a hollow one
+    a stub named as a comparable and never researched itself, a diamond a confirmed
+    theme. Solid lines are confirmed comparable relations; dashed lines are theme
+    memberships. Only confirmed state is drawn &mdash; a proposal nobody approved is not
+    an edge here, exactly as it is not one in the vault.
+  </p>
+
+  {% if picture.nodes %}
+    <div class="mt-6 overflow-x-auto rounded-md border border-slate-200 p-4 dark:border-slate-800">
+      <svg
+        id="graph-picture"
+        viewBox="0 0 {{ picture.width }} {{ picture.height }}"
+        width="{{ picture.width }}"
+        height="{{ picture.height }}"
+        role="img"
+        aria-label="The knowledge graph: companies and themes joined by confirmed relations"
+        class="text-slate-800 dark:text-slate-200"
+      >
+        {% for edge in picture.edges %}
+          <line
+            x1="{{ edge.x1 }}" y1="{{ edge.y1 }}" x2="{{ edge.x2 }}" y2="{{ edge.y2 }}"
+            stroke="currentColor" stroke-width="1.5"
+            {% if edge.kind == "membership" %}
+              stroke-opacity="0.35" stroke-dasharray="5 4" class="edge-membership"
+            {% else %}
+              stroke-opacity="0.55" class="edge-comparable"
+            {% endif %}
+          />
+        {% endfor %}
+        {% for placed in picture.nodes %}
+          {% if placed.node.kind == "company" %}
+            <a href="{{ placed.node.href }}" class="node-company">
+              <title>{{ placed.node.title }}</title>
+              {% if placed.node.researched %}
+                <circle cx="{{ placed.x }}" cy="{{ placed.y }}" r="9" fill="currentColor" />
+              {% else %}
+                <circle cx="{{ placed.x }}" cy="{{ placed.y }}" r="8" fill="none"
+                        stroke="currentColor" stroke-width="2" />
+              {% endif %}
+              <text x="{{ placed.x }}" y="{{ placed.y + 25 }}" text-anchor="middle"
+                    font-size="11" font-family="ui-monospace, monospace"
+                    fill="currentColor">{{ placed.node.label }}</text>
+            </a>
+          {% else %}
+            <g class="node-theme">
+              <title>{{ placed.node.title }}</title>
+              <rect x="{{ placed.x - 8 }}" y="{{ placed.y - 8 }}" width="16" height="16"
+                    transform="rotate(45 {{ placed.x }} {{ placed.y }})" fill="none"
+                    stroke="currentColor" stroke-width="2" />
+              <text x="{{ placed.x }}" y="{{ placed.y + 27 }}" text-anchor="middle"
+                    font-size="11" fill="currentColor">{{ placed.node.label }}</text>
+            </g>
+          {% endif %}
+        {% endfor %}
+      </svg>
+    </div>
+  {% else %}
+    <p class="mt-6 max-w-3xl text-sm text-slate-600 dark:text-slate-400" id="graph-empty">
+      Nothing to draw yet. The graph grows one approved report at a time &mdash; once a
+      run is approved, its company, its confirmed comparables and its confirmed themes
+      appear here.
+    </p>
+  {% endif %}
+
+  <p class="mt-8 text-xs text-slate-500 dark:text-slate-500">
+    The measurements behind this picture are on the
+    <a href="/knowledge" class="text-sky-700 dark:text-sky-400">knowledge page</a>. For a
+    richer, explorable view, the Obsidian vault's native graph remains the better
+    instrument &mdash; this page is the map at a glance.
+  </p>
+{% endblock %}

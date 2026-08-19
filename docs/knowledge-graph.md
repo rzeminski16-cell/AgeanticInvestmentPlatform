@@ -31,9 +31,9 @@ decision that changes an invariant.
 | Themes — cross-company connective tissue | **Built** (K1) | `services/themes.py`, ADR 0065 |
 | Feed-forward: prior research informing a new run | **Built** (K2) | `history.prior_digest_for`, ADR 0064 |
 | Assumption outcomes measured across runs | **Built** (K3) | `calc/outcomes.py`, `history.assumption_outcomes_for` |
-| Catalyst resolution beyond the calendar | **Built** (K4) | `catalyst_resolutions`, `services/catalysts.py` |
+| Catalyst resolution beyond the calendar | **Built** (K4) | `catalyst_resolutions`, `services/catalyst_resolutions.py` |
 | Statistics and monitoring of the graph | **Built** (K5) | `services/knowledge.py` |
-| **In-app graph view** | **Not built** | Obsidian's own view only |
+| In-app graph view | **Built** (K4b) | `services/graph_view.py`, `/knowledge/graph` |
 | `obsidian_linker` model route | **Deleted** (K6) | superseded by `theme_proposal`, ADR 0065 |
 
 The honest summary: **the layer this document planned is built.** The map records what
@@ -41,9 +41,10 @@ you have researched, compares a company against its own past, reports its own si
 decay, puts prior conclusions in front of a new run's planner as questions to ask, links
 companies across industries through confirmed themes, measures each confirmed forecast
 driver against the first fiscal year it forecast, and lets the operator record what
-actually happened when a catalyst's window closed. The one deliberate absence left is the
-in-app graph *view* (K4b) — the statistics measure the graph and the vault draws it, and
-that division has so far cost nothing.
+actually happened when a catalyst's window closed. The last deliberate absence — the
+in-app graph *view* (K4b) — closed once everything it would draw existed: `/knowledge/graph`
+renders the confirmed relations as a static picture computed in Python, while Obsidian's
+own view remains the richer instrument for exploring.
 
 ---
 
@@ -424,6 +425,42 @@ accepted, duplication, resolved-still-open, projection dropped — was caught in
 the first run. No ADR: no invariant moved, and the one rule that mattered ("never a
 model's answer") was already this section's own text.
 
+### K4b — The in-app graph view
+
+**Why last, and why small.** A picture of a graph is worth much less than the statistics
+about it, and the vault already draws one. The view earns its place only once everything
+it would draw exists — which, after K1–K5, it does.
+
+**Delivered (2026-08-19).** `/knowledge/graph`, linked from the knowledge page. The
+picture is a static SVG whose every coordinate is computed server-side in
+`services/graph_view.py`: no model call takes part, no script runs in the browser, and
+the same rows always draw the same picture — which is what lets a test hold the drawing
+rather than eyeball it. No vendored graph library either; a force simulation would buy
+prettiness with nondeterminism, and Obsidian's native view already exists for the pretty
+picture.
+
+What it draws is exactly what the rest of the layer confirms. The node universe is the
+one the statistics count — `researched_companies` was promoted to public so the picture
+and the counts could not quietly diverge — plus each theme with a confirmed member,
+drawn as its own node with a spoke per membership, because `Company ↔ Theme` is the
+stored relation and a clique per theme would invent edges nobody confirmed individually.
+Researched companies are filled circles linking to their history pages, stubs are hollow,
+comparable edges are solid and drawn once, memberships are dashed. A proposed-but-
+unapproved peer set or a membership through a draft report contributes nothing, pinned on
+this path as on every other projection. The layout is deliberately naive — each connected
+component on its own circle by the exporter's own reachability walk, components packed
+into rows, largest first — and monochrome via `currentColor`, so it needs no stylesheet
+of its own.
+
+Tested at both halves: the pure layout (determinism, no coincident nodes, every line
+ending on a node, the symmetric relation deduplicated, canvas bounds, row wrapping) and
+the assembly against a seeded scene where a confirmed theme is the only bridge between
+two components. An eight-mutation sabotage pass — draft filter dropped, dedup skipped,
+stubs claiming research, circles collapsed to a point, packing never wrapping, lines
+drifting off their nodes, stubs vanishing from the universe, spokes never drawn — was
+caught in full on the first run. No migration and no ADR: a read-only projection of rows
+every other surface already reads.
+
 ### K5 — Statistics and monitoring
 
 **Why.** There is currently *no* way to ask how big the map is, how connected, how stale
@@ -506,9 +543,9 @@ K5 first: it is small, it has no dependencies, and it makes the effect of everyt
 after it visible. Then K2, the largest single improvement to research quality per line
 changed. Then K1, the biggest build, which resolved K6 in passing. Then K3, the
 evaluative half's deterministic part. Then K4, the operator's answer to a closed window.
-**All six are delivered.** What this plan leaves open is K4b alone — the in-app graph
-view — kept deliberately small and deliberately last, because a picture of a graph is
-worth much less than the statistics about it, and the vault already draws one.
+And finally K4b, kept deliberately small and deliberately last, because a picture of a
+graph is worth much less than the statistics about it — drawn only once everything it
+would draw existed. **Everything this plan set out is delivered.**
 
 ---
 
@@ -516,7 +553,7 @@ worth much less than the statistics about it, and the vault already draws one.
 
 **The measurements.** K5 is built: `/knowledge`, `GET /api/knowledge` and `aer knowledge`
 report size, shape, coverage, freshness and vault health from one service. They measure
-the graph rather than draw it — for the picture, the vault is still the place.
+the graph; `/knowledge/graph` draws it (K4b), and the vault draws it more richly still.
 
 The instruments that were here before it, and remain the way to see structure:
 
@@ -535,8 +572,9 @@ and prints the files it wrote; `aer knowledge` prints the aggregate that list us
 to stand in for.
 
 **In the application.** The report page shows the export status for that report; the
-`/knowledge` page carries the aggregate. Neither draws the graph — an in-app node-and-edge
-view remains unbuilt, and Obsidian's own is better than a first attempt at one.
+`/knowledge` page carries the aggregate; and `/knowledge/graph` (K4b) draws the confirmed
+relations as a static, server-computed picture — the map at a glance, with Obsidian's own
+view remaining the richer instrument for actually exploring it.
 
 **A caveat worth stating plainly.** With a single approved run the graph is one node and
 the comparison section correctly says "first research run". Nothing in this layer is

@@ -327,7 +327,7 @@ async def knowledge_stats(
     """
     today = as_of or datetime.now(UTC).date()
     edges = await peer_edges(session)
-    researched = await _researched_companies(session)
+    researched = await researched_companies(session)
     nodes = set(edges) | set(researched)
 
     size = await _size(session, nodes=nodes, researched=researched, today=today)
@@ -360,8 +360,13 @@ async def knowledge_stats(
 # -- The database half ------------------------------------------------------------------
 
 
-async def _researched_companies(session: AsyncSession) -> dict[uuid.UUID, Company]:
-    """Every company carrying at least one approved report, by id."""
+async def researched_companies(session: AsyncSession) -> dict[uuid.UUID, Company]:
+    """Every company carrying at least one approved report, by id.
+
+    Public because "a researched company" is part of what the knowledge graph *is*: the
+    statistics count that universe and the K4b picture draws it, and two definitions
+    would eventually disagree about which nodes exist.
+    """
     rows = await session.scalars(
         select(Company)
         .join(Report, Report.company_id == Company.id)
