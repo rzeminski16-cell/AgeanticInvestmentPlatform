@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import HouseStyle, Settings
 from aer.core.enums import Decision, GateKind
-from aer.db.models import Artefact, Job, JobStep, Report, SectionDefinition, SourceDocument
+from aer.db.models import Artefact, Job, JobStep, Report, SectionDefinition
 from aer.providers.fake import FakeProvider
 from aer.render import display
 from aer.services import approvals as approval_service
@@ -398,24 +398,34 @@ class TestCitationsResolve:
     async def test_the_appendix_hash_matches_the_stored_artefact(
         self, report: Report, run_context: dict
     ) -> None:
-        """The reader can take the digest, find the bytes and confirm they are the bytes."""
+        """The reader can take a printed digest, find the bytes and confirm they are
+        the bytes.
+
+        Starts from what the appendix *printed*, not from a stored row, because the two
+        are not the same set: the appendix lists the documents the report cites, and a
+        run legitimately acquires documents it never cites. The previous version picked
+        one of the job's documents with an unordered `scalar()` — so which one it checked
+        shifted with unrelated tests' writes, and it failed only in the full suite,
+        whenever the arbitrary pick landed on an acquired-but-uncited row.
+
+        Confined to the Sources table, because calculation footnotes print a code-version
+        prefix of the same twelve-hex-character shape and a digest check must not be
+        asked to verify a git commit.
+        """
         session: AsyncSession = run_context["session"]
         store: LocalArtefactStore = run_context["store"]
 
-        # Scoped to this run's job. An unfiltered `select` picks an arbitrary row, and once
-        # another module in the suite commits a source document of its own the digest
-        # printed in *this* report stops matching the one this query happens to find.
-        document = await session.scalar(
-            select(SourceDocument).where(SourceDocument.job_id == run_context["job"].id)
-        )
-        assert document is not None
-        artefact = await session.get(Artefact, document.artefact_id)
-        assert artefact is not None
+        _, sources = report.content["markdown"].split("## Sources", 1)
+        printed = set(re.findall(r"`([0-9a-f]{12})`", sources))
+        assert printed, "the Sources table printed no digest at all"
 
-        # The prefix printed in the appendix.
-        assert artefact.sha256[:12] in report.content["markdown"]
-        # And the bytes really are those bytes: verify recomputes the digest from disk.
-        assert await store.verify(artefact.sha256) == artefact.size_bytes
+        artefacts = list(await session.scalars(select(Artefact)))
+        by_prefix = {artefact.sha256[:12]: artefact for artefact in artefacts}
+        for prefix in printed:
+            artefact = by_prefix.get(prefix)
+            assert artefact is not None, f"digest {prefix} resolves to no stored artefact"
+            # And the bytes really are those bytes: verify recomputes the digest from disk.
+            assert await store.verify(artefact.sha256) == artefact.size_bytes
 
 
 def executable_source(path: Path) -> str:
