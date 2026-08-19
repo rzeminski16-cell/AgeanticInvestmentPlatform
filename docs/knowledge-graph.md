@@ -19,7 +19,7 @@ decision that changes an invariant.
 |---|---|---|
 | Vault projection (notes, links, frontmatter) | **Built** | `aer/obsidian/export.py` |
 | Link graph over confirmed state | **Built** | `aer/obsidian/graph.py` |
-| Symmetric competitor edges across the component | **Built** | `graph.py:_peer_edges`, `_reachable` |
+| Symmetric competitor edges across the component | **Built** | `graph.py:peer_edges`, `reachable_from` |
 | Company ↔ industry membership, both directions | **Built** | `IndustryNoteMeta.companies` |
 | Catalyst nodes aggregated across runs | **Built** | `graph.py:CatalystView` |
 | Source nodes with provenance | **Built** | `export.py:_write_source_notes` |
@@ -32,7 +32,7 @@ decision that changes an invariant.
 | **Feed-forward: prior research informing a new run** | **Not built** | — |
 | **Assumption outcomes measured across runs** | **Not built** | — |
 | **Catalyst resolution beyond the calendar** | **Partial** | `CatalystView.resolved_by` |
-| **Statistics and monitoring of the graph** | **Not built** | — |
+| Statistics and monitoring of the graph | **Built** (K5) | `services/knowledge.py` |
 | **In-app graph view** | **Not built** | Obsidian's own view only |
 | `obsidian_linker` model route | **Configured, unbuilt** | `config.py:179` — no agent role |
 
@@ -332,6 +332,41 @@ same numbers, and a JSON endpoint so the figures can be watched over time.
 **Tests.** Each statistic against a seeded graph with a known shape. The stub ratio counts
 a peer-only company as a stub. Drift detection notices a file the DB would not write.
 
+**Delivered (2026-08-19).** `aer/services/knowledge.py` computes size, shape, coverage,
+freshness and vault health from rows alone. Three surfaces read the one service —
+`GET /api/knowledge`, the `/knowledge` page and `aer knowledge` — so a figure quoted from
+the terminal and one read off the page cannot disagree. The command is `aer knowledge`
+rather than the `aer knowledge stats` this section proposed: there is one thing to print,
+and a group with a single member is a prompt to guess the subcommand.
+
+`obsidian/graph.py` gained public `peer_edges` and `reachable_from`. The confirmed peer
+relation *is* the graph: the vault is one projection of it and this service measures it,
+so neither may own the definition privately, and components are found by the same walk the
+exporter uses.
+
+Three figures this section asks for are absent because what they measure does not exist
+yet, and inventing a zero would be worse than an omission: **themes** (K1), **accuracy**
+(K3), and **catalysts passed *but unresolved*** — with no resolution to record until K4,
+every passed catalyst is open, so the list is the full backlog and `OpenCatalyst` says so
+rather than implying a filter that is not applied. What the calendar knows is all that is
+claimed; whether an event happened is not something the platform can know from its rows.
+
+One asymmetry worth recording. `confirmed_classification` raises when a specialist sector
+was proposed and nobody confirmed it — right for a caller that would act on it, since that
+refusal decides which valuation models may run, and wrong for one counting it. The
+measurement catches it and counts the company unclassified, as the graph does with the
+same read; otherwise a single unconfirmed gate anywhere in the database would take all
+three surfaces down.
+
+Tested against a scene of four companies whose shape is known by construction — two
+researched and joined by a confirmed peer set, one stub, one researched company standing
+alone — plus the vault half against a temporary directory, where drift notices a file the
+record does not account for and never reports the personal directory. An eight-mutation
+sabotage pass (edges counted twice, stubs never counted, drift ignoring the record, drift
+walking the whole vault, unexported never listed, passed catalysts ignored, the staleness
+horizon ignored, the classification guard removed) was caught in full. No migration and no
+ADR: every figure is a read of rows that already existed, and no invariant moved.
+
 ### K6 — Decide the `obsidian_linker` route
 
 `config.py` routes an `obsidian_linker` role to Haiku 4.5 at low effort, and
@@ -354,7 +389,11 @@ and K6 whenever convenient.
 
 ## 7. Monitoring and viewing, today
 
-Until K5 exists, the available instruments are:
+**The measurements.** K5 is built: `/knowledge`, `GET /api/knowledge` and `aer knowledge`
+report size, shape, coverage, freshness and vault health from one service. They measure
+the graph rather than draw it — for the picture, the vault is still the place.
+
+The instruments that were here before it, and remain the way to see structure:
 
 **In Obsidian.** Open the vault; the native graph view *is* the map. Filter by
 `tag:#aer/run`, `tag:#aer/company` or a sector tag to see one layer at a time. Local
@@ -363,17 +402,18 @@ frontmatter work because every note carries typed, sorted frontmatter — `aer_k
 `as_of_date`, `rating`, `confidence` are all queryable.
 
 **In the database.** The graph is `companies`, confirmed `job_steps` outputs for peer sets
-and classifications, `reports`, and `obsidian_exports`. Anything K5 will compute can be
-computed by hand today with SQL.
+and classifications, `reports`, and `obsidian_exports` — the same rows K5 reads, still
+queryable by hand for anything it does not compute.
 
 **From the command line.** `aer export-obsidian <report-id>` writes a report's component
-and prints the files it wrote — the only aggregate signal available today is the length of
-that list.
+and prints the files it wrote; `aer knowledge` prints the aggregate that list used to have
+to stand in for.
 
-**In the application.** The report page shows the export status for that report and
-nothing else. There is no aggregate view.
+**In the application.** The report page shows the export status for that report; the
+`/knowledge` page carries the aggregate. Neither draws the graph — an in-app node-and-edge
+view remains unbuilt, and Obsidian's own is better than a first attempt at one.
 
 **A caveat worth stating plainly.** With a single approved run the graph is one node and
 the comparison section correctly says "first research run". Nothing in this layer is
 observable until several runs of several companies have been approved *and exported* —
-which makes K5's "approved but never exported" figure the first thing worth having.
+which is why K5's "approved but never exported" figure was the first thing built.

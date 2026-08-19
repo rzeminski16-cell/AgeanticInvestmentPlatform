@@ -36,6 +36,7 @@ from aer.services.backup import (
     restore_backup,
     verify_backup,
 )
+from aer.services.knowledge import KnowledgeStats, knowledge_stats
 from aer.services.retention import (
     GarbageCollected,
     IntegrityReport,
@@ -208,6 +209,90 @@ def export_obsidian(
     typer.secho(f"Exported {len(files)} file(s):", fg=typer.colors.GREEN)
     for relative in files:
         typer.echo(f"  {relative}")
+
+
+@app.command(name="knowledge")
+def knowledge_command() -> None:
+    """Print what the platform knows: size, shape, coverage, freshness, vault health.
+
+    The same figures the `/knowledge` page and `/api/knowledge` report, from the same
+    service — three surfaces over one measurement, so a number quoted from the terminal
+    and one read off the page cannot disagree.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    stats = asyncio.run(_knowledge(settings))
+
+    size, shape = stats.size, stats.shape
+    typer.secho("Size", fg=typer.colors.CYAN, bold=True)
+    typer.echo(
+        f"  {size.companies} compan(ies): {size.researched} researched, {size.stubs} stub(s)"
+    )
+    typer.echo(
+        f"  {size.approved_reports} approved report(s), {size.industries} industr(ies), "
+        f"{size.catalysts} catalyst(s), {size.sources} source(s)"
+    )
+
+    typer.secho("Shape", fg=typer.colors.CYAN, bold=True)
+    typer.echo(
+        f"  {shape.edges} competitor edge(s) over {shape.components} component(s); "
+        f"largest {shape.largest_component}, isolated {shape.isolated}, "
+        f"mean degree {shape.mean_degree}"
+    )
+
+    typer.secho("Coverage", fg=typer.colors.CYAN, bold=True)
+    typer.echo(
+        f"  {stats.coverage.researched_ratio} of the graph researched; "
+        f"{stats.coverage.unclassified} unclassified; "
+        f"{stats.coverage.single_member_industries} single-member industr(ies)"
+    )
+
+    freshness = stats.freshness
+    typer.secho("Freshness", fg=typer.colors.CYAN, bold=True)
+    typer.echo(f"  research spans {freshness.oldest or '—'} to {freshness.newest or '—'}")
+    if freshness.stale:
+        typer.secho(f"  {len(freshness.stale)} stale:", fg=typer.colors.YELLOW)
+        for row in freshness.stale:
+            typer.echo(f"    {row.ticker}: {row.days_since} days since {row.newest_as_of}")
+    if freshness.passed_catalysts:
+        typer.secho(
+            f"  {len(freshness.passed_catalysts)} catalyst window(s) closed, "
+            "nothing recorded about what happened:",
+            fg=typer.colors.YELLOW,
+        )
+        for catalyst in freshness.passed_catalysts:
+            typer.echo(f"    {catalyst.ticker}: {catalyst.label} ({catalyst.expected_timing})")
+
+    vault = stats.vault
+    typer.secho("Vault", fg=typer.colors.CYAN, bold=True)
+    if not vault.configured:
+        typer.echo("  no vault configured, so nothing is projected")
+    typer.echo(
+        f"  {vault.exported_reports} report(s) exported, {vault.recorded_files} file(s) recorded"
+    )
+    if vault.unexported:
+        typer.secho(
+            f"  {len(vault.unexported)} approved report(s) never exported — "
+            "knowledge the map does not have",
+            fg=typer.colors.YELLOW,
+        )
+    if vault.drifted:
+        typer.secho(
+            f"  {len(vault.drifted)} file(s) under the vault root that no export wrote:",
+            fg=typer.colors.YELLOW,
+        )
+        for relative in vault.drifted:
+            typer.echo(f"    {relative}")
+
+
+async def _knowledge(settings: Settings) -> KnowledgeStats:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            return await knowledge_stats(session, settings=settings)
+    finally:
+        await engine.dispose()
 
 
 async def _export_obsidian(settings: Settings, *, report_id: uuid.UUID) -> list[str]:

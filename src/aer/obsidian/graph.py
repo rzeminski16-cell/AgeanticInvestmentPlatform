@@ -38,7 +38,15 @@ from aer.services.history import (
 )
 from aer.services.sectors import confirmed_classification
 
-__all__ = ["CatalystView", "CompanyView", "LinkGraph", "RunView", "build_graph"]
+__all__ = [
+    "CatalystView",
+    "CompanyView",
+    "LinkGraph",
+    "RunView",
+    "build_graph",
+    "peer_edges",
+    "reachable_from",
+]
 
 _log = structlog.get_logger("aer.obsidian.graph")
 
@@ -106,14 +114,14 @@ async def build_graph(
     session: AsyncSession, *, job: Job, report: Report, company: Company | None
 ) -> LinkGraph:
     """The connected component of the peer relation around the exported report."""
-    edges = await _peer_edges(session)
+    edges = await peer_edges(session)
     subject_peer_ids = await _confirmed_peers(session, job)
     subject_industry = await _confirmed_industry(session, job)
 
     seeds: set[uuid.UUID] = set(subject_peer_ids)
     if company is not None:
         seeds.add(company.id)
-    component = _reachable(seeds, edges)
+    component = reachable_from(seeds, edges)
 
     rows = {
         row.id: row
@@ -185,7 +193,8 @@ def _ordered(
     return (*head, *rest)
 
 
-def _reachable(seeds: set[uuid.UUID], edges: dict[uuid.UUID, set[uuid.UUID]]) -> set[uuid.UUID]:
+def reachable_from(seeds: set[uuid.UUID], edges: dict[uuid.UUID, set[uuid.UUID]]) -> set[uuid.UUID]:
+    """Every node reachable from ``seeds``: one connected component of the relation."""
     found = set(seeds)
     frontier = list(seeds)
     while frontier:
@@ -197,8 +206,13 @@ def _reachable(seeds: set[uuid.UUID], edges: dict[uuid.UUID, set[uuid.UUID]]) ->
     return found
 
 
-async def _peer_edges(session: AsyncSession) -> dict[uuid.UUID, set[uuid.UUID]]:
-    """Every confirmed comparable relation across every approved run, both directions."""
+async def peer_edges(session: AsyncSession) -> dict[uuid.UUID, set[uuid.UUID]]:
+    """Every confirmed comparable relation across every approved run, both directions.
+
+    Public because the relation *is* the knowledge graph: the vault is one projection of
+    it and :mod:`aer.services.knowledge` measures it, so neither can own the definition
+    privately.
+    """
     reports = await session.scalars(
         select(Report).where(Report.immutable.is_(True), Report.company_id.is_not(None))
     )

@@ -88,6 +88,7 @@ from aer.services.disagreements import disagreements_for_job
 from aer.services.escalation import cost_scene_for_job
 from aer.services.evaluations import evaluations_for_job, section_coverage_for_job
 from aer.services.exhibits import exportable_charts_for, internal_charts_for
+from aer.services.knowledge import knowledge_stats
 from aer.services.run_replay import replay_run
 from aer.services.sectors import (
     CLASSIFY_STEP,
@@ -1347,6 +1348,24 @@ async def reports_index(
             "total": len(rows),
         },
     )
+    return page
+
+
+@router.get("/knowledge", response_class=HTMLResponse, summary="What the platform knows")
+async def knowledge_page(
+    request: Request,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,  # noqa: ARG001 -- authentication; the graph is the installation's
+) -> Response:
+    """The knowledge graph measured: size, shape, coverage, freshness, vault health.
+
+    Not scoped to the signed-in account, deliberately. The graph is built from every
+    approved report in the database, and a per-user view of a shared graph would report a
+    connectivity that does not exist.
+    """
+    stats = await knowledge_stats(session, settings=settings)
+    page: Response = render(request, "knowledge/index.html", {"stats": stats})
     return page
 
 

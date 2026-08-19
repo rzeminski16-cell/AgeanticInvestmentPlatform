@@ -662,3 +662,20 @@ class TestEveryLicensedFeedHasAWayOut:
                 ["purge-licensed", "--provider", provider.value, "--reason", REASON, "--yes"],
             )
             assert result.exit_code == 2, provider.value
+
+
+class TestKnowledge:
+    def test_it_reports_an_empty_graph_without_crashing(self, cli_env):
+        """The formatting is the only part of this command no other surface exercises.
+
+        An empty graph is the interesting case: every date is ``None`` and every list is
+        empty, which is exactly where a format string reaches for an attribute that is not
+        there. The figures themselves are asserted in `tests/test_knowledge_stats.py`.
+        """
+        result = invoke_ok(["knowledge"])
+
+        assert "Size" in result.output
+        assert "Shape" in result.output
+        assert "Coverage" in result.output
+        assert "Freshness" in result.output
+        assert "Vault" in result.output

@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{# The knowledge graph's own measurements (docs/knowledge-graph.md, K5). Every figure is
+   a read of the database; the vault section is the one place a filename on disk is
+   consulted, and only to report that the projection and the record disagree. #}
+
+{% block title %}Knowledge{% endblock %}
+
+{% block content %}
+  <h1 class="text-2xl font-semibold tracking-tight">Knowledge</h1>
+  <p class="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+    What this installation knows, measured from approved research. A company named as a
+    comparable but never researched is a <em>stub</em> &mdash; a real node in the map, and
+    the ratio of stubs to researched companies is the plainest measure of how much of the
+    neighbourhood has actually been looked at.
+  </p>
+
+  <section class="mt-8" id="knowledge-size">
+    <h2 class="text-lg font-semibold tracking-tight">Size</h2>
+    <dl class="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      {% for label, value, element in [
+        ("Companies", stats.size.companies, "companies"),
+        ("Researched", stats.size.researched, "researched"),
+        ("Stubs", stats.size.stubs, "stubs"),
+        ("Approved reports", stats.size.approved_reports, "reports"),
+        ("Industries", stats.size.industries, "industries"),
+        ("Catalysts", stats.size.catalysts, "catalysts"),
+        ("Sources", stats.size.sources, "sources"),
+      ] %}
+        <div class="rounded-md border border-slate-200 p-3 dark:border-slate-800">
+          <dt class="text-xs text-slate-600 dark:text-slate-400">{{ label }}</dt>
+          <dd class="mt-1 text-xl font-semibold" id="stat-{{ element }}">{{ value }}</dd>
+        </div>
+      {% endfor %}
+    </dl>
+  </section>
+
+  <section class="mt-8" id="knowledge-shape">
+    <h2 class="text-lg font-semibold tracking-tight">Shape</h2>
+    <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+      The comparable relation is symmetric, so an edge is counted once rather than twice.
+    </p>
+    <dl class="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-5">
+      {% for label, value, element in [
+        ("Edges", stats.shape.edges, "edges"),
+        ("Components", stats.shape.components, "components"),
+        ("Largest", stats.shape.largest_component, "largest"),
+        ("Isolated", stats.shape.isolated, "isolated"),
+        ("Mean degree", stats.shape.mean_degree, "mean-degree"),
+      ] %}
+        <div class="rounded-md border border-slate-200 p-3 dark:border-slate-800">
+          <dt class="text-xs text-slate-600 dark:text-slate-400">{{ label }}</dt>
+          <dd class="mt-1 text-xl font-semibold" id="stat-{{ element }}">{{ value }}</dd>
+        </div>
+      {% endfor %}
+    </dl>
+  </section>
+
+  <section class="mt-8" id="knowledge-coverage">
+    <h2 class="text-lg font-semibold tracking-tight">Coverage</h2>
+    <ul class="mt-3 list-disc space-y-1 pl-5 text-sm">
+      <li id="coverage-ratio">
+        <strong>{{ stats.coverage.researched_ratio }}</strong> of the companies in the map
+        carry research of their own.
+      </li>
+      <li id="coverage-unclassified">
+        {{ stats.coverage.unclassified }} researched compan(ies) have no confirmed sector
+        classification, so they sit in no industry.
+      </li>
+      <li id="coverage-single">
+        {{ stats.coverage.single_member_industries }} industr(ies) hold a single company
+        &mdash; a classification with nothing to compare against.
+      </li>
+    </ul>
+  </section>
+
+  <section class="mt-8" id="knowledge-freshness">
+    <h2 class="text-lg font-semibold tracking-tight">Freshness</h2>
+    <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+      Research spans
+      <span class="font-mono">{{ stats.freshness.oldest or "&mdash;" }}</span> to
+      <span class="font-mono">{{ stats.freshness.newest or "&mdash;" }}</span>.
+    </p>
+
+    {% if stats.freshness.stale %}
+      <h3 class="mt-4 text-sm font-semibold">Not revisited recently</h3>
+      <table class="mt-2 w-full text-left text-sm" id="stale-companies">
+        <thead class="text-slate-600 dark:text-slate-400">
+          <tr><th class="py-1">Company</th><th class="py-1">Newest research</th><th class="py-1">Days</th></tr>
+        </thead>
+        <tbody>
+          {% for row in stats.freshness.stale %}
+            <tr class="border-t border-slate-200 dark:border-slate-800">
+              <td class="py-1">
+                <a href="/companies/{{ row.company_id }}" class="font-mono text-sky-700 dark:text-sky-400">{{ row.ticker }}</a>
+                <span class="text-slate-600 dark:text-slate-400">{{ row.name }}</span>
+              </td>
+              <td class="py-1 font-mono">{{ row.newest_as_of }}</td>
+              <td class="py-1">{{ row.days_since }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+
+    {% if stats.freshness.passed_catalysts %}
+      <h3 class="mt-4 text-sm font-semibold">Catalyst windows that have closed</h3>
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        The calendar says the window has passed. Whether the event happened is not
+        something the platform can know from its own rows, so nothing here claims it did.
+      </p>
+      <ul class="mt-2 list-disc space-y-1 pl-5 text-sm" id="passed-catalysts">
+        {% for catalyst in stats.freshness.passed_catalysts %}
+          <li>
+            <span class="font-mono">{{ catalyst.ticker }}</span> &mdash; {{ catalyst.label }}
+            <span class="text-slate-600 dark:text-slate-400">(expected {{ catalyst.expected_timing }})</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+
+  <section class="mt-8" id="knowledge-vault">
+    <h2 class="text-lg font-semibold tracking-tight">Vault</h2>
+    {% if not stats.vault.configured %}
+      <p class="mt-2 text-sm text-slate-600 dark:text-slate-400" id="vault-unconfigured">
+        No vault is configured, so approved research is not projected to notes. The
+        measurements above are unaffected &mdash; they are read from the database.
+      </p>
+    {% endif %}
+    <ul class="mt-3 list-disc space-y-1 pl-5 text-sm">
+      <li id="vault-exported">
+        {{ stats.vault.exported_reports }} report(s) exported,
+        {{ stats.vault.recorded_files }} file(s) recorded.
+        {% if stats.vault.last_export_at %}
+          Last export {{ stats.vault.last_export_at }}.
+        {% endif %}
+      </li>
+      {% if stats.vault.unexported %}
+        <li id="vault-unexported" class="text-amber-800 dark:text-amber-300">
+          {{ stats.vault.unexported | length }} approved report(s) have never been
+          exported &mdash; knowledge the map does not have. Export is manual, so nothing
+          else would say so.
+        </li>
+      {% endif %}
+      {% if stats.vault.drifted %}
+        <li id="vault-drift" class="text-amber-800 dark:text-amber-300">
+          {{ stats.vault.drifted | length }} file(s) under the vault root that no export
+          recorded writing:
+          <ul class="mt-1 list-disc space-y-0.5 pl-5 font-mono text-xs">
+            {% for relative in stats.vault.drifted %}<li>{{ relative }}</li>{% endfor %}
+          </ul>
+        </li>
+      {% endif %}
+    </ul>
+  </section>
+
+  <p class="mt-8 text-xs text-slate-500 dark:text-slate-500">
+    Measured {{ stats.measured_at }}. The same figures are available as JSON at
+    <a href="/api/knowledge" class="text-sky-700 dark:text-sky-400">/api/knowledge</a>
+    and from <span class="font-mono">aer knowledge</span>.
+  </p>
+{% endblock %}
