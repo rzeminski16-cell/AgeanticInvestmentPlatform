@@ -226,6 +226,14 @@ class Agent[InputT, OutputT: BaseModel]:
         # only from the registry; this changes the bill, never the allowlist or the caps.
         self.route_role: str = type(self).role
 
+        # A per-instance output ceiling, or ``None`` for the role's registered one. Set
+        # by a caller whose *previous* attempt was truncated at the registered ceiling
+        # (polish P6): the truncation is the measurement that the ceiling bound, and the
+        # retry runs with the headroom that measurement asks for instead of repeating a
+        # known failure. Every guard in :meth:`run` reads :meth:`output_ceiling`, so the
+        # raised figure is what the window check and the budget check price too.
+        self.output_ceiling_tokens: int | None = None
+
         registered = self.definition.output_schema()
         if type(self).output_schema is not registered:
             message = (
@@ -350,6 +358,15 @@ class Agent[InputT, OutputT: BaseModel]:
             cache_prefix=self.stable_context(payload) or None,
         )
 
+    def output_ceiling(self) -> int:
+        """The ``max_tokens`` this instance's calls run under.
+
+        The role's registered ceiling unless a caller raised it after a truncation
+        (polish P6). One accessor, read by the window guard, the budget guard and the
+        call itself, so a raised ceiling is priced everywhere it binds.
+        """
+        return self.output_ceiling_tokens or self.definition.max_output_tokens
+
     # -- The two refusals that precede every call (ADR 0053) ---------------------------------
 
     def _refuse_what_cannot_fit(self, *, model: str, projected_input_tokens: int) -> None:
@@ -360,7 +377,7 @@ class Agent[InputT, OutputT: BaseModel]:
         after the whole prompt has been uploaded, so this is the same refusal for free.
         """
         window = context_window_for(model)
-        ceiling = self.definition.max_output_tokens
+        ceiling = self.output_ceiling()
         if projected_input_tokens + ceiling <= window:
             return
         message = (
@@ -502,7 +519,7 @@ class Agent[InputT, OutputT: BaseModel]:
             context,
             model=choice.model,
             input_tokens=projected,
-            output_ceiling_tokens=self.definition.max_output_tokens,
+            output_ceiling_tokens=self.output_ceiling(),
         )
 
         started = time.perf_counter()
@@ -523,7 +540,7 @@ class Agent[InputT, OutputT: BaseModel]:
                     messages=messages,
                     model=choice.model,
                     effort=choice.effort,
-                    max_tokens=self.definition.max_output_tokens,
+                    max_tokens=self.output_ceiling(),
                 )
         except SpentButUnusableError as unusable:
             # The reply is no good and the money is gone. Recording it is not bookkeeping

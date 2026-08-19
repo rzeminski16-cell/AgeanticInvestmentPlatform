@@ -59,7 +59,12 @@ from aer.providers.router import Router
 from aer.sections.deterministic import AUGMENTERS, SectionAugmenter
 from aer.sections.evidence import degradation_note, word_ceiling
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
-from aer.sections.writing import _writer_route, execute_builtin_section, policy_of_definition
+from aer.sections.writing import (
+    TRUNCATION_RETRY_CEILING,
+    _writer_route,
+    execute_builtin_section,
+    policy_of_definition,
+)
 from aer.services.extractions import record_excerpt
 from aer.storage.local import LocalArtefactStore
 from aer.verify.citations import verify_job_citations
@@ -1043,3 +1048,86 @@ class TestThePlatformFilledFields:
         assert outcome.status is SectionStatus.FAILED
         assert scene["section"].content == {"method_note": "Rendered from the record."}
         assert "did not happen" in (scene["section"].low_confidence_reason or "")
+
+
+class TestTruncationGetsHeadroomOnTheRetry:
+    """A reply stopped at the output ceiling is not retried identically (polish P6).
+
+    The first live run paid for the same 16,384-token truncation twice. The first
+    attempt is the measurement that the ceiling bound; the retry runs with the headroom
+    that measurement asks for, and the standing ceiling stays where it binds.
+    """
+
+    @staticmethod
+    def _truncated_then(recovery: SectionDraft) -> FakeProvider:
+        state = {"calls": 0}
+
+        def answer(schema: type) -> Any:
+            state["calls"] += 1
+            if state["calls"] > 1:
+                return recovery
+            usage = Usage(input_tokens=2_500, output_tokens=16_384, model="claude-opus-5")
+            raise SpentButUnusableError(
+                "claude-opus-5 produced no SectionDraft: it ran out of room at the "
+                "16,384-token ceiling.",
+                usage=usage,
+                request_payload={"model": "claude-opus-5"},
+                response_payload={"stop_reason": "max_tokens"},
+                latency_ms=1_200.0,
+                context={"stop_reason": "max_tokens", "schema": schema.__name__},
+            )
+
+        return FakeProvider(answer)
+
+    async def test_the_retry_runs_at_the_raised_ceiling(self, scene: dict[str, Any]) -> None:
+        provider = self._truncated_then(_good_draft(scene))
+
+        outcome = await _run(scene, provider)
+
+        assert outcome.status is SectionStatus.GENERATED
+        assert outcome.attempts == 2
+        first, second = provider.calls
+        assert first["max_tokens"] == 16_384
+        assert second["max_tokens"] == TRUNCATION_RETRY_CEILING
+        # The truncation is on the record even though the retry recovered.
+        assert outcome.refusal_causes == {"truncation": 1}
+
+    async def test_an_untruncated_refusal_keeps_the_standing_ceiling(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The escalation is for truncation alone — an ordinary refusal retries as it
+        always did, at the ceiling that binds."""
+        provider = _scripted([_undeclared_field_draft(), _good_draft(scene)])
+
+        await _run(scene, provider)
+
+        assert [call["max_tokens"] for call in provider.calls] == [16_384, 16_384]
+
+
+class TestTheRefusalCausesReachTheRunRecord:
+    """Polish P6: what a section struggled with, counted, without reading a log."""
+
+    async def test_a_recovered_section_still_records_its_first_refusal(
+        self, scene: dict[str, Any]
+    ) -> None:
+        outcome = await _run(scene, _scripted([_undeclared_field_draft(), _good_draft(scene)]))
+
+        assert outcome.status is SectionStatus.GENERATED
+        assert outcome.refusal_causes == {"schema": 1}
+        assert outcome.as_dict()["refusal_causes"] == {"schema": 1}
+
+    async def test_a_failed_section_records_every_attempt_s_causes(
+        self, scene: dict[str, Any]
+    ) -> None:
+        outcome = await _run(
+            scene, _scripted([_undeclared_field_draft(), _undeclared_field_draft()])
+        )
+
+        assert outcome.status is SectionStatus.FAILED
+        assert outcome.refusal_causes == {"schema": 2}
+
+    async def test_a_clean_first_draft_records_nothing(self, scene: dict[str, Any]) -> None:
+        outcome = await _run(scene, _scripted([_good_draft(scene)]))
+
+        assert outcome.refusal_causes == {}
+        assert "refusal_causes" not in outcome.as_dict()

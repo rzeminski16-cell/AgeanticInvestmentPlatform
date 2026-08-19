@@ -24,7 +24,7 @@ Three properties the sharing preserves:
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Final
 
@@ -64,6 +64,7 @@ __all__ = [
     "EvidenceUnit",
     "SectionExecution",
     "SectionPolicy",
+    "classify_refusals",
     "confidence_of",
     "content_source_ids",
     "degradation_note",
@@ -275,9 +276,13 @@ class SectionExecution:
     insufficient_evidence: bool = False
     evidence_truncated: bool = False
     problems: list[str] = field(default_factory=list)
+    # Every attempt's refusals counted by cause (polish P6) — including the attempts a
+    # later retry recovered from, because "this section needed two tries over length" is
+    # exactly what the counter exists to say without anyone reading a worker log.
+    refusal_causes: dict[str, int] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        recorded: dict[str, Any] = {
             "section_key": self.section.section_key,
             "status": self.status.value,
             "attempts": self.attempts,
@@ -286,6 +291,53 @@ class SectionExecution:
             "evidence_truncated": self.evidence_truncated,
             "problems": list(self.problems),
         }
+        if self.refusal_causes:
+            recorded["refusal_causes"] = dict(self.refusal_causes)
+        return recorded
+
+
+# What made a draft unacceptable, by the wording of the producer that refused it. First
+# match wins, so the specific signatures come before the broad ones. The signatures are
+# the producers' own sentences — `tests/test_refusal_causes.py` builds each problem
+# through its real producer, so a reworded refusal fails there rather than silently
+# landing in the fallback bucket.
+_REFUSAL_SIGNATURES: Final[tuple[tuple[str, str], ...]] = (
+    # The token ceiling, in its three shapes: the reply stopped at max_tokens, the JSON
+    # arrived cut off, and the composition was refused before the call was made.
+    ("ran out of room", "truncation"),
+    ("was cut off before it was complete", "truncation"),
+    ("cannot fit", "truncation"),
+    ("words against this section's budget", "length"),
+    ("sentences describe missing evidence", "gaps"),
+    ("which no numeric claim", "numeral"),
+    ("cites extraction", "citation"),
+    ("names fact", "citation"),
+    ("names calculation", "citation"),
+    ("evidence does not hold", "citation"),
+    ("which this run does not hold", "citation"),
+    ("is forward-looking", "policy"),
+    # The valuation commentary's deterministic edge (ADR 0063).
+    ("The commentary mentions", "method"),
+)
+
+
+def classify_refusals(problems: Iterable[str]) -> dict[str, int]:
+    """The refusal causes behind a list of problems, counted (polish P6).
+
+    The first live run's failure causes had to be reconstructed from a 3,000-line log;
+    this is the same reading done once, in code, and written to the run record. Anything
+    no signature claims counts as ``schema``, because the one producer of open-ended
+    wording is the field-level schema report — a new refusal producer should add its
+    signature above rather than lean on the fallback.
+    """
+    causes: dict[str, int] = {}
+    for problem in problems:
+        cause = next(
+            (name for signature, name in _REFUSAL_SIGNATURES if signature in problem),
+            "schema",
+        )
+        causes[cause] = causes.get(cause, 0) + 1
+    return causes
 
 
 @dataclass(slots=True)

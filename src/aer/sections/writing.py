@@ -28,6 +28,7 @@ from aer.sections.evidence import (
     Evidence,
     SectionExecution,
     SectionPolicy,
+    classify_refusals,
     confidence_of,
     content_source_ids,
     degradation_note,
@@ -46,6 +47,61 @@ _log = structlog.get_logger("aer.sections.writing")
 # bounds it. The writer role itself holds no tools (ADR 0042) — these are evidence
 # categories code assembles, not capabilities the model can exercise.
 _ALL_CATEGORIES = frozenset({"search_facts", "search_sources"})
+
+# The output ceiling a retry runs at after the first attempt was truncated at the role's
+# registered one (polish P6). Double the writer's 16,384, because `max_tokens` bounds
+# thinking and visible output together and the truncated attempt has already shown the
+# pair does not fit — and no higher, because 32,768 is the smallest output limit any
+# routed model imposes, and a retry the API refuses outright would turn a truncation
+# into a failed call. Applied per instance, for the retry alone: the standing ceiling
+# stays where it genuinely binds, which is what keeps it a ceiling.
+TRUNCATION_RETRY_CEILING: Final = 32_768
+
+
+def _routed_writer(
+    definition: SectionDefinition, *, section: ReportSection, router: Any
+) -> SectionWriterAgent:
+    """The writer, billed at the row's cheaper configured route where one exists (gap O1).
+
+    Honoured only when the router actually configures it — the usual falling-back
+    posture: a mistyped route name costs the saving, never the section.
+    """
+    requested = _writer_route(definition)
+    if requested is not None and requested not in router.roles:
+        _log.warning(
+            "section_writer.unrouted_writer_role", section=section.section_key, route=requested
+        )
+        requested = None
+    return SectionWriterAgent(route_role=requested)
+
+
+def _counted(causes: dict[str, int], problems: list[str]) -> dict[str, int]:
+    """Fold one attempt's refusals into the section's running cause counter (P6)."""
+    for cause, count in classify_refusals(problems).items():
+        causes[cause] = causes.get(cause, 0) + count
+    return causes
+
+
+def _refused_reply(
+    unparsable: ValidationError, *, agent: SectionWriterAgent, causes: dict[str, int]
+) -> list[str]:
+    """An unusable reply turned into what the retry needs, with its causes counted.
+
+    The field-level detail, not the count. A retry told only that "22 field(s) broke a
+    constraint" has nothing to act on and makes the same mistake again, which is how
+    three sections of one live report died at two attempts each.
+
+    A reply that stopped at the role's output ceiling additionally raises the ceiling for
+    the retry: an identical retry is a known failure at full price — a live run paid for
+    the same truncation twice (polish P6). The first attempt *is* the measurement that
+    the ceiling bound; the retry runs with the headroom that measurement asks for, and
+    the standing ceiling stays where it binds for everything else.
+    """
+    problems = schema_problems(unparsable)
+    _counted(causes, problems)
+    if unparsable.context.get("stop_reason") == "max_tokens":
+        agent.output_ceiling_tokens = TRUNCATION_RETRY_CEILING
+    return problems
 
 
 def policy_of_definition(definition: SectionDefinition) -> SectionPolicy:
@@ -150,19 +206,14 @@ async def execute_builtin_section(
         categories=_ALL_CATEGORIES,
     )
 
-    # The row may name a cheaper configured route (gap O1). Honoured only when the
-    # router actually configures it — the usual falling-back posture: a mistyped route
-    # name costs the saving, never the section.
-    requested = _writer_route(definition)
-    if requested is not None and requested not in context.router.roles:
-        _log.warning(
-            "section_writer.unrouted_writer_role", section=section.section_key, route=requested
-        )
-        requested = None
-    agent = SectionWriterAgent(route_role=requested)
+    agent = _routed_writer(definition, section=section, router=context.router)
     problems: list[str] = []
     draft: SectionDraft | None = None
     last_candidate: SectionDraft | None = None
+    # Every attempt's refusals, counted by cause (polish P6). Accumulated across the
+    # retries so the run record says what each section struggled with, whether or not a
+    # later attempt recovered.
+    causes: dict[str, int] = {}
 
     attempts = 0
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
@@ -187,18 +238,17 @@ async def execute_builtin_section(
         except TokenCapExceededError as refused:
             # Deterministic in the composition: a retry would compose the same call and
             # be refused the same way, so the section fails now, visibly and for free.
+            failed_problems = [str(refused)]
             return _failed(
                 section,
                 attempts=attempt,
-                problems=[str(refused)],
+                problems=failed_problems,
                 truncated=evidence.truncated,
                 block=block,
+                causes=_counted(causes, failed_problems),
             )
         except ValidationError as unparsable:
-            # The field-level detail, not the count. A retry told only that "22 field(s)
-            # broke a constraint" has nothing to act on and makes the same mistake again,
-            # which is how three sections of one live report died at two attempts each.
-            problems = schema_problems(unparsable)
+            problems = _refused_reply(unparsable, agent=agent, causes=causes)
             continue
 
         last_candidate = candidate
@@ -209,6 +259,8 @@ async def execute_builtin_section(
             # is a refusal like any other, and the problem text tells the retry what to
             # remove rather than what to invent.
             problems.extend(augmenter.check(candidate.content, block))
+        if problems:
+            _counted(causes, problems)
         if not problems:
             draft = candidate
             break
@@ -248,6 +300,7 @@ async def execute_builtin_section(
             problems=problems,
             truncated=evidence.truncated,
             block=block,
+            causes=causes,
         )
 
     recorded, cited_source_ids = await record_draft_claims(
@@ -286,6 +339,7 @@ async def execute_builtin_section(
         insufficient_evidence=bool(shortfalls),
         evidence_truncated=evidence.truncated,
         problems=shortfalls,
+        refusal_causes=causes,
     )
 
 
@@ -296,6 +350,7 @@ def _failed(
     problems: list[str],
     truncated: bool = False,
     block: dict[str, Any] | None = None,
+    causes: dict[str, int] | None = None,
 ) -> SectionExecution:
     """Mark the section failed with its reasons on the row. The run continues.
 
@@ -319,6 +374,7 @@ def _failed(
         attempts=attempts,
         evidence_truncated=truncated,
         problems=problems,
+        refusal_causes=causes if causes is not None else classify_refusals(problems),
     )
 
 

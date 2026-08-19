@@ -475,6 +475,23 @@ less fluent prose, in exchange for prose that cannot describe work that did not 
 
 **Severity: medium.** Begins by re-measuring, because three of the four are probably
 downstream of P1.
+**Status: done, in its in-repo half** — the three likely-P1-downstream failures are
+re-measured on the P11 rerun as this task specifies, and nothing was tuned for them. The
+balance-sheet ceiling got neither a blind raise nor an offline guess at a schema split,
+because the measurement this task asks for cannot be made without a live call — so the
+system now measures itself: a reply that stops at the writer's 16,384 ceiling
+(`stop_reason: max_tokens`, already distinguished by the provider) raises that one
+instance's ceiling to `TRUNCATION_RETRY_CEILING` (32,768) for the retry, instead of
+paying for the identical truncation twice as the live run did. The window and budget
+guards price the raised figure too (`Agent.output_ceiling`), the standing ceiling stays
+where it binds for everything else, and a retry that still truncates fails with the cause
+on the record. The observability landed as `classify_refusals` in
+`sections/evidence.py`: every attempt's refusals counted by cause — truncation, length,
+gaps, numeral, citation, policy, method, schema — accumulated across retries (recovered
+sections keep their first attempt's causes) and written to the draft step's
+`builtin_sections`/`custom_sections` outcomes as `refusal_causes`.
+`tests/test_refusal_causes.py` builds each cause through its real producer, so a reworded
+refusal breaks the classifier's test rather than silently landing in the fallback bucket.
 
 | Section | Failure | Expected after P1 |
 |---|---|---|

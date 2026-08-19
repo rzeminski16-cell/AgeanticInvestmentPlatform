@@ -38,6 +38,7 @@ from aer.sections.evidence import (
     MAX_GENERATION_ATTEMPTS,
     SectionExecution,
     SectionPolicy,
+    classify_refusals,
     confidence_of,
     content_source_ids,
     degradation_note,
@@ -110,6 +111,8 @@ async def execute_custom_section(
     body = pin.skill_version.body
     problems: list[str] = []
     draft: CustomSectionDraft | None = None
+    # Every attempt's refusals counted by cause, as in `aer.sections.writing` (polish P6).
+    causes: dict[str, int] = {}
 
     attempts = 0
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
@@ -133,19 +136,24 @@ async def execute_custom_section(
         except TokenCapExceededError as refused:
             # Deterministic in the composition: a retry would compose the same call and
             # be refused the same way, so the section fails now, visibly and for free.
+            failed_problems = [str(refused)]
             return _failed(
                 section,
                 attempts=attempt,
-                problems=[str(refused)],
+                problems=failed_problems,
                 truncated=evidence.truncated,
+                causes=_counted(causes, failed_problems),
             )
         except ValidationError as unparsable:
             # As in `aer.sections.writing`: the fields, not the count, or the retry has
             # nothing to act on.
             problems = schema_problems(unparsable)
+            _counted(causes, problems)
             continue
 
         problems = validate_draft(candidate, contract=contract, evidence=evidence, policy=policy)
+        if problems:
+            _counted(causes, problems)
         if not problems:
             draft = candidate
             break
@@ -157,7 +165,13 @@ async def execute_custom_section(
         )
 
     if draft is None:
-        return _failed(section, attempts=attempts, problems=problems, truncated=evidence.truncated)
+        return _failed(
+            section,
+            attempts=attempts,
+            problems=problems,
+            truncated=evidence.truncated,
+            causes=causes,
+        )
 
     recorded, cited_source_ids = await record_draft_claims(
         context.session, section=section, draft=draft, evidence=evidence
@@ -189,7 +203,15 @@ async def execute_custom_section(
         insufficient_evidence=bool(shortfalls),
         evidence_truncated=evidence.truncated,
         problems=shortfalls,
+        refusal_causes=causes,
     )
+
+
+def _counted(causes: dict[str, int], problems: list[str]) -> dict[str, int]:
+    """Fold one attempt's refusals into the section's running cause counter (P6)."""
+    for cause, count in classify_refusals(problems).items():
+        causes[cause] = causes.get(cause, 0) + count
+    return causes
 
 
 def _failed(
@@ -198,6 +220,7 @@ def _failed(
     attempts: int,
     problems: list[str],
     truncated: bool = False,
+    causes: dict[str, int] | None = None,
 ) -> SectionExecution:
     """Mark the section failed with its reasons on the row. The run continues."""
     section.status = SectionStatus.FAILED
@@ -216,6 +239,7 @@ def _failed(
         attempts=attempts,
         evidence_truncated=truncated,
         problems=problems,
+        refusal_causes=causes if causes is not None else classify_refusals(problems),
     )
 
 

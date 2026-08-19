@@ -1009,6 +1009,10 @@ class TestTheExecutionLadder:
         assert provider.call_count == MAX_GENERATION_ATTEMPTS
         assert outcome.status is SectionStatus.FAILED
         assert outcome.attempts == 2
+        # Both attempts' refusals reach the run record, counted by cause (polish P6):
+        # the undeclared field each time, and the bare `durability_years` numeral no
+        # claim covers.
+        assert outcome.refusal_causes == {"schema": 2, "numeral": 2}
         section = scene["section"]
         assert section.status is SectionStatus.FAILED
         assert section.content is None
