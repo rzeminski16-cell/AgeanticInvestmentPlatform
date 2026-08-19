@@ -12,13 +12,13 @@ wrong — asserting the *expansion*, not just the output — because a test that
 from __future__ import annotations
 
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import pytest
 
 from aer.config import HouseStyle
 from aer.core.dates import _expanded as expanded
-from aer.core.dates import format_date
+from aer.core.dates import fiscal_year_of, format_date
 
 WHEN = date(2026, 1, 2)
 
@@ -131,3 +131,50 @@ class TestTheHouseStyleDefault:
         """
         with pytest.raises(ValueError, match="date_format"):
             HouseStyle(date_format="%-Q")
+
+
+class TestTheFiscalYearOfAPeriod:
+    """ADR 0062's labelling rule, pinned by filer shape."""
+
+    @pytest.mark.parametrize(
+        ("period_end", "expected"),
+        [
+            # A December year end (Amazon, Alphabet).
+            (date(2025, 12, 31), 2025),
+            # A March year end (Alibaba) — the comparative that contaminated the live
+            # run's history section under its stale label.
+            (date(2026, 3, 31), 2026),
+            # A June year end (Microsoft).
+            (date(2022, 6, 30), 2022),
+            # A late-January retail year end (Walmart): its own calendar year, matching
+            # the filer's own naming.
+            (date(2026, 1, 31), 2026),
+            # A 52/53-week year landing just past 31 December: the prior year, because a
+            # year that is in substance 2026 must not flip to FY2027 over two days.
+            (date(2027, 1, 2), 2026),
+        ],
+    )
+    def test_the_filer_shapes(self, period_end: date, expected: int) -> None:
+        assert fiscal_year_of(period_end) == expected
+
+    def test_the_grace_window_boundary(self) -> None:
+        """Seven days in: the furthest a Saturday-nearest-to-year-end can land is the
+        fourth, so the seventh is inside with room, and the eighth is a genuine
+        January period."""
+        assert fiscal_year_of(date(2027, 1, 7)) == 2026
+        assert fiscal_year_of(date(2027, 1, 8)) == 2027
+
+    def test_never_more_than_one_year_from_the_calendar(self) -> None:
+        day = date(2020, 1, 1)
+        while day < date(2022, 1, 1):
+            assert fiscal_year_of(day) in (day.year - 1, day.year)
+            day += timedelta(days=1)
+
+    def test_non_decreasing_as_time_advances(self) -> None:
+        day = date(2020, 1, 1)
+        previous = fiscal_year_of(day)
+        while day < date(2022, 1, 1):
+            day += timedelta(days=1)
+            current = fiscal_year_of(day)
+            assert current >= previous
+            previous = current

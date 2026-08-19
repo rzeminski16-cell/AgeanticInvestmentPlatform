@@ -31,6 +31,7 @@ from typing import Any, Final
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.core.dates import fiscal_year_of
 from aer.core.schemas.facts import RawFact
 from aer.db.models import Company, SourceDocument
 from aer.errors import AerError
@@ -215,12 +216,14 @@ def _fiscal_period(fact: IxbrlFact) -> str | None:
 
 
 def _fiscal_year(fact: IxbrlFact) -> int | None:
-    """The year the period ends in, for a fiscal-year duration.
+    """The year the period belongs to, for a fiscal-year duration.
 
-    The convention the rest of the store already uses: a year ending September 2025 is
-    FY2025. Only stated where the period is a fiscal year at all.
+    This module derived the rule first — "a year ending September 2025 is FY2025" — and
+    ADR 0062 promoted it to :func:`aer.core.dates.fiscal_year_of`, which adds the
+    early-January carve-out for 52/53-week calendars this local version lacked. Only
+    stated where the period is a fiscal year at all.
     """
-    return fact.period_end.year if _fiscal_period(fact) == "FY" else None
+    return fiscal_year_of(fact.period_end) if _fiscal_period(fact) == "FY" else None
 
 
 def _entity_matches(fact: IxbrlFact, *, cik: str | None) -> bool:

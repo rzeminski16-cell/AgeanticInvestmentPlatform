@@ -38,6 +38,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Final
 
 from aer.core.concepts import canonical_concept
+from aer.core.dates import fiscal_year_of
 from aer.core.schemas.facts import RawFact, format_accession
 from aer.errors import ExternalServiceError
 from aer.sources.sec.tickers import format_cik
@@ -262,6 +263,7 @@ def _parse_observation(
         # malformed one as an unusable row, so nothing is weakened by moving it.
         accession = format_accession(accession)
 
+        fiscal_period = str(entry.get("fp")).strip() or None if entry.get("fp") else None
         return RawFact(
             concept=concept,
             raw_concept=raw_concept,
@@ -270,8 +272,19 @@ def _parse_observation(
             value=value,
             period_start=_parse_date(entry.get("start")),
             period_end=period_end,
-            fiscal_year=_parse_int(entry.get("fy")),
-            fiscal_period=str(entry.get("fp")).strip() or None if entry.get("fp") else None,
+            # **Derived from the period, not read from the filing** (ADR 0062). EDGAR's
+            # `fy` names the fiscal frame of the filing an observation appeared in, so a
+            # comparative arrives stamped with the *later* report's year — the live run
+            # stored a company's whole FY history one year late, to the decimal, and the
+            # red team challenged an "anomaly" the shift had manufactured. A fiscal-year
+            # row's own period end answers the question; interim rows keep the filing's
+            # frame, because which fiscal year a quarter belongs to needs the company's
+            # fiscal calendar, which a per-document parser does not hold — the ADR states
+            # the residual that leaves.
+            fiscal_year=(
+                fiscal_year_of(period_end) if fiscal_period == "FY" else _parse_int(entry.get("fy"))
+            ),
+            fiscal_period=fiscal_period,
             form=form,
             accession=accession,
             filed_date=filed_date,

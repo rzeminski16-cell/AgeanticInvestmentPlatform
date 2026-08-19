@@ -267,6 +267,12 @@ renders normally; the reason reaches the report rather than only the log.
 ## Task P3 — Fiscal year comes from the period, not the filing
 
 **Severity: high.**
+**Status: done** — `fiscal_year_of` in `aer/core/dates.py`, both adapters converted,
+migration 0043, ADR 0062. Two findings from the build: the correct rule already existed in
+`segments.py` and had never been generalised (ADR 0061's shape, again); and the old code
+made `analysis`'s period labels *nondeterministic* — a period's rows could carry two
+different `fy` values, and the label picked whichever row iterated first. Interim rows
+keep the filing's frame, deliberately; the ADR states why and what residual that leaves.
 
 ### The defect
 

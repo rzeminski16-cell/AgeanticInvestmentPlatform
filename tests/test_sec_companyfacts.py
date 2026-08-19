@@ -7,6 +7,7 @@ exact decimals rather than passing through a float.
 
 from __future__ import annotations
 
+import json
 from datetime import date
 from decimal import Decimal
 
@@ -223,3 +224,66 @@ class TestParsingFailures:
             parse_company_facts(b"<html>Rate limited</html>")
 
         assert excinfo.value.retryable is True
+
+
+class TestTheFiscalYearIsThePeriodsOwn:
+    """ADR 0062: EDGAR's ``fy`` is the filing's frame, not the observation's.
+
+    The fixture carries the live defect in miniature: the period ending 30 June 2020
+    appears twice, once tagged ``fy: 2020`` by its own 10-K and once tagged ``fy: 2022``
+    by the later one that quoted it as a comparative. The first complete run stored a
+    company's whole FY history one year late on exactly this mechanism.
+    """
+
+    def test_a_comparative_carries_its_own_year_not_the_filings(self, facts) -> None:
+        rows = [
+            fact
+            for fact in facts.facts
+            if fact.period_end == date(2020, 6, 30) and fact.fiscal_period == "FY"
+        ]
+        assert rows, "the fixture no longer holds the comparative this test pins"
+        assert {row.fiscal_year for row in rows} == {2020}, (
+            "a fiscal-year row must be labelled by its own period end; the filing's "
+            "fy field stamps comparatives with the later report's year"
+        )
+
+    def test_every_annual_duration_is_labelled_by_its_period_end(self, facts) -> None:
+        for fact in facts.facts:
+            if fact.fiscal_period != "FY" or fact.period_start is None:
+                continue
+            assert fact.fiscal_year == fact.period_end.year
+
+    def test_an_interim_row_keeps_the_filings_frame(self) -> None:
+        """A quarter's fiscal year needs the company's calendar, which a per-document
+        parser does not hold — so the filing's own frame stands, and ADR 0062 records
+        the residual (a stale label on interim comparatives) rather than guessing."""
+        document = {
+            "cik": 789019,
+            "entityName": "MICROSOFT CORP",
+            "facts": {
+                "us-gaap": {
+                    "Revenues": {
+                        "units": {
+                            "USD": [
+                                {
+                                    "start": "2025-10-01",
+                                    "end": "2025-12-31",
+                                    "val": 1,
+                                    "accn": "0000950170-26-000001",
+                                    "fy": 2026,
+                                    "fp": "Q2",
+                                    "form": "10-Q",
+                                    "filed": "2026-01-28",
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+        }
+        parsed = parse_company_facts(json.dumps(document).encode())
+        (row,) = parsed.facts
+        # A December quarter end inside a June fiscal year: the period's own calendar
+        # year (2025) is the wrong answer, and the filing's frame (2026) is the right one.
+        assert row.fiscal_year == 2026
+        assert row.fiscal_period == "Q2"

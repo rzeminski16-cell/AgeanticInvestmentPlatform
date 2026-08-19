@@ -26,7 +26,33 @@ from __future__ import annotations
 
 from datetime import date
 
-__all__ = ["format_date"]
+__all__ = ["fiscal_year_of", "format_date"]
+
+# How far into January a period can end and still belong to the prior fiscal year. Seven
+# days covers every Saturday-nearest-to-31-December convention a 52/53-week calendar can
+# produce (the fourth of January is the furthest) without reaching the genuine mid-January
+# year ends, which are their own calendar year's.
+_JANUARY_GRACE_DAYS = 7
+
+
+def fiscal_year_of(period_end: date) -> int:
+    """The fiscal year a year-long period ending on ``period_end`` belongs to.
+
+    The calendar year the period ends in — the convention the store has always used ("a
+    year ending September 2025 is FY2025") — except that a period ending in the first
+    seven days of January belongs to the prior year, because a 52/53-week calendar ending
+    the Saturday nearest 31 December can land a few days into January, and a year that is
+    in substance 2026 must not flip to FY2027 over two days (ADR 0062).
+
+    A labelling convention applied uniformly, not a reproduction of each filer's own
+    naming: what comparability needs is that one company's every figure sits under the
+    same rule, which is exactly what the SEC's ``fy`` field — the *filing's* fiscal frame,
+    stamped onto every comparative it carries — did not provide.
+    """
+    if period_end.month == 1 and period_end.day <= _JANUARY_GRACE_DAYS:
+        return period_end.year - 1
+    return period_end.year
+
 
 # The directives whose padding the flag removes. Each is numeric, so the unpadded form is
 # the padded one read as an integer — which is how they are computed below, rather than by
