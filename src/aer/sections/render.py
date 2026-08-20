@@ -555,7 +555,11 @@ def _series_table(
         cell_markers: list[tuple[int, ...]] = [()]
         for period in periods:
             entry = by_period.get(period)
-            if entry is None:
+            value = None if entry is None else entry.get("value")
+            if entry is None or value is None or (isinstance(value, str) and not value.strip()):
+                # A period the row does not carry, and a row whose value never resolved,
+                # read the same: an em dash with no footnote — a marker on an absent
+                # figure rendered as a bare number in the MTB report (gap A66).
                 cells.append("\N{EM DASH}")
                 cell_markers.append(())
                 continue

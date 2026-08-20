@@ -640,6 +640,43 @@ class TestAProductNameIsNotAFigure:
         assert without_product_names(text) == text
 
 
+class TestASentenceEndsWhereProseDoes:
+    """Gap A65: the MTB report published "…People's United. bank by size. A fuller…".
+
+    The splitter treated the full stop of "U.S." as a sentence end, so the numeral
+    salvage removed *half* the offending sentence and stranded the tail in print —
+    the one direction the cut must never err. An abbreviation's stop ends a word.
+    """
+
+    def test_an_initialism_does_not_end_the_sentence_being_removed(self) -> None:
+        content = {
+            "commentary": (
+                "The bank completed its combination with People's United. It holds 42 "
+                "million dollars in its U.S. vaults at present. A fuller account follows."
+            )
+        }
+        narrowed = without_unsourced_numeral_sentences(content, [])
+
+        assert narrowed is not None
+        assert narrowed["commentary"] == (
+            "The bank completed its combination with People's United. A fuller account follows."
+        )
+
+    def test_a_company_suffix_does_not_end_the_sentence_either(self) -> None:
+        content = {"commentary": "Apple Inc. reported 42 million dollars. The outlook held."}
+        narrowed = without_unsourced_numeral_sentences(content, [])
+
+        assert narrowed is not None
+        assert narrowed["commentary"] == "The outlook held."
+
+    def test_ordinary_sentence_boundaries_still_cut_exactly_one_sentence(self) -> None:
+        content = {"commentary": "Deposits were flat. Fees ran to 42 million dollars. Costs fell."}
+        narrowed = without_unsourced_numeral_sentences(content, [])
+
+        assert narrowed is not None
+        assert narrowed["commentary"] == "Deposits were flat. Costs fell."
+
+
 class TestTheLengthSalvage:
     """ADR 0057, the other half: the tail goes, not the section.
 

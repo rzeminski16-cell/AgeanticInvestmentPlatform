@@ -113,6 +113,12 @@ def scalar(
     The dispatch is on the unit first and the label second, and the fallback is the value
     with separators — never a guessed scale or an invented percent sign.
     """
+    # An absent value is an em dash, never "None" and never a blank that leaves a
+    # footnote marker standing alone in the cell — the MTB report printed a retained
+    # earnings row as its own marker twice (gap A66).
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return "\N{EM DASH}"
+
     number = _decimal_of(value)
     if number is None:
         return prose(str(value), style=style) if isinstance(value, str) else f"{value}"
@@ -122,10 +128,27 @@ def scalar(
     )
     if read is not None:
         return read
-    return _grouped(number) if number == number.to_integral_value() else _trimmed(number)
+    plain = _grouped(number) if number == number.to_integral_value() else _trimmed(number)
+    # A stated unit naming a currency or a scale is shown, not dropped. The MTB report's
+    # balance-sheet table read "Total assets 219.3" beside a cash-flow table reading
+    # "2,280" — both rows carried units like "USD billions", both vanished here, and the
+    # two scales sat a page apart with nothing telling the reader which was which (gap
+    # A66). Only money-and-scale words earn the suffix: the platform's own type words
+    # ("pure", "x") are for the formatter, and printing them would trade one leak for
+    # another.
+    if unit and _MONEY_SCALE_UNIT.search(unit):
+        return f"{plain} {unit.strip()}"
+    return plain
 
 
 _ISO_CODE_LENGTH: Final = 3
+
+# A unit worth printing when the formatter cannot restate it: one naming a currency or a
+# scale. "USD billions" tells the reader what "219.3" is; "pure" tells them nothing.
+_MONEY_SCALE_UNIT: Final[re.Pattern[str]] = re.compile(
+    r"\b(?:USD|GBP|EUR)\b|[$\u00a3\u20ac]|\b(?:million|billion|trillion|thousand)s?\b",
+    re.IGNORECASE,
+)
 
 
 def _unit_reading(
@@ -181,6 +204,16 @@ _PROSE_MONEY: Final[re.Pattern[str]] = re.compile(
     r"(?<![\w.,])(\d{5,})(?:\.\d+)?\s?(USD|GBP|EUR)\b"
 )
 
+# The same longhand amount wearing a symbol and thousands separators: "$442,000,000",
+# which the MTB report printed mid-sentence two pages from the front page's "$442m"
+# (gap A66). Two comma groups minimum, so "$45,000" — a figure a writer may well want
+# at that precision — is left as written.
+_PROSE_SYMBOL_MONEY: Final[re.Pattern[str]] = re.compile(
+    r"([$\u00a3\u20ac])(\d{1,3}(?:,\d{3}){2,})(?:\.\d+)?\b"
+)
+
+_SYMBOL_CURRENCIES: Final[dict[str, str]] = {"$": "USD", "\u00a3": "GBP", "\u20ac": "EUR"}
+
 _PROSE_DATE: Final[re.Pattern[str]] = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
 
 
@@ -195,6 +228,10 @@ def prose(text: str, *, style: HouseStyle) -> str:
     def _money(match: re.Match[str]) -> str:
         return money(Decimal(match.group(1)), match.group(2), style=style)
 
+    def _symbol_money(match: re.Match[str]) -> str:
+        amount = Decimal(match.group(2).replace(",", ""))
+        return money(amount, _SYMBOL_CURRENCIES[match.group(1)], style=style)
+
     def _date(match: re.Match[str]) -> str:
         try:
             when = date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
@@ -202,7 +239,8 @@ def prose(text: str, *, style: HouseStyle) -> str:
             return match.group(0)
         return date_text(when, style=style)
 
-    return _PROSE_DATE.sub(_date, _PROSE_MONEY.sub(_money, text))
+    rewritten = _PROSE_SYMBOL_MONEY.sub(_symbol_money, _PROSE_MONEY.sub(_money, text))
+    return _PROSE_DATE.sub(_date, rewritten)
 
 
 # -- Internals -----------------------------------------------------------------------------

@@ -484,9 +484,20 @@ def _names_its_figure(row: dict[Any, Any]) -> bool:
 
 
 # Sentence boundaries for the salvage below. Deterministic and deliberately simple: a
-# terminal mark followed by whitespace. Prose that defeats it merely salvages a larger
-# span, which errs towards removing more of the offending text rather than less.
-_SENTENCES: Final[re.Pattern[str]] = re.compile(r"(?<=[.!?])\s+")
+# terminal mark followed by whitespace — except after an abbreviation, whose full stop
+# ends a word rather than a sentence. The MTB run published the stranded tail of
+# "a top-20 U.S. bank by size.": the split after "U.S." made the removal take *half*
+# the offending sentence, which is the one direction this splitter must never err (gap
+# A65). Initialisms are matched by shape (".S." and its kin); the named abbreviations
+# are the ones company prose actually uses, each a fixed-width lookbehind because `re`
+# permits nothing wider. Prose that defeats the simplicity in the other direction
+# merely salvages a larger span, which errs towards removing more, and that is fine.
+_SENTENCES: Final[re.Pattern[str]] = re.compile(
+    r"(?<=[.!?])(?<!\.[A-Z]\.)"
+    r"(?<!\bNo\.)(?<!\bInc\.)(?<!\bLtd\.)(?<!\bCorp\.)(?<!\bCo\.)"
+    r"(?<!\be\.g\.)(?<!\bi\.e\.)(?<!\bvs\.)(?<!\bMr\.)(?<!\bMrs\.)(?<!\bDr\.)(?<!\bSt\.)"
+    r"\s+"
+)
 
 # The vocabulary of a sentence about missing evidence rather than about the company.
 # Phrases, not a model: the question is whether the sentence's subject is the disclosure

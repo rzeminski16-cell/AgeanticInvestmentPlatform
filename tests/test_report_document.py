@@ -47,6 +47,7 @@ from aer.db.models import (
     SourceDocument,
     User,
 )
+from aer.render import display
 from aer.render.document import (
     DISCLAIMER,
     UNDATED_MARKER,
@@ -949,6 +950,88 @@ class TestThePeriodSeries:
         rendered = self._rendered()
         table = next(f for f in rendered.fragments if f.__class__.__name__ == "Table")
         assert [row.cells[0] for row in table.rows] == ["Revenue", "Operating margin"]
+
+    def test_a_value_that_never_resolved_is_an_em_dash_with_no_footnote(self) -> None:
+        """Gap A66: the MTB report printed a retained earnings row as its own footnote
+        marker, twice — an empty value cell whose citation still registered."""
+        content = {
+            "financials": [
+                {
+                    "label": "Retained earnings",
+                    "values": [
+                        {
+                            "period": "FY2025",
+                            "value": "",
+                            "unit": "USD",
+                            "financial_fact_id": str(uuid.uuid4()),
+                            "source_document_id": self.SOURCE,
+                        }
+                    ],
+                }
+            ]
+        }
+        rendered = render_section(
+            key="probe", title="Probe", contract=self.CONTRACT, content=content
+        )
+
+        assert "| Retained earnings | \N{EM DASH} |" in rendered.markdown
+        assert "[^1]" not in rendered.markdown, "a footnote on an absent figure"
+
+
+class TestAStatedUnitIsNeverDropped:
+    """Gap A66: two adjacent tables at two scales with no unit anywhere.
+
+    The MTB balance sheet read "Total assets 219.3" while the cash flow read "2,280" —
+    both rows carried units, and the formatter dropped any unit it did not recognise,
+    leaving the two scales a page apart with nothing saying which was which.
+    """
+
+    def test_an_unrecognised_money_unit_is_shown_beside_the_value(self) -> None:
+        shown = display.scalar(
+            "219.3", style=HouseStyle(), unit="USD billions", label="Total assets", in_table=True
+        )
+        assert shown == "219.3 USD billions"
+
+    def test_the_platforms_own_type_words_stay_out_of_print(self) -> None:
+        """"pure" and "x" are for the formatter, not the reader — printing them would
+        trade the missing-unit leak for a jargon leak, which the golden documents hold."""
+        assert (
+            display.scalar("0.42", style=HouseStyle(), unit="pure", label="Odd", in_table=True)
+            == "0.42"
+        )
+        assert (
+            display.scalar("1.23", style=HouseStyle(), unit="x", label="Ghost", in_table=True)
+            == "1.23"
+        )
+
+    def test_a_recognised_unit_still_formats_as_before(self) -> None:
+        shown = display.scalar(
+            "219300000000", style=HouseStyle(), unit="USD", label="Total assets", in_table=True
+        )
+        assert shown == "$219,300m"
+
+    def test_an_absent_value_is_an_em_dash_never_none(self) -> None:
+        assert display.scalar(None, style=HouseStyle(), unit="USD", in_table=True) == "\u2014"
+        assert display.scalar("  ", style=HouseStyle(), unit="USD", in_table=True) == "\u2014"
+
+    def test_longhand_symbol_money_in_prose_reads_in_the_house_style(self) -> None:
+        """ "$442,000,000" mid-sentence, two pages from the front page's "$442m"."""
+        assert (
+            display.prose("net income of $442,000,000 in the quarter", style=HouseStyle())
+            == "net income of $442m in the quarter"
+        )
+
+    def test_a_five_figure_amount_is_left_as_written(self) -> None:
+        assert (
+            display.prose("a fee of $45,000 was paid", style=HouseStyle())
+            == "a fee of $45,000 was paid"
+        )
+        # Cents and all: a rewrite through the money formatter would round them away,
+        # and an amount a writer stated to the penny is theirs to state.
+        assert (
+            display.prose("a fee of $45,000.50 was paid", style=HouseStyle())
+            == "a fee of $45,000.50 was paid"
+        )
 
 
 class TestTheFrontPageNumbers:
