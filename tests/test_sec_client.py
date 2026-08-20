@@ -154,6 +154,32 @@ class TestFetchAndParse:
             await client.resolve_entity("TSCO", exchange="LSE")
 
     @respx.mock
+    async def test_the_ticker_table_is_fetched_once_per_client(self, client):
+        """Gap A56: the live run resolved six peers and fetched the megabyte table six
+        times in three seconds. One client serves one run, so the client holds it."""
+        route = respx.get(COMPANY_TICKERS_URL).mock(
+            return_value=json_response("company_tickers_exchange.json")
+        )
+
+        first = await client.fetch_company_tickers()
+        second = await client.fetch_company_tickers()
+
+        assert route.call_count == 1
+        assert second is first
+
+    @respx.mock
+    async def test_resolving_several_tickers_costs_one_table_fetch(self, client):
+        """The shape the peer resolver actually has: resolve after resolve on one client."""
+        route = respx.get(COMPANY_TICKERS_URL).mock(
+            return_value=json_response("company_tickers_exchange.json")
+        )
+
+        for _ in range(3):
+            await client.resolve_entity("MSFT", exchange="NASDAQ")
+
+        assert route.call_count == 1
+
+    @respx.mock
     async def test_the_response_is_parsed_from_what_was_archived(self, client, artefact_store):
         # Read back from the store by hash rather than kept in memory. If the two could
         # differ, the citation verifier would be checking a different document from the

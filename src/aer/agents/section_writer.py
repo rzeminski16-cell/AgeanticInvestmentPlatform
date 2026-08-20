@@ -66,6 +66,13 @@ class SectionWriterInput(BaseModel):
     problems: list[str] = Field(default_factory=list)
     evidence_truncated: bool = False
 
+    # The section's word budget and the count past which the validator refuses, stated
+    # with their consequence in the user message (gap A50). Zero means unbounded. In the
+    # user message rather than the cached policy block, because a truncation retry runs
+    # at a *cut* budget (gap A51a) and the stable context must stay byte-identical.
+    word_budget: int = 0
+    word_ceiling: int = 0
+
 
 _SYSTEM_PROMPT: Final = """\
 You write one built-in section of an institutional equity research report. Your whole
@@ -115,7 +122,8 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
 
     role: ClassVar[str] = "report_writer"
     output_schema: ClassVar[type[BaseModel]] = SectionDraft
-    prompt_version: ClassVar[str] = "1"
+    # "2": the user message states the word budget with its consequence (gap A50).
+    prompt_version: ClassVar[str] = "2"
 
     def __init__(self, *, route_role: str | None = None) -> None:
         """A writer, optionally billed at a cheaper configured route (gap O1).
@@ -188,6 +196,17 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
             parts.append(
                 f"Direction for this section, for you and never to be quoted: "
                 f"{payload.focus.strip()}"
+            )
+        if payload.word_budget > 0:
+            # The ceiling and its consequence, from the same numbers the validator reads
+            # (gap A50). The live run bought 14,475 output tokens against a 711-word
+            # budget: the budget was enforced only after it had been paid for, because
+            # the prompt asked for a target without saying what happens past it.
+            parts.append(
+                f"Write the content to about {payload.word_budget} words. This is a "
+                f"ceiling with a consequence, not a suggestion: past {payload.word_ceiling} "
+                "words the platform refuses or cuts the draft — the overrun is paid for "
+                "and then thrown away, never published."
             )
         if payload.evidence_truncated:
             parts.append(

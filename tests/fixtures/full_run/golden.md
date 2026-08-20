@@ -246,13 +246,11 @@ Scripted text with no figure in it.
 
 ## Valuation — Discounted Cash Flow
 
+> **No valuation exists for this run, so no commentary was requested from the writing model: there are no recorded figures to interpret, and the method note states why none were produced.**
+
 ### How These Figures Were Produced
 
 No discounted cash flow was produced for this run, so there is no method to describe: The discount rate needs risk_free_rate, beta, equity_risk_premium, and no confirmed assumption of that name exists on this request. The rate is decomposed rather than taken as one number, so each part has to be agreed on its own terms.
-
-### Commentary
-
-Scripted analysis from the recorded evidence; see the figures.
 
 ## Scenarios & Sensitivities
 
@@ -317,12 +315,16 @@ The run's validators measured 9 metric(s): 8 passed, 0 failed, 1 not exercised. 
 | numerical_consistency | 0E-8 | at most 0.00500000 | pass |
 | presentation_integrity | 0E-8 | at most 0E-8 | pass |
 | primary_source_ratio | 1.00000000 | at least 0.60000000 | pass |
-| source_coverage | 1.00000000 | at least 0.90000000 | pass |
+| source_coverage | 0.94120000 | at least 0.90000000 | pass |
 | temporal_compliance | 1.00000000 | at least 1.00000000 | pass |
 
 ## Comparable companies
 
 A comparable-company analysis was attempted as at 30 June 2022, but every one of the 1 proposed peer(s) was excluded for want of usable data, so no comparable figure was computed. There is no fuller version elsewhere; the operator's own copy lists each excluded peer with the reason.
+
+## Scope and limitations
+
+- **Valuation — Discounted Cash Flow:** No valuation exists for this run, so no commentary was requested from the writing model: there are no recorded figures to interpret, and the method note states why none were produced.
 
 
 ## Notes

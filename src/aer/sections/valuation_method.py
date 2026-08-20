@@ -31,7 +31,7 @@ from sqlalchemy.orm import selectinload
 
 from aer.db.models import Assumption, Calculation, JobStep, ResearchRequest
 
-__all__ = ["commentary_problems", "valuation_method_block"]
+__all__ = ["commentary_problems", "method_only", "valuation_method_block"]
 
 # The workflow step whose recorded output says whether a valuation ran and what caveats it
 # carried. The literal is duplicated from ``vertical_slice_v1.VALUE_STEP`` because the
@@ -309,6 +309,26 @@ def _base_case(
         and (method is None or str(row.parameters.get("method", "")) == method)
     ]
     return matching[0] if matching else None
+
+
+def method_only(block: dict[str, Any]) -> str:
+    """Why the rendered record is this section's whole content, or empty for a real DCF.
+
+    Gap A51c. The live run reached this section with no valuation — the cost-of-capital
+    assumptions were never supplied — and still paid for two writer attempts, both refused
+    by :func:`commentary_problems` for describing a discount rate, a risk-free rate, a
+    premium and a terminal growth no calculation produced. The guard was right and the
+    calls were pointless: a commentary's only job here is to interpret recorded figures,
+    and there were none to interpret. A block with no cost-of-capital rows and no terminal
+    valuations *is* the section — the honest one-line state — so the writer is not called.
+    """
+    if block.get("cost_of_capital") or block.get("terminal_valuations"):
+        return ""
+    return (
+        "No valuation exists for this run, so no commentary was requested from the "
+        "writing model: there are no recorded figures to interpret, and the method note "
+        "states why none were produced."
+    )
 
 
 # -- The commentary's deterministic edge -----------------------------------------------------

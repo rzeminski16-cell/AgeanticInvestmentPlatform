@@ -35,7 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.db.models import Disagreement, Evaluation, Job, ResearchRequest, SectionStatus
 from aer.eval import BLOCKING, RUN_TIME, THRESHOLDS, Direction, Metric
 from aer.sections.registry import sections_for_job
-from aer.sections.valuation_method import commentary_problems, valuation_method_block
+from aer.sections.valuation_method import commentary_problems, method_only, valuation_method_block
 from aer.services.evaluations import NUMERIC_CEILING
 from aer.services.history import prior_comparison_content
 
@@ -316,14 +316,21 @@ class SectionAugmenter:
     the model's remaining field: given the draft's content and the rendered block, it
     returns the problems that refuse the draft — the valuation section uses it to reject a
     commentary describing method inputs the record does not hold.
+
+    ``standalone``, when set, is asked before the model is: given the rendered block, it
+    returns the reason the block is this section's *whole* truthful content — in which
+    case no writer call is made — or an empty string for the ordinary path (gap A51c).
     """
 
     build: Callable[..., Awaitable[dict[str, Any]]]
     check: Callable[[dict[str, Any], dict[str, Any]], list[str]]
+    standalone: Callable[[dict[str, Any]], str] | None = None
 
 
 AUGMENTERS: dict[str, SectionAugmenter] = {
-    "valuation_dcf": SectionAugmenter(build=valuation_method_block, check=commentary_problems),
+    "valuation_dcf": SectionAugmenter(
+        build=valuation_method_block, check=commentary_problems, standalone=method_only
+    ),
 }
 
 

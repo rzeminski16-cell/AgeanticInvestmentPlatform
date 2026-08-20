@@ -22,7 +22,11 @@ from aer.calc.wacc import CapitalStructure, EquityBasis, cost_of_capital
 from aer.core.enums import JobStatus, UserRole
 from aer.db.models import JobStep, ResearchRequest, User
 from aer.sections.deterministic import AUGMENTERS, model_facing_contract
-from aer.sections.valuation_method import commentary_problems, valuation_method_block
+from aer.sections.valuation_method import (
+    commentary_problems,
+    method_only,
+    valuation_method_block,
+)
 from aer.services import assumptions as assumption_service
 from aer.services import valuation as valuation_service
 from aer.services.calculations import new_context, persist_context
@@ -395,3 +399,51 @@ class TestTheModelFacingContract:
     def test_the_valuation_section_has_an_augmenter_registered(self) -> None:
         """The wiring the whole mechanism rests on: the key is in the registry."""
         assert "valuation_dcf" in AUGMENTERS
+
+
+class TestWhenTheBlockIsTheWholeSection:
+    """Gap A51c: with no valuation there is nothing for a commentary to interpret, and
+    the writer is not asked — `method_only` is the augmenter's answer before the model."""
+
+    def test_a_block_with_no_figures_is_standalone_with_a_reason(self) -> None:
+        reason = method_only({"method_note": "No discounted cash flow was produced."})
+
+        assert "no commentary was requested" in reason
+
+    def test_a_block_with_cost_of_capital_rows_wants_its_commentary(self) -> None:
+        assert (
+            method_only({"method_note": "The figures…", "cost_of_capital": [{"label": "Beta"}]})
+            == ""
+        )
+
+    def test_a_block_with_terminal_valuations_wants_its_commentary(self) -> None:
+        assert (
+            method_only(
+                {
+                    "method_note": "The figures…",
+                    "terminal_valuations": [{"label": "Value per share — Gordon growth"}],
+                }
+            )
+            == ""
+        )
+
+    async def test_a_valued_runs_block_is_never_standalone(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """Pinned against the real block, not a hand-shaped one: a rendering change that
+        emptied the rows would silently stop every commentary rather than fail here."""
+        block = await block_for(db_session, scene)
+
+        assert method_only(block) == ""
+
+    async def test_the_live_runs_state_is_standalone(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        step = await db_session.get(JobStep, next(iter(await _value_step_ids(db_session, scene))))
+        assert step is not None
+        step.output_ref = {"valued": False, "reason": "the assumptions were never supplied"}
+        await db_session.flush()
+
+        block = await block_for(db_session, scene)
+
+        assert method_only(block) != ""

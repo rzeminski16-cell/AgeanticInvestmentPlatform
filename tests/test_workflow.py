@@ -407,8 +407,9 @@ class TestTheWholeRun:
         """ADR 0063: the method fields are the platform's, merged into the model's draft.
 
         This run's value step honestly records that no valuation was possible, so the
-        merged block is the one-line state — rendered from the step's own output, with
-        the model's commentary beside it and the withdrawn fields nowhere.
+        section is the rendered one-line state alone: with nothing to interpret, no
+        commentary was requested from the writer (gap A51c), and the row says so where
+        the console and the report read it.
         """
         session = finished["session"]
         row = await session.scalar(
@@ -421,7 +422,8 @@ class TestTheWholeRun:
         content = row.content or {}
 
         assert "No discounted cash flow was produced" in content["method_note"]
-        assert content["commentary"]
+        assert "commentary" not in content
+        assert "no commentary was requested" in (row.low_confidence_reason or "")
         # Version 2 of the contract withdrew the model-written record fields; a draft
         # carrying one would mean the model was handed the wrong schema.
         assert "figures" not in content
@@ -497,9 +499,11 @@ class TestTheWholeRun:
         """Every model call in the run, named and counted exactly.
 
         The planner, the five research workers, and one writer call per model-written
-        spine section — sixteen, because the two deterministic sections spend nothing. An
-        extra call, from a step quietly acquiring a model dependency or a section retrying
-        without a recorded reason, fails here rather than on a bill.
+        spine section — fifteen: the two deterministic sections spend nothing, and this
+        run's valuation section spends nothing either, because with no valuation there
+        are no figures for a commentary to interpret and the writer is not asked (gap
+        A51c). An extra call, from a step quietly acquiring a model dependency or a
+        section retrying without a recorded reason, fails here rather than on a bill.
 
         **One call this run used to make and no longer does.** The validator's
         date-adjudication assist existed to argue about a source with no publication date,
@@ -518,7 +522,8 @@ class TestTheWholeRun:
         assert schemas.count("ThemeSlate") == 1
         assert schemas.count("WorkerTurn") == 5
         # Named for the section it was built for; see `declared_schema_name`.
-        assert sum(1 for name in schemas if name.endswith("SectionDraft")) == 16
+        assert sum(1 for name in schemas if name.endswith("SectionDraft")) == 15
+        assert "ValuationDcfSectionDraft" not in schemas
         # **And named for the section, not the role.** The bare envelope means the writer
         # was handed `content: dict[str, Any]`, which the API's dialect closes to an object
         # permitting no keys — the model can then return nothing, and every section renders
@@ -533,7 +538,7 @@ class TestTheWholeRun:
         # ever produced a comps table; naming comparables is the judgement this platform
         # asks a model for, and every ticker it returns is resolved against EDGAR in code.
         assert schemas.count("PeerSlate") == 1
-        assert finished["provider"].call_count == 26
+        assert finished["provider"].call_count == 25
 
     async def test_the_writer_receives_the_planners_approved_focus(self, finished: dict) -> None:
         """The plan's per-section brief — text a human approved at gate 1 — reaches the

@@ -330,6 +330,8 @@ class TestDrainNeverAbandon:
                 )
             )
         # Every section call except the wired failure ran to a committed outcome — the
-        # ones already in flight and the ones still queued behind the semaphore alike.
-        assert generated == driver.provider.section_calls - 1
+        # ones already in flight and the ones still queued behind the semaphore alike —
+        # and one budgeted section generated with no call at all: the valuation section
+        # is filled from the record when no valuation exists (gap A51c).
+        assert generated == (driver.provider.section_calls - 1) + 1
         assert (generated or 0) > 0

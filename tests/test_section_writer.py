@@ -1131,3 +1131,189 @@ class TestTheRefusalCausesReachTheRunRecord:
 
         assert outcome.refusal_causes == {}
         assert "refusal_causes" not in outcome.as_dict()
+
+
+class TestNoValuationMeansNoWriterCall:
+    """Gap A51c. The live run reached the valuation section with no valuation, paid for
+    two Opus attempts, and had both refused for describing a discount rate and a premium
+    no calculation produced. The guard was right and the calls were pointless: when the
+    rendered method block is the section's whole truthful content, the writer is not
+    asked for a commentary on figures that do not exist.
+    """
+
+    @staticmethod
+    def _never_called() -> FakeProvider:
+        def answer(schema: type) -> Any:
+            message = "the writer must not be called when no valuation exists"
+            raise AssertionError(message)
+
+        return FakeProvider(answer)
+
+    @staticmethod
+    async def _at_the_valuation_section(scene: dict[str, Any]) -> Any:
+        """The DCF section of a run whose value step recorded that nothing was valued."""
+        scene["session"].add(
+            JobStep(
+                job_id=scene["job"].id,
+                step_key="value",
+                sequence=1,
+                status=JobStatus.SUCCEEDED,
+                idempotency_key=f"{scene['job'].id}:value",
+                input_hash="0" * 64,
+                output_ref={
+                    "valued": False,
+                    "reason": "the cost-of-capital assumptions were never supplied",
+                },
+            )
+        )
+        await scene["session"].flush()
+        sections = await sections_for_job(scene["session"], scene["job"].id)
+        return next(s for s in sections if s.section_key == "valuation_dcf")
+
+    async def test_the_section_generates_from_the_record_with_no_model_call(
+        self, scene: dict[str, Any]
+    ) -> None:
+        section = await self._at_the_valuation_section(scene)
+
+        outcome = await execute_builtin_section(
+            _context(scene, self._never_called()), section=section, request=scene["request"]
+        )
+
+        assert outcome.status is SectionStatus.GENERATED
+        assert outcome.attempts == 0
+        assert "no method to describe" in section.content["method_note"]
+
+    async def test_the_row_says_why_there_is_no_commentary(self, scene: dict[str, Any]) -> None:
+        """The absence is explained where the console and the report read it, rather
+        than left for a reader to infer from a missing subsection."""
+        section = await self._at_the_valuation_section(scene)
+
+        await execute_builtin_section(
+            _context(scene, self._never_called()), section=section, request=scene["request"]
+        )
+
+        assert "no commentary was requested" in (section.low_confidence_reason or "")
+
+
+def _user_text(call: dict[str, Any]) -> str:
+    """Every user-role message of one recorded call, joined."""
+    return "\n".join(
+        str(message["content"]) for message in call["messages"] if message["role"] == "user"
+    )
+
+
+class TestTheBudgetIsStatedWithItsConsequence:
+    """Gap A50. The live run bought 14,475 output tokens against a 711-word budget —
+    the prompt asked for a target without saying what happens past it, so the budget
+    was enforced only after it had been paid for. The user message now states the
+    ceiling and the consequence, from the same numbers the validator reads.
+    """
+
+    @staticmethod
+    def _payload(word_budget: int) -> SectionWriterInput:
+        return SectionWriterInput(
+            section_key="cash_flow_analysis",
+            title="Cash Flow Analysis",
+            company_name="Microsoft Corporation",
+            ticker="MSFT",
+            as_of_date="2022-06-30",
+            point_in_time=True,
+            output_contract={},
+            word_budget=word_budget,
+            word_ceiling=word_ceiling(word_budget) if word_budget else 0,
+        )
+
+    def test_the_user_message_states_the_budget_the_ceiling_and_the_cost(self) -> None:
+        message = SectionWriterAgent().user_message(self._payload(711))
+
+        assert "about 711 words" in message
+        assert str(word_ceiling(711)) in message
+        assert "paid for" in message
+        assert "never published" in message
+
+    def test_an_unbounded_section_is_not_lectured_about_a_budget(self) -> None:
+        assert "ceiling with a consequence" not in SectionWriterAgent().user_message(
+            self._payload(0)
+        )
+
+    async def test_a_real_call_carries_the_definitions_own_budget(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """From the definition row through the policy to the prompt — the same number
+        the validator will refuse against, not a second constant to drift. Scaled to the
+        request's depth first, exactly as the executor scales it."""
+        budget = (
+            policy_of_definition(scene["section"].definition)
+            .scaled(scene["request"].analysis_mode)
+            .word_budget
+        )
+        assert budget > 0, "the fixture section must carry a word budget"
+        provider = _scripted([_good_draft(scene)])
+
+        await _run(scene, provider)
+
+        [call] = provider.calls
+        assert f"about {budget} words" in _user_text(call)
+        assert str(word_ceiling(budget)) in _user_text(call)
+
+
+class TestTruncationCutsTheAsk:
+    """Gap A51a. The live run's Balance Sheet section hit the output ceiling on both
+    attempts: the retry said "say it in fewer words" while demanding the same content.
+    The raised ceiling (polish P6) gives the retry room; the halved word budget gives
+    it a smaller ask, and the validator enforces the cut one.
+    """
+
+    async def test_the_retry_is_asked_for_half_the_words(self, scene: dict[str, Any]) -> None:
+        budget = (
+            policy_of_definition(scene["section"].definition)
+            .scaled(scene["request"].analysis_mode)
+            .word_budget
+        )
+        assert budget > 0, "the fixture section must carry a word budget"
+        provider = TestTruncationGetsHeadroomOnTheRetry._truncated_then(_good_draft(scene))
+
+        outcome = await _run(scene, provider)
+
+        assert outcome.status is SectionStatus.GENERATED
+        first, second = provider.calls
+        assert f"about {budget} words" in _user_text(first)
+        assert f"about {budget // 2} words" in _user_text(second)
+        assert f"is {budget // 2} words" in _user_text(second)  # the cut, stated as a problem
+
+    async def test_an_ordinary_refusal_keeps_the_budget(self, scene: dict[str, Any]) -> None:
+        """The cut is for truncation alone — a schema refusal retries at the full ask."""
+        budget = (
+            policy_of_definition(scene["section"].definition)
+            .scaled(scene["request"].analysis_mode)
+            .word_budget
+        )
+        provider = _scripted([_undeclared_field_draft(), _good_draft(scene)])
+
+        await _run(scene, provider)
+
+        first, second = provider.calls
+        assert f"about {budget} words" in _user_text(first)
+        assert f"about {budget} words" in _user_text(second)
+
+    async def test_the_cached_policy_block_does_not_move_with_the_cut(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The evidence-policy block is the cache prefix; a retry that rewrote it would
+        pay to re-send everything downstream of it. The cut travels in the user message."""
+        provider = TestTruncationGetsHeadroomOnTheRetry._truncated_then(_good_draft(scene))
+
+        await _run(scene, provider)
+
+        first, second = provider.calls
+
+        def stable(call: dict[str, Any]) -> list[str]:
+            blocks = [
+                str(message["cache_prefix"])
+                for message in call["messages"]
+                if message.get("cache_prefix")
+            ]
+            assert blocks, "the writer's turn must carry its cached evidence block"
+            return blocks
+
+        assert stable(first) == stable(second)

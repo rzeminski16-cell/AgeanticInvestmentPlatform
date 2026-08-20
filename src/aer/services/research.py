@@ -126,6 +126,12 @@ def build_executors(
     # of a searched-for filing keep the tier and date the search established.
     regulator_hits: dict[str, _RegulatorHit] = {}
 
+    # One extraction per document per worker node (gap A56): the live run re-extracted
+    # the same 1.5MB filing on every fetch of it, recomputing its ninety-six hidden-text
+    # findings each pass. Keyed by digest, which is the artefact's identity, so a URL
+    # variant of the same bytes still hits.
+    extracted_texts: dict[str, tuple[str, str]] = {}
+
     async def search_facts(tool_request: ToolRequest) -> ExecutedTool:
         company_id = await _company_id_for(session, request=request)
         rows = await session.scalars(
@@ -195,151 +201,16 @@ def build_executors(
         )
 
     async def fetch_known_url(tool_request: ToolRequest) -> ExecutedTool:
-        """Fetch one page, from a host this run already holds a document from.
-
-        **The model chooses the path. Code chooses the host.** That split is the whole
-        control, and `aer.sources.issuer` states why: "there is no code path that learns a
-        new domain from a page and then fetches it, because the one thing an attacker who
-        controls a page wants is exactly that." A worker reads untrusted evidence, so a URL
-        it hands back is untrusted text. Honouring the host would be that forbidden path
-        with a language model in the middle of it.
-
-        So the host must already be established — some earlier fetch, driven by a regulator
-        identifier or an operator-supplied domain, put a document from it in this run — and
-        that document's provider is reused, because provider is what decides the licence,
-        the rate limit and the standing allowlist the host was admitted under.
-
-        The tier is not inherited from the host — but it is granted by the index. A page a
-        model picked off a host is not the artefact the adapter for that host was built to
-        fetch, so it enters at the weakest tier; a filing the regulator's *own index* named
-        to this worker, with its form and filed date, is exactly that artefact, and the
-        live run mis-tiering five EDGAR filings as undated T5 is what this distinction
-        fixes. Anything else gets its publication date derived from the response headers
-        where they establish one, and stays honestly undated where they do not.
-        """
-        url = tool_request.query.strip()
-        established = await _established_host(session, request=request, url=url)
-        if established is None:
-            return ExecutedTool(
-                tool=tool_request.tool,
-                query=url,
-                executed=False,
-                refusal=(
-                    "Refused: this run holds no document from that host, and a host is "
-                    "never taken from a request. Fetch only from a host whose documents "
-                    "search_sources has already shown you."
-                ),
-            )
-
-        host, provider = established
-        try:
-            result = await fetcher.fetch(url, provider=provider, extra_hosts=(host,))
-        except AerError as exc:
-            # Every control in the fetch layer refuses by raising — robots, SSRF, the size
-            # cap, the breaker. A refusal is information the worker can act on, not a
-            # reason to fail the node.
-            return ExecutedTool(
-                tool=tool_request.tool, query=url, executed=False, refusal=f"Refused: {exc.message}"
-            )
-
-        # A page the run already holds is answered from the record it already has —
-        # highest tier, unquarantined first (gap A43). Recording it again minted a fresh
-        # id at T5 with a quarantine flag for the very bytes the acquire step held at T1,
-        # and the competing ids poisoned every citation of the document downstream.
-        held = await _already_held(session, request=request, sha256=result.sha256)
-        if held is not None:
-            document_id = str(held.id)
-            text, note = await _text_of(store, result=result, settings=settings)
-            return ExecutedTool(
-                tool=tool_request.tool,
-                query=url,
-                executed=True,
-                internal_results=[
-                    {
-                        "source_document_id": document_id,
-                        "tier": held.source_tier.value,
-                        "status_code": result.status_code,
-                        "media_type": result.media_type,
-                        "quarantined": held.quarantined,
-                        "extraction": note,
-                    }
-                ],
-                untrusted_evidence=[
-                    {
-                        "source_document_id": document_id,
-                        "tier": held.source_tier.value,
-                        "title": url,
-                        "text": text,
-                    }
-                ],
-            )
-
-        hit = regulator_hits.get(url) or regulator_hits.get(result.final_url)
-        if hit is not None:
-            # The regulator's index named this URL to this worker, with its form and
-            # filed date — the same authority the acquire step's documents enter under.
-            tier = tier_for(provider, DocumentKind.REGULATORY_FILING)
-            acquisition = await record_acquisition(
-                session,
-                store,
-                request=request,
-                job_id=job_id,
-                # The full-text search is scoped to the subject's CIK, so a filing the
-                # index named to this worker is the subject's own (ADR 0061).
-                company_id=request.company_id,
-                result=result,
-                provider=provider,
-                source_tier=tier,
-                publication_date=hit.filed,
-                publication_date_confidence=1.0,
-                title=f"{hit.form} {hit.accession}",
-            )
-        else:
-            tier = _FETCHED_TIER
-            acquisition = await record_acquisition(
-                session,
-                store,
-                request=request,
-                job_id=job_id,
-                result=result,
-                provider=provider,
-                source_tier=tier,
-                # Best effort from the response headers alone. Page content is a hostile
-                # surface — a date parsed out of attacker-controlled text would let the
-                # page pick its own admissibility — so an undatable page stays undated.
-                published=extract_publication_date(
-                    headers=result.headers, not_after=datetime.now(UTC).date()
-                ),
-                title=url,
-            )
-        document_id = str(acquisition.source_document.id)
-        text, note = await _text_of(store, result=result, settings=settings)
-
-        return ExecutedTool(
-            tool=tool_request.tool,
-            query=url,
-            executed=True,
-            internal_results=[
-                {
-                    "source_document_id": document_id,
-                    "tier": tier.value,
-                    "status_code": result.status_code,
-                    "media_type": result.media_type,
-                    "quarantined": acquisition.quarantined,
-                    "extraction": note,
-                }
-            ],
-            # The page's own words, which is the one thing here that a hostile server
-            # controls. It reaches the model only inside the wrapper, with its id beside it
-            # so a finding can cite what it read.
-            untrusted_evidence=[
-                {
-                    "source_document_id": document_id,
-                    "tier": tier.value,
-                    "title": url,
-                    "text": text,
-                }
-            ],
+        return await _fetch_known_url(
+            session,
+            tool_request,
+            request=request,
+            fetcher=fetcher,
+            store=store,
+            settings=settings,
+            job_id=job_id,
+            regulator_hits=regulator_hits,
+            texts=extracted_texts,
         )
 
     async def search_filings_full_text(tool_request: ToolRequest) -> ExecutedTool:
@@ -461,6 +332,248 @@ async def _already_held(
     return min(rows, key=lambda row: (row.quarantined, row.source_tier.rank))
 
 
+async def _fetch_known_url(
+    session: AsyncSession,
+    tool_request: ToolRequest,
+    *,
+    request: ResearchRequest,
+    fetcher: Any,
+    store: Any,
+    settings: Settings | None,
+    job_id: uuid.UUID | None,
+    regulator_hits: dict[str, _RegulatorHit],
+    texts: dict[str, tuple[str, str]],
+) -> ExecutedTool:
+    """Fetch one page, from a host this run already holds a document from.
+
+    **The model chooses the path. Code chooses the host.** That split is the whole
+    control, and `aer.sources.issuer` states why: "there is no code path that learns a
+    new domain from a page and then fetches it, because the one thing an attacker who
+    controls a page wants is exactly that." A worker reads untrusted evidence, so a URL
+    it hands back is untrusted text. Honouring the host would be that forbidden path
+    with a language model in the middle of it.
+
+    So the host must already be established — some earlier fetch, driven by a regulator
+    identifier or an operator-supplied domain, put a document from it in this run — and
+    that document's provider is reused, because provider is what decides the licence,
+    the rate limit and the standing allowlist the host was admitted under.
+
+    The tier is not inherited from the host — but it is granted by the index. A page a
+    model picked off a host is not the artefact the adapter for that host was built to
+    fetch, so it enters at the weakest tier; a filing the regulator's *own index* named
+    to this worker, with its form and filed date, is exactly that artefact, and the
+    live run mis-tiering five EDGAR filings as undated T5 is what this distinction
+    fixes. Anything else gets its publication date derived from the response headers
+    where they establish one, and stays honestly undated where they do not.
+    """
+    url = tool_request.query.strip()
+    # Before any network work (gap A56): a URL this run has already acquired is
+    # answered from its own record and archive. `_already_held` can only dedupe
+    # *after* a fetch, because it keys on the response's digest — so the live run
+    # fetched the same 1.5MB filing six times to be told six times that it held it.
+    held = await _held_by_url(session, request=request, url=url)
+    held_artefact = await session.get(Artefact, held.artefact_id) if held is not None else None
+    if held is not None and held_artefact is not None:
+        text, note = await _memoised_text(
+            texts, store, settings, sha256=held_artefact.sha256, media_type=held_artefact.media_type
+        )
+        return ExecutedTool(
+            tool=tool_request.tool,
+            query=url,
+            executed=True,
+            internal_results=[
+                {
+                    "source_document_id": str(held.id),
+                    "tier": held.source_tier.value,
+                    "media_type": held_artefact.media_type,
+                    "quarantined": held.quarantined,
+                    "extraction": note,
+                    "note": (
+                        "already held by this run; served from the archive without refetching"
+                    ),
+                }
+            ],
+            untrusted_evidence=[
+                {
+                    "source_document_id": str(held.id),
+                    "tier": held.source_tier.value,
+                    "title": url,
+                    "text": text,
+                }
+            ],
+        )
+
+    established = await _established_host(session, request=request, url=url)
+    if established is None:
+        return ExecutedTool(
+            tool=tool_request.tool,
+            query=url,
+            executed=False,
+            refusal=(
+                "Refused: this run holds no document from that host, and a host is "
+                "never taken from a request. Fetch only from a host whose documents "
+                "search_sources has already shown you."
+            ),
+        )
+
+    host, provider = established
+    try:
+        result = await fetcher.fetch(url, provider=provider, extra_hosts=(host,))
+    except AerError as exc:
+        # Every control in the fetch layer refuses by raising — robots, SSRF, the size
+        # cap, the breaker. A refusal is information the worker can act on, not a
+        # reason to fail the node.
+        return ExecutedTool(
+            tool=tool_request.tool, query=url, executed=False, refusal=f"Refused: {exc.message}"
+        )
+
+    # A page the run already holds is answered from the record it already has —
+    # highest tier, unquarantined first (gap A43). Recording it again minted a fresh
+    # id at T5 with a quarantine flag for the very bytes the acquire step held at T1,
+    # and the competing ids poisoned every citation of the document downstream.
+    held = await _already_held(session, request=request, sha256=result.sha256)
+    if held is not None:
+        document_id = str(held.id)
+        text, note = await _memoised_text(
+            texts, store, settings, sha256=result.sha256, media_type=result.media_type
+        )
+        return ExecutedTool(
+            tool=tool_request.tool,
+            query=url,
+            executed=True,
+            internal_results=[
+                {
+                    "source_document_id": document_id,
+                    "tier": held.source_tier.value,
+                    "status_code": result.status_code,
+                    "media_type": result.media_type,
+                    "quarantined": held.quarantined,
+                    "extraction": note,
+                }
+            ],
+            untrusted_evidence=[
+                {
+                    "source_document_id": document_id,
+                    "tier": held.source_tier.value,
+                    "title": url,
+                    "text": text,
+                }
+            ],
+        )
+
+    hit = regulator_hits.get(url) or regulator_hits.get(result.final_url)
+    if hit is not None:
+        # The regulator's index named this URL to this worker, with its form and
+        # filed date — the same authority the acquire step's documents enter under.
+        tier = tier_for(provider, DocumentKind.REGULATORY_FILING)
+        acquisition = await record_acquisition(
+            session,
+            store,
+            request=request,
+            job_id=job_id,
+            # The full-text search is scoped to the subject's CIK, so a filing the
+            # index named to this worker is the subject's own (ADR 0061).
+            company_id=request.company_id,
+            result=result,
+            provider=provider,
+            source_tier=tier,
+            publication_date=hit.filed,
+            publication_date_confidence=1.0,
+            title=f"{hit.form} {hit.accession}",
+        )
+    else:
+        tier = _FETCHED_TIER
+        acquisition = await record_acquisition(
+            session,
+            store,
+            request=request,
+            job_id=job_id,
+            result=result,
+            provider=provider,
+            source_tier=tier,
+            # Best effort from the response headers alone. Page content is a hostile
+            # surface — a date parsed out of attacker-controlled text would let the
+            # page pick its own admissibility — so an undatable page stays undated.
+            published=extract_publication_date(
+                headers=result.headers, not_after=datetime.now(UTC).date()
+            ),
+            title=url,
+        )
+    document_id = str(acquisition.source_document.id)
+    text, note = await _memoised_text(
+        texts, store, settings, sha256=result.sha256, media_type=result.media_type
+    )
+
+    return ExecutedTool(
+        tool=tool_request.tool,
+        query=url,
+        executed=True,
+        internal_results=[
+            {
+                "source_document_id": document_id,
+                "tier": tier.value,
+                "status_code": result.status_code,
+                "media_type": result.media_type,
+                "quarantined": acquisition.quarantined,
+                "extraction": note,
+            }
+        ],
+        # The page's own words, which is the one thing here that a hostile server
+        # controls. It reaches the model only inside the wrapper, with its id beside it
+        # so a finding can cite what it read.
+        untrusted_evidence=[
+            {
+                "source_document_id": document_id,
+                "tier": tier.value,
+                "title": url,
+                "text": text,
+            }
+        ],
+    )
+
+
+async def _memoised_text(
+    texts: dict[str, tuple[str, str]],
+    store: Any,
+    settings: Settings | None,
+    *,
+    sha256: str,
+    media_type: str,
+) -> tuple[str, str]:
+    """One extraction per document per worker node (gap A56).
+
+    The live run re-extracted the same 1.5MB filing on every fetch of it, recomputing
+    its ninety-six hidden-text findings each pass. Keyed by digest — the artefact's
+    identity — so a URL variant of the same bytes still hits.
+    """
+    if sha256 not in texts:
+        texts[sha256] = await _text_of(
+            store, sha256=sha256, media_type=media_type, settings=settings
+        )
+    return texts[sha256]
+
+
+async def _held_by_url(
+    session: AsyncSession, *, request: ResearchRequest, url: str
+) -> SourceDocument | None:
+    """The request's best existing record of this exact URL, or ``None``.
+
+    Checked *before* fetching, where :func:`_already_held`'s digest check can only run
+    after (gap A56). Best means highest tier and unquarantined first, for the same
+    reason it does there: the acquire step's T1 record must answer for the document.
+    """
+    rows = list(
+        await session.scalars(
+            select(SourceDocument).where(
+                SourceDocument.request_id == request.id, SourceDocument.url == url
+            )
+        )
+    )
+    if not rows:
+        return None
+    return min(rows, key=lambda row: (row.quarantined, row.source_tier.rank))
+
+
 async def _established_host(
     session: AsyncSession, *, request: ResearchRequest, url: str
 ) -> tuple[str, Provider] | None:
@@ -488,7 +601,9 @@ async def _established_host(
     return None
 
 
-async def _text_of(store: Any, *, result: Any, settings: Settings | None) -> tuple[str, str]:
+async def _text_of(
+    store: Any, *, sha256: str, media_type: str, settings: Settings | None
+) -> tuple[str, str]:
     """The page's text, read back from the archived copy, and a note about how it went.
 
     Read by hash rather than from the bytes in hand: that is what demonstrates the text
@@ -496,15 +611,13 @@ async def _text_of(store: Any, *, result: Any, settings: Settings | None) -> tup
     reason as the note — a page that could not be read is a fact about the page, and the
     worker can record it as a lead instead of guessing at contents.
     """
-    extractor = _EXTRACTORS.get(result.media_type)
+    extractor = _EXTRACTORS.get(media_type)
     if extractor is None:
-        return "", f"no extractor for {result.media_type}"
+        return "", f"no extractor for {media_type}"
     if settings is None:  # pragma: no cover -- bound only when settings are supplied
         return "", "extraction unavailable"
     try:
-        extracted = await extract_text(
-            store, sha256=result.sha256, extractor=extractor, settings=settings
-        )
+        extracted = await extract_text(store, sha256=sha256, extractor=extractor, settings=settings)
     except AerError as exc:
         return "", f"not extracted: {exc.message}"
 

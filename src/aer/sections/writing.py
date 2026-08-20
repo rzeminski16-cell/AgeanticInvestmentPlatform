@@ -11,7 +11,7 @@ as the only steer beyond the contract.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Final
 
 import structlog
@@ -104,6 +104,47 @@ def _refused_reply(
     return problems
 
 
+def _after_refused_reply(
+    unparsable: ValidationError,
+    *,
+    agent: SectionWriterAgent,
+    causes: dict[str, int],
+    policy: SectionPolicy,
+) -> tuple[SectionPolicy, list[str]]:
+    """What an unusable reply leaves the retry with: its problems, and its policy.
+
+    An ordinary refusal keeps the policy; a truncation cuts the word budget (gap A51a)
+    on top of the ceiling `_refused_reply` raises, and the appended note states the cut
+    so the retry writes to it rather than merely being told to be brief.
+    """
+    problems = _refused_reply(unparsable, agent=agent, causes=causes)
+    if unparsable.context.get("stop_reason") == "max_tokens":
+        policy, cut_note = _cut_for_retry(policy)
+        if cut_note:
+            problems.append(cut_note)
+    return policy, problems
+
+
+def _cut_for_retry(policy: SectionPolicy) -> tuple[SectionPolicy, str]:
+    """The policy a truncated attempt retries under: half the word budget (gap A51a).
+
+    Raising the output ceiling (polish P6) gives the retry room; this gives it a smaller
+    ask. The live run's Balance Sheet section hit the ceiling on both attempts, because
+    the retry said "say it in fewer words" while demanding the same content — the word
+    budget is what states the demand, so the budget is what moves, and the validator
+    enforces the cut one. An unbounded section keeps relying on the raised ceiling alone.
+    """
+    if policy.word_budget <= 0:
+        return policy, ""
+    cut = max(1, policy.word_budget // 2)
+    note = (
+        "Your reply ran out of room before it was complete. The word budget for this "
+        f"retry is {cut} words — half the original — so the whole section fits: cover "
+        "the essentials and leave the rest out."
+    )
+    return replace(policy, word_budget=cut), note
+
+
 def policy_of_definition(definition: SectionDefinition) -> SectionPolicy:
     """The definition row's floor and budget as one policy.
 
@@ -193,10 +234,19 @@ async def execute_builtin_section(
     # into the content after the draft passes, at the positions the stored contract
     # declares. The model cannot write them — its schema forbids unknown fields.
     contract = model_facing_contract(definition.output_contract or {})
-    augmenter, block = await _augmentation(context, section=section, request=request)
+    augmenter, block, standalone = await _augmentation(context, section=section, request=request)
+    if standalone:
+        # The augmenter answered before the model was asked (gap A51c): the rendered
+        # record is the section's whole truthful content, so the platform stores it and
+        # spends nothing.
+        return await _filled_from_record(context, section=section, block=block, reason=standalone)
     # Scaled to the request's depth: the definition states the standard budgets, and
     # quick/full move them in code rather than in a prompt (gap O5).
     policy = policy_of_definition(definition).scaled(request.analysis_mode)
+    # Stated once, from the policy as declared: a truncation retry cuts `policy`'s word
+    # budget (gap A51a), and the cached evidence-policy block must stay byte-identical —
+    # the cut budget travels in the user message, which changes every retry anyway.
+    stated_policy = policy.as_prompt_payload()
 
     evidence = await gather_evidence(
         context.session,
@@ -226,12 +276,16 @@ async def execute_builtin_section(
             as_of_date=request.as_of_date.isoformat(),
             point_in_time=request.point_in_time,
             output_contract=contract,
-            evidence_policy=policy.as_prompt_payload(),
+            evidence_policy=stated_policy,
             internal_evidence=evidence.internal,
             untrusted_evidence=evidence.untrusted,
             focus=focus,
             problems=problems,
             evidence_truncated=evidence.truncated,
+            # The budget with its consequence, from the numbers the validator reads
+            # (gap A50) — and the cut budget on a truncation retry (gap A51a).
+            word_budget=policy.word_budget,
+            word_ceiling=word_ceiling(policy.word_budget) if policy.word_budget > 0 else 0,
         )
         try:
             candidate = await agent.run(context, payload)
@@ -248,7 +302,9 @@ async def execute_builtin_section(
                 causes=_counted(causes, failed_problems),
             )
         except ValidationError as unparsable:
-            problems = _refused_reply(unparsable, agent=agent, causes=causes)
+            policy, problems = _after_refused_reply(
+                unparsable, agent=agent, causes=causes, policy=policy
+            )
             continue
 
         last_candidate = candidate
@@ -259,11 +315,10 @@ async def execute_builtin_section(
             # is a refusal like any other, and the problem text tells the retry what to
             # remove rather than what to invent.
             problems.extend(augmenter.check(candidate.content, block))
-        if problems:
-            _counted(causes, problems)
         if not problems:
             draft = candidate
             break
+        _counted(causes, problems)
         _log.info(
             "section_writer.draft_refused",
             section=section.section_key,
@@ -343,6 +398,37 @@ async def execute_builtin_section(
     )
 
 
+async def _filled_from_record(
+    context: AgentContext,
+    *,
+    section: ReportSection,
+    block: dict[str, Any],
+    reason: str,
+) -> SectionExecution:
+    """The rendered record stored as the whole section, with no writer call (gap A51c).
+
+    Generated, not failed: the block is true, complete for the state the run is in, and
+    rendered from rows a reader can audit. The reason rides on the row the way every
+    other degradation note does, so the console and the report say why there is no
+    commentary instead of leaving a reader to infer it from an absence.
+    """
+    section.content = block
+    section.status = SectionStatus.GENERATED
+    section.confidence = None
+    section.low_confidence_reason = reason
+    await context.session.flush()
+    _log.info(
+        "section_writer.filled_from_record",
+        section=section.section_key,
+        reason=reason,
+    )
+    return SectionExecution(
+        section=section,
+        status=SectionStatus.GENERATED,
+        attempts=0,
+    )
+
+
 def _failed(
     section: ReportSection,
     *,
@@ -404,17 +490,25 @@ async def _augmentation(
     *,
     section: ReportSection,
     request: ResearchRequest,
-) -> tuple[SectionAugmenter | None, dict[str, Any]]:
+) -> tuple[SectionAugmenter | None, dict[str, Any], str]:
     """This section's platform-filled fields, rendered before the model is called.
 
     Built once, ahead of the attempt loop: the block depends only on the run's records,
     and every retry validates the model's commentary against the same rendered record.
+
+    The third element is the augmenter's standalone reason (gap A51c) — why the block is
+    the section's *whole* truthful content and no writer call should be made — or an
+    empty string for the ordinary path. The live run reached the valuation section with
+    no valuation, paid for two writer attempts, and had both refused for describing
+    method inputs no calculation produced; the guard was right and the calls were
+    pointless.
     """
     augmenter = AUGMENTERS.get(section.section_key)
     if augmenter is None:
-        return None, {}
+        return None, {}, ""
     block = await augmenter.build(context.session, job_id=context.job_step.job_id, request=request)
-    return augmenter, block
+    standalone = augmenter.standalone(block) if augmenter.standalone is not None else ""
+    return augmenter, block, standalone
 
 
 def _salvaged(

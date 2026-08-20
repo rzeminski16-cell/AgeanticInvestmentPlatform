@@ -2393,3 +2393,98 @@ class TestTheFullTextToolSaysWhatItIs:
         menu = _tool_menu(("search_filings_full_text",))
 
         assert "exact phrase" in menu
+
+
+class TestAUrlTheRunAlreadyHoldsIsNotRefetched:
+    """Gap A56. The digest dedup (`_already_held`) can only answer after a fetch, so the
+    live run fetched the same 1.5MB filing six times to be told six times that it held
+    it — and re-extracted it each time, recomputing its ninety-six hidden-text findings.
+    A URL the run has already acquired is answered from its own record and archive.
+    """
+
+    @staticmethod
+    async def _archived_document(scene: dict[str, Any], url: str) -> bytes:
+        """A held document whose bytes really are in the scene's store."""
+        payload = b"<html><body><p>Contoso archived filing body.</p></body></html>"
+        stored = await scene["store"].put_bytes(payload)
+        artefact = Artefact(
+            sha256=stored.sha256,
+            media_type="text/html",
+            size_bytes=stored.size_bytes,
+            storage_key=scene["store"].storage_key_for(stored.sha256),
+        )
+        scene["session"].add(artefact)
+        await scene["session"].flush()
+        scene["session"].add(
+            SourceDocument(
+                request_id=scene["request"].id,
+                artefact_id=artefact.id,
+                url=url,
+                title="Contoso 10-K part 2",
+                provider=Provider.SEC_EDGAR,
+                source_tier=SourceTier.T1_REGULATORY,
+                publication_date=date(2022, 6, 1),
+                retrieved_at=datetime.now(UTC),
+            )
+        )
+        await scene["session"].flush()
+        return payload
+
+    async def test_the_answer_comes_from_the_archive_with_no_fetch(
+        self, fetch_scene: dict[str, Any]
+    ) -> None:
+        url = "https://www.sec.gov/Archives/edgar/contoso-10k-part2.htm"
+        await self._archived_document(fetch_scene, url)
+        fetcher = _RecordingFetcher()
+        executors = TestFetchingAKnownUrl._executors(fetch_scene, fetcher)
+
+        outcome = await executors["fetch_known_url"](_tool_request("fetch_known_url", url))
+
+        assert outcome.executed is True
+        assert fetcher.urls == [], "a held URL must never reach the network"
+        [record] = outcome.internal_results
+        assert record["tier"] == SourceTier.T1_REGULATORY.value
+        assert "without refetching" in record["note"]
+        [evidence] = outcome.untrusted_evidence
+        assert "Contoso archived filing body" in evidence["text"]
+
+    async def test_a_different_url_on_the_host_still_fetches(
+        self, fetch_scene: dict[str, Any]
+    ) -> None:
+        """The saving must not become a blind: only the exact URL is answered from the
+        record — a new page on the host is new work."""
+        await self._archived_document(
+            fetch_scene, "https://www.sec.gov/Archives/edgar/contoso-10k-part2.htm"
+        )
+        fetcher = _RecordingFetcher()
+        executors = TestFetchingAKnownUrl._executors(fetch_scene, fetcher)
+
+        await executors["fetch_known_url"](
+            _tool_request("fetch_known_url", "https://www.sec.gov/news/fresh-page")
+        )
+
+        assert fetcher.urls == ["https://www.sec.gov/news/fresh-page"]
+
+    async def test_the_same_document_is_extracted_once_per_node(
+        self, fetch_scene: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The memo is on the digest, so serving the same held URL twice reads the
+        archive once and re-parses nothing."""
+        import aer.services.research as research_module  # noqa: PLC0415
+
+        url = "https://www.sec.gov/Archives/edgar/contoso-10k-part2.htm"
+        await self._archived_document(fetch_scene, url)
+        real = research_module._text_of
+        calls = {"n": 0}
+
+        async def counting(store: Any, **kwargs: Any) -> Any:
+            calls["n"] += 1
+            return await real(store, **kwargs)
+
+        monkeypatch.setattr(research_module, "_text_of", counting)
+        executors = TestFetchingAKnownUrl._executors(fetch_scene, _RecordingFetcher())
+
+        await executors["fetch_known_url"](_tool_request("fetch_known_url", url))
+        await executors["fetch_known_url"](_tool_request("fetch_known_url", url))
+
+        assert calls["n"] == 1

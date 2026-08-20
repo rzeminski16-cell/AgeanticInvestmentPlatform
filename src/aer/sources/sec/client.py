@@ -116,17 +116,28 @@ class SecEdgarClient:
         self._sleep: Sleeper = sleep or asyncio.sleep
         self._delay = inter_request_delay
         self._requests_made = 0
+        self._tickers: SecResponse[tuple[TickerRecord, ...]] | None = None
+        self._tickers_guard = asyncio.Lock()
 
     # -- Endpoints -------------------------------------------------------------------------
 
     async def fetch_company_tickers(self) -> SecResponse[tuple[TickerRecord, ...]]:
-        """The full ticker-to-CIK table.
+        """The full ticker-to-CIK table, fetched once per client.
 
-        About a megabyte, and it changes slowly. A caller resolving several companies
-        should hold the result rather than fetching it again.
+        About a megabyte, and it changes slowly. This used to say "a caller resolving
+        several companies should hold the result rather than fetching it again", and no
+        caller did: the live run resolved six peers and fetched the table six times in
+        three seconds (gap A56). So the client holds it — one instance serves one run,
+        which is the right lifetime for a table that moves daily at most. The lock keeps
+        concurrent resolvers from racing into a duplicate first fetch.
         """
-        result = await self._get(COMPANY_TICKERS_URL)
-        return SecResponse(data=parse_company_tickers(await self._body(result)), fetch=result)
+        async with self._tickers_guard:
+            if self._tickers is None:
+                result = await self._get(COMPANY_TICKERS_URL)
+                self._tickers = SecResponse(
+                    data=parse_company_tickers(await self._body(result)), fetch=result
+                )
+        return self._tickers
 
     async def fetch_submissions(self, cik: str) -> SecResponse[SubmissionsIndex]:
         """An entity's filing history."""
