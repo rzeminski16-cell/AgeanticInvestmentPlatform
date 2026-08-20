@@ -29,6 +29,7 @@ from aer.config import (
     get_settings,
     load_settings,
 )
+from aer.core.dates import format_date
 from aer.errors import ConfigError
 
 CURRENT_MODEL_IDS = {"claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"}
@@ -469,7 +470,10 @@ class TestHouseStyle:
         assert style.voice == "impersonal"
 
     def test_the_default_date_format_reads_uk(self, settings_env):
-        rendered = date(2025, 12, 27).strftime(load_settings().house_style.date_format)
+        """Through `format_date`, which is what the renderer uses. A raw `strftime` here
+        was the last place the glibc-only `%-d` reached the C library directly, and it
+        failed the suite on Windows while every Linux gate stayed green."""
+        rendered = format_date(date(2025, 12, 27), load_settings().house_style.date_format)
         assert rendered == "27 December 2025"
 
     def test_a_partial_object_keeps_every_default_it_omits(self, settings_env):
