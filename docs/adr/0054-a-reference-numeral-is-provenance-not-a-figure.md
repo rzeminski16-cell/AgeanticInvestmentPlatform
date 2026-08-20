@@ -84,3 +84,28 @@ scores still refuses — asserted by the corpus itself, which runs in CI.
 **The pattern is enforced by mutation-verified tests.** An eraser that erases nothing, an
 eraser applied to the claims as well, and a broadened bare-year exemption each fail a
 named test in `TestAReferenceIsNotAFigure`.
+
+## Amendment — 2026-08-20: the second corpus, and five spans it settled
+
+The A48 instrumentation did its job: the MTB run's refusals arrived quoting the span
+around every flagged numeral, so this amendment is argued from live spans rather than
+guessed patterns — the condition the original decision set for any widening.
+
+Five span classes join the eraser, each anchored by context a company figure cannot wear:
+
+- **Rankings** — "a top-20 U.S. bank", "the 4th largest". A rank is a position.
+- **Labelled file numbers** — "Commission File Number 1-9861". The label is the anchor,
+  exactly as Item, Exhibit and CIK already were.
+- **Hypothetical rate steps** — "a 100 basis-point increase". The article plus the
+  basis-point *compound* plus a movement word is a scenario's shape; a measured move
+  ("NIM fell 12 basis points") has none of the three and keeps its need for lineage,
+  preserving `_MEASURE_WORDS`' standing ruling.
+- **Statutory thresholds** — "institutions above the $100 billion asset threshold". A
+  category boundary is a name; "$100 billion of deposits" anchors to nothing and still
+  needs lineage.
+- **The standalone zero** — a figure whose value is "0" was refused every time it was
+  honest, because no stored fact records an absence. "0%" and "0.5" stay flagged: a zero
+  rate is a measured figure.
+
+The discipline is unchanged: exemption by span, never by value; content only, never
+claims; each class carries a nearest-quantity counter-test proving it does not leak.

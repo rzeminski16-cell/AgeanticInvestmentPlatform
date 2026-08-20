@@ -126,6 +126,30 @@ _REFERENCE: Final[re.Pattern[str]] = re.compile(
             # A labelled CIK, and an accession number whose 10-2-6 shape is its own label.
             r"\bCIK\s*(?:No\.?\s*|Number\s*)?#?\d+\b",
             r"\b\d{10}-\d{2}-\d{6}\b",
+            # ---- Spans the MTB run of 2026-08-20 produced, each refused at Opus prices
+            # and none a quantity (ADR 0054, amended). The A48 instrumentation quoted the
+            # context around every flagged numeral, which is what made these decidable.
+            # A rank is a position, not an amount: "a top-20 U.S. bank", "the 4th largest".
+            r"\btop[- ]\d{1,3}\b",
+            r"\b\d{1,3}(?:st|nd|rd|th)\b",
+            # A labelled file number is an identifier: "Commission File Number 1-9861".
+            r"\b(?:Commission\s+)?File\s+(?:No\.?|Number)\s*:?\s*\d*-?\d+\b",
+            # A hypothetical rate step wears an article, a basis-point compound and a
+            # movement word: "a 100 basis-point increase". A *measured* move — "NIM fell
+            # 12 basis points" — has neither the article nor the compound, and keeps its
+            # need for lineage exactly as `_MEASURE_WORDS` records.
+            r"\ban?\s+\d{1,4}[\s-]*basis[- ]point\s+"
+            r"(?:increase|decrease|rise|fall|shock|move|shift|change|widening|tightening)\b",
+            # A statutory category boundary is a name, not an observation: "institutions
+            # above the $100 billion asset threshold". Two words of room for the
+            # category noun; "$100 billion of deposits" anchors to nothing and still
+            # needs lineage.
+            r"\$\d[\d,]*(?:\.\d+)?\s+(?:billion|million|trillion)(?:\s+\w+){0,2}\s+threshold\b",
+            # A standalone zero is the absence of a quantity. No stored fact records an
+            # absence, so an honest "0" could never be covered and was refused every
+            # time it appeared. The guards keep "0.5", "10" and "0%" flagged — a zero
+            # *rate* is a measured figure.
+            r"(?<![\d.,])0(?![\d.,]|\s*%)",
         )
     ),
     re.IGNORECASE,

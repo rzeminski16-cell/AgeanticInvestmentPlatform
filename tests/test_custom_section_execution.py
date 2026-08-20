@@ -389,6 +389,38 @@ class TestAReferenceIsNotAFigure:
     "2,026 million".
     """
 
+    def test_the_mtb_runs_refusals_are_excused(self) -> None:
+        """The second live corpus (ADR 0054, amended): rankings, labelled file numbers,
+        hypothetical rate steps, statutory thresholds and the standalone zero — each
+        refused at Opus prices by the MTB run, none of them a quantity. The A48
+        instrumentation quoted the span around every flagged numeral, which is what
+        made this set decidable from the log rather than guessed."""
+        content = {
+            "commentary": (
+                "The franchise is a top-20 U.S. bank by size, the 4th largest in its "
+                "footprint. The company files under Commission File Number 1-9861. Its "
+                "own sensitivity analysis models a 100 basis-point increase in the "
+                "discount rate, and the burden imposed on institutions above the "
+                "$100 billion asset threshold applies."
+            ),
+            "figures": [{"label": "Share repurchases in the quarter", "value": "0"}],
+        }
+        assert unsourced_numerals(content, []) == []
+
+    def test_the_mtb_exemptions_do_not_leak_onto_quantities(self) -> None:
+        """Each new span's nearest quantity-shaped neighbour still needs lineage: a
+        measured basis-point move, money at the threshold's own scale, a zero rate,
+        and the file number's digits without their label."""
+        for text, numeral in (
+            ("Net interest margin fell 12 basis points in the quarter.", "12"),
+            ("The bank holds $100 billion of deposits.", "100"),
+            ("Buybacks ran at 0% of net income.", "0"),
+            ("Deposits total 9861 million dollars.", "9861"),
+            ("It repurchased 20 million dollars of stock.", "20"),
+        ):
+            found = unsourced_numerals({"commentary": text}, [])
+            assert any(numeral in item for item in found), (text, found)
+
     def test_the_refusals_from_the_live_run_are_excused(self) -> None:
         content = {
             "summary": (
