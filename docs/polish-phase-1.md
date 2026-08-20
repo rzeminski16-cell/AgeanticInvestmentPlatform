@@ -677,6 +677,8 @@ Expected: 42 minutes to roughly 12, and the drafting cost unchanged.
 
 ---
 
+**Status: done** — `50329ec`. Section drafting fans out under a bounded semaphore, each section on its own session from the factory, which is the same shape task 34 gave the workflow engine. The serial path is unchanged where no factory is supplied, so every fixture-session test still exercises it.
+
 ## Task P11 — Re-run AMZN and diff
 
 The phase's acceptance test. The same request, re-run against the fixed code, compared
@@ -724,6 +726,8 @@ comparison rather than judged. What remains for the eye is what no query can see
 the prose reads like research.
 
 ---
+
+**Status: the command is done (`c8f2f59`); the run itself is the operator's.** `aer acceptance` reads a finished job and prints the readout this task specifies, so the diff is a command rather than a manual comparison — but the AMZN re-run it compares against has to be made on a machine with outbound HTTPS and a funded key, which this environment is not.
 
 ## ADRs this phase adds
 
