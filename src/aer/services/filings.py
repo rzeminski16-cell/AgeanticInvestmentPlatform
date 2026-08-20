@@ -87,6 +87,15 @@ MAX_EXCERPTS: Final = 60
 # and means nothing.
 MIN_EXCERPT_CHARS: Final = 120
 
+# The longest text one excerpt may carry. Splitting on blank lines assumed the extractor's
+# text has them; iXBRL-derived filings mostly do not, and the MTB run's 10-K arrived as
+# nine blocks averaging 36,000 characters — whole statutory items, none of them a citable
+# passage, and every section drafted against a pack truncated to fit them (gap A49's
+# instrumentation measured this). A block past this bound is re-cut at the last line
+# break inside it, failing that the last sentence end, failing that the last space, so a
+# filing with no blank lines still yields paragraph-sized excerpts.
+MAX_EXCERPT_CHARS: Final = 2_000
+
 # Which extractor reads which kind. Anything else is archived and citable but not read:
 # the platform holds the bytes either way, and guessing at an extractor is how a parser
 # meets content it was not written for.
@@ -474,7 +483,10 @@ def _paragraphs(extracted: Any, *, form: str) -> list[Excerpt]:
 
     Split on blank lines rather than on every newline: the extractor keeps the line breaks
     the filer's own markup had, so a paragraph arrives as several short lines and splitting
-    on each would produce fragments too small to mean anything.
+    on each would produce fragments too small to mean anything. But blank lines are a
+    property of the markup, not of the form — an iXBRL filing can arrive with almost none,
+    which handed the MTB run whole items as single "paragraphs" — so any block past
+    :data:`MAX_EXCERPT_CHARS` is re-cut into paragraph-sized pieces before scoring.
 
     Located by searching the extracted text for each candidate, so every locator is the
     real offset in the real artefact and the verifier will find exactly what it is shown.
@@ -557,16 +569,58 @@ def _part_at(parts: list[tuple[int, str]], offset: int) -> str | None:
 
 
 def _blocks(text: str, regions: list[tuple[int, int]]) -> list[tuple[int, str]]:
-    """Paragraphs inside the wanted regions, with where each begins."""
+    """Paragraphs inside the wanted regions, with where each begins.
+
+    A block the blank-line split leaves oversized — an iXBRL filing can deliver a whole
+    statutory item as one — is cut into paragraph-sized pieces rather than kept whole,
+    because an excerpt the length of an item is not a passage anyone can cite.
+    """
     found: list[tuple[int, str]] = []
     for start, end in regions:
         offset = start
         for block in _PARAGRAPH_BREAK.split(text[start:end]):
             stripped = block.strip()
-            if stripped:
+            if stripped and len(stripped) <= MAX_EXCERPT_CHARS:
                 found.append((offset + block.find(stripped), stripped))
+            elif stripped:
+                at = offset + block.find(stripped)
+                for inside, piece in _pieces(stripped):
+                    trimmed = piece.strip()
+                    if trimmed:
+                        found.append((at + inside + piece.find(trimmed), trimmed))
             offset += len(block) + 2
     return found
+
+
+def _pieces(block: str) -> list[tuple[int, str]]:
+    """Contiguous spans of an oversized block, each within the excerpt bound.
+
+    Cut at the last line break before the bound, failing that the last sentence end,
+    failing that the last space — a hard cut only when a single unbroken run leaves no
+    choice. Every piece is a verbatim slice of the block, so the locator search that makes
+    an excerpt citable finds exactly the text that was kept.
+    """
+    pieces: list[tuple[int, str]] = []
+    position = 0
+    while position < len(block):
+        remainder = block[position:]
+        if len(remainder) <= MAX_EXCERPT_CHARS:
+            pieces.append((position, remainder))
+            break
+        window = remainder[:MAX_EXCERPT_CHARS]
+        cut = window.rfind("\n")
+        if cut < MIN_EXCERPT_CHARS:
+            sentence_end = max(window.rfind(". "), window.rfind("? "), window.rfind("! "))
+            cut = sentence_end + 1 if sentence_end >= MIN_EXCERPT_CHARS else -1
+        if cut < MIN_EXCERPT_CHARS:
+            cut = window.rfind(" ")
+        if cut < MIN_EXCERPT_CHARS:
+            cut = len(window)
+        pieces.append((position, window[:cut]))
+        position += cut
+        while position < len(block) and block[position].isspace():
+            position += 1
+    return pieces
 
 
 def _score(block: str) -> int:

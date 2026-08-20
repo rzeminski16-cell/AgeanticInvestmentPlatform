@@ -20,11 +20,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
 from aer.core.enums import Provider, SourceTier, UserRole
-from aer.core.schemas.extraction import Locator
+from aer.core.schemas.extraction import ExtractedText, Locator
 from aer.db.models import Company, Extraction, ResearchRequest, SourceDocument, User
 from aer.errors import ExternalServiceError
 from aer.extract import extract_text
-from aer.services.filings import MAX_EXCERPTS, MIN_EXCERPT_CHARS, acquire_filings
+from aer.services.filings import (
+    MAX_EXCERPT_CHARS,
+    MAX_EXCERPTS,
+    MIN_EXCERPT_CHARS,
+    _paragraphs,
+    acquire_filings,
+)
 from aer.sources.base import ResolvedEntity
 from aer.sources.sec.companyfacts import parse_company_facts
 from aer.sources.sec.submissions import Filing, SubmissionsIndex, parse_submissions
@@ -640,3 +646,74 @@ class TestTheBestPassagesWin:
         """The pack is assembled against a token budget, and one 10-K that filled it would
         be worse than the silence this module exists to end."""
         assert 0 < len(filed) <= MAX_EXCERPTS
+
+
+def _ixbrl_shaped_ten_k() -> str:
+    """A 10-K's text as the iXBRL extractor actually delivers it: no blank lines.
+
+    The MTB run measured this shape (the `filings.excerpted` instrumentation, gap A49):
+    a 703,420-character 10-K yielded nine excerpts averaging 36,003 characters — whole
+    statutory items, because the blank lines the paragraph split relies on are a property
+    of the markup, and this markup has none. Sentences here are separated by single
+    newlines only.
+    """
+    sentences = [
+        f"The company recorded a figure of {number} million dollars in the period, which "
+        "management attributes to loan growth, revenue from the segment described in this "
+        "item, and the repricing of the securities book across the quarters under review."
+        for number in range(120)
+    ]
+    return "Item 1. Business\n" + "\n".join(sentences)
+
+
+class TestAFilingWithoutBlankLinesStillYieldsParagraphs:
+    """The A49 failure, reproduced offline and pinned.
+
+    Every section of the MTB report drafted against a truncated pack because the split
+    handed it items instead of paragraphs. The bound is asserted with a written-out floor
+    as well as the constant, for the reason `MIN_EXCERPT_CHARS`'s test gives: a constant
+    satisfies its own value at any setting.
+    """
+
+    @pytest.fixture
+    def extracted(self) -> ExtractedText:
+        return ExtractedText(
+            text=_ixbrl_shaped_ten_k(), extractor="ixbrl", extractor_version="test"
+        )
+
+    def test_the_item_is_cut_into_passages_not_kept_whole(self, extracted: ExtractedText) -> None:
+        excerpts = _paragraphs(extracted, form="10-K")
+
+        assert len(excerpts) > 10, "one item arrived as one excerpt — the MTB shape again"
+        assert all(len(found.text) <= MAX_EXCERPT_CHARS for found in excerpts)
+        assert MAX_EXCERPT_CHARS <= 2_000
+
+    def test_every_piece_verifies_against_the_text_it_came_from(
+        self, extracted: ExtractedText
+    ) -> None:
+        """A citation pointing at a piece must re-read to exactly the piece."""
+        for found in _paragraphs(extracted, form="10-K"):
+            assert extracted.excerpt(found.locator).text == found.text
+
+    def test_a_piece_ends_where_a_reader_would_pause(self, extracted: ExtractedText) -> None:
+        """Cut at a line break or a sentence end, not mid-word."""
+        for found in _paragraphs(extracted, form="10-K"):
+            assert found.text[-1] in ".?!", f"cut mid-sentence: ...{found.text[-40:]!r}"
+
+    def test_a_filing_with_blank_lines_is_left_exactly_as_before(self) -> None:
+        """The fix is a fallback, not a rewrite: paragraphs the blank-line split already
+        finds are kept whole, byte for byte."""
+        paragraph = (
+            "Operating cash flow funded the capital programme and the dividend, and "
+            "management describes its capital allocation strategy and the outlook for "
+            "margin as unchanged from the guidance given at the start of the year."
+        )
+        extracted = ExtractedText(
+            text=f"Item 1. Business\n\n{paragraph}\n\nItem 2. Properties\n",
+            extractor="ixbrl",
+            extractor_version="test",
+        )
+
+        excerpts = _paragraphs(extracted, form="10-K")
+
+        assert [found.text for found in excerpts if paragraph in found.text] == [paragraph]
