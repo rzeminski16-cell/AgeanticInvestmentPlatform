@@ -2365,3 +2365,31 @@ class TestSearchingTheFilingsFullText:
             _worker_input(available_tools=["search_filings_full_text"])
         )
         assert "a phrase to look for in this company's filings" in prompt
+
+
+class TestTheFullTextToolSaysWhatItIs:
+    """EDGAR's index matches substrings, not meaning (gap A59).
+
+    Roughly eight of twenty searches in the AAPL run of 2026-08-20 returned nothing,
+    every one of them a sentence-length natural-language query — "foreign exchange
+    currency headwinds macroeconomic conditions", "antitrust App Store investigation
+    Digital Markets Act". The tool description promised a phrase search and never said
+    that adding words only narrows it, so a worker reasoning about *topics* wrote
+    queries no filing could contain.
+    """
+
+    def test_the_description_says_the_match_is_exact(self) -> None:
+        from aer.agents.worker import _TOOL_BRIEFS  # noqa: PLC0415
+
+        described = _TOOL_BRIEFS["search_filings_full_text"]
+
+        assert "exact phrase" in described
+        assert "one idea at a time" in described
+
+    def test_the_menu_carries_it_into_the_prompt(self) -> None:
+        """A description nothing interpolates is a description the model never reads."""
+        from aer.agents.worker import _tool_menu  # noqa: PLC0415
+
+        menu = _tool_menu(("search_filings_full_text",))
+
+        assert "exact phrase" in menu

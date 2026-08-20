@@ -304,7 +304,11 @@ _TOOL_BRIEFS: Final[dict[str, str]] = {
         "full-text index, scoped to this company and to filings public by the as-of date, "
         "and returns the filings that contain it with their forms, dates and URLs. It "
         "returns a listing, not the text: to read one, spend a fetch_known_url call on its "
-        "URL."
+        "URL. **The index matches the exact phrase, not the meaning** — it is a substring "
+        "search, so every word you add narrows it and a sentence-length query finds "
+        "nothing. Ask for one idea at a time in the words a filing would use: 'foreign "
+        "currency' rather than 'foreign exchange currency headwinds macroeconomic "
+        "conditions'."
     ),
     "fetch_known_url": (
         "fetch_known_url — query: one URL, on a host whose documents search_sources has "
@@ -371,7 +375,9 @@ class ResearchWorker(Agent[WorkerInput, WorkerTurn]):
 
     role: ClassVar[str] = "analysis"
     output_schema: ClassVar[type[BaseModel]] = WorkerTurn
-    prompt_version: ClassVar[str] = "3"
+    # 4: the full-text tool says the index is exact-phrase (gap A59). The tool menu is
+    # interpolated into the system prompt, so a description change is a prompt change.
+    prompt_version: ClassVar[str] = "4"
 
     def system_prompt(self, payload: WorkerInput) -> str:
         return _SYSTEM_PROMPT.format(

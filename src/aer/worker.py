@@ -38,6 +38,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.config import Settings, get_settings
 from aer.db.engine import create_engine
+from aer.errors import ValidationError
 from aer.logging import configure_logging
 from aer.runtime import build_services
 from aer.services import runs as run_service
@@ -65,6 +66,13 @@ async def run_research(ctx: dict[str, Any], job_id: str) -> dict[str, Any]:
 
     Stops at an approval gate, at the budget cap, or at the end. Called again after an
     approval, it resumes from the gate rather than the beginning.
+
+    **A job whose run no longer exists is discarded, not failed** (gap A57). The queue
+    outlives the rows it points at — `aer reset-research` removes the runs and Redis
+    keeps the entries — so a worker starting after a reset replayed every dead job as an
+    error with a full traceback, and raising made arq retry each one. Twenty tracebacks
+    at startup is a window in which a real failure is invisible, and there is nothing
+    here to recover: the run the job names is gone, and its absence is the answer.
     """
     settings: Settings = ctx["settings"]
     session_factory: async_sessionmaker[Any] = ctx["session_factory"]
@@ -73,14 +81,21 @@ async def run_research(ctx: dict[str, Any], job_id: str) -> dict[str, Any]:
     parsed = uuid.UUID(job_id)
 
     async with session_factory() as session:
+        # Before anything is built for it: a job naming a run that no longer exists is
+        # answered by its absence, and resolving settings or opening a provider for it
+        # would be work done on behalf of nothing.
+        try:
+            state = await run_service.run_state(session, job_id=parsed)
+        except ValidationError:
+            _log.warning("worker.run_vanished", job_id=job_id)
+            return {"job_id": job_id, "status": "discarded", "spend_gbp": "0"}
+
         # Read once, here, rather than per step. A run whose routing or budget changed
         # halfway through would have a provenance record describing two platforms; this way
         # a change applies to runs that start after it, which is what an operator means by
         # "change the model". See ADR 0050.
         settings = await effective_settings(session, settings)
         services = build_services(settings, redis=redis)
-
-        state = await run_service.run_state(session, job_id=parsed)
 
         outcome = await run_service.execute(
             session,

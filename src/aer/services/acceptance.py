@@ -157,9 +157,7 @@ async def _citations_verified(session: AsyncSession, job: Job) -> AcceptanceChec
         )
     )
     verified = sum(1 for excerpt_verified, _ in rows if excerpt_verified)
-    overridden = sum(
-        1 for excerpt_verified, override in rows if not excerpt_verified and override
-    )
+    overridden = sum(1 for excerpt_verified, override in rows if not excerpt_verified and override)
     unaccounted = len(rows) - verified - overridden
     measured = f"{verified} of {len(rows)} verified"
     if overridden:
@@ -222,15 +220,12 @@ async def _cited_sources_are_subjects(
     }
     names: list[str] = []
     if foreign:
-        names = sorted(
-            await session.scalars(select(Company.name).where(Company.id.in_(foreign)))
-        )
+        names = sorted(await session.scalars(select(Company.name).where(Company.id.in_(foreign))))
     return AcceptanceCheck(
         name="cited_sources",
         required="cited documents belong to the subject (or carry no issuer)",
         measured=(
-            f"{len(foreign)} foreign issuer(s) cited"
-            + (f": {', '.join(names)}" if names else "")
+            f"{len(foreign)} foreign issuer(s) cited" + (f": {', '.join(names)}" if names else "")
         ),
         passed=not foreign,
     )

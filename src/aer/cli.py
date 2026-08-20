@@ -20,6 +20,7 @@ from typing import Annotated
 
 import typer
 import uvicorn
+from redis.asyncio import Redis
 from sqlalchemy import select, text
 from sqlalchemy.engine import make_url
 
@@ -30,6 +31,7 @@ from aer.db.models import AuditEvent, User
 from aer.errors import AerError
 from aer.logging import configure_logging, get_logger
 from aer.obsidian import ObsidianExportError, export_report
+from aer.queue import discard_queued_runs
 from aer.services.acceptance import AcceptanceReadout, acceptance_readout
 from aer.services.audit_verify import ChainReport, verify_audit_chain
 from aer.services.backup import (
@@ -405,6 +407,21 @@ def reset_research(
     typer.secho(
         f"Removed {removed:,} row(s) across {len(populated)} table(s).", fg=typer.colors.GREEN
     )
+
+    # The queue points at rows that no longer exist (gap A57). The worker discards such a
+    # job quietly now, but leaving twenty of them queued means twenty pointless wake-ups
+    # on the next start, so they go with the rows they name.
+    discarded = asyncio.run(_discard_queued(settings))
+    if discarded:
+        typer.echo(f"Discarded {discarded:,} queued run(s) that no longer exist.")
+
+
+async def _discard_queued(settings: Settings) -> int:
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    try:
+        return await discard_queued_runs(redis)
+    finally:
+        await redis.aclose()
 
 
 def _research_tables() -> tuple[str, ...]:

@@ -31,6 +31,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 from copy import deepcopy
+from dataclasses import dataclass
 from typing import Any, Final
 
 from aer.core.concepts import CANONICAL_CONCEPTS
@@ -358,18 +359,65 @@ def unsourced_numerals(content: dict[str, Any], covered_by: Iterable[str]) -> li
         covered.update(numerals_in(statement))
 
     problems: list[str] = []
-    for path, found in sorted(_numerals_by_path(content, path="content")):
-        uncovered = sorted(found - covered)
-        if uncovered:
-            listed = ", ".join(uncovered)
-            problems.append(
-                f"{path} contains the numeral(s) {listed} which no numeric claim "
-                "resolves to a stored fact or recorded calculation."
-            )
+    for found in sorted(_numerals_by_path(content, path="content"), key=lambda item: item.path):
+        uncovered = sorted(found.numerals - covered)
+        if not uncovered:
+            continue
+        listed = ", ".join(uncovered)
+        problem = (
+            f"{found.path} contains the numeral(s) {listed} which no numeric claim "
+            "resolves to a stored fact or recorded calculation."
+        )
+        seen = [
+            f'"{window}"'
+            for window in (numeral_context(found.scanned, value) for value in uncovered)
+            if window
+        ]
+        if seen:
+            problem += f" Seen as: {'; '.join(seen)}."
+        problems.append(problem)
     return problems
 
 
-def _numerals_by_path(value: Any, *, path: str) -> list[tuple[str, frozenset[str]]]:
+# How much of the neighbourhood a refusal quotes back. Enough to show what anchors a
+# numeral — a month, a fiscal marker, a filing label, or nothing at all — and short
+# enough that a section refused on six numerals still produces a readable message.
+_CONTEXT_RADIUS: Final = 40
+
+
+def numeral_context(scanned: str, numeral: str) -> str:
+    """Where ``numeral`` sits in the text, as the scan saw it. Empty if it does not.
+
+    **Quoted from the erased text, not the original**, and that is the point (A48). A
+    refusal that names only the value cannot say whether the eraser has a gap or the
+    writer ignored the rule — four sections of the AAPL run were refused over ``2025``
+    and the log could not tell one cause from the other. What survived erasure is
+    exactly the diagnostic: a bare year with an unrecognised anchor beside it is a
+    pattern to argue about, and a year the writer wrote naked is a prompt to fix.
+
+    ADR 0054's decision is untouched by this. Nothing here excuses a numeral; it only
+    reports where the numeral was.
+    """
+    for match in _NUMERAL.finditer(scanned):
+        if _canonical_numeral(match.group().replace(",", "")) != numeral:
+            continue
+        start = max(0, match.start() - _CONTEXT_RADIUS)
+        end = min(len(scanned), match.end() + _CONTEXT_RADIUS)
+        window = " ".join(scanned[start:end].split())
+        return f"{'…' if start > 0 else ''}{window}{'…' if end < len(scanned) else ''}"
+    return ""
+
+
+@dataclass(frozen=True, slots=True)
+class _FoundNumerals:
+    """Numerals at one path, with the text the scan actually read to find them."""
+
+    path: str
+    numerals: frozenset[str]
+    scanned: str
+
+
+def _numerals_by_path(value: Any, *, path: str) -> list[_FoundNumerals]:
     """Walk the content and collect numerals with the path they were found at.
 
     Numbers count as well as digits inside strings: a JSON number in a field is as much a
@@ -377,14 +425,16 @@ def _numerals_by_path(value: Any, *, path: str) -> list[tuple[str, frozenset[str
     to assert one without lineage.
     """
     if isinstance(value, str):
-        found = numerals_in(_erased(value))
-        return [(path, found)] if found else []
+        scanned = _erased(value)
+        found = numerals_in(scanned)
+        return [_FoundNumerals(path=path, numerals=found, scanned=scanned)] if found else []
     if isinstance(value, bool):
         return []
     if isinstance(value, (int, float)):
-        return [(path, numerals_in(repr(value)))]
+        # A JSON number has no neighbourhood to quote; the path is the whole location.
+        return [_FoundNumerals(path=path, numerals=numerals_in(repr(value)), scanned="")]
     if isinstance(value, dict):
-        collected: list[tuple[str, frozenset[str]]] = []
+        collected: list[_FoundNumerals] = []
         if not _names_its_figure(value):
             for key, item in value.items():
                 if str(key) in NUMERAL_EXEMPT_KEYS:

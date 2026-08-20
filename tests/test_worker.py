@@ -41,6 +41,35 @@ def worker_settings(settings_env: pytest.MonkeyPatch) -> Any:
     return WorkerSettings
 
 
+class _SessionFactoryStub:
+    """A factory whose session is never used, for the paths that return before touching it."""
+
+    def __call__(self) -> _SessionFactoryStub:
+        return self
+
+    async def __aenter__(self) -> object:
+        return object()
+
+    async def __aexit__(self, *exc_info: object) -> bool:
+        return False
+
+
+@pytest.fixture
+def worker_context(settings_env: pytest.MonkeyPatch) -> dict[str, Any]:
+    """The arq context, with no database and no Redis behind it.
+
+    Enough for the paths that answer before either is reached — which, since the
+    existence check moved to the top of the handler, is what a discarded job takes.
+    """
+    from aer.config import load_settings  # noqa: PLC0415
+
+    return {
+        "settings": load_settings(),
+        "session_factory": _SessionFactoryStub(),
+        "aer_redis": None,
+    }
+
+
 class TestArqCanStartTheWorker:
     def test_arq_reads_real_settings_and_not_a_callable(self, worker_settings: Any) -> None:
         """The exact failure: a function where arq expects a ``RedisSettings``."""
@@ -105,3 +134,50 @@ class TestTheEnqueueSettings:
 
         assert settings.host == "127.0.0.1"
         assert settings.port == 6379
+
+
+class TestAJobWhoseRunIsGone:
+    """A queue outlives the rows it points at, and that is not a failure (gap A57).
+
+    `reset-research` removes the runs; Redis keeps the entries. A worker started
+    afterwards was replaying each dead job as an error with a full traceback — and
+    raising made arq retry it — so twenty stale jobs bought two minutes of noise in
+    which a real failure would have been invisible. There is nothing to recover: the run
+    the job names is gone, and its absence is the answer.
+    """
+
+    @pytest.fixture
+    def vanished(self, settings_env: pytest.MonkeyPatch, monkeypatch: pytest.MonkeyPatch) -> Any:
+        """A worker context whose run lookup refuses, as a deleted run's would."""
+        from aer.errors import ValidationError  # noqa: PLC0415
+        from aer.services import runs as run_service  # noqa: PLC0415
+
+        async def refuse(*args: Any, **kwargs: Any) -> Any:
+            message = "No run 00000000-0000-0000-0000-000000000000."
+            raise ValidationError(message, context={})
+
+        monkeypatch.setattr(run_service, "run_state", refuse)
+        return refuse
+
+    async def test_the_job_is_discarded_rather_than_failed(
+        self, vanished: Any, worker_context: Any
+    ) -> None:
+        from aer.worker import run_research  # noqa: PLC0415
+
+        outcome = await run_research(worker_context, "00000000-0000-0000-0000-000000000000")
+
+        assert outcome["status"] == "discarded"
+
+    async def test_it_never_reaches_the_run_service(
+        self, vanished: Any, worker_context: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Raising is what made arq retry; executing anyway would be worse still."""
+        from aer.services import runs as run_service  # noqa: PLC0415
+        from aer.worker import run_research  # noqa: PLC0415
+
+        async def never(*args: Any, **kwargs: Any) -> Any:
+            raise AssertionError("a vanished run must not be executed")
+
+        monkeypatch.setattr(run_service, "execute", never)
+
+        await run_research(worker_context, "00000000-0000-0000-0000-000000000000")

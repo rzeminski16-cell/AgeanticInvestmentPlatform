@@ -56,6 +56,39 @@ async def enqueue_run(redis: Any, job_id: uuid.UUID) -> str | None:
     return task.job_id if task is not None else None
 
 
+async def discard_queued_runs(redis: Any) -> int:
+    """Drop every queued run, returning how many were dropped.
+
+    For `reset-research` (gap A57). The queue outlives the rows it points at: deleting
+    the runs leaves Redis holding entries naming jobs that no longer exist, and a worker
+    started afterwards replays each one. The worker now discards them quietly, but a
+    queue emptied at the same moment as the table it refers to is the honest state —
+    nothing left pointing at nothing.
+
+    Failure to reach Redis is reported, never raised: the rows are already gone by the
+    time this runs, and a reset that succeeded must not report failure because the
+    cleanup of a cache could not be done.
+    """
+    from arq import create_pool  # noqa: PLC0415 -- only needed when actually draining
+    from arq.constants import default_queue_name, job_key_prefix  # noqa: PLC0415
+
+    pool = None
+    queued: list[Any] = []
+    try:
+        pool = await create_pool(redis_settings_from(redis))
+        queued = list(await pool.queued_jobs())
+        for job in queued:
+            await pool.delete(f"{job_key_prefix}{job.job_id}")
+        await pool.delete(default_queue_name)
+    except Exception as exc:
+        _log.warning("queue.drain_failed", error=str(exc))
+        return 0
+    finally:
+        if pool is not None:
+            await pool.aclose()
+    return len(queued)
+
+
 def redis_settings_from(redis: Any) -> RedisSettings:
     """Derive arq's connection settings from an existing client.
 
