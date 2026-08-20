@@ -565,15 +565,21 @@ class TestCancelling:
         self, page: Page, live_server: str, waiting_run: RunFixture
     ) -> None:
         # Approved through the browser, the same way the other gate tests do, so the run
-        # reaches SUCCEEDED by the path an operator actually takes.
+        # reaches SUCCEEDED by the path an operator actually takes. The console is left
+        # before each advance: a run advanced while it is open starts a re-fetch whose
+        # navigation races the next `goto` — the exact "interrupted by another
+        # navigation" this suite's helper exists to prevent, and which a slow machine
+        # hits where a fast one never does.
         page.goto(f"{live_server}/runs/{waiting_run.job_id}/plan")
         page.click("#approve")
         page.wait_for_url(CONSOLE_URL)
+        leave_the_console(page, live_server)
         assert waiting_run.advance_to_the_final_gate() is JobStatus.AWAITING_APPROVAL
 
         page.goto(f"{live_server}/runs/{waiting_run.job_id}/review")
         page.click("#approve")
         page.wait_for_url(CONSOLE_URL)
+        leave_the_console(page, live_server)
         assert waiting_run.advance() is JobStatus.SUCCEEDED
 
         page.goto(f"{live_server}/runs/{waiting_run.job_id}")
