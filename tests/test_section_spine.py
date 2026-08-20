@@ -522,6 +522,11 @@ class TestTheDeterministicSections:
                 continue
             section = await _section(scene, key)
             assert section.status is SectionStatus.GENERATED
+            if key == "valuation_dcf":
+                # The draft step's own standalone note (gap A51c) — this run has no
+                # valuation, so no commentary was requested — not a stamp from the fill.
+                assert "no commentary was requested" in (section.low_confidence_reason or "")
+                continue
             assert section.low_confidence_reason is None
 
     def test_a_failing_row_is_shown_failing_with_its_direction(self) -> None:
@@ -821,3 +826,109 @@ class TestTheDeterministicSections:
         assert section.status is SectionStatus.FAILED
         assert section.low_confidence_reason is not None
         assert "no deterministic builder" in section.low_confidence_reason
+
+
+class TestAFailedCheckNamesItsFindings:
+    """Gap A60. The live run's coverage notice said `presentation_integrity` failed and
+    nothing anywhere said what it found — the findings sat in the evaluation row's JSONB
+    all along. The section now prints them, one row per finding, beside the metric table
+    that announces the failure.
+    """
+
+    @staticmethod
+    def _failed(metric: str, failures: list[str]) -> Evaluation:
+        return Evaluation(
+            job_id=uuid.uuid4(),
+            metric=metric,
+            value=Decimal(len(failures)),
+            threshold=Decimal(0),
+            passed=False,
+            details={"failures": failures},
+        )
+
+    def test_each_finding_is_a_row_beside_its_metric(self) -> None:
+        rows = deterministic_sections._failed_check_findings(
+            [
+                self._failed(
+                    "presentation_integrity",
+                    ["raw UUID 'ef2bd367…'", "unformatted integer '46822502000'"],
+                )
+            ]
+        )
+
+        assert rows == [
+            {"metric": "presentation_integrity", "finding": "raw UUID 'ef2bd367…'"},
+            {"metric": "presentation_integrity", "finding": "unformatted integer '46822502000'"},
+        ]
+
+    def test_a_passing_row_contributes_nothing(self) -> None:
+        row = Evaluation(
+            job_id=uuid.uuid4(),
+            metric="citation_accuracy",
+            value=Decimal(1),
+            threshold=Decimal("0.98"),
+            passed=True,
+            details={"failures": ["must never appear"]},
+        )
+
+        assert deterministic_sections._failed_check_findings([row]) == []
+
+    def test_a_wall_of_findings_is_bounded_with_the_count(self) -> None:
+        many = [f"defect {index}" for index in range(25)]
+
+        rows = deterministic_sections._failed_check_findings([self._failed("m", many)])
+
+        assert len(rows) == deterministic_sections._FINDINGS_SHOWN + 1
+        assert "and 15 more" in rows[-1]["finding"]
+
+    def test_a_failure_with_no_recorded_findings_is_still_named(self) -> None:
+        """A silent row here would recreate the very gap this table closes."""
+        rows = deterministic_sections._failed_check_findings([self._failed("m", [])])
+
+        assert len(rows) == 1
+        assert "recorded no individual findings" in rows[0]["finding"]
+
+    async def test_the_contract_declares_the_table_between_metrics_and_disagreements(
+        self, db_session: AsyncSession
+    ) -> None:
+        """Migration 0050: the v3 contract, so the renderer lays the findings out."""
+        definition = await db_session.scalar(
+            select(SectionDefinition)
+            .where(SectionDefinition.key == "validation_disagreements")
+            .order_by(SectionDefinition.version.desc())
+            .limit(1)
+        )
+        assert definition is not None
+        assert definition.version >= 3
+
+        properties = (definition.output_contract or {})["properties"]
+        keys = list(properties)
+        assert "failed_check_findings" in properties
+        assert keys.index("validations") < keys.index("failed_check_findings")
+        assert keys.index("failed_check_findings") < keys.index("disagreements")
+
+    async def test_a_failing_runs_section_carries_the_findings_table(
+        self, db_session: AsyncSession
+    ) -> None:
+        """The wiring, not just the helper: the built content must carry the table
+        under the key the v3 contract declares, or the renderer never lays it out."""
+        user = await seed_user(db_session)
+        request = await seed_request(db_session, user=user)
+        job = await seed_job(db_session, request=request)
+        db_session.add(
+            Evaluation(
+                job_id=job.id,
+                metric="presentation_integrity",
+                value=Decimal(1),
+                threshold=Decimal(0),
+                passed=False,
+                details={"failures": ["raw UUID 'ef2bd367…'"]},
+            )
+        )
+        await db_session.flush()
+
+        content = await deterministic_sections._validation_disagreements(db_session, job, request)
+
+        assert content["failed_check_findings"] == [
+            {"metric": "presentation_integrity", "finding": "raw UUID 'ef2bd367…'"}
+        ]

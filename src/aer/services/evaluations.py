@@ -193,6 +193,19 @@ async def evaluate_run(
         not_exercised=[row.metric for row in written if row.passed is None],
         advisories=sum(len(items) for items in advisories.values()),
     )
+    # A failed check names what it found, in the log as well as the report (gap A60).
+    # The live run's operator was told `presentation_integrity` failed and had to open
+    # the approval page to learn which check — the findings were on the row all along.
+    for row in written:
+        if row.passed is False:
+            found = [str(item) for item in (row.details or {}).get("failures", [])]
+            _log.warning(
+                "evaluations.check_failed",
+                job_id=str(job.id),
+                metric=row.metric,
+                findings=[_shorten(item, limit=120) for item in found[:5]],
+                total_findings=len(found),
+            )
     return written
 
 
@@ -355,6 +368,10 @@ def _coverage_rows(rows: _RunRows) -> list[SectionCoverage]:
         sources |= _content_source_ids(section.content)
 
         policy = (section.definition.evidence_policy or {}) if section.definition else {}
+        record_only = _entirely_platform_filled(
+            section.content,
+            section.definition.output_contract if section.definition else None,
+        )
         built.append(
             SectionCoverage(
                 name=section.section_key,
@@ -364,11 +381,36 @@ def _coverage_rows(rows: _RunRows) -> list[SectionCoverage]:
                     rank is not None and rank <= _PRIMARY_RANK
                     for rank in (rows.source_tiers.get(s) for s in sources)
                 ),
-                min_sources=int(policy.get("min_sources", 1)),
-                requires_primary=bool(policy.get("requires_primary", True)),
+                min_sources=0 if record_only else int(policy.get("min_sources", 1)),
+                requires_primary=(
+                    False if record_only else bool(policy.get("requires_primary", True))
+                ),
             )
         )
     return built
+
+
+def _entirely_platform_filled(
+    content: dict[str, Any] | None, contract: dict[str, Any] | None
+) -> bool:
+    """Whether a section's stored content is wholly the platform's rendered record.
+
+    A section the augmenter filled standalone — the valuation with no valuation to
+    interpret (gap A51c) — carries only fields its contract marks ``platform_filled``:
+    figures rendered from recorded rows, citing calculations rather than source
+    documents. Holding that to a primary-source floor would fire a coverage trigger on
+    every honest no-valuation run — a warning nobody can act on, which is the warning
+    nobody reads on the day one matters — so it is assessed the way the zero-budget
+    sections' own declared policies already assess them.
+    """
+    properties = (contract or {}).get("properties")
+    if not isinstance(properties, dict) or not content:
+        return False
+    declared = [key for key in content if key in properties]
+    return bool(declared) and all(
+        isinstance(properties[key], dict) and properties[key].get("platform_filled")
+        for key in declared
+    )
 
 
 def _content_source_ids(content: dict[str, Any] | None) -> set[uuid.UUID]:

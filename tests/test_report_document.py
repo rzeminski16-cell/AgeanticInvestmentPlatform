@@ -30,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import aer.render.glance as glance_module
 from aer.calc.comps import WithheldComps
+from aer.config import HouseStyle
 from aer.core.enums import JobStatus, Provider, SourceTier, UserRole
 from aer.db.models import (
     Artefact,
@@ -50,15 +51,18 @@ from aer.render.document import (
     DISCLAIMER,
     UNDATED_MARKER,
     UNDATED_NOTE,
+    CalculationFootnote,
     CoverageNote,
     ReportDocument,
     _display_value,
     assemble_document,
 )
 from aer.render.html import _blocks, _emphasise, _joint, _marks, render_html
+from aer.render.html import _footnote as html_footnote
 from aer.render.markdown import (
     RenderedReport,
     SectorNote,
+    _footnote_text,
     render_markdown,
     serialise_markdown,
 )
@@ -1230,3 +1234,41 @@ class TestCustomSectionsInTheDocument:
 
         first_seen = list(dict.fromkeys(_HTML_MARKERS.findall(html)))
         assert first_seen == [str(n) for n in range(1, 11)]
+
+
+class TestACalculationFootnoteDatesItsFigure:
+    """Gap A54. The live report anchored its structural reading on FY2021 ratios while
+    its front page carried FY2025 margins, and nothing the reader could see dated
+    either: the period was stored on the calculation row (gap C1) and never rendered.
+    The footnote — where every figure resolves — now prints it.
+    """
+
+    @staticmethod
+    def _footnote(period_label: str | None) -> CalculationFootnote:
+        return CalculationFootnote(
+            number=1,
+            formula="net_margin = net_income / revenue",
+            value="0.4376",
+            unit="",
+            function_ref="aer.calc.ratios:net_margin",
+            code_version_prefix="abc123",
+            period_label=period_label,
+        )
+
+    def test_a_stamped_calculation_prints_its_period_in_markdown(self) -> None:
+        text = _footnote_text(self._footnote("FY2025"), style=HouseStyle())
+
+        assert "= 0.4376 for FY2025 " in text
+
+    def test_an_unstamped_calculation_stays_honestly_undated(self) -> None:
+        """A discount rate is not a statement-period figure; inventing a period for it
+        would be worse than the blank."""
+        text = _footnote_text(self._footnote(None), style=HouseStyle())
+
+        assert " for " not in text
+        assert "= 0.4376 " in text
+
+    def test_the_html_note_carries_the_same_period(self) -> None:
+        row = html_footnote(self._footnote("FY2025"), style=HouseStyle())
+
+        assert "for FY2025" in str(row["text"])

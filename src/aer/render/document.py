@@ -221,6 +221,12 @@ class CalculationFootnote:
     function_ref: str
     code_version_prefix: str
 
+    # The reporting period the calculation was struck on — "FY2025" — or ``None`` for a
+    # figure that is not a statement-period result. Stored since gap C1; rendered since
+    # gap A54, because the live report anchored its structural reading on FY2021 ratios
+    # and nothing the reader could see dated them.
+    period_label: str | None = None
+
 
 @dataclass(frozen=True, slots=True)
 class SourceFootnote:
@@ -640,6 +646,7 @@ async def _footnotes(session: AsyncSession, citations: list[CitationRef]) -> tup
                     unit=("" if calculation.output_unit == "pure" else calculation.output_unit),
                     function_ref=calculation.function_ref,
                     code_version_prefix=calculation.code_version[:_CODE_PREFIX],
+                    period_label=calculation.period_label,
                 )
             )
             continue

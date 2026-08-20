@@ -164,9 +164,55 @@ async def _validation_disagreements(
         "summary": _summary(evaluations, disagreements),
         "validations": [_validation_row(row) for row in evaluations],
     }
+    findings = _failed_check_findings(evaluations)
+    if findings:
+        content["failed_check_findings"] = findings
     if disagreements:
         content["disagreements"] = [_disagreement_row(row) for row in disagreements]
     return content
+
+
+# How many of a failed check's findings the section prints. Enough to act on; a run with
+# hundreds of one defect is told the count rather than shown the wall.
+_FINDINGS_SHOWN = 10
+
+
+def _failed_check_findings(evaluations: list[Evaluation]) -> list[dict[str, str]]:
+    """What each failed check actually found, one row per finding (gap A60).
+
+    The live run's coverage notice said ``presentation_integrity`` failed — which is
+    right — and nothing anywhere said *what it found*, so the operator could not act on
+    the failure without opening the approval page and reading a JSONB column. Every
+    metric already records its failure strings in the row's details; this is the surface.
+    Empty on a clean run, so a report with nothing to confess does not change shape.
+    """
+    rows: list[dict[str, str]] = []
+    for evaluation in evaluations:
+        if evaluation.passed is not False:
+            continue
+        found = [str(item) for item in (evaluation.details or {}).get("failures", [])]
+        rows.extend(
+            {"metric": evaluation.metric, "finding": item} for item in found[:_FINDINGS_SHOWN]
+        )
+        if len(found) > _FINDINGS_SHOWN:
+            rows.append(
+                {
+                    "metric": evaluation.metric,
+                    "finding": f"… and {len(found) - _FINDINGS_SHOWN} more of the same kind, "
+                    "recorded on the run's evaluation row.",
+                }
+            )
+        if not found:
+            # A failed check with no recorded failure strings is still named, because a
+            # silent row here would recreate the very gap this table closes.
+            rows.append(
+                {
+                    "metric": evaluation.metric,
+                    "finding": "the check failed but recorded no individual findings; "
+                    "its score and threshold are in the table above.",
+                }
+            )
+    return rows
 
 
 def _summary(evaluations: list[Evaluation], disagreements: list[Disagreement]) -> str:

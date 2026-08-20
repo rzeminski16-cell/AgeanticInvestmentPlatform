@@ -41,7 +41,11 @@ from aer.errors import ValidationError
 from aer.render.document import assemble_document
 from aer.render.html import render_html
 from aer.render.markdown import serialise_markdown
-from aer.services.exhibits import exportable_charts_for, internal_charts_for
+from aer.services.exhibits import (
+    _segment_label,
+    exportable_charts_for,
+    internal_charts_for,
+)
 from tests.workflow_fixtures import AS_OF_DATE
 
 pytestmark = pytest.mark.anyio
@@ -766,3 +770,105 @@ class TestTheInternalSet:
         assert "Internal use only" in field.caption
         cited = [ref for ref in field.citations if "Implied value per share" in ref.label]
         assert len(cited) == 2
+
+
+class TestASubtotalIsNotASegment:
+    """Gap A55. The live chart drew Apple's "Product" total beside the very product
+    lines it sums — the axis carries both — so every real segment was flattened by a
+    bar that double-counts them. A subtotal is recognised by arithmetic, never by name:
+    a member whose value equals, exactly, the sum of two or more of the others.
+    """
+
+    _AXIS = "srt:ProductOrServiceAxis"
+
+    async def _chart(self, scene: dict[str, Any]) -> Chart:
+        charts = await exportable_charts_for(
+            scene["session"], job=scene["job"], request=scene["request"]
+        )
+        return {chart.key: chart for chart in charts}["segment_mix"]
+
+    async def test_a_member_summing_the_others_is_suppressed(self, scene: dict[str, Any]) -> None:
+        session: AsyncSession = scene["session"]
+        session.add(
+            _segment_fact(
+                scene, member="us-gaap:ProductMember", value="30000000000", axis=self._AXIS
+            )
+        )
+        session.add(
+            _segment_fact(scene, member="msft:IPhoneMember", value="20000000000", axis=self._AXIS)
+        )
+        session.add(
+            _segment_fact(scene, member="msft:MacMember", value="10000000000", axis=self._AXIS)
+        )
+        session.add(
+            _segment_fact(
+                scene, member="us-gaap:ServiceMember", value="5000000000", axis=self._AXIS
+            )
+        )
+        await session.flush()
+
+        chart = await self._chart(scene)
+
+        assert "IPhone" in chart.svg
+        assert "Mac" in chart.svg
+        assert "Service" in chart.svg
+        assert "Product" not in chart.svg, "the subtotal double-counts its own components"
+
+    async def test_a_filer_segmented_by_exactly_product_and_service_keeps_both(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The reason the rule is arithmetic and not a name list: on an axis carrying
+        only these two, they are the segmentation."""
+        session: AsyncSession = scene["session"]
+        session.add(
+            _segment_fact(
+                scene, member="us-gaap:ProductMember", value="30000000000", axis=self._AXIS
+            )
+        )
+        session.add(
+            _segment_fact(
+                scene, member="us-gaap:ServiceMember", value="5000000000", axis=self._AXIS
+            )
+        )
+        await session.flush()
+
+        chart = await self._chart(scene)
+
+        assert "Product" in chart.svg
+        assert "Service" in chart.svg
+
+    async def test_the_glued_conjunction_is_respaced_on_the_chart(
+        self, scene: dict[str, Any]
+    ) -> None:
+        session: AsyncSession = scene["session"]
+        session.add(
+            _segment_fact(
+                scene,
+                member="aapl:WearablesHomeandAccessoriesMember",
+                value="40000000000",
+                axis=self._AXIS,
+            )
+        )
+        session.add(
+            _segment_fact(scene, member="msft:IPhoneMember", value="20000000000", axis=self._AXIS)
+        )
+        await session.flush()
+
+        chart = await self._chart(scene)
+
+        assert "Wearables Home and Accessories" in chart.svg
+        assert "Homeand" not in chart.svg
+
+
+class TestTheSegmentLabelSurgery:
+    """The label repair beside the boundary rule: glued conjunctions are a table, not a
+    pattern, because a pattern would mangle every geography ending in "land"."""
+
+    def test_the_glued_conjunction_is_respaced(self) -> None:
+        label = _segment_label("aapl:WearablesHomeandAccessoriesMember")
+
+        assert label == "Wearables Home and Accessories"
+
+    def test_a_geography_ending_in_land_is_untouched(self) -> None:
+        assert _segment_label("msft:IrelandSegmentMember") == "Ireland"
+        assert _segment_label("msft:EnglandMember") == "England"

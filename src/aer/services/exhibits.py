@@ -339,6 +339,7 @@ async def _segment_input(session: AsyncSession, *, job: Job) -> SegmentMixInput:
         held = by_member.get(row.dimension_member)
         if held is None or row.filed_date > held.filed_date:
             by_member[row.dimension_member] = row
+    by_member = _without_subtotals(by_member)
 
     segments = tuple(
         SegmentRevenue(
@@ -365,18 +366,74 @@ async def _segment_input(session: AsyncSession, *, job: Job) -> SegmentMixInput:
 
 _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 
+# Words a filer glued a lower-case conjunction into, mapped to their spaced forms —
+# Apple's ``WearablesHomeandAccessoriesMember`` printed as "Wearables Homeand
+# Accessories" on the live chart (gap A55). A table of the glued words themselves
+# rather than a rule, because splitting every embedded "and" would mangle Ireland,
+# England and every other geography a segment axis carries.
+_GLUED_WORDS: dict[str, str] = {
+    "Homeand": "Home and",
+}
+
+# The largest member set the subtotal check will reason about. Subset sums grow as
+# powers of two, and no real segmentation carries more members than this.
+_SUBTOTAL_MEMBER_LIMIT = 12
+
+# A subtotal is a sum of at least this many components; below it there is nothing to
+# aggregate, and a set that small has no room for a subtotal beside its parts.
+_SUBTOTAL_MINIMUM_PARTS = 2
+
 
 def _segment_label(member: str) -> str:
     """A reader's name for a member qname: ``aapl:GreaterChinaSegmentMember`` → "Greater China".
 
-    Deterministic string surgery, not a lookup: strip the namespace prefix and the
-    conventional ``Member`` suffixes, then space the camel-case words. Initialisms
-    survive because the boundary needs a lower-case letter on its left — ``IPhone``
-    stays ``IPhone`` rather than becoming ``I Phone``.
+    Deterministic string surgery, plus one small repair table: strip the namespace
+    prefix and the conventional ``Member`` suffixes, space the camel-case words, then
+    respace any word the filer glued a conjunction into. Initialisms survive because
+    the boundary needs a lower-case letter on its left — ``IPhone`` stays ``IPhone``
+    rather than becoming ``I Phone``.
     """
     local = member.split(":", 1)[-1]
     local = local.removesuffix("SegmentMember").removesuffix("Member")
-    return _CAMEL_BOUNDARY.sub(" ", local)
+    spaced = _CAMEL_BOUNDARY.sub(" ", local)
+    return " ".join(_GLUED_WORDS.get(word, word) for word in spaced.split(" "))
+
+
+def _without_subtotals(by_member: dict[str, FinancialFact]) -> dict[str, FinancialFact]:
+    """The members with any subtotal of the others removed, recognised by arithmetic.
+
+    The live chart drew Apple's "Product" total beside the very product lines it sums —
+    the ``ProductOrServiceAxis`` carries both — so every real segment was flattened by a
+    bar that double-counts them (gap A55). A *name* cannot decide which member is the
+    aggregate: a filer disaggregating only into Product and Service is segmented by
+    exactly those two. Arithmetic can: a member whose value equals, exactly, the sum of
+    two or more of the other members is a subtotal of them. Filed figures are rounded to
+    whole units at source, so an exact match by coincidence is vanishingly unlikely —
+    and the consequence of a wrong drop is a missing bar, never a wrong number.
+    """
+    if not _SUBTOTAL_MINIMUM_PARTS < len(by_member) <= _SUBTOTAL_MEMBER_LIMIT:
+        return by_member
+    values = {member: row.value for member, row in by_member.items()}
+    dropped = {
+        member
+        for member in values
+        if _sums_from(values[member], [values[m] for m in values if m != member])
+    }
+    if not dropped or len(dropped) == len(by_member):
+        return by_member
+    _log.info("exhibits.segment_subtotals_suppressed", members=sorted(dropped))
+    return {member: row for member, row in by_member.items() if member not in dropped}
+
+
+def _sums_from(target: Decimal, others: list[Decimal]) -> bool:
+    """Whether some two-or-more of ``others`` sum exactly to ``target``."""
+    from itertools import combinations  # noqa: PLC0415 -- the one caller, bounded above
+
+    return any(
+        sum(chosen) == target
+        for size in range(_SUBTOTAL_MINIMUM_PARTS, len(others) + 1)
+        for chosen in combinations(others, size)
+    )
 
 
 # -- Scenarios ---------------------------------------------------------------------------------

@@ -303,11 +303,14 @@ def _footnote_text(footnote: Footnote, *, style: HouseStyle) -> str:
     match footnote:
         case CalculationFootnote():
             # The unit is blank for a dimensionless ratio; joining the present pieces
-            # keeps "= 0.4376 (…)" from carrying a stray double space.
+            # keeps "= 0.4376 (…)" from carrying a stray double space. The period, when
+            # the row carries one, is part of what the figure *is* (gap A54): the live
+            # report set FY2021 ratios beside FY2025 ones and no note dated either.
             shown = " ".join(piece for piece in (footnote.value, footnote.unit) if piece)
+            period = f" for {footnote.period_label}" if footnote.period_label else ""
             return (
                 f"Calculated: `{footnote.formula}` "
-                f"= {shown} "
+                f"= {shown}{period} "
                 f"(`{footnote.function_ref}`, code version `{footnote.code_version_prefix}`)."
             )
         case SourceFootnote():
