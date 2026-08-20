@@ -22,15 +22,18 @@ somewhere, and that somewhere is :mod:`aer.services.approvals`.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Final
 
 import structlog
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.orm import selectinload
 
 from aer.agents.base import AgentContext
 from aer.agents.peers import PROPOSED_BY as PEERS_PROPOSED_BY
@@ -61,7 +64,9 @@ from aer.db.models import (
     Company,
     FinancialFact,
     Job,
+    JobStep,
     Report,
+    ReportSection,
     ResearchPlan,
     ResearchRequest,
     SectionStatus,
@@ -79,6 +84,7 @@ from aer.render.html import render_html
 from aer.render.markdown import SectorNote, serialise_markdown
 from aer.render.pdf import render_pdf
 from aer.sections.deterministic import SectionStage, fill_deterministic_sections
+from aer.sections.evidence import SectionExecution
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
 from aer.sections.writing import execute_builtin_section
 from aer.services import calculations as calculation_service
@@ -221,6 +227,15 @@ THEME_PROPOSAL_ESTIMATE_GBP: Final = Decimal("0.02")
 # this bounds when the draft may start, not what it may spend once running; per-section
 # checking is a larger change than this one and is recorded as a gap rather than smuggled in.
 DRAFT_ESTIMATE_GBP: Final = Decimal("5.00")
+
+# How many sections draft at once when the run has a session factory (polish P10).
+# Sections share the research fan-out's shape — each depends on the evidence pack and on
+# nothing another section produces — but the bound is deliberately narrower than "all of
+# them": the budget guard reads committed spend, so every section in flight checks the cap
+# against the same total, and sixteen at once would widen that window in the phase that
+# exists to make the cap trustworthy. Four keeps the window the size the research wave
+# already established.
+DRAFT_FAN_OUT: Final = 4
 
 # How long the explicit forecast runs before the terminal value takes over. Five years is
 # the convention, and the derived proposals are flat across it in any case — an operator who
@@ -2083,6 +2098,201 @@ def _research(topic: ResearchTopic) -> Any:
     return run
 
 
+@dataclass(frozen=True, slots=True)
+class _SectionWork:
+    """One model-written section as plain data, so it can cross a session boundary."""
+
+    section_id: uuid.UUID
+    custom: bool
+    focus: str = ""
+
+
+async def _draft_one(
+    agent_context: AgentContext, *, request: ResearchRequest, work: _SectionWork
+) -> SectionExecution:
+    """Draft one section on whatever session the agent context carries.
+
+    Loads the row itself rather than taking one, because the row must belong to the
+    context's session — under the fan-out that is a session the caller has never seen.
+    """
+    session = agent_context.session
+    section = await session.scalar(
+        select(ReportSection)
+        .where(ReportSection.id == work.section_id)
+        .options(selectinload(ReportSection.definition))
+    )
+    if section is None:  # pragma: no cover -- the partitioning just read this row
+        message = f"Section {work.section_id} vanished mid-draft."
+        raise AerError(message, context={"section_id": str(work.section_id)})
+
+    if work.custom:
+        job = await session.get(Job, agent_context.job_step.job_id)
+        assert job is not None
+        pins = await pinned_skills_for_job(session, job=job)
+        pin = next((p for p in pins if p.skill_id == section.definition.skill_id), None)
+        if pin is None:  # pragma: no cover -- the partitioning refused pin-less sections
+            message = "The skill pin this section was partitioned under has vanished."
+            raise AerError(message, context={"section_id": str(work.section_id)})
+        return await execute_custom_section(
+            agent_context, section=section, pin=pin, request=request
+        )
+
+    return await execute_builtin_section(
+        agent_context, section=section, request=request, focus=work.focus
+    )
+
+
+async def _draft_one_apart(
+    factory: async_sessionmaker[AsyncSession],
+    *,
+    services: dict[str, Any],
+    step_id: uuid.UUID,
+    request_id: uuid.UUID,
+    work: _SectionWork,
+    bound: asyncio.Semaphore,
+) -> tuple[dict[str, Any], bool, Decimal]:
+    """One fanned-out section: own session, own commit — the engine's node rules, one
+    level down.
+
+    The step row this hangs its costs on was committed by ``_step_row`` before the step
+    began, so a session opened here can reference it. Committing per section means a
+    paid draft survives a sibling's failure — the same reason the length salvage exists —
+    and what crosses back to the coordinator is plain data, never a row.
+    """
+    async with bound, factory() as session:
+        step = await session.get(JobStep, step_id)
+        request = await session.get(ResearchRequest, request_id)
+        if step is None or request is None:  # pragma: no cover -- both committed
+            message = "The draft step's own rows vanished mid-run."
+            raise AerError(message, context={"step_id": str(step_id)})
+        agent_context = AgentContext(
+            session=session,
+            provider=services["provider"],
+            router=services["router"],
+            settings=services["settings"],
+            store=services["store"],
+            job_step=step,
+        )
+        execution = await _draft_one(agent_context, request=request, work=work)
+        generated = execution.status is SectionStatus.GENERATED
+        outcome = execution.as_dict()
+        await session.commit()
+        return outcome, generated, agent_context.spend_gbp
+
+
+def _partitioned_sections(
+    sections: Sequence[ReportSection],
+    *,
+    pin_by_skill: Mapping[Any, Any],
+    focus_by_key: Mapping[str, str],
+) -> tuple[dict[uuid.UUID, dict[str, Any]], list[_SectionWork]]:
+    """Split a run's sections into refusals and drafting work, in declared order.
+
+    The pin-less custom refusal happens here, on the caller's session: it is a recorded
+    state, not a model call, and spends nothing — so it never joins the fan-out.
+    """
+    refused: dict[uuid.UUID, dict[str, Any]] = {}
+    pending: list[_SectionWork] = []
+    for section in sections:
+        definition = section.definition
+        if definition.origin != SKILL and definition.token_budget == 0:
+            # Deterministic: filled at this stage already, or by the stage that owns it.
+            continue
+        if definition.origin == SKILL:
+            pin = pin_by_skill.get(definition.skill_id) if definition.skill_id is not None else None
+            if pin is None:
+                # A skill-origin section this plan never pinned has no approved policy
+                # to run under, and running it anyway would execute something gate 1
+                # never displayed.
+                section.status = SectionStatus.FAILED
+                section.low_confidence_reason = (
+                    "No skill pin exists for this section on this run's plan, so there "
+                    "is no approved composed policy to execute it under."
+                )
+                refused[section.id] = {
+                    "section_key": section.section_key,
+                    "status": section.status.value,
+                }
+                continue
+            pending.append(_SectionWork(section_id=section.id, custom=True))
+            continue
+        pending.append(
+            _SectionWork(
+                section_id=section.id,
+                custom=False,
+                focus=focus_by_key.get(section.section_key, ""),
+            )
+        )
+    return refused, pending
+
+
+async def _drafted_in_place(
+    context: StepContext, *, request: ResearchRequest, pending: Sequence[_SectionWork]
+) -> tuple[dict[uuid.UUID, tuple[dict[str, Any], bool]], Decimal]:
+    """The sequential path: one at a time on the caller's session, in declared order.
+
+    Every savepoint-fixtured test comes through here — the engine's own no-factory
+    fallback, one level down — so its behaviour is exactly the pre-P10 loop's.
+    """
+    agent_context = AgentContext(
+        session=context.session,
+        provider=context.service("provider"),
+        router=context.service("router"),
+        settings=context.service("settings"),
+        store=context.service("store"),
+        job_step=context.step,
+    )
+    executed: dict[uuid.UUID, tuple[dict[str, Any], bool]] = {}
+    for work in pending:
+        execution = await _draft_one(agent_context, request=request, work=work)
+        executed[work.section_id] = (
+            execution.as_dict(),
+            execution.status is SectionStatus.GENERATED,
+        )
+    return executed, agent_context.spend_gbp
+
+
+async def _drafted_apart(
+    context: StepContext,
+    *,
+    factory: async_sessionmaker[AsyncSession],
+    request: ResearchRequest,
+    pending: Sequence[_SectionWork],
+) -> tuple[dict[uuid.UUID, tuple[dict[str, Any], bool]], Decimal]:
+    """The fan-out: a bounded wave of sections, each on a session of its own."""
+    bound = asyncio.Semaphore(DRAFT_FAN_OUT)
+    started = [
+        asyncio.create_task(
+            _draft_one_apart(
+                factory,
+                services=context.services,
+                step_id=context.step.id,
+                request_id=request.id,
+                work=work,
+                bound=bound,
+            )
+        )
+        for work in pending
+    ]
+    # Drain, never abandon — the engine's wave rule: every started section runs to its
+    # recorded, committed outcome before any failure surfaces. A failure then fails the
+    # step, but the siblings' paid drafts are already in the database.
+    settled = await asyncio.gather(*started, return_exceptions=True)
+    executed: dict[uuid.UUID, tuple[dict[str, Any], bool]] = {}
+    spent = Decimal(0)
+    first_failure: BaseException | None = None
+    for work, item in zip(pending, settled, strict=True):
+        if isinstance(item, BaseException):
+            first_failure = first_failure or item
+            continue
+        outcome, generated, spend = item
+        executed[work.section_id] = (outcome, generated)
+        spent += spend
+    if first_failure is not None:
+        raise first_failure
+    return executed, spent
+
+
 async def _draft(context: StepContext) -> StepResult:
     """Fill in every section this run has, whatever they are.
 
@@ -2091,6 +2301,13 @@ async def _draft(context: StepContext) -> StepResult:
     section (``origin='skill'``) executes under the ``<user_skill>`` contract against
     its pinned composed policy (task 38, ADR 0037). A failed custom section is a
     recorded state the run continues past, never an absent section.
+
+    **Sections draft concurrently where the run has a session factory** (polish P10).
+    They share the research wave's shape — each depends on the evidence pack and on
+    nothing another section produces — so they fan out under the same rules: a bounded
+    wave, a session per section, and a drain-never-abandon gather. Without a factory —
+    every savepoint-fixtured test — they run one at a time on the caller's session in
+    declared order, exactly as the engine itself falls back.
     """
     request = await _request_for(context)
 
@@ -2109,14 +2326,6 @@ async def _draft(context: StepContext) -> StepResult:
 
     pins = await pinned_skills_for_job(context.session, job=context.job)
     pin_by_skill = {pin.skill_id: pin for pin in pins}
-    agent_context = AgentContext(
-        session=context.session,
-        provider=context.service("provider"),
-        router=context.service("router"),
-        settings=context.service("settings"),
-        store=context.service("store"),
-        job_step=context.step,
-    )
 
     # The platform-filled sections first, so a zero-budget definition with no registered
     # builder fails here — while the seed is the last thing that changed — rather than
@@ -2126,46 +2335,33 @@ async def _draft(context: StepContext) -> StepResult:
     )
 
     sections = await sections_for_job(context.session, context.job.id)
+    refused, pending = _partitioned_sections(
+        sections, pin_by_skill=pin_by_skill, focus_by_key=focus_by_key
+    )
+
+    factory: async_sessionmaker[AsyncSession] | None = context.optional_service("session_factory")
+    if factory is None:
+        executed, spent = await _drafted_in_place(context, request=request, pending=pending)
+    else:
+        executed, spent = await _drafted_apart(
+            context, factory=factory, request=request, pending=pending
+        )
+
+    # Reassembled in declared order — the sections' own, never completion order — so the
+    # stored output is identical however the fan-out happened to schedule.
     filled = 0
     custom_outcomes: list[dict[str, Any]] = []
     builtin_outcomes: list[dict[str, Any]] = []
-
+    custom_ids = {work.section_id for work in pending if work.custom}
     for section in sections:
-        definition = section.definition
-        if definition.origin != SKILL and definition.token_budget == 0:
-            # Deterministic: filled above at this stage, or by the stage that owns it.
+        if section.id in refused:
+            custom_outcomes.append(refused[section.id])
             continue
-        if definition.origin == SKILL:
-            pin = pin_by_skill.get(definition.skill_id) if definition.skill_id is not None else None
-            if pin is None:
-                # A skill-origin section this plan never pinned has no approved policy
-                # to run under, and running it anyway would execute something gate 1
-                # never displayed.
-                section.status = SectionStatus.FAILED
-                section.low_confidence_reason = (
-                    "No skill pin exists for this section on this run's plan, so there "
-                    "is no approved composed policy to execute it under."
-                )
-                custom_outcomes.append(
-                    {"section_key": section.section_key, "status": section.status.value}
-                )
-                continue
-            execution = await execute_custom_section(
-                agent_context, section=section, pin=pin, request=request
-            )
-            custom_outcomes.append(execution.as_dict())
-            if execution.status is SectionStatus.GENERATED:
-                filled += 1
+        if section.id not in executed:
             continue
-
-        execution = await execute_builtin_section(
-            agent_context,
-            section=section,
-            request=request,
-            focus=focus_by_key.get(section.section_key, ""),
-        )
-        builtin_outcomes.append(execution.as_dict())
-        if execution.status is SectionStatus.GENERATED:
+        outcome, generated = executed[section.id]
+        (custom_outcomes if section.id in custom_ids else builtin_outcomes).append(outcome)
+        if generated:
             filled += 1
 
     await context.session.flush()
@@ -2180,7 +2376,7 @@ async def _draft(context: StepContext) -> StepResult:
             # gate-2 payload after drafting, so the hash the gate verifies is computed
             # by the red_team step — the last one that can change it.
         },
-        cost_gbp=agent_context.spend_gbp,
+        cost_gbp=spent,
     )
 
 

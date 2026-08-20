@@ -30,11 +30,18 @@ __all__ = ["Driver", "start_run", "to_final_gate"]
 
 
 class Driver:
-    """Advances a run to its next stopping point, committing as the worker would."""
+    """Advances a run to its next stopping point, committing as the worker would.
 
-    def __init__(self, engine: Any, settings: Settings) -> None:
+    ``parallel=True`` hands :func:`aer.services.runs.execute` the session factory the
+    worker would supply, so the engine's waves — and the draft step's section fan-out
+    (polish P10) — take their concurrent paths instead of the no-factory fallback.
+    Default off: most suites assert against the sequential path's exact behaviour.
+    """
+
+    def __init__(self, engine: Any, settings: Settings, *, parallel: bool = False) -> None:
         self._factory = async_sessionmaker(bind=engine, expire_on_commit=False)
         self._settings = settings
+        self._parallel = parallel
         self._store = LocalArtefactStore(
             settings.artefact_root, max_bytes=settings.max_artefact_bytes
         )
@@ -52,6 +59,7 @@ class Driver:
                 provider=self.provider,
                 store=self._store,
                 sec_client=self.sec_client,
+                session_factory=self._factory if self._parallel else None,
             )
             await session.commit()
             return outcome.status
