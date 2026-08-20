@@ -90,6 +90,7 @@ def _passing_metrics() -> tuple[MetricScore, ...]:
     at_most = {
         Metric.HALLUCINATED_CITATION_RATE: ("0", "0"),
         Metric.NUMERICAL_CONSISTENCY: ("0", "0.005"),
+        Metric.FIGURE_PLAUSIBILITY: ("0", "0"),
     }
     rows = [
         MetricScore(metric=m.value, passed=True, value=Decimal(v), threshold=Decimal(t))
@@ -396,7 +397,12 @@ class TestEachTriggerFiresAloneAndNamesItself:
 
     @pytest.mark.parametrize(
         "metric",
-        [Metric.CITATION_ACCURACY, Metric.HALLUCINATED_CITATION_RATE, Metric.NUMERICAL_CONSISTENCY],
+        [
+            Metric.CITATION_ACCURACY,
+            Metric.HALLUCINATED_CITATION_RATE,
+            Metric.NUMERICAL_CONSISTENCY,
+            Metric.FIGURE_PLAUSIBILITY,
+        ],
     )
     def test_a_failed_validator_row(self, metric: Metric) -> None:
         metrics = tuple(

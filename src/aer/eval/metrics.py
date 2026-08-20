@@ -84,6 +84,7 @@ class Metric(StrEnum):
     CUSTOM_SECTION_CONTRACT_CONFORMANCE = "custom_section_contract_conformance"
     SKILL_PRIVILEGE_CONTAINMENT = "skill_privilege_containment"
     PRESENTATION_INTEGRITY = "presentation_integrity"
+    FIGURE_PLAUSIBILITY = "figure_plausibility"
 
 
 # What the CI gate blocks a build on, in the order §2.10 lists them. The first eight
@@ -115,6 +116,7 @@ RUN_TIME: Final[tuple[Metric, ...]] = (
     Metric.NUMERICAL_CONSISTENCY,
     Metric.ASSUMPTION_COMPLETENESS,
     Metric.PRESENTATION_INTEGRITY,
+    Metric.FIGURE_PLAUSIBILITY,
 )
 
 
@@ -164,6 +166,12 @@ THRESHOLDS: Final[dict[Metric, tuple[Decimal, Direction]]] = {
     # one per section. Zero, not "low": every one of these shipped in a live note
     # once, was fixed, and this is the line that keeps each fix permanent.
     Metric.PRESENTATION_INTEGRITY: (Decimal(0), Direction.AT_MOST),
+    # Gap A61: the count of impossible relations among the run's headline figures —
+    # income above revenue, a margin above one, turnover below the floor on a large
+    # balance sheet. Zero, because a report carrying even one figure that cannot be
+    # true has failed at the one thing a figure is for. Traceability is not sanity;
+    # the MTB run published a 172.1% net margin with every other metric passing.
+    Metric.FIGURE_PLAUSIBILITY: (Decimal(0), Direction.AT_MOST),
 }
 
 _PLACES: Final = Decimal("0.0001")

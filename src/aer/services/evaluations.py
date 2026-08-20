@@ -33,9 +33,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.base import AgentContext
 from aer.agents.validator import DOCUMENT_WINDOW_CHARS, AssistInput, ValidatorAssist
+from aer.calc.plausibility import FigureScene
 from aer.core.enums import ClaimKind
 from aer.db.models import (
     Artefact,
+    Calculation,
     Citation,
     Claim,
     Evaluation,
@@ -65,6 +67,7 @@ from aer.eval.runtime import (
     RunCitation,
     SectionCoverage,
     SourcedClaim,
+    figure_plausibility,
     presentation_integrity,
     primary_source_ratio,
     run_citation_accuracy,
@@ -76,6 +79,7 @@ from aer.render.document import assemble_document
 from aer.render.html import render_html
 from aer.render.markdown import serialise_markdown
 from aer.sections.registry import sections_for_job
+from aer.services.facts import visible_facts
 from aer.verify.citations import verify_job_citations
 
 __all__ = [
@@ -181,6 +185,13 @@ async def evaluate_run(
             sections=len(document.sections),
         )
     )
+
+    # Gap A61: are the headline figures possible? Deterministic, over the run's own
+    # recorded facts and calculations; a failure names the impossible relation with its
+    # values. This is the check the MTB run proved missing — every metric above passed
+    # while the front page carried a 172.1% net margin.
+    scenes = await _figure_scenes(context.session, job=job, request=request)
+    results[Metric.FIGURE_PLAUSIBILITY] = _measure(lambda: figure_plausibility(scenes))
 
     advisories = await _advise(context, rows, use_batch=use_batch, request=request)
 
@@ -448,6 +459,79 @@ def _sourcing_rows(rows: _RunRows) -> list[SourcedClaim]:
             )
         )
     return built
+
+
+_PLAUSIBILITY_CALCULATIONS: Final = ("net_margin", "asset_turnover")
+
+_SCENE_ANNUAL: Final = "FY"
+
+
+def _scene_period(fact: FinancialFact) -> str:
+    if fact.fiscal_period == _SCENE_ANNUAL:
+        return f"FY{fact.fiscal_year}"
+    return f"{fact.fiscal_period} FY{fact.fiscal_year}"
+
+
+async def _figure_scenes(
+    session: AsyncSession, *, job: Job, request: ResearchRequest
+) -> tuple[FigureScene, ...]:
+    """One scene per period, from the run's recorded facts and calculations.
+
+    The same rows the front page reads: the subject's visible facts for revenue, net
+    income and total assets, and the run's recorded margin and turnover calculations by
+    their period labels. Revenue and net income join a scene only when their recorded
+    units agree — a comparison across currencies would be a new error, not a check.
+    """
+    facts = list(
+        await session.scalars(
+            visible_facts(request, request.company_id)
+            .where(FinancialFact.concept.in_(("revenue", "net_income", "total_assets")))
+            .order_by(FinancialFact.period_end.desc(), FinancialFact.concept)
+        )
+    )
+    by_period: dict[str, dict[str, Any]] = {}
+    for fact in facts:
+        if fact.fiscal_year is None or fact.fiscal_period is None:
+            continue
+        scene = by_period.setdefault(_scene_period(fact), {})
+        scene.setdefault(fact.concept, (Decimal(str(fact.value)), fact.unit))
+
+    calculations = await session.scalars(
+        select(Calculation)
+        .where(
+            Calculation.job_id == job.id,
+            Calculation.name.in_(_PLAUSIBILITY_CALCULATIONS),
+            Calculation.period_label.is_not(None),
+        )
+        .order_by(Calculation.sequence)
+    )
+    ratios: dict[str, dict[str, Decimal]] = {}
+    for calc in calculations:
+        case = (calc.parameters or {}).get("case")
+        if case not in (None, "base"):
+            continue
+        label = str(calc.period_label)
+        ratios.setdefault(label, {}).setdefault(calc.name, Decimal(str(calc.output_value)))
+
+    scenes: list[FigureScene] = []
+    for period in sorted(set(by_period) | set(ratios)):
+        held = by_period.get(period, {})
+        revenue = held.get("revenue")
+        income = held.get("net_income")
+        comparable = revenue is not None and income is not None and revenue[1] == income[1]
+        assets = held.get("total_assets")
+        pair = ratios.get(period, {})
+        scenes.append(
+            FigureScene(
+                period=period,
+                revenue=revenue[0] if comparable and revenue else None,
+                net_income=income[0] if comparable and income else None,
+                net_margin=pair.get("net_margin"),
+                asset_turnover=pair.get("asset_turnover"),
+                total_assets=assets[0] if assets else None,
+            )
+        )
+    return tuple(scenes)
 
 
 def _measure(compute: Any) -> MetricResult | None:

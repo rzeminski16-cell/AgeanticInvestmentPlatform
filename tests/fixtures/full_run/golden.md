@@ -302,7 +302,7 @@ This is the first research run for Microsoft Corporation (MSFT). No prior approv
 
 ### Summary
 
-The run's validators measured 9 metric(s): 8 passed, 0 failed, 1 not exercised. custom_section_contract_conformance, injection_resistance, skill_privilege_containment and unit_integrity are corpus metrics, measured by the CI evaluation gate against adversarial fixtures rather than against any one run. No disagreements between sources were recorded.
+The run's validators measured 10 metric(s): 9 passed, 0 failed, 1 not exercised. custom_section_contract_conformance, injection_resistance, skill_privilege_containment and unit_integrity are corpus metrics, measured by the CI evaluation gate against adversarial fixtures rather than against any one run. No disagreements between sources were recorded.
 
 ### Validation Metrics
 
@@ -310,6 +310,7 @@ The run's validators measured 9 metric(s): 8 passed, 0 failed, 1 not exercised. 
 |---|---|---|---|
 | assumption_completeness | — | at least 1.00000000 | not exercised |
 | citation_accuracy | 1.00000000 | at least 0.98000000 | pass |
+| figure_plausibility | 0E-8 | at most 0E-8 | pass |
 | hallucinated_citation_rate | 0E-8 | at most 0E-8 | pass |
 | look_ahead_recall | 1.00000000 | at least 1.00000000 | pass |
 | numerical_consistency | 0E-8 | at most 0.00500000 | pass |

@@ -483,3 +483,75 @@ class TestTheFrontPageRefusesToMixIssuers:
         monkeypatch.setattr(glance_module, "_consolidated_facts", nothing)
         glance = await glance_content(scene["session"], job=scene["job"], request=scene["request"])
         assert glance.refused is None
+
+
+class TestTheFrontPageRefusesTheImpossible:
+    """Gap A61, ADR 0066: told, rather than shown a lie.
+
+    The MTB run's front page carried revenue of $442m beside net income of $818m and a
+    net margin of 172.1% — each row a stored fact or a recorded calculation, the set
+    impossible. The block re-checks the relations over exactly the rows it is about to
+    render and withholds itself whole, because code cannot know which leg of an
+    impossible relation is the mislabelled one.
+    """
+
+    async def test_income_above_revenue_withholds_the_block_with_the_reason(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await _fact(
+            scene["session"],
+            company=scene["subject"],
+            document=scene["subject_doc"],
+            concept="net_income",
+            period_end=date(2025, 12, 31),
+            value="2000",
+        )
+        await scene["session"].commit()
+
+        glance = await glance_content(scene["session"], job=scene["job"], request=scene["request"])
+
+        assert glance.content is None, "an impossible set must not render at all"
+        assert glance.refused is not None
+        assert "cannot all be true" in glance.refused
+        assert "ADR 0066" in glance.refused
+        assert "2000" in glance.refused, "the refusal argues with the values, not a category"
+
+    async def test_income_within_revenue_renders_as_before(self, scene: dict[str, Any]) -> None:
+        await _fact(
+            scene["session"],
+            company=scene["subject"],
+            document=scene["subject_doc"],
+            concept="net_income",
+            period_end=date(2025, 12, 31),
+            value="300",
+        )
+        await scene["session"].commit()
+
+        glance = await glance_content(scene["session"], job=scene["job"], request=scene["request"])
+
+        assert glance.refused is None
+        assert glance.content is not None
+
+    def test_a_margin_row_above_one_is_reason_enough(self) -> None:
+        """The ratio form alone withholds — the run can hold the margin for years whose
+        underlying facts the block no longer shows side by side."""
+        content = {
+            "ratios": [{"label": "Net margin", "period": "FY2025", "value": "1.7206"}],
+        }
+
+        refusal = glance_module._impossibility_refusal(content)
+
+        assert refusal is not None
+        assert "1.7206" in refusal
+
+    def test_currencies_that_disagree_are_not_compared(self) -> None:
+        """A dollar income against a sterling revenue is not an impossible statement,
+        it is two statements — comparing them would be a new error, not a check."""
+        content = {
+            "latest": [
+                {"label": "Revenue", "period": "FY2025", "value": "100", "unit": "GBP"},
+                {"label": "Net income", "period": "FY2025", "value": "200", "unit": "USD"},
+            ],
+        }
+
+        assert glance_module._impossibility_refusal(content) is None

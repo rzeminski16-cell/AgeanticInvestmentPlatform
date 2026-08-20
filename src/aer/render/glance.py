@@ -17,12 +17,14 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, Final
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.calc.plausibility import FigureScene, impossible_relations
 from aer.db.models import Calculation, FinancialFact, Job, ResearchRequest
 from aer.services.facts import visible_facts
 
@@ -148,6 +150,46 @@ def _mixing_refusal(facts: list[FinancialFact], subject_id: uuid.UUID | None) ->
     )
 
 
+def _impossibility_refusal(content: dict[str, Any]) -> str | None:
+    """The stated reason to withhold the block when its own figures cannot all be true.
+
+    Gap A61's live failure: a front page carrying revenue of $442m, net income of $818m
+    and a net margin of 172.1% — each row a stored fact or recorded calculation, the set
+    impossible. The check runs over exactly the rows this block is about to render, so
+    the block and the check cannot disagree about what the reader would have seen. Which
+    figure is wrong is not decidable here — income above revenue means one of the two is
+    mislabelled — so the whole block is withheld with the relations stated, the same
+    posture as the mixing refusal above: told, rather than shown a lie.
+    """
+    latest = {row["label"]: row for row in content.get("latest", [])}
+    revenue = latest.get("Revenue")
+    income = latest.get("Net income")
+    comparable = revenue is not None and income is not None and revenue["unit"] == income["unit"]
+    scenes = []
+    if comparable and revenue is not None and income is not None:
+        scenes.append(
+            FigureScene(
+                period=str(revenue["period"]),
+                revenue=Decimal(str(revenue["value"])),
+                net_income=Decimal(str(income["value"])),
+            )
+        )
+    scenes.extend(
+        FigureScene(period=str(row["period"]), net_margin=Decimal(str(row["value"])))
+        for row in content.get("ratios", [])
+        if row["label"] == "Net margin"
+    )
+    found = impossible_relations(tuple(scenes))
+    if not found:
+        return None
+    stated = "; ".join(item.statement for item in found)
+    return (
+        "the at-a-glance block was withheld — the figures offered to it cannot all be "
+        f"true at once: {stated}. A figure that is traceable is not thereby possible "
+        "(ADR 0066)"
+    )
+
+
 async def glance_content(session: AsyncSession, *, job: Job, request: ResearchRequest) -> Glance:
     """The at-a-glance block, empty when the run holds nothing to show, and **withheld
     with the reason stated** when the figures offered to it are not all the subject's."""
@@ -174,6 +216,16 @@ async def glance_content(session: AsyncSession, *, job: Job, request: ResearchRe
     ratios = await _headline_rows(session, job=job)
     if ratios:
         content["ratios"] = ratios
+
+    refusal = _impossibility_refusal(content)
+    if refusal is not None:
+        _log.warning(
+            "glance.withheld",
+            job_id=str(job.id),
+            request_id=str(request.id),
+            reason=refusal,
+        )
+        return Glance(content=None, refused=refusal)
     return Glance(content=content or None)
 
 

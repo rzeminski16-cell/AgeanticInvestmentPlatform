@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Final
 
+from aer.calc.plausibility import FigureScene, impossible_relations
 from aer.core.section_output import gap_sentences
 from aer.eval.metrics import (
     THRESHOLDS,
@@ -42,6 +43,7 @@ __all__ = [
     "RunCitation",
     "SectionCoverage",
     "SourcedClaim",
+    "figure_plausibility",
     "presentation_integrity",
     "primary_source_ratio",
     "run_citation_accuracy",
@@ -297,4 +299,35 @@ def presentation_integrity(markdown: str, html: str, *, sections: int) -> Metric
         direction=direction,
         population=max(sections, 1),
         failures=tuple(failures),
+    )
+
+
+def figure_plausibility(scenes: tuple[FigureScene, ...]) -> MetricResult:
+    """The count of impossible relations among the run's headline figures — threshold zero.
+
+    Gap A61's metric. The MTB run published a 172.1% net margin from a revenue concept
+    resolved to a partial caption, and every other metric passed, because every other
+    metric asks whether a figure is *recorded* correctly — consistently replayed,
+    correctly cited, admissibly dated — and none asks whether it is *possible*. This one
+    does, over :func:`aer.calc.plausibility.impossible_relations`' closed set: income
+    above revenue, a margin above one, turnover below the floor on a large balance
+    sheet. Each finding names the period and the values, so the failure row reads as an
+    argument rather than a count.
+
+    A run with no headline figures at all raises, and the caller records the metric as
+    not exercised — nothing to measure is a fact about the run, not a pass.
+    """
+    if not scenes:
+        message = "figure_plausibility was asked to score a run holding no headline figures."
+        raise EmptyCorpusError(message, context={"metric": Metric.FIGURE_PLAUSIBILITY.value})
+
+    found = impossible_relations(scenes)
+    threshold, direction = THRESHOLDS[Metric.FIGURE_PLAUSIBILITY]
+    return MetricResult(
+        metric=Metric.FIGURE_PLAUSIBILITY,
+        value=Decimal(len(found)),
+        threshold=threshold,
+        direction=direction,
+        population=len(scenes),
+        failures=tuple(item.statement for item in found),
     )

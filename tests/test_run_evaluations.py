@@ -21,6 +21,7 @@ import aer.providers.costs as costs_module
 from aer.agents.base import Agent, AgentContext, TokenCapExceededError
 from aer.agents.registry import resolve_role
 from aer.agents.validator import AssistInput, ValidatorAdvisory, ValidatorAssist
+from aer.calc.plausibility import FigureScene
 from aer.config import Settings
 from aer.core.enums import ClaimKind, FactBasis, GateKind, JobStatus, Provider, SourceTier
 from aer.db.models import (
@@ -44,6 +45,7 @@ from aer.eval.runtime import (
     RunCitation,
     SectionCoverage,
     SourcedClaim,
+    figure_plausibility,
     presentation_integrity,
     primary_source_ratio,
     run_citation_accuracy,
@@ -55,7 +57,7 @@ from aer.providers.fake import FakeProvider
 from aer.providers.protocol import BatchRequest, Message
 from aer.providers.router import Router
 from aer.services.citations import record_citation, record_claim
-from aer.services.evaluations import evaluate_run, evaluations_for_job
+from aer.services.evaluations import _figure_scenes, evaluate_run, evaluations_for_job
 from aer.services.extractions import record_excerpt
 from aer.storage.local import LocalArtefactStore
 from tests.ledger_fixtures import record_valuation_ledger
@@ -245,6 +247,48 @@ class TestPresentationIntegrity:
             presentation_integrity("", "", sections=0)
 
 
+class TestFigurePlausibility:
+    """Gap A61: the metric that asks whether the headline figures are possible."""
+
+    def test_a_possible_world_passes(self) -> None:
+        scenes = (
+            FigureScene(
+                period="FY2025",
+                revenue=Decimal("394328000000"),
+                net_income=Decimal("96995000000"),
+                net_margin=Decimal("0.246"),
+            ),
+        )
+        result = figure_plausibility(scenes)
+
+        assert result.passed
+        assert result.value == 0
+        assert result.population == 1
+
+    def test_the_impossible_fails_naming_each_relation(self) -> None:
+        """The MTB front page, scored: every impossible relation is a failure row a
+        reader can argue with — the period and the values, not a count."""
+        scenes = (
+            FigureScene(
+                period="Q2 FY2026",
+                revenue=Decimal("442000000"),
+                net_income=Decimal("818000000"),
+            ),
+            FigureScene(period="FY2025", net_margin=Decimal("1.7206")),
+        )
+        result = figure_plausibility(scenes)
+
+        assert not result.passed
+        assert result.value == 2
+        joined = " ".join(result.failures)
+        assert "818000000" in joined
+        assert "1.7206" in joined
+
+    def test_a_run_with_no_figures_is_not_exercised_never_a_pass(self) -> None:
+        with pytest.raises(EmptyCorpusError):
+            figure_plausibility(())
+
+
 class TestTheValidatorRole:
     def test_the_role_names_its_adr_and_holds_no_tools(self) -> None:
         definition = resolve_role("validator")
@@ -381,6 +425,8 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     company = Company(name="MICROSOFT CORP", cik="0000789019", ticker="MSFT", exchange="NASDAQ")
     db_session.add(company)
     await db_session.flush()
+    request.company_id = company.id
+    await db_session.flush()
 
     fact = FinancialFact(
         company_id=company.id,
@@ -437,6 +483,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
         "document": document,
         "extraction": extraction,
         "fact": fact,
+        "company": company,
         "section": section,
         "claim": claim,
         "citation": citation,
@@ -499,6 +546,12 @@ class TestACleanRun:
         assert rows["primary_source_ratio"].passed is True
         assert rows["numerical_consistency"].passed is True
         assert rows["assumption_completeness"].passed is True
+        # Named outright rather than through RUN_TIME, which would satisfy itself: a
+        # mutation that drops the metric from the tuple shrinks both sides of the
+        # ordering assertion above and passes it. A clean run's row may be a pass or
+        # not exercised; what it must never be is absent or a failure.
+        assert "figure_plausibility" in rows
+        assert rows["figure_plausibility"].passed is not False
 
     async def test_nothing_to_catch_is_not_exercised_never_a_pass(
         self, scene: dict[str, Any]
@@ -850,3 +903,68 @@ class TestTheSliceWritesItsRows:
         assert step is not None
         produced = step.output_ref or {}
         assert len(produced["metrics"]) == len(RUN_TIME)
+
+
+class TestTheFigureScenesAreAssembledHonestly:
+    """The collector behind the metric: the same rows the front page reads."""
+
+    async def test_a_currency_mismatch_keeps_the_pair_out_of_the_scene(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """A dollar income against a sterling revenue is two statements, not one
+        impossible one — the pair joins a scene only when the recorded units agree."""
+        session = scene["session"]
+        for concept, value, unit in (
+            ("revenue", "100", "GBP"),
+            ("net_income", "200", "USD"),
+        ):
+            session.add(
+                FinancialFact(
+                    company_id=scene["company"].id,
+                    source_document_id=scene["document"].id,
+                    concept=concept,
+                    value=Decimal(value),
+                    unit=unit,
+                    period_end=date(2022, 3, 31),
+                    fiscal_year=2022,
+                    fiscal_period="Q3",
+                    basis=FactBasis.AS_REPORTED,
+                    # Inside the point-in-time window: the request's as-of date is
+                    # 2022-06-30 and visible_facts drops anything filed after it.
+                    filed_date=date(2022, 4, 30),
+                )
+            )
+        await session.flush()
+
+        scenes = await _figure_scenes(session, job=scene["job"], request=scene["request"])
+
+        held = next(item for item in scenes if item.period == "Q3 FY2022")
+        assert held.revenue is None
+        assert held.net_income is None
+
+    async def test_a_matching_pair_is_carried_and_scored(self, scene: dict[str, Any]) -> None:
+        session = scene["session"]
+        for concept, value in (("revenue", "442000000"), ("net_income", "818000000")):
+            session.add(
+                FinancialFact(
+                    company_id=scene["company"].id,
+                    source_document_id=scene["document"].id,
+                    concept=concept,
+                    value=Decimal(value),
+                    unit="USD",
+                    period_end=date(2022, 3, 31),
+                    fiscal_year=2022,
+                    fiscal_period="Q3",
+                    basis=FactBasis.AS_REPORTED,
+                    # Inside the point-in-time window: the request's as-of date is
+                    # 2022-06-30 and visible_facts drops anything filed after it.
+                    filed_date=date(2022, 4, 30),
+                )
+            )
+        await session.flush()
+
+        scenes = await _figure_scenes(session, job=scene["job"], request=scene["request"])
+        result = figure_plausibility(scenes)
+
+        assert not result.passed
+        assert any("818000000" in line for line in result.failures)
