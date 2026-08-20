@@ -60,11 +60,18 @@ CLAIM_BASIS_CEILING: Final = 1_000
 
 
 class ProposedCitation(BaseModel):
-    """One excerpt a claim rests on, named by ids the evidence listing supplied."""
+    """One excerpt a claim rests on, named by the extraction id the listing supplied.
+
+    The extraction id alone, as an opaque handle (gap A51b). An extraction already
+    belongs to exactly one source document, so a second field restating that document
+    was a fact the model could get wrong — and one live section filed nineteen claims
+    pairing real extractions with the wrong source, each refused. With ``extra="forbid"``
+    the mismatch is now unrepresentable: the platform resolves the document from its own
+    record when the citation is recorded.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    source_document_id: str = Field(min_length=1, max_length=64)
     extraction_id: str = Field(min_length=1, max_length=64)
 
 
@@ -158,9 +165,10 @@ Ids you were not shown do not exist. Dates and document references are not figur
 they are written recognisably — "March 2026", "Q3 2025", "in 2024", "Item 2.02",
 "Exhibit 99.1", "CIK 0000320193" — so anchor every year to a month, a quarter or a
 temporal word; a bare unanchored year is treated as a quantity and refused.
-2. Factual and numeric claims cite evidence: a source document id and an extraction id
-from the evidence listing. The platform re-reads every excerpt; a citation that does not
-verify blocks the report.
+2. Factual and numeric claims cite evidence: the extraction id of an excerpt from the
+evidence listing. The excerpt's source document is on record, so the id alone is the
+whole citation. The platform re-reads every excerpt; a citation that does not verify
+blocks the report.
 3. Where the evidence cannot support what the operator asked for, say so plainly in the
 content and keep your confidence low. An honest gap is publishable; filler is not.
 4. Forward-looking statements and opinions carry a stated basis instead of a citation,
@@ -195,7 +203,9 @@ class CustomSectionAgent(Agent[CustomSectionInput, CustomSectionDraft]):
 
     role: ClassVar[str] = "custom_section"
     output_schema: ClassVar[type[BaseModel]] = CustomSectionDraft
-    prompt_version: ClassVar[str] = "1"
+    # "2": a citation is the extraction id alone; the source document is resolved in
+    # code from the extraction's own record (gap A51b).
+    prompt_version: ClassVar[str] = "2"
 
     def response_schema(self, payload: CustomSectionInput) -> type[BaseModel]:
         """The declared envelope, with ``content`` bound to the pinned contract.

@@ -281,12 +281,7 @@ def _good_draft(scene: dict[str, Any]) -> SectionDraft:
                 "statement": "The recorded revenue CAGR is 0.18 (ratio).",
                 "kind": "numeric",
                 "calculation_id": str(scene["calculation"].id),
-                "citations": [
-                    {
-                        "source_document_id": str(scene["document"].id),
-                        "extraction_id": str(scene["extraction"].id),
-                    }
-                ],
+                "citations": [{"extraction_id": str(scene["extraction"].id)}],
             }
         ],
     )

@@ -453,12 +453,7 @@ def section_draft_for(call: dict[str, Any]) -> Any:
                 ),
                 "kind": "numeric",
                 "calculation_id": calculation["calculation_id"],
-                "citations": [
-                    {
-                        "source_document_id": extraction["source_document_id"],
-                        "extraction_id": extraction["extraction_id"],
-                    }
-                ],
+                "citations": [{"extraction_id": extraction["extraction_id"]}],
             }
         )
 
@@ -492,12 +487,7 @@ def custom_section_draft_for(call: dict[str, Any]) -> Any:
                 ),
                 "kind": "numeric",
                 "calculation_id": calculation["calculation_id"],
-                "citations": [
-                    {
-                        "source_document_id": extraction["source_document_id"],
-                        "extraction_id": extraction["extraction_id"],
-                    }
-                ],
+                "citations": [{"extraction_id": extraction["extraction_id"]}],
             }
         )
 

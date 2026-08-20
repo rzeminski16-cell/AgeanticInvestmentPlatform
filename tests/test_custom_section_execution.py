@@ -714,12 +714,30 @@ class TestARatingIsUnrepresentable:
             ProposedClaim(
                 statement="Revenue was 100.",
                 kind="numeric",
-                citations=[ProposedCitation(source_document_id="a", extraction_id="b")],
+                citations=[ProposedCitation(extraction_id="b")],
             )
 
     def test_an_opinion_needs_a_basis_not_a_figure(self) -> None:
         with pytest.raises(PydanticValidationError):
             ProposedClaim(statement="The moat is durable.", kind="opinion")
+
+
+class TestACitationIsAnOpaqueHandle:
+    """Gap A51b: which document an extraction belongs to is the platform's record.
+
+    A live section filed nineteen claims pairing real extractions with the wrong
+    source, so the pairing is no longer the model's to state — a citation carrying a
+    source id fails the schema rather than arriving to be checked.
+    """
+
+    def test_a_citation_restating_the_source_is_refused(self) -> None:
+        with pytest.raises(PydanticValidationError):
+            ProposedCitation.model_validate(
+                {
+                    "source_document_id": "11111111-1111-1111-1111-111111111111",
+                    "extraction_id": "22222222-2222-2222-2222-222222222222",
+                }
+            )
 
 
 # ==========================================================================================
@@ -907,7 +925,6 @@ def _scripted(drafts: list[CustomSectionDraft | ScriptedResponse]) -> FakeProvid
 
 
 def _good_draft(scene: dict[str, Any]) -> CustomSectionDraft:
-    document_id = str(scene["document"].id)
     extraction_id = str(scene["extraction"].id)
     return CustomSectionDraft(
         content={
@@ -922,9 +939,7 @@ def _good_draft(scene: dict[str, Any]) -> CustomSectionDraft:
                 statement="Total revenue was $198,270 million for fiscal year 2022.",
                 kind="numeric",
                 financial_fact_id=str(scene["fact"].id),
-                citations=[
-                    ProposedCitation(source_document_id=document_id, extraction_id=extraction_id)
-                ],
+                citations=[ProposedCitation(extraction_id=extraction_id)],
             ),
             ProposedClaim(
                 statement=(
@@ -932,9 +947,7 @@ def _good_draft(scene: dict[str, Any]) -> CustomSectionDraft:
                 ),
                 kind="numeric",
                 calculation_id=str(scene["calculation"].id),
-                citations=[
-                    ProposedCitation(source_document_id=document_id, extraction_id=extraction_id)
-                ],
+                citations=[ProposedCitation(extraction_id=extraction_id)],
             ),
         ],
     )
@@ -990,6 +1003,10 @@ class TestTheExecutionLadder:
         assert len(citations) == 2
         # Proposals, all of them: only the deterministic verifier may confirm one.
         assert all(not c.excerpt_verified for c in citations)
+        # The draft named only extraction ids; the recorded rows carry the document
+        # each extraction belongs to, resolved from the run's record (gap A51b).
+        assert all(str(c.source_document_id) == str(scene["document"].id) for c in citations)
+        assert all(str(c.extraction_id) == str(scene["extraction"].id) for c in citations)
 
     async def test_a_schema_violation_is_retried_once_then_the_section_fails(
         self, scene: dict[str, Any]
@@ -1045,10 +1062,7 @@ class TestTheExecutionLadder:
         assert any("340" in p and "numeric claim" in p for p in outcome.problems)
 
     async def test_an_id_the_run_does_not_hold_is_refused(self, scene: dict[str, Any]) -> None:
-        citation = ProposedCitation(
-            source_document_id=str(scene["document"].id),
-            extraction_id=str(scene["extraction"].id),
-        )
+        citation = ProposedCitation(extraction_id=str(scene["extraction"].id))
         foreign = CustomSectionDraft(
             content={"summary": "No figures here.", "durability_years": 8},
             claims=[
@@ -1167,7 +1181,7 @@ def _moat_draft_from(prompt: str) -> CustomSectionDraft:
     assert calculation_id is not None, "the composed prompt must offer the run's calculations"
     assert pair is not None, "the composed prompt must offer the run's extractions"
 
-    citation = ProposedCitation(source_document_id=pair.group(2), extraction_id=pair.group(1))
+    citation = ProposedCitation(extraction_id=pair.group(1))
     return CustomSectionDraft(
         content={
             "summary": (

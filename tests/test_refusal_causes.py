@@ -82,12 +82,7 @@ class TestEachProducerHasItsCause:
             {
                 "statement": "A statement about the company.",
                 "kind": "factual",
-                "citations": [
-                    {
-                        "source_document_id": "11111111-1111-1111-1111-111111111111",
-                        "extraction_id": "22222222-2222-2222-2222-222222222222",
-                    }
-                ],
+                "citations": [{"extraction_id": "22222222-2222-2222-2222-222222222222"}],
             }
         ]
         problems = refused({"commentary": "Prose."}, claims=claims)

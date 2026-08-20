@@ -499,7 +499,7 @@ def _draft_from(prompt: str) -> CustomSectionDraft:
     assert calculation_id is not None, "the dry run must offer the source run's calculations"
     assert pair is not None, "the dry run must offer the source run's extractions"
 
-    citation = ProposedCitation(source_document_id=pair.group(2), extraction_id=pair.group(1))
+    citation = ProposedCitation(extraction_id=pair.group(1))
     return CustomSectionDraft(
         content={
             "summary": (

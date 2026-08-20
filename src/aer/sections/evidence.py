@@ -705,18 +705,14 @@ def validate_draft(
                 f"Claim {index} names calculation {claim.calculation_id!r}, which this "
                 "run does not hold."
             )
+        # An unknown extraction is the only way a citation can fail here now: the
+        # citation carries no source field to disagree with the record (gap A51b), so
+        # the old "belongs to a different source" refusal has nothing left to catch.
         for citation in claim.citations:
-            expected = evidence.extraction_sources.get(citation.extraction_id)
-            if expected is None:
+            if citation.extraction_id not in evidence.extraction_sources:
                 problems.append(
                     f"Claim {index} cites extraction {citation.extraction_id!r}, which "
                     "this section's evidence does not hold."
-                )
-            elif expected != citation.source_document_id:
-                problems.append(
-                    f"Claim {index} cites extraction {citation.extraction_id!r} against "
-                    f"source {citation.source_document_id!r}, but that extraction "
-                    f"belongs to source {expected!r}."
                 )
         if claim.kind == "forward_looking" and not policy.allow_forward_looking:
             problems.append(
@@ -833,13 +829,17 @@ async def record_draft_claims(
             calculation_id=_uuid_or_none(proposal.calculation_id),
         )
         for citation in proposal.citations:
+            # The extraction's own record names the source document (gap A51b): the
+            # model proposed a handle, and this lookup is what makes the recorded
+            # pairing correct by construction rather than by the model's care.
+            source_id = evidence.extraction_sources[citation.extraction_id]
             await record_citation(
                 session,
                 claim=claim,
-                source_document_id=uuid.UUID(citation.source_document_id),
+                source_document_id=uuid.UUID(source_id),
                 extraction_id=uuid.UUID(citation.extraction_id),
             )
-            cited_source_ids.add(citation.source_document_id)
+            cited_source_ids.add(source_id)
         if proposal.financial_fact_id is not None:
             cited_source_ids.add(evidence.fact_sources[proposal.financial_fact_id])
         recorded += 1

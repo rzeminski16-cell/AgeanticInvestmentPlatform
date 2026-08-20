@@ -86,9 +86,10 @@ Ids you were not shown do not exist. Dates and document references are not figur
 they are written recognisably — "March 2026", "Q3 2025", "in 2024", "Item 2.02",
 "Exhibit 99.1", "CIK 0000320193" — so anchor every year to a month, a quarter or a
 temporal word; a bare unanchored year is treated as a quantity and refused.
-2. Factual and numeric claims cite evidence: a source document id and an extraction id
-from the evidence listing. The platform re-reads every excerpt; a citation that does not
-verify blocks the report.
+2. Factual and numeric claims cite evidence: the extraction id of an excerpt from the
+evidence listing. The excerpt's source document is on record, so the id alone is the
+whole citation. The platform re-reads every excerpt; a citation that does not verify
+blocks the report.
 3. Where the evidence cannot support the section, say so plainly in the content and keep
 your confidence low. An honest gap is publishable; filler is not.
 4. Forward-looking statements and opinions carry a stated basis instead of a citation,
@@ -123,7 +124,9 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
     role: ClassVar[str] = "report_writer"
     output_schema: ClassVar[type[BaseModel]] = SectionDraft
     # "2": the user message states the word budget with its consequence (gap A50).
-    prompt_version: ClassVar[str] = "2"
+    # "3": a citation is the extraction id alone; the source document is resolved in
+    # code from the extraction's own record (gap A51b).
+    prompt_version: ClassVar[str] = "3"
 
     def __init__(self, *, route_role: str | None = None) -> None:
         """A writer, optionally billed at a cheaper configured route (gap O1).
