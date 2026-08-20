@@ -30,6 +30,7 @@ from aer.db.models import AuditEvent, User
 from aer.errors import AerError
 from aer.logging import configure_logging, get_logger
 from aer.obsidian import ObsidianExportError, export_report
+from aer.services.acceptance import AcceptanceReadout, acceptance_readout
 from aer.services.audit_verify import ChainReport, verify_audit_chain
 from aer.services.backup import (
     create_backup,
@@ -209,6 +210,53 @@ def export_obsidian(
     typer.secho(f"Exported {len(files)} file(s):", fg=typer.colors.GREEN)
     for relative in files:
         typer.echo(f"  {relative}")
+
+
+@app.command(name="acceptance")
+def acceptance_command(
+    job_id: Annotated[uuid.UUID, typer.Argument(help="The finished run to measure.")],
+) -> None:
+    """Measure one finished run against the P11 acceptance requirements.
+
+    The deterministic half of `docs/polish-phase-1.md` P11: every check is a read of
+    what the run recorded — sections, citations, the evaluation gate's verdicts, the
+    issuers the report actually cites, the front page, the spend — printed beside its
+    requirement so the diff is the output. Exits non-zero when a requirement fails.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    try:
+        readout = asyncio.run(_acceptance(settings, job_id=job_id))
+    except AerError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+
+    typer.secho(f"Run {readout.job_id} — {readout.subject}", fg=typer.colors.CYAN, bold=True)
+    for check in readout.checks:
+        if check.passed is None:
+            flag, colour = "·", typer.colors.WHITE
+        elif check.passed:
+            flag, colour = "PASS", typer.colors.GREEN
+        else:
+            flag, colour = "FAIL", typer.colors.RED
+        typer.secho(f"  [{flag}] {check.name}", fg=colour, bold=check.passed is False)
+        typer.echo(f"        required: {check.required}")
+        typer.echo(f"        measured: {check.measured}")
+
+    if not readout.passed:
+        typer.secho("The run does not meet the acceptance requirements.", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    typer.secho("Every requirement holds.", fg=typer.colors.GREEN)
+
+
+async def _acceptance(settings: Settings, *, job_id: uuid.UUID) -> AcceptanceReadout:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            return await acceptance_readout(session, job_id=job_id)
+    finally:
+        await engine.dispose()
 
 
 @app.command(name="knowledge")

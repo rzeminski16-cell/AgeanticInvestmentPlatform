@@ -712,6 +712,17 @@ still repair rather than discard; every model call still writes a cost row.
 If the rerun is clean, this file's findings are closed and the artefacts are archived
 beside `docs/manual-acceptance.md` as the platform's first end-to-end baseline.
 
+**The diff half of this task is a command** (added 2026-08-20): `uv run aer acceptance
+<job-id>` reads the finished run's rows and prints every mechanical check in this table
+beside its requirement — sections, citations, the evaluation gate's verdicts, the issuers
+the report actually cites, the front page, the spend — exiting non-zero on a failure. Two
+of the rows moved under it since this table was written, deliberately: "peer documents
+fetched: 0" predates ADR 0059 reinstating peer acquisition, so the check holds the
+current invariant instead (the report's evidence chain reaches only the subject's
+documents); and the spend band predates the P7/P8 recalibration, so spend is reported for
+comparison rather than judged. What remains for the eye is what no query can see: whether
+the prose reads like research.
+
 ---
 
 ## ADRs this phase adds
