@@ -26,7 +26,7 @@ import asyncio
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any, Final
 
@@ -43,7 +43,7 @@ from aer.agents.themes import PROPOSED_BY as THEMES_PROPOSED_BY
 from aer.agents.themes import ThemeProposalAgent, ThemeProposalInput, ThemeSlate
 from aer.agents.worker import ResearchTopic, WorkerExhaustedError, degraded_report
 from aer.calc.basic import cagr
-from aer.calc.comps import MultipleBasis, WithheldComps, align_peers
+from aer.calc.comps import MultipleBasis, WithheldComps
 from aer.calc.engine import CalculationContext
 from aer.calc.units import Quantity, SourceRef, Unit, money
 from aer.core.enums import Decision, FactBasis, GateKind, JobStatus, Provider, SourceTier
@@ -60,6 +60,7 @@ from aer.core.sectors import (
 )
 from aer.db.models import (
     Approval,
+    Assumption,
     Calculation,
     Company,
     FinancialFact,
@@ -92,7 +93,7 @@ from aer.services.acquisition import record_acquisition
 from aer.services.analysis import analyse_company
 from aer.services.artefacts import store_artefact
 from aer.services.assumption_gate import assemble as assemble_assumptions
-from aer.services.assumption_gate import dcf_permitted, gate_required
+from aer.services.assumption_gate import dcf_permitted, gate_required, refreshed_payload
 from aer.services.assumption_gate import gate_payload as gate_payload_for_assumptions
 from aer.services.assumptions import assumptions_for_request
 from aer.services.citations import review_evidence
@@ -156,6 +157,7 @@ __all__ = [
     "VALUE_STEP",
     "WORKFLOW_VERSION",
     "assumptions_gate_payload",
+    "assumptions_gate_refreshed",
     "assumptions_gate_required",
     "build_steps",
     "comps_note_for",
@@ -763,12 +765,14 @@ def sector_key_of(outputs: Mapping[str, Mapping[str, Any]]) -> str:
 
 
 def assumptions_gate_payload(produced: Mapping[str, Any]) -> dict[str, Any]:
-    """Exactly what the assumptions gate approves, as one structure.
+    """What the assumptions step recorded, as the payload structure the gate hashes.
 
-    Assembled from the step's own output rather than re-read from the database, so the hash
-    covers what the run actually produced. A row amended between the proposal and the
-    approval changes the payload and therefore the hash, and `_require_approval` refuses —
-    which is the point: confirming a list is confirming *those numbers*.
+    The step's own record: what the run proposed and could not, at the moment it assembled.
+    The gate itself no longer verifies against this — see :func:`assumptions_gate_refreshed`
+    and gap A52: the rows are the valuation's real inputs and an operator can change them
+    while the run waits, so the displayed and approved payload is re-read from the rows.
+    This shape remains the record of what the step did, and the refreshed payload reproduces
+    it byte for byte until a row actually changes.
     """
     return {
         "assumptions": list(produced.get("assumptions", [])),
@@ -776,6 +780,20 @@ def assumptions_gate_payload(produced: Mapping[str, Any]) -> dict[str, Any]:
         "refused": list(produced.get("refused", [])),
         "skipped": list(produced.get("skipped", [])),
     }
+
+
+def assumptions_gate_refreshed(
+    rows: Sequence[Assumption], produced: dict[str, Any]
+) -> dict[str, Any]:
+    """The assumptions gate payload as the rows now stand (gap A52).
+
+    The workflow's own forecast horizon applied to
+    :func:`aer.services.assumption_gate.refreshed_payload`, so the gate page and the
+    resuming workflow assemble — and hash — exactly the same structure. See
+    :func:`_gate_assumptions` for why this gate verifies against the rows rather than the
+    step's frozen record.
+    """
+    return refreshed_payload(rows, produced, years=FORECAST_YEARS)
 
 
 def assumptions_gate_required(produced: Mapping[str, Any]) -> bool:
@@ -883,6 +901,15 @@ async def _gate_assumptions(context: StepContext) -> StepResult:
 
     **Skipped, not approved, when there is nothing to agree.** A run whose sector blocks a
     discounted cash flow is never given a forecast and must not wait to approve one.
+
+    **The hash is recomputed from the rows, not read from the step output** (gap A52).
+    This gate approves inputs to work that has not happened yet, and the inputs are rows
+    the operator can amend or add while the run waits — the valuation reads the rows, so
+    an approval verified against the step's frozen record could cover figures the forecast
+    will not use. The gate page displays the same refreshed payload, so what is shown,
+    what is approved and what the valuation reads are one thing; unchanged rows reproduce
+    the step's own hash, and a row changed after an approval pauses the run for a fresh
+    decision rather than proceeding on an approval of something else.
     """
     produced = context.outputs.get(ASSUMPTIONS_STEP, {})
     if not assumptions_gate_required(produced):
@@ -894,7 +921,16 @@ async def _gate_assumptions(context: StepContext) -> StepResult:
             }
         )
 
-    return await _require_approval(context, gate=GateKind.ASSUMPTIONS, of_step=ASSUMPTIONS_STEP)
+    live = assumptions_gate_refreshed(
+        await assumptions_for_request(context.session, context.job.request_id),
+        dict(produced),
+    )
+    return await _require_approval(
+        context,
+        gate=GateKind.ASSUMPTIONS,
+        of_step=ASSUMPTIONS_STEP,
+        expected_hash=sha256_hex(canonical_json(live)),
+    )
 
 
 async def _value(context: StepContext) -> StepResult:
@@ -1252,16 +1288,23 @@ async def _refuse_unsupported_evidence(context: StepContext) -> None:
     )
 
 
-async def _require_approval(context: StepContext, *, gate: GateKind, of_step: str) -> StepResult:
+async def _require_approval(
+    context: StepContext, *, gate: GateKind, of_step: str, expected_hash: str | None = None
+) -> StepResult:
     """Continue only if an approval exists for exactly what this run produced.
 
     The approval's ``payload_hash`` is compared against the hash of what the step actually
     produced. An approval recorded against a different payload is not an approval of this
     one — that is the whole reason the hash is stored rather than just a timestamp and a
     user id.
+
+    ``expected_hash`` overrides the step output's own hash, for the one gate whose payload
+    is not frozen in a step output: the assumptions gate approves rows the operator can
+    still change, so its caller recomputes the hash from them (gap A52).
     """
     produced = context.outputs.get(of_step, {})
-    expected_hash = str(produced.get("payload_hash", ""))
+    if expected_hash is None:
+        expected_hash = str(produced.get("payload_hash", ""))
 
     approval = await context.session.scalar(
         select(Approval).where(
@@ -2479,9 +2522,18 @@ async def comps_note_for(
 ) -> WithheldComps | None:
     """What this run's comparables work obliges its report to say, or ``None``.
 
-    ``None`` when no peer set was confirmed, because "no comparison was performed" and "a
+    ``None`` when no comparison was performed — no peer set confirmed, or the comps step
+    has not succeeded or built no table — because "no comparison was performed" and "a
     comparison whose figures you are not being shown" are different claims and only the
     second needs saying.
+
+    **The counts are the comps step's own** (gap A53). This note used to re-align the
+    confirmed peers by date and count the survivors, and the first live run showed what
+    that does: the step's table held no peer — none could be priced — while the
+    render-time alignment counted one, so the report disclosed a comparison against one
+    peer that exists in no version anywhere. Date alignment is a necessary condition for
+    comparison, not the comparison; one step built the table, and its stored outcome is
+    the only honest source for what the table held.
 
     Returns a :class:`~aer.calc.comps.WithheldComps` and never a table. A rendered report is
     the shareable artefact, and every multiple in it would derive from market data licensed
@@ -2491,24 +2543,33 @@ async def comps_note_for(
     if not confirmed:
         return None
 
-    # A peer recorded by name alone (ADR 0059 as amended) has no period to align, was
-    # never priced, and belongs in the excluded count: the disclosure's `peer_count` is
-    # "compared against", and nothing was.
-    dated = [peer for peer in confirmed if peer.period_end is not None]
-    undated = len(confirmed) - len(dated)
-    aligned, excluded = align_peers(
-        [
-            (peer.identifier, peer.name, peer.period_end)
-            for peer in dated
-            if peer.period_end is not None  # the split above; restated for the type-checker
-        ],
-        subject_period_end=request.as_of_date,
-    )
+    outcome = await _comps_outcome_for(session, job)
+    if outcome is None or not outcome.get("comps"):
+        return None
+
+    peers = int(outcome.get("peers", 0))
+    as_of_text = outcome.get("as_of")
     return WithheldComps(
-        peer_count=len(aligned),
-        excluded_count=len(excluded) + undated,
-        as_of=request.as_of_date,
+        peer_count=peers,
+        # Outcomes recorded before the step stored its exclusion count fall back to the
+        # identity `build` maintains: every confirmed peer is in the table or excluded.
+        excluded_count=int(outcome.get("excluded_count", len(confirmed) - peers)),
+        as_of=date.fromisoformat(as_of_text) if as_of_text else request.as_of_date,
         licence_note=DEFAULT_POLICIES[Provider.EODHD].licence_note,
+    )
+
+
+async def _comps_outcome_for(session: AsyncSession, job: Job) -> dict[str, Any] | None:
+    """The comps step's recorded output for this job, or ``None`` before it has succeeded."""
+    return await session.scalar(
+        select(JobStep.output_ref)
+        .where(
+            JobStep.job_id == job.id,
+            JobStep.step_key == COMPS_STEP,
+            JobStep.status == JobStatus.SUCCEEDED,
+        )
+        .order_by(JobStep.attempt.desc())
+        .limit(1)
     )
 
 

@@ -20,6 +20,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -34,7 +35,7 @@ from aer.config import Settings
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.core.sectors import profile_for
-from aer.db.models import Approval, Assumption, JobStep, ResearchRequest, User
+from aer.db.models import Approval, Assumption, Job, JobStep, ResearchRequest, User
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
 from aer.services import approvals as approval_service
@@ -51,20 +52,25 @@ from aer.services.assumption_gate import (
     gate_payload,
     gate_required,
     outstanding_for,
+    refreshed_payload,
 )
 from aer.services.assumption_proposals import PROPOSED_BY as DERIVED_BY
+from aer.services.assumptions import assumptions_for_request
 from aer.services.prices import BETA_ASSUMPTION
 from aer.services.valuation import SCALAR_NAMES
 from aer.storage.local import LocalArtefactStore
 from aer.web.csrf import CSRF_FIELD_NAME
 from aer.workflow.workflows.vertical_slice_v1 import (
+    FORECAST_YEARS,
     assumptions_gate_payload,
+    assumptions_gate_refreshed,
     assumptions_gate_required,
     sector_key_of,
 )
 from tests.api_fixtures import build_app, client_for
 from tests.assumption_fixtures import a_year, analysed, seed_years
-from tests.workflow_fixtures import AS_OF_DATE, seed_job
+from tests.run_fixtures import Driver, start_run
+from tests.workflow_fixtures import AS_OF_DATE, CONDITIONAL_GATES, seed_job
 
 pytestmark = pytest.mark.integration
 
@@ -300,6 +306,78 @@ class TestThePayloadExplainsItself:
 
         assert set(payload) == {"assumptions", "outstanding", "refused", "skipped"}
         assert payload["refused"][0]["reason"] == "above ceiling"
+
+
+class TestTheRefreshedPayload:
+    """Gap A52: `assumptions` and `outstanding` from the rows; `refused` and `skipped`
+    from the step, because they describe what the run did and no row edit rewrites it."""
+
+    def test_unchanged_rows_reproduce_the_recorded_payload(self) -> None:
+        """Byte for byte, so the recorded hash keeps matching until a row actually
+        changes. The recorded outstanding is built the way `assemble` builds it — every
+        missing name — because that is the record refresh is measured against."""
+        row = _row("terminal_growth")
+        outcome = AssumptionGateOutcome(
+            outstanding=tuple(
+                (name, f"recorded reason for {name}")
+                for name in outstanding_for([row], years=FORECAST_YEARS)
+            )
+        )
+        recorded = gate_payload([row], outcome)
+        produced = {**recorded, "payload_hash": "unused", "dcf_permitted": True}
+
+        assert refreshed_payload([row], produced, years=FORECAST_YEARS) == recorded
+
+    def test_a_row_added_since_leaves_the_outstanding_list(self) -> None:
+        produced = {
+            "assumptions": [],
+            "outstanding": [{"name": "risk_free_rate", "reason": "No macro series."}],
+            "refused": [],
+            "skipped": [],
+        }
+        rows = [_row("risk_free_rate")]
+
+        payload = refreshed_payload(rows, produced, years=FORECAST_YEARS)
+
+        assert [item["name"] for item in payload["assumptions"]] == ["risk_free_rate"]
+        assert "risk_free_rate" not in {item["name"] for item in payload["outstanding"]}
+
+    def test_a_still_missing_name_keeps_the_reason_the_step_recorded(self) -> None:
+        produced = {
+            "assumptions": [],
+            "outstanding": [{"name": "beta", "reason": "the step's own sentence"}],
+            "refused": [],
+            "skipped": [],
+        }
+
+        payload = refreshed_payload([], produced, years=FORECAST_YEARS)
+
+        by_name = {item["name"]: item["reason"] for item in payload["outstanding"]}
+        assert by_name["beta"] == "the step's own sentence"
+
+    def test_a_name_the_step_never_recorded_falls_back_to_a_structural_reason(self) -> None:
+        """A row deleted since assembly makes its name outstanding again; the reason
+        cannot come from a record that never listed it."""
+        produced = {"assumptions": [], "outstanding": [], "refused": [], "skipped": []}
+
+        payload = refreshed_payload([], produced, years=FORECAST_YEARS)
+
+        by_name = {item["name"]: item["reason"] for item in payload["outstanding"]}
+        assert "No macroeconomic series" in by_name[RISK_FREE_ASSUMPTION]
+        assert by_name["revenue_growth"]
+
+    def test_what_the_run_did_is_carried_not_recomputed(self) -> None:
+        produced = {
+            "assumptions": [],
+            "outstanding": [],
+            "refused": [{"name": "terminal_growth", "value": "0.09", "reason": "above ceiling"}],
+            "skipped": ["capex intensity could not be derived"],
+        }
+
+        payload = refreshed_payload([], produced, years=FORECAST_YEARS)
+
+        assert payload["refused"] == produced["refused"]
+        assert payload["skipped"] == produced["skipped"]
 
 
 # ==========================================================================================
@@ -553,14 +631,24 @@ _GATE_TABLES = "research_requests, audit_events, users, artefacts, prompts, comp
 
 
 def _proposed_output(*, dcf_permitted_: bool = True) -> dict[str, Any]:
-    """What `_propose_assumptions` writes to its step row, hashed as the workflow hashes it."""
+    """What `_propose_assumptions` writes to its step row, hashed as the workflow hashes it.
+
+    The outstanding list is generated from the same `outstanding_for` the step consults,
+    given the one row `_seed_paused_run` writes — the page now renders from the rows (gap
+    A52), so a fixture whose record disagreed with its rows would be seeding a state the
+    workflow cannot produce.
+    """
+    present = [SimpleNamespace(name="terminal_growth")]
     output: dict[str, Any] = {
         "dcf_permitted": dcf_permitted_,
         "sector_key": "",
         "assumptions": [
             {
+                # At the column's full scale, because that is what a read-back row's
+                # `str(value)` gives: the workflow records what `assumptions_for_request`
+                # returned, and `Numeric(38, 12)` returns twelve decimal places.
                 "name": "terminal_growth",
-                "value": "0.025",
+                "value": "0.025000000000",
                 "unit": "pure",
                 "justification": "Long-run nominal growth, below the economy's own rate.",
                 "proposed_by": OPINION_BY,
@@ -568,7 +656,13 @@ def _proposed_output(*, dcf_permitted_: bool = True) -> dict[str, Any]:
             }
         ],
         "outstanding": [
-            {"name": "risk_free_rate", "reason": "No macro series is acquired by this workflow."}
+            {
+                "name": name,
+                "reason": "No macro series is acquired by this workflow."
+                if name == RISK_FREE_ASSUMPTION
+                else f"No proposal could be made for {name.replace('_', ' ')}.",
+            }
+            for name in outstanding_for(present, years=FORECAST_YEARS)  # type: ignore[arg-type]
         ],
         "refused": [],
         "skipped": [],
@@ -629,6 +723,20 @@ async def _seed_paused_run(engine: Any, *, dcf_permitted_: bool = True) -> dict[
                 idempotency_key=f"{job.id}:propose_assumptions",
                 input_hash="0" * 64,
                 output_ref=produced,
+            )
+        )
+        # The row behind the recorded proposal. The page renders from the rows (gap A52),
+        # so a step output with no row behind it would show an empty gate.
+        session.add(
+            Assumption(
+                request_id=research_request.id,
+                job_id=job.id,
+                name="terminal_growth",
+                value=Decimal("0.025"),
+                unit="pure",
+                justification="Long-run nominal growth, below the economy's own rate.",
+                proposed_by=OPINION_BY,
+                confidence=0.6,
             )
         )
         # The paused gate step, shaped as `StepPaused` records it: `pending_gate` reads the
@@ -757,3 +865,227 @@ class TestTheOperatorCanReachTheGate:
         assert page.status_code == 404
         assert "does not permit a discounted cash flow" in page.text
         assert "review-assumptions" not in (await api.get(f"/runs/{blocked['job'].id}")).text
+
+
+# ==========================================================================================
+# The gate reads the rows, not the record (gap A52)
+# ==========================================================================================
+
+
+class TestTheGateShowsTheRowsAsTheyStand:
+    """The live run's operator typed the missing values and watched this page keep calling
+    them outstanding: it rendered the step's frozen record, so a successful save was
+    indistinguishable from a failed one. The page now renders from the rows, carries the
+    forms to supply, amend and confirm them where the decision is being made, and says
+    what approving without them costs.
+    """
+
+    @staticmethod
+    async def _saved(engine: Any, request_id: Any, name: str, value: str) -> None:
+        """A value saved while the run waits, exactly as the create route saves one."""
+        factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+        async with factory() as session:
+            session.add(
+                Assumption(
+                    request_id=request_id,
+                    name=name,
+                    value=Decimal(value),
+                    unit="pure",
+                    justification="10-year Treasury constant maturity, 30 June 2022.",
+                    proposed_by="owner@example.invalid",
+                )
+            )
+            await session.commit()
+
+    async def test_a_value_saved_while_the_run_waits_appears_on_the_page(
+        self, api: Any, at_the_gate: dict, db_engine: Any
+    ) -> None:
+        await self._saved(db_engine, at_the_gate["request"].id, RISK_FREE_ASSUMPTION, "0.042")
+
+        page = await api.get(f"/runs/{at_the_gate['job'].id}/assumptions")
+
+        assert "0.042" in page.text
+        # And it is no longer offered as a gap to fill.
+        assert f'id="supply-value-{RISK_FREE_ASSUMPTION}"' not in page.text
+
+    async def test_the_hash_follows_the_rows(
+        self, api: Any, at_the_gate: dict, db_engine: Any
+    ) -> None:
+        """An approval taken over the stale page must not verify against the new rows."""
+        await self._saved(db_engine, at_the_gate["request"].id, RISK_FREE_ASSUMPTION, "0.042")
+
+        page = await api.get(f"/runs/{at_the_gate['job'].id}/assumptions")
+
+        assert at_the_gate["produced"]["payload_hash"] not in page.text
+
+    async def test_an_outstanding_name_carries_the_form_to_supply_it(
+        self, api: Any, at_the_gate: dict
+    ) -> None:
+        page = await api.get(f"/runs/{at_the_gate['job'].id}/assumptions")
+
+        assert f'id="supply-value-{RISK_FREE_ASSUMPTION}"' in page.text
+        assert f"/requests/{at_the_gate['request'].id}/assumptions/create" in page.text
+        # And a save returns to this page rather than stranding the operator elsewhere.
+        assert f'value="/runs/{at_the_gate["job"].id}/assumptions"' in page.text
+
+    async def test_an_unconfirmed_row_carries_confirm_and_amend(
+        self, api: Any, at_the_gate: dict
+    ) -> None:
+        page = await api.get(f"/runs/{at_the_gate['job'].id}/assumptions")
+
+        assert "/confirm" in page.text
+        assert "Amend it instead" in page.text
+
+    async def test_the_page_says_what_approving_without_them_costs(
+        self, api: Any, at_the_gate: dict
+    ) -> None:
+        page = await api.get(f"/runs/{at_the_gate['job'].id}/assumptions")
+
+        assert 'id="approval-consequence"' in page.text
+        assert "no discounted cash flow" in page.text
+
+
+async def _fresh_request(engine: Any) -> dict[str, Any]:
+    """A committed user and request on a truncated slate, for a real driven run."""
+    async with engine.begin() as connection:
+        await connection.execute(text("SET LOCAL statement_timeout = '5s'"))
+        await connection.execute(text(f"TRUNCATE {_GATE_TABLES} RESTART IDENTITY CASCADE"))
+    factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+    async with factory() as session:
+        user = User(email="owner@example.invalid", display_name="Owner", role=UserRole.OWNER)
+        session.add(user)
+        await session.flush()
+        request = ResearchRequest(
+            user_id=user.id,
+            company_name="Microsoft Corporation",
+            ticker="MSFT",
+            exchange="NASDAQ",
+            as_of_date=AS_OF_DATE,
+            point_in_time=True,
+            base_currency="USD",
+            reporting_currency="USD",
+            investment_horizon_months=12,
+            max_cost_gbp="2.50",
+        )
+        session.add(request)
+        await session.commit()
+        return {"user": user, "request": request}
+
+
+async def _to_the_assumptions_gate(api: Any, driver: Driver, request_id: Any) -> uuid.UUID:
+    """Start a real run and drive it to the assumptions-gate pause."""
+    body = await start_run(api, request_id)
+    job_id = uuid.UUID(body["job_id"])
+    await driver.advance(job_id)
+    await driver.approve(job_id, gate=GateKind.PLAN, step="plan")
+    status = await driver.advance(job_id)
+    while status is JobStatus.AWAITING_APPROVAL:
+        paused = await driver.waiting_at(job_id)
+        if paused == "gate_assumptions":
+            return job_id
+        clearing = CONDITIONAL_GATES.get(paused or "")
+        assert clearing is not None, f"unexpected pause at {paused}"
+        gate, step = clearing
+        await driver.approve(job_id, gate=gate, step=step)
+        status = await driver.advance(job_id)
+    message = "the run never paused at the assumptions gate"
+    raise AssertionError(message)
+
+
+async def _nudge_a_row(engine: Any, request_id: Any) -> None:
+    """Change one assumption's value, as an operator amending while the run waits."""
+    factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+    async with factory() as session:
+        row = await session.scalar(
+            select(Assumption)
+            .where(Assumption.request_id == request_id)
+            .order_by(Assumption.name)
+            .limit(1)
+        )
+        assert row is not None, "the run proposed no assumptions to amend"
+        row.value = row.value + Decimal("0.001")
+        await session.commit()
+
+
+class TestTheGateVerifiesTheRowsNotTheRecord:
+    """Gap A52's other half, on a real driven run.
+
+    The valuation reads the rows, so the hash an approval is verified against has to be
+    the rows' too. An approval recorded before a row changed is an approval of different
+    figures — the run pauses for a fresh decision rather than proceeding on it — and an
+    approval of the rows as they now stand is what resumes.
+    """
+
+    @pytest.fixture
+    async def committed(self, db_engine: Any) -> dict[str, Any]:
+        return await _fresh_request(db_engine)
+
+    @pytest.fixture
+    def enqueued(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        async def record(redis: Any, job_id: uuid.UUID) -> str:
+            return f"task-{job_id}"
+
+        monkeypatch.setattr("aer.api.routes.runs.enqueue_run", record)
+        monkeypatch.setattr("aer.web.pages.enqueue_run", record)
+
+    @pytest.fixture
+    async def run_api(
+        self,
+        api_settings: Settings,
+        db_engine: Any,
+        fake_redis: Any,
+        committed: dict[str, Any],
+        enqueued: None,
+    ) -> Any:
+        async for client in client_for(build_app(api_settings, engine=db_engine, redis=fake_redis)):
+            yield client
+
+    @pytest.fixture
+    def driver(self, db_engine: Any, api_settings: Settings) -> Driver:
+        return Driver(db_engine, api_settings)
+
+    async def test_a_row_amended_while_waiting_stales_the_recorded_approval(
+        self, run_api: Any, driver: Driver, committed: dict[str, Any], db_engine: Any
+    ) -> None:
+        job_id = await _to_the_assumptions_gate(run_api, driver, committed["request"].id)
+        await driver.approve(job_id, gate=GateKind.ASSUMPTIONS, step="propose_assumptions")
+        await _nudge_a_row(db_engine, committed["request"].id)
+
+        status = await driver.advance(job_id)
+
+        assert status is JobStatus.AWAITING_APPROVAL
+        assert await driver.waiting_at(job_id) == "gate_assumptions"
+
+    async def test_an_approval_of_the_rows_as_they_stand_resumes(
+        self, run_api: Any, driver: Driver, committed: dict[str, Any], db_engine: Any
+    ) -> None:
+        job_id = await _to_the_assumptions_gate(run_api, driver, committed["request"].id)
+        await _nudge_a_row(db_engine, committed["request"].id)
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            produced = await session.scalar(
+                select(JobStep.output_ref)
+                .where(JobStep.job_id == job_id, JobStep.step_key == "propose_assumptions")
+                .order_by(JobStep.attempt.desc())
+                .limit(1)
+            )
+            rows = await assumptions_for_request(session, committed["request"].id)
+            expected = sha256_hex(canonical_json(assumptions_gate_refreshed(rows, dict(produced))))
+            job = await session.get(Job, job_id)
+            user = await session.scalar(select(User))
+            assert job is not None
+            assert user is not None
+            await approval_service.record_decision(
+                session,
+                job=job,
+                gate=GateKind.ASSUMPTIONS,
+                decision=Decision.APPROVED,
+                actor=user,
+                payload_hash=expected,
+            )
+            await session.commit()
+
+        await driver.advance(job_id)
+
+        assert await driver.waiting_at(job_id) != "gate_assumptions"

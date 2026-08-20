@@ -42,6 +42,7 @@ from aer.render.document import assemble_document
 from aer.render.markdown import _comps_block, render_markdown
 from aer.services import approvals as approval_service
 from aer.services import comps as service
+from aer.workflow.workflows.vertical_slice_v1 import COMPS_STEP, comps_note_for
 from tests.workflow_fixtures import AS_OF_DATE, seed_job
 
 pytestmark = pytest.mark.integration
@@ -789,3 +790,98 @@ class TestTheProposalIsPointInTimeToo:
             )
             == ()
         )
+
+
+class TestTheNoteReportsWhatTheStepBuilt:
+    """Gap A53: the disclosure's counts are the comps step's own, never a re-alignment.
+
+    The first live run's table held no peer — none could be priced — while the render-time
+    note re-aligned the confirmed set by date, counted one survivor, and printed
+    "performed against 1 peer(s)" over an analysis that exists in no version anywhere.
+    """
+
+    @staticmethod
+    async def _record_comps_outcome(
+        session: Any, scene: dict[str, Any], output: dict[str, Any]
+    ) -> None:
+        """Write a comps step row the way the workflow writes one."""
+        session.add(
+            JobStep(
+                job_id=scene["job"].id,
+                step_key=COMPS_STEP,
+                sequence=9,
+                status=JobStatus.SUCCEEDED,
+                idempotency_key=f"{scene['job'].id}:{COMPS_STEP}",
+                input_hash="0" * 64,
+                output_ref=output,
+            )
+        )
+        await session.flush()
+
+    async def _confirmed(self, db_session: Any, scene: dict[str, Any]) -> None:
+        await confirm(db_session, scene, await record_proposal(db_session, scene))
+
+    async def test_the_counts_are_the_steps_not_a_realignment(self, db_session, scene):
+        """Both proposed peers share the subject's period end, so a date re-alignment
+        would count two; the step's record says one made the table."""
+        await self._confirmed(db_session, scene)
+        await self._record_comps_outcome(
+            db_session,
+            scene,
+            {"comps": True, "peers": 1, "excluded_count": 1, "as_of": AS_OF.isoformat()},
+        )
+
+        note = await comps_note_for(db_session, job=scene["job"], request=scene["request"])
+
+        assert note is not None
+        assert (note.peer_count, note.excluded_count) == (1, 1)
+        assert note.as_of == AS_OF
+
+    async def test_an_empty_table_discloses_that_nothing_was_computed(self, db_session, scene):
+        await self._confirmed(db_session, scene)
+        await self._record_comps_outcome(
+            db_session,
+            scene,
+            {"comps": True, "peers": 0, "excluded_count": 2, "as_of": AS_OF.isoformat()},
+        )
+
+        note = await comps_note_for(db_session, job=scene["job"], request=scene["request"])
+
+        assert note is not None
+        assert note.peer_count == 0
+        paragraph = note.as_paragraph()
+        assert "no comparable figure was computed" in paragraph
+        assert "available in full" not in paragraph
+
+    async def test_a_confirmed_set_whose_comps_step_has_not_run_yields_no_note(
+        self, db_session, scene
+    ):
+        """A preview before the step, or a run recorded before the step existed: no
+        comparison was performed, and silence is that claim."""
+        await self._confirmed(db_session, scene)
+
+        assert await comps_note_for(db_session, job=scene["job"], request=scene["request"]) is None
+
+    async def test_a_step_that_built_no_table_yields_no_note(self, db_session, scene):
+        await self._confirmed(db_session, scene)
+        await self._record_comps_outcome(
+            db_session, scene, {"comps": False, "reason": "no annual period"}
+        )
+
+        assert await comps_note_for(db_session, job=scene["job"], request=scene["request"]) is None
+
+    async def test_an_outcome_recorded_before_the_count_existed_uses_the_builds_identity(
+        self, db_session, scene
+    ):
+        """Older step outputs carry no `excluded_count`; every confirmed peer is in the
+        table or excluded, so the difference is the count."""
+        await self._confirmed(db_session, scene)
+        await self._record_comps_outcome(
+            db_session, scene, {"comps": True, "peers": 1, "as_of": AS_OF.isoformat()}
+        )
+
+        note = await comps_note_for(db_session, job=scene["job"], request=scene["request"])
+
+        assert note is not None
+        # Two peers confirmed by the fixture; one in the table leaves one excluded.
+        assert note.excluded_count == 1

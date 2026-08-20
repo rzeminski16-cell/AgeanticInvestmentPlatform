@@ -360,6 +360,55 @@ class TestThePage:
         assert 'id="create-assumption"' in page.text
         assert 'id="outstanding-names"' in page.text
 
+    async def test_a_save_posted_from_the_gate_returns_to_the_gate(self, api, committed):
+        """Gap A52: the assumptions gate embeds these forms, and an operator who saves a
+        value there must land back on the decision they were making — refreshed, so the
+        save is visible where it matters."""
+        request_id = committed["request"].id
+        page = await api.get(f"/requests/{request_id}/assumptions")
+        token = page.cookies.get("aer_csrf") or ""
+        gate_page = f"/runs/{uuid.uuid4()}/assumptions"
+
+        response = await api.post(
+            f"/requests/{request_id}/assumptions/create",
+            data={
+                CSRF_FIELD_NAME: token,
+                "name": "equity_risk_premium",
+                "value": "0.055",
+                "unit": "pure",
+                "justification": "Damodaran's implied US premium at the as-of date.",
+                "return_to": gate_page,
+            },
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303, response.text
+        assert response.headers["location"] == gate_page
+
+    async def test_a_return_address_that_is_not_a_gate_page_is_ignored(self, api, committed):
+        """The redirect is bounded to the one other page that carries these forms: a
+        crafted form must not be able to steer the browser anywhere else."""
+        request_id = committed["request"].id
+        page = await api.get(f"/requests/{request_id}/assumptions")
+        token = page.cookies.get("aer_csrf") or ""
+
+        for crafted in ("https://example.invalid/", "//example.invalid", "/reports/anything"):
+            response = await api.post(
+                f"/requests/{request_id}/assumptions/create",
+                data={
+                    CSRF_FIELD_NAME: token,
+                    "name": "beta",
+                    "value": "1.1",
+                    "unit": "pure",
+                    "justification": "Sector median, five-year weekly against the S&P 500.",
+                    "return_to": crafted,
+                },
+                follow_redirects=False,
+            )
+
+            assert response.status_code == 303, response.text
+            assert response.headers["location"] == f"/requests/{request_id}/assumptions"
+
     async def test_the_history_page_shows_the_proposal_that_was_replaced(
         self, api, committed, db_engine
     ):

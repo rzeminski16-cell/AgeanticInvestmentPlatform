@@ -63,6 +63,7 @@ __all__ = [
     "gate_payload",
     "gate_required",
     "outstanding_for",
+    "refreshed_payload",
 ]
 
 _log = structlog.get_logger("aer.services.assumption_gate")
@@ -226,17 +227,7 @@ def gate_payload(rows: Sequence[Assumption], outcome: AssumptionGateOutcome) -> 
     that invalidates itself the moment the operator does what it asked.
     """
     return {
-        "assumptions": [
-            {
-                "name": row.name,
-                "value": str(row.value),
-                "unit": row.unit,
-                "justification": row.justification,
-                "proposed_by": row.proposed_by,
-                "confidence": row.confidence,
-            }
-            for row in sorted(rows, key=lambda row: row.name)
-        ],
+        "assumptions": _row_dicts(rows),
         "outstanding": [{"name": name, "reason": reason} for name, reason in outcome.outstanding],
         "refused": [
             {"name": item.name, "value": str(item.value), "reason": item.refusal}
@@ -244,6 +235,58 @@ def gate_payload(rows: Sequence[Assumption], outcome: AssumptionGateOutcome) -> 
         ],
         "skipped": list(outcome.derived.skipped),
     }
+
+
+def refreshed_payload(
+    rows: Sequence[Assumption], produced: dict[str, Any], *, years: int
+) -> dict[str, Any]:
+    """The gate payload as the rows now stand, not as the step recorded them.
+
+    Every other gate approves work the run produced, so its payload is rightly frozen in
+    the step output. This gate approves *inputs to work that has not happened yet*, and the
+    inputs are rows an operator can amend or add while the run waits — which the live run's
+    operator did, and then watched the gate page keep calling their values outstanding,
+    because the page rendered the step's frozen record (gap A52). Worse than confusing: the
+    valuation reads the rows, so a frozen payload lets an approval's hash cover figures the
+    forecast will not use.
+
+    ``assumptions`` and ``outstanding`` are therefore re-read from the rows. ``refused`` and
+    ``skipped`` stay the step's own — they describe what the run did, and no row edit
+    rewrites history. A name still outstanding keeps the reason the step recorded for it;
+    one that only became outstanding since (a row somebody deleted) falls back to the
+    structural reasons above. Unchanged rows reproduce the step's payload byte for byte, so
+    the recorded hash still matches until somebody actually changes something.
+    """
+    recorded = {
+        str(item.get("name", "")): str(item.get("reason", ""))
+        for item in produced.get("outstanding", [])
+        if isinstance(item, dict)
+    }
+    derived = ProposalOutcome(skipped=tuple(str(note) for note in produced.get("skipped", [])))
+    return {
+        "assumptions": _row_dicts(rows),
+        "outstanding": [
+            {"name": name, "reason": recorded.get(name) or _reason_for(name, outcome=derived)}
+            for name in outstanding_for(rows, years=years)
+        ],
+        "refused": list(produced.get("refused", [])),
+        "skipped": list(produced.get("skipped", [])),
+    }
+
+
+def _row_dicts(rows: Sequence[Assumption]) -> list[dict[str, Any]]:
+    """One shape for a row in a gate payload, wherever the payload is assembled from."""
+    return [
+        {
+            "name": row.name,
+            "value": str(row.value),
+            "unit": row.unit,
+            "justification": row.justification,
+            "proposed_by": row.proposed_by,
+            "confidence": row.confidence,
+        }
+        for row in sorted(rows, key=lambda row: row.name)
+    ]
 
 
 def outstanding_for(rows: Sequence[Assumption], *, years: int) -> tuple[str, ...]:

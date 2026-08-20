@@ -354,7 +354,29 @@ class WithheldComps:
     licence_note: str = ""
 
     def as_paragraph(self) -> str:
-        """The disclosure, written here so it cannot vary by template."""
+        """The disclosure, written here so it cannot vary by template.
+
+        Two states, because they make two different claims. With peers in the table there
+        is an analysis, and this paragraph withholds its figures under the licence. With
+        none — every proposed peer excluded, nothing priced, nothing computed — there is
+        no analysis *anywhere*, and the first live report proved what the single wording
+        does with that: it promised an analysis "available in full on the operator's own
+        copy" that no copy holds (gap A53). A disclosure may withhold figures; it may not
+        invent them to withhold.
+        """
+        if self.peer_count == 0:
+            excluded = (
+                f"every one of the {self.excluded_count} proposed peer(s) was excluded "
+                "for want of usable data"
+                if self.excluded_count
+                else "no peer survived to be compared"
+            )
+            return (
+                f"A comparable-company analysis was attempted as at {self.as_of.isoformat()}, "
+                f"but {excluded}, so no comparable figure was computed. There is no fuller "
+                "version elsewhere; the operator's own copy lists each excluded peer with "
+                "the reason."
+            )
         return (
             f"A comparable-company analysis was performed against {self.peer_count} peer(s) "
             f"as at {self.as_of.isoformat()}, with {self.excluded_count} proposed peer(s) "

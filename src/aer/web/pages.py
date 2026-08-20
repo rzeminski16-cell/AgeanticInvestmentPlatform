@@ -42,6 +42,7 @@ from starlette.status import (
 )
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
+from aer.api.routes.assumptions import assumptions_payload
 from aer.calc.comps import MULTIPLE_DEFINITIONS, CompsTable
 from aer.charts import (
     ValuationHistoryInput,
@@ -50,6 +51,7 @@ from aer.charts import (
     valuation_history,
 )
 from aer.config import Settings
+from aer.core.assumption_scales import UNIT_CHOICES
 from aer.core.enums import CatalystOutcomeKind, Decision, GateKind, JobStatus
 from aer.core.escalation import COST_ALERT_RATIO
 from aer.db.models import (
@@ -79,6 +81,7 @@ from aer.services import configuration, provenance
 from aer.services import history as history_service
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
+from aer.services.assumptions import assumptions_for_request
 from aer.services.comps import (
     PEER_SET_STEP,
     peer_set_payload,
@@ -106,7 +109,7 @@ from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csr
 from aer.web.templating import render
 from aer.workflow.workflows.vertical_slice_v1 import (
     ASSUMPTIONS_STEP,
-    assumptions_gate_payload,
+    assumptions_gate_refreshed,
     assumptions_gate_required,
     comps_note_for,
     final_gate_payload,
@@ -567,10 +570,14 @@ async def assumptions_review(
     proposed it, and the names nobody could put a number against are shown as outstanding
     rather than quietly defaulted.
 
-    **The gate shipped without this page.** The workflow paused, the console showed the
-    banner, and every review link it offered belonged to a different gate — so a run that
-    stopped here could not be cleared from a browser at all. A gate an operator cannot
-    clear is a run that pauses and never resumes.
+    **Rendered from the rows, not from the step's frozen output** (gap A52). The live
+    run's operator typed the missing cost-of-capital values and watched this page keep
+    calling them outstanding, because it showed the record from the moment the step
+    assembled — a saved value that stays invisible where the decision is made reads as a
+    save that failed. The rows are what the valuation will read, so they are what this
+    page shows, what its hash covers, and what the resuming workflow verifies. The forms
+    to supply, amend and confirm are here too, because the operator standing at this gate
+    is exactly the person the per-request surface was built for.
     """
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
@@ -593,7 +600,8 @@ async def assumptions_review(
             status=HTTP_404_NOT_FOUND,
         )
 
-    payload = assumptions_gate_payload(produced)
+    rows = await assumptions_for_request(session, job.request_id)
+    payload = assumptions_gate_refreshed(rows, produced)
     decided = await _decision_for(session, job_id=job_id, gate=GateKind.ASSUMPTIONS)
     token = new_csrf_token(settings)
 
@@ -604,11 +612,20 @@ async def assumptions_review(
             "job": job,
             "payload": payload,
             "payload_hash": payload_hash_for(payload),
+            # The rows themselves, for the entry forms: amending and confirming need ids,
+            # which the hashed payload deliberately does not carry.
+            "rows": {row.name: row for row in rows},
+            "unconfirmed": sum(1 for row in rows if not row.approved),
+            # The per-request surface's own hash, carried by each confirm form — that
+            # route compares against its own payload shape, not the gate's.
+            "list_hash": payload_hash_for(assumptions_payload(list(rows))),
+            "unit_choices": UNIT_CHOICES,
+            # Every save posts to the per-request routes and returns here, so the operator
+            # never leaves the decision they are making.
+            "return_to": f"/runs/{job.id}/assumptions",
             "decided": decided,
             "gate": GateKind.ASSUMPTIONS.value,
-            # Where an operator goes to change one before agreeing to the set. The
-            # assumptions surface is per-request, which is why this page links out to it
-            # rather than editing in place.
+            # Where the full history lives; editing no longer requires leaving this page.
             "request_id": str(job.request_id),
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,

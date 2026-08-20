@@ -84,6 +84,10 @@ class CompsOutcome:
         return {
             "comps": True,
             "peers": len(self.table.peers),
+            # The company count, distinct from the grouped rows below. The render-time
+            # disclosure reads its counts from this record (gap A53), and a grouped row
+            # joins several names into one string, so the rows cannot be counted back.
+            "excluded_count": len(self.table.excluded),
             # Grouped by reason, because since ADR 0059 was amended every confirmed
             # peer shares one — recorded, unpriced — and a surface that printed it eight
             # times taught the reader to stop reading exclusions. A genuinely individual

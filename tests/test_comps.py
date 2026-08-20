@@ -593,6 +593,45 @@ class TestNothingPriceDerivedLeavesTheMachine:
         assert withheld.excluded_count == 0
 
 
+class TestWithholdingNothingIsNotWithholding:
+    """Gap A53. The first live report's table held no peer — none could be priced — and
+    the disclosure still said an analysis had been "performed" and was "available in full
+    on the operator's own copy". No copy held one. A disclosure may withhold figures; it
+    may not invent them to withhold.
+    """
+
+    def test_an_empty_table_promises_no_fuller_version(self):
+        paragraph = WithheldComps(peer_count=0, excluded_count=5, as_of=AS_OF).as_paragraph()
+
+        assert "available in full" not in paragraph
+        assert "performed against" not in paragraph
+        assert "withheld" not in paragraph
+
+    def test_an_empty_table_says_nothing_was_computed_and_why(self):
+        paragraph = WithheldComps(peer_count=0, excluded_count=5, as_of=AS_OF).as_paragraph()
+
+        assert "no comparable figure was computed" in paragraph
+        assert "5 proposed peer(s)" in paragraph
+        assert AS_OF.isoformat() in paragraph
+
+    def test_a_real_analysis_still_withholds_rather_than_denies(self):
+        """The other state is untouched: peers in the table mean figures exist, and the
+        paragraph's job is to withhold them under the licence, not to disclaim them."""
+        paragraph = WithheldComps(peer_count=3, excluded_count=1, as_of=AS_OF).as_paragraph()
+
+        assert "performed against 3 peer(s)" in paragraph
+        assert "figures are withheld" in paragraph
+        assert "available in full on the operator's own copy" in paragraph
+
+    def test_nothing_proposed_and_nothing_kept_still_reads_as_a_sentence(self):
+        """Zero everywhere is a caller's edge, not a licence state; it must not print
+        "every one of the 0 proposed peer(s)"."""
+        paragraph = WithheldComps(peer_count=0, excluded_count=0, as_of=AS_OF).as_paragraph()
+
+        assert "0 proposed peer(s)" not in paragraph
+        assert "no comparable figure was computed" in paragraph
+
+
 class TestTheTableItself:
     def test_the_peer_median_ignores_the_subject(self):
         table = table_of()

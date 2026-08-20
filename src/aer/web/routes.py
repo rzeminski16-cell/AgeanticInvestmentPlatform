@@ -12,6 +12,7 @@ moment the script fails to load, and this one commissions spending.
 
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -646,6 +647,26 @@ def _go_to(request: Request, destination: str) -> Response:
     return RedirectResponse(destination, status_code=HTTP_303_SEE_OTHER)
 
 
+# The one other page that carries the assumptions forms: the gate an operator clears them
+# from (gap A52). Anchored to exactly that shape so a crafted `return_to` cannot steer the
+# redirect anywhere else.
+_GATE_RETURN = re.compile(r"^/runs/[0-9a-fA-F-]{36}/assumptions$")
+
+
+def _assumptions_destination(submitted: dict[str, str], request_id: uuid.UUID) -> str:
+    """Where a save lands afterwards: the surface it was posted from.
+
+    The assumptions gate embeds this surface's forms so an operator can supply a missing
+    value where the decision is being made; a save from there returns there, refreshed —
+    the live run's operator saved values and was shown a page that still called them
+    missing, which reads as a save that failed.
+    """
+    wanted = submitted.get("return_to", "")
+    if _GATE_RETURN.fullmatch(wanted):
+        return wanted
+    return f"/requests/{request_id}/assumptions"
+
+
 def _request_not_found(request: Request, request_id: uuid.UUID) -> Response:
     response: Response = render(
         request,
@@ -902,7 +923,7 @@ async def confirm_assumption_page(
         return _problem_page(request, refused.message, HTTP_409_CONFLICT)
 
     await session.commit()
-    return _go_to(request, f"/requests/{request_id}/assumptions")
+    return _go_to(request, _assumptions_destination(submitted, request_id))
 
 
 @router.post(
@@ -965,7 +986,7 @@ async def amend_assumption_page(
         return _problem_page(request, refused.message, HTTP_422_UNPROCESSABLE_CONTENT)
 
     await session.commit()
-    return _go_to(request, f"/requests/{request_id}/assumptions")
+    return _go_to(request, _assumptions_destination(submitted, request_id))
 
 
 @router.post(
@@ -1031,7 +1052,7 @@ async def create_assumption_page(
         return _problem_page(request, refused.message, HTTP_422_UNPROCESSABLE_CONTENT)
 
     await session.commit()
-    return _go_to(request, f"/requests/{request_id}/assumptions")
+    return _go_to(request, _assumptions_destination(submitted, request_id))
 
 
 def _problem_page(request: Request, message: str, status: int) -> Response:

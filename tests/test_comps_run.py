@@ -34,7 +34,7 @@ from aer.services import approvals as approval_service
 from aer.services import comps as comps_service
 from aer.services.analysis import analyse_company
 from aer.services.calculations import new_context
-from aer.services.comps_run import build_comps_table, grouped_exclusions
+from aer.services.comps_run import CompsOutcome, build_comps_table, grouped_exclusions
 from aer.services.price_acquisition import acquire_prices
 from aer.storage.local import LocalArtefactStore
 from tests.test_price_acquisition import StubPriceClient
@@ -377,6 +377,39 @@ class TestTheStepOutput:
         [peer] = body["peer_multiples"]
         assert peer["name"] == "Fabrikam Inc"
         assert any(row["value"] is not None for row in peer["multiples"])
+
+    def test_the_excluded_count_is_of_companies_not_of_grouped_rows(self) -> None:
+        """The render-time disclosure reads its counts from this record (gap A53), and a
+        grouped row joins several names into one string, so the rows cannot be counted
+        back — the company count travels alongside them."""
+        table = calc.CompsTable(
+            subject=calc.PeerRow(
+                identifier="SUBJ", name="Subject", period_end=PERIOD_END, multiples=()
+            ),
+            peers=(),
+            excluded=(
+                calc.PeerExclusion(
+                    identifier="alpha",
+                    name="Alpha plc",
+                    period_end=AS_OF,
+                    reason=comps_service.UNACQUIRED_PEER_REASON,
+                ),
+                calc.PeerExclusion(
+                    identifier="beta",
+                    name="Beta Inc",
+                    period_end=AS_OF,
+                    reason=comps_service.UNACQUIRED_PEER_REASON,
+                ),
+            ),
+            basis=calc.MultipleBasis.LAST_FISCAL_YEAR,
+            as_of=AS_OF,
+            peer_set_confirmed=True,
+        )
+
+        body = CompsOutcome(built=True, table=table).as_dict()
+
+        assert body["excluded_count"] == 2
+        assert len(body["excluded"]) == 1
 
 
 class TestTheExclusionsAreGroupedByReason:

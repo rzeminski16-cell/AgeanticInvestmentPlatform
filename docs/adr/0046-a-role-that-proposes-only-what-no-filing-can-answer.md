@@ -134,3 +134,28 @@ would matter most.
 what the platform lets a model influence, and it is why this record exists. The mitigations
 are the ones above: two fields and no more, bounds enforced in code, refusal rather than
 clamping, no tools, and a confirmation the model cannot perform.
+
+## Amendment — 2026-08-20: the gate verifies the rows, not the step's record
+
+The first live run exposed a gap between what this gate displayed and what the valuation
+read (gap A52). The gate page rendered the assumptions step's frozen output, and the
+workflow verified the approval hash against that same record — but the valuation reads the
+*rows*, which the operator can amend or add while the run waits. Two failures followed. A
+value the operator saved stayed invisible on the gate page, which reads as a save that
+failed — the run's operator typed the missing cost-of-capital inputs and watched the page
+keep calling them outstanding. And an approval could verify against figures the forecast
+would never use, because the rows had moved since the step assembled.
+
+So this gate — alone among the gates, because it alone approves inputs to work that has
+not happened yet — assembles, displays and verifies its payload from the rows as they
+stand. `assumptions` and `outstanding` are re-read; `refused` and `skipped` stay the
+step's own, because they describe what the run did and no row edit rewrites history.
+Unchanged rows reproduce the step's payload byte for byte, so nothing changes for a run
+nobody edited; a row changed after an approval pauses the run for a fresh decision, which
+is what the original hash discipline always promised.
+
+The same amendment put the entry forms on the gate page itself — supply an outstanding
+value, amend or confirm a proposed one, each through the per-request surface's own routes
+— and made the page state the consequence of approving with gaps: no discounted cash
+flow, no scenario bridge, no sensitivity grid. An operator standing at a gate they cannot
+act on is not operating a control; they are watching one.
