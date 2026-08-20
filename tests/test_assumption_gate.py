@@ -69,6 +69,7 @@ from aer.workflow.workflows.vertical_slice_v1 import (
 )
 from tests.api_fixtures import build_app, client_for
 from tests.assumption_fixtures import a_year, analysed, seed_years
+from tests.db_cleanup import delete_all
 from tests.run_fixtures import Driver, start_run
 from tests.workflow_fixtures import AS_OF_DATE, CONDITIONAL_GATES, seed_job
 
@@ -946,10 +947,13 @@ class TestTheGateShowsTheRowsAsTheyStand:
 
 
 async def _fresh_request(engine: Any) -> dict[str, Any]:
-    """A committed user and request on a truncated slate, for a real driven run."""
-    async with engine.begin() as connection:
-        await connection.execute(text("SET LOCAL statement_timeout = '5s'"))
-        await connection.execute(text(f"TRUNCATE {_GATE_TABLES} RESTART IDENTITY CASCADE"))
+    """A committed user and request on an emptied database, for a real driven run.
+
+    Everything, not just the gate tables: a driven run really commits — company, facts,
+    assumptions, job rows — so a narrower slate would leave an earlier module's rows
+    colliding with the run's own.
+    """
+    await delete_all(engine)
     factory = async_sessionmaker(bind=engine, expire_on_commit=False)
     async with factory() as session:
         user = User(email="owner@example.invalid", display_name="Owner", role=UserRole.OWNER)
@@ -1017,8 +1021,12 @@ class TestTheGateVerifiesTheRowsNotTheRecord:
     """
 
     @pytest.fixture
-    async def committed(self, db_engine: Any) -> dict[str, Any]:
-        return await _fresh_request(db_engine)
+    async def committed(self, db_engine: Any) -> Any:
+        # The driven run's commits outlive the test, and the modules that follow this one
+        # insert the same (MSFT, NASDAQ) listing — so the clean-after is as load-bearing
+        # as the clean-before `_fresh_request` does.
+        yield await _fresh_request(db_engine)
+        await delete_all(db_engine)
 
     @pytest.fixture
     def enqueued(self, monkeypatch: pytest.MonkeyPatch) -> None:

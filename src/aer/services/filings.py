@@ -427,6 +427,23 @@ async def _excerpt(
         return 0
 
     excerpts = _paragraphs(extracted.text, form=form)
+    # Per-document supply numbers (gap A49). The live run drafted every section against
+    # a truncated pack built from 43 excerpts across nine documents — a 1.5MB 10-K among
+    # them — and the log could not say whether the item cutting, the paragraph splitting
+    # or the scoring was what starved it. These figures make the next run answer that:
+    # a large document yielding few, long excerpts is a splitting failure; many short
+    # candidates cut to few is the ceiling; few characters is the extractor.
+    _log.info(
+        "filings.excerpted",
+        url=document.url,
+        form=form,
+        characters=len(extracted.text.text),
+        excerpts=len(excerpts),
+        excerpt_ceiling=MAX_EXCERPTS,
+        mean_excerpt_chars=(
+            sum(len(item.text) for item in excerpts) // len(excerpts) if excerpts else 0
+        ),
+    )
     if not excerpts:
         return 0
 
