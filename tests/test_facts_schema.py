@@ -96,18 +96,25 @@ class TestTheConceptVocabulary:
         assert targets <= CANONICAL_CONCEPTS
 
     def test_the_concepts_with_no_ifrs_tag_are_a_recorded_decision(self):
-        """Three concepts have a us-gaap tag and no IFRS one, and that is deliberate.
+        """Seven concepts have a us-gaap tag and no IFRS one, and that is deliberate.
 
         ``ifrs-full`` has no element this project is confident means "restructuring costs",
         "preferred dividends" or "change in working capital" — the nearest candidates are
         provisions and adjustment lines that mean something adjacent. The module's own rule
-        is that unmapped-and-visible beats wrongly-mapped, so they are absent. Pinned here
-        so that closing one of them is a decision somebody takes rather than a diff nobody
-        reads, and so that the list not *growing* is noticed.
+        is that unmapped-and-visible beats wrongly-mapped, so they are absent. The four
+        bank captions (gap A62) joined with us-gaap tags only: an IFRS bank's income
+        statement uses its own interest-revenue elements, and mapping them is a
+        determination for a UK or European bank run to force, not a guess to make now.
+        Pinned here so that closing any of these is a decision somebody takes rather
+        than a diff nobody reads, and so that the list not *growing* is noticed.
         """
         assert CANONICAL_CONCEPTS - set(IFRS_ALIASES.values()) == {
             "change_in_working_capital",
+            "interest_and_dividend_income",
+            "net_interest_income",
+            "noninterest_income",
             "preferred_dividends",
+            "provision_for_credit_losses",
             "restructuring_costs",
         }
 

@@ -43,11 +43,13 @@ __all__ = [
     "CANONICAL_CONCEPTS",
     "IFRS_ALIASES",
     "MAGNITUDE_CONCEPTS",
+    "REVENUE_TAG_PREFERENCE",
     "UK_FRC_ALIASES",
     "US_GAAP_ALIASES",
     "canonical_concept",
     "is_canonical_concept",
     "is_magnitude",
+    "revenue_tag_rank",
 ]
 
 
@@ -70,6 +72,15 @@ CANONICAL_CONCEPTS: Final[frozenset[str]] = frozenset(
         "restructuring_costs",
         "interest_expense",
         "interest_income",
+        # The lines a depository institution's income statement actually leads with (gap
+        # A62). Distinct from `interest_income`/`interest_expense`, which are an
+        # industrial company's non-operating lines: a bank's interest income *is* its
+        # operating revenue, and folding the two together would make "interest income"
+        # mean different statements for different filers.
+        "net_interest_income",
+        "interest_and_dividend_income",
+        "noninterest_income",
+        "provision_for_credit_losses",
         "pre_tax_income",
         "income_tax_expense",
         "net_income",
@@ -173,6 +184,18 @@ US_GAAP_ALIASES: Final[dict[str, str]] = {
     "SalesRevenueNet": "revenue",
     "SalesRevenueGoodsNet": "revenue",
     "SalesRevenueServicesNet": "revenue",
+    # A bank's total-revenue caption (gap A62). The MTB run had no route from its
+    # filings to "revenue" except RevenueFromContractWithCustomer*, which for a bank is
+    # fee income alone -- interest income is not ASC 606 revenue -- and the front page
+    # reported a $219bn bank's quarter at $442m of "revenue".
+    "RevenuesNetOfInterestExpense": "revenue",
+    "InterestIncomeExpenseNet": "net_interest_income",
+    "InterestAndDividendIncomeOperating": "interest_and_dividend_income",
+    "NoninterestIncome": "noninterest_income",
+    # The pre-CECL provision tag. The CECL-era element is deliberately absent until a
+    # live run's unplaced list names its exact spelling (the A55 curation loop) --
+    # nothing here is guessed from a tag's shape, per this module's rule.
+    "ProvisionForLoanAndLeaseLosses": "provision_for_credit_losses",
     "CostOfRevenue": "cost_of_revenue",
     "CostOfGoodsAndServicesSold": "cost_of_revenue",
     "CostOfGoodsSold": "cost_of_revenue",
@@ -292,6 +315,41 @@ US_GAAP_ALIASES: Final[dict[str, str]] = {
     "CommonStockSharesOutstanding": "shares_outstanding",
     "EntityCommonStockSharesOutstanding": "shares_outstanding",
 }
+
+
+# Which tag is "revenue" when a filer reports more than one that maps to it, most total
+# first. ASC 606's contract-with-customer elements are *components* for any filer whose
+# income statement has lines outside ASC 606's scope -- a bank's interest income, most
+# obviously -- so where a total and a component coexist for the same period, the total
+# is the revenue and the component keeps its own tag (gap A62). EDGAR's companyfacts
+# JSON lists tags alphabetically, which put RevenueFromContractWithCustomer* ahead of
+# Revenues at the observation-key dedupe and handed the MTB run fee income as revenue.
+REVENUE_TAG_PREFERENCE: Final[tuple[str, ...]] = (
+    "Revenues",
+    "RevenuesNetOfInterestExpense",
+    "SalesRevenueNet",
+    "Revenue",
+    "Turnover",
+    "TurnoverRevenue",
+    "RevenueFromContractWithCustomerExcludingAssessedTax",
+    "RevenueFromContractWithCustomerIncludingAssessedTax",
+    "RevenueFromContractsWithCustomers",
+    "SalesRevenueGoodsNet",
+    "SalesRevenueServicesNet",
+)
+
+
+def revenue_tag_rank(tag: str) -> int:
+    """The tag's place in :data:`REVENUE_TAG_PREFERENCE`; unknown tags rank last.
+
+    Unknown-last, because a tag this table has never ranked cannot be *known* to be more
+    total than one it has -- and ranking it best by accident is exactly the alphabetical
+    failure this ordering exists to end.
+    """
+    try:
+        return REVENUE_TAG_PREFERENCE.index(tag)
+    except ValueError:
+        return len(REVENUE_TAG_PREFERENCE)
 
 
 # IFRS tags to canonical concepts.

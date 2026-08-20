@@ -13,6 +13,13 @@ from decimal import Decimal
 
 import pytest
 
+from aer.core.concepts import (
+    IFRS_ALIASES,
+    REVENUE_TAG_PREFERENCE,
+    UK_FRC_ALIASES,
+    US_GAAP_ALIASES,
+    revenue_tag_rank,
+)
 from aer.errors import ExternalServiceError
 from aer.sources.sec.companyfacts import parse_company_facts
 from tests.sec_fixtures import MSFT_CIK, fixture_bytes
@@ -37,14 +44,16 @@ class TestIdentity:
 
 
 class TestConceptAliasing:
-    def test_three_different_revenue_tags_map_to_one_concept(self, facts):
+    def test_different_revenue_tags_map_to_one_concept(self, facts):
         # ASC 606 replaced the revenue tags in 2018. Treating them as three concepts
-        # leaves a hole in the history exactly where the taxonomy changed.
+        # leaves a hole in the history exactly where the taxonomy changed. The fixture's
+        # one FY where the filer tagged both is decided by the preference order (gap
+        # A62): the total is the revenue, so the ASC 606 tag is absent here and its
+        # observation is kept under its own name -- tested below.
         revenue = facts.for_concept("revenue")
 
         assert {f.raw_concept for f in revenue} == {
             "Revenues",
-            "RevenueFromContractWithCustomerExcludingAssessedTax",
             "SalesRevenueNet",
         }
 
@@ -287,3 +296,139 @@ class TestTheFiscalYearIsThePeriodsOwn:
         # year (2025) is the wrong answer, and the filing's frame (2026) is the right one.
         assert row.fiscal_year == 2026
         assert row.fiscal_period == "Q2"
+
+
+def _bank_payload(revenue_blocks: dict[str, list[dict]]) -> bytes:
+    """A minimal companyfacts document with exactly the revenue tags a test supplies."""
+    return json.dumps(
+        {
+            "cik": 36270,
+            "entityName": "M&T BANK CORP",
+            "facts": {
+                "us-gaap": {
+                    tag: {"label": tag, "units": {"USD": entries}}
+                    for tag, entries in revenue_blocks.items()
+                }
+            },
+        }
+    ).encode()
+
+
+_FY = {
+    "start": "2025-01-01",
+    "end": "2025-12-31",
+    "fy": 2025,
+    "fp": "FY",
+    "form": "10-K",
+    "filed": "2026-02-18",
+    "accn": "0000036270-26-000010",
+}
+
+
+class TestATotalOutranksItsComponent:
+    """Gap A62: the MTB run called a $219bn bank's fee line its revenue.
+
+    EDGAR's JSON lists tags alphabetically, which put the ASC 606 component ahead of
+    ``Revenues`` at the observation-key dedupe. The preference order decides instead.
+    """
+
+    def test_the_total_is_the_revenue_and_the_component_keeps_its_tag(self) -> None:
+        payload = _bank_payload(
+            {
+                "RevenueFromContractWithCustomerExcludingAssessedTax": [{"val": 1525000000, **_FY}],
+                "Revenues": [{"val": 9200000000, **_FY}],
+            }
+        )
+
+        parsed = parse_company_facts(payload)
+        revenue = parsed.for_concept("revenue")
+
+        assert [f.value for f in revenue] == [Decimal(9200000000)]
+        assert revenue[0].raw_concept == "Revenues"
+        component = [
+            f
+            for f in parsed.facts
+            if f.raw_concept == "RevenueFromContractWithCustomerExcludingAssessedTax"
+        ]
+        assert len(component) == 1, "the component is kept, not dropped"
+        assert component[0].concept == component[0].raw_concept
+
+    def test_the_banks_own_total_caption_outranks_the_component_too(self) -> None:
+        payload = _bank_payload(
+            {
+                "RevenueFromContractWithCustomerExcludingAssessedTax": [{"val": 1525000000, **_FY}],
+                "RevenuesNetOfInterestExpense": [{"val": 9200000000, **_FY}],
+            }
+        )
+
+        revenue = parse_company_facts(payload).for_concept("revenue")
+
+        assert [f.raw_concept for f in revenue] == ["RevenuesNetOfInterestExpense"]
+
+    def test_a_component_only_period_still_maps_and_names_the_settling(self) -> None:
+        """A filer that tags nothing more total leaves the component as the best
+        available revenue -- mapped, with ``raw_concept`` saying which line it is."""
+        payload = _bank_payload(
+            {"RevenueFromContractWithCustomerExcludingAssessedTax": [{"val": 1525000000, **_FY}]}
+        )
+
+        revenue = parse_company_facts(payload).for_concept("revenue")
+
+        assert len(revenue) == 1
+        assert revenue[0].raw_concept == "RevenueFromContractWithCustomerExcludingAssessedTax"
+
+    def test_the_preference_is_per_period_not_per_document(self) -> None:
+        """A total for one year must not demote another year's only revenue line."""
+        other = dict(_FY, start="2024-01-01", end="2024-12-31", fy=2024)
+        payload = _bank_payload(
+            {
+                "RevenueFromContractWithCustomerExcludingAssessedTax": [
+                    {"val": 1484000000, **other},
+                    {"val": 1525000000, **_FY},
+                ],
+                "Revenues": [{"val": 9200000000, **_FY}],
+            }
+        )
+
+        revenue = parse_company_facts(payload).for_concept("revenue")
+        by_year = {f.fiscal_year: f for f in revenue}
+
+        assert by_year[2025].raw_concept == "Revenues"
+        assert by_year[2024].raw_concept == ("RevenueFromContractWithCustomerExcludingAssessedTax")
+
+
+class TestThePreferenceTableCannotDrift:
+    def test_every_tag_that_maps_to_revenue_is_ranked(self) -> None:
+        """A future alias added to the map but not the ranking would be decided by
+        arrival order again -- the exact failure the ranking exists to end."""
+        mapped = {
+            tag
+            for aliases in (US_GAAP_ALIASES, IFRS_ALIASES, UK_FRC_ALIASES)
+            for tag, concept in aliases.items()
+            if concept == "revenue"
+        }
+        assert mapped <= set(REVENUE_TAG_PREFERENCE)
+        # And a tag the table has never seen ranks last, never first.
+        assert revenue_tag_rank("SomeFutureRevenueTag") == len(REVENUE_TAG_PREFERENCE)
+
+
+class TestTheBankCaptionsMap:
+    """The lines a depository's income statement leads with reach the vocabulary."""
+
+    def test_net_interest_income_and_its_neighbours(self) -> None:
+        payload = _bank_payload(
+            {
+                "InterestIncomeExpenseNet": [{"val": 6800000000, **_FY}],
+                "NoninterestIncome": [{"val": 2400000000, **_FY}],
+                "InterestAndDividendIncomeOperating": [{"val": 9500000000, **_FY}],
+                "ProvisionForLoanAndLeaseLosses": [{"val": 550000000, **_FY}],
+            }
+        )
+
+        parsed = parse_company_facts(payload)
+
+        assert len(parsed.for_concept("net_interest_income")) == 1
+        assert len(parsed.for_concept("noninterest_income")) == 1
+        assert len(parsed.for_concept("interest_and_dividend_income")) == 1
+        assert len(parsed.for_concept("provision_for_credit_losses")) == 1
+        assert parsed.unmapped == ()

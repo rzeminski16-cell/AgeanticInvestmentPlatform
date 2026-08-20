@@ -37,7 +37,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any, Final
 
-from aer.core.concepts import canonical_concept
+from aer.core.concepts import canonical_concept, revenue_tag_rank
 from aer.core.dates import fiscal_year_of
 from aer.core.schemas.facts import RawFact, format_accession
 from aer.errors import ExternalServiceError
@@ -176,9 +176,59 @@ def parse_company_facts(payload: bytes, *, include_unmapped: bool = True) -> Com
     return CompanyFacts(
         cik=format_cik(cik_value),
         entity_name=str(document.get("entityName", "")).strip(),
-        facts=tuple(facts),
+        facts=tuple(_prefer_total_revenue(facts)),
         unmapped=tuple(sorted(unmapped, key=lambda u: (u.taxonomy, u.tag))),
         extension_concepts=tuple(sorted(extensions)),
+    )
+
+
+def _prefer_total_revenue(facts: list[RawFact]) -> list[RawFact]:
+    """Where a filer reported both a total and a component for one period, the total is
+    the revenue and the component keeps its own tag.
+
+    Gap A62. Several tags map onto ``revenue`` because the taxonomy changed under the
+    filers -- but ASC 606's contract-with-customer elements are *components* for any
+    filer whose income statement has lines outside ASC 606's scope. M&T reported
+    ``Revenues`` beside ``RevenueFromContractWithCustomerExcludingAssessedTax``; this
+    JSON lists tags alphabetically, the observation-key dedupe keeps the first arrival,
+    and the platform called a $219bn bank's fee line its revenue for four fiscal years.
+
+    Grouped by the observation itself -- unit, period, fiscal labels, dimensions --
+    and deliberately **not** by filing, so a total reported in any filing outranks a
+    component for the same period. A demoted fact is kept under its raw tag rather than
+    dropped, this module's standing rule: real data, visible, just not "revenue". A
+    period for which only a component exists still maps -- a fallback the record makes
+    legible, because ``raw_concept`` names the line the platform settled for.
+    """
+    best_by_period: dict[tuple[Any, ...], int] = {}
+    for fact in facts:
+        if fact.concept != "revenue":
+            continue
+        key = _revenue_period(fact)
+        rank = revenue_tag_rank(fact.raw_concept)
+        best_by_period[key] = min(best_by_period.get(key, rank), rank)
+
+    kept: list[RawFact] = []
+    for fact in facts:
+        if (
+            fact.concept == "revenue"
+            and revenue_tag_rank(fact.raw_concept) > best_by_period[_revenue_period(fact)]
+        ):
+            kept.append(fact.model_copy(update={"concept": fact.raw_concept}))
+        else:
+            kept.append(fact)
+    return kept
+
+
+def _revenue_period(fact: RawFact) -> tuple[Any, ...]:
+    return (
+        fact.unit,
+        fact.period_start,
+        fact.period_end,
+        fact.fiscal_year,
+        fact.fiscal_period,
+        fact.dimension_axis,
+        fact.dimension_member,
     )
 
 

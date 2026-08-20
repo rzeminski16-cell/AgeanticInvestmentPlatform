@@ -72,6 +72,13 @@ class Statements(StrEnum):
 # presentation any reader expects.
 INCOME_STATEMENT_LINES: Final[tuple[str, ...]] = (
     "revenue",
+    # A depository's leading lines (gap A62). Between revenue and cost of revenue
+    # because that is where a bank's statement puts them; an industrial filer simply
+    # never reports them, and an absent line renders nothing.
+    "interest_and_dividend_income",
+    "net_interest_income",
+    "provision_for_credit_losses",
+    "noninterest_income",
     "cost_of_revenue",
     "gross_profit",
     "sg_and_a",
