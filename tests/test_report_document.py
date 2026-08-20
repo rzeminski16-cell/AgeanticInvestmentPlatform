@@ -993,7 +993,7 @@ class TestAStatedUnitIsNeverDropped:
         assert shown == "219.3 USD billions"
 
     def test_the_platforms_own_type_words_stay_out_of_print(self) -> None:
-        """"pure" and "x" are for the formatter, not the reader — printing them would
+        """ "pure" and "x" are for the formatter, not the reader — printing them would
         trade the missing-unit leak for a jargon leak, which the golden documents hold."""
         assert (
             display.scalar("0.42", style=HouseStyle(), unit="pure", label="Odd", in_table=True)
