@@ -1634,15 +1634,17 @@ fabricated excerpt; every fetched byte is hash-addressed and replayable offline.
 
 **Objective.** The analytical core: correct, transparent, testable numbers.
 
-**Deliverables.** `companies`/`securities`/`price_bars`/`corporate_actions`/`financial_facts` tables;
-EODHD adapter (EOD + splits + dividends, PIT-clamped); FRED/**ALFRED** adapter with vintages; BoE + ONS
-adapters; concept-alias map (us-gaap/IFRS → canonical concepts); unit & FX normalisation; **calculation
-engine**: ratio suite, growth/CAGR, margin bridge, earnings-quality metrics (accruals ratio, CFO/NI,
-DSO/DIO/DPO trends, capitalisation policy flags), WACC (CAPM with documented inputs), driver-based FCFF
-DCF, terminal value (Gordon + exit multiple, both shown), comparable-company analysis, historical-multiple
-analysis, scenario engine (bear/base/bull), sensitivity grids; `assumptions`/`scenarios`/`sensitivities`
-tables; peer-set proposal + **human confirmation gate**; `sector_profiles` enforcement with hard blocks
-and warnings.
+**Deliverables.** `companies`/`securities`/`price_bars`/`corporate_actions`/`financial_facts` tables; EODHD
+adapter (EOD + splits + dividends, PIT-clamped); FRED/**ALFRED** adapter with vintages; ONS adapter (**and
+*not* the Bank of England — ADR 0026 refused it, because the Bank's `robots.txt` disallows the same CSV
+handler it documents for programmatic download; ADR 0045 makes the euro the FX pivot in its place, and the GBP
+risk-free rate stays open rather than borrowing a US yield**); concept-alias map (us-gaap/IFRS → canonical
+concepts); unit & FX normalisation; **calculation engine**: ratio suite, growth/CAGR, margin bridge,
+earnings-quality metrics (accruals ratio, CFO/NI, DSO/DIO/DPO trends, capitalisation policy flags), WACC (CAPM
+with documented inputs), driver-based FCFF DCF, terminal value (Gordon + exit multiple, both shown),
+comparable-company analysis, historical-multiple analysis, scenario engine (bear/base/bull), sensitivity
+grids; `assumptions`/`scenarios`/`sensitivities` tables; peer-set proposal + **human confirmation gate**;
+`sector_profiles` enforcement with hard blocks and warnings.
 
 **User-visible outcome.** A valuation page showing DCF output with every input traceable, a sensitivity
 grid, comps table, and a bold warning banner for specialist sectors.

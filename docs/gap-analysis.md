@@ -263,15 +263,24 @@ twice, and the draft step is 76% of the run's spend and 62% of its compute.*
 
 ## Corrections to the task record
 
-`docs/PLAN.md` Stage 4's task list and the working task board disagree with
-`docs/phase-3-plan.md`, which records outcomes against each task. The phase plan is right:
+`docs/PLAN.md` Stage 4's task list and the working task board disagreed with
+`docs/phase-3-plan.md`, which records outcomes against each task. The phase plan was right, and
+**the board has since been reconciled to it (2026-08-20)** — tasks 26 to 32 marked delivered
+against the phase plan's own outcome notes, and task 25 rewritten down to the one thing still
+genuinely open. `docs/PLAN.md`'s Phase 3 deliverables now name the ADRs that superseded them,
+because CLAUDE.md makes the plan the authority on scope and a reader following it alone would
+otherwise go and build an adapter this project has refused:
 
 * **Task 26 (cost of capital)** — done. `src/aer/calc/wacc.py`.
 * **Task 27 (the discounted cash flow)** — done. `src/aer/calc/dcf.py`, `services/valuation.py`.
 * **Task 28 (sector enforcement)** — done.
 * **Task 25 (macro with vintages)** — ALFRED and ONS done. The Bank of England is not
   outstanding but *refused* (ADR 0026); the euro reference rates replace it as the FX
-  source (ADR 0045), and the GBP risk-free rate remains genuinely open.
+  source (ADR 0045), and the GBP risk-free rate remains genuinely open — `RISK_FREE_SERIES`
+  has no GBP key, so a sterling valuation refuses rather than discounting at a US Treasury
+  yield. Closing it needs a person, not code: the Bank's own conflict resolved in writing,
+  the UK DMO's terms read for the first time, or a euro-crossed rate accepted and recorded
+  as a calculation rather than an observation.
 
 * **Tasks 29–32** — this section said they "remain genuinely outstanding", and the phase
   plan it names as the authority records all four **delivered** (29–31 on 2026-08-05, 32 on
