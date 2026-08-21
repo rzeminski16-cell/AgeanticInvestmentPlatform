@@ -1,5 +1,7 @@
 # Gap analysis — what is missing, as of 2026-08-20
 
+*Companion: `docs/report-quality.md` tracks whether the output reads as research. This file asks whether the platform is **correct**; that one asks whether its report is **readable by somebody making a decision**. The CHRW run of 2026-08-21 is the first where the two come apart — every correctness gate that mattered passed, and the document still explained itself to its reader.*
+
 *A48–A60 come from the AAPL run of 2026-08-20, the first on the polished code and the
 first against a company with real depth. They are a different kind of finding from
 everything above them: the guards all held — 122 of 122 citations verified, every refusal
