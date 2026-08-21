@@ -42,12 +42,14 @@ from aer.services import approvals as approval_service
 from aer.services.approvals import GATE_ORDER
 from aer.services.assumption_gate import (
     COST_OF_CAPITAL_NAMES,
+    COST_OF_DEBT_ASSUMPTION,
     EQUITY_RISK_PREMIUM_ASSUMPTION,
     PROPOSABLE_NAMES,
     REQUIRED_NAMES,
     RISK_FREE_ASSUMPTION,
     AssumptionGateOutcome,
     assemble,
+    cost_of_debt_required,
     dcf_permitted,
     gate_payload,
     gate_required,
@@ -79,6 +81,18 @@ _YEARS = {
     date(2022, 12, 31): a_year(revenue="1000", operating_income="240"),
     date(2023, 12, 31): a_year(revenue="1150", operating_income="290"),
     date(2024, 12, 31): a_year(revenue="1300", operating_income="340"),
+}
+
+# The CHRW condition and its complement. `short_term_debt` stated so the statements derive
+# `total_debt` — which is what the valuation reads, and therefore what the cost-of-debt
+# condition has to read too.
+_UNDERIVABLE_YEARS = {
+    date(2023, 12, 31): a_year(short_term_debt="0"),
+    date(2024, 12, 31): a_year(short_term_debt="0"),
+}
+_DERIVABLE_YEARS = {
+    date(2023, 12, 31): a_year(short_term_debt="0", interest_expense="20"),
+    date(2024, 12, 31): a_year(short_term_debt="0", interest_expense="22"),
 }
 
 
@@ -238,6 +252,26 @@ class TestWhatIsStillMissing:
         rows += [_row(f"revenue_growth_y{year}") for year in range(1, 5)]
         assert outstanding_for(rows, years=5) == ("revenue_growth",)
 
+    def test_a_conditional_name_is_outstanding_only_while_no_row_exists(self) -> None:
+        # The cost of debt joins the list for runs whose filings cannot answer it, and a
+        # supplied row satisfies it the same way it satisfies any other name.
+        rows = [_row(name) for name in REQUIRED_NAMES]
+        conditional = (COST_OF_DEBT_ASSUMPTION,)
+
+        assert outstanding_for(rows, years=5, conditional=conditional) == (COST_OF_DEBT_ASSUMPTION,)
+        assert outstanding_for([*rows, _row(COST_OF_DEBT_ASSUMPTION)], years=5) == ()
+        assert (
+            outstanding_for(
+                [*rows, _row(COST_OF_DEBT_ASSUMPTION)], years=5, conditional=conditional
+            )
+            == ()
+        )
+
+    def test_the_cost_of_debt_is_not_unconditionally_required(self) -> None:
+        # A run that can derive it from a tagged interest-expense line must not pause
+        # demanding an opinion for a number the filings already carry.
+        assert COST_OF_DEBT_ASSUMPTION not in REQUIRED_NAMES
+
 
 def _row(name: str) -> Any:
     return Assumption(
@@ -379,6 +413,40 @@ class TestTheRefreshedPayload:
 
         assert payload["refused"] == produced["refused"]
         assert payload["skipped"] == produced["skipped"]
+
+    def test_a_recorded_conditional_requirement_survives_the_refresh(self) -> None:
+        """The condition lives in the analysis, which refresh cannot see — the step's
+        record *is* the condition, so a recorded cost of debt stays outstanding with its
+        recorded reason until a row satisfies it."""
+        produced = {
+            "assumptions": [],
+            "outstanding": [{"name": COST_OF_DEBT_ASSUMPTION, "reason": "no interest line"}],
+            "refused": [],
+            "skipped": [],
+        }
+
+        kept = refreshed_payload([], produced, years=FORECAST_YEARS)
+        by_name = {item["name"]: item["reason"] for item in kept["outstanding"]}
+        assert by_name[COST_OF_DEBT_ASSUMPTION] == "no interest line"
+
+        cleared = refreshed_payload([_row(COST_OF_DEBT_ASSUMPTION)], produced, years=FORECAST_YEARS)
+        assert COST_OF_DEBT_ASSUMPTION not in {item["name"] for item in cleared["outstanding"]}
+
+    def test_unchanged_rows_reproduce_a_payload_with_a_conditional_name(self) -> None:
+        """The byte-for-byte property, under the condition that killed the CHRW run: the
+        recorded hash must keep matching while nothing changes, cost of debt included."""
+        row = _row("terminal_growth")
+        conditional = (COST_OF_DEBT_ASSUMPTION,)
+        outcome = AssumptionGateOutcome(
+            outstanding=tuple(
+                (name, f"recorded reason for {name}")
+                for name in outstanding_for([row], years=FORECAST_YEARS, conditional=conditional)
+            )
+        )
+        recorded = gate_payload([row], outcome)
+        produced = {**recorded, "payload_hash": "unused", "dcf_permitted": True}
+
+        assert refreshed_payload([row], produced, years=FORECAST_YEARS) == recorded
 
 
 # ==========================================================================================
@@ -537,6 +605,61 @@ class TestAssembly:
         assert all(reason.strip() for _, reason in outcome.outstanding)
 
 
+class TestTheCostOfDebtJoinsTheGateWhenItCannotBeDerived:
+    """Report-quality R13. The CHRW run's operator confirmed every assumption the gate
+    named, and the valuation then refused over a line the gate had never mentioned: the
+    filer tags no interest expense, and the cost of debt was the one discounted-cash-flow
+    input no person was allowed to supply. The gate now names the dependency up front —
+    and only for the runs where it is true, because a derivable rate must not pause a run
+    demanding an opinion for a number the filings already carry."""
+
+    async def test_debt_with_no_interest_line_puts_it_on_the_gate(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await seed_years(scene, _UNDERIVABLE_YEARS)
+
+        outcome = await assemble(
+            scene["session"],
+            None,
+            request=scene["request"],
+            analysis=await analysed(scene),
+            years=5,
+        )
+
+        outstanding = dict(outcome.outstanding)
+        assert COST_OF_DEBT_ASSUMPTION in outstanding
+        # The reason states the condition and what to do about it, because "cost of debt
+        # is missing" tells an operator nothing about whether to wait or to type.
+        assert "interest expense" in outstanding[COST_OF_DEBT_ASSUMPTION]
+        assert "pre-tax" in outstanding[COST_OF_DEBT_ASSUMPTION]
+
+    async def test_a_derivable_rate_is_not_asked_for(self, scene: dict[str, Any]) -> None:
+        await seed_years(scene, _DERIVABLE_YEARS)
+
+        outcome = await assemble(
+            scene["session"],
+            None,
+            request=scene["request"],
+            analysis=await analysed(scene),
+            years=5,
+        )
+
+        assert COST_OF_DEBT_ASSUMPTION not in dict(outcome.outstanding)
+
+    async def test_a_filer_stating_no_total_debt_is_not_asked(self, scene: dict[str, Any]) -> None:
+        # The shared years carry long-term debt alone, so no `total_debt` is derived — and
+        # the valuation prices no debt leg for such a filer, so demanding a rate here would
+        # pause the run over a number the forecast will never use.
+        await seed_years(scene, _YEARS)
+
+        analysis = await analysed(scene)
+
+        assert cost_of_debt_required(analysis) is False
+
+    async def test_a_run_with_no_periods_is_not_asked(self, scene: dict[str, Any]) -> None:
+        assert cost_of_debt_required(await analysed(scene)) is False
+
+
 def _in_bounds() -> AssumptionProposalDraft:
     return AssumptionProposalDraft(
         terminal_growth=OpinionProposal(
@@ -614,6 +737,13 @@ class TestAnOperatorCanSupplyWhatTheRunCouldNot:
         # has to be able to enter one.
         assert "revenue_growth_y1" in PROPOSABLE_NAMES
         assert "revenue_growth_y5" in PROPOSABLE_NAMES
+
+    def test_the_cost_of_debt_is_proposable_without_being_required(self) -> None:
+        # Report-quality R13: for a filer that tags no interest expense, this is the one
+        # valuation input that used to be derived-or-nothing — the operator watched the
+        # forecast refuse over a number they were not allowed to type.
+        assert COST_OF_DEBT_ASSUMPTION in PROPOSABLE_NAMES
+        assert COST_OF_DEBT_ASSUMPTION not in REQUIRED_NAMES
 
     def test_a_near_miss_name_is_not_proposable(self) -> None:
         # The whole reason the vocabulary is closed: `inputs_from` looks assumptions up by

@@ -26,6 +26,7 @@ from aer.core.enums import UserRole
 from aer.core.sectors import ValuationMandate, ValuationModel
 from aer.db.models import Calculation, Sensitivity, User
 from aer.services.assumption_gate import (
+    COST_OF_DEBT_ASSUMPTION,
     EQUITY_RISK_PREMIUM_ASSUMPTION,
     REQUIRED_NAMES,
     RISK_FREE_ASSUMPTION,
@@ -81,6 +82,12 @@ _CONFIRMED: dict[str, str] = {
     EQUITY_RISK_PREMIUM_ASSUMPTION: "0.055",
 }
 
+# The CHRW shape: borrowings on the balance sheet and no interest expense anywhere.
+_WITHOUT_INTEREST = {
+    period: {key: value for key, value in values.items() if key != "interest_expense"}
+    for period, values in _YEARS.items()
+}
+
 MANDATE = ValuationMandate(
     model=ValuationModel.DCF_FCFF, subject="CTSO", sector_key="", confirmed_by=""
 )
@@ -106,6 +113,23 @@ async def _confirm_all(scene: dict[str, Any], *, omit: str = "") -> None:
             proposed_by="test",
         )
         await confirm(session, assumption=assumption, actor=actor)
+
+
+async def _confirm_extra(scene: dict[str, Any], name: str, value: str) -> None:
+    """One more confirmed assumption, by the actor `_confirm_all` created."""
+    session: AsyncSession = scene["session"]
+    actor = await session.scalar(select(User).where(User.email == "operator@example.invalid"))
+    assert actor is not None, "_confirm_all has to run first"
+    assumption = await propose(
+        session,
+        request_id=scene["request"].id,
+        name=name,
+        value=Decimal(value),
+        unit="pure",
+        justification=f"Scene value for {name}.",
+        proposed_by="test",
+    )
+    await confirm(session, assumption=assumption, actor=actor)
 
 
 async def _value(scene: dict[str, Any], *, years: int = 5) -> ValuationOutcome:
@@ -383,6 +407,9 @@ class TestWhatStopsAValuation:
 
         assert outcome.ran is False
         assert "interest expense" in outcome.reason
+        # And the refusal names the remedy: the CHRW run printed the old message verbatim
+        # into a report, and it told the operator what was wrong with no way to act on it.
+        assert COST_OF_DEBT_ASSUMPTION in outcome.reason
 
     async def test_a_refusal_reports_no_figures_at_all(self, scene: dict[str, Any]) -> None:
         # A partial outcome would be read as a valuation by anything rendering it.
@@ -394,6 +421,84 @@ class TestWhatStopsAValuation:
         assert outcome.as_dict() == {"valued": False, "reason": outcome.reason}
         assert outcome.base is None
         assert outcome.grids == ()
+
+
+class TestAConfirmedCostOfDebtStandsInWhereNothingWasFiled:
+    """Report-quality R13, the valuation half. Some filers tag no interest expense at all
+    — the live CHRW run — and for them the cost of debt was derived-or-nothing: the one
+    discounted-cash-flow input no person was allowed to supply. A confirmed
+    ``cost_of_debt`` row now stands in exactly there, and only there — a filed interest
+    line still outranks it, because a filed line outranks an opinion about it."""
+
+    async def test_the_confirmed_rate_lets_the_valuation_run(self, scene: dict[str, Any]) -> None:
+        await seed_years(scene, _WITHOUT_INTEREST)
+        await _confirm_all(scene)
+        await _confirm_extra(scene, COST_OF_DEBT_ASSUMPTION, "0.05")
+
+        outcome = await _value(scene)
+
+        assert outcome.ran, outcome.reason
+        assert outcome.cost_of_capital is not None
+        assert outcome.cost_of_capital.cost_of_debt_pre_tax is not None
+        assert outcome.cost_of_capital.cost_of_debt_pre_tax.value == Decimal("0.05")
+
+    async def test_the_supplied_rate_is_not_dressed_as_a_derivation(
+        self, scene: dict[str, Any]
+    ) -> None:
+        # The ledger tells a confirmed assumption and a derived rate apart by source kind;
+        # a supplied figure must not leave a `cost_of_debt` calculation implying arithmetic
+        # on filed lines that do not exist.
+        await seed_years(scene, _WITHOUT_INTEREST)
+        await _confirm_all(scene)
+        await _confirm_extra(scene, COST_OF_DEBT_ASSUMPTION, "0.05")
+        session: AsyncSession = scene["session"]
+
+        await _value(scene)
+
+        names = {
+            row.name
+            for row in await session.scalars(
+                select(Calculation).where(Calculation.job_id == scene["job"].id)
+            )
+        }
+        assert "cost_of_debt" not in names
+        assert "average_debt" not in names
+
+    async def test_a_filed_interest_line_outranks_the_confirmed_rate(
+        self, scene: dict[str, Any]
+    ) -> None:
+        # Doctrine: deterministic derivation from filed lines beats an assumption. An
+        # operator's 30% must not displace the 5% the filings themselves state.
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+        await _confirm_extra(scene, COST_OF_DEBT_ASSUMPTION, "0.30")
+
+        outcome = await _value(scene)
+
+        assert outcome.ran, outcome.reason
+        assert outcome.cost_of_capital is not None
+        assert outcome.cost_of_capital.cost_of_debt_pre_tax is not None
+        # 20 of interest over 400 of average debt, from the filings.
+        assert outcome.cost_of_capital.cost_of_debt_pre_tax.value == Decimal("0.05")
+
+    async def test_an_unconfirmed_rate_is_not_enough(self, scene: dict[str, Any]) -> None:
+        # The same rule every other assumption lives under: proposed is not agreed.
+        await seed_years(scene, _WITHOUT_INTEREST)
+        await _confirm_all(scene)
+        await propose(
+            scene["session"],
+            request_id=scene["request"].id,
+            name=COST_OF_DEBT_ASSUMPTION,
+            value=Decimal("0.05"),
+            unit="pure",
+            justification="Proposed and never agreed to.",
+            proposed_by="test",
+        )
+
+        outcome = await _value(scene)
+
+        assert outcome.ran is False
+        assert "interest expense" in outcome.reason
 
 
 class TestTheSceneCoversWhatAForecastNeeds:

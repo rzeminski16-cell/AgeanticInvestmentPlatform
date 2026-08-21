@@ -74,6 +74,9 @@ EXPECTED_UNIT: Final[dict[str, str]] = {
     "risk_free_rate": _PURE,
     "beta": _PURE,
     "equity_risk_premium": _PURE,
+    # Conditionally required rather than always: the gate demands it only when the filings
+    # carry debt and no interest expense to derive the rate from (report-quality R13).
+    "cost_of_debt": _PURE,
 }
 """The unit each assumption is measured in. All of them dimensionless, which is why the
 form can default the field rather than asking."""
@@ -96,6 +99,10 @@ PLAUSIBLE_RANGE: Final[dict[str, tuple[Decimal, Decimal]]] = {
     "risk_free_rate": (Decimal("-0.1"), Decimal("0.5")),
     "beta": (Decimal("-10"), Decimal("10")),
     "equity_risk_premium": (Decimal("-0.1"), Decimal("0.5")),
+    # The same band as the risk-free rate: a pre-tax borrowing cost above 50% is distressed
+    # beyond what a going-concern forecast should rest on, and 4.5 for 4.5% is the mistake
+    # the band exists to catch.
+    "cost_of_debt": (Decimal("-0.1"), Decimal("0.5")),
 }
 """The band inside which a value is taken at face value, by name."""
 

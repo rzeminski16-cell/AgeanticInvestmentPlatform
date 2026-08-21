@@ -28,7 +28,7 @@ from aer.core.enums import UserRole
 from aer.db.models import Assumption, ResearchRequest, User
 from aer.services import assumptions as assumption_service
 from aer.services import scenarios as scenario_service
-from aer.services.assumption_gate import REQUIRED_NAMES
+from aer.services.assumption_gate import COST_OF_DEBT_ASSUMPTION, REQUIRED_NAMES
 from aer.web.csrf import CSRF_FIELD_NAME
 from tests.api_fixtures import build_app, client_for
 from tests.workflow_fixtures import AS_OF_DATE
@@ -759,11 +759,14 @@ class TestTheFormOffersTheVocabularyRatherThanABox:
 class TestTheVocabularyMatchesWhatAValuationNeeds:
     def test_every_required_name_has_a_unit_and_a_range(self) -> None:
         """Pinned rather than imported: `assumption_gate` imports `assumptions`, so the
-        table has to live below both and cannot read `REQUIRED_NAMES` at import time."""
-        for name in REQUIRED_NAMES:
+        table has to live below both and cannot read `REQUIRED_NAMES` at import time.
+        The cost of debt is required only conditionally, but the form knowing its unit and
+        scale is not conditional — it is typed in exactly when it matters most."""
+        for name in (*REQUIRED_NAMES, COST_OF_DEBT_ASSUMPTION):
             assert name in EXPECTED_UNIT, name
             assert name in PLAUSIBLE_RANGE, name
 
     def test_it_claims_nothing_a_valuation_does_not_read(self) -> None:
-        assert set(EXPECTED_UNIT) == set(REQUIRED_NAMES)
-        assert set(PLAUSIBLE_RANGE) == set(REQUIRED_NAMES)
+        reads = {*REQUIRED_NAMES, COST_OF_DEBT_ASSUMPTION}
+        assert set(EXPECTED_UNIT) == reads
+        assert set(PLAUSIBLE_RANGE) == reads

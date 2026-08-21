@@ -53,12 +53,14 @@ from aer.services.valuation import SCALAR_NAMES
 
 __all__ = [
     "COST_OF_CAPITAL_NAMES",
+    "COST_OF_DEBT_ASSUMPTION",
     "EQUITY_RISK_PREMIUM_ASSUMPTION",
     "PROPOSABLE_NAMES",
     "REQUIRED_NAMES",
     "RISK_FREE_ASSUMPTION",
     "AssumptionGateOutcome",
     "assemble",
+    "cost_of_debt_required",
     "dcf_permitted",
     "gate_payload",
     "gate_required",
@@ -70,6 +72,20 @@ _log = structlog.get_logger("aer.services.assumption_gate")
 
 RISK_FREE_ASSUMPTION: Final = "risk_free_rate"
 EQUITY_RISK_PREMIUM_ASSUMPTION: Final = "equity_risk_premium"
+
+COST_OF_DEBT_ASSUMPTION: Final = "cost_of_debt"
+"""The pre-tax rate the company's borrowings cost it — required only when it cannot be derived.
+
+Not in :data:`REQUIRED_NAMES`, because the valuation prefers to *derive* it: interest
+expense over average debt is arithmetic on two filed lines, and a run that can do that
+arithmetic must not pause demanding an opinion for a number the filings already carry. It
+joins the gate's outstanding list only when :func:`cost_of_debt_required` says the
+derivation is impossible — debt on the balance sheet, no interest expense under any concept
+this platform maps — which is the exact condition under which the valuation would otherwise
+refuse to run with nobody able to do anything about it. The live CHRW run is why: the filer
+tags no interest expense at all, and this was the one discounted-cash-flow input no person
+was allowed to supply.
+"""
 
 COST_OF_CAPITAL_NAMES: Final[tuple[str, ...]] = (
     RISK_FREE_ASSUMPTION,
@@ -94,11 +110,13 @@ is a lookup convention rather than a second list, and :func:`outstanding_for` ho
 
 PROPOSABLE_NAMES: Final[tuple[str, ...]] = (
     *REQUIRED_NAMES,
+    COST_OF_DEBT_ASSUMPTION,
     *(f"{driver}_y{year}" for driver in DRIVER_NAMES for year in range(1, MAX_FORECAST_YEARS + 1)),
 )
 """Every name a person may put a value against by hand.
 
-The flat names plus each driver's per-year form. Bounded rather than free text because
+The flat names, the conditionally required cost of debt, and each driver's per-year form.
+Bounded rather than free text because
 :func:`aer.services.valuation.inputs_from` looks assumptions up *by name*: an operator who
 typed `terminal_growth_rate` would see it stored, listed and confirmed, and would then
 watch the valuation refuse to run for want of `terminal_growth` with no indication that the
@@ -126,6 +144,17 @@ _NO_SOURCE_WIRED: Final[dict[str, str]] = {
         "comes from."
     ),
 }
+
+# Why the cost of debt is on the gate at all, said when it is. Not in `_NO_SOURCE_WIRED`
+# because that dict holds reasons about the platform; this one is about the company's own
+# filings, and it only ever appears when `cost_of_debt_required` established the condition.
+_COST_OF_DEBT_UNDERIVABLE: Final = (
+    "The balance sheet carries debt and the income statement shows no interest expense "
+    "under any concept this platform maps, so the cost of that debt cannot be derived and "
+    "the valuation will refuse to run without it. Enter the pre-tax rate the company's "
+    "borrowings cost it and say where it comes from — a debt footnote, a traded bond "
+    "yield, or cash interest paid over average borrowings."
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -262,12 +291,19 @@ def refreshed_payload(
         for item in produced.get("outstanding", [])
         if isinstance(item, dict)
     }
+    # A recorded name beyond REQUIRED_NAMES is a conditional requirement the step
+    # established from the analysis — the cost of debt, when it could not be derived. The
+    # condition cannot be re-derived here (there is no analysis to consult), and it does not
+    # need to be: the filings do not change while a run waits, so the step's record *is* the
+    # condition, and re-checking only "has a row appeared since?" is what keeps an unchanged
+    # gate reproducing the step's payload byte for byte.
+    conditional = tuple(name for name in recorded if name not in REQUIRED_NAMES)
     derived = ProposalOutcome(skipped=tuple(str(note) for note in produced.get("skipped", [])))
     return {
         "assumptions": _row_dicts(rows),
         "outstanding": [
             {"name": name, "reason": recorded.get(name) or _reason_for(name, outcome=derived)}
-            for name in outstanding_for(rows, years=years)
+            for name in outstanding_for(rows, years=years, conditional=conditional)
         ],
         "refused": list(produced.get("refused", [])),
         "skipped": list(produced.get("skipped", [])),
@@ -289,13 +325,22 @@ def _row_dicts(rows: Sequence[Assumption]) -> list[dict[str, Any]]:
     ]
 
 
-def outstanding_for(rows: Sequence[Assumption], *, years: int) -> tuple[str, ...]:
+def outstanding_for(
+    rows: Sequence[Assumption], *, years: int, conditional: Sequence[str] = ()
+) -> tuple[str, ...]:
     """The names a discounted cash flow still has no value for at all.
 
     A name is satisfied by a row of that name *or* by a complete per-year path, because
     :func:`aer.services.valuation._path_for` accepts either. A partial path does not satisfy
     it — a fade missing its third year is a mistake, and that module refuses it rather than
     filling the gap.
+
+    ``conditional`` holds names this particular run needs beyond :data:`REQUIRED_NAMES` —
+    today only :data:`COST_OF_DEBT_ASSUMPTION`, when :func:`cost_of_debt_required` says the
+    derivation cannot run. They are the caller's to establish because the condition lives in
+    the analysis, which this function deliberately does not see: :func:`refreshed_payload`
+    has only the rows and the step's record, and both callers must produce the same list for
+    the recorded hash to keep matching.
 
     Confirmed or not is deliberately not consulted here: this answers "is there a number to
     look at?", and the gate answers "has somebody agreed to it?".
@@ -309,7 +354,34 @@ def outstanding_for(rows: Sequence[Assumption], *, years: int) -> tuple[str, ...
         if name in DRIVER_NAMES and all(key in present for key in per_year):
             continue
         missing.append(name)
+    for name in conditional:
+        if name not in present and name not in missing:
+            missing.append(name)
     return tuple(missing)
+
+
+def cost_of_debt_required(analysis: AnalysisOutcome) -> bool:
+    """Whether this run needs a person to supply the cost of debt.
+
+    The exact condition under which :func:`aer.services.valuation_run._cost_of_debt` will
+    refuse: borrowings on the latest balance sheet and no interest expense to price them
+    with. Mirrored here rather than imported because the refusal happens *after* the gate,
+    which is the whole defect (report-quality R13): the CHRW run's operator confirmed every
+    assumption the gate named, and the valuation then refused over a line the gate had never
+    mentioned — a dependency named only in a report that arrives too late to act on.
+
+    ``total_debt`` specifically, not any debt line, because that is what the valuation
+    reads: a filer stating long-term debt alone yields no ``total_debt`` and is valued as
+    all-equity, so demanding a rate for it here would pause the run over a number the
+    forecast will never use.
+    """
+    latest = analysis.latest
+    if latest is None:
+        return False
+    debt = latest.statements.get("total_debt")
+    if debt is None or debt.value <= 0:
+        return False
+    return latest.statements.get("interest_expense") is None
 
 
 async def assemble(
@@ -355,7 +427,8 @@ async def assemble(
         consulted = True
 
     rows = await assumptions_for_request(session, request.id)
-    missing = outstanding_for(rows, years=years)
+    conditional = (COST_OF_DEBT_ASSUMPTION,) if cost_of_debt_required(analysis) else ()
+    missing = outstanding_for(rows, years=years, conditional=conditional)
 
     outcome = AssumptionGateOutcome(
         derived=derived,
@@ -441,6 +514,11 @@ def _reason_for(name: str, *, outcome: ProposalOutcome) -> str:
     structural = _NO_SOURCE_WIRED.get(name)
     if structural is not None:
         return structural
+
+    # Only ever asked about when `cost_of_debt_required` established the condition, so the
+    # sentence can assert what the filings lack rather than hedging.
+    if name == COST_OF_DEBT_ASSUMPTION:
+        return _COST_OF_DEBT_UNDERIVABLE
 
     for sentence in outcome.skipped:
         # The derivations phrase their refusals in prose starting with the assumption's own

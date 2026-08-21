@@ -12,11 +12,14 @@ one unexplained number would then stand in for the whole cost-of-capital chain. 
 is built by :func:`aer.calc.wacc.cost_of_capital` from a confirmed risk-free rate, beta and
 premium — each a row somebody agreed to — and every intermediate step lands in the ledger.
 
-**The cost of debt is derived, not assumed.** Interest expense over average debt is
-arithmetic on two filed lines, so it belongs with the six derived drivers rather than on
-the assumptions page. A company with borrowings and no interest line is refused rather than
-given a rate: an invented cost of debt is weighted into the discount rate and is
-indistinguishable in the output from one somebody sourced.
+**The cost of debt is derived where it can be, and confirmed where it cannot.** Interest
+expense over average debt is arithmetic on two filed lines, so where the filings carry
+both it belongs with the six derived drivers rather than on the assumptions page — and the
+derivation wins even when an assumption also exists, because a filed line outranks an
+opinion about it. But some filers tag no interest expense at all (the live CHRW run —
+report-quality R13), and for them the rate is a confirmed ``cost_of_debt`` assumption the
+gate demanded up front. What this module still never does is *invent* one: no filed line
+and no confirmed row is a refusal that names both.
 
 **Book equity weights, and the caveat says so.** Nothing in this workflow acquires a price,
 so the equity side of the capital structure is shareholders' funds.
@@ -64,6 +67,7 @@ from aer.db.models import ResearchRequest
 from aer.errors import AerError
 from aer.services.analysis import AnalysisOutcome, PeriodAnalysis
 from aer.services.assumption_gate import (
+    COST_OF_DEBT_ASSUMPTION,
     EQUITY_RISK_PREMIUM_ASSUMPTION,
     RISK_FREE_ASSUMPTION,
 )
@@ -288,7 +292,9 @@ def _cost_of_capital(
     debt_rate: Quantity | None = None
     tax_rate: Quantity | None = None
     if structure.has_debt:
-        debt_rate = _cost_of_debt(ledger, latest=latest, prior=prior, closing_debt=debt_value)
+        debt_rate = _cost_of_debt(
+            ledger, values, latest=latest, prior=prior, closing_debt=debt_value
+        )
         tax_rate = values.get("tax_rate")
         if tax_rate is None:
             message = (
@@ -310,32 +316,43 @@ def _cost_of_capital(
 
 def _cost_of_debt(
     ledger: CalculationContext,
+    values: dict[str, Quantity],
     *,
     latest: PeriodAnalysis,
     prior: PeriodAnalysis | None,
     closing_debt: Quantity,
 ) -> Quantity:
-    """Interest expense over average debt, as a recorded calculation.
+    """Interest expense over average debt, or the confirmed rate where nothing was filed.
 
-    Derived rather than assumed: both inputs are filed lines, so this is arithmetic with a
-    provenance and belongs beside the six drivers rather than on the assumptions page.
+    Derived first, and the derivation wins even when a confirmed ``cost_of_debt`` row also
+    exists: both inputs are filed lines, and a filed line outranks an opinion about it.
+    Only a filer that tags no interest expense at all falls back to the confirmed
+    assumption — the case the gate demanded the row for (report-quality R13), where the
+    CHRW run's operator confirmed everything asked of them and still watched the valuation
+    refuse over a line no surface had ever mentioned.
 
     Averaged against the prior year's closing debt where there is one. Closing debt alone
     understates the rate for a company that borrowed during the year — a full year of
     interest divided by a balance that existed for a month.
 
     Raises:
-        ValuationNotPossibleError: If there is no interest expense to divide. A rate this
-            platform invented would be weighted into the discount rate and would look in
-            the output exactly like one somebody sourced.
+        ValuationNotPossibleError: If there is no interest expense to divide *and* no
+            confirmed rate to stand in. A rate this platform invented would be weighted
+            into the discount rate and would look in the output exactly like one somebody
+            sourced — so the refusal names the remedy instead.
     """
     interest = _line(latest, "interest_expense", required=False)
     if interest is None:
+        supplied = values.get(COST_OF_DEBT_ASSUMPTION)
+        if supplied is not None:
+            return supplied
         message = (
             "The balance sheet carries debt and the income statement shows no interest "
             "expense, so the cost of that debt cannot be derived. Nothing here will invent "
             "a rate: it would be weighted into the discount rate and would be "
-            "indistinguishable in the report from one somebody sourced."
+            "indistinguishable in the report from one somebody sourced. Supply and confirm "
+            "a cost_of_debt assumption — the pre-tax rate the borrowings cost, with its "
+            "source stated — and the valuation will use that."
         )
         raise ValuationNotPossibleError(message, context={"concept": "interest_expense"})
 
