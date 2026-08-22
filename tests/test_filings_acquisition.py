@@ -15,7 +15,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import Integer, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
@@ -455,7 +455,18 @@ class TestWhichPassagesAreKept:
                 return _stub_fetch(ref.url, stored, media_type="text/html")
 
         await _acquire(scene, client=_TenK(scene["store"]), max_current=0)
-        return list(await scene["session"].scalars(select(Extraction.excerpt)))
+        # Ordered by where each piece sits in the filing, which is the sequence the test
+        # below is about. An unordered `select` returned rows in whatever order Postgres
+        # chose, so "the excerpts keep the filing's own order" held by luck of the plan
+        # and failed once the table carried other suites' rows — green for the wrong
+        # reason, then red for one that had nothing to do with the splitter.
+        return list(
+            await scene["session"].scalars(
+                select(Extraction.excerpt).order_by(
+                    Extraction.locator["char_start"].astext.cast(Integer)
+                )
+            )
+        )
 
     async def test_the_statutory_items_are_read(self, filed: list[str]) -> None:
         body = " ".join(filed)
@@ -614,7 +625,15 @@ class TestTheBestPassagesWin:
                 return _stub_fetch(ref.url, stored, media_type="text/html")
 
         await _acquire(scene, client=_Crowded(scene["store"]), max_current=0)
-        return list(await scene["session"].scalars(select(Extraction.excerpt)))
+        # By document position, for the same reason the 10-K fixture above orders: the
+        # sequence test below is meaningless against rows in an arbitrary order.
+        return list(
+            await scene["session"].scalars(
+                select(Extraction.excerpt).order_by(
+                    Extraction.locator["char_start"].astext.cast(Integer)
+                )
+            )
+        )
 
     async def test_the_substantive_paragraphs_survive_the_crowd(self, filed: list[str]) -> None:
         """They are last in document order and there are fifty things ahead of them."""
