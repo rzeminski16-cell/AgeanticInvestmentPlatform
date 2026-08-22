@@ -144,10 +144,21 @@ the platform. Concretely, in the rendered report:
 - The next run of a company carrying debt produces a discounted cash flow, or names the
   single input it still lacks *at the gate*, while the operator can still act on it.
 
-A cheap way to hold most of this permanently: extend the `presentation_integrity` metric
-with a **register check** — a closed vocabulary of process words that must not appear in
-a rendered section body. It is the same shape as the existing defect scan, it costs
-nothing to run, and it converts this whole document into a gate rather than a memory.
+**Done: the register check is part of `presentation_integrity`.** A closed vocabulary of
+process language, scanned over the same visible text as the other defect classes, at the
+same threshold of zero. The selection rule is strict — every entry is a phrase that
+*cannot* appear in prose about a company, so the check has no false positives by
+construction — and it is what excludes the obvious candidates: bare "ADR" (an American
+Depositary Receipt is an ordinary subject for an equity note), "the platform" (a platform
+company's own platform is what a report about it discusses), and "the model" (the sector
+block's "The model is blocked for this sector" means the valuation model). What the
+vocabulary does hold permanently is the CHRW note's own three classes: `ADR 0057`,
+`word budget`, `writing model`, plus internal gap references.
+
+Those excluded phrases are still defects where they occur; they are simply not safely
+detectable by a word list, so they are fixed in the prose that produced them instead —
+the valuation's missing-line refusal and two sector warnings no longer say "this platform
+maps" or "not implemented in this build" to a reader.
 
 ## What this deliberately does not change
 

@@ -261,17 +261,52 @@ _UUID: Final[re.Pattern[str]] = re.compile(
 # digit runs), and code spans (an artefact digest or code version is deliberately literal).
 _INVISIBLE: Final[re.Pattern[str]] = re.compile(r"<https?://[^>]+>|\]\([^)]+\)|`[^`]*`")
 
+# The register check (report-quality R1 to R6): words about how the report was made, in a
+# document that should be entirely about a company. The CHRW note opened six sections with
+# "This section ran past its word budget … (ADR 0057)" and explained its own valuation in
+# terms of "the writing model"; each was fixed at its source, and this is what keeps the
+# fixes permanent.
+#
+# **Closed and small, on ADR 0066's discipline**, and the selection rule is strict: every
+# entry is a phrase that *cannot* appear in prose about a company, so the check has no
+# false positives by construction. That rule is what excludes the obvious candidates —
+#
+# - bare "ADR", because an American Depositary Receipt is an ordinary subject for an
+#   equity note, and only the numbered form names an architecture decision record;
+# - "the platform", because a platform company's own platform is exactly what a report
+#   about it discusses;
+# - "the model", because the sector block's "The model is blocked for this sector" means
+#   the valuation model, and a report says "our model" about a forecast.
+#
+# Those defects are real where they occur and are fixed in the prose that produced them;
+# what they are not is safely detectable by a word list, and a blocking metric that fires
+# on a true sentence would cost a run.
+_PROCESS_REGISTER: Final[tuple[tuple[re.Pattern[str], str], ...]] = (
+    (re.compile(r"\bADR\s+\d{4}\b"), "an architecture decision record"),
+    # This repository's gap references carry a letter suffix as often as not — A51c, B2c
+    # — so the trailing letter is optional rather than absent.
+    (re.compile(r"\bgap\s+[A-Z]\d{1,3}[a-z]?\b"), "an internal gap reference"),
+    (re.compile(r"\bwriting model\b", re.IGNORECASE), "the writing role's own name"),
+    (re.compile(r"\b(?:word|token) budget\b", re.IGNORECASE), "the drafting budget"),
+)
+
 
 def presentation_integrity(markdown: str, html: str, *, sections: int) -> MetricResult:
     """The rendered document's presentation defects, counted — threshold zero.
 
     Args:
-        markdown: The document's Markdown notation. Integers, UUIDs and gap sentences
-            are counted here, after link targets and code spans are removed.
+        markdown: The document's Markdown notation. Integers, UUIDs, gap sentences and
+            process language are counted here, after link targets and code spans are
+            removed.
         html: The HTML notation. Literal ``**`` is counted here and only here — in
             Markdown a paired asterisk run is notation, in HTML it is a leak.
         sections: How many sections the document renders. One gap sentence per section
             is the drafting budget (gap R4); anything past that is a defect.
+
+    The register check reads the same ``visible`` text as everything else, which is what
+    keeps it out of the loop gap R9 closed: a failed check's findings are quoted as code
+    spans, so this scan cannot fire on its own output — the finding "process language
+    'word budget'" contains the phrase it reports.
     """
     if not markdown.strip():
         message = "presentation_integrity was asked to score an empty document."
@@ -282,6 +317,13 @@ def presentation_integrity(markdown: str, html: str, *, sections: int) -> Metric
 
     failures.extend(f"unformatted integer {found!r}" for found in _BARE_INTEGER.findall(visible))
     failures.extend(f"raw UUID {found!r}" for found in _UUID.findall(visible))
+
+    for pattern, description in _PROCESS_REGISTER:
+        failures.extend(
+            f"process language {found!r} — {description}, in a document that should be "
+            "about the company"
+            for found in pattern.findall(visible)
+        )
 
     asterisks = html.count("**")
     if asterisks:

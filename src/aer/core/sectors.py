@@ -199,8 +199,8 @@ SECTOR_PROFILES: Final[tuple[SectorProfile, ...]] = (
         warnings=(
             "There are no cash flows to discount. A DCF here is arithmetic performed on "
             "assumptions, and the answer is whatever the assumptions were.",
-            "Risk-adjusted NPV over the pipeline is the right model and is not implemented "
-            "in this build.",
+            "Risk-adjusted NPV over the pipeline is the right model for this company, and "
+            "no such valuation is offered here.",
         ),
     ),
     SectorProfile(
@@ -238,7 +238,7 @@ SECTOR_PROFILES: Final[tuple[SectorProfile, ...]] = (
         required_metrics=("segment_revenue", "segment_operating_profit", "stake_percentages"),
         warnings=(
             "A consolidated model of a holding company values an accounting artefact. Sum "
-            "of the parts is the right approach and is not implemented in this build.",
+            "of the parts is the right approach, and no such valuation is offered here.",
             "Disclose the holding-company discount as an assumption rather than embedding "
             "it in a multiple.",
         ),

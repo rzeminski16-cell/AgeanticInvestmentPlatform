@@ -163,8 +163,9 @@ THRESHOLDS: Final[dict[Metric, tuple[Decimal, Direction]]] = {
     Metric.SKILL_PRIVILEGE_CONTAINMENT: (Decimal(0), Direction.AT_MOST),
     # Gap O3: the count of presentation defects in the rendered document — an
     # unformatted integer, a literal emphasis marker, a raw UUID, gap sentences past
-    # one per section. Zero, not "low": every one of these shipped in a live note
-    # once, was fixed, and this is the line that keeps each fix permanent.
+    # one per section, and process language in a note that should be entirely about a
+    # company. Zero, not "low": every one of these shipped in a live note once, was
+    # fixed, and this is the line that keeps each fix permanent.
     Metric.PRESENTATION_INTEGRITY: (Decimal(0), Direction.AT_MOST),
     # Gap A61: the count of impossible relations among the run's headline figures —
     # income above revenue, a margin above one, turnover below the floor on a large

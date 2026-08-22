@@ -242,6 +242,60 @@ class TestPresentationIntegrity:
         result = presentation_integrity(markdown, "<p>clean</p>", sections=1)
         assert result.passed, result.failures
 
+    def test_the_register_check_catches_the_chrw_notes_own_sentences(self) -> None:
+        """The three classes that shipped in the CHRW report, verbatim. Each was fixed at
+        its source; this is what stops any of them coming back."""
+        markdown = (
+            "## Investment thesis\n\n"
+            "Insufficient evidence: This section ran past its word budget and was "
+            "shortened by dropping trailing sentences rather than discarding the draft "
+            "(ADR 0057). No valuation exists for this run, so no commentary was requested "
+            "from the writing model. See gap A51c."
+        )
+
+        result = presentation_integrity(markdown, "<p>clean</p>", sections=1)
+
+        assert not result.passed
+        joined = " ".join(result.failures)
+        assert "architecture decision record" in joined
+        assert "internal gap reference" in joined
+        assert "writing role's own name" in joined
+        assert "drafting budget" in joined
+
+    def test_the_words_an_equity_note_may_legitimately_use_are_left_alone(self) -> None:
+        """The selection rule, held by test. Each sentence below is one a real note about
+        a real company would write, and a check that fired on any of them would block a
+        run over a true sentence — which is why bare "ADR", "the platform" and "the model"
+        are deliberately not in the vocabulary."""
+        markdown = (
+            "## Business overview\n\n"
+            "The company's ADR trades on the NYSE at a premium to the ordinary shares. "
+            "The platform added 40m subscribers, and the model is blocked for this sector "
+            "because a bank's cash flows are not the ones a DCF discounts. "
+            "Management's own model assumes a mid-single-digit fade."
+        )
+
+        result = presentation_integrity(markdown, "<p>clean</p>", sections=1)
+
+        assert result.passed, result.failures
+
+    def test_the_check_cannot_fire_on_its_own_findings(self) -> None:
+        """Gap R9's loop, in the one place it would close again: a finding naming the
+        drafting budget *contains* the phrase it reports, and the findings table quotes
+        each one as a code span — which this scan does not read."""
+        offending = presentation_integrity(
+            "## Thesis\n\nIt ran past its word budget.", "<p>c</p>", sections=1
+        )
+        assert not offending.passed
+        quoted = "\n".join(
+            ["## Validation", "", "| Metric | Finding |", "|---|---|"]
+            + [f"| presentation_integrity | `{failure}` |" for failure in offending.failures]
+        )
+
+        rescan = presentation_integrity(quoted, "<p>c</p>", sections=1)
+
+        assert rescan.passed, rescan.failures
+
     def test_an_empty_document_is_not_a_pass(self) -> None:
         with pytest.raises(EmptyCorpusError):
             presentation_integrity("", "", sections=0)

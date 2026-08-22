@@ -399,8 +399,8 @@ def _line(period: PeriodAnalysis, concept: str, *, required: bool = True) -> Qua
 
     message = (
         f"The valuation needs {concept.replace('_', ' ')} for the year ending "
-        f"{period.period_end.isoformat()}, and this company's filings do not carry it under "
-        "any concept this platform maps."
+        f"{period.period_end.isoformat()}, and this company's filings do not report it under "
+        "any recognised concept."
     )
     raise ValuationNotPossibleError(
         message, context={"concept": concept, "period": period.period_end.isoformat()}
