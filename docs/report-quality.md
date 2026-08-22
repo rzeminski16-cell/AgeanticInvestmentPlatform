@@ -81,7 +81,7 @@ conflates them.
 
 Ordered by what most improves the next report per unit of work.
 
-**First — the cost of debt (R13). Done, parts (a) and (b).** Not a readability finding
+**First — the cost of debt (R13). Done, all three parts.** Not a readability finding
 at all: it is why three consecutive runs have shipped without a valuation, and on this
 run it discarded eleven confirmed assumptions over a line the filer never tagged. There
 was nothing to map — `cost_of_debt` is now suppliable by hand, exactly as the risk-free
@@ -134,8 +134,10 @@ the platform. Concretely, in the rendered report:
   or "the operator's own copy".
 - Every section that was shortened or is missing says so once, in the coverage notice,
   in a sentence naming the cause in the reader's terms.
-- The valuation section names the three unset assumptions and the exhibits their absence
-  costs.
+- The valuation section names the input the run actually lacked and what its absence
+  costs. *(Not "the three cost-of-capital assumptions": R5's withdrawal established that
+  the missing input varies — for CHRW it was the cost of debt with all eleven others
+  confirmed — so the section points at the recorded reason rather than a fixed list.)*
 - `presentation_integrity` either passes, or fails on something that is not its own
   findings table.
 - Catalysts contains no catalyst whose event is "the company will file a periodic report".
