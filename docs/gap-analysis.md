@@ -291,7 +291,7 @@ component in the system.
 
 | # | Item | Notes |
 |---|---|---|
-| B12 | **Multi-company and portfolio views** | Named here so it stays a decision rather than an oversight. `docs/PLAN.md` keeps the platform to one report at a time. |
+| B12 | **Multi-company and portfolio views** | Named here so it stays a decision rather than an oversight — and **revisited 2026-08-22**. The exclusion is lifted: `docs/investment-os.md` plans the multi-tool expansion and ADRs 0067–0078 decide it. A single report is still produced one at a time; what changes is that positions, theses and reviews may now surround it. |
 
 ---
 

@@ -168,22 +168,29 @@ Source fact) collapses two orthogonal axes into one control, and loses three thi
 ## 6. What must be fixed before any of this
 
 Four prerequisites, in dependency order. Three of them improve the research tool on their
-own, and one is a live defect.
+own, and one repairs a defect that is written down but not yet firing.
 
-### 6.1 The lineage resolver is already broken for macro data
+### 6.1 The lineage resolver is wrong, and it is loaded rather than firing
 
-`services/calculations.py::_resolve_input` branches on three source kinds and falls
-through to `stored.missing(...)`; `_load_fact` is hardcoded to
-`session.get(FinancialFact, parsed)`. But `services/macro.py:201` mints
-`SourceRef.fact(observation.id)` pointing at a `macro_observations` row.
+`SourceKind.FACT` is documented as generic — "a reported figure, traced to a filing and a
+hashed artefact" — and implemented as *a row in `financial_facts`*: `_load_fact` in
+`services/calculations.py` is `session.get(FinancialFact, parsed)`. Meanwhile
+`services/macro.py:201` mints `SourceRef.fact(observation.id)` over a `macro_observations`
+row. Those two cannot both be right, and when they meet, `_resolve_fact` gets `None` back
+and the provenance viewer draws a dangling node.
 
-**Every macro-sourced calculation input renders as a dangling `missing('fact')` node in
-the provenance viewer today.** `SourceKind.FACT` is documented as generic and implemented
-as "a row in `financial_facts`".
+**They have not met yet.** `aer.services.macro` is imported by nothing in `src/` and
+nothing in `tests/` — the module is finished and unwired, so no dangling node is rendering
+in production and none has been. The defect is armed, not firing, and that is a materially
+weaker claim than an earlier draft of this note made.
 
-Building the portfolio domain on this resolver means every position renders as a dangling
-node too — at far greater volume. Making the resolver polymorphic is the highest-leverage
-single change available, and it closes an existing bug.
+It is still the first thing to fix, for three reasons. The wrong assumption is already
+written down in two independent places — `_load_fact`, and
+`services/exhibits.py::_fact_input_ids`, which treats `kind == "fact"` as `financial_facts`
+and silently omits a chart point when it is not. The module that would fire it is complete
+and waiting to be wired. And the fourth source kind (§5) turns a three-way branch into a
+four-way one that rots the same way. Fixing it now is a migration over an empty problem;
+fixing it later is a migration over rows.
 
 ### 6.2 FX is written and unwired, and NAV is blocked on it
 
@@ -407,19 +414,24 @@ In the repository's naming style — a claim, not a topic:
 0069  an attestation is what the book says, at two times and one grade of evidence
 0070  a judgement is never a source reference
 0071  the portfolio clock is not the research clock
-0072  a lineage node resolves by table, not by hope        (fixes the macro defect)
-0073  javascript may own chrome and never a figure          (successor to 0006)
+0072  a lineage node resolves by table, not by hope        (repairs the macro seam)
+0073  javascript may own chrome and never a figure          (amends 0006)
 0074  a monitor finding is not a gated decision
 0075  the thesis monitor raises questions and answers none
 0076  the risk analyst comments on numbers it cannot write
 0077  the post-trade reviewer scores the process, not the outcome
+0078  a rate is a dated observation with a source, not a number in a column
 ```
+
+0078 was not in the first draft of this list. It was added because three of the others name
+an FX rate store as a prerequisite and none of them could decide it — and an ADR that rests
+on a draft design note is not a decision.
 
 ## 12. Build sequence
 
 **Stage A — prerequisites that pay for themselves inside the research tool**
 
-1. Polymorphic lineage resolver (§6.1). Fixes a live defect.
+1. Polymorphic lineage resolver (§6.1). Repairs a latent defect while it is still cheap.
 2. Workflow registry — roughly 50 lines, removes four hard imports of
    `vertical_slice_v1`, and fixes the run console blanking on an unrecognised
    `workflow_version`.
@@ -451,27 +463,37 @@ In the repository's naming style — a claim, not a topic:
 
 Positions, NAV and risk follow Stage C, once the scope question in §3 is settled.
 
-## 13. Open questions
+## 13. Questions since settled
 
-1. **Is a thesis item a testable predicate or a note?** Proposal: free-text statement plus
-   an *optional* predicate. Items with a predicate get deterministic monitoring — code
-   compares a new Fact to a stored threshold, the model only writes the interpretation.
-   Items without get a scheduled review prompt. Outcome testing (did the return
-   materialise?) is a separate mechanism that never touches thesis status.
-2. **Does a thesis monitor gate, or notify?** Six readable gates per report is a control;
-   forty gate-shaped decisions a day is a rubber stamp that still writes "approved by
-   <person>" into the record. ADR 0046 names this failure. Proposal: tiered — only
-   `contradicted` opens a gate, everything else accumulates as findings with no approval
-   semantics, labelled as such on every surface.
-3. **Is a trade documented or attested by default?** Proposal: both, with the grade
-   propagating and attested lineage barred from shareable renderings by type.
-4. **Does `approvals.gate` stay a closed Postgres enum, or become `(tool, gate)` TEXT?**
-   ADR 0005 favours native enums; every new tool otherwise migrates a shared type it does
-   not own.
-5. **One shell in one commit, or two shells temporarily?** Proposal: one. Two nav
+1. **A thesis item is a note that may carry a predicate.** The statement is free text; the
+   predicate is optional. An item with one ("Azure revenue YoY ≥ 25%") is compared to a new
+   Fact by deterministic code, and the model writes only the interpretation. An item without
+   one gets a scheduled review prompt instead, and is not thereby second-class — forcing
+   every item into a threshold produces fake precision, and "management allocates capital
+   well" has no metric. Price is not the test: outcome testing is ADR 0077's, and it never
+   touches thesis status. Decided in ADR 0075.
+2. **The thesis monitor is tiered.** Only `contradicted` opens a gate; everything else
+   accumulates as findings carrying no approval semantics, labelled as findings on every
+   surface. Decided in ADR 0074.
+3. **A trade may be documented or attested**, with the grade propagating and any lineage
+   containing an attested node barred from a shareable rendering by type. Decided in
+   ADR 0069.
+4. **`approvals.gate` becomes a `tool_gates` reference table** with a real composite foreign
+   key, seeded from the registry, with a test asserting the two agree. The vocabulary is
+   already owned by the registry in Python, so a Postgres enum would be a second source of
+   truth that can only fail at INSERT. Decided in ADR 0067 — and this is the one decided
+   without the operator, so it is the one most worth overturning.
+
+### Still open
+
+1. **One shell in one commit, or two shells temporarily?** Recommendation: one. Two nav
    implementations is the exact drift problem nav-as-data exists to kill.
-6. **May the knowledge graph become a JS island?** It is the only screen with a legitimate
-   claim. The existing server-drawn SVG is accessible, printable and CSP-clean.
+2. **May the knowledge graph become a JS island?** ADR 0073 admits islands by name and
+   leaves this particular one undecided. The existing server-drawn SVG is accessible and
+   printable, and needs nothing an inline-script policy would forbid.
+3. **What does a lapsed market-data subscription do to NAV history?** ADR 0071 decides it;
+   the operator should confirm the answer, because it is the one place where a permanent
+   record rests on a temporary licence.
 
 ## 14. Risks
 

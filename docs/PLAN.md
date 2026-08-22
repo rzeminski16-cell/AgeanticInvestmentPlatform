@@ -348,6 +348,17 @@ traceable to a hashed source.
 automated recommendations acted on without review; non-English sources; OTC/micro-cap/ETF/investment
 trusts; markets other than US/UK.
 
+> **Amended 2026-08-22.** *Portfolio management* moves from an MVP non-goal to a named later
+> stage, planned in `docs/investment-os.md` and decided in ADRs 0067–0078. It was always
+> scoped to the MVP rather than excluded permanently, and the platform now records positions,
+> theses and post-trade reviews alongside research. Three things stay out and are not moved
+> by this amendment: **trade execution**, **multi-user**, and **portfolio optimisation**
+> (§2.3, which is marked *Never* and remains so — position *sizing* under an operator's own
+> methodology is a different thing from an optimiser, and the distinction is load-bearing).
+> Recorded here rather than left implicit because `CLAUDE.md` makes this document the
+> authority on scope, and a schema that outgrows its authority document silently is how a
+> non-goal becomes a feature nobody decided on.
+
 **Key assumptions.** One report/week. Runs take 20–60 minutes and are asynchronous. You are present to
 answer approval gates. EOD data is sufficient. £100/month ceiling holds.
 
