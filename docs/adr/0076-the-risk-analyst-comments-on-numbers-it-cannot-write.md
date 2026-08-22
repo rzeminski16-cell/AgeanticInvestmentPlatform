@@ -83,14 +83,21 @@ told which term to drop rather than losing the draft.
   drawdown is a rating under another name, and `rating` has been reserved since the skill
   schema existed.
 
-## Reserved output fields must grow in the same change
+## The six sizing names are reserved in the change that first needs them
 
 `RESERVED_OUTPUT_FIELDS` (`src/aer/core/schemas/skill.py:67`) is today exactly six names:
 `rating`, `recommendation`, `target_price`, `price_target`, `valuation_range`, `fair_value`.
-**It must gain `position_size`, `weight`, `recommended_weight`, `action`, `order_quantity`,
-`stop_loss` and `conviction`, each with an attack file in
-`tests/fixtures/fx_skill_adversarial/`, in the commit that introduces any sizing concept —
+**It must gain six more — `position_size`, `weight`, `recommended_weight`, `action`,
+`order_quantity`, `stop_loss` — with an attack file each in
+`tests/fixtures/fx_skill_adversarial/`, in the commit that introduces any sizing concept,
 never in a follow-up.**
+
+**`conviction` is deliberately not on that list, and it does not wait for sizing.** ADR 0070
+reserves it outright, as part of its own decision and on its own reason: a conviction is a
+judgement, and a skill that can declare an output field named `conviction` is a skill that
+puts a judgement where a number goes. Naming it here as well would give one rule two due
+dates, and a reader would have to guess which governed. This section governs the six sizing
+names and nothing else.
 
 A skill file that can declare an output field named `recommended_weight` is a skill file that
 sets position sizes. Invariant 7 exists to make that unrepresentable, by ADR 0034's method:

@@ -133,7 +133,7 @@ This repository is careful about vocabulary; a word that means three things in o
 means none of them. `Attestation` is also the more honest word: somebody is asserting this,
 and their name is on the assertion.
 
-## The claim constraint is the seam, and it is already wrong
+## The claim constraint is the seam, and widening it is not the whole repair
 
 `claims` currently enforces:
 
@@ -144,16 +144,30 @@ and their name is on the assertion.
 ```
 
 That must become a three-way exclusive choice admitting an `attestation_id`, or a report can
-never make a numeric claim about a holding.
+never make a numeric claim about a holding. The check is only half the seam. The columns are
+the other half, and `financial_fact_id` is a foreign key to `financial_facts`
+(`db/models/claim.py:62`) rather than to anything more general — so widening buys an
+attestation an arm of its own and buys nothing else a home.
 
-**The same seam already blocks macro data.** `services/macro.py:201` mints
-`SourceRef.fact(observation.id)` over a `macro_observations` row, but `claims.financial_fact_id`
-is a foreign key to `financial_facts`. So a gilt yield cannot be the figure a `NUMERIC` claim
-names today; it can only reach a report wrapped in a `Calculation`. That wrapper is not a
-fabrication — the calculation is real — but it means the platform cannot state a published
-statistic as a numeric claim without inventing arithmetic to hold it. Widening the constraint
-once serves the portfolio and fixes that. The resolver that has to keep up with a polymorphic
-figure reference is ADR 0072's subject.
+**Macro is a second seam, and this decision does not close it.** A `macro_observations` row is
+neither a financial fact nor an attestation: nobody filed it as their accounts and nobody's
+book says it. A gilt yield therefore still has no arm on a `NUMERIC` claim after
+`attestation_id` lands, and saying otherwise would be claiming a fix this ADR has not
+delivered. That is an open question with two honest answers and this record picks neither: a
+fourth arm, `macro_observation_id`, admitting a published statistic as a figure a claim may
+name directly; or a settled position that macro reaches a report only wrapped in a
+`Calculation`, which is the only route it has now. The wrapper is not a fabrication — the
+calculation is real — but under it the platform cannot state a published statistic as a
+numeric claim without inventing arithmetic to hold it, and that is a cost to be chosen
+deliberately in its own record rather than inherited from a constraint nobody revisited.
+
+**Both seams are one mistake made in two places.** `claims.financial_fact_id` and `_load_fact`
+(`services/calculations.py:409`, a bare `session.get(FinancialFact, …)`) each encode the
+unstated assumption that *kind == fact* means `financial_facts` — one in a foreign key, one in
+a lookup. ADR 0072 is where that assumption is dug out and named, and it explains why a reader
+that guesses which table a `fact` lives in degrades quietly at whichever end it sits. The
+resolver end is ADR 0072's subject; the claims end is nobody's subject yet, and needs its own
+record before a macro figure can be the number a sentence asserts.
 
 ## Consequences
 
@@ -163,7 +177,22 @@ unsourceable FX rate, a private mark on an unlisted holding, a fee estimate, a c
 nobody wants to export a statement for. The FX case is not hypothetical: ADR 0045 makes
 every non-EUR pair a derived cross, and the ECB says its own reference rates are "not
 intended to be used in any market transaction", so the temptation to type a rate rather than
-source one recurs daily on a multi-currency book.
+source one recurs daily on a multi-currency book. ADR 0078 — *a rate is a dated observation
+with a source, not a number in a column* — is what stands between that temptation and the
+default, and this ADR leans on it: an operator-typed rate must be the fallback a rate store
+leaves over, never the ordinary way a book gets converted.
+
+**Invariant 3 is amended here, and an invariant amended silently is an invariant
+abandoned.** CLAUDE.md states it as "No figure reaches a report unless it is a stored fact or
+a recorded calculation", and `db/models/claim.py`'s module docstring repeats that sentence
+verbatim as the reason for `ck_claims_numeric_claims_name_one_figure`. Both now read "a
+stored fact, a recorded calculation, or an attestation", and the docstring moves in the same
+change as the constraint — a docstring justifying a two-way check beside a three-way one
+teaches the next reader that the prose in this repository trails the schema. **Invariant 1 is
+untouched, and that is the point.** A `documented` attestation traces to a hashed artefact by
+the same chain a filing does, and an `attested` one reaches no shareable surface at all,
+because the type it propagates into has no field for the figure. The widening admits a third
+kind of figure; it does not admit an unevidenced one.
 
 **The containment is structural or it is nothing.** The grade is a column on every row, the
 propagation is a type with no field for the figure, and no prompt, template or convenience

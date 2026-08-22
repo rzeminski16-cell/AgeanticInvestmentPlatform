@@ -38,11 +38,21 @@ where the boundary around it is enforced.
 
 **A tool is a row in a registry, written in the exact idiom of
 `aer/agents/registry.py`.** `ToolDefinition` is a frozen, slotted dataclass carrying the
-tool's key and title, the subject kinds it operates on, its mandate model, its workflows,
-the agent roles it may use, its API and page routers, its navigation entries — and the ADR
-that admitted it. Contracts and models are named lazily as `"module:Attribute"` strings,
-the `function_ref` idiom, so asking a registry question does not drag every tool's package
-underneath the asker.
+tool's key and title, the subject kinds it operates on, a
+`subject_resolvers: Mapping[str, str]` naming the loader for each of those kinds, its
+mandate model, its workflows, the agent roles it may use, its API and page routers, its
+navigation entries — and the ADR that admitted it. Contracts, models and resolvers are
+named lazily as `"module:Attribute"` and `"module:function"` strings, the `function_ref`
+idiom, so asking a registry question does not drag every tool's package underneath the
+asker.
+
+**The resolvers sit on the row because a subject is resolved by the tool that owns its
+kind.** ADR 0068 gives a run root a `(subject_kind, subject_id)` pair with no foreign key
+behind it, and such a pair is worth exactly as much as whatever can still turn it back into
+a row; keeping that lookup beside the declaration that introduced the kind is what stops it
+rotting the way `_load_fact` did, acquiring a second meaning in a module its author never
+read (ADR 0072). A declared kind with no registered resolver is refused at import, in the
+idiom `RoleDefinition.output_schema()` already uses for a reference the code has lost.
 
 **The ADR field refuses to be empty, and a test walks the references to files.** ADR 0035's
 rule verbatim, and it earns its place again for the same reason: the registry raises on a
@@ -71,24 +81,39 @@ tools are strings inside a `RoleDefinition`, product tools are `ToolDefinition` 
 the one place the two meet is the privilege rule below — which is where a reader should be
 paying attention anyway.
 
+### A tool is not a sixth extension recipe
+
+`docs/knowledge-map.md` §7 lists five ways to extend this platform and says the sixth way
+is the wrong way, so a record admitting a second tool owes that document an answer. The
+answer is that a tool is not a sixth entry on that list; it is a different class of thing.
+The five — a built-in section, a calculation, a data source, an agent role, a skill —
+extend the research tool **from inside**, and every one of them inherits a subject, a run,
+a budget and a gate that already exist: a section is written about a company somebody
+requested, a calculation is traced inside a job somebody already paid for. A tool inherits
+none of that and brings its own — its own subject kind and the resolver for it, its own run
+root (ADR 0068), its own gates, its own tables. That is why it is settled by a registry row
+and an ADR rather than by a recipe, and why §7 marks it as deliberately not a sixth. The
+test stays the map's: if what you are building fits one of the five, it is not a tool.
+
 ## No package move
 
 A full `aer.kernel.*` / `aer.tools.*` split is the obvious shape and it is rejected.
 
 It would touch 279 source files and 183 test files. It would invalidate file references
 across 66 ADRs — records whose value is that they still point at the code they decided —
-and break `tests/test_knowledge_map.py::test_every_module_appears`, which walks the
-top-level entries of `src/aer` and asserts each is named in `docs/knowledge-map.md`. It
-would change the `mypy` strict globs, `aer.core.*` and `aer.calc.*`, which are the reason
-the correctness core is provably pure. And it would collide with the active report-quality
-work for weeks.
+and break
+`tests/test_knowledge_map.py::TestTheMapNamesWhatExists::test_every_module_under_src_appears`,
+which walks the top-level entries of `src/aer` and asserts each is named in
+`docs/knowledge-map.md`. It would change the `mypy` strict globs, `aer.core.*` and
+`aer.calc.*`, which are the reason the correctness core is provably pure. And it would
+collide with the active report-quality work for weeks.
 
 **It buys a boundary an AST test enforces for nothing.** The boundary this codebase needs
 is a runtime one — kernel code must not know what tools exist — and a directory layout is
 a weak way to say so, because an import crosses a directory as easily as it crosses a
 comment. A test that parses `src/` and fails when a kernel module imports from a tool
 package says it exactly, and it is the same shape as ADR 0018's single-writer test, which
-parses the tree to prove `aer.verify.citations.verify` is the only writer of
+parses the tree to prove `aer/verify/citations.py` is the only module that writes
 `excerpt_verified` — the strongest structural control in the repository, and it required
 no packaging at all.
 
@@ -179,11 +204,11 @@ two branches each add a migration — a merge resolution, not a design problem.
 
 **Adding a tool becomes a reviewed table entry plus routers.** One `ToolDefinition` in a
 file whose whole purpose is to be looked at, its routers included by key, its navigation
-contributed rather than hand-written. `_nav.html` is eight hand-written anchors today with
-no active state and nothing detecting drift from the real routes, and `create_app` is
-fourteen literal `include_router` calls; both become iterations over the registry, which is
-what turns "a tool contributed a page nobody can reach" into a test failure instead of a
-silent lie.
+contributed rather than hand-written. `_nav.html` is nine hand-written anchors today — the
+brand and eight links — with no active state and nothing detecting drift from the real
+routes, and `create_app` is fourteen literal `include_router` calls; both become
+iterations over the registry, which is what turns "a tool contributed a page nobody can
+reach" into a test failure instead of a silent lie.
 
 **The registry refuses a tool with no ADR**, so each of ADRs 0068 to 0077 is a precondition
 for code rather than a document written afterwards. That is ADR 0035's rule, applied here
