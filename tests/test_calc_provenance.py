@@ -131,6 +131,66 @@ class TestUnsourcedInputsAreRefused:
 # ==========================================================================================
 
 
+class TestOneDerivationIsOneRow:
+    """Gap R14. The CHRW note's approval page listed 118 calculations for five periods —
+    `ebitda` twice at the same value in the same year, `days_outstanding` twice, and no
+    way to tell which of the two rows a citation meant. Several callers legitimately
+    strike the same arithmetic: the ratio suite computes EBITDA for its margin and again
+    inside net debt to EBITDA, the cash conversion cycle re-strikes all three days-
+    outstanding ratios, and a paired quality signal recomputes its own base.
+    """
+
+    def test_an_identical_second_call_adds_no_row(self, context):
+        first = cagr(context, start=usd(100), end=usd(200), years=3)
+        second = cagr(context, start=usd(100), end=usd(200), years=3)
+
+        assert len(context.records) == 1
+        assert first == second
+
+    def test_the_second_caller_cites_the_row_the_first_struck(self, context):
+        """Lineage stays a tree: one figure, one id, whoever asked for it second."""
+        first = cagr(context, start=usd(100), end=usd(200), years=3)
+        second = cagr(context, start=usd(100), end=usd(200), years=3)
+
+        assert first.source == second.source
+        assert str(context.records[0].id) == first.source.identifier
+
+    def test_a_different_input_is_a_different_derivation(self, context):
+        cagr(context, start=usd(100), end=usd(200), years=3)
+        cagr(context, start=usd(100), end=usd(300), years=3)
+
+        assert len(context.records) == 2
+
+    def test_a_different_parameter_is_a_different_derivation(self, context):
+        cagr(context, start=usd(100), end=usd(200), years=3)
+        cagr(context, start=usd(100), end=usd(200), years=4)
+
+        assert len(context.records) == 2
+
+    def test_the_same_arithmetic_in_two_periods_stays_two_rows(self, context):
+        """A figure's period is part of what the figure *is*, so an identical result
+        struck on two years is two derivations and must not collapse to one."""
+        with context.period("FY2024"):
+            cagr(context, start=usd(100), end=usd(200), years=3)
+        with context.period("FY2025"):
+            cagr(context, start=usd(100), end=usd(200), years=3)
+
+        assert len(context.records) == 2
+        assert [r.period.label for r in context.records] == ["FY2024", "FY2025"]
+
+    def test_two_contexts_never_share_a_row(self):
+        """The ledger is per pass. Two runs computing the same thing each record it."""
+        one = CalculationContext(code_version="a1b2c3d4")
+        two = CalculationContext(code_version="a1b2c3d4")
+
+        cagr(one, start=usd(100), end=usd(200), years=3)
+        cagr(two, start=usd(100), end=usd(200), years=3)
+
+        assert len(one.records) == 1
+        assert len(two.records) == 1
+        assert one.records[0].id != two.records[0].id
+
+
 class TestTheRecord:
     def test_every_field_the_specification_requires_is_present(self, context):
         cagr(context, start=usd(100), end=usd(200), years=3)

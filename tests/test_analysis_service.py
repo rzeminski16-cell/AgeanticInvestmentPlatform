@@ -267,6 +267,76 @@ class TestTheAnalysisRuns:
         assert outcome.skipped
 
 
+class TestTheLedgerRecordsEachDerivationOnce:
+    """Gap R14, at the level the symptom appeared. The CHRW approval page listed 118
+    calculations for five periods, with exact-value duplicates two different years cannot
+    produce. The cause is legitimate re-striking — the ratio suite computes EBITDA for its
+    margin and again inside net debt to EBITDA, the cash conversion cycle re-strikes all
+    three days-outstanding ratios, a paired quality signal recomputes its own base — and
+    the ledger now reuses the row rather than appending a second (`CalculationContext.add`).
+    """
+
+    async def test_no_figure_is_recorded_twice_for_the_same_period(
+        self, scene: dict[str, Any]
+    ) -> None:
+        for year in (2021, 2022, 2023):
+            await _seed(
+                scene,
+                _facts(scene, period_end=date(year, 12, 31), filed=date(year + 1, 2, 1)),
+            )
+        context = new_context()
+
+        await analyse_company(
+            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+        )
+        rows = await persist_context(scene["session"], context, job_id=scene["job"].id)
+
+        struck: dict[tuple[str, str, str], int] = {}
+        for row in rows:
+            key = (row.name, str(row.output_value), row.period_label or "")
+            struck[key] = struck.get(key, 0) + 1
+        repeated = {key: count for key, count in struck.items() if count > 1}
+
+        assert not repeated, f"the same figure was recorded more than once: {repeated}"
+
+    async def test_a_re_struck_figure_still_has_exactly_one_row(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Named directly rather than left to the sweep above: EBITDA is the one the live
+        note showed twice, and a change that stopped re-striking it for some other reason
+        should not quietly retire this guard.
+
+        The scene seeds both debt legs so ``total_debt`` derives and net debt to EBITDA
+        actually runs. Without them the ratio is skipped, EBITDA is struck once for its
+        margin alone, and this test passes whatever the ledger does.
+        """
+        levered = {**_YEAR, "short_term_debt": "100"}
+        for year in (2021, 2022, 2023):
+            await _seed(
+                scene,
+                _facts(
+                    scene,
+                    period_end=date(year, 12, 31),
+                    filed=date(year + 1, 2, 1),
+                    values=levered,
+                ),
+            )
+        context = new_context()
+
+        await analyse_company(
+            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+        )
+
+        assert context.named("net_debt_to_ebitda"), (
+            "the scene no longer computes net debt to EBITDA, so nothing re-strikes EBITDA "
+            "and this test proves nothing"
+        )
+        ebitda = context.named("ebitda")
+        assert ebitda, "the scene no longer computes EBITDA, so this proves nothing"
+        periods = [record.period.label if record.period else "" for record in ebitda]
+        assert len(periods) == len(set(periods)), f"EBITDA struck twice in one period: {periods}"
+
+
 class TestWhichObservationWins:
     async def test_a_later_filing_supersedes_an_earlier_one(self, scene: dict[str, Any]) -> None:
         """A restatement is the company's more recent word on the same period."""

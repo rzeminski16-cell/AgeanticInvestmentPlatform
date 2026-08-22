@@ -639,8 +639,17 @@ class TestTheSensitivityGrid:
         )
 
         assert len(grid.cells) == 9
-        # Nine complete forecasts, not one forecast and eight interpolations.
-        assert len(context.named("free_cash_flow")) == 27
+        # Nine complete valuations, not one valuation and eight interpolations. The proof
+        # is that what depends on a cell's own axes is struck afresh for every cell and
+        # every one of them differs: nine terminal values under nine (wacc, growth) pairs,
+        # nine discount factors under three rates over three years.
+        terminal = context.named("gordon_terminal_value")
+        assert len(terminal) == 9
+        assert len({record.output_value for record in terminal}) == 9
+        assert len({record.output_value for record in context.named("discount_factor")}) == 9
+        # The forecast itself depends on neither axis, so all nine cells share one, and the
+        # ledger holds those three years once rather than twenty-seven times (gap R14).
+        assert len(context.named("free_cash_flow")) == 3
 
     def test_the_base_case_cell_matches_the_base_case(self, context):
         grid = sensitivity_grid(

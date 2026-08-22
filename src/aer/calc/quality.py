@@ -33,7 +33,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Final
 
-from aer.calc.engine import CalculationContext, traced
+from aer.calc.engine import CalculationContext, PeriodStamp, traced
 from aer.calc.statements import StatementSet
 from aer.calc.units import (
     CalculationError,
@@ -537,6 +537,7 @@ def assess_quality(
     statements: StatementSet,
     *,
     prior: StatementSet | None = None,
+    prior_period: PeriodStamp | None = None,
 ) -> tuple[QualitySignal, ...]:
     """Every earnings-quality signal, computed or explained.
 
@@ -553,7 +554,9 @@ def assess_quality(
     single = tuple(
         _single_period(context, definition, statements) for definition in QUALITY_DEFINITIONS
     )
-    paired = tuple(_paired(context, definition, statements, prior) for definition in _PAIRED)
+    paired = tuple(
+        _paired(context, definition, statements, prior, prior_period) for definition in _PAIRED
+    )
     return single + paired
 
 
@@ -576,6 +579,7 @@ def _paired(
     definition: QualityDefinition,
     statements: StatementSet,
     prior: StatementSet | None,
+    prior_period: PeriodStamp | None = None,
 ) -> QualitySignal:
     if prior is None:
         return _absent(
@@ -599,8 +603,15 @@ def _paired(
         )
 
     try:
+        # The opening leg is a figure *of the prior period*, struck during this one's pass.
+        # Stamping it with the closing period's label would put the previous year's number
+        # under this year's heading on the approval page — and, since the prior period's
+        # own pass already struck exactly this row, the stamp is the only thing that made
+        # it look like a second one (gap R14).
+        with context.stamped(prior_period):
+            opening = base.compute(context, opening_values)
         ends = {
-            "opening": base.compute(context, opening_values),
+            "opening": opening,
             "closing": base.compute(context, closing_values),
         }
     except _NEVER_SWALLOWED:

@@ -347,12 +347,18 @@ class TestTheImpliedBand:
         assert outcome.band["label"] == "Comps (EV/EBITDA)"
         assert Decimal(outcome.band["low"]) <= Decimal(outcome.band["high"])
         assert outcome.band["unit"] == "USD/shares"
-        recorded = [
-            record
+        recorded = {
+            record.output_value
             for record in ledger.records
             if record.name == "implied_value_per_share_from_ev_multiple"
-        ]
-        assert len(recorded) == 2
+        }
+        # Both ends resolve to a recorded row. This scene prices one peer, so the lowest
+        # observed multiple and the highest are the same multiple, the two ends are the
+        # same figure, and the ledger holds the one derivation they share rather than two
+        # rows a citation could not tell apart (gap R14).
+        assert recorded, "the band's ends are not traced calculations"
+        assert Decimal(outcome.band["low"]) in recorded
+        assert Decimal(outcome.band["high"]) in recorded
 
     async def test_no_priced_peer_means_no_band(self, scene: dict[str, Any]) -> None:
         await _confirm_peers(scene["session"], scene)

@@ -33,7 +33,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.calc.engine import CalculationContext
+from aer.calc.engine import CalculationContext, PeriodStamp
 from aer.calc.quality import QualitySignal, assess_quality
 from aer.calc.ratios import RatioResult, compute_ratios
 from aer.calc.statements import StatementSet, assemble
@@ -226,6 +226,9 @@ async def analyse_company(
     # Oldest first, so each period's `prior` is the one already built. The paired quality
     # signals compare against the preceding year and there is no other way to have it.
     previous: StatementSet | None = None
+    # The stamp that goes with `previous`, so a paired quality signal can strike the prior
+    # period's base under the prior period's label rather than this one's (gap R14).
+    previous_stamp: PeriodStamp | None = None
     for period_end in reversed(ordered):
         rows = facts[period_end]
         fiscal_year = next((row.fiscal_year for row in rows if row.fiscal_year), None)
@@ -243,10 +246,13 @@ async def analyse_company(
                     fiscal_year=fiscal_year,
                     statements=statements,
                     ratios=compute_ratios(context, statements),
-                    quality=assess_quality(context, statements, prior=previous),
+                    quality=assess_quality(
+                        context, statements, prior=previous, prior_period=previous_stamp
+                    ),
                 )
             )
         previous = statements
+        previous_stamp = PeriodStamp(label=label, start=start, end=period_end)
 
     skipped: list[str] = []
     if len(periods) == 1:

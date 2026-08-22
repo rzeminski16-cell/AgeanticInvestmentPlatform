@@ -202,12 +202,15 @@ class CalculationContext:
     passes :func:`aer.version.git_sha`'s answer in.
     """
 
-    __slots__ = ("_period", "_records", "code_version")
+    __slots__ = ("_period", "_records", "_struck", "code_version")
 
     def __init__(self, *, code_version: str = UNKNOWN_CODE_VERSION) -> None:
         self.code_version = code_version or UNKNOWN_CODE_VERSION
         self._records: list[CalculationRecord] = []
         self._period: PeriodStamp | None = None
+        # Identity -> the record already struck for it, so a second identical call reuses
+        # the first rather than adding a row (gap R14; see `add`).
+        self._struck: dict[tuple[Any, ...], CalculationRecord] = {}
 
     @property
     def current_period(self) -> PeriodStamp | None:
@@ -233,6 +236,21 @@ class CalculationContext:
         finally:
             self._period = previous
 
+    @contextmanager
+    def stamped(self, stamp: PeriodStamp | None) -> Iterator[None]:
+        """Scope to a period already held as a stamp, or leave the scope untouched.
+
+        For the caller striking a figure *of another period* inside this one's pass — a
+        paired quality signal computing its base on the prior year's statements. Without
+        it that row carries the current period's label over the previous period's inputs,
+        which is a mislabelled figure rather than a duplicate one (gap R14).
+        """
+        if stamp is None:
+            yield
+            return
+        with self.period(stamp.label, start=stamp.start, end=stamp.end):
+            yield
+
     @property
     def records(self) -> tuple[CalculationRecord, ...]:
         """Every calculation performed, in the order it happened.
@@ -243,7 +261,32 @@ class CalculationContext:
         return tuple(self._records)
 
     def add(self, record: CalculationRecord) -> CalculationRecord:
+        """Record this calculation, or return the identical one already struck.
+
+        **The same arithmetic on the same inputs is one derivation, however many callers
+        ask for it** (gap R14). Several do: the ratio suite strikes EBITDA once for its
+        margin and again inside net debt to EBITDA; days outstanding is struck three times
+        as the receivable, inventory and payable ratios and all three again inside the cash
+        conversion cycle; a paired quality signal recomputes its own base for the closing
+        period. A row per call is what put 118 calculations on the CHRW note's approval
+        page, with ``ebitda`` appearing twice at the same value in the same year and
+        nothing to say which of the two rows a citation meant.
+
+        Reusing rather than appending keeps lineage a tree: the second caller's result is
+        attributed to the record the first one struck, so one figure has one id.
+
+        **Identity is every field except the id** — name, formula, function, code version,
+        inputs, output, parameters, assumptions and period. A different period, a different
+        input or a different result is a different derivation and gets its own row;
+        collapsing those would be a claim about the run that is not true.
+        """
+        identity = _identity_of(record)
+        struck = self._struck.get(identity)
+        if struck is not None:
+            return struck
+
         self._records.append(record)
+        self._struck[identity] = record
         return record
 
     def find(self, calculation_id: uuid.UUID | str) -> CalculationRecord | None:
@@ -261,6 +304,27 @@ class CalculationContext:
 
 
 TracedFunction = Callable[Concatenate[CalculationContext, P], Quantity]
+
+
+def _identity_of(record: CalculationRecord) -> tuple[Any, ...]:
+    """What makes two records the same derivation: everything but the id.
+
+    ``parameters`` is a mapping and mappings do not hash, so it is flattened to sorted
+    pairs with each value rendered — a parameter's identity is what it *is*, and two calls
+    whose parameters render differently are not the same call.
+    """
+    return (
+        record.name,
+        record.formula,
+        record.function_ref,
+        record.code_version,
+        record.inputs,
+        record.output_value,
+        record.output_unit,
+        tuple(sorted((key, repr(value)) for key, value in record.parameters.items())),
+        record.assumptions,
+        record.period,
+    )
 
 
 def traced(
