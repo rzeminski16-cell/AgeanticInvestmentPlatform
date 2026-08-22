@@ -91,9 +91,12 @@ _UNDERIVABLE_YEARS = {
     date(2023, 12, 31): a_year(short_term_debt="0"),
     date(2024, 12, 31): a_year(short_term_debt="0"),
 }
+# Both the charge and the cash outflow, which is what most filers tag. The cash figure
+# matters here: without it, a run that never reached the conditional guard would decline
+# the proxy anyway, and "no proxy was written" would prove nothing.
 _DERIVABLE_YEARS = {
-    date(2023, 12, 31): a_year(short_term_debt="0", interest_expense="20"),
-    date(2024, 12, 31): a_year(short_term_debt="0", interest_expense="22"),
+    date(2023, 12, 31): a_year(short_term_debt="0", interest_expense="20", interest_paid="18"),
+    date(2024, 12, 31): a_year(short_term_debt="0", interest_expense="22", interest_paid="19"),
 }
 
 # The CHRW shape exactly: no interest charge, but the cash outflow is tagged (ADR 0067).
