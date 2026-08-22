@@ -86,7 +86,7 @@ Written under a banner, deliberately.
 
 ## Comparable companies
 
-A comparable-company analysis was performed against 3 peer(s) as at 30 June 2022, with 1 proposed peer(s) excluded. **The figures are withheld from this version.** They derive from market data licensed for internal use only, under terms that grant no derived-data exemption, so no multiple computed from it appears in anything shareable. The analysis is available in full on the operator's own copy.
+A comparable-company analysis was performed against three peers as at 30 June 2022, with one proposed peer excluded. **The figures are withheld from this version.** They derive from market data licensed for internal use only, under terms that grant no derived-data exemption, so no multiple computed from it appears in anything shareable. The analysis is available in full on the operator's own copy.
 
 ## Scope and limitations
 

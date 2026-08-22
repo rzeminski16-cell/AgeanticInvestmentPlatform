@@ -74,7 +74,8 @@ from aer.render.markdown import (
     serialise_markdown,
 )
 from aer.render.summary import summary_document
-from aer.sections.render import Banner, Heading, _unescaped, render_section
+from aer.sections.evidence import refusal_causes_in
+from aer.sections.render import Banner, Heading, StatusLine, _unescaped, render_section
 from tests.workflow_fixtures import AS_OF_DATE
 
 pytestmark = pytest.mark.anyio
@@ -643,6 +644,68 @@ class TestEditingDisclosuresLeaveTheSectionBody:
             assert "word budget" not in rendered
             assert "the platform's" not in rendered
         assert LENGTH_EDIT_NOTE in markdown, "the disclosure itself still appears"
+
+
+class TestAFailedSectionNamesItsCause:
+    """Gap R6: the CHRW report's three missing sections each said only "This section
+    could not be generated" — no cause, no consequence — while each failure had a
+    different, legible cause. The placeholder now reads the refusal kinds off the stored
+    diagnostics and states them in the reader's terms; the raw ids and schema paths stay
+    in the run, and a reason matching no signature keeps the plain line, because a wrong
+    cause is worse than none.
+    """
+
+    def test_the_causes_are_read_in_signature_order_without_duplicates(self) -> None:
+        text = (
+            "The draft cites extraction abc, which this run does not hold. "
+            "It also names fact def. The token 42 appears, which no numeric claim covers."
+        )
+        assert refusal_causes_in(text) == ("numeral", "citation")
+        assert refusal_causes_in("nothing recognisable") == ()
+        assert refusal_causes_in("") == ()
+
+    @staticmethod
+    async def _failed_with_reason(scene: dict[str, Any], reason: str) -> None:
+        session: AsyncSession = scene["session"]
+        row = await session.scalar(
+            select(ReportSection).where(
+                ReportSection.job_id == scene["job"].id,
+                ReportSection.section_key == "golden_failed",
+            )
+        )
+        assert row is not None
+        row.low_confidence_reason = reason
+        await session.flush()
+
+    async def test_a_legible_cause_reaches_the_placeholder_in_reader_terms(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await self._failed_with_reason(
+            scene,
+            "Sentence carries 432183000 which no numeric claim resolves. "
+            "The draft cites extraction 8f0e that the evidence does not hold.",
+        )
+
+        document = await _document(scene)
+
+        failed = next(view for view in document.sections if view.key == "golden_failed")
+        lines = [f.text for f in failed.fragments if isinstance(f, StatusLine)]
+        assert len(lines) == 1
+        assert "could not be generated: " in lines[0]
+        assert "figures that could not be traced to a recorded source" in lines[0]
+        assert "cited evidence this research does not hold" in lines[0]
+        assert "absent from this note rather than asserted without support" in lines[0]
+        # The diagnostics themselves stay in the run: no raw id in the reader's line.
+        assert "432183000" not in lines[0]
+        assert "8f0e" not in lines[0]
+
+    async def test_an_unrecognised_reason_keeps_the_plain_line(self, scene: dict[str, Any]) -> None:
+        # The fixture's own reason matches no signature, so this is the default scene.
+        document = await _document(scene)
+
+        failed = next(view for view in document.sections if view.key == "golden_failed")
+        lines = [f.text for f in failed.fragments if isinstance(f, StatusLine)]
+        assert lines == ["This section could not be generated."]
 
 
 class TestTheGoldenMarkdown:

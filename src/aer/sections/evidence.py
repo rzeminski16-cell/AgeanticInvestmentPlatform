@@ -71,6 +71,7 @@ __all__ = [
     "gather_evidence",
     "policy_shortfalls",
     "record_draft_claims",
+    "refusal_causes_in",
     "validate_draft",
 ]
 
@@ -319,6 +320,24 @@ _REFUSAL_SIGNATURES: Final[tuple[tuple[str, str], ...]] = (
     # The valuation commentary's deterministic edge (ADR 0063).
     ("The commentary mentions", "method"),
 )
+
+
+def refusal_causes_in(text: str) -> tuple[str, ...]:
+    """Every refusal cause whose signature appears in the text, in signature order.
+
+    The render-time reading of a failed section's stored reason (gap R6): the row keeps
+    the problems joined into one string, so the counts are gone, but which *kinds* of
+    refusal happened is still legible — and that is what a reader-facing placeholder can
+    be built from. Same signature table as :func:`classify_refusals`, so a reworded
+    refusal breaks the same pinned tests rather than silently classifying as nothing.
+    The ``schema`` fallback is deliberately absent here: it has no signature, and a
+    caller with no matched cause falls back to its generic wording.
+    """
+    found: list[str] = []
+    for signature, name in _REFUSAL_SIGNATURES:
+        if signature in text and name not in found:
+            found.append(name)
+    return tuple(found)
 
 
 def classify_refusals(problems: Iterable[str]) -> dict[str, int]:

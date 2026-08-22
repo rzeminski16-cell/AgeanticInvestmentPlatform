@@ -523,9 +523,9 @@ class TestTheDeterministicSections:
             section = await _section(scene, key)
             assert section.status is SectionStatus.GENERATED
             if key == "valuation_dcf":
-                # The draft step's own standalone note (gap A51c) — this run has no
-                # valuation, so no commentary was requested — not a stamp from the fill.
-                assert "no commentary was requested" in (section.low_confidence_reason or "")
+                # The draft step's own standalone note (gap A51c), in the reader's
+                # register (gap R4) — not a stamp from the fill.
+                assert "no valuation figures to interpret" in (section.low_confidence_reason or "")
                 continue
             assert section.low_confidence_reason is None
 

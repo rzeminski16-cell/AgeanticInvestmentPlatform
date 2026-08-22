@@ -363,28 +363,65 @@ class WithheldComps:
         does with that: it promised an analysis "available in full on the operator's own
         copy" that no copy holds (gap A53). A disclosure may withhold figures; it may not
         invent them to withhold.
+
+        House style throughout (gap R10): small counts are spelled, plurals agree, and
+        the attempted-and-empty state names no "operator's own copy" — in a personal
+        research tool that is the document the reader is already holding, and the clause
+        earns its place only where a fuller version genuinely exists.
         """
         if self.peer_count == 0:
-            excluded = (
-                f"every one of the {self.excluded_count} proposed peer(s) was excluded "
-                "for want of usable data"
-                if self.excluded_count
-                else "no peer survived to be compared"
-            )
+            if self.excluded_count == 1:
+                excluded = "its single proposed peer was excluded for want of usable data"
+            elif self.excluded_count:
+                excluded = (
+                    f"every one of the {_spelled(self.excluded_count)} proposed peers "
+                    "was excluded for want of usable data"
+                )
+            else:
+                excluded = "no peer survived to be compared"
             return (
                 f"A comparable-company analysis was attempted as at {self.as_of.isoformat()}, "
-                f"but {excluded}, so no comparable figure was computed. There is no fuller "
-                "version elsewhere; the operator's own copy lists each excluded peer with "
-                "the reason."
+                f"but {excluded}, so no comparable figure was computed and there is no "
+                "fuller version elsewhere."
             )
+        peers = "one peer" if self.peer_count == 1 else f"{_spelled(self.peer_count)} peers"
+        if self.excluded_count == 0:
+            excluded_clause = "none of the proposed peers excluded"
+        elif self.excluded_count == 1:
+            excluded_clause = "one proposed peer excluded"
+        else:
+            excluded_clause = f"{_spelled(self.excluded_count)} proposed peers excluded"
         return (
-            f"A comparable-company analysis was performed against {self.peer_count} peer(s) "
-            f"as at {self.as_of.isoformat()}, with {self.excluded_count} proposed peer(s) "
-            "excluded. **The figures are withheld from this version.** They derive from "
+            f"A comparable-company analysis was performed against {peers} "
+            f"as at {self.as_of.isoformat()}, with {excluded_clause}. "
+            "**The figures are withheld from this version.** They derive from "
             "market data licensed for internal use only, under terms that grant no "
             "derived-data exemption, so no multiple computed from it appears in anything "
             "shareable. The analysis is available in full on the operator's own copy."
         )
+
+
+# Counts up to twelve are spelled, as prose spells them; beyond that the digits carry
+# better. Zero never reaches this — each branch above phrases absence in words.
+_COUNT_WORDS: Final[tuple[str, ...]] = (
+    "zero",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+)
+
+
+def _spelled(count: int) -> str:
+    return _COUNT_WORDS[count] if 0 <= count < len(_COUNT_WORDS) else str(count)
 
 
 # -- The definitions --------------------------------------------------------------------------

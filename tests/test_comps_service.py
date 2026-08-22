@@ -690,7 +690,7 @@ class TestTheRenderedReportCarriesNoMultiple:
 
         joined = "\n".join(block)
         assert "## Comparable companies" in joined
-        assert "3 peer(s)" in joined
+        assert "three peers" in joined
         assert "withheld" in joined
 
     def test_no_multiple_can_reach_the_block(self):

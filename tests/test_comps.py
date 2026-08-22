@@ -581,7 +581,7 @@ class TestNothingPriceDerivedLeavesTheMachine:
         withheld = table_of(peers=4).for_audience(Audience.SHAREABLE)
 
         paragraph = withheld.as_paragraph()
-        assert "4 peer(s)" in paragraph
+        assert "four peers" in paragraph
         assert "withheld" in paragraph
         assert "internal use only" in paragraph
 
@@ -601,17 +601,20 @@ class TestWithholdingNothingIsNotWithholding:
     """
 
     def test_an_empty_table_promises_no_fuller_version(self):
+        """And names no "operator's own copy" at all (gap R10): in a personal research
+        tool that is the document the reader is already holding."""
         paragraph = WithheldComps(peer_count=0, excluded_count=5, as_of=AS_OF).as_paragraph()
 
         assert "available in full" not in paragraph
         assert "performed against" not in paragraph
         assert "withheld" not in paragraph
+        assert "operator's own copy" not in paragraph
 
     def test_an_empty_table_says_nothing_was_computed_and_why(self):
         paragraph = WithheldComps(peer_count=0, excluded_count=5, as_of=AS_OF).as_paragraph()
 
         assert "no comparable figure was computed" in paragraph
-        assert "5 proposed peer(s)" in paragraph
+        assert "five proposed peers" in paragraph
         assert AS_OF.isoformat() in paragraph
 
     def test_a_real_analysis_still_withholds_rather_than_denies(self):
@@ -619,7 +622,8 @@ class TestWithholdingNothingIsNotWithholding:
         paragraph's job is to withhold them under the licence, not to disclaim them."""
         paragraph = WithheldComps(peer_count=3, excluded_count=1, as_of=AS_OF).as_paragraph()
 
-        assert "performed against 3 peer(s)" in paragraph
+        assert "performed against three peers" in paragraph
+        assert "one proposed peer excluded" in paragraph
         assert "figures are withheld" in paragraph
         assert "available in full on the operator's own copy" in paragraph
 
@@ -628,8 +632,26 @@ class TestWithholdingNothingIsNotWithholding:
         "every one of the 0 proposed peer(s)"."""
         paragraph = WithheldComps(peer_count=0, excluded_count=0, as_of=AS_OF).as_paragraph()
 
-        assert "0 proposed peer(s)" not in paragraph
+        assert "0 proposed peer" not in paragraph
         assert "no comparable figure was computed" in paragraph
+
+    def test_house_style_holds_across_the_counts(self):
+        """Gap R10: small counts are spelled, plurals agree, and the parenthetical
+        "peer(s)" — a form no equity note prints — never appears in either state."""
+        single = WithheldComps(peer_count=0, excluded_count=1, as_of=AS_OF).as_paragraph()
+        assert "its single proposed peer was excluded" in single
+
+        many = WithheldComps(peer_count=1, excluded_count=13, as_of=AS_OF).as_paragraph()
+        assert "against one peer" in many
+        # Thirteen is past the spelling boundary, so the digits carry it.
+        assert "13 proposed peers excluded" in many
+
+        for paragraph in (
+            single,
+            many,
+            WithheldComps(peer_count=7, excluded_count=0, as_of=AS_OF).as_paragraph(),
+        ):
+            assert "peer(s)" not in paragraph
 
 
 class TestTheTableItself:

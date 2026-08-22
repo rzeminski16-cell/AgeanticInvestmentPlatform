@@ -24,6 +24,7 @@ from dataclasses import dataclass, replace
 from dataclasses import field as dataclass_field
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from typing import Final
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,6 +51,7 @@ from aer.db.models import (
 )
 from aer.errors import ValidationError
 from aer.render.glance import GLANCE_CONTRACT, GLANCE_TITLE, glance_content
+from aer.sections.evidence import refusal_causes_in
 from aer.sections.registry import sections_for_job
 from aer.sections.render import CitationRef, Fragment, Heading, render_section
 
@@ -108,6 +110,43 @@ _STATUS_NOTES = {
     SectionStatus.FAILED: "This section could not be generated.",
     SectionStatus.SKIPPED_NOT_APPLICABLE: "This section does not apply to this company.",
 }
+
+# Each refusal cause as a reader meets it (gap R6). The CHRW report's three missing
+# sections each said only "This section could not be generated." — no cause, no
+# consequence, no direction — while each failure was legible from the run and each had a
+# *different* cause. The cause names are `aer.sections.evidence`'s own; the sentences are
+# about the analysis, never about the machinery that refused it.
+_FAILED_CAUSE_PHRASES: Final[dict[str, str]] = {
+    "citation": "its draft cited evidence this research does not hold",
+    "numeral": "its draft stated figures that could not be traced to a recorded source",
+    "gaps": "the evidence it needed was not acquired",
+    "length": "no draft fitted the length allotted to it",
+    "truncation": "no complete draft could be produced within the space allowed",
+    "policy": "its draft relied on forward-looking statements this section excludes",
+    "method": "its draft described method inputs the valuation record does not hold",
+}
+
+
+def _status_note(section: ReportSection) -> str | None:
+    """The status line under an absent section's heading, with its cause where one is legible.
+
+    A failed section's stored reason is the validator's diagnostics — raw ids and schema
+    paths, written for the operator's console — so the diagnostics themselves stay out of
+    the document. But *which kinds* of refusal happened is readable from the same text,
+    and a reader told the cause and the consequence can weigh the absence instead of
+    merely noticing it. A reason matching no signature keeps the plain line: a wrong
+    cause is worse than none.
+    """
+    if section.status is not SectionStatus.FAILED:
+        return _STATUS_NOTES.get(section.status)
+    causes = refusal_causes_in(section.low_confidence_reason or "")
+    phrases = [phrase for cause in causes if (phrase := _FAILED_CAUSE_PHRASES.get(cause))]
+    if not phrases:
+        return _STATUS_NOTES[SectionStatus.FAILED]
+    return (
+        f"This section could not be generated: {', and '.join(phrases)}. What it would "
+        "have covered is absent from this note rather than asserted without support."
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -457,7 +496,7 @@ async def assemble_document(
             # Numbering continues across the document, so a reader chasing marker 3
             # finds the third marker in the report rather than the third in some section.
             footnote_start=len(citations) + 1,
-            status_note=_STATUS_NOTES.get(section.status),
+            status_note=_status_note(section),
             # A failed section's recorded reason is the validator's diagnostics — raw
             # ids and schema paths, written for the operator's console. The reader gets
             # the status line and the coverage notice; the diagnostics stay in the run.

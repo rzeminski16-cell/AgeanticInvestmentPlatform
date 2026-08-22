@@ -321,7 +321,7 @@ The run's validators measured 10 metric(s): 9 passed, 0 failed, 1 not exercised.
 
 ## Comparable companies
 
-A comparable-company analysis was attempted as at 30 June 2022, but every one of the 1 proposed peer(s) was excluded for want of usable data, so no comparable figure was computed. There is no fuller version elsewhere; the operator's own copy lists each excluded peer with the reason.
+A comparable-company analysis was attempted as at 30 June 2022, but its single proposed peer was excluded for want of usable data, so no comparable figure was computed and there is no fuller version elsewhere.
 
 ## Scope and limitations
 
