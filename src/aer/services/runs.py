@@ -35,7 +35,7 @@ from aer.providers.router import Router
 from aer.storage.protocol import ArtefactStore
 from aer.version import git_sha
 from aer.workflow.engine import BudgetGuard, WorkflowEngine, spend_so_far
-from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION, build_steps
+from aer.workflow.registry import DEFAULT_WORKFLOW_VERSION, WorkflowRegistryError, resolve_workflow
 
 __all__ = [
     "RunOutcome",
@@ -87,7 +87,7 @@ async def start_run(session: AsyncSession, *, request: ResearchRequest) -> Job:
 
     job = Job(
         request_id=request.id,
-        workflow_version=WORKFLOW_VERSION,
+        workflow_version=DEFAULT_WORKFLOW_VERSION,
         code_version=git_sha() or "unknown",
         status=JobStatus.QUEUED,
         started_at=datetime.now(UTC),
@@ -99,7 +99,7 @@ async def start_run(session: AsyncSession, *, request: ResearchRequest) -> Job:
         "run.started",
         job_id=str(job.id),
         request_id=str(request.id),
-        workflow=WORKFLOW_VERSION,
+        workflow=DEFAULT_WORKFLOW_VERSION,
         # Which of the two things just happened. "A run started" is ambiguous once a
         # request can have more than one, and the second is the interesting case.
         supersedes=str(existing.id) if existing is not None else None,
@@ -164,7 +164,7 @@ async def execute(
     await session.commit()
 
     engine = WorkflowEngine(
-        build_steps(),
+        resolve_workflow(job.workflow_version).build_steps(),
         budget=BudgetGuard(
             # The request's own ceiling, not the global default: an operator who set £0.50
             # on this request meant £0.50 on this request.
@@ -379,10 +379,15 @@ async def run_state(session: AsyncSession, *, job_id: uuid.UUID) -> RunState:
 def declared_steps(workflow_version: str) -> tuple[str, ...]:
     """The step keys a workflow version declares, in order.
 
-    Read from the workflow definition rather than stored on the job, so the console cannot
-    show a plan the engine would not follow. A version this build does not have returns
-    nothing — see :attr:`RunState.declared_steps`.
+    Read from the registry rather than stored on the job, so the console cannot show a plan
+    the engine would not follow. A version this build genuinely does not have still returns
+    nothing — see :attr:`RunState.declared_steps` — but it is now the registry that decides
+    that, rather than an equality test against whichever workflow happened to be imported
+    here. Every registered workflow answers; only an unregistered one is blank, and the log
+    line says which it was.
     """
-    if workflow_version != WORKFLOW_VERSION:
+    try:
+        return tuple(step.key for step in resolve_workflow(workflow_version).build_steps())
+    except WorkflowRegistryError:
+        _log.warning("runs.workflow_unregistered", workflow_version=workflow_version)
         return ()
-    return tuple(step.key for step in build_steps())

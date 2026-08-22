@@ -45,7 +45,7 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -389,7 +389,9 @@ class WorkflowEngine:
 
     def __init__(
         self,
-        steps: list[WorkflowStep],
+        # A sequence rather than a list: the registry hands out a workflow's steps, and a
+        # caller that could append to them could change what a version means mid-run.
+        steps: Sequence[WorkflowStep],
         *,
         budget: BudgetGuard | None = None,
         max_parallel: int = MAX_PARALLEL_NODES,

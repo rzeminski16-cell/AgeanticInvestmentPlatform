@@ -581,8 +581,16 @@ Live status. Tick an item only when it is committed, not when it is drafted.
       `services/exhibits.py::_fact_input_ids` is narrowed to its own. **The price half was
       live, not latent:** six minting sites over `securities.id` feed the traced GBX→GBP
       conversion, so every LSE run with a licence key had been writing dangling nodes
-- [ ] Workflow registry — `WorkflowDefinition` keyed by version, replacing the hard import
-      at `services/runs.py:38` and the four `vertical_slice_v1` gate-payload imports
+- [x] Workflow registry — `WorkflowDefinition` keyed by version, replacing the hard import
+      at `services/runs.py:38`. The engine now runs the steps the *job* recorded rather
+      than whichever workflow was imported, and an unregistered version is a logged
+      decision rather than a silently blank console timeline
+- [ ] ~~the four `vertical_slice_v1` gate-payload imports~~ — **not folded in, and not a
+      refactor.** The three payload builders take different arguments deliberately:
+      `unmapped_gate_payload` reads the extract step's frozen output "not a re-derivation
+      that might differ", and ADR 0046's amendment has the assumptions gate assemble from
+      rows because it approves work that has not happened yet. One signature would reverse
+      both. Needs a decision about what each gate hashes
 - [ ] `work_orders` supertype; `research_requests` demoted to a 1:1 detail row; `jobs` gains
       `work_order_id` (ADR 0068). Four-step migration with working downgrades
 - [ ] `approvals.request_id` repointed to `work_orders` — ADR 0074's gate cannot be written
