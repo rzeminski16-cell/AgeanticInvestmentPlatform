@@ -645,10 +645,19 @@ Live status. Tick an item only when it is committed, not when it is drafted.
 - [x] `shell` injected inside `templating.render()`, constructible with no database — asserted
       against the broken-engine client, because `StrictUndefined` would otherwise turn the one
       page an operator opens when Postgres is down into a 500
-- [ ] Design tokens in `@theme`; dark variant through a flipping custom-property layer
-- [ ] `_ui/` macros — card, KPI tile, provenance badge, empty state, drawer. Data, never classes
-- [ ] Provenance badge requires a `ProvenanceRef`; two chips, not five (ADR 0073)
-- [ ] The provenance label test — no label string outside the macro
+- [x] Design tokens in `@theme`; dark variant through a flipping custom-property layer.
+      Added *beside* Tailwind's stock ramps rather than overriding `sky` and `slate` —
+      that would have re-skinned all 37 templates for free and left `text-sky-700`
+      rendering navy, a small permanent lie in a repository whose habit is to refuse
+      exactly that. Verified the utilities compile to `var(--aer-…)` so the flip works
+- [x] `_ui/` macros — card, KPI tile, provenance badge, empty state, guidance callout.
+      Data, never classes. **The drawer is not here**: it needs the focus trap, and that
+      is its own slice rather than a macro with a gap in it
+- [x] Provenance badge requires a `ProvenanceRef`; two chips, not five (ADR 0073). A ref
+      with no `href` raises, and `Confirmed` with nobody attached raises
+- [x] The provenance label test — no label string outside the macro, plus a companion
+      asserting the macro file does contain them, so the grep cannot pass by finding
+      nothing anywhere
 - [ ] `drawer.js` — focus trap, Escape, scroll lock, `aria-modal`. Written once
 - [ ] Guidance mode — the flag, the toggle and `data-guidance` on `<body>` are done: server
       state under ADR 0073, a form POST that redirects so it works with scripting off, and a

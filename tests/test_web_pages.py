@@ -131,16 +131,31 @@ class TestCommittedBuildOutput:
         # build produced an empty or failed output.
         assert stylesheet.stat().st_size > 2000
 
-    def test_the_stylesheet_contains_classes_the_templates_use(self):
-        # The drift guard. Tailwind only emits classes it found while scanning, so a
-        # class present in a template but absent from the output means the stylesheet was
-        # not rebuilt after that template changed.
+    def test_the_stylesheet_covers_every_class_the_templates_use(self):
+        """The drift guard, over the whole set rather than a sample of it.
+
+        Tailwind emits only what it found while scanning, so a class in a template and not
+        in the output means the stylesheet was not rebuilt after that template changed —
+        and the page renders that rule as nothing at all.
+
+        This replaced four hand-picked class names whose own comment called them "the
+        newest classes in the templates, so they are the ones a stale stylesheet would be
+        missing". That was true when it was written and stopped being true the next time
+        somebody edited a template: `pt-3` and `border-amber-200` went into
+        `runs/assumptions.html` and the sample never moved, so the amber divider on that
+        page had been rendering unstyled. A sample that has to be kept newest is a sample
+        nobody will keep newest.
+        """
         compiled = (STATIC_DIR / "css" / "app.css").read_text(encoding="utf-8")
-        # The last two are the destructive-action styling on the cancel and delete buttons.
-        # They are the newest classes in the templates, so they are the ones a stale
-        # stylesheet would be missing.
-        for expected in ("antialiased", "max-w-5xl", "tracking-tight", "border-red-300"):
-            assert expected in compiled, f"{expected} missing; run `just css`"
+        missing = sorted(
+            token
+            for token in _template_classes()
+            if token not in _NOT_UTILITIES and _selector(token) not in compiled
+        )
+
+        assert not missing, (
+            f"classes missing from the compiled stylesheet: {missing}. Run `just css`."
+        )
 
     def test_every_template_is_present(self):
         for name in ("base.html", "_nav.html", "index.html"):
@@ -247,3 +262,43 @@ class TestGuidanceMode:
 
         assert response.status_code == 303
         assert 'data-guidance="off"' in (await web_client.get("/")).text
+
+
+# Class names in the templates that Tailwind does not generate and never will: form and
+# behaviour hooks, and the node and edge classes the knowledge graph's SVG carries. They are
+# listed rather than pattern-matched, so a genuine utility cannot hide among them by
+# accident.
+_NOT_UTILITIES: frozenset[str] = frozenset(
+    {
+        "archive-request",
+        "remove-request",
+        "restore-request",
+        "edge-comparable",
+        "edge-membership",
+        "node-company",
+        "node-theme",
+    }
+)
+
+
+def _selector(token: str) -> str:
+    """A class name as it appears in compiled CSS, with the characters Tailwind escapes."""
+    return "." + "".join("\\" + ch if ch in ":/.[]%()#," else ch for ch in token)
+
+
+def _template_classes() -> set[str]:
+    """Every statically written class name in every template.
+
+    Attributes containing Jinja are skipped: a class composed at render time is not a string
+    this can check, and guessing at what it might become would make the test fail on
+    something no page ever asks for.
+    """
+    found: set[str] = set()
+    for template in TEMPLATES_DIR.rglob("*.html"):
+        body = template.read_text(encoding="utf-8")
+        for match in re.finditer(r'class="([^"]*)"', body):
+            raw = match.group(1)
+            if "{" in raw or "}" in raw:
+                continue
+            found.update(token for token in raw.split() if token)
+    return found

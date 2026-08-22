@@ -1,0 +1,10 @@
+{#
+  One import per page. `{% import "_ui/index.html" as ui with context %}` and then
+  `ui.card(...)`, so a page names the component rather than the classes that make it.
+
+  The rule for everything here: a macro takes data and never classes. A component that
+  accepted a class string would let a caller build a card that is not a card, and the
+  reason to have components at all is that there is one answer to what a card looks like.
+#}
+{% from "_ui/provenance.html" import provenance, confirmation %}
+{% from "_ui/surfaces.html" import card, kpi, empty, guide %}

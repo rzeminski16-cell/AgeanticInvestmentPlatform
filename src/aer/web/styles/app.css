@@ -13,3 +13,146 @@
    builds exist in no scanned file, so Tailwind emits nothing for them and a failed step
    gets a dot with no colour. */
 @source "../static/js/*.js";
+
+/* ---------------------------------------------------------------------------------------
+   The palette, as flipping custom properties.
+
+   Two layers, and the split is a Tailwind v4 constraint rather than a preference. `@theme`
+   values are resolved once and do not respond to a media query, so a dark palette written
+   as a second `@theme` inside `@media (prefers-color-scheme: dark)` compiles to the light
+   values and silently does nothing. Plain custom properties do flip, and `@theme inline`
+   below aliases them into the utilities by reference rather than by value.
+
+   These are added beside Tailwind's stock ramps rather than replacing them. Overriding
+   `sky` and `slate` would re-skin all thirty-seven existing templates for free and leave a
+   codebase where `text-sky-700` renders navy — a small permanent lie in a repository whose
+   habit is to refuse exactly that. New surfaces use the semantic names; the existing pages
+   keep the ramps they were written against until they are rewritten. */
+
+:root {
+  /* Structure */
+  --aer-canvas: #f4f7fb;
+  --aer-surface: #ffffff;
+  --aer-surface-sunken: #eef3f9;
+  --aer-line: #d9e2ef;
+  --aer-line-strong: #b8c7da;
+
+  /* Type */
+  --aer-ink: #152033;
+  --aer-ink-muted: #60718a;
+  --aer-ink-faint: #8291a7;
+
+  /* The one accent. Used once or twice per screen, for the action that is the point of it. */
+  --aer-brand: #246bfd;
+  --aer-brand-strong: #1858dd;
+  --aer-brand-wash: #eaf1ff;
+  --aer-navy: #0b2945;
+
+  /* Meaning. Never carried by colour alone — every use pairs with a word or an icon,
+     because a status a colour-blind reader cannot read is a status that is not there. */
+  --aer-good-wash: #e3f6ef;
+  --aer-good-ink: #087a5b;
+  --aer-warn-wash: #fff3d7;
+  --aer-warn-ink: #9a6200;
+  --aer-bad-wash: #fde7e9;
+  --aer-bad-ink: #b42333;
+  --aer-info-wash: #e8f1ff;
+  --aer-info-ink: #175cd3;
+  --aer-mute-wash: #edf1f6;
+  --aer-mute-ink: #506176;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --aer-canvas: #071e33;
+    --aer-surface: #0b2945;
+    --aer-surface-sunken: #061a2c;
+    --aer-line: #1c3a5c;
+    --aer-line-strong: #2b4a6e;
+
+    --aer-ink: #eaf1ff;
+    --aer-ink-muted: #9db0c9;
+    --aer-ink-faint: #7286a1;
+
+    --aer-brand: #4d86ff;
+    --aer-brand-strong: #6d9bff;
+    --aer-brand-wash: #10305a;
+    --aer-navy: #eaf1ff;
+
+    --aer-good-wash: #06301f;
+    --aer-good-ink: #6ee7b7;
+    --aer-warn-wash: #3a2a05;
+    --aer-warn-ink: #fcd34d;
+    --aer-bad-wash: #3d1119;
+    --aer-bad-ink: #fda4af;
+    --aer-info-wash: #10305a;
+    --aer-info-ink: #93c5fd;
+    --aer-mute-wash: #12283f;
+    --aer-mute-ink: #9db0c9;
+  }
+}
+
+/* `inline` is what makes the flip work: the utility is emitted as `var(--aer-canvas)`
+   rather than as the hex the light block happens to hold. */
+@theme inline {
+  --color-canvas: var(--aer-canvas);
+  --color-surface: var(--aer-surface);
+  --color-surface-sunken: var(--aer-surface-sunken);
+  --color-line: var(--aer-line);
+  --color-line-strong: var(--aer-line-strong);
+
+  --color-ink: var(--aer-ink);
+  --color-ink-muted: var(--aer-ink-muted);
+  --color-ink-faint: var(--aer-ink-faint);
+
+  --color-brand: var(--aer-brand);
+  --color-brand-strong: var(--aer-brand-strong);
+  --color-brand-wash: var(--aer-brand-wash);
+  --color-navy: var(--aer-navy);
+
+  --color-good-wash: var(--aer-good-wash);
+  --color-good-ink: var(--aer-good-ink);
+  --color-warn-wash: var(--aer-warn-wash);
+  --color-warn-ink: var(--aer-warn-ink);
+  --color-bad-wash: var(--aer-bad-wash);
+  --color-bad-ink: var(--aer-bad-ink);
+  --color-info-wash: var(--aer-info-wash);
+  --color-info-ink: var(--aer-info-ink);
+  --color-mute-wash: var(--aer-mute-wash);
+  --color-mute-ink: var(--aer-mute-ink);
+}
+
+/* Layout constants, so a sidebar width lives in one place rather than in every template
+   that has to avoid it. */
+@theme {
+  --radius-card: 14px;
+  --radius-panel: 16px;
+  --spacing-sidebar: 15rem;
+  --spacing-drawer: 28rem;
+  --container-shell: 77.5rem;
+}
+
+/* ---------------------------------------------------------------------------------------
+   Guidance mode.
+
+   Callouts are markup that is always present and shown by an attribute on <body>, so a page
+   not using guidance pays no JavaScript for it and the numbers sit beside the thing they
+   explain rather than in a list of selectors that rots when a div is renamed (ADR 0073). */
+
+.aer-guide {
+  display: none;
+}
+
+body[data-guidance="on"] .aer-guide {
+  display: inline-flex;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
