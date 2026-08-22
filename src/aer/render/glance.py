@@ -239,7 +239,7 @@ async def _consolidated_facts(
         # on one front page: a revenue, a net income and an earnings per share that could
         # not all belong to the same company, since the last two imply a share count
         # two orders of magnitude from the filer's own.
-        visible_facts(scope_for_request(request)).order_by(
+        visible_facts(await scope_for_request(session, request)).order_by(
             FinancialFact.period_end.desc(), FinancialFact.concept
         )
     )

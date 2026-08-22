@@ -28,14 +28,17 @@ them has to be a decision about what each gate hashes, not a refactor.
 from __future__ import annotations
 
 import importlib
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 
 from aer.errors import AerError
 
 if TYPE_CHECKING:
     from aer.workflow.engine import WorkflowStep
+
+    # What every workflow's gate-payload entry point looks like.
+    GatePayload = Callable[..., Awaitable[Mapping[str, Any]]]
 
 __all__ = [
     "WorkflowDefinition",
@@ -62,31 +65,45 @@ class WorkflowDefinition:
 
     version: str
     build_steps_ref: str
+    gate_payload_ref: str
     adr: str
     summary: str = ""
 
-    def build_steps(self) -> Sequence[WorkflowStep]:
-        """The steps this version declares, in order."""
-        module_name, _, attribute = self.build_steps_ref.partition(":")
+    def _resolve(self, reference: str, *, field: str) -> Any:
+        module_name, _, attribute = reference.partition(":")
         if not module_name or not attribute:
             message = (
-                f"Workflow {self.version!r} has a malformed build_steps reference "
-                f"{self.build_steps_ref!r}; it must read 'module:function'."
+                f"Workflow {self.version!r} has a malformed {field} reference "
+                f"{reference!r}; it must read 'module:function'."
             )
             raise WorkflowRegistryError(message, context={"workflow_version": self.version})
         try:
-            builder: Callable[[], Sequence[WorkflowStep]] = getattr(
-                importlib.import_module(module_name), attribute
-            )
+            return getattr(importlib.import_module(module_name), attribute)
         except (ImportError, AttributeError) as lost:
             message = (
-                f"Workflow {self.version!r} names {self.build_steps_ref!r}, which this "
-                "build cannot import."
+                f"Workflow {self.version!r} names {reference!r}, which this build cannot import."
             )
             raise WorkflowRegistryError(
                 message, context={"workflow_version": self.version}
             ) from lost
+
+    def build_steps(self) -> Sequence[WorkflowStep]:
+        """The steps this version declares, in order."""
+        builder: Callable[[], Sequence[WorkflowStep]] = self._resolve(
+            self.build_steps_ref, field="build_steps"
+        )
         return builder()
+
+    def gate_payload(self) -> GatePayload:
+        """What a gate approves, for any gate this workflow declares.
+
+        Held here rather than imported by each page because a gate is a property of the
+        workflow that raised it. The run console, the JSON API and a second tool's pages
+        can then render an approval without knowing which workflow produced it — which is
+        the whole reason a registry beats a hard import.
+        """
+        resolved: GatePayload = self._resolve(self.gate_payload_ref, field="gate_payload")
+        return resolved
 
 
 # The definitions themselves, in the shape `agents/registry.py` keeps them: a module-level
@@ -95,6 +112,7 @@ _DEFINITIONS: Final[tuple[WorkflowDefinition, ...]] = (
     WorkflowDefinition(
         version="vertical_slice_v1",
         build_steps_ref="aer.workflow.workflows.vertical_slice_v1:build_steps",
+        gate_payload_ref="aer.workflow.workflows.vertical_slice_v1:gate_payload",
         adr="0016",
         summary="One company, one report: plan, acquire, extract, calculate, draft, render.",
     ),

@@ -786,7 +786,7 @@ class TestTheServiceReadsTheRecordedRows:
         scene["job"].plan_id = plan.id
         session.add(
             PlanSkillPin(
-                plan_id=plan.id,
+                work_order_id=plan.request_id,
                 skill_id=version.skill_id,
                 skill_version_id=version.id,
                 status=PLANNED,

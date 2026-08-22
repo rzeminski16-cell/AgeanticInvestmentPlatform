@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
 from aer.core.enums import ClaimKind, Provider, SourceTier
-from aer.db.models import Artefact, Citation
+from aer.db.models import Artefact, Citation, WorkOrder
 from aer.errors import ConflictError, ValidationError
 from aer.extract.dates import (
     DateCandidate,
@@ -730,7 +730,7 @@ class TestAtClaimTime:
 
         assert outcome.failed
         assert citation.excerpt_verified is False
-        assert "after the request's as-of date" in (outcome.reason or "")
+        assert "after the run's as-of date" in (outcome.reason or "")
 
     async def test_moving_the_as_of_date_earlier_invalidates_a_citation(
         self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
@@ -746,7 +746,11 @@ class TestAtClaimTime:
         passing = await verify(db_session, scene["store"], citation=citation, settings=settings)
         assert passing.verified
 
-        scene["request"].as_of_date = date(2022, 5, 1)
+        # On the work order, which is where a run's clock lives since ADR 0068. The
+        # mandate carries a copy for one more revision and nothing reads it: two answers to
+        # "what date is this run dated to" is exactly what moving the clock avoided.
+        work_order = await db_session.get(WorkOrder, scene["request"].id)
+        work_order.as_of_date = date(2022, 5, 1)
         await db_session.flush()
 
         outcome = await verify(db_session, scene["store"], citation=citation, settings=settings)
@@ -795,7 +799,8 @@ class TestAtClaimTime:
     ) -> None:
         """The rule belongs to point-in-time mode. With it off, a recent document is just a
         recent document."""
-        scene["request"].point_in_time = False
+        work_order = await db_session.get(WorkOrder, scene["request"].id)
+        work_order.point_in_time = False
         scene["document"].publication_date_latest = scene["request"].as_of_date + timedelta(days=90)
         await db_session.flush()
 

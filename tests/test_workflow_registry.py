@@ -60,6 +60,7 @@ class TestTheRegistry:
         broken = WorkflowDefinition(
             version="broken_v1",
             build_steps_ref="aer.workflow.workflows.does_not_exist:build_steps",
+            gate_payload_ref="aer.workflow.workflows.does_not_exist:gate_payload",
             adr="0016",
         )
 
@@ -70,6 +71,7 @@ class TestTheRegistry:
         broken = WorkflowDefinition(
             version="broken_v2",
             build_steps_ref="not_a_reference",
+            gate_payload_ref="not_a_reference",
             adr="0016",
         )
 
@@ -88,7 +90,9 @@ class TestTheDefinitionsThemselves:
             assert matches, f"workflow {version} cites ADR {definition.adr}, which no file carries"
 
     def test_a_definition_without_an_adr_is_refused(self):
-        bare = WorkflowDefinition(version="undocumented", build_steps_ref="a:b", adr="   ")
+        bare = WorkflowDefinition(
+            version="undocumented", build_steps_ref="a:b", gate_payload_ref="a:b", adr="   "
+        )
 
         with pytest.raises(WorkflowRegistryError, match="names no ADR"):
             registry_module._build((bare,))

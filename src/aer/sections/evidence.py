@@ -429,7 +429,9 @@ async def gather_evidence(
         # subject's" right up until a run acquired a peer's filings under the same request:
         # the pool then sorted by period end, a March year end outranked a December one, and
         # a section asking for annual figures was handed a pool with no subject in it.
-        selection = visible_facts(with_subject(scope_for_request(request), subject_company_id))
+        selection = visible_facts(
+            with_subject(await scope_for_request(session, request), subject_company_id)
+        )
         # The section's declared basis, applied in the query rather than after ranking:
         # a history section that wants annual figures should spend its whole fact budget
         # on them, not on whatever quarterly rows out-ranked them on recency.
@@ -507,7 +509,9 @@ async def gather_evidence(
         # filings in a listing capped at forty.
         sources = list(
             await session.scalars(
-                visible_sources(with_subject(scope_for_request(request), subject_company_id))
+                visible_sources(
+                    with_subject(await scope_for_request(session, request), subject_company_id)
+                )
                 .where(SourceDocument.quarantined.is_(False))
                 .order_by(SourceDocument.retrieved_at.desc())
                 .limit(EVIDENCE_ITEM_CAP)

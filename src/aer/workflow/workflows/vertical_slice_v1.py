@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -162,11 +162,13 @@ __all__ = [
     "build_steps",
     "comps_note_for",
     "final_gate_payload",
+    "gate_payload",
     "peer_gate_payload",
     "plan_gate_payload",
     "sector_gate_payload",
     "sector_key_of",
     "sector_note_for",
+    "step_output",
     "theme_gate_payload",
     "unmapped_gate_payload",
     "unmapped_gate_required",
@@ -2421,6 +2423,89 @@ async def _draft(context: StepContext) -> StepResult:
         },
         cost_gbp=spent,
     )
+
+
+async def step_output(session: AsyncSession, *, job_id: uuid.UUID, step_key: str) -> dict[str, Any]:
+    """What a step recorded, as it recorded it.
+
+    The latest attempt, because a retried step's earlier attempts are history rather than
+    the answer. Empty for a step that has not run, which every caller here treats as "this
+    gate does not apply yet" rather than as an error.
+    """
+    step = await session.scalar(
+        select(JobStep)
+        .where(JobStep.job_id == job_id, JobStep.step_key == step_key)
+        .order_by(JobStep.sequence.desc())
+        .limit(1)
+    )
+    return (step.output_ref or {}) if step is not None else {}
+
+
+# Which step's frozen output each gate approves. Five of the seven gates read nothing else,
+# which is why they can share one entry point at all.
+_GATE_STEPS: Final[Mapping[str, str]] = {
+    GateKind.PLAN.value: "plan",
+    GateKind.SECTOR_SPECIALIST.value: CLASSIFY_STEP,
+    GateKind.PEER_SET.value: PEER_SET_STEP,
+    GateKind.THEME_SET.value: THEME_STEP,
+    GateKind.UNMAPPED_CONCEPTS.value: "extract",
+    GateKind.ASSUMPTIONS.value: ASSUMPTIONS_STEP,
+    GateKind.FINAL.value: "red_team",
+}
+
+
+async def gate_payload(session: AsyncSession, *, job: Job, gate: str) -> dict[str, Any]:
+    """Exactly what a gate approves, for any gate this workflow declares.
+
+    One entry point so a caller does not have to know which of seven builders a gate uses,
+    which is what lets the run console, the JSON API and a second tool's pages render a
+    gate without importing this module.
+
+    **This does not re-derive anything, and the distinction is the whole reason the
+    consolidation is safe.** Five of the seven gates are built from the step's own frozen
+    output — `unmapped_gate_payload` says why, that "the tags an operator is shown are the
+    tags the extractor actually could not place, not a re-derivation that might differ" —
+    and reading that record back out of `job_steps` is reading what the step wrote, not
+    recomputing it. What would have broken the guarantee is a uniform signature that forced
+    every gate to recompute from live rows. Two gates genuinely differ and keep their own
+    branch rather than being bent into the common shape:
+
+    * **plan** is assembled from the plan row and its pins, because the pins can be read
+      back and the payload is a view over them rather than something the step alone knows.
+    * **assumptions** assembles from the rows as they stand, deliberately and alone among
+      the gates, because it approves work that has not happened yet and an operator can
+      amend a value while the run waits (ADR 0046's amendment, gap A52). Its frozen output
+      is still the record of what the step did; it is not what the gate approves.
+    """
+    produced = await step_output(session, job_id=job.id, step_key=_GATE_STEPS.get(gate, ""))
+
+    if gate == GateKind.PLAN.value:
+        plan = await session.get(ResearchPlan, job.plan_id) if job.plan_id else None
+        if plan is None:
+            return {}
+        pins = await pinned_skills_for_work_order(session, work_order_id=job.work_order_id)
+        return plan_gate_payload(plan, pins)
+
+    if gate == GateKind.ASSUMPTIONS.value:
+        rows = await assumptions_for_request(session, job.work_order_id)
+        return assumptions_gate_refreshed(rows, dict(produced))
+
+    if gate == GateKind.FINAL.value:
+        return await final_gate_payload(session, job_id=job.id)
+
+    builder = _STEP_OUTPUT_GATES.get(gate)
+    if builder is None:
+        return {}
+    return builder(produced)
+
+
+# The five that are a pure function of one step's output.
+_STEP_OUTPUT_GATES: Final[Mapping[str, Callable[[Mapping[str, Any]], dict[str, Any]]]] = {
+    GateKind.SECTOR_SPECIALIST.value: sector_gate_payload,
+    GateKind.PEER_SET.value: peer_gate_payload,
+    GateKind.THEME_SET.value: theme_gate_payload,
+    GateKind.UNMAPPED_CONCEPTS.value: unmapped_gate_payload,
+}
 
 
 async def final_gate_payload(session: AsyncSession, *, job_id: uuid.UUID) -> dict[str, Any]:

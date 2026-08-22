@@ -136,7 +136,7 @@ def build_executors(
     async def search_facts(tool_request: ToolRequest) -> ExecutedTool:
         company_id = await _company_id_for(session, request=request)
         rows = await session.scalars(
-            visible_facts(with_subject(scope_for_request(request), company_id))
+            visible_facts(with_subject(await scope_for_request(session, request), company_id))
             .where(FinancialFact.concept.ilike(f"%{tool_request.query.strip()}%"))
             .order_by(FinancialFact.period_end.desc())
             .limit(MAX_HITS)
@@ -167,7 +167,7 @@ def build_executors(
         # writes `request.company_id`, so a NULL here means acquire has not run and there
         # is nothing stamped to find (ADR 0061).
         rows = await session.scalars(
-            visible_sources(scope_for_request(request))
+            visible_sources(await scope_for_request(session, request))
             .where(or_(SourceDocument.title.ilike(needle), SourceDocument.url.ilike(needle)))
             .order_by(SourceDocument.retrieved_at.desc())
             .limit(MAX_HITS)
@@ -683,7 +683,8 @@ async def validate_report(
         session,
         visible_facts(
             with_subject(
-                scope_for_request(request), await _company_id_for(session, request=request)
+                await scope_for_request(session, request),
+                await _company_id_for(session, request=request),
             )
         ).with_only_columns(FinancialFact.id),
         column=FinancialFact.id,

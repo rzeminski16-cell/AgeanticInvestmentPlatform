@@ -585,12 +585,16 @@ Live status. Tick an item only when it is committed, not when it is drafted.
       at `services/runs.py:38`. The engine now runs the steps the *job* recorded rather
       than whichever workflow was imported, and an unregistered version is a logged
       decision rather than a silently blank console timeline
-- [ ] ~~the four `vertical_slice_v1` gate-payload imports~~ — **not folded in, and not a
-      refactor.** The three payload builders take different arguments deliberately:
-      `unmapped_gate_payload` reads the extract step's frozen output "not a re-derivation
-      that might differ", and ADR 0046's amendment has the assumptions gate assemble from
-      rows because it approves work that has not happened yet. One signature would reverse
-      both. Needs a decision about what each gate hashes
+- [x] The `vertical_slice_v1` gate-payload imports — **and an earlier note here was
+      wrong.** It said one signature would force every gate to re-derive from the session
+      and so reverse two decisions. Five of the seven builders already share a signature,
+      and their argument is the step's own frozen output read back out of `job_steps` —
+      reading what a step wrote is not recomputing it. The two that genuinely differ keep
+      their own branch: `plan` assembles from the plan row and its pins, and `assumptions`
+      assembles from the rows as they stand, alone among the gates, because it approves
+      work that has not happened yet (ADR 0046's amendment). `WorkflowDefinition` now
+      carries a `gate_payload_ref`, so a page renders an approval without knowing which
+      workflow raised it
 - [x] `work_orders` supertype; `research_requests` demoted to a 1:1 detail row sharing its
       key; `jobs` gains `work_order_id` (ADR 0068). Migration 0051 — steps 1–3 of four,
       with a working downgrade proved by the round-trip test
@@ -611,8 +615,12 @@ Live status. Tick an item only when it is committed, not when it is drafted.
 
 - [ ] **Step 4 of the migration** — drop `jobs.request_id`, `approvals.request_id`,
       `source_documents.request_id` and the columns duplicated on `research_requests`.
-      Blocked on the ~20 remaining `session.get(ResearchRequest, job.request_id)` lookups,
-      which are mandate reads and legitimately want the mandate
+      **Deliberately not done in the same sitting as step 3.** ADR 0068 stages it as a
+      later revision, and the staging is the whole reason the downgrade is lossless rather
+      than declared: dropping `work_orders` discards nothing while those columns still
+      hold it. Running both at once would spend that guarantee for nothing. It also needs
+      the ~20 `session.get(ResearchRequest, job.request_id)` lookups to become optional
+      mandate reads, since a monitor run will have none
 
 ### Two things the migration surfaced that ADR 0068 did not anticipate
 

@@ -485,7 +485,7 @@ async def _figure_scenes(
     """
     facts = list(
         await session.scalars(
-            visible_facts(scope_for_request(request))
+            visible_facts(await scope_for_request(session, request))
             .where(FinancialFact.concept.in_(("revenue", "net_income", "total_assets")))
             .order_by(FinancialFact.period_end.desc(), FinancialFact.concept)
         )
