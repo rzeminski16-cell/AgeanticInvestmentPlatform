@@ -27,7 +27,9 @@ RESEARCH: Final = NavSection(
     label="Research",
     tool="research",
     items=(
-        NavItem(key="requests", label="Requests", href="/requests"),
+        # The one item carrying a count. `badge_key` names it; `web/shell/badges.py`
+        # decides what it counts, and the number arrives after the page does.
+        NavItem(key="requests", label="Requests", href="/requests", badge_key="approvals"),
         NavItem(key="reports", label="Reports", href="/reports"),
         NavItem(key="skills", label="Skills", href="/skills"),
         NavItem(key="knowledge", label="Knowledge", href="/knowledge"),
@@ -74,6 +76,9 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         # Liveness and readiness, reached by an operator or a probe, not by a person
         # browsing. `/healthz` is in the nav; `/readyz` is its unlinked sibling.
         "/readyz",
+        # The shell's own fragment, fetched by the nav after the page renders. Not a
+        # destination: opening it in a browser yields a handful of spans.
+        "/_shell/badges",
         # Detail views, each reached from the listing above it.
         "/calculations/{calculation_id}",
         "/claims/{claim_id}",

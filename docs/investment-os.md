@@ -258,15 +258,15 @@ that walks the references to files in `docs/adr/`.
 class ToolDefinition:
     key: str
     title: str
-    adr: str                       # refuses to be empty
+    adr: str  # refuses to be empty
     subject_kinds: frozenset[str]
-    mandate_model_ref: str         # "module:Attribute"
+    mandate_model_ref: str  # "module:Attribute"
     workflows: tuple[WorkflowDefinition, ...]
     roles: frozenset[str]
     api_routers: tuple[str, ...]
     page_routers: tuple[str, ...]
     nav: tuple[NavEntry, ...]
-    subject_resolvers: Mapping[str, str]   # subject_kind -> "module:function"
+    subject_resolvers: Mapping[str, str]  # subject_kind -> "module:function"
 ```
 
 `subject_resolvers` is what keeps the `(subject_kind, subject_id)` pair from rotting the way
@@ -659,11 +659,25 @@ Live status. Tick an item only when it is committed, not when it is drafted.
       asserting the macro file does contain them, so the grep cannot pass by finding
       nothing anywhere
 - [ ] `drawer.js` — focus trap, Escape, scroll lock, `aria-modal`. Written once
-- [ ] Guidance mode — the flag, the toggle and `data-guidance` on `<body>` are done: server
+- [ ] Guidance mode — the flag, the route and `data-guidance` on `<body>` are done: server
       state under ADR 0073, a form POST that redirects so it works with scripting off, and a
-      checked destination so it cannot become an open redirect. **The callouts themselves
-      still need the `ui.guide()` macro and its CSS**
-- [ ] Badge counts off the critical render path, behind `GET /_shell/badges`
+      checked destination so it cannot become an open redirect. `ui.guide()` and its CSS
+      landed with the macros. **Two things are left, and the second is why this is still
+      open:** no page calls the macro yet, and nothing renders a control for the toggle — a
+      form in the shell needs a CSRF token in the shell, which means `render()` minting one
+      and every response setting the cookie. That is its own slice, not a line in this one
+- [x] Badge counts off the critical render path, behind `GET /_shell/badges`. A
+      `BadgeProvider` per counted thing, in the registry idiom — a lazy `"module:function"`
+      counter and an `adr` that refuses to be empty — joined to `NavItem.badge_key` by a
+      test rather than an import, so the shell keeps no cycle. Two drift guards: a slot no
+      provider fills, and a provider no slot renders. Cached per operator for ten seconds,
+      best effort in both directions, because Redis being down must not cost the sidebar.
+      **The swap is `hx-swap-oob="innerHTML"`, not the default**, and that is the whole
+      accessibility question ADR 0073 named: `"true"` replaces the element, so the
+      `aria-live` region a screen reader is watching is thrown away and the number that
+      lands is never announced. Proved in a browser — with the default the attribute is
+      simply gone from the live DOM. A zero is swapped and renders as nothing, so a count
+      the operator has acted on clears rather than lingering
 - [ ] Inter vendored under `static/fonts/`, or the system stack accepted
 - [ ] **Overview as a genuinely second tool**, built only from data that already exists.
       If this screen works, the remaining sixteen are content rather than architecture

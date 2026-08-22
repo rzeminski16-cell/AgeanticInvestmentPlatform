@@ -32,7 +32,7 @@ from starlette.status import (
     HTTP_422_UNPROCESSABLE_CONTENT,
 )
 
-from aer.api.deps import CurrentUser, DbSession, SettingsDep, get_current_user
+from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep, get_current_user
 from aer.api.routes.assumptions import ProposeRequest, assumptions_payload
 from aer.core.assumption_scales import UNIT_CHOICES
 from aer.core.enums import AnalysisMode
@@ -56,6 +56,7 @@ from aer.version import build_identity
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.forms import ParsedForm, form_values_from, parse_request_form
 from aer.web.shell import GUIDANCE_COOKIE
+from aer.web.shell.badges import cached_counts_for
 from aer.web.templating import render
 from aer.workflow.workflows.vertical_slice_v1 import FORECAST_YEARS
 
@@ -1059,6 +1060,28 @@ async def create_assumption_page(
 def _problem_page(request: Request, message: str, status: int) -> Response:
     page: Response = render(request, "runs/problem.html", {"message": message}, status_code=status)
     return page
+
+
+@router.get("/_shell/badges", summary="The counts beside the navigation")
+async def shell_badges(
+    request: Request,
+    session: DbSession,
+    redis: RedisClient,
+    user: CurrentUser,
+) -> Response:
+    """The numbers for every registered badge, as out-of-band swaps.
+
+    Its own request because a count belongs to the tool that registers it and the sidebar
+    belongs to all of them: computed inline, one tool's slow query would be paid for on
+    every other tool's first paint, invisibly. The nav ships empty slots and this fills
+    them (`web/shell/badges.py`).
+
+    Nothing here decides what to count. The registry does, so a second tool contributes a
+    provider and this handler is not touched.
+    """
+    badges = await cached_counts_for(redis, session, user_id=user.id)
+    fragment: Response = render(request, "_shell/badges.html", {"badges": badges})
+    return fragment
 
 
 @router.post("/_shell/guidance", summary="Turn guidance mode on or off")

@@ -23,7 +23,7 @@ from decimal import Decimal
 from typing import Any, Final
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
@@ -41,6 +41,7 @@ __all__ = [
     "RunOutcome",
     "RunState",
     "TimelineEntry",
+    "awaiting_approval_count",
     "declared_steps",
     "execute",
     "latest_run",
@@ -394,3 +395,20 @@ def declared_steps(workflow_version: str) -> tuple[str, ...]:
     except WorkflowRegistryError:
         _log.warning("runs.workflow_unregistered", workflow_version=workflow_version)
         return ()
+
+
+async def awaiting_approval_count(session: AsyncSession, *, user_id: uuid.UUID) -> int:
+    """How many of this operator's research runs are stopped at a gate.
+
+    The shell's `approvals` badge (`web/shell/badges.py`). Scoped through the mandate
+    rather than through the work order, because the provider that registers this declares
+    itself the research tool's: a future monitor run stopped at its own gate is another
+    tool's number to show, under its own label.
+    """
+    total = await session.scalar(
+        select(func.count())
+        .select_from(Job)
+        .join(ResearchRequest, ResearchRequest.id == Job.work_order_id)
+        .where(Job.status == JobStatus.AWAITING_APPROVAL, ResearchRequest.user_id == user_id)
+    )
+    return int(total or 0)

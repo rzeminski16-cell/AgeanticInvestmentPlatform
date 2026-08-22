@@ -1,0 +1,27 @@
+{#
+  The counts, swapped into slots the nav already rendered.
+
+  **`innerHTML`, not the default.** An out-of-band swap replaces the whole element unless
+  told otherwise, and each slot is an `aria-live` region: replacing the region node rather
+  than its contents announces nothing at all, silently, which is the failure ADR 0073 names
+  as the second genuine gap in this stack. Swapping the contents keeps the node — and the
+  announcement — intact.
+
+  **A zero is sent, and renders as nothing.** A pill reading "0" is noise on every page an
+  operator has nothing waiting on, and `empty:hidden` in the nav's own class list is what
+  makes an empty slot disappear rather than paint an empty circle. The swap still happens,
+  which is the part that matters once a count is fetched more than once: it is what clears
+  a number the operator has just acted on, where omitting the badge would leave the old
+  one on screen.
+
+  A badge whose provider failed is not here at all. Its slot keeps whatever it had, which
+  is a different thing from being told it is zero; see `web/shell/badges.py`.
+#}
+{% for badge in badges -%}
+<span id="aer-badge-{{ badge.key }}" hx-swap-oob="innerHTML">
+  {%- if badge.count -%}
+  <span aria-hidden="true">{{ badge.count }}</span
+  ><span class="sr-only">{{ badge.count }} {{ badge.label }}</span>
+  {%- endif -%}
+</span>
+{% endfor -%}

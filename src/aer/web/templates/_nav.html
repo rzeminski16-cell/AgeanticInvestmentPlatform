@@ -4,7 +4,11 @@
    The links are a loop over `shell.nav` rather than eight hand-written anchors. Nothing
    about the rendering changed when they became data; what changed is that a second tool
    can contribute a section, an item can say when it is the current one, and a test can
-   notice a page that no route serves. See `aer/web/shell/registry.py`. #}
+   notice a page that no route serves. See `aer/web/shell/registry.py`.
+
+   An item that names a `badge_key` renders an empty live region here and the number
+   arrives afterwards, from `/_shell/badges`. Counting inline would put one tool's query
+   on every other tool's first paint. #}
 <header class="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
   <nav
     class="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-4 sm:px-6"
@@ -27,9 +31,27 @@
         href="{{ item.href }}"
         {% if shell.active == item.key %}aria-current="page"{% endif %}
         class="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-        >{{ item.label }}</a
+        >{{ item.label }}{% if item.badge_key %}<span
+          id="aer-badge-{{ item.badge_key }}"
+          aria-live="polite"
+          class="ml-1.5 inline-flex min-w-5 justify-center rounded-full bg-brand-wash px-1.5 py-0.5 text-xs font-semibold text-brand empty:hidden"
+        ></span>{% endif %}</a
       >
       {% endfor %}{% endfor %}
+
+      {#
+        One request for every slot, fired once the page is on screen. `hx-swap="none"`
+        because the counts arrive out of band and this element is only the trigger; it is
+        empty and hidden, so a browser with no scripting renders the nav it already has and
+        nothing else happens.
+      #}
+      <span
+        hx-get="/_shell/badges"
+        hx-trigger="load"
+        hx-swap="none"
+        hidden
+        aria-hidden="true"
+      ></span>
     </div>
   </nav>
 </header>
