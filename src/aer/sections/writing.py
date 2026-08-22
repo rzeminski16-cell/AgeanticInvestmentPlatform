@@ -19,7 +19,12 @@ import structlog
 from aer.agents.base import AgentContext, TokenCapExceededError, schema_problems
 from aer.agents.section_writer import SectionDraft, SectionWriterAgent, SectionWriterInput
 from aer.core.enums import SourceTier
-from aer.core.section_output import trimmed_to_word_count, without_unsourced_numeral_sentences
+from aer.core.section_output import (
+    LENGTH_EDIT_NOTE,
+    NUMERAL_EDIT_NOTE,
+    trimmed_to_word_count,
+    without_unsourced_numeral_sentences,
+)
 from aer.db.models import ReportSection, ResearchRequest, SectionDefinition, SectionStatus
 from aer.errors import ValidationError
 from aer.sections.deterministic import AUGMENTERS, SectionAugmenter, model_facing_contract
@@ -365,17 +370,22 @@ async def execute_builtin_section(
     # counts them: a figure row citing through content is evidence, not decoration.
     cited_source_ids |= content_source_ids(draft.content)
     shortfalls = policy_shortfalls(cited_source_ids, evidence=evidence, policy=policy)
-    # A section the platform edited is a degraded section, and the notes travel the same
-    # channel every other degradation does — into the confidence and onto the row.
-    shortfalls.extend(salvage_notes)
+    # A section the platform edited is a degraded section — the confidence cap applies as
+    # it does to any other degradation — but an edit is not an evidence shortfall, and the
+    # two must never share the "Insufficient evidence" label (gap R2). The edit sentences
+    # ride on the row *after* the evidence banner, unlabelled, in the shared vocabulary the
+    # renderer uses to keep them out of the inline banner and in the appendix (gap R1).
+    notes = [note for note in (degradation_note(shortfalls), *salvage_notes) if note]
 
     # The platform-filled fields join the model's, at the positions the stored contract
     # declares (ADR 0063). The merge is one-way: the model's schema cannot carry these
     # keys, so nothing of the draft is overwritten.
     section.content = {**draft.content, **block} if block else draft.content
     section.status = SectionStatus.GENERATED
-    section.confidence = confidence_of(draft.content, degraded=bool(shortfalls))
-    section.low_confidence_reason = degradation_note(shortfalls)
+    section.confidence = confidence_of(
+        draft.content, degraded=bool(shortfalls) or bool(salvage_notes)
+    )
+    section.low_confidence_reason = " ".join(notes) or None
     await context.session.flush()
 
     _log.info(
@@ -393,7 +403,10 @@ async def execute_builtin_section(
         claims_recorded=recorded,
         insufficient_evidence=bool(shortfalls),
         evidence_truncated=evidence.truncated,
-        problems=shortfalls,
+        # The full record for the step output and the console: the evidence shortfalls
+        # and the edits, distinguishable because the edit sentences are the shared
+        # constants rather than free prose.
+        problems=[*shortfalls, *salvage_notes],
         refusal_causes=causes,
     )
 
@@ -472,17 +485,13 @@ class _Salvage:
     notes: tuple[str, ...]
 
 
-# What a salvaged section says about itself. Recorded on the row rather than only logged:
-# a reader of the console should see that the platform edited the draft, and which way.
-_NUMERAL_NOTE: Final = (
-    "One or more sentences carrying figures no claim resolved were removed from this "
-    "section rather than discarding the draft (ADR 0057)."
-)
-_LENGTH_NOTE: Final = (
-    "This section ran past its word budget and was shortened by dropping trailing "
-    "sentences rather than discarding the draft (ADR 0057). The analysis is the model's; "
-    "the cut is the platform's."
-)
+# What a salvaged section says about itself — the shared reader-register sentences from
+# `aer.core.section_output` (gaps R1/R2). Recorded on the row rather than only logged, so
+# the console and the report's appendix both see that the draft was edited, and which way;
+# the mechanism (ADR 0057's trim-not-discard trade) stays in the ADR and the structured
+# log, never in a rendered document.
+_NUMERAL_NOTE: Final = NUMERAL_EDIT_NOTE
+_LENGTH_NOTE: Final = LENGTH_EDIT_NOTE
 
 
 async def _augmentation(

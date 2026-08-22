@@ -246,11 +246,11 @@ Scripted text with no figure in it.
 
 ## Valuation — Discounted Cash Flow
 
-> **No valuation exists for this run, so no commentary was requested from the writing model: there are no recorded figures to interpret, and the method note states why none were produced.**
+> **No discounted cash flow was produced, so there are no valuation figures to interpret. The method record in this section names the missing input; without it there is no discount rate and no intrinsic value, and any per-share conclusion would be assertion rather than analysis.**
 
 ### How These Figures Were Produced
 
-No discounted cash flow was produced for this run, so there is no method to describe: The discount rate needs risk_free_rate, beta, equity_risk_premium, and no confirmed assumption of that name exists on this request. The rate is decomposed rather than taken as one number, so each part has to be agreed on its own terms.
+No discounted cash flow was produced, so there is no method to describe. The discount rate needs risk_free_rate, beta, equity_risk_premium, and no confirmed assumption of that name exists on this request. The rate is decomposed rather than taken as one number, so each part has to be agreed on its own terms.
 
 ## Scenarios & Sensitivities
 
@@ -325,7 +325,7 @@ A comparable-company analysis was attempted as at 30 June 2022, but every one of
 
 ## Scope and limitations
 
-- **Valuation — Discounted Cash Flow:** No valuation exists for this run, so no commentary was requested from the writing model: there are no recorded figures to interpret, and the method note states why none were produced.
+- **Valuation — Discounted Cash Flow:** No discounted cash flow was produced, so there are no valuation figures to interpret. The method record in this section names the missing input; without it there is no discount rate and no intrinsic value, and any per-share conclusion would be assertion rather than analysis.
 
 
 ## Notes

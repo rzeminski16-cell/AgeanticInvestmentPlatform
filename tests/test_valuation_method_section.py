@@ -406,9 +406,14 @@ class TestWhenTheBlockIsTheWholeSection:
     the writer is not asked — `method_only` is the augmenter's answer before the model."""
 
     def test_a_block_with_no_figures_is_standalone_with_a_reason(self) -> None:
+        """And the reason is in the report's register (gap R4): the sentence renders
+        into a decision-maker's document, so it names what is absent and what that
+        costs — never the writing model, the run or the platform."""
         reason = method_only({"method_note": "No discounted cash flow was produced."})
 
-        assert "no commentary was requested" in reason
+        assert "no valuation figures to interpret" in reason
+        for process_noun in ("writing model", "this run", "the platform"):
+            assert process_noun not in reason
 
     def test_a_block_with_cost_of_capital_rows_wants_its_commentary(self) -> None:
         assert (

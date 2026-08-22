@@ -32,6 +32,12 @@ import aer.render.glance as glance_module
 from aer.calc.comps import WithheldComps
 from aer.config import HouseStyle
 from aer.core.enums import JobStatus, Provider, SourceTier, UserRole
+from aer.core.section_output import (
+    LENGTH_EDIT_NOTE,
+    NUMERAL_EDIT_NOTE,
+    editorial_notes_in,
+    reader_warning,
+)
 from aer.db.models import (
     Artefact,
     Calculation,
@@ -547,6 +553,96 @@ class TestTheReportFacesTheReader:
         )
         assert _unescaped({"a": ["x \\u00e9"]}) == {"a": ["x é"]}
         assert _unescaped(42) == 42
+
+
+class TestEditingDisclosuresLeaveTheSectionBody:
+    """Gaps R1, R2 and R3, on the CHRW report's evidence: the length-cut sentence opened
+    six sections of body prose, under an "Insufficient evidence" label that named the
+    opposite condition, and appeared verbatim a second time in the appendix. The
+    disclosure now lives once in the coverage notice and per-section in the appendix; the
+    inline banner is for evidence shortfalls alone; and nothing rendered names an ADR.
+    """
+
+    _EVIDENCE_PART = "Insufficient evidence: the golden scene says so."
+    _LEGACY_LENGTH = (
+        "This section ran past its word budget and was shortened by dropping trailing "
+        "sentences rather than discarding the draft (ADR 0057). The analysis is the "
+        "model's; the cut is the platform's."
+    )
+
+    def test_the_vocabulary_splits_a_mixed_note(self) -> None:
+        mixed = f"{self._EVIDENCE_PART} {NUMERAL_EDIT_NOTE} {LENGTH_EDIT_NOTE}"
+        assert reader_warning(mixed) == self._EVIDENCE_PART
+        assert editorial_notes_in(mixed) == (NUMERAL_EDIT_NOTE, LENGTH_EDIT_NOTE)
+
+    def test_a_note_that_was_only_edits_leaves_no_warning(self) -> None:
+        assert reader_warning(LENGTH_EDIT_NOTE) is None
+        assert reader_warning(f"Insufficient evidence: {LENGTH_EDIT_NOTE}") is None
+        assert reader_warning(None) is None
+
+    def test_legacy_rows_come_out_in_the_current_register(self) -> None:
+        """A report re-rendered from rows written before this change must not name an
+        ADR at a reader — the historical sentence normalises to today's words."""
+        assert editorial_notes_in(self._LEGACY_LENGTH) == (LENGTH_EDIT_NOTE,)
+        assert reader_warning(self._LEGACY_LENGTH) is None
+
+    @staticmethod
+    async def _reason_on_the_warned_row(scene: dict[str, Any], reason: str) -> None:
+        session: AsyncSession = scene["session"]
+        row = await session.scalar(
+            select(ReportSection).where(
+                ReportSection.job_id == scene["job"].id,
+                ReportSection.section_key == "golden_warnings",
+            )
+        )
+        assert row is not None
+        row.low_confidence_reason = reason
+        await session.flush()
+
+    async def test_the_edit_stays_out_of_the_inline_banner(self, scene: dict[str, Any]) -> None:
+        await self._reason_on_the_warned_row(scene, f"{self._EVIDENCE_PART} {LENGTH_EDIT_NOTE}")
+
+        document = await _document(scene)
+
+        warned = next(view for view in document.sections if view.key == "golden_warnings")
+        banners = [f for f in warned.fragments if isinstance(f, Banner)]
+        assert len(banners) == 1, "the evidence shortfall still banners in place"
+        assert banners[0].text == self._EVIDENCE_PART
+        assert LENGTH_EDIT_NOTE not in banners[0].text
+
+    async def test_the_appendix_keeps_the_whole_account(self, scene: dict[str, Any]) -> None:
+        await self._reason_on_the_warned_row(scene, f"{self._EVIDENCE_PART} {LENGTH_EDIT_NOTE}")
+
+        document = await _document(scene)
+
+        notes = dict(document.limitations)
+        assert notes["Golden Warnings"] == f"{self._EVIDENCE_PART} {LENGTH_EDIT_NOTE}"
+
+    async def test_the_coverage_notice_counts_the_edits_once(self, scene: dict[str, Any]) -> None:
+        await self._reason_on_the_warned_row(scene, f"{LENGTH_EDIT_NOTE} {NUMERAL_EDIT_NOTE}")
+
+        document = await _document(scene)
+
+        assert document.coverage is not None
+        assert document.coverage.sections_shortened == 1
+        assert document.coverage.sections_pruned == 1
+        assert "1 section was shortened to fit the length allotted" in document.coverage.sentence
+        assert "removed from 1 section" in document.coverage.sentence
+
+    async def test_nothing_rendered_names_the_machinery(self, scene: dict[str, Any]) -> None:
+        """The CHRW checklist, held by test: a legacy row's ADR reference and platform
+        voice must not survive into either serialisation."""
+        await self._reason_on_the_warned_row(scene, self._LEGACY_LENGTH)
+
+        document = await _document(scene)
+        markdown = serialise_markdown(document)
+        html = render_html(document)
+
+        for rendered in (markdown, html):
+            assert "ADR" not in rendered
+            assert "word budget" not in rendered
+            assert "the platform's" not in rendered
+        assert LENGTH_EDIT_NOTE in markdown, "the disclosure itself still appears"
 
 
 class TestTheGoldenMarkdown:

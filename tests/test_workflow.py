@@ -423,7 +423,11 @@ class TestTheWholeRun:
 
         assert "No discounted cash flow was produced" in content["method_note"]
         assert "commentary" not in content
-        assert "no commentary was requested" in (row.low_confidence_reason or "")
+        assert "no valuation figures to interpret" in (row.low_confidence_reason or "")
+        # In the reader's register (gap R4): the row's reason is rendered into the
+        # document, so it must not mention the writing model, the run or the platform.
+        for process_noun in ("writing model", "this run", "the platform"):
+            assert process_noun not in (row.low_confidence_reason or "")
         # Version 2 of the contract withdrew the model-written record fields; a draft
         # carrying one would mean the model was handed the wrong schema.
         assert "figures" not in content

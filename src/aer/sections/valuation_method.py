@@ -89,11 +89,10 @@ async def valuation_method_block(
     """
     produced = await _value_step_output(session, job_id)
     if not produced.get("valued"):
-        reason = str(produced.get("reason") or "the run recorded no valuation step output")
+        reason = str(produced.get("reason") or "No reason was recorded.")
         return {
             "method_note": (
-                "No discounted cash flow was produced for this run, so there is no method "
-                f"to describe: {reason}"
+                f"No discounted cash flow was produced, so there is no method to describe. {reason}"
             )
         }
 
@@ -145,18 +144,17 @@ def _method_note(produced: dict[str, Any]) -> str:
     years = produced.get("years")
     horizon = f"a {years}-year explicit forecast" if years else "an explicit forecast"
     weights = (
-        "book values from the filed balance sheet — this run holds no market prices"
+        "book values from the filed balance sheet — no market prices were used"
         if str(produced.get("equity_basis")) == "book"
         else "the recorded capital-structure values"
     )
     return (
-        "The figures in this section were produced by the platform's recorded arithmetic, "
-        f"and this description is rendered from that record. Free cash flows from {horizon} "
-        "of consolidated figures were discounted at the weighted average cost of capital "
-        f"shown below, with the capital weighted at {weights}. The bridge from enterprise "
-        "to equity value is net debt alone, and the terminal value was taken both ways — a "
-        "growing perpetuity and an exit multiple — with each carried through to a per-share "
-        "figure. Every figure cites the calculation that produced it."
+        f"Free cash flows from {horizon} of consolidated figures were discounted at the "
+        f"weighted average cost of capital shown below, with the capital weighted at "
+        f"{weights}. The bridge from enterprise to equity value is net debt alone, and the "
+        "terminal value was taken both ways — a growing perpetuity and an exit multiple — "
+        "with each carried through to a per-share figure. Every figure cites the "
+        "calculation that produced it."
     )
 
 
@@ -325,9 +323,10 @@ def method_only(block: dict[str, Any]) -> str:
     if block.get("cost_of_capital") or block.get("terminal_valuations"):
         return ""
     return (
-        "No valuation exists for this run, so no commentary was requested from the "
-        "writing model: there are no recorded figures to interpret, and the method note "
-        "states why none were produced."
+        "No discounted cash flow was produced, so there are no valuation figures to "
+        "interpret. The method record in this section names the missing input; without it "
+        "there is no discount rate and no intrinsic value, and any per-share conclusion "
+        "would be assertion rather than analysis."
     )
 
 

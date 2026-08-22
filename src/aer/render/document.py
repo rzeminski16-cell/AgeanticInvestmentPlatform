@@ -31,6 +31,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.calc.comps import WithheldComps
 from aer.charts import Chart
 from aer.config import HouseStyle
+from aer.core.section_output import (
+    LENGTH_EDIT_NOTE,
+    NUMERAL_EDIT_NOTE,
+    editorial_notes_in,
+    reader_warning,
+)
 from aer.db.models import (
     Calculation,
     Company,
@@ -193,6 +199,13 @@ class CoverageNote:
     # same place every other shortfall gives one.
     glance_withheld: str | None = None
 
+    # The editing disclosures (gap R1): how many sections were shortened to their length,
+    # and how many lost sentences whose figures traced to nothing. Counts, not names —
+    # the Scope and limitations appendix names each one, and this notice's job is to say
+    # once that the document was edited, not to be a second appendix.
+    sections_shortened: int = 0
+    sections_pruned: int = 0
+
     @property
     def sentence(self) -> str:
         """The notice, minus the sources link — each notation attaches its own."""
@@ -207,6 +220,18 @@ class CoverageNote:
             checks = ", ".join(self.checks_failed)
             plural = "checks" if len(self.checks_failed) > 1 else "check"
             parts.append(f"the {checks} validation {plural} failed")
+        if self.sections_shortened:
+            count = self.sections_shortened
+            parts.append(
+                f"{count} section{'s were' if count != 1 else ' was'} shortened to fit "
+                "the length allotted"
+            )
+        if self.sections_pruned:
+            count = self.sections_pruned
+            parts.append(
+                "sentences whose figures could not be traced to a recorded source were "
+                f"removed from {count} section{'s' if count != 1 else ''}"
+            )
         if self.glance_withheld:
             parts.append(self.glance_withheld)
         return "; and ".join(parts) + "." if parts else ""
@@ -436,8 +461,13 @@ async def assemble_document(
             # A failed section's recorded reason is the validator's diagnostics — raw
             # ids and schema paths, written for the operator's console. The reader gets
             # the status line and the coverage notice; the diagnostics stay in the run.
+            # A generated section's reason is filtered too (gaps R1/R3): an editing
+            # disclosure never opens a section — it belongs in the appendix and the
+            # coverage notice — while an evidence shortfall still banners in place.
             warning=(
-                None if section.status is SectionStatus.FAILED else section.low_confidence_reason
+                None
+                if section.status is SectionStatus.FAILED
+                else reader_warning(section.low_confidence_reason)
             ),
             style=active_style,
         )
@@ -505,10 +535,13 @@ async def assemble_document(
         footnotes=footnotes,
         appendix=appendix,
         style=active_style,
+        # The appendix keeps the whole account per section — the evidence part and the
+        # editing part together, in the current register (gap R3: this listing is the
+        # disclosure's home; the inline banner above carries only the evidence part).
         limitations=tuple(
-            (view.title, str(section.low_confidence_reason))
+            (view.title, note)
             for section, view in zip(sections, views, strict=True)
-            if section.low_confidence_reason
+            if (note := _limitation_note(section.low_confidence_reason))
         ),
         citations=citations,
         charts=tuple(chart_views),
@@ -573,6 +606,17 @@ def _chart_view(chart: Chart, citations: list[CitationRef]) -> ChartView:
     )
 
 
+def _limitation_note(reason: str | None) -> str | None:
+    """A stored degradation note as the appendix shows it: current register, edits last.
+
+    Rebuilt from the two halves the reader vocabulary distinguishes, so a row written
+    before the register change comes out in today's words rather than naming an ADR at
+    a reader.
+    """
+    parts = [part for part in (reader_warning(reason), *editorial_notes_in(reason)) if part]
+    return " ".join(parts) or None
+
+
 async def _coverage(
     session: AsyncSession,
     *,
@@ -587,6 +631,10 @@ async def _coverage(
     actually happened, so the notice cannot say less than the run recorded — the failure
     mode gap A40 exists to prevent is a note-perfect document shape wrapped around
     content that is not there, with nothing at the front saying so.
+
+    The two editing disclosures count here too (gap R1): a document whose sections were
+    shortened or pruned says so once, at the front, in one line each — instead of six
+    identical banners inside the analysis.
     """
     failed = tuple(
         (
@@ -597,19 +645,24 @@ async def _coverage(
         for section in sections
         if section.status in (SectionStatus.FAILED, SectionStatus.PENDING)
     )
+    notes = [editorial_notes_in(section.low_confidence_reason) for section in sections]
+    shortened = sum(1 for edits in notes if LENGTH_EDIT_NOTE in edits)
+    pruned = sum(1 for edits in notes if NUMERAL_EDIT_NOTE in edits)
     checks = await session.scalars(
         select(Evaluation.metric)
         .where(Evaluation.job_id == job.id, Evaluation.passed.is_(False))
         .order_by(Evaluation.metric)
     )
     failed_checks = tuple(checks)
-    if not failed and not failed_checks and glance_withheld is None:
+    if not failed and not failed_checks and glance_withheld is None and not (shortened or pruned):
         return None
     return CoverageNote(
         sections_failed=failed,
         sections_total=len(sections),
         checks_failed=failed_checks,
         glance_withheld=glance_withheld,
+        sections_shortened=shortened,
+        sections_pruned=pruned,
     )
 
 

@@ -38,12 +38,16 @@ from aer.core.concepts import CANONICAL_CONCEPTS
 from aer.core.schemas.skill import RESERVED_OUTPUT_FIELDS
 
 __all__ = [
+    "LENGTH_EDIT_NOTE",
     "MAX_GAP_SENTENCES",
+    "NUMERAL_EDIT_NOTE",
     "NUMERAL_EXEMPT_KEYS",
     "contract_violations",
+    "editorial_notes_in",
     "gap_sentences",
     "numerals_in",
     "prose_word_count",
+    "reader_warning",
     "reserved_fields_in",
     "trimmed_to_word_count",
     "unsourced_numerals",
@@ -52,6 +56,75 @@ __all__ = [
     "without_product_names",
     "without_unsourced_numeral_sentences",
 ]
+
+# What a salvaged section's record says about the edit, in the reader's register (gaps R1
+# and R2). One sentence each, stating what changed and nothing about the machinery: an
+# equity note that cites its own architecture records has stopped being an equity note, so
+# no ADR number, no "word budget", no "the platform" — the mechanism lives in the ADR and
+# the structured log, where the people watching the run look. These exact strings are the
+# vocabulary three surfaces share: the writer stores them, the renderer keeps them out of
+# the inline banner and in the appendix, and the coverage notice counts them.
+LENGTH_EDIT_NOTE: Final = "Shortened to fit the length allotted to this section."
+NUMERAL_EDIT_NOTE: Final = (
+    "One or more sentences were removed because their figures could not be traced to a "
+    "recorded source."
+)
+
+# The sentences earlier builds stored for the same two edits, normalised on read so a
+# report re-rendered from old rows comes out in the current register. Matched whole,
+# byte for byte — these are historical constants, not patterns.
+_LEGACY_EDIT_NOTES: Final[dict[str, str]] = {
+    (
+        "This section ran past its word budget and was shortened by dropping trailing "
+        "sentences rather than discarding the draft (ADR 0057). The analysis is the "
+        "model's; the cut is the platform's."
+    ): LENGTH_EDIT_NOTE,
+    (
+        "One or more sentences carrying figures no claim resolved were removed from this "
+        "section rather than discarding the draft (ADR 0057)."
+    ): NUMERAL_EDIT_NOTE,
+}
+
+
+def _normalised_degradation(reason: str) -> str:
+    for legacy, current in _LEGACY_EDIT_NOTES.items():
+        reason = reason.replace(legacy, current)
+    return " ".join(reason.split())
+
+
+def editorial_notes_in(reason: str | None) -> tuple[str, ...]:
+    """The platform-edit sentences a stored degradation note carries, normalised.
+
+    The renderer's classifier: a note naming an edit goes to the appendix and the coverage
+    notice, never under a section heading (gap R1). Order follows the constants, not the
+    stored text, because the callers group by kind rather than by position.
+    """
+    if not reason:
+        return ()
+    normalised = _normalised_degradation(reason)
+    return tuple(note for note in (NUMERAL_EDIT_NOTE, LENGTH_EDIT_NOTE) if note in normalised)
+
+
+def reader_warning(reason: str | None) -> str | None:
+    """The degradation note with the platform-edit sentences removed, or ``None``.
+
+    What remains is what belongs under the section heading: an evidence shortfall, a
+    standalone-state explanation — conditions about the *analysis*. The edits are
+    conditions about the *editing*, and their disclosure lives in the appendix and the
+    coverage notice instead (gaps R1 and R3).
+    """
+    if not reason:
+        return None
+    remaining = _normalised_degradation(reason)
+    for note in (NUMERAL_EDIT_NOTE, LENGTH_EDIT_NOTE):
+        remaining = remaining.replace(note, "")
+    # A note that was only edits leaves a bare label behind — "Insufficient evidence:"
+    # with nothing after it says the opposite of what happened, so it goes too.
+    remaining = " ".join(remaining.split())
+    if remaining.rstrip(":").strip() in ("", "Insufficient evidence"):
+        return None
+    return remaining
+
 
 # Keys whose values are section metadata rather than assertions about the world.
 # ``confidence`` is the renderer's own metadata key; the citation keys carry ids, and a

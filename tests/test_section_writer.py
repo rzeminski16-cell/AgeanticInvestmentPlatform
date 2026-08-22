@@ -34,7 +34,7 @@ from aer.agents.registry import resolve_role
 from aer.agents.section_writer import SectionDraft, SectionWriterAgent, SectionWriterInput
 from aer.config import Settings
 from aer.core.enums import AnalysisMode, FactBasis, JobStatus, Provider, SourceTier
-from aer.core.section_output import prose_word_count
+from aer.core.section_output import LENGTH_EDIT_NOTE, prose_word_count
 from aer.db.models import (
     AgentRun,
     Artefact,
@@ -515,15 +515,20 @@ class TestASectionRefusedOnlyForLength:
     async def test_the_cut_is_on_the_record_and_the_section_reads_as_degraded(
         self, budgeted: dict[str, Any]
     ) -> None:
-        """The platform edited a person's report; that is not something to do quietly."""
+        """The platform edited a person's report; that is not something to do quietly —
+        but the record is in the reader's register (gaps R1/R2): the shared edit sentence,
+        never the "Insufficient evidence" label, an ADR number or "word budget"."""
         draft = self._long_draft(budgeted)
 
         await _run(budgeted, _scripted([draft, draft]))
 
         reason = str(budgeted["section"].low_confidence_reason)
-        assert "shortened" in reason
-        assert "word budget" in reason
+        assert LENGTH_EDIT_NOTE in reason
+        assert "Insufficient evidence" not in reason
+        assert "word budget" not in reason
+        assert "ADR" not in reason
         assert budgeted["section"].confidence is not None
+        assert budgeted["section"].confidence <= 0.3, "an edited section reads as degraded"
 
     async def test_a_draft_that_cannot_fit_by_trimming_still_fails(
         self, budgeted: dict[str, Any]
@@ -1180,14 +1185,18 @@ class TestNoValuationMeansNoWriterCall:
 
     async def test_the_row_says_why_there_is_no_commentary(self, scene: dict[str, Any]) -> None:
         """The absence is explained where the console and the report read it, rather
-        than left for a reader to infer from a missing subsection."""
+        than left for a reader to infer from a missing subsection — and in the reader's
+        register (gap R4), because this sentence is rendered into the document."""
         section = await self._at_the_valuation_section(scene)
 
         await execute_builtin_section(
             _context(scene, self._never_called()), section=section, request=scene["request"]
         )
 
-        assert "no commentary was requested" in (section.low_confidence_reason or "")
+        reason = section.low_confidence_reason or ""
+        assert "no valuation figures to interpret" in reason
+        for process_noun in ("writing model", "this run", "the platform"):
+            assert process_noun not in reason
 
 
 def _user_text(call: dict[str, Any]) -> str:
