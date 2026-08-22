@@ -527,3 +527,79 @@ Positions, NAV and risk follow Stage C, once the scope question in §3 is settle
   one, negative quantities under a long-only mandate, a NAV that moves with no trade and no
   mark change, realised P&L inconsistent with recorded cost basis. None exists as a relation
   today.
+
+---
+
+## 15. To-do
+
+Live status. Tick an item only when it is committed, not when it is drafted.
+
+### Decisions and documents
+
+- [x] Survey the codebase for the kernel/tool boundary and the invariant pressure points
+- [x] §1–§14 of this design note
+- [x] `PLAN.md` §2.1 amended — portfolio management moves from MVP non-goal to a named
+      later stage; trade execution, multi-user and optimisation stay out
+- [x] `gap-analysis.md` B12 marked revisited rather than silently outgrown
+- [x] `knowledge-map.md` §6 — a theme for the expansion in the ADR index
+- [x] `knowledge-map.md` §7 — a tool is a different class of change, not a sixth recipe
+- [x] ADRs 0067–0077 drafted
+- [ ] ADRs 0067–0077 repaired against review (nine blocking issues; in progress)
+- [ ] ADR 0078 — a rate is a dated observation with a source
+- [ ] `knowledge-map.md` §6 restores the 0078 citation once the record exists
+- [ ] Operator sign-off on the `tool_gates` decision (§13), the only one taken unilaterally
+- [ ] Operator sign-off on what a lapsed market-data subscription does to NAV history
+
+### Stage A — prerequisites that pay for themselves inside the research tool
+
+- [ ] Polymorphic lineage resolver — a source reference carries a table discriminator
+      (ADR 0072). Repairs the armed-but-unfired macro seam and the second site in
+      `services/exhibits.py::_fact_input_ids`
+- [ ] Workflow registry — `WorkflowDefinition` keyed by version, replacing the hard import
+      at `services/runs.py:38` and the four `vertical_slice_v1` gate-payload imports
+- [ ] `work_orders` supertype; `research_requests` demoted to a 1:1 detail row; `jobs` gains
+      `work_order_id` (ADR 0068). Four-step migration with working downgrades
+- [ ] `approvals.request_id` repointed to `work_orders` — ADR 0074's gate cannot be written
+      until this lands
+- [ ] `Agent._refuse_what_cannot_be_afforded` reads the tool-agnostic run root
+- [ ] `EvidenceScope` replaces the `ResearchRequest` argument in `visible_facts`,
+      `visible_sources` and `verify.citations._refuse_if_out_of_time`, carrying the run
+      identity so ADR 0061's asymmetry survives
+- [ ] `audit_events` gains a generic subject correlation, before the first ledger row
+- [ ] `plan_skill_pins` repointed off `research_plans`, unblocking skills platform-wide
+
+### Stage B — the shell
+
+- [ ] Nav as data — frozen `NavItem`/`NavSection`, an explicit `NAV` tuple, `_nav.html` a loop
+- [ ] The nav drift test — every `NavItem.href` resolves; every unlisted page route is named
+- [ ] `shell` injected inside `templating.render()`, constructible with no database
+- [ ] Design tokens in `@theme`; dark variant through a flipping custom-property layer
+- [ ] `_ui/` macros — card, KPI tile, provenance badge, empty state, drawer. Data, never classes
+- [ ] Provenance badge requires a `ProvenanceRef`; two chips, not five (ADR 0073)
+- [ ] The provenance label test — no label string outside the macro
+- [ ] `drawer.js` — focus trap, Escape, scroll lock, `aria-modal`. Written once
+- [ ] Guidance mode — `data-guidance` on `<body>`, callouts in pure CSS
+- [ ] Badge counts off the critical render path, behind `GET /_shell/badges`
+- [ ] Inter vendored under `static/fonts/`, or the system stack accepted
+- [ ] **Overview as a genuinely second tool**, built only from data that already exists.
+      If this screen works, the remaining sixteen are content rather than architecture
+
+### Stage C — the first real domain
+
+- [ ] `fx_rates` table and `services/fx.py`; `aer.calc.fx` gets its first caller (ADR 0078)
+- [ ] `Attestation` and `Judgement` tables, both clocks, the grade that propagates
+- [ ] `SourceKind` gains `ATTESTATION`; the `claims` XOR widens; invariant 3 restated
+- [ ] `RESERVED_OUTPUT_FIELDS` gains `conviction` (ADR 0070), with its attack file
+- [ ] Watchlist and Research Queue — the last unbuilt Phase 6 item, and the cheapest place
+      to exercise the standing-budget and two-clock questions
+
+### Deferred until Stage C settles
+
+- [ ] Positions, executions and NAV
+- [ ] Thesis items, predicates and the monitor (ADRs 0074, 0075)
+- [ ] Portfolio risk and scenarios (ADR 0076)
+- [ ] Trade journal, post-trade review and decision analytics (ADR 0077)
+- [ ] `RESERVED_OUTPUT_FIELDS` gains the six sizing names, in the same commit as any
+      sizing concept and never after
+- [ ] The methodology library — the three `SkillKind`s that are versioned, pinned and
+      read by nothing
