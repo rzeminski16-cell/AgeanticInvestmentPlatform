@@ -219,11 +219,27 @@ ones — read the ADR before touching its territory:
   (settings are editable, credentials are not).
 - **Operations and testing** — 0016 (a run publishes itself), 0025 (the gate found the
   verifier wrong), 0047 (a memory cap is a one-way door), 0049 (tracing is off until asked).
+- **The Investment OS expansion** — the platform growing from one research tool into several,
+  planned in `docs/investment-os.md`. 0067 (a tool is a registered capability, not a package),
+  0068 (a work order is the run root), 0069 (an attestation is what the book says), 0070 (a
+  judgement is never a source reference), 0071 (the portfolio clock is not the research
+  clock), 0072 (a lineage node resolves by table), 0073 (JavaScript may own chrome and never
+  a figure), 0074 (a monitor finding is not a gated decision), 0075–0077 (the thesis monitor,
+  the risk analyst, the post-trade reviewer).
+  **Read 0069 and 0070 together before touching any portfolio table**: they are what stops a
+  number the operator typed and a view the operator holds from becoming interchangeable.
 
 ## 7. Extension recipes
 
 Nearly every future change is one of these five. Each has an existing pattern; the sixth
 way is the wrong way.
+
+> **One thing is deliberately not a sixth recipe.** Adding a whole *tool* — a portfolio, a
+> trade journal — is a different class of change, not a shortcut around the five. The five
+> extend the research tool from inside, and each one inherits a subject, a run, a budget and
+> a gate that already exist. A tool brings its own. That is why it is settled by ADR 0067
+> rather than listed here, and why it is the only kind of change that adds a row to
+> `INSTALLED_TOOLS`. If what you are building fits one of the five, it is not a tool.
 
 **Add a built-in report section.** Sections are data, not code (ADR 0013): a
 `section_definitions` row (seeded by migration), an output contract, an evidence policy in
