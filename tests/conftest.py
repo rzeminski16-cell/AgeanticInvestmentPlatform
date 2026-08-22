@@ -191,18 +191,21 @@ def isolated_paths(tmp_path: Path) -> dict[str, Path]:
 @event.listens_for(Session, "before_flush")
 def _anchor_requests_to_work_orders(session: Session, _context: object, _instances: object) -> None:
     pending = [obj for obj in session.new if isinstance(obj, ResearchRequest)]
-    if not pending:
+    changed = [obj for obj in session.dirty if isinstance(obj, ResearchRequest)]
+    if not pending and not changed:
         return
 
     # Pending *and* persistent. `create_request` flushes the work order before it adds the
     # request, so by the time this runs the real one is in the identity map rather than in
     # `session.new` — and minting a second with the same key is an identity conflict, not a
     # duplicate row. That the production path trips this at all is the check working.
-    known = {
-        obj.id
+    orders = {
+        obj.id: obj
         for obj in [*session.new, *session.identity_map.values()]
         if isinstance(obj, WorkOrder)
     }
+    known = set(orders)
+    _mirror_changed_requests(session, changed, orders)
     for request in pending:
         # The id is a server default, so it does not exist until the flush this hook runs
         # before. Assigning it here is what lets the two rows share a key.
@@ -224,3 +227,36 @@ def _anchor_requests_to_work_orders(session: Session, _context: object, _instanc
                 archived_at=request.archived_at,
             )
         )
+
+
+# The other half of the same job: a fixture that *edits* a mandate.
+#
+# `services.requests._mirror_to_work_order` copies the five columns ADR 0068 duplicates for
+# one revision — `as_of_date`, `point_in_time`, `max_cost_gbp`, `status`, `archived_at` —
+# from the mandate onto its work order after every edit, archive and restore. Production
+# therefore never diverges. Six tests move one of those fields on a hand-built row and
+# flush, which the service would never do un-mirrored, and the two copies parted: the front
+# page of a report printed the new as-of date while `scope_for_request` filtered evidence by
+# the old one, so the glance block showed FY2021 for a run dated September 2022.
+#
+# **It cannot mask a production regression** for the same reason the listener above cannot:
+# `TestTheMandateClockHasOneWriter` in tests/test_smoke.py asserts that
+# `services/requests.py` is the only module in `src/` that assigns any of these five, so
+# there is no other writer for this to paper over.
+def _mirror_changed_requests(
+    session: Session, changed: list[ResearchRequest], orders: dict[uuid.UUID, WorkOrder]
+) -> None:
+    for request in changed:
+        # The identity map holds weak references and nothing points at a work order — no
+        # relationship, no back-reference — so the row this listener minted at an earlier
+        # flush is routinely collected before the edit that needs it. `get` finds it in the
+        # map when it is still there and reads it back when it is not; autoflush is already
+        # suppressed inside a flush, so it cannot recurse.
+        work_order = orders.get(request.id) or session.get(WorkOrder, request.id)
+        if work_order is None:
+            continue
+        work_order.as_of_date = request.as_of_date
+        work_order.point_in_time = request.point_in_time
+        work_order.max_cost_gbp = request.max_cost_gbp
+        work_order.status = request.status
+        work_order.archived_at = request.archived_at

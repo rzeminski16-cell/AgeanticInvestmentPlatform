@@ -22,8 +22,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from typing import Final
+
+from aer.core.dates import format_date
 
 __all__ = ["Confirmation", "Provenance", "ProvenanceRef", "confirmed_by", "suggested"]
+
+# Through `format_date` rather than `strftime`, because the no-padding day directive this
+# pattern uses is a glibc extension that raises on Windows. That module expands it to
+# digits before the C library sees the pattern; a badge is chrome, but a chrome that
+# crashes the page it decorates is not better than one with a padded day.
+_CONFIRMED_ON: Final = "%-d %B %Y"
 
 
 class Provenance(StrEnum):
@@ -98,7 +107,7 @@ class ProvenanceRef:
         """The confirmation chip's words, including who and when where there are any."""
         if self.confirmation is not Confirmation.CONFIRMED:
             return self.confirmation.value
-        when = f" on {self.confirmed_at:%-d %B %Y}" if self.confirmed_at else ""
+        when = f" on {format_date(self.confirmed_at, _CONFIRMED_ON)}" if self.confirmed_at else ""
         return f"Confirmed by {self.confirmed_by_name}{when}"
 
 
