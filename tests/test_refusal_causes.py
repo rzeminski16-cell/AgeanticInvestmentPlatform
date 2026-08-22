@@ -26,6 +26,16 @@ CONTRACT: dict[str, Any] = {
     },
 }
 
+# The catalysts shape, for the one refusal whose subject is a declared array (R7).
+CATALYST_CONTRACT: dict[str, Any] = {
+    "type": "object",
+    "required": ["commentary"],
+    "properties": {
+        "commentary": {"type": "string"},
+        "catalysts": {"type": "array"},
+    },
+}
+
 
 def policy(**overrides: Any) -> SectionPolicy:
     stated: dict[str, Any] = {
@@ -179,6 +189,31 @@ class TestEachProducerHasItsCause:
         counted = classify_refusals(problems)
         assert counted["length"] == 1
         assert counted["numeral"] == 1
+
+    def test_a_filing_calendar_offered_as_catalysts_is_calendar(self) -> None:
+        """R7. The producer is the real one, so a reworded refusal fails here rather than
+        landing silently in the schema bucket. Its own contract, because the shared one is
+        closed and an undeclared ``catalysts`` key would add a schema refusal beside the
+        one under test."""
+        problems = validate_draft(
+            draft(
+                {
+                    "commentary": "Prose.",
+                    "catalysts": [
+                        {
+                            "label": "Q3 2026 Form 10-Q",
+                            "expected_timing": "early November",
+                            "rationale": "The company reports quarterly.",
+                        }
+                    ],
+                }
+            ),
+            contract=CATALYST_CONTRACT,
+            evidence=Evidence(),
+            policy=policy(),
+        )
+
+        assert classify_refusals(problems) == {"calendar": 1}
 
     def test_nothing_refused_counts_nothing(self) -> None:
         assert classify_refusals([]) == {}

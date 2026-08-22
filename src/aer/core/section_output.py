@@ -48,6 +48,7 @@ __all__ = [
     "numerals_in",
     "prose_word_count",
     "reader_warning",
+    "reporting_calendar_entries",
     "reserved_fields_in",
     "trimmed_to_word_count",
     "unsourced_numerals",
@@ -597,6 +598,48 @@ _GAP_PHRASES: Final[tuple[str, ...]] = (
     "is not stated",
 )
 
+# The reporting calendar, by name (gap R7). Everything here is an event whose *occurrence*
+# is certain and whose *content* is not: the company will file a 10-Q, and nothing about
+# that fact tells a reader anything. Deliberately absent: an annual general meeting, which
+# is routine until a vote is contested and then is genuinely the catalyst; and a Form 8-K,
+# which exists precisely because something happened. Both would cost more in real events
+# refused than they would save in calendar entries caught.
+_ROUTINE_FILING: Final = re.compile(
+    r"""\b(?:
+        10-?[QK] | 20-?F | 40-?F | 6-?K | 11-?K | DEF\s*14A
+      | (?:quarterly|annual|interim|half-?year(?:ly)?|full-?year|preliminary)\s+
+        (?:report|results|earnings|statement|filing)
+      | (?:earnings|results)\s+(?:release|announcement|report|call|date)
+      | proxy\s+statement
+      | trading\s+(?:statement|update)
+      | (?:periodic|regular|scheduled|next|upcoming)\s+filing
+    )\b""",
+    re.IGNORECASE | re.VERBOSE,
+)
+
+# A date inferred from how often the company files, rather than one anybody disclosed. The
+# tell is always the rhythm itself, which is why these are about filing frequency and not
+# about estimation in general: "expected to complete in the first half" is a real timing
+# for a real event, and refusing it would refuse the very events such a section is for.
+_FILING_RHYTHM: Final = re.compile(
+    r"""\b(?:
+        extrapolat\w*
+      | cadence
+      | filing\s+(?:pattern|schedule|rhythm|cycle)
+      | (?:typically|usually|historically|generally)\s+
+        (?:files|filed|reports|reported|releases|released)
+    )\b""",
+    re.IGNORECASE | re.VERBOSE,
+)
+
+# What makes a row a dated forward event rather than prose: it declares when it is
+# expected. This is what the rule keys on — see :func:`_dated_event_rows` for why it is a
+# field name and not a section's.
+_TIMING_FIELD: Final = "expected_timing"
+
+# Where a row's claimed basis can live, beside the label.
+_BASIS_FIELDS: Final[tuple[str, ...]] = (_TIMING_FIELD, "rationale", "direction")
+
 # How many sentences a section may spend on its own gaps. One: rule 6 of the drafting
 # prompt says "in one clause and move on", and a live report spent a third of its prose
 # describing absence because nothing enforced it (gap R4). Advisory rules drift; budgets
@@ -627,6 +670,69 @@ def prose_word_count(content: dict[str, Any]) -> int:
 
     walk(content)
     return words
+
+
+def _dated_event_rows(content: Any) -> Iterable[dict[str, Any]]:
+    """Every row anywhere in the content that declares when it is expected.
+
+    Found by **shape, never by the name of the section holding it**. Sections are rows in
+    this platform, and a module naming one has made the next section a code change — a
+    discipline ``test_no_section_key_is_hardcoded`` enforces, and which this rule was
+    rewritten to respect after its first cut read one array by name. Keying on the shape is
+    the better rule anyway: a section listing dated events under some other heading is
+    making the same claims and gets the same check, with nothing here knowing it exists.
+    """
+    if isinstance(content, dict):
+        for value in content.values():
+            yield from _dated_event_rows(value)
+    elif isinstance(content, list):
+        for item in content:
+            if isinstance(item, dict) and _TIMING_FIELD in item:
+                yield item
+            else:
+                yield from _dated_event_rows(item)
+
+
+def reporting_calendar_entries(content: dict[str, Any]) -> list[str]:
+    """Every listed forward event that is really an entry in the reporting calendar.
+
+    Gap R7. A live note's forward-events section listed nothing but scheduled SEC filings,
+    each dated by extrapolation from the last two — *"filed its Q1 2026 Form 10-Q on May 1
+    and its Q2 2026 Form 10-Q on July 31 … extrapolating this roughly three-month
+    cadence"* — and spent its prose explaining what a filing is. A reader learns nothing
+    they can act on. **That a company will file is not news; what the filing says is, and
+    that is not knowable in advance.**
+
+    Two ways a row fails, and either is enough:
+
+    * its **label** names a routine periodic report — a 10-Q, an annual report, a results
+      announcement, a proxy statement;
+    * its **stated basis** dates it from the filing rhythm rather than from a disclosure —
+      "extrapolating", "cadence", "typically files".
+
+    The second catches the general defect the first only catches by name: a date nobody
+    disclosed, inferred from the calendar and presented as scheduled.
+
+    **What survives, deliberately.** A disclosed dated event — an investor day, a court
+    date, a regulatory decision deadline, an expected completion — is exactly what such a
+    section is for and is not matched here. The vocabulary is closed and named above so
+    the line between the two can be argued with rather than guessed at. Word boundaries
+    throughout: a row is refused for what it says, never for a fragment inside a longer word.
+
+    Only rows declaring a timing are scanned. Commentary mentioning the next 10-Q in
+    passing is context, not a listed event, and this rule has no quarrel with it.
+    """
+    found: list[str] = []
+    for row in _dated_event_rows(content):
+        label = str(row.get("label", "")).strip()
+        shown = label or "an unlabelled entry"
+        if _ROUTINE_FILING.search(label):
+            found.append(f"{shown!r} is a scheduled periodic filing")
+            continue
+        basis = " ".join(str(row.get(key, "")) for key in _BASIS_FIELDS)
+        if _FILING_RHYTHM.search(basis):
+            found.append(f"{shown!r} takes its date from the filing rhythm, not a disclosure")
+    return found
 
 
 def gap_sentences(content: dict[str, Any]) -> list[str]:

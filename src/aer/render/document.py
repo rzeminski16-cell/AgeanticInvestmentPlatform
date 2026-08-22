@@ -124,6 +124,7 @@ _FAILED_CAUSE_PHRASES: Final[dict[str, str]] = {
     "truncation": "no complete draft could be produced within the space allowed",
     "policy": "its draft relied on forward-looking statements this section excludes",
     "method": "its draft described method inputs the valuation record does not hold",
+    "calendar": "the evidence dated no catalyst, and the reporting calendar is not one",
 }
 
 

@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.core.enums import ExtractionKind, FactBasis, JobStatus, Provider, SourceTier, UserRole
 from aer.db.models import (
     Artefact,
+    Calculation,
     Company,
     Extraction,
     FinancialFact,
@@ -472,3 +473,138 @@ class TestTheFactBasisFilter:
         assert annual["period_start"] == "2024-07-01"
         assert annual["period_end"] == "2025-06-30"
         assert annual["fiscal_year"] == 2025
+
+
+class TestCalculationsReachASectionNewestFirst:
+    """Gap R8. The ordering used to be ``sequence`` — the order the figures were struck —
+    and the analysis loop strikes oldest period first, because each period's paired
+    quality signals compare against the one before it. So the cap kept the oldest ratios
+    and cut the newest.
+
+    A live August 2026 note built its bear, base and bull cases on fiscal 2021 and 2022
+    ratios that disagree violently with each other, and its own red team caught it. The
+    section was not choosing stale figures: with five periods struck, roughly twenty-four
+    rows a period and a cap of forty, fiscal 2021 and two-thirds of 2022 were the only
+    ones it was ever shown.
+    """
+
+    @staticmethod
+    async def _seed_five_years(scene: dict[str, Any]) -> None:
+        """More calculations than the cap, spread over five periods oldest-first — the
+        order the analysis service really persists them in."""
+        session: AsyncSession = scene["session"]
+        sequence = 0
+        for year in (2021, 2022, 2023, 2024, 2025):
+            for name in ("gross_margin", "operating_margin", "net_margin", "return_on_equity"):
+                for variant in range(3):
+                    session.add(
+                        Calculation(
+                            job_id=scene["job"].id,
+                            sequence=sequence,
+                            name=f"{name}_{variant}",
+                            formula="a / b",
+                            function_ref="tests",
+                            code_version="testsha",
+                            inputs=[],
+                            parameters={},
+                            assumptions=[],
+                            output_value=Decimal(year),
+                            output_unit="ratio",
+                            period_label=f"FY{year}",
+                            period_start=date(year, 1, 1),
+                            period_end=date(year, 12, 31),
+                        )
+                    )
+                    sequence += 1
+        await session.flush()
+
+    @staticmethod
+    def _periods(evidence: Any) -> list[str]:
+        return [item["period"] for item in evidence.internal if "calculation_id" in item]
+
+    async def test_the_newest_period_survives_the_cap(self, scene: dict[str, Any]) -> None:
+        await self._seed_five_years(scene)
+
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(),
+            categories=frozenset({"search_facts"}),
+        )
+
+        periods = self._periods(evidence)
+        assert periods, "no calculations reached the section at all"
+        assert "FY2025" in periods, f"the newest period was cut: {sorted(set(periods))}"
+
+    async def test_the_oldest_period_is_what_the_cap_cuts(self, scene: dict[str, Any]) -> None:
+        """The other half of the same statement, and the one that failed before: with more
+        calculations struck than a section can hold, the ones it loses are the stale ones."""
+        await self._seed_five_years(scene)
+
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(),
+            categories=frozenset({"search_facts"}),
+        )
+
+        periods = self._periods(evidence)
+        assert len(periods) < 60, "the scene no longer overruns the cap, so this proves nothing"
+        assert "FY2021" not in periods, f"the oldest period survived ahead of newer: {periods}"
+
+    async def test_the_periods_arrive_newest_first(self, scene: dict[str, Any]) -> None:
+        await self._seed_five_years(scene)
+
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(),
+            categories=frozenset({"search_facts"}),
+        )
+
+        periods = self._periods(evidence)
+        assert periods == sorted(periods, reverse=True), periods
+
+    async def test_a_grid_of_run_level_figures_cannot_crowd_out_the_periods(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Why the period-less rows sort *last*.
+
+        Putting them first is the tempting reading — a discount rate belongs to no
+        statement period, and it seems a shame to cut it for want of one. But the
+        valuation runs under this same job, and a sensitivity grid alone strikes over a
+        hundred period-less rows. Sorting those first would fill the cap with grid cells
+        and cut every period, which is a worse failure than the one this ordering fixes.
+        """
+        await self._seed_five_years(scene)
+        for cell in range(60):
+            scene["session"].add(
+                Calculation(
+                    job_id=scene["job"].id,
+                    sequence=1000 + cell,
+                    name=f"grid_cell_{cell}",
+                    formula="value = ...",
+                    function_ref="tests",
+                    code_version="testsha",
+                    inputs=[],
+                    parameters={},
+                    assumptions=[],
+                    output_value=Decimal(cell),
+                    output_unit="ratio",
+                )
+            )
+        await scene["session"].flush()
+
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(),
+            categories=frozenset({"search_facts"}),
+        )
+
+        periods = self._periods(evidence)
+        assert "FY2025" in periods, "a grid of period-less rows displaced the newest period"

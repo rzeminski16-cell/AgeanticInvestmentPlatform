@@ -37,6 +37,7 @@ from aer.core.section_output import (
     contract_violations,
     gap_sentences,
     prose_word_count,
+    reporting_calendar_entries,
     unsourced_numerals,
 )
 from aer.db.models import (
@@ -319,6 +320,8 @@ _REFUSAL_SIGNATURES: Final[tuple[tuple[str, str], ...]] = (
     ("is forward-looking", "policy"),
     # The valuation commentary's deterministic edge (ADR 0063).
     ("The commentary mentions", "method"),
+    # The reporting calendar offered as a catalyst list (R7).
+    ("entries in the reporting calendar", "calendar"),
 )
 
 
@@ -491,10 +494,35 @@ async def gather_evidence(
 
         # Recorded calculations travel with the facts: both are the deterministic
         # layer's own figures, and the numeral rule is unusable without them.
+        #
+        # **Newest period first** (gap R8). This ordering used to be `sequence`, which is
+        # the order the figures were struck — and the analysis loop strikes oldest period
+        # first, because each period's paired signals compare against the one before it.
+        # So the cap kept the oldest ratios and cut the newest: a five-period run strikes
+        # roughly twenty-four rows a period, `EVIDENCE_ITEM_CAP` is forty, and every
+        # section was shown fiscal 2021 and two-thirds of fiscal 2022 and nothing since.
+        # A live August 2026 note built its bear, base and bull cases on those two
+        # vintages, which disagree violently with each other, and its own red team caught
+        # it. The section was not choosing stale figures; they were the only ones it had.
+        #
+        # This is gap A39 again, one layer over: the pool being the size of the cap makes
+        # the ordering clause the real selector.
+        #
+        # **A calculation with no period sorts last, not first.** It is tempting to put the
+        # run-level figures — a discount rate, a value per share — ahead of the ratios on
+        # the grounds that there are few of them. There are not: the valuation runs under
+        # this same job, and its sensitivity grid alone strikes over a hundred period-less
+        # rows. Sorting them first would fill the cap with grid cells and cut *every*
+        # period, which is a worse failure than the one this fixes. Last also preserves
+        # what the old `sequence` ordering did with them, since the valuation is struck
+        # after the analysis: this change moves the period boundary and nothing else.
         calculations = await session.scalars(
             select(Calculation)
             .where(Calculation.job_id == evidence_job_id)
-            .order_by(Calculation.sequence)
+            .order_by(
+                Calculation.period_end.desc().nullslast(),
+                Calculation.sequence,
+            )
             .limit(EVIDENCE_ITEM_CAP)
         )
         for calc in calculations:
@@ -759,6 +787,22 @@ def validate_draft(
             f"{len(gaps)} sentences describe missing evidence ({shown}). At most "
             f"{MAX_GAP_SENTENCES} is allowed: state the gap in one clause and spend the "
             "rest of the section on what the evidence does support."
+        )
+
+    # A reporting calendar is not a list of things that could move the shares (R7, ADR
+    # 0069). A live note filled its forward-events section with scheduled filings dated by
+    # extrapolation; refused here rather than discouraged in the prompt, because the
+    # section's whole content was the thing being discouraged.
+    calendar = reporting_calendar_entries(draft.content)
+    if calendar:
+        found = "; ".join(calendar)
+        problems.append(
+            f"{len(calendar)} of the listed events are entries in the reporting calendar "
+            f"({found}). That a company will report is not itself something a reader can "
+            "act on — what the report says is, and that is not knowable in advance. List "
+            "only events the evidence dates: a disclosed investor day, a decision with a "
+            "deadline, a transaction with an expected completion. If the evidence dates "
+            "none, leave the list empty and say so in a sentence."
         )
 
     if policy.word_budget > 0:
