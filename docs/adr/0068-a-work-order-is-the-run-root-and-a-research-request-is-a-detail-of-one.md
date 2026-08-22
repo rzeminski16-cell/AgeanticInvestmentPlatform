@@ -1,6 +1,6 @@
 # ADR 0068 — A work order is the run root and a research request is a detail of one
 
-**Status.** Proposed
+**Status.** Accepted
 **Date.** 2026-08-22
 **Required by.** ADR 0067, which registers a tool as a capability. A registry with no
 tool-agnostic row to hang a run on registers nothing that can run.
@@ -92,10 +92,12 @@ schema has found a foreign key to be the wrong tool, and no more than that.
 **The honest counter-evidence is that loose polymorphism has already rotted here once.**
 `SourceKind.FACT` is documented as generic; `_load_fact` in `services/calculations.py:409`
 is `await session.get(FinancialFact, parsed)`; and `services/macro.py:201` mints
-`SourceRef.fact(observation.id)` over a `macro_observations` row. `_resolve_input` branches
-on three kinds and falls through to `stored.missing(...)`, so every macro-sourced
-calculation input renders as a dangling node in the provenance viewer today. ADR 0072 fixes
-it. Repeating that mistake at the root of every run would be considerably more expensive.
+`SourceRef.fact(observation.id)` over a `macro_observations` row. Those two cannot both be
+right, and where they meet the lineage walk draws a dangling node. They have not met yet —
+nothing under `src/` imports `aer.services.macro` — so the defect is written down rather than
+firing, which is ADR 0072's subject and its correction to an earlier draft. Repeating that
+mistake at the root of every run would be considerably more expensive, and would not have the
+courtesy of staying dormant.
 
 **What stops it is that the resolver is registered, not inferred.** The defect above is not
 a missing foreign key — a constraint would not have helped, because the id was valid and
@@ -210,10 +212,14 @@ which is true precisely because step 4 has not run. The staging is what makes th
 real rather than declared.
 
 **`subject_id` is nullable, and means what `company_id` already means.** It backfills from
-`research_requests.company_id`, which is NULL until `acquire` resolves the ticker, and which
-migration 0042 deliberately left NULL rather than guess an attribution. A work order with no
-subject sees no facts, by construction, exactly as ADR 0061 arranged. This migration
-inherits that refusal instead of reopening it.
+`research_requests.company_id`, which is NULL until `acquire` resolves the ticker. Migration
+0042 faced the same column and chose to fill it, matching `companies` on ticker and exchange,
+under a comment that rejects the alternative in terms worth repeating: a NULL subject "makes
+every fact query on that request return nothing, which would blank the report the operator
+already has". This migration copies that resolved id rather than re-deriving it, so a request
+0042 attributed stays attributed and a request it could not attribute stays NULL. A work order
+with no subject sees no facts, by construction, exactly as ADR 0061 arranged — the emptiness
+is the guard working, not the backfill failing.
 
 ## `approvals` repoints to the work order, because a gate with no mandate must be writable
 

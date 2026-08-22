@@ -1,6 +1,6 @@
 # ADR 0073 — JavaScript may own chrome and never a figure
 
-**Status.** Proposed
+**Status.** Accepted
 **Date.** 2026-08-22
 **Required by.** `docs/investment-os.md` §8, which asks that the two things 0006 left implicit
 be named before the shell is built.

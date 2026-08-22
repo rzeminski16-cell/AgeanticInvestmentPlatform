@@ -1,6 +1,6 @@
 # ADR 0071 — The portfolio clock is not the research clock
 
-**Status.** Proposed
+**Status.** Accepted
 **Date.** 2026-08-22
 **Required by.** ADR 0069, which puts two times on every attestation and defers to this
 record for why there must be two.
@@ -33,8 +33,9 @@ assume there is a publication event to point at.
 Wednesday settlement is knowable on Friday and true of the book on Wednesday. A contract
 note found in a drawer on Tuesday, for a fill that happened the previous Thursday, is true
 of the book from Thursday and knowable only from Tuesday. One column cannot carry both, and
-nothing outside stamps either: the operator supplies both dates, from a document or from
-memory.
+the two arrive by different routes: the operator supplies the *effective* date, from a
+document or from memory, and nothing outside can be trusted to stamp the second — so the
+platform stamps `recorded_at` itself.
 
 Which date is the right one depends on the question, and the portfolio asks two questions
 that sound like one:
@@ -170,11 +171,61 @@ against what a report said.
 becomes a query, and it can be set beside today's answer for the same day — which is how a
 restatement becomes visible at all rather than becoming the past.
 
+**A lapsed subscription takes the marks with it, so that history has to be a record rather
+than a recomputation.** Every mark in it comes from EODHD, the one `LICENSED` policy in the
+table (`src/aer/fetch/policy.py:208`), whose agreement requires every copy destroyed within
+a month of the subscription ending. ADR 0031 settled the shape for payloads — the bytes go;
+the row, the hash and the lineage stay — and stated the cost without softening it: "a
+citation into a purged artefact can never be re-verified". A NAV history promised as a query
+is that cost arriving somewhere ADR 0031 was not looking.
+
+**`price_bars` survive a payload purge and do not survive a lapse**, which are two events
+rather than two degrees of one. The bar row is already built to outlive the bytes it was
+parsed from: `source_document_id` is annotated in the model as surviving "the payload's
+purge under ADR 0031, so 'where did this come from?' is answerable after the bytes are gone
+even though 'show me those bytes' is not" (`src/aer/db/models/security.py:170`). That
+settles the erasure of one artefact. It does not settle the licence's own words, which are
+*every copy* — and a table of opens, highs, lows and closes is the top row of ADR 0030's
+prohibited list, "raw series, or reformatted tables of it", held in Postgres rather than in
+the store. So a sweep run because the subscription has ended, rather than because one
+artefact must go, takes the bars as well. That is work this record creates and cannot point
+at: `aer purge-licensed` today deletes payloads and nothing else.
+
+**A NAV query over a period whose marks are gone returns the NAV that was recorded, or
+nothing.** It does not recompute, because there is nothing left to compute from, and it does
+not interpolate between the days that survive. A NAV computed while the marks existed is a
+recorded calculation — a formula, a code version, a lineage, and now a `recorded_at` saying
+which day's answer it was — and that survives as derived output, which the operator's
+determination of 2026-08-09 (ADR 0030) permits to be shown. Its *inputs* do not: the marks
+recorded against the calculation are copies like any other, so they go with the bars and the
+lineage node reads as erased under licence, the way a purged artefact reads as deleted under
+licence rather than as missing. A day for which nobody computed a NAV is not answerable
+afterwards at all.
+
+**The cost is the ability to ask new questions of an old book.** After a lapse the questions
+already asked and answered stand, and no fresh one can be put to that period — no re-basing,
+no second currency, no holding-level attribution that was not computed at the time. It turns
+"compute the NAV nightly and keep it" from a convenience into a retention decision, which is
+an odd sentence to have to write and is the honest shape of building on marks somebody else
+owns.
+
 **A correction reads as a correction.** With ADR 0069's superseding row, the earlier figure
 goes on standing and goes on saying what it said: the posture ADR 0021 took in refusing to
 let an override clear a quarantine, and the instinct the schema already shows where
 `uq_price_bars_day` (`src/aer/db/models/security.py:182`) makes a vendor's revised bar
 collide rather than overwrite.
+
+**A backfill is dated by the import, not by the trade, and a point-in-time query says so.**
+`created_at_column()` (`src/aer/db/base.py:43`) takes its value from the database clock,
+"the single authority for when a row appeared", and this record puts `recorded_at` out of
+reach of the import path along with every other write path. So an operator entering three
+years of contract notes on one afternoon gets three years of `effective_at` and one
+afternoon of `recorded_at`. The NAV chart then plots the whole imported history, and a
+research point-in-time query as at any date before that afternoon returns nothing from it —
+correctly, because the platform did not know these trades then, and a query that answered
+otherwise would be manufacturing exactly the look-ahead this record exists to refuse. That
+is a real cost and it is not a defect: an imported book has no research history, a backtest
+cannot run over the years preceding the import, and the only thing that fixes it is time.
 
 **The look-ahead guard gains an internal-ledger branch**, keyed on `recorded_at` against the
 as-of date carried by ADR 0068's `EvidenceScope`. That is a widening of the control's

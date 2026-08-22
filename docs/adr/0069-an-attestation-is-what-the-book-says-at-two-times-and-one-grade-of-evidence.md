@@ -1,6 +1,6 @@
 # ADR 0069 — An attestation is what the book says, at two times and one grade of evidence
 
-**Status.** Proposed
+**Status.** Accepted
 **Date.** 2026-08-22
 **Required by.** `docs/investment-os.md` §5, and by ADRs 0074 to 0077 — each of which
 monitors, prices or reviews a position that the platform currently has no way to write down.

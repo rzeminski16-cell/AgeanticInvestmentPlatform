@@ -266,7 +266,12 @@ class ToolDefinition:
     api_routers: tuple[str, ...]
     page_routers: tuple[str, ...]
     nav: tuple[NavEntry, ...]
+    subject_resolvers: Mapping[str, str]   # subject_kind -> "module:function"
 ```
+
+`subject_resolvers` is what keeps the `(subject_kind, subject_id)` pair from rotting the way
+`_load_fact` did: a subject is resolved by the tool that owns its kind, through a registered
+reference, not by an `if` chain somebody must remember to extend.
 
 **One rule is not optional.** `__post_init__` must *intersect* a tool's declared `roles`
 against `registered_roles()`, never union. Invariant 7 makes skill files additive-only and
@@ -384,12 +389,19 @@ ADR 0035 requires an ADR per role, and the registry refuses a definition without
 | `risk_analyst` | Barely a model role. Volatility, beta, exposure, concentration, drawdown and scenario P&L are all `@traced` calculations under ADR 0003. The role gets **commentary only** over platform-filled numeric fields it cannot represent — the shape ADR 0063 used. It does not size, does not set limits, does not choose scenarios. Cheapest and safest to build first. |
 | `post_trade_reviewer` | Per-premise verdict from a closed enum, with `process_quality` a **separate field** from `outcome`. No field recommending a methodology change — that is a skill edit and a human act. |
 
-**Reserved output fields must grow in the same commit that introduces any sizing concept.**
+**Reserved output fields grow in two tranches, on two different clocks.**
 `RESERVED_OUTPUT_FIELDS` is currently `{rating, recommendation, target_price, price_target,
-valuation_range, fair_value}`. It must gain `position_size`, `weight`, `recommended_weight`,
-`action`, `order_quantity`, `stop_loss`, `conviction`, with matching attack files in the
-`fx_skill_adversarial` corpus. ADR 0040's guarantee is that the corpus must all fail
-forever; a gap opened before the corpus grows is a gap nobody will notice closing.
+valuation_range, fair_value}`.
+
+`conviction` is due **now**, with ADR 0070 rather than with any sizing work: a skill that can
+declare an output field named `conviction` is a skill that can put a judgement where a number
+goes, which is precisely what that record forbids. The six sizing names — `position_size`,
+`weight`, `recommended_weight`, `action`, `order_quantity`, `stop_loss` — are ADR 0076's, and
+land in the same commit as any sizing concept, never after.
+
+Each name needs its own attack file in the `fx_skill_adversarial` corpus, which is a
+directory of skill files rather than a list. ADR 0040's guarantee is that the corpus must all
+fail forever; a gap opened before the corpus grows is a gap nobody will notice closing.
 
 ## 10. The methodology library mostly does not exist yet
 
@@ -436,7 +448,8 @@ on a draft design note is not a decision.
    `vertical_slice_v1`, and fixes the run console blanking on an unrecognised
    `workflow_version`.
 3. `work_orders` supertype and the budget-guard generalisation (§6.3).
-4. `EvidenceScope(as_of_date, point_in_time, subject_kind, subject_id)` replacing the
+4. `EvidenceScope(work_order_id, as_of_date, point_in_time, subject_kind, subject_id)`
+   replacing the
    `ResearchRequest` argument in `visible_facts`, `visible_sources` and
    `verify.citations._refuse_if_out_of_time`, preserving ADR 0061's one-predicate rule.
 5. Generic subject correlation on `audit_events`.
@@ -544,11 +557,21 @@ Live status. Tick an item only when it is committed, not when it is drafted.
 - [x] `knowledge-map.md` §6 — a theme for the expansion in the ADR index
 - [x] `knowledge-map.md` §7 — a tool is a different class of change, not a sixth recipe
 - [x] ADRs 0067–0077 drafted
-- [ ] ADRs 0067–0077 repaired against review (nine blocking issues; in progress)
-- [ ] ADR 0078 — a rate is a dated observation with a source
-- [ ] `knowledge-map.md` §6 restores the 0078 citation once the record exists
-- [ ] Operator sign-off on the `tool_gates` decision (§13), the only one taken unilaterally
-- [ ] Operator sign-off on what a lapsed market-data subscription does to NAV history
+- [x] ADRs 0067–0077 repaired — nine blocking issues from the first review, then five more
+      from the second, including two records that still claimed the macro defect was firing
+- [x] ADR 0078 — a rate is a dated observation with a source. Added during review, because
+      three of the others named an FX rate store as a prerequisite and none could decide it
+- [x] `knowledge-map.md` §6 cites 0078, now that the record exists
+- [x] Design note realigned where the ADRs moved past it — `subject_resolvers` on
+      `ToolDefinition`, the run identity on `EvidenceScope`, `conviction` split from the
+      sizing names
+- [x] Operator sign-off: `tool_gates` reference table confirmed (§13)
+- [x] Operator sign-off: ADR 0071's answer on a lapsed subscription accepted — bars go,
+      recorded NAVs survive as derived output, nothing is recomputed or interpolated
+- [x] All twelve records moved from Proposed to **Accepted**, and are therefore immutable
+      under ADR 0001 — a change from here needs a superseding record
+
+**"Decisions and documents" is complete.** Everything below this line is code.
 
 ### Stage A — prerequisites that pay for themselves inside the research tool
 

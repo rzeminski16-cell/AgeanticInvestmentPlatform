@@ -1,6 +1,6 @@
 # ADR 0070 — A judgement is never a source reference
 
-**Status.** Proposed
+**Status.** Accepted
 **Date.** 2026-08-22
 **Required by.** `docs/investment-os.md` §5, which names this the single most important rule
 in the expansion, and by ADRs 0075 and 0077, whose entire output is a view somebody holds.
@@ -103,6 +103,41 @@ price-derived figure; ADR 0029's `ValuationMandate` has no constructor for a ban
 pattern rather than a coincidence. A missing column is the only rule that a later prompt, a
 later template and a later person under time pressure are all equally unable to argue with.
 
+## `conviction` is reserved by this ADR, not by a later one
+
+The schema half of the rule closes the route through provenance: a Judgement cannot be a
+`SourceRef`, so a conviction arriving at a calculation is a value with no source, and
+`_as_input` refuses it. A skill file never needed that route. A custom-section output
+contract that declares a field named `conviction` puts the model's own view straight into a
+rendered section, under a name a reader takes for a figure — no holder, no time, no stated
+basis, and nothing anywhere to check, because there is no citation and no calculation, only
+a field a section declared and a model filled. It is the laundering above with the plumbing
+taken out.
+
+`RESERVED_OUTPUT_FIELDS` (`src/aer/core/schemas/skill.py:67`) is today exactly six names:
+`rating`, `recommendation`, `target_price`, `price_target`, `valuation_range`, `fair_value`.
+**It gains `conviction`, with its own attack file in
+`tests/fixtures/fx_skill_adversarial/`, in the change that lands this ADR.**
+
+**It does not wait for sizing.** ADR 0076 reserves six sizing names — `position_size`,
+`weight`, `recommended_weight`, `action`, `order_quantity`, `stop_loss` — in the commit that
+first introduces a sizing concept, and that timing is right for them, because until such a
+concept exists there is nothing for those names to denote. `conviction` is in no such
+position. This ADR is what makes the name dangerous; the roles whose whole output is a view
+are ADRs 0075 and 0077; and a skill file can declare the field against the schema exactly as
+it stands. A rule that forbids a judgement from becoming a figure while leaving open the one
+route to a figure that never touches a source has not got a gap at its edge — the gap is the
+middle of it.
+
+The mechanism costs a line and arms two layers. `reserved_fields_in`
+(`src/aer/core/section_output.py:247`) reads the same frozen set as the authoring refusal in
+`skill.py`, so the name is refused when the file is parsed and again if a contract reaches
+the execution boundary around the service layer; the frontmatter test parametrises over the
+constant, so the authoring case arrives with the name. The one thing that does not come free
+is the refusal message, which explains itself today in terms of figures the built-in sections
+own. `conviction` needs its own clause, because the reason here is not ownership: it is that
+a view somebody holds is not a figure at all.
+
 ## Consequences
 
 **Things somebody will want become unrepresentable, and that is the intended cost.**
@@ -112,8 +147,9 @@ later template and a later person under time pressure are all equally unable to 
 - **A confidence-adjusted target price cannot be computed.** Nor a conviction-weighted
   expected return, nor a thesis-strength-weighted anything.
 - **A model's stated confidence cannot influence a figure by any route**, including the
-  indirect ones. `RESERVED_OUTPUT_FIELDS` currently names six fields and `conviction` is not
-  among them; the model-facing half of this rule is unfinished until it is.
+  indirect ones. Not through provenance, because there is no fifth `SourceKind`; and not
+  through a section contract, because `conviction` is reserved above — with this ADR, not
+  with sizing.
 
 These are genuine omissions, and the person who wants them back may well be the operator
 with a good argument. **A future ADR wanting conviction weighting must argue against this

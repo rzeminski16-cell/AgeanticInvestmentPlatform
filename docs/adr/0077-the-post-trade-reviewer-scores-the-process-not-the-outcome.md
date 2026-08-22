@@ -1,6 +1,6 @@
 # ADR 0077 — The post-trade reviewer scores the process, not the outcome
 
-**Status.** Proposed
+**Status.** Accepted
 **Date.** 2026-08-22
 **Required by.** ADR 0035, which holds that a new agent role needs an ADR before it needs a
 registry row.
@@ -31,12 +31,21 @@ ones in rallies". That record named the legitimate use of price and deferred it 
 The deterministic half already exists, in one narrow place. `services/history.py` builds the
 prior-research comparison section — `prior_research_comparison`, position 900,
 `token_budget = 0` — by measuring a prior run's confirmed assumptions against the filings
-that later arrived, over `calc/outcomes.py`'s `@traced` `assumption_delta` and a
-`realised_driver` built from traced ratios, on the same line concepts the proposal derivation
-used. Its statuses are `measured`, `not_yet_observable`, `not_measurable` and `skipped`, its
-docstring opens "read, never re-judged", and it reaches no model at all. So the platform can
-already say what a forecast did. Nothing in it has ever asked whether the decision was well
-made.
+that later arrived, on the same line concepts the proposal derivation used. Its statuses are
+`measured`, `not_yet_observable`, `not_measurable` and `skipped`, its docstring opens "read,
+never re-judged", and it reaches no model at all.
+
+**Every figure it produces is a recorded calculation, and the division of labour that gets it
+there is worth stating exactly**, because this record proposes to extend it. `assumption_delta`
+(`calc/outcomes.py:73`) carries `@traced`, so a delta is a formula with two sourced inputs and
+a code version. `realised_driver` (`calc/outcomes.py:85`) carries no decorator and needs none:
+it is a plain dispatcher that performs no arithmetic of its own, choosing which traced
+derivation a driver's line concepts call for — `growth_rate` for revenue, `subtotal_difference`
+then `ratio` for working-capital intensity, `ratio` for the rest — and returning a stated reason
+string wherever the measured year cannot answer. The tracing is at the bottom, where the
+arithmetic is; dispatch above it records nothing because there is nothing to record. So the
+platform can already say what a forecast did. Nothing in it has ever asked whether the decision
+was well made.
 
 ## Decision
 
@@ -108,6 +117,18 @@ content its enforcement was not designed for, and admitting a role that writes s
 beforehand would open the gap in the least visible place available: a checklist edited by the
 system that was graded against it.
 
+**That gap is a reason this refusal is safe, not a condition on it, and the difference matters
+enough to state.** `docs/investment-os.md` §10 records what prose composition still needs
+before a methodology library can exist — an additive-only rule of its own, a precedence order
+when two methodology skills conflict, and a per-agent token budget for the added text — and
+none of the three is written. **Write all three tomorrow and this field is still absent; never
+write them and this field is still absent.** The refusal turns on who is permitted to change a
+method, which is a question about authority, and no enforcement machinery answers a question
+about authority — the best imaginable composition rule would still be checking the wording of
+a checklist that the system being graded against it had decided to rewrite. So nothing here is
+pending. A later record wanting this field must argue that a reviewer may amend its own
+standard, and it will get no help from the composition rule landing.
+
 **The reviewer may observe that an invalidation condition was ignored. It may not rewrite the
 checklist that contained it.** The first is a finding about what happened. The second is a
 change to how the next decision gets made.
@@ -134,9 +155,11 @@ thesis. It is noise with a P&L attached.** ADR 0075 argued that in full and this
 not repeat it.
 
 The arithmetic stays where all arithmetic stays: `@traced` calculations over stored bars and
-dates, in the shape `calc/outcomes.py` already uses for a forecast driver. A realised return
+dates, in the shape `calc/outcomes.py` already uses for a forecast driver — the traced
+derivation at the bottom, an untraced dispatcher above it doing nothing but choosing between
+them, and a stated reason rather than a zero wherever the data cannot answer. A realised return
 on an LSE holding is a chain of recorded conversions rather than a subtraction — GBX quotes,
-and the rate store `docs/investment-os.md` §6.2 describes — which is a reason for it to be
+and the rate store ADR 0078 decides — which is a reason for it to be
 code's and none at all for it to be prose.
 
 ## A post-trade conclusion is the platform's own output
@@ -155,8 +178,21 @@ report and on an operator's reading of what happened next.
 **A lesson is a Judgement (ADR 0070), with exactly the privileges that record grants.** It
 may be displayed — on the position, in the journal, in full. It may be compared with
 outcomes, which is what this role is for. It may be aggregated for the operator's own review.
-It may never be a `SourceRef`, because `SourceKind` (`calc/units.py:136`) stays closed at
-three values and the exclusive choice on `claims` has no column that could hold one.
+It may never be a `SourceRef`, because `SourceKind` (`calc/units.py:136`) admits no Judgement
+value, and the exclusive choice on `claims` has no column that could hold one.
+
+**The argument is not that the taxonomy is closed, because it is not.** ADR 0069 opens it:
+`SourceKind` gains a fourth value, `ATTESTATION`, and the same change widens the exclusive
+choice on `claims` to a three-way one admitting an `attestation_id`. A fill price earned that
+by arriving with a story of its own: what the book says, at two times, with a grade of
+evidence behind it. That is the standard 0069 set — a kind is admitted because it brings a
+story, never as an exemption from having one — and a lesson meets no part of it. So the
+refusal here cannot rest on a count of enum members, and does not: ADR 0070 grants a
+Judgement no `SourceKind` value, no `SourceRef` constructor beside
+`fact`, `calculation` and `assumption`, and no `judgement_id` arm on the widened check. **The
+route from a lesson to a figure is missing rather than guarded**, which is the only kind of
+rule a later prompt, a later template and a later person under time pressure are all equally
+unable to argue with.
 
 The failure this forbids would look entirely respectable on the page: a report section
 reading "the platform's post-trade review of eleven similar positions found that
@@ -179,9 +215,14 @@ reduce**, which would make it the most counterproductive screen in the product.
 
 The precedent is the comps table, which has carried its counts since it was built —
 `MultipleBand.count`, and `peer_count` and `excluded_count` on `WithheldComps`. So the rule
-takes the shape `docs/investment-os.md` §8 gives the provenance badge: the count is a required
-field on the type the template renders, so a page has no way to show the ratio without it. A
-rule that lives in a review convention survives until the first cramped layout.
+takes the shape ADR 0073 gives the provenance badge, where `ProvenanceRef(kind, identifier,
+href)` is a *required* argument of the macro — not optional, not defaulted — so a badge
+asserting a lineage cannot be built without a link to the lineage it asserts. Here the count
+is a required field on the type the template renders, so a page has no way to show the ratio
+without it. That record refuses in the same breath to let one chip carry both provenance and
+confirmation, which is this record's two fields arriving on the shell: **an axis collapsed in
+a display is as lost as an axis collapsed in a schema**. A rule that lives in a review
+convention survives until the first cramped layout.
 
 ## Consequences
 

@@ -1,6 +1,6 @@
 # ADR 0076 — The risk analyst comments on numbers it cannot write
 
-**Status.** Proposed
+**Status.** Accepted
 **Date.** 2026-08-22
 **Required by.** ADR 0035, which holds that a new agent role needs an ADR before it needs
 code, and `docs/investment-os.md` §9, which calls this one "barely a model role".
@@ -32,7 +32,7 @@ One genuine blocker is worth naming, because it is not a model problem. **Curren
 cannot be computed at all yet:** `MacroClient.fetch_reference_rates`
 (`src/aer/sources/macro/client.py:207`) has no callers, there is no rate store, and
 `Quantity.__add__` refuses to add dollars to pounds rather than coercing. That figure waits
-on §6.2's rate store and ADR 0045's pivot arithmetic, not on anything a model could supply —
+on ADR 0078's rate store and ADR 0045's pivot arithmetic, not on anything a model could supply —
 and a role that answered it in prose would be inventing the rate.
 
 ## Decision

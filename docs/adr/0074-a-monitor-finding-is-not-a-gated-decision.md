@@ -1,6 +1,6 @@
 # ADR 0074 — A monitor finding is not a gated decision
 
-**Status.** Proposed
+**Status.** Accepted
 **Date.** 2026-08-22
 **Required by.** `docs/investment-os.md` §13 question 2, and by ADRs 0075, 0076 and 0077 —
 three roles that produce output continuously and, without this record, have nowhere to put
@@ -13,13 +13,17 @@ actually bites.
 
 Gates are this platform's central control, and they work for a specific and fragile reason.
 
-`GateKind` (`src/aer/core/enums.py:123`) holds eight values; `vertical_slice_v1` declares
-seven of them as workflow steps, and only `PLAN` and `FINAL` fire unconditionally, so a
-report is decided at about six gates. Each shows a payload a person can read in a minute,
-and `payload_hash` seals exactly what was on the screen, because "storing only the decision
-would leave 'approved' meaning nothing in particular six months later". The count is small
-enough that reading the payload is the natural thing to do rather than the diligent thing to
-do.
+`GateKind` (`src/aer/core/enums.py:123`) holds eight values, and the number a report
+actually meets is smaller than that in both directions. `vertical_slice_v1` gives seven of
+them a workflow step; `BUDGET` has none, and no gate page renders one, so it sits in
+`GATE_ORDER` as a kind nothing currently reaches. Of the seven that are declared,
+`approvals._CONDITIONAL` exempts five — unmapped concepts, peer set, sector specialist,
+theme set and assumptions all fire only on the runs that need them — leaving **`PLAN` and
+`FINAL` as the only gates every run passes.** So a report is decided at two gates at the low
+end and seven at the high. Each shows a payload a person can read in a minute, and
+`payload_hash` seals exactly what was on the screen, because "storing only the decision
+would leave 'approved' meaning nothing in particular six months later". At that count
+reading the payload is the natural thing to do rather than the diligent thing to do.
 
 ADR 0046 named the property that makes this work: *"review fatigue over a long list is a
 real failure mode, where review of two is not."*
@@ -35,7 +39,8 @@ arrived at for a workflow that runs a few times a week.
 A nightly thesis monitor across forty watchlist names has no such ratio available. It
 generates gate-shaped output at roughly forty a day, produced at 03:00 with nobody in front
 of it, and what meets the operator in the morning is a list of forty items each asking to be
-approved.
+approved. A handful of readable gates per report is a control. Forty a day is a rubber
+stamp, and the difference is not one of degree.
 
 **A person facing that list clicks approve, and mechanically clicking approve is strictly
 worse than not gating at all.** Not equivalent — worse. With no gate, the record says a
@@ -67,6 +72,12 @@ describes a premise the position rests on having failed, and that is the single 
 with a consequence somebody must own: holding a position whose stated thesis has been
 contradicted is a decision, and so is not holding it. It happens rarely, which is precisely
 what makes it affordable as a gate and precisely what makes it deserve one.
+
+**That gate has a schema prerequisite, and it is not this record's to satisfy.**
+`approvals.request_id` is `NOT NULL` with a foreign key to `research_requests`
+(`src/aer/db/models/approval.py:37-39`), so a monitor run — which has no research request —
+cannot write an approval row at all; ADR 0068 repoints the column to `work_orders`, and the
+one outcome tiered here as a genuine human judgement is unrecordable until it does.
 
 **The other four are findings, and a finding is a question raised.** It changes nothing on
 its own. It has no `approvals` row, no `payload_hash`, no decision column and no actor who
@@ -124,36 +135,15 @@ different histories that one boolean cannot tell apart.
 
 ## The audit chain must reach this
 
-`audit_events` correlates by `job_id` and `request_id` and by nothing else. Both are
-deliberately plain columns rather than foreign keys, so the log outlives what it describes —
-`services/requests.py::purge_request` says why: "`audit_events` carries `request_id` as a
-plain column with no foreign key, precisely so the record of a deletion survives the thing
-deleted."
-
-That is a correlation vocabulary built for one tool. Nothing in a portfolio has a
-`request_id`. A trade entry, a position correction, a thesis edit and an attention-item
-resolution would every one of them chain against `NULL, NULL` — present in the ordering,
-counted by the verifier, and unreachable by any query asking what has happened to a
-position.
-
-**The result would invert the current design exactly.** Deleting a research request today
-writes a chained event through `services/requests.py::_record`; enabling a skill writes
-`skill.enabled` to structlog at `services/skills.py:173` and touches no chain at all. That
-ordering is defensible while every consequential record is a research record. It stops being
-defensible the moment the most consequential records in the system are the ones about money:
-a trade entry that is not tamper-evident, sitting beside a discarded draft request that is.
-
-So `audit_events` needs a generic subject correlation — a `subject_kind`/`subject_id` pair
-beside the two it has — **and it needs it before the first ledger row, not after.**
-Backfilling is not on offer. Each event hashes against its predecessor, so adding the
-correlation later leaves the choice between events written without it that no query can
-reach, and rewriting rows whose entire purpose is to be un-rewritable;
-`aer/services/audit_verify.py` would report the second as a broken chain, and it would be
-right.
-
-This is a prerequisite of this record rather than a consequence of it. Tiering findings
-against gates is only worth doing if a finding, its resolution and the decision that
-followed can be found together afterwards.
+Tiering findings against gates is only worth doing if a finding, its resolution and the
+decision that followed are chained and can be found together afterwards, and
+`audit_events` correlates by `job_id` and `request_id` and by nothing else — a vocabulary
+built when every consequential record was a research record. ADR 0068 adds the generic
+subject correlation that makes a portfolio record reachable, as a prerequisite of this
+decision rather than a consequence of it. **The motivation is this record's:** a trade
+entry, a position correction and a thesis edit landing outside the chain would leave the
+most consequential records in the system the least tamper-evident, sitting beside a
+discarded draft request that is — an exact inversion of the design as it stands.
 
 ## Cost changes shape
 

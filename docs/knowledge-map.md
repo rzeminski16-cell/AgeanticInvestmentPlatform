@@ -225,7 +225,8 @@ ones — read the ADR before touching its territory:
   judgement is never a source reference), 0071 (the portfolio clock is not the research
   clock), 0072 (a lineage node resolves by table), 0073 (JavaScript may own chrome and never
   a figure), 0074 (a monitor finding is not a gated decision), 0075–0077 (the thesis monitor,
-  the risk analyst, the post-trade reviewer).
+  the risk analyst, the post-trade reviewer), 0078 (a rate is a dated observation with a
+  source, not a number in a column).
   **Read 0069 and 0070 together before touching any portfolio table**: they are what stops a
   number the operator typed and a view the operator holds from becoming interchangeable.
 

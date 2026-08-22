@@ -1,6 +1,6 @@
 # ADR 0067 — A tool is a registered capability, not a package
 
-**Status.** Proposed
+**Status.** Accepted
 **Date.** 2026-08-22
 **Required by.** `docs/investment-os.md` §7. ADRs 0068 to 0077 each describe a capability
 that has nowhere to register itself until this record exists.
