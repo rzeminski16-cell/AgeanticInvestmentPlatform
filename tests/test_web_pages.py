@@ -7,11 +7,14 @@ aesthetic, and the only thing keeping it there is a test that fails when it goes
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from aer.config import load_settings
 from aer.version import version
-from aer.web.templating import DISCLAIMER, STATIC_DIR, TEMPLATES_DIR
+from aer.web.shell import flat_items, shell_for
+from aer.web.templating import DISCLAIMER, STATIC_DIR, TEMPLATES_DIR, templates
 from tests.api_fixtures import build_app, client_for
 
 
@@ -148,3 +151,99 @@ class TestCommittedBuildOutput:
         # missing partial is two broken pages rather than one.
         for name in ("_form.html", "new.html", "edit.html", "immutable.html"):
             assert (TEMPLATES_DIR / "requests" / name).is_file()
+
+
+class TestTheShellRendersFromData:
+    """The nav is a loop over `shell.nav`, and the shell is injected rather than passed.
+
+    Built on a broken engine like the rest of this file, which is the assertion that
+    matters most here: `StrictUndefined` means `base.html` naming `shell.nav` would turn
+    the one page an operator opens when Postgres is down into a 500 if the shell needed a
+    query. It does not, and this is where that stays true.
+    """
+
+    async def test_every_nav_label_reaches_the_page(self, web_client):
+        body = (await web_client.get("/")).text
+
+        for item in flat_items():
+            assert f'href="{item.href}"' in body, f"{item.key} is missing from the rendered nav"
+            assert item.label in body
+
+    def test_the_current_item_says_so(self):
+        """Asserted against the template rather than a route, and deliberately.
+
+        Every page that would light a nav item needs the database, and this file's client
+        is built on one that is down on purpose. Rendering the partial directly tests the
+        one thing at issue — that the template marks the active item — without pretending
+        to test a page it cannot reach.
+        """
+        markup = templates.env.get_template("_nav.html").render(
+            shell=shell_for("/requests"), disclaimer=DISCLAIMER
+        )
+
+        assert markup.count('aria-current="page"') == 1
+        assert 'href="/requests"' in markup
+
+    async def test_a_page_under_nothing_marks_nothing_current(self, web_client):
+        body = (await web_client.get("/")).text
+
+        assert 'aria-current="page"' not in body
+
+    async def test_guidance_is_off_by_default(self, web_client):
+        assert 'data-guidance="off"' in (await web_client.get("/")).text
+
+
+class TestGuidanceMode:
+    """A form POST that redirects, so it works with scripting off (ADR 0006)."""
+
+    async def _token(self, web_client) -> str:
+        page = await web_client.get("/requests/new")
+        found = re.search(r'name="csrf_token" value="([^"]+)"', page.text)
+        assert found, "no CSRF token on the form page"
+        return found.group(1)
+
+    async def test_turning_it_on_is_remembered(self, web_client):
+        token = await self._token(web_client)
+
+        response = await web_client.post(
+            "/_shell/guidance",
+            data={"guidance": "on", "next": "/requests", "csrf_token": token},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/requests"
+        assert 'data-guidance="on"' in (await web_client.get("/")).text
+
+    async def test_turning_it_off_again_is_remembered(self, web_client):
+        token = await self._token(web_client)
+        data = {"next": "/", "csrf_token": token}
+        await web_client.post("/_shell/guidance", data={**data, "guidance": "on"})
+
+        await web_client.post("/_shell/guidance", data=data, follow_redirects=False)
+
+        assert 'data-guidance="off"' in (await web_client.get("/")).text
+
+    async def test_it_refuses_to_forward_off_site(self, web_client):
+        # A redirect that followed a form field anywhere would be an open redirect: a page
+        # on this origin that hands the operator to somebody else's.
+        token = await self._token(web_client)
+
+        for hostile in ("https://example.invalid/", "//example.invalid/", "javascript:alert(1)"):
+            response = await web_client.post(
+                "/_shell/guidance",
+                data={"guidance": "on", "next": hostile, "csrf_token": token},
+                follow_redirects=False,
+            )
+
+            assert response.headers["location"] == "/", f"{hostile} was followed"
+
+    async def test_a_forged_token_changes_nothing(self, web_client):
+        response = await web_client.post(
+            "/_shell/guidance",
+            data={"guidance": "on", "next": "/requests", "csrf_token": "forged.1.deadbeef"},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        assert 'data-guidance="off"' in (await web_client.get("/")).text

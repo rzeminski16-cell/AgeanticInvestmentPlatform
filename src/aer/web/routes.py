@@ -55,6 +55,7 @@ from aer.services.assumption_gate import outstanding_for
 from aer.version import build_identity
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.forms import ParsedForm, form_values_from, parse_request_form
+from aer.web.shell import GUIDANCE_COOKIE
 from aer.web.templating import render
 from aer.workflow.workflows.vertical_slice_v1 import FORECAST_YEARS
 
@@ -1058,3 +1059,46 @@ async def create_assumption_page(
 def _problem_page(request: Request, message: str, status: int) -> Response:
     page: Response = render(request, "runs/problem.html", {"message": message}, status_code=status)
     return page
+
+
+@router.post("/_shell/guidance", summary="Turn guidance mode on or off")
+async def toggle_guidance(request: Request, settings: SettingsDep) -> Response:
+    """Flip the guidance flag and return to the page that asked.
+
+    A form POST that redirects, so it works with scripting off — ADR 0006's binding rule,
+    which htmx may improve on but never replace. The flag is server state under ADR 0073:
+    a reload that lost it would be noticed, which is the test for what the client may own.
+
+    Stored in a cookie rather than on `users`. It is a preference, not a record: nothing
+    cites it, no figure depends on it, and a migration on a table documented as holding one
+    row is a large price for remembering whether somebody wants callouts.
+
+    **The destination is checked rather than trusted.** `next` arrives from a form field and
+    a redirect that followed it anywhere would be an open redirect — a page on this origin
+    that forwards to somebody else's. Only a same-site absolute path is honoured.
+    """
+    form = await request.form()
+    if not await _csrf_ok(request, settings):
+        # No flash and no error page: the worst case is a preference that did not change,
+        # and a security-token page for a cosmetic toggle would be a worse answer than
+        # simply not toggling.
+        return RedirectResponse("/", status_code=HTTP_303_SEE_OTHER)
+
+    wanted = str(form.get("guidance") or "") == "on"
+    raw = str(form.get("next") or "/")
+    destination = raw if raw.startswith("/") and not raw.startswith("//") else "/"
+
+    response = RedirectResponse(destination, status_code=HTTP_303_SEE_OTHER)
+    response.set_cookie(
+        GUIDANCE_COOKIE,
+        "on" if wanted else "off",
+        httponly=True,
+        samesite="strict",
+        # Not Secure, for the reason `web/csrf.py` gives about its own cookie: this is
+        # served over plain HTTP on loopback, and a Secure cookie would simply never be
+        # sent. Revisit with TLS, and revisit both together.
+        secure=False,
+        max_age=60 * 60 * 24 * 365,
+        path="/",
+    )
+    return response

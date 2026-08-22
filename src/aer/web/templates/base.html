@@ -24,7 +24,14 @@
        Content-Security-Policy can forbid inline script without rewriting any template. #}
     {% block head_extra %}{% endblock %}
   </head>
-  <body class="h-full bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
+  {# `data-guidance` is the one piece of shell state the client is allowed to flip for
+     instant feedback; the flag itself is the server's and is remembered per operator
+     (ADR 0073). Callouts are shown by CSS keyed on this attribute, so guidance mode adds
+     no JavaScript to a page that is not using it. #}
+  <body
+    data-guidance="{{ shell.guidance_attr }}"
+    class="h-full bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100"
+  >
     <div class="flex min-h-full flex-col">
       {% include "_nav.html" %}
 

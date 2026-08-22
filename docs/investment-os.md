@@ -637,15 +637,23 @@ Live status. Tick an item only when it is committed, not when it is drafted.
 
 ### Stage B — the shell
 
-- [ ] Nav as data — frozen `NavItem`/`NavSection`, an explicit `NAV` tuple, `_nav.html` a loop
-- [ ] The nav drift test — every `NavItem.href` resolves; every unlisted page route is named
-- [ ] `shell` injected inside `templating.render()`, constructible with no database
+- [x] Nav as data — frozen `NavItem`/`NavSection`, an explicit `NAV` tuple, `_nav.html` a loop.
+      Renders identically to the eight hand-written anchors it replaced; what changed is that
+      a second tool can contribute a section and an item knows when it is the current one
+- [x] The nav drift test — every `NavItem.href` resolves; every one of the 40 page routes is
+      either in the nav or named in `UNLISTED`. Verified to fail when an entry is removed
+- [x] `shell` injected inside `templating.render()`, constructible with no database — asserted
+      against the broken-engine client, because `StrictUndefined` would otherwise turn the one
+      page an operator opens when Postgres is down into a 500
 - [ ] Design tokens in `@theme`; dark variant through a flipping custom-property layer
 - [ ] `_ui/` macros — card, KPI tile, provenance badge, empty state, drawer. Data, never classes
 - [ ] Provenance badge requires a `ProvenanceRef`; two chips, not five (ADR 0073)
 - [ ] The provenance label test — no label string outside the macro
 - [ ] `drawer.js` — focus trap, Escape, scroll lock, `aria-modal`. Written once
-- [ ] Guidance mode — `data-guidance` on `<body>`, callouts in pure CSS
+- [ ] Guidance mode — the flag, the toggle and `data-guidance` on `<body>` are done: server
+      state under ADR 0073, a form POST that redirects so it works with scripting off, and a
+      checked destination so it cannot become an open redirect. **The callouts themselves
+      still need the `ui.guide()` macro and its CSS**
 - [ ] Badge counts off the critical render path, behind `GET /_shell/badges`
 - [ ] Inter vendored under `static/fonts/`, or the system stack accepted
 - [ ] **Overview as a genuinely second tool**, built only from data that already exists.

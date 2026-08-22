@@ -1,5 +1,10 @@
 {# Site header. The "not advice" badge sits beside the product name deliberately: it is
-   the first thing read on every page, not something found at the bottom. #}
+   the first thing read on every page, not something found at the bottom.
+
+   The links are a loop over `shell.nav` rather than eight hand-written anchors. Nothing
+   about the rendering changed when they became data; what changed is that a second tool
+   can contribute a section, an item can say when it is the current one, and a test can
+   notice a page that no route serves. See `aer/web/shell/registry.py`. #}
 <header class="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
   <nav
     class="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-4 sm:px-6"
@@ -17,46 +22,14 @@
     </span>
 
     <div class="ml-auto flex items-center gap-4 text-sm">
+      {% for section in shell.nav %}{% for item in section.items %}
       <a
-        href="/requests"
+        href="{{ item.href }}"
+        {% if shell.active == item.key %}aria-current="page"{% endif %}
         class="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-        >Requests</a
+        >{{ item.label }}</a
       >
-      <a
-        href="/settings"
-        class="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-        >Settings</a
-      >
-      <a
-        href="/costs"
-        class="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-        >Costs</a
-      >
-      <a
-        href="/reports"
-        class="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-        >Reports</a
-      >
-      <a
-        href="/skills"
-        class="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-        >Skills</a
-      >
-      <a
-        href="/knowledge"
-        class="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-        >Knowledge</a
-      >
-      <a
-        href="/healthz"
-        class="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-        >Health</a
-      >
-      <a
-        href="/docs"
-        class="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-        >API</a
-      >
+      {% endfor %}{% endfor %}
     </div>
   </nav>
 </header>
