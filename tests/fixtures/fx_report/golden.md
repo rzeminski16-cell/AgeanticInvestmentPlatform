@@ -91,7 +91,7 @@ A comparable-company analysis was performed against three peers as at 30 June 20
 ## Scope and limitations
 
 - **Golden Warnings:** Insufficient evidence: the golden scene says so.
-- **Golden Failed:** The golden scene fails this one on purpose.
+- **Golden Failed:** This section could not be generated.
 
 *† Rests in part on a source without a stated publication date. The point-in-time rule cannot be checked against such a source, so it is used with this caveat rather than excluded.*
 

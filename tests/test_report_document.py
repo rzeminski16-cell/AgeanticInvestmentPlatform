@@ -53,6 +53,7 @@ from aer.db.models import (
     SourceDocument,
     User,
 )
+from aer.eval.runtime import presentation_integrity
 from aer.render import display
 from aer.render.document import (
     DISCLAIMER,
@@ -64,7 +65,7 @@ from aer.render.document import (
     _display_value,
     assemble_document,
 )
-from aer.render.html import _blocks, _emphasise, _joint, _marks, render_html
+from aer.render.html import _blocks, _coded, _emphasise, _joint, _marks, render_html
 from aer.render.html import _footnote as html_footnote
 from aer.render.markdown import (
     RenderedReport,
@@ -516,6 +517,24 @@ class TestTheReportFacesTheReader:
     def test_a_full_report_carries_no_notice(self) -> None:
         assert CoverageNote(sections_failed=(), sections_total=18, checks_failed=()).sentence == ""
 
+    def test_point_in_time_off_is_explained_not_just_named(self) -> None:
+        """Gap R15: the front matter's "Point-in-time: off" is a setting's name. The
+        notice says what the setting off *costs* — the guarantee that nothing published
+        after the as-of date informed the note."""
+        note = CoverageNote(
+            sections_failed=(), sections_total=18, checks_failed=(), point_in_time_off=True
+        )
+        assert "published after the as-of date" in note.sentence
+
+    async def test_a_point_in_time_off_run_carries_the_notice(self, scene: dict[str, Any]) -> None:
+        scene["request"].point_in_time = False
+        await scene["session"].flush()
+
+        document = await _document(scene)
+
+        assert document.coverage is not None
+        assert "point-in-time enforcement was off" in document.coverage.sentence
+
     def test_display_values_read_like_prose_not_storage(self) -> None:
         assert _display_value(Decimal("0.437565271053")) == (
             "0.4376 (rounded; full precision stored)"
@@ -706,6 +725,63 @@ class TestAFailedSectionNamesItsCause:
         failed = next(view for view in document.sections if view.key == "golden_failed")
         lines = [f.text for f in failed.fragments if isinstance(f, StatusLine)]
         assert lines == ["This section could not be generated."]
+
+
+class TestACheckCannotFailOnItsOwnOutput:
+    """Gap R9. The CHRW run's `presentation_integrity` failed on ten integers, and the
+    findings table printed all ten into the rendered document — so any re-evaluation of
+    the same job would find them again: a self-sustaining failure. Two closures: the
+    findings are quoted as code spans, which the scan's own carve-out ignores; and a
+    failed section's raw diagnostics — where the original integers came from, via the
+    Scope and limitations appendix — no longer reach the document at all.
+    """
+
+    def test_a_quoted_finding_is_invisible_to_the_scan(self) -> None:
+        table = (
+            "# Note\n\n## Validation\n\n| Metric | Finding |\n|---|---|\n"
+            "| presentation_integrity | {finding} |\n"
+        )
+        quoted = table.format(finding="`unformatted integer '432183000'`")
+        unquoted = table.format(finding="unformatted integer '432183000'")
+
+        assert presentation_integrity(quoted, "<main></main>", sections=1).failures == ()
+        # The control: without the quoting, the scan re-finds the integer — which is
+        # exactly the loop, so this arm failing means the guard has real work to do.
+        assert presentation_integrity(unquoted, "<main></main>", sections=1).failures != ()
+
+    def test_the_html_cell_renders_the_quote_as_code(self) -> None:
+        rendered = str(_coded("`unformatted integer '432183000'`"))
+
+        assert rendered.startswith("<code>")
+        assert rendered.endswith("</code>")
+        assert "`" not in rendered
+
+    def test_a_cell_without_backticks_is_untouched(self) -> None:
+        assert str(_coded("0.4376 (rounded)")) == "0.4376 (rounded)"
+
+    async def test_a_failed_sections_diagnostics_never_reach_the_appendix(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The origin of the CHRW ten: the appendix printed failed sections' validator
+        strings verbatim, integers and all. It now carries the cause sentence instead."""
+        session: AsyncSession = scene["session"]
+        row = await session.scalar(
+            select(ReportSection).where(
+                ReportSection.job_id == scene["job"].id,
+                ReportSection.section_key == "golden_failed",
+            )
+        )
+        assert row is not None
+        row.low_confidence_reason = "Sentence carries 432183000 which no numeric claim resolves."
+        await session.flush()
+
+        document = await _document(scene)
+        markdown = serialise_markdown(document)
+
+        assert "432183000" not in markdown
+        notes = dict(document.limitations)
+        assert "could not be generated" in notes["Golden Failed"]
+        assert "recorded source" in notes["Golden Failed"]
 
 
 class TestTheGoldenMarkdown:

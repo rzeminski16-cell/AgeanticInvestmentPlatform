@@ -245,6 +245,13 @@ class CoverageNote:
     sections_shortened: int = 0
     sections_pruned: int = 0
 
+    # Point-in-time enforcement was off for this run (gap R15). The front matter's
+    # "Point-in-time: off" is a setting's name, not an explanation; a reader who does not
+    # know the platform cannot tell that it switches off the guarantee that nothing
+    # published after the as-of date informed the note — so the notice says it in a
+    # sentence, where every other caveat about what the document is gets said.
+    point_in_time_off: bool = False
+
     @property
     def sentence(self) -> str:
         """The notice, minus the sources link — each notation attaches its own."""
@@ -273,6 +280,11 @@ class CoverageNote:
             )
         if self.glance_withheld:
             parts.append(self.glance_withheld)
+        if self.point_in_time_off:
+            parts.append(
+                "point-in-time enforcement was off for this research, so material "
+                "published after the as-of date may have informed it"
+            )
         return "; and ".join(parts) + "." if parts else ""
 
 
@@ -544,6 +556,7 @@ async def assemble_document(
         sections=sections,
         definitions=definitions,
         glance_withheld=glance.refused,
+        point_in_time_off=not request.point_in_time,
     )
 
     # The C3 marker, derived from stored rows: any section citing a source whose
@@ -577,10 +590,21 @@ async def assemble_document(
         # The appendix keeps the whole account per section — the evidence part and the
         # editing part together, in the current register (gap R3: this listing is the
         # disclosure's home; the inline banner above carries only the evidence part).
+        # A failed section's entry is its cause sentence, never its raw diagnostics (gap
+        # R9): the validator's strings quote the very tokens they flagged — the CHRW
+        # run's ten "unformatted integer" findings were integers this appendix had put
+        # into the document — so printing them re-fails the presentation scan forever,
+        # and shows a reader schema paths besides.
         limitations=tuple(
             (view.title, note)
             for section, view in zip(sections, views, strict=True)
-            if (note := _limitation_note(section.low_confidence_reason))
+            if (
+                note := (
+                    _status_note(section)
+                    if section.status is SectionStatus.FAILED
+                    else _limitation_note(section.low_confidence_reason)
+                )
+            )
         ),
         citations=citations,
         charts=tuple(chart_views),
@@ -663,6 +687,7 @@ async def _coverage(
     sections: list[ReportSection],
     definitions: dict[uuid.UUID, SectionDefinition],
     glance_withheld: str | None = None,
+    point_in_time_off: bool = False,
 ) -> CoverageNote | None:
     """The coverage notice's inputs, from recorded state only. ``None`` when full.
 
@@ -693,7 +718,14 @@ async def _coverage(
         .order_by(Evaluation.metric)
     )
     failed_checks = tuple(checks)
-    if not failed and not failed_checks and glance_withheld is None and not (shortened or pruned):
+    nothing_to_say = (
+        not failed
+        and not failed_checks
+        and glance_withheld is None
+        and not (shortened or pruned)
+        and not point_in_time_off
+    )
+    if nothing_to_say:
         return None
     return CoverageNote(
         sections_failed=failed,
@@ -702,6 +734,7 @@ async def _coverage(
         glance_withheld=glance_withheld,
         sections_shortened=shortened,
         sections_pruned=pruned,
+        point_in_time_off=point_in_time_off,
     )
 
 

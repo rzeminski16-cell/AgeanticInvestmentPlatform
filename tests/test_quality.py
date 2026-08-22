@@ -16,6 +16,7 @@ from decimal import Decimal, localcontext
 
 import pytest
 
+from aer.calc import quality as quality_module
 from aer.calc.engine import CalculationContext
 from aer.calc.quality import (
     ACCRUALS_CONCERN,
@@ -127,6 +128,17 @@ class TestTheTableItself:
         """A number labelled "accruals ratio: 0.07" tells a reader nothing they can use."""
         for definition in QUALITY_DEFINITIONS:
             assert definition.question.endswith("?"), definition.key
+
+    def test_the_da_labels_say_what_the_ratio_measures(self):
+        """Gap R16: the numerator is all D&A — intangible amortisation included — over
+        net PP&E, so an asset-light company legitimately shows 0.65 to 0.88. A label
+        promising a fixed-asset "depreciation rate" made a defensible figure read as
+        alarming; the label now names the ratio it actually is, and the stored key stays
+        so the ledger's history remains comparable."""
+        labels = {d.key: d.label for d in (*QUALITY_DEFINITIONS, *quality_module._PAIRED)}
+        assert labels["depreciation_rate"] == "D&A to net PP&E"
+        assert labels["depreciation_rate_change"] == "Change in D&A to net PP&E"
+        assert "Depreciation rate" not in labels.values()
 
     def test_every_key_is_unique(self):
         assessed = assess_quality(CalculationContext(code_version="t"), assemble_empty())

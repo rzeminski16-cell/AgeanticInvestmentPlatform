@@ -50,7 +50,7 @@ from aer.charts import (
     svg_data_uri,
     valuation_history,
 )
-from aer.config import Settings
+from aer.config import HouseStyle, Settings
 from aer.core.assumption_scales import UNIT_CHOICES
 from aer.core.enums import CatalystOutcomeKind, Decision, GateKind, JobStatus
 from aer.core.escalation import COST_ALERT_RATIO
@@ -69,6 +69,7 @@ from aer.db.models import (
 from aer.errors import ConflictError, ValidationError
 from aer.obsidian import ObsidianExportError, VaultWriteError, export_report
 from aer.queue import enqueue_run
+from aer.render import display
 from aer.render.document import UnresolvedFootnote, assemble_document
 from aer.render.html import render_html
 from aer.render.markdown import render_markdown
@@ -684,13 +685,27 @@ async def draft_review(
     evaluations = await evaluations_for_job(session, job.id)
     coverage = await section_coverage_for_job(session, job=job, request=research_request)
     disagreements = await disagreements_for_job(session, job.id)
-    calculations = list(
-        await session.scalars(
+    # Period and house-style value per row (gap R11): the raw table showed
+    # `928567000.000000000000 USD` and six depreciation rates with nothing saying which
+    # year each belonged to — the red team had to reconstruct the vintages itself, and
+    # the operator approving the run could not see what the red team saw.
+    style = HouseStyle()
+    calculations = [
+        {
+            "name": row.name,
+            "formula": row.formula,
+            "period": row.period_label or "—",
+            "shown": display.scalar(
+                row.output_value, style=style, unit=row.output_unit, label=row.name, in_table=True
+            ),
+            "input_count": len(row.inputs or []),
+        }
+        for row in await session.scalars(
             select(Calculation)
             .where(Calculation.job_id == job.id)
             .order_by(Calculation.created_at, Calculation.id)
         )
-    )
+    ]
     cost = await cost_scene_for_job(session, job=job, request=research_request)
 
     decided = await _decision_for(session, job_id=job_id, gate=GateKind.FINAL)

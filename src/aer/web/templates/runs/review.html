@@ -260,18 +260,30 @@
               </span>
             </p>
             <div class="mt-2 grid gap-3 sm:grid-cols-2">
+              {# A thesis position's numeric fields are placeholders the ladder never
+                 compares, and "0 thesis (T1_REGULATORY)" told the operator nothing
+                 (gap R12): a thesis row shows each side's tier alone, and the
+                 challenge's cited evidence is summarised below. #}
               <div class="rounded border border-slate-200 p-2 font-mono text-xs dark:border-slate-700">
                 <p class="font-semibold">A: {{ row.position_a.label }}</p>
                 <p class="mt-1 text-slate-600 dark:text-slate-400">
-                  {{ row.position_a.value }} {{ row.position_a.unit }}
-                  ({{ row.position_a.tier }})
+                  {% if row.position_a.unit == "thesis" %}
+                    tier {{ row.position_a.tier }}
+                  {% else %}
+                    {{ row.position_a.value }} {{ row.position_a.unit }}
+                    ({{ row.position_a.tier }})
+                  {% endif %}
                 </p>
               </div>
               <div class="rounded border border-slate-200 p-2 font-mono text-xs dark:border-slate-700">
                 <p class="font-semibold">B: {{ row.position_b.label }}</p>
                 <p class="mt-1 text-slate-600 dark:text-slate-400">
-                  {{ row.position_b.value }} {{ row.position_b.unit }}
-                  ({{ row.position_b.tier }})
+                  {% if row.position_b.unit == "thesis" %}
+                    tier {{ row.position_b.tier }}
+                  {% else %}
+                    {{ row.position_b.value }} {{ row.position_b.unit }}
+                    ({{ row.position_b.tier }})
+                  {% endif %}
                 </p>
               </div>
             </div>
@@ -282,6 +294,12 @@
               <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
                 <span class="font-semibold">Basis:</span> {{ row.detail.basis }}
               </p>
+              {% if row.detail.evidence %}
+                <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                  <span class="font-semibold">Cited evidence:</span>
+                  {{ row.detail.evidence.facts | length }} fact(s), {{ row.detail.evidence.calculations | length }} calculation(s), {{ row.detail.evidence.sources | length }} source(s) &mdash; best tier {{ row.position_b.tier }}.
+                </p>
+              {% endif %}
             {% endif %}
             <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">
               {{ row.resolution_rationale }}
@@ -300,6 +318,7 @@
           <thead class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800">
             <tr>
               <th class="px-3 py-2">Name</th>
+              <th class="px-3 py-2">Period</th>
               <th class="px-3 py-2">Formula</th>
               <th class="px-3 py-2">Result</th>
               <th class="px-3 py-2">Inputs</th>
@@ -309,11 +328,13 @@
             {% for row in calculations %}
               <tr>
                 <td class="px-3 py-2 font-mono text-xs">{{ row.name }}</td>
+                {# Which year the figure belongs to (gap R11): depreciation_rate appeared
+                   six times with nothing dating them, and the red team had to rebuild
+                   the vintages the operator could not see. #}
+                <td class="px-3 py-2 font-mono text-xs">{{ row.period }}</td>
                 <td class="px-3 py-2 font-mono text-xs">{{ row.formula }}</td>
-                <td class="px-3 py-2 font-mono text-xs">
-                  {{ row.output_value }} {{ row.output_unit }}
-                </td>
-                <td class="px-3 py-2 font-mono text-xs">{{ row.inputs | length }}</td>
+                <td class="px-3 py-2 text-xs tabular-nums">{{ row.shown }}</td>
+                <td class="px-3 py-2 font-mono text-xs">{{ row.input_count }}</td>
               </tr>
             {% endfor %}
           </tbody>

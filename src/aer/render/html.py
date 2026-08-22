@@ -188,18 +188,18 @@ def _blocks(fragments: tuple[Fragment, ...], *, seen: set[int], titles: dict[int
                         # A period series: every cell is its own cited figure.
                         cells = [
                             Markup(
-                                f"<td>{escape(cell)}{_joint(cell, marks)}"
+                                f"<td>{_coded(cell)}{_joint(cell, marks)}"
                                 f"{_marks(marks, seen=seen, titles=titles)}</td>"
                             )
                             for cell, marks in zip(row.cells, row.cell_markers, strict=True)
                         ]
                     else:
-                        cells = [Markup(f"<td>{escape(cell)}</td>") for cell in row.cells]
+                        cells = [Markup(f"<td>{_coded(cell)}</td>") for cell in row.cells]
                     if row.markers:
                         # The marker goes on the last cell, which is where a reader looks
                         # for the provenance of a row.
                         cells[-1] = Markup(
-                            f"<td>{escape(row.cells[-1])}{_joint(row.cells[-1], row.markers)}"
+                            f"<td>{_coded(row.cells[-1])}{_joint(row.cells[-1], row.markers)}"
                             f"{_marks(row.markers, seen=seen, titles=titles)}</td>"
                         )
                     body_rows.append(Markup(f"<tr>{Markup('').join(cells)}</tr>"))
@@ -210,6 +210,28 @@ def _blocks(fragments: tuple[Fragment, ...], *, seen: set[int], titles: dict[int
                     )
                 )
     return Markup("").join(parts)
+
+
+def _coded(text: str) -> Markup:
+    """A table cell with paired backticks rendered as ``<code>``, everything else escaped.
+
+    The findings table quotes a failed check's own strings as code spans (gap R9) — the
+    Markdown notation carries the backticks natively, and a reader of the HTML must not
+    see them as literal punctuation. Same pairing discipline as :func:`_emphasise`: a
+    dangling backtick stays a backtick rather than silently swallowing the rest of the
+    cell.
+    """
+    if "`" not in text:
+        return Markup(escape(text))
+    pieces = text.split("`")
+    balanced = len(pieces) % 2 == 1
+    rendered: list[Markup] = []
+    for index, piece in enumerate(pieces):
+        if index % 2 == 1 and (balanced or index < len(pieces) - 1):
+            rendered.append(Markup(f"<code>{escape(piece)}</code>"))
+        else:
+            rendered.append(Markup(escape(piece)))
+    return Markup("").join(rendered)
 
 
 def _prose(fragment: Paragraph | Bullet) -> Markup:

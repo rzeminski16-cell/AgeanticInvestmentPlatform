@@ -473,7 +473,12 @@ QUALITY_DEFINITIONS: Final[tuple[QualityDefinition, ...]] = (
     ),
     QualityDefinition(
         key="depreciation_rate",
-        label="Depreciation rate",
+        # The label says what the ratio measures (gap R16): the numerator is all D&A —
+        # intangible amortisation included — over net PP&E, so an asset-light company
+        # legitimately shows 0.65 to 0.88, and a label promising a fixed-asset depreciation
+        # rate made a defensible figure read as alarming. The stored key stays, so the
+        # ledger's history remains comparable across code versions.
+        label="D&A to net PP&E",
         needs=("depreciation_and_amortisation", "property_plant_and_equipment"),
         # The level alone flags nothing: it varies by an order of magnitude across sectors.
         # The threshold is set below any plausible rate so the figure is reported for the
@@ -494,7 +499,7 @@ QUALITY_DEFINITIONS: Final[tuple[QualityDefinition, ...]] = (
 _PAIRED: Final[tuple[QualityDefinition, ...]] = (
     QualityDefinition(
         key="depreciation_rate_change",
-        label="Change in depreciation rate",
+        label="Change in D&A to net PP&E",
         needs=("depreciation_and_amortisation", "property_plant_and_equipment"),
         direction=Direction.LOWER_IS_CONCERNING,
         threshold=DEPRECIATION_RATE_FALL_CONCERN,

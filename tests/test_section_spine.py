@@ -846,7 +846,10 @@ class TestAFailedCheckNamesItsFindings:
             details={"failures": failures},
         )
 
-    def test_each_finding_is_a_row_beside_its_metric(self) -> None:
+    def test_each_finding_is_a_row_beside_its_metric_quoted_as_code(self) -> None:
+        """Code spans, and the backticks are load-bearing (gap R9): a finding naming an
+        unformatted integer contains that integer, so printed as prose it would fail the
+        next presentation scan — the check failing on its own output, forever."""
         rows = deterministic_sections._failed_check_findings(
             [
                 self._failed(
@@ -857,8 +860,11 @@ class TestAFailedCheckNamesItsFindings:
         )
 
         assert rows == [
-            {"metric": "presentation_integrity", "finding": "raw UUID 'ef2bd367…'"},
-            {"metric": "presentation_integrity", "finding": "unformatted integer '46822502000'"},
+            {"metric": "presentation_integrity", "finding": "`raw UUID 'ef2bd367…'`"},
+            {
+                "metric": "presentation_integrity",
+                "finding": "`unformatted integer '46822502000'`",
+            },
         ]
 
     def test_a_passing_row_contributes_nothing(self) -> None:
@@ -930,5 +936,5 @@ class TestAFailedCheckNamesItsFindings:
         content = await deterministic_sections._validation_disagreements(db_session, job, request)
 
         assert content["failed_check_findings"] == [
-            {"metric": "presentation_integrity", "finding": "raw UUID 'ef2bd367…'"}
+            {"metric": "presentation_integrity", "finding": "`raw UUID 'ef2bd367…'`"}
         ]

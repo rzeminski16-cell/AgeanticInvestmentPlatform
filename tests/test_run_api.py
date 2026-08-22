@@ -33,6 +33,12 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from aer.api import sse as sse_module
 from aer.api.sse import event_stream
 from aer.config import Settings
+from aer.core.disagreement import (
+    DisagreementKind,
+    ResolutionOutcome,
+    ResolutionRule,
+    ResolvedBy,
+)
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
 from aer.db.models import (
     Approval,
@@ -40,6 +46,7 @@ from aer.db.models import (
     Calculation,
     Company,
     Cost,
+    Disagreement,
     Job,
     JobCancellation,
     JobStep,
@@ -1193,8 +1200,77 @@ class TestTheWebPages:
         assert 'id="calculations"' in page.text
         assert 'id="cost"' in page.text
 
+        # The calculations table dates each figure and speaks the house style (gap R11):
+        # the CHRW page showed `928567000.000000000000 USD` and six depreciation rates
+        # with nothing saying which year each belonged to.
+        assert ">Period</th>" in page.text
+        assert "000000000000" not in page.text
+
         # This run recorded no disagreements, so that section honestly says nothing.
         assert 'id="disagreements"' not in page.text
+
+    async def test_a_thesis_disagreement_shows_tiers_not_placeholder_counts(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """Gap R12: every thesis row read "0 thesis (T1_REGULATORY)" — the ladder's
+        placeholder fields, which it never compares, rendered as though they meant
+        something. A thesis row now shows each side's tier, and the challenge's cited
+        evidence is summarised where the operator decides."""
+        job_id = await _to_second_gate(api, committed, driver)
+        # A real commit, not the rolled-back test session: the page reads through the
+        # application's own engine, which cannot see a savepoint inside this test's
+        # transaction.
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as writer:
+            writer.add(
+                Disagreement(
+                    job_id=job_id,
+                    topic="valuation: the terminal assumptions overstate the base case",
+                    kind=DisagreementKind.THESIS_CONFLICT,
+                    position_a={
+                        "reference": f"draft:{job_id}",
+                        "label": "Base thesis (the draft's recorded claims)",
+                        "value": "0",
+                        "unit": "thesis",
+                        "tier": "T1_REGULATORY",
+                    },
+                    position_b={
+                        "reference": "red_team:valuation:abc123",
+                        "label": "Red team challenge (valuation, severity 4/5)",
+                        "value": "0",
+                        "unit": "thesis",
+                        "tier": "T2_COMPANY",
+                    },
+                    resolution=ResolutionOutcome.ESCALATED,
+                    rule=ResolutionRule.THESIS_CONFLICT,
+                    resolved_by=ResolvedBy.RULE,
+                    resolution_rationale="A thesis-level disagreement is never resolved "
+                    "automatically; both are published.",
+                    escalated_to_gate=GateKind.FINAL,
+                    material=True,
+                    fingerprint="f" * 64,
+                    detail={
+                        "challenge": "The terminal growth outruns the sector.",
+                        "basis": "The recorded fade against the peer medians.",
+                        "severity": 4,
+                        "dimension": "valuation",
+                        "evidence": {
+                            "facts": ["a", "b", "c"],
+                            "calculations": [],
+                            "sources": ["s"],
+                        },
+                    },
+                )
+            )
+            await writer.commit()
+
+        page = await api.get(f"/runs/{job_id}/review")
+
+        assert page.status_code == 200
+        assert "0 thesis" not in page.text
+        assert "tier T1_REGULATORY" in page.text
+        assert "3 fact(s), 0 calculation(s), 1 source(s)" in page.text
+        assert "best tier T2_COMPANY" in page.text
 
     async def test_the_report_page_links_to_the_archived_download(
         self, api: Any, committed: dict, driver: Driver, db_session: Any

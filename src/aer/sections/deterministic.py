@@ -191,8 +191,15 @@ def _failed_check_findings(evaluations: list[Evaluation]) -> list[dict[str, str]
         if evaluation.passed is not False:
             continue
         found = [str(item) for item in (evaluation.details or {}).get("failures", [])]
+        # Each finding is quoted as a code span, and the backticks are load-bearing (gap
+        # R9): a finding that names an unformatted integer *contains* that integer, so
+        # printed as prose it would fail the next presentation scan — the check failing on
+        # its own output, forever. Code spans are the scan's own carve-out for deliberate
+        # literals, and they are also the honest presentation: these are machine strings
+        # reproduced verbatim, not sentences of the note.
         rows.extend(
-            {"metric": evaluation.metric, "finding": item} for item in found[:_FINDINGS_SHOWN]
+            {"metric": evaluation.metric, "finding": f"`{item}`"}
+            for item in found[:_FINDINGS_SHOWN]
         )
         if len(found) > _FINDINGS_SHOWN:
             rows.append(
