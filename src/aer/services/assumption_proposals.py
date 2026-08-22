@@ -41,15 +41,18 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.units import CALC_CONTEXT, Quantity
+from aer.core.assumption_scales import scale_complaint
 from aer.db.models import Assumption
 from aer.services.analysis import AnalysisOutcome, PeriodAnalysis
 from aer.services.assumptions import propose
 
 __all__ = [
+    "CASH_COST_OF_DEBT_NAME",
     "DERIVED_NAMES",
     "PROPOSED_BY",
     "DerivedAssumption",
     "ProposalOutcome",
+    "cash_cost_of_debt",
     "derive_assumptions",
     "propose_derived",
 ]
@@ -74,6 +77,12 @@ DERIVED_NAMES: Final[tuple[str, ...]] = (
 # A dimensionless assumption. Every one here is a ratio of two currency amounts, so the
 # units cancel and the stored unit says so.
 _RATIO: Final = "pure"
+
+# The conditionally required cost of debt (ADR 0067). Written out rather than imported
+# because :mod:`aer.services.assumption_gate` imports *this* module, so its
+# ``COST_OF_DEBT_ASSUMPTION`` cannot be reached from here; a test pins the two together,
+# which is this repository's usual answer to a name that would otherwise drift.
+CASH_COST_OF_DEBT_NAME: Final = "cost_of_debt"
 
 # The fewest periods a trailing average is worth calling one. Two, because one period is not
 # an average and stating it as though it were would overclaim.
@@ -363,6 +372,98 @@ def _working_capital_intensity(periods: Sequence[PeriodAnalysis]) -> DerivedAssu
             "stands rather than floored at zero."
         ),
         periods=tuple(period for period, _ in observed),
+    )
+
+
+def cash_cost_of_debt(analysis: AnalysisOutcome) -> DerivedAssumption | str:
+    """Cash interest paid over average debt — a labelled proxy, for filers who tag no charge.
+
+    **ADR 0067, and the substitution is the whole point.** Every other derivation here
+    computes the thing it names. This one does not: the cost of debt is interest *expense*
+    over average debt, and this is interest *paid* — the cash figure from the cash-flow
+    statement. The two differ by payment timing and by any interest capitalised into an
+    asset rather than charged to profit, so this rate can sit either side of the real one.
+
+    It exists because the alternative is worse. A filer that tags no interest expense (the
+    live CHRW run) leaves the operator an empty box against a number they may have no
+    source for, and an empty box invites a guess with nothing behind it. A proposal that
+    states its own basis is a starting point somebody can accept, amend or reject on the
+    record — and it stays unconfirmed either way, so nothing rests on it until a person
+    agrees it may.
+
+    Returns a sentence rather than a proposal whenever the arithmetic would overclaim: no
+    cash figure filed, no debt to divide by, a negative charge, or a rate outside the band
+    :mod:`aer.core.assumption_scales` calls plausible. **The band is checked here rather
+    than left to :func:`aer.services.assumptions.propose`**, which raises on an implausible
+    value — a proxy that killed the whole gate assembly for one odd filer would be a
+    convenience that cost a run.
+    """
+    if not analysis.periods:
+        return "Cost of debt could not be proposed: no annual period was assembled."
+
+    # Newest first, which is what `AnalysisOutcome` guarantees and what the average wants.
+    latest = analysis.periods[0]
+    prior = analysis.periods[1] if len(analysis.periods) > 1 else None
+
+    paid = _line(latest, "interest_paid")
+    if paid is None:
+        return (
+            "Cost of debt could not be proposed: this company files no interest expense and "
+            "no cash interest paid, so there is no figure to derive a rate from at all."
+        )
+    if paid.value < 0:
+        return (
+            f"Cost of debt could not be proposed: cash interest paid for "
+            f"{latest.period_end.isoformat()} is {paid.value}, and a negative charge is a "
+            "sign convention this derivation will not guess at."
+        )
+
+    closing = _line(latest, "total_debt")
+    if closing is None or closing.value <= 0:
+        return (
+            "Cost of debt could not be proposed: the latest balance sheet carries no total "
+            "debt to divide the interest by."
+        )
+
+    opening = _line(prior, "total_debt") if prior is not None else None
+    with localcontext(CALC_CONTEXT):
+        if opening is not None and opening.value > 0 and prior is not None:
+            debt = (opening.value + closing.value) / Decimal(2)
+            basis = (
+                f"the average of {opening.value:,.0f} at {prior.period_end.isoformat()} and "
+                f"{closing.value:,.0f} at {latest.period_end.isoformat()}"
+            )
+        else:
+            debt = closing.value
+            basis = (
+                f"the closing balance of {closing.value:,.0f} at "
+                f"{latest.period_end.isoformat()}, there being no prior year to average with"
+            )
+        rate = paid.value / debt
+
+    value = _rounded(rate)
+    if scale_complaint(CASH_COST_OF_DEBT_NAME, value) is not None:
+        return (
+            f"Cost of debt could not be proposed: cash interest paid over debt comes to "
+            f"{value}, outside the range this platform treats as a plausible borrowing "
+            "cost. Enter the rate from a debt footnote or a traded yield instead."
+        )
+
+    periods = (prior.period_end, latest.period_end) if prior is not None else (latest.period_end,)
+    return DerivedAssumption(
+        name=CASH_COST_OF_DEBT_NAME,
+        value=value,
+        unit=_RATIO,
+        justification=(
+            f"Cash interest paid of {paid.value:,.0f} over {basis}. This is a cash-basis "
+            "proxy, not the accrual cost of debt: this company tags no interest expense, so "
+            "the rate normally derived from the income statement does not exist for it. Cash "
+            "interest differs from the charge to profit by payment timing and by any interest "
+            "capitalised into assets, so this figure can sit either side of the true rate. "
+            "Confirm it only if that substitution is one you accept; amend it if you hold the "
+            "rate from a debt footnote or a traded yield."
+        ),
+        periods=periods,
     )
 
 

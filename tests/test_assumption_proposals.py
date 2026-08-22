@@ -32,8 +32,10 @@ from aer.db.models import (
     Assumption,
 )
 from aer.services.assumption_proposals import (
+    CASH_COST_OF_DEBT_NAME,
     DERIVED_NAMES,
     PROPOSED_BY,
+    cash_cost_of_debt,
     derive_assumptions,
     propose_derived,
 )
@@ -362,6 +364,114 @@ class TestProposingWritesUnconfirmedRows:
 
         assert list(parameters) == ["analysis"]
         assert "session" not in parameters
+
+
+# A filer that tags cash interest but no interest charge: the CHRW shape (ADR 0067).
+_WITH_CASH = {"interest_paid": "20", "short_term_debt": "0"}
+
+
+class TestTheCashCostOfDebtProxy:
+    """ADR 0067. A filer that tags no interest expense leaves the cost of debt with no
+    derivation and the operator with an empty box. The cash figure from the cash-flow
+    statement is *a* rate the borrowings cost — it is not the cost of debt, and the
+    proposal has to say so itself.
+    """
+
+    async def test_it_proposes_cash_interest_over_average_debt(self, scene: dict[str, Any]) -> None:
+        # Long-term debt 400 in both years, so the average is 400 and 20/400 = 0.05.
+        # 2022 and 2023, not 2024: the scene's as-of is 30 June 2024 and a year is filed
+        # the following February, so a 2024 year-end never survives point-in-time.
+        await seed_years(
+            scene,
+            {
+                date(2022, 12, 31): a_year(**_WITH_CASH),
+                date(2023, 12, 31): a_year(**_WITH_CASH),
+            },
+        )
+
+        proposal = cash_cost_of_debt(await analysed(scene))
+
+        assert not isinstance(proposal, str), proposal
+        assert proposal.name == CASH_COST_OF_DEBT_NAME
+        assert proposal.value == Decimal("0.050000")
+        assert proposal.unit == "pure"
+        assert "the average of" in proposal.justification
+
+    async def test_the_justification_names_the_substitution_and_its_direction(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The containment ADR 0067 leans on hardest, and the one most likely to erode:
+        a proxy whose justification reads like a derivation is the whole failure."""
+        await seed_years(
+            scene,
+            {
+                date(2022, 12, 31): a_year(**_WITH_CASH),
+                date(2023, 12, 31): a_year(**_WITH_CASH),
+            },
+        )
+
+        proposal = cash_cost_of_debt(await analysed(scene))
+
+        assert not isinstance(proposal, str), proposal
+        said = proposal.justification
+        assert "cash-basis proxy" in said
+        assert "not the accrual cost of debt" in said
+        assert "capitalised" in said
+        assert "either side of the true rate" in said
+
+    async def test_a_single_period_prices_off_the_closing_balance_and_says_so(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await seed_years(scene, {date(2023, 12, 31): a_year(**_WITH_CASH)})
+
+        proposal = cash_cost_of_debt(await analysed(scene))
+
+        assert not isinstance(proposal, str), proposal
+        assert "closing balance" in proposal.justification
+        assert "no prior year to average with" in proposal.justification
+
+    async def test_a_filer_with_no_cash_figure_either_is_refused_with_a_reason(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Neither the charge nor the cash: there is nothing to derive a rate from, and
+        the sentence says that rather than leaving the name unexplained."""
+        await seed_years(
+            scene,
+            {
+                date(2022, 12, 31): a_year(short_term_debt="0"),
+                date(2023, 12, 31): a_year(short_term_debt="0"),
+            },
+        )
+
+        proposal = cash_cost_of_debt(await analysed(scene))
+
+        assert isinstance(proposal, str)
+        assert proposal.lower().startswith("cost of debt")
+        assert "no cash interest paid" in proposal
+
+    async def test_an_implausible_rate_is_declined_rather_than_proposed(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """`propose` raises on a value outside the plausible band, so a proxy that did
+        not check the band itself would kill the whole gate assembly for one odd filer."""
+        await seed_years(
+            scene,
+            {
+                date(2022, 12, 31): a_year(interest_paid="900", short_term_debt="0"),
+                date(2023, 12, 31): a_year(interest_paid="900", short_term_debt="0"),
+            },
+        )
+
+        proposal = cash_cost_of_debt(await analysed(scene))
+
+        assert isinstance(proposal, str)
+        assert "plausible borrowing cost" in proposal
+
+    async def test_a_run_with_no_period_is_refused(self, scene: dict[str, Any]) -> None:
+        proposal = cash_cost_of_debt(await analysed(scene))
+
+        assert isinstance(proposal, str)
+        assert "no annual period" in proposal
 
 
 class TestTheDerivedSetMatchesWhatAForecastNeeds:

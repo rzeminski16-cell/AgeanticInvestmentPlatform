@@ -46,7 +46,13 @@ from aer.calc.dcf import DRIVER_NAMES, MAX_FORECAST_YEARS
 from aer.core.sectors import ValuationModel, profile_for
 from aer.db.models import Assumption, ResearchRequest
 from aer.services.analysis import AnalysisOutcome
-from aer.services.assumption_proposals import ProposalOutcome, propose_derived
+from aer.services.assumption_proposals import PROPOSED_BY as DERIVED_PROPOSED_BY
+from aer.services.assumption_proposals import (
+    DerivedAssumption,
+    ProposalOutcome,
+    cash_cost_of_debt,
+    propose_derived,
+)
 from aer.services.assumptions import assumptions_for_request, propose
 from aer.services.prices import BETA_ASSUMPTION
 from aer.services.valuation import SCALAR_NAMES
@@ -412,6 +418,15 @@ async def assemble(
         session, request_id=request.id, analysis=analysis, job_id=job_id
     )
 
+    # The conditionally required rate, proposed from the cash figure where one exists
+    # (ADR 0067). Only for the runs that need it: a filer whose interest expense the
+    # valuation can read gets no proxy and no extra row.
+    needs_cost_of_debt = cost_of_debt_required(analysis)
+    if needs_cost_of_debt:
+        derived = await _propose_cash_cost_of_debt(
+            session, request=request, analysis=analysis, derived=derived, job_id=job_id
+        )
+
     opinions: tuple[BoundedProposal, ...] = ()
     consulted = False
     if agent_context is not None:
@@ -427,7 +442,7 @@ async def assemble(
         consulted = True
 
     rows = await assumptions_for_request(session, request.id)
-    conditional = (COST_OF_DEBT_ASSUMPTION,) if cost_of_debt_required(analysis) else ()
+    conditional = (COST_OF_DEBT_ASSUMPTION,) if needs_cost_of_debt else ()
     missing = outstanding_for(rows, years=years, conditional=conditional)
 
     outcome = AssumptionGateOutcome(
@@ -449,6 +464,41 @@ async def assemble(
 
 
 # -- Internals ---------------------------------------------------------------------------
+
+
+async def _propose_cash_cost_of_debt(
+    session: AsyncSession,
+    *,
+    request: ResearchRequest,
+    analysis: AnalysisOutcome,
+    derived: ProposalOutcome,
+    job_id: uuid.UUID | None,
+) -> ProposalOutcome:
+    """Write the cash-basis cost-of-debt proposal, or record why there is none.
+
+    The outcome is returned rather than mutated because :class:`ProposalOutcome` is frozen,
+    and the proposal joins ``derived`` — not a list of its own — so the gate payload, the
+    page and the log all treat it as what it is: a figure this run worked out from the
+    filings, carrying its own justification, waiting for somebody to agree to it.
+
+    A refusal joins ``skipped``, whose sentences the page shows verbatim. Either way the
+    name stays on the gate: with a value to look at, or in ``outstanding`` with a reason.
+    """
+    proposal = cash_cost_of_debt(analysis)
+    if not isinstance(proposal, DerivedAssumption):
+        return ProposalOutcome(derived=derived.derived, skipped=(*derived.skipped, proposal))
+
+    await propose(
+        session,
+        request_id=request.id,
+        name=proposal.name,
+        value=proposal.value,
+        unit=proposal.unit,
+        justification=proposal.justification,
+        proposed_by=DERIVED_PROPOSED_BY,
+        job_id=job_id,
+    )
+    return ProposalOutcome(derived=(*derived.derived, proposal), skipped=derived.skipped)
 
 
 async def _propose_opinions(

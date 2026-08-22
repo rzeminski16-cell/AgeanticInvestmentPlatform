@@ -56,6 +56,7 @@ from aer.services.assumption_gate import (
     outstanding_for,
     refreshed_payload,
 )
+from aer.services.assumption_proposals import CASH_COST_OF_DEBT_NAME
 from aer.services.assumption_proposals import PROPOSED_BY as DERIVED_BY
 from aer.services.assumptions import assumptions_for_request
 from aer.services.prices import BETA_ASSUMPTION
@@ -93,6 +94,12 @@ _UNDERIVABLE_YEARS = {
 _DERIVABLE_YEARS = {
     date(2023, 12, 31): a_year(short_term_debt="0", interest_expense="20"),
     date(2024, 12, 31): a_year(short_term_debt="0", interest_expense="22"),
+}
+
+# The CHRW shape exactly: no interest charge, but the cash outflow is tagged (ADR 0067).
+_CASH_ONLY_YEARS = {
+    date(2022, 12, 31): a_year(short_term_debt="0", interest_paid="20"),
+    date(2023, 12, 31): a_year(short_term_debt="0", interest_paid="20"),
 }
 
 
@@ -658,6 +665,96 @@ class TestTheCostOfDebtJoinsTheGateWhenItCannotBeDerived:
 
     async def test_a_run_with_no_periods_is_not_asked(self, scene: dict[str, Any]) -> None:
         assert cost_of_debt_required(await analysed(scene)) is False
+
+
+class TestTheCashProxyIsProposedWhereTheChargeIsNotFiled:
+    """ADR 0067. R13 made the cost of debt suppliable and named it on the gate; that still
+    left the operator an empty box against a number they may have no source for. Where the
+    filer tags the cash outflow, the gate now proposes a rate from it — labelled as the
+    substitution it is, and unconfirmed, so nothing rests on it until a person agrees.
+    """
+
+    async def test_the_name_matches_the_gates_own_vocabulary(self) -> None:
+        """Written out in `assumption_proposals` because the gate imports that module and
+        not the reverse; pinned here, which is what keeps the two from drifting."""
+        assert CASH_COST_OF_DEBT_NAME == COST_OF_DEBT_ASSUMPTION
+
+    async def test_the_cash_figure_is_proposed_and_left_unconfirmed(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await seed_years(scene, _CASH_ONLY_YEARS)
+        session: AsyncSession = scene["session"]
+
+        await assemble(
+            session,
+            None,
+            request=scene["request"],
+            analysis=await analysed(scene),
+            years=5,
+        )
+
+        written = {row.name: row for row in await session.scalars(select(Assumption))}
+        assert COST_OF_DEBT_ASSUMPTION in written
+        row = written[COST_OF_DEBT_ASSUMPTION]
+        assert row.value == Decimal("0.050000000000")
+        assert row.approved is False, "a proxy nobody agreed to must not reach a forecast"
+        assert "cash-basis proxy" in row.justification
+
+    async def test_a_proposed_rate_is_no_longer_an_unanswered_gap(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """It stays on the gate — as a value to interrogate rather than a box to fill."""
+        await seed_years(scene, _CASH_ONLY_YEARS)
+
+        outcome = await assemble(
+            scene["session"],
+            None,
+            request=scene["request"],
+            analysis=await analysed(scene),
+            years=5,
+        )
+
+        assert COST_OF_DEBT_ASSUMPTION not in dict(outcome.outstanding)
+        assert COST_OF_DEBT_ASSUMPTION in {item.name for item in outcome.derived.derived}
+
+    async def test_a_filer_tagging_neither_still_gets_the_gap_and_its_reason(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """No charge and no cash outflow: there is nothing to propose from, so the name
+        stays outstanding with the sentence that tells the operator what to enter."""
+        await seed_years(scene, _UNDERIVABLE_YEARS)
+        session: AsyncSession = scene["session"]
+
+        outcome = await assemble(
+            session,
+            None,
+            request=scene["request"],
+            analysis=await analysed(scene),
+            years=5,
+        )
+
+        assert COST_OF_DEBT_ASSUMPTION in dict(outcome.outstanding)
+        written = {row.name for row in await session.scalars(select(Assumption))}
+        assert COST_OF_DEBT_ASSUMPTION not in written
+        # And the attempt is on the record rather than silently absent.
+        assert any("cost of debt" in note.lower() for note in outcome.derived.skipped)
+
+    async def test_a_derivable_run_is_offered_no_proxy_at_all(self, scene: dict[str, Any]) -> None:
+        """The filed charge outranks the proxy, so a run that can derive the rate never
+        sees an extra row — and the valuation goes on deriving it from the filings."""
+        await seed_years(scene, _DERIVABLE_YEARS)
+        session: AsyncSession = scene["session"]
+
+        await assemble(
+            session,
+            None,
+            request=scene["request"],
+            analysis=await analysed(scene),
+            years=5,
+        )
+
+        written = {row.name for row in await session.scalars(select(Assumption))}
+        assert COST_OF_DEBT_ASSUMPTION not in written
 
 
 def _in_bounds() -> AssumptionProposalDraft:
