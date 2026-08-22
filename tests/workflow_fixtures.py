@@ -691,6 +691,7 @@ async def seed_request(
 
 async def seed_job(session: AsyncSession, *, request: ResearchRequest) -> Job:
     job = Job(
+        work_order_id=request.id,
         request_id=request.id,
         workflow_version=WORKFLOW_VERSION,
         code_version=git_sha() or "test",

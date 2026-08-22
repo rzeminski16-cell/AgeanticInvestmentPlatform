@@ -86,6 +86,7 @@ async def start_run(session: AsyncSession, *, request: ResearchRequest) -> Job:
         return existing
 
     job = Job(
+        work_order_id=request.id,
         request_id=request.id,
         workflow_version=DEFAULT_WORKFLOW_VERSION,
         code_version=git_sha() or "unknown",
@@ -115,7 +116,9 @@ async def latest_run(session: AsyncSession, *, request_id: uuid.UUID) -> Job | N
     keeps a queued-but-unstarted job from shadowing a real one.
     """
     found: Job | None = await session.scalar(
-        select(Job).where(Job.request_id == request_id).order_by(Job.started_at.desc().nullslast())
+        select(Job)
+        .where(Job.work_order_id == request_id)
+        .order_by(Job.started_at.desc().nullslast())
     )
     return found
 

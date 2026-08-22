@@ -402,7 +402,7 @@ async def _size(
 
     sources = await session.scalar(
         select(func.count(func.distinct(SourceDocument.id)))
-        .join(ResearchRequest, ResearchRequest.id == SourceDocument.request_id)
+        .join(ResearchRequest, ResearchRequest.id == SourceDocument.work_order_id)
         .join(Report, Report.request_id == ResearchRequest.id)
         .where(Report.immutable.is_(True))
     )

@@ -61,6 +61,7 @@ async def scene(db_session: AsyncSession, store: LocalArtefactStore) -> dict[str
     await db_session.flush()
 
     job = Job(
+        work_order_id=request.id,
         request_id=request.id,
         workflow_version="vertical_slice_v1",
         code_version="test",
@@ -107,6 +108,7 @@ async def _record(
     await session.flush()
 
     document = SourceDocument(
+        work_order_id=request.id,
         request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,

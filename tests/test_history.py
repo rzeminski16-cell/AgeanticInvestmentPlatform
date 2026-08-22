@@ -67,6 +67,7 @@ async def _request(
 
 async def _job(session: AsyncSession, *, request_id: uuid.UUID) -> Job:
     job = Job(
+        work_order_id=request_id,
         request_id=request_id,
         workflow_version="history_scene_v1",
         code_version="historycode1234",

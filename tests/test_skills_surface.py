@@ -390,6 +390,7 @@ async def _seed_finished_run(
     await session.flush()
 
     job = Job(
+        work_order_id=request.id,
         request_id=request.id,
         workflow_version="vertical_slice_v1",
         code_version="test",
@@ -416,6 +417,7 @@ async def _seed_finished_run(
         await session.flush()
 
     document = SourceDocument(
+        work_order_id=request.id,
         request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,

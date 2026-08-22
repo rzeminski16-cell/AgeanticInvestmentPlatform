@@ -197,6 +197,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
 
     job = Job(
         id=JOB_ID,
+        work_order_id=request.id,
         request_id=request.id,
         workflow_version="golden_scene_v1",
         code_version="goldencode123456",
@@ -235,6 +236,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
 
     dated = SourceDocument(
         id=DOC_ONE_ID,
+        work_order_id=request.id,
         request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,
@@ -249,6 +251,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     )
     undated = SourceDocument(
         id=DOC_TWO_ID,
+        work_order_id=request.id,
         request_id=request.id,
         job_id=job.id,
         artefact_id=artefact_two.id,

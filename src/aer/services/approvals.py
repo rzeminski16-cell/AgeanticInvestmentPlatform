@@ -125,6 +125,7 @@ async def record_decision(
     await _refuse_if_out_of_order(session, job=job, gate=gate)
 
     approval = Approval(
+        work_order_id=job.work_order_id,
         request_id=job.request_id,
         job_id=job.id,
         gate=gate,

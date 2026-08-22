@@ -103,7 +103,7 @@ from aer.services.sectors import (
 from aer.services.spend import recent_runs, spend_by_role, spend_summary
 from aer.services.themes import THEME_STEP, theme_set_payload, theme_set_required
 from aer.services.valuation_view import lineage_rows, valuation_view
-from aer.skills.resolution import pinned_skills_for_plan
+from aer.skills.resolution import pinned_skills_for_work_order
 from aer.storage.local import LocalArtefactStore
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
@@ -286,7 +286,7 @@ async def plan_review(
             status=HTTP_404_NOT_FOUND,
         )
 
-    pins = await pinned_skills_for_plan(session, plan_id=plan.id)
+    pins = await pinned_skills_for_work_order(session, work_order_id=plan.request_id)
     payload = plan_gate_payload(plan, pins)
     decided = await _decision_for(session, job_id=job_id, gate=GateKind.PLAN)
     token = new_csrf_token(settings)
@@ -600,7 +600,7 @@ async def assumptions_review(
             status=HTTP_404_NOT_FOUND,
         )
 
-    rows = await assumptions_for_request(session, job.request_id)
+    rows = await assumptions_for_request(session, job.work_order_id)
     payload = assumptions_gate_refreshed(rows, produced)
     decided = await _decision_for(session, job_id=job_id, gate=GateKind.ASSUMPTIONS)
     token = new_csrf_token(settings)
@@ -1761,7 +1761,7 @@ async def _owned_job(session: AsyncSession, *, job_id: uuid.UUID, user: Any) -> 
     """
     job: Job | None = await session.scalar(
         select(Job)
-        .join(ResearchRequest, ResearchRequest.id == Job.request_id)
+        .join(ResearchRequest, ResearchRequest.id == Job.work_order_id)
         .where(Job.id == job_id, ResearchRequest.user_id == user.id)
     )
     return job
@@ -1778,7 +1778,7 @@ async def _claim_is_visible(
     """
     owner = await session.scalar(
         select(ResearchRequest.user_id)
-        .join(Job, Job.request_id == ResearchRequest.id)
+        .join(Job, Job.work_order_id == ResearchRequest.id)
         .join(ReportSection, ReportSection.job_id == Job.id)
         .join(Claim, Claim.report_section_id == ReportSection.id)
         .where(Claim.id == claim_id)

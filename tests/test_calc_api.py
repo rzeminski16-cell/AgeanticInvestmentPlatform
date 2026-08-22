@@ -101,6 +101,7 @@ async def committed(clean_slate, db_engine):
         await session.flush()
 
         job = Job(
+            work_order_id=request.id,
             request_id=request.id,
             workflow_version="test-1",
             code_version="a1b2c3d4",
@@ -221,6 +222,7 @@ class TestTheLineageTree:
             await session.flush()
 
             document = SourceDocument(
+                work_order_id=committed["request"].id,
                 request_id=committed["request"].id,
                 artefact_id=artefact.id,
                 url="https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json",

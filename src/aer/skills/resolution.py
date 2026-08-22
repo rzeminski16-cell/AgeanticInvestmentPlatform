@@ -59,7 +59,7 @@ __all__ = [
     "custom_definitions_for_pins",
     "estimate_custom_section_cost",
     "pinned_skills_for_job",
-    "pinned_skills_for_plan",
+    "pinned_skills_for_work_order",
     "project_custom_section",
     "resolve_skills_for_plan",
 ]
@@ -121,13 +121,29 @@ async def resolve_skills_for_plan(
     router: Router,
 ) -> ResolvedSkills:
     """Pin every enabled skill to this plan — as planned, or as skipped with its reason."""
-    existing = await pinned_skills_for_plan(session, plan_id=plan.id)
-    if existing:
-        # A retried plan step that already flushed its pins. Resolution is once per plan:
-        # re-deciding here could disagree with what a gate page has already displayed.
+    skills = list(await session.scalars(select(Skill).where(Skill.enabled).order_by(Skill.key)))
+
+    existing = await pinned_skills_for_work_order(session, work_order_id=plan.request_id)
+    if existing and await _pins_are_current(session, existing, skills=skills):
+        # A retried plan step that already flushed its pins, and nothing has moved under it.
+        # Re-deciding here could disagree with what a gate page has already displayed.
         return ResolvedSkills(pins=existing, definitions=[])
 
-    skills = list(await session.scalars(select(Skill).where(Skill.enabled).order_by(Skill.key)))
+    if existing:
+        # A genuine re-plan on this run — a superseded job runs the plan step again — after
+        # the enabled skills or their versions changed. ADR 0068 moved pins from the plan to
+        # the run root, which is what lets a tool with no plan pin anything; the cost it
+        # named was that a re-planned run can no longer say which of two sets a job ran
+        # under. Reusing a stale set unconditionally would be a worse cost than that one and
+        # a silent one: an operator who fixes a skill and restarts a failed run would get
+        # the version they just replaced, with the pin still asserting it was deliberate.
+        #
+        # So the set is kept current rather than kept forever. A retry reuses; a re-plan
+        # over changed skills replaces.
+        for pin in existing:
+            await session.delete(pin)
+        await session.flush()
+
     if not skills:
         return ResolvedSkills(pins=[], definitions=[])
 
@@ -156,7 +172,7 @@ async def resolve_skills_for_plan(
         if not decision.applicable:
             pins.append(
                 PlanSkillPin(
-                    plan_id=plan.id,
+                    work_order_id=plan.request_id,
                     skill_id=skill.id,
                     skill_version_id=version.id,
                     status=SKIPPED_NOT_APPLICABLE,
@@ -167,7 +183,7 @@ async def resolve_skills_for_plan(
             continue
 
         pin = PlanSkillPin(
-            plan_id=plan.id,
+            work_order_id=plan.request_id,
             skill_id=skill.id,
             skill_version_id=version.id,
             status=PLANNED,
@@ -379,8 +395,32 @@ async def _latest_version(session: AsyncSession, *, skill_id: Any) -> SkillVersi
     return found
 
 
-async def pinned_skills_for_plan(session: AsyncSession, *, plan_id: Any) -> list[PlanSkillPin]:
-    """Every pin on a plan, planned first, then alphabetically — the gate's order.
+async def _pins_are_current(
+    session: AsyncSession, pins: list[PlanSkillPin], *, skills: list[Skill]
+) -> bool:
+    """Whether a pin set still names the enabled skills at their current versions.
+
+    Compared on ``(skill_id, skill_version_id)`` because both can move: a skill can be
+    enabled or disabled between runs, and an edited one gets a new immutable version. Either
+    change makes the stored set a description of a run nobody is about to make.
+    """
+    pinned = {(pin.skill_id, pin.skill_version_id) for pin in pins}
+    current = set()
+    for skill in skills:
+        version = await _latest_version(session, skill_id=skill.id)
+        if version is not None:
+            current.add((skill.id, version.id))
+    return pinned == current
+
+
+async def pinned_skills_for_work_order(
+    session: AsyncSession, *, work_order_id: Any
+) -> list[PlanSkillPin]:
+    """Every pin on a run, planned first, then alphabetically — the gate's order.
+
+    Pins moved from the plan to the run root in ADR 0068, which is what lets a tool with no
+    research plan pin a skill at all. The cost is recorded there: a request may hold several
+    plans, so these are one set per run rather than one per plan.
 
     Relationships are eagerly loaded because every reader — the payload builder, the gate
     page, the report — names the skill and its version, and a lazy load off an async
@@ -389,7 +429,7 @@ async def pinned_skills_for_plan(session: AsyncSession, *, plan_id: Any) -> list
     pins = list(
         await session.scalars(
             select(PlanSkillPin)
-            .where(PlanSkillPin.plan_id == plan_id)
+            .where(PlanSkillPin.work_order_id == work_order_id)
             .options(
                 selectinload(PlanSkillPin.skill),
                 selectinload(PlanSkillPin.skill_version),
@@ -434,4 +474,4 @@ async def pinned_skills_for_job(session: AsyncSession, *, job: Job) -> list[Plan
     """
     if job.plan_id is None:
         return []
-    return await pinned_skills_for_plan(session, plan_id=job.plan_id)
+    return await pinned_skills_for_work_order(session, work_order_id=job.work_order_id)

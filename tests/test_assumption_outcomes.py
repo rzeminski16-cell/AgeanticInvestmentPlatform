@@ -127,6 +127,7 @@ async def _document(session: AsyncSession, *, request_id: Any, job_id: Any) -> S
     session.add(artefact)
     await session.flush()
     document = SourceDocument(
+        work_order_id=request_id,
         request_id=request_id,
         job_id=job_id,
         artefact_id=artefact.id,

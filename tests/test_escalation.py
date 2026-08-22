@@ -572,6 +572,7 @@ async def _seed_source(
         # flagged-has-findings check constraint cannot take the array length of.
         extras = {"injection_flagged": True, "injection_findings": injection_findings}
     document = SourceDocument(
+        work_order_id=scene["request"].id,
         request_id=scene["request"].id,
         job_id=scene["job"].id,
         artefact_id=artefact.id,

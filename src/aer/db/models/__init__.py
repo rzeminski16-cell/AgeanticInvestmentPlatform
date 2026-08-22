@@ -51,6 +51,7 @@ from aer.db.models.skill import Skill, SkillVersion
 from aer.db.models.source_document import SourceDocument
 from aer.db.models.theme import Theme, ThemeMembership
 from aer.db.models.user import User
+from aer.db.models.work_order import WorkOrder
 
 __all__ = [
     "AgentRun",
@@ -100,4 +101,5 @@ __all__ = [
     "Theme",
     "ThemeMembership",
     "User",
+    "WorkOrder",
 ]

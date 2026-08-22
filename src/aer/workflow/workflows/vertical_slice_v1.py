@@ -141,7 +141,7 @@ from aer.skills.resolution import (
     custom_definitions_for_pins,
     estimate_custom_section_cost,
     pinned_skills_for_job,
-    pinned_skills_for_plan,
+    pinned_skills_for_work_order,
     resolve_skills_for_plan,
 )
 from aer.sources.sec.companyfacts import parse_company_facts
@@ -581,7 +581,7 @@ async def _plan(context: StepContext) -> StepResult:
     # from. Recorded on the approval, so an approval of one plan cannot be reused for a
     # different one; see `_require_approval`. The pins are inside the payload, so
     # approving one set of skills is not approving another.
-    pins = await pinned_skills_for_plan(context.session, plan_id=plan.id)
+    pins = await pinned_skills_for_work_order(context.session, work_order_id=plan.request_id)
     payload_hash = sha256_hex(canonical_json(plan_gate_payload(plan, pins)))
 
     # The run's sections are the built-ins plus this plan's pinned custom sections
@@ -922,7 +922,7 @@ async def _gate_assumptions(context: StepContext) -> StepResult:
         )
 
     live = assumptions_gate_refreshed(
-        await assumptions_for_request(context.session, context.job.request_id),
+        await assumptions_for_request(context.session, context.job.work_order_id),
         dict(produced),
     )
     return await _require_approval(
@@ -1219,7 +1219,7 @@ async def _pause_naming_triggers(context: StepContext) -> None:
     """
     approval = await context.session.scalar(
         select(Approval).where(
-            Approval.request_id == context.job.request_id,
+            Approval.work_order_id == context.job.work_order_id,
             Approval.gate == GateKind.FINAL,
             Approval.job_id == context.job.id,
         )
@@ -1308,7 +1308,7 @@ async def _require_approval(
 
     approval = await context.session.scalar(
         select(Approval).where(
-            Approval.request_id == context.job.request_id,
+            Approval.work_order_id == context.job.work_order_id,
             Approval.gate == gate,
             Approval.job_id == context.job.id,
         )

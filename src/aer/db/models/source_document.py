@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     from aer.db.models.artefact import Artefact
     from aer.db.models.extraction import Extraction
     from aer.db.models.request import ResearchRequest
+    from aer.db.models.work_order import WorkOrder
 
 __all__ = ["SourceDocument"]
 
@@ -60,11 +61,19 @@ class SourceDocument(Base):
 
     id: Mapped[UuidPk]
 
-    # Which request this was gathered for. Not nullable: a source with no request is a
-    # source nobody can explain the presence of, and point-in-time rules are a property
-    # of the request, so the link is what makes them checkable at all.
-    request_id: Mapped[UuidFk] = mapped_column(
-        ForeignKey("research_requests.id", ondelete="CASCADE"), nullable=False
+    # Which run this was gathered for. Not nullable, for the reason the request column
+    # carried before ADR 0068 moved the run root: a source with no run is a source nobody
+    # can explain the presence of, and point-in-time is a property of the run, so the link
+    # is what makes it checkable at all. `visible_sources` compares against this column —
+    # ADR 0061's rule that a source document is scoped by run *and* subject, where a fact
+    # is scoped by subject alone.
+    work_order_id: Mapped[UuidFk] = mapped_column(
+        ForeignKey("work_orders.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # Kept for the transition and dropped by the follow-up revision, once nothing reads it.
+    request_id: Mapped[UuidFkOptional] = mapped_column(
+        ForeignKey("research_requests.id", ondelete="CASCADE")
     )
 
     # Nullable because acquisition can happen outside a job -- a source supplied by hand,
@@ -200,7 +209,8 @@ class SourceDocument(Base):
     # -- Relationships -------------------------------------------------------------------
 
     artefact: Mapped[Artefact] = relationship(back_populates="sources")
-    request: Mapped[ResearchRequest] = relationship(back_populates="sources")
+    work_order: Mapped[WorkOrder] = relationship(back_populates="sources")
+    request: Mapped[ResearchRequest | None] = relationship(back_populates="sources")
 
     # CASCADE, because an extraction is derived and regenerable from bytes that are never
     # deleted. What is cited is protected one level further out; see the model's docstring.
@@ -212,14 +222,14 @@ class SourceDocument(Base):
         # The same URL fetched at the same instant for the same request is the same
         # acquisition. Fetching it again later is a new row, which is correct: the content
         # may have changed, and that change is itself worth recording.
-        UniqueConstraint("request_id", "url", "retrieved_at", name="uq_source_acquisition"),
+        UniqueConstraint("work_order_id", "url", "retrieved_at", name="uq_source_acquisition"),
         # One record per artefact per request, enforced where the race actually is. The
         # A43 pre-read closed the sequential duplicate; parallel research nodes each hold
         # their own session, so neither can see the other's uncommitted insert, and a
         # live run recorded its own 10-Q twice. The database is the only participant that
         # sees both writers, so the database holds the rule; the service turns a
         # violation into a read of the row that won (gap C4).
-        UniqueConstraint("request_id", "artefact_id", name="uq_source_document_per_artefact"),
+        UniqueConstraint("work_order_id", "artefact_id", name="uq_source_document_per_artefact"),
         CheckConstraint(
             "publication_date_confidence IS NULL"
             " OR (publication_date_confidence >= 0 AND publication_date_confidence <= 1)",
@@ -233,11 +243,15 @@ class SourceDocument(Base):
             " OR (NOT quarantined AND quarantine_reason IS NULL)",
             name="quarantine_has_a_reason",
         ),
-        Index("ix_source_documents_request_id_publication_date", "request_id", "publication_date"),
+        Index(
+            "ix_source_documents_work_order_id_publication_date",
+            "work_order_id",
+            "publication_date",
+        ),
         Index("ix_source_documents_artefact_id", "artefact_id"),
         # The shape every source listing now asks for: this run's documents, narrowed to
         # the subject and the issuer-less ones (ADR 0061).
-        Index("ix_source_documents_request_id_company_id", "request_id", "company_id"),
+        Index("ix_source_documents_work_order_id_company_id", "work_order_id", "company_id"),
         # A flag with no findings, or findings with no flag, would be a record nobody could
         # act on: the page shows the passages, and the badge is what sends a reviewer to them.
         CheckConstraint(
@@ -274,7 +288,7 @@ class SourceDocument(Base):
         # the index small enough to stay in cache.
         Index(
             "ix_source_documents_quarantined",
-            "request_id",
+            "work_order_id",
             postgresql_where=text("quarantined"),
         ),
     )

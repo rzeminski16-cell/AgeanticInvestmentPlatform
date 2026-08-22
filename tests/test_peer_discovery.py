@@ -110,6 +110,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     await db_session.flush()
 
     job = Job(
+        work_order_id=request.id,
         request_id=request.id,
         workflow_version="test",
         code_version="abc",
@@ -471,6 +472,7 @@ async def _peer_document(scene: dict[str, Any], company: Company) -> SourceDocum
     session.add(artefact)
     await session.flush()
     document = SourceDocument(
+        work_order_id=scene["request"].id,
         request_id=scene["request"].id,
         job_id=scene["job"].id,
         company_id=company.id,

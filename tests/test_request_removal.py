@@ -156,6 +156,7 @@ async def a_later_run_citing(session: AsyncSession, scene: dict[str, Any]) -> Re
     """
     later = await another_request(session, scene["user"], ticker="MSFT2")
     job = Job(
+        work_order_id=later.id,
         request_id=later.id,
         workflow_version="vertical_slice_v1",
         code_version="test",
@@ -436,6 +437,7 @@ class TestWhatAPurgeKeeps:
     async def test_another_request_is_untouched(self, db_session, scene):
         kept = await another_request(db_session, scene["user"], ticker="AAPL")
         kept_job = Job(
+            work_order_id=kept.id,
             request_id=kept.id,
             workflow_version="vertical_slice_v1",
             code_version="test",

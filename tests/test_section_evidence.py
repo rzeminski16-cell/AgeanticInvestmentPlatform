@@ -135,6 +135,7 @@ async def scene(db_session: AsyncSession, tmp_path: Path) -> dict[str, Any]:
     db_session.add(request)
     await db_session.flush()
     job = Job(
+        work_order_id=request.id,
         request_id=request.id,
         workflow_version=WORKFLOW_VERSION,
         code_version="test",
@@ -153,6 +154,7 @@ async def scene(db_session: AsyncSession, tmp_path: Path) -> dict[str, Any]:
     db_session.add(artefact)
     await db_session.flush()
     document = SourceDocument(
+        work_order_id=request.id,
         request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,

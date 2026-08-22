@@ -22,7 +22,6 @@ history is not a handful of rows — see :data:`_PARAMETER_LIMIT`.
 
 from __future__ import annotations
 
-import uuid
 from collections.abc import Sequence
 from typing import Any, Final
 
@@ -34,7 +33,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import FactBasis
 from aer.core.schemas.facts import RawFact
-from aer.db.models import Company, FinancialFact, ResearchRequest, SourceDocument
+from aer.core.scope import EvidenceScope
+from aer.db.models import Company, FinancialFact, SourceDocument
 from aer.sources.base import ResolvedEntity
 
 __all__ = ["persist_facts", "upsert_company", "visible_facts"]
@@ -52,7 +52,7 @@ _log = structlog.get_logger("aer.services.facts")
 _PARAMETER_LIMIT: Final = 32_767
 
 
-def visible_facts(request: ResearchRequest, company_id: uuid.UUID | None) -> Select[Any]:
+def visible_facts(scope: EvidenceScope) -> Select[Any]:
     """The facts a run may see: the subject's consolidated figures, as at the as-of date.
 
     **Scoped by company, not by request** (ADR 0061). Every consumer of a fact needs the
@@ -82,6 +82,7 @@ def visible_facts(request: ResearchRequest, company_id: uuid.UUID | None) -> Sel
     company's own line once it is in a pack, and a writer citing it would state a fraction
     as the whole.
     """
+    company_id = scope.company_id
     statement = select(FinancialFact).where(
         FinancialFact.company_id == company_id, FinancialFact.dimension_axis.is_(None)
     )
@@ -90,8 +91,8 @@ def visible_facts(request: ResearchRequest, company_id: uuid.UUID | None) -> Sel
         # no rows anyway; saying so here keeps that an intention rather than a coincidence
         # of SQL null semantics.
         return statement.where(sa_false())
-    if request.point_in_time:
-        statement = statement.where(FinancialFact.filed_date <= request.as_of_date)
+    if scope.point_in_time:
+        statement = statement.where(FinancialFact.filed_date <= scope.as_of_date)
     return statement
 
 

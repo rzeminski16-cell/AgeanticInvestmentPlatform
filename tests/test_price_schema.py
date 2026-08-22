@@ -92,6 +92,7 @@ async def provenance(session: Any, request: ResearchRequest) -> SourceDocument:
 
     document = SourceDocument(
         artefact_id=artefact.id,
+        work_order_id=request.id,
         request_id=request.id,
         provider=Provider.EODHD,
         source_tier=SourceTier.T4_LICENSED_MARKET,

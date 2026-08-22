@@ -591,16 +591,41 @@ Live status. Tick an item only when it is committed, not when it is drafted.
       that might differ", and ADR 0046's amendment has the assumptions gate assemble from
       rows because it approves work that has not happened yet. One signature would reverse
       both. Needs a decision about what each gate hashes
-- [ ] `work_orders` supertype; `research_requests` demoted to a 1:1 detail row; `jobs` gains
-      `work_order_id` (ADR 0068). Four-step migration with working downgrades
-- [ ] `approvals.request_id` repointed to `work_orders` — ADR 0074's gate cannot be written
+- [x] `work_orders` supertype; `research_requests` demoted to a 1:1 detail row sharing its
+      key; `jobs` gains `work_order_id` (ADR 0068). Migration 0051 — steps 1–3 of four,
+      with a working downgrade proved by the round-trip test
+- [x] `approvals.request_id` repointed to `work_orders` — ADR 0074's gate cannot be written
       until this lands
-- [ ] `Agent._refuse_what_cannot_be_afforded` reads the tool-agnostic run root
-- [ ] `EvidenceScope` replaces the `ResearchRequest` argument in `visible_facts`,
+- [x] `Agent._refuse_what_cannot_be_afforded` reads the tool-agnostic run root. **A model
+      call no longer requires an equity mandate, and still requires a cap**
+- [x] `EvidenceScope` replaces the `ResearchRequest` argument in `visible_facts`,
       `visible_sources` and `verify.citations._refuse_if_out_of_time`, carrying the run
       identity so ADR 0061's asymmetry survives
-- [ ] `audit_events` gains a generic subject correlation, before the first ledger row
-- [ ] `plan_skill_pins` repointed off `research_plans`, unblocking skills platform-wide
+- [x] `audit_events` gains a generic subject correlation, before the first ledger row
+- [x] `plan_skill_pins` repointed off `research_plans`, unblocking skills platform-wide
+
+      These six landed in one commit because ADR 0068 says splitting them would be worse
+      rather than safer: all five tables repoint at the *same* new row through one 1:1
+      backfill, so one revision holds one correspondence to check where four would hold
+      four chances for it to drift while `compare_metadata` is red in between.
+
+- [ ] **Step 4 of the migration** — drop `jobs.request_id`, `approvals.request_id`,
+      `source_documents.request_id` and the columns duplicated on `research_requests`.
+      Blocked on the ~20 remaining `session.get(ResearchRequest, job.request_id)` lookups,
+      which are mandate reads and legitimately want the mandate
+
+### Two things the migration surfaced that ADR 0068 did not anticipate
+
+- [x] **A dry run needs its own work order.** Pins are unique per (work order, skill), and
+      a rehearsal reused the source run's request — so it could not rehearse any skill that
+      run had already pinned, which is every skill worth rehearsing. A rehearsal has its own
+      job, step and spend, so under ADR 0068's own definition it is its own unit of work
+- [x] **A re-plan must not silently reuse a stale pin set.** A terminal run with no report
+      can be superseded, which re-runs the plan step on the same work order. Pins keyed to
+      the run root would then be found and reused — so an operator who fixed a skill and
+      restarted a failed run would get the version they had just replaced, with the pin
+      still asserting it was deliberate. Resolution now compares the set against the enabled
+      skills' current versions: a retry reuses, a re-plan over changed skills replaces
 
 ### Stage B — the shell
 

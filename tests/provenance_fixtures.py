@@ -137,6 +137,7 @@ async def build_evidence(
     await session.flush()
 
     job = Job(
+        work_order_id=request.id,
         request_id=request.id,
         workflow_version="vertical_slice_v1",
         code_version="test",
@@ -527,6 +528,7 @@ async def _document(
         await session.flush()
 
     document = SourceDocument(
+        work_order_id=request_id,
         request_id=request_id,
         job_id=job_id,
         artefact_id=artefact.id,

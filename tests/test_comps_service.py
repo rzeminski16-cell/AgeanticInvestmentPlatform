@@ -203,6 +203,7 @@ async def seed_two_companies(
 
         document = SourceDocument(
             artefact_id=artefact.id,
+            work_order_id=scene["request"].id,
             request_id=scene["request"].id,
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,

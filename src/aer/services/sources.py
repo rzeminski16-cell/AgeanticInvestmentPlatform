@@ -39,6 +39,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import Provider, SourceTier
+from aer.core.scope import EvidenceScope
 from aer.db.models import Artefact, AuditEvent, ResearchRequest, SourceDocument, User
 from aer.db.models.source_document import NO_PUBLICATION_DATE
 from aer.errors import ConflictError, ValidationError
@@ -56,7 +57,7 @@ __all__ = [
 ]
 
 
-def visible_sources(request: ResearchRequest, company_id: uuid.UUID | None) -> Select[Any]:
+def visible_sources(scope: EvidenceScope) -> Select[Any]:
     """The source documents a run may show: this run's, about the subject or about nobody.
 
     The companion to :func:`aer.services.facts.visible_facts`, and scoped differently on
@@ -71,8 +72,11 @@ def visible_sources(request: ResearchRequest, company_id: uuid.UUID | None) -> S
     the company whenever it has one.
     """
     return select(SourceDocument).where(
-        SourceDocument.request_id == request.id,
-        or_(SourceDocument.company_id == company_id, SourceDocument.company_id.is_(None)),
+        SourceDocument.work_order_id == scope.work_order_id,
+        or_(
+            SourceDocument.company_id == scope.company_id,
+            SourceDocument.company_id.is_(None),
+        ),
     )
 
 
@@ -211,6 +215,7 @@ async def record_source_document(
     )
 
     document = SourceDocument(
+        work_order_id=request.id,
         request_id=request.id,
         job_id=job_id,
         company_id=company_id,
@@ -258,7 +263,7 @@ async def record_source_document(
         # failure has no such row and propagates unchanged.
         held = await session.scalar(
             select(SourceDocument).where(
-                SourceDocument.request_id == request.id,
+                SourceDocument.work_order_id == request.id,
                 SourceDocument.artefact_id == artefact.id,
             )
         )
@@ -371,7 +376,7 @@ async def list_quarantined(session: AsyncSession, *, request_id: uuid.UUID) -> l
     """Every source this request gathered but may not cite."""
     result = await session.scalars(
         select(SourceDocument)
-        .where(SourceDocument.request_id == request_id, SourceDocument.quarantined)
+        .where(SourceDocument.work_order_id == request_id, SourceDocument.quarantined)
         .order_by(SourceDocument.created_at)
     )
     return list(result.all())

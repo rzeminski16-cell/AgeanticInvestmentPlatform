@@ -497,6 +497,7 @@ def _seed_licensed_artefact(database_url: str, root: Path, payload: bytes) -> st
                 await session.flush()
                 session.add(
                     SourceDocument(
+                        work_order_id=request.id,
                         request_id=request.id,
                         artefact_id=artefact.id,
                         url="https://eodhd.com/api/eod/MSFT.US",

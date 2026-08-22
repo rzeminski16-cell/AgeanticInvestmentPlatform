@@ -26,6 +26,8 @@ from aer.db.models import (
     ReportSection,
     ResearchPlan,
     ResearchRequest,
+    Skill,
+    SkillVersion,
     User,
 )
 from aer.db.models.plan_skill_pin import PLANNED, SKIPPED_NOT_APPLICABLE
@@ -33,9 +35,11 @@ from aer.db.models.section_definition import SKILL
 from aer.providers.router import Router
 from aer.services.skills import save_skill, set_enabled
 from aer.skills.resolution import (
+    compose_for_version,
     estimate_custom_section_cost,
     pinned_skills_for_job,
-    pinned_skills_for_plan,
+    pinned_skills_for_work_order,
+    project_custom_section,
     resolve_skills_for_plan,
 )
 from aer.workflow.workflows.vertical_slice_v1 import plan_gate_payload
@@ -178,6 +182,19 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     }
 
 
+async def _skill_named(db_session: AsyncSession, key: str) -> Skill:
+    return (await db_session.scalars(select(Skill).where(Skill.key == key))).one()
+
+
+async def _latest_version_of(db_session: AsyncSession, skill: Skill) -> SkillVersion:
+    rows = await db_session.scalars(
+        select(SkillVersion)
+        .where(SkillVersion.skill_id == skill.id)
+        .order_by(SkillVersion.version.desc())
+    )
+    return rows.first()
+
+
 async def _replanned(db_session: AsyncSession, scene: dict[str, Any]) -> dict[str, Any]:
     """The scene with a fresh plan row — the shape of a genuine re-plan."""
     plan = ResearchPlan(
@@ -307,16 +324,43 @@ class TestTheProjection:
         # The composed policy, not the requested one, is what the definition carries.
         assert definition.evidence_policy["requires_primary"] is True
 
-    async def test_reprojection_of_the_same_content_is_idempotent(
+    async def test_a_replan_over_unchanged_skills_reprojects_nothing(
         self, db_session: AsyncSession, scene: dict[str, Any]
     ) -> None:
+        # Since ADR 0068 pins hang off the run root rather than the plan, so a second plan
+        # on the same run finds the set already there. Nothing is reprojected, which is a
+        # stronger form of idempotent than reprojecting to the same answer: the definition
+        # the gate displayed is the definition the run keeps.
         await save_skill(db_session, source=MOAT_DURABILITY, actor=scene["user"])
         await set_enabled(db_session, key="moat_durability", enabled=True, actor=scene["user"])
 
         first = await _resolve(db_session, scene)
         second = await _resolve(db_session, await _replanned(db_session, scene))
 
-        assert first.definitions[0].id == second.definitions[0].id
+        assert second.definitions == []
+        assert [pin.id for pin in second.pins] == [pin.id for pin in first.pins]
+
+    async def test_reprojection_of_the_same_content_is_idempotent(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        # The projection itself, asked twice, rather than through a re-plan that no longer
+        # reaches it. Same content, same definition row — a second version for a skill
+        # nobody edited would make the section's history a record of how often it ran.
+        await save_skill(db_session, source=MOAT_DURABILITY, actor=scene["user"])
+        await set_enabled(db_session, key="moat_durability", enabled=True, actor=scene["user"])
+        skill = await _skill_named(db_session, "moat_durability")
+        version = await _latest_version_of(db_session, skill)
+        composed = compose_for_version(version, settings=scene["settings"])
+
+        first = await project_custom_section(
+            db_session, skill=skill, version=version, composed=composed
+        )
+        second = await project_custom_section(
+            db_session, skill=skill, version=version, composed=composed
+        )
+
+        assert first.id == second.id
+        assert first.version == second.version
 
     async def test_resolving_the_same_plan_twice_returns_the_existing_pins(
         self, db_session: AsyncSession, scene: dict[str, Any]
@@ -356,7 +400,9 @@ class TestTheGateCoversThePins:
         await set_enabled(db_session, key="moat_durability", enabled=True, actor=scene["user"])
         await _resolve(db_session, scene)
 
-        pins = await pinned_skills_for_plan(db_session, plan_id=scene["plan"].id)
+        pins = await pinned_skills_for_work_order(
+            db_session, work_order_id=scene["plan"].request_id
+        )
         with_skill = sha256_hex(canonical_json(plan_gate_payload(scene["plan"], pins)))
         without = sha256_hex(canonical_json(plan_gate_payload(scene["plan"], [])))
 
@@ -373,7 +419,9 @@ class TestTheGateCoversThePins:
         await set_enabled(db_session, key="moat_durability", enabled=True, actor=scene["user"])
         await _resolve(db_session, scene)
 
-        pins = await pinned_skills_for_plan(db_session, plan_id=scene["plan"].id)
+        pins = await pinned_skills_for_work_order(
+            db_session, work_order_id=scene["plan"].request_id
+        )
         payload = plan_gate_payload(scene["plan"], pins)
 
         [skill] = payload["skills"]
@@ -395,6 +443,7 @@ class TestTheRunKnowsItsSkills:
         await _resolve(db_session, scene)
 
         job = Job(
+            work_order_id=scene["request"].id,
             request_id=scene["request"].id,
             plan_id=scene["plan"].id,
             workflow_version="test",
@@ -415,6 +464,7 @@ class TestTheRunKnowsItsSkills:
         self, db_session: AsyncSession, scene: dict[str, Any]
     ) -> None:
         job = Job(
+            work_order_id=scene["request"].id,
             request_id=scene["request"].id,
             workflow_version="test",
             code_version="abc",
@@ -460,7 +510,7 @@ class TestThePlanStepCarriesTheSkills:
 
         # The pre-run estimate includes the section's budget: strictly more than the
         # planner's own spend, by exactly the pin's estimate.
-        pins = await pinned_skills_for_plan(db_session, plan_id=plan.id)
+        pins = await pinned_skills_for_work_order(db_session, work_order_id=plan.request_id)
         [pin] = pins
         assert pin.status == PLANNED
         assert plan.estimated_cost_gbp > pin.estimated_cost_gbp

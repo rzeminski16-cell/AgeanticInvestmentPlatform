@@ -187,7 +187,7 @@ async def _source_scenes(
 ) -> tuple[SourceScene, ...]:
     rows = await session.scalars(
         select(SourceDocument)
-        .where(SourceDocument.request_id == request.id)
+        .where(SourceDocument.work_order_id == request.id)
         .order_by(SourceDocument.retrieved_at, SourceDocument.id)
     )
     scenes: list[SourceScene] = []

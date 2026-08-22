@@ -38,7 +38,7 @@ from aer.sections.render import render_section
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.services.evaluations import NUMERIC_CEILING
-from aer.skills.resolution import pinned_skills_for_plan
+from aer.skills.resolution import pinned_skills_for_work_order
 from aer.workflow.workflows import vertical_slice_v1
 from aer.workflow.workflows.vertical_slice_v1 import final_gate_payload, plan_gate_payload
 from tests.workflow_fixtures import (
@@ -427,7 +427,7 @@ class TestTheGateOneListing:
         )
         await session.flush()
 
-        pins = await pinned_skills_for_plan(session, plan_id=plan.id)
+        pins = await pinned_skills_for_work_order(session, work_order_id=plan.request_id)
         payload = plan_gate_payload(plan, pins)
         assert [entry["key"] for entry in payload["section_listing"]] == list(SPINE_KEYS)
 

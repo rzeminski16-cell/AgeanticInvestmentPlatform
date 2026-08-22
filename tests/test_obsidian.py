@@ -99,6 +99,7 @@ async def scene(db_session: AsyncSession, store: LocalArtefactStore) -> dict[str
     db_session.add(aggregate_artefact)
     await db_session.flush()
     quarantined = SourceDocument(
+        work_order_id=built["request"].id,
         request_id=built["request"].id,
         job_id=built["job"].id,
         artefact_id=aggregate_artefact.id,

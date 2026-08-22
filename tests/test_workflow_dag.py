@@ -234,6 +234,7 @@ async def scene(clean_slate: None, db_engine: Any) -> dict[str, Any]:
         await session.flush()
 
         job = Job(
+            work_order_id=request.id,
             request_id=request.id,
             workflow_version="dag-test-1",
             code_version="a1b2c3d4",

@@ -399,7 +399,7 @@ async def _owned_job(session: AsyncSession, *, job_id: uuid.UUID, user: User) ->
     """
     job: Job | None = await session.scalar(
         select(Job)
-        .join(ResearchRequest, ResearchRequest.id == Job.request_id)
+        .join(ResearchRequest, ResearchRequest.id == Job.work_order_id)
         .where(Job.id == job_id, ResearchRequest.user_id == user.id)
     )
     if job is None:
@@ -413,7 +413,9 @@ async def _read(session: AsyncSession, *, job_id: uuid.UUID) -> RunRead:
     payload = state.as_dict()
     return RunRead(
         job_id=state.job.id,
-        request_id=state.job.request_id,
+        # The run root's id. Identical to `request_id` for a research run — the detail
+        # row shares the root's key — and NOT NULL, where the old column no longer is.
+        request_id=state.job.work_order_id,
         status=payload["status"],
         workflow_version=state.job.workflow_version,
         code_version=state.job.code_version,

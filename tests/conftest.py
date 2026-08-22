@@ -13,14 +13,18 @@ from __future__ import annotations
 
 import logging
 import os
+import uuid
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 import structlog
+from sqlalchemy import event
+from sqlalchemy.orm import Session
 
 from aer.agents import registry as agent_registry
 from aer.config import ENV_PREFIX, Settings, get_settings
+from aer.db.models import ResearchRequest, WorkOrder
 from aer.logging import configure_logging
 from tests.agent_probes import PROBE_DEFINITIONS
 
@@ -164,3 +168,59 @@ def isolated_paths(tmp_path: Path) -> dict[str, Path]:
         "vault": tmp_path / "generated-vault",
         "personal": tmp_path / "personal-notes",
     }
+
+
+# ---------------------------------------------------------------------------------------
+# A hand-built research request gets the work order it is the detail row of.
+#
+# ADR 0068 made `work_orders` the run root: `jobs`, `approvals` and `source_documents` all
+# hang off it, and `research_requests` became a 1:1 detail row sharing its id. Production
+# has exactly one place that creates a request — `services.requests.create_request` — and it
+# creates the work order itself.
+#
+# The suite does not go through that function. Seventy fixtures build a `ResearchRequest`
+# directly, because what they are testing is what happens *after* a request exists, and
+# routing every one of them through the service would be testing the service seventy times
+# over. Those rows were always a synthesis of what the service would have written; this adds
+# the row the service now also writes, so a fixture keeps meaning what it meant.
+#
+# **It cannot mask a production regression**, and that is the condition for it being
+# acceptable rather than convenient: `TestCreateRequest::test_it_creates_the_work_order_it_
+# hangs_off` in tests/test_request_api.py asserts the service does this itself, against a
+# session where this listener has nothing to do because the service got there first.
+@event.listens_for(Session, "before_flush")
+def _anchor_requests_to_work_orders(session: Session, _context: object, _instances: object) -> None:
+    pending = [obj for obj in session.new if isinstance(obj, ResearchRequest)]
+    if not pending:
+        return
+
+    # Pending *and* persistent. `create_request` flushes the work order before it adds the
+    # request, so by the time this runs the real one is in the identity map rather than in
+    # `session.new` — and minting a second with the same key is an identity conflict, not a
+    # duplicate row. That the production path trips this at all is the check working.
+    known = {
+        obj.id
+        for obj in [*session.new, *session.identity_map.values()]
+        if isinstance(obj, WorkOrder)
+    }
+    for request in pending:
+        # The id is a server default, so it does not exist until the flush this hook runs
+        # before. Assigning it here is what lets the two rows share a key.
+        if request.id is None:
+            request.id = uuid.uuid4()
+        if request.id in known:
+            continue
+        session.add(
+            WorkOrder(
+                id=request.id,
+                user_id=request.user_id,
+                tool="research",
+                subject_kind="company",
+                subject_id=request.company_id,
+                as_of_date=request.as_of_date,
+                point_in_time=request.point_in_time,
+                max_cost_gbp=request.max_cost_gbp,
+                status=request.status,
+                archived_at=request.archived_at,
+            )
+        )

@@ -158,6 +158,7 @@ async def job(db_session: Any, security) -> Job:
     await db_session.flush()
 
     row_ = Job(
+        work_order_id=request.id,
         request_id=request.id,
         status=JobStatus.RUNNING,
         workflow_version="vertical_slice_v1",

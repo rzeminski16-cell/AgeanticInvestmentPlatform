@@ -350,6 +350,7 @@ async def request_row(db_session) -> ResearchRequest:
 @pytest.fixture
 async def job(db_session, request_row) -> Job:
     row = Job(
+        work_order_id=request_row.id,
         request_id=request_row.id,
         workflow_version="test-1",
         code_version="a1b2c3d4",

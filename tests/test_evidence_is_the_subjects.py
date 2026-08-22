@@ -103,6 +103,7 @@ async def _document(
     session.add(artefact)
     await session.flush()
     document = SourceDocument(
+        work_order_id=request.id,
         request_id=request.id,
         job_id=job.id,
         company_id=company.id if company is not None else None,
@@ -177,6 +178,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     await db_session.flush()
 
     job = Job(
+        work_order_id=request.id,
         request_id=request.id,
         workflow_version=WORKFLOW_VERSION,
         code_version="test",
@@ -389,6 +391,7 @@ class TestASecondRunStillSeesTheFirstRunsFacts:
         session.add(second)
         await session.flush()
         job = Job(
+            work_order_id=second.id,
             request_id=second.id,
             workflow_version=WORKFLOW_VERSION,
             code_version="test",

@@ -195,6 +195,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     # A real job row: `source_documents.job_id` is a foreign key, and provenance attributed
     # to a run that does not exist is exactly what that constraint is there to refuse.
     job = Job(
+        work_order_id=request.id,
         request_id=request.id,
         workflow_version="test",
         code_version="abc",
@@ -407,6 +408,7 @@ async def _share_document(scene: dict[str, Any]) -> Any:
     scene["session"].add(artefact)
     await scene["session"].flush()
     document = SourceDocument(
+        work_order_id=scene["request"].id,
         request_id=scene["request"].id,
         artefact_id=artefact.id,
         url="https://data.sec.gov/api/xbrl/companyfacts/CIK0000000009.json",

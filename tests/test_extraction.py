@@ -598,6 +598,7 @@ class TestRecordingExcerpts:
         await db_session.flush()
 
         document = SourceDocument(
+            work_order_id=request.id,
             request_id=request.id,
             artefact_id=artefact.id,
             url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",

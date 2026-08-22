@@ -637,6 +637,7 @@ class TestSourceDocumentConstraints:
         # every writer to fill both fields.
         db_session.add(
             SourceDocument(
+                work_order_id=request_row.id,
                 request_id=request_row.id,
                 artefact_id=artefact.id,
                 url="https://example.invalid/x",
@@ -656,6 +657,7 @@ class TestSourceDocumentConstraints:
     ):
         db_session.add(
             SourceDocument(
+                work_order_id=request_row.id,
                 request_id=request_row.id,
                 artefact_id=artefact.id,
                 url="https://example.invalid/y",
@@ -675,6 +677,7 @@ class TestSourceDocumentConstraints:
     ):
         db_session.add(
             SourceDocument(
+                work_order_id=request_row.id,
                 request_id=request_row.id,
                 artefact_id=artefact.id,
                 url="https://example.invalid/z",

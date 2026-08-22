@@ -251,6 +251,7 @@ class TestTheSourceDrilldown:
             session.add(artefact)
             await session.flush()
             second = SourceDocument(
+                work_order_id=built["request"].id,
                 request_id=built["request"].id,
                 job_id=job_id,
                 artefact_id=artefact.id,

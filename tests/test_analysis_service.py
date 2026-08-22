@@ -93,6 +93,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     await db_session.flush()
 
     document = SourceDocument(
+        work_order_id=request.id,
         request_id=request.id,
         artefact_id=artefact.id,
         url="https://data.sec.gov/api/xbrl/companyfacts/CIK0000000001.json",
@@ -102,6 +103,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
         retrieved_at=datetime.now(UTC),
     )
     job = Job(
+        work_order_id=request.id,
         request_id=request.id,
         workflow_version="test",
         code_version="abc",

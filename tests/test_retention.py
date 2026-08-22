@@ -97,6 +97,7 @@ async def store_document(
 
     document = SourceDocument(
         artefact_id=artefact.id,
+        work_order_id=scene["request"].id,
         request_id=scene["request"].id,
         provider=provider,
         source_tier=tier,
@@ -546,6 +547,7 @@ async def store_orphan(session: Any, scene: dict[str, Any], payload: bytes) -> A
 
 async def a_job_step(session: Any, scene: dict[str, Any]) -> JobStep:
     job = Job(
+        work_order_id=scene["request"].id,
         request_id=scene["request"].id,
         workflow_version="test",
         code_version="abc",
