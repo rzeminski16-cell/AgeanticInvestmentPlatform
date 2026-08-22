@@ -38,7 +38,7 @@ from aer.calc.units import (
 )
 from aer.calc.units import ratio as pure
 
-SOURCE = SourceRef.fact("fact-1")
+SOURCE = SourceRef.financial_fact("fact-1")
 
 
 @pytest.fixture

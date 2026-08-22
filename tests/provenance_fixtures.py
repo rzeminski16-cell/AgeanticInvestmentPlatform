@@ -390,8 +390,12 @@ async def _lineage_chain(
     context = CalculationContext(code_version="test")
     growth = growth_rate(
         context,
-        start=money(facts[0].value, "USD", source=SourceRef.fact(facts[0].id, label="revenue")),
-        end=money(facts[1].value, "USD", source=SourceRef.fact(facts[1].id, label="revenue")),
+        start=money(
+            facts[0].value, "USD", source=SourceRef.financial_fact(facts[0].id, label="revenue")
+        ),
+        end=money(
+            facts[1].value, "USD", source=SourceRef.financial_fact(facts[1].id, label="revenue")
+        ),
     )
     ratio(
         context,

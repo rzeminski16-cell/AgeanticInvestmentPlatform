@@ -575,9 +575,12 @@ Live status. Tick an item only when it is committed, not when it is drafted.
 
 ### Stage A — prerequisites that pay for themselves inside the research tool
 
-- [ ] Polymorphic lineage resolver — a source reference carries a table discriminator
-      (ADR 0072). Repairs the armed-but-unfired macro seam and the second site in
-      `services/exhibits.py::_fact_input_ids`
+- [x] Polymorphic lineage resolver — a source reference carries a table discriminator
+      (ADR 0072). `SourceRef.fact()` is gone; one constructor per relation. Two relations
+      that had no loader at all — `macro_observations` and `securities` — now resolve, and
+      `services/exhibits.py::_fact_input_ids` is narrowed to its own. **The price half was
+      live, not latent:** six minting sites over `securities.id` feed the traced GBX→GBP
+      conversion, so every LSE run with a licence key had been writing dangling nodes
 - [ ] Workflow registry — `WorkflowDefinition` keyed by version, replacing the hard import
       at `services/runs.py:38` and the four `vertical_slice_v1` gate-payload imports
 - [ ] `work_orders` supertype; `research_requests` demoted to a 1:1 detail row; `jobs` gains

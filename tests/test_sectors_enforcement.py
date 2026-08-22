@@ -46,7 +46,7 @@ from aer.core.sectors import (
 )
 
 ASSUMPTION = SourceRef.assumption("assumption-1")
-FACT = SourceRef.fact("fact-1")
+FACT = SourceRef.financial_fact("fact-1")
 
 BANK = "BARC"
 REIT = "SPG"

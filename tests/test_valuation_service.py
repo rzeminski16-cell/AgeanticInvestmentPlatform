@@ -39,7 +39,7 @@ pytestmark = pytest.mark.integration
 
 _TABLES = "research_requests, audit_events, users, artefacts, prompts, companies"
 
-FACT = SourceRef.fact("balance-sheet-1")
+FACT = SourceRef.financial_fact("balance-sheet-1")
 
 # Microsoft is not a bank, an insurer, a REIT or a pre-revenue biotech, so the standard
 # model applies. `test_sectors_service.py` covers the runs where it does not.

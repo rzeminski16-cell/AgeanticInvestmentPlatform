@@ -46,7 +46,7 @@ from aer.calc.units import (
 )
 from aer.core.concepts import CANONICAL_CONCEPTS
 
-SOURCE = SourceRef.fact("fact-1")
+SOURCE = SourceRef.financial_fact("fact-1")
 
 
 @pytest.fixture

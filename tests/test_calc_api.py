@@ -135,7 +135,7 @@ async def api(api_settings, db_engine, fake_redis, committed):
 
 
 def usd(value, source=None):
-    return money(value, "USD", source=source or SourceRef.fact("fact-1"))
+    return money(value, "USD", source=source or SourceRef.financial_fact("fact-1"))
 
 
 class TestReadingACalculation:
@@ -265,8 +265,8 @@ class TestTheLineageTree:
             committed["job"].id,
             lambda ctx: cagr(
                 ctx,
-                start=money(first.value, "USD", source=SourceRef.fact(first.id)),
-                end=money(last.value, "USD", source=SourceRef.fact(last.id)),
+                start=money(first.value, "USD", source=SourceRef.financial_fact(first.id)),
+                end=money(last.value, "USD", source=SourceRef.financial_fact(last.id)),
                 years=2,
             ),
         )
@@ -287,8 +287,8 @@ class TestTheLineageTree:
             committed["job"].id,
             lambda ctx: cagr(
                 ctx,
-                start=money(first.value, "USD", source=SourceRef.fact(first.id)),
-                end=money(last.value, "USD", source=SourceRef.fact(last.id)),
+                start=money(first.value, "USD", source=SourceRef.financial_fact(first.id)),
+                end=money(last.value, "USD", source=SourceRef.financial_fact(last.id)),
                 years=2,
             ),
         )
@@ -315,7 +315,7 @@ class TestTheLineageTree:
         self, api, db_engine, committed
     ):
         # A headline about the report, not a detail buried in one branch of the tree.
-        missing = SourceRef.fact(uuid.uuid4())
+        missing = SourceRef.financial_fact(uuid.uuid4())
         rows = await persist(
             db_engine,
             committed["job"].id,
@@ -325,4 +325,4 @@ class TestTheLineageTree:
         body = (await api.get(f"{ENDPOINT}/{rows[0].id}")).json()
 
         assert len(body["unresolved"]) == 2
-        assert all(entry["expected"] == "fact" for entry in body["unresolved"])
+        assert all(entry["expected"] == "financial_facts" for entry in body["unresolved"])

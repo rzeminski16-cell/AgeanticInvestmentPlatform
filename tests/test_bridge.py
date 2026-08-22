@@ -27,7 +27,7 @@ from aer.calc.statements import assemble
 from aer.calc.units import CALC_CONTEXT, CalculationError, Quantity, SourceRef, money
 from aer.core.concepts import CANONICAL_CONCEPTS
 
-SOURCE = SourceRef.fact("fact-1")
+SOURCE = SourceRef.financial_fact("fact-1")
 
 GROSS = next(spec for spec in BRIDGE_SPECS if spec.key == "gross_margin")
 OPERATING = next(spec for spec in BRIDGE_SPECS if spec.key == "operating_margin")

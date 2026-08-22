@@ -53,7 +53,7 @@ from aer.calc.wacc import (
 )
 from aer.sources.macro.series import MACRO_SERIES, series_for
 
-FACT = SourceRef.fact("observation-1")
+FACT = SourceRef.financial_fact("observation-1")
 ASSUMPTION = SourceRef.assumption("assumption-1")
 
 
@@ -597,7 +597,9 @@ class TestProvenance:
         assert from_filing.value < from_operator.value
 
     def test_the_risk_free_rate_keeps_its_vintage_label(self, context):
-        vintage = SourceRef.fact("obs-9", label="us_treasury_10y@2024-06-27 (vintage 2024-06-28)")
+        vintage = SourceRef.financial_fact(
+            "obs-9", label="us_treasury_10y@2024-06-27 (vintage 2024-06-28)"
+        )
         result = cost_of_equity(
             context,
             risk_free=rate_from_percent(

@@ -66,10 +66,14 @@ async def record_valuation_ledger(
     terminal = gordon_terminal_value(
         context,
         final_cash_flow=Quantity.of(
-            FINAL_CASH_FLOW, "USD", source=SourceRef.fact(str(uuid.uuid4()), label="final FCF")
+            FINAL_CASH_FLOW,
+            "USD",
+            source=SourceRef.financial_fact(str(uuid.uuid4()), label="final FCF"),
         ),
         wacc=Quantity.of(
-            WACC, "pure", source=SourceRef.fact(str(uuid.uuid4()), label="cost of capital")
+            WACC,
+            "pure",
+            source=SourceRef.financial_fact(str(uuid.uuid4()), label="cost of capital"),
         ),
         terminal_growth=as_quantity(assumption),
     )
@@ -77,7 +81,9 @@ async def record_valuation_ledger(
         context,
         amount=terminal,
         factor=Quantity.of(
-            DISCOUNT, "pure", source=SourceRef.fact(str(uuid.uuid4()), label="discount factor")
+            DISCOUNT,
+            "pure",
+            source=SourceRef.financial_fact(str(uuid.uuid4()), label="discount factor"),
         ),
     )
 

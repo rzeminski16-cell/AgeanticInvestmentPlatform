@@ -40,7 +40,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.engine import CalculationContext
-from aer.calc.units import CALC_CONTEXT, Quantity, SourceKind, SourceRef
+from aer.calc.units import CALC_CONTEXT, Quantity, SourceKind, SourceRef, SourceTable
 from aer.db.models import Assumption, Calculation
 from aer.errors import AerError
 from aer.eval.observations import CompletenessObservation, ReplayObservation
@@ -201,14 +201,29 @@ def _reconstruct_inputs(inputs: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     return rebuilt
 
 
+# What a kind meant before ADR 0072 recorded the relation alongside it. Replay re-runs a
+# stored calculation from its own record, so a row written under the old shape has to come
+# back as something valid — and the table it comes back as is the one the resolver would
+# have reached for anyway. The arithmetic does not depend on it; faithfulness does.
+_TABLE_BY_KIND: Final[Mapping[SourceKind, SourceTable]] = {
+    SourceKind.FACT: SourceTable.FINANCIAL_FACTS,
+    SourceKind.ASSUMPTION: SourceTable.ASSUMPTIONS,
+    SourceKind.CALCULATION: SourceTable.CALCULATIONS,
+}
+
+
 def _quantity_from(stored: Mapping[str, Any]) -> Quantity:
     source = stored.get("source") or {}
+    kind = SourceKind(str(source.get("kind", "fact")))
+    stored_table = str(source.get("table", ""))
+    table = SourceTable(stored_table) if stored_table else _TABLE_BY_KIND[kind]
     return Quantity.of(
         Decimal(str(stored["value"])),
         str(stored["unit"]),
         source=SourceRef(
-            kind=SourceKind(str(source.get("kind", "fact"))),
+            kind=kind,
             identifier=str(source.get("id", "replay")),
+            table=table,
             label=str(source.get("label", "")),
         ),
     )

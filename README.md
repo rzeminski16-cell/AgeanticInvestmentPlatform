@@ -921,9 +921,15 @@ Every calculation goes through `@traced`, which **refuses any input it cannot ac
 
 ```python
 cagr(context, start=revenue_2017, end=revenue_2022, years=5)
-# records: formula, function_ref, code_version, each input with its unit and
-#          source id, the parameters, and the output with its unit
+# records: formula, function_ref, code_version, each input with its unit, its
+#          source id and the relation that id lives in, the parameters, and the
+#          output with its unit
 ```
+
+A source names its relation as well as its id, because "a fact" was never one table:
+a filing line, a macro observation and a closing price all carry the same guarantee
+and live in three. A leaf that does not resolve now says which relation was searched
+(ADR 0072).
 
 A `Quantity` with no source raises. A bare `Decimal` raises. A refused call records
 nothing. The result carries a source pointing at its own record, so calculations chain and

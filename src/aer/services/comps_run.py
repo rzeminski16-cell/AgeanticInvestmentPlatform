@@ -326,7 +326,7 @@ async def _subject_price(
         return None
 
     price = price_quantity(
-        series, source=SourceRef.fact(security.id, label=f"{security.provider_symbol} close")
+        series, source=SourceRef.security(security.id, label=f"{security.provider_symbol} close")
     )
     if series.currency in calc_prices.MINOR_UNITS:
         price = calc_prices.price_in_major_units(context, quoted=price)

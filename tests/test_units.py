@@ -28,7 +28,7 @@ from aer.calc.units import (
 USD = Unit.currency("USD")
 GBP = Unit.currency("GBP")
 SHARES = Unit.base("shares")
-SOURCE = SourceRef.fact("fact-1")
+SOURCE = SourceRef.financial_fact("fact-1")
 
 
 class TestUnitAlgebra:
@@ -259,12 +259,12 @@ class TestSourceRefs:
         assert attributed.value == Decimal(5)
 
     def test_the_three_kinds_construct(self):
-        assert SourceRef.fact("a").kind is SourceKind.FACT
+        assert SourceRef.financial_fact("a").kind is SourceKind.FACT
         assert SourceRef.calculation("b").kind is SourceKind.CALCULATION
         assert SourceRef.assumption("c").kind is SourceKind.ASSUMPTION
 
     def test_a_source_ref_reads_legibly(self):
-        assert str(SourceRef.fact("abc")) == "fact:abc"
+        assert str(SourceRef.financial_fact("abc")) == "fact:abc"
 
     def test_arithmetic_does_not_carry_a_source_forward(self):
         # A derived value is not the thing it was derived from. Carrying the source
@@ -280,7 +280,7 @@ class TestEquality:
         # Two quantities of $5 are the same quantity whether one came from a filing and
         # the other from an assumption. Where they came from decides whether a claim is
         # defensible, not whether the numbers are equal.
-        from_fact = money(5, "USD", source=SourceRef.fact("a"))
+        from_fact = money(5, "USD", source=SourceRef.financial_fact("a"))
         from_assumption = money(5, "USD", source=SourceRef.assumption("b"))
 
         assert from_fact == from_assumption

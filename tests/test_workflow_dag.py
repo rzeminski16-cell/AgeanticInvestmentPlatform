@@ -722,7 +722,7 @@ class TestTheLedgerUnderConcurrency:
                 # persist_context calls contend rather than happening to serialise.
                 await barrier.wait()
                 calc = CalculationContext(code_version="dag-test")
-                source = SourceRef.fact(str(uuid.uuid4()), label=which)
+                source = SourceRef.financial_fact(str(uuid.uuid4()), label=which)
                 first = ratio(
                     calc,
                     numerator=Quantity.of(Decimal(250), "USD", source=source),

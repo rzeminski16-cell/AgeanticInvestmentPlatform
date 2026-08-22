@@ -38,7 +38,7 @@ pytestmark = [pytest.mark.e2e, pytest.mark.integration]
 EMAIL = "e2e@example.invalid"
 
 ASSUMPTION = SourceRef.assumption("assumption-1")
-FACT = SourceRef.fact("fact-1")
+FACT = SourceRef.financial_fact("fact-1")
 MANDATE = unclassified_mandate(ValuationModel.DCF_FCFF, subject="TESTCO")
 
 

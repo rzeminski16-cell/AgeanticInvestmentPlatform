@@ -473,7 +473,7 @@ class TestTheFiledShareCountIsPreferred:
             shares_outstanding=Quantity.of(
                 Decimal("1000000"),
                 Unit.base("shares"),
-                source=SourceRef.fact(uuid.uuid4(), label="shares outstanding"),
+                source=SourceRef.security(uuid.uuid4(), label="shares outstanding"),
             ),
         )
 

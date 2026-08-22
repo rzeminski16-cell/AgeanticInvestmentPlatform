@@ -406,6 +406,6 @@ def quantities_of(rows: Sequence[FinancialFact]) -> Mapping[str, Quantity]:
         quantities[row.concept] = Quantity(
             value=row.value,
             unit=unit,
-            source=SourceRef.fact(row.id, label=row.concept),
+            source=SourceRef.financial_fact(row.id, label=row.concept),
         )
     return quantities

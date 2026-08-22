@@ -51,7 +51,7 @@ _TABLES = "research_requests, audit_events, users, artefacts, prompts, companies
 
 PERIOD_END = date(2024, 6, 30)
 AS_OF = date(2024, 6, 28)
-SOURCE = SourceRef.fact("test-fact")
+SOURCE = SourceRef.security("test-fact")
 
 
 def pure(value: str) -> Quantity:

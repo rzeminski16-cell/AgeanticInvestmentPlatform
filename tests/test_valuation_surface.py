@@ -56,7 +56,7 @@ pytestmark = pytest.mark.integration
 
 EMAIL = "valuation@example.invalid"
 ASSUMPTION = SourceRef.assumption("assumption-1")
-FACT = SourceRef.fact("fact-1")
+FACT = SourceRef.financial_fact("fact-1")
 MANDATE = unclassified_mandate(ValuationModel.DCF_FCFF, subject="TESTCO")
 PERIOD_END = date(2024, 6, 30)
 

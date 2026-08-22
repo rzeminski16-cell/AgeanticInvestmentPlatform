@@ -239,7 +239,7 @@ class TestTheRealisedDriver:
     def _statements(self, lines: dict[str, Decimal]) -> Any:
         context = new_context()
         quantities = {
-            concept: Quantity(value=value, unit=USD, source=SourceRef.fact(concept))
+            concept: Quantity(value=value, unit=USD, source=SourceRef.financial_fact(concept))
             for concept, value in lines.items()
         }
         return assemble(context, quantities)

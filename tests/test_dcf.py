@@ -60,7 +60,7 @@ from aer.calc.units import (
 from aer.core.sectors import ValuationModel, unclassified_mandate
 
 ASSUMPTION = SourceRef.assumption("assumption-1")
-FACT = SourceRef.fact("fact-1")
+FACT = SourceRef.financial_fact("fact-1")
 
 # An ordinary company: nobody classified it into a specialist sector, so the standard model
 # applies. The block itself is tested in `test_sectors_enforcement.py`; here the mandate is

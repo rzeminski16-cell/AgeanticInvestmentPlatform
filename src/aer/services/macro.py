@@ -198,7 +198,7 @@ def as_quantity(observation: MacroObservationRow, *, series: MacroSeries) -> Qua
     return Quantity.of(
         observation.value,
         Unit.parse(series.unit),
-        source=SourceRef.fact(
+        source=SourceRef.macro_observation(
             observation.id,
             label=f"{series.key}@{observation.observed_on.isoformat()}"
             f" (vintage {observation.vintage.isoformat()})",

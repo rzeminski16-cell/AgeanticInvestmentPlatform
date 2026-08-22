@@ -1872,7 +1872,7 @@ async def _filed_share_count(
     return Quantity.of(
         fact.value,
         Unit.base("shares"),
-        source=SourceRef.fact(fact.id, label="shares outstanding"),
+        source=SourceRef.financial_fact(fact.id, label="shares outstanding"),
     )
 
 
@@ -2043,8 +2043,8 @@ async def _revenue_growth(
     first, last = facts[0], facts[-1]
     result = cagr(
         ledger,
-        start=money(first.value, "USD", source=SourceRef.fact(first.id, label="revenue")),
-        end=money(last.value, "USD", source=SourceRef.fact(last.id, label="revenue")),
+        start=money(first.value, "USD", source=SourceRef.financial_fact(first.id, label="revenue")),
+        end=money(last.value, "USD", source=SourceRef.financial_fact(last.id, label="revenue")),
         years=last.period_end.year - first.period_end.year,
     )
     return {

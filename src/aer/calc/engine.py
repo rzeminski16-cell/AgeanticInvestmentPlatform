@@ -51,6 +51,7 @@ from aer.calc.units import (
     Quantity,
     SourceKind,
     SourceRef,
+    SourceTable,
     Unit,
     UnsourcedValueError,
 )
@@ -90,6 +91,7 @@ class CalculationInput:
     unit: str
     source_kind: SourceKind
     source_id: str
+    source_table: SourceTable
     source_label: str = ""
 
     def as_dict(self) -> dict[str, Any]:
@@ -100,6 +102,11 @@ class CalculationInput:
             "source": {
                 "kind": self.source_kind.value,
                 "id": self.source_id,
+                # Written for the same reason the unit is a rendered symbol: a reader must
+                # be able to follow this id without asking the application which table it
+                # meant. Rows written before ADR 0072 carry no table, and the resolver
+                # treats their absence as the guess it always was.
+                "table": self.source_table.value,
                 "label": self.source_label,
             },
         }
@@ -158,7 +165,12 @@ class CalculationRecord:
     @property
     def input_sources(self) -> tuple[SourceRef, ...]:
         return tuple(
-            SourceRef(kind=i.source_kind, identifier=i.source_id, label=i.source_label)
+            SourceRef(
+                kind=i.source_kind,
+                identifier=i.source_id,
+                table=i.source_table,
+                label=i.source_label,
+            )
             for i in self.inputs
         )
 
@@ -433,6 +445,7 @@ def _as_input(argument_name: str, value: Quantity, *, calculation: str) -> Calcu
         unit=value.unit.symbol,
         source_kind=value.source.kind,
         source_id=value.source.identifier,
+        source_table=value.source.table,
         source_label=value.source.label,
     )
 

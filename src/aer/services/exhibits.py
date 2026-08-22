@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from aer.calc.dcf import TerminalMethod
+from aer.calc.units import SourceKind, SourceTable
 from aer.charts import (
     Chart,
     FootballFieldInput,
@@ -264,10 +265,24 @@ async def _margin_series(session: AsyncSession, *, job: Job) -> tuple[MarginSeri
 
 
 def _fact_input_ids(calculation: Calculation) -> list[str]:
+    """The inputs that are rows in ``financial_facts``, and only those.
+
+    These ids are looked up in that one table to find a period label, so the question is
+    which relation holds the row rather than which guarantee it carries. ``kind == "fact"``
+    was never the right test: three relations mint that kind, and a listing id asked of
+    ``financial_facts`` answers nothing while looking like an input that simply had no
+    period. Rows written before ADR 0072 carry no table and are still admitted on kind,
+    which is the same guess the resolver makes for them and no worse.
+    """
     found: list[str] = []
     for raw in calculation.inputs or []:
         source: dict[str, Any] = raw.get("source") or {} if isinstance(raw, dict) else {}
-        if source.get("kind") == "fact" and source.get("id"):
+        if not source.get("id"):
+            continue
+        table = source.get("table")
+        if table == SourceTable.FINANCIAL_FACTS.value or (
+            not table and source.get("kind") == SourceKind.FACT.value
+        ):
             found.append(str(source["id"]))
     return found
 

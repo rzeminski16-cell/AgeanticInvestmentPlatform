@@ -36,7 +36,7 @@ from aer.calc.units import (
 )
 from aer.core.concepts import CANONICAL_CONCEPTS, MAGNITUDE_CONCEPTS, canonical_concept
 
-SOURCE = SourceRef.fact("fact-1")
+SOURCE = SourceRef.financial_fact("fact-1")
 
 
 @pytest.fixture
@@ -62,7 +62,9 @@ def from_tags(taxonomy: str, tagged: dict[str, str], currency: str) -> dict[str,
     for tag, value in tagged.items():
         concept = canonical_concept(taxonomy, tag)
         if concept is not None:
-            facts[concept] = money(value, currency, source=SourceRef.fact(f"{taxonomy}:{tag}"))
+            facts[concept] = money(
+                value, currency, source=SourceRef.financial_fact(f"{taxonomy}:{tag}")
+            )
     return facts
 
 

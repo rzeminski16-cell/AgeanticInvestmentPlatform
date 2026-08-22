@@ -50,7 +50,7 @@ _TABLES = (
 )
 
 AS_OF = date(2024, 6, 28)
-SOURCE = SourceRef.fact("price-series")
+SOURCE = SourceRef.security("price-series")
 
 
 def fetch_result() -> FetchResult:
@@ -587,7 +587,7 @@ class TestBeta:
             subject=subject,
             market=market,
             subject_source=SOURCE,
-            market_source=SourceRef.fact("market-series"),
+            market_source=SourceRef.security("market-series"),
         )
         assert result.value == Decimal(1)
 
@@ -688,7 +688,7 @@ class TestBetaIsProposedNotDecided:
             subject=subject,
             market=market,
             subject_source=SOURCE,
-            market_source=SourceRef.fact("market-series"),
+            market_source=SourceRef.security("market-series"),
             market_label="FTSE 100",
             job_id=job.id,
         )
@@ -708,7 +708,7 @@ class TestBetaIsProposedNotDecided:
             subject=subject,
             market=market,
             subject_source=SOURCE,
-            market_source=SourceRef.fact("market-series"),
+            market_source=SourceRef.security("market-series"),
             market_label="FTSE 100",
         )
 
@@ -729,7 +729,7 @@ class TestBetaIsProposedNotDecided:
             subject=subject,
             market=market,
             subject_source=SOURCE,
-            market_source=SourceRef.fact("market-series"),
+            market_source=SourceRef.security("market-series"),
             market_label="FTSE 100",
             frequency=calc.Frequency.MONTHLY,
         )
@@ -751,7 +751,7 @@ class TestBetaIsProposedNotDecided:
             subject=subject,
             market=market,
             subject_source=SOURCE,
-            market_source=SourceRef.fact("market-series"),
+            market_source=SourceRef.security("market-series"),
             market_label="FTSE 100",
         )
 

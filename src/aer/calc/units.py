@@ -61,6 +61,7 @@ __all__ = [
     "Quantity",
     "SourceKind",
     "SourceRef",
+    "SourceTable",
     "Unit",
     "UnitMismatchError",
     "UnsourcedValueError",
@@ -143,7 +144,11 @@ class SourceKind(StrEnum):
     """
 
     FACT = "fact"
-    """A reported figure, traced to a filing and a hashed artefact."""
+    """A reported figure, traced to a filing and a hashed artefact.
+
+    Published by somebody else, whichever relation holds it: a filing line, a macro
+    observation and a closing price all carry this guarantee. Which table to read is
+    :class:`SourceTable`'s answer, not this one's."""
 
     CALCULATION = "calculation"
     """The output of another traced calculation. This is what makes lineage a tree."""
@@ -153,6 +158,32 @@ class SourceKind(StrEnum):
     Recorded with its justification, so a reviewer can disagree with it specifically."""
 
 
+class SourceTable(StrEnum):
+    """Which relation holds the row a source reference names.
+
+    ``SourceKind`` and this answer different questions, and conflating them is what let a
+    ``macro_observations`` id be stored as a bare ``fact`` that only ``financial_facts``
+    would ever be searched for. A yield in ``macro_observations`` and a revenue line in
+    ``financial_facts`` carry the same *guarantee* and live in different *relations*; the
+    kind says the first and this says the second (ADR 0072).
+
+    The kernel names tables and never touches one. These are identifiers a reader resolves,
+    not a dependency on the database — ``calc`` stays pure and importable without it.
+    """
+
+    FINANCIAL_FACTS = "financial_facts"
+    """A figure extracted from a filing."""
+
+    MACRO_OBSERVATIONS = "macro_observations"
+    """A published statistic at a vintage — a yield, an index level."""
+
+    SECURITIES = "securities"
+    """A listing, and by extension the price bars adjusted from it."""
+
+    ASSUMPTIONS = "assumptions"
+    CALCULATIONS = "calculations"
+
+
 @dataclass(frozen=True, slots=True)
 class SourceRef:
     """Where a number came from.
@@ -160,23 +191,63 @@ class SourceRef:
     ``identifier`` is a database id in production and any stable string in a test. Typed
     loosely on purpose: the kernel is pure and must not depend on the database's notion of
     an id to be testable.
+
+    There is deliberately no general ``fact()`` constructor. Three relations hold figures
+    somebody published, and a single constructor covering all three is precisely the
+    unstated default this class used to carry: it read as "a fact" and resolved as "a row
+    in ``financial_facts``", and nothing complained when a caller meant neither. One
+    constructor per relation makes the choice visible at the site that makes it.
     """
 
     kind: SourceKind
     identifier: str
+    table: SourceTable
     label: str = ""
 
     @classmethod
-    def fact(cls, identifier: str | uuid.UUID, *, label: str = "") -> SourceRef:
-        return cls(kind=SourceKind.FACT, identifier=str(identifier), label=label)
+    def financial_fact(cls, identifier: str | uuid.UUID, *, label: str = "") -> SourceRef:
+        return cls(
+            kind=SourceKind.FACT,
+            identifier=str(identifier),
+            table=SourceTable.FINANCIAL_FACTS,
+            label=label,
+        )
+
+    @classmethod
+    def macro_observation(cls, identifier: str | uuid.UUID, *, label: str = "") -> SourceRef:
+        return cls(
+            kind=SourceKind.FACT,
+            identifier=str(identifier),
+            table=SourceTable.MACRO_OBSERVATIONS,
+            label=label,
+        )
+
+    @classmethod
+    def security(cls, identifier: str | uuid.UUID, *, label: str = "") -> SourceRef:
+        return cls(
+            kind=SourceKind.FACT,
+            identifier=str(identifier),
+            table=SourceTable.SECURITIES,
+            label=label,
+        )
 
     @classmethod
     def calculation(cls, identifier: str | uuid.UUID, *, label: str = "") -> SourceRef:
-        return cls(kind=SourceKind.CALCULATION, identifier=str(identifier), label=label)
+        return cls(
+            kind=SourceKind.CALCULATION,
+            identifier=str(identifier),
+            table=SourceTable.CALCULATIONS,
+            label=label,
+        )
 
     @classmethod
     def assumption(cls, identifier: str | uuid.UUID, *, label: str = "") -> SourceRef:
-        return cls(kind=SourceKind.ASSUMPTION, identifier=str(identifier), label=label)
+        return cls(
+            kind=SourceKind.ASSUMPTION,
+            identifier=str(identifier),
+            table=SourceTable.ASSUMPTIONS,
+            label=label,
+        )
 
     def __str__(self) -> str:
         return f"{self.kind.value}:{self.identifier}"

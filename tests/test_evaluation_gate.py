@@ -309,7 +309,7 @@ def _is_contained(wrapped: str) -> bool:
 # The unit corpus: operations that must be refused, and compatible ones that must not be —
 # because a unit algebra that raised on everything would score perfectly and be useless.
 def _unit_cases() -> list[tuple[str, bool, Any]]:
-    source = SourceRef.fact("00000000-0000-0000-0000-000000000000", label="corpus")
+    source = SourceRef.financial_fact("00000000-0000-0000-0000-000000000000", label="corpus")
     usd = money("100", "USD", source=source)
     gbp = money("100", "GBP", source=source)
     count = share_count("100", source=source)
