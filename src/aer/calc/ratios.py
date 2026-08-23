@@ -810,7 +810,10 @@ RATIO_DEFINITIONS: Final[tuple[RatioDefinition, ...]] = (
 
 
 def compute_ratios(
-    context: CalculationContext, statements: StatementSet
+    context: CalculationContext,
+    statements: StatementSet,
+    *,
+    not_meaningful: Mapping[str, str] | None = None,
 ) -> tuple[RatioResult, ...]:
     """Every ratio in :data:`RATIO_DEFINITIONS`, computed or explained.
 
@@ -818,17 +821,45 @@ def compute_ratios(
     compute would make a filing with four ratios indistinguishable from a filing with four
     ratios and thirteen unanswered questions.
 
+    Args:
+        not_meaningful: Ratio keys this company's kind of business makes meaningless,
+            mapped to why (gap A64). Such a ratio is **not computed**, and comes back
+            absent carrying the caller's reason. The judgement is the caller's because
+            this module knows arithmetic and not industries: a bank's debt to equity is
+            perfectly correct division and a wrong answer to the question a reader is
+            asking, and only something that knows what a bank is can say so.
+
     Raises:
         UnitMismatchError: If two lines a ratio needs are in different units. Not caught and
             not reported as an absent ratio — see :data:`_NEVER_SWALLOWED`.
         UnsourcedValueError: If a line reached here without provenance.
     """
-    return tuple(_result(context, definition, statements) for definition in RATIO_DEFINITIONS)
+    excluded = not_meaningful or {}
+    return tuple(
+        _result(context, definition, statements, not_meaningful=excluded.get(definition.key, ""))
+        for definition in RATIO_DEFINITIONS
+    )
 
 
 def _result(
-    context: CalculationContext, definition: RatioDefinition, statements: StatementSet
+    context: CalculationContext,
+    definition: RatioDefinition,
+    statements: StatementSet,
+    *,
+    not_meaningful: str = "",
 ) -> RatioResult:
+    # Ahead of the concept check, because a ratio that is meaningless here is meaningless
+    # whether or not the filing happens to carry its inputs — and "this filing does not
+    # report X" would be a true sentence answering a question nobody should be asking.
+    if not_meaningful:
+        return RatioResult(
+            key=definition.key,
+            label=definition.label,
+            family=definition.family,
+            quantity=None,
+            absent_because=not_meaningful,
+        )
+
     values: dict[str, Quantity] = {}
     missing: list[str] = []
     for concept in definition.needs:

@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.concepts import canonical_concept
 from aer.core.enums import FactBasis, JobStatus, Provider, SourceTier, UserRole
+from aer.core.sectors import profile_for
 from aer.db.models import (
     Artefact,
     Company,
@@ -799,6 +800,133 @@ class TestTheRunMeasuresItsOwnCoverage:
         )
 
         assert outcome.as_dict()["forecast_coverage"]["revenue"] == 1
+
+
+class TestASectorIsNotAskedForAccountsItDoesNotKeep:
+    """Gap A64. A live run on a bank logged `thin_for_forecast: ["current_assets",
+    "current_liabilities", "operating_income"]`. None of the three is thin: a bank keeps
+    an unclassified balance sheet and has no operating-income line, so the platform was
+    asking a filer for accounts its own presentation rules forbid it to report, then
+    recording the answer as a disclosure failing.
+    """
+
+    @staticmethod
+    async def _two_years(scene: dict[str, Any]) -> None:
+        """Both debt legs, so ``total_debt`` derives and debt to equity genuinely
+        computes. Without them the ratio is absent for want of its inputs and the
+        sector exclusion would be green whatever it did."""
+        levered = {**_YEAR, "short_term_debt": "100"}
+        await _seed(
+            scene,
+            [
+                *_facts(
+                    scene,
+                    period_end=date(2022, 12, 31),
+                    filed=date(2023, 2, 1),
+                    values=levered,
+                ),
+                *_facts(
+                    scene,
+                    period_end=date(2023, 12, 31),
+                    filed=date(2024, 2, 1),
+                    values=levered,
+                ),
+            ],
+        )
+
+    async def test_an_undefined_concept_is_not_measured_for_coverage(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await self._two_years(scene)
+
+        outcome = await analyse_company(
+            scene["session"],
+            new_context(),
+            company_id=scene["company"].id,
+            request=scene["request"],
+            profile=profile_for("banks"),
+        )
+
+        coverage = outcome.forecast_coverage
+        assert "current_assets" not in coverage
+        assert "current_liabilities" not in coverage
+        assert "operating_income" not in coverage
+
+    async def test_what_the_sector_does_define_is_still_measured(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The exclusion has to be the named three and nothing else, or a bank silently
+        stops being measured at all."""
+        await self._two_years(scene)
+
+        outcome = await analyse_company(
+            scene["session"],
+            new_context(),
+            company_id=scene["company"].id,
+            request=scene["request"],
+            profile=profile_for("banks"),
+        )
+
+        assert outcome.forecast_coverage["revenue"] == 2
+        assert outcome.forecast_coverage["pre_tax_income"] == 2
+
+    async def test_the_run_records_which_lines_it_never_asked_for(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Recorded rather than merely absent: "why only five drivers?" is answerable from
+        the row, instead of by noticing what is not in it."""
+        await self._two_years(scene)
+
+        outcome = await analyse_company(
+            scene["session"],
+            new_context(),
+            company_id=scene["company"].id,
+            request=scene["request"],
+            profile=profile_for("banks"),
+        )
+
+        assert outcome.as_dict()["undefined_concepts"] == [
+            "current_assets",
+            "current_liabilities",
+            "operating_income",
+        ]
+
+    async def test_a_ratio_the_sector_makes_meaningless_is_absent_with_its_reason(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await self._two_years(scene)
+
+        outcome = await analyse_company(
+            scene["session"],
+            new_context(),
+            company_id=scene["company"].id,
+            request=scene["request"],
+            profile=profile_for("banks"),
+        )
+
+        latest = outcome.latest
+        assert latest is not None
+        row = next(r for r in latest.ratios if r.key == "debt_to_equity")
+        assert row.quantity is None
+        assert "Deposits" in row.absent_because
+
+    async def test_an_unclassified_company_is_unchanged(self, scene: dict[str, Any]) -> None:
+        """The default must be exactly the old behaviour: every ordinary run measures and
+        computes everything, as it did before a bank was mishandled."""
+        await self._two_years(scene)
+
+        outcome = await analyse_company(
+            scene["session"],
+            new_context(),
+            company_id=scene["company"].id,
+            request=scene["request"],
+        )
+
+        assert set(outcome.forecast_coverage) == set(FORECAST_CONCEPTS)
+        assert outcome.undefined_concepts == ()
+        latest = outcome.latest
+        assert latest is not None
+        assert next(r for r in latest.ratios if r.key == "debt_to_equity").quantity is not None
 
 
 class TestTheMapCarriesTheSpellingsFilersUse:

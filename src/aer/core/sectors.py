@@ -103,6 +103,22 @@ class SectorProfile:
     # disclosed rather than passed over.
     required_metrics: tuple[str, ...] = ()
 
+    # Canonical concepts this sector's accounting does not define (gap A64). **Not the
+    # same as a line a filer happened to omit.** A bank keeps no classified balance sheet,
+    # so current assets and current liabilities are not thin, missing or unmapped — they
+    # do not exist, and a filer is forbidden by its own presentation rules to report them.
+    # A live run told an operator a bank's forecast was thin for three such lines, which
+    # reads as "this filer discloses poorly" when the truth is "the platform asked a bank
+    # for accounts it does not keep".
+    undefined_concepts: tuple[str, ...] = ()
+
+    # Ratios whose arithmetic is sound and whose meaning is not, here — key and why, so
+    # the reason travels with the refusal instead of being reconstructed at each surface.
+    # Only ratios that genuinely *compute* belong here: one needing an undefined concept
+    # is already absent for want of its inputs, and listing it twice would say the same
+    # thing in two voices.
+    not_meaningful_ratios: tuple[tuple[str, str], ...] = ()
+
     warnings: tuple[str, ...] = field(default_factory=tuple)
 
     def permits(self, model: ValuationModel) -> bool:
@@ -131,6 +147,21 @@ SECTOR_PROFILES: Final[tuple[SectorProfile, ...]] = (
             "loan_loss_provisions",
             "tangible_book_value_per_share",
         ),
+        # A bank presents an unclassified balance sheet — assets run from cash to loans to
+        # premises in liquidity order, with no current/non-current split to report — and an
+        # income statement that runs interest income, interest expense, net interest income,
+        # provision, non-interest income and non-interest expense to pre-tax income. There
+        # is no operating-income line in it.
+        undefined_concepts=("current_assets", "current_liabilities", "operating_income"),
+        not_meaningful_ratios=(
+            (
+                "debt_to_equity",
+                "Deposits are a bank's funding and are not borrowings, so debt to equity "
+                "measures the small remainder and reads as low leverage for a balance "
+                "sheet that is almost entirely liabilities. Capital adequacy and assets "
+                "to equity are the measures that mean something here.",
+            ),
+        ),
         warnings=(
             "Enterprise value and free cash flow to the firm are not meaningful for a bank: "
             "deposits and debt are raw material, not financing.",
@@ -151,6 +182,19 @@ SECTOR_PROFILES: Final[tuple[SectorProfile, ...]] = (
             "reserve_development",
             "embedded_value",
             "solvency_ratio",
+        ),
+        # An insurer's balance sheet is unclassified for the same reason a bank's is: the
+        # liabilities are policy reserves whose timing is estimated, not a payables run
+        # due within the year. The income statement is premiums, claims and reserve
+        # movements, with no operating-income subtotal.
+        undefined_concepts=("current_assets", "current_liabilities", "operating_income"),
+        not_meaningful_ratios=(
+            (
+                "debt_to_equity",
+                "An insurer's leverage is its float — the policy liabilities funding the "
+                "investment portfolio — and not its borrowings, so debt to equity "
+                "measures the part that matters least. Solvency coverage is the measure.",
+            ),
         ),
         warnings=(
             "Free cash flow to the firm is not meaningful for an insurer; float is a "

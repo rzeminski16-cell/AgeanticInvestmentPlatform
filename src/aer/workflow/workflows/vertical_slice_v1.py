@@ -833,6 +833,7 @@ async def _propose_assumptions(context: StepContext) -> StepResult:
         calculation_service.new_context(),
         company_id=_uuid(acquired["company_id"]),
         request=request,
+        profile=profile_for(sector_key),
     )
 
     permitted = dcf_permitted(sector_key)
@@ -976,6 +977,7 @@ async def _value(context: StepContext) -> StepResult:
         calculation_service.new_context(),
         company_id=_uuid(acquired["company_id"]),
         request=request,
+        profile=profile_for(sector_key),
     )
 
     try:
@@ -1052,6 +1054,7 @@ async def _comps(context: StepContext) -> StepResult:
         calculation_service.new_context(),
         company_id=_uuid(acquired["company_id"]),
         request=request,
+        profile=profile_for(sector_key_of(context.outputs)),
     )
 
     ledger = calculation_service.new_context()
@@ -1982,7 +1985,13 @@ async def _calculate(context: StepContext) -> StepResult:
     calc_context = calculation_service.new_context()
 
     analysis = await analyse_company(
-        context.session, calc_context, company_id=company_id, request=request
+        context.session,
+        calc_context,
+        company_id=company_id,
+        request=request,
+        # What this kind of business does not define, so the coverage the gate reads and
+        # the ratios the report shows are both about a company of this kind (A64).
+        profile=profile_for(sector_key_of(context.outputs)),
     )
 
     growth = await _revenue_growth(context, company_id=company_id, ledger=calc_context)

@@ -38,6 +38,7 @@ from aer.calc.quality import QualitySignal, assess_quality
 from aer.calc.ratios import RatioResult, compute_ratios
 from aer.calc.statements import StatementSet, assemble
 from aer.calc.units import CalculationError, Quantity, SourceRef, Unit
+from aer.core.sectors import SectorProfile
 from aer.db.models import FinancialFact, ResearchRequest
 
 __all__ = [
@@ -125,6 +126,10 @@ class AnalysisOutcome:
     unplaced_concepts: tuple[str, ...] = ()
     calculation_ids: tuple[uuid.UUID, ...] = field(default=())
 
+    # The forecast concepts this company's kind of business does not define (gap A64).
+    # Empty for an ordinary company, and for any run whose sector nobody confirmed.
+    undefined_concepts: tuple[str, ...] = ()
+
     @property
     def latest(self) -> PeriodAnalysis | None:
         return self.periods[0] if self.periods else None
@@ -138,6 +143,10 @@ class AnalysisOutcome:
         by which point the run had spent its money and the operator had nine boxes to fill.
         A driver needs two periods to average or to grow across, so a count below two here
         is the gate's outcome, known at the step that could still be fixed.
+
+        **A concept the sector does not define is not measured** (gap A64). Counting it
+        would put it at zero and report it as thin, which says "this filer discloses
+        poorly" about a bank that is keeping its accounts exactly as it must.
         """
         return {
             concept: sum(
@@ -149,6 +158,7 @@ class AnalysisOutcome:
                 )
             )
             for concept in FORECAST_CONCEPTS
+            if concept not in self.undefined_concepts
         }
 
     def as_dict(self) -> dict[str, Any]:
@@ -180,6 +190,9 @@ class AnalysisOutcome:
             # Recorded on the step rather than only logged, so "why did the gate ask me for
             # six drivers?" is answerable from the run's own rows afterwards (A46).
             "forecast_coverage": self.forecast_coverage,
+            # And which drivers were never asked for, so the answer to "why only five?" is
+            # on the row too rather than inferred from what is missing (A64).
+            "undefined_concepts": list(self.undefined_concepts),
         }
 
 
@@ -190,6 +203,7 @@ async def analyse_company(
     company_id: uuid.UUID,
     request: ResearchRequest,
     max_periods: int = MAX_PERIODS,
+    profile: SectorProfile | None = None,
 ) -> AnalysisOutcome:
     """Assemble statements, ratios and quality signals for a company's recent years.
 
@@ -198,6 +212,12 @@ async def analyse_company(
             a caller can put this and its other calculations in one transaction — a run
             whose statements persisted and whose ratios did not would be a run with a
             traceable half of an answer.
+        profile: The confirmed sector, where a person has confirmed one (gap A64). It
+            decides two things and nothing else here: which forecast concepts are measured
+            for coverage, and which ratios are refused as meaningless rather than
+            computed. ``None`` — the ordinary company, and any run whose classification
+            nobody confirmed — measures and computes everything, which is what this did
+            for every run before.
 
     Nothing raises for want of data. A concept a filing does not report leaves its line
     absent with the reason attached, a ratio that needs it says which concept it wanted, and
@@ -205,6 +225,12 @@ async def analyse_company(
     mismatch: two lines in different currencies is a mapping error, and the module whose job
     is to notice problems is the wrong place to hide one.
     """
+    # What this kind of business does not define, and which ratios it makes meaningless.
+    # Read once here so every period below is measured against the same answer, and so an
+    # unclassified run reads exactly as it did before: empty, excluding nothing (A64).
+    undefined = profile.undefined_concepts if profile is not None else ()
+    not_meaningful = dict(profile.not_meaningful_ratios) if profile is not None else {}
+
     facts = await annual_facts(
         session,
         company_id=company_id,
@@ -216,7 +242,8 @@ async def analyse_company(
             skipped=(
                 "No annual facts are stored for this company at or before the as-of date, "
                 "so no statements could be assembled.",
-            )
+            ),
+            undefined_concepts=undefined,
         )
 
     ordered = sorted(facts, reverse=True)[:max_periods]
@@ -245,7 +272,7 @@ async def analyse_company(
                     period_end=period_end,
                     fiscal_year=fiscal_year,
                     statements=statements,
-                    ratios=compute_ratios(context, statements),
+                    ratios=compute_ratios(context, statements, not_meaningful=not_meaningful),
                     quality=assess_quality(
                         context, statements, prior=previous, prior_period=previous_stamp
                     ),
@@ -267,6 +294,7 @@ async def analyse_company(
         periods=tuple(reversed(periods)),
         skipped=tuple(skipped),
         unplaced_concepts=tuple(sorted(unplaced)),
+        undefined_concepts=undefined,
     )
     coverage = outcome.forecast_coverage
     _log.info(
@@ -281,6 +309,9 @@ async def analyse_company(
         thin_for_forecast=sorted(
             concept for concept, periods in coverage.items() if periods < _MIN_PERIODS_TO_AVERAGE
         ),
+        # Separately from the thin list, and never inside it: a line this business does not
+        # keep is not a disclosure failing (A64).
+        undefined_for_sector=sorted(outcome.undefined_concepts),
     )
     return outcome
 

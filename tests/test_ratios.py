@@ -481,3 +481,83 @@ class TestProperties:
     def test_days_outstanding_is_always_in_days(self, context, balance, flow):
         result = days_outstanding(context, balance=usd(str(balance)), flow=usd(str(flow)))
         assert result.unit == Unit.base("day")
+
+
+class TestARatioTheBusinessMakesMeaningless:
+    """Gap A64. A live run on a bank recorded a debt-to-equity of 0.20 to 0.50 — correct
+    division, and a wrong answer to the question a reader asks — because deposits are
+    funding rather than borrowings and the ratio measures the small remainder. The run's
+    own red team caught it, calling the figure "almost none of a bank's leverage" against
+    $191.3bn of liabilities.
+
+    The judgement is the caller's, not this module's: `compute_ratios` knows arithmetic
+    and not industries, so it takes the exclusion and the reason as data.
+    """
+
+    _WHY = "Deposits are funding, not borrowings, so this measures the small remainder."
+
+    def test_the_ratio_is_absent_and_says_why(self, context) -> None:
+        results = {
+            r.key: r
+            for r in compute_ratios(
+                context, assemble(context, facts()), not_meaningful={"debt_to_equity": self._WHY}
+            )
+        }
+
+        assert results["debt_to_equity"].quantity is None
+        assert results["debt_to_equity"].absent_because == self._WHY
+
+    def test_no_calculation_is_struck_for_it(self, context) -> None:
+        """The stronger half. An absent ratio with a live calculation row behind it would
+        leave the misleading figure in the ledger, where a citation could still reach it."""
+        compute_ratios(
+            context, assemble(context, facts()), not_meaningful={"debt_to_equity": self._WHY}
+        )
+
+        assert not context.named("debt_to_equity")
+
+    def test_it_is_not_reported_as_a_missing_concept(self, context) -> None:
+        """ "This filing does not report total debt" would be a true sentence answering a
+        question nobody should be asking. The row carries no missing concepts, because
+        nothing was missing."""
+        results = {
+            r.key: r
+            for r in compute_ratios(
+                context, assemble(context, facts()), not_meaningful={"debt_to_equity": self._WHY}
+            )
+        }
+
+        assert results["debt_to_equity"].missing == ()
+
+    def test_the_exclusion_holds_even_where_the_inputs_are_absent(self, context) -> None:
+        """Meaningless is meaningless whether or not the filing carries the inputs, so the
+        sector's reason wins over the missing-concept wording rather than racing it."""
+        results = {
+            r.key: r
+            for r in compute_ratios(
+                context,
+                assemble(context, without("total_debt", "equity")),
+                not_meaningful={"debt_to_equity": self._WHY},
+            )
+        }
+
+        assert results["debt_to_equity"].absent_because == self._WHY
+
+    def test_every_other_ratio_is_untouched(self, context) -> None:
+        plain = suite(context, facts())
+        narrowed = {
+            r.key: r
+            for r in compute_ratios(
+                context, assemble(context, facts()), not_meaningful={"debt_to_equity": self._WHY}
+            )
+        }
+
+        for key, before in plain.items():
+            if key == "debt_to_equity":
+                continue
+            assert narrowed[key].value == before.value, key  # type: ignore[attr-defined]
+
+    def test_an_ordinary_company_computes_it_as_before(self, context) -> None:
+        """The default has to be the old behaviour exactly, or every unclassified run
+        changes because a bank was mishandled."""
+        assert suite(context, facts())["debt_to_equity"].value is not None  # type: ignore[attr-defined]
