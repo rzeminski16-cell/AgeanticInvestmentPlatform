@@ -34,12 +34,15 @@ from aer.calc.dcf import (
 from aer.calc.engine import CalculationContext
 from aer.calc.units import Quantity, SourceRef, money
 from aer.core.sectors import (
+    BUILT_MODELS,
     SECTOR_PROFILES,
     ModelNotPermittedError,
     SectorProfile,
     ValuationMandate,
     ValuationModel,
+    built_model_of,
     mandate_for,
+    model_for,
     profile_for,
     suggested_profiles,
     unclassified_mandate,
@@ -554,3 +557,75 @@ class TestTheMandateDoesNotChangeTheArithmetic:
         assert adjusted.gordon.equity_value.value - plain.gordon.equity_value.value == Decimal(
             "300"
         )
+
+
+class TestWhichModelAProfileGets:
+    """`model_for` is the single answer the gate, the valuation step and the report read.
+
+    The *ordering* rule is currently unobservable against the real registry — no seeded
+    profile permits two built models — so it is asserted against a constructed pair, and a
+    second test asserts the registry's non-overlap so the day it stops holding somebody is
+    told rather than surprised. The same arrangement `suggested_profiles` uses.
+    """
+
+    def test_an_unclassified_company_gets_the_standard_model(self) -> None:
+        assert model_for("") is ValuationModel.DCF_FCFF
+
+    def test_a_bank_gets_residual_income(self) -> None:
+        assert model_for("banks") is ValuationModel.RESIDUAL_INCOME
+
+    def test_an_insurer_gets_residual_income(self) -> None:
+        assert model_for("insurers") is ValuationModel.RESIDUAL_INCOME
+
+    def test_a_sector_whose_model_is_not_built_gets_none(self) -> None:
+        """A REIT wants net asset value and a pre-revenue biotech a risk-adjusted NPV.
+        Neither exists here, and `None` says so — which is a different statement from a
+        model being blocked, and the surfaces say it differently."""
+        assert model_for("reits") is None
+        assert model_for("biotech_pre_revenue") is None
+
+    def test_an_unrecognised_key_gets_none(self) -> None:
+        assert model_for("a-profile-this-build-does-not-carry") is None
+
+    def test_a_profile_permitting_both_gets_the_first_built(self) -> None:
+        """The precedence rule, against a constructed profile because no seeded one
+        exercises it. A company for which both models are right gets the standard one."""
+        both = SectorProfile(
+            key="constructed",
+            label="Constructed",
+            allowed_models=(ValuationModel.RESIDUAL_INCOME, ValuationModel.DCF_FCFF),
+        )
+
+        assert built_model_of(both) is BUILT_MODELS[0]
+
+    def test_the_allowed_order_does_not_decide_it(self) -> None:
+        """`allowed_models` lists what would be right, in no significant order.
+        `BUILT_MODELS` lists what exists to run, in precedence order, and only the second
+        may decide — otherwise a profile's cosmetic reordering would change a valuation."""
+        reversed_order = SectorProfile(
+            key="constructed",
+            label="Constructed",
+            allowed_models=(ValuationModel.DCF_FCFF, ValuationModel.RESIDUAL_INCOME),
+        )
+
+        assert built_model_of(reversed_order) is BUILT_MODELS[0]
+
+    def test_no_seeded_profile_currently_permits_two_built_models(self) -> None:
+        """Which is why the two tests above have to construct their own. When this stops
+        holding, the precedence rule becomes observable in a real run and this test is the
+        notice that it did."""
+        for profile in SECTOR_PROFILES:
+            permitted = [model for model in BUILT_MODELS if profile.permits(model)]
+            assert len(permitted) <= 1, f"{profile.key}: {permitted}"
+
+    def test_a_blocked_model_is_never_returned(self) -> None:
+        """`permits` is the whole check: a model in `allowed_models` and in
+        `blocked_models` is blocked, and this must not hand it back anyway."""
+        contradictory = SectorProfile(
+            key="constructed",
+            label="Constructed",
+            allowed_models=(ValuationModel.DCF_FCFF,),
+            blocked_models=(ValuationModel.DCF_FCFF,),
+        )
+
+        assert built_model_of(contradictory) is None

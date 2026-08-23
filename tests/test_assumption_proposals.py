@@ -29,6 +29,7 @@ from sqlalchemy import select
 
 from aer.calc.dcf import DRIVER_NAMES
 from aer.calc.residual_income import DRIVER_NAMES as RI_DRIVER_NAMES
+from aer.core.sectors import ValuationModel
 from aer.db.models import (
     Assumption,
 )
@@ -502,6 +503,38 @@ class TestTheDerivedSetMatchesWhatAForecastNeeds:
         covered = set(DERIVED_NAMES) | {"terminal_growth"}
 
         assert set(RI_DRIVER_NAMES) | {"terminal_growth"} <= covered
+
+    async def test_a_bank_derives_its_own_two_and_none_of_the_others(self, scene: Any) -> None:
+        """The set is chosen by model, not filtered afterwards. Running the discounted cash
+        flow's six against a bank produces six skip notices about lines a bank is not
+        required to keep — gap A64's finding in a second costume."""
+        await seed_years(
+            scene,
+            {
+                date(2022, 12, 31): a_year(equity="1000", net_income="120", dividends_paid="48"),
+                date(2023, 12, 31): a_year(equity="1072", net_income="129", dividends_paid="52"),
+            },
+        )
+
+        outcome = derive_assumptions(await analysed(scene), model=ValuationModel.RESIDUAL_INCOME)
+
+        assert {item.name for item in outcome.derived} == set(RI_DRIVER_NAMES)
+
+    async def test_an_ordinary_company_still_derives_the_cash_flow_set(self, scene: Any) -> None:
+        await seed_years(
+            scene,
+            {
+                date(2022, 12, 31): a_year(revenue="1000"),
+                date(2023, 12, 31): a_year(revenue="1200"),
+            },
+        )
+
+        outcome = derive_assumptions(await analysed(scene))
+
+        proposed = {item.name for item in outcome.derived}
+        assert "revenue_growth" in proposed
+        assert "return_on_equity" not in proposed
+        assert "payout_ratio" not in proposed
 
     def test_the_derived_set_holds_no_duplicates(self) -> None:
         assert len(DERIVED_NAMES) == len(set(DERIVED_NAMES))

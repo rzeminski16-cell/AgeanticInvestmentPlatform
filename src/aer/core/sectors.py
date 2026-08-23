@@ -45,6 +45,7 @@ __all__ = [
     "SectorProfile",
     "ValuationMandate",
     "ValuationModel",
+    "built_model_of",
     "mandate_for",
     "model_for",
     "profile_for",
@@ -364,6 +365,20 @@ def model_for(sector_key: str) -> ValuationModel | None:
         # cautious reading is the right one: an unknown specialist is still a specialist.
         return None
 
+    return built_model_of(profile)
+
+
+def built_model_of(profile: SectorProfile) -> ValuationModel | None:
+    """The first model in :data:`BUILT_MODELS` this profile permits, or ``None``.
+
+    Separate from :func:`model_for` because the *ordering rule* is currently unobservable
+    against the real registry: no seeded profile permits two built models, so a test using
+    only the seed would assert nothing about precedence. This is the seam a test can point
+    at a constructed profile permitting both — the same arrangement
+    :func:`suggested_profiles` uses, and for the same reason. A second test asserts the
+    registry's non-overlap, so the day it stops holding somebody is told rather than
+    surprised.
+    """
     for model in BUILT_MODELS:
         if profile.permits(model):
             return model

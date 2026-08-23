@@ -21,10 +21,14 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.agents.assumptions import AssumptionProposalDraft, OpinionProposal
 from aer.calc.residual_income import CLEAN_SURPLUS_CAVEAT
+from aer.config import Settings
 from aer.core.enums import JobStatus, UserRole
 from aer.core.sectors import ValuationMandate, ValuationModel, mandate_for, profile_for
 from aer.db.models import Calculation, JobStep, User
+from aer.providers.fake import FakeProvider
+from aer.providers.router import Router
 from aer.sections.valuation_method import commentary_problems, valuation_method_block
 from aer.services.assumption_gate import (
     EQUITY_RISK_PREMIUM_ASSUMPTION,
@@ -34,6 +38,14 @@ from aer.services.assumption_gate import (
 from aer.services.assumptions import confirm, propose
 from aer.services.prices import BETA_ASSUMPTION
 from aer.services.residual_income_run import BankValuationOutcome, value_the_bank
+from aer.services.sectors import CLASSIFY_STEP
+from aer.storage.local import LocalArtefactStore
+from aer.workflow.engine import StepContext
+from aer.workflow.workflows.vertical_slice_v1 import ASSUMPTIONS_STEP
+from aer.workflow.workflows.vertical_slice_v1 import (
+    _propose_assumptions as propose_assumptions_step,
+)
+from aer.workflow.workflows.vertical_slice_v1 import _value as value_step
 from tests.assumption_fixtures import a_year, analysed, seed_years
 
 pytestmark = pytest.mark.integration
@@ -494,3 +506,141 @@ class TestTheReportSurface:
         )
 
         assert problems
+
+
+# ==========================================================================================
+# The workflow steps
+# ==========================================================================================
+
+
+def _draft() -> AssumptionProposalDraft:
+    """The two opinions ADR 0046 leaves to a model. Scripted because the step consults it
+    whenever a model will run, and a missing script is a test passing against a reply nobody
+    chose — which is exactly what FakeProvider refuses."""
+    return AssumptionProposalDraft(
+        terminal_growth=OpinionProposal(
+            value=Decimal("0.021"), justification="Long-run nominal growth.", confidence=0.6
+        ),
+        exit_multiple=OpinionProposal(
+            value=Decimal("11"), justification="Mid-range for the sector.", confidence=0.5
+        ),
+    )
+
+
+def _step_context(scene: dict[str, Any], outputs: dict[str, Any], tmp_path: Any) -> StepContext:
+    """A context for driving one step directly.
+
+    The steps are where the dispatch lives, and nothing else exercises them: a service that
+    values a bank correctly is no use if the step never calls it. Three mutations survived
+    the first pass here — the value step always running the discounted cash flow, and the
+    assumptions step recording no model — and both are silent in production.
+    """
+    step = JobStep(
+        job_id=scene["job"].id,
+        step_key="value",
+        sequence=1,
+        status=JobStatus.RUNNING,
+        idempotency_key=f"{scene['job'].id}:probe",
+        input_hash="0" * 64,
+    )
+    scene["session"].add(step)
+    settings = Settings(
+        http_user_agent="Test test@example.invalid", artefact_root=tmp_path / "artefacts"
+    )
+    return StepContext(
+        session=scene["session"],
+        job=scene["job"],
+        step=step,
+        services={
+            # The assumptions step builds an agent context whenever a model will run. No
+            # call is scripted, so the fake provider is never asked for a reply: what is
+            # under test is which model the step settles on, not the two opinions.
+            "provider": FakeProvider({"AssumptionProposalDraft": _draft()}),
+            "router": Router(settings),
+            "settings": settings,
+            "store": LocalArtefactStore(
+                settings.artefact_root, max_bytes=settings.max_artefact_bytes
+            ),
+        },
+        outputs=outputs,
+    )
+
+
+class TestTheStepsDispatchOnTheModel:
+    async def test_the_assumptions_step_records_the_model_it_settled_on(
+        self, scene: dict[str, Any], tmp_path: Any
+    ) -> None:
+        """The value step reads this back rather than re-deriving it, so a step that records
+        nothing leaves a bank with no valuation and nothing saying why."""
+        await seed_years(scene, _YEARS)
+        context = _step_context(
+            scene,
+            {
+                "acquire": {"company_id": str(scene["company"].id)},
+                CLASSIFY_STEP: {"sector_key": "banks"},
+            },
+            tmp_path,
+        )
+
+        result = await propose_assumptions_step(context)
+
+        assert result.output["valuation_model"] == "residual_income"
+        assert result.output["dcf_permitted"] is False
+
+    async def test_an_ordinary_company_still_records_the_cash_flow(
+        self, scene: dict[str, Any], tmp_path: Any
+    ) -> None:
+        await seed_years(scene, _YEARS)
+        context = _step_context(
+            scene,
+            {"acquire": {"company_id": str(scene["company"].id)}, CLASSIFY_STEP: {}},
+            tmp_path,
+        )
+
+        result = await propose_assumptions_step(context)
+
+        assert result.output["valuation_model"] == "dcf_fcff"
+        assert result.output["dcf_permitted"] is True
+
+    async def test_the_value_step_runs_the_bank_model_for_a_bank(
+        self, scene: dict[str, Any], tmp_path: Any
+    ) -> None:
+        """The dispatch itself. Without it a bank reaches `value_the_business`, which
+        assembles a discounted cash flow from drivers nobody confirmed and refuses."""
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+        context = _step_context(
+            scene,
+            {
+                "acquire": {"company_id": str(scene["company"].id)},
+                CLASSIFY_STEP: {"sector_key": "banks"},
+                ASSUMPTIONS_STEP: {"valuation_model": "residual_income", "dcf_permitted": False},
+            },
+            tmp_path,
+        )
+
+        result = await value_step(context)
+
+        assert result.output["model"] == "residual_income"
+        assert result.output["valued"] is True
+
+    async def test_a_sector_with_no_model_is_told_so_by_the_value_step(
+        self, scene: dict[str, Any], tmp_path: Any
+    ) -> None:
+        await seed_years(scene, _YEARS)
+        context = _step_context(
+            scene,
+            {
+                "acquire": {"company_id": str(scene["company"].id)},
+                # Both keys, exactly as `_propose_assumptions` writes them for a sector
+                # with no model this build implements.
+                "classify": {"sector_key": "reits"},
+                ASSUMPTIONS_STEP: {"valuation_model": "", "dcf_permitted": False},
+            },
+            tmp_path,
+        )
+
+        result = await value_step(context)
+
+        assert result.output["valued"] is False
+        assert "no valuation model this build implements" in result.output["reason"]
