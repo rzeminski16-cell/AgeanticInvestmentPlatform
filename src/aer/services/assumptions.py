@@ -258,8 +258,9 @@ def as_quantity(assumption: Assumption) -> Quantity:
     """The assumption as something a calculation can take.
 
     **Refuses an unconfirmed one.** This is where invariant 3's "no figure reaches a report
-    unless it is a stored fact or a recorded calculation" meets assumptions: the third
-    category is a value somebody chose, and "somebody" has to mean a person.
+    unless it is a stored fact, a recorded calculation or an attestation" meets assumptions:
+    a value somebody *chose* is not on that list at all, and reaches a report only through
+    the calculation it feeds — so "somebody" has to mean a person.
 
     The returned quantity carries a :class:`~aer.calc.units.SourceRef` of kind
     ``assumption``, so anything computed from it resolves back to this row and its

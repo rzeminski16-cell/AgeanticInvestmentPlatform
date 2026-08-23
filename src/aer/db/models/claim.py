@@ -4,11 +4,26 @@ A section's prose is not the unit of evidence — a paragraph can contain a figu
 to a filing and a sentence beside it that traces to nothing. The claim is the unit, so that
 "is this report supported?" is a query rather than a reading exercise.
 
-**A numeric claim names the figure it asserts.** Exactly one of ``financial_fact_id`` and
-``calculation_id``, enforced by a check constraint, because invariant 3 says no figure reaches
-a report unless it is a stored fact or a recorded calculation. Making that a column rather
-than a convention means a claim asserting a number nobody computed cannot be written down in
-the first place.
+**A numeric claim names the figure it asserts.** Exactly one of ``financial_fact_id``,
+``calculation_id`` and ``attestation_id``, enforced by a check constraint, because invariant
+3 says no figure reaches a report unless it is a stored fact, a recorded calculation or an
+attestation. Making that a column rather than a convention means a claim asserting a number
+nobody computed cannot be written down in the first place.
+
+**The third arm arrived with ADR 0069 and admits no unevidenced figure.** An attestation is
+what the operator's own book says — a holding, a fill, a cash balance — and without an arm
+of its own a report could never make a numeric claim about a position at all. What it does
+*not* do is loosen invariant 1: a ``documented`` attestation traces to a hashed artefact by
+the same chain a filing does, and an ``attested`` one reaches no shareable surface, because
+the type it propagates into (:class:`aer.calc.attestation.Attested`) has no field for the
+figure. Three kinds of figure, not three kinds of evidence.
+
+**Macro is still a seam and this is not it.** A ``macro_observations`` row — a gilt yield, an
+index level — is neither a financial fact nor an attestation, so a published statistic still
+has no arm here and reaches a report only wrapped in a :class:`~aer.db.models.calculation`.
+That wrapper is not a fabrication, but under it the platform cannot state a published
+statistic as a numeric claim without inventing arithmetic to hold it. ADR 0069 named the
+question and declined to answer it; widening this constraint has not answered it either.
 
 **The citation requirement is not enforced here**, and could not be: "at least one verified
 citation" is a fact about another table, which no check constraint can see. It is enforced at
@@ -65,6 +80,13 @@ class Claim(Base):
     calculation_id: Mapped[UuidFk | None] = mapped_column(
         ForeignKey("calculations.id", ondelete="RESTRICT"), nullable=True
     )
+    # RESTRICT for the same reason as the other two, and it bites harder here: an
+    # attestation is corrected by a *superseding row* rather than an update, so the row a
+    # published claim named stays exactly as it was written and cannot be deleted out from
+    # under it.
+    attestation_id: Mapped[UuidFk | None] = mapped_column(
+        ForeignKey("attestations.id", ondelete="RESTRICT"), nullable=True
+    )
 
     created_at: Mapped[Timestamp] = created_at_column()
 
@@ -79,9 +101,14 @@ class Claim(Base):
         # halves matter: without the first, a number could appear with no lineage; without the
         # second, an opinion could carry a fact id that nothing checks and readers would
         # reasonably assume was verified.
+        #
+        # Three arms since ADR 0069, and still *exactly* one. A claim naming both a fact and
+        # an attestation would be a sentence asserting two numbers, and which one a reader
+        # was being shown would depend on which column the renderer happened to read.
         CheckConstraint(
             "(kind = 'numeric') = ("
-            "  (financial_fact_id IS NOT NULL)::int + (calculation_id IS NOT NULL)::int = 1"
+            "  (financial_fact_id IS NOT NULL)::int + (calculation_id IS NOT NULL)::int"
+            "  + (attestation_id IS NOT NULL)::int = 1"
             ")",
             name="ck_claims_numeric_claims_name_one_figure",
         ),

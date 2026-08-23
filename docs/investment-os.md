@@ -943,8 +943,19 @@ it, so separating an ISA from a SIPP is a setting rather than a migration.
       event" invariant no Postgres check can see. Getting it wrong double-counts cash,
       silently, in the direction that flatters. Recorded as a withdrawal and a deposit
       until it has a shape of its own, which is `CorporateActionKind`'s reasoning reused
-- [ ] The `claims` XOR widens to admit an `attestation_id`; invariant 3 restated in
-      `CLAUDE.md` and in `db/models/claim.py`, in the same change as the constraint
+- [x] The `claims` XOR widens to admit an `attestation_id`; invariant 3 restated in
+      `CLAUDE.md`, in `db/models/claim.py`, in `ClaimKind.NUMERIC` and in
+      `provenance.FigureView`, in the same change as the constraint
+- [x] `provenance._figure_view` resolves the third arm. A trade carries three numbers and a
+      claim names a row, so something had to choose which the sentence is about: the signed
+      quantity, because it is the only one true of every kind — a dividend has no price and
+      a deposit has no security. The grade rides in the detail, where a renderer must read
+      it
+- [x] **Macro is still a seam and this did not close it.** A `macro_observations` row is
+      neither a financial fact nor an attestation, so a gilt yield still reaches a report
+      only wrapped in a calculation. ADR 0069 named the question and picked neither answer;
+      widening the constraint has not picked one either, and a test asserts the arms are
+      exactly three so a fourth cannot arrive quietly
 - [ ] `aer/calc/portfolio.py` — quantity, cost basis, market value, cash, NAV, weight. Pure,
       `mypy --strict`, property-tested. **No `positions` table** (ADR 0079)
 - [ ] The Portfolio screen: holdings as at a date, every figure carrying its grade, and an

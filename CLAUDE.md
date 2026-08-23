@@ -40,9 +40,13 @@ single most common way systems like this produce confidently wrong numbers.
    was hashed and stored, and a claim can point at the exact excerpt.
 2. **The model may propose a citation; only code may confirm one.** Citation verification
    re-reads the artefact by hash and checks the excerpt actually appears there.
-3. **No figure reaches a report unless it is a stored fact or a recorded calculation.**
-   Calculations persist their formula, inputs (each with a unit and a source), and the
-   code version that produced them.
+3. **No figure reaches a report unless it is a stored fact, a recorded calculation or an
+   attestation.** Calculations persist their formula, inputs (each with a unit and a
+   source), and the code version that produced them. An attestation (ADR 0069) is what the
+   operator's own book says — a holding, a fill, a cash balance — carrying a grade of
+   evidence, and a lineage containing an *attested* node reaches no shareable surface,
+   because the type it propagates into has no field for the figure. Three kinds of figure,
+   not three kinds of evidence: invariant 1 is untouched.
 4. **Point-in-time is enforced at acquisition, in code.** Nothing published after the
    as-of date may support a claim when point-in-time mode is on.
 5. **Units are carried through all arithmetic.** A unit mismatch raises; it never coerces.

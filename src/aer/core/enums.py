@@ -297,7 +297,7 @@ class ClaimKind(StrEnum):
       that is itself cited — and are rendered with explicit hedging.
 
     A ``NUMERIC`` claim additionally has to name the figure it asserts, because no number
-    reaches a report unless it is a stored fact or a recorded calculation.
+    reaches a report unless it is a stored fact, a recorded calculation or an attestation.
     """
 
     NUMERIC = "numeric"
