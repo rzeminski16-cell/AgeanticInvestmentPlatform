@@ -41,6 +41,7 @@ from aer.db.models import (
 )
 from aer.errors import ValidationError
 from aer.render.glance import glance_content
+from aer.services.subject import subject_name
 
 __all__ = ["AcceptanceCheck", "AcceptanceReadout", "acceptance_readout"]
 
@@ -89,7 +90,8 @@ async def acceptance_readout(session: AsyncSession, *, job_id: uuid.UUID) -> Acc
         message = f"Run {job_id} has no research request."
         raise ValidationError(message, context={"job_id": str(job_id)})
 
-    subject = f"{request.ticker} — {request.company_name}"
+    # The filer's own name, not the one typed into the form (gap A67).
+    subject = f"{request.ticker} — {await subject_name(session, request)}"
     checks = (
         await _report_exists(session, job),
         await _sections_generated(session, job),

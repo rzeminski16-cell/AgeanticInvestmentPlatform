@@ -127,6 +127,7 @@ from aer.services.sectors import (
     sector_gate_required,
 )
 from aer.services.segments import sweep_segment_facts
+from aer.services.subject import subject_name
 from aer.services.themes import (
     THEME_STEP,
     existing_vocabulary,
@@ -1063,7 +1064,8 @@ async def _comps(context: StepContext) -> StepResult:
         ledger,
         job=context.job,
         request=request,
-        company_name=request.company_name,
+        # The filer's own name on the subject's own row of the comparables table (A67).
+        company_name=await subject_name(context.session, request),
         ticker=request.ticker,
         analysis=analysis,
         market_capitalisation=_market_capitalisation_from(prices, currency=request.base_currency),

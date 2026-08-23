@@ -55,6 +55,7 @@ from aer.services.assumption_proposals import (
 )
 from aer.services.assumptions import assumptions_for_request, propose
 from aer.services.prices import BETA_ASSUMPTION
+from aer.services.subject import subject_name
 from aer.services.valuation import SCALAR_NAMES
 
 __all__ = [
@@ -521,7 +522,8 @@ async def _propose_opinions(
     draft = await AssumptionProposalAgent().run(
         agent_context,
         AssumptionProposalInput(
-            company_name=request.company_name,
+            # The filer's own name, not the one typed into the form (gap A67).
+            company_name=await subject_name(session, request),
             ticker=request.ticker,
             as_of_date=request.as_of_date.isoformat(),
             base_currency=request.base_currency,

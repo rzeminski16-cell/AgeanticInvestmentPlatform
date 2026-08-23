@@ -44,6 +44,7 @@ from aer.extract.dates import extract_publication_date
 from aer.services.acquisition import record_acquisition
 from aer.services.facts import visible_facts
 from aer.services.sources import visible_sources
+from aer.services.subject import subject_name
 from aer.sources.tiering import DocumentKind, tier_for
 
 __all__ = [
@@ -754,7 +755,8 @@ async def run_worker(
     outcome = await investigate(
         context,
         topic=topic,
-        company_name=request.company_name,
+        # The filer's own name, not the one typed into the form (gap A67).
+        company_name=await subject_name(session, request),
         ticker=request.ticker,
         as_of_date=request.as_of_date.isoformat(),
         executors=executors if executors is not None else build_executors(session, request=request),

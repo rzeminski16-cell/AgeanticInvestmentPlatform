@@ -48,6 +48,7 @@ from aer.sections.evidence import (
     record_draft_claims,
     validate_draft,
 )
+from aer.services.subject import subject_name
 
 __all__ = [
     "EVIDENCE_ITEM_CAP",
@@ -115,13 +116,18 @@ async def execute_custom_section(
     # Every attempt's refusals counted by cause, as in `aer.sections.writing` (polish P6).
     causes: dict[str, int] = {}
 
+    # The filer's own name, not the one typed into the form (gap A67), resolved once for
+    # the same reason the built-in boundary resolves it once: it cannot change between
+    # attempts, and the stable prompt context must stay byte-identical across them.
+    subject = await subject_name(context.session, request)
+
     attempts = 0
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
         attempts = attempt
         payload = CustomSectionInput(
             section_key=section.section_key,
             title=section.definition.title,
-            company_name=request.company_name,
+            company_name=subject,
             ticker=request.ticker,
             as_of_date=request.as_of_date.isoformat(),
             output_contract=contract,

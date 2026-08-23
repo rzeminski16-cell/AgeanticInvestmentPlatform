@@ -44,6 +44,7 @@ from aer.db.models import (
 )
 from aer.services.analysis import annual_facts, quantities_of
 from aer.services.calculations import new_context, persist_context
+from aer.services.subject import name_of
 
 __all__ = [
     "PRIOR_DIGEST_LIMIT",
@@ -619,10 +620,15 @@ async def prior_comparison_content(
         if company is not None
         else []
     )
+    # The filer's own name for itself, not the one typed into the form (gap A67). This
+    # sentence is where an operator's typo reached a live report, three lines under a
+    # front matter that had the resolved name right.
+    subject = name_of(request, company)
+
     if not priors:
         return {
             "commentary": (
-                f"This is the first research run for {request.company_name} "
+                f"This is the first research run for {subject} "
                 f"({request.ticker}). No prior approved report exists to compare against."
             ),
         }
@@ -695,7 +701,7 @@ async def prior_comparison_content(
     )
     return {
         "commentary": (
-            f"{len(priors)} prior approved report(s) exist for {request.company_name} "
+            f"{len(priors)} prior approved report(s) exist for {subject} "
             f"({request.ticker}); the most recent is as of {latest.as_of_date.isoformat()}. "
             "Every row below names the prior report it was read from."
         ),

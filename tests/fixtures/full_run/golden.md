@@ -296,7 +296,7 @@ Scripted analysis from the recorded evidence; see the figures.
 
 ### Commentary
 
-This is the first research run for Microsoft Corporation (MSFT). No prior approved report exists to compare against.
+This is the first research run for MICROSOFT CORP (MSFT). No prior approved report exists to compare against.
 
 ## Validation & Disagreements
 

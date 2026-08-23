@@ -58,6 +58,7 @@ from aer.db.models import (
     SourceDocument,
 )
 from aer.services.disagreements import record_resolution
+from aer.services.subject import subject_name
 
 __all__ = ["EVIDENCE_ITEM_CAP", "MATERIAL_SEVERITY", "RedTeamOutcome", "run_red_team"]
 
@@ -132,7 +133,8 @@ async def run_red_team(
 
     index = await _evidence_index(session, job=job, request=request)
     payload = RedTeamInput(
-        company_name=request.company_name,
+        # The filer's own name, not the one typed into the form (gap A67).
+        company_name=await subject_name(session, request),
         ticker=request.ticker,
         as_of_date=request.as_of_date.isoformat(),
         claims=claims,

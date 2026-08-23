@@ -443,7 +443,11 @@ class TestTheDeterministicSections:
 
         assert section.status is SectionStatus.GENERATED
         assert "first research run" in section.content["commentary"]
-        assert scene["request"].company_name in section.content["commentary"]
+        # The filer's own name, not the one typed into the form (gap A67). This assertion
+        # used to demand `request.company_name`, which is what let an operator's typo into
+        # a live report — the test pinned the defect.
+        assert "MICROSOFT CORP" in section.content["commentary"]
+        assert scene["request"].company_name not in section.content["commentary"]
         assert "comparisons" not in section.content
 
     async def test_the_draft_stage_fills_only_its_own_sections(self, scene: dict[str, Any]) -> None:

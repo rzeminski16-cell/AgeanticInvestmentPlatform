@@ -357,6 +357,50 @@ class TestTheComparisonSection:
         assert "first research run" in content["commentary"]
         assert "comparisons" not in content
 
+    async def test_the_filers_own_name_is_used_not_the_one_typed(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Gap A67. A live note opened "This is the first research run for M&T Banking
+        Corporation" — the operator's typo for M&T *Bank* Corporation, three lines under
+        a front matter that had the resolved name right. The request's ``company_name``
+        is an input field, never checked against anything; the identity is the company
+        row, written from the filer's own submission."""
+        session: AsyncSession = scene["session"]
+        request = await _request(session, user_id=scene["user"].id, as_of=AS_OF_DATE)
+        request.company_name = "Microsoft Corporationn"
+        job = await _job(session, request_id=request.id)
+        await session.flush()
+
+        content = await prior_comparison_content(session, job_id=job.id, request=request)
+
+        assert "MICROSOFT CORP" in content["commentary"]
+        assert "Corporationn" not in content["commentary"]
+
+    async def test_a_second_run_names_the_filer_too(self, scene: dict[str, Any]) -> None:
+        """Both sentences, or the leak simply moves to the one nobody checked."""
+        scene["new_request"].company_name = "Microsoft Corporationn"
+        await scene["session"].flush()
+
+        content = await prior_comparison_content(
+            scene["session"], job_id=scene["new_job"].id, request=scene["new_request"]
+        )
+
+        assert "MICROSOFT CORP" in content["commentary"]
+        assert "Corporationn" not in content["commentary"]
+
+    async def test_an_unresolved_request_keeps_what_was_typed(self, scene: dict[str, Any]) -> None:
+        """The fallback is not a compromise: before the entity resolves, the typed name
+        is the only answer there is, and it is the honest one."""
+        session: AsyncSession = scene["session"]
+        request = await _request(session, user_id=scene["user"].id, as_of=AS_OF_DATE, ticker="ZZZZ")
+        request.company_name = "Nothing Resolved Ltd"
+        job = await _job(session, request_id=request.id)
+        await session.flush()
+
+        content = await prior_comparison_content(session, job_id=job.id, request=request)
+
+        assert "Nothing Resolved Ltd" in content["commentary"]
+
     async def test_a_draft_never_reaches_the_comparison(self, scene: dict[str, Any]) -> None:
         """The draft report in the scene dates after both approved ones; if drafts
         counted, it would be the most recent prior and its as-of would lead the text."""

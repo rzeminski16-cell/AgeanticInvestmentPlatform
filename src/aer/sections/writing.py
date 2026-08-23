@@ -44,6 +44,7 @@ from aer.sections.evidence import (
     validate_draft,
     word_ceiling,
 )
+from aer.services.subject import subject_name
 
 __all__ = ["execute_builtin_section", "policy_of_definition"]
 
@@ -221,6 +222,51 @@ def _tier_rank(value: object) -> int:
     return 5
 
 
+def _with_salvage(
+    draft: SectionDraft | None,
+    last_candidate: SectionDraft | None,
+    *,
+    section: ReportSection,
+    contract: dict[str, Any],
+    evidence: Evidence,
+    policy: SectionPolicy,
+    augmenter: SectionAugmenter | None,
+    block: dict[str, Any] | None,
+    attempts: int,
+    problems: list[str],
+) -> tuple[SectionDraft | None, tuple[str, ...]]:
+    """The last refused draft after the salvage pass, and what the pass changed.
+
+    Returns the draft untouched when there was one, and ``(None, ())`` when there is
+    nothing to repair or the salvage declined — so the caller's next line is the same
+    "no draft means failed" it always was.
+    """
+    if draft is not None or last_candidate is None:
+        return draft, ()
+
+    salvage = _salvaged(
+        last_candidate,
+        contract=contract,
+        evidence=evidence,
+        policy=policy,
+        augmenter=augmenter,
+        block=block,
+    )
+    if salvage is None:
+        return None, ()
+
+    # Recorded on the section, not just in a log: a reader of the run console should see
+    # that the platform edited the draft, and which way.
+    _log.info(
+        "section_writer.draft_salvaged",
+        section=section.section_key,
+        attempts=attempts,
+        problems=problems,
+        repairs=len(salvage.notes),
+    )
+    return salvage.draft, salvage.notes
+
+
 async def execute_builtin_section(
     context: AgentContext,
     *,
@@ -271,13 +317,18 @@ async def execute_builtin_section(
     # later attempt recovered.
     causes: dict[str, int] = {}
 
+    # The filer's own name, not the one typed into the form (gap A67). Resolved once
+    # rather than per attempt: it cannot change between retries, and the stable prompt
+    # context has to stay byte-identical across them.
+    subject = await subject_name(context.session, request)
+
     attempts = 0
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
         attempts = attempt
         payload = SectionWriterInput(
             section_key=section.section_key,
             title=definition.title,
-            company_name=request.company_name,
+            company_name=subject,
             ticker=request.ticker,
             as_of_date=request.as_of_date.isoformat(),
             point_in_time=request.point_in_time,
@@ -333,27 +384,18 @@ async def execute_builtin_section(
             problems=problems,
         )
 
-    salvage_notes: tuple[str, ...] = ()
-    if draft is None and last_candidate is not None:
-        salvage = _salvaged(
-            last_candidate,
-            contract=contract,
-            evidence=evidence,
-            policy=policy,
-            augmenter=augmenter,
-            block=block,
-        )
-        if salvage is not None:
-            # Recorded on the section, not just in a log: a reader of the run console
-            # should see that the platform edited the draft, and which way.
-            draft, salvage_notes = salvage.draft, salvage.notes
-            _log.info(
-                "section_writer.draft_salvaged",
-                section=section.section_key,
-                attempts=attempts,
-                problems=problems,
-                repairs=len(salvage_notes),
-            )
+    draft, salvage_notes = _with_salvage(
+        draft,
+        last_candidate,
+        section=section,
+        contract=contract,
+        evidence=evidence,
+        policy=policy,
+        augmenter=augmenter,
+        block=block,
+        attempts=attempts,
+        problems=problems,
+    )
 
     if draft is None:
         return _failed(
