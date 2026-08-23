@@ -76,6 +76,26 @@ _METHOD_LABELS: Final[tuple[tuple[str, str], ...]] = (
     ("exit_multiple", "Exit multiple"),
 )
 
+# The value the value step records for a bank's model. Written out rather than imported
+# from `aer.core.sectors`, for the same reason `_VALUE_STEP` is: this package is imported by
+# the workflow and the dependency cannot point back. A test pins the two together.
+_RESIDUAL_INCOME: Final = "residual_income"
+
+# The residual-income drivers, with the labels a reader sees. Separate from
+# `_FORECAST_ASSUMPTIONS` because showing a bank a row for capex intensity — even an empty
+# one — is the platform asking a bank about accounts it does not keep (gap A64).
+_RESIDUAL_INCOME_ASSUMPTIONS: Final[tuple[tuple[str, str], ...]] = (
+    ("return_on_equity", "Return on equity"),
+    ("payout_ratio", "Payout ratio"),
+    ("terminal_growth", "Terminal growth"),
+)
+
+# The two terminal treatments as the ledger records them, with their reader-facing labels.
+_TREATMENT_LABELS: Final[tuple[tuple[str, str], ...]] = (
+    ("fade_to_nothing", "excess return competed away"),
+    ("perpetual_growth", "excess return in perpetuity"),
+)
+
 
 async def valuation_method_block(
     session: AsyncSession, *, job_id: uuid.UUID, request: ResearchRequest
@@ -90,10 +110,16 @@ async def valuation_method_block(
     produced = await _value_step_output(session, job_id)
     if not produced.get("valued"):
         reason = str(produced.get("reason") or "No reason was recorded.")
+        # Named by model, because "no discounted cash flow was produced" is a false statement
+        # about a bank: none was ever going to be, and a reader told that would think the
+        # platform had tried and failed at something it correctly refused to attempt.
+        what = (
+            "residual-income valuation"
+            if str(produced.get("model")) == _RESIDUAL_INCOME
+            else "discounted cash flow"
+        )
         return {
-            "method_note": (
-                f"No discounted cash flow was produced, so there is no method to describe. {reason}"
-            )
+            "method_note": (f"No {what} was produced, so there is no method to describe. {reason}")
         }
 
     calculations = list(
@@ -113,11 +139,18 @@ async def valuation_method_block(
     }
 
     basis = str(produced.get("equity_basis") or "")
+    residual = str(produced.get("model")) == _RESIDUAL_INCOME
     block: dict[str, Any] = {
         "method_note": _method_note(produced),
         "cost_of_capital": _cost_of_capital_rows(calculations, assumptions, basis=basis),
-        "forecast_drivers": _forecast_rows(assumptions),
-        "terminal_valuations": _terminal_rows(calculations),
+        "forecast_drivers": (
+            _rows_for(assumptions, _RESIDUAL_INCOME_ASSUMPTIONS)
+            if residual
+            else _forecast_rows(assumptions)
+        ),
+        "terminal_valuations": (
+            _treatment_rows(calculations) if residual else _terminal_rows(calculations)
+        ),
     }
     caveats = [str(item) for item in produced.get("caveats") or [] if str(item).strip()]
     if caveats:
@@ -140,7 +173,14 @@ def _method_note(produced: dict[str, Any]) -> str:
     Assembled from the step's recorded output alone. The years figure is a structural
     parameter of the forecast, not a measurement, which is why stating it here does not
     need a calculation row — the same footing as "the bridge is net debt alone".
+
+    Branches on the model first (ADR 0070). A residual-income valuation described as a
+    discounted cash flow would be the exact failure this module exists to prevent: prose
+    about method that no calculation backs, in the place a reader's trust is set.
     """
+    if str(produced.get("model")) == _RESIDUAL_INCOME:
+        return _residual_income_note(produced)
+
     years = produced.get("years")
     horizon = f"a {years}-year explicit forecast" if years else "an explicit forecast"
     weights = (
@@ -155,6 +195,35 @@ def _method_note(produced: dict[str, Any]) -> str:
         "terminal value was taken both ways — a growing perpetuity and an exit multiple — "
         "with each carried through to a per-share figure. Every figure cites the "
         "calculation that produced it."
+    )
+
+
+def _residual_income_note(produced: dict[str, Any]) -> str:
+    """The bank note. Nothing here mentions cash flow, enterprise value or a WACC.
+
+    Those three words are the ones a reader will scan for, and every one of them would be
+    false: this model values equity directly, from a book value, at a cost of equity.
+    """
+    years = produced.get("years")
+    horizon = f"a {years}-year explicit forecast" if years else "an explicit forecast"
+    both = "perpetual_per_share" in produced
+    terminal = (
+        "The excess return beyond the forecast was taken both ways — competed away to "
+        "nothing, and grown as a perpetuity — with each carried through to a per-share "
+        "figure, because the choice between them is a judgement about competition rather "
+        "than arithmetic."
+        if both
+        else "No perpetual-growth valuation is shown: the forecast's final year earns "
+        "below the cost of equity, and capitalising that shortfall for ever would "
+        "subtract an unbounded amount from book value on one year's evidence."
+    )
+    return (
+        f"The equity was valued as its filed book value plus the present value of the "
+        f"return earned above its cost of equity over {horizon}, discounted at the cost of "
+        "equity shown below rather than at a weighted average cost of capital — a bank's "
+        "deposits are priced in net interest income, and blending them into the discount "
+        f"rate would charge them twice. {terminal} Every figure cites the calculation that "
+        "produced it."
     )
 
 
@@ -182,8 +251,14 @@ def _cost_of_capital_rows(
 
 
 def _forecast_rows(assumptions: dict[str, Assumption]) -> list[dict[str, Any]]:
+    return _rows_for(assumptions, _FORECAST_ASSUMPTIONS)
+
+
+def _rows_for(
+    assumptions: dict[str, Assumption], wanted: tuple[tuple[str, str], ...]
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    for name, label in _FORECAST_ASSUMPTIONS:
+    for name, label in wanted:
         flat = assumptions.get(name)
         if flat is not None:
             rows.append(_assumption_row(flat, label=label))
@@ -232,9 +307,58 @@ def _terminal_rows(calculations: list[Calculation]) -> list[dict[str, Any]]:
     return rows
 
 
-def _shares_input(calculations: list[Calculation]) -> dict[str, Any] | None:
+def _treatment_rows(calculations: list[Calculation]) -> list[dict[str, Any]]:
+    """Both terminal treatments, each carried to its per-share figure and its premium.
+
+    The premium to book is here rather than left out because it is the figure that says how
+    much of the answer is the balance sheet and how much is the next decade's competition —
+    the first thing a reader of a bank valuation should look at.
+    """
+    rows: list[dict[str, Any]] = []
+    for treatment, label in _TREATMENT_LABELS:
+        per_share = _by_treatment(calculations, name="residual_income_per_share", value=treatment)
+        premium = _by_treatment(calculations, name="premium_to_book", value=treatment)
+        if per_share is not None:
+            rows.append(
+                _calculation_row(
+                    per_share,
+                    label=f"Value per share — {label}",
+                    provenance=f"computed: {per_share.formula}",
+                )
+            )
+        if premium is not None:
+            rows.append(
+                _calculation_row(
+                    premium,
+                    label=f"Premium to book value — {label}",
+                    provenance=f"computed: {premium.formula}",
+                )
+            )
+
+    shares = _shares_input(calculations, name="residual_income_per_share")
+    if shares is not None:
+        rows.append(shares)
+    return rows
+
+
+def _by_treatment(calculations: list[Calculation], *, name: str, value: str) -> Calculation | None:
+    """The row of this name struck under this terminal treatment.
+
+    A separate lookup from :func:`_base_case` because the discriminator is a different
+    parameter: the discounted cash flow records ``method``, and this model records
+    ``treatment``. Conflating them would silently match nothing.
+    """
+    for row in calculations:
+        if row.name == name and str(row.parameters.get("treatment", "")) == value:
+            return row
+    return None
+
+
+def _shares_input(
+    calculations: list[Calculation], *, name: str = "value_per_share"
+) -> dict[str, Any] | None:
     """The share count the per-share figures divide by, from the calculation's own inputs."""
-    per_share = _base_case(calculations, name="value_per_share")
+    per_share = _base_case(calculations, name=name)
     if per_share is None:
         return None
     for entry in per_share.inputs:

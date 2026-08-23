@@ -39,12 +39,14 @@ from typing import Final
 from aer.errors import AerError
 
 __all__ = [
+    "BUILT_MODELS",
     "SECTOR_PROFILES",
     "ModelNotPermittedError",
     "SectorProfile",
     "ValuationMandate",
     "ValuationModel",
     "mandate_for",
+    "model_for",
     "profile_for",
     "suggested_profiles",
     "unclassified_mandate",
@@ -323,6 +325,49 @@ def profile_for(key: str) -> SectorProfile | None:
     of receiving a blank profile that silently allows everything.
     """
     return _BY_KEY.get(key)
+
+
+# The models this build actually implements, in the order a company is offered them. Kept
+# separate from ``allowed_models`` because the two answer different questions: a profile
+# says what would be *right* here, and this says what exists to run. Comparable multiples
+# are deliberately absent — they are a relative judgement produced elsewhere in the run,
+# not a model of the business this chooses between.
+BUILT_MODELS: Final[tuple[ValuationModel, ...]] = (
+    ValuationModel.DCF_FCFF,
+    ValuationModel.RESIDUAL_INCOME,
+)
+
+
+def model_for(sector_key: str) -> ValuationModel | None:
+    """The valuation model this build will run for a company of this kind, if any.
+
+    The single answer to "which model here", so the assumptions gate, the valuation step and
+    the report section cannot disagree about it — the gate asking for one model's inputs
+    while the valuation runs another's would be a run that pauses for numbers nothing reads.
+
+    ``None`` means this build has no model for the sector: a REIT wants net asset value and
+    a pre-revenue biotech a risk-adjusted NPV, and neither exists here. That is a different
+    statement from a model being *blocked*, and the surfaces say so differently.
+
+    **An empty key means an ordinary company, and ordinary companies get the standard
+    model.** That is the trap this function exists to close: ``allowed_models`` is empty for
+    a company matching no specialist profile, so a caller intersecting it with
+    :data:`BUILT_MODELS` would refuse a forecast for almost every company on the exchange.
+    The permission lives in the profile, and no profile is the permissive state.
+    """
+    if not sector_key:
+        return ValuationModel.DCF_FCFF
+
+    profile = profile_for(sector_key)
+    if profile is None:
+        # A key naming no profile is a classification this build does not understand. The
+        # cautious reading is the right one: an unknown specialist is still a specialist.
+        return None
+
+    for model in BUILT_MODELS:
+        if profile.permits(model):
+            return model
+    return None
 
 
 # -- The mandate -------------------------------------------------------------------------

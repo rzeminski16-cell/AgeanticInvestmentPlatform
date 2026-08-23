@@ -77,6 +77,11 @@ EXPECTED_UNIT: Final[dict[str, str]] = {
     # Conditionally required rather than always: the gate demands it only when the filings
     # carry debt and no interest expense to derive the rate from (report-quality R13).
     "cost_of_debt": _PURE,
+    # The residual-income drivers, for a bank or an insurer (ADR 0070). Dimensionless like
+    # the rest: a return on equity is earnings over book and a payout is dividends over
+    # earnings, so the currencies cancel in both.
+    "return_on_equity": _PURE,
+    "payout_ratio": _PURE,
 }
 """The unit each assumption is measured in. All of them dimensionless, which is why the
 form can default the field rather than asking."""
@@ -103,6 +108,13 @@ PLAUSIBLE_RANGE: Final[dict[str, tuple[Decimal, Decimal]]] = {
     # beyond what a going-concern forecast should rest on, and 4.5 for 4.5% is the mistake
     # the band exists to catch.
     "cost_of_debt": (Decimal("-0.1"), Decimal("0.5")),
+    # A bank can lose more than its book in a year, so the floor is generous; a *sustained*
+    # return above book is a typing mistake rather than a business.
+    "return_on_equity": (Decimal("-2"), Decimal("1")),
+    # Nil to one is exactly what `aer.calc.residual_income.book_value_roll_forward` accepts,
+    # and it refuses anything outside. Refused here too, at entry, so the operator learns at
+    # the box rather than inside arithmetic that cannot say which input was wrong.
+    "payout_ratio": (Decimal("0"), Decimal("1")),
 }
 """The band inside which a value is taken at face value, by name."""
 

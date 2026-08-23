@@ -55,6 +55,7 @@ from aer.core.sectors import (
     ValuationMandate,
     ValuationModel,
     mandate_for,
+    model_for,
     profile_for,
     unclassified_mandate,
 )
@@ -93,8 +94,9 @@ from aer.services.acquisition import record_acquisition
 from aer.services.analysis import analyse_company
 from aer.services.artefacts import store_artefact
 from aer.services.assumption_gate import assemble as assemble_assumptions
-from aer.services.assumption_gate import dcf_permitted, gate_required, refreshed_payload
 from aer.services.assumption_gate import gate_payload as gate_payload_for_assumptions
+from aer.services.assumption_gate import gate_required, refreshed_payload
+from aer.services.assumption_gate import valuation_model as assumptions_valuation_model
 from aer.services.assumptions import assumptions_for_request
 from aer.services.citations import review_evidence
 from aer.services.comps import (
@@ -118,6 +120,7 @@ from aer.services.peer_discovery import DiscoveredPeers, discover_peers, merged_
 from aer.services.price_acquisition import acquire_prices
 from aer.services.red_team import run_red_team
 from aer.services.research import build_executors, run_worker
+from aer.services.residual_income_run import value_the_bank
 from aer.services.sectors import (
     CLASSIFY_STEP,
     classification_payload,
@@ -837,9 +840,9 @@ async def _propose_assumptions(context: StepContext) -> StepResult:
         profile=profile_for(sector_key),
     )
 
-    permitted = dcf_permitted(sector_key)
+    model = model_for(sector_key)
     agent_context: AgentContext | None = None
-    if permitted:
+    if model is not None:
         agent_context = AgentContext(
             session=context.session,
             provider=context.service("provider"),
@@ -862,7 +865,12 @@ async def _propose_assumptions(context: StepContext) -> StepResult:
 
     rows = await assumptions_for_request(context.session, request.id)
     output: dict[str, Any] = {
-        "dcf_permitted": permitted,
+        # Both, and neither is redundant. `valuation_model` is the authority — which of the
+        # models this build implements will run — and `dcf_permitted` is the narrower fact
+        # several surfaces still ask for on its own. A run recorded before the first key
+        # existed is read back through the second, which is all those runs could have meant.
+        "valuation_model": model.value if model is not None else "",
+        "dcf_permitted": model is ValuationModel.DCF_FCFF,
         "sector_key": sector_key,
         **gate_payload_for_assumptions(rows, outcome),
         "model_consulted": outcome.model_consulted,
@@ -919,6 +927,7 @@ async def _gate_assumptions(context: StepContext) -> StepResult:
             output={
                 "gate": GateKind.ASSUMPTIONS.value,
                 "required": False,
+                "valuation_model": produced.get("valuation_model", ""),
                 "dcf_permitted": produced.get("dcf_permitted", False),
             }
         )
@@ -953,15 +962,21 @@ async def _value(context: StepContext) -> StepResult:
     The mandate is rebuilt here rather than carried: `ValuationMandate` refuses to exist for
     a blocked model, so constructing one is the permission check, and doing it at the point
     of use means no earlier step can hand this one a permission it did not earn.
+
+    **Which model runs is read back from the assumptions step, not re-derived** (ADR 0070).
+    That step settled it from the confirmed classification and then collected exactly that
+    model's inputs; deriving it again here would let a reclassification during the gate's
+    wait produce a valuation nobody agreed the numbers for.
     """
     produced = context.outputs.get(ASSUMPTIONS_STEP, {})
-    if not produced.get("dcf_permitted", False):
+    model = assumptions_valuation_model(produced)
+    if model is None:
         return StepResult(
             output={
                 "valued": False,
                 "reason": (
-                    "This company's sector mandate does not permit a discounted cash flow, "
-                    "so none was attempted."
+                    "This company's sector has no valuation model this build implements, so "
+                    "none was attempted."
                 ),
             }
         )
@@ -982,9 +997,20 @@ async def _value(context: StepContext) -> StepResult:
     )
 
     try:
-        mandate = _mandate_for(request, sector_key=sector_key)
+        mandate = _mandate_for(request, sector_key=sector_key, model=model)
     except ModelNotPermittedError as refused:
         return StepResult(output={"valued": False, "reason": str(refused)})
+
+    if model is ValuationModel.RESIDUAL_INCOME:
+        bank = await value_the_bank(
+            context.session,
+            request=request,
+            job_id=context.job.id,
+            analysis=analysis,
+            mandate=mandate,
+            years=FORECAST_YEARS,
+        )
+        return StepResult(output=bank.as_dict())
 
     outcome = await value_the_business(
         context.session,
@@ -997,29 +1023,36 @@ async def _value(context: StepContext) -> StepResult:
     return StepResult(output=outcome.as_dict())
 
 
-def _mandate_for(request: ResearchRequest, *, sector_key: str) -> ValuationMandate:
-    """Permission to run the standard model on this company.
+def _mandate_for(
+    request: ResearchRequest, *, sector_key: str, model: ValuationModel
+) -> ValuationMandate:
+    """Permission to run ``model`` on this company.
 
     An unclassified company takes :func:`aer.core.sectors.unclassified_mandate`, which is
     the permissive state and the right answer for most listed companies. A classified one
     goes through :func:`aer.core.sectors.mandate_for`, which raises for a blocked model —
-    and the raise is the enforcement, because a mandate for a bank does not exist to be
-    passed to :func:`aer.calc.dcf.discounted_cash_flow`.
+    and the raise is the enforcement, because a mandate for a bank's discounted cash flow
+    does not exist to be passed to :func:`aer.calc.dcf.discounted_cash_flow`.
+
+    ``model`` comes from :func:`aer.core.sectors.model_for`, so the permission asked for is
+    the one the gate collected inputs for. Asking for a model the profile blocks would raise
+    here — correctly — but it would also mean the run had spent a gate gathering numbers
+    nothing was ever going to read.
     """
     if not sector_key:
-        return unclassified_mandate(ValuationModel.DCF_FCFF, subject=request.ticker)
+        return unclassified_mandate(model, subject=request.ticker)
 
     profile = profile_for(sector_key)
     if profile is None:
         message = (
             f"This run is classified as {sector_key!r}, which names no sector profile this "
             "build carries. An unrecognised classification is treated as a specialist one: "
-            "no discounted cash flow is attempted."
+            "no valuation is attempted."
         )
         raise ModelNotPermittedError(message, context={"sector_key": sector_key})
 
     return mandate_for(
-        ValuationModel.DCF_FCFF,
+        model,
         subject=request.ticker,
         profile=profile,
         # The sector gate is what confirmed the classification; reaching this step at all

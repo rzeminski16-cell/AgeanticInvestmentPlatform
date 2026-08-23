@@ -58,6 +58,7 @@ from aer.core.sectors import ModelNotPermittedError, ValuationMandate, Valuation
 
 __all__ = [
     "CLEAN_SURPLUS_CAVEAT",
+    "DRIVER_NAMES",
     "MAX_FORECAST_YEARS",
     "ResidualIncomeInputs",
     "ResidualIncomeResult",
@@ -78,6 +79,16 @@ __all__ = [
 
 _ONE: Final = Decimal(1)
 _SHARES: Final = Unit.base("shares")
+
+DRIVER_NAMES: Final[tuple[str, ...]] = ("return_on_equity", "payout_ratio")
+"""The two drivers a residual-income forecast needs, as assumption names.
+
+Named here rather than in the service layer because the *model* decides what it needs, for
+the reason :data:`aer.calc.dcf.DRIVER_NAMES` gives. Two rather than five, and the omissions
+are the point: this model forecasts a return on book value rather than a profit and loss, so
+there is no revenue path and no margin to argue about — which is most of why it suits a
+bank, whose revenue line is an accounting choice about how to present interest.
+"""
 
 # The same ceiling the discounted cash flow applies, for the same reason: beyond about ten
 # years an explicit forecast is a terminal value written out longhand.
@@ -505,9 +516,19 @@ def equity_value(
     ),
 )
 def premium_to_book(
-    _context: CalculationContext, *, equity_value: Quantity, opening_book_value: Quantity
+    _context: CalculationContext,
+    *,
+    equity_value: Quantity,
+    opening_book_value: Quantity,
+    treatment: TerminalTreatment,
 ) -> Quantity:
-    """How much of the answer is the excess return rather than the balance sheet."""
+    """How much of the answer is the excess return rather than the balance sheet.
+
+    ``treatment`` does not enter the arithmetic. It is recorded for the reason
+    :func:`equity_value` records it: this runs once per treatment, and two rows of the same
+    name with different answers and nothing saying why is a ledger a reader cannot use.
+    """
+    _require_treatment(treatment)
     _require_money(equity_value, name="equity_value")
     _require_money(opening_book_value, name="opening_book_value")
     return equity_value - opening_book_value
@@ -522,7 +543,11 @@ def premium_to_book(
     ),
 )
 def value_per_share(
-    _context: CalculationContext, *, equity_value: Quantity, shares: Quantity
+    _context: CalculationContext,
+    *,
+    equity_value: Quantity,
+    shares: Quantity,
+    treatment: TerminalTreatment,
 ) -> Quantity:
     """The equity value spread over the shares in issue.
 
@@ -533,9 +558,14 @@ def value_per_share(
     this model and one from a discounted cash flow are different claims, and a report showing
     both should not have to guess which row is which.
 
+    ``treatment`` is recorded and never computed with, for the same reason as above. This
+    is the figure a reader quotes, so it is the row that most needs to say which claim about
+    competition produced it.
+
     Raises:
         CalculationError: If the share count is not positive.
     """
+    _require_treatment(treatment)
     _require_money(equity_value, name="equity_value")
     if shares.unit != _SHARES:
         message = (
@@ -648,9 +678,17 @@ def residual_income_value(
         treatment=inputs.terminal_treatment,
     )
     premium = premium_to_book(
-        context, equity_value=value, opening_book_value=inputs.opening_book_value
+        context,
+        equity_value=value,
+        opening_book_value=inputs.opening_book_value,
+        treatment=inputs.terminal_treatment,
     )
-    per_share = value_per_share(context, equity_value=value, shares=inputs.shares_outstanding)
+    per_share = value_per_share(
+        context,
+        equity_value=value,
+        shares=inputs.shares_outstanding,
+        treatment=inputs.terminal_treatment,
+    )
 
     return ResidualIncomeResult(
         years=tuple(years),

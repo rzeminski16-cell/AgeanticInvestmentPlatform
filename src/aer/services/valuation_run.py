@@ -88,6 +88,9 @@ __all__ = [
     "SENSITIVITY_POINTS",
     "ValuationNotPossibleError",
     "ValuationOutcome",
+    "latest_period",
+    "required_line",
+    "share_count",
     "value_the_business",
 ]
 
@@ -173,7 +176,7 @@ async def value_the_business(
     ordinary state the report has to describe, not an error the workflow should die on. A
     genuine defect — a unit mismatch, a broken ledger — still raises.
     """
-    latest = _latest_period(analysis)
+    latest = latest_period(analysis)
     prior = _prior_period(analysis)
     if latest is None:
         return ValuationOutcome(
@@ -192,11 +195,11 @@ async def value_the_business(
         inputs = inputs_from(
             values,
             years=years,
-            base_revenue=_required(latest, "revenue"),
+            base_revenue=required_line(latest, "revenue"),
             opening_working_capital=_working_capital(ledger, latest),
             wacc=capital.wacc,
             net_debt=_net_debt(ledger, latest),
-            shares_outstanding=_shares(latest),
+            shares_outstanding=share_count(latest),
             # Empty, and stated rather than defaulted: this build reads no associate
             # holdings, minority interests or pension deficits off a filing, so the bridge
             # from enterprise to equity value is debt and cash alone. A reader is told.
@@ -274,7 +277,7 @@ def _cost_of_capital(
         )
         raise MissingAssumptionError(message, context={"missing": ",".join(missing)})
 
-    equity_value = _required(latest, "equity")
+    equity_value = required_line(latest, "equity")
     debt_value = _line(latest, "total_debt", required=False)
     if debt_value is None:
         # Sourced to the equity line it sits beside: a nil with no provenance is still a
@@ -371,7 +374,7 @@ def _cost_of_debt(
 # -- The balance-sheet side ------------------------------------------------------------------
 
 
-def _latest_period(analysis: AnalysisOutcome) -> PeriodAnalysis | None:
+def latest_period(analysis: AnalysisOutcome) -> PeriodAnalysis | None:
     """The most recent analysed year. `AnalysisOutcome.periods` is newest first."""
     return analysis.periods[0] if analysis.periods else None
 
@@ -407,7 +410,7 @@ def _line(period: PeriodAnalysis, concept: str, *, required: bool = True) -> Qua
     )
 
 
-def _required(period: PeriodAnalysis, concept: str) -> Quantity:
+def required_line(period: PeriodAnalysis, concept: str) -> Quantity:
     """A filed line that must be there, narrowed to a quantity.
 
     `_line` answers `Quantity | None` because most callers want the optional form; this is
@@ -429,8 +432,8 @@ def _working_capital(ledger: CalculationContext, period: PeriodAnalysis) -> Quan
     """
     return working_capital(
         ledger,
-        current_assets=_required(period, "current_assets"),
-        current_liabilities=_required(period, "current_liabilities"),
+        current_assets=required_line(period, "current_assets"),
+        current_liabilities=required_line(period, "current_liabilities"),
     )
 
 
@@ -441,14 +444,14 @@ def _net_debt(ledger: CalculationContext, period: PeriodAnalysis) -> Quantity:
     missing figure — so the debt side is nil and the cash side is not. The nil is sourced
     to the same filing the cash came from, because an unsourced zero is still unsourced.
     """
-    cash = _required(period, "cash_and_equivalents")
+    cash = required_line(period, "cash_and_equivalents")
     debt = _line(period, "total_debt", required=False)
     if debt is None:
         debt = Quantity.of(Decimal(0), cash.unit, source=cash.source)
     return net_debt(ledger, total_debt=debt, cash=cash)
 
 
-def _shares(period: PeriodAnalysis) -> Quantity:
+def share_count(period: PeriodAnalysis) -> Quantity:
     """The share count the per-share figures divide by.
 
     Diluted first: a per-share value that ignores options in issue flatters itself, and the

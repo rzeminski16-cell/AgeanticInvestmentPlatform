@@ -28,6 +28,7 @@ import pytest
 from sqlalchemy import select
 
 from aer.calc.dcf import DRIVER_NAMES
+from aer.calc.residual_income import DRIVER_NAMES as RI_DRIVER_NAMES
 from aer.db.models import (
     Assumption,
 )
@@ -64,8 +65,11 @@ class TestTheSixThatHistoryAnswers:
         return derive_assumptions(await analysed(scene))
 
     async def test_every_driver_and_the_tax_rate_are_proposed(self, three_years: Any) -> None:
-        """The whole point: the form is no longer empty."""
-        assert {item.name for item in three_years.derived} == set(DERIVED_NAMES)
+        """The whole point: the form is no longer empty.
+
+        The discounted cash flow's six, not every name this module can derive: a bank's two
+        drivers are derived only for a run whose model asks for them."""
+        assert {item.name for item in three_years.derived} == set(DRIVER_NAMES) | {"tax_rate"}
 
     async def test_the_growth_rate_is_compound_not_the_mean_of_the_annual_ones(
         self, three_years: Any
@@ -362,7 +366,7 @@ class TestProposingWritesUnconfirmedRows:
         show that it did not write on one occasion. A function with no session cannot."""
         parameters = inspect.signature(derive_assumptions).parameters
 
-        assert list(parameters) == ["analysis"]
+        assert list(parameters) == ["analysis", "model"]
         assert "session" not in parameters
 
 
@@ -475,18 +479,29 @@ class TestTheCashCostOfDebtProxy:
 
 
 class TestTheDerivedSetMatchesWhatAForecastNeeds:
-    def test_no_name_here_is_unknown_to_the_valuation(self) -> None:
-        """A proposal for a name `inputs_from` never reads is a row nobody will ever use,
+    def test_no_name_here_is_unknown_to_either_valuation(self) -> None:
+        """A proposal for a name no valuation ever reads is a row nobody will ever use,
         sitting on the gate looking like it matters."""
-        assert set(DERIVED_NAMES) <= set(DRIVER_NAMES) | set(SCALAR_NAMES)
+        readable = set(DRIVER_NAMES) | set(SCALAR_NAMES) | set(RI_DRIVER_NAMES)
 
-    def test_together_with_the_two_opinions_it_covers_everything(self) -> None:
-        """The gate has to be completable. If these six plus the two ADR 0046 names do not
-        cover the whole requirement, some assumption has no proposer at all and the run
-        stops at a form the operator cannot finish without guessing what is missing."""
+        assert set(DERIVED_NAMES) <= readable
+
+    def test_together_with_the_two_opinions_it_covers_the_discounted_cash_flow(self) -> None:
+        """The gate has to be completable. If the derived names plus the two ADR 0046 names
+        do not cover a model's whole requirement, some assumption has no proposer at all and
+        the run stops at a form the operator cannot finish without guessing what is
+        missing."""
         covered = set(DERIVED_NAMES) | {"terminal_growth", "exit_multiple"}
 
-        assert set(DRIVER_NAMES) | set(SCALAR_NAMES) == covered
+        assert set(DRIVER_NAMES) | set(SCALAR_NAMES) <= covered
+
+    def test_together_with_the_two_opinions_it_covers_residual_income(self) -> None:
+        """The same completability guarantee for a bank. Its two drivers are derived from
+        the filings and its terminal growth is the one judgement left, so the form a bank's
+        operator faces is three rows rather than nine."""
+        covered = set(DERIVED_NAMES) | {"terminal_growth"}
+
+        assert set(RI_DRIVER_NAMES) | {"terminal_growth"} <= covered
 
     def test_the_derived_set_holds_no_duplicates(self) -> None:
         assert len(DERIVED_NAMES) == len(set(DERIVED_NAMES))

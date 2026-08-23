@@ -42,6 +42,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.units import CALC_CONTEXT, Quantity
 from aer.core.assumption_scales import scale_complaint
+from aer.core.sectors import ValuationModel
 from aer.db.models import Assumption
 from aer.services.analysis import AnalysisOutcome, PeriodAnalysis
 from aer.services.assumptions import propose
@@ -72,6 +73,11 @@ DERIVED_NAMES: Final[tuple[str, ...]] = (
     "depreciation_intensity",
     "working_capital_intensity",
     "tax_rate",
+    # The residual-income drivers, for a bank or an insurer (ADR 0070). Both are ratios of
+    # two filed lines, so both belong here rather than on the operator's form: a return on
+    # equity the filings show is arithmetic with a stated basis, not a judgement.
+    "return_on_equity",
+    "payout_ratio",
 )
 
 # A dimensionless assumption. Every one here is a ratio of two currency amounts, so the
@@ -137,7 +143,9 @@ class ProposalOutcome:
         }
 
 
-def derive_assumptions(analysis: AnalysisOutcome) -> ProposalOutcome:
+def derive_assumptions(
+    analysis: AnalysisOutcome, *, model: ValuationModel = ValuationModel.DCF_FCFF
+) -> ProposalOutcome:
     """Everything the run's own history supports, as proposals with their derivations.
 
     Pure: it reads an analysis and returns values. Persisting them is
@@ -156,7 +164,33 @@ def derive_assumptions(analysis: AnalysisOutcome) -> ProposalOutcome:
     derived: list[DerivedAssumption] = []
     skipped: list[str] = []
 
-    for outcome in (
+    for outcome in _for_model(model, periods):
+        if isinstance(outcome, DerivedAssumption):
+            derived.append(outcome)
+        else:
+            skipped.append(outcome)
+
+    return ProposalOutcome(derived=tuple(derived), skipped=tuple(skipped))
+
+
+def _for_model(
+    model: ValuationModel, periods: Sequence[PeriodAnalysis]
+) -> tuple[DerivedAssumption | str, ...]:
+    """The derivations ``model`` needs, each either a proposal or the reason there is none.
+
+    Split by model because deriving the wrong set is not harmless. A bank has no
+    operating-income line and no capital expenditure worth the name, so running the
+    discounted cash flow's six against one produces six skip notices about lines a bank is
+    not required to keep — which is gap A64's finding in a second costume, and would tell an
+    operator their bank discloses badly when what happened is that the platform asked the
+    wrong questions.
+    """
+    if model is ValuationModel.RESIDUAL_INCOME:
+        return (
+            _ratio_of("return_on_equity", periods, top="net_income", bottom="equity"),
+            _ratio_of("payout_ratio", periods, top="dividends_paid", bottom="net_income"),
+        )
+    return (
         _revenue_growth(periods),
         _ratio_of("ebit_margin", periods, top="operating_income", bottom="revenue"),
         _ratio_of("capex_intensity", periods, top="capital_expenditure", bottom="revenue"),
@@ -168,13 +202,7 @@ def derive_assumptions(analysis: AnalysisOutcome) -> ProposalOutcome:
         ),
         _working_capital_intensity(periods),
         _ratio_of("tax_rate", periods, top="income_tax_expense", bottom="pre_tax_income"),
-    ):
-        if isinstance(outcome, DerivedAssumption):
-            derived.append(outcome)
-        else:
-            skipped.append(outcome)
-
-    return ProposalOutcome(derived=tuple(derived), skipped=tuple(skipped))
+    )
 
 
 async def propose_derived(
@@ -183,6 +211,7 @@ async def propose_derived(
     request_id: uuid.UUID,
     analysis: AnalysisOutcome,
     job_id: uuid.UUID | None = None,
+    model: ValuationModel = ValuationModel.DCF_FCFF,
 ) -> tuple[ProposalOutcome, tuple[Assumption, ...]]:
     """Derive and persist. Returns what was derived and the rows written.
 
@@ -190,7 +219,7 @@ async def propose_derived(
     whatever a caller passes. An operator confirms them at the assumptions gate, and until
     they do, `as_quantity` refuses every one.
     """
-    outcome = derive_assumptions(analysis)
+    outcome = derive_assumptions(analysis, model=model)
 
     rows: list[Assumption] = []
     for item in outcome.derived:

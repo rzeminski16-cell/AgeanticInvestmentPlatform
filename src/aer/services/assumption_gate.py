@@ -26,7 +26,7 @@ filings do not support it.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Final
@@ -43,7 +43,9 @@ from aer.agents.assumptions import (
 )
 from aer.agents.base import AgentContext
 from aer.calc.dcf import DRIVER_NAMES, MAX_FORECAST_YEARS
-from aer.core.sectors import ValuationModel, profile_for
+from aer.calc.residual_income import DRIVER_NAMES as RI_DRIVER_NAMES
+from aer.calc.residual_income import MAX_FORECAST_YEARS as RI_MAX_FORECAST_YEARS
+from aer.core.sectors import ValuationModel, model_for
 from aer.db.models import Assumption, ResearchRequest
 from aer.services.analysis import AnalysisOutcome
 from aer.services.assumption_proposals import PROPOSED_BY as DERIVED_PROPOSED_BY
@@ -64,6 +66,7 @@ __all__ = [
     "EQUITY_RISK_PREMIUM_ASSUMPTION",
     "PROPOSABLE_NAMES",
     "REQUIRED_NAMES",
+    "RESIDUAL_INCOME_NAMES",
     "RISK_FREE_ASSUMPTION",
     "AssumptionGateOutcome",
     "assemble",
@@ -73,6 +76,8 @@ __all__ = [
     "gate_required",
     "outstanding_for",
     "refreshed_payload",
+    "required_names",
+    "valuation_model",
 ]
 
 _log = structlog.get_logger("aer.services.assumption_gate")
@@ -115,19 +120,86 @@ instead, so an operator who enters `revenue_growth_y1..y5` satisfies `revenue_gr
 is a lookup convention rather than a second list, and :func:`outstanding_for` honours it.
 """
 
-PROPOSABLE_NAMES: Final[tuple[str, ...]] = (
-    *REQUIRED_NAMES,
-    COST_OF_DEBT_ASSUMPTION,
-    *(f"{driver}_y{year}" for driver in DRIVER_NAMES for year in range(1, MAX_FORECAST_YEARS + 1)),
+RESIDUAL_INCOME_NAMES: Final[tuple[str, ...]] = (
+    *RI_DRIVER_NAMES,
+    "terminal_growth",
+    *COST_OF_CAPITAL_NAMES,
+)
+"""Every name a residual-income valuation needs confirmed before it can run (ADR 0070).
+
+Shorter than the discounted cash flow's list, and the omissions are the point. No revenue
+growth or margin, because the model forecasts a return on book rather than a profit and
+loss; no capex or working-capital intensity, because a bank's cash conversion is not what is
+being valued; no tax rate, because nothing here takes a tax shield on debt when the discount
+rate is a cost of equity; and no exit multiple, because the alternative to a perpetuity in
+this model is no terminal value at all.
+
+The three cost-of-capital names stay. :func:`aer.calc.wacc.cost_of_equity` builds the
+discount rate from exactly the same CAPM chain — it is the *equity* rate this model wants,
+unblended, which is why the cost of debt is absent as well.
+"""
+
+_MODEL_NAMES: Final[dict[ValuationModel, tuple[str, ...]]] = {
+    ValuationModel.DCF_FCFF: REQUIRED_NAMES,
+    ValuationModel.RESIDUAL_INCOME: RESIDUAL_INCOME_NAMES,
+}
+
+
+def required_names(model: ValuationModel | None) -> tuple[str, ...]:
+    """The names ``model`` needs confirmed, or none at all when no model will run.
+
+    An empty tuple for ``None`` rather than a raise: a REIT reaches the gate with no model
+    this build implements, and the honest answer is that it needs nothing agreed — not that
+    asking was an error.
+    """
+    if model is None:
+        return ()
+    return _MODEL_NAMES.get(model, ())
+
+
+def _per_year(names: Sequence[str], *, years: int) -> tuple[str, ...]:
+    return tuple(f"{name}_y{year}" for name in names for year in range(1, years + 1))
+
+
+_MODEL_DRIVERS: Final[dict[ValuationModel, tuple[str, ...]]] = {
+    ValuationModel.DCF_FCFF: DRIVER_NAMES,
+    ValuationModel.RESIDUAL_INCOME: RI_DRIVER_NAMES,
+}
+
+
+def _drivers_of(model: ValuationModel | None) -> tuple[str, ...]:
+    """Which of ``model``'s names a per-year path may stand in for.
+
+    Only drivers. A terminal growth rate is one number for the whole forecast, so
+    ``terminal_growth_y3`` is not a thing an operator can mean, and treating it as one would
+    let a run look satisfied on rows the valuation never reads.
+    """
+    if model is None:
+        return ()
+    return _MODEL_DRIVERS.get(model, ())
+
+
+PROPOSABLE_NAMES: Final[tuple[str, ...]] = tuple(
+    dict.fromkeys(
+        (
+            *REQUIRED_NAMES,
+            *RESIDUAL_INCOME_NAMES,
+            COST_OF_DEBT_ASSUMPTION,
+            *_per_year(DRIVER_NAMES, years=MAX_FORECAST_YEARS),
+            *_per_year(RI_DRIVER_NAMES, years=RI_MAX_FORECAST_YEARS),
+        )
+    )
 )
 """Every name a person may put a value against by hand.
 
-The flat names, the conditionally required cost of debt, and each driver's per-year form.
-Bounded rather than free text because
-:func:`aer.services.valuation.inputs_from` looks assumptions up *by name*: an operator who
-typed `terminal_growth_rate` would see it stored, listed and confirmed, and would then
-watch the valuation refuse to run for want of `terminal_growth` with no indication that the
-two were different things.
+Both models' flat names, the conditionally required cost of debt, and each driver's per-year
+form. Deduplicated because the two models share the cost-of-capital chain and the terminal
+growth rate, and a name offered twice would read as two different things.
+
+Bounded rather than free text because :func:`aer.services.valuation.inputs_from` looks
+assumptions up *by name*: an operator who typed `terminal_growth_rate` would see it stored,
+listed and confirmed, and would then watch the valuation refuse to run for want of
+`terminal_growth` with no indication that the two were different things.
 """
 
 # Why a name has no proposal, when the reason is structural rather than about this company's
@@ -210,6 +282,11 @@ class AssumptionGateOutcome:
 def dcf_permitted(sector_key: str) -> bool:
     """Whether a discounted cash flow may be built for a company of this kind.
 
+    A narrower question than :func:`aer.core.sectors.model_for`, and still worth asking on
+    its own: several surfaces care specifically about the free-cash-flow model's inputs —
+    the cost of debt, the working-capital drivers — and none of that applies to a bank
+    valued on the spread over its book value.
+
     **An empty key means an ordinary company, and ordinary companies get the standard
     model.** That is the trap this function exists to close: `_classify` emits
     ``allowed_models`` as an empty list for a company matching no specialist profile, so a
@@ -217,14 +294,33 @@ def dcf_permitted(sector_key: str) -> bool:
     company on the exchange. The permission lives in the profile, and no profile is the
     permissive state.
     """
-    if not sector_key:
-        return True
-    profile = profile_for(sector_key)
-    if profile is None:
-        # A key naming no profile is a classification this build does not understand. The
-        # cautious reading is the right one: an unknown specialist is still a specialist.
-        return False
-    return profile.permits(ValuationModel.DCF_FCFF)
+    return model_for(sector_key) is ValuationModel.DCF_FCFF
+
+
+def valuation_model(produced: Mapping[str, Any]) -> ValuationModel | None:
+    """Which model a recorded assumptions step settled on, read back from its output.
+
+    The step stores the model's value under ``valuation_model``; a run recorded before that
+    key existed is read through ``dcf_permitted``, which is the only thing those runs could
+    have meant. Reading a stored run has to keep working — the report surfaces render from
+    what the run wrote, not from what this build would write today.
+    """
+    stored = str(produced.get("valuation_model") or "")
+    if stored:
+        try:
+            return ValuationModel(stored)
+        except ValueError:
+            # A model name this build no longer carries. Nothing can run it, and saying so
+            # is better than a surface pretending the run had no model at all.
+            return None
+
+    # Neither key: a payload written before either existed, and the discounted cash flow is
+    # the only thing it could have meant. Answering ``None`` here would be worse than wrong
+    # — :func:`refreshed_payload` would then find nothing outstanding, hash a payload the
+    # step never wrote, and invalidate an approval the operator had already given.
+    if "dcf_permitted" not in produced:
+        return ValuationModel.DCF_FCFF
+    return ValuationModel.DCF_FCFF if produced["dcf_permitted"] else None
 
 
 def gate_required(produced: dict[str, Any]) -> bool:
@@ -243,7 +339,7 @@ def gate_required(produced: dict[str, Any]) -> bool:
     absent valuation material. Stopping is now the useful act — the operator supplies the
     risk-free rate or the beta, confirms, and resumes into a forecast.
     """
-    if not produced.get("dcf_permitted", False):
+    if valuation_model(produced) is None:
         return False
     return bool(produced.get("assumptions")) or bool(produced.get("outstanding"))
 
@@ -304,13 +400,19 @@ def refreshed_payload(
     # need to be: the filings do not change while a run waits, so the step's record *is* the
     # condition, and re-checking only "has a row appeared since?" is what keeps an unchanged
     # gate reproducing the step's payload byte for byte.
-    conditional = tuple(name for name in recorded if name not in REQUIRED_NAMES)
+    #
+    # The model comes from the step's own record for the same reason: it was settled from
+    # the confirmed classification when the step ran, and re-deriving it here would let a
+    # sector reclassified mid-wait silently change which names the gate calls outstanding.
+    model = valuation_model(produced)
+    wanted = set(required_names(model))
+    conditional = tuple(name for name in recorded if name not in wanted)
     derived = ProposalOutcome(skipped=tuple(str(note) for note in produced.get("skipped", [])))
     return {
         "assumptions": _row_dicts(rows),
         "outstanding": [
             {"name": name, "reason": recorded.get(name) or _reason_for(name, outcome=derived)}
-            for name in outstanding_for(rows, years=years, conditional=conditional)
+            for name in outstanding_for(rows, years=years, conditional=conditional, model=model)
         ],
         "refused": list(produced.get("refused", [])),
         "skipped": list(produced.get("skipped", [])),
@@ -333,14 +435,23 @@ def _row_dicts(rows: Sequence[Assumption]) -> list[dict[str, Any]]:
 
 
 def outstanding_for(
-    rows: Sequence[Assumption], *, years: int, conditional: Sequence[str] = ()
+    rows: Sequence[Assumption],
+    *,
+    years: int,
+    conditional: Sequence[str] = (),
+    model: ValuationModel | None = ValuationModel.DCF_FCFF,
 ) -> tuple[str, ...]:
-    """The names a discounted cash flow still has no value for at all.
+    """The names ``model`` still has no value for at all.
 
     A name is satisfied by a row of that name *or* by a complete per-year path, because
     :func:`aer.services.valuation._path_for` accepts either. A partial path does not satisfy
     it — a fade missing its third year is a mistake, and that module refuses it rather than
     filling the gap.
+
+    ``model`` decides which list is checked, and defaults to the discounted cash flow
+    because that is what every caller meant before a second model existed. A run whose
+    sector has no model this build implements needs nothing agreed and gets an empty
+    tuple — nothing is outstanding when nothing is going to read it.
 
     ``conditional`` holds names this particular run needs beyond :data:`REQUIRED_NAMES` —
     today only :data:`COST_OF_DEBT_ASSUMPTION`, when :func:`cost_of_debt_required` says the
@@ -352,13 +463,15 @@ def outstanding_for(
     Confirmed or not is deliberately not consulted here: this answers "is there a number to
     look at?", and the gate answers "has somebody agreed to it?".
     """
+    wanted = required_names(model)
+    drivers = _drivers_of(model)
     present = {row.name for row in rows}
     missing: list[str] = []
-    for name in REQUIRED_NAMES:
+    for name in wanted:
         if name in present:
             continue
         per_year = [f"{name}_y{year}" for year in range(1, years + 1)]
-        if name in DRIVER_NAMES and all(key in present for key in per_year):
+        if name in drivers and all(key in present for key in per_year):
             continue
         missing.append(name)
     for name in conditional:
@@ -409,20 +522,28 @@ async def assemble(
             entirely — which is what a run with nothing to brief it on should do, and what
             every test that does not care about the model passes.
         sector_key: The confirmed classification, or ``""`` for an ordinary company. A run
-            whose sector blocks a discounted cash flow proposes nothing at all: the
+            whose sector has no model this build implements proposes nothing at all: the
             assumptions would be for a forecast that is never going to be built.
+
+    **Which numbers are proposed follows from which model will run** (ADR 0070). A bank gets
+    a residual-income valuation, so it is asked for a return on equity and a payout ratio
+    and is *not* asked for a revenue growth path, a capex intensity or a tax rate. Deriving
+    the discounted cash flow's drivers for a company that will never see one is how an
+    operator ends up confirming nine numbers nothing reads.
     """
-    if not dcf_permitted(sector_key):
+    model = model_for(sector_key)
+    if model is None:
         return AssumptionGateOutcome()
 
     derived, _ = await propose_derived(
-        session, request_id=request.id, analysis=analysis, job_id=job_id
+        session, request_id=request.id, analysis=analysis, job_id=job_id, model=model
     )
 
     # The conditionally required rate, proposed from the cash figure where one exists
-    # (ADR 0067). Only for the runs that need it: a filer whose interest expense the
-    # valuation can read gets no proxy and no extra row.
-    needs_cost_of_debt = cost_of_debt_required(analysis)
+    # (ADR 0067). Only for the runs that need it, and only for the model that has a cost of
+    # debt at all: a residual-income valuation discounts at a cost of equity, so a bank is
+    # never asked what its borrowings cost.
+    needs_cost_of_debt = model is ValuationModel.DCF_FCFF and cost_of_debt_required(analysis)
     if needs_cost_of_debt:
         derived = await _propose_cash_cost_of_debt(
             session, request=request, analysis=analysis, derived=derived, job_id=job_id
@@ -444,7 +565,7 @@ async def assemble(
 
     rows = await assumptions_for_request(session, request.id)
     conditional = (COST_OF_DEBT_ASSUMPTION,) if needs_cost_of_debt else ()
-    missing = outstanding_for(rows, years=years, conditional=conditional)
+    missing = outstanding_for(rows, years=years, conditional=conditional, model=model)
 
     outcome = AssumptionGateOutcome(
         derived=derived,

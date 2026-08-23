@@ -465,7 +465,34 @@ class TestTheRefreshedPayload:
 
 
 class TestAssembly:
-    async def test_a_blocked_sector_proposes_nothing_at_all(self, scene: dict[str, Any]) -> None:
+    async def test_a_sector_with_no_model_proposes_nothing_at_all(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """A REIT wants net asset value and this build has none, so there is no forecast to
+        gather inputs for. Banks used to be the example here; they are not any more, because
+        a bank now gets a residual-income valuation (ADR 0070)."""
+        await seed_years(scene, _YEARS)
+        session: AsyncSession = scene["session"]
+
+        outcome = await assemble(
+            session,
+            None,
+            request=scene["request"],
+            analysis=await analysed(scene),
+            sector_key="reits",
+            years=5,
+        )
+
+        assert outcome == AssumptionGateOutcome()
+        rows = (await session.scalars(select(Assumption))).all()
+        assert list(rows) == [], "a blocked run wrote assumptions for a forecast it cannot have"
+
+    async def test_a_bank_is_asked_for_its_own_drivers_and_not_the_others(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The point of making the gate model-aware. A bank is asked for a return on equity
+        and a payout ratio; asking it for a capex intensity would produce a skip notice about
+        a line a bank is not required to keep, which is gap A64 in a second costume."""
         await seed_years(scene, _YEARS)
         session: AsyncSession = scene["session"]
 
@@ -478,9 +505,13 @@ class TestAssembly:
             years=5,
         )
 
-        assert outcome == AssumptionGateOutcome()
-        rows = (await session.scalars(select(Assumption))).all()
-        assert list(rows) == [], "a blocked run wrote assumptions for a forecast it cannot have"
+        outstanding = {name for name, _ in outcome.outstanding}
+        offered = outstanding | {item.name for item in outcome.derived.derived}
+        assert {"return_on_equity", "payout_ratio"} <= offered
+        assert "revenue_growth" not in outstanding
+        assert "capex_intensity" not in outstanding
+        assert "tax_rate" not in outstanding
+        assert "exit_multiple" not in outstanding
 
     async def test_the_six_derived_are_written_unconfirmed(self, scene: dict[str, Any]) -> None:
         await seed_years(scene, _YEARS)

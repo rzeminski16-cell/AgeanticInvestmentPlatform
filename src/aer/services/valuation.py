@@ -66,6 +66,7 @@ __all__ = [
     "SCALAR_NAMES",
     "MissingAssumptionError",
     "ScenarioValuation",
+    "driver_values",
     "inputs_from",
     "run_scenarios",
     "run_sensitivity",
@@ -167,7 +168,16 @@ def inputs_from(
 
 
 def _path_for(values: Mapping[str, Quantity], name: str, *, years: int) -> DriverPath:
-    """One driver's path: its per-year assumptions, or its flat one applied to every year.
+    """One driver's path for a discounted cash flow."""
+    return DriverPath(name=name, values=driver_values(values, name, years=years))
+
+
+def driver_values(values: Mapping[str, Quantity], name: str, *, years: int) -> tuple[Quantity, ...]:
+    """One driver's value in each year: its per-year assumptions, or its flat one repeated.
+
+    Returns the values rather than a ``DriverPath`` because two models want the same rule
+    and hold their drivers in different types. The rule is what matters and it lives here
+    once; :mod:`aer.services.residual_income_run` builds its own path from the same tuple.
 
     Raises:
         MissingAssumptionError: If neither form is confirmed, or if the per-year form is
@@ -187,10 +197,10 @@ def _path_for(values: Mapping[str, Quantity], name: str, *, years: int) -> Drive
         raise MissingAssumptionError(message, context={"driver": name, "missing": ",".join(absent)})
 
     if present:
-        return DriverPath(name=name, values=tuple(values[key] for key in per_year))
+        return tuple(values[key] for key in per_year)
 
     if name in values:
-        return DriverPath.flat(name, values[name], years=years)
+        return (values[name],) * years
 
     message = (
         f"The driver {name!r} has no confirmed assumption. Confirm either {name!r} for every "
