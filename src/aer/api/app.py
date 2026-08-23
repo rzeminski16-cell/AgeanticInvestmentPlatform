@@ -50,8 +50,8 @@ from aer.web import routes as web_routes
 from aer.web import skills_pages
 from aer.web.overview import pages as overview_pages
 from aer.web.overview import research_pages as overview_research_pages
-from aer.web.planned import pages as planned_pages
 from aer.web.templating import STATIC_DIR
+from aer.web.tools import pages as tool_pages
 
 __all__ = ["AppState", "bootstrap", "create_app"]
 
@@ -173,7 +173,7 @@ def create_app(settings: Settings | None = None, *, state: AppState | None = Non
     app.include_router(skills_pages.router)
     app.include_router(overview_pages.router)
     app.include_router(overview_research_pages.router)
-    app.include_router(planned_pages.router)
+    app.include_router(tool_pages.router)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     return app

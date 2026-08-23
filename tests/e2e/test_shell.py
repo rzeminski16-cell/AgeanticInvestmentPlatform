@@ -374,84 +374,135 @@ class TestTheTypeface:
         assert not strangers, f"the page fetched from elsewhere: {strangers}"
 
 
-class TestTheSidebar:
-    """The nav is now the shape of the whole product, and it has to be usable as one.
+class TestTheMenu:
+    """A `<details>` disclosure with no JavaScript behind it.
 
-    Eighteen items across five sections is a different thing from eight links in a row: the
-    section labels have to render, the current page has to be marked, and a tool that does
-    not exist yet has to be reachable rather than a link into a 404.
+    Everything here is browser behaviour a server cannot send, and all of it comes free
+    from the element: focusable summary, Enter and Space to toggle, Escape to close. What a
+    test can add is proof that it is genuinely free — that the panel opens with scripting
+    disabled, which no amount of reading the template can show.
     """
 
-    def test_every_section_is_labelled(self, page: Page, live_server: str) -> None:
-        page.goto(f"{live_server}/overview")
+    def test_it_is_shut_until_you_open_it(self, page: Page, live_server: str) -> None:
+        page.goto(f"{live_server}")
+
+        expect(page.locator('nav[aria-label="Main"]')).to_be_hidden()
+
+    def test_opening_it_reveals_every_section(self, page: Page, live_server: str) -> None:
+        page.goto(f"{live_server}")
+        page.locator("#aer-menu summary").click()
 
         # By role, because "Overview" is both a section and the item inside it and a text
         # match resolves to both.
-        for label in ("Overview", "Research", "Portfolio", "Oversight", "Platform"):
+        for label in ("Overview", "Research", "Portfolio", "Platform"):
             expect(
-                page.locator("nav[aria-label='Main']").get_by_role("heading", name=label)
+                page.locator('nav[aria-label="Main"]').get_by_role("heading", name=label)
             ).to_be_visible()
 
     def test_the_page_you_are_on_is_marked(self, page: Page, live_server: str) -> None:
         page.goto(f"{live_server}/reports")
+        page.locator("#aer-menu summary").click()
 
         current = page.locator('nav[aria-label="Main"] a[aria-current="page"]')
         expect(current).to_have_count(1)
         expect(current).to_have_text("Reports")
 
-    def test_a_tool_that_does_not_exist_yet_is_reachable_and_says_so(
-        self, page: Page, live_server: str
-    ) -> None:
-        page.goto(f"{live_server}/overview")
+    def test_it_does_not_push_the_page_down(self, page: Page, live_server: str) -> None:
+        # Absolutely positioned. A panel that reflowed the content would move whatever the
+        # reader was about to click, every time they went looking for it.
+        page.goto(f"{live_server}")
+        before = page.locator("main").bounding_box()
 
-        page.locator('nav[aria-label="Main"]').get_by_role("link", name="Positions").click()
+        page.locator("#aer-menu summary").click()
+        after = page.locator("main").bounding_box()
 
-        page.wait_for_url("**/positions")
-        expect(page.get_by_text("Not built yet").first).to_be_visible()
-        # And it says what it is waiting for, which is the difference between this and a
-        # progress bar.
-        expect(page.get_by_text("What it needs first")).to_be_visible()
-
-    def test_the_sidebar_sits_beside_the_content_on_a_wide_screen(
-        self, page: Page, live_server: str
-    ) -> None:
-        """The layout claim, read off the rendered boxes rather than the class list.
-
-        A `md:` variant that failed to compile leaves the sidebar stacked above the page and
-        every class in the template still present and correct.
-        """
-        page.set_viewport_size({"width": 1400, "height": 900})
-        page.goto(f"{live_server}/overview")
-
-        sidebar = page.locator("aside").bounding_box()
-        main = page.locator("main").bounding_box()
-        assert sidebar is not None
-        assert main is not None
-        assert main["x"] >= sidebar["x"] + sidebar["width"] - 1, (
-            "the sidebar is not beside the content"
-        )
-
-    def test_it_stacks_above_the_content_on_a_narrow_one(
-        self, page: Page, live_server: str
-    ) -> None:
-        page.set_viewport_size({"width": 400, "height": 900})
-        page.goto(f"{live_server}/overview")
-
-        sidebar = page.locator("aside").bounding_box()
-        main = page.locator("main").bounding_box()
-        assert sidebar is not None
-        assert main is not None
-        assert main["y"] >= sidebar["y"] + sidebar["height"] - 1, "the nav is not above the content"
+        assert before is not None
+        assert after is not None
+        assert before["y"] == after["y"]
 
     def test_one_badge_slot_and_not_two(self, page: Page, live_server: str) -> None:
-        """The reason the nav is one element rather than a sidebar and a disclosure.
+        """The reason the menu is one element rather than a pair.
 
         Two copies would mean two nodes with one id, and an out-of-band swap targets an id:
         the first would fill and the second would sit there showing nothing for ever.
         """
-        page.goto(f"{live_server}/overview")
+        page.goto(f"{live_server}")
 
         expect(page.locator("#aer-badge-approvals")).to_have_count(1)
+
+    def test_it_opens_with_scripting_off(self, browser: Browser, live_server: str) -> None:
+        """The claim the whole choice rests on.
+
+        A scripted dropdown would be a second focus-managing control beside `drawer.js`,
+        which ADR 0073 spends a paragraph refusing — and it would be dead with scripting
+        off, which is the state ADR 0006 requires every control to survive.
+        """
+        context = browser.new_context(java_script_enabled=False)
+        try:
+            page = context.new_page()
+            page.goto(f"{live_server}")
+            expect(page.locator('nav[aria-label="Main"]')).to_be_hidden()
+
+            page.locator("#aer-menu summary").click()
+
+            expect(page.get_by_role("link", name="Requests")).to_be_visible()
+        finally:
+            context.close()
+
+
+class TestTheLauncher:
+    def test_the_front_page_leads_with_every_tool(self, page: Page, live_server: str) -> None:
+        page.goto(f"{live_server}")
+
+        expect(page.locator("[data-tool]")).to_have_count(9)
+        expect(page.locator('[data-tool="research"][data-status="Working"]')).to_be_visible()
+        expect(
+            page.locator('[data-tool="portfolio"][data-status="Under construction"]')
+        ).to_be_visible()
+
+    def test_a_planned_tool_is_reachable_and_says_what_it_waits_for(
+        self, page: Page, live_server: str
+    ) -> None:
+        page.goto(f"{live_server}")
+
+        page.locator('[data-tool="watchlist"] [data-field="open"]').click()
+
+        page.wait_for_url("**/watchlist")
+        expect(page.get_by_text("What it needs first")).to_be_visible()
+
+    def test_the_common_action_is_one_click_from_the_front_door(
+        self, page: Page, live_server: str
+    ) -> None:
+        """The old landing page had this button and the launcher took it away.
+
+        A browser test noticed, which is what that test is for. It is back as a field on
+        the working tool's row rather than as a line in this template, so the second tool's
+        action appears when its row grows one.
+        """
+        page.goto(f"{live_server}")
+
+        page.locator('[data-tool="research"] [data-field="action"]').click()
+
+        page.wait_for_url("**/requests/new")
+
+    def test_a_tool_that_cannot_be_used_offers_no_action(
+        self, page: Page, live_server: str
+    ) -> None:
+        # A button on a tool that does not exist is a button that goes nowhere, which is
+        # the failure the placeholder pages avoid rather than relocate.
+        page.goto(f"{live_server}")
+
+        expect(page.locator('[data-tool="watchlist"] [data-field="action"]')).to_have_count(0)
+
+    def test_the_working_tool_leads_to_its_own_pages(self, page: Page, live_server: str) -> None:
+        # The one card that is not a placeholder. A launcher whose only working entry led
+        # to another placeholder would be a menu of nothing.
+        page.goto(f"{live_server}")
+
+        page.locator('[data-tool="research"] [data-field="open"]').click()
+
+        page.wait_for_url("**/requests")
+        expect(page.get_by_role("heading", name="Requests").first).to_be_visible()
 
 
 class TestWithScriptingOff:
@@ -467,6 +518,7 @@ class TestWithScriptingOff:
         try:
             page = context.new_page()
             page.goto(f"{live_server}/reports")
+            page.locator("#aer-menu summary").click()
 
             expect(page.get_by_role("link", name="Requests")).to_be_visible()
             expect(page.locator("#aer-badge-approvals")).to_be_hidden()

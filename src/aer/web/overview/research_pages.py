@@ -34,7 +34,7 @@ __all__ = ["router"]
 router = APIRouter(include_in_schema=False)
 
 
-@router.get("/overview/runs/{job_id}/preview", response_class=HTMLResponse)
+@router.get("/research/runs/{job_id}/preview", response_class=HTMLResponse)
 async def run_preview(
     request: Request,
     job_id: uuid.UUID,

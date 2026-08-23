@@ -829,22 +829,53 @@ Live status. Tick an item only when it is committed, not when it is drafted.
 
 ### Phase 1 — Overview becomes the main menu
 
-- [ ] ADR 0079 accepted — **Proposed as of 23 August, awaiting the operator's sign-off.**
-      A position is a calculation, not a row: transactions are the record, and quantity,
-      cost basis, market value, cash, NAV and weight are all recorded calculations over
-      them. Nothing in Phase 3 can start until this is settled, because it decides what the
-      migration creates
-- [ ] `/` leads with a tool launcher: Equity Research (working), Portfolio (under
-      construction), the rest as placeholder buttons. The attention feed moves below it
-- [ ] The eight planned tools collapse. Portfolio becomes a real section and absorbs
-      Positions; Watchlist, Theses, Decisions, Monitor, Risk, Post-trade review and
-      Decision analytics become buttons on the launcher rather than nav items — a nav
-      listing seven things nobody can use is worse than a launcher that shows the shape
-      once
-- [ ] The sidebar becomes a dropdown. `<details>`/`<summary>`, so it stays keyboard
-      accessible with no JavaScript — and it removes the duplicate-id problem that forced
-      the single-DOM compromise, because there is only ever one nav either way. **The cost,
-      stated:** navigation goes behind a click on a wide screen too, where it is free today
+- [x] **ADR 0079 accepted**, 23 August. A position is a calculation, not a row
+- [x] **`/` is the main menu.** The launcher leads — every tool from
+      `web/tools/registry.py`, with its state — and the work list follows, because that is
+      the reason to come *back* rather than the reason to arrive. `/overview` is a 308 to
+      it: the URL was in the navigation and in whatever the operator bookmarked, and
+      404ing it would be a lie about a page that is right there.
+
+      **The launcher needs no database and the work list does**, and that split is the
+      whole design of the handler. The front page of a local tool is the page you open
+      *because* something is not working, so the tools always render and a failure becomes
+      a notice naming which failure it was. The work list is then absent rather than empty:
+      "nothing is waiting" is a claim, and with the database down it is a claim nobody
+      checked
+- [x] **One registry for tools, three states.** `WORKING` earns a navigation section,
+      `UNDER_CONSTRUCTION` earns one too because watching it arrive is the point, and
+      `PLANNED` appears on the launcher and nowhere else — written down in `UNLISTED`, so
+      it is a decision somebody can argue with rather than an omission. Research is
+      working, Portfolio is under construction and absorbs Positions, and seven are
+      planned. This is ADR 0067's `ToolDefinition` in the only shape that is useful yet;
+      the fields for tables, workflows and subject resolvers arrive with the tool that
+      needs them
+- [x] **The sidebar became a dropdown.** `<details>`/`<summary>` and **no JavaScript at
+      all** — focusable summary, Enter and Space to toggle, Escape to close, all from the
+      browser. A scripted one would be a second focus-managing control beside `drawer.js`,
+      which ADR 0073 spends a paragraph refusing, and it would be dead with scripting off.
+      Proved open in a browser with scripting disabled entirely. **The cost, as stated
+      before it was built:** navigation is now a click on a wide screen, where the sidebar
+      gave it for nothing
+- [x] **A third way for the badge fragment to answer 500**, found by a screenshot again.
+      It caught `OSError` — nothing listening — and not `SQLAlchemyError`, so a database
+      that *is* listening two migrations behind took the front page from degrading to an
+      unhandled exception, on exactly the machine that page exists to help
+- [x] **An import cycle that worked only because of import order**, and had been there
+      since the Overview slice. `shell/registry.py` imports each contributing tool's
+      module; those modules imported `NavItem` from `aer.web.shell.nav`, which runs the
+      shell package's `__init__` first, which imports `context.py`, which imports
+      `registry.py` — back to a package half-way through initialising. `import
+      aer.web.tools.registry` in a fresh interpreter raised `ImportError` and nothing ever
+      noticed, because something always imported `aer.web.shell` first. The types moved to
+      `aer/web/nav.py`, beside an `__init__` that imports nothing, and the rule is now a
+      test that reads the contributor set off the registry's own imports: **composition
+      points down**
+- [x] **The launcher took away the landing page's "Start a research request" button**, and
+      an existing browser test noticed — which is what that test is for. It is back as
+      `action_label`/`action_href` on the working tool's row rather than as a line in the
+      template, refused at construction for a tool that is not built, so the second tool's
+      action appears when its row grows one
 
 ### Phase 2 — prove the research tool still works
 

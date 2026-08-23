@@ -6,9 +6,18 @@ for one tool and impossible for several: a second tool's pages would either be u
 or would arrive by editing a template that belongs to the first.
 
 So the nav is a tuple of frozen rows and the template is a loop. Composition is one import
-per tool into `registry.py`, deliberately mirroring `db/models/__init__.py` — explicit
-registration plus a test that fails when you forget, rather than discovery that quietly
-succeeds with less than you meant.
+per tool into `shell/registry.py`, deliberately mirroring `db/models/__init__.py` —
+explicit registration plus a test that fails when you forget, rather than discovery that
+quietly succeeds with less than you meant.
+
+**It lives here rather than under `shell/` because of the cycle that arrangement creates.**
+`shell/registry.py` imports each contributing tool's module, and those modules need these
+types; importing them from `aer.web.shell.nav` runs `aer/web/shell/__init__.py` first,
+which imports `shell/context.py`, which imports `shell/registry.py` — back to a package
+half-way through initialising. It worked only while something imported `aer.web.shell`
+first, and `import aer.web.tools.registry` in a fresh interpreter raised `ImportError`.
+`aer/web/__init__.py` imports nothing, so a module beside it is reachable from anywhere in
+this package. `tests/test_shell_nav.py` asserts no contributor reaches back.
 
 **These rows describe navigation, not authorisation.** An item's presence in the sidebar is
 not permission to reach the page behind it; the route's own dependencies decide that, as

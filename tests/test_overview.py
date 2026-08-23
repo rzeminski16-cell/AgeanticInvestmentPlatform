@@ -215,7 +215,7 @@ class TestOverviewIsInTheNav:
         assert OVERVIEW in NAV
 
     def test_the_item_resolves(self) -> None:
-        assert "/overview" in {item.href for item in flat_items()}
+        assert "/" in {item.href for item in flat_items()}
 
 
 # ---------------------------------------------------------------------------------------
@@ -441,7 +441,7 @@ class TestTheQueriesBound:
 @pytest.mark.integration
 class TestThePage:
     async def test_nothing_waiting_says_what_to_do_next(self, client) -> None:
-        response = await client.get("/overview")
+        response = await client.get("/")
 
         assert response.status_code == 200
         assert "Nothing is waiting" in response.text
@@ -453,7 +453,7 @@ class TestThePage:
         request_id = await seed.request(company_name="Contoso Corporation")
         job_id = await seed.run(request_id, JobStatus.AWAITING_APPROVAL)
 
-        body = (await client.get("/overview")).text
+        body = (await client.get("/")).text
 
         assert f'data-attention="research.gate.{job_id}"' in body
         assert "Contoso Corporation is waiting for you" in body
@@ -469,7 +469,7 @@ class TestThePage:
             request_id, JobStatus.FAILED, error={"message": "The SEC index was unreachable."}
         )
 
-        body = (await client.get("/overview")).text
+        body = (await client.get("/")).text
 
         assert "The SEC index was unreachable." in body
 
@@ -478,7 +478,7 @@ class TestThePage:
         # about a number.
         await seed.run(await seed.request(), JobStatus.AWAITING_APPROVAL)
 
-        body = (await client.get("/overview")).text
+        body = (await client.get("/")).text
 
         assert "Waiting for you" in body
         assert "Spent this month" in body
@@ -486,16 +486,16 @@ class TestThePage:
     async def test_the_page_is_reachable_from_the_nav(self, client) -> None:
         body = (await client.get("/")).text
 
-        assert 'href="/overview"' in body
+        assert 'href="/"' in body
 
     async def test_a_row_that_can_be_previewed_offers_it_as_a_link(
         self, client, seed: _Seeder
     ) -> None:
         job_id = await seed.run(await seed.request(), JobStatus.AWAITING_APPROVAL)
 
-        body = (await client.get("/overview")).text
+        body = (await client.get("/")).text
 
-        assert f'hx-get="/overview/runs/{job_id}/preview"' in body
+        assert f'hx-get="/research/runs/{job_id}/preview"' in body
         # And the same anchor is still a link to the page, so the click works with
         # scripting off (ADR 0006).
         assert f'href="/runs/{job_id}"' in body
@@ -506,7 +506,7 @@ class TestThePage:
         # nothing.
         request_id = await seed.request()
 
-        body = (await client.get("/overview")).text
+        body = (await client.get("/")).text
 
         assert f'data-attention="research.idle.{request_id}"' in body
         assert "/preview" not in body
@@ -518,7 +518,7 @@ class TestTheDrawerFragment:
         request_id = await seed.request(company_name="Contoso Corporation")
         job_id = await seed.run(request_id, JobStatus.AWAITING_APPROVAL)
 
-        body = (await client.get(f"/overview/runs/{job_id}/preview")).text
+        body = (await client.get(f"/research/runs/{job_id}/preview")).text
 
         assert "Contoso Corporation" in body
         assert "AWAITING_APPROVAL" in body
@@ -533,7 +533,7 @@ class TestTheDrawerFragment:
         # would put a second navigation and a second disclaimer inside the first.
         job_id = await seed.run(await seed.request(), JobStatus.AWAITING_APPROVAL)
 
-        body = (await client.get(f"/overview/runs/{job_id}/preview")).text
+        body = (await client.get(f"/research/runs/{job_id}/preview")).text
 
         assert "<!doctype html>" not in body.lower()
         assert "<nav" not in body
@@ -542,7 +542,7 @@ class TestTheDrawerFragment:
         request_id = await seed.request(user_id=await seed.stranger())
         job_id = await seed.run(request_id, JobStatus.AWAITING_APPROVAL)
 
-        response = await client.get(f"/overview/runs/{job_id}/preview")
+        response = await client.get(f"/research/runs/{job_id}/preview")
 
         assert response.status_code == 404
 
@@ -550,6 +550,6 @@ class TestTheDrawerFragment:
         # One answer for "no such run" and "not yours", which is the rule every other
         # surface here follows: two would let a caller enumerate ids by watching which
         # ones answer differently.
-        response = await client.get(f"/overview/runs/{uuid.uuid4()}/preview")
+        response = await client.get(f"/research/runs/{uuid.uuid4()}/preview")
 
         assert response.status_code == 404

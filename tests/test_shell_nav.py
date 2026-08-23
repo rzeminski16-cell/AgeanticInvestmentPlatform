@@ -10,6 +10,10 @@ So the relationship is what is asserted here.
 
 from __future__ import annotations
 
+import ast
+import subprocess
+import sys
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -17,8 +21,8 @@ from starlette.routing import Mount
 
 from aer.api.app import create_app
 from aer.config import Settings
+from aer.web.nav import NavItem, NavSection, active_key
 from aer.web.shell import NAV, UNLISTED, Shell, flat_items, shell_for
-from aer.web.shell.nav import NavItem, NavSection, active_key
 
 
 def _settings() -> Settings:
@@ -107,6 +111,75 @@ class TestEveryPageIsReachableOrDeclaredNot:
             "operator should be able to reach it, or name it in UNLISTED if it is reached "
             "from inside another page."
         )
+
+
+class TestNoContributorImportsTheShellBack:
+    """The cycle that worked only because of import order.
+
+    `shell/registry.py` imports each contributing tool's module to compose the navigation.
+    Those modules need `NavItem` and `NavSection`, and while those types lived under
+    `shell/`, importing them ran `aer/web/shell/__init__.py` first — which imports
+    `context.py`, which imports `registry.py`, which was half-way through importing the
+    contributor. `import aer.web.tools.registry` in a fresh interpreter raised
+    `ImportError`; the application never noticed because something always imported
+    `aer.web.shell` first.
+
+    The types moved to `aer/web/nav.py`, beside an `__init__` that imports nothing. This is
+    the rule that keeps them there: **composition points down.** The shell may import a
+    contributor; a contributor may not import the shell.
+    """
+
+    def test_no_module_the_registry_imports_reaches_back(self) -> None:
+        """Derived from `shell/registry.py`'s own imports rather than from a list here.
+
+        A contributor is exactly a module the registry names — `templating.py` and
+        `routes.py` import the shell too and are fine, because nothing imports *them* back.
+        Reading the set off the registry means a tool added tomorrow is checked without
+        anybody remembering to add it.
+        """
+        web = Path(__file__).parent.parent / "src" / "aer" / "web"
+        registry = ast.parse((web / "shell" / "registry.py").read_text(encoding="utf-8"))
+        contributors = sorted(
+            node.module
+            for node in ast.walk(registry)
+            if isinstance(node, ast.ImportFrom)
+            and node.module
+            and node.module.startswith("aer.web.")
+        )
+        assert contributors, "shell/registry.py imports no contributor at all"
+
+        offenders = []
+        for module in contributors:
+            path = web.parent.parent / Path(module.replace(".", "/") + ".py")
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            offenders.extend(
+                f"{module} -> {node.module}"
+                for node in ast.walk(tree)
+                if isinstance(node, ast.ImportFrom)
+                and node.module
+                and node.module.startswith("aer.web.shell")
+            )
+
+        assert not offenders, (
+            f"contributors importing the shell back: {offenders}. Composition points down "
+            "— the shell imports a tool's module, never the other way, or the package is "
+            "half-initialised by the time the tool needs it."
+        )
+
+    def test_every_module_under_web_imports_on_its_own(self) -> None:
+        """The property the rule above protects, checked directly on the two that broke.
+
+        A subprocess each, because the failure only exists in a *fresh* interpreter: once
+        anything has imported `aer.web.shell`, every ordering works.
+        """
+        for module in ("aer.web.tools.registry", "aer.web.overview.nav", "aer.web.nav"):
+            finished = subprocess.run(  # noqa: S603
+                [sys.executable, "-c", f"import {module}"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            assert finished.returncode == 0, f"{module} does not import alone:\n{finished.stderr}"
 
 
 class TestWhereYouAre:

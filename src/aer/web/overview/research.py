@@ -69,7 +69,7 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
                 ),
                 href=f"/runs/{job.id}",
                 action="Open the run",
-                preview_href=f"/overview/runs/{job.id}/preview",
+                preview_href=f"/research/runs/{job.id}/preview",
             )
         )
     collected.extend(_and_more(stopped, "runs are waiting at a gate", Severity.BLOCKED, "gate"))
@@ -87,7 +87,7 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
             ),
             href=f"/runs/{job.id}",
             action="Open the run",
-            preview_href=f"/overview/runs/{job.id}/preview",
+            preview_href=f"/research/runs/{job.id}/preview",
         )
         for job, request in capped.rows
     )
@@ -103,7 +103,7 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
             detail=_reason(job),
             href=f"/runs/{job.id}",
             action="Read the timeline",
-            preview_href=f"/overview/runs/{job.id}/preview",
+            preview_href=f"/research/runs/{job.id}/preview",
         )
         for job, request in failed.rows
     )

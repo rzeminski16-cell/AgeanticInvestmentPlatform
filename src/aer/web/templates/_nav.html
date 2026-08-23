@@ -1,74 +1,88 @@
 {#
-  The sidebar.
+  The menu.
 
-  A loop over `shell.nav` rather than hand-written anchors, so a tool contributes a section
-  from its own module and a test can notice a page no route serves (`aer/web/shell/`).
-  Sections render their labels now that there are five of them: an eighteen-item flat list
-  is a list nobody reads.
+  A `<details>` disclosure rather than a sidebar: one button, one panel, and **no
+  JavaScript at all** — `<summary>` is focusable, Enter and Space toggle it and Escape
+  closes it, all from the browser. A scripted dropdown would be a second focus-managing
+  control beside `drawer.js`, which ADR 0073 spends a paragraph refusing.
 
-  **One nav element, not two.** The obvious responsive shape is a sidebar on a wide screen
-  and a disclosure on a narrow one, and it is wrong here: rendering the nav twice would put
-  two elements with `id="aer-badge-approvals"` on every page, and an out-of-band swap
-  targets an id — the first would update and the second would sit there showing a stale
-  count for ever. So there is one DOM and CSS moves it: a column beside the content from
-  `md` up, a horizontally scrolling strip above it below that. No JavaScript either way.
+  **The trade, stated.** Navigation now costs a click on a wide screen, where the sidebar
+  gave it for nothing. That is the operator's call and this is what they asked for; what it
+  buys is a page that is the same shape at every width, one nav element instead of a
+  responsive pair, and a header that does not compete with the content for the left edge.
+
+  Still one element, not two. Rendering the nav twice would put two nodes with
+  `id="aer-badge-approvals"` on every page, and an out-of-band swap targets an id — the
+  first would fill and the second would show nothing for ever.
 
   The "not advice" badge sits beside the product name deliberately: it is the first thing
   read on every page, not something found at the bottom.
 #}
-<aside
-  class="shrink-0 border-line bg-surface max-md:w-full max-md:border-b md:w-sidebar md:border-r"
->
-  <div class="px-4 py-4 md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:overflow-y-auto">
-    <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-      <a href="/" class="text-base font-semibold tracking-tight text-ink">
-        Ageiantic <span class="text-brand">Equity Research</span>
-      </a>
-      <span
-        class="rounded-full bg-warn-wash px-2.5 py-0.5 text-xs font-medium text-warn-ink"
-        title="{{ disclaimer }}"
+<header class="border-b border-line bg-surface">
+  <div class="mx-auto flex w-full max-w-shell flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-6">
+    <details class="relative" id="aer-menu">
+      <summary
+        class="flex cursor-pointer list-none items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-surface-sunken"
+        aria-haspopup="menu"
       >
-        Not investment advice
-      </span>
-    </div>
+        <span aria-hidden="true" class="text-ink-muted">☰</span>
+        Menu
+      </summary>
 
-    <nav
-      aria-label="Main"
-      class="mt-4 flex gap-x-6 overflow-x-auto pb-1 md:mt-6 md:block md:gap-x-0 md:overflow-x-visible md:pb-0"
+      {#
+        Absolutely positioned so opening it does not push the page down, and `z-30` to sit
+        under the drawer's overlay rather than over it — two overlays fighting is how a
+        panel ends up on top of the thing that is meant to have trapped focus.
+      #}
+      <nav
+        aria-label="Main"
+        class="absolute left-0 z-30 mt-2 max-h-[70vh] w-64 overflow-y-auto rounded-panel border border-line bg-surface p-3 shadow-lg"
+      >
+        {% for section in shell.nav %}
+          <div class="mt-3 first:mt-0">
+            <h2 class="text-xs font-semibold tracking-wide text-ink-faint uppercase">
+              {{ section.label }}
+            </h2>
+            <ul class="mt-1 space-y-0.5">
+              {% for item in section.items %}
+                <li>
+                  <a
+                    href="{{ item.href }}"
+                    {% if shell.active == item.key %}aria-current="page"{% endif %}
+                    class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm
+                           {{ 'bg-brand-wash font-semibold text-brand' if shell.active == item.key
+                              else 'text-ink-muted hover:bg-surface-sunken hover:text-ink' }}"
+                    >{{ item.label }}{% if item.badge_key %}<span
+                      id="aer-badge-{{ item.badge_key }}"
+                      aria-live="polite"
+                      class="ml-auto inline-flex min-w-5 justify-center rounded-full bg-brand-wash px-1.5 py-0.5 text-xs font-semibold text-brand empty:hidden"
+                    ></span>{% endif %}</a
+                  >
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endfor %}
+      </nav>
+    </details>
+
+    <a href="/" class="text-base font-semibold tracking-tight text-ink">
+      Ageiantic <span class="text-brand">Equity Research</span>
+    </a>
+
+    <span
+      class="rounded-full bg-warn-wash px-2.5 py-0.5 text-xs font-medium text-warn-ink"
+      title="{{ disclaimer }}"
     >
-      {% for section in shell.nav %}
-        <div class="min-w-max md:mt-6 md:min-w-0 md:first:mt-0">
-          <h2 class="text-xs font-semibold tracking-wide text-ink-faint uppercase">
-            {{ section.label }}
-          </h2>
-          <ul class="mt-1.5 flex gap-x-4 md:mt-1 md:block md:space-y-0.5">
-            {% for item in section.items %}
-              <li>
-                <a
-                  href="{{ item.href }}"
-                  {% if shell.active == item.key %}aria-current="page"{% endif %}
-                  class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm max-md:px-0
-                         {{ 'bg-brand-wash font-semibold text-brand' if shell.active == item.key
-                            else 'text-ink-muted hover:bg-surface-sunken hover:text-ink' }}"
-                  >{{ item.label }}{% if item.badge_key %}<span
-                    id="aer-badge-{{ item.badge_key }}"
-                    aria-live="polite"
-                    class="ml-auto inline-flex min-w-5 justify-center rounded-full bg-brand-wash px-1.5 py-0.5 text-xs font-semibold text-brand empty:hidden max-md:ml-1"
-                  ></span>{% endif %}</a
-                >
-              </li>
-            {% endfor %}
-          </ul>
-        </div>
-      {% endfor %}
-    </nav>
+      Not investment advice
+    </span>
 
     {#
       One request for every slot, fired once the page is on screen. `hx-swap="none"`
       because the counts arrive out of band and this element is only the trigger; it is
-      empty and hidden, so a browser with no scripting renders the nav it already has and
+      empty and hidden, so a browser with no scripting renders the menu it already has and
       nothing else happens.
     #}
     <span hx-get="/_shell/badges" hx-trigger="load" hx-swap="none" hidden aria-hidden="true"></span>
   </div>
-</aside>
+</header>

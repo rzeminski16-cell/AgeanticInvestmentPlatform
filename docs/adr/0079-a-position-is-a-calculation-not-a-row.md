@@ -1,6 +1,6 @@
 # ADR 0079 — A position is a calculation, not a row
 
-**Status.** Proposed
+**Status.** Accepted
 **Date.** 2026-08-23
 **Required by.** The portfolio tool, which is the second tool this platform will have and
 the first one whose figures are about money the operator actually has.

@@ -48,34 +48,28 @@
      instant feedback; the flag itself is the server's and is remembered per operator
      (ADR 0073). Callouts are shown by CSS keyed on this attribute, so guidance mode adds
      no JavaScript to a page that is not using it. #}
-  {# The shell is a sidebar and a column, from `md` up; one stacked column below it. The
-     width comes from the layout tokens (`--spacing-sidebar`, `--container-shell`) rather
-     than from a number typed here, so a sidebar's width lives in one place.
-
-     `min-w-0` on the content column is load-bearing rather than decorative: a flex child
-     defaults to `min-width: auto`, so one wide table would push the column past the
-     viewport and take the sidebar off-screen with it. #}
+  {# A header and a column. The width comes from `--container-shell` rather than from a
+     number typed here, so the shell's width lives in one place — and the header carries
+     the same constraint so its contents line up with the page beneath it. #}
   <body
     data-guidance="{{ shell.guidance_attr }}"
     class="min-h-full bg-canvas text-ink antialiased"
   >
-    <div class="mx-auto flex min-h-full w-full max-w-shell flex-col md:flex-row">
+    <div class="flex min-h-full flex-col">
       {% include "_nav.html" %}
 
-      <div class="flex min-w-0 flex-1 flex-col">
-        <main class="w-full flex-1 px-4 py-8 sm:px-6">
-          {% block content %}{% endblock %}
-        </main>
+      <main class="mx-auto w-full max-w-shell flex-1 px-4 py-8 sm:px-6">
+        {% block content %}{% endblock %}
+      </main>
 
-        <footer class="border-t border-line">
-          <div class="w-full px-4 py-6 sm:px-6">
-            <p class="text-sm text-ink-muted">{{ disclaimer }}</p>
-            <p class="mt-2 text-xs text-ink-faint">
-              Ageiantic Equity Research Platform &middot; version {{ app_version }}
-            </p>
-          </div>
-        </footer>
-      </div>
+      <footer class="border-t border-line">
+        <div class="mx-auto w-full max-w-shell px-4 py-6 sm:px-6">
+          <p class="text-sm text-ink-muted">{{ disclaimer }}</p>
+          <p class="mt-2 text-xs text-ink-faint">
+            Ageiantic Equity Research Platform &middot; version {{ app_version }}
+          </p>
+        </div>
+      </footer>
     </div>
 
     {% include "_shell/drawer.html" %}

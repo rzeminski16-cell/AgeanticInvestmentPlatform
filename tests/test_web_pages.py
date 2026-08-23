@@ -256,8 +256,17 @@ class TestTheShellRendersFromData:
         assert markup.count('aria-current="page"') == 1
         assert 'href="/requests"' in markup
 
-    async def test_a_page_under_nothing_marks_nothing_current(self, web_client):
+    async def test_the_main_menu_marks_itself_current(self, web_client):
+        # `/` used to be a landing page that was in no section. It is the Overview item's
+        # destination now, so marking nothing would be the bug.
         body = (await web_client.get("/")).text
+
+        assert body.count('aria-current="page"') == 1
+
+    async def test_a_page_under_nothing_marks_nothing_current(self, web_client):
+        # A planned tool: reachable from the launcher, in no section, and needing no
+        # database — which is why it can be asked of this client at all.
+        body = (await web_client.get("/watchlist")).text
 
         assert 'aria-current="page"' not in body
 

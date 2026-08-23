@@ -103,14 +103,14 @@ class TestATriggerIsALinkFirst:
         the `href`. A trigger with `hx-get` and no `href` is a control that does nothing at
         all with scripting off, which is what the drawer must not become.
         """
-        body = (TEMPLATES_DIR / "overview" / "index.html").read_text(encoding="utf-8")
+        body = (TEMPLATES_DIR / "overview" / "_attention.html").read_text(encoding="utf-8")
 
         trigger = re.search(r"<a\b[^>]*hx-target=\"#aer-drawer-body\"[^>]*>", body, re.DOTALL)
-        assert trigger is not None, "no drawer trigger found on the Overview screen"
+        assert trigger is not None, "no drawer trigger found in the attention feed"
         assert "href=" in trigger.group(0)
 
     def test_the_trigger_names_the_panel(self) -> None:
-        body = (TEMPLATES_DIR / "overview" / "index.html").read_text(encoding="utf-8")
+        body = (TEMPLATES_DIR / "overview" / "_attention.html").read_text(encoding="utf-8")
 
         assert "data-drawer-title=" in body
 

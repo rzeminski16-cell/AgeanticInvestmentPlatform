@@ -16,9 +16,9 @@ from __future__ import annotations
 
 from typing import Final
 
+from aer.web.nav import NavItem, NavSection
 from aer.web.overview.nav import OVERVIEW
-from aer.web.planned.nav import OVERSIGHT, PORTFOLIO
-from aer.web.shell.nav import NavItem, NavSection
+from aer.web.tools.registry import PORTFOLIO
 
 __all__ = ["NAV", "UNLISTED", "flat_items"]
 
@@ -52,7 +52,7 @@ PLATFORM: Final = NavSection(
 
 # One import per tool, and one line here. Overview is the first section this file did
 # not declare itself, which is the whole claim the nav-as-data slice made.
-NAV: Final[tuple[NavSection, ...]] = (OVERVIEW, RESEARCH, PORTFOLIO, OVERSIGHT, PLATFORM)
+NAV: Final[tuple[NavSection, ...]] = (OVERVIEW, RESEARCH, PORTFOLIO, PLATFORM)
 
 
 def flat_items() -> tuple[NavItem, ...]:
@@ -75,8 +75,22 @@ def flat_items() -> tuple[NavItem, ...]:
 # would stop the test noticing a new page under it, which is the one thing it is for.
 UNLISTED: Final[frozenset[str]] = frozenset(
     {
-        # The landing page, which is the brand link rather than a nav item.
-        "/",
+        # Where the main menu used to live. A 308 to `/`, kept because the URL was in the
+        # navigation and in whatever the operator bookmarked; 404ing it would be a lie
+        # about a page that is right there.
+        "/overview",
+        # The planned tools, reached from the launcher on the main menu and from nowhere
+        # else. They are in `web/tools/registry.py` with a `PLANNED` status, and that
+        # status is exactly this decision: a navigation listing seven things nobody can
+        # use is worse than a launcher that shows the shape once. Each becomes a nav item
+        # on the day its row turns `WORKING`.
+        "/analytics",
+        "/decisions",
+        "/monitor",
+        "/review",
+        "/risk",
+        "/theses",
+        "/watchlist",
         # Liveness and readiness, reached by an operator or a probe, not by a person
         # browsing. `/healthz` is in the nav; `/readyz` is its unlinked sibling.
         "/readyz",
@@ -85,7 +99,7 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         "/_shell/badges",
         # The drawer's contents, fetched from an attention row. Its trigger keeps an
         # `href` to the run console, so with scripting off nobody ever reaches this URL.
-        "/overview/runs/{job_id}/preview",
+        "/research/runs/{job_id}/preview",
         # Detail views, each reached from the listing above it.
         "/calculations/{calculation_id}",
         "/claims/{claim_id}",

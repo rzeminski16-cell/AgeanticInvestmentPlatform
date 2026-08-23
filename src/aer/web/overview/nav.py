@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from aer.web.shell.nav import NavItem, NavSection
+from aer.web.nav import NavItem, NavSection
 
 __all__ = ["OVERVIEW"]
 
@@ -21,5 +21,5 @@ OVERVIEW: Final = NavSection(
     key="overview",
     label="Overview",
     tool="overview",
-    items=(NavItem(key="overview", label="Overview", href="/overview"),),
+    items=(NavItem(key="overview", label="Overview", href="/"),),
 )

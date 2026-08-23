@@ -17,11 +17,13 @@ import fakeredis.aioredis as fake_aioredis
 import pytest
 from redis.exceptions import ConnectionError as RedisConnectionError
 from sqlalchemy import select
+from sqlalchemy.exc import ProgrammingError
 
 from aer.core.enums import JobStatus
 from aer.db.models import Job
 from aer.errors import IntegrityError
 from aer.services.runs import awaiting_approval_count
+from aer.web import routes as routes_module
 from aer.web.shell import NAV, UNLISTED, flat_items, shell_for
 from aer.web.shell import badges as badge_module
 from aer.web.shell.badges import (
@@ -238,6 +240,28 @@ class TestTheFragmentSurvivesTheDatabaseBeingDown:
     async def test_the_landing_page_still_renders(self, broken_client) -> None:
         # The property that made this worth fixing rather than logging.
         assert (await broken_client.get("/")).status_code == 200
+
+    async def test_a_database_two_migrations_behind_is_the_same_answer(
+        self, api_settings, db_engine, fake_redis, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The second way to be unable to ask, and the one that was still a 500.
+
+        A database nothing is listening on raises the operating system's error; one that
+        *is* listening with a schema behind the models raises `ProgrammingError` from the
+        same statement. Catching only the first left the fragment answering 500 on exactly
+        the machine the front page exists to help — one that has not run the migrations.
+        """
+
+        async def behind_the_schema(_session: Any) -> None:
+            raise ProgrammingError("SELECT users", {}, Exception('relation "users" does not exist'))
+
+        monkeypatch.setattr(routes_module, "current_user_or_none", behind_the_schema)
+
+        async for made in client_for(build_app(api_settings, engine=db_engine, redis=fake_redis)):
+            response = await made.get("/_shell/badges")
+
+            assert response.status_code == 200
+            assert response.text.strip() == ""
 
 
 class TestOneFailingCountDoesNotSilenceTheRest:

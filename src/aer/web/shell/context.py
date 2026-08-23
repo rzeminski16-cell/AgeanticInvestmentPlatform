@@ -21,7 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final
 
-from aer.web.shell.nav import NavSection, active_key
+from aer.web.nav import NavSection, active_key
 from aer.web.shell.registry import NAV
 
 __all__ = ["Shell", "shell_for"]

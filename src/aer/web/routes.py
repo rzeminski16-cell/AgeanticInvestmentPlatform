@@ -39,7 +39,6 @@ from aer.api.deps import (
     RedisClient,
     SettingsDep,
     current_user_or_none,
-    get_current_user,
 )
 from aer.api.routes.assumptions import ProposeRequest, assumptions_payload
 from aer.core.assumption_scales import UNIT_CHOICES
@@ -52,15 +51,13 @@ from aer.core.schemas.request import (
 )
 from aer.core.universe import SUPPORTED_EXCHANGES
 from aer.db.models import Assumption, Report
-from aer.db.schema_check import schema_drift
-from aer.errors import AerError, ConflictError, ValidationError
+from aer.errors import ConflictError, ValidationError
 from aer.services import assumptions as assumption_service
 from aer.services import requests as request_service
 from aer.services import runs as run_service
 from aer.services import scenarios as scenario_service
 from aer.services.approvals import payload_hash_for
 from aer.services.assumption_gate import outstanding_for
-from aer.version import build_identity
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.forms import ParsedForm, form_values_from, parse_request_form
 from aer.web.shell import GUIDANCE_COOKIE
@@ -159,56 +156,6 @@ def _form_context(
         "error_summary_heading": page.error_summary_heading,
         **page.extra,
     }
-
-
-@router.get("/", response_class=HTMLResponse, summary="Landing page")
-async def index(request: Request, session: DbSession) -> Response:
-    """The landing page, which renders whether or not the database is up.
-
-    It shows recent requests when it can, and says what is wrong when it cannot. A local
-    tool whose front page is a blank 500 because you forgot to start Postgres tells you
-    nothing; the most likely reason you are looking at it is that something is not
-    working.
-
-    The database is therefore optional *here specifically*. Every other page needs it and
-    fails loudly without it — degrading a page that shows data would mean showing an empty
-    list as though it were the truth.
-    """
-    recent: list[Any] = []
-    problem: str | None = None
-    try:
-        # Before the query, not after. A schema two migrations behind can leave *this*
-        # page working perfectly — nothing here touches the newest tables — while the run
-        # console returns an opaque 500. Checking eagerly is what makes this the page that
-        # tells you, which is the only reason it degrades instead of failing.
-        #
-        # It costs an inspection of every table on each load. On a single-user local tool
-        # that is a few tens of milliseconds a handful of times a day, and the alternative
-        # is caching an answer that would keep complaining after you fixed it.
-        drift = await schema_drift(session)
-        if not drift.is_clean:
-            problem = drift.as_message()
-
-        user = await get_current_user(session)
-        recent = list(await request_service.list_requests(session, user_id=user.id, limit=5))
-    except AerError as exc:
-        # A configuration problem the operator can act on, such as no user having been
-        # seeded. Its message says how to fix it, so show it.
-        problem = exc.message
-    except (SQLAlchemyError, OSError):
-        # OSError as well as SQLAlchemyError: a refused connection surfaces as a bare
-        # ConnectionRefusedError, because asyncpg raises it while *creating* the
-        # connection, before there is a DBAPI error for SQLAlchemy to wrap. Catching only
-        # SQLAlchemyError here would miss the single most common failure — Postgres not
-        # started. Nothing else in this handler does I/O, so the breadth costs nothing.
-        problem = await _database_problem(session)
-
-    response: Response = render(
-        request,
-        "index.html",
-        {"build": build_identity(), "recent_requests": recent, "problem": problem},
-    )
-    return response
 
 
 @router.get("/requests", response_class=HTMLResponse, summary="Your research requests")
@@ -616,29 +563,6 @@ async def request_detail(
     )
     set_csrf_cookie(detail, token)
     return detail
-
-
-_NOT_REACHABLE = (
-    "The database is not reachable. Start it with `just up`, then reload this page. "
-    "/readyz reports which dependencies are answering."
-)
-
-
-async def _database_problem(session: DbSession) -> str:
-    """Say *which* database problem this is, now that there are two worth telling apart.
-
-    "Not reachable" and "reachable but two migrations behind" have completely different
-    fixes, and reporting the second as the first sends the operator to restart a container
-    that was working perfectly. The failed statement has poisoned the transaction, so the
-    rollback is not optional — without it the drift query fails too and every problem looks
-    like an outage again.
-    """
-    try:
-        await session.rollback()
-        drift = await schema_drift(session)
-    except (SQLAlchemyError, OSError):
-        return _NOT_REACHABLE
-    return _NOT_REACHABLE if drift.is_clean else drift.as_message()
 
 
 async def _submitted_values(request: Request) -> dict[str, str]:
@@ -1097,10 +1021,15 @@ async def shell_badges(
     """
     try:
         user = await current_user_or_none(session)
-    except OSError as unreachable:
-        # asyncpg raises the operating system's error directly, before SQLAlchemy has
-        # anything to wrap. Chrome, so it is a log line rather than a page.
-        _log.info("shell.badges_unavailable", error=str(unreachable))
+    except (SQLAlchemyError, OSError) as unavailable:
+        # Both, because there are two ways to be unable to ask. asyncpg raises the
+        # operating system's error directly when nothing is listening, before SQLAlchemy
+        # has anything to wrap; a database that *is* listening with a schema two migrations
+        # behind raises `ProgrammingError` from the same statement. The first was caught
+        # here and the second was not, so a fragment that fires on every page answered 500
+        # on exactly the machine the front page is written to help — one that has not run
+        # `alembic upgrade head`. Chrome either way, so it is a log line rather than a page.
+        _log.info("shell.badges_unavailable", error=str(unavailable))
         user = None
 
     if user is None:
