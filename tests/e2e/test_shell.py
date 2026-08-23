@@ -374,6 +374,86 @@ class TestTheTypeface:
         assert not strangers, f"the page fetched from elsewhere: {strangers}"
 
 
+class TestTheSidebar:
+    """The nav is now the shape of the whole product, and it has to be usable as one.
+
+    Eighteen items across five sections is a different thing from eight links in a row: the
+    section labels have to render, the current page has to be marked, and a tool that does
+    not exist yet has to be reachable rather than a link into a 404.
+    """
+
+    def test_every_section_is_labelled(self, page: Page, live_server: str) -> None:
+        page.goto(f"{live_server}/overview")
+
+        # By role, because "Overview" is both a section and the item inside it and a text
+        # match resolves to both.
+        for label in ("Overview", "Research", "Portfolio", "Oversight", "Platform"):
+            expect(
+                page.locator("nav[aria-label='Main']").get_by_role("heading", name=label)
+            ).to_be_visible()
+
+    def test_the_page_you_are_on_is_marked(self, page: Page, live_server: str) -> None:
+        page.goto(f"{live_server}/reports")
+
+        current = page.locator('nav[aria-label="Main"] a[aria-current="page"]')
+        expect(current).to_have_count(1)
+        expect(current).to_have_text("Reports")
+
+    def test_a_tool_that_does_not_exist_yet_is_reachable_and_says_so(
+        self, page: Page, live_server: str
+    ) -> None:
+        page.goto(f"{live_server}/overview")
+
+        page.locator('nav[aria-label="Main"]').get_by_role("link", name="Positions").click()
+
+        page.wait_for_url("**/positions")
+        expect(page.get_by_text("Not built yet").first).to_be_visible()
+        # And it says what it is waiting for, which is the difference between this and a
+        # progress bar.
+        expect(page.get_by_text("What it needs first")).to_be_visible()
+
+    def test_the_sidebar_sits_beside_the_content_on_a_wide_screen(
+        self, page: Page, live_server: str
+    ) -> None:
+        """The layout claim, read off the rendered boxes rather than the class list.
+
+        A `md:` variant that failed to compile leaves the sidebar stacked above the page and
+        every class in the template still present and correct.
+        """
+        page.set_viewport_size({"width": 1400, "height": 900})
+        page.goto(f"{live_server}/overview")
+
+        sidebar = page.locator("aside").bounding_box()
+        main = page.locator("main").bounding_box()
+        assert sidebar is not None
+        assert main is not None
+        assert main["x"] >= sidebar["x"] + sidebar["width"] - 1, (
+            "the sidebar is not beside the content"
+        )
+
+    def test_it_stacks_above_the_content_on_a_narrow_one(
+        self, page: Page, live_server: str
+    ) -> None:
+        page.set_viewport_size({"width": 400, "height": 900})
+        page.goto(f"{live_server}/overview")
+
+        sidebar = page.locator("aside").bounding_box()
+        main = page.locator("main").bounding_box()
+        assert sidebar is not None
+        assert main is not None
+        assert main["y"] >= sidebar["y"] + sidebar["height"] - 1, "the nav is not above the content"
+
+    def test_one_badge_slot_and_not_two(self, page: Page, live_server: str) -> None:
+        """The reason the nav is one element rather than a sidebar and a disclosure.
+
+        Two copies would mean two nodes with one id, and an out-of-band swap targets an id:
+        the first would fill and the second would sit there showing nothing for ever.
+        """
+        page.goto(f"{live_server}/overview")
+
+        expect(page.locator("#aer-badge-approvals")).to_have_count(1)
+
+
 class TestWithScriptingOff:
     def test_the_nav_renders_and_the_slot_stays_empty(
         self, browser: Browser, live_server: str, stopped_runs: StoppedRuns

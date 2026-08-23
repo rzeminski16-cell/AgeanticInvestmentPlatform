@@ -36,6 +36,7 @@ from aer.web.shell.badges import (
     resolve_badge,
 )
 from aer.web.templating import TEMPLATES_DIR, templates
+from tests.api_fixtures import build_app, client_for
 
 FRAGMENT = TEMPLATES_DIR / "_shell" / "badges.html"
 NAV_TEMPLATE = TEMPLATES_DIR / "_nav.html"
@@ -208,6 +209,35 @@ class TestTheSwapKeepsTheRegion:
         assert re.search(r'id="aer-badge-approvals"[^>]*>\s*</span>', markup), (
             f"a zero rendered content: {markup!r}"
         )
+
+
+class TestTheFragmentSurvivesTheDatabaseBeingDown:
+    """The landing page is designed to render with Postgres down, and the nav now fetches
+    its counts on every page — including that one.
+
+    asyncpg raises the operating system's error directly when it cannot reach the server,
+    so a bare `ConnectionRefusedError` came back past a handler catching `SQLAlchemyError`
+    and the fragment answered 500. Nothing visible broke: htmx swallows a failed
+    out-of-band fetch and the page renders. What it produced was an unhandled exception in
+    the log on every load of the one page whose whole point is degrading gracefully.
+    """
+
+    @pytest.fixture
+    async def broken_client(self, api_settings, broken_engine, fake_redis):
+        async for made in client_for(
+            build_app(api_settings, engine=broken_engine, redis=fake_redis)
+        ):
+            yield made
+
+    async def test_it_answers_with_nothing_rather_than_an_error(self, broken_client) -> None:
+        response = await broken_client.get("/_shell/badges")
+
+        assert response.status_code == 200
+        assert response.text.strip() == ""
+
+    async def test_the_landing_page_still_renders(self, broken_client) -> None:
+        # The property that made this worth fixing rather than logging.
+        assert (await broken_client.get("/")).status_code == 200
 
 
 class TestOneFailingCountDoesNotSilenceTheRest:

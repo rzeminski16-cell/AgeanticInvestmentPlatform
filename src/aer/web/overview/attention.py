@@ -16,6 +16,11 @@ and it is the whole point of the distinction. A badge is a hint, so losing one c
 number nobody was relying on. This feed is the operator's answer to "is anything waiting
 for me", and a provider that failed silently would answer "no" — the one answer that must
 never be guessed. A failure becomes an item in the feed saying so.
+
+``OSError`` is caught alongside the database errors because asyncpg raises the operating
+system's error directly when it cannot reach the server, before SQLAlchemy has anything to
+wrap — so a provider that cannot connect is a provider that failed, and says so, rather
+than an unhandled exception.
 """
 
 from __future__ import annotations
@@ -217,7 +222,7 @@ async def items_for(session: AsyncSession, *, user_id: uuid.UUID) -> tuple[Atten
     for provider in registered_providers():
         try:
             collected.extend(await provider.items_fn()(session, user_id=user_id))
-        except (AerError, SQLAlchemyError) as failure:
+        except (AerError, SQLAlchemyError, OSError) as failure:
             _log.warning(
                 "attention.provider_failed",
                 provider=provider.key,

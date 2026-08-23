@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+import structlog
 from fastapi import APIRouter, Request
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import select
@@ -32,7 +33,14 @@ from starlette.status import (
     HTTP_422_UNPROCESSABLE_CONTENT,
 )
 
-from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep, get_current_user
+from aer.api.deps import (
+    CurrentUser,
+    DbSession,
+    RedisClient,
+    SettingsDep,
+    current_user_or_none,
+    get_current_user,
+)
 from aer.api.routes.assumptions import ProposeRequest, assumptions_payload
 from aer.core.assumption_scales import UNIT_CHOICES
 from aer.core.enums import AnalysisMode
@@ -63,6 +71,8 @@ from aer.workflow.workflows.vertical_slice_v1 import FORECAST_YEARS
 __all__ = ["router"]
 
 router = APIRouter(include_in_schema=False)
+
+_log = structlog.get_logger("aer.web.routes")
 
 # Offered in the exchange select. Sorted so the order is stable between renders rather
 # than following set iteration order, which would reshuffle the dropdown on every restart.
@@ -1067,7 +1077,6 @@ async def shell_badges(
     request: Request,
     session: DbSession,
     redis: RedisClient,
-    user: CurrentUser,
 ) -> Response:
     """The numbers for every registered badge, as out-of-band swaps.
 
@@ -1078,7 +1087,26 @@ async def shell_badges(
 
     Nothing here decides what to count. The registry does, so a second tool contributes a
     provider and this handler is not touched.
+
+    **The operator is looked up here rather than injected**, which is the one thing about
+    this handler that is not like every other page's. `CurrentUser` raises when it cannot
+    reach the database, and a dependency raises before a handler can decide anything — so
+    with Postgres down this fragment answered 500 on every load of the landing page, which
+    is the one page in the product built to render in exactly that state. An empty set of
+    counts is the honest answer to "what is waiting for you" when nothing can be asked.
     """
+    try:
+        user = await current_user_or_none(session)
+    except OSError as unreachable:
+        # asyncpg raises the operating system's error directly, before SQLAlchemy has
+        # anything to wrap. Chrome, so it is a log line rather than a page.
+        _log.info("shell.badges_unavailable", error=str(unreachable))
+        user = None
+
+    if user is None:
+        empty: Response = render(request, "_shell/badges.html", {"badges": ()})
+        return empty
+
     badges = await cached_counts_for(redis, session, user_id=user.id)
     fragment: Response = render(request, "_shell/badges.html", {"badges": badges})
     return fragment

@@ -20,6 +20,12 @@ waiting for them is a hint about where to look, and a hint may be a few seconds 
 zero.** Zero would be a lie — "nothing is waiting" is a claim — and blanking the whole
 fragment would let one tool's broken query hide another tool's real count. The key is
 simply absent from the result, the slot keeps whatever it had, and the failure is logged.
+
+``OSError`` is in that list because asyncpg raises the operating system's error directly
+when it cannot reach the server — a bare `ConnectionRefusedError`, before SQLAlchemy has
+anything to wrap. Without it this fragment answered 500 on every load of the landing page,
+which is the one page in the product designed to render with Postgres down: a page that
+degrades gracefully and logs an unhandled exception each time it does.
 """
 
 from __future__ import annotations
@@ -203,7 +209,7 @@ async def counts_for(session: AsyncSession, *, user_id: uuid.UUID) -> tuple[Badg
     for provider in registered_badges():
         try:
             count = await provider.count_fn()(session, user_id=user_id)
-        except (AerError, SQLAlchemyError) as failure:
+        except (AerError, SQLAlchemyError, OSError) as failure:
             # Deliberately not fatal, and deliberately not zero. See the module docstring.
             _log.warning(
                 "badge.count_failed",

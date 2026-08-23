@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import Final
 
 from aer.web.overview.nav import OVERVIEW
+from aer.web.planned.nav import OVERSIGHT, PORTFOLIO
 from aer.web.shell.nav import NavItem, NavSection
 
 __all__ = ["NAV", "UNLISTED", "flat_items"]
@@ -51,7 +52,7 @@ PLATFORM: Final = NavSection(
 
 # One import per tool, and one line here. Overview is the first section this file did
 # not declare itself, which is the whole claim the nav-as-data slice made.
-NAV: Final[tuple[NavSection, ...]] = (OVERVIEW, RESEARCH, PLATFORM)
+NAV: Final[tuple[NavSection, ...]] = (OVERVIEW, RESEARCH, PORTFOLIO, OVERSIGHT, PLATFORM)
 
 
 def flat_items() -> tuple[NavItem, ...]:

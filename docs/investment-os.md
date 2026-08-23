@@ -765,6 +765,47 @@ Live status. Tick an item only when it is committed, not when it is drafted.
       added and forgotten is a red build. The macros shipping before any page used them is
       what hid it, which is the argument for the drawer landing with its first user
 
+### Stage B, after the fact — the shape of the product, made visible
+
+- [x] **The sidebar.** The header strip became the left sidebar the specification asked
+      for, at the widths the tokens already carried (`--spacing-sidebar`,
+      `--container-shell`) rather than at a number typed into a template. Sections render
+      their labels now that there are five of them: an eighteen-item flat list is a list
+      nobody reads. The `max-w-5xl` widening the note above flagged as "a knowing change"
+      is this change, and the sampled-class assertion it warned about no longer exists —
+      the stylesheet guard covers every class the templates use.
+
+      **One nav element, not two.** The obvious responsive shape is a sidebar on a wide
+      screen and a disclosure on a narrow one, and it is wrong here: rendering the nav
+      twice would put two nodes with `id="aer-badge-approvals"` on every page, and an
+      out-of-band swap targets an id — the first would fill and the second would show
+      nothing for ever. So there is one DOM and CSS moves it, and a browser test asserts
+      the sidebar is beside the content at 1400px and above it at 400px, read off the
+      rendered boxes rather than the class list. The honest cost is that the narrow layout
+      is a scrolling strip, so the current item can start off-screen; the page heading
+      carries "where am I" there
+- [x] **Eight planned tools, each a registered row with a real page.** Watchlist, Theses,
+      Decisions, Positions, Monitor, Risk, Post-trade review, Decision analytics — a
+      sidebar listing only what is finished describes a research tool, which is what this
+      codebase is in the middle of not being.
+
+      Each occupies the URL it will keep, so nothing linking to `/watchlist` ever has to
+      move, and each href is a literal route rather than a `/tools/{key}` catch-all —
+      which is also what lets the nav drift test go on comparing hrefs to routes. Each page
+      answers three questions from its row: what the tool will do, what has to exist first,
+      and which record decided it. `needs` is the field that stops it being a "coming
+      soon" page. **200, not 404 and not 501:** the page exists and is correct, and it says
+      truthfully that the tool does not
+
+- [x] **Two defects the screenshot found**, neither visible from any test that passed.
+      `/_shell/badges` answered 500 with Postgres down — `CurrentUser` raises before a
+      handler can decide anything, so the fragment that now fires on *every* page took the
+      landing page, the one built to render in that state, from degrading gracefully to
+      logging an unhandled exception on each load. The operator is looked up in the handler
+      now, through one shared query rather than a second `select(User)`. And both registries
+      caught `SQLAlchemyError` where asyncpg raises the operating system's error directly:
+      a bare `ConnectionRefusedError` went straight past them
+
 ### Stage C — the first real domain
 
 - [ ] `fx_rates` table and `services/fx.py`; `aer.calc.fx` gets its first caller (ADR 0078)
