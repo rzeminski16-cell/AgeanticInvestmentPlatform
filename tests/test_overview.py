@@ -270,6 +270,19 @@ class _Seeder:
         self._user = user
         self._n = 0
 
+    async def stranger(self) -> uuid.UUID:
+        """A second operator, so "not yours" can be told apart from "does not exist"."""
+        self._n += 1
+        async with self._factory() as session:
+            other = User(
+                email=f"stranger{self._n}@example.invalid",
+                display_name="Somebody else",
+                role=UserRole.OWNER,
+            )
+            session.add(other)
+            await session.commit()
+            return other.id
+
     async def request(self, *, status: RequestStatus = RequestStatus.DRAFT, **kw: Any) -> uuid.UUID:
         self._n += 1
         async with self._factory() as session:
@@ -474,3 +487,69 @@ class TestThePage:
         body = (await client.get("/")).text
 
         assert 'href="/overview"' in body
+
+    async def test_a_row_that_can_be_previewed_offers_it_as_a_link(
+        self, client, seed: _Seeder
+    ) -> None:
+        job_id = await seed.run(await seed.request(), JobStatus.AWAITING_APPROVAL)
+
+        body = (await client.get("/overview")).text
+
+        assert f'hx-get="/overview/runs/{job_id}/preview"' in body
+        # And the same anchor is still a link to the page, so the click works with
+        # scripting off (ADR 0006).
+        assert f'href="/runs/{job_id}"' in body
+
+    async def test_a_draft_nobody_ran_offers_no_preview(self, client, seed: _Seeder) -> None:
+        # `preview_href` is optional on purpose: an unrun request has nothing to show that
+        # the row does not already say, and a panel repeating it would be a click for
+        # nothing.
+        request_id = await seed.request()
+
+        body = (await client.get("/overview")).text
+
+        assert f'data-attention="research.idle.{request_id}"' in body
+        assert "/preview" not in body
+
+
+@pytest.mark.integration
+class TestTheDrawerFragment:
+    async def test_it_shows_the_run_close_up(self, client, seed: _Seeder) -> None:
+        request_id = await seed.request(company_name="Contoso Corporation")
+        job_id = await seed.run(request_id, JobStatus.AWAITING_APPROVAL)
+
+        body = (await client.get(f"/overview/runs/{job_id}/preview")).text
+
+        assert "Contoso Corporation" in body
+        assert "AWAITING_APPROVAL" in body
+        assert "approve its research plan" in body
+        assert "£0.00" in body
+        # The way out. A preview with no next step is a click that costs an operator a
+        # decision they still have to go elsewhere to make.
+        assert f'href="/runs/{job_id}"' in body
+
+    async def test_it_is_a_fragment_rather_than_a_page(self, client, seed: _Seeder) -> None:
+        # It is swapped into a drawer on a page that is already rendered. A whole page here
+        # would put a second navigation and a second disclaimer inside the first.
+        job_id = await seed.run(await seed.request(), JobStatus.AWAITING_APPROVAL)
+
+        body = (await client.get(f"/overview/runs/{job_id}/preview")).text
+
+        assert "<!doctype html>" not in body.lower()
+        assert "<nav" not in body
+
+    async def test_another_operators_run_is_a_404(self, client, seed: _Seeder) -> None:
+        request_id = await seed.request(user_id=await seed.stranger())
+        job_id = await seed.run(request_id, JobStatus.AWAITING_APPROVAL)
+
+        response = await client.get(f"/overview/runs/{job_id}/preview")
+
+        assert response.status_code == 404
+
+    async def test_a_run_that_does_not_exist_answers_the_same_way(self, client) -> None:
+        # One answer for "no such run" and "not yours", which is the rule every other
+        # surface here follows: two would let a caller enumerate ids by watching which
+        # ones answer differently.
+        response = await client.get(f"/overview/runs/{uuid.uuid4()}/preview")
+
+        assert response.status_code == 404

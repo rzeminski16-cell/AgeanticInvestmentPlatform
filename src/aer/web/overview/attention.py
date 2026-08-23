@@ -89,6 +89,15 @@ class Attention:
     action: str = ""
     """What the link does, when "open it" is not specific enough to be worth reading."""
 
+    preview_href: str = ""
+    """A fragment worth reading before leaving the page, if this item has one.
+
+    Optional, and several items do not have one: an unrun draft has nothing to preview that
+    the row does not already say. When it is set, the row renders a second link whose
+    ``href`` is still the full page — the drawer is an enhancement over that link, never a
+    replacement for it (ADR 0006).
+    """
+
     def __post_init__(self) -> None:
         if not self.href:
             message = (

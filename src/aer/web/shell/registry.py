@@ -82,6 +82,9 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         # The shell's own fragment, fetched by the nav after the page renders. Not a
         # destination: opening it in a browser yields a handful of spans.
         "/_shell/badges",
+        # The drawer's contents, fetched from an attention row. Its trigger keeps an
+        # `href` to the run console, so with scripting off nobody ever reaches this URL.
+        "/overview/runs/{job_id}/preview",
         # Detail views, each reached from the listing above it.
         "/calculations/{calculation_id}",
         "/claims/{claim_id}",

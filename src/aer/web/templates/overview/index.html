@@ -33,6 +33,7 @@
 
   <h2 class="mt-10 text-lg font-semibold text-ink">Your attention</h2>
   {{ ui.guide(2, "Grouped by what it costs you: blocked work resumes the moment you decide, broken work needs reading first.") }}
+  {{ ui.guide(3, "Preview opens a panel without leaving the page, so eight rows do not cost eight trips to a console and back.") }}
 
   {% if not attention %}
     {% call ui.card() %}
@@ -65,11 +66,31 @@
                   <a href="{{ item.href }}" class="hover:underline">{{ item.title }}</a>
                 </p>
                 <p class="mt-1 max-w-prose text-sm text-ink-muted">{{ item.detail }}</p>
-                <a
-                  href="{{ item.href }}"
-                  class="mt-2 inline-flex items-center text-sm font-semibold text-brand hover:text-brand-strong"
-                  >{{ item.action or "Open" }} &rarr;</a
-                >
+                <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                  {% if item.preview_href %}
+                    {#
+                      The drawer trigger, and it is an ordinary link first. `href` goes to
+                      the full page, so with scripting off this click is a navigation; htmx
+                      intercepts it and swaps the fragment into the shell's drawer instead.
+                      `hx-target` is the whole contract — `static/js/drawer.js` opens
+                      because content arrived, not because anything told it to.
+                    #}
+                    <a
+                      href="{{ item.href }}"
+                      hx-get="{{ item.preview_href }}"
+                      hx-target="#aer-drawer-body"
+                      hx-swap="innerHTML"
+                      data-drawer-title="{{ item.title }}"
+                      class="inline-flex items-center text-sm font-semibold text-brand hover:text-brand-strong"
+                      >Preview</a
+                    >
+                  {% endif %}
+                  <a
+                    href="{{ item.href }}"
+                    class="inline-flex items-center text-sm font-semibold text-brand hover:text-brand-strong"
+                    >{{ item.action or "Open" }} &rarr;</a
+                  >
+                </p>
               </li>
             {% endfor %}
           </ul>

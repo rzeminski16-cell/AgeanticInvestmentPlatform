@@ -658,7 +658,33 @@ Live status. Tick an item only when it is committed, not when it is drafted.
 - [x] The provenance label test — no label string outside the macro, plus a companion
       asserting the macro file does contain them, so the grep cannot pass by finding
       nothing anywhere
-- [ ] `drawer.js` — focus trap, Escape, scroll lock, `aria-modal`. Written once
+- [x] `drawer.js` — focus trap, Escape, scroll lock, `aria-modal`. Written once, and
+      landed with its first user rather than ahead of one, which is the lesson
+      `_ui/index.html` had just taught: a component nobody imports is a component nobody
+      has run.
+
+      **It opens because content arrived, not because anything told it to.** There is no
+      `data-drawer-open`; the trigger's whole contract is `hx-target="#aer-drawer-body"`,
+      so a trigger cannot open a drawer it then fails to fill, and there is no moment
+      between "opened" and "filled" for a failed request to leave an empty panel visible.
+
+      The semantics are markup — `role`, `aria-modal`, `aria-labelledby`, `tabindex="-1"`
+      are in `_shell/drawer.html` and the script sets none of them, so the panel is a
+      dialogue in the DOM a reader inspects and not only in the one a script got round to
+      editing. What a server cannot send is the *behaviour*, and that is all the script
+      owns. A grep asserts no page grows a second focus trap (ADR 0073), and the trap
+      itself is proved in a browser: with the `Tab` branch removed, focus escapes on the
+      first press.
+
+      The trigger is a link before it is anything else. Its `href` is the run console, so
+      with scripting off the same click is a page — asserted with JavaScript disabled
+      entirely. **A live browser also caught the one real defect:** `detail.elt` on
+      `htmx:afterSwap` is the element that was *swapped*, not the one that asked, so the
+      panel opened with an empty heading. Nothing server-side could have seen it.
+
+      Its first user is an attention row: `Attention.preview_href`, optional, set by the
+      research tool for rows backed by a run and left empty for an unrun draft, which has
+      nothing to show that the row does not already say
 - [ ] Guidance mode — the flag, the route and `data-guidance` on `<body>` are done: server
       state under ADR 0073, a form POST that redirects so it works with scripting off, and a
       checked destination so it cannot become an open redirect. `ui.guide()` and its CSS

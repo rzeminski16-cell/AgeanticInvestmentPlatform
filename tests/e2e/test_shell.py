@@ -10,6 +10,7 @@ actually run, so both are here.
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -187,6 +188,141 @@ class TestTheOverviewScreen:
 
             expect(page.locator("body")).to_have_attribute("data-guidance", "on")
             expect(page.locator(".aer-guide").first).to_be_visible()
+        finally:
+            context.close()
+
+
+class TestTheDrawer:
+    """The chrome layer, which only a browser can say anything about.
+
+    Focus, the Escape key and the background scroll lock are browser behaviour a server
+    cannot send, so every assertion here needs a real one. The trap in particular has no
+    server-side shadow: a page can look perfectly correct and still let Tab wander into a
+    background the reader cannot see.
+    """
+
+    def test_previewing_opens_the_panel_with_the_row_it_came_from(
+        self, page: Page, live_server: str, stopped_runs: StoppedRuns
+    ) -> None:
+        page.goto(f"{live_server}/overview")
+        row = page.locator("[data-attention]").first
+        title = row.locator("a").first.inner_text()
+
+        row.get_by_role("link", name="Preview").click()
+
+        expect(page.locator("#aer-drawer-title")).to_have_text(title)
+        expect(page.locator('#aer-drawer [data-field="status"]')).to_have_text("AWAITING_APPROVAL")
+
+    def test_focus_moves_into_the_panel_and_stays_there(
+        self, page: Page, live_server: str, stopped_runs: StoppedRuns
+    ) -> None:
+        page.goto(f"{live_server}/overview")
+        page.locator("[data-attention]").first.get_by_role("link", name="Preview").click()
+        expect(page.locator("#aer-drawer-title")).not_to_be_empty()
+
+        assert page.evaluate(
+            "document.querySelector('#aer-drawer [role=dialog]').contains(document.activeElement)"
+        )
+
+        # Round the panel and back, never out of it. Four stops is more than the panel
+        # holds, so a trap that leaked would have put focus on the page behind by now.
+        for _ in range(4):
+            page.keyboard.press("Tab")
+            assert page.evaluate(
+                "document.querySelector('#aer-drawer [role=dialog]')"
+                ".contains(document.activeElement)"
+            ), "Tab escaped the drawer"
+
+    def test_shift_tab_wraps_backwards_too(
+        self, page: Page, live_server: str, stopped_runs: StoppedRuns
+    ) -> None:
+        page.goto(f"{live_server}/overview")
+        page.locator("[data-attention]").first.get_by_role("link", name="Preview").click()
+        expect(page.locator("#aer-drawer-title")).not_to_be_empty()
+
+        for _ in range(4):
+            page.keyboard.press("Shift+Tab")
+            assert page.evaluate(
+                "document.querySelector('#aer-drawer [role=dialog]')"
+                ".contains(document.activeElement)"
+            ), "Shift+Tab escaped the drawer"
+
+    def test_escape_closes_it_and_gives_focus_back(
+        self, page: Page, live_server: str, stopped_runs: StoppedRuns
+    ) -> None:
+        """Back to the row, not to the top of the document.
+
+        A reader who opened the third row and pressed Escape has to work back down to it
+        otherwise, every time, which is the difference between a panel and an interruption.
+        """
+        page.goto(f"{live_server}/overview")
+        trigger = page.locator("[data-attention]").first.get_by_role("link", name="Preview")
+        trigger.click()
+        expect(page.locator("#aer-drawer-title")).not_to_be_empty()
+
+        page.keyboard.press("Escape")
+
+        expect(page.locator("#aer-drawer")).to_be_hidden()
+        assert page.evaluate(
+            "document.activeElement === document.querySelector('[data-attention] a[hx-get]')"
+        )
+
+    def test_the_close_button_closes_it(
+        self, page: Page, live_server: str, stopped_runs: StoppedRuns
+    ) -> None:
+        page.goto(f"{live_server}/overview")
+        page.locator("[data-attention]").first.get_by_role("link", name="Preview").click()
+        expect(page.locator("#aer-drawer-title")).not_to_be_empty()
+
+        page.get_by_role("button", name="Close").click()
+
+        expect(page.locator("#aer-drawer")).to_be_hidden()
+
+    def test_the_background_does_not_scroll_while_it_is_open(
+        self, page: Page, live_server: str, stopped_runs: StoppedRuns
+    ) -> None:
+        page.goto(f"{live_server}/overview")
+
+        assert not page.evaluate("document.documentElement.classList.contains('overflow-hidden')")
+        page.locator("[data-attention]").first.get_by_role("link", name="Preview").click()
+        expect(page.locator("#aer-drawer-title")).not_to_be_empty()
+
+        assert page.evaluate("document.documentElement.classList.contains('overflow-hidden')")
+        page.keyboard.press("Escape")
+        assert not page.evaluate("document.documentElement.classList.contains('overflow-hidden')")
+
+    def test_closing_empties_it(
+        self, page: Page, live_server: str, stopped_runs: StoppedRuns
+    ) -> None:
+        # A panel that kept the last run's numbers would show them for the instant before
+        # the next request landed, and a reader who opened the wrong row would see the
+        # right-looking answer to the wrong question.
+        page.goto(f"{live_server}/overview")
+        page.locator("[data-attention]").first.get_by_role("link", name="Preview").click()
+        expect(page.locator("#aer-drawer-title")).not_to_be_empty()
+
+        page.keyboard.press("Escape")
+
+        assert page.locator("#aer-drawer-body").inner_html().strip() == ""
+
+    def test_with_scripting_off_the_same_click_is_a_page(
+        self, browser: Browser, live_server: str, stopped_runs: StoppedRuns
+    ) -> None:
+        """ADR 0006's rule at the one place this slice could have broken it.
+
+        The trigger is a link before it is anything else. htmx intercepts the click when it
+        is there to; when it is not, the browser follows the `href` to the run console —
+        the same destination, one page further away.
+        """
+        context = browser.new_context(java_script_enabled=False)
+        try:
+            page = context.new_page()
+            page.goto(f"{live_server}/overview")
+
+            page.locator("[data-attention]").first.get_by_role("link", name="Preview").click()
+
+            page.wait_for_url(re.compile(r"/runs/[0-9a-f-]{36}$"))
+            expect(page.locator("#aer-drawer")).to_be_hidden()
         finally:
             context.close()
 

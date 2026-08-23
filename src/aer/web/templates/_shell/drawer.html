@@ -1,0 +1,46 @@
+{#
+  The one drawer, in the shell, so no page has a second implementation of a focus trap.
+
+  It is empty and `hidden` until htmx swaps something into `#aer-drawer-body`; opening is
+  `static/js/drawer.js`'s and nothing here knows how it happens. A page opts in by pointing
+  a link's `hx-target` at that id — see the comment at the top of that file for the whole
+  contract, which is four attributes.
+
+  **The semantics are markup, not JavaScript.** `role`, `aria-modal` and `aria-labelledby`
+  are here rather than set on open, so the panel is a dialogue in the DOM a reader inspects
+  and not only in the one a script got round to editing. What a server cannot send is the
+  behaviour — focus, Escape, the scroll lock — and that is exactly what the script owns.
+
+  `hidden` rather than a class: it is the attribute assistive technology already understands,
+  so a stylesheet that failed to load leaves the drawer closed rather than covering the page.
+#}
+<div id="aer-drawer" hidden>
+  {# Not focusable and not a button. The overlay is a convenience for a mouse; every reader
+     without one has Escape and the close button, both of which are real controls. #}
+  <div
+    data-drawer-close
+    class="fixed inset-0 z-40 bg-navy/40"
+    aria-hidden="true"
+  ></div>
+
+  <div
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="aer-drawer-title"
+    tabindex="-1"
+    class="fixed inset-y-0 right-0 z-50 flex w-full max-w-drawer flex-col border-l border-line bg-surface shadow-xl focus:outline-none"
+  >
+    <header class="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+      <h2 id="aer-drawer-title" class="text-base font-semibold text-ink"></h2>
+      <button
+        type="button"
+        data-drawer-close
+        class="-mr-1 rounded-md px-2 py-1 text-sm font-semibold text-ink-muted hover:bg-surface-sunken hover:text-ink"
+      >
+        Close<span class="sr-only"> this panel</span>
+      </button>
+    </header>
+
+    <div id="aer-drawer-body" class="flex-1 overflow-y-auto px-5 py-4"></div>
+  </div>
+</div>
