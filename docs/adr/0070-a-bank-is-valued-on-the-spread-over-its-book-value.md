@@ -126,6 +126,19 @@ omits the value of profits already written into policies in force.
   say that the bank does not earn its cost of equity.
 * Two profiles' seeded rows change, so migration 0053 moves the seed in step with the
   constants — the arrangement `test_the_seed_matches_the_constants` exists to enforce.
-* **Not yet wired.** The calculation core and the permission exist; a bank driver set in the
-  assumptions gate, dispatch in the valuation service, and the report surface do not. Until
-  they do, this is a model the platform may run and does not yet run itself.
+* **Now wired end to end.** `aer.core.sectors.model_for` is the single answer to "which
+  model here", and the assumptions gate, the valuation step and the report section all read
+  it rather than each deciding for themselves — a gate collecting one model's inputs while
+  the valuation runs another's would be a run that pauses for numbers nothing reads.
+  `aer.services.residual_income_run.value_the_bank` assembles the inputs and runs both
+  treatments; the report section branches on the model before it says anything about method.
+
+* **A bank's operator now faces three rows, not nine.** The return on equity and the payout
+  ratio are both ratios of two filed lines, so both are derived and confirmed rather than
+  typed, leaving the terminal growth rate as the one judgement — which is the right shape,
+  because it is the only input this model has that no filing answers.
+
+* **Scenarios and sensitivity grids are not built for this model.** The discounted cash flow
+  has both. The two terminal treatments already bracket the answer more widely than a grid
+  over the discount rate would, but nothing yet varies the return on equity a step at a time.
+  Stated in the module and carried in every result's caveats rather than left quiet.
