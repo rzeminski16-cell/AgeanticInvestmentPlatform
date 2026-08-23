@@ -467,14 +467,35 @@ on a draft design note is not a decision.
     drawer. **If that screen works, the remaining sixteen are content rather than
     architecture.**
 
-**Stage C — the first real domain**
+**Stage C — replanned, 23 August.** The original Stage C led with a watchlist, on the
+argument that it exercised the standing-budget and two-clock questions at low stakes. The
+operator has redirected: one tool works, one more is built next, and everything else is a
+button that says so. Three phases, in this order.
 
-11. FX rate store (§6.2).
-12. Attestation and Judgement tables, with the two clocks.
-13. Watchlist and Research Queue — already the last unbuilt Phase 6 item, and it exercises
-    the standing-budget and two-clock questions at low stakes.
+**Phase 1 — Overview becomes the main menu.** It is a work dashboard that happens to be
+first in the nav; it becomes the landing page. `/` leads with a tool launcher — Equity
+Research (working), Portfolio (under construction), the rest as placeholders — and the
+attention feed sits below it, because that is the reason to come back rather than the
+reason to arrive. The sidebar becomes a dropdown in the same slice.
 
-Positions, NAV and risk follow Stage C, once the scope question in §3 is settled.
+**Phase 2 — prove the research tool still works.** A green suite is not a working product,
+and the shell has been rebuilt underneath it four times. An end-to-end walkthrough:
+commission a request, drive it through the gates, read the report.
+
+**Phase 3 — Portfolio.** Its prerequisites are smaller than this document assumed, because
+the substrate is already here: `securities`, `price_bars` with `adjusted_close` and a
+`source_document_id`, `corporate_actions`, and `aer/calc/fx.py` — finished, tested, and
+still with no caller. What is missing is `fx_rates`, the attestation record class, and the
+portfolio tables. Settled with the operator on 23 August, recorded in ADR 0079:
+
+11. `fx_rates` and `services/fx.py`; `aer.calc.fx` gets its first caller (ADR 0078).
+12. `attestations` and `transactions`; the grade that propagates (ADR 0069).
+13. `aer/calc/portfolio.py` — quantity, cost basis, market value, cash, NAV, weight, each a
+    recorded calculation. **No `positions` table** (ADR 0079).
+14. The Portfolio screen: holdings as at a date, defaulting to the latest close.
+
+Judgements, theses, the monitor, risk and the review tools follow, once a book exists for
+them to be about.
 
 ## 13. Questions since settled
 
@@ -806,22 +827,61 @@ Live status. Tick an item only when it is committed, not when it is drafted.
       caught `SQLAlchemyError` where asyncpg raises the operating system's error directly:
       a bare `ConnectionRefusedError` went straight past them
 
-### Stage C — the first real domain
+### Phase 1 — Overview becomes the main menu
 
-- [ ] `fx_rates` table and `services/fx.py`; `aer.calc.fx` gets its first caller (ADR 0078)
-- [ ] `Attestation` and `Judgement` tables, both clocks, the grade that propagates
+- [ ] ADR 0079 accepted — **Proposed as of 23 August, awaiting the operator's sign-off.**
+      A position is a calculation, not a row: transactions are the record, and quantity,
+      cost basis, market value, cash, NAV and weight are all recorded calculations over
+      them. Nothing in Phase 3 can start until this is settled, because it decides what the
+      migration creates
+- [ ] `/` leads with a tool launcher: Equity Research (working), Portfolio (under
+      construction), the rest as placeholder buttons. The attention feed moves below it
+- [ ] The eight planned tools collapse. Portfolio becomes a real section and absorbs
+      Positions; Watchlist, Theses, Decisions, Monitor, Risk, Post-trade review and
+      Decision analytics become buttons on the launcher rather than nav items — a nav
+      listing seven things nobody can use is worse than a launcher that shows the shape
+      once
+- [ ] The sidebar becomes a dropdown. `<details>`/`<summary>`, so it stays keyboard
+      accessible with no JavaScript — and it removes the duplicate-id problem that forced
+      the single-DOM compromise, because there is only ever one nav either way. **The cost,
+      stated:** navigation goes behind a click on a wide screen too, where it is free today
+
+### Phase 2 — prove the research tool still works
+
+- [ ] An end-to-end walkthrough: commission a request, drive it through the gates, read the
+      report. A green suite is not a working product, and the shell has been rebuilt
+      underneath this tool four times in a fortnight
+- [ ] Whether that walkthrough spends real money is the operator's call. The default is the
+      fake provider, which proves the pages and the gates and not the model
+
+### Phase 3 — Portfolio
+
+Settled with the operator, 23 August: holdings typed by hand first at the *attested* grade,
+with a broker-statement importer as a second door into the same table later; cash and NAV
+from the start, because a weight over securities alone silently overstates every holding; an
+as-of date defaulting to the latest close, because reconciling against a dated statement is
+the only external check this tool has; and a `portfolios` table from day one with one row in
+it, so separating an ISA from a SIPP is a setting rather than a migration.
+
+- [ ] `fx_rates` and `services/fx.py`; `aer.calc.fx` gets its first caller (ADR 0078)
+- [ ] `attestations` and `transactions`, with the grade that propagates (ADR 0069)
 - [ ] `SourceKind` gains `ATTESTATION`; the `claims` XOR widens; invariant 3 restated
-- [ ] `RESERVED_OUTPUT_FIELDS` gains `conviction` (ADR 0070), with its attack file
-- [ ] Watchlist and Research Queue — the last unbuilt Phase 6 item, and the cheapest place
-      to exercise the standing-budget and two-clock questions
+- [ ] `aer/calc/portfolio.py` — quantity, cost basis, market value, cash, NAV, weight. Pure,
+      `mypy --strict`, property-tested. **No `positions` table** (ADR 0079)
+- [ ] The Portfolio screen: holdings as at a date, every figure carrying its grade, and an
+      export path that refuses an attested lineage by return type rather than by a flag
+- [ ] A split arrives as a transaction. Deriving it from `corporate_actions` is worth doing
+      and is worth doing as a written transaction, never as a quantity that changed with
+      nothing behind it
 
-### Deferred until Stage C settles
+### Later, once a book exists to be about
 
-- [ ] Positions, executions and NAV
-- [ ] Thesis items, predicates and the monitor (ADRs 0074, 0075)
+- [ ] Judgements and theses (ADRs 0070, 0075)
+- [ ] The thesis monitor (ADRs 0074, 0075)
 - [ ] Portfolio risk and scenarios (ADR 0076)
 - [ ] Trade journal, post-trade review and decision analytics (ADR 0077)
-- [ ] `RESERVED_OUTPUT_FIELDS` gains the six sizing names, in the same commit as any
-      sizing concept and never after
+- [ ] Watchlist and Research Queue
+- [ ] `RESERVED_OUTPUT_FIELDS` gains `conviction` (ADR 0070), with its attack file, and the
+      six sizing names in the same commit as any sizing concept and never after
 - [ ] The methodology library — the three `SkillKind`s that are versioned, pinned and
       read by nothing

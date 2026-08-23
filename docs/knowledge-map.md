@@ -226,9 +226,11 @@ ones — read the ADR before touching its territory:
   clock), 0072 (a lineage node resolves by table), 0073 (JavaScript may own chrome and never
   a figure), 0074 (a monitor finding is not a gated decision), 0075–0077 (the thesis monitor,
   the risk analyst, the post-trade reviewer), 0078 (a rate is a dated observation with a
-  source, not a number in a column).
+  source, not a number in a column), 0079 (a position is a calculation, not a row).
   **Read 0069 and 0070 together before touching any portfolio table**: they are what stops a
   number the operator typed and a view the operator holds from becoming interchangeable.
+  **Read 0079 before writing one**: it says which tables exist, and `positions` is not one
+  of them.
 
 ## 7. Extension recipes
 
