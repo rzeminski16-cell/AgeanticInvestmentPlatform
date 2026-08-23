@@ -214,6 +214,7 @@ async def _seeded_step(
     user = await seed_user(db_session)
     request = await seed_request(db_session, user=user, max_cost_gbp=max_cost_gbp)
     job = Job(
+        work_order_id=request.id,
         request_id=request.id,
         workflow_version=WORKFLOW_VERSION,
         code_version="test",

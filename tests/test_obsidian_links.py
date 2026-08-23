@@ -359,6 +359,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     await db_session.flush()
     db_session.add(
         SourceDocument(
+            work_order_id=a2_request.id,
             request_id=a2_request.id,
             job_id=a2_job.id,
             artefact_id=artefact.id,

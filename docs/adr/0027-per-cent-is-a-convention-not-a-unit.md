@@ -8,7 +8,7 @@
 
 The unit system built in task 9 has caught real mistakes throughout this build: dollars added
 to pounds, a share count divided into a currency, a margin multiplied by a margin. Its
-guarantee is stated in `docs/PLAN.md` invariant 5 — *units are carried through all arithmetic,
+guarantee is stated in `docs/archive/PLAN.md` invariant 5 — *units are carried through all arithmetic,
 a mismatch raises, it never coerces* — and until task 26 that guarantee held everywhere the
 arithmetic went.
 

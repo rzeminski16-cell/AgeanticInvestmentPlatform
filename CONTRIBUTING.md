@@ -11,7 +11,7 @@ process.
 
 1. Branch from the current development branch. Never commit directly to `main` — a
    pre-commit hook enforces this.
-2. Make the change. Keep it scoped to one task from `docs/PLAN.md` (Stage 4).
+2. Make the change. Keep it scoped to one item from `docs/plan/ROADMAP.md`.
 3. Run `just ci` (or the three commands it wraps) until green.
 4. Commit with a conventional-commit message.
 5. Push and open a pull request.
@@ -61,7 +61,7 @@ A change is not done until **all** of these hold:
 
 ## Scope discipline
 
-The build sequence in `docs/PLAN.md` is deliberately ordered, and each task carries an
+The work sequence in `docs/plan/ROADMAP.md` is deliberately ordered, and each item carries an
 explicit **non-goals** list. Respect it. Folding a later task's work into an earlier one
 produces changes that are hard to review and foundations that were never verified in
 isolation.

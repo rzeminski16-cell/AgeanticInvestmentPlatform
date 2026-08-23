@@ -2,7 +2,7 @@
 
 **Status.** Accepted
 **Date.** 2026-08-05
-**Implements.** `docs/PLAN.md` section 2.9 and `docs/phase-3-plan.md` task 28.
+**Implements.** `docs/archive/PLAN.md` section 2.9 and `docs/archive/phase-3-plan.md` task 28.
 
 ## Context
 
@@ -11,7 +11,7 @@ rather than its financing, so enterprise value does not mean what the model assu
 cash flow to the firm is not a quantity the business has. The number the model produces is
 arithmetic performed on a category error, and it looks exactly like a valuation.
 
-`docs/PLAN.md` states the rule: **a blocked model produces a hard gate, not a footnote.** A
+`docs/archive/PLAN.md` states the rule: **a blocked model produces a hard gate, not a footnote.** A
 report that ran the standard model anyway and disclaimed it in small print is worse than one
 that refused, because the number is what a reader remembers and the disclaimer is not.
 

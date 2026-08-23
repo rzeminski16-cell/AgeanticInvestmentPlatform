@@ -52,7 +52,7 @@ __all__ = [
 _log = structlog.get_logger("aer.services.disagreements")
 
 # Where an escalation goes. Gate 2 is the last point at which a person sees the evidence
-# before it becomes a report, and `docs/PLAN.md` section 2.4 raises every escalation trigger
+# before it becomes a report, and `docs/archive/PLAN.md` section 2.4 raises every escalation trigger
 # there rather than inventing a gate per trigger.
 ESCALATION_GATE = GateKind.FINAL
 

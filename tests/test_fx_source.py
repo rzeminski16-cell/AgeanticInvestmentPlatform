@@ -45,7 +45,7 @@ from aer.sources.tiering import DocumentKind, tier_for
 
 FIXTURES: Final = Path(__file__).parent / "fixtures" / "macro"
 
-SOURCE: Final = SourceRef.fact(
+SOURCE: Final = SourceRef.macro_observation(
     "11111111-1111-1111-1111-111111111111", label="ECB euro reference rates"
 )
 

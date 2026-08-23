@@ -12,7 +12,7 @@ concerning and a threshold, both stated as constants with the reasoning beside t
 thresholds are judgement, and judgement that lives in a named constant can be argued with;
 judgement buried in an ``if`` cannot.
 
-**What cannot be derived is listed, not omitted.** `docs/PLAN.md` names R&D capitalisation
+**What cannot be derived is listed, not omitted.** `docs/archive/PLAN.md` names R&D capitalisation
 among the policy flags, and it is not computable from a sixty-two-concept vocabulary: an
 increase in intangible assets cannot be separated from an acquisition without reading the
 notes. It appears here as an unavailable signal with that reason, so a reader can tell "we
@@ -117,7 +117,7 @@ _NEVER_SWALLOWED: Final = (UnitMismatchError, UnsourcedValueError)
 
 @dataclass(frozen=True, slots=True)
 class Unavailable:
-    """Something `docs/PLAN.md` asks for that the statements cannot answer.
+    """Something `docs/archive/PLAN.md` asks for that the statements cannot answer.
 
     Listed rather than omitted. A reader has to be able to distinguish a check that passed
     from one that was never run, and an absent row says nothing at all.

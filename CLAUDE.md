@@ -1,8 +1,10 @@
 # Repository conventions
 
-Read this before changing anything. It is the short version of `docs/PLAN.md`, which is
-the full research, architecture and build plan and remains the authority when the two
-disagree.
+Read this before changing anything. It is the short version of the conventions; the full
+picture is in `docs/` — [`docs/README.md`](docs/README.md) is the index.
+
+**`docs/plan/ROADMAP.md` is the authority on scope**, and wins where it and this file
+disagree. The ADRs in `docs/adr/` outrank both: they are decisions, not plans.
 
 ## What this project is
 
@@ -40,9 +42,13 @@ single most common way systems like this produce confidently wrong numbers.
    was hashed and stored, and a claim can point at the exact excerpt.
 2. **The model may propose a citation; only code may confirm one.** Citation verification
    re-reads the artefact by hash and checks the excerpt actually appears there.
-3. **No figure reaches a report unless it is a stored fact or a recorded calculation.**
-   Calculations persist their formula, inputs (each with a unit and a source), and the
-   code version that produced them.
+3. **No figure reaches a report unless it is a stored fact, a recorded calculation or an
+   attestation.** Calculations persist their formula, inputs (each with a unit and a
+   source), and the code version that produced them. An attestation (ADR 0073) is what the
+   operator's own book says — a holding, a fill, a cash balance — carrying a grade of
+   evidence, and a lineage containing an *attested* node reaches no shareable surface,
+   because the type it propagates into has no field for the figure. Three kinds of figure,
+   not three kinds of evidence: invariant 1 is untouched.
 4. **Point-in-time is enforced at acquisition, in code.** Nothing published after the
    as-of date may support a claim when point-in-time mode is on.
 5. **Units are carried through all arithmetic.** A unit mismatch raises; it never coerces.
@@ -100,8 +106,12 @@ single most common way systems like this produce confidently wrong numbers.
 
 ## Working on this repository
 
-- The build sequence is in `docs/PLAN.md`, Stage 4. Tasks build on each other; do not
-  skip ahead, and do not fold a later task's work into an earlier one.
+- The work sequence is in `docs/plan/ROADMAP.md`. Items build on each other; do not skip
+  ahead, and do not fold a later item's work into an earlier one.
+- `docs/developers/knowledge-map.md` is the orientation layer — the one rule, the anatomy of
+  a run, the trust zones, and what enforces each invariant. Read it before the code.
+- The original research and architecture plan is `docs/archive/PLAN.md`. It is history, and
+  still the readable source for the §2.x specification sections that docstrings cite.
 - Architectural decisions live in `docs/adr/`. A decision that changes one of the
   invariants above needs a new ADR, not just a code change.
 - **If a prerequisite is missing or an architectural choice is unclear, stop and say so.**

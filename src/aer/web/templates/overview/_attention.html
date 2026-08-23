@@ -1,0 +1,72 @@
+{#
+  The work list, grouped by severity rather than sorted into one.
+
+  "Three runs are waiting for you" and "one run failed" are different kinds of day, and a
+  single ordered list makes the reader work out which is which.
+
+  A partial because the main menu is long enough already, and because the grouping is the
+  part somebody will come back to change.
+#}
+{% import "_ui/index.html" as ui with context %}
+
+{% if not attention %}
+  {% call ui.card() %}
+    {{ ui.empty(
+      "Nothing is waiting",
+      "No run is stopped at a gate, nothing failed, and every request you have written has been run. Start another when you are ready.",
+      "Commission research",
+      "/requests/new",
+    ) }}
+  {% endcall %}
+{% else %}
+  {% for severity in severity_order %}
+    {% set group = attention | selectattr("severity", "equalto", severity) | list %}
+    {% if group %}
+      <section class="mt-4">
+        <h3 class="text-sm font-semibold tracking-wide text-ink-muted uppercase">
+          {% if severity == blocked %}Blocked{% elif severity == broken %}Broken{% else %}Idle{% endif %}
+        </h3>
+        <ul class="mt-2 space-y-2">
+          {% for item in group %}
+            <li
+              class="rounded-card border border-l-4 border-line bg-surface p-4
+                     {% if severity == blocked %}border-l-warn-ink{% elif severity == broken %}border-l-bad-ink{% else %}border-l-mute-ink{% endif %}"
+              data-attention="{{ item.key }}"
+              data-tool="{{ item.tool }}"
+            >
+              <p class="text-sm font-semibold text-ink">
+                <a href="{{ item.href }}" class="hover:underline">{{ item.title }}</a>
+              </p>
+              <p class="mt-1 max-w-prose text-sm text-ink-muted">{{ item.detail }}</p>
+              <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                {% if item.preview_href %}
+                  {#
+                    The drawer trigger, and it is an ordinary link first. `href` goes to the
+                    full page, so with scripting off this click is a navigation; htmx
+                    intercepts it and swaps the fragment into the shell's drawer instead.
+                    `hx-target` is the whole contract — `static/js/drawer.js` opens because
+                    content arrived, not because anything told it to.
+                  #}
+                  <a
+                    href="{{ item.href }}"
+                    hx-get="{{ item.preview_href }}"
+                    hx-target="#aer-drawer-body"
+                    hx-swap="innerHTML"
+                    data-drawer-title="{{ item.title }}"
+                    class="inline-flex items-center text-sm font-semibold text-brand hover:text-brand-strong"
+                    >Preview</a
+                  >
+                {% endif %}
+                <a
+                  href="{{ item.href }}"
+                  class="inline-flex items-center text-sm font-semibold text-brand hover:text-brand-strong"
+                  >{{ item.action or "Open" }} &rarr;</a
+                >
+              </p>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+  {% endfor %}
+{% endif %}

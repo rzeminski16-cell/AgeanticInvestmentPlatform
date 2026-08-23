@@ -309,7 +309,7 @@ def _is_contained(wrapped: str) -> bool:
 # The unit corpus: operations that must be refused, and compatible ones that must not be —
 # because a unit algebra that raised on everything would score perfectly and be useless.
 def _unit_cases() -> list[tuple[str, bool, Any]]:
-    source = SourceRef.fact("00000000-0000-0000-0000-000000000000", label="corpus")
+    source = SourceRef.financial_fact("00000000-0000-0000-0000-000000000000", label="corpus")
     usd = money("100", "USD", source=source)
     gbp = money("100", "GBP", source=source)
     count = share_count("100", source=source)
@@ -427,6 +427,7 @@ async def _document_for(
     await session.flush()
 
     document = SourceDocument(
+        work_order_id=request.id,
         request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,
@@ -542,7 +543,7 @@ class TestTheCorporaAreWorthScoring:
         assert len(citation_corpus.genuine_pairs()) >= 25
 
     def test_the_citation_corpus_is_at_least_forty_pairs(self) -> None:
-        # The size docs/PLAN.md §2.10 asks for. At 40, the 98% threshold permits no errors
+        # The size docs/archive/PLAN.md §2.10 asks for. At 40, the 98% threshold permits no errors
         # at all — 39/40 is 0.975 — which is the intended strictness.
         assert len(citation_corpus.PAIRS) >= 40
 

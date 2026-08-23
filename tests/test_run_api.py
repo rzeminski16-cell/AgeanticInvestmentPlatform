@@ -315,6 +315,7 @@ class TestTheTimelineWhenTheWorkflowIsUnknown:
     @staticmethod
     def _state(version: str) -> run_service.RunState:
         job = Job(
+            work_order_id=uuid.uuid4(),
             request_id=uuid.uuid4(),
             workflow_version=version,
             code_version="test",
@@ -1418,6 +1419,7 @@ class TestTheWebPages:
         factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
         async with factory() as session:
             job = Job(
+                work_order_id=committed["request"].id,
                 request_id=committed["request"].id,
                 workflow_version="vertical_slice_v1",
                 code_version="unapproved123456",
@@ -1568,12 +1570,14 @@ class TestTheHistorySurfaces:
             await session.flush()
 
             approved_job = Job(
+                work_order_id=committed["request"].id,
                 request_id=committed["request"].id,
                 workflow_version="vertical_slice_v1",
                 code_version="historyseed12345",
                 status=JobStatus.SUCCEEDED,
             )
             draft_job = Job(
+                work_order_id=committed["request"].id,
                 request_id=committed["request"].id,
                 workflow_version="vertical_slice_v1",
                 code_version="historyseed12345",

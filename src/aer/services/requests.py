@@ -71,6 +71,7 @@ from aer.db.models import (
     ResearchRequest,
     SourceDocument,
     User,
+    WorkOrder,
 )
 from aer.errors import ConflictError, ValidationError
 
@@ -244,6 +245,29 @@ def _apply(request: ResearchRequest, payload: ResearchRequestCreate) -> None:
     request.max_cost_gbp = payload.max_cost_gbp
 
 
+async def _mirror_to_work_order(session: AsyncSession, request: ResearchRequest) -> None:
+    """Copy the run-root columns from a mandate onto its work order.
+
+    ADR 0072 duplicates `as_of_date`, `point_in_time`, `max_cost_gbp`, `status` and
+    `archived_at` for exactly one revision, because a column cannot be dropped from a
+    migration while a model still declares it. Duplicated columns diverge unless something
+    stops them, and two of these are read from the work order already: the spend guard
+    takes its cap from there, and the look-ahead refusal takes its date and its
+    point-in-time flag from there. An edit that moved an as-of date on the mandate alone
+    would leave the guard checking the old one — a silent widening of what a run may cite.
+
+    The follow-up revision deletes this function along with the columns.
+    """
+    work_order = await session.get(WorkOrder, request.id)
+    if work_order is None:  # pragma: no cover -- every request is created with one
+        return
+    work_order.as_of_date = request.as_of_date
+    work_order.point_in_time = request.point_in_time
+    work_order.max_cost_gbp = request.max_cost_gbp
+    work_order.status = request.status
+    work_order.archived_at = request.archived_at
+
+
 async def create_request(
     session: AsyncSession,
     *,
@@ -269,6 +293,23 @@ async def create_request(
         resolved=False,
     )
     _apply(request, payload)
+
+    # The run root, created first because it is the root: the request is its 1:1 detail row
+    # and takes its id (ADR 0072). Everything that needs a cap — every model call in the
+    # platform — walks to this row rather than to the mandate.
+    work_order = WorkOrder(
+        user_id=user.id,
+        tool="research",
+        subject_kind="company",
+        as_of_date=request.as_of_date,
+        point_in_time=request.point_in_time,
+        max_cost_gbp=request.max_cost_gbp,
+        status=RequestStatus.DRAFT,
+    )
+    session.add(work_order)
+    await session.flush()
+
+    request.id = work_order.id
     session.add(request)
     await session.flush()
 
@@ -318,7 +359,9 @@ async def immutable_reason(session: AsyncSession, *, request: ResearchRequest) -
     serious one rather than the first one queried.
     """
     latest = await session.scalar(
-        select(Job).where(Job.request_id == request.id).order_by(Job.started_at.desc().nullslast())
+        select(Job)
+        .where(Job.work_order_id == request.id)
+        .order_by(Job.started_at.desc().nullslast())
     )
 
     if latest is None:
@@ -369,7 +412,7 @@ def _what_a_run_left_behind(
             "instead.",
         ),
         (
-            select(SourceDocument.id).where(SourceDocument.request_id == request.id),
+            select(SourceDocument.id).where(SourceDocument.work_order_id == request.id),
             "Evidence has been gathered against this request. The as-of date and "
             "point-in-time setting are what admitted that evidence, so changing them now "
             "would leave the stored sources inconsistent with the rules that selected them "
@@ -442,6 +485,7 @@ async def update_request(
         # Leaving `resolved` true here would be a claim about a security nobody looked up.
         request.resolved = False
 
+    await _mirror_to_work_order(session, request)
     await session.flush()
 
     await _record(
@@ -561,6 +605,7 @@ async def archive_request(
         raise ConflictError(message, context={"request_id": str(request.id)})
 
     request.archived_at = datetime.now(UTC)
+    await _mirror_to_work_order(session, request)
     await _record(
         session,
         actor=str(actor.id),
@@ -590,6 +635,7 @@ async def restore_request(
         raise ConflictError(message, context={"request_id": str(request.id)})
 
     request.archived_at = None
+    await _mirror_to_work_order(session, request)
     await _record(
         session,
         actor=str(actor.id),
@@ -648,7 +694,9 @@ async def purge_request(
             ``RESTRICT`` reference to evidence inside it.
     """
     latest = await session.scalar(
-        select(Job).where(Job.request_id == request.id).order_by(Job.started_at.desc().nullslast())
+        select(Job)
+        .where(Job.work_order_id == request.id)
+        .order_by(Job.started_at.desc().nullslast())
     )
     if latest is not None and not latest.status.is_terminal:
         message = (
@@ -824,7 +872,7 @@ async def _spend_on(session: AsyncSession, *, request_id: uuid.UUID) -> Decimal:
     total = await session.scalar(
         select(func.coalesce(func.sum(Cost.amount_gbp), 0))
         .join(Job, Job.id == Cost.job_id)
-        .where(Job.request_id == request_id)
+        .where(Job.work_order_id == request_id)
     )
     return Decimal(str(total or 0))
 

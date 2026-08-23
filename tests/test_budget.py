@@ -69,6 +69,7 @@ async def _job(session: AsyncSession) -> Job:
     session.add(request)
     await session.flush()
     job = Job(
+        work_order_id=request.id,
         request_id=request.id,
         workflow_version="test-1",
         code_version="abc",
@@ -286,6 +287,7 @@ class TestWhichCapTheConsoleReports:
 
     def _state(self, error: dict[str, Any] | None) -> RunState:
         job = Job(
+            work_order_id=uuid.uuid4(),
             request_id=uuid.uuid4(),
             workflow_version="test-1",
             code_version="abc",

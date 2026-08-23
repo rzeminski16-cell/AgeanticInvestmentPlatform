@@ -107,7 +107,7 @@ class ResolvedBy(StrEnum):
     """Who or what settled it.
 
     Separate from :class:`ResolutionRule`, which names *which* rule fired.
-    ``docs/PLAN.md`` puts both in one ``resolved_by TEXT`` column; splitting them makes
+    ``docs/archive/PLAN.md`` puts both in one ``resolved_by TEXT`` column; splitting them makes
     each queryable, and "how many of our conflicts did a human have to settle?" is the
     question worth being able to ask.
     """
@@ -174,7 +174,7 @@ class UnresolvableDisagreementError(AerError):
 # difference.
 AGREEMENT_TOLERANCE: Final = Decimal("0.0005")
 
-# The credible-source conflict threshold from `docs/PLAN.md` section 2.4.
+# The credible-source conflict threshold from `docs/archive/PLAN.md` section 2.4.
 MATERIALITY_THRESHOLD: Final = Decimal("0.02")
 
 # How close a ratio must sit to a power of ten before it is called a scale error rather
@@ -276,7 +276,7 @@ class Resolution:
     # conflict, neither of which has a numeric distance.
     relative_difference: Decimal | None
 
-    # A credible-source conflict as `docs/PLAN.md` section 2.4 defines it: both positions
+    # A credible-source conflict as `docs/archive/PLAN.md` section 2.4 defines it: both positions
     # at tier 4 or better, differing by more than 2%.
     #
     # Section 2.4 says "on a material figure", and that half is deliberately **not**
@@ -502,7 +502,7 @@ def resolve(first: Position, second: Position) -> Resolution:  # noqa: PLR0911
 def thesis_conflict(
     *, first: Position, second: Position, topic: str, material: bool = True
 ) -> Resolution:
-    """Rung 6 of ``docs/PLAN.md`` section 2.9: the red team against the base thesis.
+    """Rung 6 of ``docs/archive/PLAN.md`` section 2.9: the red team against the base thesis.
 
     Never auto-resolved, by design rather than by omission. A challenge that the system
     itself could dismiss would be a challenge worth nothing; both positions are published

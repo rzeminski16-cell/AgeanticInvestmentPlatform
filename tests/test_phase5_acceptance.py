@@ -1,6 +1,6 @@
 """Phase 5's acceptance criteria, re-run end to end against a FakeProvider run.
 
-`docs/PLAN.md` states them in one paragraph, and this module states them as five tests
+`docs/archive/PLAN.md` states them in one paragraph, and this module states them as five tests
 against **one real run** driven through both gates to an approved, frozen report:
 
 1. All required sections plus all enabled custom sections appear in the PDF.

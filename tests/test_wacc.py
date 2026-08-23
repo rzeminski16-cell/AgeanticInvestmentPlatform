@@ -53,7 +53,7 @@ from aer.calc.wacc import (
 )
 from aer.sources.macro.series import MACRO_SERIES, series_for
 
-FACT = SourceRef.fact("observation-1")
+FACT = SourceRef.financial_fact("observation-1")
 ASSUMPTION = SourceRef.assumption("assumption-1")
 
 
@@ -286,7 +286,7 @@ class TestGoldenWacc:
         assert BOOK_WEIGHT_CAVEAT in result.caveats
 
     def test_the_basis_is_recorded_on_the_calculation_not_only_on_the_result(self, context):
-        """`docs/phase-3-plan.md` task 26: the substitution stated on the calculation."""
+        """`docs/archive/phase-3-plan.md` task 26: the substitution stated on the calculation."""
         cost_of_capital(
             context,
             risk_free=rate("0.04", source=FACT),
@@ -597,7 +597,9 @@ class TestProvenance:
         assert from_filing.value < from_operator.value
 
     def test_the_risk_free_rate_keeps_its_vintage_label(self, context):
-        vintage = SourceRef.fact("obs-9", label="us_treasury_10y@2024-06-27 (vintage 2024-06-28)")
+        vintage = SourceRef.financial_fact(
+            "obs-9", label="us_treasury_10y@2024-06-27 (vintage 2024-06-28)"
+        )
         result = cost_of_equity(
             context,
             risk_free=rate_from_percent(
@@ -614,7 +616,7 @@ class TestProvenance:
 
 # -- Properties ----------------------------------------------------------------------------------
 #
-# The invariants `docs/phase-3-plan.md` names for this task. Bounded to inputs the module
+# The invariants `docs/archive/phase-3-plan.md` names for this task. Bounded to inputs the module
 # accepts: hypothesis is being asked to find counterexamples inside the domain, not to
 # rediscover the guards, which the refusal tests above cover by construction.
 

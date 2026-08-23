@@ -40,8 +40,8 @@ from aer.db.base import Base, created_at_column
 from aer.db.types import Timestamp, UuidFk, UuidPk
 
 if TYPE_CHECKING:
-    from aer.db.models.plan import ResearchPlan
     from aer.db.models.skill import Skill, SkillVersion
+    from aer.db.models.work_order import WorkOrder
 
 __all__ = ["PLANNED", "SKIPPED_NOT_APPLICABLE", "PlanSkillPin"]
 
@@ -54,8 +54,18 @@ class PlanSkillPin(Base):
 
     id: Mapped[UuidPk]
 
-    plan_id: Mapped[UuidFk] = mapped_column(
-        ForeignKey("research_plans.id", ondelete="CASCADE"), nullable=False, index=True
+    # The run root, not the plan. Hanging off `research_plans` meant the platform's one
+    # governed instruction mechanism was available to exactly one tool: a thesis monitor,
+    # having no research plan, could not pin a skill at all (ADR 0072).
+    #
+    # The table keeps its name for now, which is a misnomer this revision accepts rather
+    # than pays a rename for. The cost that is not cosmetic: a request may hold several
+    # plans, so pins are one set per work order, and a re-planned work order can no longer
+    # say which of two sets a given job ran under. If that becomes a live need the answer
+    # is the `supersedes_id` idiom, not a second foreign key — two columns claiming to own
+    # one pin is how a provenance answer becomes ambiguous.
+    work_order_id: Mapped[UuidFk] = mapped_column(
+        ForeignKey("work_orders.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
     # RESTRICT on both: a skill whose versions are pinned by a plan is part of that
@@ -90,12 +100,12 @@ class PlanSkillPin(Base):
 
     created_at: Mapped[Timestamp] = created_at_column()
 
-    plan: Mapped[ResearchPlan] = relationship()
+    work_order: Mapped[WorkOrder] = relationship()
     skill: Mapped[Skill] = relationship()
     skill_version: Mapped[SkillVersion] = relationship()
 
     __table_args__ = (
-        UniqueConstraint("plan_id", "skill_id", name="uq_plan_skill_pins_one_pin_per_skill"),
+        UniqueConstraint("work_order_id", "skill_id", name="uq_plan_skill_pins_one_pin_per_skill"),
         CheckConstraint("status IN ('planned', 'skipped_not_applicable')", name="status_is_known"),
         # A skipped skill must say why; a planned one carries its policy instead.
         CheckConstraint(

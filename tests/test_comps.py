@@ -51,7 +51,7 @@ from aer.calc.units import (
 
 PERIOD_END = date(2024, 6, 30)
 AS_OF = date(2024, 6, 28)
-SOURCE = SourceRef.fact("test-fact")
+SOURCE = SourceRef.security("test-fact")
 USD = Unit.currency("USD")
 PER_SHARE = USD / Unit.base("shares")
 

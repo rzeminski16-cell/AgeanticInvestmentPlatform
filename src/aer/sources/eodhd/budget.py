@@ -20,7 +20,7 @@ single atomic Redis operation and has no such window.
 **A cap that only warns is not a cap.** Exceeding the allowance raises
 :class:`~aer.fetch.errors.CircuitOpenError` with the seconds until the allowance resets, so
 the caller can be told when to come back rather than being left to retry into a wall. This is
-the same rule `docs/PLAN.md` applies to model spend, for the same reason: the failure this
+the same rule `docs/archive/PLAN.md` applies to model spend, for the same reason: the failure this
 prevents is a quiet one, discovered on an invoice or on a locked account.
 
 **The day is the provider's day.** The key is the UTC date, because that is when the

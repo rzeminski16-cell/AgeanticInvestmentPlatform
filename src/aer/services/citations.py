@@ -79,20 +79,29 @@ async def record_claim(
     text: str,
     financial_fact_id: uuid.UUID | None = None,
     calculation_id: uuid.UUID | None = None,
+    attestation_id: uuid.UUID | None = None,
 ) -> Claim:
     """Write down one assertion a section makes.
+
+    Three figures a numeric claim may name, and exactly one of them: a filing's line, a
+    recorded calculation, or something the operator attested about their own book (ADR
+    0073). Naming two would be a sentence asserting two numbers.
 
     Raises:
         ValidationError: A numeric claim that does not name exactly one figure. The database
             refuses this too, and the check is repeated here so the message says which rule
             was broken rather than quoting a constraint name.
     """
-    named = (financial_fact_id is not None) + (calculation_id is not None)
+    named = (
+        (financial_fact_id is not None)
+        + (calculation_id is not None)
+        + (attestation_id is not None)
+    )
     if kind is ClaimKind.NUMERIC and named != 1:
         message = (
-            "A numeric claim must name exactly one figure — either a financial fact or a "
-            f"calculation, not {named}. No number reaches a report unless something computed "
-            "or reported it."
+            "A numeric claim must name exactly one figure — a financial fact, a calculation "
+            f"or an attestation, not {named}. No number reaches a report unless something "
+            "computed it, reported it, or signed for it."
         )
         raise ValidationError(message, context={"kind": kind.value, "figures_named": named})
     if kind is not ClaimKind.NUMERIC and named:
@@ -108,6 +117,7 @@ async def record_claim(
         text=text,
         financial_fact_id=financial_fact_id,
         calculation_id=calculation_id,
+        attestation_id=attestation_id,
     )
     session.add(claim)
     await session.flush()

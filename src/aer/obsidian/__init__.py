@@ -2,7 +2,7 @@
 
 Postgres and the artefact store are the record; the vault is a view of it that a person
 thinks in. The application never reads vault content back as evidence — the projection
-only flows outward — and the anti-contamination rules of `docs/PLAN.md` section 2.8 are
+only flows outward — and the anti-contamination rules of `docs/archive/PLAN.md` section 2.8 are
 enforced in code here before any convenience is layered on: only approved reports export,
 every write is contained inside the configured vault root with the personal directory
 structurally unreachable, evergreen notes regenerate only above the sentinel, and a prior

@@ -66,7 +66,7 @@ from aer.core.sectors import (
 from aer.eval.replay import registry
 
 ASSUMPTION = SourceRef.assumption("assumption-1")
-FACT = SourceRef.fact("fact-1")
+FACT = SourceRef.financial_fact("fact-1")
 
 BANKS = profile_for("banks")
 assert BANKS is not None
@@ -117,7 +117,7 @@ def base_inputs(**overrides) -> ResidualIncomeInputs:
     return replace(inputs, **overrides) if overrides else inputs
 
 
-# The tolerance `docs/phase-3-plan.md` asks of a discounted aggregate: tight enough that a
+# The tolerance `docs/archive/phase-3-plan.md` asks of a discounted aggregate: tight enough that a
 # wrong discounting convention fails, loose enough for a figure quoted to eight significant
 # figures.
 TOLERANCE = Decimal("0.0001")

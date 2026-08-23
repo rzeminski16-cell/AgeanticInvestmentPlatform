@@ -49,7 +49,7 @@ error that looks entirely plausible on a page.
 
 ## The confirmation gate
 
-`docs/PLAN.md` names UK taxonomy variability as this phase's main risk. The mitigation is a gate,
+`docs/archive/PLAN.md` names UK taxonomy variability as this phase's main risk. The mitigation is a gate,
 and what raises it matters.
 
 **Not "arelle could not resolve the schema"** — offline, that is true of every document, and a

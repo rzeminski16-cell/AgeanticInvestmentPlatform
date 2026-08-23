@@ -21,7 +21,7 @@ There is an obvious cheap answer: filter facts as they are parsed, keeping only 
 on or before the as-of date, and discard the rest. It is one line and it is wrong in two
 distinct ways, described below.
 
-A second question arrived with the first: `docs/PLAN.md` places an `extractions` table
+A second question arrived with the first: `docs/archive/PLAN.md` places an `extractions` table
 between a source document and a fact. That table belongs to the extraction task, which has
 not been built. Facts exist now and need provenance now.
 

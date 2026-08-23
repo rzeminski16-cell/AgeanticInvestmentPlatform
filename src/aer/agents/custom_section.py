@@ -1,6 +1,6 @@
 """The custom-section agent: the operator's prose runs inside the platform's contract.
 
-`docs/PLAN.md` §2.12 and ADR 0037. One structured-output call per section, composed in
+`docs/archive/PLAN.md` §2.12 and ADR 0037. One structured-output call per section, composed in
 the fixed order the user cannot alter: the immutable platform contract leads (the base
 agent puts it there and nothing can displace it), this agent's instruction carries the
 section's output schema, the user message carries the structured evidence, and the

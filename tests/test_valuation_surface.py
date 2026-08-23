@@ -4,7 +4,7 @@ The phase's user-visible outcome, so the tests that matter are about what reache
 rather than about what the code computed.
 
 * **Every figure links to its calculation, and every calculation to its inputs.** Two clicks
-  from a per-share figure to the assumption underneath it — the standard `docs/PLAN.md` set
+  from a per-share figure to the assumption underneath it — the standard `docs/archive/PLAN.md` set
   for evidence in Phase 2, applied to arithmetic. Asserted by walking the hrefs, so a broken
   link fails it.
 * **Nothing is recomputed.** The page reads the run's ledger. A page that re-ran the valuation
@@ -56,7 +56,7 @@ pytestmark = pytest.mark.integration
 
 EMAIL = "valuation@example.invalid"
 ASSUMPTION = SourceRef.assumption("assumption-1")
-FACT = SourceRef.fact("fact-1")
+FACT = SourceRef.financial_fact("fact-1")
 MANDATE = unclassified_mandate(ValuationModel.DCF_FCFF, subject="TESTCO")
 PERIOD_END = date(2024, 6, 30)
 

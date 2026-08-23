@@ -127,6 +127,7 @@ async def _document(session: AsyncSession, *, request_id: Any, job_id: Any) -> S
     session.add(artefact)
     await session.flush()
     document = SourceDocument(
+        work_order_id=request_id,
         request_id=request_id,
         job_id=job_id,
         artefact_id=artefact.id,
@@ -239,7 +240,7 @@ class TestTheRealisedDriver:
     def _statements(self, lines: dict[str, Decimal]) -> Any:
         context = new_context()
         quantities = {
-            concept: Quantity(value=value, unit=USD, source=SourceRef.fact(concept))
+            concept: Quantity(value=value, unit=USD, source=SourceRef.financial_fact(concept))
             for concept, value in lines.items()
         }
         return assemble(context, quantities)

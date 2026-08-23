@@ -1,6 +1,6 @@
 """The theme-proposal role: recurring subjects named with reasons, nothing else.
 
-`docs/knowledge-graph.md` K1, ADR 0065. The comparable relation can say "a run of A named
+`docs/archive/knowledge-graph.md` K1, ADR 0065. The comparable relation can say "a run of A named
 B as a peer"; it cannot say *AI capital expenditure* links a hyperscaler, a fab and a
 utility. Naming that kind of connection is a judgement about the market — the model's half
 of the division of labour — and it enters the graph exactly the way a peer set does:

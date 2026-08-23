@@ -51,9 +51,11 @@ from aer.calc.units import (
     Quantity,
     SourceKind,
     SourceRef,
+    SourceTable,
     Unit,
     UnsourcedValueError,
 )
+from aer.core.enums import Grade
 
 __all__ = [
     "UNKNOWN_CODE_VERSION",
@@ -90,7 +92,14 @@ class CalculationInput:
     unit: str
     source_kind: SourceKind
     source_id: str
+    source_table: SourceTable
     source_label: str = ""
+
+    # Only an attestation has one, and it is written down here rather than looked up later
+    # because this record is what a stored calculation is replayed and graded from. A row
+    # that named an attestation without its grade would leave the reader — and the replay —
+    # asking the database a question the ledger was supposed to have answered.
+    source_grade: Grade | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -100,7 +109,16 @@ class CalculationInput:
             "source": {
                 "kind": self.source_kind.value,
                 "id": self.source_id,
+                # Written for the same reason the unit is a rendered symbol: a reader must
+                # be able to follow this id without asking the application which table it
+                # meant. Rows written before ADR 0076 carry no table, and the resolver
+                # treats their absence as the guess it always was.
+                "table": self.source_table.value,
                 "label": self.source_label,
+                # Absent rather than null for the three kinds that never carry one, so a
+                # stored row says "not applicable" by silence and a reader is not invited
+                # to wonder what a null grade on a filing would mean.
+                **({"grade": self.source_grade.value} if self.source_grade else {}),
             },
         }
 
@@ -158,7 +176,13 @@ class CalculationRecord:
     @property
     def input_sources(self) -> tuple[SourceRef, ...]:
         return tuple(
-            SourceRef(kind=i.source_kind, identifier=i.source_id, label=i.source_label)
+            SourceRef(
+                kind=i.source_kind,
+                identifier=i.source_id,
+                table=i.source_table,
+                label=i.source_label,
+                grade=i.source_grade,
+            )
             for i in self.inputs
         )
 
@@ -497,7 +521,9 @@ def _as_input(argument_name: str, value: Quantity, *, calculation: str) -> Calcu
         unit=value.unit.symbol,
         source_kind=value.source.kind,
         source_id=value.source.identifier,
+        source_table=value.source.table,
         source_label=value.source.label,
+        source_grade=value.source.grade,
     )
 
 

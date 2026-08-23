@@ -1,7 +1,7 @@
 """The evaluation harness: the platform's guarantees, expressed as numbers with thresholds.
 
 Every claim this project makes has been proved once, by a test written the day the feature
-landed. That is not the same as being true tomorrow. §2.10 of ``docs/PLAN.md`` names the
+landed. That is not the same as being true tomorrow. §2.10 of ``docs/archive/PLAN.md`` names the
 measurements that must keep holding, and this package computes ten of them as a
 **blocking gate**: a regression in any one fails the build rather than appearing in a
 report nobody reads. Six arrived with Phase 2; numerical consistency and assumption

@@ -211,7 +211,7 @@ test-shuffled seed="":
 test-cov:
     uv run pytest --ignore=tests/e2e --cov --cov-report=term-missing
 
-# The eight blocking metrics from docs/PLAN.md section 2.10, on their own, together with
+# The eight blocking metrics from docs/archive/PLAN.md section 2.10, on their own, together with
 # the thirty golden calculations they lean on.
 #
 # Inside `test` as well — the gate is ordinary pytest. Runnable alone because "did the

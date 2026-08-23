@@ -32,6 +32,7 @@ from sqlalchemy.orm import selectinload
 from aer.core.enums import ClaimKind, Provider, SourceTier
 from aer.db.models import (
     Artefact,
+    Attestation,
     Calculation,
     Citation,
     Claim,
@@ -41,6 +42,10 @@ from aer.db.models import (
     SectionDefinition,
     SourceDocument,
 )
+
+# What a share count is measured in, matching `aer.calc.prices`. Named rather than written
+# out, so a transaction's quantity and a price calculation's agree by construction.
+_SHARES = "shares"
 
 __all__ = [
     "CitationView",
@@ -223,8 +228,9 @@ class CitationView:
 class FigureView:
     """The figure a numeric claim asserts, and where it came from.
 
-    Either a stored fact or a recorded calculation — invariant 3 permits nothing else, and
-    a claim carrying neither is a number with no lineage, which the schema already refuses.
+    A stored fact, a recorded calculation or an attestation — invariant 3 permits nothing
+    else, and a claim carrying none of the three is a number with no lineage, which the
+    schema already refuses.
     """
 
     kind: str
@@ -496,7 +502,7 @@ async def claim_view(session: AsyncSession, claim_id: uuid.UUID) -> ClaimView | 
 
 
 async def _figure_view(session: AsyncSession, claim: Claim) -> FigureView | None:
-    """The stored fact or recorded calculation a numeric claim names."""
+    """The stored fact, recorded calculation or attestation a numeric claim names."""
     if claim.calculation_id is not None:
         calculation = await session.get(Calculation, claim.calculation_id)
         if calculation is None:  # pragma: no cover -- RESTRICT prevents this
@@ -537,7 +543,69 @@ async def _figure_view(session: AsyncSession, claim: Claim) -> FigureView | None
             },
         )
 
+    if claim.attestation_id is not None:
+        return await _attestation_figure(session, claim.attestation_id)
+
     return None
+
+
+async def _attestation_figure(session: AsyncSession, identifier: uuid.UUID) -> FigureView | None:
+    """What the operator asserted, as the figure a sentence rests on.
+
+    **The figure is the transaction's signed quantity** — what actually moved. A trade
+    carries three numbers and a claim names a row rather than a column, so something has to
+    decide which one the sentence is about, and "how much went in or out" is the only one
+    that is true of every kind: a dividend has no price and a deposit has no security.
+    The price and the fee travel in ``detail`` where a reader can see them.
+
+    The unit follows the same rule the quantity does: units of the security where there is
+    one, and units of the currency otherwise, because a deposit of fifty pounds is fifty
+    pounds and not fifty of anything else.
+
+    ``grade`` is in the detail rather than the value, and it is the field a renderer must
+    read: an ``attested`` figure is one nobody documented, and a surface that showed it
+    without saying so would be making the platform's word into evidence.
+    """
+    # A `select` rather than `session.get`, and the difference is not cosmetic: `get`
+    # returns an identity-map hit *without applying the options*, so a row the caller
+    # already touched comes back with `transaction` unloaded — and reading it then emits a
+    # lazy load, which under asyncio raises `MissingGreenlet` rather than querying. A test
+    # that built the attestation in the same session found it.
+    attestation = await session.scalar(
+        select(Attestation)
+        .where(Attestation.id == identifier)
+        .options(selectinload(Attestation.transaction))
+    )
+    if attestation is None:  # pragma: no cover -- RESTRICT prevents this
+        return None
+
+    trade = attestation.transaction
+    if trade is None:  # pragma: no cover -- `transactions` is the only subtype today
+        return None
+
+    return FigureView(
+        kind="attestation",
+        id=attestation.id,
+        label=f"{trade.kind.value} {trade.trade_date.isoformat()}",
+        value=str(trade.quantity),
+        unit=_SHARES if trade.security_id is not None else trade.currency,
+        detail={
+            "attestation_kind": attestation.kind.value,
+            "grade": attestation.grade.value,
+            "effective_at": attestation.effective_at.isoformat(),
+            "recorded_at": attestation.recorded_at.isoformat(),
+            "recorded_by": attestation.recorded_by,
+            "transaction_kind": trade.kind.value,
+            "trade_date": trade.trade_date.isoformat(),
+            "settlement_date": _iso(trade.settlement_date),
+            "price": str(trade.price) if trade.price is not None else None,
+            "fees": str(trade.fees),
+            "currency": trade.currency,
+            "security_id": str(trade.security_id or ""),
+            "source_document_id": str(attestation.source_document_id or ""),
+            "supersedes_id": str(attestation.supersedes_id or ""),
+        },
+    )
 
 
 def _iso(value: date | datetime | None) -> str | None:

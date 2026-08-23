@@ -22,7 +22,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import Index, Text
+from sqlalchemy import Index, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -46,6 +46,21 @@ class AuditEvent(Base):
     job_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     request_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
 
+    # What the event was about, in the vocabulary ADR 0071's registry closes. The existing
+    # two columns were built when every consequential record was a research record; a trade
+    # entry, a position correction and a thesis edit would each chain against NULL, NULL —
+    # present in the ordering, counted by the verifier, and unreachable by any query asking
+    # what has happened to a position.
+    #
+    # These are added *before* the first row that needs them, and that is the whole point.
+    # `this_hash` is chain_hash(prev_hash, payload), so the correlation sits outside the
+    # digest and two columns can be added without disturbing a single existing chain. What
+    # cannot be done later is filling them: an event written before they existed recorded
+    # its subject nowhere, so a backfill would be an invention, written by UPDATE against a
+    # table whose whole discipline is that rows are appended and never altered.
+    subject_kind: Mapped[str | None] = mapped_column(String(32))
+    subject_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+
     # Who or what acted: a user id, "system", or a worker identifier.
     actor: Mapped[str] = mapped_column(Text, nullable=False)
     event_type: Mapped[str] = mapped_column(Text, nullable=False)
@@ -60,6 +75,7 @@ class AuditEvent(Base):
     __table_args__ = (
         Index("ix_audit_events_job_id_id", "job_id", "id"),
         Index("ix_audit_events_request_id_id", "request_id", "id"),
+        Index("ix_audit_events_subject_id", "subject_kind", "subject_id", "id"),
         Index("ix_audit_events_occurred_at", "occurred_at"),
     )
 

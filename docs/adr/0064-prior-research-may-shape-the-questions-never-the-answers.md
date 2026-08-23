@@ -8,7 +8,7 @@ Status: accepted
 The platform accumulates approved research and, until now, never read it forward: a
 second run of the same company started as blind as the first, re-discovering what changed
 since the last view instead of being asked about it. The knowledge-graph plan
-(`docs/knowledge-graph.md`, K2) calls this the difference between an archive and a
+(`docs/archive/knowledge-graph.md`, K2) calls this the difference between an archive and a
 memory.
 
 Feeding prior conclusions to a model is the single easiest way to corrupt this platform.

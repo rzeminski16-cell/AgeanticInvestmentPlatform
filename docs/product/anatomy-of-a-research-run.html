@@ -1,0 +1,1184 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Self-contained: open this file directly in a browser. Everything it needs is
+     inline except the Google Fonts stylesheet, which falls back cleanly offline. -->
+<title>Anatomy of a Research Run</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground: #F2F3F0;
+    --surface: #FCFCFB;
+    --sunk: #E9EBE7;
+    --ink: #111B1E;
+    --ink-soft: #58686C;
+    --ink-faint: #86999C;
+    --rule: #D6DCDA;
+    --rule-firm: #B9C3C1;
+
+    --code: #0C5A66;
+    --code-wash: #DFEAEC;
+    --model: #8C5C0E;
+    --model-wash: #F1E7D6;
+    --gate: #A3312A;
+    --gate-wash: #F3E1DF;
+    --ok: #2C6740;
+
+    --serif: "Newsreader", Georgia, "Times New Roman", serif;
+    --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+
+    --measure: 34rem;
+    --page: 62rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0D1315;
+      --surface: #141C1F;
+      --sunk: #101819;
+      --ink: #E3EAE8;
+      --ink-soft: #9AACAD;
+      --ink-faint: #6E8082;
+      --rule: #263236;
+      --rule-firm: #3A4A4E;
+
+      --code: #5CC3D2;
+      --code-wash: #12313A;
+      --model: #DFA855;
+      --model-wash: #33270F;
+      --gate: #EC7C71;
+      --gate-wash: #3A1E1C;
+      --ok: #6FBF8C;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0D1315;
+    --surface: #141C1F;
+    --sunk: #101819;
+    --ink: #E3EAE8;
+    --ink-soft: #9AACAD;
+    --ink-faint: #6E8082;
+    --rule: #263236;
+    --rule-firm: #3A4A4E;
+
+    --code: #5CC3D2;
+    --code-wash: #12313A;
+    --model: #DFA855;
+    --model-wash: #33270F;
+    --gate: #EC7C71;
+    --gate-wash: #3A1E1C;
+    --ok: #6FBF8C;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: var(--page);
+    margin: 0 auto;
+    padding: 4rem 1.5rem 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4.5rem;
+  }
+
+  /* ---------- type ---------- */
+
+  h1, h2, h3 { font-family: var(--serif); font-weight: 500; text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(2.6rem, 7vw, 4rem); line-height: 1.02; letter-spacing: -0.02em; }
+  h2 { font-size: clamp(1.6rem, 3.4vw, 2.1rem); line-height: 1.12; letter-spacing: -0.01em; }
+  h3 { font-size: 1.1rem; line-height: 1.3; }
+
+  p { margin: 0; max-width: var(--measure); }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0;
+  }
+
+  .lede {
+    font-family: var(--serif);
+    font-size: 1.3rem;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    max-width: 38rem;
+  }
+
+  .note { font-size: 0.94rem; color: var(--ink-soft); }
+  .mono { font-family: var(--mono); }
+  em.term { font-style: normal; font-family: var(--mono); font-size: 0.9em; color: var(--ink); }
+
+  a { color: var(--code); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--code);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  /* ---------- header ---------- */
+
+  header.masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding-bottom: 2.5rem;
+    border-bottom: 1px solid var(--rule-firm);
+  }
+
+  .doctrine {
+    margin: 1rem 0 0;
+    padding: 1.6rem 1.8rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--code);
+    max-width: 42rem;
+  }
+
+  .doctrine p {
+    font-family: var(--serif);
+    font-size: 1.15rem;
+    line-height: 1.5;
+    max-width: none;
+  }
+
+  .doctrine .attrib {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-top: 0.9rem;
+  }
+
+  /* ---------- sections ---------- */
+
+  section { display: flex; flex-direction: column; gap: 1.5rem; }
+
+  .section-head { display: flex; flex-direction: column; gap: 0.7rem; }
+
+  /* ---------- legend ---------- */
+
+  .legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+
+  .legend-item {
+    background: var(--surface);
+    padding: 1.1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .legend-key {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .swatch { width: 1.1rem; height: 0.55rem; flex: none; }
+  .swatch.code { background: var(--code); }
+  .swatch.model { background: var(--model); }
+  .swatch.gate { background: var(--gate); }
+
+  .legend-item p { font-size: 0.88rem; color: var(--ink-soft); max-width: none; }
+
+  /* ---------- the pipeline rail ---------- */
+
+  .rail {
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    overflow-x: auto;
+  }
+
+  .rail-inner { min-width: 34rem; }
+
+  .step {
+    display: grid;
+    grid-template-columns: 3.1rem 1.6rem 1fr auto;
+    align-items: start;
+    gap: 0 0.9rem;
+    padding: 0.7rem 1.1rem 0.7rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .step:last-child { border-bottom: 0; }
+
+  .step-n {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-faint);
+    text-align: right;
+    padding-top: 0.25rem;
+  }
+
+  /* the lane gutter: a continuous spine with a node on it */
+  .lane {
+    position: relative;
+    align-self: stretch;
+    min-height: 1.9rem;
+  }
+
+  .lane::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -0.75rem;
+    bottom: -0.75rem;
+    width: 1px;
+    background: var(--rule-firm);
+    transform: translateX(-50%);
+  }
+
+  .lane::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0.45rem;
+    width: 0.6rem;
+    height: 0.6rem;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: var(--code);
+  }
+
+  .step.is-model .lane::after {
+    background: var(--model);
+    border-radius: 0;
+    transform: translateX(-50%) rotate(45deg);
+  }
+
+  .step-body { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+
+  .step-key {
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--ink);
+    word-break: break-word;
+  }
+
+  .step-what { font-size: 0.86rem; color: var(--ink-soft); max-width: 34rem; }
+
+  .step-agent {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    color: var(--model);
+    letter-spacing: 0.02em;
+  }
+
+  .cost {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-faint);
+    padding-top: 0.3rem;
+    white-space: nowrap;
+  }
+
+  /* gates interrupt the rail */
+  .gate-bar {
+    display: grid;
+    grid-template-columns: 3.1rem 1fr;
+    gap: 0 0.9rem;
+    align-items: start;
+    padding: 0.85rem 1.1rem 0.9rem 0;
+    background: var(--gate-wash);
+    border-top: 1px solid var(--gate);
+    border-bottom: 1px solid var(--gate);
+  }
+
+  .gate-bar + .step { border-top: 0; }
+
+  .gate-n {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--gate);
+    text-align: right;
+    padding-top: 0.2rem;
+  }
+
+  .gate-body { display: flex; flex-direction: column; gap: 0.2rem; }
+
+  .gate-name {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--gate);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.6rem;
+  }
+
+  .when {
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    color: var(--ink-soft);
+    font-size: 0.74rem;
+  }
+
+  .gate-ask {
+    font-family: var(--serif);
+    font-size: 1rem;
+    color: var(--ink);
+    max-width: 36rem;
+  }
+
+  .fan {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin: 0;
+    padding: 0.55rem 1.1rem 0.55rem 3.1rem;
+    background: var(--sunk);
+    border-bottom: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  .fan::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--rule-firm);
+  }
+
+  /* ---------- agents ---------- */
+
+  .agents {
+    display: grid;
+    /* Two columns at full width, one when narrow — eight agents divide evenly into
+       both, so the grid never leaves a hollow cell showing the rule colour. */
+    grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+
+  .agent {
+    background: var(--surface);
+    padding: 1.3rem 1.3rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+
+  .agent-top { display: flex; flex-direction: column; gap: 0.3rem; }
+
+  .agent-name {
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--model);
+  }
+
+  .agent-meta {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .agent-meta span { white-space: nowrap; }
+
+  .agent-asked {
+    font-family: var(--serif);
+    font-size: 1.02rem;
+    line-height: 1.45;
+    max-width: none;
+  }
+
+  .agent-guard {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    max-width: none;
+    padding-top: 0.7rem;
+    border-top: 1px dashed var(--rule-firm);
+  }
+
+  .guard-label {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--code);
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+
+  /* ---------- provenance ---------- */
+
+  .chain-wrap {
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    padding: 1.5rem 1rem;
+    overflow-x: auto;
+  }
+
+  .chain-wrap svg { display: block; margin: 0 auto; min-width: 40rem; }
+
+  .chain-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; }
+  .chain-sub { font-family: var(--mono); font-size: 9.5px; }
+  .chain-edge { font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; }
+
+  /* ---------- output ---------- */
+
+  .outputs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+
+  .output {
+    background: var(--surface);
+    padding: 1.1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .output-name {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--code);
+  }
+
+  .output p { font-size: 0.87rem; color: var(--ink-soft); max-width: none; }
+
+  .ledger {
+    border: 1px solid var(--rule);
+    background: var(--sunk);
+    padding: 1.3rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .ledger-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    font-family: var(--mono);
+    font-size: 0.86rem;
+    font-variant-numeric: tabular-nums;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px dotted var(--rule-firm);
+  }
+
+  .ledger-row:last-of-type { border-bottom: 0; padding-bottom: 0; }
+  .ledger-row .figure { font-weight: 600; }
+  .ledger-row.total .figure { color: var(--model); }
+
+  /* ---------- refusals ---------- */
+
+  .refusals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
+
+  .refusals li {
+    display: grid;
+    grid-template-columns: 1.9rem 1fr;
+    gap: 0.6rem;
+    align-items: baseline;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--rule);
+    font-family: var(--serif);
+    font-size: 1.05rem;
+    max-width: 44rem;
+  }
+
+  .refusals li:last-child { border-bottom: 0; }
+
+  .refusals .x {
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    color: var(--gate);
+    font-weight: 600;
+  }
+
+  /* ---------- footer ---------- */
+
+  footer {
+    border-top: 1px solid var(--rule-firm);
+    padding-top: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+
+  footer p { font-size: 0.86rem; color: var(--ink-faint); max-width: 42rem; }
+
+  .disclaimer {
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    letter-spacing: 0.03em;
+    color: var(--gate);
+  }
+
+  @media (max-width: 34rem) {
+    .step { grid-template-columns: 2.2rem 1.2rem 1fr; padding-right: 0.8rem; }
+    .cost { grid-column: 3; padding-top: 0.2rem; }
+    .gate-bar { grid-template-columns: 2.2rem 1fr; }
+    .page { padding: 2.5rem 1.1rem 4rem; gap: 3.5rem; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="masthead">
+    <p class="eyebrow">Ageiantic Equity Research Platform</p>
+    <h1>Anatomy of a Research Run</h1>
+    <p class="lede">
+      Twenty-five steps turn one company name into one institutional-style research report.
+      Six of them stop and wait for you. Here is what happens in between, and who is
+      allowed to do what.
+    </p>
+    <div class="doctrine">
+      <p>
+        Deterministic Python owns every number and every fact. The language model owns
+        planning, interpretation, comparison, adversarial challenge and writing.
+      </p>
+      <p class="attrib">The rule everything else follows from</p>
+    </div>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <p class="eyebrow">Reading the diagram</p>
+      <h2>Three kinds of work, kept apart on purpose</h2>
+      <p class="note">
+        The colours below run through every diagram on this page. The typography carries
+        the same distinction: anything set in <span class="mono">monospace</span> is a name
+        the code knows — a step, a role, a stored value. Anything in serif is prose a person
+        or a model wrote.
+      </p>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item">
+        <p class="legend-key"><span class="swatch code"></span> Deterministic</p>
+        <p>
+          Fetching, hashing, parsing, all arithmetic, unit conversion, point-in-time
+          filtering, citation verification. Tested, repeatable, and the only thing allowed
+          to produce a number.
+        </p>
+      </div>
+      <div class="legend-item">
+        <p class="legend-key"><span class="swatch model"></span> Model call</p>
+        <p>
+          Planning, judging relevance, proposing an assumption with reasons, writing prose
+          from evidence code assembled, and attacking the finished thesis. Never arithmetic.
+        </p>
+      </div>
+      <div class="legend-item">
+        <p class="legend-key"><span class="swatch gate"></span> Your decision</p>
+        <p>
+          A full stop. The run pauses and spends nothing further until you answer. What you
+          were shown is hashed, so approving one thing and running another is refused.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <p class="eyebrow">Part one — the pipeline</p>
+      <h2>The whole run, top to bottom</h2>
+      <p class="note">
+        The order and the cost estimates below are what <span class="mono">build_steps()</span>
+        declares; nothing here is a hand-kept copy. Steps that share prerequisites run at the
+        same time — the five research workers are one such fan-out.
+      </p>
+    </div>
+
+    <div class="rail">
+      <div class="rail-inner">
+
+        <div class="step is-model">
+          <div class="step-n">01</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">plan</span>
+            <span class="step-agent">planner · Opus, high effort</span>
+            <span class="step-what">Proposes which sections to write, which sources to consult and which risks to chase — before a single page is fetched or a penny spent.</span>
+          </div>
+          <div class="cost">£0.15</div>
+        </div>
+
+        <div class="gate-bar">
+          <div class="gate-n">◼</div>
+          <div class="gate-body">
+            <p class="gate-name">Gate · Plan <span class="when">always</span></p>
+            <p class="gate-ask">Is this the right research? Change it now, while it is still free.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-n">03</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">acquire</span>
+            <span class="step-what">Fetches filings and XBRL company facts from EDGAR under rate limits and robots rules. Every response is hashed and stored before anything reads it.</span>
+          </div>
+          <div class="cost"></div>
+        </div>
+
+        <div class="step">
+          <div class="step-n">04</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">classify</span>
+            <span class="step-what">Reads the filed SIC code to decide whether this is a bank, an insurer or a REIT — which decides which valuation models are permitted at all.</span>
+          </div>
+          <div class="cost"></div>
+        </div>
+
+        <div class="gate-bar">
+          <div class="gate-n">◼</div>
+          <div class="gate-body">
+            <p class="gate-name">Gate · Sector specialist <span class="when">only when the sector needs it</span></p>
+            <p class="gate-ask">This looks like a financial. Confirm, because a discounted cash flow on a bank will be blocked rather than footnoted.</p>
+          </div>
+        </div>
+
+        <div class="step is-model">
+          <div class="step-n">06</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">propose_peers</span>
+            <span class="step-agent">peer_proposal · Sonnet, medium effort</span>
+            <span class="step-what">Names up to eight comparable companies by ticker, each with a written reason. Code then resolves every ticker against EDGAR's registry; one that does not resolve is refused and never fetched.</span>
+          </div>
+          <div class="cost">£0.05</div>
+        </div>
+
+        <div class="gate-bar">
+          <div class="gate-n">◼</div>
+          <div class="gate-body">
+            <p class="gate-name">Gate · Peer set <span class="when">when peers were proposed</span></p>
+            <p class="gate-ask">Which companies is this one measured against? A wrong peer moves a median without ever showing itself.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-n">08</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">acquire_prices</span>
+            <span class="step-what">Price history for the company and its market, and a beta regressed from them — so the cost of capital rests on measured data rather than a number typed in by hand.</span>
+          </div>
+          <div class="cost"></div>
+        </div>
+
+        <div class="step">
+          <div class="step-n">09</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">extract</span>
+            <span class="step-what">Pulls facts and exact character spans out of the stored documents. Each span is the evidence a later citation will be re-checked against.</span>
+          </div>
+          <div class="cost"></div>
+        </div>
+
+        <div class="gate-bar">
+          <div class="gate-n">◼</div>
+          <div class="gate-body">
+            <p class="gate-name">Gate · UK financials <span class="when">when a filing used unknown tags</span></p>
+            <p class="gate-ask">This filer tagged concepts the map does not recognise. Confirm before they are dropped, rather than losing them silently.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-n">11</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">calculate</span>
+            <span class="step-what">Statements, ratios and earnings-quality measures. Every result stores its formula, its inputs with units and sources, and the version of the code that produced it.</span>
+          </div>
+          <div class="cost"></div>
+        </div>
+
+        <p class="fan"><span>Five research workers run at the same time from here</span></p>
+
+        <div class="step is-model">
+          <div class="step-n">12</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">research_company</span>
+            <span class="step-agent">analysis · Sonnet, medium effort</span>
+            <span class="step-what">The business itself: what it sells, to whom, and how that has moved.</span>
+          </div>
+          <div class="cost">£0.10</div>
+        </div>
+
+        <div class="step is-model">
+          <div class="step-n">13</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">research_industry</span>
+            <span class="step-agent">analysis · Sonnet, medium effort</span>
+            <span class="step-what">Competitive position, structure and where the pressure is coming from.</span>
+          </div>
+          <div class="cost">£0.10</div>
+        </div>
+
+        <div class="step is-model">
+          <div class="step-n">14</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">research_macro</span>
+            <span class="step-agent">analysis · Sonnet, medium effort</span>
+            <span class="step-what">Rates, inflation and the conditions the valuation will have to survive.</span>
+          </div>
+          <div class="cost">£0.10</div>
+        </div>
+
+        <div class="step is-model">
+          <div class="step-n">15</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">research_recent_developments</span>
+            <span class="step-agent">analysis · Sonnet, medium effort</span>
+            <span class="step-what">What has happened lately — and, in point-in-time mode, only what had happened by your as-of date.</span>
+          </div>
+          <div class="cost">£0.10</div>
+        </div>
+
+        <div class="step is-model">
+          <div class="step-n">16</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">research_technical_context</span>
+            <span class="step-agent">analysis · Sonnet, medium effort</span>
+            <span class="step-what">The domain detail a generalist would miss: how this industry actually books revenue and measures itself.</span>
+          </div>
+          <div class="cost">£0.10</div>
+        </div>
+
+        <p class="fan"><span>Back to a single line</span></p>
+
+        <div class="step">
+          <div class="step-n">17</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">comps</span>
+            <span class="step-what">Trading multiples for the approved peers, and the subject's own history of them. Medians computed in code, from stored facts.</span>
+          </div>
+          <div class="cost"></div>
+        </div>
+
+        <div class="step is-model">
+          <div class="step-n">18</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">propose_assumptions</span>
+            <span class="step-agent">assumption_proposal · Opus, high effort</span>
+            <span class="step-what">The two numbers no filing can answer: the perpetual growth rate and the exit multiple. Proposed with reasons; a value outside the bounds code sets is dropped, never quietly clamped.</span>
+          </div>
+          <div class="cost">£0.20</div>
+        </div>
+
+        <div class="gate-bar">
+          <div class="gate-n">◼</div>
+          <div class="gate-body">
+            <p class="gate-name">Gate · Assumptions <span class="when">when the valuation needs one</span></p>
+            <p class="gate-ask">Every number the valuation rests on that no filing answers — with the reasoning behind each, for you to accept, change or reject.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-n">20</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">value</span>
+            <span class="step-what">Cost of capital, the discounted cash flow, scenarios and sensitivities. Forty lines of tested Python — deliberately not a reasoning task.</span>
+          </div>
+          <div class="cost"></div>
+        </div>
+
+        <div class="step is-model">
+          <div class="step-n">21</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">draft</span>
+            <span class="step-agent">report_writer · Opus, high effort · sixteen sections</span>
+            <span class="step-what">Each section is written once, from an evidence pack code assembled for it, against a schema that names every field. The most expensive step by an order of magnitude.</span>
+          </div>
+          <div class="cost">£6.00</div>
+        </div>
+
+        <div class="step is-model">
+          <div class="step-n">22</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">validate</span>
+            <span class="step-agent">validator · Sonnet — advisory only</span>
+            <span class="step-what">Thirteen metrics scored, every citation re-read against the archived bytes, and the two sections that must never be paraphrased filled by code instead.</span>
+          </div>
+          <div class="cost">£0.05</div>
+        </div>
+
+        <div class="step is-model">
+          <div class="step-n">23</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">red_team</span>
+            <span class="step-agent">red_team · Opus, high effort</span>
+            <span class="step-what">A fresh context attacks the thesis. It sees the claims and the evidence index — never the conversation that produced them, so it cannot inherit the drafting model's blind spots.</span>
+          </div>
+          <div class="cost">£1.00</div>
+        </div>
+
+        <div class="gate-bar">
+          <div class="gate-n">◼</div>
+          <div class="gate-body">
+            <p class="gate-name">Gate · Final <span class="when">always</span></p>
+            <p class="gate-ask">The finished draft, with its unsupported claims, failed metrics and the red team's best shots shown rather than buried. Approve, and only then is a PDF made.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-n">25</div>
+          <div class="lane"></div>
+          <div class="step-body">
+            <span class="step-key">render</span>
+            <span class="step-what">One document, three renderings. The PDF is made from the archived HTML bytes rather than from the object in memory, so what freezes is provably the thing that was approved.</span>
+          </div>
+          <div class="cost"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <p class="note">
+      A seventh gate is not in the sequence at all: <span class="mono">BUDGET</span> can
+      interrupt at any point, when the metered spend would cross the run's ceiling. It asks
+      one question — continue, or stop here?
+    </p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <p class="eyebrow">Part two — the agents</p>
+      <h2>Eight roles, each with one job and a leash</h2>
+      <p class="note">
+        An agent here is a narrow thing: one role, one output contract, one list of tools it
+        may ask for. All of that is <em>data in a registry</em>, not something a class can
+        declare about itself — so the only way to widen what an agent may do is to change
+        the registry, in a commit, with an architecture decision record attached.
+      </p>
+    </div>
+
+    <div class="agents">
+
+      <div class="agent">
+        <div class="agent-top">
+          <p class="agent-name">planner</p>
+          <p class="agent-meta"><span>Opus · high</span><span>no tools</span><span>ADR 0035</span></p>
+        </div>
+        <p class="agent-asked">Which sections, which sources, which risks — decided before anything is fetched.</p>
+        <p class="agent-guard"><span class="guard-label">What stops it inventing</span>It holds no tools and may not state a finding. Its plan is prose about intent, and a person approves it before any money moves.</p>
+      </div>
+
+      <div class="agent">
+        <div class="agent-top">
+          <p class="agent-name">analysis</p>
+          <p class="agent-meta"><span>Sonnet · medium</span><span>4 tools</span><span>ADR 0036</span></p>
+        </div>
+        <p class="agent-asked">Five workers, one topic each: the company, its industry, the macro backdrop, recent events, technical context.</p>
+        <p class="agent-guard"><span class="guard-label">What stops it inventing</span>It never calls a tool. It <em>requests</em> one in a schema and code decides whether that request is permitted, then executes it. Findings must name evidence; a figure of its own is not a valid output.</p>
+      </div>
+
+      <div class="agent">
+        <div class="agent-top">
+          <p class="agent-name">peer_proposal</p>
+          <p class="agent-meta"><span>Sonnet · medium</span><span>no tools</span><span>ADR 0059</span></p>
+        </div>
+        <p class="agent-asked">Comparable companies, each named by ticker with a reason for being on the list.</p>
+        <p class="agent-guard"><span class="guard-label">What stops it inventing</span>A ticker is a claim about the world, so code checks it: every one is resolved against EDGAR's registry, and a name that does not resolve is refused before a single request goes out.</p>
+      </div>
+
+      <div class="agent">
+        <div class="agent-top">
+          <p class="agent-name">assumption_proposal</p>
+          <p class="agent-meta"><span>Opus · high</span><span>no tools</span><span>ADR 0046</span></p>
+        </div>
+        <p class="agent-asked">Exactly two numbers no filing answers: the perpetual growth rate, and the exit multiple.</p>
+        <p class="agent-guard"><span class="guard-label">What stops it inventing</span>Its schema has two fields and no others, so it cannot volunteer a third. Values outside code-set bounds are dropped rather than clamped — a silently corrected assumption is worse than a missing one.</p>
+      </div>
+
+      <div class="agent">
+        <div class="agent-top">
+          <p class="agent-name">report_writer</p>
+          <p class="agent-meta"><span>Opus · high</span><span>no tools</span><span>ADR 0042</span></p>
+        </div>
+        <p class="agent-asked">One built-in section at a time, written from the structured evidence pack code assembled for it.</p>
+        <p class="agent-guard"><span class="guard-label">What stops it inventing</span>No tools, so it writes only from what it was handed. Every numeral in the prose must resolve to a stored fact or a recorded calculation, or the draft does not stand.</p>
+      </div>
+
+      <div class="agent">
+        <div class="agent-top">
+          <p class="agent-name">custom_section</p>
+          <p class="agent-meta"><span>Sonnet · medium</span><span>3 tools</span><span>ADR 0037</span></p>
+        </div>
+        <p class="agent-asked">A section you wrote the instructions for, drafted under the policy those instructions compose into.</p>
+        <p class="agent-guard"><span class="guard-label">What stops it inventing</span>Your instructions are additive only — enforced structurally, not by asking nicely. No wording in a skill file can switch citations off, set a rating, or step around the point-in-time rules.</p>
+      </div>
+
+      <div class="agent">
+        <div class="agent-top">
+          <p class="agent-name">validator</p>
+          <p class="agent-meta"><span>Sonnet · medium</span><span>no tools</span><span>ADR 0038</span></p>
+        </div>
+        <p class="agent-asked">Help where the deterministic verifier could not settle something — usually locating a candidate excerpt for a claim.</p>
+        <p class="agent-guard"><span class="guard-label">What stops it inventing</span>It is advisory by construction: no verdict field is writable from its output. It can point at a passage; only code decides whether the passage says what the claim says.</p>
+      </div>
+
+      <div class="agent">
+        <div class="agent-top">
+          <p class="agent-name">red_team</p>
+          <p class="agent-meta"><span>Opus · high</span><span>no tools</span><span>ADR 0039</span></p>
+        </div>
+        <p class="agent-asked">Attack the thesis. Scored, evidence-cited challenges to what the report concluded.</p>
+        <p class="agent-guard"><span class="guard-label">What stops it inventing</span>It runs in a separate context and is shown the claims and the evidence index only. Every challenge must cite, so it cannot object by assertion any more than the draft could assert by assertion.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <p class="eyebrow">Part three — provenance</p>
+      <h2>How a filing becomes a sentence you can trust</h2>
+      <p class="note">
+        This is the chain the whole platform exists to protect, and every link in it is code.
+        The model may <em>propose</em> a citation; only code may confirm one, by re-reading
+        the stored document by its hash and checking the quoted words are really in it.
+      </p>
+    </div>
+
+    <div class="chain-wrap">
+      <svg viewBox="0 0 940 336" role="img" aria-labelledby="chain-title chain-desc">
+        <title id="chain-title">The provenance chain</title>
+        <desc id="chain-desc">
+          A filing is fetched and stored as an artefact addressed by its sha256 hash.
+          Parsing the artefact yields financial facts; locating text in it yields
+          extractions, which are exact character spans. Facts feed calculations, which
+          record their formula and inputs. Facts, calculations and extractions all feed a
+          claim in the report. Before publication the claim is verified by re-reading the
+          stored artefact by hash and checking the quoted words appear: if they do, the
+          claim stands; if they do not, the report is blocked.
+        </desc>
+
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--rule-firm)"></path>
+          </marker>
+          <marker id="arrow-check" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--gate)"></path>
+          </marker>
+        </defs>
+
+        <!-- connectors, drawn first so every box sits on top of its own lines -->
+        <g stroke="var(--rule-firm)" stroke-width="1" fill="none" marker-end="url(#arrow)">
+          <path d="M 126 75 L 168 75"></path>
+          <path d="M 310 75 L 354 75"></path>
+          <path d="M 496 75 L 540 75"></path>
+          <path d="M 682 75 L 726 75"></path>
+          <path d="M 240 100 L 240 144"></path>
+          <path d="M 426 100 L 426 122 L 760 122 L 760 98"></path>
+          <path d="M 310 171 L 800 171 L 800 98"></path>
+          <path d="M 860 100 L 860 230"></path>
+        </g>
+
+        <!-- 1 · the filing, outside the system until it is fetched -->
+        <rect x="16" y="50" width="110" height="50" fill="none" stroke="var(--rule-firm)"
+              stroke-width="1" stroke-dasharray="3 3"></rect>
+        <text x="71" y="72" text-anchor="middle" class="chain-label" fill="var(--ink-soft)">EDGAR</text>
+        <text x="71" y="87" text-anchor="middle" class="chain-sub" fill="var(--ink-faint)">a filing</text>
+        <text x="147" y="65" text-anchor="middle" class="chain-edge" fill="var(--ink-faint)">fetch</text>
+
+        <!-- 2 · the artefact -->
+        <rect x="170" y="50" width="140" height="50" fill="var(--code-wash)" stroke="var(--code)" stroke-width="1"></rect>
+        <text x="240" y="72" text-anchor="middle" class="chain-label" fill="var(--code)">Artefact</text>
+        <text x="240" y="87" text-anchor="middle" class="chain-sub" fill="var(--ink-soft)">stored by sha256</text>
+        <text x="332" y="65" text-anchor="middle" class="chain-edge" fill="var(--ink-faint)">parse</text>
+
+        <!-- 3a · facts -->
+        <rect x="356" y="50" width="140" height="50" fill="var(--code-wash)" stroke="var(--code)" stroke-width="1"></rect>
+        <text x="426" y="72" text-anchor="middle" class="chain-label" fill="var(--code)">Financial fact</text>
+        <text x="426" y="87" text-anchor="middle" class="chain-sub" fill="var(--ink-soft)">value · unit · period</text>
+
+        <!-- 3b · extractions -->
+        <rect x="170" y="144" width="140" height="50" fill="var(--code-wash)" stroke="var(--code)" stroke-width="1"></rect>
+        <text x="240" y="166" text-anchor="middle" class="chain-label" fill="var(--code)">Extraction</text>
+        <text x="240" y="181" text-anchor="middle" class="chain-sub" fill="var(--ink-soft)">exact character span</text>
+        <text x="276" y="128" text-anchor="start" class="chain-edge" fill="var(--ink-faint)">locate</text>
+
+        <!-- 4 · calculations -->
+        <rect x="540" y="50" width="142" height="50" fill="var(--code-wash)" stroke="var(--code)" stroke-width="1"></rect>
+        <text x="611" y="70" text-anchor="middle" class="chain-label" fill="var(--code)">Calculation</text>
+        <text x="611" y="84" text-anchor="middle" class="chain-sub" fill="var(--ink-soft)">formula · inputs</text>
+        <text x="611" y="95" text-anchor="middle" class="chain-sub" fill="var(--ink-soft)">code version</text>
+        <text x="611" y="38" text-anchor="middle" class="chain-edge" fill="var(--ink-faint)">arithmetic, in code</text>
+
+        <!-- 5 · the claim -->
+        <rect x="726" y="48" width="176" height="52" fill="var(--surface)" stroke="var(--ink-soft)" stroke-width="1"></rect>
+        <text x="814" y="70" text-anchor="middle" class="chain-label" fill="var(--ink)">Claim in the report</text>
+        <text x="814" y="86" text-anchor="middle" class="chain-sub" fill="var(--ink-soft)">with its citations</text>
+
+        <!-- 6 · verification -->
+        <rect x="600" y="230" width="324" height="66" fill="var(--gate-wash)" stroke="var(--gate)" stroke-width="1"></rect>
+        <text x="762" y="253" text-anchor="middle" class="chain-label" fill="var(--gate)">Verify before publishing</text>
+        <text x="762" y="269" text-anchor="middle" class="chain-sub" fill="var(--ink-soft)">re-read the artefact by its hash —</text>
+        <text x="762" y="283" text-anchor="middle" class="chain-sub" fill="var(--ink-soft)">do the quoted words actually appear?</text>
+
+        <g stroke="var(--gate)" stroke-width="1" fill="none" marker-end="url(#arrow-check)">
+          <path d="M 598 248 L 566 248"></path>
+          <path d="M 598 280 L 566 280"></path>
+        </g>
+
+        <rect x="300" y="228" width="264" height="40" fill="none" stroke="var(--ok)" stroke-width="1"></rect>
+        <text x="432" y="245" text-anchor="middle" class="chain-label" fill="var(--ok)">Yes — the claim stands</text>
+        <text x="432" y="259" text-anchor="middle" class="chain-sub" fill="var(--ink-soft)">it goes into the report</text>
+
+        <rect x="300" y="278" width="264" height="42" fill="none" stroke="var(--gate)" stroke-width="1" stroke-dasharray="4 3"></rect>
+        <text x="432" y="296" text-anchor="middle" class="chain-label" fill="var(--gate)">No — the report is blocked</text>
+        <text x="432" y="310" text-anchor="middle" class="chain-sub" fill="var(--ink-soft)">not footnoted, not softened</text>
+      </svg>
+    </div>
+
+    <p class="note">
+      Two properties fall out of the shape. <strong>Point-in-time is enforced at
+      acquisition</strong>, not at reading — a document published after your as-of date never
+      enters the run, so no later code path can use it by forgetting to check. And
+      <strong>units travel with the arithmetic</strong>: a mismatch raises rather than
+      coercing, which is what stops a whole-company figure being divided by a per-share one.
+      That error is wrong by the entire share count and looks completely ordinary on the page.
+    </p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <p class="eyebrow">Part four — the end product</p>
+      <h2>What you are left holding</h2>
+    </div>
+
+    <div class="outputs">
+      <div class="output">
+        <p class="output-name">Markdown</p>
+        <p>The report as source: eighteen sections, every figure carrying its citation.</p>
+      </div>
+      <div class="output">
+        <p class="output-name">HTML</p>
+        <p>The same document rendered and archived — the bytes, hashed, not just the page.</p>
+      </div>
+      <div class="output">
+        <p class="output-name">PDF</p>
+        <p>Frozen from those archived bytes, and only ever for a report you approved.</p>
+      </div>
+      <div class="output">
+        <p class="output-name">The audit trail</p>
+        <p>Every artefact fetched, fact stored, calculation with its formula, claim with its citations, thirteen metric scores, the red team's challenges, and one cost row per model call.</p>
+      </div>
+    </div>
+
+    <div class="ledger">
+      <p class="eyebrow">Projected model spend, shown at the plan gate</p>
+      <div class="ledger-row"><span>Drafting sixteen sections</span><span class="figure">£6.00</span></div>
+      <div class="ledger-row"><span>Red team</span><span class="figure">£1.00</span></div>
+      <div class="ledger-row"><span>Five research workers</span><span class="figure">£0.50</span></div>
+      <div class="ledger-row"><span>Assumptions</span><span class="figure">£0.20</span></div>
+      <div class="ledger-row"><span>Plan</span><span class="figure">£0.15</span></div>
+      <div class="ledger-row"><span>Peers and validation</span><span class="figure">£0.10</span></div>
+      <div class="ledger-row total"><span>Projected total</span><span class="figure">£7.95</span></div>
+    </div>
+
+    <p class="note">
+      The estimate is deliberately coarse and deliberately <em>pre-run</em> — it is what the
+      plan gate shows you before a penny is spent. What is enforced afterwards is the real
+      metered spend, checked in code before every step. A cap that only warned would be a cap
+      that did not work.
+    </p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <p class="eyebrow">Part five</p>
+      <h2>What it refuses to do</h2>
+      <p class="note">Worth stating plainly, because the refusals are the design.</p>
+    </div>
+
+    <ul class="refusals">
+      <li><span class="x">✕</span><span>Print a figure it cannot trace to a filing or to a formula.</span></li>
+      <li><span class="x">✕</span><span>Compare against peers nobody agreed to.</span></li>
+      <li><span class="x">✕</span><span>Run a discounted cash flow on a bank — the sector model blocks it rather than footnoting it.</span></li>
+      <li><span class="x">✕</span><span>Publish a report whose citations do not verify against the archived bytes.</span></li>
+      <li><span class="x">✕</span><span>Treat a fetched page as an instruction. Untrusted content is wrapped and labelled as data, and tool permission is enforced in code — so text in a document cannot cause a call the agent's role does not already allow.</span></li>
+      <li><span class="x">✕</span><span>Spend past its ceiling because one step looked cheap.</span></li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>
+      The companion notebook, <span class="mono">docs/developers/notebooks/how-a-run-works.ipynb</span>,
+      walks the same ground by reading the live codebase — the step order, the agent registry
+      and the cost estimates on this page all come from there, so re-running it is how you
+      check this page has not gone stale.
+    </p>
+    <p class="disclaimer">
+      Not regulated investment advice. A personal research tool.
+    </p>
+  </footer>
+
+</div>
+</body>
+</html>

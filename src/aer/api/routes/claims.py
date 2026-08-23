@@ -81,7 +81,7 @@ async def _is_visible(session: DbSession, *, claim_id: uuid.UUID, user_id: uuid.
     """Whether this claim belongs to a run of the asking user's own request."""
     owner = await session.scalar(
         select(ResearchRequest.user_id)
-        .join(Job, Job.request_id == ResearchRequest.id)
+        .join(Job, Job.work_order_id == ResearchRequest.id)
         .join(ReportSection, ReportSection.job_id == Job.id)
         .join(Claim, Claim.report_section_id == ReportSection.id)
         .where(Claim.id == claim_id)

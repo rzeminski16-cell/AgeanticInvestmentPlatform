@@ -1,6 +1,6 @@
 """The section writer: one built-in section from the run's structured evidence.
 
-`docs/PLAN.md` §1.8's `report_writer` role, admitted by ADR 0042. The shape is the
+`docs/archive/PLAN.md` §1.8's `report_writer` role, admitted by ADR 0042. The shape is the
 custom-section agent's — one structured-output call, content against the section's
 contract, claims proposing their evidence by id — with two deliberate differences:
 

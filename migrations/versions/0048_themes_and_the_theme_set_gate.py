@@ -1,6 +1,6 @@
 """Themes: cross-company edges a model proposes and a person confirms.
 
-`docs/knowledge-graph.md` K1, ADR 0065. The comparable relation cannot express *AI capital
+`docs/archive/knowledge-graph.md` K1, ADR 0065. The comparable relation cannot express *AI capital
 expenditure* linking a hyperscaler, a fab and a utility; a theme can, and it enters the
 graph the way a peer set does — through a gate.
 

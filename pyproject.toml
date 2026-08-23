@@ -13,7 +13,7 @@ classifiers = [
 ]
 
 # Runtime dependencies stay deliberately lean. FastAPI, anthropic and every
-# data-provider client arrive in later tasks, as set out in docs/PLAN.md (Stage 4).
+# data-provider client arrive in later tasks, as set out in docs/archive/PLAN.md (Stage 4).
 dependencies = [
   "structlog>=24.4",
   "pydantic>=2.9",

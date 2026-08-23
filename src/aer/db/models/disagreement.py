@@ -75,7 +75,7 @@ class Disagreement(Base):
         _enum(ResolutionOutcome, "resolution_outcome"), nullable=False
     )
 
-    # Which rung fired, and who settled it. `docs/PLAN.md` puts both in one text column;
+    # Which rung fired, and who settled it. `docs/archive/PLAN.md` puts both in one text column;
     # split here because "how often does the tier rule decide our numbers?" and "how often
     # does a human have to?" are different questions and both are worth asking.
     rule: Mapped[ResolutionRule] = mapped_column(_enum(ResolutionRule, "resolution_rule"))
@@ -103,7 +103,7 @@ class Disagreement(Base):
     # anywhere is an escalation that quietly did nothing.
     escalated_to_gate: Mapped[GateKind | None] = mapped_column(_enum(GateKind, "gate_kind"))
 
-    # A credible-source conflict per `docs/PLAN.md` section 2.4. Raises the banner at gate
+    # A credible-source conflict per `docs/archive/PLAN.md` section 2.4. Raises the banner at gate
     # 2; see `aer.core.disagreement.Resolution.material` for what it does and does not mean.
     material: Mapped[bool] = mapped_column(
         nullable=False, default=False, server_default=text("false")

@@ -1,0 +1,42 @@
+{#
+  The provenance badges. ADR 0077.
+
+  **This file is the only place the label strings may appear.** A test greps every template
+  and fails if one is typed anywhere else, which is the same enforcement ADR 0013 uses for
+  section keys: the required `ref` means a badge cannot be built without somewhere to point,
+  and the grep means one cannot be typed around the macro instead.
+
+  Both macros take a `ProvenanceRef` and no classes. A caller choosing its own colour is a
+  caller that can render "Calculated" in the palette of "Judged", and the difference between
+  those two is the entire point of showing a badge at all.
+#}
+
+{% macro provenance(ref) %}
+<a
+  href="{{ ref.href }}"
+  class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium
+    {% if ref.kind.value == 'Source fact' %}border-good-ink/30 bg-good-wash text-good-ink
+    {% elif ref.kind.value == 'Calculated' %}border-info-ink/30 bg-info-wash text-info-ink
+    {% elif ref.kind.value == 'Attested' %}border-warn-ink/30 bg-warn-wash text-warn-ink
+    {% elif ref.kind.value == 'Assumed' %}border-mute-ink/30 bg-mute-wash text-mute-ink
+    {% else %}border-bad-ink/30 bg-bad-wash text-bad-ink{% endif %}"
+  title="Read where this figure came from"
+>
+  {# The kind is spelled out as well as coloured. A status carried by colour alone is a
+     status a colour-blind reader does not have. #}
+  {{ ref.kind.value }}
+</a>
+{% endmacro %}
+
+{% macro confirmation(ref) %}
+<span
+  class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium
+    {% if ref.confirmation.value == 'Confirmed' %}bg-good-wash text-good-ink
+    {% elif ref.confirmation.value == 'Suggested' %}bg-info-wash text-info-ink
+    {% else %}bg-mute-wash text-mute-ink{% endif %}"
+>
+  {# Who and when, not a bare "Confirmed" — which invites a reader to supply their own idea
+     of both. `confirmation_text` builds the sentence so no template has to. #}
+  {{ ref.confirmation_text }}
+</span>
+{% endmacro %}

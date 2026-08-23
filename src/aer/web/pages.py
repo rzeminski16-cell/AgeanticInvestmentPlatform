@@ -104,19 +104,15 @@ from aer.services.sectors import (
 from aer.services.spend import recent_runs, spend_by_role, spend_summary
 from aer.services.themes import THEME_STEP, theme_set_payload, theme_set_required
 from aer.services.valuation_view import lineage_rows, valuation_view
-from aer.skills.resolution import pinned_skills_for_plan
 from aer.storage.local import LocalArtefactStore
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
+from aer.workflow.registry import WorkflowRegistryError, resolve_workflow
 from aer.workflow.workflows.vertical_slice_v1 import (
     ASSUMPTIONS_STEP,
-    assumptions_gate_refreshed,
     assumptions_gate_required,
     comps_note_for,
-    final_gate_payload,
-    plan_gate_payload,
     sector_note_for,
-    unmapped_gate_payload,
     unmapped_gate_required,
 )
 
@@ -287,8 +283,9 @@ async def plan_review(
             status=HTTP_404_NOT_FOUND,
         )
 
-    pins = await pinned_skills_for_plan(session, plan_id=plan.id)
-    payload = plan_gate_payload(plan, pins)
+    # The pins reach the page inside the payload now — the builder reads them itself, so
+    # fetching them here as well would be a second answer to the question the gate hashes.
+    payload = await _payload_for(session, job=job, gate=GateKind.PLAN)
     decided = await _decision_for(session, job_id=job_id, gate=GateKind.PLAN)
     token = new_csrf_token(settings)
 
@@ -345,7 +342,7 @@ async def financials_review(
             status=HTTP_404_NOT_FOUND,
         )
 
-    payload = unmapped_gate_payload(produced)
+    payload = await _payload_for(session, job=job, gate=GateKind.UNMAPPED_CONCEPTS)
     decided = await _decision_for(session, job_id=job_id, gate=GateKind.UNMAPPED_CONCEPTS)
     token = new_csrf_token(settings)
 
@@ -601,8 +598,8 @@ async def assumptions_review(
             status=HTTP_404_NOT_FOUND,
         )
 
-    rows = await assumptions_for_request(session, job.request_id)
-    payload = assumptions_gate_refreshed(rows, produced)
+    rows = await assumptions_for_request(session, job.work_order_id)
+    payload = await _payload_for(session, job=job, gate=GateKind.ASSUMPTIONS)
     decided = await _decision_for(session, job_id=job_id, gate=GateKind.ASSUMPTIONS)
     token = new_csrf_token(settings)
 
@@ -649,7 +646,7 @@ async def draft_review(
     if job is None:
         return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
-    payload = await final_gate_payload(session, job_id=job_id)
+    payload = await _payload_for(session, job=job, gate=GateKind.FINAL)
     # Rows exist from the moment a plan is approved; content arrives only when the draft
     # step runs. Testing for rows rather than for content would show an empty document and
     # invite an approval of nothing.
@@ -1776,7 +1773,7 @@ async def _owned_job(session: AsyncSession, *, job_id: uuid.UUID, user: Any) -> 
     """
     job: Job | None = await session.scalar(
         select(Job)
-        .join(ResearchRequest, ResearchRequest.id == Job.request_id)
+        .join(ResearchRequest, ResearchRequest.id == Job.work_order_id)
         .where(Job.id == job_id, ResearchRequest.user_id == user.id)
     )
     return job
@@ -1793,7 +1790,7 @@ async def _claim_is_visible(
     """
     owner = await session.scalar(
         select(ResearchRequest.user_id)
-        .join(Job, Job.request_id == ResearchRequest.id)
+        .join(Job, Job.work_order_id == ResearchRequest.id)
         .join(ReportSection, ReportSection.job_id == Job.id)
         .join(Claim, Claim.report_section_id == ReportSection.id)
         .where(Claim.id == claim_id)
@@ -1839,6 +1836,22 @@ def _extraction_counts(produced: Mapping[str, Any]) -> dict[str, int]:
         "already_held": max(0, available - written),
         "look_ahead": int(produced.get("rejected_for_look_ahead", 0)),
     }
+
+
+async def _payload_for(session: AsyncSession, *, job: Job, gate: GateKind) -> dict[str, Any]:
+    """Exactly what this run's workflow puts at that gate.
+
+    Through the registry rather than by importing a builder, so a page rendering an
+    approval does not have to know which workflow raised it. A run whose workflow this
+    build no longer has renders an empty payload rather than raising: the page's job is to
+    show what was approved, and "this build cannot read that workflow" is a better answer
+    than a 500 (ADR 0071).
+    """
+    try:
+        builder = resolve_workflow(job.workflow_version).gate_payload()
+    except WorkflowRegistryError:
+        return {}
+    return dict(await builder(session, job=job, gate=gate.value))
 
 
 async def _decision_for(session: AsyncSession, *, job_id: uuid.UUID, gate: GateKind) -> str | None:

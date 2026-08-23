@@ -18,7 +18,7 @@ called, which is why the test for it asserts the provider was never touched. Whe
 run concurrently, a node's projection also counts the estimates of everything already in
 flight, because two siblings each individually under the cap can jointly be over it.
 
-**The steps form a graph, and the graph is code** (`docs/PLAN.md` §2.5). A step that
+**The steps form a graph, and the graph is code** (`docs/archive/PLAN.md` §2.5). A step that
 declares no dependencies chains after the one declared before it — which is every workflow
 the first three phases wrote, unchanged. A step that declares ``needs`` is placed in the
 graph explicitly, and independent nodes may run concurrently, bounded by
@@ -45,7 +45,7 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -78,7 +78,7 @@ __all__ = [
 
 _log = structlog.get_logger("aer.workflow.engine")
 
-# The hard bound on concurrent nodes, from `docs/PLAN.md` §2.5: "max 7 workers". A module
+# The hard bound on concurrent nodes, from `docs/archive/PLAN.md` §2.5: "max 7 workers". A module
 # constant rather than a setting, because a bound that can be raised in configuration is a
 # bound that will be — and the number is part of the cost model the budget was set against.
 MAX_PARALLEL_NODES: Final = 7
@@ -389,7 +389,9 @@ class WorkflowEngine:
 
     def __init__(
         self,
-        steps: list[WorkflowStep],
+        # A sequence rather than a list: the registry hands out a workflow's steps, and a
+        # caller that could append to them could change what a version means mid-run.
+        steps: Sequence[WorkflowStep],
         *,
         budget: BudgetGuard | None = None,
         max_parallel: int = MAX_PARALLEL_NODES,

@@ -1,4 +1,4 @@
-"""The knowledge graph drawn in the application (docs/knowledge-graph.md, K4b).
+"""The knowledge graph drawn in the application (docs/archive/knowledge-graph.md, K4b).
 
 :mod:`aer.services.knowledge` measures the graph; this module draws it. The picture is
 computed here, server-side, as coordinates for a static SVG: the layout is arithmetic

@@ -1,6 +1,6 @@
 """The red-team challenger: a separate context that attacks the thesis.
 
-`docs/PLAN.md` §2.5's evaluator row and ADR 0039. The defence against self-consistent
+`docs/archive/PLAN.md` §2.5's evaluator row and ADR 0039. The defence against self-consistent
 nonsense is an adversary that did not help write the draft — so the input here is
 **structurally incapable of carrying the drafting context**. :class:`RedTeamInput` has
 fields for the draft's recorded claims and the run's evidence index, and no field for

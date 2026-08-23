@@ -48,7 +48,7 @@ from aer.agents.registry import PLATFORM_CONTRACT, RoleDefinitionError, resolve_
 from aer.agents.untrusted import CONTAINMENT_RULE, UntrustedSource, wrap_untrusted
 from aer.config import Settings
 from aer.core.hashing import canonical_json, sha256_hex
-from aer.db.models import AgentRun, Cost, Job, JobStep, Prompt, ResearchRequest
+from aer.db.models import AgentRun, Cost, Job, JobStep, Prompt, WorkOrder
 
 # Aliased: `sqlalchemy.exc.IntegrityError` is already in this namespace for the
 # prompt-row race, and a shadowed exception is caught by nobody.
@@ -428,15 +428,20 @@ class Agent[InputT, OutputT: BaseModel]:
             usd_to_gbp=context.settings.usd_to_gbp,
         )
 
+        # The work order rather than the research request (ADR 0072). Nothing is relaxed
+        # here: the walk is the same length, the refusal is the same refusal, and
+        # `jobs.work_order_id` is NOT NULL so every run still has a cap by construction.
+        # What changes is that the cap no longer lives on a row about a company, so an
+        # unattended monitor can be paid for without inventing a mandate for it.
         job = await context.session.get(Job, context.job_step.job_id)
-        request = (
-            None if job is None else await context.session.get(ResearchRequest, job.request_id)
+        work_order = (
+            None if job is None else await context.session.get(WorkOrder, job.work_order_id)
         )
-        if job is None or request is None:
+        if job is None or work_order is None:
             # Referential breakage, not a budget question — and a guard that shrugged
             # here would be a guard any orphaned step walks straight past.
             message = (
-                f"The {self.role} agent's job step is not attached to a request, so the "
+                f"The {self.role} agent's job step is not attached to a work order, so the "
                 "spend guard has no per-run cap to read. Refusing the call."
             )
             raise BrokenRecordError(message, context={"job_step_id": str(context.job_step.id)})
@@ -448,7 +453,7 @@ class Agent[InputT, OutputT: BaseModel]:
             model=model,
             spent=spent,
             projected_gbp=projected_gbp,
-            cap=Decimal(str(request.max_cost_gbp)),
+            cap=Decimal(str(work_order.max_cost_gbp)),
             remedy="Raise the cap on this request to continue.",
         )
 

@@ -10,7 +10,7 @@ declared scalars carrying the declared type. Closed matters most — an undeclar
 how a field the author never wrote (or one the platform reserves) would otherwise ride
 into a report inside a dict nobody validates.
 
-**Does any numeral stand on nothing?** `docs/PLAN.md` §2.12: a custom section may only
+**Does any numeral stand on nothing?** `docs/archive/PLAN.md` §2.12: a custom section may only
 reference facts and calculations by id, and *"a section that emits a bare numeral not
 resolvable to one is a validation failure"*. The scan walks every string and number in the
 content and demands that each numeral token also appears in the text of a numeric claim —

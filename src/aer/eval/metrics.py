@@ -1,6 +1,6 @@
 """The blocking metrics — ten since task 42 — and the thresholds they are held to.
 
-From ``docs/PLAN.md`` §2.10. Each is a pure function from observations to a
+From ``docs/archive/PLAN.md`` §2.10. Each is a pure function from observations to a
 :class:`MetricResult`, so a metric can be checked against handwritten observations without
 running the platform, and the gate can be run against the platform without re-deriving what
 the numbers mean.
@@ -559,7 +559,7 @@ def evaluate_all(
     conformances: Sequence[ConformanceObservation],
     containments: Sequence[ContainmentObservation],
 ) -> list[MetricResult]:
-    """Every blocking metric, in the order ``docs/PLAN.md`` §2.10 lists them."""
+    """Every blocking metric, in the order ``docs/archive/PLAN.md`` §2.10 lists them."""
     return [
         citation_accuracy(citations),
         hallucinated_citation_rate(citations),

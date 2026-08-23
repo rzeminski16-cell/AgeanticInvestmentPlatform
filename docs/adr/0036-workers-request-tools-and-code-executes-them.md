@@ -4,7 +4,7 @@ Date: 2026-08-06. Status: accepted.
 
 ## Context
 
-Phase 4's research workers (`docs/PLAN.md` §2.5) investigate five topics in parallel with
+Phase 4's research workers (`docs/archive/PLAN.md` §2.5) investigate five topics in parallel with
 "max 12 tool calls each". The obvious implementation is provider-level tool use: declare
 tools to the model API, receive `tool_use` blocks, execute, append results, loop. That
 shape has three costs here. The provider protocol — deliberately two operations, a virtue

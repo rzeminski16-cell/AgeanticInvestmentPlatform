@@ -1,6 +1,6 @@
 """What an operator recorded about a catalyst whose window closed.
 
-`docs/knowledge-graph.md` K4. The calendar half has always been honest: "the stated
+`docs/archive/knowledge-graph.md` K4. The calendar half has always been honest: "the stated
 window has passed" is knowable from rows. Whether the event *happened* is not — no query
 answers it, and a model asserting it would be making a factual claim with no citation. So
 the answer is the operator's, recorded here: an outcome, a mandatory reason, who and

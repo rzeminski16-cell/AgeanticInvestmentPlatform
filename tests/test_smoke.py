@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import logging
 import re
@@ -425,3 +426,77 @@ class TestPortability:
             "glibc-only strftime codes break on Windows; use `.day` or a zero-padded "
             "code instead:\n" + "\n".join(offenders)
         )
+
+
+class TestTheMandateClockHasOneWriter:
+    """ADR 0072 duplicates five columns onto ``research_requests`` for one revision.
+
+    ``as_of_date``, ``point_in_time``, ``max_cost_gbp``, ``status`` and ``archived_at``
+    exist on the mandate *and* on the work order it is a detail of, and both copies are
+    read: ``scope_for_request`` takes the run's clock from the work order, while some
+    thirty acquisition and drafting call sites still read the mandate's. Duplicated columns
+    diverge unless something stops them, and here that something is one function —
+    ``services.requests._mirror_to_work_order`` — run after every edit, archive and restore.
+
+    A second writer anywhere else would be a silent divergence: the report's front page
+    printing one as-of date while the evidence filter used another. Found exactly that way,
+    in ``tests/conftest.py``, where six fixtures moved one of these on a hand-built row and
+    a glance block showed FY2021 figures for a run dated September 2022. The listener there
+    now mirrors too, and its right to do so rests on this: there is no other writer for it
+    to paper over.
+
+    The rule is scoped to receivers named ``request``, which is what every one of those
+    thirty call sites calls it. A writer that named its variable something else would
+    escape — the guard is for the ordinary shape, and the columns leave in the next
+    revision anyway.
+    """
+
+    COLUMNS = frozenset({"as_of_date", "point_in_time", "max_cost_gbp", "status", "archived_at"})
+    OWNER = Path("src/aer/services/requests.py")
+
+    def test_only_the_requests_service_assigns_them(self) -> None:
+        root = Path(__file__).parent.parent
+        offenders = []
+
+        for path in (root / "src").rglob("*.py"):
+            if path.relative_to(root) == self.OWNER:
+                continue
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                targets = (
+                    node.targets
+                    if isinstance(node, ast.Assign)
+                    else [node.target]
+                    if isinstance(node, ast.AugAssign | ast.AnnAssign)
+                    else []
+                )
+                offenders.extend(
+                    f"{path.relative_to(root)}:{target.lineno}: request.{target.attr}"
+                    for target in targets
+                    if isinstance(target, ast.Attribute)
+                    and target.attr in self.COLUMNS
+                    and isinstance(target.value, ast.Name)
+                    and (target.value.id == "request" or target.value.id.endswith("_request"))
+                )
+
+        assert not offenders, (
+            "these columns are duplicated onto work_orders and are mirrored by "
+            f"{self.OWNER}._mirror_to_work_order; a writer elsewhere diverges the two "
+            "copies silently:\n" + "\n".join(offenders)
+        )
+
+    def test_the_owner_really_does_write_them(self) -> None:
+        # Otherwise the test above passes by asserting nothing, which is the failure mode
+        # of every grep-shaped test.
+        tree = ast.parse((Path(__file__).parent.parent / self.OWNER).read_text(encoding="utf-8"))
+        written = {
+            target.attr
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Assign)
+            for target in node.targets
+            if isinstance(target, ast.Attribute)
+            and isinstance(target.value, ast.Name)
+            and target.value.id == "request"
+        }
+
+        assert self.COLUMNS - {"status"} <= written

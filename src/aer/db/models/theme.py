@@ -1,6 +1,6 @@
 """Themes: the cross-company connective tissue of the knowledge graph.
 
-`docs/knowledge-graph.md` K1, ADR 0065. The comparable relation can say "a run of A named
+`docs/archive/knowledge-graph.md` K1, ADR 0065. The comparable relation can say "a run of A named
 B"; it cannot say *AI capital expenditure* links a hyperscaler, a fab and a utility. A
 theme is that link — proposed by a model, confirmed by a person at the ``THEME_SET`` gate,
 and only then an edge.

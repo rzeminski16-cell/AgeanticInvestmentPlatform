@@ -1,6 +1,6 @@
 """Catalyst resolutions: what the operator says happened when a window closed.
 
-`docs/knowledge-graph.md` K4. "The stated window has passed" is a statement about the
+`docs/archive/knowledge-graph.md` K4. "The stated window has passed" is a statement about the
 calendar and always was; whether the event occurred is not knowable from rows, and a
 model asserting it would be a factual claim with no citation. The answer is recorded by
 a person: an outcome from a closed set, a mandatory reason, who and when.

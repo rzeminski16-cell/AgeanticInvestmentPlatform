@@ -1,6 +1,6 @@
 """Putting the operator's skill text into a prompt without letting it outrank the platform.
 
-`docs/PLAN.md` §2.12: a skill file is **trusted operator input** — it is not the T2
+`docs/archive/PLAN.md` §2.12: a skill file is **trusted operator input** — it is not the T2
 injection threat, and it is quoted here so it can *instruct*, not merely be read. What it
 must never do is outrank the platform: the composed prompt runs in a fixed order the user
 cannot alter — platform contract, output schema, structured evidence, then this block —

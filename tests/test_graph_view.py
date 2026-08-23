@@ -1,4 +1,4 @@
-"""The in-app picture of the knowledge graph (docs/knowledge-graph.md, K4b).
+"""The in-app picture of the knowledge graph (docs/archive/knowledge-graph.md, K4b).
 
 Two halves. The layout is pure arithmetic, so it is held directly: the same input always
 draws the same picture, nodes never coincide, every line ends on a node, and the

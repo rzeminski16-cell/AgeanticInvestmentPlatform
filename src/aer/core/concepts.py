@@ -24,7 +24,7 @@ has not reported SG&A; it has reported two components of it. Mapping both onto
 ``sg_and_a`` would produce two facts claiming to be the same concept for the same period,
 which the disagreement ladder would then have to arbitrate between — two halves of a total,
 neither wrong. So only the combined tag maps, and a filer who splits them leaves the concept
-absent and visible. ``docs/PLAN.md`` names the long tail as this phase's main risk and
+absent and visible. ``docs/archive/PLAN.md`` names the long tail as this phase's main risk and
 prescribes exactly this: ship the top sixty and surface what is missing.
 
 **Signs are a trap and are documented rather than assumed.** See :data:`MAGNITUDE_CONCEPTS`.
@@ -130,7 +130,7 @@ CANONICAL_CONCEPTS: Final[frozenset[str]] = frozenset(
         "interest_paid",
         "income_taxes_paid",
         # The two lines the cash-flow roll-forward needs. Without them the identity
-        # `docs/PLAN.md` asks for -- that the three cash flows and the currency effect reach
+        # `docs/archive/PLAN.md` asks for -- that the three cash flows and the currency effect reach
         # the movement in cash -- cannot be written down, so the statement with the most room
         # for a mapping error would be the only one with nothing checking it.
         "effect_of_exchange_rate_on_cash",

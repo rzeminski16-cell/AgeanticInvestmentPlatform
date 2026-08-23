@@ -13,3 +13,210 @@
    builds exist in no scanned file, so Tailwind emits nothing for them and a failed step
    gets a dot with no colour. */
 @source "../static/js/*.js";
+
+/* ---------------------------------------------------------------------------------------
+   The typeface, served from this origin like every other asset (ADR 0006).
+
+   Vendored rather than linked. `test_loads_no_third_party_asset` fails any page naming a
+   CDN or a font host, and the reason is the one that record gives: this application is
+   local-first and must work with no internet connection, and a third-party request from a
+   page that can reach the database is a supply-chain risk taken for convenience. Google
+   Fonts would also mean a request to a third party on every page load, from a tool whose
+   whole point is that nothing leaves the machine unless the operator asked for it.
+
+   Provenance, in the shape `htmx.min.js` set: `@fontsource-variable/inter@5.3.0`, upstream
+   Inter v20, SIL Open Font License 1.1 (`LICENSE-Inter.txt` beside the files). The SHA-256
+   of each file is pinned in `tests/test_fonts.py`, so a swapped binary is a red build
+   rather than a thing nobody would ever notice.
+
+   One variable file per range, weights 100-900, so a page that uses four weights makes one
+   request rather than four. **No italic**: nothing in thirty-nine templates is italic, and
+   a face nobody renders is 52 kB committed for the look of completeness.
+
+   `latin-ext` is here because of what this tool renders. Issuer names come out of filings,
+   and an LSE listing is routinely a European domicile — a report about Škoda or Société
+   Générale would otherwise set those letters in whatever the system supplies, mid-word.
+   `unicode-range` means the browser fetches it only on a page that actually contains one,
+   so the common case still costs the 48 kB latin file alone. */
+
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-weight: 100 900;
+  /* `swap`: text is readable in the fallback immediately and reflows when Inter arrives.
+     The alternative hides it for up to three seconds, and a research page that is blank
+     while a font loads is worse than one that changes shape. */
+  font-display: swap;
+  src: url("../fonts/inter-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../fonts/inter-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ---------------------------------------------------------------------------------------
+   The palette, as flipping custom properties.
+
+   Two layers, and the split is a Tailwind v4 constraint rather than a preference. `@theme`
+   values are resolved once and do not respond to a media query, so a dark palette written
+   as a second `@theme` inside `@media (prefers-color-scheme: dark)` compiles to the light
+   values and silently does nothing. Plain custom properties do flip, and `@theme inline`
+   below aliases them into the utilities by reference rather than by value.
+
+   These are added beside Tailwind's stock ramps rather than replacing them. Overriding
+   `sky` and `slate` would re-skin all thirty-seven existing templates for free and leave a
+   codebase where `text-sky-700` renders navy — a small permanent lie in a repository whose
+   habit is to refuse exactly that. New surfaces use the semantic names; the existing pages
+   keep the ramps they were written against until they are rewritten. */
+
+:root {
+  /* Structure */
+  --aer-canvas: #f4f7fb;
+  --aer-surface: #ffffff;
+  --aer-surface-sunken: #eef3f9;
+  --aer-line: #d9e2ef;
+  --aer-line-strong: #b8c7da;
+
+  /* Type */
+  --aer-ink: #152033;
+  --aer-ink-muted: #60718a;
+  --aer-ink-faint: #8291a7;
+
+  /* The one accent. Used once or twice per screen, for the action that is the point of it. */
+  --aer-brand: #246bfd;
+  --aer-brand-strong: #1858dd;
+  --aer-brand-wash: #eaf1ff;
+  --aer-navy: #0b2945;
+
+  /* Meaning. Never carried by colour alone — every use pairs with a word or an icon,
+     because a status a colour-blind reader cannot read is a status that is not there. */
+  --aer-good-wash: #e3f6ef;
+  --aer-good-ink: #087a5b;
+  --aer-warn-wash: #fff3d7;
+  --aer-warn-ink: #9a6200;
+  --aer-bad-wash: #fde7e9;
+  --aer-bad-ink: #b42333;
+  --aer-info-wash: #e8f1ff;
+  --aer-info-ink: #175cd3;
+  --aer-mute-wash: #edf1f6;
+  --aer-mute-ink: #506176;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --aer-canvas: #071e33;
+    --aer-surface: #0b2945;
+    --aer-surface-sunken: #061a2c;
+    --aer-line: #1c3a5c;
+    --aer-line-strong: #2b4a6e;
+
+    --aer-ink: #eaf1ff;
+    --aer-ink-muted: #9db0c9;
+    --aer-ink-faint: #7286a1;
+
+    --aer-brand: #4d86ff;
+    --aer-brand-strong: #6d9bff;
+    --aer-brand-wash: #10305a;
+    --aer-navy: #eaf1ff;
+
+    --aer-good-wash: #06301f;
+    --aer-good-ink: #6ee7b7;
+    --aer-warn-wash: #3a2a05;
+    --aer-warn-ink: #fcd34d;
+    --aer-bad-wash: #3d1119;
+    --aer-bad-ink: #fda4af;
+    --aer-info-wash: #10305a;
+    --aer-info-ink: #93c5fd;
+    --aer-mute-wash: #12283f;
+    --aer-mute-ink: #9db0c9;
+  }
+}
+
+/* `inline` is what makes the flip work: the utility is emitted as `var(--aer-canvas)`
+   rather than as the hex the light block happens to hold. */
+@theme inline {
+  --color-canvas: var(--aer-canvas);
+  --color-surface: var(--aer-surface);
+  --color-surface-sunken: var(--aer-surface-sunken);
+  --color-line: var(--aer-line);
+  --color-line-strong: var(--aer-line-strong);
+
+  --color-ink: var(--aer-ink);
+  --color-ink-muted: var(--aer-ink-muted);
+  --color-ink-faint: var(--aer-ink-faint);
+
+  --color-brand: var(--aer-brand);
+  --color-brand-strong: var(--aer-brand-strong);
+  --color-brand-wash: var(--aer-brand-wash);
+  --color-navy: var(--aer-navy);
+
+  --color-good-wash: var(--aer-good-wash);
+  --color-good-ink: var(--aer-good-ink);
+  --color-warn-wash: var(--aer-warn-wash);
+  --color-warn-ink: var(--aer-warn-ink);
+  --color-bad-wash: var(--aer-bad-wash);
+  --color-bad-ink: var(--aer-bad-ink);
+  --color-info-wash: var(--aer-info-wash);
+  --color-info-ink: var(--aer-info-ink);
+  --color-mute-wash: var(--aer-mute-wash);
+  --color-mute-ink: var(--aer-mute-ink);
+}
+
+/* Layout constants, so a sidebar width lives in one place rather than in every template
+   that has to avoid it. */
+@theme {
+  /* Inter first, then the stack Tailwind ships. The fallbacks are not decoration: they are
+     what renders while the woff2 is in flight, and what renders for ever if it 404s.
+
+     This one variable is enough, but only because of a chain: Preflight sets `font-family`
+     on `html` from `--default-font-family`, and Tailwind's own theme defines that as
+     `--theme(--font-sans, initial)`. Three links, one of them inside a dependency, and a
+     break anywhere in it leaves every page in the stock system stack — which looks exactly
+     like a font that loaded. `tests/test_fonts.py` follows the chain in the compiled
+     output rather than assuming it, and a browser test reads the face off a rendered page. */
+  --font-sans:
+    "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", "Noto Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
+
+  --radius-card: 14px;
+  --radius-panel: 16px;
+  --spacing-sidebar: 15rem;
+  --spacing-drawer: 28rem;
+  --container-shell: 77.5rem;
+}
+
+/* ---------------------------------------------------------------------------------------
+   Guidance mode.
+
+   Callouts are markup that is always present and shown by an attribute on <body>, so a page
+   not using guidance pays no JavaScript for it and the numbers sit beside the thing they
+   explain rather than in a list of selectors that rots when a div is renamed (ADR 0073). */
+
+.aer-guide {
+  display: none;
+}
+
+body[data-guidance="on"] .aer-guide {
+  display: inline-flex;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

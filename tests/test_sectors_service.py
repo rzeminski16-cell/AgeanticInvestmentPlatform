@@ -407,7 +407,7 @@ class TestTheGatePayloadForAPage:
 
 
 class TestTheWarningsReachTheReport:
-    """`docs/phase-3-plan.md`: "the seeded warnings reach the report"."""
+    """`docs/archive/phase-3-plan.md`: "the seeded warnings reach the report"."""
 
     def test_the_block_names_the_model_it_did_not_run(self):
         note = SectorNote(

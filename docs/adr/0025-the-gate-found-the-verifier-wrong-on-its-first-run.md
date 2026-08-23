@@ -7,7 +7,7 @@
 ## Context
 
 Every guarantee this platform makes was proved once, by a test written the day the feature
-landed. §2.10 of `docs/PLAN.md` names six that must keep holding, and task 21 turns them into
+landed. §2.10 of `docs/archive/PLAN.md` names six that must keep holding, and task 21 turns them into
 a blocking gate: six numbers, six thresholds, red build if any moves.
 
 Building it required corpora with the *wrong* answers in them as well as the right ones. A

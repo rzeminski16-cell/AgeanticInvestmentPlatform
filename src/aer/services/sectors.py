@@ -1,7 +1,7 @@
 """What kind of business this is, who agreed it, and what that permits.
 
 A classification decides which valuation models may run, so it is a decision about the
-*answer* rather than about presentation. `docs/PLAN.md` section 2.9 states the rule: a
+*answer* rather than about presentation. `docs/archive/PLAN.md` section 2.9 states the rule: a
 blocked model produces a hard gate, not a footnote. This module is the half of that rule
 which lives against the database — the proposal, the confirmation, and the mandate that
 comes out the other side.

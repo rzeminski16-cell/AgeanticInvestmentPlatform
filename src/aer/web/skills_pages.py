@@ -443,7 +443,7 @@ async def _dry_run_targets(session: DbSession, *, user: CurrentUser) -> list[dic
     """
     rows = await session.scalars(
         select(Job)
-        .join(ResearchRequest, ResearchRequest.id == Job.request_id)
+        .join(ResearchRequest, ResearchRequest.id == Job.work_order_id)
         .where(
             ResearchRequest.user_id == user.id,
             Job.workflow_version != DRY_RUN_WORKFLOW,

@@ -24,7 +24,7 @@ from aer.api.deps import CurrentUser, DbSession
 from aer.db.models import Job, PlanSkillPin, ResearchPlan, ResearchRequest
 from aer.errors import AerError
 from aer.services.approvals import payload_hash_for
-from aer.skills.resolution import pinned_skills_for_plan
+from aer.skills.resolution import pinned_skills_for_work_order
 from aer.workflow.workflows.vertical_slice_v1 import plan_gate_payload
 
 __all__ = ["PlanRead", "router"]
@@ -72,7 +72,7 @@ async def read_plan(plan_id: uuid.UUID, session: DbSession, user: CurrentUser) -
         message = f"No plan {plan_id}."
         raise PlanNotFoundError(message, context={"plan_id": str(plan_id)})
 
-    return _read(plan, await pinned_skills_for_plan(session, plan_id=plan.id))
+    return _read(plan, await pinned_skills_for_work_order(session, work_order_id=plan.request_id))
 
 
 @router.get("/for-run/{job_id}", response_model=PlanRead, summary="The plan a run is waiting on")
@@ -84,7 +84,7 @@ async def read_plan_for_run(job_id: uuid.UUID, session: DbSession, user: Current
     """
     plan = await session.scalar(
         select(ResearchPlan)
-        .join(Job, Job.request_id == ResearchPlan.request_id)
+        .join(Job, Job.work_order_id == ResearchPlan.request_id)
         .join(ResearchRequest, ResearchRequest.id == ResearchPlan.request_id)
         .where(Job.id == job_id, ResearchRequest.user_id == user.id)
         .order_by(ResearchPlan.created_at.desc())
@@ -93,7 +93,7 @@ async def read_plan_for_run(job_id: uuid.UUID, session: DbSession, user: Current
         message = f"No plan for run {job_id}."
         raise PlanNotFoundError(message, context={"job_id": str(job_id)})
 
-    return _read(plan, await pinned_skills_for_plan(session, plan_id=plan.id))
+    return _read(plan, await pinned_skills_for_work_order(session, work_order_id=plan.request_id))
 
 
 def _read(plan: ResearchPlan, pins: list[PlanSkillPin]) -> PlanRead:

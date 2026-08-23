@@ -192,6 +192,7 @@ class TestEachLegCanSinkIt:
         await db_session.flush()
         db_session.add(
             SourceDocument(
+                work_order_id=scene["request"].id,
                 request_id=scene["request"].id,
                 job_id=scene["job"].id,
                 artefact_id=artefact.id,

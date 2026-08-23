@@ -1,6 +1,6 @@
 """The sector block, at the layer that computes rather than the layer that renders.
 
-`docs/phase-3-plan.md` task 28's acceptance criterion is that **a bank ticker cannot produce
+`docs/archive/phase-3-plan.md` task 28's acceptance criterion is that **a bank ticker cannot produce
 a discounted cash flow by any route**, asserted at the calculation layer. That phrasing rules
 out the obvious implementation — a check in a service, or a branch in a route — because
 either leaves a route that skips it, and the route that skips it is the one somebody adds
@@ -49,7 +49,7 @@ from aer.core.sectors import (
 )
 
 ASSUMPTION = SourceRef.assumption("assumption-1")
-FACT = SourceRef.fact("fact-1")
+FACT = SourceRef.financial_fact("fact-1")
 
 BANK = "BARC"
 REIT = "SPG"
@@ -277,7 +277,7 @@ class TestTheRefusalExplainsItself:
         ]
 
     def test_a_reit_refusal_offers_p_over_ffo(self):
-        """`docs/phase-3-plan.md`: "a REIT refuses and offers P/FFO"."""
+        """`docs/archive/phase-3-plan.md`: "a REIT refuses and offers P/FFO"."""
         reit = profile_for("reits")
         assert reit is not None
 

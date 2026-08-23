@@ -16,30 +16,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
     <title>{% block title %}Ageiantic Equity Research{% endblock %}</title>
+    {# The typeface, asked for before the stylesheet that references it — otherwise the
+       browser does not learn it needs the font until it has parsed the CSS, and the page
+       renders once in the fallback and again in Inter.
+
+       `crossorigin` even though it is our own origin: fonts are fetched in CORS mode, and
+       a preload without it is a second, separate request rather than a head start.
+
+       Only the latin file. `latin-ext` is fetched by `unicode-range` on the pages that
+       actually contain those letters, and preloading it would spend 85 kB on every page
+       for characters most of them do not have. #}
+    <link
+      rel="preload"
+      href="{{ url_for('static', path='/fonts/inter-latin-wght-normal.woff2') }}"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <link rel="stylesheet" href="{{ url_for('static', path='/css/app.css') }}" />
     <link rel="icon" href="{{ url_for('static', path='/favicon.svg') }}" type="image/svg+xml" />
     <script src="{{ url_for('static', path='/vendor/htmx.min.js') }}" defer></script>
     <script src="{{ url_for('static', path='/js/app.js') }}" defer></script>
+    {# The chrome layer: focus, Escape, the scroll lock. Loaded on every page because
+       the drawer is in the shell, and inert on a page whose links never target it. #}
+    <script src="{{ url_for('static', path='/js/drawer.js') }}" defer></script>
     {# Pages that need more than the shared behaviour add it here rather than inline, so a
        Content-Security-Policy can forbid inline script without rewriting any template. #}
     {% block head_extra %}{% endblock %}
   </head>
-  <body class="h-full bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
+  {# `data-guidance` is the one piece of shell state the client is allowed to flip for
+     instant feedback; the flag itself is the server's and is remembered per operator
+     (ADR 0077). Callouts are shown by CSS keyed on this attribute, so guidance mode adds
+     no JavaScript to a page that is not using it. #}
+  {# A header and a column. The width comes from `--container-shell` rather than from a
+     number typed here, so the shell's width lives in one place — and the header carries
+     the same constraint so its contents line up with the page beneath it. #}
+  <body
+    data-guidance="{{ shell.guidance_attr }}"
+    class="min-h-full bg-canvas text-ink antialiased"
+  >
     <div class="flex min-h-full flex-col">
       {% include "_nav.html" %}
 
-      <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6">
+      <main class="mx-auto w-full max-w-shell flex-1 px-4 py-8 sm:px-6">
         {% block content %}{% endblock %}
       </main>
 
-      <footer class="border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div class="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
-          <p class="text-sm text-slate-600 dark:text-slate-400">{{ disclaimer }}</p>
-          <p class="mt-2 text-xs text-slate-500 dark:text-slate-500">
+      <footer class="border-t border-line">
+        <div class="mx-auto w-full max-w-shell px-4 py-6 sm:px-6">
+          <p class="text-sm text-ink-muted">{{ disclaimer }}</p>
+          <p class="mt-2 text-xs text-ink-faint">
             Ageiantic Equity Research Platform &middot; version {{ app_version }}
           </p>
         </div>
       </footer>
     </div>
+
+    {% include "_shell/drawer.html" %}
   </body>
 </html>

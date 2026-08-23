@@ -79,8 +79,8 @@ from aer.db.models import (
     Claim,
     Extraction,
     ReportSection,
-    ResearchRequest,
     SourceDocument,
+    WorkOrder,
 )
 from aer.errors import IntegrityError
 from aer.extract import ExtractionError, extract_text
@@ -206,27 +206,30 @@ async def _refuse_if_out_of_time(
     if source is None:  # pragma: no cover -- RESTRICT makes this unreachable in practice
         return VerificationOutcome(False, Decimal(0), "the source document is gone")
 
-    request = await session.get(ResearchRequest, source.request_id)
-    if request is None:  # pragma: no cover -- source_documents.request_id is NOT NULL
-        return VerificationOutcome(False, Decimal(0), "the request is gone")
+    # The run root rather than the mandate (ADR 0072). What this needs is a date and a
+    # boolean, and both are properties of the run; reaching them through a research request
+    # made the look-ahead guard unavailable to any run that is not about a company.
+    work_order = await session.get(WorkOrder, source.work_order_id)
+    if work_order is None:  # pragma: no cover -- source_documents.work_order_id is NOT NULL
+        return VerificationOutcome(False, Decimal(0), "the work order is gone")
 
     refused = _refuse_source(source)
     if refused is not None:
         return refused
 
-    if not request.point_in_time:
+    if not work_order.point_in_time:
         return None
 
     # The latest date any evidence supports, not the best estimate. A document that *might* be
     # from after the as-of date cannot be shown to have predated it, which is the question.
     latest = source.publication_date_latest or source.publication_date
-    if latest is not None and latest > request.as_of_date:
+    if latest is not None and latest > work_order.as_of_date:
         return VerificationOutcome(
             False,
             Decimal(0),
-            f"the source was published on {latest.isoformat()}, after the request's as-of date "
-            f"of {request.as_of_date.isoformat()}. Citing it would use information nobody had "
-            "at the time.",
+            f"the source was published on {latest.isoformat()}, after the run's as-of date "
+            f"of {work_order.as_of_date.isoformat()}. Citing it would use information nobody "
+            "had at the time.",
         )
 
     return None

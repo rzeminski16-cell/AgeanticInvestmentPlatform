@@ -1,4 +1,4 @@
-"""The skill-file frontmatter schema (`docs/PLAN.md` §2.12).
+"""The skill-file frontmatter schema (`docs/archive/PLAN.md` §2.12).
 
 The split that matters: everything the system **acts on** — budgets, tools, evidence
 policy, output shape, placement — is structured and validated here; everything the model

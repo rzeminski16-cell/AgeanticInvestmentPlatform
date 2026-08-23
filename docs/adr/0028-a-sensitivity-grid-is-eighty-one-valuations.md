@@ -71,7 +71,7 @@ the wrong shape for one serving grids interactively. If that ever changes, the a
 caching complete valuations by their input hash, not approximating them.
 
 **The row count is real and will grow.** `calculations` is already the largest table by row
-count and this makes it decisively so. Retention is a separate question — `docs/PLAN.md`
+count and this makes it decisively so. Retention is a separate question — `docs/archive/PLAN.md`
 covers deletion and retention policy — and this ADR does not pretend the rows are free.
 
 **A test asserts the grid is not degenerate.** Not merely that the cells are ordered — a grid

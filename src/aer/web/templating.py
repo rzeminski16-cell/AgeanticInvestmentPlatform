@@ -18,6 +18,7 @@ from starlette.requests import Request
 
 from aer.core.disagreement import position_figure
 from aer.version import version
+from aer.web.shell import GUIDANCE_COOKIE, shell_for
 
 __all__ = ["DISCLAIMER", "STATIC_DIR", "TEMPLATES_DIR", "render", "templates"]
 
@@ -68,10 +69,28 @@ def render(
     *,
     status_code: int = 200,
 ) -> Any:
-    """Render ``template_name`` with the request already in context."""
+    """Render ``template_name`` with the request and the shell already in context.
+
+    The shell is injected here rather than passed by each handler, for the reason the
+    disclaimer is a global: a page that forgot it would render with no navigation, and the
+    failure would read as a styling bug rather than as a page nobody can leave. Handlers
+    cannot omit what they never supply.
+
+    A handler may still pass its own ``shell`` — the skills pages do nothing of the kind
+    today, and nothing should — but an explicit one wins, so a test can render a page under
+    a nav it controls without reaching into this module.
+    """
+    supplied = context or {}
+    merged: dict[str, Any] = {
+        "shell": shell_for(
+            request.url.path,
+            guidance=request.cookies.get(GUIDANCE_COOKIE) == "on",
+        ),
+        **supplied,
+    }
     return templates.TemplateResponse(
         request=request,
         name=template_name,
-        context=context or {},
+        context=merged,
         status_code=status_code,
     )

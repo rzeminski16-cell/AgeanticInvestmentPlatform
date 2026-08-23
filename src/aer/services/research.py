@@ -43,6 +43,7 @@ from aer.extract import extract_text
 from aer.extract.dates import extract_publication_date
 from aer.services.acquisition import record_acquisition
 from aer.services.facts import visible_facts
+from aer.services.scope import scope_for_request, with_subject
 from aer.services.sources import visible_sources
 from aer.services.subject import subject_name
 from aer.sources.tiering import DocumentKind, tier_for
@@ -136,7 +137,7 @@ def build_executors(
     async def search_facts(tool_request: ToolRequest) -> ExecutedTool:
         company_id = await _company_id_for(session, request=request)
         rows = await session.scalars(
-            visible_facts(request, company_id)
+            visible_facts(with_subject(await scope_for_request(session, request), company_id))
             .where(FinancialFact.concept.ilike(f"%{tool_request.query.strip()}%"))
             .order_by(FinancialFact.period_end.desc())
             .limit(MAX_HITS)
@@ -167,7 +168,7 @@ def build_executors(
         # writes `request.company_id`, so a NULL here means acquire has not run and there
         # is nothing stamped to find (ADR 0061).
         rows = await session.scalars(
-            visible_sources(request, request.company_id)
+            visible_sources(await scope_for_request(session, request))
             .where(or_(SourceDocument.title.ilike(needle), SourceDocument.url.ilike(needle)))
             .order_by(SourceDocument.retrieved_at.desc())
             .limit(MAX_HITS)
@@ -325,7 +326,7 @@ async def _already_held(
         await session.scalars(
             select(SourceDocument)
             .join(Artefact, Artefact.id == SourceDocument.artefact_id)
-            .where(SourceDocument.request_id == request.id, Artefact.sha256 == sha256)
+            .where(SourceDocument.work_order_id == request.id, Artefact.sha256 == sha256)
         )
     )
     if not rows:
@@ -566,7 +567,7 @@ async def _held_by_url(
     rows = list(
         await session.scalars(
             select(SourceDocument).where(
-                SourceDocument.request_id == request.id, SourceDocument.url == url
+                SourceDocument.work_order_id == request.id, SourceDocument.url == url
             )
         )
     )
@@ -593,7 +594,7 @@ async def _established_host(
 
     rows = await session.scalars(
         select(SourceDocument)
-        .where(SourceDocument.request_id == request.id)
+        .where(SourceDocument.work_order_id == request.id)
         .order_by(SourceDocument.retrieved_at.desc())
     )
     for row in rows:
@@ -673,7 +674,7 @@ async def validate_report(
 
     valid_sources = await _existing(
         session,
-        select(SourceDocument.id).where(SourceDocument.request_id == request.id),
+        select(SourceDocument.id).where(SourceDocument.work_order_id == request.id),
         column=SourceDocument.id,
         cited=cited_sources,
     )
@@ -681,9 +682,12 @@ async def validate_report(
     # refuse the worker's own evidence back at it, which is a loop with no exit.
     valid_facts = await _existing(
         session,
-        visible_facts(request, await _company_id_for(session, request=request)).with_only_columns(
-            FinancialFact.id
-        ),
+        visible_facts(
+            with_subject(
+                await scope_for_request(session, request),
+                await _company_id_for(session, request=request),
+            )
+        ).with_only_columns(FinancialFact.id),
         column=FinancialFact.id,
         cited=cited_facts,
     )

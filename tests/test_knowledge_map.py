@@ -1,6 +1,6 @@
 """The knowledge map's enumerable claims, pinned to the code they describe.
 
-`docs/knowledge-map.md` is the orientation layer for a developer who has never seen this
+`docs/developers/knowledge-map.md` is the orientation layer for a developer who has never seen this
 repository. Documents in that role have exactly one failure mode — drift — and this
 codebase already knows what an unpinned claim is worth: the monthly budget cap lived in
 prose for the whole life of the engine (gap A22), because a claim nobody encoded cannot
@@ -23,7 +23,7 @@ import pytest
 from aer.workflow.workflows.vertical_slice_v1 import build_steps
 
 ROOT = Path(__file__).resolve().parent.parent
-MAP = ROOT / "docs" / "knowledge-map.md"
+MAP = ROOT / "docs" / "developers" / "knowledge-map.md"
 ADR_ROOT = ROOT / "docs" / "adr"
 SRC = ROOT / "src" / "aer"
 
@@ -39,7 +39,8 @@ class TestTheMapNamesWhatExists:
         developer will not know can pause, spend or fail."""
         missing = [step.key for step in build_steps() if step.key not in text]
         assert not missing, (
-            f"steps missing from docs/knowledge-map.md: {missing}. The workflow changed; "
+            f"steps missing from docs/developers/knowledge-map.md: {missing}. "
+            "The workflow changed; "
             "update section 2 (the diagram and the table)."
         )
 
@@ -55,7 +56,8 @@ class TestTheMapNamesWhatExists:
 
         missing = [name for name in names if not re.search(rf"\b{re.escape(name)}\b", text)]
         assert not missing, (
-            f"modules missing from docs/knowledge-map.md: {missing}. A package was added "
+            f"modules missing from docs/developers/knowledge-map.md: {missing}. "
+            "A package was added "
             "or renamed; update section 4's inventory."
         )
 
@@ -71,7 +73,7 @@ class TestTheMapNamesWhatExists:
 
         dangling = [number for number in cited if not list(ADR_ROOT.glob(f"{number}-*.md"))]
         assert not dangling, (
-            f"docs/knowledge-map.md cites ADRs that do not exist: {dangling}. "
+            f"docs/developers/knowledge-map.md cites ADRs that do not exist: {dangling}. "
             "Fix the reference, or restore the record it points at."
         )
 

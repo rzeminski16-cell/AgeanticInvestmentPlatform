@@ -1,6 +1,6 @@
 """The §2.4 escalation triggers: ten conditions, any one of which raises the gate-2 banner.
 
-``docs/PLAN.md`` §2.4 lists ten trigger conditions and says "any one pauses the run and
+``docs/archive/PLAN.md`` §2.4 lists ten trigger conditions and says "any one pauses the run and
 raises a banner at Gate 2". The run already pauses at gate 2 unconditionally — the final
 gate requires a person — so what a fired trigger changes is what that pause *says*: the
 banner names the condition, and the operator approves knowing it, or does not approve.

@@ -81,7 +81,7 @@ class TestTheConceptVocabulary:
         assert not is_canonical_concept("Revenues")
 
     def test_the_vocabulary_is_the_sixty_the_plan_asks_for(self):
-        # docs/PLAN.md names the concept long tail as Phase 3's main risk and prescribes the
+        # docs/archive/PLAN.md names the concept long tail as Phase 3's main risk and prescribes the
         # top sixty plus a visible "unmapped" surface rather than chasing completeness. A
         # count is a crude assertion, and it is the one that notices the list shrinking.
         assert len(CANONICAL_CONCEPTS) >= 60

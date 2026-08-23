@@ -110,6 +110,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     await db_session.flush()
 
     job = Job(
+        work_order_id=request.id,
         request_id=request.id,
         workflow_version="exhibit_scene_v1",
         code_version="exhibitcode1234",
@@ -130,6 +131,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     await db_session.flush()
 
     source = SourceDocument(
+        work_order_id=request.id,
         request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,
@@ -335,6 +337,7 @@ class TestTheExportablePack:
         self, scene: dict[str, Any]
     ) -> None:
         bare_job = Job(
+            work_order_id=scene["request"].id,
             request_id=scene["request"].id,
             workflow_version="exhibit_scene_v1",
             code_version="exhibitcode1234",

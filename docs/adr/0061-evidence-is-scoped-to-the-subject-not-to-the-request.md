@@ -3,7 +3,7 @@
 Date: 2026-08-18
 Status: accepted
 
-Task P1 of `docs/polish-phase-1.md`. Amends nothing; it states a rule the invariants
+Task P1 of `docs/archive/polish-phase-1.md`. Amends nothing; it states a rule the invariants
 assumed and never wrote down.
 
 ## Context

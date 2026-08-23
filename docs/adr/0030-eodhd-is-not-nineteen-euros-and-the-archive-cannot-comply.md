@@ -3,13 +3,13 @@
 **Status.** Accepted (2026-08-09) — **route 2**. The findings below are unchanged; the
 decision that was left open has been taken and is recorded at the end.
 **Date.** 2026-08-05
-**Supersedes in part.** `docs/PLAN.md` §1.4's recommendation, whose central premise turns out
+**Supersedes in part.** `docs/archive/PLAN.md` §1.4's recommendation, whose central premise turns out
 to be wrong.
 
 ## Context
 
-`docs/PLAN.md` §1.4 recommends EODHD *All World* at €19.99/month as "the only sub-£20 option
-with contracted LSE + US EOD", and `docs/phase-3-plan.md` makes tasks 29 and 30 conditional on
+`docs/archive/PLAN.md` §1.4 recommends EODHD *All World* at €19.99/month as "the only sub-£20 option
+with contracted LSE + US EOD", and `docs/archive/phase-3-plan.md` makes tasks 29 and 30 conditional on
 buying it. The operator subscribed, then read the terms. Three of the four answers change the
 design and one of them changes the recommendation.
 
@@ -65,7 +65,7 @@ must be deleted**, and EODHD may ask for confirmation.
 That is invariant 1 — every externally derived fact traces to a hashed artefact — expressed as
 a type. An immutable store is precisely a store that cannot satisfy a deletion obligation.
 
-**EODHD did not create this problem; it exposed one already on the list.** `docs/PLAN.md`'s
+**EODHD did not create this problem; it exposed one already on the list.** `docs/archive/PLAN.md`'s
 risk register T16 calls for a retention policy — artefacts referenced by an immutable report
 never deleted, unreferenced artefacts collected after 90 days, soft-delete plus an audit event
 — and it has not been built. A licensed source is simply the first one that makes it
@@ -111,7 +111,7 @@ The routes, as they stood:
    internal-only, no price-derived chart or figure in anything shared, and a retention path
    before the subscription can ever lapse. Records the personal-use limitation the way
    yfinance's was, and accepts that a future commercial version needs a different licence.
-3. **Decline and drop tasks 29 and 30**, as `docs/phase-3-plan.md` already provides for. The
+3. **Decline and drop tasks 29 and 30**, as `docs/archive/phase-3-plan.md` already provides for. The
    valuation surface ships with the comps section stating that no market-data source is
    configured. The DCF, ratios, earnings quality, statements, macro and WACC are unaffected.
 

@@ -5,7 +5,7 @@ debt is its raw material rather than its financing, so enterprise value and free
 to the firm do not mean what the model assumes they mean. The same is true of an insurer,
 and of a REIT whose economics are depreciation-dominated in a way the accounts obscure.
 
-``docs/PLAN.md`` section 2.9 states the rule this encodes: **a blocked model produces a
+``docs/archive/PLAN.md`` section 2.9 states the rule this encodes: **a blocked model produces a
 hard gate, not a footnote.** A report that ran the standard model anyway and disclaimed it
 in small print is worse than one that refused, because the number is what a reader
 remembers.
@@ -17,7 +17,7 @@ there is no constructor, no ``replace`` and no ``__setattr__`` that produces a m
 profile would not allow. :func:`aer.calc.dcf.discounted_cash_flow` takes one, so a blocked
 model is not something a caller has to avoid: it is something they cannot express.
 
-That is what `docs/phase-3-plan.md` task 28 means by *the block, not the footnote*, and by
+That is what `docs/archive/phase-3-plan.md` task 28 means by *the block, not the footnote*, and by
 *asserted at the calculation layer rather than at the page*. A guard in a route protects that
 route. A guard in a service protects callers who go through the service. A required argument
 whose type cannot be constructed for a blocked model protects every route there is.

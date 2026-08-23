@@ -1,8 +1,8 @@
 """Seed the eighteen-section spine: sixteen new built-in section definitions.
 
-Task 44. `docs/PLAN.md` commits to eighteen built-in sections ("the 18-section
+Task 44. `docs/archive/PLAN.md` commits to eighteen built-in sections ("the 18-section
 institutional spine") without enumerating them; the enumeration is decided in
-`docs/phase-5-plan.md` and seeded here. Two of the eighteen were seeded by migration 0006
+`docs/archive/phase-5-plan.md` and seeded here. Two of the eighteen were seeded by migration 0006
 (`executive_summary`, `historical_financial_analysis`); this migration adds the remaining
 sixteen. Rows, not code: the workflow, the renderer and the exporters iterate these
 tables, so the whole spine arrives with no code change beyond what fills it.

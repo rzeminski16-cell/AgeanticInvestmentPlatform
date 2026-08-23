@@ -150,6 +150,7 @@ async def _seed(session: AsyncSession) -> None:
 
     session.add(
         SourceDocument(
+            work_order_id=request.id,
             request_id=request.id,
             artefact_id=artefact.id,
             url="https://example.invalid/doc",

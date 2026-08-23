@@ -1,6 +1,6 @@
 """The research workers: per-topic investigation under one contract and hard bounds.
 
-`docs/PLAN.md` §2.5's parallel workers — company, industry, macro, recent developments,
+`docs/archive/PLAN.md` §2.5's parallel workers — company, industry, macro, recent developments,
 technical context — one agent class, parameterised by topic, sharing a single typed
 contract, the ``analysis`` role's allowlist and its token caps.
 

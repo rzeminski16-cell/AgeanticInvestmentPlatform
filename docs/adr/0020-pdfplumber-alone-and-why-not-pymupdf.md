@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-07-30
-- **Supersedes:** the library choice in `docs/PLAN.md` §1.4 and `docs/phase-2-plan.md` task 14
+- **Supersedes:** the library choice in `docs/archive/PLAN.md` §1.4 and `docs/archive/phase-2-plan.md` task 14
 
 ## Context
 
@@ -117,7 +117,7 @@ will see that immediately.
 **Deliberately not built.**
 
 - **OCR.** A non-goal for this task, per the plan.
-- **An LLM vision pass for hard tables.** `docs/PLAN.md` reserves this. Nothing here needs it
+- **An LLM vision pass for hard tables.** `docs/archive/PLAN.md` reserves this. Nothing here needs it
   yet, and it costs money per document.
 - **Persisting the page map or the tables.** Both are regenerable from the artefact by the named
   extractor at the named version, which is the whole point of recording those. What *is* stored

@@ -1,7 +1,7 @@
 """A labelled citation corpus: forty claim/excerpt pairs whose answers are known in advance.
 
-``docs/PLAN.md`` §2.10 calls for ``fx_msft_10k`` — hand-labelled pairs the verifier is scored
-against. This is it.
+``docs/archive/PLAN.md`` §2.10 calls for ``fx_msft_10k`` — hand-labelled pairs the verifier
+is scored against. This is it.
 
 **What ``genuine`` means, exactly.** *The stored excerpt is what the artefact says at the
 recorded locator*, allowing for whitespace normalisation. Not "the words appear somewhere in

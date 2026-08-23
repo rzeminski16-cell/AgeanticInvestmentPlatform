@@ -153,7 +153,7 @@ class HouseStyle(BaseModel):
 
 
 # Opus 5 for judgement, Sonnet 5 as the workhorse, Haiku 4.5 for triage.
-# Rationale and the cost model behind it: docs/PLAN.md section 1.8.
+# Rationale and the cost model behind it: docs/archive/PLAN.md section 1.8.
 DEFAULT_MODEL_ROUTES: Final[dict[str, ModelRoute]] = {
     "planner": ModelRoute(model="claude-opus-5", effort="high"),
     "source_triage": ModelRoute(model="claude-haiku-4-5", effort="low"),
@@ -327,7 +327,7 @@ class Settings(BaseSettings):
     usd_to_gbp: Decimal = Field(default=Decimal("0.79"), gt=0)
 
     # The per-custom-section token ceiling the additive-only composer clamps requests to
-    # (docs/PLAN.md §2.12, §1.8: "12k each (cap)"). Config rather than code because it is
+    # (docs/archive/PLAN.md §2.12, §1.8: "12k each (cap)"). Config rather than code because it is
     # a cost decision; the *floor* rules a skill cannot relax are code, in
     # aer.core.skill_policy.
     custom_section_token_ceiling: int = Field(default=12_000, gt=0)

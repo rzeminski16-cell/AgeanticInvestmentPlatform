@@ -6,7 +6,7 @@ page so "is the vault current?" has an answer. The vault itself stays a derived,
 one-directional projection: nothing in it is ever read back as evidence, which is also
 why the ``provider`` enum gains ``internal_prior_run`` here — the value that marks a
 prior run's output when it is fed forward, so the citation verifier can hard-reject any
-claim leaning on it (docs/PLAN.md section 2.8, rule 4).
+claim leaning on it (docs/archive/PLAN.md section 2.8, rule 4).
 
 Revision ID: 0025
 Revises: 0024

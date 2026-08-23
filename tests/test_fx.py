@@ -38,7 +38,7 @@ from aer.calc.units import (
     shares,
 )
 
-SOURCE = SourceRef.fact("boe-xudlgbd-2024-06-28")
+SOURCE = SourceRef.macro_observation("boe-xudlgbd-2024-06-28")
 AS_OF = date(2024, 6, 30)
 
 
@@ -63,11 +63,11 @@ def gbp_per_usd(
 
 
 def usd(value: str) -> Quantity:
-    return money(value, "USD", source=SourceRef.fact("fact-1"))
+    return money(value, "USD", source=SourceRef.financial_fact("fact-1"))
 
 
 def gbp(value: str) -> Quantity:
-    return money(value, "GBP", source=SourceRef.fact("fact-1"))
+    return money(value, "GBP", source=SourceRef.financial_fact("fact-1"))
 
 
 class TestARateIsAnObservationWithAUnit:
@@ -190,8 +190,8 @@ class TestChoosingTheRate:
 
     def test_the_choice_does_not_depend_on_the_order_they_arrived_in(self):
         """Two observations of one pair on one date is a disagreement, not a coin toss."""
-        first = gbp_per_usd("0.79", source=SourceRef.fact("aaa"))
-        second = gbp_per_usd("0.81", source=SourceRef.fact("bbb"))
+        first = gbp_per_usd("0.79", source=SourceRef.financial_fact("aaa"))
+        second = gbp_per_usd("0.81", source=SourceRef.financial_fact("bbb"))
 
         forwards = select_rate([first, second], base="USD", quote="GBP", as_of=AS_OF)
         backwards = select_rate([second, first], base="USD", quote="GBP", as_of=AS_OF)
@@ -230,7 +230,7 @@ class TestConverting:
         with pytest.raises(CalculationError, match="not a currency"):
             convert(
                 context,
-                amount=shares("1000", source=SourceRef.fact("f")),
+                amount=shares("1000", source=SourceRef.financial_fact("f")),
                 rate=gbp_per_usd().rate,
                 into="GBP",
             )

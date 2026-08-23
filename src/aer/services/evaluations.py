@@ -80,6 +80,7 @@ from aer.render.html import render_html
 from aer.render.markdown import serialise_markdown
 from aer.sections.registry import sections_for_job
 from aer.services.facts import visible_facts
+from aer.services.scope import scope_for_request
 from aer.verify.citations import verify_job_citations
 
 __all__ = [
@@ -274,7 +275,7 @@ async def _load(session: AsyncSession, *, job: Job, request: ResearchRequest) ->
     rows.sources = list(
         await session.scalars(
             select(SourceDocument)
-            .where(SourceDocument.request_id == request.id)
+            .where(SourceDocument.work_order_id == request.id)
             .order_by(SourceDocument.retrieved_at)
         )
     )
@@ -484,7 +485,7 @@ async def _figure_scenes(
     """
     facts = list(
         await session.scalars(
-            visible_facts(request, request.company_id)
+            visible_facts(await scope_for_request(session, request))
             .where(FinancialFact.concept.in_(("revenue", "net_income", "total_assets")))
             .order_by(FinancialFact.period_end.desc(), FinancialFact.concept)
         )

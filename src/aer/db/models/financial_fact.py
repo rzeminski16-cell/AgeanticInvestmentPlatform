@@ -15,7 +15,7 @@ point-in-time record, which is the one thing this schema exists to preserve.
 typed. The chain is fact → source document → artefact → SHA-256, and it is unbroken by
 construction rather than by convention.
 
-**On the extraction layer.** ``docs/PLAN.md`` places an ``extractions`` table between the
+**On the extraction layer.** ``docs/archive/PLAN.md`` places an ``extractions`` table between the
 source document and the fact, recording which extractor produced it, at which version, and
 the verbatim excerpt the citation verifier re-reads. That table belongs to the extraction
 task and is not built here; this model links straight to the source document, and carries

@@ -25,17 +25,29 @@ from aer.calc.units import (
     Quantity,
     SourceKind,
     SourceRef,
+    SourceTable,
     UnsourcedValueError,
     money,
 )
 from aer.calc.units import ratio as pure
-from aer.core.enums import FactBasis, JobStatus, Provider, RequestStatus, SourceTier, UserRole
+from aer.core.enums import (
+    FactBasis,
+    Grade,
+    JobStatus,
+    Provider,
+    RequestStatus,
+    SourceTier,
+    UserRole,
+)
 from aer.db.models import (
     Assumption,
     Calculation,
     FinancialFact,
     Job,
+    MacroObservationRow,
+    MacroSeriesRow,
     ResearchRequest,
+    Security,
     User,
 )
 from aer.errors import ValidationError
@@ -47,7 +59,7 @@ from aer.storage.local import LocalArtefactStore
 from tests.sec_fixtures import MSFT_CIK, fixture_bytes
 from tests.test_sec_persistence import fetched
 
-SOURCE = SourceRef.fact("fact-1")
+SOURCE = SourceRef.financial_fact("fact-1")
 
 
 @pytest.fixture
@@ -231,7 +243,7 @@ class TestTheRecord:
         # A peer average must be traceable to which company contributed what.
         weighted_average(
             context,
-            values=[usd(10, SourceRef.fact("a")), usd(20, SourceRef.fact("b"))],
+            values=[usd(10, SourceRef.financial_fact("a")), usd(20, SourceRef.financial_fact("b"))],
             weights=[pure(1, source=SOURCE), pure(3, source=SOURCE)],
         )
 
@@ -406,6 +418,7 @@ async def request_row(db_session) -> ResearchRequest:
 @pytest.fixture
 async def job(db_session, request_row) -> Job:
     row = Job(
+        work_order_id=request_row.id,
         request_id=request_row.id,
         workflow_version="test-1",
         code_version="a1b2c3d4",
@@ -464,7 +477,7 @@ async def revenue_facts(db_session, store, request_row) -> list[FinancialFact]:
 
 
 def fact_quantity(fact: FinancialFact, label: str = "") -> Quantity:
-    return money(fact.value, "USD", source=SourceRef.fact(fact.id, label=label))
+    return money(fact.value, "USD", source=SourceRef.financial_fact(fact.id, label=label))
 
 
 @pytest.mark.integration
@@ -661,8 +674,8 @@ class TestLineage:
         missing_id = uuid.uuid4()
         growth_rate(
             context,
-            start=usd(100, SourceRef.fact(missing_id)),
-            end=usd(110, SourceRef.fact(missing_id)),
+            start=usd(100, SourceRef.financial_fact(missing_id)),
+            end=usd(110, SourceRef.financial_fact(missing_id)),
         )
         rows = await calculation_service.persist_context(db_session, context, job_id=job.id)
 
@@ -670,7 +683,11 @@ class TestLineage:
 
         assert all(node.kind == "missing" for node in tree.leaves)
         assert all(not node.is_resolved for node in tree.leaves)
-        assert tree.leaves[0].detail["expected"] == "fact"
+        # Named against the relation that was searched, not against the kind. "No row in
+        # financial_facts" is checkable; "no fact" was a statement about a lookup nobody
+        # could see, and it read the same whether the row was deleted or the id had never
+        # lived in that table at all (ADR 0076).
+        assert tree.leaves[0].detail["expected"] == "financial_facts"
 
     async def test_lineage_of_an_unknown_calculation_raises(self, db_session):
         with pytest.raises(ValidationError, match="No calculation"):
@@ -695,3 +712,182 @@ class TestLineage:
         listed = await calculation_service.calculations_for_job(db_session, job.id)
 
         assert {row.name for row in listed} == {"growth_rate", "margin"}
+
+
+class TestTheLeafRegistry:
+    """Both ends of ADR 0076's registry, checked against each other.
+
+    A source reference names the relation it resolves against, and resolution is a mapping
+    from that name to a loader. Two lists only behave as one registry if something asserts
+    they agree — otherwise a constructor can mint a table nobody reads, which is the defect
+    this decision closed wearing different clothes.
+    """
+
+    def test_every_relation_a_leaf_can_name_has_a_loader(self):
+        registered = set(calculation_service._LEAF_LOADERS)
+        # Calculations resolve through their own path: they are the one kind with children,
+        # so the walk continues through them rather than stopping at a leaf.
+        expected = set(SourceTable) - {SourceTable.CALCULATIONS}
+
+        assert registered == expected
+
+    def test_a_calculation_is_deliberately_not_a_leaf(self):
+        assert SourceTable.CALCULATIONS not in calculation_service._LEAF_LOADERS
+
+    def test_every_constructor_names_a_relation(self):
+        made = (
+            SourceRef.financial_fact("a"),
+            SourceRef.macro_observation("b"),
+            SourceRef.fx_rate("c"),
+            SourceRef.attestation("d", grade=Grade.ATTESTED),
+            SourceRef.security("e"),
+            SourceRef.assumption("f"),
+            SourceRef.calculation("g"),
+        )
+
+        assert {ref.table for ref in made} == set(SourceTable)
+
+    def test_a_legacy_fact_is_tried_against_every_relation_that_existed_then(self):
+        """The compatibility walk, and the one relation deliberately left out of it.
+
+        A row written before ADR 0076 carries no table, so it is resolved by trying the
+        relations its kind was ever minted over. ``fx_rates`` arrived *after* that record
+        (ADR 0082), which means no untabled row can name it — and adding it to the walk
+        would have every legacy fact query a table it cannot be in. If a *further* relation
+        ever carries a FACT, this is the test that notices the walk was not told.
+        """
+        carry_a_fact = {
+            ref.table
+            for ref in (
+                SourceRef.financial_fact("a"),
+                SourceRef.macro_observation("b"),
+                SourceRef.fx_rate("c"),
+                SourceRef.security("d"),
+            )
+        }
+
+        candidates = set(calculation_service._LEGACY_CANDIDATES[SourceKind.FACT.value])
+
+        assert candidates == carry_a_fact - {SourceTable.FX_RATES}
+
+    def test_a_stored_input_without_a_table_is_a_legacy_row_not_a_broken_one(self):
+        stored = calculation_service._StoredInput.of(
+            {"name": "revenue", "value": "1", "unit": "USD", "source": {"kind": "fact", "id": "x"}}
+        )
+
+        assert stored.table == ""
+
+
+@pytest.mark.integration
+class TestLeavesResolveByRelation:
+    """The defect ADR 0076 closed: a leaf found by the relation it actually lives in."""
+
+    async def test_a_macro_observation_resolves_instead_of_dangling(self, db_session, job, context):
+        series = MacroSeriesRow(
+            key="UK.BANKRATE",
+            provider=Provider.FRED,
+            identifier="BANKRATE",
+            dataset="",
+            label="Bank Rate",
+            unit="percent",
+            frequency="M",
+            originator="Bank of England",
+            licence_note="Open Government Licence v3.0",
+        )
+        db_session.add(series)
+        await db_session.flush()
+        observation = MacroObservationRow(
+            series_id=series.id,
+            observed_on=date(2024, 6, 30),
+            vintage=date(2024, 7, 15),
+            value=Decimal("5.25"),
+            is_archived=True,
+        )
+        db_session.add(observation)
+        await db_session.flush()
+
+        growth_rate(
+            context,
+            start=money(100, "USD", source=SourceRef.macro_observation(observation.id)),
+            end=money(110, "USD", source=SourceRef.macro_observation(observation.id)),
+        )
+        rows = await calculation_service.persist_context(db_session, context, job_id=job.id)
+
+        tree = await calculation_service.lineage(db_session, rows[0].id)
+
+        assert all(node.kind == "fact" for node in tree.leaves)
+        assert all(node.is_resolved for node in tree.leaves)
+        assert tree.leaves[0].detail["table"] == "macro_observations"
+        assert tree.leaves[0].detail["series"] == "UK.BANKRATE"
+        # The vintage is half of what identifies a macro figure: an archive restates, so
+        # the period alone does not say which number this was.
+        assert tree.leaves[0].detail["vintage"] == "2024-07-15"
+
+    async def test_a_security_resolves_instead_of_dangling(self, db_session, job, context):
+        security = Security(
+            ticker="BARC",
+            exchange="LSE",
+            provider_symbol="BARC.LSE",
+            quote_currency="GBX",
+        )
+        db_session.add(security)
+        await db_session.flush()
+
+        growth_rate(
+            context,
+            start=money(100, "GBP", source=SourceRef.security(security.id)),
+            end=money(110, "GBP", source=SourceRef.security(security.id)),
+        )
+        rows = await calculation_service.persist_context(db_session, context, job_id=job.id)
+
+        tree = await calculation_service.lineage(db_session, rows[0].id)
+
+        assert all(node.is_resolved for node in tree.leaves)
+        assert tree.leaves[0].detail["table"] == "securities"
+        # GBX rather than GBP is what says the figure above needed the pence conversion at
+        # all, so it is part of what the leaf has to show.
+        assert tree.leaves[0].detail["quote_currency"] == "GBX"
+
+    async def test_a_row_written_before_the_table_was_recorded_still_resolves(
+        self, db_session, job, revenue_facts, context
+    ):
+        # The compatibility walk. Rows persisted before ADR 0076 carry a kind and no table,
+        # and must keep resolving: the decision was to stop guessing, not to orphan what the
+        # guess had already written.
+        first, _, last = revenue_facts
+        cagr(context, start=fact_quantity(first), end=fact_quantity(last), years=2)
+        rows = await calculation_service.persist_context(db_session, context, job_id=job.id)
+
+        legacy = []
+        for stored in rows[0].inputs:
+            entry = dict(stored)
+            entry["source"] = {k: v for k, v in entry["source"].items() if k != "table"}
+            legacy.append(entry)
+        rows[0].inputs = legacy
+        await db_session.flush()
+
+        tree = await calculation_service.lineage(db_session, rows[0].id)
+
+        assert all(node.is_resolved for node in tree.leaves)
+        assert {node.identifier for node in tree.leaves} == {str(first.id), str(last.id)}
+
+    async def test_a_relation_this_build_does_not_know_is_named_in_the_failure(
+        self, db_session, job, context
+    ):
+        # A row from a newer schema, or a corrupt one. It resolves to nothing either way,
+        # and the point is that the viewer says which relation it could not read rather
+        # than reporting the kind and leaving the reader to guess what was searched.
+        growth_rate(context, start=usd(100), end=usd(110))
+        rows = await calculation_service.persist_context(db_session, context, job_id=job.id)
+        rewritten = []
+        for stored in rows[0].inputs:
+            entry = dict(stored)
+            entry["source"] = {**entry["source"], "table": "attestations", "id": str(uuid.uuid4())}
+            rewritten.append(entry)
+        rows[0].inputs = rewritten
+        await db_session.flush()
+
+        tree = await calculation_service.lineage(db_session, rows[0].id)
+
+        assert all(node.kind == "missing" for node in tree.leaves)
+        assert tree.leaves[0].detail["expected"] == "attestations"

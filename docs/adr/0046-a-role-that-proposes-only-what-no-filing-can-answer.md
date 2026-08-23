@@ -102,7 +102,7 @@ work whose output the whole valuation rests on, and it runs twice per report at 
 ## What this role is not
 
 **It is not `valuation_interpretation`.** That name is already reserved in the model routes
-and in the router's role list, from `docs/PLAN.md` §1.8, and it has never had a
+and in the router's role list, from `docs/archive/PLAN.md` §1.8, and it has never had a
 `RoleDefinition`. Its intended job is to write *about* a finished valuation. Interpreting an
 output and choosing an input are different jobs at opposite ends of the pipeline, and
 merging them would put a writing role in the position of deciding numbers. `assumption_proposal`

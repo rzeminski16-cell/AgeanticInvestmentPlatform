@@ -21,7 +21,7 @@ zero and often is not: a filer's tagging is incomplete, a concept this project m
 the filer split three ways, a rounding convention differs between statements. Raising would
 end a run over a condition that is normal and informative; returning a discrepancy an
 operator can see is what the finished report needs anyway. **A statement that does not close
-is a finding**, and `docs/PLAN.md` section 2.4 escalates it at gate 2 rather than hiding it.
+is a finding**, and `docs/archive/PLAN.md` section 2.4 escalates it at gate 2 rather than hiding it.
 
 Pure and side-effect free -- no database, no clock. The service layer loads the facts.
 """

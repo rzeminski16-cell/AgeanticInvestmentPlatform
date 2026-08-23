@@ -51,6 +51,7 @@ from aer.db.models import (
     SectionStatus,
     Skill,
     SkillVersion,
+    WorkOrder,
 )
 from aer.db.models.plan_skill_pin import PLANNED
 from aer.errors import AerError, ValidationError
@@ -187,7 +188,26 @@ async def dry_run_skill(
         session, skill=skill, version=version, composed=composed
     )
 
+    # A rehearsal is its own unit of budgeted work: its own job, its own step, its own
+    # spend. Since ADR 0072 that means its own work order, and it has to be its own for a
+    # concrete reason as well as a definitional one — pins are unique per (work order,
+    # skill), so a dry run sharing the source run's work order could not rehearse a skill
+    # that run had already pinned, which is every skill worth rehearsing.
+    work_order = WorkOrder(
+        user_id=request.user_id,
+        tool="research",
+        subject_kind="company",
+        subject_id=request.company_id,
+        as_of_date=request.as_of_date,
+        point_in_time=request.point_in_time,
+        max_cost_gbp=request.max_cost_gbp,
+        status=request.status,
+    )
+    session.add(work_order)
+    await session.flush()
+
     job = Job(
+        work_order_id=work_order.id,
         request_id=request.id,
         workflow_version=DRY_RUN_WORKFLOW,
         code_version=git_sha() or "unknown",
@@ -312,7 +332,13 @@ async def _stage(
     await session.flush()
     job.plan_id = plan.id
 
-    pin = _pin_for(plan, skill=skill, version=version, composed=composed, estimate=estimate)
+    pin = _pin_for(
+        work_order_id=job.work_order_id,
+        skill=skill,
+        version=version,
+        composed=composed,
+        estimate=estimate,
+    )
     step = JobStep(
         job_id=job.id,
         step_key=DRY_RUN_STEP,
@@ -336,8 +362,8 @@ async def _stage(
 
 
 def _pin_for(
-    plan: ResearchPlan,
     *,
+    work_order_id: uuid.UUID,
     skill: Skill,
     version: SkillVersion,
     composed: Any,
@@ -350,7 +376,7 @@ def _pin_for(
     something a plan could not have produced would be rehearsing a different thing.
     """
     return PlanSkillPin(
-        plan_id=plan.id,
+        work_order_id=work_order_id,
         skill_id=skill.id,
         skill_version_id=version.id,
         status=PLANNED,

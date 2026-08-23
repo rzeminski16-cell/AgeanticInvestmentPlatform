@@ -173,7 +173,7 @@ answer.
 
 **Deliberately not built.**
 
-- **Pause and resume on demand.** `docs/PLAN.md` §2.7 lists it beside cancel. It needs a
+- **Pause and resume on demand.** `docs/archive/PLAN.md` §2.7 lists it beside cancel. It needs a
   story about what happens to a half-gathered evidence set, and inventing one now would be
   guessing. The gates already pause runs where pausing has a defined meaning.
 - **Editing a request that has run, into a new one.** "Clone and edit" is an obvious

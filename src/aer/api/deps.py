@@ -34,6 +34,7 @@ __all__ = [
     "RouterDep",
     "SettingsDep",
     "StoreDep",
+    "current_user_or_none",
     "get_app_state",
     "get_current_user",
     "get_db_session",
@@ -78,6 +79,22 @@ def get_redis(state: StateDep) -> Redis:
 RedisClient = Annotated[Redis, Depends(get_redis)]
 
 
+async def current_user_or_none(session: AsyncSession) -> User | None:
+    """The single local user, or ``None`` if the database holds none.
+
+    Separated from the dependency below so that one surface can ask the question without
+    the answer being a refusal: the shell's badge fragment fires on every page including
+    the landing page, which is designed to render with Postgres down, and a dependency that
+    raises runs before any handler can decide the count is simply unavailable.
+
+    One query in one place. A second `select(User)` written for that caller would be a
+    second answer to "who is the operator", which is precisely what this dependency exists
+    to prevent there being.
+    """
+    result = await session.execute(select(User).order_by(User.created_at).limit(1))
+    return result.scalar_one_or_none()
+
+
 async def get_current_user(session: DbSession) -> User:
     """The single local user.
 
@@ -86,8 +103,7 @@ async def get_current_user(session: DbSession) -> User:
     an implicit singleton — when authentication arrives it replaces the body of this
     function and nothing else.
     """
-    result = await session.execute(select(User).order_by(User.created_at).limit(1))
-    user = result.scalar_one_or_none()
+    user = await current_user_or_none(session)
     if user is None:
         message = "No user exists. Create one with: uv run aer seed-user --email you@example.com"
         raise ConfigError(message, context={"remedy": "aer seed-user"})

@@ -10,7 +10,7 @@ What is left is EODHD-specific and worth stating:
 symbol and a date, and builds the URL itself with the date in the ``to`` parameter. A caller
 cannot express "give me everything you have" — there is no argument for it — which is what
 makes the look-ahead guarantee a property of the type signature rather than of everybody
-remembering. `docs/phase-3-plan.md` task 29 asks for the clamp to be in the adapter rather
+remembering. `docs/archive/phase-3-plan.md` task 29 asks for the clamp to be in the adapter rather
 than in the caller, and this is what that means in practice.
 
 **The daily weighted allowance is reserved before every request.** See

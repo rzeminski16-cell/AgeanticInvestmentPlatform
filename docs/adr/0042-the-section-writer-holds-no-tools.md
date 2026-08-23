@@ -7,7 +7,7 @@ ADR 0035 requires this document for.
 
 Until now the eighteen built-in sections were filled by a Phase 1 placeholder
 (`_content_for` in the vertical slice) whose own docstring promised replacement by a
-section-writer agent. `docs/PLAN.md` §1.8 commits to the role — `report_writer`, "18
+section-writer agent. `docs/archive/PLAN.md` §1.8 commits to the role — `report_writer`, "18
 sections from structured facts" — and its model route has been configured since task 2.
 Task 44 widened the spine to eighteen seeded sections; prose that merely restates the
 request is no longer a placeholder, it is sixteen sections of nothing.

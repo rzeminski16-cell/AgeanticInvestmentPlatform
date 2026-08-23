@@ -1,6 +1,6 @@
 """The theme set a person agreed to, and the rows built from it.
 
-`docs/knowledge-graph.md` K1, ADR 0065. A theme nobody confirmed is a connection nobody
+`docs/archive/knowledge-graph.md` K1, ADR 0065. A theme nobody confirmed is a connection nobody
 can defend: filing a company under "AI capex" shapes how every later reader weighs it, and
 it does so invisibly — which is exactly the shape of judgement this platform routes
 through a gate. So the slate goes through ``THEME_SET``, and nothing here writes an edge

@@ -66,6 +66,7 @@ async def make_request(session, *, user_id, **overrides) -> ResearchRequest:
 
 async def make_job(session, request: ResearchRequest, **overrides) -> Job:
     defaults = {
+        "work_order_id": request.id,
         "request_id": request.id,
         "workflow_version": "equity-research@1.0.0",
         "code_version": "abc1234",
@@ -152,6 +153,7 @@ class TestPersistenceAndRelationships:
         await db_session.flush()
 
         approval = Approval(
+            work_order_id=request.id,
             request_id=request.id,
             gate=GateKind.PLAN,
             decision=Decision.APPROVED,
@@ -347,6 +349,7 @@ class TestConstraints:
         # gen_random_uuid() a missing FK would become a random dangling id instead of an
         # error -- the bug the UuidPk/UuidFk split exists to prevent.
         job = Job(
+            work_order_id=uuid.uuid4(),
             request_id=uuid.uuid4(),
             workflow_version="equity-research@1.0.0",
             code_version="abc1234",

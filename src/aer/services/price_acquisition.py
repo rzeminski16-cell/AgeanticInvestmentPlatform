@@ -340,7 +340,7 @@ async def acquire_peer_prices(
 
     price = price_quantity(
         series,
-        source=SourceRef.fact(listing.security.id, label=f"{symbol} close"),
+        source=SourceRef.security(listing.security.id, label=f"{symbol} close"),
     )
     if series.currency in calc_prices.MINOR_UNITS:
         price = calc_prices.price_in_major_units(context, quoted=price)
@@ -492,7 +492,7 @@ async def _market_capitalisation(
         shares = Quantity.of(
             response.shares.shares,
             _SHARES,
-            source=SourceRef.fact(
+            source=SourceRef.security(
                 security.id,
                 label=f"{symbol} shares outstanding as reported on "
                 f"{response.shares.as_reported_on.isoformat()}",
@@ -507,7 +507,7 @@ async def _market_capitalisation(
         context,
         series=series,
         shares=shares,
-        price_source=SourceRef.fact(security.id, label=f"{symbol} close"),
+        price_source=SourceRef.security(security.id, label=f"{symbol} close"),
     )
 
 
@@ -539,8 +539,8 @@ async def _propose_beta(
             request_id=request.id,
             subject=subject_series,
             market=market_series,
-            subject_source=SourceRef.fact(subject.id, label=subject.provider_symbol),
-            market_source=SourceRef.fact(market.id, label=market.provider_symbol),
+            subject_source=SourceRef.security(subject.id, label=subject.provider_symbol),
+            market_source=SourceRef.security(market.id, label=market.provider_symbol),
             market_label=proxy.label,
             job_id=job_id,
         )

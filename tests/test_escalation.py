@@ -572,6 +572,7 @@ async def _seed_source(
         # flagged-has-findings check constraint cannot take the array length of.
         extras = {"injection_flagged": True, "injection_findings": injection_findings}
     document = SourceDocument(
+        work_order_id=scene["request"].id,
         request_id=scene["request"].id,
         job_id=scene["job"].id,
         artefact_id=artefact.id,
@@ -785,7 +786,7 @@ class TestTheServiceReadsTheRecordedRows:
         scene["job"].plan_id = plan.id
         session.add(
             PlanSkillPin(
-                plan_id=plan.id,
+                work_order_id=plan.request_id,
                 skill_id=version.skill_id,
                 skill_version_id=version.id,
                 status=PLANNED,

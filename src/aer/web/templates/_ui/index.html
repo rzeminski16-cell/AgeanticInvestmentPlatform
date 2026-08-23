@@ -1,0 +1,25 @@
+{#
+  One import per page. `{% import "_ui/index.html" as ui with context %}` and then
+  `ui.card(...)`, so a page names the component rather than the classes that make it.
+
+  The rule for everything here: a macro takes data and never classes. A component that
+  accepted a class string would let a caller build a card that is not a card, and the
+  reason to have components at all is that there is one answer to what a card looks like.
+
+  **The `set` beside each import is load-bearing.** Jinja does not re-export a name brought
+  in with `{% from %}`, so a file that only imported them exported nothing at all and
+  `ui.card` raised `UndefinedError` — which nothing noticed, because this file shipped
+  before any page used it. Assigning each name at the top level is what puts it in the
+  module. `tests/test_web_pages.py` now asserts the two lists match, so a macro added above
+  and forgotten below is a red build rather than a page that fails when somebody first
+  reaches for it.
+#}
+{% from "_ui/provenance.html" import provenance as _provenance, confirmation as _confirmation %}
+{% from "_ui/surfaces.html" import card as _card, kpi as _kpi, empty as _empty, guide as _guide %}
+
+{% set provenance = _provenance %}
+{% set confirmation = _confirmation %}
+{% set card = _card %}
+{% set kpi = _kpi %}
+{% set empty = _empty %}
+{% set guide = _guide %}

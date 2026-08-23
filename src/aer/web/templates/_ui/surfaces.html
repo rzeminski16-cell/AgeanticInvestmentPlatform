@@ -1,0 +1,68 @@
+{#
+  The surfaces a page is built from. See `_ui/index.html` for the rule about classes.
+#}
+
+{% macro card(title="", subtitle="") %}
+<section class="rounded-card border border-line bg-surface p-6 shadow-sm">
+  {% if title %}
+  <h2 class="text-lg font-semibold text-ink">{{ title }}</h2>
+  {% endif %}
+  {% if subtitle %}
+  <p class="mt-1 text-sm text-ink-muted">{{ subtitle }}</p>
+  {% endif %}
+  {% if title or subtitle %}<div class="mt-4">{{ caller() }}</div>{% else %}{{ caller() }}{% endif %}
+</section>
+{% endmacro %}
+
+{% macro kpi(label, value, note="") %}
+{#
+  A figure and its name. `value` arrives already rendered — `aer/render/display.py` is the
+  one door for formatting a figure, and a macro that formatted one here would be a second
+  house style nobody configured (ADR 0077).
+#}
+<div class="rounded-card border border-line bg-surface p-5">
+  <dt class="text-sm font-medium text-ink-muted">{{ label }}</dt>
+  <dd class="mt-2 text-3xl font-semibold tracking-tight text-ink">{{ value }}</dd>
+  {% if note %}
+  <p class="mt-1 text-xs text-ink-faint">{{ note }}</p>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro empty(title, explanation, action_label="", action_href="") %}
+{#
+  What an empty surface says. Never "no results": an empty state is the one place a page has
+  the reader's full attention and nothing to distract them, so it says what they would get by
+  acting rather than reporting the absence they can already see.
+#}
+<div class="rounded-card border border-dashed border-line-strong bg-surface-sunken p-8 text-center">
+  <h3 class="text-base font-semibold text-ink">{{ title }}</h3>
+  <p class="mx-auto mt-2 max-w-prose text-sm text-ink-muted">{{ explanation }}</p>
+  {% if action_label and action_href %}
+  <a
+    href="{{ action_href }}"
+    class="mt-4 inline-flex items-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-strong"
+    >{{ action_label }}</a
+  >
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro guide(number, explanation) %}
+{#
+  A guidance callout, shown only when guidance mode is on (`body[data-guidance="on"]`).
+
+  The number is given explicitly rather than counted by CSS, because the numbers have to
+  match a written walkthrough and a counter silently renumbers when a conditional block is
+  hidden. The text lives beside the markup it explains, so it moves when that markup moves —
+  a tour driven by a list of selectors breaks the moment somebody renames a div, and nothing
+  says so.
+#}
+<span
+  class="aer-guide ml-2 items-center gap-1 rounded-full bg-brand-wash px-2 py-0.5 text-xs font-semibold text-brand"
+  title="{{ explanation }}"
+>
+  <span aria-hidden="true">{{ number }}</span>
+  <span class="sr-only">Guidance {{ number }}: {{ explanation }}</span>
+</span>
+{% endmacro %}

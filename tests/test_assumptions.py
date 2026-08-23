@@ -1,6 +1,6 @@
 """Assumptions: who proposed, who confirmed, and what a rejected proposal leaves behind.
 
-The three properties `docs/phase-3-plan.md` task 24 asks for, each tested against the
+The three properties `docs/archive/phase-3-plan.md` task 24 asks for, each tested against the
 database rather than against a stub:
 
 - an unconfirmed assumption cannot enter a calculation;

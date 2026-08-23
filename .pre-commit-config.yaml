@@ -54,4 +54,4 @@ repos:
     hooks:
       - id: detect-secrets
         args: [--baseline, .secrets.baseline]
-        exclude: ^(uv\.lock|docs/PLAN\.md)$
+        exclude: ^(uv\.lock|docs/archive/PLAN\.md)$

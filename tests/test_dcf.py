@@ -3,7 +3,7 @@
 The forecast below was worked out on paper before it was run, and every line of it is an
 exact decimal — 1,000 growing at 10%, 8% and 6%, at a 20% margin, 25% tax, 5% depreciation,
 8% capital intensity and 10% working capital. The per-year figures are asserted exactly. The
-discounted aggregates are asserted to 0.01%, which is what `docs/phase-3-plan.md` asks for
+discounted aggregates are asserted to 0.01%, which is what `docs/archive/phase-3-plan.md` asks for
 and as tight as a figure quoted to eight significant figures can honestly be checked.
 
 The worked example is also a demonstration. Its two terminal methods disagree by 81% — 12.09
@@ -60,7 +60,7 @@ from aer.calc.units import (
 from aer.core.sectors import ValuationModel, unclassified_mandate
 
 ASSUMPTION = SourceRef.assumption("assumption-1")
-FACT = SourceRef.fact("fact-1")
+FACT = SourceRef.financial_fact("fact-1")
 
 # An ordinary company: nobody classified it into a specialist sector, so the standard model
 # applies. The block itself is tested in `test_sectors_enforcement.py`; here the mandate is
@@ -774,10 +774,10 @@ class TestTheSensitivityGrid:
 
 # -- Properties ------------------------------------------------------------------------------
 #
-# The invariants `docs/PLAN.md` names for a discounted cash flow, bounded to inputs where the
-# final year's free cash flow stays positive — outside that the Gordon terminal value refuses,
-# which the refusal tests above cover and which hypothesis would otherwise spend its budget
-# rediscovering.
+# The invariants `docs/archive/PLAN.md` names for a discounted cash flow, bounded to inputs
+# where the final year's free cash flow stays positive — outside that the Gordon terminal
+# value refuses, which the refusal tests above cover and which hypothesis would otherwise
+# spend its budget rediscovering.
 
 waccs = st.decimals(min_value=Decimal("0.05"), max_value=Decimal("0.20"), places=4)
 terminal_growths = st.decimals(min_value=Decimal(0), max_value=Decimal("0.03"), places=4)

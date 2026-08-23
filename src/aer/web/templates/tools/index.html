@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  A tool that is not built yet, at the URL it will keep.
+
+  Not a "coming soon" page. Somebody opening this is asking why it is not here, and the
+  page owes them three answers: what it will do, what has to exist first, and which record
+  decided it. All three come from the row in `web/tools/registry.py`; nothing about any
+  particular tool is written here.
+#}
+
+{% block title %}{{ tool.label }} &middot; Ageiantic{% endblock %}
+
+{% block content %}
+  <div>
+    <p class="text-xs font-semibold tracking-wide text-ink-faint uppercase" data-field="status">
+      {{ tool.status.value }}
+    </p>
+    <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">{{ tool.label }}</h1>
+    <p class="mt-2 max-w-prose text-sm text-ink-muted">{{ tool.summary }}</p>
+  </div>
+
+  <div class="mt-6 grid gap-4 sm:grid-cols-2">
+    {% call ui.card("What it needs first") %}
+      <p class="max-w-prose text-sm text-ink-muted">{{ tool.needs }}</p>
+    {% endcall %}
+
+    {% call ui.card("Where it was decided") %}
+      {#
+        Named rather than linked. The decision records are files in the repository, not
+        pages this application serves, and a link to a route that does not exist is the
+        thing this whole screen exists to avoid.
+      #}
+      <p class="text-sm text-ink-muted">
+        <span class="font-mono text-ink" data-field="adr">ADR {{ tool.adr }}</span>
+        &mdash; <code class="text-xs">docs/adr/{{ tool.adr }}-*.md</code>
+      </p>
+    {% endcall %}
+  </div>
+
+  <h2 class="mt-10 text-lg font-semibold text-ink">The rest of the shape</h2>
+  <p class="mt-1 max-w-prose text-sm text-ink-muted">
+    Everything the platform is and is going to be, so the parts that are missing are visible
+    rather than absent.
+  </p>
+  <ul class="mt-4 grid gap-2 sm:grid-cols-2">
+    {% for sibling in siblings %}
+      <li>
+        <a
+          href="{{ sibling.href }}"
+          class="block rounded-card border border-line bg-surface p-3 hover:border-line-strong"
+          data-tool="{{ sibling.key }}"
+        >
+          <span class="text-sm font-semibold text-ink">{{ sibling.label }}</span>
+          <span class="mt-0.5 block text-xs text-ink-faint">{{ sibling.status.value }}</span>
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+
+  <p class="mt-8 text-sm">
+    <a href="/" class="font-semibold text-brand hover:text-brand-strong">&larr; Everything else</a>
+  </p>
+{% endblock %}

@@ -135,6 +135,49 @@ class TestSchemaMatchesModels:
         assert not meaningful, f"schema drift detected: {meaningful}"
 
 
+class TestEnumLabelsMatchTheModels:
+    """The drift the check above cannot see, and it cost a slice to find out.
+
+    ``compare_metadata`` compares tables, columns, types and server defaults. It does not
+    compare the *labels* of an enum type — so ``Provider.ECB`` sat in the Python enum from
+    the day the ECB adapter was written while the Postgres type never learned the value,
+    and every one of these tests passed. The first thing that tried to write an ECB source
+    document failed with ``invalid input value for enum provider``, at runtime, in a
+    migration two years of revisions later (ADR 0082, revision 0052).
+
+    Only one direction is a fault. A label the model can write and the database does not
+    have is an INSERT that will fail; a label the database has and the model no longer
+    writes is the residue of a downgrade, which Postgres cannot remove and which harms
+    nothing — revisions 0016 and 0025 both say so.
+    """
+
+    async def test_every_value_a_model_can_write_exists_in_the_database(self, db_engine):
+        wanted: dict[str, set[str]] = {}
+        for table in Base.metadata.tables.values():
+            for column in table.columns:
+                if isinstance(column.type, SaEnum) and column.type.name:
+                    wanted.setdefault(column.type.name, set()).update(column.type.enums)
+
+        async with db_engine.connect() as connection:
+            rows = await connection.execute(
+                text(
+                    "SELECT t.typname, e.enumlabel FROM pg_enum e "
+                    "JOIN pg_type t ON t.oid = e.enumtypid"
+                )
+            )
+        held: dict[str, set[str]] = {}
+        for type_name, label in rows:
+            held.setdefault(type_name, set()).add(label)
+
+        missing = {
+            name: sorted(labels - held.get(name, set()))
+            for name, labels in wanted.items()
+            if labels - held.get(name, set())
+        }
+
+        assert not missing, f"enum values the schema cannot store: {missing}"
+
+
 class TestRoundTrip:
     def test_downgrade_to_base_then_upgrade_again(self, database_url):
         """A migration that cannot be reversed cannot be trusted to be re-applied.

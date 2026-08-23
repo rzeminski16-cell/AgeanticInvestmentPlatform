@@ -34,9 +34,8 @@ from aer.services import cancellation as cancellation_service
 from aer.services import provenance
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
+from aer.workflow.registry import WorkflowRegistryError, resolve_workflow
 from aer.workflow.workflows.vertical_slice_v1 import (
-    final_gate_payload,
-    unmapped_gate_payload,
     unmapped_gate_required,
 )
 
@@ -225,12 +224,13 @@ async def stream_run(
 async def read_draft(job_id: uuid.UUID, session: DbSession, user: CurrentUser) -> DraftRead:
     """What gate 2 shows: the drafted sections, and the hash approving them requires.
 
-    The payload comes from the workflow's own :func:`final_gate_payload`, the same call the
-    draft step hashed. Rebuilding the shape here would eventually rebuild it differently,
-    and the symptom would be a gate that rejects every approval.
+    The payload comes from the workflow this run recorded, through the registry rather than
+    by importing its builder — the same structure the draft step hashed. Rebuilding the
+    shape here would eventually rebuild it differently, and the symptom would be a gate that
+    rejects every approval.
     """
-    await _owned_job(session, job_id=job_id, user=user)
-    payload = await final_gate_payload(session, job_id=job_id)
+    job = await _owned_job(session, job_id=job_id, user=user)
+    payload = await _payload_for(session, job=job, gate=GateKind.FINAL)
     return DraftRead(
         job_id=job_id,
         sections=list(payload["sections"]),
@@ -252,7 +252,7 @@ async def read_financials(
     ``required`` is false, and the list empty, for a run whose every tag mapped. That is not
     an error — it is the answer, and it is the state most runs are in.
     """
-    await _owned_job(session, job_id=job_id, user=user)
+    job = await _owned_job(session, job_id=job_id, user=user)
 
     produced: dict[str, Any] | None = await session.scalar(
         select(JobStep.output_ref)
@@ -264,7 +264,7 @@ async def read_financials(
         message = f"Run {job_id} has not extracted anything yet."
         raise RunNotFoundError(message, context={"job_id": str(job_id)})
 
-    payload = unmapped_gate_payload(produced)
+    payload = await _payload_for(session, job=job, gate=GateKind.UNMAPPED_CONCEPTS)
     return FinancialsRead(
         job_id=job_id,
         required=unmapped_gate_required(produced),
@@ -391,6 +391,22 @@ async def decide_gate(
 # -- Internals ---------------------------------------------------------------------------
 
 
+async def _payload_for(session: AsyncSession, *, job: Job, gate: GateKind) -> dict[str, Any]:
+    """Exactly what this run's workflow puts at that gate.
+
+    Through the registry rather than by importing a builder, so a page rendering an
+    approval does not have to know which workflow raised it. A run whose workflow this
+    build no longer has renders an empty payload rather than raising: the page's job is to
+    show what was approved, and "this build cannot read that workflow" is a better answer
+    than a 500 (ADR 0071).
+    """
+    try:
+        builder = resolve_workflow(job.workflow_version).gate_payload()
+    except WorkflowRegistryError:
+        return {}
+    return dict(await builder(session, job=job, gate=gate.value))
+
+
 async def _owned_job(session: AsyncSession, *, job_id: uuid.UUID, user: User) -> Job:
     """The run, if it belongs to this user.
 
@@ -399,7 +415,7 @@ async def _owned_job(session: AsyncSession, *, job_id: uuid.UUID, user: User) ->
     """
     job: Job | None = await session.scalar(
         select(Job)
-        .join(ResearchRequest, ResearchRequest.id == Job.request_id)
+        .join(ResearchRequest, ResearchRequest.id == Job.work_order_id)
         .where(Job.id == job_id, ResearchRequest.user_id == user.id)
     )
     if job is None:
@@ -413,7 +429,9 @@ async def _read(session: AsyncSession, *, job_id: uuid.UUID) -> RunRead:
     payload = state.as_dict()
     return RunRead(
         job_id=state.job.id,
-        request_id=state.job.request_id,
+        # The run root's id. Identical to `request_id` for a research run — the detail
+        # row shares the root's key — and NOT NULL, where the old column no longer is.
+        request_id=state.job.work_order_id,
         status=payload["status"],
         workflow_version=state.job.workflow_version,
         code_version=state.job.code_version,

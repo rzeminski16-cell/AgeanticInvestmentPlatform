@@ -20,7 +20,7 @@ They have arrived. EODHD's subscription agreement obliges the subscriber to dest
 copy** of the data within a month of the subscription ending, and may ask for confirmation. An
 immutable, no-delete store is precisely a store that cannot comply.
 
-**This is not EODHD's doing.** `docs/PLAN.md`'s risk register T16 already called for a
+**This is not EODHD's doing.** `docs/archive/PLAN.md`'s risk register T16 already called for a
 retention policy — artefacts referenced by an immutable report never deleted, unreferenced
 artefacts collected after 90 days, soft-delete plus an audit event — and it was never built. A
 licensed source is simply the first one that makes it load-bearing rather than prudent.

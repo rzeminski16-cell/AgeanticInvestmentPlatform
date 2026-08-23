@@ -19,15 +19,18 @@ __all__ = [
     "CITATION_REQUIRING_CLAIMS",
     "TERMINAL_JOB_STATUSES",
     "AnalysisMode",
+    "AttestationKind",
     "ClaimKind",
     "Decision",
     "ExtractionKind",
     "FactBasis",
     "GateKind",
+    "Grade",
     "JobStatus",
     "Provider",
     "RequestStatus",
     "SourceTier",
+    "TransactionKind",
     "UserRole",
 ]
 
@@ -169,7 +172,7 @@ class SourceTier(StrEnum):
       earlier notes live here too — a note repeating a number does not make the number
       sourced, it makes it repeated.
 
-    See ``docs/PLAN.md`` section 1.1.
+    See ``docs/archive/PLAN.md`` section 1.1.
     """
 
     T1_REGULATORY = "T1_REGULATORY"
@@ -263,7 +266,7 @@ class Provider(StrEnum):
     """A prior run's own exported output, fed back in as context.
 
     Deliberately uncitable: it has no tier mapping (so it resolves to the unverified
-    tier) and the citation verifier hard-rejects it regardless (docs/PLAN.md section
+    tier) and the citation verifier hard-rejects it regardless (docs/archive/PLAN.md section
     2.8, rule 4). Prior research may inform a hypothesis; it can never support a claim,
     because a platform citing itself would launder yesterday's inference into today's
     evidence.
@@ -294,7 +297,7 @@ class ClaimKind(StrEnum):
       that is itself cited — and are rendered with explicit hedging.
 
     A ``NUMERIC`` claim additionally has to name the figure it asserts, because no number
-    reaches a report unless it is a stored fact or a recorded calculation.
+    reaches a report unless it is a stored fact, a recorded calculation or an attestation.
     """
 
     NUMERIC = "numeric"
@@ -310,8 +313,83 @@ CITATION_REQUIRING_CLAIMS: Final[frozenset[ClaimKind]] = frozenset(
 )
 
 
+class Grade(StrEnum):
+    """How strong the evidence behind an attestation is (ADR 0073).
+
+    Two values, and the whole point of the distinction is that they are *not* both
+    second-class. Operator-supplied data is not inherently weaker than a filing — a
+    custodian statement is a document with a hash, an extraction and a citation, checked by
+    the same verifier that checks a 20-F. What is weaker is a number somebody typed.
+
+    A property of the row, never of a rendering. See :mod:`aer.calc.attestation` for the
+    part that cannot be argued with: the grade propagates up a lineage, and a figure whose
+    lineage contains an attested node reaches a shareable surface as a type with no field
+    for the figure.
+    """
+
+    DOCUMENTED = "documented"
+    """Extracted from a hashed ``USER_SUPPLIED`` artefact — a contract note, a custodian
+    statement, a dividend advice. The full chain applies unchanged: artefact, extraction,
+    locator, citation. As citable as a filing."""
+
+    ATTESTED = "attested"
+    """Typed by the operator and self-certified, with no artefact behind it.
+
+    Admissible, and marked. It converts, it computes, and every figure above it inherits
+    the grade — which is what stops "I will document it later" becoming the default way a
+    book gets entered."""
+
+
+class AttestationKind(StrEnum):
+    """Which kind of thing the operator is asserting.
+
+    One value, and that is a statement about what exists rather than a placeholder. A
+    subtype here is a value *and* a detail table — ``TRANSACTION`` has ``transactions`` —
+    so adding one is visibly a schema change rather than a string. ADR 0073 names two more
+    that will arrive when something needs them: a private mark on an unlisted holding, and
+    an FX rate the operator typed because no source published one (ADR 0082).
+    """
+
+    TRANSACTION = "transaction"
+
+
+class TransactionKind(StrEnum):
+    """What happened to the book.
+
+    Six, and the list is deliberately short for the reason
+    :class:`~aer.db.models.security.CorporateActionKind` gives: each needs its own
+    arithmetic, and a wrong one is worse than an absent one.
+
+    **A currency exchange is the one ADR 0083 names that is not here.** It is a single
+    event touching two currencies, and this row shape holds one — so it would need either a
+    second currency column used by nothing else or a pair of rows whose "these two are one
+    event" invariant no check constraint in Postgres can see. Getting it wrong means a cash
+    balance that double-counts, silently, in the direction that flatters. Until it has a
+    shape of its own, exchanging currency is recorded as a withdrawal and a deposit, and
+    what is lost is the rate, which was never this table's to assert anyway.
+    """
+
+    BUY = "buy"
+    """Units in, cash out. Quantity is positive and in units of the security."""
+
+    SELL = "sell"
+    """Units out, cash in. Quantity is negative."""
+
+    DIVIDEND = "dividend"
+    """Cash received. Quantity is positive and in units of the currency."""
+
+    FEE = "fee"
+    """Cash charged — commission, stamp duty, custody. Quantity is negative."""
+
+    DEPOSIT = "deposit"
+    """Cash paid into the account. Quantity is positive."""
+
+    WITHDRAWAL = "withdrawal"
+    """Cash taken out. Quantity is negative."""
+
+
 class SkillKind(StrEnum):
-    """What a user-authored skill file adds to the platform (`docs/PLAN.md` §2.12).
+    """What a user-authored skill file adds to the platform (`docs/archive/PLAN.md` §2.12).
 
     ``CUSTOM_SECTION`` becomes a report section of its own, with an output contract, an
     evidence policy and a budget. The other three are composed into an existing agent's

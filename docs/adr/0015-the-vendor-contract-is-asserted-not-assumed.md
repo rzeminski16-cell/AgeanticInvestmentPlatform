@@ -18,7 +18,7 @@ planner routes at effort `high`, which mapped to 8,000 thinking tokens, so it wo
 fired on the very next attempt.
 
 Neither was a subtle mistake. Both were wrong against documentation that existed when the
-code was written, and `docs/PLAN.md` §1.6 had named the correct mechanism —
+code was written, and `docs/archive/PLAN.md` §1.6 had named the correct mechanism —
 `output_config.format` — all along. **The implementation drifted from its own plan and
 nothing noticed**, because ADR 0012's central and still-correct decision has an edge that
 had not been thought through.

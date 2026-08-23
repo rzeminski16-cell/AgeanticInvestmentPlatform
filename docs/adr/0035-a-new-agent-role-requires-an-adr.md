@@ -5,7 +5,7 @@ Date: 2026-08-06. Status: accepted.
 ## Context
 
 Phase 4 adds a dozen agent roles to a platform that has run three phases on one. The risk
-`docs/PLAN.md` names for this phase is **agent sprawl** — a mesh of roles accreting
+`docs/archive/PLAN.md` names for this phase is **agent sprawl** — a mesh of roles accreting
 capabilities one small diff at a time — and its stated mitigation is that a new agent role
 requires an ADR. A mitigation that lives in a planning document is a convention; the second
 person (or the second month) forgets it.

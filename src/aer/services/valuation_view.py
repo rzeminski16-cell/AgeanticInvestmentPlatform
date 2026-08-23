@@ -13,8 +13,8 @@ than producing it now.
 
 **Every figure carries the id of the calculation that produced it.** That is what makes the
 two-click standard reachable: a figure links to its calculation, and the calculation's inputs
-link to the facts and assumptions underneath. `docs/PLAN.md` set that standard for evidence in
-Phase 2; this applies it to arithmetic.
+link to the facts and assumptions underneath. `docs/archive/PLAN.md` set that standard for
+evidence in Phase 2; this applies it to arithmetic.
 
 Two calculations per valuation share each name — one per terminal method — and they are told
 apart by the ``method`` parameter recorded on them. That parameter exists because this module

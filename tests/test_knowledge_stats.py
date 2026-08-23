@@ -1,4 +1,4 @@
-"""Measuring the knowledge graph (docs/knowledge-graph.md, K5).
+"""Measuring the knowledge graph (docs/archive/knowledge-graph.md, K5).
 
 Every statistic is asserted against a graph whose shape is known by construction, because
 a count is exactly the kind of figure that looks plausible while being wrong. The scene is

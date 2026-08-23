@@ -5,7 +5,7 @@ Status: Accepted
 
 ## Context
 
-`docs/PLAN.md` §2.12 and `core/section_output.py` enforce the numeral rule: every numeral
+`docs/archive/PLAN.md` §2.12 and `core/section_output.py` enforce the numeral rule: every numeral
 in a section's content must appear in a numeric claim that names a stored fact or a
 recorded calculation. The rule was deliberately strict about what a numeral *denotes* — a
 year and a percentage were treated alike, because "a numeral the platform cannot trace is

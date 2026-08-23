@@ -1,6 +1,6 @@
 """The knowledge graph's own measurements, as JSON.
 
-`docs/knowledge-graph.md` task K5. A JSON endpoint rather than only a page, because the
+`docs/archive/knowledge-graph.md` task K5. A JSON endpoint rather than only a page, because the
 figures worth having are the ones you can watch move: the stub ratio, the number of
 approved reports nobody exported, the count of companies whose research has gone stale.
 Those are trends, and a trend needs a machine-readable reading.

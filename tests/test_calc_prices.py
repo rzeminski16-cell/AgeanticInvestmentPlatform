@@ -56,7 +56,7 @@ from aer.calc.units import (
 )
 
 AS_OF = date(2024, 6, 28)
-SOURCE = SourceRef.fact("test-fact")
+SOURCE = SourceRef.security("test-fact")
 
 
 @pytest.fixture
@@ -627,7 +627,7 @@ def factor_for(context, bar_date, splits):
         context,
         ratios=[
             Quantity.of(
-                split.ratio, DIMENSIONLESS, source=SourceRef.fact(split.ex_date.isoformat())
+                split.ratio, DIMENSIONLESS, source=SourceRef.security(split.ex_date.isoformat())
             )
             for split in ratios_after(bar_date, splits)
         ],

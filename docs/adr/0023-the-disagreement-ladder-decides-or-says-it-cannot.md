@@ -15,7 +15,7 @@ chosen and **nobody was told**. A report whose revenue came from the second of t
 filings, with no record that the first existed, reads exactly like one where no conflict ever
 arose — and the reader has no way to find the single decision that most affected the number.
 
-`docs/PLAN.md` §2.9 states the ladder. This records the decisions taken in implementing it,
+`docs/archive/PLAN.md` §2.9 states the ladder. This records the decisions taken in implementing it,
 which are mostly about *order*, and one about what the ladder refuses to do.
 
 ## Decision

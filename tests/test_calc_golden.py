@@ -7,7 +7,7 @@ at once — that the arithmetic still produces the answers a person computed, an
 replay harness can actually reconstruct a calculation from its stored form, because the gate's
 numerical-consistency metric is only as good as that reconstruction.
 
-The golden tolerance is 0.01% (``docs/PLAN.md`` §2.10), tighter than the gate's own 0.5%
+The golden tolerance is 0.01% (``docs/archive/PLAN.md`` §2.10), tighter than the gate's own 0.5%
 threshold: a golden case has no rounding excuse, its inputs were chosen to be exact.
 
 The corpus-integrity tests are as load-bearing as the replays. A corpus that silently shrank,
@@ -38,9 +38,12 @@ GOLDEN_CASES: list[dict[str, Any]] = json.loads(FIXTURE.read_text())["cases"]
 # a hand-computed case with exact inputs has nothing to round.
 GOLDEN_TOLERANCE = Decimal("0.0001")
 
-# Raised from thirty when K3's assumption_delta gained its hand-computed case, and again for
-# the bank model's residual_income — the deliberate act this pin exists to force.
-EXPECTED_CORPUS_SIZE = 32
+# Raised from thirty when K3's assumption_delta gained its hand-computed case, then again
+# for the bank model's residual_income and for `pooled_cost` — the deliberate act this pin
+# exists to force. `pooled_cost` is the case most worth having: ADR 0085's worked example is
+# the one where the three cost conventions disagree, so it fails if pooling is ever quietly
+# replaced by first-in-first-out.
+EXPECTED_CORPUS_SIZE = 33
 
 
 def _replayed(case: dict[str, Any]) -> ReplayObservation:

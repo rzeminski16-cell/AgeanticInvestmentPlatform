@@ -37,7 +37,7 @@ from aer.calc.units import (
 )
 from aer.calc.units import ratio as pure
 
-SOURCE = SourceRef.fact("property-test")
+SOURCE = SourceRef.financial_fact("property-test")
 
 # Money in a plausible range, exact to the cent. Built from an integer of pennies rather
 # than sampled as a float, so nothing is testing binary rounding by accident.

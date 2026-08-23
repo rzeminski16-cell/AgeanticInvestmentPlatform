@@ -50,7 +50,7 @@ _TABLES = (
 )
 
 AS_OF = date(2024, 6, 28)
-SOURCE = SourceRef.fact("price-series")
+SOURCE = SourceRef.security("price-series")
 
 
 def fetch_result() -> FetchResult:
@@ -158,6 +158,7 @@ async def job(db_session: Any, security) -> Job:
     await db_session.flush()
 
     row_ = Job(
+        work_order_id=request.id,
         request_id=request.id,
         status=JobStatus.RUNNING,
         workflow_version="vertical_slice_v1",
@@ -587,7 +588,7 @@ class TestBeta:
             subject=subject,
             market=market,
             subject_source=SOURCE,
-            market_source=SourceRef.fact("market-series"),
+            market_source=SourceRef.security("market-series"),
         )
         assert result.value == Decimal(1)
 
@@ -660,7 +661,8 @@ class TestThePriceIsPerShare:
 
 
 class TestBetaIsProposedNotDecided:
-    """`docs/phase-3-plan.md`: a first-class assumption with an optional computed override."""
+    """`docs/archive/phase-3-plan.md`: a first-class assumption with an optional computed
+    override."""
 
     async def _two_series(self, db_session, security, london):
         for listing in (security, london):
@@ -688,7 +690,7 @@ class TestBetaIsProposedNotDecided:
             subject=subject,
             market=market,
             subject_source=SOURCE,
-            market_source=SourceRef.fact("market-series"),
+            market_source=SourceRef.security("market-series"),
             market_label="FTSE 100",
             job_id=job.id,
         )
@@ -708,7 +710,7 @@ class TestBetaIsProposedNotDecided:
             subject=subject,
             market=market,
             subject_source=SOURCE,
-            market_source=SourceRef.fact("market-series"),
+            market_source=SourceRef.security("market-series"),
             market_label="FTSE 100",
         )
 
@@ -729,7 +731,7 @@ class TestBetaIsProposedNotDecided:
             subject=subject,
             market=market,
             subject_source=SOURCE,
-            market_source=SourceRef.fact("market-series"),
+            market_source=SourceRef.security("market-series"),
             market_label="FTSE 100",
             frequency=calc.Frequency.MONTHLY,
         )
@@ -751,7 +753,7 @@ class TestBetaIsProposedNotDecided:
             subject=subject,
             market=market,
             subject_source=SOURCE,
-            market_source=SourceRef.fact("market-series"),
+            market_source=SourceRef.security("market-series"),
             market_label="FTSE 100",
         )
 

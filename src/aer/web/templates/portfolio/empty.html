@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  Before there is a book. One row from the first day (ADR 0083's settled decisions), so this
+  form exists to create it rather than to configure anything — the name and the reporting
+  currency are both changeable, and neither is worth a wizard.
+#}
+
+{% block title %}Portfolio &middot; Ageiantic{% endblock %}
+
+{% block content %}
+  <h1 class="text-2xl font-semibold tracking-tight text-ink">Portfolio</h1>
+  <p class="mt-2 max-w-prose text-sm text-ink-muted">
+    What you hold, at what cost, as at a date — computed from the transactions behind it
+    rather than stored, so every figure resolves to a formula and the trades that fed it.
+  </p>
+
+  <div class="mt-6 max-w-md">
+    {% call ui.card("Start a book", "You can rename it or add another later.") %}
+      <form method="post" action="/portfolio" class="grid gap-4">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        <div>
+          <label for="name" class="block text-sm font-medium text-ink">Name</label>
+          <input
+            id="name"
+            name="name"
+            value="{{ default_name }}"
+            required
+            class="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
+          />
+        </div>
+        <div>
+          <label for="base_currency" class="block text-sm font-medium text-ink">
+            Reported in
+          </label>
+          {#
+            What the book is *reported* in, not what it holds. A sterling investor holding
+            dollars has a GBP base currency and USD positions, and the conversion between
+            them is a recorded calculation over a dated rate (ADR 0082).
+          #}
+          <select
+            id="base_currency"
+            name="base_currency"
+            class="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
+          >
+            <option value="GBP">GBP — pounds sterling</option>
+            <option value="USD">USD — US dollars</option>
+            <option value="EUR">EUR — euro</option>
+          </select>
+        </div>
+        <div>
+          <button
+            id="create-book"
+            type="submit"
+            class="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-strong"
+          >
+            Create it
+          </button>
+        </div>
+      </form>
+    {% endcall %}
+  </div>
+{% endblock %}

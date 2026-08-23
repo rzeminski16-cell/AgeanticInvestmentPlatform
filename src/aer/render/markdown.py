@@ -108,7 +108,7 @@ def serialise_markdown(document: ReportDocument) -> str:
     """One :class:`ReportDocument`, as Markdown. Transcription only — nothing decided here.
 
     The sector block sits immediately after the header and before any analysis. A sector
-    warning at the foot of a report is a footnote, and `docs/PLAN.md` section 2.9 is
+    warning at the foot of a report is a footnote, and `docs/archive/PLAN.md` section 2.9 is
     explicit that a blocked model produces a block rather than a footnote: a reader has
     to meet the limitation before the numbers, because the number is what they will
     remember.

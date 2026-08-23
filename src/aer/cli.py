@@ -220,7 +220,7 @@ def acceptance_command(
 ) -> None:
     """Measure one finished run against the P11 acceptance requirements.
 
-    The deterministic half of `docs/polish-phase-1.md` P11: every check is a read of
+    The deterministic half of `docs/archive/polish-phase-1.md` P11: every check is a read of
     what the run recorded — sections, citations, the evaluation gate's verdicts, the
     issuers the report actually cites, the front page, the spend — printed beside its
     requirement so the diff is the output. Exits non-zero when a requirement fails.

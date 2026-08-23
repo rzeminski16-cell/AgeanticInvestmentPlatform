@@ -12,8 +12,9 @@ metadata said 3 August, and the index won because it is the regulator's record" 
 
 ## The order of trust, which is not the order the plan listed
 
-`docs/phase-2-plan.md` lists the sources as *"HTTP headers, document metadata, filing indexes and
-in-document text, in that order of trust"*. Taken literally that puts HTTP headers first, and
+`docs/archive/phase-2-plan.md` lists the sources as *"HTTP headers, document metadata,
+filing indexes and in-document text, in that order of trust"*. Taken literally that puts
+HTTP headers first, and
 that is wrong on the merits, so this module does not do it:
 
 1. **The filing index.** The regulator's own record of when a document was filed. It is the

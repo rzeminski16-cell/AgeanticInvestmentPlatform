@@ -3,11 +3,11 @@
 - **Status:** Accepted
 - **Date:** 2026-07-30
 - **Supersedes, in part:** the "Core. UK filing discovery & PIT anchor" role given to the NSM
-  in `docs/PLAN.md` §1.3
+  in `docs/archive/PLAN.md` §1.3
 
 ## Context
 
-Task 18 of `docs/phase-2-plan.md` is conditional, and the condition is written into the plan:
+Task 18 of `docs/archive/phase-2-plan.md` is conditional, and the condition is written into the plan:
 
 > Preceded by a written determination of what NSM permits. If programmatic access is not
 > permitted, the task becomes an ADR recording why, and the UK path relies on Companies House
@@ -20,7 +20,7 @@ not held. That is not a preference to be traded against coverage; it decides thi
 its own once the terms are known.
 
 The NSM is attractive precisely because it is the one place every UK regulated disclosure
-lands. `docs/PLAN.md` §1.3 named it "Core" for UK filing discovery and as the point-in-time
+lands. `docs/archive/PLAN.md` §1.3 named it "Core" for UK filing discovery and as the point-in-time
 anchor. So the determination matters: the difference between having it and not having it is
 the difference between one index and a per-issuer hunt.
 
@@ -97,7 +97,7 @@ exists. If the FCA grants written consent, the change is this document plus one 
 ## Consequences
 
 **The UK path relies on Companies House and the issuer's own site**, exactly as
-`docs/phase-2-plan.md` anticipated. This costs less than it appears to:
+`docs/archive/phase-2-plan.md` anticipated. This costs less than it appears to:
 
 - **Documents.** A UK listed company's IFRS consolidated annual report is published on its own
   investor-relations site, which task 16's discovery already finds and task 17's iXBRL extractor
@@ -116,7 +116,7 @@ user-supplied source under `Provider.USER_SUPPLIED`, hashed and cited like anyth
 no automated access involved. Building that ingestion path is not part of task 18 and is not
 done here.
 
-**`docs/PLAN.md` §1.3 is now wrong in one cell** and stays as written, with a pointer to this
+**`docs/archive/PLAN.md` §1.3 is now wrong in one cell** and stays as written, with a pointer to this
 ADR beneath the table. The table is a record of what the research found; this is the record of
 what was decided about it, and rewriting the first to match the second would erase the reason
 the question was asked.

@@ -1,6 +1,6 @@
 """What a forecast driver actually did, measured from the filings that later arrived.
 
-`docs/knowledge-graph.md` K3. A prior run's confirmed assumption — revenue growth of 9%,
+`docs/archive/knowledge-graph.md` K3. A prior run's confirmed assumption — revenue growth of 9%,
 an EBIT margin of 30% — is a number somebody agreed to before the year it forecast had
 happened. Once that year's filings are in the store, whether it held is **arithmetic**,
 and arithmetic belongs here: every realised value and every delta below goes through the

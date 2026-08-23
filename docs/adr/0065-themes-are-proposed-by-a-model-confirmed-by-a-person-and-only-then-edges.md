@@ -9,7 +9,7 @@ The knowledge graph's only company-to-company edge was "a run of A named B as a
 comparable". That is a real relation and a narrow one: it cannot express *AI capital
 expenditure* linking a hyperscaler, a fab, a utility and a REIT — the kind of connection
 that makes a research library worth more than the sum of its reports
-(`docs/knowledge-graph.md`, K1).
+(`docs/archive/knowledge-graph.md`, K1).
 
 Where themes come from is the design question, and three answers were considered:
 

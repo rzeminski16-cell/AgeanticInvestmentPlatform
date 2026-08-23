@@ -278,6 +278,7 @@ class TestTheChainOverARealLog:
         db_session.add(request)
         await db_session.flush()
         job = Job(
+            work_order_id=request.id,
             request_id=request.id,
             workflow_version="test-1",
             code_version="a1b2c3d4",

@@ -137,6 +137,7 @@ async def _file_figures(
 
     document = SourceDocument(
         artefact_id=artefact.id,
+        work_order_id=request.id,
         request_id=request.id,
         provider=Provider.SEC_EDGAR,
         source_tier=SourceTier.T1_REGULATORY,

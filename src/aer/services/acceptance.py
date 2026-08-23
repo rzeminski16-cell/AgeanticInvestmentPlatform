@@ -1,6 +1,6 @@
 """The P11 acceptance readout: one finished run, measured against the fix sequence.
 
-`docs/polish-phase-1.md` closes with a table of what must be true when the first
+`docs/archive/polish-phase-1.md` closes with a table of what must be true when the first
 complete run's request is re-run against the fixed code. Half of that table is a live
 run only an operator can pay for; the other half is a read of rows — and a read of rows
 belongs in deterministic code, not in an afternoon with two terminals and the document

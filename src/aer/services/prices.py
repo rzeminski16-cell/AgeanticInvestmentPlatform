@@ -533,7 +533,7 @@ def beta_against(
 BETA_ASSUMPTION: Final = "beta"
 """The assumption name a computed beta is proposed against.
 
-`docs/phase-3-plan.md` is explicit that **beta is a first-class assumption with an optional
+`docs/archive/phase-3-plan.md` is explicit that **beta is a first-class assumption with an optional
 computed override**, not a computed input with an assumption fallback. A documented,
 human-confirmed beta with a stated justification is more defensible than a regression nobody
 inspected — and it keeps the cost of capital available on a machine with no subscription.

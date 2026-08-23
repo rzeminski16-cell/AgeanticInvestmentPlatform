@@ -7,7 +7,7 @@ Date: 2026-08-06. Status: accepted.
 Task 36 pinned skills to plans: an approved run carries exact `skill_versions` ids, a
 composed additive-only policy per custom section, and a projected `section_definitions`
 row — planned, priced and gated, but deliberately not drafted. Executing the operator's
-prose is the last step of `docs/PLAN.md` §2.12, and it is the step where the design
+prose is the last step of `docs/archive/PLAN.md` §2.12, and it is the step where the design
 constraint bites: a skill file that says *"rate this a Buy"* or *"no citations needed
 here"* must be able to instruct the model about **what to analyse** while having no path
 to **what evidence standards apply**.

@@ -14,6 +14,7 @@ from aer.db.models.artefact import Artefact
 from aer.db.models.artefact_purge import ArtefactPurge
 from aer.db.models.assumption import Assumption
 from aer.db.models.assumption_proposal import AssumptionProposal
+from aer.db.models.attestation import Attestation, Transaction
 from aer.db.models.audit_event import AuditEvent
 from aer.db.models.calculation import Calculation
 from aer.db.models.catalyst_resolution import CatalystResolution
@@ -25,6 +26,7 @@ from aer.db.models.disagreement import Disagreement
 from aer.db.models.evaluation import Evaluation
 from aer.db.models.extraction import Extraction
 from aer.db.models.financial_fact import FinancialFact
+from aer.db.models.fx import FxRateRow
 from aer.db.models.job import Job
 from aer.db.models.job_cancellation import JobCancellation
 from aer.db.models.job_step import JobStep
@@ -32,6 +34,7 @@ from aer.db.models.macro import MacroObservationRow, MacroSeriesRow
 from aer.db.models.obsidian_export import ObsidianExport
 from aer.db.models.plan import ResearchPlan
 from aer.db.models.plan_skill_pin import PlanSkillPin
+from aer.db.models.portfolio import Portfolio
 from aer.db.models.prompt import Prompt
 from aer.db.models.report import Report
 from aer.db.models.report_section import ReportSection, SectionStatus
@@ -51,6 +54,7 @@ from aer.db.models.skill import Skill, SkillVersion
 from aer.db.models.source_document import SourceDocument
 from aer.db.models.theme import Theme, ThemeMembership
 from aer.db.models.user import User
+from aer.db.models.work_order import WorkOrder
 
 __all__ = [
     "AgentRun",
@@ -59,6 +63,7 @@ __all__ = [
     "ArtefactPurge",
     "Assumption",
     "AssumptionProposal",
+    "Attestation",
     "AuditEvent",
     "Calculation",
     "CatalystResolution",
@@ -72,6 +77,7 @@ __all__ = [
     "Evaluation",
     "Extraction",
     "FinancialFact",
+    "FxRateRow",
     "Job",
     "JobCancellation",
     "JobStep",
@@ -79,6 +85,7 @@ __all__ = [
     "MacroSeriesRow",
     "ObsidianExport",
     "PlanSkillPin",
+    "Portfolio",
     "PriceBar",
     "Prompt",
     "Report",
@@ -99,5 +106,7 @@ __all__ = [
     "SourceDocument",
     "Theme",
     "ThemeMembership",
+    "Transaction",
     "User",
+    "WorkOrder",
 ]

@@ -10,7 +10,7 @@ two.
 
 The point-in-time clamp falls out of the same shape rather than needing its own machinery: a
 valuation dated to June applies only actions whose ex-date had arrived by June, because a
-split announced in September had not happened. `docs/PLAN.md` §"Prices use bars with
+split announced in September had not happened. `docs/archive/PLAN.md` §"Prices use bars with
 ``date <= as_of_date`` only" is then one predicate rather than a convention.
 
 ``securities`` is separate from ``companies`` because one company can have several listings —

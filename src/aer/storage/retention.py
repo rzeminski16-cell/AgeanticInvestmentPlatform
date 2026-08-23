@@ -13,7 +13,7 @@ rather than a rule you must remember.
 
 **Why this exists at all.** EODHD's subscription agreement obliges the subscriber to delete
 every copy within a month of the subscription ending. An immutable, no-delete store is
-precisely a store that cannot comply. `docs/PLAN.md` risk T16 already called for a retention
+precisely a store that cannot comply. `docs/archive/PLAN.md` risk T16 already called for a retention
 policy; a licensed feed is simply the first source that makes it load-bearing rather than
 prudent. ADR 0031 has the reasoning and what is lost.
 

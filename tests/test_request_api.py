@@ -13,6 +13,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
+import sqlalchemy as sa
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -151,6 +152,7 @@ async def _leave_evidence(engine, request_id: str) -> None:
         await session.flush()
         session.add(
             SourceDocument(
+                work_order_id=uuid.UUID(request_id),
                 request_id=uuid.UUID(request_id),
                 job_id=job.id if job is not None else None,
                 artefact_id=artefact.id,
@@ -164,6 +166,37 @@ async def _leave_evidence(engine, request_id: str) -> None:
 
 
 class TestCreate:
+    async def test_the_service_creates_the_work_order_the_request_hangs_off(self, api, db_engine):
+        """The production path builds the run root itself.
+
+        `tests/conftest.py` gives hand-built request rows a work order, because seventy
+        fixtures construct one directly and each was written to test what happens after a
+        request exists. That helper must not be able to stand in for this: if
+        `create_request` stopped writing the work order, every one of those fixtures would
+        go on passing and only production would be broken.
+
+        So this asserts the row is there *and* that it carries the mandate's own values —
+        a work order the helper minted from a half-built request would not (ADR 0072).
+        """
+        created = (await api.post(ENDPOINT, json=payload(max_cost_gbp="1.25"))).json()
+
+        async with db_engine.connect() as connection:
+            row = (
+                await connection.execute(
+                    sa.text(
+                        "SELECT tool, subject_kind, as_of_date, point_in_time, max_cost_gbp "
+                        "FROM work_orders WHERE id = :id"
+                    ),
+                    {"id": created["id"]},
+                )
+            ).one()
+
+        assert row.tool == "research"
+        assert row.subject_kind == "company"
+        assert row.point_in_time is True
+        assert str(row.max_cost_gbp) == "1.25"
+        assert row.as_of_date.isoformat() == created["as_of_date"]
+
     async def test_returns_201_with_a_location_header(self, api):
         response = await api.post(ENDPOINT, json=payload())
 

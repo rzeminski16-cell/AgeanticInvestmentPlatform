@@ -1,0 +1,46 @@
+{#
+  A run, close enough to decide whether it needs you now. Swapped into the shell's drawer.
+
+  A fragment: no `extends`, because the page it lands in is already rendered. Every figure
+  here was decided on the server — the spend is `jobs.total_cost_gbp`, the same column the
+  budget guard compares against, formatted in Python (ADR 0077: JavaScript may own chrome,
+  never a figure).
+#}
+<dl class="space-y-4 text-sm">
+  <div>
+    <dt class="font-medium text-ink-muted">Company</dt>
+    <dd class="mt-0.5 text-ink">{{ mandate.company_name }} ({{ mandate.ticker }})</dd>
+  </div>
+
+  <div>
+    <dt class="font-medium text-ink-muted">Status</dt>
+    <dd class="mt-0.5 text-ink" data-field="status">{{ job.status.value }}</dd>
+  </div>
+
+  {% if asked %}
+    <div>
+      <dt class="font-medium text-ink-muted">Waiting for you to</dt>
+      <dd class="mt-0.5 text-ink" data-field="gate">{{ asked }}</dd>
+    </div>
+  {% endif %}
+
+  {% if job.error and job.error.get("message") %}
+    <div>
+      <dt class="font-medium text-ink-muted">What stopped it</dt>
+      <dd class="mt-0.5 text-ink" data-field="error">{{ job.error["message"] }}</dd>
+    </div>
+  {% endif %}
+
+  <div>
+    <dt class="font-medium text-ink-muted">Spent so far</dt>
+    <dd class="mt-0.5 tabular-nums text-ink" data-field="spent">{{ spent }}</dd>
+  </div>
+</dl>
+
+{# The way out. A drawer that could only be closed would be a preview with no next step,
+   which is the whole reason an operator opened it. #}
+<a
+  href="/runs/{{ job.id }}"
+  class="mt-6 inline-flex items-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-strong"
+  >Open the run &rarr;</a
+>

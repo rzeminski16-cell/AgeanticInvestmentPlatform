@@ -1,6 +1,6 @@
 """Recording what happened to a catalyst — the operator's answer, never a model's.
 
-`docs/knowledge-graph.md` K4. "The stated window has passed" is knowable from rows and
+`docs/archive/knowledge-graph.md` K4. "The stated window has passed" is knowable from rows and
 has always been said honestly. Whether the event *occurred* is not: no query answers it,
 and a model asserting it would be making a factual claim with no citation. If that
 determination ever becomes automatic it goes through the normal evidence path with a

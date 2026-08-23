@@ -1,6 +1,6 @@
 """Skills as data: an identity table, and an immutable version per save.
 
-Task 35, `docs/PLAN.md` §2.12. The frontmatter fields the platform acts on are typed
+Task 35, `docs/archive/PLAN.md` §2.12. The frontmatter fields the platform acts on are typed
 columns; the nested structures are JSONB that only ever holds what the schema validated,
 because the service refuses to write anything the validator refused. History mirrors the
 assumptions pattern: editing creates a ``skill_versions`` row, never rewrites one, so the

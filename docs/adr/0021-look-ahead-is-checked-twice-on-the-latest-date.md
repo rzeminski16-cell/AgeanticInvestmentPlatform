@@ -27,7 +27,7 @@ index said 28 July, the PDF's metadata said 3 August, and the index won because 
 regulator's record" is something they can go and check. Both the winner and the losers are stored
 on the source document for that reason.
 
-**The order of trust is not the one the plan wrote down.** `docs/phase-2-plan.md` says *"HTTP
+**The order of trust is not the one the plan wrote down.** `docs/archive/phase-2-plan.md` says *"HTTP
 headers, document metadata, filing indexes and in-document text, in that order of trust"*. Read
 literally that puts HTTP headers first, which is wrong: `Last-Modified` describes a file on a
 server, and a CDN re-upload or a site migration moves it years after publication. The order used

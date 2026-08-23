@@ -82,7 +82,7 @@ jobs:
         run: uv run pytest --ignore=tests/e2e -q
 
       # Eight numbers, each with a threshold, each blocking — plus the thirty golden
-      # calculations held to 0.01%. See docs/adr/0025 and docs/PLAN.md section 2.10.
+      # calculations held to 0.01%. See docs/adr/0025 and docs/archive/PLAN.md section 2.10.
       - name: Evaluation gate
         run: >-
           uv run pytest tests/test_evaluation_gate.py tests/test_eval_metrics.py

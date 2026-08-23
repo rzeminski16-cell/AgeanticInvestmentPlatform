@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+import structlog
 from fastapi import APIRouter, Request
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import select
@@ -32,7 +33,13 @@ from starlette.status import (
     HTTP_422_UNPROCESSABLE_CONTENT,
 )
 
-from aer.api.deps import CurrentUser, DbSession, SettingsDep, get_current_user
+from aer.api.deps import (
+    CurrentUser,
+    DbSession,
+    RedisClient,
+    SettingsDep,
+    current_user_or_none,
+)
 from aer.api.routes.assumptions import ProposeRequest, assumptions_payload
 from aer.core.assumption_scales import UNIT_CHOICES
 from aer.core.enums import AnalysisMode
@@ -44,23 +51,25 @@ from aer.core.schemas.request import (
 )
 from aer.core.universe import SUPPORTED_EXCHANGES
 from aer.db.models import Assumption, Report
-from aer.db.schema_check import schema_drift
-from aer.errors import AerError, ConflictError, ValidationError
+from aer.errors import ConflictError, ValidationError
 from aer.services import assumptions as assumption_service
 from aer.services import requests as request_service
 from aer.services import runs as run_service
 from aer.services import scenarios as scenario_service
 from aer.services.approvals import payload_hash_for
 from aer.services.assumption_gate import outstanding_for
-from aer.version import build_identity
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.forms import ParsedForm, form_values_from, parse_request_form
+from aer.web.shell import GUIDANCE_COOKIE
+from aer.web.shell.badges import cached_counts_for
 from aer.web.templating import render
 from aer.workflow.workflows.vertical_slice_v1 import FORECAST_YEARS
 
 __all__ = ["router"]
 
 router = APIRouter(include_in_schema=False)
+
+_log = structlog.get_logger("aer.web.routes")
 
 # Offered in the exchange select. Sorted so the order is stable between renders rather
 # than following set iteration order, which would reshuffle the dropdown on every restart.
@@ -147,56 +156,6 @@ def _form_context(
         "error_summary_heading": page.error_summary_heading,
         **page.extra,
     }
-
-
-@router.get("/", response_class=HTMLResponse, summary="Landing page")
-async def index(request: Request, session: DbSession) -> Response:
-    """The landing page, which renders whether or not the database is up.
-
-    It shows recent requests when it can, and says what is wrong when it cannot. A local
-    tool whose front page is a blank 500 because you forgot to start Postgres tells you
-    nothing; the most likely reason you are looking at it is that something is not
-    working.
-
-    The database is therefore optional *here specifically*. Every other page needs it and
-    fails loudly without it — degrading a page that shows data would mean showing an empty
-    list as though it were the truth.
-    """
-    recent: list[Any] = []
-    problem: str | None = None
-    try:
-        # Before the query, not after. A schema two migrations behind can leave *this*
-        # page working perfectly — nothing here touches the newest tables — while the run
-        # console returns an opaque 500. Checking eagerly is what makes this the page that
-        # tells you, which is the only reason it degrades instead of failing.
-        #
-        # It costs an inspection of every table on each load. On a single-user local tool
-        # that is a few tens of milliseconds a handful of times a day, and the alternative
-        # is caching an answer that would keep complaining after you fixed it.
-        drift = await schema_drift(session)
-        if not drift.is_clean:
-            problem = drift.as_message()
-
-        user = await get_current_user(session)
-        recent = list(await request_service.list_requests(session, user_id=user.id, limit=5))
-    except AerError as exc:
-        # A configuration problem the operator can act on, such as no user having been
-        # seeded. Its message says how to fix it, so show it.
-        problem = exc.message
-    except (SQLAlchemyError, OSError):
-        # OSError as well as SQLAlchemyError: a refused connection surfaces as a bare
-        # ConnectionRefusedError, because asyncpg raises it while *creating* the
-        # connection, before there is a DBAPI error for SQLAlchemy to wrap. Catching only
-        # SQLAlchemyError here would miss the single most common failure — Postgres not
-        # started. Nothing else in this handler does I/O, so the breadth costs nothing.
-        problem = await _database_problem(session)
-
-    response: Response = render(
-        request,
-        "index.html",
-        {"build": build_identity(), "recent_requests": recent, "problem": problem},
-    )
-    return response
 
 
 @router.get("/requests", response_class=HTMLResponse, summary="Your research requests")
@@ -606,29 +565,6 @@ async def request_detail(
     return detail
 
 
-_NOT_REACHABLE = (
-    "The database is not reachable. Start it with `just up`, then reload this page. "
-    "/readyz reports which dependencies are answering."
-)
-
-
-async def _database_problem(session: DbSession) -> str:
-    """Say *which* database problem this is, now that there are two worth telling apart.
-
-    "Not reachable" and "reachable but two migrations behind" have completely different
-    fixes, and reporting the second as the first sends the operator to restart a container
-    that was working perfectly. The failed statement has poisoned the transaction, so the
-    rollback is not optional — without it the drift query fails too and every problem looks
-    like an outage again.
-    """
-    try:
-        await session.rollback()
-        drift = await schema_drift(session)
-    except (SQLAlchemyError, OSError):
-        return _NOT_REACHABLE
-    return _NOT_REACHABLE if drift.is_clean else drift.as_message()
-
-
 async def _submitted_values(request: Request) -> dict[str, str]:
     form = await request.form()
     return {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
@@ -767,7 +703,7 @@ def _render_failure(
 # ==========================================================================================
 # Assumptions
 #
-# The surface `docs/phase-3-plan.md` task 24 asks for: every assumption a run rests on,
+# The surface `docs/archive/phase-3-plan.md` task 24 asks for: every assumption a run rests on,
 # editable before the valuation runs. Nothing here decides anything — amending and confirming
 # call the same service the JSON API calls, so the page and the API cannot disagree about
 # what a confirmation means.
@@ -1058,3 +994,91 @@ async def create_assumption_page(
 def _problem_page(request: Request, message: str, status: int) -> Response:
     page: Response = render(request, "runs/problem.html", {"message": message}, status_code=status)
     return page
+
+
+@router.get("/_shell/badges", summary="The counts beside the navigation")
+async def shell_badges(
+    request: Request,
+    session: DbSession,
+    redis: RedisClient,
+) -> Response:
+    """The numbers for every registered badge, as out-of-band swaps.
+
+    Its own request because a count belongs to the tool that registers it and the sidebar
+    belongs to all of them: computed inline, one tool's slow query would be paid for on
+    every other tool's first paint, invisibly. The nav ships empty slots and this fills
+    them (`web/shell/badges.py`).
+
+    Nothing here decides what to count. The registry does, so a second tool contributes a
+    provider and this handler is not touched.
+
+    **The operator is looked up here rather than injected**, which is the one thing about
+    this handler that is not like every other page's. `CurrentUser` raises when it cannot
+    reach the database, and a dependency raises before a handler can decide anything — so
+    with Postgres down this fragment answered 500 on every load of the landing page, which
+    is the one page in the product built to render in exactly that state. An empty set of
+    counts is the honest answer to "what is waiting for you" when nothing can be asked.
+    """
+    try:
+        user = await current_user_or_none(session)
+    except (SQLAlchemyError, OSError) as unavailable:
+        # Both, because there are two ways to be unable to ask. asyncpg raises the
+        # operating system's error directly when nothing is listening, before SQLAlchemy
+        # has anything to wrap; a database that *is* listening with a schema two migrations
+        # behind raises `ProgrammingError` from the same statement. The first was caught
+        # here and the second was not, so a fragment that fires on every page answered 500
+        # on exactly the machine the front page is written to help — one that has not run
+        # `alembic upgrade head`. Chrome either way, so it is a log line rather than a page.
+        _log.info("shell.badges_unavailable", error=str(unavailable))
+        user = None
+
+    if user is None:
+        empty: Response = render(request, "_shell/badges.html", {"badges": ()})
+        return empty
+
+    badges = await cached_counts_for(redis, session, user_id=user.id)
+    fragment: Response = render(request, "_shell/badges.html", {"badges": badges})
+    return fragment
+
+
+@router.post("/_shell/guidance", summary="Turn guidance mode on or off")
+async def toggle_guidance(request: Request, settings: SettingsDep) -> Response:
+    """Flip the guidance flag and return to the page that asked.
+
+    A form POST that redirects, so it works with scripting off — ADR 0006's binding rule,
+    which htmx may improve on but never replace. The flag is server state under ADR 0077:
+    a reload that lost it would be noticed, which is the test for what the client may own.
+
+    Stored in a cookie rather than on `users`. It is a preference, not a record: nothing
+    cites it, no figure depends on it, and a migration on a table documented as holding one
+    row is a large price for remembering whether somebody wants callouts.
+
+    **The destination is checked rather than trusted.** `next` arrives from a form field and
+    a redirect that followed it anywhere would be an open redirect — a page on this origin
+    that forwards to somebody else's. Only a same-site absolute path is honoured.
+    """
+    form = await request.form()
+    if not await _csrf_ok(request, settings):
+        # No flash and no error page: the worst case is a preference that did not change,
+        # and a security-token page for a cosmetic toggle would be a worse answer than
+        # simply not toggling.
+        return RedirectResponse("/", status_code=HTTP_303_SEE_OTHER)
+
+    wanted = str(form.get("guidance") or "") == "on"
+    raw = str(form.get("next") or "/")
+    destination = raw if raw.startswith("/") and not raw.startswith("//") else "/"
+
+    response = RedirectResponse(destination, status_code=HTTP_303_SEE_OTHER)
+    response.set_cookie(
+        GUIDANCE_COOKIE,
+        "on" if wanted else "off",
+        httponly=True,
+        samesite="strict",
+        # Not Secure, for the reason `web/csrf.py` gives about its own cookie: this is
+        # served over plain HTTP on loopback, and a Secure cookie would simply never be
+        # sent. Revisit with TLS, and revisit both together.
+        secure=False,
+        max_age=60 * 60 * 24 * 365,
+        path="/",
+    )
+    return response

@@ -90,7 +90,7 @@ populated from settings — so the column default is unreachable rather than wro
 A migration to change an unreachable constant is more risk than the inconsistency it removes,
 and recording that judgement here is better than a silent mismatch nobody can explain later.
 
-**`docs/PLAN.md` §Stage 2 acceptance criterion 7 now disagrees with reality.** It says "Run
+**`docs/archive/PLAN.md` §Stage 2 acceptance criterion 7 now disagrees with reality.** It says "Run
 cost ≤ £2.50, wall-clock ≤ 60 min for a large-cap US company"; the measured run was over £8
 and took 48 minutes. PLAN.md is the authority on scope, so it is **not** amended here — the
 criterion is either a target the platform must be made to meet (a real conversation about

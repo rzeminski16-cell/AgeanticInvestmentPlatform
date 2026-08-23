@@ -308,6 +308,7 @@ async def loop_scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     db_session.add(request)
     await db_session.flush()
     job = Job(
+        work_order_id=request.id,
         request_id=request.id,
         workflow_version="test",
         code_version="abc",
@@ -688,6 +689,7 @@ async def fetch_scene(db_session: AsyncSession, tmp_path: Any, settings_env: Any
 
     db_session.add(
         SourceDocument(
+            work_order_id=request.id,
             request_id=request.id,
             artefact_id=artefact.id,
             url="https://www.sec.gov/Archives/edgar/contoso-10k.htm",
@@ -920,6 +922,7 @@ class TestFetchingAKnownUrl:
         fetch_scene["session"].add(held_artefact)
         await fetch_scene["session"].flush()
         held = SourceDocument(
+            work_order_id=fetch_scene["request"].id,
             request_id=fetch_scene["request"].id,
             artefact_id=held_artefact.id,
             url="https://www.sec.gov/Archives/edgar/contoso-10k-annual.htm",
@@ -1748,6 +1751,7 @@ async def evidence_scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, A
 
     def _document(req: ResearchRequest, title: str) -> SourceDocument:
         return SourceDocument(
+            work_order_id=req.id,
             request_id=req.id,
             artefact_id=artefact.id,
             url=f"https://example.invalid/{title}",
@@ -1830,6 +1834,7 @@ async def rerun_scene(db_session: AsyncSession) -> dict[str, Any]:
 
     def _document(req: ResearchRequest) -> SourceDocument:
         return SourceDocument(
+            work_order_id=req.id,
             request_id=req.id,
             artefact_id=artefact.id,
             url="https://data.sec.gov/api/xbrl/companyfacts/CIK0002222222.json",
@@ -2417,6 +2422,7 @@ class TestAUrlTheRunAlreadyHoldsIsNotRefetched:
         await scene["session"].flush()
         scene["session"].add(
             SourceDocument(
+                work_order_id=scene["request"].id,
                 request_id=scene["request"].id,
                 artefact_id=artefact.id,
                 url=url,

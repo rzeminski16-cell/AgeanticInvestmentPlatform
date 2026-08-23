@@ -1,7 +1,7 @@
 """What each agent role may do, decided in one place and granted nowhere else.
 
 Phase 4 adds a dozen agent roles, and the failure mode it must not import is the one
-`docs/PLAN.md` §2.5 names: a mesh of agents whose capabilities live in their own class
+`docs/archive/PLAN.md` §2.5 names: a mesh of agents whose capabilities live in their own class
 bodies, where a widened allowlist or a raised budget is one edit in one file that no review
 convention reliably sees. So capability is **data here, not declaration there**: a role's
 tool allowlist, token caps and output contract live in this registry, the base agent

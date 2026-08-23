@@ -1,12 +1,12 @@
 """Measuring the knowledge graph: how big, how connected, how fresh, how complete.
 
-`docs/knowledge-graph.md` task K5. A knowledge base you cannot measure is one you cannot
+`docs/archive/knowledge-graph.md` task K5. A knowledge base you cannot measure is one you cannot
 tell is decaying, and until this existed there was no way to ask the platform how much it
 knew — the only signal was the length of the file list an export happened to print.
 
 **Everything here is a read of the database, never of the vault's content.** The vault is
 a one-directional projection and reading it back as a source of truth is precisely the
-contamination `docs/PLAN.md` §2.8 forbids. The one exception is deliberate and narrow:
+contamination `docs/archive/PLAN.md` §2.8 forbids. The one exception is deliberate and narrow:
 the vault half of :class:`KnowledgeStats` lists *filenames* under the vault root to find
 drift — files no export ever recorded writing. Names, never contents, and only to report
 that the projection and the record disagree.
@@ -402,7 +402,7 @@ async def _size(
 
     sources = await session.scalar(
         select(func.count(func.distinct(SourceDocument.id)))
-        .join(ResearchRequest, ResearchRequest.id == SourceDocument.request_id)
+        .join(ResearchRequest, ResearchRequest.id == SourceDocument.work_order_id)
         .join(Report, Report.request_id == ResearchRequest.id)
         .where(Report.immutable.is_(True))
     )

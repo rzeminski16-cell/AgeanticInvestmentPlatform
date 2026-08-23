@@ -7,7 +7,7 @@
 ## Context
 
 Task 22 needs currency normalisation: a sterling-reporting company and a dollar-reporting
-peer are not comparable until something converts one of them. `docs/phase-3-plan.md` names
+peer are not comparable until something converts one of them. `docs/archive/phase-3-plan.md` names
 the source — "Rates from the Bank of England IADB (free, OGL, **subject to the determination
 above**)" — and that parenthesis is doing real work. Task 18 also started as an expectation
 that a public body's data would be freely fetchable, and ended with the FCA National Storage

@@ -283,7 +283,7 @@ async def read_scenarios(
     """Each scenario with the assumptions it actually runs on.
 
     Resolved rather than stored, so a corrected base case shows through here immediately —
-    the property `docs/phase-3-plan.md` task 24 asks for, visible at the surface.
+    the property `docs/archive/phase-3-plan.md` task 24 asks for, visible at the surface.
     """
     await _owned_request(session, request_id=request_id, user=user)
     scenarios = await scenario_service.scenarios_for_request(session, request_id)

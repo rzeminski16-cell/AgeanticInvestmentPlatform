@@ -186,7 +186,7 @@ an empty series — an empty series is indistinguishable from a company that has
   rules apply in full, so a shareable report carries the reading and not the feed; and
   article text is untrusted content reaching a model only inside the wrapper, exactly as a
   fetched page does. Not built, not refused — recorded so it stays a decision.
-- **Intraday.** `docs/PLAN.md` fixes end-of-day as the granularity; intraday is a different
+- **Intraday.** `docs/archive/PLAN.md` fixes end-of-day as the granularity; intraday is a different
   subscription and answers no question this platform asks.
 - **The vendor's `adjusted_close` as an answer.** It is stored as a cross-check against this
   platform's own adjustment and never used in a calculation.

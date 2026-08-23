@@ -3,7 +3,7 @@
 Date: 2026-08-19
 Status: accepted
 
-Task P3 of `docs/polish-phase-1.md`.
+Task P3 of `docs/archive/polish-phase-1.md`.
 
 ## Context
 

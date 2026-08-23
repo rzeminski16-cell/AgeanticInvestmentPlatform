@@ -418,6 +418,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     await db_session.flush()
 
     job = Job(
+        work_order_id=request.id,
         request_id=request.id,
         workflow_version="vertical_slice_v1",
         code_version="test",
@@ -456,6 +457,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     await db_session.flush()
 
     document = SourceDocument(
+        work_order_id=request.id,
         request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,
@@ -845,6 +847,7 @@ class TestTheTemporalRows:
         session.add(trap_artefact)
         await session.flush()
         trap = SourceDocument(
+            work_order_id=scene["request"].id,
             request_id=scene["request"].id,
             job_id=scene["job"].id,
             artefact_id=trap_artefact.id,
