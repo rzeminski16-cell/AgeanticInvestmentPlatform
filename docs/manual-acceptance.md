@@ -101,7 +101,7 @@ A is the one most likely to work, so a failure there means stop rather than cont
 |---|---|---|---|
 | **A** | A US large-cap you can judge | The baseline, and the only one where you can assess quality | SEC EDGAR, companyfacts, the full DCF path |
 | **B** | A UK company on the LSE | Half the product's universe, never run live | Companies House, iXBRL, GBP handling |
-| **C** | A bank or an insurer | The sector block is supposed to *refuse* a DCF | Sector enforcement, ADR 0028 |
+| **C** | A bank or an insurer | The block refuses a DCF *and offers a model instead* | Sector enforcement (ADR 0028), residual income (ADR 0070) |
 | **D** | Something small or loss-making | Evidence assembly with little to assemble | Thin-evidence banners, negative denominators |
 
 Supported exchanges are `NASDAQ`, `NYSE`, `NYSE_AMERICAN` and `LSE`. Anything else is
@@ -148,15 +148,32 @@ Pick a clear one: Lloyds, HSBC, JPMorgan, Aviva. The seeded sector profiles bloc
 `dcf_fcff` for `banks`, `insurers` and `reits`, and `biotech_pre_revenue` blocks both DCF
 variants.
 
-**The expected outcome is a refusal, not a valuation.** Specifically:
+**Updated 2026-08-23 (ADR 0070). This used to say the expected outcome was a refusal and
+nothing else. A bank now gets a model of its own**, so what to look for has changed:
 
-- The valuation page should say the DCF was **blocked for this sector**, naming why.
-- It should not quietly produce a DCF with odd inputs, and it should not fail the run.
-- The sector's required metrics should appear instead — for a bank: net interest margin,
-  CET1 ratio, cost-income ratio, loan-loss provisions, tangible book value per share.
+- The valuation page should show a **residual-income valuation**: the filed book value plus
+  the present value of the return earned above the cost of equity.
+- **Two per-share figures, not one** — the excess return competed away at the end of the
+  forecast, and the same excess grown in perpetuity. Both should be there and they should
+  differ materially; the gap between them is the claim about competition, stated as a
+  number. If only one appears, read why: a bank whose final forecast year earns below its
+  cost of equity legitimately gets no perpetuity, and the method note should say so.
+- The method note should mention **no free cash flow, no enterprise value and no WACC**.
+  All three would be false about this model, and prose about method is exactly where a
+  reader's trust is set (ADR 0063).
+- The discount rate should be a **cost of equity** — risk-free plus beta times premium,
+  with no cost of debt blended into it.
+- **The assumptions gate should ask for three numbers, not nine**: return on equity, payout
+  ratio, terminal growth. The first two should arrive already proposed, derived from filed
+  lines. If it asks for a revenue growth path, a capex intensity or a tax rate, the gate and
+  the valuation have gone out of step and the run will pause for numbers nothing reads.
+- The sector's required metrics should still appear — net interest margin, CET1 ratio,
+  cost-income ratio, loan-loss provisions, tangible book value per share.
 
-A bank with a discounted cash flow on the page is the most serious single thing you could
-find in this exercise. It would mean the block is a footnote rather than a control.
+**A bank with a *discounted cash flow* on the page is still the most serious single thing
+you could find in this exercise.** It would mean the block is a footnote rather than a
+control. What changed is only that the absence of a DCF is no longer the absence of a
+valuation.
 
 ### Run D — small or loss-making
 
@@ -241,8 +258,9 @@ Press the button again. It must now report that artefact as unreadable. **Restor
 backup afterwards** — or accept the loss, since it is a test artefact.
 
 One thing to look for on run C: a leg with **zero checked** is not the same as a leg that
-passed. A blocked-valuation run may legitimately have fewer calculations; it should not have
-zero citations or zero archived exchanges.
+passed. A bank's run legitimately records fewer calculations than a discounted cash flow's —
+it forecasts two drivers rather than five and builds no sensitivity grids — but it should
+not have zero calculations, zero citations or zero archived exchanges.
 
 ---
 
