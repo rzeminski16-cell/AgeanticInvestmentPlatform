@@ -41,6 +41,7 @@ from aer.db.models import (
     Assumption,
     Calculation,
     FinancialFact,
+    FxRateRow,
     MacroObservationRow,
     Security,
 )
@@ -417,6 +418,44 @@ async def _macro_observation_node(
     )
 
 
+async def _fx_rate_node(session: AsyncSession, stored: _StoredInput) -> LineageNode | None:
+    """A published exchange rate, on the day it was for.
+
+    The kind is ``fact``: the ECB published this and the response is archived. What the
+    detail carries that no other leaf needs is the *pair*, because a rate means nothing
+    without its direction — 0.86 is a plausible GBP/USD rate and an impossible USD/GBP one,
+    and a node showing only the number could not tell a reader which it was looking at.
+
+    Both dates are shown for the same reason ``macro_observations`` shows both, and with a
+    different meaning: ``observed_on`` is when the rate was published, and ``vintage`` is
+    when this platform read that publication (ADR 0078).
+
+    The digest is always here and the document id is not. A rate outlives the request that
+    fetched it, so a purge nulls the pointer and leaves the hash (ADR 0080) — after which
+    this node still answers "what were these numbers taken from?" and no longer answers
+    "show me that response".
+    """
+    row = await _load_fx_rate(session, stored.identifier)
+    if row is None:
+        return None
+    return LineageNode(
+        kind="fact",
+        identifier=stored.identifier,
+        label=stored.label or f"{row.base}/{row.quote}@{row.observed_on.isoformat()}",
+        value=stored.value if stored.value is not None else row.rate,
+        unit=stored.unit or f"{row.quote}/{row.base}",
+        detail={
+            "table": SourceTable.FX_RATES.value,
+            "base": row.base,
+            "quote": row.quote,
+            "observed_on": row.observed_on.isoformat(),
+            "vintage": row.vintage.isoformat(),
+            "artefact_sha256": row.artefact_sha256,
+            "source_document_id": str(row.source_document_id or ""),
+        },
+    )
+
+
 async def _security_node(session: AsyncSession, stored: _StoredInput) -> LineageNode | None:
     """A listing, and by extension the bars adjusted from it.
 
@@ -476,6 +515,7 @@ _LeafLoader = Callable[[AsyncSession, "_StoredInput"], Awaitable[LineageNode | N
 _LEAF_LOADERS: Final[Mapping[SourceTable, _LeafLoader]] = {
     SourceTable.FINANCIAL_FACTS: _financial_fact_node,
     SourceTable.MACRO_OBSERVATIONS: _macro_observation_node,
+    SourceTable.FX_RATES: _fx_rate_node,
     SourceTable.SECURITIES: _security_node,
     SourceTable.ASSUMPTIONS: _assumption_node,
 }
@@ -552,6 +592,13 @@ async def _load_assumption(session: AsyncSession, identifier: str) -> Assumption
     if parsed is None:
         return None
     return await session.get(Assumption, parsed)
+
+
+async def _load_fx_rate(session: AsyncSession, identifier: str) -> FxRateRow | None:
+    parsed = _uuid_or_none(identifier)
+    if parsed is None:
+        return None
+    return await session.get(FxRateRow, parsed)
 
 
 async def _load_macro_observation(

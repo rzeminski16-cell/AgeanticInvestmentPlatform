@@ -670,29 +670,36 @@ class TestTheLeafRegistry:
         made = (
             SourceRef.financial_fact("a"),
             SourceRef.macro_observation("b"),
-            SourceRef.security("c"),
-            SourceRef.assumption("d"),
-            SourceRef.calculation("e"),
+            SourceRef.fx_rate("c"),
+            SourceRef.security("d"),
+            SourceRef.assumption("e"),
+            SourceRef.calculation("f"),
         )
 
         assert {ref.table for ref in made} == set(SourceTable)
 
-    def test_the_three_relations_that_carry_a_fact_are_the_legacy_candidates(self):
-        # A row written before the table was recorded is resolved by trying the relations
-        # its kind was ever minted over. If a fourth relation ever carries a FACT, this is
-        # the test that notices the compatibility walk was not told.
+    def test_a_legacy_fact_is_tried_against_every_relation_that_existed_then(self):
+        """The compatibility walk, and the one relation deliberately left out of it.
+
+        A row written before ADR 0072 carries no table, so it is resolved by trying the
+        relations its kind was ever minted over. ``fx_rates`` arrived *after* that record
+        (ADR 0078), which means no untabled row can name it — and adding it to the walk
+        would have every legacy fact query a table it cannot be in. If a *further* relation
+        ever carries a FACT, this is the test that notices the walk was not told.
+        """
         carry_a_fact = {
             ref.table
             for ref in (
                 SourceRef.financial_fact("a"),
                 SourceRef.macro_observation("b"),
-                SourceRef.security("c"),
+                SourceRef.fx_rate("c"),
+                SourceRef.security("d"),
             )
         }
 
         candidates = set(calculation_service._LEGACY_CANDIDATES[SourceKind.FACT.value])
 
-        assert candidates == carry_a_fact
+        assert candidates == carry_a_fact - {SourceTable.FX_RATES}
 
     def test_a_stored_input_without_a_table_is_a_legacy_row_not_a_broken_one(self):
         stored = calculation_service._StoredInput.of(

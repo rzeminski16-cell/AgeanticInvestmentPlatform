@@ -25,6 +25,7 @@ from aer.db.models.disagreement import Disagreement
 from aer.db.models.evaluation import Evaluation
 from aer.db.models.extraction import Extraction
 from aer.db.models.financial_fact import FinancialFact
+from aer.db.models.fx import FxRateRow
 from aer.db.models.job import Job
 from aer.db.models.job_cancellation import JobCancellation
 from aer.db.models.job_step import JobStep
@@ -73,6 +74,7 @@ __all__ = [
     "Evaluation",
     "Extraction",
     "FinancialFact",
+    "FxRateRow",
     "Job",
     "JobCancellation",
     "JobStep",

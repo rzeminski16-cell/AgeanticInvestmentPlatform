@@ -917,7 +917,18 @@ as-of date defaulting to the latest close, because reconciling against a dated s
 the only external check this tool has; and a `portfolios` table from day one with one row in
 it, so separating an ISA from a SIPP is a setting rather than a migration.
 
-- [ ] `fx_rates` and `services/fx.py`; `aer.calc.fx` gets its first caller (ADR 0078)
+- [x] `fx_rates` and `services/fx.py`; `aer.calc.fx` gets its first caller (ADR 0078)
+- [x] ADR 0080 — a rate outlives the request that fetched it. Written during the slice, not
+      before it: ADR 0078's `NOT NULL` source document met `purge_request` and made a
+      request that had acquired rates unpurgeable, permanently. The pointer goes nullable
+      with `SET NULL`, as on a macro observation, and the guarantee moves to a `NOT NULL`
+      `artefact_sha256` — which a rate nobody fetched cannot produce, and which unlike the
+      pointer still cannot be produced after a purge
+- [x] `Provider.ECB` reached the Postgres enum, which ADR 0045 needed and never got: the
+      Python value had been there since the ECB adapter was written and no source document
+      for a rate response could be inserted at all. Alembic's autogenerate does not compare
+      enum labels, so nothing had ever reported drift — `tests/test_migrations.py` now
+      compares them, in the one direction that is a fault
 - [ ] `attestations` and `transactions`, with the grade that propagates (ADR 0069)
 - [ ] `SourceKind` gains `ATTESTATION`; the `claims` XOR widens; invariant 3 restated
 - [ ] `aer/calc/portfolio.py` — quantity, cost basis, market value, cash, NAV, weight. Pure,

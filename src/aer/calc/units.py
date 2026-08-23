@@ -147,8 +147,8 @@ class SourceKind(StrEnum):
     """A reported figure, traced to a filing and a hashed artefact.
 
     Published by somebody else, whichever relation holds it: a filing line, a macro
-    observation and a closing price all carry this guarantee. Which table to read is
-    :class:`SourceTable`'s answer, not this one's."""
+    observation, a closing price and an exchange rate all carry this guarantee. Which
+    table to read is :class:`SourceTable`'s answer, not this one's."""
 
     CALCULATION = "calculation"
     """The output of another traced calculation. This is what makes lineage a tree."""
@@ -177,6 +177,14 @@ class SourceTable(StrEnum):
     MACRO_OBSERVATIONS = "macro_observations"
     """A published statistic at a vintage — a yield, an index level."""
 
+    FX_RATES = "fx_rates"
+    """One day's published exchange rate for one pair (ADR 0078).
+
+    Its own relation rather than a macro observation, though the two tables are shaped
+    alike: a rate is identified by a currency *pair* and there is no series key to look it
+    up by. Reading one out of ``macro_observations`` would mean inventing a series for
+    every pair the ECB publishes and one for every cross it does not."""
+
     SECURITIES = "securities"
     """A listing, and by extension the price bars adjusted from it."""
 
@@ -192,8 +200,8 @@ class SourceRef:
     loosely on purpose: the kernel is pure and must not depend on the database's notion of
     an id to be testable.
 
-    There is deliberately no general ``fact()`` constructor. Three relations hold figures
-    somebody published, and a single constructor covering all three is precisely the
+    There is deliberately no general ``fact()`` constructor. Several relations hold figures
+    somebody published, and a single constructor covering them all is precisely the
     unstated default this class used to carry: it read as "a fact" and resolved as "a row
     in ``financial_facts``", and nothing complained when a caller meant neither. One
     constructor per relation makes the choice visible at the site that makes it.
@@ -219,6 +227,22 @@ class SourceRef:
             kind=SourceKind.FACT,
             identifier=str(identifier),
             table=SourceTable.MACRO_OBSERVATIONS,
+            label=label,
+        )
+
+    @classmethod
+    def fx_rate(cls, identifier: str | uuid.UUID, *, label: str = "") -> SourceRef:
+        """A published exchange-rate observation.
+
+        A ``FACT`` like the other two: somebody published this rate for this day and the
+        response it was parsed from is archived. An FX rate a person *typed* is not this —
+        it has no publication behind it, and ADR 0078 sends it to the attestation record
+        rather than letting it in here wearing a fact's guarantee.
+        """
+        return cls(
+            kind=SourceKind.FACT,
+            identifier=str(identifier),
+            table=SourceTable.FX_RATES,
             label=label,
         )
 

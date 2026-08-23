@@ -1,6 +1,11 @@
 # ADR 0078 — A rate is a dated observation with a source, not a number in a column
 
 **Status.** Accepted
+**Amended by.** ADR 0080, in one column: ``fx_rates.source_document_id`` is nullable with
+``ON DELETE SET NULL``, and the guarantee this record wanted from its ``NOT NULL`` moved to a
+``NOT NULL`` ``artefact_sha256``. Nothing else below is changed. The reasoning is left
+exactly as written — ADR 0001 forbids editing it, and it is right about everything except
+what a purge does to a request-scoped pointer.
 **Date.** 2026-08-22
 **Required by.** ADR 0069, ADR 0076 and ADR 0077 — each of them needs a currency converted,
 and none of them can decide the rate store without becoming a record about something else.
