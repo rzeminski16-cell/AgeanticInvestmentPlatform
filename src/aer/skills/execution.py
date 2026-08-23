@@ -36,6 +36,7 @@ from aer.errors import ValidationError
 from aer.sections.evidence import (
     EVIDENCE_ITEM_CAP,
     MAX_GENERATION_ATTEMPTS,
+    EvidenceDealt,
     SectionExecution,
     SectionPolicy,
     classify_refusals,
@@ -142,6 +143,7 @@ async def execute_custom_section(
                 attempts=attempt,
                 problems=failed_problems,
                 truncated=evidence.truncated,
+                dealt=evidence.dealt,
                 causes=_counted(causes, failed_problems),
             )
         except ValidationError as unparsable:
@@ -170,6 +172,7 @@ async def execute_custom_section(
             attempts=attempts,
             problems=problems,
             truncated=evidence.truncated,
+            dealt=evidence.dealt,
             causes=causes,
         )
 
@@ -194,6 +197,7 @@ async def execute_custom_section(
         claims=recorded,
         insufficient_evidence=bool(shortfalls),
         evidence_truncated=evidence.truncated,
+        evidence_dealt=evidence.dealt.as_dict(),
     )
     return SectionExecution(
         section=section,
@@ -202,6 +206,7 @@ async def execute_custom_section(
         claims_recorded=recorded,
         insufficient_evidence=bool(shortfalls),
         evidence_truncated=evidence.truncated,
+        dealt=evidence.dealt,
         problems=shortfalls,
         refusal_causes=causes,
     )
@@ -220,9 +225,15 @@ def _failed(
     attempts: int,
     problems: list[str],
     truncated: bool = False,
+    dealt: EvidenceDealt | None = None,
     causes: dict[str, int] | None = None,
 ) -> SectionExecution:
-    """Mark the section failed with its reasons on the row. The run continues."""
+    """Mark the section failed with its reasons on the row. The run continues.
+
+    The record says what the section was dealt (gap A63), on the same terms as the
+    built-in boundary: the two share one discipline, and a measurement present on only
+    one of them is a measurement nobody can compare across a run.
+    """
     section.status = SectionStatus.FAILED
     section.content = None
     section.confidence = None
@@ -232,12 +243,15 @@ def _failed(
         section=section.section_key,
         attempts=attempts,
         problems=problems,
+        evidence_truncated=truncated,
+        evidence_dealt=dealt.as_dict() if dealt is not None else None,
     )
     return SectionExecution(
         section=section,
         status=SectionStatus.FAILED,
         attempts=attempts,
         evidence_truncated=truncated,
+        dealt=dealt,
         problems=problems,
         refusal_causes=causes if causes is not None else classify_refusals(problems),
     )

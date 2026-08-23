@@ -31,6 +31,7 @@ from aer.sections.deterministic import AUGMENTERS, SectionAugmenter, model_facin
 from aer.sections.evidence import (
     MAX_GENERATION_ATTEMPTS,
     Evidence,
+    EvidenceDealt,
     SectionExecution,
     SectionPolicy,
     classify_refusals,
@@ -303,6 +304,7 @@ async def execute_builtin_section(
                 attempts=attempt,
                 problems=failed_problems,
                 truncated=evidence.truncated,
+                dealt=evidence.dealt,
                 block=block,
                 causes=_counted(causes, failed_problems),
             )
@@ -359,6 +361,7 @@ async def execute_builtin_section(
             attempts=attempts,
             problems=problems,
             truncated=evidence.truncated,
+            dealt=evidence.dealt,
             block=block,
             causes=causes,
         )
@@ -395,6 +398,7 @@ async def execute_builtin_section(
         claims=recorded,
         insufficient_evidence=bool(shortfalls),
         evidence_truncated=evidence.truncated,
+        evidence_dealt=evidence.dealt.as_dict(),
     )
     return SectionExecution(
         section=section,
@@ -403,6 +407,7 @@ async def execute_builtin_section(
         claims_recorded=recorded,
         insufficient_evidence=bool(shortfalls),
         evidence_truncated=evidence.truncated,
+        dealt=evidence.dealt,
         # The full record for the step output and the console: the evidence shortfalls
         # and the edits, distinguishable because the edit sentences are the shared
         # constants rather than free prose.
@@ -448,6 +453,7 @@ def _failed(
     attempts: int,
     problems: list[str],
     truncated: bool = False,
+    dealt: EvidenceDealt | None = None,
     block: dict[str, Any] | None = None,
     causes: dict[str, int] | None = None,
 ) -> SectionExecution:
@@ -456,6 +462,12 @@ def _failed(
     A section with platform-filled fields keeps them even when the model's part failed:
     the rendered record is true whatever the commentary did, and a reader is better served
     by the method tables under a failure banner than by a blank section (ADR 0063).
+
+    **The failure says what the section was dealt** (gap A63). It used to record the
+    problems alone, so the sections whose evidence supply most needed explaining were the
+    only ones whose record omitted it — five sections of a live run died on having nothing
+    citable, and answering "were they starved?" meant reading a worker log for a line
+    that is only written when a section *succeeds*.
     """
     section.status = SectionStatus.FAILED
     section.content = block or None
@@ -466,12 +478,15 @@ def _failed(
         section=section.section_key,
         attempts=attempts,
         problems=problems,
+        evidence_truncated=truncated,
+        evidence_dealt=dealt.as_dict() if dealt is not None else None,
     )
     return SectionExecution(
         section=section,
         status=SectionStatus.FAILED,
         attempts=attempts,
         evidence_truncated=truncated,
+        dealt=dealt,
         problems=problems,
         refusal_causes=causes if causes is not None else classify_refusals(problems),
     )

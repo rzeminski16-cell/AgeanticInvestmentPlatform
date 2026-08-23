@@ -62,6 +62,7 @@ __all__ = [
     "EVIDENCE_ITEM_CAP",
     "MAX_GENERATION_ATTEMPTS",
     "Evidence",
+    "EvidenceDealt",
     "EvidenceUnit",
     "SectionExecution",
     "SectionPolicy",
@@ -277,6 +278,10 @@ class SectionExecution:
     claims_recorded: int = 0
     insufficient_evidence: bool = False
     evidence_truncated: bool = False
+    # What the section was handed, by kind (gap A63). Beside `evidence_truncated`, which
+    # answers a different question: a pack can be untruncated and still hold nothing a
+    # section could cite. ``None`` only where execution ended before a pack was built.
+    dealt: EvidenceDealt | None = None
     problems: list[str] = field(default_factory=list)
     # Every attempt's refusals counted by cause (polish P6) — including the attempts a
     # later retry recovered from, because "this section needed two tries over length" is
@@ -293,6 +298,8 @@ class SectionExecution:
             "evidence_truncated": self.evidence_truncated,
             "problems": list(self.problems),
         }
+        if self.dealt is not None:
+            recorded["evidence_dealt"] = self.dealt.as_dict()
         if self.refusal_causes:
             recorded["refusal_causes"] = dict(self.refusal_causes)
         return recorded
@@ -379,6 +386,29 @@ class EvidenceUnit:
         return max(1, (len(str(self.internal)) + untrusted_chars) // _CHARS_PER_TOKEN)
 
 
+@dataclass(frozen=True, slots=True)
+class EvidenceDealt:
+    """How much of each kind one section was actually handed.
+
+    Gap A63. Five sections of a live run died on "a numeric claim needs at least one
+    proposed citation", and the diagnosis — that the pack held nothing citable — could
+    only be reached by reading a worker log and inferring it. The run's own record said
+    whether the pack was *truncated*, which answers a different question: a section dealt
+    three excerpts from a pool of three is not truncated and is still starved.
+
+    Three counts, not a total, because the failures differ by kind. A section with facts
+    and no excerpts cannot support a narrative claim; one with excerpts and no
+    calculations cannot put a ratio in a sentence. A single number would hide both.
+    """
+
+    facts: int
+    calculations: int
+    excerpts: int
+
+    def as_dict(self) -> dict[str, int]:
+        return {"facts": self.facts, "calculations": self.calculations, "excerpts": self.excerpts}
+
+
 @dataclass(slots=True)
 class Evidence:
     """What one call may see and cite, built from the units the budget kept."""
@@ -391,6 +421,15 @@ class Evidence:
     calculation_ids: set[str] = field(default_factory=set)
     source_tiers: dict[str, SourceTier] = field(default_factory=dict)
     extraction_sources: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def dealt(self) -> EvidenceDealt:
+        """What this pack came to, counted by kind — the A63 measurement."""
+        return EvidenceDealt(
+            facts=len(self.fact_sources),
+            calculations=len(self.calculation_ids),
+            excerpts=len(self.extraction_sources),
+        )
 
     def admit(self, unit: EvidenceUnit) -> None:
         self.internal.append(unit.internal)

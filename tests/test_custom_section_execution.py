@@ -1502,3 +1502,85 @@ class TestTheMoatDurabilityExampleEndToEnd:
         assert step is not None
         assert step.cost_gbp is not None
         assert Decimal(str(step.cost_gbp)) > 0
+
+
+class TestTheRecordSaysWhatTheSectionWasDealt:
+    """Gap A63. Five sections of a live run died on "a numeric claim needs at least one
+    proposed citation", and the diagnosis — the pack held nothing citable — could only be
+    reached by reading a worker log and inferring it.
+
+    The run's record already said whether a pack was *truncated*, which answers a
+    different question: a section dealt three excerpts from a pool of three is not
+    truncated and is still starved. And the record for a **failed** section, the case
+    where the supply most needs explaining, was the one that carried neither.
+    """
+
+    async def test_a_failed_section_records_what_it_was_dealt(self, scene: dict[str, Any]) -> None:
+        """The A63 fix at the point it failed before: a failure that names its causes and
+        not its supply cannot answer whether the supply was the cause."""
+        scene["pin"].token_budget = 40
+        provider = _scripted([_good_draft(scene), _good_draft(scene)])
+
+        outcome = await _run(scene, provider)
+
+        assert outcome.status is SectionStatus.FAILED
+        assert outcome.dealt is not None, "a failed section still recorded no measurement"
+        assert outcome.as_dict()["evidence_dealt"] == outcome.dealt.as_dict()
+
+    async def test_the_counts_are_by_kind_not_a_total(self, scene: dict[str, Any]) -> None:
+        """A section with facts and no excerpts fails differently from one with excerpts
+        and no calculations, so a single total would hide the thing being measured."""
+        draft = _good_draft(scene)
+        provider = _scripted([draft])
+
+        outcome = await _run(scene, provider)
+
+        assert outcome.dealt is not None
+        assert outcome.dealt.as_dict().keys() == {"facts", "calculations", "excerpts"}
+        assert outcome.dealt.facts > 0
+        assert outcome.dealt.excerpts > 0
+
+    async def test_a_generated_section_records_it_too(self, scene: dict[str, Any]) -> None:
+        """Both outcomes, or a run's failures cannot be compared against its successes."""
+        draft = _good_draft(scene)
+        provider = _scripted([draft])
+
+        outcome = await _run(scene, provider)
+
+        assert outcome.status is SectionStatus.GENERATED
+        assert "evidence_dealt" in outcome.as_dict()
+
+    async def test_a_narrower_grant_is_visible_as_a_smaller_pack(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The measurement has to move with the supply, or it is a constant dressed up as
+        a reading. Without the sources grant no excerpt is gathered, and the count says so
+        rather than the section merely failing for want of one."""
+        scene["pin"].granted_tools = ["search_facts"]
+        draft = _good_draft(scene)
+        provider = _scripted([draft, draft])
+
+        outcome = await _run(scene, provider)
+
+        assert outcome.dealt is not None
+        assert outcome.dealt.excerpts == 0
+        assert outcome.dealt.facts > 0
+
+    async def test_a_section_refused_before_a_pack_exists_records_none(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """``None`` means "no pack was built", which is not the same as "an empty pack".
+        The reserved-field refusal spends nothing and never gathers, so it must not report
+        zeroes a reader would take for a starved section."""
+        scene["section"].definition.output_contract = {
+            "type": "object",
+            "properties": {"rating": {"type": "string"}},
+            "required": ["rating"],
+        }
+        provider = _scripted([])
+
+        outcome = await _run(scene, provider)
+
+        assert outcome.status is SectionStatus.FAILED
+        assert outcome.dealt is None
+        assert "evidence_dealt" not in outcome.as_dict()
