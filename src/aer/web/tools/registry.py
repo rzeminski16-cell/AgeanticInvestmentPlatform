@@ -132,18 +132,14 @@ INSTALLED_TOOLS: Final[tuple[Tool, ...]] = (
     Tool(
         key="portfolio",
         label="Portfolio",
-        status=ToolStatus.UNDER_CONSTRUCTION,
+        status=ToolStatus.WORKING,
         href="/portfolio",
         summary=(
             "What you hold, at what cost, as at a date — with the transactions behind it "
             "and every figure recomputed from them rather than stored."
         ),
-        needs=(
-            "A rate store, so a book that spans currencies converts through a dated "
-            "observation with a source (ADR 0078); attestations and their two grades, "
-            "because a fill price is not filed, not chosen and not calculated (ADR 0069); "
-            "and the transaction table those grades hang off."
-        ),
+        action_label="Record a transaction",
+        action_href="/portfolio",
         adr="0079",
     ),
     Tool(
@@ -268,8 +264,13 @@ def tools_needing_a_page() -> tuple[Tool, ...]:
     return tuple(tool for tool in INSTALLED_TOOLS if not tool.is_built)
 
 
-# The one section a tool under construction earns. It is in the navigation rather than only
-# on the launcher because it is being built now, and watching it arrive is the point.
+# The portfolio's own section. Derived from the row's key rather than from its status,
+# which is the change that let it stay put when the tool shipped: it was here while it was
+# being built, so watching it arrive was possible, and it is here now because it works.
+#
+# A status-driven membership would have emptied this section the moment the tool started
+# working — a navigation entry that disappears on success is the shape of nav bug nobody
+# looks for, because the thing that broke it was the thing going right.
 PORTFOLIO: Final = NavSection(
     key="portfolio",
     label="Portfolio",
@@ -277,6 +278,6 @@ PORTFOLIO: Final = NavSection(
     items=tuple(
         NavItem(key=tool.key, label=tool.label, href=tool.href)
         for tool in INSTALLED_TOOLS
-        if tool.status is ToolStatus.UNDER_CONSTRUCTION
+        if tool.key == "portfolio"
     ),
 )

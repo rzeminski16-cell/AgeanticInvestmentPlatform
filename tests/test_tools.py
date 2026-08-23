@@ -93,14 +93,23 @@ class TestEachToolIsARowWithARecord:
             if tool.is_built:
                 assert tool.needs == "", tool.key
 
-    def test_the_platform_has_one_working_tool_and_one_being_built(self) -> None:
-        # Stated rather than counted loosely: this is the claim the launcher makes, and if
-        # it stops being true the launcher is the thing that has to change first.
+    def test_the_platform_has_two_working_tools_and_nothing_half_built(self) -> None:
+        """Stated rather than counted loosely: this is the claim the launcher makes.
+
+        Portfolio was ``UNDER_CONSTRUCTION`` while its tables and arithmetic were being
+        built and is working now — it has a screen, an entry form and figures that resolve
+        to their trades. Nothing occupies the middle state today, which is a fact about
+        this moment rather than a reason to remove the state: the next tool will start
+        there.
+        """
         by_status = {tool.key: tool.status for tool in installed_tools()}
 
         assert by_status["research"] is ToolStatus.WORKING
-        assert by_status["portfolio"] is ToolStatus.UNDER_CONSTRUCTION
-        assert sum(1 for status in by_status.values() if status is ToolStatus.WORKING) == 1
+        assert by_status["portfolio"] is ToolStatus.WORKING
+        assert sum(1 for status in by_status.values() if status is ToolStatus.WORKING) == 2
+        assert not [
+            key for key, status in by_status.items() if status is ToolStatus.UNDER_CONSTRUCTION
+        ]
 
     def test_an_unknown_key_resolves_to_nothing(self) -> None:
         assert resolve_tool("a_tool_nobody_planned") is None
@@ -119,8 +128,9 @@ class TestWhereEachStatePutsATool:
         assert "research" not in served
         assert served == {tool.key for tool in INSTALLED_TOOLS if not tool.is_built}
 
-    def test_the_tool_under_construction_is_in_the_navigation(self) -> None:
-        # It is being built now, and watching it arrive is the point.
+    def test_the_portfolio_is_in_the_navigation(self) -> None:
+        # It was there while it was being built, so that watching it arrive was possible,
+        # and it is there now because it works. The section did not have to move.
         assert [item.key for item in PORTFOLIO.items] == ["portfolio"]
         assert "/portfolio" in {item.href for item in flat_items()}
 
@@ -267,9 +277,16 @@ class TestThePlaceholderPages:
             assert not leaked, f"{tool.key} describes {leaked}"
 
     async def test_it_says_which_state_it_is_in(self, client) -> None:
-        # "Under construction" and "Planned" are different promises, and the page an
-        # operator lands on is where the difference has to be legible.
-        assert "Under construction" in (await client.get("/portfolio")).text
+        """ "Under construction" and "Planned" are different promises.
+
+        Nothing is under construction today — portfolio was and now works — so this asserts
+        the state that has an occupant, and asserts against the registry rather than
+        against a hard-coded URL so it follows whichever tool is in which state.
+        """
+        for tool in tools_needing_a_page():
+            body = (await client.get(tool.href)).text
+            assert tool.status.value in body, tool.key
+
         assert "Planned" in (await client.get("/watchlist")).text
 
     async def test_it_links_to_the_rest_of_the_shape(self, client) -> None:

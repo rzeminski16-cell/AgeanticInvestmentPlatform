@@ -968,8 +968,22 @@ it, so separating an ISA from a SIPP is a setting rather than a migration.
 - [x] ADR 0081's worked example is in the golden corpus as well as the unit tests: it is the
       one case where pooling and first-in-first-out disagree, so replacing the convention
       fails in two independent places
-- [ ] The Portfolio screen: holdings as at a date, every figure carrying its grade, and an
-      export path that refuses an attested lineage by return type rather than by a flag
+- [x] `services/portfolio.py` — the seam between the transactions and the arithmetic. A
+      correction is the current record at every as-of date, because superseding is a fact
+      about the record rather than about the world. A holding nobody can price is carried
+      with its reason and **refuses the total** rather than shrinking it
+- [x] The Portfolio screen: holdings as at a date, every figure carrying its grade, an entry
+      form at the attested grade, and `Figure.for_sharing()` as the export path — a type
+      with no field for the figure, not a flag. The tool is `WORKING` and the nav section
+      keys on the tool rather than its status, so it did not empty itself on shipping
+- [x] Nothing is persisted by looking. A page load is not a run: it has no job to hang a
+      ledger off, and a GET writing a few hundred `calculations` rows would make a read a
+      writer. The working lives in the context the caller passes in, which a run persists
+      and a page load does not
+- [x] Found by looking at the screen rather than by a test: a refused net asset value beside
+      a cash tile reading £50,000. Every tile is a sum over the rows that resolved, so they
+      now go blank together — the same "a subtotal looks like a total" failure the service
+      already refused, wearing the screen's clothes
 - [ ] A split arrives as a transaction. Deriving it from `corporate_actions` is worth doing
       and is worth doing as a written transaction, never as a quantity that changed with
       nothing behind it

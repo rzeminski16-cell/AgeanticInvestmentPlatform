@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{#
+  A book that will not compute at all. Shown plainly rather than as an empty table, because
+  an empty table reads as "you hold nothing" — which is a claim, and one nobody checked.
+#}
+
+{% block title %}Portfolio &middot; Ageiantic{% endblock %}
+
+{% block content %}
+  <h1 class="text-2xl font-semibold tracking-tight text-ink">{{ book.name }}</h1>
+  <section
+    class="mt-4 rounded-card border border-amber-400 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
+    role="alert"
+    id="portfolio-problem"
+  >
+    <h2 class="text-base font-semibold text-amber-900 dark:text-amber-200">
+      This book could not be computed as at {{ as_of.isoformat() }}
+    </h2>
+    <p class="mt-2 max-w-prose text-sm text-amber-900/90 dark:text-amber-100/90">
+      {{ problem }}
+    </p>
+  </section>
+{% endblock %}

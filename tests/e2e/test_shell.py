@@ -456,9 +456,9 @@ class TestTheLauncher:
 
         expect(page.locator("[data-tool]")).to_have_count(9)
         expect(page.locator('[data-tool="research"][data-status="Working"]')).to_be_visible()
-        expect(
-            page.locator('[data-tool="portfolio"][data-status="Under construction"]')
-        ).to_be_visible()
+        # Portfolio shipped, so the launcher's claim about it changed. That the front page
+        # is where a status change becomes visible is the whole point of the row being data.
+        expect(page.locator('[data-tool="portfolio"][data-status="Working"]')).to_be_visible()
 
     def test_a_planned_tool_is_reachable_and_says_what_it_waits_for(
         self, page: Page, live_server: str
