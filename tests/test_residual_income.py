@@ -424,7 +424,12 @@ class TestWhatItRefuses:
 
     def test_a_share_count_that_is_not_shares(self, context):
         with pytest.raises(CalculationError) as excinfo:
-            value_per_share(context, equity_value=usd("1000"), shares=usd("100"))
+            value_per_share(
+                context,
+                equity_value=usd("1000"),
+                shares=usd("100"),
+                treatment=TerminalTreatment.FADE_TO_NOTHING,
+            )
 
         assert "not shares" in str(excinfo.value)
 

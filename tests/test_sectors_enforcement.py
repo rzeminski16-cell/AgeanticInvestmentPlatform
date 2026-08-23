@@ -610,6 +610,18 @@ class TestWhichModelAProfileGets:
 
         assert built_model_of(reversed_order) is BUILT_MODELS[0]
 
+    def test_the_standard_model_wins_when_both_would_be_right(self) -> None:
+        """The precedence order is a decision, not an accident of how the tuple was typed.
+
+        A company for which both models are defensible gets the discounted cash flow:
+        residual income is the specialist answer for a business whose balance sheet carries
+        the meaning, and making it the default would apply that reading to companies whose
+        book value is an accounting residue. Reordering the tuple would silently switch
+        every such company's model the day a profile permits both, which is why the
+        constant's first entry is asserted rather than left to read as arbitrary.
+        """
+        assert BUILT_MODELS[0] is ValuationModel.DCF_FCFF
+
     def test_no_seeded_profile_currently_permits_two_built_models(self) -> None:
         """Which is why the two tests above have to construct their own. When this stops
         holding, the precedence rule becomes observable in a real run and this test is the

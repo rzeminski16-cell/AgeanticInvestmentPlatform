@@ -28,7 +28,11 @@ from aer.core.enums import UserRole
 from aer.db.models import Assumption, ResearchRequest, User
 from aer.services import assumptions as assumption_service
 from aer.services import scenarios as scenario_service
-from aer.services.assumption_gate import COST_OF_DEBT_ASSUMPTION, REQUIRED_NAMES
+from aer.services.assumption_gate import (
+    COST_OF_DEBT_ASSUMPTION,
+    REQUIRED_NAMES,
+    RESIDUAL_INCOME_NAMES,
+)
 from aer.web.csrf import CSRF_FIELD_NAME
 from tests.api_fixtures import build_app, client_for
 from tests.workflow_fixtures import AS_OF_DATE
@@ -766,7 +770,18 @@ class TestTheVocabularyMatchesWhatAValuationNeeds:
             assert name in EXPECTED_UNIT, name
             assert name in PLAUSIBLE_RANGE, name
 
+    def test_every_residual_income_name_has_a_unit_and_a_range(self) -> None:
+        """A bank's operator types into the same form, so its two drivers need the same
+        vocabulary. `payout_ratio` matters most: its band is nil to one, which is exactly
+        what `book_value_roll_forward` accepts, so the operator learns at the box rather
+        than inside arithmetic that cannot say which input was wrong."""
+        for name in RESIDUAL_INCOME_NAMES:
+            assert name in EXPECTED_UNIT, name
+            assert name in PLAUSIBLE_RANGE, name
+
     def test_it_claims_nothing_a_valuation_does_not_read(self) -> None:
-        reads = {*REQUIRED_NAMES, COST_OF_DEBT_ASSUMPTION}
+        """Both models' names, because both are read — by different valuations. A name in
+        this table that nothing reads is a box on the form nobody will ever use."""
+        reads = {*REQUIRED_NAMES, *RESIDUAL_INCOME_NAMES, COST_OF_DEBT_ASSUMPTION}
         assert set(EXPECTED_UNIT) == reads
         assert set(PLAUSIBLE_RANGE) == reads
