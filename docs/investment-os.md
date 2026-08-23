@@ -704,7 +704,34 @@ Live status. Tick an item only when it is committed, not when it is drafted.
       lands is never announced. Proved in a browser — with the default the attribute is
       simply gone from the live DOM. A zero is swapped and renders as nothing, so a count
       the operator has acted on clears rather than lingering
-- [ ] Inter vendored under `static/fonts/`, or the system stack accepted
+- [x] **Inter vendored under `static/fonts/`.** Not the system-stack fallback: ADR 0006
+      says every stylesheet, script *and font* is served from this origin, and the spec
+      named the typeface — accepting the fallback would have been narrowing the ask rather
+      than making a decision. `@fontsource-variable/inter@5.3.0`, upstream Inter v20, SIL
+      Open Font License 1.1 with the notice committed beside the files.
+
+      One variable file per range, weights 100–900, so a page using four weights makes one
+      request rather than four and a semibold heading is a real weight rather than a smear
+      of the regular. No italic — nothing in thirty-nine templates is italic, and a face
+      nobody renders is 52 kB committed for the look of completeness. `latin-ext` is here
+      because of what this tool renders: issuer names come out of filings and an LSE
+      listing is routinely a European domicile, so a report about Škoda would otherwise set
+      those letters in whatever the system supplies, mid-word. `unicode-range` means it is
+      fetched only on a page that contains one, so the common case is still the 48 kB latin
+      file alone — which is also why only that one is preloaded.
+
+      **Almost every way this can fail looks exactly like success.** A `src` that 404s, a
+      break in the three-link chain from Preflight to `--font-sans`, a swapped binary — all
+      three render a perfectly reasonable page in the fallback stack. So the SHA-256 of
+      each file is pinned in a test rather than described in a commit message nobody diffs;
+      the chain is followed through the compiled stylesheet rather than assumed; and a
+      browser reads the face off a rendered page, which is the only check a file cannot
+      make. Verified by pointing the `@font-face` at a missing file: the computed
+      `font-family` still names Inter and only `document.fonts.check` notices.
+
+      `test_loads_no_third_party_asset` gained four hosts in the same commit. It scanned
+      for `googleapis`, which catches the Google Fonts *stylesheet* — the woff2 it then
+      asks for comes from `fonts.gstatic.com`, which it did not
 - [x] **Overview as a genuinely second tool**, built only from data that already exists.
       The claim held: the screen owns no query. Its counts are the registered badges and
       its feed is a registered `AttentionProvider` per tool, so a second tool appears on it

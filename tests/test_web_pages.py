@@ -50,8 +50,24 @@ class TestLandingPage:
         # Local-first means the GUI works with no internet connection, and a remote
         # script tag on a page that can reach the database is a supply-chain risk taken
         # for convenience.
+        #
+        # The font hosts are here because `googleapis` alone was not the whole rule. A
+        # Google Fonts stylesheet is served from `fonts.googleapis.com`, which that word
+        # catches — but the woff2 it then asks for comes from `fonts.gstatic.com`, which it
+        # does not, and neither does any of the other three ways to reach for a typeface.
+        # The typeface is vendored (`tests/test_fonts.py`); this is what stops it quietly
+        # stopping being.
         body = (await web_client.get("/")).text
-        for remote in ("https://cdn", "http://cdn", "unpkg.com", "jsdelivr", "googleapis"):
+        for remote in (
+            "https://cdn",
+            "http://cdn",
+            "unpkg.com",
+            "jsdelivr",
+            "googleapis",
+            "gstatic",
+            "typekit",
+            "fonts.bunny.net",
+        ):
             assert remote not in body
 
     async def test_the_page_is_not_indexable(self, web_client):
@@ -83,6 +99,16 @@ class TestStaticAssets:
 
         assert response.status_code == 200
         assert len(response.content) > 1000
+
+    async def test_the_typeface_is_served_locally(self, web_client):
+        response = await web_client.get("/static/fonts/inter-latin-wght-normal.woff2")
+
+        assert response.status_code == 200
+        assert len(response.content) > 10_000
+        # The type matters: a woff2 served as `application/octet-stream` still loads, but a
+        # preload declared `as="font" type="font/woff2"` against a mismatched type is
+        # discarded and fetched again — the head start spent twice.
+        assert response.headers["content-type"] == "font/woff2"
 
     async def test_a_missing_asset_is_a_404(self, web_client):
         assert (await web_client.get("/static/nope.css")).status_code == 404

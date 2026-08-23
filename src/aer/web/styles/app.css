@@ -15,6 +15,56 @@
 @source "../static/js/*.js";
 
 /* ---------------------------------------------------------------------------------------
+   The typeface, served from this origin like every other asset (ADR 0006).
+
+   Vendored rather than linked. `test_loads_no_third_party_asset` fails any page naming a
+   CDN or a font host, and the reason is the one that record gives: this application is
+   local-first and must work with no internet connection, and a third-party request from a
+   page that can reach the database is a supply-chain risk taken for convenience. Google
+   Fonts would also mean a request to a third party on every page load, from a tool whose
+   whole point is that nothing leaves the machine unless the operator asked for it.
+
+   Provenance, in the shape `htmx.min.js` set: `@fontsource-variable/inter@5.3.0`, upstream
+   Inter v20, SIL Open Font License 1.1 (`LICENSE-Inter.txt` beside the files). The SHA-256
+   of each file is pinned in `tests/test_fonts.py`, so a swapped binary is a red build
+   rather than a thing nobody would ever notice.
+
+   One variable file per range, weights 100-900, so a page that uses four weights makes one
+   request rather than four. **No italic**: nothing in thirty-nine templates is italic, and
+   a face nobody renders is 52 kB committed for the look of completeness.
+
+   `latin-ext` is here because of what this tool renders. Issuer names come out of filings,
+   and an LSE listing is routinely a European domicile — a report about Škoda or Société
+   Générale would otherwise set those letters in whatever the system supplies, mid-word.
+   `unicode-range` means the browser fetches it only on a page that actually contains one,
+   so the common case still costs the 48 kB latin file alone. */
+
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-weight: 100 900;
+  /* `swap`: text is readable in the fallback immediately and reflows when Inter arrives.
+     The alternative hides it for up to three seconds, and a research page that is blank
+     while a font loads is worse than one that changes shape. */
+  font-display: swap;
+  src: url("../fonts/inter-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../fonts/inter-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ---------------------------------------------------------------------------------------
    The palette, as flipping custom properties.
 
    Two layers, and the split is a Tailwind v4 constraint rather than a preference. `@theme`
@@ -125,6 +175,20 @@
 /* Layout constants, so a sidebar width lives in one place rather than in every template
    that has to avoid it. */
 @theme {
+  /* Inter first, then the stack Tailwind ships. The fallbacks are not decoration: they are
+     what renders while the woff2 is in flight, and what renders for ever if it 404s.
+
+     This one variable is enough, but only because of a chain: Preflight sets `font-family`
+     on `html` from `--default-font-family`, and Tailwind's own theme defines that as
+     `--theme(--font-sans, initial)`. Three links, one of them inside a dependency, and a
+     break anywhere in it leaves every page in the stock system stack — which looks exactly
+     like a font that loaded. `tests/test_fonts.py` follows the chain in the compiled
+     output rather than assuming it, and a browser test reads the face off a rendered page. */
+  --font-sans:
+    "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", "Noto Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
+
   --radius-card: 14px;
   --radius-panel: 16px;
   --spacing-sidebar: 15rem;

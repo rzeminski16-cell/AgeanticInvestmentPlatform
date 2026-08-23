@@ -327,6 +327,53 @@ class TestTheDrawer:
             context.close()
 
 
+class TestTheTypeface:
+    """The one check on the font that a file cannot make.
+
+    Every other assertion about Inter is on bytes: the woff2 is on disk, its hash is the
+    one recorded, the stylesheet asks for it by a relative path, the server hands it back
+    as `font/woff2`. None of that says the browser used it — a `unicode-range` that matched
+    nothing, a `format()` the parser rejected, or a chain that resolved to the fallback
+    would leave all of it true and the page set in something else entirely.
+    """
+
+    def test_the_page_is_set_in_the_typeface_it_ships(self, page: Page, live_server: str) -> None:
+        page.goto(f"{live_server}/overview")
+        page.evaluate("document.fonts.ready")
+
+        assert page.evaluate("getComputedStyle(document.body).fontFamily").startswith(
+            '"Inter Variable"'
+        )
+        # `check` is true only once the face is available for that text, so this fails if
+        # the woff2 never arrived — which is the state every file-level test above passes in.
+        assert page.evaluate("document.fonts.check('1em \"Inter Variable\"')")
+
+    def test_the_weights_come_from_the_file_rather_than_the_browser(
+        self, page: Page, live_server: str
+    ) -> None:
+        """A variable face covers 100-900, so a semibold heading is a real weight.
+
+        Without the range, the browser synthesises one by smearing the regular — heavier,
+        blurrier, and on a page of small type the difference is the page looking cheap.
+        """
+        page.goto(f"{live_server}/overview")
+        page.evaluate("document.fonts.ready")
+
+        assert page.evaluate("document.fonts.check('600 1em \"Inter Variable\"')")
+
+    def test_nothing_was_fetched_from_anybody_else(self, page: Page, live_server: str) -> None:
+        # The failure this whole arrangement exists to prevent, watched at the only level
+        # that can see it. A page that reached a font host would still render perfectly.
+        requested: list[str] = []
+        page.on("request", lambda request: requested.append(request.url))
+
+        page.goto(f"{live_server}/overview")
+        page.evaluate("document.fonts.ready")
+
+        strangers = [url for url in requested if not url.startswith(live_server)]
+        assert not strangers, f"the page fetched from elsewhere: {strangers}"
+
+
 class TestWithScriptingOff:
     def test_the_nav_renders_and_the_slot_stays_empty(
         self, browser: Browser, live_server: str, stopped_runs: StoppedRuns
