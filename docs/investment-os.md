@@ -879,11 +879,34 @@ Live status. Tick an item only when it is committed, not when it is drafted.
 
 ### Phase 2 — prove the research tool still works
 
-- [ ] An end-to-end walkthrough: commission a request, drive it through the gates, read the
-      report. A green suite is not a working product, and the shell has been rebuilt
-      underneath this tool four times in a fortnight
-- [ ] Whether that walkthrough spends real money is the operator's call. The default is the
-      fake provider, which proves the pages and the gates and not the model
+- [x] **It works.** Front page, launcher, form, request, run, plan gate, the conditional
+      gates, final gate, publish, report — one browser session, no URL typed that an
+      operator could not have clicked their way to. The report comes out with its figures
+      cited, its calculations footnoted with formula and code version, ten validator
+      metrics scored and the disclaimer on every surface.
+
+      Every other browser test in that directory owns one surface, and none of them owned
+      the *seam*. Split into eight, each step would pass against a product where the steps
+      no longer lead to one another, which is the only failure this was written to catch
+- [x] The fake provider, as the operator chose. The browser does everything a person does
+      and `tests/e2e/worker.py` does what the worker would — which is the split that makes
+      this worth anything: a journey that drove the workflow from the test would prove the
+      test can run a workflow, not that the product can
+- [x] The advancer moved out of `test_run_console.py` into `worker.py`, shared. Two of them
+      would drift into two ideas of what "advance" means, and the one that stopped clearing
+      interim gates would be the one nobody noticed
+- [x] **Three things the journey corrected in the writing of it**, none a product defect
+      and all worth knowing: the report is headed with the name the *filing* registers
+      ("MICROSOFT CORP"), not the one typed into the form — `acquire` resolves against the
+      regulator's registry and that answer wins from then on; approving the final gate does
+      not publish, because the report is written by the step *after* the gate and a
+      decision and its consequence are separate rows; and a run needs a ceiling the draft
+      step's estimate does not exceed, or the journey tests the cap rather than the tool
+- [x] Looked at, not only asserted: the console, the plan review, the final review and the
+      report render coherently under the new shell. They still use the stock `slate` and
+      `sky` ramps rather than the semantic tokens, which is exactly what ADR-aligned
+      restraint asked for — the tokens were added *beside* the ramps so that nothing
+      re-skinned itself for free — and the two palettes are close enough to read as one
 
 ### Phase 3 — Portfolio
 
