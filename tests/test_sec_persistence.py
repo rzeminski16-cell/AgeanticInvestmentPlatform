@@ -12,8 +12,10 @@ duplicated its output each time would make every count downstream wrong.
 from __future__ import annotations
 
 import hashlib
+import logging
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
 import pytest
 from sqlalchemy import func, select
@@ -30,6 +32,7 @@ from aer.sources.base import ResolvedEntity
 from aer.sources.sec.companyfacts import parse_company_facts
 from aer.sources.sec.pit import select_point_in_time
 from aer.storage.local import LocalArtefactStore
+from tests.log_helpers import events_at_or_above
 from tests.sec_fixtures import MSFT_CIK, fixture_bytes, make_fact
 
 pytestmark = pytest.mark.integration
@@ -515,6 +518,126 @@ class TestPersistingFacts:
 
         with pytest.raises(DbIntegrityError, match="violates foreign key constraint"):
             await db_session.flush()
+
+
+def _collisions_reported(records: list[logging.LogRecord]) -> list[dict[str, Any]]:
+    return [
+        event
+        for event in events_at_or_above(records, logging.WARNING)
+        if event.get("event") == "facts.concept_collisions"
+    ]
+
+
+class TestTwoTagsForOneObservation:
+    """Gap A55. The concept map reduces a filer's tag to a canonical concept, and the
+    unique constraint then admits one observation per concept-period. Two *different*
+    tags from one filing therefore collide, and ``on_conflict_do_nothing`` keeps whichever
+    the batch reached first — arbitrary, and silent.
+
+    Two pairs do this today, both inside us-gaap: `ShortTermBorrowings` and
+    `LongTermDebtCurrent` are disjoint components of short-term debt that a filer may
+    report both of, and `OperatingLeaseLiability` and its `...Noncurrent` child both mean
+    `lease_liabilities`, where keeping the child understates. Which of a pair is right is
+    a judgement per pair, so this reports rather than decides — but it is why curating
+    175 more concepts into the map is not simply a matter of adding rows.
+    """
+
+    @pytest.fixture
+    async def company(self, db_session) -> Company:
+        return await upsert_company(
+            db_session,
+            entity=ResolvedEntity(identifier=MSFT_CIK, name="MICROSOFT CORP"),
+            ticker="MSFT",
+            exchange="NASDAQ",
+        )
+
+    @pytest.fixture
+    async def source(self, db_session, store, request_row) -> SourceDocument:
+        result = await fetched(store, COMPANYFACTS)
+        acquisition = await record_acquisition(
+            db_session,
+            store,
+            request=request_row,
+            result=result,
+            provider=Provider.SEC_EDGAR,
+            source_tier=SourceTier.T1_REGULATORY,
+        )
+        return acquisition.source_document
+
+    @staticmethod
+    def _both_debt_tags() -> list[Any]:
+        return [
+            make_fact(concept="short_term_debt", raw_concept="ShortTermBorrowings", value=400),
+            make_fact(concept="short_term_debt", raw_concept="LongTermDebtCurrent", value=150),
+        ]
+
+    async def test_one_of_the_two_is_silently_dropped(self, db_session, company, source):
+        """The defect itself. Both are real figures the filer reported; one is discarded,
+        and the constraint decides by batch order rather than by which is the fuller line."""
+        written = await persist_facts(
+            db_session, company=company, source_document=source, facts=self._both_debt_tags()
+        )
+
+        assert written == 1
+
+    async def test_the_run_names_the_tags_that_collided(
+        self, db_session, company, source, caplog, bridged_logging
+    ):
+        """Named, not counted. ``supplied`` minus ``inserted`` already showed a number,
+        and a number cannot distinguish this from the ordinary, wanted case of a filing
+        being persisted twice."""
+        with caplog.at_level(logging.WARNING):
+            await persist_facts(
+                db_session, company=company, source_document=source, facts=self._both_debt_tags()
+            )
+
+        reported = [
+            event
+            for event in events_at_or_above(caplog.records, logging.WARNING)
+            if event.get("event") == "facts.concept_collisions"
+        ]
+        assert len(reported) == 1
+        (collision,) = reported[0]["collisions"]
+        assert collision["concept"] == "short_term_debt"
+        assert collision["tags"] == ["LongTermDebtCurrent", "ShortTermBorrowings"]
+
+    async def test_re_persisting_one_filing_is_not_a_collision(
+        self, db_session, company, source, caplog, bridged_logging
+    ):
+        """The conflict clause exists for this case and must stay quiet in it: the same
+        tag twice is a re-run, not two lines collapsing onto each other."""
+        same = [make_fact(raw_concept="Revenues"), make_fact(raw_concept="Revenues")]
+
+        with caplog.at_level(logging.WARNING):
+            await persist_facts(db_session, company=company, source_document=source, facts=same)
+
+        assert not _collisions_reported(caplog.records)
+
+    async def test_two_tags_in_different_periods_do_not_collide(
+        self, db_session, company, source, caplog, bridged_logging
+    ):
+        """The key is the observation, not the concept: the same two tags on different
+        period ends are two observations and both are kept."""
+        spread = [
+            make_fact(
+                concept="short_term_debt",
+                raw_concept="ShortTermBorrowings",
+                period_end="2020-06-30",
+            ),
+            make_fact(
+                concept="short_term_debt",
+                raw_concept="LongTermDebtCurrent",
+                period_end="2019-06-30",
+            ),
+        ]
+
+        with caplog.at_level(logging.WARNING):
+            written = await persist_facts(
+                db_session, company=company, source_document=source, facts=spread
+            )
+
+        assert written == 2
+        assert not _collisions_reported(caplog.records)
 
 
 class TestTheFullSlice:

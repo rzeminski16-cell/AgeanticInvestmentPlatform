@@ -23,7 +23,8 @@ history is not a handful of rows — see :data:`_PARAMETER_LIMIT`.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from datetime import date
 from typing import Any, Final
 
 import structlog
@@ -195,6 +196,25 @@ async def persist_facts(
         for fact in facts
     ]
 
+    collisions = _colliding_tags(rows)
+    if collisions:
+        # Named, not merely counted (gap A55). `on_conflict_do_nothing` is the right
+        # behaviour for re-persisting a filing already stored, and it is the wrong thing
+        # happening here: two *different* filed tags reduced to one canonical concept in
+        # one filing, where the row that survives is whichever the batch reached first.
+        # `ShortTermBorrowings` and `LongTermDebtCurrent` are disjoint components of
+        # short-term debt today; `OperatingLeaseLiability` and its `...Noncurrent` child
+        # both mean `lease_liabilities`, where keeping the child understates. Which of a
+        # colliding pair is right is a judgement per pair, so this reports rather than
+        # decides — but a figure a filer reported and this platform silently discarded
+        # must not be invisible while the map is curated.
+        _log.warning(
+            "facts.concept_collisions",
+            company_id=str(company.id),
+            source_document_id=str(source_document.id),
+            collisions=collisions,
+        )
+
     inserted = 0
     for batch in _batched(rows, _rows_per_statement(rows[0])):
         statement = (
@@ -214,6 +234,42 @@ async def persist_facts(
         basis=basis.value,
     )
     return inserted
+
+
+def _colliding_tags(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Where one filing's rows put two different tags on one canonical observation.
+
+    Read off the supplied batch rather than from the database, because that is where the
+    question is answerable: after the insert, the losing row simply does not exist, and
+    ``supplied`` minus ``inserted`` cannot say whether the gap was a re-run of a filing
+    already stored — the ordinary, wanted case — or two lines of one filing collapsed onto
+    each other.
+
+    Keyed on the observation the unique constraint arbitrates, so what this reports is
+    exactly what the database will drop.
+    """
+    seen: dict[tuple[Any, ...], set[str]] = {}
+    for row in rows:
+        tag = str(row.get("raw_concept") or "")
+        if not tag:
+            continue
+        key = tuple(row.get(column) for column in _OBSERVATION_KEY)
+        seen.setdefault(key, set()).add(tag)
+
+    found: list[dict[str, Any]] = []
+    for key, tags in seen.items():
+        if len(tags) == 1:
+            continue
+        keyed = dict(zip(_OBSERVATION_KEY, key, strict=True))
+        period = keyed.get("period_end")
+        found.append(
+            {
+                "concept": keyed.get("concept"),
+                "period_end": period.isoformat() if isinstance(period, date) else str(period),
+                "tags": sorted(tags),
+            }
+        )
+    return sorted(found, key=lambda item: (str(item["concept"]), str(item["period_end"])))
 
 
 def _rows_per_statement(row: dict[str, Any]) -> int:
