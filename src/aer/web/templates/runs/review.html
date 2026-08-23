@@ -110,11 +110,13 @@
             </p>
             <p class="mt-1 text-slate-700 dark:text-slate-300">{{ escalation.rationale }}</p>
             <p class="mt-2 font-mono text-xs text-slate-500">
-              {{ escalation.position_a.label }}: {{ escalation.position_a.value }}
-              {{ escalation.position_a.unit }} ({{ escalation.position_a.tier }})
+              {# A thesis position's numeric fields are placeholders the ladder never
+                 compares (gap A68): "0 thesis (T1_REGULATORY)" is definitionally true of
+                 both sides and tells an operator nothing, on the page doing the most
+                 important work. The filter owns the rule; this template prints it. #}
+              {{ escalation.position_a.label }}: {{ escalation.position_a | position_figure }}
               &middot;
-              {{ escalation.position_b.label }}: {{ escalation.position_b.value }}
-              {{ escalation.position_b.unit }} ({{ escalation.position_b.tier }})
+              {{ escalation.position_b.label }}: {{ escalation.position_b | position_figure }}
               &middot; rule: {{ escalation.rule }}
             </p>
           </li>
@@ -262,28 +264,18 @@
             <div class="mt-2 grid gap-3 sm:grid-cols-2">
               {# A thesis position's numeric fields are placeholders the ladder never
                  compares, and "0 thesis (T1_REGULATORY)" told the operator nothing
-                 (gap R12): a thesis row shows each side's tier alone, and the
+                 (gaps R12 and A68): a thesis row shows each side's tier alone, and the
                  challenge's cited evidence is summarised below. #}
               <div class="rounded border border-slate-200 p-2 font-mono text-xs dark:border-slate-700">
                 <p class="font-semibold">A: {{ row.position_a.label }}</p>
                 <p class="mt-1 text-slate-600 dark:text-slate-400">
-                  {% if row.position_a.unit == "thesis" %}
-                    tier {{ row.position_a.tier }}
-                  {% else %}
-                    {{ row.position_a.value }} {{ row.position_a.unit }}
-                    ({{ row.position_a.tier }})
-                  {% endif %}
+                  {{ row.position_a | position_figure }}
                 </p>
               </div>
               <div class="rounded border border-slate-200 p-2 font-mono text-xs dark:border-slate-700">
                 <p class="font-semibold">B: {{ row.position_b.label }}</p>
                 <p class="mt-1 text-slate-600 dark:text-slate-400">
-                  {% if row.position_b.unit == "thesis" %}
-                    tier {{ row.position_b.tier }}
-                  {% else %}
-                    {{ row.position_b.value }} {{ row.position_b.unit }}
-                    ({{ row.position_b.tier }})
-                  {% endif %}
+                  {{ row.position_b | position_figure }}
                 </p>
               </div>
             </div>

@@ -60,11 +60,12 @@ Pure and side-effect free: no I/O, no clock, no database. The service layer in
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from enum import StrEnum
-from typing import Final
+from typing import Any, Final
 
 from aer.core.enums import FactBasis, SourceTier
 from aer.errors import AerError
@@ -72,6 +73,7 @@ from aer.errors import AerError
 __all__ = [
     "AGREEMENT_TOLERANCE",
     "MATERIALITY_THRESHOLD",
+    "THESIS_UNIT",
     "DisagreementKind",
     "Position",
     "Resolution",
@@ -80,6 +82,7 @@ __all__ = [
     "ResolvedBy",
     "UnresolvableDisagreementError",
     "canonical_unit",
+    "position_figure",
     "relative_difference",
     "resolve",
     "thesis_conflict",
@@ -186,6 +189,35 @@ _SCALE_POWERS: Final = tuple(range(1, 13))
 # Below this the conflict is not a credible-source conflict in the sense section 2.4 means:
 # a newspaper contradicting a filing is expected, and banners for it would be ignored.
 _CREDIBLE_TIER_LIMIT: Final = 4
+
+
+# The unit a thesis-level position carries. A thesis conflict has no quantity — the two
+# sides are arguments, not numbers — so the ladder stores a placeholder value of zero
+# under this unit and never compares it. Named because four surfaces have to recognise it,
+# and a literal repeated four times is a rule nobody owns (gap A68).
+THESIS_UNIT: Final = "thesis"
+
+
+def position_figure(position: Mapping[str, Any]) -> str:
+    """How one stored position's quantity reads on a page.
+
+    Gap A68. Every disagreement on the approval page carried "0 thesis (T1_REGULATORY)"
+    under both sides — the placeholder rendered as though it informed the reader. It could
+    not: a thesis conflict has no quantity, so the zero is definitionally true of both
+    positions and says nothing about either. Noise, on the page doing the platform's most
+    important work.
+
+    A thesis position reads as its tier alone, which is the only thing about it that
+    genuinely differs from the other side. Anything with a real quantity keeps it.
+
+    Takes the stored record rather than a :class:`Position` because that is what the
+    surfaces hold: the JSONB written by :meth:`Position.as_record`.
+    """
+    unit = str(position.get("unit", ""))
+    tier = str(position.get("tier", ""))
+    if unit == THESIS_UNIT:
+        return f"tier {tier}"
+    return f"{position.get('value', '')} {unit} ({tier})".strip()
 
 
 @dataclass(frozen=True, slots=True)

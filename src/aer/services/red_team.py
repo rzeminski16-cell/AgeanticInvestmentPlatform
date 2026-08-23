@@ -40,6 +40,7 @@ from aer.agents.red_team import (
     RedTeamInput,
 )
 from aer.core.disagreement import (
+    THESIS_UNIT,
     DisagreementKind,
     Position,
     UnresolvableDisagreementError,
@@ -311,7 +312,7 @@ async def _record_challenge(
             f"Red team challenge ({challenge.dimension.value}, severity {challenge.severity}/5)"
         ),
         value=Decimal(0),
-        unit="thesis",
+        unit=THESIS_UNIT,
         tier=_best_tier(challenge, index, fallback=base.tier),
         filed_date=request.as_of_date,
         basis=FactBasis.AS_REPORTED,
@@ -377,7 +378,7 @@ def _base_position(
         reference=f"draft:{job_id}",
         label="Base thesis (the draft's recorded claims)",
         value=Decimal(0),
-        unit="thesis",
+        unit=THESIS_UNIT,
         tier=best,
         filed_date=request.as_of_date,
         basis=FactBasis.AS_REPORTED,
