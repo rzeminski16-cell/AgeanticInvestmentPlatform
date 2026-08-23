@@ -41,6 +41,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.calc.engine import CalculationContext
 from aer.calc.units import CALC_CONTEXT, Quantity, SourceKind, SourceRef, SourceTable
+from aer.core.enums import Grade
 from aer.db.models import Assumption, Calculation
 from aer.errors import AerError
 from aer.eval.observations import CompletenessObservation, ReplayObservation
@@ -209,6 +210,10 @@ _TABLE_BY_KIND: Final[Mapping[SourceKind, SourceTable]] = {
     SourceKind.FACT: SourceTable.FINANCIAL_FACTS,
     SourceKind.ASSUMPTION: SourceTable.ASSUMPTIONS,
     SourceKind.CALCULATION: SourceTable.CALCULATIONS,
+    # `ATTESTATION` postdates ADR 0072 by an entire record, so no row that omits its table
+    # can be one — this entry exists so the lookup is total rather than because it is ever
+    # reached, and a `KeyError` here would fail a replay for a shape that cannot occur.
+    SourceKind.ATTESTATION: SourceTable.ATTESTATIONS,
 }
 
 
@@ -217,6 +222,7 @@ def _quantity_from(stored: Mapping[str, Any]) -> Quantity:
     kind = SourceKind(str(source.get("kind", "fact")))
     stored_table = str(source.get("table", ""))
     table = SourceTable(stored_table) if stored_table else _TABLE_BY_KIND[kind]
+    stored_grade = str(source.get("grade", ""))
     return Quantity.of(
         Decimal(str(stored["value"])),
         str(stored["unit"]),
@@ -225,6 +231,11 @@ def _quantity_from(stored: Mapping[str, Any]) -> Quantity:
             identifier=str(source.get("id", "replay")),
             table=table,
             label=str(source.get("label", "")),
+            # Replayed rather than looked up, like everything else here: a replay re-runs a
+            # calculation from its own record, and reading the attestation's *current*
+            # grade would let a row documented since change what the original arithmetic is
+            # replayed as having stood on.
+            grade=Grade(stored_grade) if stored_grade else None,
         ),
     )
 

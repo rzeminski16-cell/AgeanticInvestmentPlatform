@@ -30,7 +30,15 @@ from aer.calc.units import (
     money,
 )
 from aer.calc.units import ratio as pure
-from aer.core.enums import FactBasis, JobStatus, Provider, RequestStatus, SourceTier, UserRole
+from aer.core.enums import (
+    FactBasis,
+    Grade,
+    JobStatus,
+    Provider,
+    RequestStatus,
+    SourceTier,
+    UserRole,
+)
 from aer.db.models import (
     Assumption,
     Calculation,
@@ -671,9 +679,10 @@ class TestTheLeafRegistry:
             SourceRef.financial_fact("a"),
             SourceRef.macro_observation("b"),
             SourceRef.fx_rate("c"),
-            SourceRef.security("d"),
-            SourceRef.assumption("e"),
-            SourceRef.calculation("f"),
+            SourceRef.attestation("d", grade=Grade.ATTESTED),
+            SourceRef.security("e"),
+            SourceRef.assumption("f"),
+            SourceRef.calculation("g"),
         )
 
         assert {ref.table for ref in made} == set(SourceTable)

@@ -929,8 +929,22 @@ it, so separating an ISA from a SIPP is a setting rather than a migration.
       for a rate response could be inserted at all. Alembic's autogenerate does not compare
       enum labels, so nothing had ever reported drift — `tests/test_migrations.py` now
       compares them, in the one direction that is a fault
-- [ ] `attestations` and `transactions`, with the grade that propagates (ADR 0069)
-- [ ] `SourceKind` gains `ATTESTATION`; the `claims` XOR widens; invariant 3 restated
+- [x] `attestations` and `transactions`, with the grade that propagates (ADR 0069), and
+      `portfolios` from the first day with one row in it
+- [x] `SourceKind` gains `ATTESTATION` — pulled forward into the slice above, because the
+      grade cannot travel a lineage until a `SourceRef` can carry one. It is on the
+      reference rather than looked up per node, so `aer/calc/attestation.py` can state the
+      property with no session: a module that had to ask a database which grade a leaf
+      carried would put the containment in the service layer, one caller away from being
+      forgotten
+- [x] A currency exchange is deliberately **not** a `TransactionKind`. It is one event
+      touching two currencies, and the row shape holds one — so it needs either a second
+      currency column used by nothing else or a pair of rows whose "these two are one
+      event" invariant no Postgres check can see. Getting it wrong double-counts cash,
+      silently, in the direction that flatters. Recorded as a withdrawal and a deposit
+      until it has a shape of its own, which is `CorporateActionKind`'s reasoning reused
+- [ ] The `claims` XOR widens to admit an `attestation_id`; invariant 3 restated in
+      `CLAUDE.md` and in `db/models/claim.py`, in the same change as the constraint
 - [ ] `aer/calc/portfolio.py` — quantity, cost basis, market value, cash, NAV, weight. Pure,
       `mypy --strict`, property-tested. **No `positions` table** (ADR 0079)
 - [ ] The Portfolio screen: holdings as at a date, every figure carrying its grade, and an

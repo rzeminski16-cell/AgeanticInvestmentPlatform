@@ -52,6 +52,7 @@ from decimal import (
 from enum import StrEnum
 from typing import Final
 
+from aer.core.enums import Grade
 from aer.errors import AerError
 
 __all__ = [
@@ -137,10 +138,17 @@ class UnsourcedValueError(CalculationError):
 class SourceKind(StrEnum):
     """What kind of thing a quantity's value came from.
 
-    Three kinds, and the list is deliberately closed. Every number in a report resolves,
-    eventually, to a fact somebody filed, an assumption somebody made and justified, or a
-    calculation over those two. A fourth kind would be a way in for a number with no
-    story.
+    Four kinds, and the list is closed. Every number resolves, eventually, to a fact
+    somebody filed, an assumption somebody made and justified, an attestation somebody
+    signed their name to, or a calculation over those three.
+
+    **The fourth arrived by meeting the standard the first three set, not by relaxing it.**
+    This docstring said "three, deliberately closed — a fourth kind would be a way in for a
+    number with no story", and that sentence was the bar rather than the wall. A fill price
+    is none of the first three: nobody filed it, nobody chose it, no code computed it. What
+    ADR 0069 had to show was that an attestation arrives with a story of its own — two
+    times, a named assertor, and a grade of evidence that propagates — rather than as an
+    exemption from having one. Anything that cannot show as much still does not get in.
     """
 
     FACT = "fact"
@@ -156,6 +164,14 @@ class SourceKind(StrEnum):
     ASSUMPTION = "assumption"
     """A value chosen rather than observed — a discount rate, a growth fade, an FX rate.
     Recorded with its justification, so a reviewer can disagree with it specifically."""
+
+    ATTESTATION = "attestation"
+    """What the operator's own book says, as at one time and as known at another.
+
+    A fill price, a holding, a cash balance. Not filed, not chosen, not computed —
+    asserted, by somebody whose name is on the assertion. Every such reference carries a
+    :class:`~aer.core.enums.Grade`, and :class:`SourceRef` refuses one without it (ADR
+    0069)."""
 
 
 class SourceTable(StrEnum):
@@ -188,6 +204,13 @@ class SourceTable(StrEnum):
     SECURITIES = "securities"
     """A listing, and by extension the price bars adjusted from it."""
 
+    ATTESTATIONS = "attestations"
+    """Something the operator asserted about their own affairs — a trade, a balance.
+
+    The leaf is the attestation, not one of its numbers, for the reason ``SECURITIES`` is
+    the leaf for a price: a transaction carries a quantity, a price and a fee, and which of
+    them a figure used is the calculation input's business rather than the reference's."""
+
     ASSUMPTIONS = "assumptions"
     CALCULATIONS = "calculations"
 
@@ -211,6 +234,36 @@ class SourceRef:
     identifier: str
     table: SourceTable
     label: str = ""
+
+    # How strong the evidence is, and only an attestation has one. A filing is documented
+    # by definition (invariant 1), an assumption is neither documented nor attested, and a
+    # calculation's grade is whatever its inputs make it — which is
+    # :func:`aer.calc.attestation.grade_of`'s answer rather than a field's.
+    #
+    # **On the reference rather than looked up**, because the pure kernel has to be able to
+    # state the property. A NAV computed from an attested holding is an attested NAV, and a
+    # module that had to ask a database which grade a leaf carried could not say so without
+    # a session — so the containment would live in the service layer, one caller away from
+    # being forgotten.
+    grade: Grade | None = None
+
+    def __post_init__(self) -> None:
+        if self.kind is SourceKind.ATTESTATION and self.grade is None:
+            message = (
+                f"The attestation {self.identifier!r} has no grade. A figure the operator "
+                "asserted is either documented or attested, and code above this has to know "
+                "which — an ungraded one would propagate as though it were evidenced."
+            )
+            raise UnsourcedValueError(message, context={"identifier": self.identifier})
+        if self.kind is not SourceKind.ATTESTATION and self.grade is not None:
+            message = (
+                f"A {self.kind.value} reference carries a grade ({self.grade.value}). The "
+                "grade is what distinguishes a documented attestation from a typed one; on "
+                "anything else it is a claim about evidence that nothing checks."
+            )
+            raise CalculationError(
+                message, context={"kind": self.kind.value, "grade": self.grade.value}
+            )
 
     @classmethod
     def financial_fact(cls, identifier: str | uuid.UUID, *, label: str = "") -> SourceRef:
@@ -253,6 +306,25 @@ class SourceRef:
             identifier=str(identifier),
             table=SourceTable.SECURITIES,
             label=label,
+        )
+
+    @classmethod
+    def attestation(
+        cls, identifier: str | uuid.UUID, *, grade: Grade, label: str = ""
+    ) -> SourceRef:
+        """Something the operator asserted, with the grade of evidence behind it.
+
+        ``grade`` is keyword-only and has no default. A default would be a decision made
+        once, invisibly, for every call site that did not think about it — and whichever
+        way it fell it would be wrong: defaulting to documented lets a typed figure travel
+        as evidence, defaulting to attested marks a hashed custodian statement as hearsay.
+        """
+        return cls(
+            kind=SourceKind.ATTESTATION,
+            identifier=str(identifier),
+            table=SourceTable.ATTESTATIONS,
+            label=label,
+            grade=grade,
         )
 
     @classmethod

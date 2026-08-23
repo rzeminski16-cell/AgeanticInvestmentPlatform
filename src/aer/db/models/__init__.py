@@ -14,6 +14,7 @@ from aer.db.models.artefact import Artefact
 from aer.db.models.artefact_purge import ArtefactPurge
 from aer.db.models.assumption import Assumption
 from aer.db.models.assumption_proposal import AssumptionProposal
+from aer.db.models.attestation import Attestation, Transaction
 from aer.db.models.audit_event import AuditEvent
 from aer.db.models.calculation import Calculation
 from aer.db.models.catalyst_resolution import CatalystResolution
@@ -33,6 +34,7 @@ from aer.db.models.macro import MacroObservationRow, MacroSeriesRow
 from aer.db.models.obsidian_export import ObsidianExport
 from aer.db.models.plan import ResearchPlan
 from aer.db.models.plan_skill_pin import PlanSkillPin
+from aer.db.models.portfolio import Portfolio
 from aer.db.models.prompt import Prompt
 from aer.db.models.report import Report
 from aer.db.models.report_section import ReportSection, SectionStatus
@@ -61,6 +63,7 @@ __all__ = [
     "ArtefactPurge",
     "Assumption",
     "AssumptionProposal",
+    "Attestation",
     "AuditEvent",
     "Calculation",
     "CatalystResolution",
@@ -82,6 +85,7 @@ __all__ = [
     "MacroSeriesRow",
     "ObsidianExport",
     "PlanSkillPin",
+    "Portfolio",
     "PriceBar",
     "Prompt",
     "Report",
@@ -102,6 +106,7 @@ __all__ = [
     "SourceDocument",
     "Theme",
     "ThemeMembership",
+    "Transaction",
     "User",
     "WorkOrder",
 ]

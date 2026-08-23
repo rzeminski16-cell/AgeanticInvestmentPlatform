@@ -39,6 +39,7 @@ from aer.calc.engine import CalculationContext, CalculationRecord
 from aer.calc.units import SourceKind, SourceTable
 from aer.db.models import (
     Assumption,
+    Attestation,
     Calculation,
     FinancialFact,
     FxRateRow,
@@ -273,6 +274,7 @@ class _StoredInput:
     label: str
     value: Decimal | None
     unit: str
+    grade: str = ""
 
     @classmethod
     def of(cls, raw: dict[str, Any]) -> _StoredInput:
@@ -286,6 +288,11 @@ class _StoredInput:
             label=str(source.get("label") or raw.get("name") or ""),
             value=_decimal_or_none(raw.get("value")),
             unit=str(raw.get("unit", "")),
+            # Only an attestation writes one. Read from the ledger rather than from the
+            # row it points at, because the grade a figure was *computed under* is what a
+            # reader needs — a row corrected to documented afterwards does not retroactively
+            # evidence arithmetic that ran before it (ADR 0069).
+            grade=str(source.get("grade", "")),
         )
 
     def missing(self, expected: str) -> LineageNode:
@@ -456,6 +463,45 @@ async def _fx_rate_node(session: AsyncSession, stored: _StoredInput) -> LineageN
     )
 
 
+async def _attestation_node(session: AsyncSession, stored: _StoredInput) -> LineageNode | None:
+    """Something the operator asserted, with the grade of evidence beside it.
+
+    The kind is ``attestation`` rather than ``fact``, and the difference is the whole point:
+    a filing is a document somebody published and this is a statement somebody signed their
+    name to. Which of those a reader is looking at should not require them to notice a
+    table name.
+
+    ``grade`` is shown from the *ledger* rather than from the row. A trade entered from
+    memory and documented a month later is documented now, and was not when the net asset
+    value above it was struck — so the node reports what the arithmetic actually stood on,
+    and names the row's current grade beside it when the two differ.
+    """
+    row = await _load_attestation(session, stored.identifier)
+    if row is None:
+        return None
+    return LineageNode(
+        kind="attestation",
+        identifier=stored.identifier,
+        label=stored.label or f"{row.kind.value} {row.effective_at.date().isoformat()}",
+        value=stored.value,
+        unit=stored.unit,
+        detail={
+            "table": SourceTable.ATTESTATIONS.value,
+            "attestation_kind": row.kind.value,
+            "grade": stored.grade or row.grade.value,
+            "grade_now": row.grade.value,
+            "effective_at": row.effective_at.isoformat(),
+            "recorded_at": row.recorded_at.isoformat(),
+            "recorded_by": row.recorded_by,
+            "source_document_id": str(row.source_document_id or ""),
+            # A superseded row is the interesting one — "I entered 1,000 and meant 100" —
+            # and a lineage that hid it would show a figure resting on a correction with no
+            # sign that anything was ever different.
+            "supersedes_id": str(row.supersedes_id or ""),
+        },
+    )
+
+
 async def _security_node(session: AsyncSession, stored: _StoredInput) -> LineageNode | None:
     """A listing, and by extension the bars adjusted from it.
 
@@ -516,6 +562,7 @@ _LEAF_LOADERS: Final[Mapping[SourceTable, _LeafLoader]] = {
     SourceTable.FINANCIAL_FACTS: _financial_fact_node,
     SourceTable.MACRO_OBSERVATIONS: _macro_observation_node,
     SourceTable.FX_RATES: _fx_rate_node,
+    SourceTable.ATTESTATIONS: _attestation_node,
     SourceTable.SECURITIES: _security_node,
     SourceTable.ASSUMPTIONS: _assumption_node,
 }
@@ -592,6 +639,13 @@ async def _load_assumption(session: AsyncSession, identifier: str) -> Assumption
     if parsed is None:
         return None
     return await session.get(Assumption, parsed)
+
+
+async def _load_attestation(session: AsyncSession, identifier: str) -> Attestation | None:
+    parsed = _uuid_or_none(identifier)
+    if parsed is None:
+        return None
+    return await session.get(Attestation, parsed)
 
 
 async def _load_fx_rate(session: AsyncSession, identifier: str) -> FxRateRow | None:
