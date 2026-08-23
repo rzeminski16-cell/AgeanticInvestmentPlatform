@@ -34,7 +34,9 @@ from pathlib import Path
 import pytest
 import uvicorn
 from sqlalchemy import text
+from sqlalchemy.exc import SAWarning
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from aer.api.app import create_app
 from aer.config import load_settings
@@ -103,6 +105,17 @@ def live_server(settings_env, tmp_path, database_url) -> Iterator[str]:
     settings_env.setenv("AER_SECRET_KEY", "e2e-signing-key-not-a-real-one")
     settings = load_settings()
 
+    # Again here, not only at teardown. The server is stopped while the browser page is
+    # still open — `page` is requested before `live_server` in every test signature, so
+    # pytest tears it down last — and a request cancelled in flight leaves a connection
+    # whose owner is still reachable at that moment: uvicorn's thread has not finished
+    # unwinding. It becomes collectable during the *next* test, which is where the last
+    # of these errors kept landing. Collecting again at the top of the next setup catches
+    # it in the one place the warning is silenced. Every page in the product now fetches
+    # its badge counts on load, so there is one more in-flight request per test than there
+    # used to be, and this went from occasional to every run.
+    _finalise_abandoned_connections()
+
     run_async(_reset(database_url))
 
     port = _free_port()
@@ -165,20 +178,36 @@ def _finalise_abandoned_connections() -> None:
     the server just torn down left behind — asyncpg reports them as an unclosed
     connection, asyncio as an unclosed transport, and the kernel as an unclosed socket to
     port 5432, all of them the same abandoned connection seen from three levels. Silencing
-    ``ResourceWarning`` for the duration of this one collection is therefore narrow in the
-    way that matters: it covers this server's leftovers and nothing that happens during a
-    test.
+    those warnings for the duration of this one collection is therefore narrow in the way
+    that matters: it covers this server's leftovers and nothing that happens during a test.
+
+    **``SAWarning`` is the fourth level, and it was missing.** SQLAlchemy notices the same
+    abandoned connection one layer above asyncpg — "the garbage collector is trying to
+    clean up non-checked-in connection" — and that is not a ``ResourceWarning``, so it
+    survived this filter and went on failing whichever test the collector happened to run
+    during. Two or three per run, in different tests each time, moving with the shuffled
+    ordering: the same flake this function was written for, still firing through the one
+    gap in it.
 
     The leak that matters in production — a browser navigating away mid-poll, on a server
     that keeps running — is fixed in :mod:`aer.api.sse` and never reaches this function.
     """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", ResourceWarning)
+        warnings.simplefilter("ignore", SAWarning)
         gc.collect()
 
 
 async def _reset(database_url: str) -> None:
-    engine = create_async_engine(database_url)
+    # `NullPool`, for the reason every throwaway engine in this directory uses it: each
+    # call runs on its own event loop (see `run_async`) and an asyncpg connection belongs
+    # to the loop that opened it, so a *pooled* connection here outlives its loop and is
+    # left for the garbage collector. SQLAlchemy warns when it collects one, and
+    # `filterwarnings = ["error"]` turns that warning into a failure — attributed to
+    # whichever browser test happened to be running when the collector ran, which is a very
+    # long way from this line. Seen as two or three teardown errors per e2e run, each in a
+    # different test, moving with the shuffled ordering.
+    engine = create_async_engine(database_url, poolclass=NullPool)
     try:
         async with engine.begin() as connection:
             await connection.execute(text("SET LOCAL statement_timeout = '5s'"))
