@@ -46,6 +46,7 @@ def _provider(**overrides: Any) -> BadgeProvider:
     fields: dict[str, Any] = {
         "key": "probe",
         "tool": "research",
+        "title": "Probe",
         "label": "things",
         "count_ref": "aer.services.runs:awaiting_approval_count",
         "adr": "0067",

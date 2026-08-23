@@ -161,6 +161,37 @@ class TestCommittedBuildOutput:
         for name in ("base.html", "_nav.html", "index.html"):
             assert (TEMPLATES_DIR / name).is_file()
 
+    def test_the_ui_aggregator_exports_every_macro(self):
+        """`_ui/index.html` is the one import a page makes, so it has to actually re-export.
+
+        Jinja does not export a name brought in with `{% from %}`, so the aggregator as
+        first written exported nothing and `ui.card` raised `UndefinedError` — invisibly,
+        because it shipped before any page used it. The Overview screen was the first page
+        to import it and it failed on its first render. Each name is now assigned at the
+        top level, and this is the check that a macro added to a component file and
+        forgotten in the aggregator is a red build rather than a page that breaks when
+        somebody first reaches for it.
+        """
+        defined = {
+            name
+            for source in ("provenance.html", "surfaces.html")
+            for name in re.findall(
+                r"{%-?\s*macro\s+(\w+)\s*\(",
+                (TEMPLATES_DIR / "_ui" / source).read_text(encoding="utf-8"),
+            )
+        }
+        exported = {
+            name
+            for name in dir(templates.env.get_template("_ui/index.html").module)
+            if not name.startswith("_")
+        }
+
+        assert defined, "no macros found in _ui/ — the pattern above stopped matching"
+        assert defined <= exported, (
+            f"macros defined in _ui/ and not exported by _ui/index.html: "
+            f"{sorted(defined - exported)}. Add a `set` beside its import."
+        )
+
     def test_the_shared_request_form_is_present(self):
         # `new.html` and `edit.html` both include it and neither renders without it, so a
         # missing partial is two broken pages rather than one.

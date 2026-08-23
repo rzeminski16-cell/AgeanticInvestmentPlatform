@@ -679,8 +679,38 @@ Live status. Tick an item only when it is committed, not when it is drafted.
       simply gone from the live DOM. A zero is swapped and renders as nothing, so a count
       the operator has acted on clears rather than lingering
 - [ ] Inter vendored under `static/fonts/`, or the system stack accepted
-- [ ] **Overview as a genuinely second tool**, built only from data that already exists.
-      If this screen works, the remaining sixteen are content rather than architecture
+- [x] **Overview as a genuinely second tool**, built only from data that already exists.
+      The claim held: the screen owns no query. Its counts are the registered badges and
+      its feed is a registered `AttentionProvider` per tool, so a second tool appears on it
+      by adding a row in Python rather than a branch in a template. Its `NavSection` comes
+      from `web/overview/nav.py` — the first section `shell/registry.py` did not declare
+      itself — and that module holds data and imports nothing heavy, because the router
+      imports `render`, which imports the shell, which composes the nav.
+
+      **The attention registry deliberately differs from the badge one in its failure
+      mode.** A badge is a hint, so a provider that raises drops its number. This feed is
+      the answer to "is anything waiting for me", and an empty one is a claim — so a
+      provider that raises becomes an item saying it could not be asked and that the rest
+      of the list is incomplete. Every listing is bounded at eight and says how many more
+      there are, because a feed showing the first eight would describe a smaller problem
+      than the operator has.
+
+      **Two deviations from the plan above, both deliberate.** There is no provenance
+      badge: ADR 0054 defines a figure as a numeral denoting a quantity that invariant 3
+      requires to be a stored fact or a recorded calculation, and nothing on this screen is
+      one — a count of stopped runs is a count of rows, and the month's spend is a sum of
+      charges the platform metered itself. A "Calculated" badge beside either would spend
+      the word that means "this traces to a formula" on something that does not. And there
+      is no recent-reports list: reports are the research tool's, and a hard-coded section
+      for them is exactly the coupling this screen exists to avoid — `/reports` is one nav
+      item away
+- [x] **`_ui/index.html` exported nothing at all**, found by the first page to import it.
+      Jinja does not re-export a name brought in with `{% from %}`, so `ui.card` raised
+      `UndefinedError` on Overview's first render — a whole macro package that would have
+      failed for whoever reached for it first. Each name is now assigned at the top level,
+      and `test_the_ui_aggregator_exports_every_macro` compares the two lists so a macro
+      added and forgotten is a red build. The macros shipping before any page used them is
+      what hid it, which is the argument for the drawer landing with its first user
 
 ### Stage C — the first real domain
 

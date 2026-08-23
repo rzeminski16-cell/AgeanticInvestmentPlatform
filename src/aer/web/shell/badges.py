@@ -77,12 +77,16 @@ class Badge:
     """One filled slot: what the number is, and what it means.
 
     ``label`` is not decoration. A bare numeral beside a word is read as "Requests 3" by a
-    screen reader and means nothing; the label is what turns it into a sentence.
+    screen reader and means nothing; the label is what turns it into a sentence. ``title``
+    is the same count named rather than spoken, for a surface that has room for a heading —
+    the Overview screen renders every registered badge as a tile, from this one row, so
+    that the sidebar and the dashboard cannot disagree about a number.
     """
 
     key: str
     count: int
     label: str
+    title: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,6 +100,7 @@ class BadgeProvider:
 
     key: str
     tool: str
+    title: str
     label: str
     count_ref: str
     adr: str
@@ -133,6 +138,7 @@ _PROVIDERS: Final[tuple[BadgeProvider, ...]] = (
     BadgeProvider(
         key="approvals",
         tool="research",
+        title="Waiting for you",
         # Read aloud after the number: "3 runs waiting for your approval". Phrased as the
         # operator's own decision because that is what the count is for — these runs are
         # stopped, and only a person can start them again.
@@ -206,7 +212,7 @@ async def counts_for(session: AsyncSession, *, user_id: uuid.UUID) -> tuple[Badg
                 error=str(failure),
             )
             continue
-        filled.append(Badge(key=provider.key, count=count, label=provider.label))
+        filled.append(_badge(provider, count))
     return tuple(filled)
 
 
@@ -223,8 +229,12 @@ def badges_from(cached: Mapping[str, Any]) -> tuple[Badge, ...]:
         value = cached.get(provider.key)
         if isinstance(value, bool) or not isinstance(value, int):
             continue
-        rebuilt.append(Badge(key=provider.key, count=value, label=provider.label))
+        rebuilt.append(_badge(provider, value))
     return tuple(rebuilt)
+
+
+def _badge(provider: BadgeProvider, count: int) -> Badge:
+    return Badge(key=provider.key, count=count, label=provider.label, title=provider.title)
 
 
 # Short enough that acting on a badge and watching it change feels like cause and effect,

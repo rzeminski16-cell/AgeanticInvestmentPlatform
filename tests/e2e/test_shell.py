@@ -23,6 +23,7 @@ from sqlalchemy.pool import NullPool
 from aer.core.enums import JobStatus
 from aer.db.models import Job, ResearchRequest, User
 from aer.services.runs import awaiting_approval_count
+from aer.web.shell import GUIDANCE_COOKIE
 from tests.db_fixtures import run_async
 from tests.workflow_fixtures import AS_OF_DATE, DEFAULT_PER_RUN_BUDGET_GBP
 
@@ -138,6 +139,56 @@ class TestTheCountArrivesAfterThePage:
 
         expect(page.locator("#aer-badge-approvals")).to_be_hidden()
         assert page.locator("#aer-badge-approvals").inner_html() == ""
+
+
+class TestTheOverviewScreen:
+    """The second surface, and the first proof that guidance mode reaches a browser.
+
+    Everything else about guidance has been asserted about a template or a cookie. What
+    could not be asserted anywhere else is that `.aer-guide` is actually in the compiled
+    stylesheet and that `body[data-guidance]` actually reveals it — a rule that failed to
+    compile would leave the callouts hidden for ever, and every server-side test would go
+    on passing.
+    """
+
+    def test_a_stopped_run_is_listed_with_somewhere_to_go(
+        self, page: Page, live_server: str, stopped_runs: StoppedRuns
+    ) -> None:
+        page.goto(f"{live_server}/overview")
+
+        rows = page.locator("[data-attention]")
+        expect(rows).to_have_count(stopped_runs.count)
+        expect(rows.first.get_by_role("link", name="Open the run")).to_be_visible()
+
+    def test_nothing_waiting_offers_the_next_thing_to_do(
+        self, page: Page, live_server: str
+    ) -> None:
+        page.goto(f"{live_server}/overview")
+
+        expect(page.get_by_text("Nothing is waiting")).to_be_visible()
+        expect(page.get_by_role("link", name="Commission research")).to_be_visible()
+
+    def test_the_callouts_are_hidden_until_guidance_is_on(
+        self, page: Page, live_server: str
+    ) -> None:
+        page.goto(f"{live_server}/overview")
+
+        expect(page.locator(".aer-guide").first).to_be_hidden()
+
+    def test_guidance_mode_reveals_them(self, browser: Browser, live_server: str) -> None:
+        context = browser.new_context()
+        try:
+            # The cookie the toggle route sets. Set directly because no control renders it
+            # yet — a form in the shell needs a CSRF token in the shell, which is its own
+            # slice. What is under test is the CSS, and the CSS does not care who set it.
+            context.add_cookies([{"name": GUIDANCE_COOKIE, "value": "on", "url": live_server}])
+            page = context.new_page()
+            page.goto(f"{live_server}/overview")
+
+            expect(page.locator("body")).to_have_attribute("data-guidance", "on")
+            expect(page.locator(".aer-guide").first).to_be_visible()
+        finally:
+            context.close()
 
 
 class TestWithScriptingOff:
