@@ -212,7 +212,13 @@ class Transaction(Base):
 
     # Commission, stamp duty, custody — whatever was charged as part of this event, as a
     # positive number. A fee charged on its own is a `FEE` transaction; this is the one
-    # bundled into a deal, and it belongs to the cost basis rather than to the cash column.
+    # bundled into a deal.
+    #
+    # **It reaches two figures and not one.** Money spent to acquire shares is money the
+    # shares cost, so a purchase's fee joins the cost pool — and it is cash out either way,
+    # so it reduces the balance whichever side of the deal it was charged on. A *disposal's*
+    # fee reduces cash and leaves the pool alone (ADR 0081): folding it in would inflate the
+    # cost basis of what is still held by the cost of selling something else.
     fees: Mapped[Decimal] = mapped_column(Numeric(38, 12), nullable=False, server_default=text("0"))
 
     currency: Mapped[str] = mapped_column(String(3), nullable=False)

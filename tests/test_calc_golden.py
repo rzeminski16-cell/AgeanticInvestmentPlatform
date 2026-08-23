@@ -38,9 +38,11 @@ GOLDEN_CASES: list[dict[str, Any]] = json.loads(FIXTURE.read_text())["cases"]
 # a hand-computed case with exact inputs has nothing to round.
 GOLDEN_TOLERANCE = Decimal("0.0001")
 
-# Raised from thirty when K3's assumption_delta gained its hand-computed case — the
-# deliberate act this pin exists to force.
-EXPECTED_CORPUS_SIZE = 31
+# Raised from thirty when K3's assumption_delta gained its hand-computed case, and again
+# for `pooled_cost` — the deliberate act this pin exists to force. That last one is the case
+# most worth having: ADR 0081's worked example is the one where the three cost conventions
+# disagree, so it fails if pooling is ever quietly replaced by first-in-first-out.
+EXPECTED_CORPUS_SIZE = 32
 
 
 def _replayed(case: dict[str, Any]) -> ReplayObservation:

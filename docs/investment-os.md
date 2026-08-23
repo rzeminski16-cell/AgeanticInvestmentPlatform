@@ -956,8 +956,18 @@ it, so separating an ISA from a SIPP is a setting rather than a migration.
       only wrapped in a calculation. ADR 0069 named the question and picked neither answer;
       widening the constraint has not picked one either, and a test asserts the arms are
       exactly three so a fourth cannot arrive quietly
-- [ ] `aer/calc/portfolio.py` — quantity, cost basis, market value, cash, NAV, weight. Pure,
+- [x] `aer/calc/portfolio.py` — quantity, cost basis, market value, cash, NAV, weight. Pure,
       `mypy --strict`, property-tested. **No `positions` table** (ADR 0079)
+- [x] ADR 0081 — cost basis is a pooled average, and not a tax computation. ADR 0079 named
+      cost basis and left the convention open, and the three candidates disagree by a third
+      on the same three trades. Pooled, because the operator is a UK investor and it is the
+      shape of a Section 104 holding — **without** the same-day rule, the thirty-day rule or
+      share reorganisations, so it answers what was paid for what is held and never what is
+      owed. One function, so a second convention is a second function and a setting rather
+      than a rewrite
+- [x] ADR 0081's worked example is in the golden corpus as well as the unit tests: it is the
+      one case where pooling and first-in-first-out disagree, so replacing the convention
+      fails in two independent places
 - [ ] The Portfolio screen: holdings as at a date, every figure carrying its grade, and an
       export path that refuses an attested lineage by return type rather than by a flag
 - [ ] A split arrives as a transaction. Deriving it from `corporate_actions` is worth doing

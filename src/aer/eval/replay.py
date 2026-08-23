@@ -67,6 +67,7 @@ CALC_MODULES: Final[tuple[str, ...]] = (
     "aer.calc.dcf",
     "aer.calc.fx",
     "aer.calc.outcomes",
+    "aer.calc.portfolio",
     "aer.calc.prices",
     "aer.calc.quality",
     "aer.calc.ratios",

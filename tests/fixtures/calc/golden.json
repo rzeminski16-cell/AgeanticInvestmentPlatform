@@ -1012,6 +1012,76 @@
         "value": "-0.026",
         "unit": "pure"
       }
+    },
+    {
+      "name": "pooled_cost",
+      "inputs": [
+        {
+          "name": "movements[0]",
+          "value": "100",
+          "unit": "shares",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "movements[1]",
+          "value": "100",
+          "unit": "shares",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "movements[2]",
+          "value": "-100",
+          "unit": "shares",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "acquisition_costs[0]",
+          "value": "1000",
+          "unit": "GBP",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "acquisition_costs[1]",
+          "value": "2000",
+          "unit": "GBP",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "acquisition_costs[2]",
+          "value": "0",
+          "unit": "GBP",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        }
+      ],
+      "parameters": {},
+      "expected": {
+        "value": "1500",
+        "unit": "GBP"
+      }
     }
   ]
 }
