@@ -1012,6 +1012,36 @@
         "value": "-0.026",
         "unit": "pure"
       }
+    },
+    {
+      "name": "residual_income",
+      "inputs": [
+        {
+          "name": "net_income",
+          "value": "120",
+          "unit": "USD",
+          "source": {
+            "kind": "calculation",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "charge",
+          "value": "100",
+          "unit": "USD",
+          "source": {
+            "kind": "calculation",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        }
+      ],
+      "parameters": {},
+      "expected": {
+        "value": "20",
+        "unit": "USD"
+      }
     }
   ]
 }

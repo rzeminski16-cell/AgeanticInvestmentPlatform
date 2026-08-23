@@ -266,7 +266,12 @@ class TestTheRefusalExplainsItself:
 
         assert "comps_multiples" in str(excinfo.value)
         assert "dividend_discount" in str(excinfo.value)
-        assert excinfo.value.context["offered"] == ["comps_multiples", "dividend_discount"]
+        assert "residual_income" in str(excinfo.value)
+        assert excinfo.value.context["offered"] == [
+            "comps_multiples",
+            "dividend_discount",
+            "residual_income",
+        ]
 
     def test_a_reit_refusal_offers_p_over_ffo(self):
         """`docs/phase-3-plan.md`: "a REIT refuses and offers P/FFO"."""

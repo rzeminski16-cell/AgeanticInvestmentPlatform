@@ -67,6 +67,15 @@ class ValuationModel(StrEnum):
     require enterprise value to mean anything."""
 
     DIVIDEND_DISCOUNT = "dividend_discount"
+    RESIDUAL_INCOME = "residual_income"
+    """Book value plus the present value of the return earned above the cost of equity.
+
+    The model for a business whose balance sheet is the reliable part of its accounts and
+    whose cash flow is not separable from its operations — which is a bank. It is the
+    dividend discount rearranged, so it says the same thing, but it puts the weight on a
+    filed book value rather than on a terminal value nobody can observe.
+    """
+
     COMPS_MULTIPLES = "comps_multiples"
     """Comparable-company multiples. Almost always allowed: it asserts a relative
     judgement rather than a model of the business."""
@@ -138,7 +147,11 @@ SECTOR_PROFILES: Final[tuple[SectorProfile, ...]] = (
         label="Banks",
         sic_prefixes=("602", "6021", "6022", "6029"),
         icb_codes=("301010",),
-        allowed_models=(ValuationModel.COMPS_MULTIPLES, ValuationModel.DIVIDEND_DISCOUNT),
+        allowed_models=(
+            ValuationModel.COMPS_MULTIPLES,
+            ValuationModel.DIVIDEND_DISCOUNT,
+            ValuationModel.RESIDUAL_INCOME,
+        ),
         blocked_models=(ValuationModel.DCF_FCFF,),
         required_metrics=(
             "net_interest_margin",
@@ -166,8 +179,10 @@ SECTOR_PROFILES: Final[tuple[SectorProfile, ...]] = (
             "Enterprise value and free cash flow to the firm are not meaningful for a bank: "
             "deposits and debt are raw material, not financing.",
             "Capital adequacy, net interest margin and provisioning govern the valuation. "
-            "This build produces P/TBV and P/E comparables only, and does not implement a "
-            "specialist bank model.",
+            "The residual-income model offered here values the excess return earned on book "
+            "value, and equals a dividend discount only under clean surplus: a bond book "
+            "carrying unrealised losses through other comprehensive income is treated as "
+            "fully earning.",
         ),
     ),
     SectorProfile(
@@ -175,7 +190,11 @@ SECTOR_PROFILES: Final[tuple[SectorProfile, ...]] = (
         label="Insurers",
         sic_prefixes=("631", "632", "633", "6311", "6331"),
         icb_codes=("303010", "303020"),
-        allowed_models=(ValuationModel.COMPS_MULTIPLES, ValuationModel.DIVIDEND_DISCOUNT),
+        allowed_models=(
+            ValuationModel.COMPS_MULTIPLES,
+            ValuationModel.DIVIDEND_DISCOUNT,
+            ValuationModel.RESIDUAL_INCOME,
+        ),
         blocked_models=(ValuationModel.DCF_FCFF,),
         required_metrics=(
             "combined_ratio",
@@ -201,6 +220,9 @@ SECTOR_PROFILES: Final[tuple[SectorProfile, ...]] = (
             "liability that funds the assets.",
             "Combined ratio, reserve development and embedded value are required and are "
             "flagged as absent rather than estimated.",
+            "The residual-income model offered here values the excess return on reported "
+            "book value. It is not an embedded-value calculation, so for life business it "
+            "omits the value of profits already written into policies in force.",
         ),
     ),
     SectorProfile(
