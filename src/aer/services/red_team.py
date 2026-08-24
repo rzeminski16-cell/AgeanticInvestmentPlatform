@@ -63,6 +63,10 @@ from aer.services.subject import subject_name
 
 __all__ = ["EVIDENCE_ITEM_CAP", "MATERIAL_SEVERITY", "RedTeamOutcome", "run_red_team"]
 
+# One retry at most. A second adversary costs about what the first did, and a third has
+# never been the difference between a bear case and none.
+_MAX_RED_TEAM_ATTEMPTS: Final = 2
+
 _log = structlog.get_logger("aer.services.red_team")
 
 # A challenge at this severity or above materially contradicts the thesis — the §2.4
@@ -133,23 +137,54 @@ async def run_red_team(
         return RedTeamOutcome(skipped=True, coverage_note="The draft recorded no claims.")
 
     index = await _evidence_index(session, job=job, request=request)
-    payload = RedTeamInput(
-        # The filer's own name, not the one typed into the form (gap A67).
-        company_name=await subject_name(session, request),
-        ticker=request.ticker,
-        as_of_date=request.as_of_date.isoformat(),
-        claims=claims,
-        facts=index.facts,
-        calculations=index.calculations,
-        sources=index.sources,
-    )
-
     agent = RedTeamAgent()
-    if use_batch:
-        report = (await agent.run_batch(context, [payload]))[0]
-    else:
-        report = await agent.run(context, payload)
+    problems: list[str] = []
+    report = None
+    dropped: list[tuple[int, RedTeamChallenge, str]] = []
 
+    # One retry, and only when the whole slate was unusable.
+    #
+    # The service drops a challenge it cannot evidence, so a run whose adversary produced
+    # five good objections and one weak one keeps the five and costs nothing extra. What a
+    # retry buys is the other case: every challenge dropped leaves the step with no bear
+    # case at all, and the second attempt is told which ids failed. Retrying whenever any
+    # challenge was dropped would pay for a second adversary on most runs to recover an
+    # objection the report did not need.
+    for attempt in range(1, _MAX_RED_TEAM_ATTEMPTS + 1):
+        payload = RedTeamInput(
+            # The filer's own name, not the one typed into the form (gap A67).
+            company_name=await subject_name(session, request),
+            ticker=request.ticker,
+            as_of_date=request.as_of_date.isoformat(),
+            claims=claims,
+            facts=index.facts,
+            calculations=index.calculations,
+            sources=index.sources,
+            problems=problems,
+        )
+        if use_batch:
+            report = (await agent.run_batch(context, [payload]))[0]
+        else:
+            report = await agent.run(context, payload)
+
+        dropped = [
+            (number, challenge, problem)
+            for number, challenge in enumerate(report.challenges, start=1)
+            if (problem := _unresolvable_evidence(challenge, index)) is not None
+        ]
+        survived = len(report.challenges) - len(dropped)
+        if survived or not dropped or attempt == _MAX_RED_TEAM_ATTEMPTS:
+            break
+        problems = [f"challenge {number}: {problem}" for number, _, problem in dropped]
+        _log.info(
+            "red_team.retrying",
+            job_id=str(job.id),
+            attempt=attempt,
+            dropped=len(dropped),
+            reason="every challenge cited evidence this run does not hold",
+        )
+
+    assert report is not None
     outcome = RedTeamOutcome(challenges=len(report.challenges), coverage_note=report.coverage_note)
     base = _base_position(index, request=request, job_id=job.id)
 
@@ -278,7 +313,15 @@ async def _evidence_index(
 
 
 def _unresolvable_evidence(challenge: RedTeamChallenge, index: _EvidenceIndex) -> str | None:
-    """The first cited id this run does not hold, or ``None`` when they all resolve."""
+    """The first cited id this run does not hold, or ``None`` when they all resolve.
+
+    An objection resting on nothing is an opinion, and opinions do not get a row in the
+    disagreement appendix — so a challenge citing no evidence at all is refused here, beside
+    the ones citing evidence that does not resolve. It used to raise out of the schema and
+    take the whole report with it.
+    """
+    if challenge.cites_nothing:
+        return "cites no fact, calculation or source document from the evidence index"
     for identifier in challenge.fact_ids:
         if identifier not in index.fact_sources:
             return f"cites fact {identifier!r}, which this run does not hold"

@@ -21,7 +21,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any, ClassVar, Final
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from aer.agents.base import Agent
 
@@ -93,16 +93,21 @@ class RedTeamChallenge(BaseModel):
     calculation_ids: list[str] = Field(default_factory=list, max_length=6)
     source_document_ids: list[str] = Field(default_factory=list, max_length=6)
 
-    @model_validator(mode="after")
-    def _stands_on_evidence(self) -> RedTeamChallenge:
-        if not self.fact_ids and not self.calculation_ids and not self.source_document_ids:
-            message = (
-                "A challenge must cite at least one fact, calculation or source document "
-                "id from the evidence index. An objection resting on nothing is an "
-                "opinion, and opinions do not get a row in the disagreement appendix."
-            )
-            raise ValueError(message)
-        return self
+    @property
+    def cites_nothing(self) -> bool:
+        """Whether this objection rests on no evidence at all.
+
+        **Read by the service rather than raised here, and that is the whole point.** This
+        was a validator: a challenge citing nothing raised, which failed the parse of the
+        *report*, which failed the step, which failed a run eight pounds and forty minutes
+        in. One weak objection out of six cost the five good ones beside it.
+
+        The rule it enforced is not weakened — an unevidenced challenge still reaches no
+        appendix, because `services.red_team` drops it exactly where it already drops one
+        citing an id this run does not hold. What changes is the blast radius: a challenge,
+        not the report.
+        """
+        return not self.fact_ids and not self.calculation_ids and not self.source_document_ids
 
 
 class RedTeamReport(BaseModel):
@@ -131,6 +136,12 @@ class RedTeamInput(BaseModel):
     facts: list[dict[str, Any]] = Field(default_factory=list)
     calculations: list[dict[str, Any]] = Field(default_factory=list)
     sources: list[dict[str, Any]] = Field(default_factory=list)
+
+    # Why the previous attempt's challenges were dropped, on a retry only. This is the one
+    # field carrying anything back into the context, and it stays inside the isolation the
+    # class docstring describes: it holds this service's own complaints about ids, never a
+    # line of the draft's prose, which the red team still has not seen and must not.
+    problems: list[str] = Field(default_factory=list)
 
 
 _SYSTEM_PROMPT: Final = f"""\
@@ -181,4 +192,11 @@ class RedTeamAgent(Agent[RedTeamInput, RedTeamReport]):
             f"The run's evidence index — facts:\n{body['facts']}\n\n"
             f"Recorded calculations:\n{body['calculations']}\n\n"
             f"Sources:\n{body['sources']}"
+            + (
+                "\n\nYour previous attempt had challenges dropped for these reasons. Every "
+                "challenge you return now must cite an id from the index above:\n- "
+                + "\n- ".join(payload.problems)
+                if payload.problems
+                else ""
+            )
         )

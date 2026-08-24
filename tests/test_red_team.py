@@ -76,6 +76,13 @@ class TestTheInputCannotCarryWorkingNotes:
     def test_there_is_no_field_for_the_drafting_context(self) -> None:
         # The whole point, asserted twice: by the field list, and by extra="forbid"
         # refusing anything smuggled under another name.
+        #
+        # `problems` is the one field that carries anything *back* into the context, and it
+        # is admissible under ADR 0039 because of what it may hold: this service's own
+        # complaints about ids it could not resolve, built by `_unresolvable_evidence` and
+        # nowhere else. The red team still never receives a line of the draft's prose, which
+        # is what the two tests below hold. This assertion failing is the intended alarm —
+        # a field added here is a decision about the isolation, not a refactor.
         assert set(RedTeamInput.model_fields) == {
             "company_name",
             "ticker",
@@ -84,6 +91,7 @@ class TestTheInputCannotCarryWorkingNotes:
             "facts",
             "calculations",
             "sources",
+            "problems",
         }
 
         with pytest.raises(PydanticValidationError):
@@ -105,14 +113,34 @@ class TestTheInputCannotCarryWorkingNotes:
 
 
 class TestAChallengeStandsOnEvidenceOrDoesNotExist:
-    def test_no_cited_ids_fails_the_schema(self) -> None:
-        with pytest.raises(PydanticValidationError, match="cite at least one"):
-            RedTeamChallenge(
-                dimension=ChallengeDimension.GROWTH,
-                severity=5,
-                statement="Growth is an illusion.",
-                basis="Trust me.",
-            )
+    def test_a_challenge_citing_nothing_is_readable_but_marked(self) -> None:
+        """The rule moved from the schema to the service, and this is why.
+
+        It was a validator that raised, so one unevidenced challenge failed the parse of the
+        whole `RedTeamReport`, failed the step, and failed a live run eight pounds and forty
+        minutes in — taking five well-evidenced objections down with the sixth. The schema
+        now reads such a challenge and marks it; `services.red_team` drops it beside the ones
+        citing ids the run does not hold, and the appendix is no more permissive than before.
+        """
+        challenge = RedTeamChallenge(
+            dimension=ChallengeDimension.GROWTH,
+            severity=5,
+            statement="Growth is an illusion.",
+            basis="Trust me.",
+        )
+
+        assert challenge.cites_nothing
+
+    def test_a_challenge_citing_something_is_not_marked(self) -> None:
+        challenge = RedTeamChallenge(
+            dimension=ChallengeDimension.GROWTH,
+            severity=5,
+            statement="Growth is an illusion.",
+            basis="The filed revenue line.",
+            fact_ids=["some-fact"],
+        )
+
+        assert not challenge.cites_nothing
 
     def test_severity_is_bounded(self) -> None:
         with pytest.raises(PydanticValidationError):
@@ -535,6 +563,48 @@ class TestRejectionAndSkipping:
         assert len(outcome.rejected) == 1
         assert "does not hold" in outcome.rejected[0]
         assert await _rows(scene["session"], scene["job"].id) == []
+
+    async def test_an_unevidenced_challenge_is_dropped_and_the_rest_survive(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The regression this exists for, from a live run that died at £8.
+
+        The adversary returned six challenges and one of them cited nothing. A schema
+        validator raised on it, which failed the parse of the whole report, which failed the
+        step, which failed the run — discarding five well-evidenced objections to punish the
+        sixth, at the second-to-last step of forty minutes' work.
+
+        The rule is unchanged: an objection resting on nothing gets no row. What changed is
+        that it costs one challenge instead of a run.
+        """
+        report = RedTeamReport(
+            challenges=[
+                RedTeamChallenge(
+                    dimension=ChallengeDimension.GROWTH,
+                    severity=5,
+                    statement="The revenue fact contradicts the growth the draft asserts.",
+                    basis="The claim contradicts the recorded fact it should rest on.",
+                    fact_ids=[str(scene["fact"].id)],
+                ),
+                RedTeamChallenge(
+                    dimension=ChallengeDimension.COMPETITIVE_POSITION,
+                    severity=4,
+                    statement="Competition will compress the margin.",
+                    basis="A view, held firmly, resting on nothing in the index.",
+                ),
+            ],
+            coverage_note="One evidenced, one not.",
+        )
+        provider = FakeProvider({"RedTeamReport": report})
+
+        outcome = await run_red_team(
+            _context(scene, provider), scene["session"], job=scene["job"], request=scene["request"]
+        )
+
+        assert len(outcome.recorded) == 1, "the evidenced challenge must survive its neighbour"
+        assert len(outcome.rejected) == 1
+        assert "cites no fact" in outcome.rejected[0]
+        assert len(await _rows(scene["session"], scene["job"].id)) == 1
 
     async def test_a_run_with_no_claims_is_skipped_spending_nothing(
         self, scene: dict[str, Any]

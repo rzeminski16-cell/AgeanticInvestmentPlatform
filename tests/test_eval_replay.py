@@ -27,6 +27,9 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import aer.eval.replay as replay_module
+from aer.calc.dcf import TerminalMethod, equity_value
+from aer.calc.engine import CalculationContext
+from aer.calc.units import Quantity, SourceRef, Unit
 from aer.config import Settings
 from aer.db.models import Calculation
 from aer.eval.metrics import assumption_completeness, numerical_consistency
@@ -45,6 +48,10 @@ from tests.ledger_fixtures import DISCOUNTED_TERMINAL, TERMINAL_VALUE, record_va
 from tests.scene_fixtures import build_scene
 
 _SOURCE = {"kind": "fact", "id": "test", "label": "handwritten"}
+
+
+def _quantity(value: str, unit: str) -> Quantity:
+    return Quantity(Decimal(value), Unit.currency(unit), source=SourceRef.financial_fact("f1"))
 
 
 def _input(name: str, value: str, unit: str) -> dict[str, Any]:
@@ -85,6 +92,52 @@ class TestTheRegistry:
 
         with pytest.raises(RegistryError):
             registry()
+
+
+class TestAnEmptySeriesIsRecordedRatherThanImplied:
+    """The regression from a live run: sixty-two findings, not one of them real.
+
+    `equity_value(adjustments=[])` is the ordinary case — most companies have no
+    non-operating items — and an empty series expands to no input rows. A record holding
+    none was indistinguishable from one where the argument was never passed, so the harness
+    rebuilt the call without it and the function refused with `missing a required argument`.
+    `numerical_consistency` then failed the run's validation on every such row.
+
+    The recorder now writes the empty series as a structural parameter, which is what it is:
+    no number entered, and that fact is the thing worth keeping.
+    """
+
+    def test_the_recorder_keeps_an_empty_series(self):
+        context = CalculationContext(code_version="test")
+        equity_value(
+            context,
+            enterprise_value=_quantity("1000", "USD"),
+            net_debt=_quantity("200", "USD"),
+            adjustments=[],
+            method=TerminalMethod.GORDON_GROWTH,
+        )
+        record = context.records[-1]
+
+        assert record.parameters["adjustments"] == [], (
+            "an empty series must survive in the record; without it the row cannot be replayed"
+        )
+
+    def test_the_harness_replays_a_record_with_an_empty_series(self):
+        observation = replay(
+            name="equity_value",
+            label="equity_value#0",
+            inputs=[_input("enterprise_value", "1000", "USD"), _input("net_debt", "200", "USD")],
+            parameters={
+                "adjustments": [],
+                "method": "gordon_growth",
+                "case": "base",
+            },
+            expected_value=Decimal(800),
+            expected_unit="USD",
+        )
+
+        assert observation.error is None, observation.error
+        assert observation.replayed == Decimal(800)
 
 
 class TestReplayNeverRaises:

@@ -303,7 +303,7 @@ test that runs after a browser test in the same process fails with
 uv run pytest --ignore=tests/e2e
 ```
 
-**Expect:** **5,452 passed, 2 deselected**, in roughly 20–25 minutes.
+**Expect:** **5,456 passed, 2 deselected**, in roughly 20–25 minutes.
 
 The 2 deselected are the `live_llm` tests, excluded by default because they spend money.
 They are §16.
@@ -318,12 +318,12 @@ uv run pytest tests/e2e
 
 The count above is from Linux. **On Windows you will see 23 skips and a correspondingly
 lower pass count, and that is correct** — a measured Windows run of this suite gives
-**5,429 passed, 23 skipped, 2 deselected**. `-ra` is on by default, so every skip prints its
+**5,433 passed, 23 skipped, 2 deselected**. `-ra` is on by default, so every skip prints its
 reason; read the reasons rather than matching a number.
 
 | Skips | Where | Why |
 |---|---|---|
-| **18** | all of `test_backup.py` | no `pg_dump` on the host — see §0. Install the client tools and these run, taking Windows to 5,447 passed and 5 skipped. §15 is the only thing you lose without them |
+| **18** | all of `test_backup.py` | no `pg_dump` on the host — see §0. Install the client tools and these run, taking Windows to 5,451 passed and 5 skipped. §15 is the only thing you lose without them |
 | 3 | `test_blas_threads.py` | the thread count is read from `/proc/self/task`, which only Linux has. The pin itself is cross-platform and is covered wherever the suite runs |
 | 1 | `test_extraction.py` | the child process imports `resource`, which Windows does not have; the Windows branch is a separate test that runs everywhere |
 | 1 | `test_config.py` | `pathlib`'s Windows flavour compares paths case-insensitively in its own right, so a case-sensitive filesystem cannot be simulated there. The behaviour that matters on Windows has its own test |
@@ -948,6 +948,19 @@ does not pay twice for work already done.
 **Wrong:** a restart that re-runs completed steps, or a run stuck in a state it cannot leave.
 
 ### 14.3 Superseding a failed run
+
+> **Superseding is not resuming, and on a run that failed late this is expensive.** The
+> engine does skip already-completed steps — but only for the *same* job, which is how a run
+> survives the worker being killed (§14.2). `start_run` deliberately creates a **new** job
+> when superseding, because the old row says it finished, with a time. A new job has no
+> completed steps, so **everything is re-run and re-paid for**: a run that died at the
+> red-team step, one step from the end, costs its whole spend again.
+>
+> `/runs/{id}/replay` does not help here — that re-derives a finished run from its own record
+> to check it, calls no model and costs nothing.
+>
+> So on a run that failed late: fix the cause first, then supersede once. There is no
+> operator-facing resume, which is on the roadmap rather than in the product.
 
 Take a run that ended terminally with no report and supersede it.
 

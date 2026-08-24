@@ -152,6 +152,49 @@ hook forbade committing to the only branch anybody works on. It now guards `mast
 All fourteen hooks pass and the working tree is unchanged afterwards, which is the assertion
 that matters and the one the sheet now makes.
 
+**2.9 One weak objection cost a whole run. Done, 2026-08-24.** Found by the first live run
+on the merged trunk, which died at `red_team` — the second-to-last step — after £8 and forty
+minutes. The adversary returned six challenges; the sixth cited no evidence; a schema
+validator raised on it, which failed the parse of the whole `RedTeamReport`, which failed the
+step, which failed the run. Five well-evidenced objections were discarded to punish the sixth.
+
+`services.red_team` **already** dropped challenges citing ids the run does not hold, one at a
+time, logging each. The schema was simply stricter than the service and fatal where the
+service was graceful — so the rule moved to where the other drops happen. An objection
+resting on nothing still gets no row; it now costs a challenge instead of a run.
+
+A second attempt fires **only when every challenge was dropped**, which is the case where a
+retry rescues the step rather than paying for a second adversary to recover an objection the
+report did not need. That gate is one condition in `run_red_team` if it proves wrong.
+
+**2.10 An empty series could not be replayed. Done, 2026-08-24.** From the same run:
+`numerical_consistency` failed with 62 findings, every one reading `equity_value#N (did not
+replay: TypeError: missing a required argument: 'adjustments')`. None was a real
+inconsistency.
+
+An empty sequence argument expands to no input rows, so a record holding none is
+indistinguishable from one where the argument was never passed — and most companies have no
+non-operating items, so this was the ordinary case rather than the edge. The recorder now
+writes an empty series as a structural parameter, which is what it is: no number entered, and
+that fact is the thing worth keeping. Replay needed no change; a list parameter already
+passes through.
+
+**Forward-only.** Calculations already stored keep the ambiguous shape, so a run recorded
+before this date still reports those findings. Re-running the report is the cheaper remedy
+than a backfill, and is what the failed run needs anyway.
+
+**2.11 A run that fails late cannot be resumed, only repeated. Open.** The engine skips
+completed steps, and does it well — that is how a run survives the worker dying. But it only
+applies to the *same* job, and the only operator-facing path is superseding, which creates a
+new job precisely because the old one is a finished audit record. So a failure at the
+red-team step, one step from the end, costs the entire run again: on the 2026-08-24 MSFT run
+that was £8 of research and drafting to recover a £1 step.
+
+The machinery to do better already exists; what is missing is a supported way to re-enqueue
+the *same* job after a terminal failure, and a decision about what that means for the audit
+record — a job row that says it failed, then later says it succeeded, is not obviously
+honest. That decision is the work here, not the plumbing.
+
 ---
 
 ## 3. Next — the judgement layer

@@ -466,7 +466,21 @@ def _classify(
             # a report that nothing can account for.
             _refuse_bare_number(argument_name, value, calculation=name)
         elif isinstance(value, Sequence | frozenset | set) and not isinstance(value, str | bytes):
-            inputs.extend(_expand_sequence(argument_name, value, calculation=name))
+            elements = _expand_sequence(argument_name, value, calculation=name)
+            if elements:
+                inputs.extend(elements)
+            else:
+                # An empty series expands to no input rows, and a record holding none is
+                # indistinguishable from one where the argument was never passed — so the
+                # replay harness rebuilt the call without it and the function refused with
+                # `missing a required argument`. Every `equity_value` of a company with no
+                # non-operating items failed that way, which is most of them: sixty-two
+                # findings on one live run, none of them a real inconsistency.
+                #
+                # Recorded as a structural parameter rather than a placeholder input,
+                # because that is what it is: no number entered here, and the fact that
+                # none did is the thing worth keeping.
+                parameters[argument_name] = []
         else:
             # An int, a string, an enum, a bool, None. Structural, recorded verbatim.
             parameters[argument_name] = value
