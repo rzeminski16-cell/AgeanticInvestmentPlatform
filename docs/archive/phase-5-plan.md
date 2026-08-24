@@ -775,6 +775,6 @@ The re-run caught 22 of 23 — the citation-filter mutation was still aimed at t
 rather than the new one written for it — and that last mutation was then re-run against
 its own test and caught.
 
-README and `docs/developers/manual-verification.md` gained the Phase 5 surfaces: the new endpoints, one
+README and `docs/archive/manual-verification.md` gained the Phase 5 surfaces: the new endpoints, one
 document in three notations, the walk from a figure to the bytes, the vault as a projection,
 and WeasyPrint's native-stack requirement.

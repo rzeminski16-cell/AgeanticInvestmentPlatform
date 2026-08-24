@@ -118,7 +118,10 @@ per database** — the suite empties tables between tests, so two runs sharing `
 delete each other's rows.
 
 Details, and the layers of the suite, in
-[`docs/developers/testing.md`](docs/developers/testing.md).
+[`docs/developers/testing.md`](docs/developers/testing.md). To test the whole thing on your
+own machine — setup, both tools by eye, every guard provoked deliberately, failure and
+recovery — follow
+[`docs/developers/testing-by-hand.md`](docs/developers/testing-by-hand.md).
 
 ## Repository layout
 

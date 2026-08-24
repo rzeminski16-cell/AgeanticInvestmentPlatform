@@ -20,6 +20,8 @@ document and a live one disagree, the live one wins.
 | [`phase-4-plan.md`](phase-4-plan.md) | Tasks 33–43: agents, skills, custom sections, validation and the red team. **Complete.** | — |
 | [`phase-5-plan.md`](phase-5-plan.md) | Tasks 44–52: report, PDF, charts, Obsidian and the review experience. **Complete.** | — |
 | [`polish-phase-1.md`](polish-phase-1.md) | Tasks P1–P11, from the first complete live run: a cross-company contamination of the evidence pack, a fiscal year taken from the wrong field, and a valuation section describing a method nothing executed. Tracked separately from the gap analysis because they had a dependency order and shared root causes. **Complete.** | — |
+| [`manual-verification.md`](manual-verification.md) | The phase-era setup-to-report walkthrough: install, infrastructure, the gates, a run, the controls provoked, cancelling, and walking a figure back to bytes. Accurate when written; its branch names, test counts and surfaces pre-date the merge, and it knows nothing of the Portfolio tool or the shell. | [`../developers/testing-by-hand.md`](../developers/testing-by-hand.md) |
+| [`manual-acceptance.md`](manual-acceptance.md) | The things only a live run establishes — the live runs themselves, reproducing one, settings, skills, tracing, and backup and restore. Folded into the new sheet's §14–§16. | [`../developers/testing-by-hand.md`](../developers/testing-by-hand.md) |
 
 ## Why these were archived rather than deleted
 
@@ -30,6 +32,11 @@ write-ups are the only place they are recorded.
 
 The phase plans are kept because the codebase is full of docstrings citing them by task
 number, and a citation that resolves to nothing is worse than one that resolves to history.
+
+The two manual-test sheets are kept because they record *how* things were checked as much as
+*what* — the two-`psql`-sessions measurement behind the cancellation design, the deliberate
+invariant-breaking, the live-run findings. The new sheet carries the procedures forward; it
+does not carry forward every reason.
 
 ## A note on ADR numbers
 

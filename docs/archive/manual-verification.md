@@ -1,5 +1,10 @@
 # Manual verification
 
+> **Superseded.** This is the phase-era verification walkthrough, kept as a record. The
+> current sheet is [`../developers/testing-by-hand.md`](../developers/testing-by-hand.md),
+> which covers the merged platform — both working tools, the shell, and the current test
+> counts. Branch names, test counts and surfaces below pre-date the 2026-08-23 merge.
+
 Everything below is something the automated suite cannot prove on its own — because it
 needs Docker, or a real browser you are looking at, or the real SEC, or a real model call
 that costs real money.

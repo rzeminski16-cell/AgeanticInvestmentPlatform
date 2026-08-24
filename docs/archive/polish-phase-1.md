@@ -712,7 +712,7 @@ still shows failed metrics, escalations and missing sections before approval; bo
 still repair rather than discard; every model call still writes a cost row.
 
 If the rerun is clean, this file's findings are closed and the artefacts are archived
-beside `docs/developers/manual-acceptance.md` as the platform's first end-to-end baseline.
+beside `docs/archive/manual-acceptance.md` as the platform's first end-to-end baseline.
 
 **The diff half of this task is a command** (added 2026-08-20): `uv run aer acceptance
 <job-id>` reads the finished run's rows and prints every mechanical check in this table

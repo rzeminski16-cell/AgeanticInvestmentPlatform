@@ -131,5 +131,5 @@ for.
 
 ---
 
-If none of this covers it, [`../developers/manual-verification.md`](../developers/manual-verification.md)
+If none of this covers it, [`../developers/testing-by-hand.md`](../developers/testing-by-hand.md)
 walks the whole system from a clean checkout and will usually isolate where it broke.

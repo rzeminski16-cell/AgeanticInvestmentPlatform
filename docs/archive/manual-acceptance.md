@@ -1,5 +1,9 @@
 # Manual acceptance — the things the test suite cannot tell you
 
+> **Superseded.** Kept as a record of what a live run establishes and how it was checked.
+> The current sheet is [`../developers/testing-by-hand.md`](../developers/testing-by-hand.md);
+> this material is folded into its §14–§16.
+
 *Written 2026-08-10, against `da91aaa`. Widened 2026-08-10 to four live runs.*
 
 The automated suite is 4,200-odd tests and it is structurally blind to a handful of things.
