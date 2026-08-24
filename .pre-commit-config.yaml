@@ -3,11 +3,14 @@
 default_language_version:
   python: python3.12
 
-# Generated stylesheets and vendored libraries are excluded from the whitespace hooks.
-# Both are committed build artefacts: rewriting them means the file no longer matches
-# what the build produced, and for a vendored library it also breaks the SHA-256 recorded
-# alongside it -- which is the only thing making its provenance checkable.
-exclude: ^src/aer/web/static/(css|vendor)/
+# Generated stylesheets, vendored libraries and recorded fixtures are excluded from the
+# whitespace hooks. All three are committed *output*: rewriting them means the file no
+# longer matches what produced it. For a vendored library it also breaks the SHA-256
+# recorded alongside it -- the only thing making its provenance checkable -- and for a
+# fixture it changes the bytes a golden test compares against, so the hook and the suite
+# disagree about what the right answer is. `tests/fixtures/fx_report/golden.html` is the
+# one that actually bit: end-of-file-fixer appends a newline the renderer never wrote.
+exclude: ^(src/aer/web/static/(css|vendor)/|tests/fixtures/)
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -26,10 +29,11 @@ repos:
         args: [--fix=lf]
       - id: detect-private-key
       - id: no-commit-to-branch
-        args: [--branch, main, --branch, master]
+        # `main` is the trunk here, not a branch to protect from yourself.
+        args: [--branch, master]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.2
+    rev: v0.16.0
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]

@@ -303,7 +303,7 @@ test that runs after a browser test in the same process fails with
 uv run pytest --ignore=tests/e2e
 ```
 
-**Expect:** **5,450 passed, 2 deselected**, in roughly 20–25 minutes.
+**Expect:** **5,452 passed, 2 deselected**, in roughly 20–25 minutes.
 
 The 2 deselected are the `live_llm` tests, excluded by default because they spend money.
 They are §16.
@@ -316,16 +316,24 @@ uv run pytest tests/e2e
 
 ### The skips you should see, and the one you should not
 
-The numbers above are from Linux. **On Windows and macOS you will see a handful of skips
-rather than that exact count, and that is correct.** `-ra` is on by default, so every skip
-prints its reason — read the reasons rather than matching the number:
+The count above is from Linux. **On Windows you will see 23 skips and a correspondingly
+lower pass count, and that is correct** — a measured Windows run of this suite gives
+**5,429 passed, 23 skipped, 2 deselected**. `-ra` is on by default, so every skip prints its
+reason; read the reasons rather than matching a number.
 
-| Skips on | What | Why |
+| Skips | Where | Why |
 |---|---|---|
-| Windows | the POSIX memory-cap test | the child process imports `resource`, which Windows does not have; the Windows branch is a separate test that runs everywhere |
-| Windows | one case-sensitivity test | `pathlib`'s Windows flavour compares paths case-insensitively in its own right; the behaviour that matters on Windows has its own test |
-| Not Linux | three BLAS thread-pin tests | the thread count is read from `/proc/self/task`; the pin itself is cross-platform and is covered wherever the suite runs |
-| No `pg_dump` | the whole of `test_backup.py` | the backup commands shell out to the PostgreSQL client tools, which are a host install — see §0. Expected if you have not done it; §15 is the only thing you lose |
+| **18** | all of `test_backup.py` | no `pg_dump` on the host — see §0. Install the client tools and these run, taking Windows to 5,447 passed and 5 skipped. §15 is the only thing you lose without them |
+| 3 | `test_blas_threads.py` | the thread count is read from `/proc/self/task`, which only Linux has. The pin itself is cross-platform and is covered wherever the suite runs |
+| 1 | `test_extraction.py` | the child process imports `resource`, which Windows does not have; the Windows branch is a separate test that runs everywhere |
+| 1 | `test_config.py` | `pathlib`'s Windows flavour compares paths case-insensitively in its own right, so a case-sensitive filesystem cannot be simulated there. The behaviour that matters on Windows has its own test |
+
+**Failures are a different matter from skips.** Until 2026-08-24 a Windows run failed
+`test_the_typeface_is_served_locally`, because Python's `mimetypes` seeds itself from the
+host — `/etc/mime.types` on Linux, the registry on Windows — and `.woff2` is in neither its
+own hardcoded table nor the Windows registry, so the font was served as
+`application/octet-stream`. The application now pins the type itself. If you see that
+failure, your checkout predates the fix; go back to §1.
 
 **The skip you should not see** is the database one. If Postgres is unreachable, *the whole
 database-backed suite skips with a reason* and the run still reports success:
@@ -346,7 +354,7 @@ fixture committed one — nowhere near the cause. If you want to run two suites 
 give each its own database:
 
 ```powershell
-$env:AER_TEST_DATABASE_URL="postgresql+asyncpg://aer:aer_local_dev@127.0.0.1:5432/aer_test_two"
+$env:AER_TEST_DATABASE_URL="postgresql+asyncpg://aer:aer_local_dev@127.0.0.1:5432/aer_test_two"  # pragma: allowlist secret
 ```
 
 ### Order dependence
@@ -377,28 +385,39 @@ checks every assumption a figure rests on against what is confirmed *now*. It is
 default suite as well, deliberately: ordinary pytest so it cannot be forgotten, and a named
 step so a build that goes red because citation accuracy moved says so on the summary line.
 
-### A known trap: `just hooks`
+### The hooks
 
 ```powershell
 just hooks
 ```
 
-**This currently modifies files and you should not commit the result.** Two known problems,
-both pre-dating the merge:
+**Expect:** all fourteen pass, and **nothing in your working tree changes.** That second
+half is the real assertion — run `git status` afterwards and it should say what it said
+before.
 
-- The hook config pins **ruff 0.14.2** while the project uses **0.16.0**, and the two
-  disagree about docstring formatting. The hook rewrites `tests/test_phase5_acceptance.py`
-  into a state that makes `just lint` fail.
-- `end-of-file-fixer` appends a newline to `tests/fixtures/fx_report/golden.html`, which is
-  a byte-compared golden fixture.
+Until 2026-08-24 this was a trap rather than a check, and the shape of it is worth knowing
+because the same thing can come back:
 
-`detect-secrets` also fails, because `.secrets.baseline` is dated 2026-07-30 and has
-drifted. All three are recorded in [`../plan/ROADMAP.md`](../plan/ROADMAP.md). If you ran
-`just hooks`, undo it:
+- The config **pinned ruff 0.14.2 while the project ran 0.16.0**, and the two disagree about
+  docstring formatting. The hook rewrote `tests/test_phase5_acceptance.py` into a state that
+  made `just lint` fail — one tool undoing the other, with the repository as the battlefield.
+  The pin now follows the project.
+- `end-of-file-fixer` appended a newline to `tests/fixtures/fx_report/golden.html`, which is
+  compared **byte for byte** by a golden test. `tests/fixtures/` is now excluded from the
+  whitespace hooks alongside the generated stylesheets and vendored libraries, for the same
+  reason all three are: they are committed *output*, and rewriting output means it no longer
+  matches what produced it.
+- `.secrets.baseline` had drifted far enough behind the codebase that the hook failed on 33
+  findings. Every one was checked and every one is a false positive — a stub `sk-test` key,
+  SHA-256 digests in test fixtures, the pinned font hashes, and Jupyter cell IDs. The
+  baseline records them as reviewed.
 
-```powershell
-git checkout -- tests/fixtures/fx_report/golden.html tests/test_phase5_acceptance.py
-```
+**Wrong:** any hook reporting "files were modified by this hook". A formatter and a linter
+that disagree will keep undoing each other, and the tree ends up in whichever state the last
+tool to run left it.
+
+If `detect-secrets` says *"Your baseline file is unstaged"*, that is not a finding — `git add
+.secrets.baseline` and re-run.
 
 ---
 
@@ -1111,8 +1130,8 @@ failure loses nothing.
 5. **Re-run the one thing that failed on its own.** `uv run pytest tests/test_x.py -q`
    isolates it from ordering effects; `just test-shuffled <seed>` reproduces an ordering
    effect deliberately.
-6. **Do not `just hooks` to "fix formatting".** See §7 — it currently modifies files it
-   should not.
+6. **`just hooks` should change nothing.** See §7. If a hook reports "files were modified",
+   that is the defect, not the fix.
 
 Known-open items are in [`../plan/ROADMAP.md`](../plan/ROADMAP.md). Check there before
 reporting something as new: A5, A7 and A8 (no authentication, no inbound rate limiting, no

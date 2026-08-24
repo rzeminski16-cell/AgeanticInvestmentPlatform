@@ -14,8 +14,10 @@ in use.
 
 from __future__ import annotations
 
+import mimetypes
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Final
 
 import structlog
 from fastapi import FastAPI
@@ -176,9 +178,40 @@ def create_app(settings: Settings | None = None, *, state: AppState | None = Non
     app.include_router(overview_research_pages.router)
     app.include_router(portfolio_pages.router)
     app.include_router(tool_pages.router)
+    _register_local_media_types()
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     return app
+
+
+# Media types Python does not know on its own, for files this application actually serves.
+#
+# `mimetypes` seeds itself from the host: `/etc/mime.types` on Linux, the registry on
+# Windows. Only its small hardcoded table is the same everywhere, and `.woff2` is not in it
+# — so the same font shipped from this repository leaves the server as `font/woff2` on one
+# machine and `application/octet-stream` on another, decided by which operating system the
+# operator happens to run.
+#
+# That is not cosmetic. `base.html` preloads the face as `<link rel="preload" as="font"
+# type="font/woff2">`, and a preload whose declared type does not match the response is
+# discarded and fetched again: the head start is paid for twice and the page is slower than
+# with no preload at all. Nothing errors, which is why it survived until a Windows run of
+# the acceptance sheet found it.
+#
+# `.woff` sits beside it deliberately. Nothing serves one today, and if anything ever does
+# it fails exactly this silently. `.md` is here because `static/README.md` is inside the
+# mounted directory and is therefore served, whether or not anybody meant it to be.
+_LOCAL_MEDIA_TYPES: Final = {
+    ".woff2": "font/woff2",
+    ".woff": "font/woff",
+    ".md": "text/markdown",
+}
+
+
+def _register_local_media_types() -> None:
+    """Pin the types above, so what is served does not depend on the host's configuration."""
+    for suffix, media_type in _LOCAL_MEDIA_TYPES.items():
+        mimetypes.add_type(media_type, suffix)
 
 
 def bootstrap() -> FastAPI:

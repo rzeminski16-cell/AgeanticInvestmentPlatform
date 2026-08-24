@@ -7,10 +7,12 @@ aesthetic, and the only thing keeping it there is a test that fails when it goes
 
 from __future__ import annotations
 
+import mimetypes
 import re
 
 import pytest
 
+from aer.api.app import _LOCAL_MEDIA_TYPES
 from aer.config import load_settings
 from aer.version import version
 from aer.web.shell import flat_items, shell_for
@@ -99,6 +101,41 @@ class TestStaticAssets:
 
         assert response.status_code == 200
         assert len(response.content) > 1000
+
+    def test_every_served_suffix_python_does_not_know_is_pinned(self):
+        """The drift guard, and the reason the test below cannot be the only one.
+
+        `mimetypes` seeds itself from the host — `/etc/mime.types` on Linux, the registry on
+        Windows — and only its small hardcoded table is identical everywhere. So the
+        assertion below passes on Linux whether or not this application pins anything, and
+        the same code served `application/octet-stream` on Windows for as long as nobody ran
+        the suite there.
+
+        A fresh ``MimeTypes()`` is that hardcoded table and nothing else, which makes it the
+        one baseline that means the same thing on every machine. Anything in the served tree
+        it cannot name has to be pinned here instead.
+        """
+        builtin = mimetypes.MimeTypes()
+        unknown = {
+            path.suffix
+            for path in STATIC_DIR.rglob("*")
+            if path.is_file() and builtin.guess_type(path.name)[0] is None
+        }
+
+        unpinned = unknown - set(_LOCAL_MEDIA_TYPES)
+        assert not unpinned, (
+            f"{sorted(unpinned)} is served from static/ and Python does not know it on its "
+            "own, so its type depends on the operating system. Add it to "
+            "_LOCAL_MEDIA_TYPES in aer.api.app."
+        )
+
+    async def test_the_pinned_types_are_actually_registered(self, web_client):
+        """Creating the application must apply the pins, not merely declare them."""
+        for suffix, media_type in _LOCAL_MEDIA_TYPES.items():
+            assert mimetypes.guess_type(f"x{suffix}")[0] == media_type, (
+                f"{suffix} is in _LOCAL_MEDIA_TYPES but did not reach mimetypes; "
+                "_register_local_media_types is not being called."
+            )
 
     async def test_the_typeface_is_served_locally(self, web_client):
         response = await web_client.get("/static/fonts/inter-latin-wght-normal.woff2")

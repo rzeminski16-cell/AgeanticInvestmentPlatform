@@ -111,6 +111,47 @@ Seeding it realistically is the part worth knowing about: revision 0054's downgr
 any job without a `request_id`, so a job carrying only a work order is swept away three
 revisions before 0050 is reached and the guard is never exercised.
 
+**2.7 A static asset's content type came from the operating system. Done, 2026-08-24.** Also
+found by a manual run of the sheet, on Windows. `mimetypes` seeds itself from the host —
+`/etc/mime.types` on Linux, the registry on Windows — and `.woff2` is in neither Python's own
+hardcoded table nor the Windows registry, so the vendored Inter face was served as
+`application/octet-stream` there and `font/woff2` on Linux.
+
+Not cosmetic: `base.html` preloads the face as `type="font/woff2"`, and a preload whose
+declared type does not match the response is discarded and fetched again — the head start
+paid for twice, and slower than no preload at all. Nothing errors, which is why it survived.
+
+`aer.api.app` now pins the types it serves rather than asking the host. The lasting part is
+the drift guard: a fresh `MimeTypes()` is Python's hardcoded table alone, which is the one
+baseline identical on every machine, and any suffix in the served tree that it cannot name
+must be pinned. That fails on Linux — where the existing response assertion passes either
+way — so this class cannot come back through CI unnoticed.
+
+**The general lesson is worth more than the fix.** A green Linux suite says nothing about
+behaviour that a host supplies. Two of the three defects this sheet has found were invisible
+to CI by construction.
+
+**2.8 The pre-commit hooks corrupted the tree they were checking. Done, 2026-08-24.** Three
+faults, each independently minor and jointly enough that `just hooks` could not be run:
+
+- The config **pinned ruff 0.14.2 while the project ran 0.16.0**. The two disagree about
+  docstring formatting, so the hook rewrote `tests/test_phase5_acceptance.py` into a state
+  that made `just lint` fail — a formatter and a linter undoing each other with the
+  repository as the battlefield. The pin now follows the project.
+- `end-of-file-fixer` appended a newline to `tests/fixtures/fx_report/golden.html`, which a
+  golden test compares byte for byte. `tests/fixtures/` now sits in the same exclusion as the
+  generated stylesheets and vendored libraries, for the reason all three share: they are
+  committed *output*, and rewriting output means it stops matching what produced it.
+- `.secrets.baseline` was five weeks stale and failed on 33 findings. All were checked and
+  all are false positives — a stub `sk-test` key, SHA-256 digests in fixtures, the pinned
+  font hashes, Jupyter cell IDs. The baseline records them as reviewed rather than unseen.
+
+`no-commit-to-branch` also listed `main`, which had been the trunk since the merge, so the
+hook forbade committing to the only branch anybody works on. It now guards `master` alone.
+
+All fourteen hooks pass and the working tree is unchanged afterwards, which is the assertion
+that matters and the one the sheet now makes.
+
 ---
 
 ## 3. Next — the judgement layer
