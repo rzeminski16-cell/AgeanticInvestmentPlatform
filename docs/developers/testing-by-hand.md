@@ -50,25 +50,56 @@ You need:
 - Optional but assumed here: **[just](https://github.com/casey/just)**. Every recipe is a
   one-line `uv run …`; without it, read the `justfile`.
 
-Two native dependencies people discover too late:
-
-- **WeasyPrint's GTK stack**, for PDF rendering. Windows: install the GTK runtime. Debian
-  and Ubuntu: `libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0`. Without
-  it, everything works until §9 renders a PDF.
-- **PostgreSQL client tools** (`pg_dump`, `pg_restore`) on `PATH`, for §15. Without them
-  the backup tests skip rather than fail, which is easy to miss.
-
 ```powershell
 python --version
 uv --version
 docker ps
-pg_dump --version
 ```
 
-**Expect:** 3.12.x, a uv version, a Docker table (empty is fine), a `pg_dump` version.
+**Expect:** 3.12.x, a uv version, and a Docker table (empty is fine).
 
 **Wrong:** `docker ps` erroring with "cannot connect to the Docker daemon". Docker Desktop
 is installed but not started. Nothing from §3 onward will work.
+
+### Two native dependencies people discover too late
+
+**WeasyPrint's GTK stack**, for PDF rendering. Windows: install the GTK runtime. Debian and
+Ubuntu: `libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0`. Without it,
+everything works until §9 renders a PDF.
+
+**PostgreSQL client tools — `pg_dump` and `pg_restore` — for §15 only.**
+
+```powershell
+pg_dump --version
+```
+
+**If that says the command is not recognised, that is expected and you are not doing
+anything wrong.** You run Postgres in Docker, so you never had a reason to install client
+tools on the host. It is optional: without them **§15 is the only section you cannot do**,
+and `tests/test_backup.py` *skips* rather than fails.
+
+You cannot borrow the container's copy. `just psql`, `just health` and `just redis` all run
+`docker compose exec` and need nothing on the host — but `just backup` shells out to a bare
+`pg_dump` on the **host** PATH and connects over TCP to `127.0.0.1:5432`, and its `--file`
+path is a host path that would mean nothing inside the container.
+
+If you want §15, install **version 16 or newer** — the server is `postgres:16-alpine`, and
+`pg_dump` refuses to dump from a server newer than itself:
+
+| | |
+|---|---|
+| **Windows** | The [EDB installer](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads). At the component step **deselect everything except "Command Line Tools"** — you do not want a second Postgres server. Then add `C:\Program Files\PostgreSQL\16\bin` to your `PATH`. **Adding it to `PATH` is the step people skip**, and the symptom is identical to not having installed it at all. |
+| **macOS** | `brew install libpq` — client-only. It is keg-only, so also add it to `PATH`: `echo 'export PATH="$(brew --prefix libpq)/bin:$PATH"' >> ~/.zshrc`, then open a new terminal. |
+| **Debian / Ubuntu** | `sudo apt install postgresql-client-16` |
+
+Open a **new terminal** afterwards — a `PATH` change does not reach shells that are already
+running — and check:
+
+```powershell
+pg_dump --version
+```
+
+**Expect:** `pg_dump (PostgreSQL) 16.x` or higher.
 
 ---
 
@@ -269,7 +300,7 @@ prints its reason — read the reasons rather than matching the number:
 | Windows | the POSIX memory-cap test | the child process imports `resource`, which Windows does not have; the Windows branch is a separate test that runs everywhere |
 | Windows | one case-sensitivity test | `pathlib`'s Windows flavour compares paths case-insensitively in its own right; the behaviour that matters on Windows has its own test |
 | Not Linux | three BLAS thread-pin tests | the thread count is read from `/proc/self/task`; the pin itself is cross-platform and is covered wherever the suite runs |
-| No `pg_dump` | the whole of `test_backup.py` | the backup commands shell out to the PostgreSQL client tools |
+| No `pg_dump` | the whole of `test_backup.py` | the backup commands shell out to the PostgreSQL client tools, which are a host install — see §0. Expected if you have not done it; §15 is the only thing you lose |
 
 **The skip you should not see** is the database one. If Postgres is unreachable, *the whole
 database-backed suite skips with a reason* and the run still reports success:
@@ -906,6 +937,10 @@ account, your authored skills and the audit log survive.
 ## 15. Backup, restore and integrity
 
 The one nobody tests until they need it.
+
+> **This section needs `pg_dump` and `pg_restore` on your host `PATH`** — see §0. If
+> `pg_dump --version` is not recognised, **skip to §16**; nothing else depends on this
+> section, and the backup tests skip rather than fail.
 
 ```powershell
 just backup var/backups/today
