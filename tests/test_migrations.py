@@ -284,3 +284,121 @@ class TestRoundTrip:
         run_alembic(roundtrip_url, "upgrade", "head")
         assert asyncio.run(count_public_tables()) == expected_tables
         assert asyncio.run(count_enum_types()) == expected_enums
+
+    def test_a_seed_downgrade_refuses_when_a_report_still_cites_it(self, database_url):
+        """The round-trip above proves the chain reverses on an **empty** schema.
+
+        That is the weaker half of the property, and the half that never fails. Six revisions
+        seed a ``section_definitions`` row and delete it again on the way down, while
+        ``report_sections.section_definition_id`` is ``ON DELETE RESTRICT`` on purpose — so on
+        a database that has produced a report, that delete cannot succeed at all.
+
+        Found by hand in August 2026: a full rollback on a used database stopped on revision
+        0050 with a bare ``ForeignKeyViolationError`` naming a constraint, which tells an
+        operator nothing about what to do next. What is asserted here is which of the two
+        answers they get, and that the refusal lifts once the citing rows are gone.
+        """
+        guard_url = database_url.replace("/aer_test", "/aer_seed_guard")
+
+        async def recreate() -> None:
+            base, _, name = guard_url.rpartition("/")
+            engine = create_async_engine(f"{base}/postgres", isolation_level="AUTOCOMMIT")
+            try:
+                async with engine.connect() as conn:
+                    await conn.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
+                    await conn.execute(text(f'CREATE DATABASE "{name}"'))
+            finally:
+                await engine.dispose()
+
+        async def seed_a_report_section() -> None:
+            """The shortest chain that makes a *realistic* report cite the row 0050 seeds.
+
+            The job needs a ``request_id`` and not only a ``work_order_id``. Revision 0054's
+            downgrade deletes any job without one — "a row created after this migration ran,
+            with nowhere to put it in the old shape" — so a job carrying only a work order is
+            swept away three revisions before 0050 is reached, taking its report sections with
+            it on the cascade, and the guard below would never be tested. A work order and its
+            research request share an id (ADR 0072), so they are seeded as one.
+            """
+            engine = create_async_engine(guard_url)
+            try:
+                async with engine.begin() as conn:
+                    user = (
+                        await conn.execute(
+                            text(
+                                "INSERT INTO users (email, display_name) "
+                                "VALUES ('guard@example.invalid', 'Guard') RETURNING id"
+                            )
+                        )
+                    ).scalar_one()
+                    request = (
+                        await conn.execute(
+                            text(
+                                "INSERT INTO research_requests (user_id, company_name, "
+                                "ticker, exchange, as_of_date, base_currency, "
+                                "investment_horizon_months) VALUES (:user, 'Guard plc', "
+                                "'GRD', 'LSE', DATE '2026-01-01', 'GBP', 12) RETURNING id"
+                            ),
+                            {"user": user},
+                        )
+                    ).scalar_one()
+                    await conn.execute(
+                        text(
+                            "INSERT INTO work_orders (id, user_id, as_of_date) "
+                            "VALUES (:id, :user, DATE '2026-01-01')"
+                        ),
+                        {"id": request, "user": user},
+                    )
+                    job = (
+                        await conn.execute(
+                            text(
+                                "INSERT INTO jobs (work_order_id, request_id, "
+                                "workflow_version, code_version) "
+                                "VALUES (:id, :id, 'vertical_slice_v1', 'test') RETURNING id"
+                            ),
+                            {"id": request},
+                        )
+                    ).scalar_one()
+                    written = await conn.execute(
+                        text(
+                            "INSERT INTO report_sections (job_id, section_definition_id, "
+                            "section_key, position) "
+                            "SELECT :job, sd.id, sd.key, 1 FROM section_definitions sd "
+                            "WHERE sd.key = 'validation_disagreements' "
+                            "AND sd.origin = 'builtin' AND sd.version = 3"
+                        ),
+                        {"job": job},
+                    )
+                    assert written.rowcount == 1, (
+                        "revision 0050 seeds validation_disagreements v3; if this inserted "
+                        "nothing, the seed moved and this test is no longer about it"
+                    )
+            finally:
+                await engine.dispose()
+
+        async def clear_report_sections() -> None:
+            engine = create_async_engine(guard_url)
+            try:
+                async with engine.begin() as conn:
+                    await conn.execute(text("DELETE FROM report_sections"))
+            finally:
+                await engine.dispose()
+
+        asyncio.run(recreate())
+        run_alembic(guard_url, "upgrade", "head")
+        asyncio.run(seed_a_report_section())
+
+        with pytest.raises(RuntimeError) as refusal:
+            run_alembic(guard_url, "downgrade", "0049")
+
+        message = str(refusal.value)
+        assert "validation_disagreements" in message, message
+        assert "reset-research" in message, (
+            "the refusal has to name the remedy -- that is the whole difference between it "
+            f"and the foreign-key error it replaces: {message}"
+        )
+
+        # And it is a guard, not a wall: with nothing citing the row, the same downgrade runs.
+        asyncio.run(clear_report_sections())
+        run_alembic(guard_url, "downgrade", "0049")
+        run_alembic(guard_url, "upgrade", "head")

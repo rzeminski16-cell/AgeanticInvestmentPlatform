@@ -119,8 +119,37 @@ def upgrade() -> None:
     )
 
 
+def _refuse_if_a_report_cites_it(bind: sa.Connection, key: str) -> None:
+    """Refuse before Postgres does, because only one of the two answers "now what?".
+
+    ``report_sections.section_definition_id`` is ``ON DELETE RESTRICT`` deliberately: a
+    stored report's own content is not a migration's to delete. So once a run has written a
+    section against this version the delete below cannot succeed, and what the database
+    returns is a constraint name. This returns a remedy.
+    """
+    cited = bind.execute(
+        sa.text(
+            "SELECT count(*) FROM report_sections rs "
+            "JOIN section_definitions sd ON sd.id = rs.section_definition_id "
+            "WHERE sd.key = :key AND sd.origin = 'builtin' AND sd.version = :version"
+        ),
+        {"key": key, "version": _NEW_VERSION},
+    ).scalar_one()
+    if cited:
+        message = (
+            f"{cited} stored report section(s) cite {key!r} at version {_NEW_VERSION}, so "
+            "this downgrade would delete a definition a report still rests on. Clear the "
+            "research data first -- `just reset-research` empties report_sections and leaves "
+            "section_definitions alone -- or downgrade a database that has produced no "
+            "reports."
+        )
+        raise RuntimeError(message)
+
+
 def downgrade() -> None:
-    op.get_bind().execute(
+    bind = op.get_bind()
+    _refuse_if_a_report_cites_it(bind, _KEY)
+    bind.execute(
         sa.text(
             "DELETE FROM section_definitions "
             "WHERE key = :key AND origin = 'builtin' AND version = :version"

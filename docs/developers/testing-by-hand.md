@@ -213,16 +213,15 @@ That is the merge collision reappearing and is a genuine defect.
 Now prove the chain is reversible, which is the property the staged migration design
 depends on.
 
-> **A full rollback only works on a database that has produced no reports, and this is a
-> known defect rather than a rule.** Six migrations seed a `section_definitions` row and
-> delete it again on the way down (0036, 0037, 0039, 0044, 0050, 0052). Once a report has
-> used one of those section versions, `report_sections` holds a foreign key to it and the
-> delete is refused — so the rollback stops partway with a `ForeignKeyViolationError`
-> naming `fk_report_sections_section_definition_id_section_definitions`.
+> **A full rollback needs a database that has produced no reports.** Six revisions seed a
+> `section_definitions` row and delete it again on the way down (0036, 0037, 0039, 0044,
+> 0050, 0052). Once a report has used one of those section versions,
+> `report_sections.section_definition_id` — which is `ON DELETE RESTRICT` on purpose, because
+> a stored report's content is not a migration's to delete — holds it in place.
 >
-> The automated round-trip test does not catch it, because it runs against a throwaway
-> **empty** database where nothing references the seeded rows. It is recorded in
-> [`../plan/ROADMAP.md`](../plan/ROADMAP.md).
+> Each of those downgrades now checks first and **refuses in a sentence naming the remedy**.
+> Until 2026-08-24 it did not, and you got a bare `ForeignKeyViolationError` naming a
+> constraint instead.
 
 So clear the research data first. **Both of these destroy local data:**
 
@@ -241,10 +240,15 @@ the same job by throwing the volume away.
 **Expect:** every revision rolls back in order, then reapplies in order, ending at
 `0057 (head)`.
 
-**Wrong:** a downgrade that errors partway **for any reason other than that foreign key**.
-A migration whose downgrade does not work is a migration you cannot back out of in an
-emergency — and the one exception above is already known, so it is not worth reporting
-again.
+**Worth doing once, deliberately:** run `just migrate-base` *without* clearing first, on a
+database that has produced a report.
+
+**Expect:** a refusal reading `N stored report section(s) cite 'validation_disagreements' at
+version 3 …` and naming `just reset-research`. **Wrong:** a raw `ForeignKeyViolationError`,
+or a rollback that succeeds and takes part of a stored report with it.
+
+**Wrong:** a downgrade that errors partway for any other reason. A migration whose downgrade
+does not work is a migration you cannot back out of in an emergency.
 
 Finally, create your user:
 
@@ -299,7 +303,7 @@ test that runs after a browser test in the same process fails with
 uv run pytest --ignore=tests/e2e
 ```
 
-**Expect:** **5,448 passed, 2 deselected**, in roughly 20–25 minutes.
+**Expect:** **5,450 passed, 2 deselected**, in roughly 20–25 minutes.
 
 The 2 deselected are the `live_llm` tests, excluded by default because they spend money.
 They are §16.
