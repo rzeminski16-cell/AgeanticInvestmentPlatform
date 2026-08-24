@@ -37,8 +37,8 @@ switched off is not a window worth opening.
 pointer to a plan: the pin's own foreign key is what moves, and the model drops the column in
 the same commit, so leaving it would fail ``compare_metadata`` rather than help anybody.
 
-Revision ID: 0051
-Revises: 0050
+Revision ID: 0054
+Revises: 0053
 """
 
 from __future__ import annotations

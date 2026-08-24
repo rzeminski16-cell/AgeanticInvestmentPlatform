@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -81,6 +82,36 @@ class TestMigrationScripts:
                 f"{revision.revision} has an empty downgrade; a migration that cannot be "
                 "reversed cannot be tested by round-trip"
             )
+
+    def test_the_docstring_header_agrees_with_the_revision_it_declares(self):
+        """The header Alembic prints must be the revision Alembic runs.
+
+        `alembic current --verbose` and `alembic history` render the module docstring, so a
+        stale ``Revision ID:`` line is a wrong answer to "what am I on?" delivered by the
+        tool an operator uses to find out. The variables below it are what actually runs, so
+        nothing breaks and nothing complains — the two just quietly disagree.
+
+        They disagreed for four revisions after the 2026-08-23 merge renumbered one branch's
+        chain onto the other's: `revision` and `down_revision` were rewritten and the headers
+        were not, so 0057 introduced itself as 0054.
+        """
+        script = ScriptDirectory.from_config(alembic_config("postgresql+asyncpg://unused/unused"))
+        for revision in script.walk_revisions():
+            source = Path(revision.path).read_text(encoding="utf-8")
+            header = re.search(r"^\s*Revision ID: (\S+)\s*$", source, re.M)
+            if header:
+                assert header.group(1) == revision.revision, (
+                    f"{revision.path} declares revision {revision.revision} but its docstring "
+                    f"header says {header.group(1)}. `alembic current --verbose` prints the "
+                    "header, so the two must agree."
+                )
+            revises = re.search(r"^\s*Revises: (\S*)\s*$", source, re.M)
+            if revises:
+                expected = revision.down_revision or ""
+                assert revises.group(1) in (expected, "") or expected == "", (
+                    f"{revision.path} revises {expected!r} but its docstring header says "
+                    f"{revises.group(1)!r}."
+                )
 
 
 @pytest.mark.integration

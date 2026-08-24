@@ -29,8 +29,8 @@ The downgrade drops the column, and drops any numeric claim resting on an attest
 it — there is nowhere else for such a claim's figure to live, and a claim silently relabelled
 as resting on something else would be worse than a migration that removes it.
 
-Revision ID: 0054
-Revises: 0053
+Revision ID: 0057
+Revises: 0056
 """
 
 from __future__ import annotations

@@ -211,19 +211,40 @@ head, not two**.
 That is the merge collision reappearing and is a genuine defect.
 
 Now prove the chain is reversible, which is the property the staged migration design
-depends on. **This destroys your local data**, so do it before you have any worth keeping:
+depends on.
+
+> **A full rollback only works on a database that has produced no reports, and this is a
+> known defect rather than a rule.** Six migrations seed a `section_definitions` row and
+> delete it again on the way down (0036, 0037, 0039, 0044, 0050, 0052). Once a report has
+> used one of those section versions, `report_sections` holds a foreign key to it and the
+> delete is refused — so the rollback stops partway with a `ForeignKeyViolationError`
+> naming `fk_report_sections_section_definition_id_section_definitions`.
+>
+> The automated round-trip test does not catch it, because it runs against a throwaway
+> **empty** database where nothing references the seeded rows. It is recorded in
+> [`../plan/ROADMAP.md`](../plan/ROADMAP.md).
+
+So clear the research data first. **Both of these destroy local data:**
 
 ```powershell
+just reset-research      # removes reports and report_sections; keeps your user and skills
 just migrate-base
 just migrate
 just migrate-status
 ```
 
+`reset-research` is the one that unblocks it: it empties `report_sections` while leaving
+`section_definitions` alone, which is exactly the reference the delete trips over. If you
+would rather start completely clean, `just down-hard` then `just up` and `just migrate` does
+the same job by throwing the volume away.
+
 **Expect:** every revision rolls back in order, then reapplies in order, ending at
 `0057 (head)`.
 
-**Wrong:** a downgrade that errors partway. A migration whose downgrade does not work is a
-migration you cannot back out of in an emergency.
+**Wrong:** a downgrade that errors partway **for any reason other than that foreign key**.
+A migration whose downgrade does not work is a migration you cannot back out of in an
+emergency — and the one exception above is already known, so it is not worth reporting
+again.
 
 Finally, create your user:
 

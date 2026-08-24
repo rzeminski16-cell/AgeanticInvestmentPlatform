@@ -26,8 +26,8 @@ drift for a type missing a value. The first thing to try writing one was this re
 test. Added in an autocommit block, the 0048 pattern: PostgreSQL permits ``ADD VALUE`` inside
 a transaction from 12 onwards but refuses to *use* the value in the same one.
 
-Revision ID: 0052
-Revises: 0051
+Revision ID: 0055
+Revises: 0054
 """
 
 from __future__ import annotations

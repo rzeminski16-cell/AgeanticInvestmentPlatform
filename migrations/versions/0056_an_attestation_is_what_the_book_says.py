@@ -27,8 +27,8 @@ The downgrade drops the three tables and the three types. Nothing existing refer
 so it is a plain drop — unlike ``provider`` in 0052, these types were created here and can
 be removed here.
 
-Revision ID: 0053
-Revises: 0052
+Revision ID: 0056
+Revises: 0055
 """
 
 from __future__ import annotations

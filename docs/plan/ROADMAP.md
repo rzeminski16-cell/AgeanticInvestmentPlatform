@@ -89,6 +89,26 @@ an 81-cell grid; the bank model has none.
 input to an option-pricing model in a footnote, not the discount-rate input, and mapping it
 would put a plausible wrong number in the cost of capital.
 
+**2.6 A seed-data downgrade cannot run on a database that has been used.** Found by a manual
+run of the acceptance sheet, 2026-08-24. Six migrations seed a `section_definitions` row and
+delete it again on the way down (0036, 0037, 0039, 0044, 0050, 0052). Once a report has used
+that section version, `report_sections` holds a foreign key to it, the delete is refused, and
+a full rollback stops partway with a raw `ForeignKeyViolationError`.
+
+**The round-trip test does not catch it**, because it downgrades a throwaway *empty*
+database — it proves the chain reverses on a fresh schema, not on a used one. That gap is the
+more useful half of the finding.
+
+Two decisions are needed rather than one:
+
+1. **What should a downgrade do when a report depends on the row?** Refusing with a message
+   that names the remedy is the option that fits how everything else here behaves — the
+   alternatives are deleting the report's own content, or repointing it at an older contract,
+   which quietly changes what a stored report says it was written under. Whichever is chosen,
+   a bare foreign-key traceback is not it.
+2. **Should the round-trip test seed a report first?** It would then cover the case that
+   actually fails. It also makes the test slower and couples it to the report fixtures.
+
 ---
 
 ## 3. Next — the judgement layer
