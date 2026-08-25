@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Tracework redesign prototype — research requests">
+  <title>Research requests · Tracework prototype</title>
+  <link rel="stylesheet" href="assets/tracework.css">
+  <script src="assets/tracework.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <div class="app-shell">
+    <details class="nav-shell" open>
+      <summary class="nav-summary">Tracework</summary>
+      <div class="nav-panel">
+        <a class="brand-lockup" href="index.html" aria-label="Tracework overview"><span class="brand-mark" aria-hidden="true">T↳</span><span><span class="brand-name">Tracework</span><span class="brand-note">Evidence-led research</span></span></a>
+        <nav class="nav-primary" aria-label="Primary navigation">
+          <section class="nav-section" aria-labelledby="nav-work"><span class="nav-section-label" id="nav-work">Workspace</span><ul class="nav-list"><li><a class="nav-link" href="index.html"><span>Overview</span><span class="nav-badge" id="nav-attention-count" aria-label="3 items need attention">3</span></a></li></ul></section>
+          <section class="nav-section" aria-labelledby="nav-research"><span class="nav-section-label" id="nav-research">Research</span><ul class="nav-list">
+            <li><a class="nav-link" href="requests.html" aria-current="page"><span>Requests</span><span class="nav-badge" aria-label="2 runs waiting for a decision">2</span></a></li>
+            <li><a class="nav-link" href="run.html"><span>Active run</span></a></li><li><a class="nav-link" href="reports.html"><span>Reports</span></a></li><li><a class="nav-link" href="skills.html"><span>Skills</span></a></li><li><a class="nav-link" href="knowledge.html"><span>Knowledge</span></a></li>
+          </ul></section>
+          <section class="nav-section" aria-labelledby="nav-book"><span class="nav-section-label" id="nav-book">Book</span><ul class="nav-list"><li><a class="nav-link" href="portfolio.html"><span>Portfolio</span></a></li></ul></section>
+          <section class="nav-section" aria-labelledby="nav-reference"><span class="nav-section-label" id="nav-reference">Design reference</span><ul class="nav-list"><li><a class="nav-link" href="components.html"><span>Components</span></a></li></ul></section>
+        </nav>
+        <div class="nav-utility"><div><span class="nav-section-label">Appearance</span><div class="theme-control" aria-label="Prototype colour scheme"><button type="button" data-theme-choice="light" aria-pressed="false">Light</button><button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button><button type="button" data-theme-choice="system" aria-pressed="true">Auto</button></div></div></div>
+      </div>
+    </details>
+    <div class="work-area">
+      <header class="context-bar"><nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html">Overview</a> / <span aria-current="page">Research requests</span></nav><div class="context-actions"><a class="button button-small" href="request-new.html">Commission research</a></div></header>
+      <main class="page" id="main">
+        <header class="page-header">
+          <div><span class="page-kicker">Research / commissions</span><h1>Research requests</h1><p class="page-lede">A request is the mandate. A run is one attempt to fulfil it. The two stay separate so a superseded run never rewrites what you originally commissioned.</p></div>
+          <div class="header-actions"><a class="button button-primary" href="request-new.html">Commission research</a></div>
+        </header>
+
+        <section class="verdict" aria-labelledby="request-verdict">
+          <div><span class="utility-label">Current record</span><h2 id="request-verdict">Three open mandates. Two are active; one has never run.</h2><p>Contoso is waiting at its plan. Northstar is ready for final review. Alder Foods is still a draft and has spent nothing.</p></div>
+          <div class="verdict-aside"><span class="utility-label">Typical completed run</span><span class="metric-strong">£2.10–£3.40</span><span class="metric-note">Based on the last 12 completed runs</span></div>
+        </section>
+
+        <section class="sheet" aria-labelledby="open-requests">
+          <div class="sheet-head"><div><h2 id="open-requests">Open requests</h2><p>Ordered by the action needed, then by the time that state began.</p></div><div class="button-row"><button class="button button-small" type="button" hidden>Filter rows</button><a class="button button-small" href="requests.html?archived=1">View archive</a></div></div>
+          <div class="table-wrap">
+            <table>
+              <caption class="sr-only">Open research requests and the latest run for each request</caption>
+              <thead><tr><th scope="col">Company and mandate</th><th scope="col">As-of date</th><th scope="col">Latest run</th><th scope="col" class="number">Spend</th><th scope="col">Next action</th></tr></thead>
+              <tbody>
+                <tr>
+                  <th scope="row"><a class="cell-primary" href="run.html">Contoso plc <span class="cell-secondary">CTSO · LSE · Full research</span></a></th>
+                  <td><span class="cell-primary">22 Aug 2026</span><span class="cell-secondary">Point in time enforced</span></td>
+                  <td><span class="status status-warn">Waiting for you</span><span class="cell-secondary">Run 184 · plan approval</span></td>
+                  <td class="number">£0.16<span class="cell-secondary">of £4.00</span></td>
+                  <td><a class="button button-small" href="gate.html">Review plan</a></td>
+                </tr>
+                <tr>
+                  <th scope="row"><a class="cell-primary" href="review.html">Northstar Group <span class="cell-secondary">NSTG · NASDAQ · Full research</span></a></th>
+                  <td><span class="cell-primary">21 Aug 2026</span><span class="cell-secondary">Point in time enforced</span></td>
+                  <td><span class="status status-warn">Waiting for you</span><span class="cell-secondary">Run 183 · final review</span></td>
+                  <td class="number">£2.11<span class="cell-secondary">of £3.50</span></td>
+                  <td><a class="button button-small" href="review.html">Review report</a></td>
+                </tr>
+                <tr>
+                  <th scope="row"><a class="cell-primary" href="#alder-detail">Alder Foods plc <span class="cell-secondary">ALDR · LSE · Focused update</span></a></th>
+                  <td><span class="cell-primary">25 Aug 2026</span><span class="cell-secondary">Point in time enforced</span></td>
+                  <td><span class="status">Not started</span><span class="cell-secondary">No run exists</span></td>
+                  <td class="number">£0.00<span class="cell-secondary">ceiling £1.50</span></td>
+                  <td><a class="button button-small" href="#alder-detail">Open request</a></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="sheet" id="alder-detail" aria-labelledby="alder-title">
+          <div class="sheet-head"><div><span class="utility-label">Request detail · no run yet</span><h2 id="alder-title">Alder Foods plc</h2><p>A focused update on margin recovery and the timing of the new distribution centre.</p></div><span class="status">Draft mandate</span></div>
+          <dl class="definition-grid">
+            <div><dt>Listing</dt><dd>ALDR · London Stock Exchange</dd></div><div><dt>As-of date</dt><dd>25 August 2026</dd></div><div><dt>Depth</dt><dd>Focused update</dd></div>
+            <div><dt>Cost ceiling</dt><dd class="number" style="text-align:left">£1.50</dd></div><div><dt>Point in time</dt><dd>Enforced</dd></div><div><dt>Created</dt><dd>Today, 08:54</dd></div>
+          </dl>
+          <div class="sheet-body">
+            <div class="guarantee"><strong>The mandate is still editable.</strong>No run has started, so changing this request cannot alter an existing record. Once a run exists, edits are refused and a new request preserves the history.</div>
+            <div class="button-row" style="margin-top:1rem"><a class="button button-primary" href="run.html">Start a run</a><a class="button" href="request-new.html">Edit request</a><a class="button" href="#remove-request">Review removal</a></div>
+          </div>
+        </section>
+
+        <section class="notice notice-bad" id="remove-request" aria-labelledby="remove-title"><strong id="remove-title">Removal is a page, not a quick action.</strong>This request has no runs, reports, claims, calculations, or archived sources. Removing it destroys one draft mandate. A production confirmation page would repeat the exact counts and require a POST.</section>
+
+        <footer class="prototype-note"><strong>This is not investment advice.</strong> Companies and figures shown here are illustrative.</footer>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

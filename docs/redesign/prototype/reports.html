@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Tracework redesign prototype — approved report history">
+  <title>Reports · Tracework prototype</title>
+  <link rel="stylesheet" href="assets/tracework.css">
+  <script src="assets/tracework.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <div class="app-shell">
+    <details class="nav-shell" open>
+      <summary class="nav-summary">Tracework</summary>
+      <div class="nav-panel">
+        <a class="brand-lockup" href="index.html" aria-label="Tracework overview"><span class="brand-mark" aria-hidden="true">T↳</span><span><span class="brand-name">Tracework</span><span class="brand-note">Evidence-led research</span></span></a>
+        <nav class="nav-primary" aria-label="Primary navigation">
+          <section class="nav-section" aria-labelledby="nav-work"><span class="nav-section-label" id="nav-work">Workspace</span><ul class="nav-list"><li><a class="nav-link" href="index.html"><span>Overview</span><span class="nav-badge" id="nav-attention-count" aria-label="3 items need attention">3</span></a></li></ul></section>
+          <section class="nav-section" aria-labelledby="nav-research"><span class="nav-section-label" id="nav-research">Research</span><ul class="nav-list"><li><a class="nav-link" href="requests.html"><span>Requests</span><span class="nav-badge" aria-label="2 runs waiting for a decision">2</span></a></li><li><a class="nav-link" href="run.html"><span>Active run</span></a></li><li><a class="nav-link" href="reports.html" aria-current="page"><span>Reports</span></a></li><li><a class="nav-link" href="skills.html"><span>Skills</span></a></li><li><a class="nav-link" href="knowledge.html"><span>Knowledge</span></a></li></ul></section>
+          <section class="nav-section" aria-labelledby="nav-book"><span class="nav-section-label" id="nav-book">Book</span><ul class="nav-list"><li><a class="nav-link" href="portfolio.html"><span>Portfolio</span></a></li></ul></section>
+          <section class="nav-section" aria-labelledby="nav-reference"><span class="nav-section-label" id="nav-reference">Design reference</span><ul class="nav-list"><li><a class="nav-link" href="components.html"><span>Components</span></a></li></ul></section>
+        </nav>
+        <div class="nav-utility"><div><span class="nav-section-label">Appearance</span><div class="theme-control" aria-label="Prototype colour scheme"><button type="button" data-theme-choice="light" aria-pressed="false">Light</button><button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button><button type="button" data-theme-choice="system" aria-pressed="true">Auto</button></div></div></div>
+      </div>
+    </details>
+    <div class="work-area">
+      <header class="context-bar"><nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html">Overview</a> / <span aria-current="page">Reports</span></nav><div class="context-actions"><a class="button button-small" href="request-new.html">Commission research</a></div></header>
+      <main class="page" id="main">
+        <header class="page-header"><div><span class="page-kicker">Approved history</span><h1>Reports</h1><p class="page-lede">Find prior work by its conclusion and what changed—not only by company and production date.</p></div></header>
+
+        <section class="verdict" aria-labelledby="reports-verdict"><div><span class="utility-label">History</span><h2 id="reports-verdict">Twelve approved reports across seven companies.</h2><p>Two companies have more than one approved report. Northstar's conclusion weakened from “Accumulate” to “Watch” as the price rose faster than the evidence.</p></div><div class="verdict-aside"><span class="utility-label">Most recent</span><span class="metric-strong">Northstar Group</span><span class="metric-note">Approved today · £2.11 run cost</span></div></section>
+
+        <section class="sheet" aria-labelledby="history-title"><div class="sheet-head"><div><h2 id="history-title">Approved history</h2><p>Grouped by company; newest evidence boundary first within each group.</p></div><div class="button-row"><button class="button button-small" type="button" hidden>Filter reports</button><a class="button button-small" href="#empty-example">Empty-state pattern</a></div></div><div class="table-wrap"><table><caption class="sr-only">Approved research reports</caption><thead><tr><th scope="col">Company and conclusion</th><th scope="col">Evidence boundary</th><th scope="col" class="number">Central value</th><th scope="col">Change from prior</th><th scope="col" class="number">Cost</th><th scope="col">Document</th></tr></thead><tbody>
+          <tr><th scope="row"><a class="cell-primary" href="#northstar-report">Northstar Group</a><span class="cell-secondary">Watch, not buy · approved today</span></th><td>21 Aug 2026</td><td class="number">$47.20</td><td><span class="status status-warn">Weakened</span><span class="cell-secondary">Price +18%; value +5%</span></td><td class="number">£2.11</td><td><a class="button button-small" href="#northstar-report">Read report</a></td></tr>
+          <tr><th scope="row"><a class="cell-primary" href="#">Northstar Group</a><span class="cell-secondary">Accumulate · approved 14 Mar 2026</span></th><td>14 Mar 2026</td><td class="number">$44.90</td><td><span class="status">First report</span></td><td class="number">£2.36</td><td><a class="button button-small" href="#">Read report</a></td></tr>
+          <tr><th scope="row"><a class="cell-primary" href="#">River &amp; Reed plc</a><span class="cell-secondary">Avoid · approved 2 Aug 2026</span></th><td>31 Jul 2026</td><td class="number">£6.42</td><td><span class="status status-bad">Weakened</span><span class="cell-secondary">Debt case deteriorated</span></td><td class="number">£2.84</td><td><a class="button button-small" href="#">Read report</a></td></tr>
+          <tr><th scope="row"><a class="cell-primary" href="#">Solace Systems</a><span class="cell-secondary">Watch · approved 18 Jul 2026</span></th><td>17 Jul 2026</td><td class="number">$82.10</td><td><span class="status status-good">Strengthened</span><span class="cell-secondary">Cash conversion verified</span></td><td class="number">£1.92</td><td><a class="button button-small" href="#">Read report</a></td></tr>
+        </tbody></table></div></section>
+
+        <article class="document-preview" id="northstar-report" aria-labelledby="report-title"><span class="utility-label">Approved report · frozen record</span><h2 id="report-title" style="font-size:2.5rem">Northstar Group</h2><p class="page-lede">Operating recovery is visible, but the current price already discounts its cleanest version.</p><div class="provenance-row"><span class="status status-warn">Watch, not buy</span><a class="provenance" href="evidence.html">Calculated · $47.20 central value</a><span class="confirmation confirmation-good">Approved 25 Aug 2026, 09:41</span></div><h2>What changed</h2><p>Since the March report, evidence of operating recovery strengthened: fulfilment cost improved and working capital normalised. The conclusion nevertheless weakened because the boundary price rose from $43.92 to $51.84 while central value moved only from $44.90 to $47.20.</p><h2>Investment view</h2><p>Northstar's distribution redesign has begun to improve fulfilment cost and inventory turns, but the record supports a measured recovery rather than a clean return to peak economics. The central valuation remains below the price at the evidence boundary.<sup><a href="evidence.html" aria-label="Footnote 12">12</a></sup></p><div class="guarantee" id="exported"><strong>This is the approved record.</strong>The document, its validation result, and its evidence map are frozen under one archive hash. <details><summary>Show technical record</summary><code class="formula">sha256: 5b18e0cf…84ac · approved payload 993fe2…1d7a</code></details></div><div class="button-row" style="margin-top:1.5rem"><a class="button button-primary" href="evidence.html">Inspect evidence</a><a class="button" href="#">Open notation preview</a><a class="button" href="#exported">Export to Obsidian</a></div></article>
+
+        <section class="empty-state" id="empty-example" aria-labelledby="empty-title"><span class="utility-label">Empty-state reference</span><h2 id="empty-title">No approved report exists yet</h2><p>A report appears here only after a run reaches final review and you approve the exact draft. Commission research to create the mandate and review its plan before the expensive work begins.</p><a class="button button-primary" href="request-new.html">Commission research</a></section>
+        <footer class="prototype-note"><strong>This is not investment advice.</strong> Companies and figures shown here are illustrative.</footer>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
