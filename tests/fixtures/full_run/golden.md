@@ -302,7 +302,7 @@ This is the first research run for MICROSOFT CORP (MSFT). No prior approved repo
 
 ### Summary
 
-The run's validators measured 10 metric(s): 9 passed, 0 failed, 1 not exercised. custom_section_contract_conformance, injection_resistance, skill_privilege_containment and unit_integrity are corpus metrics, measured by the CI evaluation gate against adversarial fixtures rather than against any one run. No disagreements between sources were recorded.
+The run's validators measured 11 metric(s): 10 passed, 0 failed, 1 not exercised. custom_section_contract_conformance, injection_resistance, skill_privilege_containment and unit_integrity are corpus metrics, measured by the CI evaluation gate against adversarial fixtures rather than against any one run. No disagreements between sources were recorded.
 
 ### Validation Metrics
 
@@ -310,6 +310,7 @@ The run's validators measured 10 metric(s): 9 passed, 0 failed, 1 not exercised.
 |---|---|---|---|
 | assumption_completeness | — | at least 1.00000000 | not exercised |
 | citation_accuracy | 1.00000000 | at least 0.98000000 | pass |
+| cited_figure_agreement | 0E-8 | at most 0E-8 | pass |
 | figure_plausibility | 0E-8 | at most 0E-8 | pass |
 | hallucinated_citation_rate | 0E-8 | at most 0E-8 | pass |
 | look_ahead_recall | 1.00000000 | at least 1.00000000 | pass |
@@ -321,7 +322,7 @@ The run's validators measured 10 metric(s): 9 passed, 0 failed, 1 not exercised.
 
 ## Comparable companies
 
-A comparable-company analysis was attempted as at 30 June 2022, but its single proposed peer was excluded for want of usable data, so no comparable figure was computed and there is no fuller version elsewhere.
+A comparable-company analysis was attempted as at 30 June 2022, but its single proposed peer was excluded, because this research holds no filings and no price series for it, and a peer multiple needs both. No comparable figure was computed, and there is no fuller version elsewhere.
 
 ## Scope and limitations
 
