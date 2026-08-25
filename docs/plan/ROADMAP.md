@@ -21,16 +21,18 @@ the platform got here and why; this is the record of where it goes.*
 In this order. It is the operator's order rather than the author's: each one is the next
 thing that would otherwise put a wrong number, or no answer at all, in front of somebody.
 
-1. **§2.1 — a drafted figure must agree with the calculation it cites.** A report whose
-   ratios contradict its own ledger is the failure this platform exists to make impossible,
-   and on the last live run only the red team caught it.
-2. **§2.2 — comps contributes nothing and does not say why.** Eight peers discovered, eight
-   excluded, on a run that paid for a model step and a gate to find them.
-3. **§2.3 — five sections fail to draft.** More than a quarter of the last report was a
+1. **§2.1 — five sections fail to draft.** More than a quarter of the last report was a
    coverage notice. The diagnosis now reaches the screen (§4.6); this is the fix behind it.
-4. **§3.1 — the portfolio's third door.** Decided 2026-08-25: **a work order roots the
+2. **§3.1 — the portfolio's third door.** Decided 2026-08-25: **a work order roots the
    book's own acquisitions.** Until it exists, a ticker no research run has priced cannot be
-   dealt at all.
+   dealt at all, so the portfolio tool is unusable on a machine whose runs were unpriced.
+3. **§2.4 — the report document's layout.** The disagreement appendix puts a two-hundred-word
+   objection in a narrow column and one row spans three pages; neither position can be read.
+4. **§2.5 — the palette migration.** The last of the surfaces work, and the one most likely
+   to go wrong quietly, so it wants its own pass with screenshots.
+
+*Finished 2026-08-25 and now in §4: the drafted-figure check (§4.14) and the comps
+disclosure (§4.15), which were the two at the top of this list.*
 
 Everything else sits in its bucket below.
 
@@ -85,71 +87,21 @@ ADR by its old number reads four low.
 ## 2. Fixes and bugs
 
 Something here is wrong and should not be. Ordered by how much of a report or a screen each
-one costs, worst first. **§2.1 and §2.2 are the two being worked next.**
+one costs, worst first. **§2.1 is next.**
 
-**2.1 The draft's figures contradicted the calculations they cited. Fixed 2026-08-25
-(ADR 0086).** On the 2026-08-24 MSFT run the draft asserted a quick ratio of 0.93 and a
-current ratio of 1.23; the recorded `quick_ratio` calculations were 1.567 and 1.536 and the
-`current_ratio` values 1.785 and 1.769. Debt to equity was drafted at 0.09× against 0.299
-and 0.229, interest cover at ~50.9× against 40.4 and 45.0, the cash conversion cycle at
-−51.8 days against −7.41 and −2.56.
-
-The direction mattered as much as the size: the section concluded liquidity was thin where
-the run's own arithmetic says it is comfortable, so a reader taking it at face value would
-have reached the opposite view of the balance sheet.
-
-**Only the red team caught it**, for the second time in two live runs.
-`numerical_consistency` re-executes stored rows and never reads the prose;
-`citation_accuracy` re-reads the quoted excerpt, which was quoted correctly — what was wrong
-was the number in the sentence beside it; `figure_plausibility` asks whether a figure is
-*possible*, and 0.93 is a perfectly possible quick ratio.
-
-`cited_figure_agreement` closes it at threshold zero: **a claim naming a calculation must
-state that calculation's figure.** Structural rather than textual — `claims.calculation_id`
-already exists and the writer already sets it — so there is no ratio vocabulary to maintain.
-Agreement is the draft's own precision rather than a tolerance, which is what lets 0.09 over
-a stored 0.0857 pass while 0.93 over 1.567 fails at every precision. The renderings the
-platform actually produces are admitted (a percentage is the fraction times a hundred; money
-reaches prose in millions or billions), and a claim resting on a calculation without printing
-it is not a violation. It joins `VALIDATION_FAILURE`, so it reaches the banner rather than
-only the table.
-
-**2.2 Comps excludes every peer, by design, and does not say so. Diagnosed 2026-08-25.**
-Eight peers were discovered on the MSFT run and all eight were excluded. Nothing is broken:
-`services.comps.UNACQUIRED_PEER_REASON` is the true reason, and it reads *"recorded by name
-for when a price series is subscribed — computing a peer's multiple needs its filings and
-its prices, and this workflow deliberately acquires neither (ADR 0059)"*. A peer with no
-`period_end` never had one, because the workflow never fetched it.
-
-Two things are wrong, and neither is the exclusion:
-
-- **The report flattens the reason.** §17 read "every one of the eight proposed peers was
-  excluded for want of usable data", which sounds like a data failure on a run that made a
-  deliberate choice. The per-peer reason already exists and is already grouped by
-  `grouped_exclusions`; the summary sentence should carry it rather than replace it.
-- **The run pays to discover peers it cannot use.** `propose_peers` is a model step and a
-  gate. On the present design its entire output is a list of names and rationales that
-  appear in the report and contribute no figure. That may be worth the money — a named peer
-  set with reasoning is not nothing — but it should be a decision somebody made, not a
-  surprise, and the gate should say what the set will and will not produce before it is
-  approved.
-
-Making comps actually compute means acquiring peer filings and prices, which is an ADR 0059
-amendment rather than a fix, and it multiplies the data subscription across the peer set.
-
-**2.3 A63 — five sections fail to draft.** Business Overview, Segment Analysis, Industry &
+**2.1 A63 — five sections fail to draft.** Business Overview, Segment Analysis, Industry &
 Competitive Positioning, Earnings Quality and Capital Allocation did not generate on the
 2026-08-24 run, and three more rated themselves 0.30. One cause was identified before the
 merge — a thin evidence pack, then a retry that swings past the target — and the
 instrumentation to read it back is in place, and §4.6 put it on the screen. This is the fix
 behind it. Until it lands, more than a quarter of every report is a coverage notice.
 
-**2.4 Section confidence.** Three sections reporting 0.30 is either an honest signal about a
-starved pack (§2.3) or a floor nobody calibrated. Read it back from the same live run before
+**2.2 Section confidence.** Three sections reporting 0.30 is either an honest signal about a
+starved pack (§2.1) or a floor nobody calibrated. Read it back from the same live run before
 changing anything: a confidence score that is always low is as useless as one that is always
 high.
 
-**2.5 A run that fails late cannot be resumed, only repeated. Open.** The engine skips
+**2.3 A run that fails late cannot be resumed, only repeated. Open.** The engine skips
 completed steps, and does it well — that is how a run survives the worker dying. But it only
 applies to the *same* job, and the only operator-facing path is superseding, which creates a
 new job precisely because the old one is a finished audit record. So a failure at the
@@ -161,14 +113,14 @@ the *same* job after a terminal failure, and a decision about what that means fo
 record — a job row that says it failed, then later says it succeeded, is not obviously
 honest. That decision is the work here, not the plumbing.
 
-**2.6 The report document — layout.** The rendered PDF has two defects a reader meets
+**2.4 The report document — layout.** The rendered PDF has two defects a reader meets
 immediately. The disagreement appendix puts a two-hundred-word challenge in a narrow table
 column, so one row spans three pages and neither position can be read. The "at a glance"
 tables render label and value as separate stacked blocks, so a reader reassembles the pairing
 by counting. Rework the appendix as prose blocks per disagreement, fix the key-figure tables,
 and check every section's print layout against a real run rather than a fixture.
 
-**2.7 The palette is migrated only in part.** The theme *control* is done (§4.13) and this is
+**2.5 The palette is migrated only in part.** The theme *control* is done (§4.13) and this is
 what it left behind: a page's colours are correct in both schemes or they are slate grey
 beside navy, and roughly half of them are the second.
 
@@ -184,23 +136,23 @@ missing answer; this is a page that looks like two designs. It is also the item 
 to go wrong quietly, so it wants its own pass with screenshots rather than being folded into
 a functional change.
 
-**2.8 A split must arrive as a transaction.** `corporate_actions` knows about splits, but
+**2.6 A split must arrive as a transaction.** `corporate_actions` knows about splits, but
 nothing turns one into a change in holdings, so a book spanning a split is currently wrong.
 Derive it from the corporate action and write it as a transaction — never as a quantity
 that changed with nothing behind it.
 
-**2.9 R18 — the share-based-compensation risk-free rate.** A
+**2.7 R18 — the share-based-compensation risk-free rate.** A
 `ShareBasedCompensation…RiskFreeRate` tag must never map to `risk_free_rate`. It is an
 input to an option-pricing model in a footnote, not the discount-rate input, and mapping it
 would put a plausible wrong number in the cost of capital.
 
-**2.10 A55 — concept-map coverage.** 175 concepts and 110 segment tags the map cannot place.
+**2.8 A55 — concept-map coverage.** 175 concepts and 110 segment tags the map cannot place.
 This is judgement over accounting semantics rather than a code change, which is why it has
 survived several passes: it needs somebody who knows what a tag *means* deciding what it
 maps to. The gate that names the lines a filing would lose is the mechanism; the curation is
 the work.
 
-**2.11 Report readability.** The register is clean — every sentence in a report that was
+**2.9 Report readability.** The register is clean — every sentence in a report that was
 *about the report* is gone or moved to where disclosure belongs. Keep it that way: the
 failure mode returns whenever a new refusal path gets a placeholder written in the
 platform's voice rather than the report's.
@@ -566,8 +518,63 @@ scripting would be the wrong trade.
 query, and that is what makes the control work at all: without it the shell would have
 flipped and forty panels written as `dark:bg-slate-900` would not — a control that works on
 some pages is worse than none, because a reader cannot tell which half is broken. What
-remains is consistency of the colours themselves, which is §2.7.
+remains is consistency of the colours themselves, which is §2.5.
 
+
+**4.14 The draft's figures contradicted the calculations they cited. Fixed 2026-08-25
+(ADR 0086).** On the 2026-08-24 MSFT run the draft asserted a quick ratio of 0.93 and a
+current ratio of 1.23; the recorded `quick_ratio` calculations were 1.567 and 1.536 and the
+`current_ratio` values 1.785 and 1.769. Debt to equity was drafted at 0.09× against 0.299
+and 0.229, interest cover at ~50.9× against 40.4 and 45.0, the cash conversion cycle at
+−51.8 days against −7.41 and −2.56.
+
+The direction mattered as much as the size: the section concluded liquidity was thin where
+the run's own arithmetic says it is comfortable, so a reader taking it at face value would
+have reached the opposite view of the balance sheet.
+
+**Only the red team caught it**, for the second time in two live runs.
+`numerical_consistency` re-executes stored rows and never reads the prose;
+`citation_accuracy` re-reads the quoted excerpt, which was quoted correctly — what was wrong
+was the number in the sentence beside it; `figure_plausibility` asks whether a figure is
+*possible*, and 0.93 is a perfectly possible quick ratio.
+
+`cited_figure_agreement` closes it at threshold zero: **a claim naming a calculation must
+state that calculation's figure.** Structural rather than textual — `claims.calculation_id`
+already exists and the writer already sets it — so there is no ratio vocabulary to maintain.
+Agreement is the draft's own precision rather than a tolerance, which is what lets 0.09 over
+a stored 0.0857 pass while 0.93 over 1.567 fails at every precision. The renderings the
+platform actually produces are admitted (a percentage is the fraction times a hundred; money
+reaches prose in millions or billions), and a claim resting on a calculation without printing
+it is not a violation. It joins `VALIDATION_FAILURE`, so it reaches the banner rather than
+only the table.
+
+**4.15 Comps said "for want of usable data" over a deliberate choice. Fixed 2026-08-25.**
+Eight peers were discovered on the 2026-08-24 MSFT run and all eight were excluded. Nothing
+was broken: `services.comps.UNACQUIRED_PEER_REASON` is the true reason, and this workflow
+acquires neither a peer's filings nor a peer's prices (ADR 0059), so a peer recorded by name
+alone can never contribute a multiple.
+
+What was wrong was the report. §17 read "every one of the eight proposed peers was excluded
+**for want of usable data**", which reads as a failure to get hold of something on a run that
+made a deliberate choice — a reader would go looking for a fault. The step already grouped
+its exclusions by reason; `WithheldComps` now carries them and the disclosure names them.
+
+The reason itself was rewritten to survive the report's register: the first draft cited the
+architecture decision inside the sentence, which is exactly the process language
+`presentation_integrity` refuses in a document that should be about a company. The decision
+belongs in the code comment; the sentence belongs to the reader.
+
+**The peer gate already said it**, and that is worth recording rather than re-fixing:
+*"Confirming records the set; it fetches nothing. Computing a peer's multiple needs its
+filings and its prices, and this run acquires neither."*
+
+**What remains is a decision, not a defect.** `propose_peers` is a model step and a gate, and
+on the present design its whole output is a list of names and rationales that contribute no
+figure. That may be worth the money — a reasoned peer set is not nothing, and it is held for
+the day a subscription makes it computable — but it should be a choice somebody made. The
+options are to skip peer discovery when no price client is configured, or to acquire peer
+filings and prices and make comps actually compute, which is an ADR 0059 amendment and
+multiplies the data subscription across the set.
 
 ### Decided against
 

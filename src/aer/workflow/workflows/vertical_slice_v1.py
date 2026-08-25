@@ -2794,6 +2794,16 @@ async def comps_note_for(
         excluded_count=int(outcome.get("excluded_count", len(confirmed) - peers)),
         as_of=date.fromisoformat(as_of_text) if as_of_text else request.as_of_date,
         licence_note=DEFAULT_POLICIES[Provider.EODHD].licence_note,
+        # The reasons the step already grouped, so the report says why rather than "for
+        # want of usable data" (gap R20). Deduplicated again here because the grouping is
+        # by reason, and an older outcome that carries none simply says less.
+        exclusion_reasons=tuple(
+            dict.fromkeys(
+                str(row.get("reason", "")).strip()
+                for row in outcome.get("excluded", [])
+                if str(row.get("reason", "")).strip()
+            )
+        ),
     )
 
 

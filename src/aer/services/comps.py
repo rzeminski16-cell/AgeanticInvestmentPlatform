@@ -74,10 +74,14 @@ PEER_SET_STEP: Final = "propose_peers"
 # gate page, the report and the run payload all say it identically — a dated peer whose
 # pricing failed gets a different reason, in ``build``, because for that one the filings
 # *are* held.
+#
+# **Written to survive the report's register** (gap R20). It reaches a reader through the
+# comps disclosure as well as an operator through the gate, and the first draft named
+# ADR 0059 inside it — which is the architecture decision that settled this, and is exactly
+# the process language `presentation_integrity` refuses in a document that should be about a
+# company. The decision belongs in this comment; the sentence belongs to the reader.
 UNACQUIRED_PEER_REASON: Final = (
-    "recorded by name for when a price series is subscribed — computing a peer's multiple "
-    "needs its filings and its prices, and this workflow deliberately acquires neither "
-    "(ADR 0059)"
+    "this research holds no filings and no price series for it, and a peer multiple needs both"
 )
 
 

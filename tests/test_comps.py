@@ -14,6 +14,7 @@ of them is a wrong answer.
 
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -48,6 +49,7 @@ from aer.calc.units import (
     Unit,
     UnitMismatchError,
 )
+from aer.services.comps import UNACQUIRED_PEER_REASON
 
 PERIOD_END = date(2024, 6, 30)
 AS_OF = date(2024, 6, 28)
@@ -613,9 +615,61 @@ class TestWithholdingNothingIsNotWithholding:
     def test_an_empty_table_says_nothing_was_computed_and_why(self):
         paragraph = WithheldComps(peer_count=0, excluded_count=5, as_of=AS_OF).as_paragraph()
 
-        assert "no comparable figure was computed" in paragraph
+        assert "No comparable figure was computed" in paragraph
         assert "five proposed peers" in paragraph
         assert AS_OF.isoformat() in paragraph
+
+    def test_an_empty_table_names_the_reason_rather_than_shrugging(self):
+        """Gap R20. It read "excluded for want of usable data", which sounds like a fault.
+
+        On this workflow the commonest reason is a deliberate choice — no peer's filings
+        and no peer's prices are acquired at all — and a reader told the first would go
+        looking for the second.
+        """
+        paragraph = WithheldComps(
+            peer_count=0,
+            excluded_count=8,
+            as_of=AS_OF,
+            exclusion_reasons=(UNACQUIRED_PEER_REASON,),
+        ).as_paragraph()
+
+        assert "for want of usable data" not in paragraph
+        assert "no filings and no price series" in paragraph
+        assert "every one of the eight proposed peers was excluded, because" in paragraph
+
+    def test_two_different_reasons_are_both_said(self):
+        """A reader deciding whether the absent analysis matters needs to know that two
+        things went wrong rather than one thing eight times."""
+        paragraph = WithheldComps(
+            peer_count=0,
+            excluded_count=8,
+            as_of=AS_OF,
+            exclusion_reasons=(UNACQUIRED_PEER_REASON, "it reports to a different year end"),
+        ).as_paragraph()
+
+        assert "no filings and no price series" in paragraph
+        assert "and it reports to a different year end" in paragraph
+
+    def test_the_reason_carries_no_process_language(self):
+        """It reaches a reader as well as an operator, and `presentation_integrity`
+        refuses an architecture-decision reference in a document about a company. The
+        first draft of this reason named one."""
+        paragraph = WithheldComps(
+            peer_count=0,
+            excluded_count=8,
+            as_of=AS_OF,
+            exclusion_reasons=(UNACQUIRED_PEER_REASON,),
+        ).as_paragraph()
+
+        assert not re.search(r"\bADR\s+\d{4}\b", paragraph)
+        assert "workflow" not in paragraph
+
+    def test_an_outcome_carrying_no_reasons_still_reads_as_a_sentence(self):
+        """A run recorded before the reasons were carried says less rather than breaking."""
+        paragraph = WithheldComps(peer_count=0, excluded_count=5, as_of=AS_OF).as_paragraph()
+
+        assert "was excluded." in paragraph or "was excluded. " in paragraph
+        assert "because" not in paragraph
 
     def test_a_real_analysis_still_withholds_rather_than_denies(self):
         """The other state is untouched: peers in the table mean figures exist, and the
@@ -633,7 +687,7 @@ class TestWithholdingNothingIsNotWithholding:
         paragraph = WithheldComps(peer_count=0, excluded_count=0, as_of=AS_OF).as_paragraph()
 
         assert "0 proposed peer" not in paragraph
-        assert "no comparable figure was computed" in paragraph
+        assert "No comparable figure was computed" in paragraph
 
     def test_house_style_holds_across_the_counts(self):
         """Gap R10: small counts are spelled, plurals agree, and the parenthetical

@@ -318,6 +318,9 @@ class CompsTable:
             excluded_count=len(self.excluded),
             as_of=self.as_of,
             licence_note=self.licence_note,
+            exclusion_reasons=tuple(
+                dict.fromkeys(row.reason for row in self.excluded if row.reason)
+            ),
         )
 
     def median_of(self, key: str) -> Decimal | None:
@@ -353,6 +356,11 @@ class WithheldComps:
     as_of: date
     licence_note: str = ""
 
+    # Why the excluded peers were excluded, deduplicated, in first-seen order (gap R20).
+    # Reasons and not names: a reason is a statement about what this platform did, and
+    # since ADR 0059 was amended it is usually the same statement about all of them.
+    exclusion_reasons: tuple[str, ...] = ()
+
     def as_paragraph(self) -> str:
         """The disclosure, written here so it cannot vary by template.
 
@@ -371,17 +379,24 @@ class WithheldComps:
         """
         if self.peer_count == 0:
             if self.excluded_count == 1:
-                excluded = "its single proposed peer was excluded for want of usable data"
+                excluded = "its single proposed peer was excluded"
             elif self.excluded_count:
                 excluded = (
-                    f"every one of the {_spelled(self.excluded_count)} proposed peers "
-                    "was excluded for want of usable data"
+                    f"every one of the {_spelled(self.excluded_count)} proposed peers was excluded"
                 )
             else:
                 excluded = "no peer survived to be compared"
+            # The reason, rather than "for want of usable data" (gap R20). That phrase
+            # reads as a data failure, and on this workflow the commonest reason is a
+            # deliberate choice: ADR 0059 acquires neither a peer's filings nor its
+            # prices, so every peer recorded by name alone is excluded by design. A
+            # reader told "for want of usable data" would go looking for a fault.
+            because = (
+                f", because {_joined(self.exclusion_reasons)}" if self.exclusion_reasons else ""
+            )
             return (
                 f"A comparable-company analysis was attempted as at {self.as_of.isoformat()}, "
-                f"but {excluded}, so no comparable figure was computed and there is no "
+                f"but {excluded}{because}. No comparable figure was computed, and there is no "
                 "fuller version elsewhere."
             )
         peers = "one peer" if self.peer_count == 1 else f"{_spelled(self.peer_count)} peers"
@@ -422,6 +437,22 @@ _COUNT_WORDS: Final[tuple[str, ...]] = (
 
 def _spelled(count: int) -> str:
     return _COUNT_WORDS[count] if 0 <= count < len(_COUNT_WORDS) else str(count)
+
+
+def _joined(reasons: Sequence[str]) -> str:
+    """Several reasons as one clause, in the report's register rather than a list.
+
+    Usually there is exactly one, because since ADR 0059 was amended every peer recorded by
+    name alone shares it. Where a period that would not align adds a second, both are said:
+    a reader deciding whether the absent analysis matters needs to know that two different
+    things went wrong rather than one thing eight times.
+    """
+    kept = [reason.rstrip(". ") for reason in reasons if reason.strip()]
+    if not kept:
+        return ""
+    if len(kept) == 1:
+        return kept[0]
+    return f"{'; '.join(kept[:-1])}; and {kept[-1]}"
 
 
 # -- The definitions --------------------------------------------------------------------------
