@@ -2,6 +2,12 @@
 
 *Everything a designer needs to redesign this platform's screens, without reading the code.*
 
+> **The design came back on 2026-08-25.** It is in [`../redesign/`](../redesign/README.md),
+> reviewed in [`../redesign/05-review-and-corrections.md`](../redesign/05-review-and-corrections.md)
+> and sequenced in [`../plan/interface-overhaul.md`](../plan/interface-overhaul.md). This folder
+> remains the **requirements** — the thing the design is answerable to — and stays the first
+> document in the authority order.
+
 This folder is the input to roadmap [§3.12](../plan/ROADMAP.md), the interface overhaul. It
 says what each surface is, who is on it, what it must make possible, what data it has, what
 it asks the reader for, every state it can be in, what is wrong with it today, and what a

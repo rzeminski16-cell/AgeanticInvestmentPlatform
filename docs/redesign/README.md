@@ -8,6 +8,12 @@ the product as an analyst's working paper rather than a generic finance dashboar
 The name is a replaceable working label. The information architecture, interaction rules and
 visual system do not depend on keeping it.
 
+> **Reviewed and adopted with nine corrections, 2026-08-25.** Read
+> [`05-review-and-corrections.md`](05-review-and-corrections.md) before building from this
+> folder: it is an addendum that **wins where it and `01-design-system.md` disagree**, and one
+> of its corrections is a WCAG 2.2 failure that this folder's own validation report records as
+> passing. The build sequence is [`../plan/interface-overhaul.md`](../plan/interface-overhaul.md).
+
 ## What is included
 
 | Artefact | Use it for |
@@ -17,6 +23,7 @@ visual system do not depend on keeping it.
 | [`02-page-specifications.md`](02-page-specifications.md) | Route-by-route layouts, states, interactions, exact content patterns and marked server proposals |
 | [`03-claude-implementation-handoff.md`](03-claude-implementation-handoff.md) | Production architecture, migration sequence, template contracts, tests and a ready implementation brief for Claude |
 | [`04-validation-report.md`](04-validation-report.md) | What was checked in the prototype and what must still be verified in production |
+| [`05-review-and-corrections.md`](05-review-and-corrections.md) | The structural review, the nine corrections, and what is adopted unchanged |
 | [`prototype/index.html`](prototype/index.html) | Visual entry point to the twelve-screen interactive reference |
 
 Recommended reading order for implementation: original requirements in `../design/`, then

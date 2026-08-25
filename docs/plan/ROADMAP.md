@@ -28,8 +28,8 @@ thing that would otherwise put a wrong number, or no answer at all, in front of 
    dealt at all, so the portfolio tool is unusable on a machine whose runs were unpriced.
 3. **§2.4 — the report document's layout.** The disagreement appendix puts a two-hundred-word
    objection in a narrow column and one row spans three pages; neither position can be read.
-4. **§3.12 — the interface overhaul.** The specification landed 2026-08-25 in
-   [`../design/`](../design/README.md); the design itself has not. It is placed here rather
+4. **§3.12 — the interface overhaul.** Specified, designed, reviewed and planned 2026-08-25;
+   not built. Start at tranche 0 of [`interface-overhaul.md`](interface-overhaul.md). It is placed here rather
    than lower because §2.5 is inside it: migrating the palette first would do the most
    quietly-fragile item in this roadmap twice, once onto the present design and again onto
    the new one.
@@ -306,9 +306,24 @@ mistake ADR 0075 names.
 **3.11 The methodology library.** Three `SkillKind`s that are versioned, pinned and
 composed. Mostly does not exist yet.
 
-**3.12 The interface overhaul. Specified 2026-08-25; the design is not done.** Four surfaces
-are in scope and the rest of the product is deliberately not: **the main menu, the menu
+**3.12 The interface overhaul. Specified, designed and planned 2026-08-25; not built.** Four
+surfaces are in scope and the rest of the product is deliberately not: **the main menu, the menu
 system and shell, the Equity Research tool, and the Portfolio tool.**
+
+**Where it stands.** The requirements are in [`../design/`](../design/README.md); the design
+came back as [`../redesign/`](../redesign/README.md) — a token system, page specifications, a
+production handoff and a twelve-screen prototype. It was reviewed against the invariants and
+the code, and **adopted with nine corrections**, one of which is a WCAG failure the design's own
+validation reported as passing: the navigation rail keeps dark colours on a light page, its
+tokens were never in the normative table, and the light-theme focus ring measures 2.04:1 on it.
+The review is [`../redesign/05-review-and-corrections.md`](../redesign/05-review-and-corrections.md)
+and it wins where it and the design system disagree.
+
+**The work is sequenced in [`interface-overhaul.md`](interface-overhaul.md)** — ten tranches,
+each independently releasable — with its testing in
+[`interface-overhaul-testing.md`](interface-overhaul-testing.md). **Three ADRs come first**: a
+verdict is composed and never inferred; a fixed-scheme region carries its own measured palette;
+`/runs/active` resolves the current run.
 
 What does not exist is not a screen. It is a *specification a designer can work from*: the
 platform's interface grew a page at a time, each one correct in isolation, and the result is
@@ -322,7 +337,13 @@ a designer rather than for a developer, and it is the input to the work rather t
 
 **The order is: specification, then design, then §2.5, then the templates.** Migrating the
 palette before the design exists would be doing the most quietly-fragile item in the roadmap
-twice.
+twice. **§2.5 is no longer a separate item**: it is tranches 2 and 4–9 of the plan, and it
+closes when the ramp ratchet reaches zero.
+
+**Two items in flight go first, and neither is blocked by this.** §2.1 puts a wrong number in
+front of somebody and this is a page that looks like two designs; §3.1 adds a control to a
+portfolio form that is the smallest migration in the plan. Both land before the tranche that
+rewrites their surface.
 
 **The constraints are not negotiable inside the design, and are argued outside it.** ADR 0006
 makes the server the only renderer; ADR 0077 draws the line — chrome may be the client's, a

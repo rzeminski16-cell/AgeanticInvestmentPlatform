@@ -86,10 +86,25 @@ Scope is the four surfaces of roadmap §3.12 — the main menu, the shell, Equit
 Portfolio. The rendered report document is a separate problem and keeps its own entry
 (§2.4).
 
+### `redesign/` — the design that came back
+
+The Tracework deliverable: design direction, a normative token and component system, route-by-route
+page specifications, a production handoff and a twelve-screen prototype.
+
+- [`README.md`](redesign/README.md) — what is in it and how to view the prototype.
+- [`05-review-and-corrections.md`](redesign/05-review-and-corrections.md) — the structural
+  review. **Adopted with nine corrections**, and this document wins where it and the design
+  system disagree.
+
 ### `plan/` — what happens next
 
 - [`ROADMAP.md`](plan/ROADMAP.md) — what is built, what is not, what is deliberately
   excluded, and the sequenced work ahead. **This is the authority on scope.**
+- [`interface-overhaul.md`](plan/interface-overhaul.md) — §3.12 as ten releasable tranches:
+  the decisions that gate it, how it interleaves with work in flight, and all 84 server
+  proposals resolved.
+- [`interface-overhaul-testing.md`](plan/interface-overhaul-testing.md) — what each tranche
+  must prove, and the four pieces of test machinery that do not exist yet.
 
 ---
 
