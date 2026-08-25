@@ -15,9 +15,12 @@ from decimal import Decimal
 
 import pytest
 
-from aer.web.figures import NOT_AVAILABLE, cost_context, pounds, tone_for
+from aer.web.figures import NOT_AVAILABLE, RenderedFigure, cost_context, pounds, tone_for
 from aer.web.overview.pages import _pounds
+from aer.web.shell.provenance import Provenance, ProvenanceRef
 from aer.web.vocabulary import Tone
+
+_REF = ProvenanceRef(kind=Provenance.SOURCE_FACT, identifier="fact-1", href="/sources/fact-1")
 
 
 class TestPounds:
@@ -152,3 +155,46 @@ class TestTheOverviewUsesTheSameRenderer:
         gets written. It is now a name over the shared function."""
         assert _pounds(Decimal("0.003")) == pounds(Decimal("0.003")) == "under £0.01"
         assert _pounds(Decimal("12.5")) == pounds(Decimal("12.5")) == "£12.50"
+
+
+class TestAFigureTravelsWithItsLineage:
+    """ADR 0077 stopped a badge being rendered without a drill-down. This is the step before:
+    a *figure* rendered with no badge at all, which no required argument can reach, because a
+    bare string has nothing to require anything of."""
+
+    def test_a_traced_figure_carries_where_it_came_from(self) -> None:
+        figure = RenderedFigure.traced("£12.50", _REF, label="Closing price")
+        assert figure.value_display == "£12.50"
+        assert figure.provenance is _REF
+        assert figure.is_available
+
+    def test_a_figure_with_no_provenance_is_refused(self) -> None:
+        """Invariant 3, at the moment a number reaches a screen."""
+        with pytest.raises(ValueError, match="has no provenance"):
+            RenderedFigure(value_display="£12.50")
+
+    def test_a_figure_that_renders_as_nothing_is_refused(self) -> None:
+        """An empty cell reads as nil, and nil is a claim about the record."""
+        with pytest.raises(ValueError, match="renders as nothing"):
+            RenderedFigure(value_display="  ", provenance=_REF)
+
+
+class TestAnAbsentFigureSaysWhyItIsAbsent:
+    def test_the_reason_is_required(self) -> None:
+        """A bare dash is read as a zero or as a bug, and it is usually neither."""
+        with pytest.raises(ValueError, match="does not say why"):
+            RenderedFigure(value_display=NOT_AVAILABLE)
+
+    def test_an_unavailable_figure_renders_the_dash_and_the_reason(self) -> None:
+        figure = RenderedFigure.unavailable("not filed for this period", label="EBITDA")
+        assert figure.value_display == NOT_AVAILABLE
+        assert not figure.is_available
+        assert figure.unavailable_because == "not filed for this period"
+
+    def test_it_carries_no_lineage(self) -> None:
+        """There is no chain under a number that does not exist, and a badge beside a dash
+        claims one — a reader who clicks it is owed something the record does not have."""
+        with pytest.raises(ValueError, match="no lineage"):
+            RenderedFigure(
+                value_display=NOT_AVAILABLE, provenance=_REF, unavailable_because="not filed"
+            )
