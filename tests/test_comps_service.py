@@ -851,7 +851,12 @@ class TestTheNoteReportsWhatTheStepBuilt:
         assert note is not None
         assert note.peer_count == 0
         paragraph = note.as_paragraph()
-        assert "no comparable figure was computed" in paragraph
+        # Case-insensitively, because where the phrase sits in the sentence is the
+        # disclosure's business rather than this test's. It moved to a sentence opening when
+        # the note started naming *why* each peer was excluded (roadmap §4.15), and the
+        # capital letter that came with it broke an assertion nobody could see fail: this
+        # test needs a database, so it skips on a machine with nothing started.
+        assert "no comparable figure was computed" in paragraph.lower()
         assert "available in full" not in paragraph
 
     async def test_a_confirmed_set_whose_comps_step_has_not_run_yields_no_note(

@@ -14,52 +14,23 @@ import ast
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
 
 import pytest
-from starlette.routing import Mount
 
-from aer.api.app import create_app
-from aer.config import Settings
 from aer.web.nav import NavItem, NavSection, active_key
 from aer.web.shell import NAV, UNLISTED, Shell, flat_items, shell_for
-
-
-def _settings() -> Settings:
-    return Settings(http_user_agent="Test test@example.invalid")
-
-
-def _routes(app: Any) -> list[tuple[str, frozenset[str]]]:
-    """Every route the application serves, walking the routers it includes.
-
-    FastAPI keeps an included router wrapped rather than flattened, so the obvious
-    `app.routes` walk finds three routes and misses forty.
-    """
-    found: list[tuple[str, frozenset[str]]] = []
-
-    def walk(routes: Any) -> None:
-        for route in routes:
-            inner = getattr(route, "original_router", None)
-            if inner is not None:
-                walk(inner.routes)
-                continue
-            path = getattr(route, "path", None)
-            if path and not isinstance(route, Mount):
-                found.append((path, frozenset(getattr(route, "methods", None) or ())))
-
-    walk(app.routes)
-    return found
+from tests.route_fixtures import page_routes_for
 
 
 @pytest.fixture(scope="module")
 def page_routes() -> frozenset[str]:
-    """The server-rendered GET routes: what an operator can open in a browser."""
-    app = create_app(_settings())
-    return frozenset(
-        path
-        for path, methods in _routes(app)
-        if "GET" in methods and not path.startswith(("/api/", "/docs", "/openapi", "/static"))
-    )
+    """The server-rendered GET routes: what an operator can open in a browser.
+
+    The walk itself lives in `tests/route_fixtures.py` because
+    `tests/test_every_page_renders.py` needs the same list, and two answers to "what does
+    this application serve" would be the drift this file exists to catch.
+    """
+    return page_routes_for()
 
 
 class TestTheNavPointsAtRealPages:
