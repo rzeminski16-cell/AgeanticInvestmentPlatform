@@ -245,9 +245,30 @@ filing is real. This is invariant 3 failing in the one direction nothing checks 
 reaching a report that is neither a stored fact, a recorded calculation nor an attestation,
 because the writer computed it itself.
 
-The check that closes it is deterministic and cheap: a drafted figure that names a ratio must
-resolve to a recorded calculation of that name and period, within the same tolerance §2.12
-settles on. It belongs beside the presentation scan, which already walks every sentence.
+**The check that closes it is structural rather than textual, which is what makes it worth
+building.** The obvious approach — find "quick ratio of 0.93" in the prose and look up a
+`quick_ratio` calculation — is a text-matching problem and will be fragile for ever. It does
+not need to be: `claims.calculation_id` already exists, and a numeric claim that names a
+calculation is the writer asserting *this sentence rests on that row*. So the rule is
+
+> a claim naming a calculation must contain that calculation's value.
+
+Deterministic, no ratio vocabulary to maintain, and it fires on exactly the failure above:
+the sentence cited `quick_ratio` and then said 0.93 while the row said 1.567.
+
+Three details decide whether it is usable:
+
+- **Tolerance.** The same one §2.12 settled on, for the same reason — the stored figure is a
+  rounded one.
+- **Rendering.** A dimensionless 0.4676 reaches the page as "46.8%" and a multiple as
+  "0.09x", so the comparison has to accept the renderings `render.display` actually
+  produces rather than the raw digits alone.
+- **A claim that names a calculation and quotes no figure at all** is not a violation. Plenty
+  of sentences rest on a calculation without printing it, and failing those would make the
+  metric fire on good prose until somebody switched it off.
+
+It belongs beside `presentation_integrity` in `eval/runtime.py`, which already walks every
+sentence, and it needs a threshold of zero: this is invariant 3, not a quality score.
 
 ---
 
