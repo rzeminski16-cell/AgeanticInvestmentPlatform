@@ -46,9 +46,11 @@ from aer.calc.basic import cagr
 from aer.calc.comps import MultipleBasis, WithheldComps
 from aer.calc.engine import CalculationContext
 from aer.calc.units import Quantity, SourceRef, Unit, money
+from aer.core.concepts import CANONICAL_CONCEPTS
 from aer.core.enums import Decision, FactBasis, GateKind, JobStatus, Provider, SourceTier
 from aer.core.escalation import FiredTrigger
 from aer.core.hashing import canonical_json, sha256_hex
+from aer.core.schemas.facts import RawFact
 from aer.core.schemas.request import ResearchRequestRead
 from aer.core.sectors import (
     ModelNotPermittedError,
@@ -148,7 +150,7 @@ from aer.skills.resolution import (
     pinned_skills_for_work_order,
     resolve_skills_for_plan,
 )
-from aer.sources.sec.companyfacts import parse_company_facts
+from aer.sources.sec.companyfacts import UnmappedConcept, parse_company_facts
 from aer.sources.sec.pit import select_point_in_time
 from aer.verify.citations import verify_job_citations
 from aer.workflow.engine import StepContext, StepPaused, StepResult, WorkflowStep
@@ -713,6 +715,103 @@ async def _gate_plan(context: StepContext) -> StepResult:
     return await _require_approval(context, gate=GateKind.PLAN, of_step="plan")
 
 
+# What an unmapped line is measured against, in order of preference. Revenue first because
+# it is the figure a reader has in mind; total assets for a filer whose revenue line is
+# itself an extension, which is rarer and exactly the case where the question matters most.
+_SCALE_CONCEPTS: Final = ("revenue", "assets")
+
+
+def _unmapped_rows(
+    unmapped: Sequence[UnmappedConcept], *, chosen: Sequence[RawFact]
+) -> list[dict[str, Any]]:
+    """Each unmapped tag with the largest figure behind it, biggest share first.
+
+    Gap R17. The gate asked "does this gap matter?" over a list of taxonomy element names —
+    `us-gaap:SomeFilerExtension` and thirty-nine more — which is not a question anybody can
+    answer from what was shown. One extension carrying a company's headline profit measure
+    matters and forty carrying segment breakdowns do not, and the number is what tells them
+    apart.
+
+    **The largest absolute value, not the latest.** A tag's most recent observation can be a
+    quarter, a restatement or a zero; what an operator is deciding is whether anything
+    material hangs on this element, and the biggest figure it ever carried is the honest
+    answer to that.
+    """
+    scale = _reference_figure(chosen)
+    by_tag: dict[tuple[str, str], RawFact] = {}
+    for fact in chosen:
+        key = (fact.taxonomy, fact.raw_concept)
+        held = by_tag.get(key)
+        if held is None or abs(fact.value) > abs(held.value):
+            by_tag[key] = fact
+
+    rows: list[dict[str, Any]] = []
+    for concept in unmapped:
+        largest = by_tag.get((concept.taxonomy, concept.tag))
+        share = (
+            abs(largest.value) / scale
+            if largest is not None and scale is not None and scale > 0
+            else None
+        )
+        rows.append(
+            {
+                "tag": f"{concept.taxonomy}:{concept.tag}",
+                "label": concept.label,
+                "observations": concept.observations,
+                "units": list(concept.units),
+                "value": str(largest.value) if largest is not None else "",
+                "unit": largest.unit if largest is not None else "",
+                "period_end": largest.period_end.isoformat() if largest is not None else "",
+                # A fraction, rendered as a percentage by the page. Empty where nothing
+                # mapped to scale it against, which is a state worth showing rather than
+                # papering over with a zero.
+                "share": f"{share:.6f}" if share is not None else "",
+            }
+        )
+
+    # Biggest share first, then anything unscaled, then alphabetically — so the one row
+    # that decides the gate is the first row on the screen.
+    rows.sort(key=lambda row: (-Decimal(row["share"] or 0), row["tag"]))
+    return rows
+
+
+def _mapped_rows(chosen: Sequence[RawFact]) -> list[dict[str, Any]]:
+    """What the run *did* capture, one row per canonical concept and period.
+
+    Shown beside the unmapped tags because "does this gap matter?" is a comparison, and an
+    operator asked it over a list of element names alone was being asked to hold the
+    statements in their head. Alongside them the question is usually answerable at a glance:
+    a missing line of $40bn beside a revenue line of $331bn is one decision, and forty
+    segment breakdowns beside the same revenue are a different one.
+
+    Undimensioned figures only. A dimensioned fact is "revenue, Americas segment" rather
+    than "revenue", and the two must never sit in one column competing for a period's
+    number.
+    """
+    rows = [
+        {
+            "concept": fact.concept,
+            "value": str(fact.value),
+            "unit": fact.unit,
+            "period_end": fact.period_end.isoformat(),
+            "period_start": fact.period_start.isoformat() if fact.period_start else "",
+        }
+        for fact in chosen
+        if fact.concept in CANONICAL_CONCEPTS and fact.dimension_axis is None
+    ]
+    rows.sort(key=lambda row: (row["concept"], row["period_end"]))
+    return rows
+
+
+def _reference_figure(chosen: Sequence[RawFact]) -> Decimal | None:
+    """The mapped line an unmapped one is sized against, or ``None`` if none mapped."""
+    for concept in _SCALE_CONCEPTS:
+        values = [abs(fact.value) for fact in chosen if fact.concept == concept]
+        if values:
+            return max(values)
+    return None
+
+
 def unmapped_gate_payload(produced: Mapping[str, Any]) -> dict[str, Any]:
     """Exactly what the unmapped-tags gate approves, as one structure.
 
@@ -722,6 +821,10 @@ def unmapped_gate_payload(produced: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "exchange": str(produced.get("exchange", "")),
         "unmapped_tags": list(produced.get("unmapped_tags", [])),
+        # Empty for a run recorded before 2026-08-25. The gate falls back to the tag list,
+        # which is what it always showed, rather than rendering an absence as a hole.
+        "unmapped_concepts": list(produced.get("unmapped_concepts", [])),
+        "mapped_concepts": list(produced.get("mapped_concepts", [])),
         "facts_written": produced.get("facts_written", 0),
         "load_errors": list(produced.get("load_errors", [])),
     }
@@ -1968,6 +2071,10 @@ async def _extract(context: StepContext) -> StepResult:
     # falling outside it is expected — and a run that silently ignored the overflow would be
     # a run whose statements are missing lines nobody was told about.
     unmapped = tuple(sorted({f"{c.taxonomy}:{c.tag}" for c in parsed.unmapped}))
+    # The same tags with the numbers behind them (gap R17). A list of taxonomy element
+    # names asks "does this gap matter?" and gives the operator nothing to answer it with;
+    # what settles the question is how big the missing line is against a line that mapped.
+    unmapped_detail = _unmapped_rows(parsed.unmapped, chosen=selection.chosen)
 
     # The aggregate holds only consolidated figures, so the segment breakdown comes from
     # the annual report itself — inline XBRL, already fetched and hashed by the acquire
@@ -1989,6 +2096,8 @@ async def _extract(context: StepContext) -> StepResult:
         "rejected_for_look_ahead": len(selection.rejected_for_look_ahead),
         "exchange": request.exchange,
         "unmapped_tags": list(unmapped),
+        "unmapped_concepts": unmapped_detail,
+        "mapped_concepts": _mapped_rows(selection.chosen),
         "load_errors": [],
         **segments.as_dict(),
     }

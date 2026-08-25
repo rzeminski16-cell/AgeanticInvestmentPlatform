@@ -308,14 +308,24 @@ follow the kind — "keep the draft's position" and "accept the challenge" for a
 because asking somebody to choose between A and B on a thesis is asking an unanswerable
 question.
 
-**3.4 Gate — confirm the extracted financials.** The page lists raw taxonomy element names
-and nothing else, so the question it asks — does this gap matter? — cannot be answered from
-it. Show each unmapped tag with the value, period, unit and sign behind it, and the mapped
-statements beside them so the hole is visible rather than inferred.
+**3.4 Gate — confirm the extracted financials. Done, 2026-08-25.** The page listed raw
+taxonomy element names and nothing else, so the question it asks — does this gap matter? —
+could not be answered from it.
 
-**A list is not a surface.** Filter by statement, by period and by magnitude, search by name,
-and sort by size against revenue or total assets, so the one extension element carrying a
-headline figure is found in a second rather than by reading forty rows about segments.
+Each unmapped tag now carries its label, the largest figure it held in this filing, the
+period that figure belongs to, and what it is as a share of the biggest mapped line; the
+rows are sorted biggest share first, so the one that decides the gate is the first on the
+screen. Beside it, closed, is what the run *did* capture — because the question is a
+comparison, and an operator asked it over element names alone was being asked to hold the
+statements in their head. Both tables filter as you type, from markup that is hidden until
+a script reveals it, so scripting off gets a complete table rather than a dead search box.
+
+**The largest figure, not the latest**: a tag's most recent observation can be a quarter, a
+restatement or a zero, and what is being decided is whether anything material hangs on the
+element at all.
+
+A run recorded before this date has no figures in its step output and falls back to the tag
+list it always showed.
 
 **3.5 Why a section failed. Done, 2026-08-25, at gate 3.** `sections.writing._failed` already
 records

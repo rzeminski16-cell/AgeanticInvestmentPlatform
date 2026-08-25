@@ -8,6 +8,10 @@
 
 {% block title %}Confirm the financials &middot; Ageiantic Equity Research{% endblock %}
 
+{% block head_extra %}
+  <script src="{{ url_for('static', path='/js/tables.js') }}" defer></script>
+{% endblock %}
+
 {% block content %}
   <nav class="text-sm">
     <a href="/runs/{{ job.id }}" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
@@ -30,21 +34,156 @@
 
   <section class="mt-8">
     <h2 class="text-lg font-semibold tracking-tight">Tags with no canonical concept</h2>
-    <div class="mt-2 overflow-x-auto">
-      <table class="w-full text-left text-sm" id="unmapped-tags">
-        <thead class="text-xs uppercase tracking-wide text-slate-500">
-          <tr>
-            <th scope="col" class="py-2 pr-4">Taxonomy and element</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
-          {% for tag in payload.unmapped_tags %}
-            <tr><td class="py-2 pr-4 font-mono break-all">{{ tag }}</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+
+    {#
+      The numbers, not the names (gap R17).
+
+      This was a single column of taxonomy element strings, which asks "does this gap
+      matter?" and supplies nothing to answer it with. Each row now carries the largest
+      figure that tag ever held in this filing and what that is as a share of the biggest
+      mapped line — so one extension carrying a headline profit measure separates itself
+      from forty carrying segment breakdowns without anybody opening the filing.
+
+      Biggest share first, so the row that decides the gate is the first row on the screen.
+    #}
+    {% if payload.unmapped_concepts %}
+      <div hidden id="unmapped-filter-shell" class="mt-3">
+        <label for="unmapped-filter" class="text-xs font-medium text-slate-600 dark:text-slate-400">
+          Filter by element name or label
+        </label>
+        <input
+          id="unmapped-filter"
+          type="search"
+          autocomplete="off"
+          data-filters="#unmapped-tags"
+          data-count="#unmapped-filter-count"
+          class="mt-1 w-full max-w-sm rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+        />
+        <p class="mt-1 text-xs text-slate-500" id="unmapped-filter-count" aria-live="polite"></p>
+      </div>
+
+      <div class="mt-3 overflow-x-auto">
+        <table class="w-full text-left text-sm" id="unmapped-tags">
+          <thead class="text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th scope="col" class="py-2 pr-4">Taxonomy and element</th>
+              <th scope="col" class="py-2 pr-4 text-right">Largest figure</th>
+              <th scope="col" class="py-2 pr-4 text-right">Of the biggest mapped line</th>
+              <th scope="col" class="py-2 pr-4 text-right">Observations</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+            {% for row in payload.unmapped_concepts %}
+              <tr data-search="{{ row.tag }} {{ row.label }}">
+                <td class="py-2 pr-4">
+                  <span class="font-mono break-all">{{ row.tag }}</span>
+                  {% if row.label %}
+                    <span class="mt-0.5 block text-xs text-slate-600 dark:text-slate-400">
+                      {{ row.label }}
+                    </span>
+                  {% endif %}
+                </td>
+                <td class="py-2 pr-4 text-right font-mono text-xs tabular-nums">
+                  {% if row.value %}
+                    {{ row.value }} {{ row.unit }}
+                    <span class="mt-0.5 block text-slate-500">at {{ row.period_end }}</span>
+                  {% else %}
+                    {#
+                      A tag that produced no fact this run kept. Not nothing: it is why the
+                      element is on this list at all, and a blank would read as zero.
+                    #}
+                    <span class="text-slate-500">no figure in this selection</span>
+                  {% endif %}
+                </td>
+                <td class="py-2 pr-4 text-right font-mono text-xs tabular-nums">
+                  {% if row.share %}{{ row.share | percent }}{% else %}&mdash;{% endif %}
+                </td>
+                <td class="py-2 pr-4 text-right font-mono text-xs tabular-nums">
+                  {{ row.observations }}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {#
+        A run recorded before the figures were kept. The tag list is what it always showed.
+      #}
+      <div class="mt-2 overflow-x-auto">
+        <table class="w-full text-left text-sm" id="unmapped-tags">
+          <thead class="text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th scope="col" class="py-2 pr-4">Taxonomy and element</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+            {% for tag in payload.unmapped_tags %}
+              <tr data-search="{{ tag }}">
+                <td class="py-2 pr-4 font-mono break-all">{{ tag }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
   </section>
+
+  {% if payload.mapped_concepts %}
+    {#
+      What the run did capture, closed by default. The comparison is the point of it: a
+      missing line worth $40bn beside a revenue line of $331bn is one decision, and forty
+      segment breakdowns beside the same revenue are a different one.
+    #}
+    <details class="mt-8">
+      <summary class="cursor-pointer text-lg font-semibold tracking-tight">
+        What the run did capture
+        <span class="ml-1 text-sm font-normal text-slate-500">
+          ({{ payload.mapped_concepts | length }} mapped figures)
+        </span>
+      </summary>
+
+      <div hidden id="mapped-filter-shell" class="mt-3">
+        <label for="mapped-filter" class="text-xs font-medium text-slate-600 dark:text-slate-400">
+          Filter by concept or period
+        </label>
+        <input
+          id="mapped-filter"
+          type="search"
+          autocomplete="off"
+          data-filters="#mapped-concepts"
+          data-count="#mapped-filter-count"
+          class="mt-1 w-full max-w-sm rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+        />
+        <p class="mt-1 text-xs text-slate-500" id="mapped-filter-count" aria-live="polite"></p>
+      </div>
+
+      <div class="mt-3 overflow-x-auto">
+        <table class="w-full text-left text-sm" id="mapped-concepts">
+          <thead class="text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th scope="col" class="py-2 pr-4">Concept</th>
+              <th scope="col" class="py-2 pr-4">Period</th>
+              <th scope="col" class="py-2 pr-4 text-right">Value</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+            {% for row in payload.mapped_concepts %}
+              <tr data-search="{{ row.concept }} {{ row.period_end }}">
+                <td class="py-2 pr-4 font-mono text-xs">{{ row.concept }}</td>
+                <td class="py-2 pr-4 font-mono text-xs">
+                  {% if row.period_start %}{{ row.period_start }} &ndash; {% endif %}{{ row.period_end }}
+                </td>
+                <td class="py-2 pr-4 text-right font-mono text-xs tabular-nums">
+                  {{ row.value }} {{ row.unit }}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  {% endif %}
 
   <section class="mt-8">
     <h2 class="text-lg font-semibold tracking-tight">What did map</h2>

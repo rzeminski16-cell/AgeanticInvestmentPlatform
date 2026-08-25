@@ -336,6 +336,42 @@ class TestThePageShowsWhatItHashes:
         expected = (await api.get(f"/api/runs/{job_id}/financials")).json()["payload_hash"]
         assert expected in page.text
 
+    async def test_the_page_shows_the_figure_behind_each_tag(
+        self, api: Any, committed: dict, unmapped_runner: Runner
+    ) -> None:
+        """Gap R17: the gate asked a question it gave nobody the means to answer.
+
+        A column of taxonomy element names cannot distinguish one extension carrying a
+        company's headline profit measure from forty carrying segment breakdowns, and that
+        distinction is the entire decision this gate exists to put to a person.
+        """
+        job_id = await run_to_the_financials_gate(api, unmapped_runner, committed["request"].id)
+
+        page = await api.get(f"/runs/{job_id}/financials")
+
+        assert page.status_code == 200
+        assert UNMAPPED_TAG in page.text
+        assert "Largest figure" in page.text
+        assert "Of the biggest mapped line" in page.text
+        # And the comparison: what the run did capture, beside what it could not place.
+        assert 'id="mapped-concepts"' in page.text
+
+    async def test_the_tables_are_filterable_without_being_broken_by_it(
+        self, api: Any, committed: dict, unmapped_runner: Runner
+    ) -> None:
+        """A filing with forty extensions is a list nobody reads to the bottom.
+
+        The control is hidden markup revealed by script, so a browser with scripting off
+        gets a complete table and no dead search box.
+        """
+        job_id = await run_to_the_financials_gate(api, unmapped_runner, committed["request"].id)
+
+        page = await api.get(f"/runs/{job_id}/financials")
+
+        assert 'data-filters="#unmapped-tags"' in page.text
+        assert 'hidden id="unmapped-filter-shell"' in page.text
+        assert "/static/js/tables.js" in page.text
+
     async def test_a_run_that_does_not_need_it_gets_told_so(
         self, api: Any, committed: dict, mapped_runner: Runner
     ) -> None:
@@ -394,6 +430,8 @@ class TestThePayloadItself:
         """Anything in the payload but off the page would be hashed and never checked."""
         produced = {
             "unmapped_tags": ["us-gaap:Whatever"],
+            "unmapped_concepts": [{"tag": "us-gaap:Whatever", "value": "12", "share": "0.5"}],
+            "mapped_concepts": [{"concept": "revenue", "value": "24"}],
             "facts_written": 3,
             "exchange": "LSE",
             "load_errors": ["something arelle said"],
@@ -401,5 +439,24 @@ class TestThePayloadItself:
         }
         payload = unmapped_gate_payload(produced)
 
-        assert set(payload) == {"unmapped_tags", "facts_written", "exchange", "load_errors"}
+        assert set(payload) == {
+            "unmapped_tags",
+            "unmapped_concepts",
+            "mapped_concepts",
+            "facts_written",
+            "exchange",
+            "load_errors",
+        }
         assert "facts_rejected" not in payload
+
+    def test_a_run_recorded_before_the_figures_were_kept_still_renders(self) -> None:
+        """The detail arrived on 2026-08-25 and older step outputs do not carry it.
+
+        The page falls back to the tag list it always showed. An absent key rendering as a
+        hole would make an old run's gate look broken rather than older.
+        """
+        payload = unmapped_gate_payload({"unmapped_tags": ["us-gaap:Whatever"]})
+
+        assert payload["unmapped_concepts"] == []
+        assert payload["mapped_concepts"] == []
+        assert payload["unmapped_tags"] == ["us-gaap:Whatever"]
