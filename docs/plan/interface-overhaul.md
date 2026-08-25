@@ -209,13 +209,15 @@ Python only. No template changes.
 — a new gate or status without one is a red build. No redesigned template will need to
 interpret raw domain data.
 
-**Part done, 2026-08-25.** The first half of the exit criterion is met and the second is not.
+**Done, 2026-08-25**, except two shapes that are deliberately held for their consumers.
 
 | | |
 |---|---|
-| **Done** — `web/vocabulary.py` | Eight enums, fifty-one states, each with a label and a tone. Gate words for all eight gates, with an honest `certainty` so a journey cannot present five conditional gates as certain. Completeness is a red build, watched failing |
-| **Done** — `web/figures.py` | `pounds` and `CostContext`, so "£6.40 of £8.00" is one object every surface shows identically, and the console stops formatting currency in a template |
-| **Still owed** | `RenderedFigure`, `LineageNode`, `PageContext`; **the composed half of every verdict** (ADR 0087); adapting the handlers family by family |
+| `web/vocabulary.py` | Eight enums, fifty-one states, each with a label and a tone. Gate words for all eight gates, with an honest `certainty` so a journey cannot present five conditional gates as certain. Completeness is a red build, watched failing |
+| `web/figures.py` | `pounds` and `CostContext`, so "£6.40 of £8.00" is one object every surface shows identically, and the console stops formatting currency in a template. `RenderedFigure` pairs a figure with its lineage |
+| `web/verdict.py` | The composed half (ADR 0087): `Count`, `Part`, `sentence`, `tally`, and `Authored` — which carries a sentence and a tone and refuses to name an evidence type |
+| `web/overview/verdict.py` | The front door's verdict, composed permanently, wired into the handler |
+| **Held** | `LineageNode` and `PageContext` — see below |
 
 **Two duplications were closed rather than added to.** `GATE_ASKS` and the portfolio's
 `GRADE_LABELS` are now derived from the vocabulary. Both were written before it, and a second
@@ -224,6 +226,36 @@ copy of a label is a second answer to what a thing is called.
 **The tone work turned out to be the valuable half.** A label makes a state readable; the tone
 decides whether the reader thinks the platform is broken. `BUDGET_EXCEEDED` was rendering in
 the same red as a crash while the console's own prose argued the opposite two inches below it.
+
+#### What the verdict work refuses
+
+Four ways a leading sentence lies about the page beneath it, each a raise rather than a review:
+a zero rendered as a count; a breakdown that does not sum to its total; an empty verdict on a
+page designed around leading with one; and **a count taken over part of the estate presented as
+the all-clear**.
+
+The last is the one the path exists for, and it was live. `attention.items_for` already refuses
+to swallow a provider it could not ask, because an empty feed is a claim — *nothing is waiting
+for you* — and that is exactly the claim a broken query makes by accident. The verdict is where
+that claim gets made in words. An incomplete one now says what is missing and **cannot take the
+success tone**; the main menu records whether the feed was read at all rather than inferring it
+from the problem notice, because schema drift sets that notice and then the queries run on
+regardless.
+
+`RenderedFigure` closes the matching gap for figures. ADR 0077 stopped a badge rendering
+without a drill-down; a bare string in a template has nothing to require anything of, so a
+figure now carries either its provenance or the reason there is none — and an unavailable one
+carries no badge, because there is no chain under a number that does not exist.
+
+#### Why `LineageNode` and `PageContext` wait
+
+Both were listed here, and both turn out to be a later item's shape rather than this one's.
+`LineageNode` is the evidence-spine macro's node, and the macro is tranche 3 with its page in
+tranche 7; `PageContext` is the shell's, in tranche 4. Neither has a consumer today, and ADR
+0077's badge — the one shape of the four that *was* fully specified in advance — was already
+built in `web/shell/provenance.py`, which is the difference. Writing the other two now would be
+guessing at a foundational choice with nothing to check the guess against, and the repository's
+own rule is not to fold a later item's work into an earlier one.
 
 ### Tranche 2 — Assets and tokens
 

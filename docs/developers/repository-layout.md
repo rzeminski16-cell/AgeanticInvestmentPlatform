@@ -105,6 +105,9 @@ src/aer/            application package
     templating.py   render(): injects `shell`, mints a CSRF token, stamps the theme
     csrf.py         signed token in a form field, checked on every POST
     forms.py        flat HTML form -> typed payload; adapts, never decides
+    vocabulary.py   what a state is called on a screen, and what tone it reads in
+    figures.py      pounds, a cost against its ceiling, a figure carrying its lineage
+    verdict.py      the composed half of a leading sentence (ADR 0087); never evidence
     pages.py        the run console, the seven gates, the evidence surfaces, settings, costs
     routes.py       requests: list, new, edit, remove, assumptions; the shell's own POSTs
     skills_pages.py the skills library, editor, import diff and dry run
@@ -116,6 +119,7 @@ src/aer/            application package
     overview/       the main menu: launcher, work list, and the attention registry
       pages.py      the front door, and the one page that renders when nothing else can
       attention.py  Attention/Severity; Overview owns no query, it asks a registry
+      verdict.py    what is waiting, in one sentence; composed permanently, never authored
       research.py   the research tool's answer to "is anything waiting for me"
       platform.py   what the platform itself has waiting, which is no tool's business
     portfolio/pages.py  the book as at a date; every figure computed on the way to it
