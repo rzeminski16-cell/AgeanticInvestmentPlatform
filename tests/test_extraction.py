@@ -463,6 +463,31 @@ class TestTheSandbox:
         with pytest.raises(ParseFailedError, match="no 'ocr' extractor"):
             await extract_bytes(FILING, extractor="ocr", settings=settings)
 
+    async def test_it_does_not_need_the_event_loop_to_spawn_processes(
+        self, settings: Settings, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Isolation must not depend on which event loop the server happened to choose.
+
+        ``asyncio.create_subprocess_exec`` needs a loop that watches child processes, and
+        Windows' selector loop does not — it raises ``NotImplementedError``. Uvicorn selects
+        that loop whenever it uses subprocesses, which is to say whenever ``--reload`` is on.
+        The consequence was that "Reproduce this run" returned a 500 in the browser and the
+        same code passed cleanly from the shell, because ``asyncio.run`` gets the proactor
+        loop and uvicorn's reloader does not.
+
+        The loop is simulated rather than switched: a selector loop on Linux *can* spawn, so
+        a platform-specific test would pass here for the wrong reason and pin nothing.
+        """
+
+        async def refuse(*args: object, **kwargs: object) -> object:
+            raise NotImplementedError
+
+        monkeypatch.setattr(asyncio, "create_subprocess_exec", refuse)
+
+        document = await extract_bytes(FILING, extractor="html", settings=settings)
+
+        assert document.text.text
+
     async def test_a_child_that_does_not_answer_in_time_is_killed(self, settings: Settings) -> None:
         """The control that makes a pathological document survivable.
 

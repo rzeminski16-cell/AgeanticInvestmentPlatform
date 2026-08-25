@@ -60,7 +60,7 @@ from aer.services.approvals import payload_hash_for
 from aer.services.assumption_gate import outstanding_for
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.forms import ParsedForm, form_values_from, parse_request_form
-from aer.web.shell import GUIDANCE_COOKIE
+from aer.web.shell import GUIDANCE_COOKIE, THEME_COOKIE, THEMES
 from aer.web.shell.badges import cached_counts_for
 from aer.web.templating import render
 from aer.workflow.workflows.vertical_slice_v1 import FORECAST_YEARS
@@ -1039,6 +1039,45 @@ async def shell_badges(
     badges = await cached_counts_for(redis, session, user_id=user.id)
     fragment: Response = render(request, "_shell/badges.html", {"badges": badges})
     return fragment
+
+
+@router.post("/_shell/theme", summary="Choose the colour scheme")
+async def choose_theme(request: Request, settings: SettingsDep) -> Response:
+    """Remember light, dark or system, and return to the page that asked.
+
+    The same shape as `toggle_guidance` below, and for the same reasons — a form POST that
+    redirects, a cookie rather than a column, a destination checked rather than trusted.
+
+    **Not a script.** The usual implementation writes local storage and sets a class in a
+    `<head>` script to beat the first paint. That buys a scripting dependency to avoid a
+    flash on an application whose navigation deliberately works without one; the renderer
+    already has the cookie, so `base.html` stamps `data-theme` and there is no flash to
+    avoid.
+    """
+    form = await request.form()
+    if not await _csrf_ok(request, settings):
+        return RedirectResponse("/", status_code=HTTP_303_SEE_OTHER)
+
+    wanted = str(form.get("theme") or "")
+    if wanted not in THEMES:
+        # An unrecognised value is a hand-typed request rather than the control, and the
+        # useful answer to one is the page it came from, unchanged.
+        wanted = "system"
+
+    raw = str(form.get("next") or "/")
+    destination = raw if raw.startswith("/") and not raw.startswith("//") else "/"
+
+    response = RedirectResponse(destination, status_code=HTTP_303_SEE_OTHER)
+    response.set_cookie(
+        THEME_COOKIE,
+        wanted,
+        httponly=True,
+        samesite="strict",
+        secure=False,
+        max_age=60 * 60 * 24 * 365,
+        path="/",
+    )
+    return response
 
 
 @router.post("/_shell/guidance", summary="Turn guidance mode on or off")

@@ -63,6 +63,63 @@
             </ul>
           </div>
         {% endfor %}
+
+        {#
+          The preference controls, in the menu rather than on a settings page.
+
+          Both are server state under ADR 0077 and both had a route and no control until
+          now — a colour scheme that could only be changed by changing the operating system,
+          and a guidance flag nothing could flip. A control nobody can find is the same as
+          no control.
+
+          Plain forms with submit buttons: three radios and an "apply" would be one more
+          click for the same result, and a `<select>` that needed scripting to submit on
+          change would put the whole thing behind JavaScript. `next` returns to the page the
+          operator was on; the route only honours a same-site absolute path.
+        #}
+        <div class="mt-4 border-t border-line pt-3" id="aer-appearance">
+          <h2 class="text-xs font-semibold tracking-wide text-ink-faint uppercase">
+            Appearance
+          </h2>
+
+          <form method="post" action="/_shell/theme" class="mt-2">
+            <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+            <input type="hidden" name="next" value="{{ shell.path }}" />
+            <div
+              class="flex overflow-hidden rounded-md border border-line"
+              role="group"
+              aria-label="Colour scheme"
+            >
+              {% for choice, label in [("light", "Light"), ("dark", "Dark"), ("system", "Auto")] %}
+                <button
+                  type="submit"
+                  name="theme"
+                  value="{{ choice }}"
+                  id="aer-theme-{{ choice }}"
+                  {% if shell.theme == choice %}aria-current="true"{% endif %}
+                  class="flex-1 px-2 py-1 text-xs font-medium
+                         {{ 'bg-brand-wash text-brand' if shell.theme == choice
+                            else 'text-ink-muted hover:bg-surface-sunken hover:text-ink' }}"
+                >
+                  {{ label }}
+                </button>
+              {% endfor %}
+            </div>
+          </form>
+
+          <form method="post" action="/_shell/guidance" class="mt-2">
+            <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+            <input type="hidden" name="next" value="{{ shell.path }}" />
+            <input type="hidden" name="guidance" value="{{ 'off' if shell.guidance else 'on' }}" />
+            <button
+              type="submit"
+              id="aer-guidance-toggle"
+              class="w-full rounded-md border border-line px-2 py-1 text-xs font-medium text-ink-muted hover:bg-surface-sunken hover:text-ink"
+            >
+              {{ "Hide" if shell.guidance else "Show" }} explanations
+            </button>
+          </form>
+        </div>
       </nav>
     </details>
 

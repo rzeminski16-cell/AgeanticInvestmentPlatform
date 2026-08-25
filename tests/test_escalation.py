@@ -428,7 +428,17 @@ class TestEachTriggerFiresAloneAndNamesItself:
         assert fired.kind is TriggerKind.SUSPICIOUS_SOURCE
         assert "ir-page.html" in fired.evidence[0]
 
-    def test_a_material_thesis_challenge(self) -> None:
+    def test_a_thesis_challenge_is_not_a_fault_however_material(self) -> None:
+        """The red team contradicting the draft is the red team working (2026-08-25).
+
+        It fired `THESIS_DISAGREEMENT` until an operator ran a live report and asked why
+        the adversary's findings were listed as problems with the run. They were right:
+        seven challenges in a red banner beside "five sections are missing" teaches a
+        reader that red means "scroll past", which is the only way a warning can fail.
+
+        The challenges are not lost. They are `disagreements` rows, they reach gate 3 on
+        their own section and the report on its appendix, and either can be settled.
+        """
         scene = _clean_scene(
             conflicts=(
                 ConflictScene(
@@ -438,25 +448,37 @@ class TestEachTriggerFiresAloneAndNamesItself:
                 ),
             )
         )
-        [fired] = fire_triggers(**scene)
-        assert fired.kind is TriggerKind.THESIS_DISAGREEMENT
-        assert "Red team (growth)" in fired.evidence[0]
 
-    def test_a_low_severity_challenge_is_recorded_but_raises_no_banner(self) -> None:
+        assert fire_triggers(**scene) == ()
+
+    def test_a_source_conflict_beside_it_still_fires(self) -> None:
+        """The kind is what decides, not the presence of a conflict.
+
+        Two filings reporting different revenue is a fault somebody has to settle, and
+        dropping the thesis trigger must not have taken that with it.
+        """
         scene = _clean_scene(
             conflicts=(
                 ConflictScene(
-                    topic="Red team (macro): rates could rise",
+                    topic="Red team (growth): the CAGR rests on one filing",
                     kind=DisagreementKind.THESIS_CONFLICT,
-                    material=False,
+                    material=True,
+                ),
+                ConflictScene(
+                    topic="Revenue FY2022",
+                    kind=DisagreementKind.SOURCE_CONFLICT,
+                    material=True,
                 ),
             )
         )
-        assert fire_triggers(**scene) == ()
+
+        [fired] = fire_triggers(**scene)
+        assert fired.kind is TriggerKind.CREDIBLE_SOURCE_CONFLICT
+        assert fired.evidence == ("Revenue FY2022",)
 
 
 class TestTheBannerShape:
-    def test_all_ten_triggers_fire_together_in_the_tables_order(self) -> None:
+    def test_all_nine_triggers_fire_together_in_the_tables_order(self) -> None:
         """§2.4's own row order, pinned across the whole vocabulary — the operator scans
         the banner top to bottom in the order the table taught them, every time."""
         failing = tuple(
@@ -629,7 +651,7 @@ class TestTheServiceReadsTheRecordedRows:
         )
         assert await _fired_kinds(scene) == [TriggerKind.SUSPICIOUS_SOURCE.value]
 
-    async def test_a_material_thesis_row_escalates_until_a_person_settles_it(
+    async def test_a_material_thesis_row_raises_no_banner_and_stays_settleable(
         self, scene: dict[str, Any]
     ) -> None:
         session: AsyncSession = scene["session"]
@@ -646,7 +668,8 @@ class TestTheServiceReadsTheRecordedRows:
             ),
         )
         assert row is not None
-        assert await _fired_kinds(scene) == [TriggerKind.THESIS_DISAGREEMENT.value]
+        # No banner, before or after. What settling changes is the record, not the alarm.
+        assert await _fired_kinds(scene) == []
 
         await settle_by_hand(
             session,

@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
 import sys
 from typing import Any, Final
 
@@ -70,9 +71,6 @@ EXTRACTOR_MEDIA_TYPES: Final[dict[str, frozenset[DetectedType]]] = {
     # extractor's own parse then confirms the claim inside the sandbox.
     "json": frozenset({DetectedType.JSON}),
 }
-
-# How long to wait for a killed child to actually die before giving up on it.
-_REAP_SECONDS: Final = 5.0
 
 # Errors the child reports that mean something specific, mapped back to their own class. A
 # child cannot raise across the process boundary, so this is how a diagnosis survives it.
@@ -190,24 +188,40 @@ async def _run_child(
     timeout_seconds: float,
     memory_limit_bytes: int,
 ) -> dict[str, Any]:
-    """Start the child, feed it, and get its answer or kill it."""
-    process = await asyncio.create_subprocess_exec(
-        sys.executable,
-        "-m",
-        "aer.extract._child",
-        extractor,
-        str(memory_limit_bytes),
-        stdin=asyncio.subprocess.PIPE,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
+    """Start the child, feed it, and get its answer or kill it.
 
+    **Spawned on a worker thread rather than through the event loop, and that is the whole
+    point of this function's shape.** ``asyncio.create_subprocess_exec`` needs a loop that
+    implements process watching, and on Windows the selector loop does not — it raises
+    ``NotImplementedError``. Uvicorn chooses that loop whenever it uses subprocesses, which
+    is to say whenever ``--reload`` is on, so the isolation this whole module exists to
+    provide simply did not work in development: "Reproduce this run" was a 500 in the
+    browser and a clean pass from the same code in the shell, because ``asyncio.run`` gets
+    the proactor loop and uvicorn's reloader does not.
+
+    ``subprocess.run`` has no such dependency. It also kills and reaps the child itself on a
+    timeout, which is why the explicit reaping this function used to do is gone rather than
+    merely moved. The cost is one pooled thread held for the length of the parse, bounded by
+    ``timeout_seconds`` — including through cancellation, which the thread cannot observe.
+    """
+    # A fixed argv with no shell: the untrusted bytes travel on stdin, never in a command
+    # line, and `extractor` is one of this module's own keys rather than anything fetched.
     try:
-        stdout, stderr = await asyncio.wait_for(
-            process.communicate(input=data), timeout=timeout_seconds
+        finished = await asyncio.to_thread(
+            subprocess.run,
+            [
+                sys.executable,
+                "-m",
+                "aer.extract._child",
+                extractor,
+                str(memory_limit_bytes),
+            ],
+            input=data,
+            capture_output=True,
+            timeout=timeout_seconds,
+            check=False,
         )
-    except TimeoutError as exc:
-        await _kill(process)
+    except subprocess.TimeoutExpired as exc:
         message = (
             f"The {extractor!r} parser did not finish within {timeout_seconds:g}s and was "
             "killed. A small, pathological document can take unbounded time, which is why "
@@ -217,18 +231,20 @@ async def _run_child(
             message, context={"extractor": extractor, "timeout_seconds": timeout_seconds}
         ) from exc
 
+    stdout, stderr, returncode = finished.stdout, finished.stderr, finished.returncode
+
     if not stdout:
         # No JSON at all: the child died before it could answer. A segfault in the parser
         # library looks exactly like this, and it is the case the isolation exists for.
         message = (
-            f"The {extractor!r} parser process exited with code {process.returncode} without "
+            f"The {extractor!r} parser process exited with code {returncode} without "
             "returning anything. The parser most likely crashed."
         )
         raise ParseFailedError(
             message,
             context={
                 "extractor": extractor,
-                "returncode": process.returncode,
+                "returncode": returncode,
                 "stderr": _tail(stderr),
             },
         )
@@ -242,17 +258,6 @@ async def _run_child(
         ) from exc
 
     return parsed
-
-
-async def _kill(process: asyncio.subprocess.Process) -> None:
-    """Kill the child and wait for it, so a timeout does not leak a process per document."""
-    if process.returncode is not None:
-        return
-    process.kill()
-    try:
-        await asyncio.wait_for(process.wait(), timeout=_REAP_SECONDS)
-    except TimeoutError:  # pragma: no cover -- a child that survives SIGKILL
-        _log.warning("extract.child_would_not_die", pid=process.pid)
 
 
 def _child_failure(

@@ -36,7 +36,6 @@ from aer.agents.registry import resolve_role
 from aer.config import Settings
 from aer.core.disagreement import DisagreementKind, ResolutionOutcome, ResolutionRule
 from aer.core.enums import ClaimKind, FactBasis, GateKind, JobStatus, Provider, SourceTier
-from aer.core.escalation import TriggerKind
 from aer.db.models import (
     Artefact,
     Company,
@@ -54,7 +53,11 @@ from aer.db.models.report_section import ReportSection
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
 from aer.services.citations import record_claim
-from aer.services.disagreements import escalations_for_job, settle_by_hand
+from aer.services.disagreements import (
+    disagreements_for_job,
+    escalations_for_job,
+    settle_by_hand,
+)
 from aer.services.escalation import triggers_for_job
 from aer.services.red_team import MATERIAL_SEVERITY, run_red_team
 from aer.storage.local import LocalArtefactStore
@@ -524,17 +527,24 @@ class TestThePlantedContradictionIsChallenged:
         assert len(calls) == 1
         assert calls[0].get("batch") is None
 
-    async def test_the_escalation_engine_raises_the_thesis_banner(
+    async def test_a_planted_contradiction_is_recorded_without_raising_a_fault(
         self, outcome: dict[str, Any]
     ) -> None:
-        """The Phase 4 acceptance closed end to end: the planted contradiction lands as
-        a named §2.4 trigger where gate 2 renders the banner (task 41)."""
+        """The Phase 4 acceptance, minus the banner it used to raise (2026-08-25).
+
+        The planted contradiction still lands as a `disagreements` row, which is what gate
+        3's red-team section and the report's appendix are built from. What it no longer
+        does is fire a §2.4 trigger: the red team contradicting the draft is the red team
+        working, and a fault banner counting it made two real faults read as three.
+        """
+        recorded = await disagreements_for_job(outcome["session"], outcome["job"].id)
+        challenges = [row for row in recorded if row.kind is DisagreementKind.THESIS_CONFLICT]
+        assert any(row.topic.startswith("Red team (growth)") for row in challenges)
+
         fired = await triggers_for_job(
             outcome["session"], job=outcome["job"], request=outcome["request"]
         )
-        thesis = next((t for t in fired if t.kind is TriggerKind.THESIS_DISAGREEMENT), None)
-        assert thesis is not None
-        assert any(line.startswith("Red team (growth)") for line in thesis.evidence)
+        assert [t.kind for t in fired] == []
 
 
 class TestRejectionAndSkipping:

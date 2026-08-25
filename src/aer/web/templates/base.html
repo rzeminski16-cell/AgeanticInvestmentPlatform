@@ -10,7 +10,14 @@
     on a page that can reach your database is a supply-chain risk taken for convenience.
 #}
 <!doctype html>
-<html lang="en-GB" class="h-full">
+{# `data-theme` is rendered rather than scripted: the cookie is already in hand when
+   the page is built, so the palette is correct in the first byte the browser sees.
+   Absent for `system`, which is what lets `prefers-color-scheme` decide. #}
+<html
+  lang="en-GB"
+  class="h-full"
+  {% if shell.theme_attr %}data-theme="{{ shell.theme_attr }}"{% endif %}
+>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

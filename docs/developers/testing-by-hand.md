@@ -454,10 +454,20 @@ That button was once removed by a redesign and a browser test caught it; it is p
 
 - **The sidebar** is a `<details>`/`<summary>` dropdown. **Turn JavaScript off entirely and
   it still opens and closes** — that is the whole point of the markup choice.
-- **Dark mode.** Switch your OS to dark. **Expect** the whole application to flip. **Wrong:**
-  any panel that stays light, or text that goes low-contrast. The tokens were added
-  *beside* Tailwind's stock ramps rather than overriding them, so a template using a stock
-  colour is a visible bug rather than a silent one.
+- **The theme control**, at the bottom of the menu: **Light**, **Dark**, **Auto**. Choose
+  dark and **expect** the whole application to flip and to *stay* flipped across a reload
+  and a restart — it is a cookie the server reads, not a script the browser runs, so there
+  is no flash of the wrong palette on any page.
+  - Choose **Light** with your operating system set to dark. **Expect** light to win. The
+    media query is guarded so an explicit choice beats the machine; **wrong** is a page
+    that goes dark at night regardless of what you picked.
+  - Choose **Auto** and switch the OS. **Expect** the application to follow.
+  - **Wrong:** any panel that stays light in dark mode. Roughly half the templates still
+    use Tailwind's stock ramps; `dark:` is redefined to answer the theme choice as well as
+    the OS, so those pages do flip — what they may still be is *slate grey beside navy*,
+    which is the outstanding migration in `docs/plan/ROADMAP.md` §3.1 and not a defect.
+- **Show explanations**, in the same block. It toggles the guidance callouts. Until
+  2026-08-25 this flag had a route and no control anywhere in the application.
 - **Badge counts** load after the page, from `/_shell/badges`. **Expect** them to appear a
   beat later and never to block the render. **Wrong:** the sidebar failing to render at all
   when Redis is down — kill Redis (`docker stop aer-redis`) and reload; the sidebar must
@@ -601,13 +611,32 @@ not resumable.
 
 ### 9.6 Gate 3 — the final review *(always fires)*
 
-`/runs/{id}/review`. Four things are on this page and all four are worth reading:
+`/runs/{id}/review`. Several things are on this page and all of them are worth reading:
 
 1. **The draft, exactly as it will be stored.**
-2. **The validation results** — citation accuracy, temporal compliance, numerical
+2. **The trigger banner, if it fires.** This is the fault list, and it should contain only
+   faults. **Wrong:** the red team appearing here. A red team that contradicts the draft is
+   the red team working, and it was counted as a fault until 2026-08-25 — which made a run
+   with two real problems report three.
+3. **What the red team found**, its own section, one block per challenge with the objection
+   at reading width, the basis under it and the evidence it cited. **Expect** every
+   challenge to reach the report's appendix whether or not you agree with it.
+4. **Unresolved disagreements**, amber. **Expect** source conflicts only — two documents
+   reporting different numbers with no rule to choose between them.
+5. **Settle this**, on any open disagreement or challenge. Choose a side, give a reason.
+   **Expect** the choice recorded under your name beside the rule that escalated it, and
+   the rule *not* overwritten. Try it with an empty reason: **expect a refusal**, because a
+   decision that overrides a rule without saying why is the least reviewable row in the
+   table.
+6. **The validation results** — citation accuracy, temporal compliance, numerical
    consistency, source coverage, completeness. Deterministic numbers against thresholds.
-3. **The red team's bear case**, written from its own context rather than the drafter's.
-4. Links to every claim and every source.
+7. **Source coverage.** A section that failed to draft must read *not generated* across the
+   row. **Wrong:** "0 sources, floor 1, primary: none" in red — that is arithmetic over an
+   absence, and it made five drafting failures read as five coverage failures.
+8. **Calculations**, closed. A real run records a thousand; open it and filter by name,
+   period or formula. **Wrong:** a table that starts open, or a filter box that does
+   nothing with JavaScript off — with scripting off the box should not be there at all.
+9. Links to every claim and every source.
 
 **Expect:** the validator's model-written advice is clearly *advisory* and cannot overrule a
 deterministic verdict.
@@ -671,6 +700,20 @@ just replay-run <job-id>
 
 **Expect:** calculations, citations, artefacts and model exchanges all re-derived from the
 stored record and agreeing with what is stored.
+
+**A divergence names itself.** Each line says what went wrong — `did not re-run: …`,
+`replayed in pure, stored USD`, or both figures — rather than "does not replay" and nothing
+else.
+
+**Wrong:** a wall of ratios reported as divergent while the run's own evaluation gate passed
+`numerical_consistency` on the same rows. Both cannot be right. `output_value` is
+`NUMERIC(38, 12)`, so a stored ratio is a rounded one, and the comparison here uses the same
+tolerance the gate does. Before 2026-08-25 it used exact equality and reported 113 of one
+run's 1,034 calculations as broken; every one that survived was a sum.
+
+Then press **Reproduce this run** on the console and expect the same answer on the page. It
+re-extracts every cited document, so it is also the one screen that exercises the parser
+sandbox from inside the web process — under `just dev` on Windows that used to be a 500.
 
 ```powershell
 just verify-audit

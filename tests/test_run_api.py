@@ -57,6 +57,7 @@ from aer.db.models import (
     SectionDefinition,
     User,
 )
+from aer.db.models.report_section import SectionStatus
 from aer.services import runs as run_service
 from aer.web.csrf import CSRF_FIELD_NAME
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
@@ -635,6 +636,49 @@ class TestReproducingARun:
         assert missing.status_code == 404
 
 
+def _planted_challenge(job_id: uuid.UUID) -> Disagreement:
+    """One red-team challenge, in the shape `services.red_team` records them.
+
+    Written by hand rather than by running the adversary: what is under test is how the
+    page treats such a row, and a fake provider's challenge would vary with the fixture.
+    """
+    return Disagreement(
+        job_id=job_id,
+        topic="valuation: the terminal assumptions overstate the base case",
+        kind=DisagreementKind.THESIS_CONFLICT,
+        position_a={
+            "reference": f"draft:{job_id}",
+            "label": "Base thesis (the draft's recorded claims)",
+            "value": "0",
+            "unit": "thesis",
+            "tier": "T1_REGULATORY",
+        },
+        position_b={
+            "reference": "red_team:valuation:abc123",
+            "label": "Red team challenge (valuation, severity 4/5)",
+            "value": "0",
+            "unit": "thesis",
+            "tier": "T2_COMPANY",
+        },
+        resolution=ResolutionOutcome.ESCALATED,
+        rule=ResolutionRule.THESIS_CONFLICT,
+        resolved_by=ResolvedBy.RULE,
+        resolution_rationale=(
+            "A thesis-level disagreement is never resolved automatically; both are published."
+        ),
+        escalated_to_gate=GateKind.FINAL,
+        material=True,
+        fingerprint="f" * 64,
+        detail={
+            "challenge": "The terminal growth outruns the sector.",
+            "basis": "The recorded fade against the peer medians.",
+            "severity": 4,
+            "dimension": "valuation",
+            "evidence": {"facts": ["a", "b", "c"], "calculations": [], "sources": ["s"]},
+        },
+    )
+
+
 class TestCancellingARun:
     """The surface of the cancel feature. The behaviour is in ``test_cancellation.py``."""
 
@@ -1210,68 +1254,156 @@ class TestTheWebPages:
         # This run recorded no disagreements, so that section honestly says nothing.
         assert 'id="disagreements"' not in page.text
 
-    async def test_a_thesis_disagreement_shows_tiers_not_placeholder_counts(
+    async def test_a_failed_section_says_what_it_was_dealt_and_why_it_refused(
         self, api: Any, committed: dict, driver: Driver, db_engine: Any
     ) -> None:
-        """Gap R12: every thesis row read "0 thesis (T1_REGULATORY)" — the ladder's
-        placeholder fields, which it never compares, rendered as though they meant
-        something. A thesis row now shows each side's tier, and the challenge's cited
-        evidence is summarised where the operator decides."""
+        """Gap A63's other half: the diagnosis was recorded and never displayed.
+
+        `sections.writing._failed` puts the refusal on the row and the evidence tally in
+        the step's output, and the page showed a chip carrying the section key. Five
+        sections dying on a starved pack therefore looked like five blanks, and the only
+        way to find out why was to read a worker log.
+        """
+        job_id = await _to_second_gate(api, committed, driver)
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as writer:
+            section = await writer.scalar(
+                select(ReportSection).where(ReportSection.job_id == job_id).limit(1)
+            )
+            assert section is not None
+            section.status = SectionStatus.FAILED
+            section.low_confidence_reason = "a numeric claim needs at least one proposed citation"
+            step = await writer.scalar(
+                select(JobStep)
+                .where(JobStep.job_id == job_id, JobStep.step_key == "draft")
+                .order_by(JobStep.attempt.desc())
+                .limit(1)
+            )
+            assert step is not None
+            step.output_ref = {
+                **(step.output_ref or {}),
+                "builtin_sections": [
+                    {
+                        "section_key": section.section_key,
+                        "status": "failed",
+                        "attempts": 2,
+                        "evidence_dealt": {"facts": 0, "calculations": 0, "excerpts": 3},
+                        "problems": ["a numeric claim needs at least one proposed citation"],
+                        "refusal_causes": {"citation": 2},
+                    }
+                ],
+            }
+            await writer.commit()
+
+        page = await api.get(f"/runs/{job_id}/review")
+
+        assert page.status_code == 200
+        assert f'data-section="{section.section_key}"' in page.text
+        # The tally, by kind. A pack of three excerpts and no facts is untruncated and
+        # still starved, and a single total would hide exactly that.
+        assert "0f ·" in page.text
+        assert "3e" in page.text
+        assert "a numeric claim needs at least one proposed citation" in page.text
+        assert "citation&times;2" in page.text
+
+    async def test_a_red_team_challenge_reads_as_a_challenge_not_a_fault(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """Gap R12, then gap R15.
+
+        R12: every thesis row read "0 thesis (T1_REGULATORY)" — the ladder's placeholder
+        fields, which it never compares, rendered as though they meant something.
+
+        R15: those rows were also *counted as unresolved disagreements* and fired a fault
+        trigger, so a run whose adversary did its job reported seven problems. The
+        challenges now have their own section, with the objection at reading width and its
+        evidence beneath it, and the amber banner counts source conflicts alone.
+        """
         job_id = await _to_second_gate(api, committed, driver)
         # A real commit, not the rolled-back test session: the page reads through the
         # application's own engine, which cannot see a savepoint inside this test's
         # transaction.
         factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
         async with factory() as writer:
-            writer.add(
-                Disagreement(
-                    job_id=job_id,
-                    topic="valuation: the terminal assumptions overstate the base case",
-                    kind=DisagreementKind.THESIS_CONFLICT,
-                    position_a={
-                        "reference": f"draft:{job_id}",
-                        "label": "Base thesis (the draft's recorded claims)",
-                        "value": "0",
-                        "unit": "thesis",
-                        "tier": "T1_REGULATORY",
-                    },
-                    position_b={
-                        "reference": "red_team:valuation:abc123",
-                        "label": "Red team challenge (valuation, severity 4/5)",
-                        "value": "0",
-                        "unit": "thesis",
-                        "tier": "T2_COMPANY",
-                    },
-                    resolution=ResolutionOutcome.ESCALATED,
-                    rule=ResolutionRule.THESIS_CONFLICT,
-                    resolved_by=ResolvedBy.RULE,
-                    resolution_rationale="A thesis-level disagreement is never resolved "
-                    "automatically; both are published.",
-                    escalated_to_gate=GateKind.FINAL,
-                    material=True,
-                    fingerprint="f" * 64,
-                    detail={
-                        "challenge": "The terminal growth outruns the sector.",
-                        "basis": "The recorded fade against the peer medians.",
-                        "severity": 4,
-                        "dimension": "valuation",
-                        "evidence": {
-                            "facts": ["a", "b", "c"],
-                            "calculations": [],
-                            "sources": ["s"],
-                        },
-                    },
-                )
-            )
+            writer.add(_planted_challenge(job_id))
             await writer.commit()
 
         page = await api.get(f"/runs/{job_id}/review")
 
         assert page.status_code == 200
+        assert 'id="red-team"' in page.text
+        assert "The terminal growth outruns the sector." in page.text
+        assert "The recorded fade against the peer medians." in page.text
+        assert "3 fact(s)" in page.text
+        assert "severity 4" in page.text
+        # R12's placeholders stay gone: they were never compared and never meant anything.
         assert "0 thesis" not in page.text
-        assert "tier T1_REGULATORY" in page.text
-        assert "3 fact(s), 0 calculation(s), 1 source(s)" in page.text
-        assert "best tier T2_COMPANY" in page.text
+        # And the fault banner does not claim it. This is the run's only disagreement, so
+        # an amber "1 unresolved disagreement" here would be the whole regression.
+        assert 'id="escalations"' not in page.text
+
+    async def test_a_challenge_can_be_settled_on_the_record(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """`settle_by_hand` existed from the first day of the ladder and nothing reached it.
+
+        The page therefore showed two positions and no way to prefer either, which reads as
+        a question the operator is failing to answer rather than a record they may add to.
+        """
+        job_id = await _to_second_gate(api, committed, driver)
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as writer:
+            writer.add(_planted_challenge(job_id))
+            await writer.commit()
+
+        page = await api.get(f"/runs/{job_id}/review")
+        token = _hidden_value(page.text, CSRF_FIELD_NAME)
+        challenge_id = re.search(r'data-challenge="([^"]+)"', page.text)
+        assert challenge_id, "the challenge did not render"
+
+        settled = await api.post(
+            f"/runs/{job_id}/disagreements/{challenge_id.group(1)}/settle",
+            data={
+                CSRF_FIELD_NAME: token,
+                "outcome": "chose_a",
+                "rationale": "The fade is inside the peer range once the 2024 outlier is dropped.",
+            },
+            follow_redirects=False,
+        )
+
+        assert settled.status_code == 303
+        after = await api.get(f"/runs/{job_id}/review")
+        assert "the 2024 outlier" in after.text
+        # Settled, so the form is gone from that row and the reason stands in its place.
+        assert f'id="settle-{challenge_id.group(1)}"' not in after.text
+
+    async def test_settling_without_a_reason_is_refused(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """A decision that overrides a rule without saying why is the least reviewable row
+        in the table, and the service says so. This is the surface honouring it."""
+        job_id = await _to_second_gate(api, committed, driver)
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as writer:
+            writer.add(_planted_challenge(job_id))
+            await writer.commit()
+
+        page = await api.get(f"/runs/{job_id}/review")
+        challenge_id = re.search(r'data-challenge="([^"]+)"', page.text)
+        assert challenge_id
+
+        refused = await api.post(
+            f"/runs/{job_id}/disagreements/{challenge_id.group(1)}/settle",
+            data={
+                CSRF_FIELD_NAME: _hidden_value(page.text, CSRF_FIELD_NAME),
+                "outcome": "chose_a",
+                "rationale": "   ",
+            },
+        )
+
+        assert refused.status_code == 400
+        assert "needs a reason" in refused.text
 
     async def test_the_report_page_links_to_the_archived_download(
         self, api: Any, committed: dict, driver: Driver, db_session: Any

@@ -195,14 +195,228 @@ the *same* job after a terminal failure, and a decision about what that means fo
 record — a job row that says it failed, then later says it succeeded, is not obviously
 honest. That decision is the work here, not the plumbing.
 
+**2.12 The replay report called a rounding error a divergence. Fixed 2026-08-25.**
+`just replay-run` on the 2026-08-24 MSFT run reports 113 of 1,034 calculations as "does not
+replay", while the same run's evaluation gate passed `numerical_consistency` on the same
+rows. Both cannot be right, and the gate is the one that is.
+
+`calculations.output_value` is `NUMERIC(38, 12)`, so a non-terminating quotient is stored
+rounded to twelve places. `services.run_replay` then compares `observation.replayed !=
+observation.expected` **exactly**, and a recomputed ratio carries the full context precision
+— `gross_margin` on those figures stores `0.679546406541` and replays
+`0.6795464065405211563438896573338275`, a relative difference of 7 × 10⁻¹³. Every ratio in
+the run fails that comparison and every sum survives it, which is why `invested_capital` and
+`working_capital` are the two rows per period that pass.
+
+The gate already had the right rule and the replay service now reads it:
+`ReplayObservation.delta` against the `numerical_consistency` threshold, with a unit mismatch
+and a re-run error as failures in their own right. The old comparison also accepted a unit
+mismatch silently, which is a second defect the same line carried. Each problem now names
+what went wrong rather than saying "does not replay" and stopping there.
+
+**2.13 "Reproduce this run" failed in the browser and worked from the shell. Fixed
+2026-08-25.** The button returns `internal_error`; `just replay-run` on the same job
+succeeds. The difference is the event loop. `just dev` passes `--reload`, uvicorn sets
+`use_subprocess`, and on Windows that selects `SelectorEventLoop` — where
+`asyncio.create_subprocess_exec` raises `NotImplementedError`. Replay is the only web route
+that re-extracts a document, so it is the only one that trips it; the CLI gets the Proactor
+loop from `asyncio.run` and never does.
+
+The fix belongs in `extract.sandbox`, not in the instructions: the child is spawned through
+a thread, so isolation no longer depends on which loop the server happened to choose.
+
+**The page is deliberately left able to fail.** The first draft of this entry also proposed
+catching whatever a leg raises and reporting it as a finding. That is wrong: an unreadable
+artefact and a parser that will not start are already findings — the artefact leg catches
+everything and the citation leg catches every `ExtractionError` — and the only thing a
+broader catch would have added is swallowing the `NotImplementedError` that made this
+diagnosable at all. A 500 with a request id in the log is what a code defect should look
+like.
+
+**2.14 The draft's ratios contradict the run's own calculations. Open.** On the same run the
+draft asserts a quick ratio of 0.93 and a current ratio of 1.23; the recorded `quick_ratio`
+calculations are 1.567 and 1.536 and the `current_ratio` values 1.785 and 1.769. Debt to
+equity is drafted at 0.09× against recorded 0.299 and 0.229, interest cover at ~50.9× against
+40.4 and 45.0, and the cash conversion cycle at −51.8 days against −7.41 and −2.56.
+
+**Only the red team caught it.** `numerical_consistency` cannot: it re-executes stored rows
+and never reads the prose. Citation verification cannot: the sentence cites a filing, and the
+filing is real. This is invariant 3 failing in the one direction nothing checks — a figure
+reaching a report that is neither a stored fact, a recorded calculation nor an attestation,
+because the writer computed it itself.
+
+The check that closes it is deterministic and cheap: a drafted figure that names a ratio must
+resolve to a recorded calculation of that name and period, within the same tolerance §2.12
+settles on. It belongs beside the presentation scan, which already walks every sentence.
+
 ---
 
-## 3. Next — the judgement layer
+## 3. The operator's surfaces
+
+The pipeline works and the screens over it do not yet earn it. Every item here came out of a
+manual pass on 2026-08-24/25 against a real run, and each is a specific thing an operator
+could not do or could not read.
+
+**3.1 The theme, and the half-migrated palette.** Dark mode exists and follows the operating
+system only — there is no control anywhere in the application. Add a light / dark / system
+choice in the shell, remembered per operator the way guidance mode already is (ADR 0077), and
+degrade to the media query when it is unset.
+
+**The control is done, 2026-08-25.** Light / dark / auto in the menu, remembered in a cookie
+and stamped on `<html>` by the renderer — no `<head>` script, because the cookie is already
+in hand when the page is built and there is therefore no flash to beat. `dark:` was also
+redefined as a custom variant answering `[data-theme]` as well as `prefers-color-scheme`,
+which is what makes the control work on the templates that predate the tokens: without it
+the shell would have flipped and forty panels written as `dark:bg-slate-900` would not, and
+a control that works on some pages is worse than none.
+
+**The palette migration is still outstanding**, and is now about consistency rather than
+about whether the toggle works. `web/styles/app.css` added the semantic tokens *beside*
+Tailwind's stock ramps rather than over them, deliberately, so that `text-sky-700` still
+renders sky — overriding the ramp would re-skin thirty-eight templates for free and leave a
+codebase where a colour name is a lie. So it is a real rewrite: 1,334 occurrences of 138
+distinct ramp classes, onto `canvas / surface / ink / line / brand / good / warn / bad /
+info / mute`, ending with a test that fails when a template reintroduces a raw ramp.
+
+Deliberately sequenced after §3.2–§3.8. Those are things an operator reported as broken;
+this is slate-grey panels beside navy ones, and it is the item most likely to go wrong
+quietly, so it should be done as its own pass with screenshots rather than folded into a
+functional change.
+
+**3.2 Gate 3 — separate a fault from the system working. Done, 2026-08-25.** Three triggers
+fired on the MSFT run and only two were faults. `MATERIAL_MISSING_SECTION` and `HIGH_MODEL_UNCERTAINTY` are
+real: five sections did not exist and three rated themselves at 0.30. `THESIS_DISAGREEMENT`
+is not — the red team's job is to contradict the draft, and a run where it found nothing
+would be the one worth worrying about.
+
+The red team is out of the trigger banner and has its own section — each challenge's
+severity, its objection at reading width, its basis and its cited evidence — and it still
+reaches the report's appendix. The banner now means one thing: something is wrong.
+`escalation._thesis_disagreement` and `TriggerKind.THESIS_DISAGREEMENT` are gone; the
+challenges were always rows and remain so. The calculations table is closed by default with
+a filter over name, period and formula, and the coverage table says *not generated* across
+the row for a section that never ran rather than reporting zero coverage for an absence.
+
+**3.3 Settling a disagreement, on the record. Done, 2026-08-25.**
+`services.disagreements.settle_by_hand`
+existed from the first day of the ladder and nothing reached it, so the page showed two
+positions and offered no way to prefer either — which reads as a question the operator is
+failing to answer. It is wired: choose a side, give a rationale, and the choice is written
+under the operator's name beside the rule that escalated it, which is not overwritten. A
+disagreement nobody settles keeps publishing both sides, which stays the default. The labels
+follow the kind — "keep the draft's position" and "accept the challenge" for a red-team row,
+because asking somebody to choose between A and B on a thesis is asking an unanswerable
+question.
+
+**3.4 Gate — confirm the extracted financials.** The page lists raw taxonomy element names
+and nothing else, so the question it asks — does this gap matter? — cannot be answered from
+it. Show each unmapped tag with the value, period, unit and sign behind it, and the mapped
+statements beside them so the hole is visible rather than inferred.
+
+**A list is not a surface.** Filter by statement, by period and by magnitude, search by name,
+and sort by size against revenue or total assets, so the one extension element carrying a
+headline figure is found in a second rather than by reading forty rows about segments.
+
+**3.5 Why a section failed. Done, 2026-08-25, at gate 3.** `sections.writing._failed` already
+records
+what a section was dealt and why it refused, on the row and in the step's own output (gap
+A63), and nothing displayed it — so five failed sections read as five chips indistinguishable
+from the twelve that worked, and diagnosing one meant reading a worker log. "Sections in this
+draft" is now a record: outcome, the evidence tally by kind, the attempt count, the refusal
+in the producer's own words, and the causes counted. **The run console still shows none of
+this** and should; gate 3 was the surface an operator was actually on.
+
+**3.6 The portfolio — getting a ticker in.** Today `Security` rows exist only where a priced
+research run created one, so on a fresh database the dropdown holds nothing but "cash, no
+security" and the tool cannot record a trade. Three doors, all of them the same underlying
+resolve-and-verify:
+
+1. **Typed.** A search box on the transaction form. What is typed is looked up before it is
+   accepted.
+2. **From a research request.** Commissioning a report on a ticker registers its listing, so
+   a name you have researched is dealable without a second step.
+3. **Used before.** Anything already in the book, offered first and filtered as you type.
+
+**A ticker is verified once, at first sight, against the price provider** — it resolves to a
+real listing and the provider has history for it, or it is refused with the reason. That is
+the check that keeps "a holding it cannot price is a row that refuses the whole net asset
+value" true, while removing the part where the operator cannot get started at all. Where no
+provider key is configured, say so plainly on the form rather than showing an empty list.
+
+**3.7 The portfolio — return and exposure.** Four tiles is not an overview. Add:
+
+- **Return over time.** Time-weighted and money-weighted, since inception and per period,
+  over a value series walked from the transactions and the price history. Deposits and
+  withdrawals are flows, not gains, and a top-up must not read as performance.
+- **Concentration and exposure.** Weight by holding, sector, currency and listing country,
+  with a top-five concentration figure. Sector comes from the company record behind the
+  security, which exists only for names a run has touched — so it reports what it knows and
+  names what it does not, rather than bucketing the rest as "other".
+
+Both are calculations under ADR 0083 like everything else on that screen: derived on the way
+to the page, nothing stored, every figure carrying the grade of the weakest thing beneath it.
+
+**3.8 The report document — layout.** The rendered PDF has two defects a reader meets
+immediately. The disagreement appendix puts a two-hundred-word challenge in a narrow table
+column, so one row spans three pages and neither position can be read. The "at a glance"
+tables render label and value as separate stacked blocks, so a reader reassembles the pairing
+by counting. Rework the appendix as prose blocks per disagreement, fix the key-figure tables,
+and check every section's print layout against a real run rather than a fixture.
+
+---
+
+## 4. Report creation — what the live runs exposed
+
+The chain completes; what it produces is not yet consistently good. These are ordered by how
+much of a report each one costs.
+
+**4.1 A63 — five sections fail to draft.** Business Overview, Segment Analysis, Industry &
+Competitive Positioning, Earnings Quality and Capital Allocation did not generate on the
+2026-08-24 run, and three more rated themselves 0.30. One cause was identified before the
+merge — a thin evidence pack, then a retry that swings past the target — and the
+instrumentation to read it back is in place. §3.5 makes it legible; this is the fix behind
+it. Until it lands, more than a quarter of every report is a coverage notice.
+
+**4.2 Comps excludes every peer, by design, and does not say so. Diagnosed 2026-08-25.**
+Eight peers were discovered on the MSFT run and all eight were excluded. Nothing is broken:
+`services.comps.UNACQUIRED_PEER_REASON` is the true reason, and it reads *"recorded by name
+for when a price series is subscribed — computing a peer's multiple needs its filings and
+its prices, and this workflow deliberately acquires neither (ADR 0059)"*. A peer with no
+`period_end` never had one, because the workflow never fetched it.
+
+Two things are wrong, and neither is the exclusion:
+
+- **The report flattens the reason.** §17 read "every one of the eight proposed peers was
+  excluded for want of usable data", which sounds like a data failure on a run that made a
+  deliberate choice. The per-peer reason already exists and is already grouped by
+  `grouped_exclusions`; the summary sentence should carry it rather than replace it.
+- **The run pays to discover peers it cannot use.** `propose_peers` is a model step and a
+  gate. On the present design its entire output is a list of names and rationales that
+  appear in the report and contribute no figure. That may be worth the money — a named peer
+  set with reasoning is not nothing — but it should be a decision somebody made, not a
+  surprise, and the gate should say what the set will and will not produce before it is
+  approved.
+
+Making comps actually compute means acquiring peer filings and prices, which is an ADR 0059
+amendment rather than a fix, and it multiplies the data subscription across the peer set.
+
+**4.3 The prose/calculation check.** §2.14, once it has a home. It belongs here as much as
+there: a report whose ratios disagree with its own ledger is the failure this platform exists
+to make impossible.
+
+**4.4 Section confidence.** Three sections reporting 0.30 is either an honest signal about a
+starved pack (§4.1) or a floor nobody calibrated. Read it back from the same live run before
+changing anything: a confidence score that is always low is as useless as one that is always
+high.
+
+---
+
+## 5. Next — the judgement layer
 
 This is the substantial next stage, and the order is forced by dependency: nothing after
 theses can exist before them.
 
-**3.1 Judgements and theses** (ADRs 0074, 0079). A thesis is a view a named person held at
+**5.1 Judgements and theses** (ADRs 0074, 0079). A thesis is a view a named person held at
 a time, with the evidence it rests on and the questions that would defeat it. The record
 that makes it *storable without becoming evidence* already exists — **a judgement is never
 a source reference** — and this is where it earns its keep.
@@ -210,50 +424,51 @@ a source reference** — and this is where it earns its keep.
 Also here: `RESERVED_OUTPUT_FIELDS` gains `conviction`, with its attack file. A conviction
 score that something else can multiply is exactly the laundering ADR 0074 refuses.
 
-**3.2 The thesis monitor** (ADRs 0078, 0079). What has happened since a thesis was written
+**5.2 The thesis monitor** (ADRs 0078, 0079). What has happened since a thesis was written
 that bears on it. **It raises questions and answers none**, and a monitor finding is not a
 gated decision — an alert feed that decides things is the thing that record exists to
 refuse.
 
-**3.3 Decisions and the trade journal.** The entry written *before* the outcome is known.
+**5.3 Decisions and the trade journal.** The entry written *before* the outcome is known.
 
-**3.4 Post-trade review and decision analytics** (ADR 0081). Scored against the process
+**5.4 Post-trade review and decision analytics** (ADR 0081). Scored against the process
 that was supposed to be followed, deliberately **not** against whether it made money.
 
-**3.5 Portfolio risk and scenarios** (ADR 0080). Commented on rather than scored. Its rate
+**5.5 Portfolio risk and scenarios** (ADR 0080). Commented on rather than scored. Its rate
 prerequisite is now met.
 
-**3.6 Watchlist and research queue.** Needs the standing budget and the two clocks — a
+**5.6 Watchlist and research queue.** Needs the standing budget and the two clocks — a
 watchlist is followed continuously and researched as at a date, and conflating those is the
 mistake ADR 0075 names.
 
-**3.7 The methodology library.** Three `SkillKind`s that are versioned, pinned and
+**5.7 The methodology library.** Three `SkillKind`s that are versioned, pinned and
 composed. Mostly does not exist yet.
 
 ---
 
-## 4. Standing work — the research tool's own depth
+## 6. Standing work — the research tool's own depth
 
 Not a stage. These improve with attention and never finish.
 
-**4.1 A55 — concept-map coverage.** 175 concepts and 110 segment tags the map cannot place.
+**6.1 A55 — concept-map coverage.** 175 concepts and 110 segment tags the map cannot place.
 This is judgement over accounting semantics rather than a code change, which is why it has
 survived several passes: it needs somebody who knows what a tag *means* deciding what it
 maps to. The gate that names the lines a filing would lose is the mechanism; the curation is
 the work.
 
-**4.2 A63 — the starved pack and the overshooting retry.** Five failed sections traced to
+**6.2 A63 — the starved pack and the overshooting retry.** Five failed sections traced to
 one failure: a thin evidence pack, then a retry that swings past the target. Instrumentation
-is in place and it needs a live run to read back.
+is in place and the live run to read it back has happened — the work is now §4.1, and this
+entry stays only as the standing habit of watching evidence supply per section.
 
-**4.3 Report readability.** The register is clean — every sentence in a report that was
+**6.3 Report readability.** The register is clean — every sentence in a report that was
 *about the report* is gone or moved to where disclosure belongs. Keep it that way: the
 failure mode returns whenever a new refusal path gets a placeholder written in the
 platform's voice rather than the report's.
 
 ---
 
-## 5. Before this leaves one machine
+## 7. Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before
 anything else. Grouped because they stand or fall together.
@@ -267,7 +482,7 @@ Treat these as a single gate rather than three tickets. Shipping any one alone b
 
 ---
 
-## 6. Commercial and licence checks still outstanding
+## 8. Commercial and licence checks still outstanding
 
 Carried forward from the original plan. Each is a verification against a primary source,
 not a design task, and each should be done **before** money or a dependency is committed.
@@ -286,7 +501,7 @@ not a design task, and each should be done **before** money or a dependency is c
 
 ---
 
-## 7. Out of scope
+## 9. Out of scope
 
 Not deferred. Not on this roadmap. Deciding otherwise needs an ADR, not a ticket.
 
@@ -306,10 +521,10 @@ Not deferred. Not on this roadmap. Deciding otherwise needs an ADR, not a ticket
 
 ---
 
-## 8. How to work on this
+## 10. How to work on this
 
 - **Do not skip ahead, and do not fold a later item's work into an earlier one.** The
-  dependency order in §3 is real.
+  dependency order in §5 is real.
 - **If a prerequisite is missing or an architectural choice is unclear, stop and ask.** A
   wrong foundational choice is expensive to undo here, and guessing has been the more
   expensive option every time it has been tried.

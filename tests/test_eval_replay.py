@@ -43,6 +43,7 @@ from aer.eval.replay import (
     replay_observations_for_job,
 )
 from aer.services.assumptions import propose
+from aer.services.run_replay import divergence_reason, diverges
 from aer.storage.local import LocalArtefactStore
 from tests.ledger_fixtures import DISCOUNTED_TERMINAL, TERMINAL_VALUE, record_valuation_ledger
 from tests.scene_fixtures import build_scene
@@ -257,6 +258,62 @@ class TestRelativeDelta:
         )
 
         assert not observation.delta.is_finite()
+
+
+class TestWhatCountsAsADivergence:
+    """The rule "Reproduce this run" applies, kept pure so it can be argued with directly.
+
+    It used to be ``replayed != expected``, and that is wrong for a reason no amount of care
+    in the arithmetic can fix: ``calculations.output_value`` is ``NUMERIC(38, 12)``, so what
+    the ledger holds is a *rounded* figure and a re-execution carries the full context
+    precision. On the 2026-08-24 MSFT run that turned 113 of 1,034 calculations into
+    divergences — every ratio, and no sum — while the evaluation gate passed
+    ``numerical_consistency`` on the same rows. One tolerance, read from the gate, is the fix.
+    """
+
+    def _observed(self, expected: str, replayed: str, unit: str = "pure") -> ReplayObservation:
+        return ReplayObservation(
+            name="gross_margin#1",
+            expected=Decimal(expected),
+            expected_unit="pure",
+            replayed=Decimal(replayed),
+            replayed_unit=unit,
+        )
+
+    def test_the_columns_rounding_is_not_a_divergence(self):
+        observation = self._observed("0.679546406541", "0.6795464065405211563438896573338275")
+
+        assert not diverges(observation)
+
+    def test_a_figure_wrong_beyond_the_rounding_is(self):
+        # A percentage point out on a margin is four hundred million dollars on Microsoft's
+        # revenue. A tolerance that swallowed it would make the check decorative.
+        assert diverges(self._observed("0.689546406541", "0.679546406541"))
+
+    def test_a_record_that_will_not_re_run_diverges_however_close_it_might_have_been(self):
+        observation = ReplayObservation(
+            name="equity_value#1",
+            expected=Decimal(1275),
+            expected_unit="USD",
+            replayed=None,
+            replayed_unit=None,
+            error="TypeError: missing a required argument",
+        )
+
+        assert diverges(observation)
+        assert "did not re-run" in divergence_reason(observation)
+
+    def test_the_same_digits_in_another_unit_are_not_a_reproduction(self):
+        observation = self._observed("0.679546406541", "0.679546406541", unit="USD")
+
+        assert diverges(observation)
+        assert divergence_reason(observation) == "replayed in USD, stored pure"
+
+    def test_the_reason_names_both_figures(self):
+        reason = divergence_reason(self._observed("0.5", "0.1"))
+
+        assert "stored 0.5" in reason
+        assert "replayed 0.1" in reason
 
 
 # ==========================================================================================

@@ -57,7 +57,16 @@ class TriggerKind(StrEnum):
     COST_ABOVE_THRESHOLD = "cost_above_threshold"
     VALIDATION_FAILURE = "validation_failure"
     SUSPICIOUS_SOURCE = "suspicious_source"
-    THESIS_DISAGREEMENT = "thesis_disagreement"
+
+    # `THESIS_DISAGREEMENT` was here and is deliberately gone (2026-08-25). It was never one
+    # of §2.4's rows; it was appended, and it fired on the red team materially contradicting
+    # the draft — which is the red team doing exactly what it is paid to do. A banner that
+    # said "three faults" over two faults and one adversary working correctly taught an
+    # operator to read the red one as noise, which is the only way a trigger can fail.
+    #
+    # The challenges are not lost: they are `disagreements` rows and they reach both the gate
+    # page and the report's appendix on their own section, which is where a reader can weigh
+    # them instead of being alarmed by their existence.
 
 
 # §2.4: "any section self-confidence < 0.5". A float because it compares against the
@@ -211,7 +220,7 @@ def fire_triggers(
     sources: tuple[SourceScene, ...],
     cost: CostScene,
 ) -> tuple[FiredTrigger, ...]:
-    """Evaluate all ten §2.4 conditions over one run's recorded rows.
+    """Evaluate all nine §2.4 conditions over one run's recorded rows.
 
     Returns the fired triggers in the table's own order, each carrying the evidence that
     made it fire. An empty tuple is the clean run — no banner.
@@ -226,13 +235,12 @@ def fire_triggers(
         _cost_above_threshold(cost),
         _validation_failure(metrics),
         _suspicious_source(sources),
-        _thesis_disagreement(conflicts),
     )
     return tuple(trigger for trigger in candidates if trigger is not None)
 
 
 # ==========================================================================================
-# The ten conditions, in §2.4's order
+# The nine conditions, in §2.4's order
 # ==========================================================================================
 
 
@@ -470,27 +478,6 @@ def _suspicious_source(sources: tuple[SourceScene, ...]) -> FiredTrigger | None:
             "A source document contains patterns consistent with a prompt-injection "
             "attempt. Its content was handled as data, never as instruction; the "
             "flagged passages are recorded on the source for review."
-        ),
-        evidence=_capped(evidence),
-    )
-
-
-def _thesis_disagreement(conflicts: tuple[ConflictScene, ...]) -> FiredTrigger | None:
-    """The red team materially contradicts the base thesis on a scored dimension."""
-    evidence = [
-        row.topic
-        for row in conflicts
-        if row.kind is DisagreementKind.THESIS_CONFLICT
-        and row.material
-        and not row.settled_by_human
-    ]
-    if not evidence:
-        return None
-    return FiredTrigger(
-        kind=TriggerKind.THESIS_DISAGREEMENT,
-        message=(
-            "The red team materially contradicts the draft's thesis. Both positions are "
-            "published either way; this banner exists so the approval is made knowing it."
         ),
         evidence=_capped(evidence),
     )

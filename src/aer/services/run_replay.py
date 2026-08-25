@@ -12,7 +12,10 @@ which is the only kind of reproduction worth the name for a system whose sources
 
 Four legs, and each fails the replay on its own:
 
-* **Calculations** re-execute from their own records and match what was stored.
+* **Calculations** re-execute from their own records and match what was stored, to the
+  tolerance the evaluation gate applies. Not to the digit: ``output_value`` is
+  ``NUMERIC(38, 12)``, so a stored ratio is a rounded one and an exact comparison would call
+  every non-terminating quotient a divergence.
 * **Citations** re-verify: the excerpt still appears in the artefact, read back by hash.
 * **Artefacts** the run rests on are still present and still hash to their names.
 * **Model calls** have both payloads archived, and those archives are still readable.
@@ -27,6 +30,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from typing import Final
 
 import structlog
 from sqlalchemy import select
@@ -34,11 +38,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
 from aer.db.models import AgentRun, Artefact, JobStep, SourceDocument
+from aer.eval.metrics import THRESHOLDS, Metric
+from aer.eval.observations import ReplayObservation
 from aer.eval.replay import replay_observations_for_job
 from aer.storage.protocol import ArtefactStore
 from aer.verify.citations import verify_job_citations
 
-__all__ = ["RunReplay", "replay_run"]
+__all__ = ["RunReplay", "divergence_reason", "diverges", "replay_run"]
 
 _log = structlog.get_logger("aer.services.run_replay")
 
@@ -54,6 +60,10 @@ class RunReplay:
 
     job_id: uuid.UUID
     calculations_checked: int = 0
+
+    # Each entry is already a sentence: the calculation's name and what went wrong with it.
+    # A bare name here meant the one surface that reports a divergence could not say whether
+    # the record no longer runs or the twelfth decimal place moved.
     calculations_diverged: tuple[str, ...] = ()
     citations_checked: int = 0
     citations_failed: tuple[str, ...] = ()
@@ -83,7 +93,7 @@ class RunReplay:
     def problems(self) -> tuple[str, ...]:
         """Every divergence, labelled with which leg it came from."""
         return (
-            *(f"calculation {name} does not replay" for name in self.calculations_diverged),
+            *(f"calculation {reason}" for reason in self.calculations_diverged),
             *(f"citation {name}" for name in self.citations_failed),
             *(f"artefact {digest} cannot be read back" for digest in self.artefacts_unreadable),
             *(f"agent run {name} has no archived exchange" for name in self.model_calls_unarchived),
@@ -100,9 +110,9 @@ async def replay_run(
     """Re-derive every checkable thing a run produced, and report what no longer holds."""
     observations = await replay_observations_for_job(session, job_id)
     diverged = tuple(
-        observation.name
+        f"{observation.name} ({divergence_reason(observation)})"
         for observation in observations
-        if observation.error is not None or observation.replayed != observation.expected
+        if diverges(observation)
     )
 
     citations = await verify_job_citations(session, store, job_id=job_id, settings=settings)
@@ -133,6 +143,46 @@ async def replay_run(
         reproduces=report.reproduces,
     )
     return report
+
+
+# The tolerance a replay is judged against, read from the evaluation gate rather than
+# chosen again here (gap R14). The two used to disagree: the gate compared within
+# `numerical_consistency`'s threshold and this service compared with `!=`, so every ratio
+# in a run "did not replay" while the gate on the same rows passed. `output_value` is
+# `NUMERIC(38, 12)`, so a non-terminating quotient is stored rounded to twelve places and
+# a recomputed one carries the full context precision — 113 of the 2026-08-24 MSFT run's
+# 1,034 calculations failed on differences around 10⁻¹³, and every sum passed, which is
+# what a rounding artefact looks like rather than a broken record.
+_TOLERANCE: Final = THRESHOLDS[Metric.NUMERICAL_CONSISTENCY][0]
+
+
+def diverges(observation: ReplayObservation) -> bool:
+    """Whether this row genuinely no longer reproduces.
+
+    Three ways, and the first two are absolute. A record that cannot be re-run at all has
+    failed however close the arithmetic would have been, and one that replays in a different
+    unit has not reproduced the calculation — 0.05 pure and 0.05 USD are the same digits and
+    different claims.
+    """
+    return (
+        observation.error is not None
+        or not observation.unit_matches
+        or observation.delta > _TOLERANCE
+    )
+
+
+def divergence_reason(observation: ReplayObservation) -> str:
+    """What went wrong, in the words an operator can act on.
+
+    The problem line used to read "calculation gross_margin#1 does not replay" and nothing
+    else, so a record that no longer runs and one that moved in the twelfth decimal place
+    were indistinguishable on the only surface that reports them.
+    """
+    if observation.error is not None:
+        return f"did not re-run: {observation.error}"
+    if not observation.unit_matches:
+        return f"replayed in {observation.replayed_unit}, stored {observation.expected_unit}"
+    return f"stored {observation.expected}, replayed {observation.replayed}"
 
 
 async def _reread_artefacts(

@@ -15,6 +15,32 @@
 @source "../static/js/*.js";
 
 /* ---------------------------------------------------------------------------------------
+   `dark:` answers the operator's choice, not only the machine's.
+
+   Stock Tailwind compiles `dark:` to a bare `prefers-color-scheme` query, which was fine
+   while the only way to change the scheme *was* to change the operating system. It stopped
+   being fine the moment there was a control: roughly half these templates predate the
+   semantic tokens and still say `dark:bg-slate-900`, so without this the toggle would
+   change the shell and leave those panels behind — a control that works on some pages is
+   worse than none, because the operator cannot tell which half is broken.
+
+   Two arms, matching the palette below exactly: the media query, guarded so an explicit
+   *light* choice wins over a dark machine; and the explicit dark choice, which wins over
+   everything. The root itself is listed beside its descendants because `dark:` on `<body>`
+   would otherwise not match — `:root *` excludes `:root`. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+
+  &:where(:root[data-theme="dark"], :root[data-theme="dark"] *) {
+    @slot;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------
    The typeface, served from this origin like every other asset (ADR 0006).
 
    Vendored rather than linked. `test_loads_no_third_party_asset` fails any page naming a
@@ -112,8 +138,17 @@
   --aer-mute-ink: #506176;
 }
 
+/* Three states, two selectors, one set of values.
+
+   `system` is the *absence* of `data-theme`, which is why the media query is guarded with
+   `:not([data-theme="light"])` rather than left bare: without the guard, an operator who
+   chose light on a machine set to dark would get the dark palette back from the media query
+   and the choice would appear to fail at night only. The explicit-dark selector repeats the
+   same values because a custom property cannot be aliased across two selectors without a
+   third indirection nobody would thank us for — `test_the_two_dark_blocks_declare_the_same_
+   values` is what stops the two drifting apart. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --aer-canvas: #071e33;
     --aer-surface: #0b2945;
     --aer-surface-sunken: #061a2c;
@@ -140,6 +175,34 @@
     --aer-mute-wash: #12283f;
     --aer-mute-ink: #9db0c9;
   }
+}
+
+:root[data-theme="dark"] {
+    --aer-canvas: #071e33;
+  --aer-surface: #0b2945;
+  --aer-surface-sunken: #061a2c;
+  --aer-line: #1c3a5c;
+  --aer-line-strong: #2b4a6e;
+
+  --aer-ink: #eaf1ff;
+  --aer-ink-muted: #9db0c9;
+  --aer-ink-faint: #7286a1;
+
+  --aer-brand: #4d86ff;
+  --aer-brand-strong: #6d9bff;
+  --aer-brand-wash: #10305a;
+  --aer-navy: #eaf1ff;
+
+  --aer-good-wash: #06301f;
+  --aer-good-ink: #6ee7b7;
+  --aer-warn-wash: #3a2a05;
+  --aer-warn-ink: #fcd34d;
+  --aer-bad-wash: #3d1119;
+  --aer-bad-ink: #fda4af;
+  --aer-info-wash: #10305a;
+  --aer-info-ink: #93c5fd;
+  --aer-mute-wash: #12283f;
+  --aer-mute-ink: #9db0c9;
 }
 
 /* `inline` is what makes the flip work: the utility is emitted as `var(--aer-canvas)`

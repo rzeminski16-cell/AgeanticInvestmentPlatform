@@ -157,7 +157,10 @@ class TestTheSwapKeepsTheRegion:
         target is missing; the swap simply does not happen."""
         provider = registered_badges()[0]
         nav = templates.env.get_template("_nav.html").render(
-            shell=shell_for("/requests"), disclaimer="x"
+            shell=shell_for("/requests"),
+            disclaimer="x",
+            csrf_field="csrf_token",
+            csrf_token="test-token",
         )
         fragment = templates.env.get_template("_shell/badges.html").render(
             badges=(Badge(key=provider.key, count=1, label=provider.label),)
@@ -173,7 +176,10 @@ class TestTheSwapKeepsTheRegion:
         # emptiness is also what `empty:hidden` keys on, so a slot with stray whitespace
         # would paint an empty pill on every page.
         nav = templates.env.get_template("_nav.html").render(
-            shell=shell_for("/requests"), disclaimer="x"
+            shell=shell_for("/requests"),
+            disclaimer="x",
+            csrf_field="csrf_token",
+            csrf_token="test-token",
         )
 
         slot = re.search(r'id="aer-badge-approvals"(.*?)>(.*?)</span>', nav, re.DOTALL)

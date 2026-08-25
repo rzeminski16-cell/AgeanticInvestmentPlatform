@@ -97,6 +97,10 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         # The shell's own fragment, fetched by the nav after the page renders. Not a
         # destination: opening it in a browser yields a handful of spans.
         "/_shell/badges",
+        # The shell's own preference controls, posted from the menu on whatever page the
+        # operator is on. Neither is a destination: both redirect straight back.
+        "/_shell/guidance",
+        "/_shell/theme",
         # The drawer's contents, fetched from an attention row. Its trigger keeps an
         # `href` to the run console, so with scripting off nobody ever reaches this URL.
         "/research/runs/{job_id}/preview",

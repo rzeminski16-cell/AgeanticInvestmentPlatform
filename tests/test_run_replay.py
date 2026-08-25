@@ -233,32 +233,7 @@ class TestEachLegCanSinkIt:
         self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
     ) -> None:
         """The ledger says one thing; re-running the recorded formula says another."""
-        calculation = Calculation(
-            job_id=scene["job"].id,
-            name="cagr",
-            sequence=1,
-            formula="(end / start) ** (1 / years) - 1",
-            function_ref="aer.calc.basic:cagr",
-            inputs=[
-                {
-                    "name": "start",
-                    "value": "100",
-                    "unit": "USD",
-                    "source": {"kind": "fact", "id": str(uuid.uuid4())},
-                },
-                {
-                    "name": "end",
-                    "value": "121",
-                    "unit": "USD",
-                    "source": {"kind": "fact", "id": str(uuid.uuid4())},
-                },
-            ],
-            parameters={"years": 2},
-            output_value=Decimal("0.5"),
-            output_unit="ratio",
-            code_version="test",
-        )
-        db_session.add(calculation)
+        db_session.add(_stored_cagr(scene["job"].id, output=Decimal("0.5")))
         await db_session.flush()
 
         report = await replay_run(
@@ -267,6 +242,28 @@ class TestEachLegCanSinkIt:
 
         assert not report.reproduces
         assert report.calculations_diverged
+
+    async def test_the_reason_travels_with_the_divergence(
+        self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
+    ) -> None:
+        """A divergence says what went wrong, not merely that something did.
+
+        The line used to read "calculation cagr#1 does not replay" and stop there, so a
+        record that no longer runs at all and one that moved in the twelfth decimal place
+        were the same sentence on the only surface that reports either.
+        """
+        db_session.add(_stored_cagr(scene["job"].id, output=Decimal("0.5")))
+        await db_session.flush()
+
+        report = await replay_run(
+            db_session, scene["store"], job_id=scene["job"].id, settings=settings
+        )
+
+        assert not report.reproduces
+        (problem,) = [line for line in report.problems() if line.startswith("calculation ")]
+        assert "cagr#1" in problem
+        assert "stored 0.5" in problem
+        assert "replayed 0.1" in problem
 
     async def test_one_broken_leg_is_enough(
         self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
@@ -284,6 +281,139 @@ class TestEachLegCanSinkIt:
         assert report.artefacts_checked == 1
         assert not report.artefacts_unreadable
         assert not report.reproduces
+
+
+class TestTheStoredFigureIsARoundedOne:
+    """`output_value` is `NUMERIC(38, 12)`, and the comparison has to know that.
+
+    An exact comparison called every non-terminating quotient a divergence: 113 of the
+    2026-08-24 MSFT run's 1,034 calculations "did not replay" while the evaluation gate
+    passed `numerical_consistency` on the same rows, and every one that survived was a sum.
+    Both cannot be right. The gate is, and this is the class that keeps the two agreeing.
+    """
+
+    async def test_a_ratio_rounded_by_its_column_still_reproduces(
+        self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
+    ) -> None:
+        """The stored twelve places against a replay carrying the full context precision."""
+        db_session.add(
+            Calculation(
+                job_id=scene["job"].id,
+                name="gross_margin",
+                sequence=1,
+                formula="gross_profit / revenue",
+                function_ref="aer.calc.ratios:gross_margin",
+                inputs=[
+                    _input("gross_profit", "225500"),
+                    _input("revenue", "331839"),
+                ],
+                parameters={},
+                # 0.6795464065405211563438896573338275 as the column keeps it.
+                output_value=Decimal("0.679546406541"),
+                output_unit="pure",
+                code_version="test",
+            )
+        )
+        await db_session.flush()
+
+        report = await replay_run(
+            db_session, scene["store"], job_id=scene["job"].id, settings=settings
+        )
+
+        assert report.calculations_checked == 1
+        assert not report.calculations_diverged
+        assert report.reproduces
+
+    async def test_a_figure_wrong_beyond_the_rounding_still_diverges(
+        self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
+    ) -> None:
+        """Tolerating the column's rounding must not tolerate a wrong number.
+
+        A percentage point out on a margin is four hundred million dollars on that revenue,
+        and a tolerance that swallowed it would have made the whole check decorative.
+        """
+        db_session.add(
+            Calculation(
+                job_id=scene["job"].id,
+                name="gross_margin",
+                sequence=1,
+                formula="gross_profit / revenue",
+                function_ref="aer.calc.ratios:gross_margin",
+                inputs=[
+                    _input("gross_profit", "225500"),
+                    _input("revenue", "331839"),
+                ],
+                parameters={},
+                output_value=Decimal("0.689546406541"),
+                output_unit="pure",
+                code_version="test",
+            )
+        )
+        await db_session.flush()
+
+        report = await replay_run(
+            db_session, scene["store"], job_id=scene["job"].id, settings=settings
+        )
+
+        assert report.calculations_diverged
+        assert not report.reproduces
+
+    async def test_the_same_digits_in_another_unit_are_not_a_reproduction(
+        self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
+    ) -> None:
+        """0.68 pure and 0.68 USD are the same digits and different claims."""
+        db_session.add(
+            Calculation(
+                job_id=scene["job"].id,
+                name="gross_margin",
+                sequence=1,
+                formula="gross_profit / revenue",
+                function_ref="aer.calc.ratios:gross_margin",
+                inputs=[
+                    _input("gross_profit", "225500"),
+                    _input("revenue", "331839"),
+                ],
+                parameters={},
+                output_value=Decimal("0.679546406541"),
+                output_unit="USD",
+                code_version="test",
+            )
+        )
+        await db_session.flush()
+
+        report = await replay_run(
+            db_session, scene["store"], job_id=scene["job"].id, settings=settings
+        )
+
+        (problem,) = [line for line in report.problems() if line.startswith("calculation ")]
+        assert "replayed in pure, stored USD" in problem
+
+
+def _input(name: str, value: str) -> dict[str, Any]:
+    return {
+        "name": name,
+        "value": value,
+        "unit": "USD",
+        "source": {"kind": "fact", "id": str(uuid.uuid4())},
+    }
+
+
+def _stored_cagr(job_id: uuid.UUID, *, output: Decimal) -> Calculation:
+    """A compound growth rate whose true answer is exactly 0.1."""
+    return Calculation(
+        job_id=job_id,
+        name="cagr",
+        sequence=1,
+        formula="(end / start) ** (1 / years) - 1",
+        function_ref="aer.calc.basic:cagr",
+        inputs=[_input("start", "100"), _input("end", "121")],
+        parameters={"years": 2},
+        output_value=output,
+        # `pure`, which is what `cagr` returns. Stored as "ratio" the row diverges on its
+        # unit before the arithmetic is ever compared, and the value check goes untested.
+        output_unit="pure",
+        code_version="test",
+    )
 
 
 class TestItCostsNothing:

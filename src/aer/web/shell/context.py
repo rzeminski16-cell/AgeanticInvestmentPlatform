@@ -24,7 +24,7 @@ from typing import Final
 from aer.web.nav import NavSection, active_key
 from aer.web.shell.registry import NAV
 
-__all__ = ["Shell", "shell_for"]
+__all__ = ["THEMES", "Shell", "shell_for"]
 
 GUIDANCE_COOKIE: Final = "aer_guidance"
 """Where the guidance flag is remembered between pages.
@@ -33,6 +33,24 @@ ADR 0077 puts guidance mode on the server rather than in the client because it f
 chrome test: a reload that lost it would be noticed. A cookie is the smallest durable place
 that is per-operator without a migration on a table documented as holding one row, and the
 flag is a preference rather than a record — nothing cites it and no figure depends on it.
+"""
+
+THEME_COOKIE: Final = "aer_theme"
+"""Where the light/dark choice is remembered. Same reasoning as the guidance flag.
+
+**Read on the server and stamped on ``<html>``, which is the point.** The usual way to do
+this is a script in ``<head>`` that reads local storage and sets a class before first paint;
+that is a whole scripting dependency bought to avoid a flash, on an application whose menu
+deliberately works with scripting off. A cookie the renderer already has costs one attribute
+and cannot flash at all.
+"""
+
+THEMES: Final = ("system", "light", "dark")
+"""The three a person can choose. ``system`` is the absence of a choice, named.
+
+Named rather than represented by a missing cookie, because "follow the machine" is a
+position somebody can hold and go back to. A tri-state that spelt one of its states as
+*unset* would make choosing it indistinguishable from never having chosen.
 """
 
 
@@ -45,6 +63,10 @@ class Shell:
     guidance: bool
     path: str
 
+    # One of `THEMES`. Validated on the way in rather than on the way out: an unknown value
+    # in a cookie is somebody's hand-edited jar, and the answer to one is the default.
+    theme: str = "system"
+
     @property
     def guidance_attr(self) -> str:
         """The value of ``data-guidance`` on ``<body>``.
@@ -55,7 +77,24 @@ class Shell:
         """
         return "on" if self.guidance else "off"
 
+    @property
+    def theme_attr(self) -> str:
+        """The value of ``data-theme`` on ``<html>``.
 
-def shell_for(path: str, *, guidance: bool = False) -> Shell:
+        Empty for ``system``, and the emptiness is load-bearing: the dark palette is written
+        as ``:root:not([data-theme="light"])`` inside the media query, so an absent attribute
+        is what lets the operating system decide. An attribute reading ``system`` would be a
+        third selector every colour rule had to know about.
+        """
+        return "" if self.theme == "system" else self.theme
+
+
+def shell_for(path: str, *, guidance: bool = False, theme: str = "system") -> Shell:
     """The shell for a request at ``path``. No I/O, by design — see the module docstring."""
-    return Shell(nav=NAV, active=active_key(NAV, path), guidance=guidance, path=path)
+    return Shell(
+        nav=NAV,
+        active=active_key(NAV, path),
+        guidance=guidance,
+        path=path,
+        theme=theme if theme in THEMES else "system",
+    )

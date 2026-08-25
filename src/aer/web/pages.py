@@ -52,12 +52,14 @@ from aer.charts import (
 )
 from aer.config import HouseStyle, Settings
 from aer.core.assumption_scales import UNIT_CHOICES
+from aer.core.disagreement import DisagreementKind, ResolutionOutcome
 from aer.core.enums import CatalystOutcomeKind, Decision, GateKind, JobStatus
 from aer.core.escalation import COST_ALERT_RATIO
 from aer.db.models import (
     Calculation,
     Claim,
     Company,
+    Disagreement,
     Job,
     JobStep,
     ObsidianExport,
@@ -89,7 +91,7 @@ from aer.services.comps import (
     peer_set_required,
 )
 from aer.services.comps_run import grouped_exclusions
-from aer.services.disagreements import disagreements_for_job
+from aer.services.disagreements import disagreements_for_job, settle_by_hand
 from aer.services.escalation import cost_scene_for_job
 from aer.services.evaluations import evaluations_for_job, section_coverage_for_job
 from aer.services.exhibits import exportable_charts_for, internal_charts_for
@@ -681,7 +683,7 @@ async def draft_review(
     # show its warnings is a gate that can be approved without seeing them.
     evaluations = await evaluations_for_job(session, job.id)
     coverage = await section_coverage_for_job(session, job=job, request=research_request)
-    disagreements = await disagreements_for_job(session, job.id)
+    recorded = await disagreements_for_job(session, job.id)
     # Period and house-style value per row (gap R11): the raw table showed
     # `928567000.000000000000 USD` and six depreciation rates with nothing saying which
     # year each belonged to — the red team had to reconstruct the vintages itself, and
@@ -704,6 +706,7 @@ async def draft_review(
         )
     ]
     cost = await cost_scene_for_job(session, job=job, request=research_request)
+    outcomes = await _section_outcomes(session, job_id=job.id)
 
     decided = await _decision_for(session, job_id=job_id, gate=GateKind.FINAL)
     token = new_csrf_token(settings)
@@ -714,12 +717,30 @@ async def draft_review(
         {
             "job": job,
             "sections": payload["sections"],
-            "escalations": payload["escalations"],
+            # Split by what the two things *are*, rather than shown as one list of
+            # "disagreements" (gap R15). A source conflict is a fault: two documents say
+            # different numbers and somebody has to decide. A red-team challenge is the
+            # adversary doing its job, and seven of them listed under "unresolved" read as
+            # seven problems with the run rather than as the review the run paid for.
+            "escalations": [
+                row
+                for row in payload["escalations"]
+                if row["kind"] != DisagreementKind.THESIS_CONFLICT.value
+            ],
+            "challenges": [row for row in recorded if row.kind is DisagreementKind.THESIS_CONFLICT],
             "triggers": payload["triggers"],
             "evaluations": evaluations,
             "coverage": coverage,
-            "disagreements": disagreements,
+            "disagreements": [
+                row for row in recorded if row.kind is not DisagreementKind.THESIS_CONFLICT
+            ],
+            "open_outcome": ResolutionOutcome.ESCALATED,
             "calculations": calculations,
+            # One row per section: what it was handed, how many tries it took, and why it
+            # refused (gap A63). All of it was already recorded by `sections.writing._failed`
+            # and none of it was displayed, so five sections that died on a starved evidence
+            # pack showed as five blanks and a coverage table full of zeros.
+            "outcomes": [outcomes.get(section["key"], {}) for section in payload["sections"]],
             "cost": cost,
             "cost_alert_gbp": cost.cap_gbp * COST_ALERT_RATIO,
             "markdown": preview.markdown,
@@ -883,6 +904,78 @@ async def replay_run_page(
 
     page: Response = render(request, "runs/replay.html", {"job": job, "report": report})
     return page
+
+
+@router.post(
+    "/runs/{job_id}/disagreements/{disagreement_id}/settle",
+    summary="Settle one escalated disagreement",
+)
+async def settle_disagreement_page(
+    request: Request,
+    job_id: uuid.UUID,
+    disagreement_id: uuid.UUID,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Choose a side on a conflict the ladder declined to decide, and say why.
+
+    ``services.disagreements.settle_by_hand`` has existed since the ladder did and nothing
+    reached it, so gate 3 showed two positions and offered no way to prefer either — which
+    reads as a question the operator is failing to answer rather than as a record they may
+    add to. This is the door.
+
+    **The rule that escalated it is not overwritten**, and the rationale is appended rather
+    than replaced. Both are the service's rules; this handler only carries the form to them.
+    A disagreement nobody settles keeps publishing both sides, which is still the default
+    and still the honest outcome for most of them.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was settled.",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    found = await session.get(Disagreement, disagreement_id)
+    # Checked against the job in the URL as well as by id: a disagreement belongs to one
+    # run, and a settle posted at the wrong run is a mistake worth refusing rather than
+    # silently honouring.
+    if found is None or found.job_id != job_id:
+        return _problem(
+            request, f"No disagreement {disagreement_id} on this run.", status=HTTP_404_NOT_FOUND
+        )
+
+    try:
+        outcome = ResolutionOutcome(submitted.get("outcome", ""))
+    except ValueError:
+        return _problem(
+            request, "That is not a side of this disagreement.", status=HTTP_404_NOT_FOUND
+        )
+
+    try:
+        await settle_by_hand(
+            session,
+            disagreement=found,
+            outcome=outcome,
+            actor=user,
+            rationale=submitted.get("rationale", ""),
+        )
+    except ValidationError as problem:
+        # The service's messages name the rule they enforce — "a human resolution needs a
+        # reason", "this was settled by rule and is not open" — and each is the useful
+        # answer to what the operator just tried.
+        return _problem(request, str(problem), status=HTTP_400_BAD_REQUEST)
+
+    await session.commit()
+    return RedirectResponse(f"/runs/{job_id}/review#disagreements", status_code=HTTP_303_SEE_OTHER)
 
 
 @router.post("/runs/{job_id}/gates/{gate}", summary="Record a gate decision")
@@ -1762,6 +1855,26 @@ async def report_preview(
 
 
 # -- Internals ---------------------------------------------------------------------------
+
+
+async def _section_outcomes(session: DbSession, *, job_id: uuid.UUID) -> dict[str, dict[str, Any]]:
+    """What the draft step recorded about each section, keyed by section.
+
+    Read from the step's own frozen output rather than recomputed: `SectionExecution`
+    already carries the evidence tally, the attempt count, the refusal causes and the
+    problems in the producers' own words, and a second derivation here would be a place for
+    the page and the record to disagree.
+
+    Empty for a run that has not drafted, which the template treats as "nothing to say"
+    rather than as an error.
+    """
+    produced = await _step_output(session, job_id=job_id, step_key="draft") or {}
+    rows: dict[str, dict[str, Any]] = {}
+    for outcome in [*produced.get("builtin_sections", []), *produced.get("custom_sections", [])]:
+        key = str(outcome.get("section_key", ""))
+        if key:
+            rows[key] = outcome
+    return rows
 
 
 async def _owned_job(session: AsyncSession, *, job_id: uuid.UUID, user: Any) -> Job | None:

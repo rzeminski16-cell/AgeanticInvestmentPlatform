@@ -16,7 +16,7 @@ from aer.api.app import _LOCAL_MEDIA_TYPES
 from aer.config import load_settings
 from aer.version import version
 from aer.web.shell import flat_items, shell_for
-from aer.web.templating import DISCLAIMER, STATIC_DIR, TEMPLATES_DIR, templates
+from aer.web.templating import DISCLAIMER, STATIC_DIR, STYLES_DIR, TEMPLATES_DIR, templates
 from tests.api_fixtures import build_app, client_for
 
 
@@ -287,7 +287,14 @@ class TestTheShellRendersFromData:
         to test a page it cannot reach.
         """
         markup = templates.env.get_template("_nav.html").render(
-            shell=shell_for("/requests"), disclaimer=DISCLAIMER
+            shell=shell_for("/requests"),
+            disclaimer=DISCLAIMER,
+            # The menu carries the preference forms, so it names a token. Supplied rather
+            # than made optional: a form that rendered without one under `StrictUndefined`
+            # would be a control that silently does nothing, which is the failure the strict
+            # undefined exists to catch.
+            csrf_field="csrf_token",
+            csrf_token="test-token",
         )
 
         assert markup.count('aria-current="page"') == 1
@@ -309,6 +316,121 @@ class TestTheShellRendersFromData:
 
     async def test_guidance_is_off_by_default(self, web_client):
         assert 'data-guidance="off"' in (await web_client.get("/")).text
+
+
+class TestTheDarkPaletteIsOneThing:
+    """The source has two dark blocks and the compiled sheet has two arms per `dark:` rule.
+
+    Two of everything is the price of a tri-state in plain CSS: a custom property cannot be
+    aliased across two selectors without an indirection nobody would thank us for. What can
+    be had for free is the guarantee that the two never drift, which is what this is.
+    """
+
+    def _declarations(self, block: str) -> dict[str, str]:
+        found = {}
+        for line in block.splitlines():
+            if ":" in line and line.strip().startswith("--"):
+                name, _, value = line.strip().rstrip(";").partition(":")
+                found[name.strip()] = value.strip()
+        return found
+
+    def test_the_two_dark_blocks_declare_the_same_values(self):
+        source = (STYLES_DIR / "app.css").read_text(encoding="utf-8")
+
+        media = source.split(':root:not([data-theme="light"]) {', 1)[1].split("\n  }", 1)[0]
+        explicit = source.split(':root[data-theme="dark"] {', 1)[1].split("\n}", 1)[0]
+
+        assert self._declarations(media) == self._declarations(explicit)
+        assert self._declarations(media), "no custom properties found; the parse has drifted"
+
+    def test_the_compiled_dark_variant_answers_an_explicit_choice(self):
+        """Without the custom variant, `dark:` compiles to `prefers-color-scheme` alone.
+
+        Half these templates predate the semantic tokens and still say `dark:bg-slate-900`,
+        so a `dark:` that only watched the machine would leave those panels light when the
+        operator chose dark — a control that works on some pages and not others.
+        """
+        compiled = (STATIC_DIR / "css" / "app.css").read_text(encoding="utf-8")
+
+        assert ":root[data-theme=dark]" in compiled
+        assert ":root:not([data-theme=light])" in compiled
+
+
+class TestTheColourScheme:
+    """Light, dark or the machine's own, remembered per operator.
+
+    Dark mode existed from the first day of the design tokens and followed
+    `prefers-color-scheme` only, so the sole way to change it was to change the operating
+    system — which is not a control, and nobody found one because there was not one.
+    """
+
+    async def _token(self, web_client) -> str:
+        page = await web_client.get("/")
+        found = re.search(r'name="csrf_token" value="([^"]+)"', page.text)
+        assert found, "no CSRF token in the shell"
+        return found.group(1)
+
+    async def test_every_page_carries_the_control(self, web_client):
+        body = (await web_client.get("/")).text
+
+        assert 'id="aer-theme-light"' in body
+        assert 'id="aer-theme-dark"' in body
+        assert 'id="aer-theme-system"' in body
+
+    async def test_the_machines_choice_is_the_default(self, web_client):
+        """No attribute at all, which is what leaves `prefers-color-scheme` in charge."""
+        body = (await web_client.get("/")).text
+
+        assert "data-theme=" not in body
+
+    async def test_choosing_dark_is_remembered(self, web_client):
+        token = await self._token(web_client)
+
+        response = await web_client.post(
+            "/_shell/theme",
+            data={"theme": "dark", "next": "/requests", "csrf_token": token},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/requests"
+        assert 'data-theme="dark"' in (await web_client.get("/")).text
+
+    async def test_going_back_to_the_machines_choice_removes_the_attribute(self, web_client):
+        """`system` is a choice somebody can make and go back to, not a missing cookie."""
+        token = await self._token(web_client)
+        await web_client.post(
+            "/_shell/theme", data={"theme": "dark", "next": "/", "csrf_token": token}
+        )
+
+        await web_client.post(
+            "/_shell/theme", data={"theme": "system", "next": "/", "csrf_token": token}
+        )
+
+        assert "data-theme=" not in (await web_client.get("/")).text
+
+    async def test_a_value_that_is_not_a_theme_does_not_reach_the_attribute(self, web_client):
+        """A hand-typed POST must not put an arbitrary string into `<html>`."""
+        token = await self._token(web_client)
+
+        await web_client.post(
+            "/_shell/theme",
+            data={"theme": '"><script>', "next": "/", "csrf_token": token},
+            follow_redirects=False,
+        )
+
+        assert "<script>" not in (await web_client.get("/")).text
+
+    async def test_it_refuses_to_forward_off_site(self, web_client):
+        token = await self._token(web_client)
+
+        response = await web_client.post(
+            "/_shell/theme",
+            data={"theme": "dark", "next": "https://example.invalid/", "csrf_token": token},
+            follow_redirects=False,
+        )
+
+        assert response.headers["location"] == "/"
 
 
 class TestGuidanceMode:

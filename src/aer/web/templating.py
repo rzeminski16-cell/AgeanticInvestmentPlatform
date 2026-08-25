@@ -16,15 +16,20 @@ from fastapi.templating import Jinja2Templates
 from jinja2 import StrictUndefined
 from starlette.requests import Request
 
+from aer.config import get_settings
 from aer.core.disagreement import position_figure
 from aer.version import version
-from aer.web.shell import GUIDANCE_COOKIE, shell_for
+from aer.web.csrf import CSRF_FIELD_NAME, new_csrf_token, set_csrf_cookie
+from aer.web.shell import GUIDANCE_COOKIE, THEME_COOKIE, shell_for
 
-__all__ = ["DISCLAIMER", "STATIC_DIR", "TEMPLATES_DIR", "render", "templates"]
+__all__ = ["DISCLAIMER", "STATIC_DIR", "STYLES_DIR", "TEMPLATES_DIR", "render", "templates"]
 
 _PACKAGE_DIR: Final = Path(__file__).resolve().parent
 TEMPLATES_DIR: Final = _PACKAGE_DIR / "templates"
 STATIC_DIR: Final = _PACKAGE_DIR / "static"
+# The Tailwind *source*, which is not served. Named here so a test can read the palette
+# it declares rather than re-deriving it from the minified output.
+STYLES_DIR: Final = _PACKAGE_DIR / "styles"
 
 DISCLAIMER: Final = (
     "This is a personal research tool, not regulated investment advice. Nothing it "
@@ -79,18 +84,36 @@ def render(
     A handler may still pass its own ``shell`` — the skills pages do nothing of the kind
     today, and nothing should — but an explicit one wins, so a test can render a page under
     a nav it controls without reaching into this module.
+
+    **A CSRF token is part of the shell too**, for the same reason the nav is. The menu
+    carries preference controls, those controls are forms, and a form on every page needs a
+    token on every page — so a handler that never thought about CSRF cannot ship a menu
+    whose controls silently do nothing. A handler that mints its own still wins: it is
+    passed in the context, and this leaves it exactly alone.
     """
     supplied = context or {}
+    token = supplied.get("csrf_token") or new_csrf_token(get_settings())
     merged: dict[str, Any] = {
         "shell": shell_for(
             request.url.path,
             guidance=request.cookies.get(GUIDANCE_COOKIE) == "on",
+            # Unknown values fall back to `system` inside `shell_for`, so a hand-edited
+            # cookie cannot put an arbitrary string into an attribute on `<html>`.
+            theme=request.cookies.get(THEME_COOKIE, "system"),
         ),
+        "csrf_field": CSRF_FIELD_NAME,
+        "csrf_token": token,
         **supplied,
     }
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request=request,
         name=template_name,
         context=merged,
         status_code=status_code,
     )
+    # Only for the token this function minted. A handler that supplied one owns setting its
+    # own cookie, and two `Set-Cookie` headers for one name is a race over which token the
+    # browser keeps — the form would then carry one and the cookie the other.
+    if "csrf_token" not in supplied:
+        set_csrf_cookie(response, token)
+    return response
