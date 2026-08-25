@@ -69,6 +69,11 @@ def flat_items() -> tuple[NavItem, ...]:
 # sub-pages, a record's detail view, a form. Listing them is what turns "this route is not
 # in the nav" from a shrug into a decision somebody made and can be argued with.
 #
+# **GET routes only.** `page_routes` in the drift test collects what an operator can *open*,
+# so a POST-only endpoint — `/_shell/theme`, `/_shell/guidance`, every gate decision — is
+# outside this mechanism entirely. Listing one here makes the test call it a stale excuse
+# for a page that does not exist, which is exactly right: it is not a page.
+#
 # The shapes matter more than the count. `/runs/{job_id}/…` is a run console and every one
 # of its pages is reached from the console itself; `/requests/{request_id}/…` likewise from
 # a request. Wildcards are deliberately not supported: a prefix that swallowed a whole tree
@@ -97,10 +102,6 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         # The shell's own fragment, fetched by the nav after the page renders. Not a
         # destination: opening it in a browser yields a handful of spans.
         "/_shell/badges",
-        # The shell's own preference controls, posted from the menu on whatever page the
-        # operator is on. Neither is a destination: both redirect straight back.
-        "/_shell/guidance",
-        "/_shell/theme",
         # The drawer's contents, fetched from an attention row. Its trigger keeps an
         # `href` to the run console, so with scripting off nobody ever reaches this URL.
         "/research/runs/{job_id}/preview",
