@@ -209,6 +209,22 @@ Python only. No template changes.
 — a new gate or status without one is a red build. No redesigned template will need to
 interpret raw domain data.
 
+**Part done, 2026-08-25.** The first half of the exit criterion is met and the second is not.
+
+| | |
+|---|---|
+| **Done** — `web/vocabulary.py` | Eight enums, fifty-one states, each with a label and a tone. Gate words for all eight gates, with an honest `certainty` so a journey cannot present five conditional gates as certain. Completeness is a red build, watched failing |
+| **Done** — `web/figures.py` | `pounds` and `CostContext`, so "£6.40 of £8.00" is one object every surface shows identically, and the console stops formatting currency in a template |
+| **Still owed** | `RenderedFigure`, `LineageNode`, `PageContext`; **the composed half of every verdict** (ADR 0087); adapting the handlers family by family |
+
+**Two duplications were closed rather than added to.** `GATE_ASKS` and the portfolio's
+`GRADE_LABELS` are now derived from the vocabulary. Both were written before it, and a second
+copy of a label is a second answer to what a thing is called.
+
+**The tone work turned out to be the valuable half.** A label makes a state readable; the tone
+decides whether the reader thinks the platform is broken. `BUDGET_EXCEEDED` was rendering in
+the same red as a crash while the console's own prose argued the opposite two inches below it.
+
 ### Tranche 2 — Assets and tokens
 
 1. Vendor the three families, latin and latin-ext, variable cuts where they exist, no italic.
