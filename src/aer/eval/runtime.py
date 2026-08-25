@@ -25,7 +25,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Final
 
 from aer.calc.plausibility import FigureScene, impossible_relations
@@ -37,12 +37,14 @@ from aer.eval.metrics import (
     MetricResult,
     ratio,
 )
+from aer.eval.observations import CitedFigureObservation
 
 __all__ = [
     "PRIMARY_TIER_RANK",
     "RunCitation",
     "SectionCoverage",
     "SourcedClaim",
+    "cited_figure_agreement",
     "figure_plausibility",
     "presentation_integrity",
     "primary_source_ratio",
@@ -342,6 +344,98 @@ def presentation_integrity(markdown: str, html: str, *, sections: int) -> Metric
         population=max(sections, 1),
         failures=tuple(failures),
     )
+
+
+# Every figure in a sentence: an optional sign, digits with optional thousands separators,
+# an optional decimal part. The surrounding symbols — a currency mark, a percent sign, a
+# multiplication sign, "billion" — are deliberately not captured: what the scalings below
+# do is ask whether the *number* is this calculation's under any reading the platform
+# produces, and a sentence that says "46.8%" over a stored 0.4676 is right in a way no
+# amount of symbol-matching would confirm.
+_FIGURE: Final[re.Pattern[str]] = re.compile(r"-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?")
+
+# How a stored value can legitimately reach prose. `render.display` scales a dimensionless
+# figure by a hundred for a percentage, and `money` renders in millions; a drafter writing
+# longhand says billions. Each is the same figure said differently, and none of them is the
+# figure being wrong.
+_READINGS: Final[tuple[Decimal, ...]] = (
+    Decimal(1),
+    Decimal(100),
+    Decimal("0.001"),
+    Decimal("0.000001"),
+    Decimal("0.000000001"),
+)
+
+
+def cited_figure_agreement(observations: Sequence[CitedFigureObservation]) -> MetricResult:
+    """Claims that quote a figure their cited calculation does not hold — threshold zero.
+
+    Invariant 3's missing half. `numerical_consistency` asks whether a stored calculation
+    still re-executes to the number beside it, and `citation_accuracy` asks whether a quoted
+    excerpt is really in the document — neither reads the sentence. So a writer can cite
+    `quick_ratio` and then put a different number in the prose, and every check passes.
+
+    That is not hypothetical. The 2026-08-24 MSFT note asserted "a quick ratio of 0.93" and
+    "a current ratio of 1.23" over recorded values of 1.567 and 1.785, drafted a
+    debt-to-equity of 0.09x against 0.299, and shipped. The adversarial reviewer caught it;
+    nothing deterministic did.
+
+    **Agreement is the draft's own precision, not a tolerance.** A figure written to two
+    decimal places agrees if the calculation rounds to it at two decimal places — so 0.09
+    over a stored 0.0857 passes, because that is what "0.09" claims, while 0.93 over 1.567
+    fails at every precision. A relative tolerance cannot do this: loose enough to accept a
+    two-decimal rounding of a small ratio, it would accept half the errors worth catching.
+
+    **A claim quoting no figure at all is not a violation.** Plenty of sentences rest on a
+    calculation without printing it, and failing those would make the metric fire on good
+    prose until somebody switched it off.
+    """
+    _require(Metric.CITED_FIGURE_AGREEMENT, observations)
+
+    failures: list[str] = []
+    for row in observations:
+        quoted = [Decimal(found.replace(",", "")) for found in _FIGURE.findall(row.text)]
+        if not quoted:
+            continue
+        if any(_reads_as(figure, row.value) for figure in quoted):
+            continue
+        shown = ", ".join(str(figure) for figure in quoted[:4])
+        failures.append(
+            f"{row.name} cites `{row.calculation}` = {row.value} {row.unit} and states {shown}"
+        )
+
+    threshold, direction = THRESHOLDS[Metric.CITED_FIGURE_AGREEMENT]
+    return MetricResult(
+        metric=Metric.CITED_FIGURE_AGREEMENT,
+        value=Decimal(len(failures)),
+        threshold=threshold,
+        direction=direction,
+        population=len(observations),
+        failures=tuple(failures),
+    )
+
+
+def _reads_as(quoted: Decimal, stored: Decimal) -> bool:
+    """Whether ``quoted`` is ``stored`` said at the precision ``quoted`` chose.
+
+    The precision comes from the drafted figure rather than from a setting: "46.8" claims
+    one decimal place and "0.09" claims two, and each is entitled to be judged against what
+    it actually asserts.
+    """
+    # `as_tuple().exponent` is `'n'`, `'N'` or `'F'` for a NaN or an infinity, which no
+    # figure scraped out of prose can be — but the type says otherwise, so it is narrowed
+    # rather than asserted away.
+    exponent = quoted.as_tuple().exponent
+    places = -exponent if isinstance(exponent, int) and exponent < 0 else 0
+    step = Decimal(1).scaleb(-places)
+    for scale in _READINGS:
+        scaled = stored * scale
+        try:
+            if scaled.quantize(step, rounding=ROUND_HALF_UP) == quoted:
+                return True
+        except InvalidOperation:  # pragma: no cover -- a figure too large to quantise
+            continue
+    return False
 
 
 def figure_plausibility(scenes: tuple[FigureScene, ...]) -> MetricResult:

@@ -87,6 +87,7 @@ _LOOK_AHEAD_RECALL: Final = "look_ahead_recall"
 _PRIMARY_SOURCE_RATIO: Final = "primary_source_ratio"
 _NUMERICAL_CONSISTENCY: Final = "numerical_consistency"
 _FIGURE_PLAUSIBILITY: Final = "figure_plausibility"
+_CITED_FIGURE_AGREEMENT: Final = "cited_figure_agreement"
 
 # `SectionStatus` values, restated for the same reason the metric names are. The check
 # constraint on `report_sections.status` and the bridging test keep these honest.
@@ -424,7 +425,7 @@ def _cost_above_threshold(cost: CostScene) -> FiredTrigger | None:
 
 
 def _validation_failure(metrics: tuple[MetricScore, ...]) -> FiredTrigger | None:
-    """Citation accuracy below 98%, numeric inconsistency above 0.5%, or an impossible figure.
+    """A citation, a number or a figure the run cannot stand behind.
 
     The hallucinated-citation rate joins the citation half: a fabricated excerpt is the
     exact failure the 98% figure exists to catch, and a run with one fabrication and
@@ -432,6 +433,11 @@ def _validation_failure(metrics: tuple[MetricScore, ...]) -> FiredTrigger | None
     failing its whole point. Figure plausibility joins for the same reason from the
     other side (gap A61): a front page carrying a margin above one is the failure the
     numeric checks exist to prevent, reached by a route none of them measures.
+
+    Cited-figure agreement joins from a third (gap R19). Every other member of this list
+    asks whether a figure is *recorded* correctly; that one asks whether the sentence used
+    the figure it cited, which is the only route by which the MSFT note could draft a quick
+    ratio of 0.93 over a recorded 1.567 with the whole gate green.
     """
     evidence: list[str] = []
     for name in (
@@ -439,6 +445,7 @@ def _validation_failure(metrics: tuple[MetricScore, ...]) -> FiredTrigger | None
         _HALLUCINATED_CITATION_RATE,
         _NUMERICAL_CONSISTENCY,
         _FIGURE_PLAUSIBILITY,
+        _CITED_FIGURE_AGREEMENT,
     ):
         score = _score(metrics, name)
         if score is None or score.passed is not False:

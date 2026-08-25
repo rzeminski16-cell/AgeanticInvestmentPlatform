@@ -16,6 +16,7 @@ from decimal import Decimal
 
 __all__ = [
     "CitationObservation",
+    "CitedFigureObservation",
     "CompletenessObservation",
     "ConformanceObservation",
     "ContainmentObservation",
@@ -205,6 +206,29 @@ class ReplayObservation:
         calculation — 0.05 pure and 0.05 USD are different claims with the same digits.
         """
         return self.replayed_unit == self.expected_unit
+
+
+@dataclass(frozen=True, slots=True)
+class CitedFigureObservation:
+    """One drafted claim that names a calculation, and the calculation it names.
+
+    Invariant 3 says no figure reaches a report unless it is a stored fact, a recorded
+    calculation or an attestation. Every metric before this one asks whether a figure is
+    *recorded* correctly — replayed consistently, cited admissibly, dated honestly — and
+    none asks whether the sentence used the figure it cited. The 2026-08-24 MSFT note
+    asserted a quick ratio of 0.93 over a `quick_ratio` calculation of 1.567, and only the
+    adversarial reviewer noticed.
+
+    ``text`` is the claim as drafted; ``value`` and ``unit`` are the cited calculation's
+    own. The comparison lives in :func:`aer.eval.runtime.cited_figure_agreement`, because
+    what counts as agreement is a rendering question and this type holds no opinions.
+    """
+
+    name: str
+    text: str
+    calculation: str
+    value: Decimal
+    unit: str
 
 
 @dataclass(frozen=True, slots=True)

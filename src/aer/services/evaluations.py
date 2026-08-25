@@ -61,12 +61,13 @@ from aer.eval.metrics import (
     numerical_consistency,
     temporal_compliance,
 )
-from aer.eval.observations import SourceObservation
+from aer.eval.observations import CitedFigureObservation, SourceObservation
 from aer.eval.replay import completeness_observations_for_job, replay_observations_for_job
 from aer.eval.runtime import (
     RunCitation,
     SectionCoverage,
     SourcedClaim,
+    cited_figure_agreement,
     figure_plausibility,
     presentation_integrity,
     primary_source_ratio,
@@ -193,6 +194,13 @@ async def evaluate_run(
     # while the front page carried a 172.1% net margin.
     scenes = await _figure_scenes(context.session, job=job, request=request)
     results[Metric.FIGURE_PLAUSIBILITY] = _measure(lambda: figure_plausibility(scenes))
+
+    # Invariant 3's missing half (gap R19): a claim that names a calculation must quote
+    # that calculation's figure. Every check above asks whether a figure is *recorded*
+    # correctly and none reads the sentence, so the MSFT note could draft a quick ratio of
+    # 0.93 over a recorded 1.567 with the whole gate green.
+    cited = await _cited_figures(context.session, job=job)
+    results[Metric.CITED_FIGURE_AGREEMENT] = _measure(lambda: cited_figure_agreement(cited))
 
     advisories = await _advise(context, rows, use_batch=use_batch, request=request)
 
@@ -471,6 +479,36 @@ def _scene_period(fact: FinancialFact) -> str:
     if fact.fiscal_period == _SCENE_ANNUAL:
         return f"FY{fact.fiscal_year}"
     return f"{fact.fiscal_period} FY{fact.fiscal_year}"
+
+
+async def _cited_figures(session: AsyncSession, *, job: Job) -> tuple[CitedFigureObservation, ...]:
+    """Every drafted claim that names a calculation, beside the calculation it names.
+
+    Joined on `claims.calculation_id`, which the section writer sets when a sentence rests
+    on a recorded figure. That column is what makes this check structural rather than
+    textual: the alternative is to hunt "quick ratio of 0.93" in prose and look up a
+    `quick_ratio` row, which needs a ratio vocabulary somebody maintains for ever and is
+    wrong the first time a writer phrases one differently.
+    """
+    rows = (
+        await session.execute(
+            select(Claim, Calculation)
+            .join(Calculation, Calculation.id == Claim.calculation_id)
+            .join(ReportSection, ReportSection.id == Claim.report_section_id)
+            .where(ReportSection.job_id == job.id)
+            .order_by(ReportSection.section_key, Claim.created_at, Claim.id)
+        )
+    ).all()
+    return tuple(
+        CitedFigureObservation(
+            name=f"{claim.section.section_key}/{calculation.name}#{calculation.sequence}",
+            text=claim.text,
+            calculation=calculation.name,
+            value=calculation.output_value,
+            unit=calculation.output_unit,
+        )
+        for claim, calculation in rows
+    )
 
 
 async def _figure_scenes(

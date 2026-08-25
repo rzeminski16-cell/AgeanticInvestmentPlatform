@@ -87,42 +87,32 @@ ADR by its old number reads four low.
 Something here is wrong and should not be. Ordered by how much of a report or a screen each
 one costs, worst first. **§2.1 and §2.2 are the two being worked next.**
 
-**2.1 The draft's ratios contradict the run's own calculations. Open.** On the same run the
-draft asserts a quick ratio of 0.93 and a current ratio of 1.23; the recorded `quick_ratio`
-calculations are 1.567 and 1.536 and the `current_ratio` values 1.785 and 1.769. Debt to
-equity is drafted at 0.09× against recorded 0.299 and 0.229, interest cover at ~50.9× against
-40.4 and 45.0, and the cash conversion cycle at −51.8 days against −7.41 and −2.56.
+**2.1 The draft's figures contradicted the calculations they cited. Fixed 2026-08-25
+(ADR 0086).** On the 2026-08-24 MSFT run the draft asserted a quick ratio of 0.93 and a
+current ratio of 1.23; the recorded `quick_ratio` calculations were 1.567 and 1.536 and the
+`current_ratio` values 1.785 and 1.769. Debt to equity was drafted at 0.09× against 0.299
+and 0.229, interest cover at ~50.9× against 40.4 and 45.0, the cash conversion cycle at
+−51.8 days against −7.41 and −2.56.
 
-**Only the red team caught it.** `numerical_consistency` cannot: it re-executes stored rows
-and never reads the prose. Citation verification cannot: the sentence cites a filing, and the
-filing is real. This is invariant 3 failing in the one direction nothing checks — a figure
-reaching a report that is neither a stored fact, a recorded calculation nor an attestation,
-because the writer computed it itself.
+The direction mattered as much as the size: the section concluded liquidity was thin where
+the run's own arithmetic says it is comfortable, so a reader taking it at face value would
+have reached the opposite view of the balance sheet.
 
-**The check that closes it is structural rather than textual, which is what makes it worth
-building.** The obvious approach — find "quick ratio of 0.93" in the prose and look up a
-`quick_ratio` calculation — is a text-matching problem and will be fragile for ever. It does
-not need to be: `claims.calculation_id` already exists, and a numeric claim that names a
-calculation is the writer asserting *this sentence rests on that row*. So the rule is
+**Only the red team caught it**, for the second time in two live runs.
+`numerical_consistency` re-executes stored rows and never reads the prose;
+`citation_accuracy` re-reads the quoted excerpt, which was quoted correctly — what was wrong
+was the number in the sentence beside it; `figure_plausibility` asks whether a figure is
+*possible*, and 0.93 is a perfectly possible quick ratio.
 
-> a claim naming a calculation must contain that calculation's value.
-
-Deterministic, no ratio vocabulary to maintain, and it fires on exactly the failure above:
-the sentence cited `quick_ratio` and then said 0.93 while the row said 1.567.
-
-Three details decide whether it is usable:
-
-- **Tolerance.** The same one §4.1 settled on, for the same reason — the stored figure is a
-  rounded one.
-- **Rendering.** A dimensionless 0.4676 reaches the page as "46.8%" and a multiple as
-  "0.09x", so the comparison has to accept the renderings `render.display` actually
-  produces rather than the raw digits alone.
-- **A claim that names a calculation and quotes no figure at all** is not a violation. Plenty
-  of sentences rest on a calculation without printing it, and failing those would make the
-  metric fire on good prose until somebody switched it off.
-
-It belongs beside `presentation_integrity` in `eval/runtime.py`, which already walks every
-sentence, and it needs a threshold of zero: this is invariant 3, not a quality score.
+`cited_figure_agreement` closes it at threshold zero: **a claim naming a calculation must
+state that calculation's figure.** Structural rather than textual — `claims.calculation_id`
+already exists and the writer already sets it — so there is no ratio vocabulary to maintain.
+Agreement is the draft's own precision rather than a tolerance, which is what lets 0.09 over
+a stored 0.0857 pass while 0.93 over 1.567 fails at every precision. The renderings the
+platform actually produces are admitted (a percentage is the fraction times a hundred; money
+reaches prose in millions or billions), and a claim resting on a calculation without printing
+it is not a violation. It joins `VALIDATION_FAILURE`, so it reaches the banner rather than
+only the table.
 
 **2.2 Comps excludes every peer, by design, and does not say so. Diagnosed 2026-08-25.**
 Eight peers were discovered on the MSFT run and all eight were excluded. Nothing is broken:

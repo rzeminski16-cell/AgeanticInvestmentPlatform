@@ -24,9 +24,12 @@ from aer.agents.validator import AssistInput, ValidatorAdvisory, ValidatorAssist
 from aer.calc.plausibility import FigureScene
 from aer.config import Settings
 from aer.core.enums import ClaimKind, FactBasis, GateKind, JobStatus, Provider, SourceTier
+from aer.core.escalation import TriggerKind
 from aer.db.models import (
     AgentRun,
     Artefact,
+    Calculation,
+    Claim,
     Company,
     Cost,
     Evaluation,
@@ -57,6 +60,7 @@ from aer.providers.fake import FakeProvider
 from aer.providers.protocol import BatchRequest, Message
 from aer.providers.router import Router
 from aer.services.citations import record_citation, record_claim
+from aer.services.escalation import triggers_for_job
 from aer.services.evaluations import _figure_scenes, evaluate_run, evaluations_for_job
 from aer.services.extractions import record_excerpt
 from aer.storage.local import LocalArtefactStore
@@ -608,6 +612,8 @@ class TestACleanRun:
         # not exercised; what it must never be is absent or a failure.
         assert "figure_plausibility" in rows
         assert rows["figure_plausibility"].passed is not False
+        assert "cited_figure_agreement" in rows
+        assert rows["cited_figure_agreement"].passed is not False
 
     async def test_nothing_to_catch_is_not_exercised_never_a_pass(
         self, scene: dict[str, Any]
@@ -731,6 +737,101 @@ class TestAPlantedUnverifiedClaim:
         # And the second run really travelled the batch path.
         assert all(call.get("batch") for call in batch_provider.calls)
         assert batch_provider.call_count == 2
+
+
+class TestAClaimThatQuotesTheWrongFigure:
+    """Gap R19, against the real rows a run writes.
+
+    `tests/test_cited_figure_agreement.py` holds the rule; this holds the wiring, because
+    the rule is worthless if `_cited_figures` never finds a claim. `sections.evidence`
+    records `calculation_id` from the drafter's own proposal and `validate_draft` refuses
+    an id the section was not dealt, so the join is real — but a fixture that never sets
+    the column would leave the metric permanently "not exercised", which reads on the
+    dashboard as "considered" and is the worse failure of the two.
+    """
+
+    @pytest.fixture
+    async def misquoted(self, scene: dict[str, Any]) -> dict[str, Any]:
+        session = scene["session"]
+        calculation = Calculation(
+            job_id=scene["job"].id,
+            name="quick_ratio",
+            sequence=1,
+            formula="(cash + short_term_investments + receivables) / current_liabilities",
+            function_ref="aer.calc.ratios:quick_ratio",
+            inputs=[],
+            parameters={},
+            output_value=Decimal("1.567000000000"),
+            output_unit="pure",
+            code_version="eval-test",
+        )
+        session.add(calculation)
+        await session.flush()
+
+        # The MSFT sentence, verbatim in shape: the row says 1.567 and the prose says 0.93.
+        await record_claim(
+            session,
+            section=scene["section"],
+            kind=ClaimKind.NUMERIC,
+            text="The company reports a quick ratio of 0.93, below one.",
+            calculation_id=calculation.id,
+        )
+        await session.flush()
+        scene["calculation"] = calculation
+        return scene
+
+    async def test_the_check_fails_and_names_both_figures(self, misquoted: dict[str, Any]) -> None:
+        await evaluate_run(
+            _context(misquoted, FakeProvider()),
+            job=misquoted["job"],
+            request=misquoted["request"],
+        )
+        rows = await _rows_by_metric(misquoted["session"], misquoted["job"].id)
+
+        row = rows["cited_figure_agreement"]
+        assert row.passed is False
+        (failure,) = row.details["failures"]
+        assert "quick_ratio" in failure
+        assert "1.567" in failure
+        assert "0.93" in failure
+
+    async def test_quoting_the_figure_it_cites_passes(self, misquoted: dict[str, Any]) -> None:
+        """The same wiring, with the sentence corrected. A check that only ever fails is
+        indistinguishable from one that is broken."""
+        session = misquoted["session"]
+        claim = await session.scalar(
+            select(Claim).where(Claim.calculation_id == misquoted["calculation"].id)
+        )
+        assert claim is not None
+        claim.text = "The company reports a quick ratio of 1.57."
+        await session.flush()
+
+        await evaluate_run(
+            _context(misquoted, FakeProvider()),
+            job=misquoted["job"],
+            request=misquoted["request"],
+        )
+        rows = await _rows_by_metric(session, misquoted["job"].id)
+
+        assert rows["cited_figure_agreement"].passed is True
+
+    async def test_it_reaches_the_escalation_banner_rather_than_only_the_table(
+        self, misquoted: dict[str, Any]
+    ) -> None:
+        """A failed validator an operator has to go looking for is a validator they will
+        approve over. This one joins `VALIDATION_FAILURE` with the other three."""
+        await evaluate_run(
+            _context(misquoted, FakeProvider()),
+            job=misquoted["job"],
+            request=misquoted["request"],
+        )
+
+        fired = await triggers_for_job(
+            misquoted["session"], job=misquoted["job"], request=misquoted["request"]
+        )
+
+        validation = next(t for t in fired if t.kind is TriggerKind.VALIDATION_FAILURE)
+        assert any("quick_ratio" in line for line in validation.evidence)
 
 
 class TestAnAdmissibilityRefusal:

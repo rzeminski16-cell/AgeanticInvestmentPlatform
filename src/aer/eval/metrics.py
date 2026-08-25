@@ -85,6 +85,7 @@ class Metric(StrEnum):
     SKILL_PRIVILEGE_CONTAINMENT = "skill_privilege_containment"
     PRESENTATION_INTEGRITY = "presentation_integrity"
     FIGURE_PLAUSIBILITY = "figure_plausibility"
+    CITED_FIGURE_AGREEMENT = "cited_figure_agreement"
 
 
 # What the CI gate blocks a build on, in the order §2.10 lists them. The first eight
@@ -117,6 +118,7 @@ RUN_TIME: Final[tuple[Metric, ...]] = (
     Metric.ASSUMPTION_COMPLETENESS,
     Metric.PRESENTATION_INTEGRITY,
     Metric.FIGURE_PLAUSIBILITY,
+    Metric.CITED_FIGURE_AGREEMENT,
 )
 
 
@@ -173,6 +175,12 @@ THRESHOLDS: Final[dict[Metric, tuple[Decimal, Direction]]] = {
     # true has failed at the one thing a figure is for. Traceability is not sanity;
     # the MTB run published a 172.1% net margin with every other metric passing.
     Metric.FIGURE_PLAUSIBILITY: (Decimal(0), Direction.AT_MOST),
+    # The count of drafted claims quoting a figure their cited calculation does not hold.
+    # Zero, because this is invariant 3 rather than a quality score: a sentence that names
+    # a calculation and then states a different number has put a figure in a report that
+    # nothing accounts for. The 2026-08-24 MSFT note drafted a quick ratio of 0.93 over a
+    # recorded 1.567 and every other metric passed.
+    Metric.CITED_FIGURE_AGREEMENT: (Decimal(0), Direction.AT_MOST),
 }
 
 _PLACES: Final = Decimal("0.0001")
