@@ -127,6 +127,7 @@ async def portfolio_page(
             "cash": [_cash_row(row, book) for row in view.cash],
             "totals": _totals(view, book),
             "securities": await _dealable(session),
+            "no_listings": NO_LISTINGS,
             "kinds": list(TransactionKind),
             "cash_kinds": sorted(kind.value for kind in CASH_KINDS),
             "today": datetime.now(UTC).date().isoformat(),
@@ -182,8 +183,14 @@ async def record_transaction(
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
         return _refused(request, "Nothing was recorded.")
 
+    resolved = await _resolve_security(session, submitted.get("security", ""))
+    if isinstance(resolved, str):
+        # A refusal that names what to do about it, not a validation error. The operator
+        # typed a ticker; the useful answer is why this platform cannot deal it.
+        return _problem(request, resolved)
+
     try:
-        trade = _parsed(submitted)
+        trade = _parsed(submitted, security=resolved)
     except (ValueError, KeyError, CalculationError) as problem:
         return _problem(request, f"That transaction could not be recorded: {problem}")
 
@@ -270,15 +277,75 @@ async def _latest_close(session: DbSession, *, portfolio: Portfolio) -> date:
 async def _dealable(session: DbSession) -> list[Security]:
     """The listings a transaction may name.
 
-    Only ones the platform already knows, because a holding it cannot price is a row that
-    refuses the whole net asset value. A ticker typed into a box would create a listing with
-    no price history behind it and the screen would be honest about that in the least useful
-    possible way.
+    Only ones the platform already holds prices for, because a holding it cannot price is a
+    row that refuses the whole net asset value — and refusing the total is the correct
+    behaviour, so the way to avoid it is not to accept the holding.
+
+    **The list is typed into rather than picked from** (gap R18). A `<select>` of every
+    listing is unusable at any real size, and it was worse than unusable at size zero: on a
+    machine whose research runs had no market-data subscription it held one option reading
+    "cash, no security", and an operator could neither type a ticker nor find out why. The
+    control is now an `<input list>` over a `<datalist>` — a native typeable combobox, no
+    script — and what is typed is resolved by :func:`_resolve_security`.
     """
     rows = await session.scalars(
         select(Security).where(Security.is_active).order_by(Security.ticker)
     )
     return list(rows)
+
+
+# What to say when the platform holds no listing at all. Not a shrug: it names the one thing
+# that creates a `Security` row today, which is the honest and complete answer.
+NO_LISTINGS: Final = (
+    "This platform holds no priced listing yet. A listing is created when a research run "
+    "acquires prices for a company, which needs a market-data subscription configured. "
+    "Until there is one, cash transactions — a deposit, a withdrawal, a dividend, a fee — "
+    "work exactly as they will later."
+)
+
+
+async def _resolve_security(session: DbSession, typed: str) -> Security | str | None:
+    """One typed ticker to the listing it names, or the reason it names none.
+
+    ``None`` for an empty box, which is a cash transaction and not a mistake. A string is a
+    refusal an operator can act on; a :class:`Security` is the answer.
+
+    Three shapes are accepted because all three are what somebody types: ``MSFT``,
+    ``MSFT.US`` — the vendor's own symbol, which is what a research run stored — and
+    ``MSFT NASDAQ``. Matching is case-insensitive, and an ambiguous ticker is refused with
+    the choices named rather than resolved by picking one.
+    """
+    wanted = typed.strip().upper()
+    if not wanted:
+        return None
+
+    held = list(await session.scalars(select(Security).where(Security.is_active)))
+    if not held:
+        return NO_LISTINGS
+
+    exact = [
+        row
+        for row in held
+        if wanted in {row.ticker.upper(), row.provider_symbol.upper()}
+        or wanted == f"{row.ticker.upper()} {row.exchange.upper()}"
+        or wanted == f"{row.ticker.upper()}.{row.exchange.upper()}"
+    ]
+    if len(exact) == 1:
+        return exact[0]
+    if len(exact) > 1:
+        choices = ", ".join(sorted(f"{row.ticker}.{row.exchange}" for row in exact))
+        return (
+            f"{typed.strip()!r} names more than one listing this platform holds ({choices}). "
+            "Name the exchange too — a dual listing trades at two prices in two currencies, "
+            "and picking one for you is the kind of guess a book cannot be reconciled against."
+        )
+
+    return (
+        f"This platform holds no priced listing for {typed.strip()!r}. A listing is created "
+        "when a research run acquires prices for a company; commissioning a report on this "
+        "ticker is what makes it dealable. Holding a security the platform cannot price "
+        "would refuse the whole net asset value rather than only that row."
+    )
 
 
 # -- Rendering -----------------------------------------------------------------------------
@@ -408,7 +475,7 @@ class _Parsed:
     currency: str
 
 
-def _parsed(submitted: dict[str, str]) -> _Parsed:
+def _parsed(submitted: dict[str, str], *, security: Security | None = None) -> _Parsed:
     """The form, as the columns a transaction has.
 
     Deliberately strict. Every value the operator types about their own money is checked
@@ -427,11 +494,13 @@ def _parsed(submitted: dict[str, str]) -> _Parsed:
 
     dealt = kind in (TransactionKind.BUY, TransactionKind.SELL)
     raw_price = submitted.get("price", "").strip()
-    security = submitted.get("security_id", "").strip()
 
     return _Parsed(
         kind=kind,
-        security_id=uuid.UUID(security) if security else None,
+        # Resolved by the handler against the listings this platform holds, never taken
+        # from the form: an id in a hidden field is an id somebody can substitute, and the
+        # security decides which price series values the whole holding.
+        security_id=security.id if security is not None else None,
         trade_date=date.fromisoformat(submitted["trade_date"]),
         settlement_date=(
             date.fromisoformat(submitted["settlement_date"])

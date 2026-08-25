@@ -282,24 +282,51 @@
       </p>
     </div>
 
+    {#
+      Typed, not picked (gap R18).
+
+      This was a `<select>` over every listing, which is unusable at any real size and was
+      worse than unusable at size zero: on a machine whose runs had no market-data
+      subscription it offered one option reading "cash, no security", and an operator could
+      neither type a ticker nor find out why not.
+
+      `<input list>` over a `<datalist>` is a native typeable combobox with no script behind
+      it — the same rule the menu follows. What is typed is resolved on the server against
+      the listings actually held, so a dual listing is refused with both choices named
+      rather than resolved by guessing.
+    #}
     <div>
-      <label for="security_id" class="block text-sm font-medium text-ink">Security</label>
-      <select
-        id="security_id"
-        name="security_id"
+      <label for="security" class="block text-sm font-medium text-ink">Security</label>
+      <input
+        id="security"
+        name="security"
+        list="dealable-listings"
+        autocomplete="off"
+        placeholder="Leave empty for cash"
         class="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-      >
-        <option value="">— cash, no security —</option>
+      />
+      <datalist id="dealable-listings">
         {% for security in securities %}
-          <option value="{{ security.id }}">
-            {{ security.ticker }} · {{ security.exchange }}
+          <option value="{{ security.ticker }}.{{ security.exchange }}">
+            {{ security.name or security.ticker }}
           </option>
         {% endfor %}
-      </select>
-      <p class="mt-1 text-xs text-ink-faint">
-        Only listings the platform can price. One it cannot would leave the whole book
-        without a total.
-      </p>
+      </datalist>
+      {% if securities %}
+        <p class="mt-1 text-xs text-ink-faint">
+          Type a ticker, or <code>TICKER.EXCHANGE</code> for a dual listing. Leave it empty
+          for a deposit, a withdrawal, a dividend or a fee. Only listings the platform can
+          price: one it cannot would leave the whole book without a total.
+        </p>
+      {% else %}
+        {#
+          The honest empty state. "No options" told an operator nothing about why, and the
+          why is the useful half — this is the one path that creates a listing today.
+        #}
+        <p class="mt-1 max-w-prose text-xs text-warn-ink" id="no-listings">
+          {{ no_listings }}
+        </p>
+      {% endif %}
     </div>
 
     <div>

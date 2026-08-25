@@ -45,6 +45,7 @@ from aer.db.models import (
     WorkOrder,
 )
 from aer.services import portfolio as portfolio_service
+from aer.web.portfolio.pages import NO_LISTINGS, _resolve_security
 
 pytestmark = pytest.mark.integration
 
@@ -554,3 +555,73 @@ class TestEveryFigureCarriesItsWorking:
         # And yet the working exists, in the context the caller passed in — which is what a
         # run persists and a page load simply does not.
         assert len(context.records) > 0
+
+
+class TestNamingTheSecurityYouMean:
+    """Gap R18. The control was a `<select>` and typing into it was impossible.
+
+    Worse at size zero, which is the state of any machine whose research runs had no
+    market-data subscription: the dropdown held one option reading "cash, no security", and
+    an operator could neither enter a ticker nor find out why not. The resolution rules live
+    here; the control is an `<input list>` with no script behind it.
+    """
+
+    async def test_a_bare_ticker_finds_its_listing(self, db_session, book) -> None:
+        found = await _resolve_security(db_session, "msft")
+
+        assert found is book["msft"]
+
+    async def test_the_vendor_symbol_works_too(self, db_session, book) -> None:
+        """What a research run stored is what somebody copying from the run will type."""
+        assert await _resolve_security(db_session, "BARC.LSE") is book["barc"]
+
+    async def test_an_empty_box_is_a_cash_transaction_and_not_a_mistake(
+        self, db_session, book
+    ) -> None:
+        assert await _resolve_security(db_session, "   ") is None
+
+    async def test_a_ticker_nobody_holds_is_refused_with_what_to_do_about_it(
+        self, db_session, book
+    ) -> None:
+        """A holding this platform cannot price refuses the *whole* net asset value, so the
+        place to stop it is here rather than at the total."""
+        refusal = await _resolve_security(db_session, "TSLA")
+
+        assert isinstance(refusal, str)
+        assert "TSLA" in refusal
+        assert "research run acquires prices" in refusal
+
+    async def test_an_ambiguous_ticker_names_the_choices_rather_than_picking_one(
+        self, db_session, book
+    ) -> None:
+        """A dual listing trades at two prices in two currencies.
+
+        Resolving it by picking the first row would put a holding in the book at a price
+        from the wrong exchange, and nothing downstream would notice.
+        """
+        db_session.add(
+            Security(
+                ticker="MSFT", exchange="LSE", provider_symbol="MSFT.LSE", quote_currency="GBX"
+            )
+        )
+        await db_session.flush()
+
+        refusal = await _resolve_security(db_session, "MSFT")
+
+        assert isinstance(refusal, str)
+        assert "MSFT.NASDAQ" in refusal
+        assert "MSFT.LSE" in refusal
+
+    async def test_a_platform_holding_nothing_says_why_rather_than_saying_no(
+        self, db_session, book
+    ) -> None:
+        """The empty state is the one an operator actually meets first."""
+        for security in (book["msft"], book["barc"]):
+            security.is_active = False
+        await db_session.flush()
+
+        refusal = await _resolve_security(db_session, "MSFT")
+
+        assert refusal == NO_LISTINGS
+        assert "market-data subscription" in NO_LISTINGS
+        assert "cash transactions" in NO_LISTINGS.lower()

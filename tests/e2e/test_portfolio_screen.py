@@ -40,7 +40,10 @@ def _open_the_book(page: Page, live_server: str) -> None:
 
 def _record(page: Page, **fields: str) -> None:
     for name, value in fields.items():
-        if name in {"kind", "security_id"}:
+        # `kind` is the one remaining `<select>`. `security` used to be one too and is now
+        # an `<input list>` — a native typeable combobox, because a dropdown of every
+        # listing is unusable at any real size and offered nothing at all at size zero.
+        if name == "kind":
             page.select_option(f"#{name}", value)
         else:
             page.fill(f"#{name}", value)

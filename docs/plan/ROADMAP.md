@@ -336,22 +336,44 @@ draft" is now a record: outcome, the evidence tally by kind, the attempt count, 
 in the producer's own words, and the causes counted. **The run console still shows none of
 this** and should; gate 3 was the surface an operator was actually on.
 
-**3.6 The portfolio — getting a ticker in.** Today `Security` rows exist only where a priced
-research run created one, so on a fresh database the dropdown holds nothing but "cash, no
-security" and the tool cannot record a trade. Three doors, all of them the same underlying
-resolve-and-verify:
+**3.6 The portfolio — getting a ticker in. Two doors of three, 2026-08-25.** `Security` rows
+exist only where a priced research run created one, so on a fresh database the control held
+one option reading "cash, no security" and an operator could neither type a ticker nor find
+out why not.
 
-1. **Typed.** A search box on the transaction form. What is typed is looked up before it is
-   accepted.
-2. **From a research request.** Commissioning a report on a ticker registers its listing, so
-   a name you have researched is dealable without a second step.
-3. **Used before.** Anything already in the book, offered first and filtered as you type.
+- **Typed, over what is held.** Done. The `<select>` is an `<input list>` over a
+  `<datalist>` — a native typeable combobox, no script — and what is typed is resolved on
+  the server: a bare ticker, the vendor symbol a run stored (`BARC.LSE`), or
+  `TICKER EXCHANGE`. A dual listing is refused with **both** choices named rather than
+  resolved by picking one, because a holding priced off the wrong exchange is a book nothing
+  downstream can reconcile. An empty box is a cash transaction, not a mistake.
+- **From a research request.** Already true and now stated on the form: `acquire_prices`
+  creates the subject's listing, so a company you have researched with a subscription
+  configured is dealable with no second step. The empty state names this as the one path
+  that creates a listing today, rather than reporting an absence.
+- **A ticker the platform has never seen. Blocked on a decision, not on plumbing.**
 
-**A ticker is verified once, at first sight, against the price provider** — it resolves to a
-real listing and the provider has history for it, or it is refused with the reason. That is
-the check that keeps "a holding it cannot price is a row that refuses the whole net asset
-value" true, while removing the part where the operator cannot get started at all. Where no
-provider key is configured, say so plainly on the form rather than showing an empty list.
+**The blocked one, and why it is a decision.** Verifying a new ticker means fetching its
+price series, and a fetched series is an externally derived fact — invariant 1 says it was
+hashed and stored. The machinery for that is `services.acquisition.record_acquisition`,
+which requires a `ResearchRequest`: it needs the point-in-time setting, and the source
+document is scoped to a run. A portfolio has neither.
+
+`price_bars.source_document_id` is nullable and writing `NULL` there would compile, but its
+nullability means something else — `ON DELETE SET NULL` for the licensed-payload purge under
+ADR 0031, so the column reads "the bytes are gone", not "there were never any". Using it to
+mean the second would quietly retire invariant 1 for every price the portfolio touches.
+
+Three candidate answers, and picking one is an ADR rather than a ticket:
+
+1. **A work order for the book.** ADR 0072 already makes the work order the run root, and a
+   "portfolio data acquisition" is a work order whose subject is the portfolio. The most
+   consistent with where the schema is going, and the largest change.
+2. **Loosen `record_acquisition`** to take the point-in-time setting directly instead of a
+   request. Smallest honest change, and `source_documents.request_id` is a column §2.1
+   already plans to drop in favour of the work order.
+3. **A synthetic request per portfolio** — "the book's own data mandate". Smallest diff and
+   the least honest: it puts a research request in the table that nobody commissioned.
 
 **3.7 The portfolio — return and exposure.** Four tiles is not an overview. Add:
 
