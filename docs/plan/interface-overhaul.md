@@ -209,7 +209,7 @@ Python only. No template changes.
 — a new gate or status without one is a red build. No redesigned template will need to
 interpret raw domain data.
 
-**Done, 2026-08-25**, except two shapes that are deliberately held for their consumers.
+**Done, 2026-08-25.** Two of the four shapes it listed turned out to be already built.
 
 | | |
 |---|---|
@@ -217,7 +217,7 @@ interpret raw domain data.
 | `web/figures.py` | `pounds` and `CostContext`, so "£6.40 of £8.00" is one object every surface shows identically, and the console stops formatting currency in a template. `RenderedFigure` pairs a figure with its lineage |
 | `web/verdict.py` | The composed half (ADR 0087): `Count`, `Part`, `sentence`, `tally`, and `Authored` — which carries a sentence and a tone and refuses to name an evidence type |
 | `web/overview/verdict.py` | The front door's verdict, composed permanently, wired into the handler |
-| **Held** | `LineageNode` and `PageContext` — see below |
+| **Not owed** | `LineageNode` and `PageContext` already existed — see below |
 
 **Two duplications were closed rather than added to.** `GATE_ASKS` and the portfolio's
 `GRADE_LABELS` are now derived from the vocabulary. Both were written before it, and a second
@@ -247,15 +247,27 @@ without a drill-down; a bare string in a template has nothing to require anythin
 figure now carries either its provenance or the reason there is none — and an unavailable one
 carries no badge, because there is no chain under a number that does not exist.
 
-#### Why `LineageNode` and `PageContext` wait
+#### Three of the four shapes already existed
 
-Both were listed here, and both turn out to be a later item's shape rather than this one's.
-`LineageNode` is the evidence-spine macro's node, and the macro is tranche 3 with its page in
-tranche 7; `PageContext` is the shell's, in tranche 4. Neither has a consumer today, and ADR
-0077's badge — the one shape of the four that *was* fully specified in advance — was already
-built in `web/shell/provenance.py`, which is the difference. Writing the other two now would be
-guessing at a foundational choice with nothing to check the guess against, and the repository's
-own rule is not to fold a later item's work into an earlier one.
+This item listed `RenderedFigure`, `CostContext`, `LineageNode` and `PageContext` as though none
+of them did. Looking for their consumers found the opposite:
+
+| Listed | Already built | Where |
+|---|---|---|
+| `LineageNode` | Yes, resolved by table under ADR 0076, with an ordered `walk()` and a `leaves` view | `services/calculations.py` |
+| `PageContext` | Yes, as `Shell` — nav, active section, guidance, path, theme, injected by `render()` | `web/shell/context.py` |
+| the provenance badge | Yes, as `ProvenanceRef`, with the required `href` and the two chips ADR 0077 refuses to merge | `web/shell/provenance.py` |
+| `RenderedFigure`, `CostContext` | No. Written here | `web/figures.py` |
+
+**So two of them are done and were never owed**, and writing presentation copies of them would
+have produced exactly the duplication this tranche spent its time closing — a second answer to
+what a lineage tree is, and a second page context beside the one `render()` already injects.
+
+**One real gap is left, and it is smaller than a type.** `LineageNode` carries a `Decimal` and a
+unit string, so a template rendering a spine would have to format the figure itself, against the
+`_display` convention. The fix is not a parallel node: it is for the handler to build a
+`RenderedFigure` from a node, which is now possible and is tranche 7's work at the point the
+evidence spine gets its macro.
 
 ### Tranche 2 — Assets and tokens
 
