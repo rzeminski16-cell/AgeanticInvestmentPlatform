@@ -71,7 +71,7 @@ Rules that make it worth having:
   *both* the component and the surface behind it.
 - **Both schemes, and both ways of choosing one** — `color_scheme` on the browser context, and
   the in-app control. They are different code paths.
-- **Include fixed-scheme regions explicitly** (ADR-B). The navigation rail keeps dark colours
+- **Include fixed-scheme regions explicitly** (ADR 0088). The navigation rail keeps dark colours
   on a light page, and it is precisely the region a page-level sweep gets wrong.
 
 Thresholds: 4.5:1 normal text, 3:1 text ≥ 18.66px bold or 24px regular, 3:1 control boundaries
@@ -119,12 +119,12 @@ Exit criteria in testable form. **A tranche is not done until its row is green.*
 | Tranche | Must prove | Where |
 |---|---|---|
 | **0 — Hold** | Both suites green. Ceiling committed. Every state in the design has a fixture that renders under `StrictUndefined` | `just test-all`, `tests/test_palette_migration.py` |
-| **1 — Vocabulary** | Every `JobStatus`, `StepStatus`, `GateKind`, request/report/skill state has a human label and a valid tone. **A new member without one is a red build** | `tests/test_presentation_vocabulary.py` |
+| **1 — Vocabulary** | Every `JobStatus`, `StepStatus`, `GateKind`, request/report/skill state has a human label and a valid tone. **A new member without one is a red build.** Every composed verdict renders from a thin fixture as well as a rich one | `tests/test_presentation_vocabulary.py`, `tests/test_verdict.py` |
 | **2 — Tokens** | Every sanctioned pairing passes from computed colour, both schemes, **including the navigation rail**. Font chain verified in a browser; six hashes pinned; no `faint` token exists | `tests/e2e/test_contrast.py`, `tests/test_fonts.py` |
 | **3 — Macros** | Every macro renders in default, hover, focus, disabled, error, loading, empty — in both schemes. Every provenance badge has a working `href`. No macro accepts a class string | `tests/test_components.py`, `tests/e2e/test_component_states.py` |
 | **4 — Shell** | One nav DOM; one badge target; one drawer. Wide-width reveal verified in Chromium **and** Firefox. Scripting off at 320px and 1440px: every link reachable, both preference forms submit. Shell survives Redis down, database down, badge timeout | `tests/e2e/test_shell.py`, `tests/test_shell_nav.py` |
 | **5 — Overview + requests** | Launcher renders with no database. First-run distinguished from caught-up. Provider failure appears as an item, never silence. Rejected form returns every value across both validation rounds. One page-based destructive confirmation; **no `confirm()` anywhere** | `tests/test_overview.py`, `tests/e2e/test_request_form.py` |
-| **6 — Console + gates** | All declared steps render; none invented by the stream. Budget refusal distinguishes run from monthly. Conditional gates never presented as certain. **Stale hash refused; decided gate renders no form; approval never optimistic.** Assumptions gate renders from live rows, and its row forms do not nest in the decision form. Peer and theme rationales full length | `tests/e2e/test_run_console.py`, `tests/e2e/test_gates.py` |
+| **6 — Console + gates** | All declared steps render; none invented by the stream. Budget refusal distinguishes run from monthly. Conditional gates never presented as certain. **Stale hash refused; decided gate renders no form; approval never optimistic.** Assumptions gate renders from live rows, and its row forms do not nest in the decision form. Peer and theme rationales full length. **The authored verdict cannot be cited — no `SourceRef` constructs from it — and a run that never wrote one still renders a complete composed verdict** | `tests/e2e/test_run_console.py`, `tests/e2e/test_gates.py`, `tests/test_verdict.py` |
 | **7 — Evidence + reports** | Excerpts verbatim with verdicts beside them. Valuation read from the ledger, not recomputed on GET. **Heatmap byte-identical for identical rows.** Replay stays a POST with typed findings. Drafts appear only in the operator's list | `tests/e2e/test_evidence_surfaces.py`, `tests/test_charts.py` |
 | **8 — Portfolio, skills, knowledge** | **All four portfolio totals present or all withheld.** Cash is a position; unpriceable rows carry a reason; penny-exact; a typed transaction stays `Typed`. Skill export round-trips source bytes; import shows a diff and rechecks the base hash. Graph coordinates deterministic | `tests/e2e/test_portfolio_screen.py`, `tests/test_portfolio_service.py`, `tests/e2e/test_skills_editor.py` |
 | **9 — Hardening** | Ratchet at zero and hard. No runtime-composed class. Stylesheet recompiled and committed. Every vendored hash verified. Full manual pass recorded | `tests/test_palette_migration.py`, `tests/test_web_pages.py` |

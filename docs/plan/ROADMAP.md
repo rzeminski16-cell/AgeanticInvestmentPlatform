@@ -28,8 +28,10 @@ thing that would otherwise put a wrong number, or no answer at all, in front of 
    dealt at all, so the portfolio tool is unusable on a machine whose runs were unpriced.
 3. **§2.4 — the report document's layout.** The disagreement appendix puts a two-hundred-word
    objection in a narrow column and one row spans three pages; neither position can be read.
-4. **§3.12 — the interface overhaul.** Specified, designed, reviewed and planned 2026-08-25;
-   not built. Start at tranche 0 of [`interface-overhaul.md`](interface-overhaul.md). It is placed here rather
+4. **§3.12 — the interface overhaul.** Specified, designed, reviewed, decided and planned
+   2026-08-25; not built. Every blocking decision is cleared and three are ADRs 0087–0089.
+   Start at tranche 0 of [`interface-overhaul.md`](interface-overhaul.md), which may run
+   alongside §2.1. It is placed here rather
    than lower because §2.5 is inside it: migrating the palette first would do the most
    quietly-fragile item in this roadmap twice, once onto the present design and again onto
    the new one.
@@ -321,9 +323,16 @@ and it wins where it and the design system disagree.
 
 **The work is sequenced in [`interface-overhaul.md`](interface-overhaul.md)** — ten tranches,
 each independently releasable — with its testing in
-[`interface-overhaul-testing.md`](interface-overhaul-testing.md). **Three ADRs come first**: a
-verdict is composed and never inferred; a fixed-scheme region carries its own measured palette;
-`/runs/active` resolves the current run.
+[`interface-overhaul-testing.md`](interface-overhaul-testing.md).
+
+**Every blocking decision was cleared on 2026-08-25** and three became records: **0087** (a
+verdict has two halves — a composed half that is live, and an authored half a model writes once
+over a frozen subject and which is never evidence), **0088** (a fixed-scheme region carries its
+own measured palette), **0089** (`/runs/active` resolves the current run). The product is named
+**Tracework Invest**; the navigation carries one badge, on Requests.
+
+**Sequenced behind §2.1 and §3.1**, on the operator's direction. Tranche 0 touches no template
+and no service, so it may run alongside either.
 
 What does not exist is not a screen. It is a *specification a designer can work from*: the
 platform's interface grew a page at a time, each one correct in isolation, and the result is

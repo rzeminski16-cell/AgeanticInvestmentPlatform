@@ -41,69 +41,85 @@ expensive depends on it.
 
 ---
 
-## Before anything: four decisions
+## The decisions, made 2026-08-25
 
-Three need an ADR. None is large; all three are cheap now and expensive at tranche 6.
+All cleared on the operator's direction. Nothing below is open.
 
-### ADR-A — The interface states a verdict, and a verdict is composed, never inferred
+| # | Question | Decision | Record |
+|---|---|---|---|
+| A1 | Where verdict prose comes from | **Model-authored**, over a frozen subject, stored as a step output. Split into an authored half and a composed half | [ADR 0087](../adr/0087-a-verdict-has-two-halves-one-composed-and-one-authored.md) |
+| A2 | The product name | **Tracework Invest** | This document |
+| A3 | One badge or two | **One**, on Requests | This document |
+| B4 | The navigation rail's palette | **A fixed-scheme region declares its own family and is measured against it** | [ADR 0088](../adr/0088-a-fixed-scheme-region-carries-its-own-measured-palette.md) |
+| B5 | "Active run" in the navigation | **`GET /runs/active` redirects** | [ADR 0089](../adr/0089-the-run-you-are-watching-has-an-address.md) |
+| B6 | The Components page | **Never a route.** A test fixture and the visual baseline | This document |
+| B7 | Navigation without scripting | **Ships `<details open>`**, closed by script at narrow widths | This document |
+| C | axe-core and the fonts | **Vendored during the build.** Both reachable | Tranches 0 and 2 |
+| D | Sequencing | **§2.1, then §3.1, then this** | ROADMAP |
 
-**The decision:** every `*_verdict`, `*_summary`, `*_copy` and `*_label` field is composed
-deterministically in Python from stored rows. No page load calls a model. A sentence a page
-wants is a template over counts, states and server-rendered figures.
+### A1 — what the choice actually buys, and what it costs
 
-**Why it needs a record:** the design's central move is to lead each page with a plain-language
-verdict, and the prototype's own review copy — *"complete, traceable, and cautious"* — cannot
-be produced that way (see correction D2). Without a record, the first person who cannot compose
-a sentence deterministically will reach for a model call at a gate, and that is a new agent
-role, a per-view cost, and a judgement masquerading as a summary.
+**Chosen: model-authored.** ADR 0087 is how that is built without the three problems the
+plain reading has, and it is worth carrying the shape into every page.
 
-**What it must say:** the composition rule; that a model-authored summary, if ever wanted, is
-**stored as a judged statement and never generated on load**; and that a verdict line is a
-presentation of the record, so it carries no figure the record does not already hold.
+**A verdict is two halves.** The **composed** half is counts, states and figures, assembled
+in Python on every render — live by construction, so it cannot go stale. The **authored**
+half is one or two sentences of interpretation, written once by a model over a subject that
+has stopped changing, and stored.
 
-### ADR-B — A fixed-scheme region carries its own measured palette
+**Frozen is the test, and it decides the scope.** The review gate, the evidence pages and a
+finished report have an authored half. The run console does not — its subject is in motion.
+**The main menu never does**, because its verdict aggregates live state across runs: there is
+no moment to write it once about, and it must keep rendering with no provider configured.
 
-**The decision:** a region that keeps one scheme's colours while the page changes scheme — the
-navigation rail today — declares its own token family, and every accent painted on it is
-measured against it.
+**Cost:** one cheap model call per run per authored surface, routed, metered and capped like
+every other. **It is never evidence** — no claim may name it, no citation may resolve to it,
+and the type carrying it cannot construct a source reference.
 
-**Why it needs a record:** correction D1. Three light-theme accents fail 3:1 on the rail, the
-focus ring among them at 2.04:1, and they failed *because the rail was not in the table*. The
-rule generalises beyond the rail and beyond this redesign.
+### A2 — Tracework Invest
 
-### ADR-C — `/runs/active` resolves the current run
+Rendered in the shell in the pattern the current wordmark already uses — the name, then the
+qualifier in the accent colour:
 
-**The decision:** navigation stays a tuple of static hrefs. One-action access to "the run I am
-watching" is a real route that redirects — 303 to the current run, or to `/requests` when there
-is none.
+```
+Tracework Invest        →   Tracework <span class="text-verification">Invest</span>
+```
 
-**Why it needs a record:** correction D4. It is small, but it is the first nav item whose
-destination is computed, and the alternative — a dynamic `href` on `NavItem` — would silently
-retire the drift test that guarantees every page is reachable.
+**Fifty files say "Ageiantic" today.** Most are documentation. The rename is mechanical and
+belongs to tranche 4, with the archive left alone: `docs/archive/` is a record of what was
+written at the time and renaming it would falsify it.
 
-### The fourth decision needs no ADR
+### B7 — the navigation fails open
 
-**One badge or two.** The design shows counts on Overview and Requests; one provider is
-registered. Register a second `BadgeProvider` with its own key, label and ADR reference, or
-show one badge. **Recommended: one, on Requests.** The Overview count duplicates what the
-attention verdict already says in words, and the deliverable's own rule is not to announce the
-same count twice.
+The markup ships `<details open>`; the script closes it at narrow widths. Measured: with
+scripting off at 320px the panel is expanded over the content on load and every link is
+reachable. **That is the safe direction to fail** — a navigation that is open when it should
+be closed is untidy; one that is closed with no way to open it is a dead end.
+
+The wide-width reveal still has to be verified per engine in tranche 4, and the prototype's
+`matchMedia` approach is not the implementation: the handoff forbids it and is right.
 
 ---
 
 ## Sequencing against the rest of the roadmap
 
-Two items are in flight and both touch templates this overhaul rewrites.
+**Decided: §2.1, then §3.1, then this.** Both are in flight, both touch templates this
+overhaul rewrites, and both are ahead of it on the roadmap because each puts a wrong number
+or a missing answer in front of somebody while this is a product that looks like two designs.
 
-**§2.1 — five sections fail to draft.** Its diagnosis surfaces on the gate-3 review page, which
-tranche 6 rebuilds. **§2.1 goes first and is not blocked by this plan.** It is a wrong number
-in front of somebody; this is a page that looks like two designs. If §2.1 is still open when
-tranche 6 begins, tranche 6 takes its surface as it finds it and rebuilds around it — the
-"Sections in this draft" record is a data contract either way.
+**§2.1 — five sections fail to draft.** More than a quarter of the last report was a coverage
+notice. Its diagnosis surfaces on the gate-3 review page, which tranche 6 rebuilds — so
+finishing it first means tranche 6 rebuilds a surface whose content is settled rather than one
+still being instrumented.
 
-**§3.1 — the portfolio's third door.** Adds a control to the transaction form, which tranche 8
-rebuilds. **Land §3.1 first.** Portfolio is 18 ramps across three templates — the smallest
-migration in the plan — so there is no case for blocking a functional fix behind it.
+**§3.1 — the portfolio's third door.** A ticker no research run has priced cannot be dealt at
+all, so the tool is unusable on a fresh database. It adds a control to the transaction form,
+which tranche 8 rebuilds. Landing it first is a two-line saving in tranche 8 and an unblocked
+operator immediately.
+
+**Tranche 0 may run in parallel with either.** It touches no template and no service — it
+holds current behaviour under test, builds fixtures and commits the ratchet ceiling — so it
+costs §2.1 nothing and makes it safer.
 
 **§2.5 — the palette migration is not a separate item any more.** It is tranches 2 and 4–9 of
 this plan, and the roadmap entry already says so. It ends when the ratchet reaches zero in
@@ -146,7 +162,9 @@ Python only. No template changes.
    state and skill state to a `HumanState` carrying a label and a semantic tone key.
 2. `RenderedFigure`, `CostContext`, `LineageNode`, `PageContext` — the shapes handlers assemble
    before rendering. A field ending `_display` is a complete server-rendered string.
-3. The verdict composers, under ADR-A.
+3. **The composed half of every verdict** (ADR 0087) — counts, states and figures, assembled
+   from stored rows. This is the half that ships everywhere, including the surfaces that never
+   gain an authored half.
 4. Adapt handlers family by family; existing templates keep rendering.
 
 **Exit:** every enum member has a human label and a valid tone, asserted by a completeness test
@@ -158,7 +176,7 @@ interpret raw domain data.
 1. Vendor the three families, latin and latin-ext, variable cuts where they exist, no italic.
    Record six SHA-256 pins in `tests/test_fonts.py` and three OFL files.
 2. Implement the token system in `src/aer/web/styles/app.css`: the full §2.2–2.6 set, **plus
-   the navigation-rail family under ADR-B**, plus focus, control-boundary, type and spacing
+   the navigation-rail family under ADR 0088**, plus focus, control-boundary, type and spacing
    scales. No `faint` token at any point (D3).
 3. Keep the existing semantic aliases resolving so the clean twelve keep working.
 4. Compile and commit the stylesheet.
@@ -191,9 +209,9 @@ Twelve templates, zero ramps — so this is design work rather than migration.
    `nav` — never a second tree.
 2. `<details open>` in the markup, closed by script at narrow widths. Fail open, deliberately.
 3. Visible location: breadcrumb or compact label, outside the closed part.
-4. The rail's own palette (ADR-B). Selection carried by the teal rule and `aria-current`, never
+4. The rail's own palette (ADR 0088). Selection carried by the teal rule and `aria-current`, never
    by the 1.21:1 fill.
-5. `/runs/active` (ADR-C). No "Components" item, ever (D5).
+5. `/runs/active` (ADR 0089). No "Components" item, ever (D5).
 6. One badge target, one drawer, server-stamped preferences, disclaimer once.
 
 **Exit:** every top-level destination is one action away at wide width; the whole shell works
@@ -230,6 +248,10 @@ triages without scrolling; both validation rounds read as one problem list.
    wide width, **after the evidence in DOM and focus order**.
 6. The review gate rebuilt around a linked attention index. Nothing removed; everything ranked.
 7. The payload-hash guarantee written as a reassurance, not a footnote.
+8. **The `verdict` role and its step** (ADR 0087): registered in `agents/registry.py`, no
+   tools, a closed output schema, routed and capped in pounds with a step estimate. It writes
+   the review gate's authored half once, when the draft freezes. A run that fails before it
+   falls back to the composed half, which is a complete sentence on its own.
 
 **Do not flatten the gates into one another.** The financials gate sorts by what decides the
 question; the peer gate renders rationales at full length; the assumptions gate reads live rows
@@ -238,7 +260,8 @@ shared; the evidence is not.
 
 **Exit:** liveness is answerable in two seconds; any gate is recognisable as a gate; approval
 stays hash-bound, non-optimistic and refused when stale; the assumptions gate still renders
-from current rows.
+from current rows; **the authored verdict is never citable and its absence never reads as a
+defect.**
 
 ### Tranche 7 — Evidence and reports
 
@@ -294,7 +317,7 @@ build has a rule rather than 84 arguments.
 |---|---:|---|
 | **Human labels for enums, steps, gates, states** | ~20 | **Adopt, tranche 1.** This is the presentation vocabulary. No new query |
 | **`_display` strings for figures already held** — spend, ceiling, dates, ages | ~18 | **Adopt, tranche 1.** Formatting moves to the server, which is where it already belongs |
-| **Composed verdicts and summaries** | ~12 | **Adopt under ADR-A**, deterministic only. Any that cannot be composed from rows is **declined**, not faked |
+| **Verdicts and summaries** | ~12 | **Adopt under ADR 0087.** Composed half always; authored half only where the subject is frozen — never on the main menu, never on the run console |
 | **Counts and readiness labels** — sources, claims, coverage | ~8 | **Adopt** where the query is cheap; a count that costs a slow join goes behind the badge mechanism, off the render path |
 | **Structural regrouping** — gate journey, attention index, lineage nodes, typed replay findings | ~10 | **Adopt.** These are reshapes of data already assembled, and they are what stops templates doing positional indexing |
 | **Typical-cost guidance on the request form** | 1 | **Adopt, with the `unavailable` case designed.** Guidance from history, never a promise, never client-computed |
@@ -303,7 +326,7 @@ build has a rule rather than 84 arguments.
 | **Server GET filter/sort** | 3 | **Adopt** where it makes a returnable URL. Client filtering stays for rows already on the page |
 | **Point-in-time as two radios** | 1 | **Adopt.** Presentation only — the boolean and its default-on meaning do not change |
 | **Stale-confirmation token for removal** | 1 | **Adopt** if removal does not already re-check eligibility; otherwise decline as duplicate |
-| **`/runs/active`** | — | **Adopt (ADR-C)** |
+| **`/runs/active`** | — | **Adopt (ADR 0089)** |
 | **`/portfolio/holdings/{listing}?as_of=`** + fragment | 2 | **Adopt in tranche 8.** It is the "make a holding openable" ask, and the drawer already exists |
 | **Transaction index / filter route** | 1 | **Adopt.** Transactions are the only thing the tool stores and have no surface |
 | **Evidence drawer fragments** (source excerpt, calculation inputs, assumption justification) | 3 | **Adopt in tranche 7**, each keeping its full-page `href` |

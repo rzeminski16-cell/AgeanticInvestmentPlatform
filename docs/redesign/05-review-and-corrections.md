@@ -9,6 +9,13 @@ not a rewrite: everything not named here stands exactly as delivered.
 
 ---
 
+> **All nine corrections were resolved on 2026-08-25.** D1 → [ADR 0088](../adr/0088-a-fixed-scheme-region-carries-its-own-measured-palette.md).
+> D2 → [ADR 0087](../adr/0087-a-verdict-has-two-halves-one-composed-and-one-authored.md), which
+> takes the *model-authored* option and makes it work by splitting a verdict into a composed half
+> and an authored one. D4 → [ADR 0089](../adr/0089-the-run-you-are-watching-has-an-address.md).
+> D3, D5–D9 are settled in [the plan](../plan/interface-overhaul.md). The product is
+> **Tracework Invest**.
+
 ## Verdict
 
 **Adopt. Nine corrections before build, one of which is a WCAG failure.**
@@ -106,8 +113,14 @@ The first is a count, a count and two figures — composable deterministically f
 already holds, at no cost. **The second requires reading the challenge and judging it**, and
 no deterministic composer produces "cautious" or "one valuation dependency worth reading".
 
-**Resolve in favour of the specification.** The prototype's copy is aspirational and would, if
-taken literally, require:
+**Resolved 2026-08-25: the operator chose the authored sentence, and ADR 0087 is how it is
+built.** A verdict becomes two halves — a *composed* half that is live and cannot go stale, and
+an *authored* half a model writes once over a subject that has already frozen. The main menu
+never gets an authored half, because its verdict aggregates live state across runs and there is
+no moment to write it once about.
+
+The analysis below stands as the reason the plain reading does not work. Taken literally it
+would require:
 
 - a **new agent role** — which ADR 0035 makes an ADR, not a diff;
 - a **model call on a page load**, which every cost rule in the platform is built to prevent;
@@ -120,13 +133,20 @@ the report-to-report delta: *"If the summary is model-authored, store it as a ju
 statement; do not generate it on page load."* That rule governs `review_verdict`,
 `verdict_explanation` and `overview_verdict` identically.
 
-**So:** every `*_verdict`, `*_summary`, `*_copy` and `*_label` field in the data contract is
-**deterministically composed from stored rows by Python**, or it does not ship. Where a page
-wants a sentence, the sentence is a template over counts, states and server-rendered figures.
-This is not a limitation to work around; a verdict line assembled from the record is one the
-reader can check, and one a run cannot silently pay for.
+**ADR 0087 answers all three.** The role is admitted by a record, as ADR 0035 requires. The
+call happens **once when the subject freezes**, not on a page load. And the sentence is stored
+as a step output rather than in the judgement table §3.5 has not built yet — because that table
+is for views a *person* holds, and putting a model's interpretation in it would be folding a
+later item's work into an earlier one.
 
-The prototype's copy stays useful as a statement of *tone*. It is not a content spec.
+**So the rule is scope, not prohibition.** A `*_verdict` field has an authored half only where
+its subject has stopped changing: the review gate, the evidence pages, a finished report. Every
+other surface — the run console, and **the main menu permanently** — is composed only. And the
+authored half is never evidence: no claim may name it, no citation may resolve to it, and the
+type carrying it cannot construct a source reference.
+
+The prototype's copy is now a fair statement of what the review gate will say. It remains a
+statement of *tone* rather than a content spec — the sentence is the model's each time.
 
 ### D3 — `ink-faint` survives in the prototype stylesheet
 

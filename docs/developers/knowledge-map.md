@@ -230,7 +230,9 @@ ones — read the ADR before touching its territory:
   ladder decides, or says it cannot), 0024 (the evidence chain is a surface, not a schema),
   0043 (a chart is a figure), 0054 (a reference numeral is provenance, not a figure), 0057
   (a count is not a figure and a clause is not a section), 0060 (a number inside a name is
-  not a figure).
+  not a figure), 0087 (a verdict has two halves: one composed, one authored), 0088 (a
+  fixed-scheme region carries its own measured palette), 0089 (the run you are watching has an
+  address).
   **Read 0006 and 0077 together before designing anything.** 0006 decides that the server is
   the only renderer; 0077 narrows the islands permission 0006 left open and draws the line
   the whole interface sits behind — chrome may be the client's, a figure never is. The
