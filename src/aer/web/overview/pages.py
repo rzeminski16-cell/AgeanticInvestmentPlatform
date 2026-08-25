@@ -36,6 +36,7 @@ from aer.services.overview import spend_since, start_of_month
 from aer.version import build_identity
 from aer.web import figures
 from aer.web.overview.attention import Attention, Severity, items_for
+from aer.web.overview.verdict import overview_verdict
 from aer.web.shell.badges import Badge, cached_counts_for
 from aer.web.templating import render
 from aer.web.tools.registry import installed_tools
@@ -75,6 +76,12 @@ async def main_menu(request: Request, session: DbSession, redis: RedisClient) ->
     badges: tuple[Badge, ...] = ()
     attention: tuple[Attention, ...] = ()
     spend: str | None = None
+    # Whether the feed was actually read, which is not the same as `problem is None`: a
+    # schema two migrations behind sets a problem and then the queries run anyway. The
+    # verdict below counts these rows, and an empty tuple means two opposite things — nothing
+    # is waiting, or nothing was asked — so which one it is has to be recorded rather than
+    # inferred.
+    gathered = False
 
     try:
         # Before the queries, not after. A schema two migrations behind can leave the
@@ -87,6 +94,7 @@ async def main_menu(request: Request, session: DbSession, redis: RedisClient) ->
         user = await get_current_user(session)
         badges = await cached_counts_for(redis, session, user_id=user.id)
         attention = await items_for(session, user_id=user.id)
+        gathered = True
         spend = _pounds(await spend_since(session, since=since))
     except AerError as exc:
         # A configuration problem the operator can act on, such as no user having been
@@ -108,6 +116,10 @@ async def main_menu(request: Request, session: DbSession, redis: RedisClient) ->
             "problem": problem,
             "badges": badges,
             "attention": attention,
+            # Composed from the feed directly above it, and told whether that feed is a
+            # count at all — the case where "nothing is waiting for you" is both the obvious
+            # sentence and completely wrong.
+            "verdict": overview_verdict(attention, gathered=gathered),
             "spend": spend,
             # Rendered here rather than in the template: `%-d` does not exist outside
             # glibc, and `format_date` is the one place that knows it.

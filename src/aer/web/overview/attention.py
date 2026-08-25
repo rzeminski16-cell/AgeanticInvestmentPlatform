@@ -103,6 +103,16 @@ class Attention:
     replacement for it (ADR 0006).
     """
 
+    feed_is_incomplete: bool = False
+    """Whether this item exists *because* rows are missing from the feed around it.
+
+    Set only by :func:`_could_not_ask`. The distinction matters one layer up: a page that
+    leads with a composed verdict is counting these rows, and a count taken over part of the
+    estate must not be presented as the whole of it. The detail line here already tells a
+    reader to treat the feed as incomplete; this is the same fact in a form the composer can
+    act on, rather than a string it would have to parse.
+    """
+
     def __post_init__(self) -> None:
         if not self.href:
             message = (
@@ -251,4 +261,5 @@ def _could_not_ask(provider: AttentionProvider, failure: Exception) -> Attention
         ),
         href="/healthz",
         action="Check the platform",
+        feed_is_incomplete=True,
     )
