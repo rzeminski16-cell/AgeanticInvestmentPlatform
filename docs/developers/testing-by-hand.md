@@ -17,7 +17,7 @@ green suite and obvious the moment somebody looked at a screen.
 | Part | Time | Money |
 |---|---|---|
 | §0–§7 — setup, gates, suite | 40–60 min | nothing |
-| §8–§11 — the application, both tools, by eye | 45 min | nothing |
+| §8–§11 — the application, both tools, by eye | 60 min | nothing |
 | §12–§15 — guards, recovery, backup | 45 min | nothing |
 | §16 — **the live run** | 30–60 min | **a few pounds of model spend** |
 
@@ -25,6 +25,11 @@ Everything before §16 is free and needs no internet beyond installing dependenc
 **§16 is the only part that spends money, and it says so again when you get there.**
 
 You can stop after any numbered section. If you only have an hour, do §0–§7 and §8.
+
+**§8.3 is the interface pass** — keyboard, narrow window, contrast, zoom — and it is the
+newest part of this sheet. Do it on any surface you have changed, whatever else you skip:
+the automated suite has no opinion about a screen's width, its colour scheme or its keyboard
+order, and [`testing.md`](testing.md) says why.
 
 ## How to read this
 
@@ -462,10 +467,15 @@ That button was once removed by a redesign and a browser test caught it; it is p
     media query is guarded so an explicit choice beats the machine; **wrong** is a page
     that goes dark at night regardless of what you picked.
   - Choose **Auto** and switch the OS. **Expect** the application to follow.
-  - **Wrong:** any panel that stays light in dark mode. Roughly half the templates still
-    use Tailwind's stock ramps; `dark:` is redefined to answer the theme choice as well as
-    the OS, so those pages do flip — what they may still be is *slate grey beside navy*,
-    which is the outstanding migration in `docs/plan/ROADMAP.md` §2.5 and not a defect.
+  - **Wrong:** any panel that stays light in dark mode. 41 of the 54 templates still use
+    Tailwind's stock ramps — all of them in the research tool; the shell, the main menu and
+    the portfolio's empty state are clean. `dark:` is redefined to answer the theme choice
+    as well as the OS, so those pages do flip — what they may still be is *slate grey beside
+    navy*, which is the outstanding migration in `docs/plan/ROADMAP.md` §2.5 and not a
+    defect.
+  - **The boundary is worth walking deliberately**, because it is the clearest statement of
+    what the overhaul is for. In dark mode, go `/` → `/portfolio` → `/requests` → a run
+    console. The first two are the design; the last two are what it replaces.
 - **Show explanations**, in the same block. It toggles the guidance callouts. Until
   2026-08-25 this flag had a route and no control anywhere in the application.
 - **Badge counts** load after the page, from `/_shell/badges`. **Expect** them to appear a
@@ -477,7 +487,47 @@ That button was once removed by a redesign and a browser test caught it; it is p
   click must be an ordinary page navigation** — the trigger is a link before it is anything
   else.
 
-### 8.3 The page that has to work when nothing else does
+### 8.3 The interface, deliberately
+
+*Four passes the suite cannot make. See [`testing.md`](testing.md) §The interface for why
+each is missing from it, and [`../design/`](../design/README.md) for what the screens are
+meant to be.*
+
+**Do these on one surface per tool at minimum** — the main menu, a run console and the
+portfolio screen — and on every surface you have changed.
+
+**The keyboard alone.** Put the mouse down. From `/`, reach the new-request form, fill it,
+submit it, open the menu, change the theme and open a drawer, using only Tab, Shift-Tab,
+Enter, Space and Escape.
+
+- **Expect** a visible focus ring on every stop, never a control you can reach and not see.
+- **Expect** the tab order to follow the reading order.
+- **Wrong:** focus that disappears into an off-screen element; a control reachable only by
+  clicking; a drawer that lets focus escape behind it while open.
+
+**A narrow window.** Drag the browser to roughly a phone's width, then to a tablet's.
+
+- **Expect** every page to remain usable and **the page body never to scroll sideways**. A
+  wide table may scroll — inside its own box, not by moving the page.
+- **Wrong:** a control pushed out of the viewport; a heading colliding with its badge; a
+  table forcing horizontal scroll on the whole document. The run console, the assumptions
+  gate and the review gate are the three most likely to fail this, being the widest.
+
+**Contrast and colour, in both schemes.** With the theme on Light and again on Dark:
+
+- **Expect** every status to be readable as *words*, not only as a colour. Every chip in
+  this application pairs its colour with a label deliberately; a status a colour-blind
+  reader cannot read is a status that is not there.
+- **Expect** muted text to stay legible. `ink-faint` on `surface-sunken` is the pairing most
+  likely to be too close.
+- The quickest check is your browser's own contrast readout in the element inspector.
+
+**Zoom to 200%.** Browser zoom, not the OS.
+
+- **Expect** the page to reflow and everything to remain reachable.
+- **Wrong:** text clipped by a fixed-height box, or content that disappears entirely.
+
+### 8.4 The page that has to work when nothing else does
 
 ```powershell
 docker stop aer-postgres
@@ -1172,6 +1222,10 @@ failure loses nothing.
 - **That coverage is complete.** The concept map does not know every filer's vocabulary. A
   clean run on one company says little about the next.
 - **That the vendor contract holds**, unless you ran §16.1.
+- **That the interface is well designed.** §8.3 asks whether a screen is *usable* — reachable
+  by keyboard, legible at a narrow width, readable in both schemes. Whether it is the right
+  screen at all is a different question, and it is the one
+  [`../design/`](../design/README.md) exists to answer. Roadmap §3.12 is the work.
 - **That anything here is investment advice.** It is not, and every surface says so.
 
 ---

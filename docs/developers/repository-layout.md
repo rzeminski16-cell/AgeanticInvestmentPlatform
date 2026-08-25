@@ -100,19 +100,45 @@ src/aer/            application package
     security.py     signed CSRF tokens
     sse.py          live run progress, polled from committed state
     routes/         JSON API routers
-  web/              server-rendered GUI
-    pages.py        run console, both gate pages, the report
+  web/              server-rendered GUI; one chrome, many tools (ADRs 0006, 0077)
+    nav.py          NavItem/NavSection: navigation as data, so a tool can contribute to it
+    templating.py   render(): injects `shell`, mints a CSRF token, stamps the theme
+    csrf.py         signed token in a form field, checked on every POST
+    forms.py        flat HTML form -> typed payload; adapts, never decides
+    pages.py        the run console, the seven gates, the evidence surfaces, settings, costs
+    routes.py       requests: list, new, edit, remove, assumptions; the shell's own POSTs
+    skills_pages.py the skills library, editor, import diff and dry run
+    shell/          the frame no tool owns
+      registry.py   NAV and UNLISTED: every page is in the nav or named as reachable
+      context.py    the `shell` object; constructible with no database, deliberately
+      badges.py     counts, off the critical render path, behind GET /_shell/badges
+      provenance.py ProvenanceRef: a badge is a link, and one chip cannot carry two axes
+    overview/       the main menu: launcher, work list, and the attention registry
+      pages.py      the front door, and the one page that renders when nothing else can
+      attention.py  Attention/Severity; Overview owns no query, it asks a registry
+      research.py   the research tool's answer to "is anything waiting for me"
+      platform.py   what the platform itself has waiting, which is no tool's business
+    portfolio/pages.py  the book as at a date; every figure computed on the way to it
+    tools/registry.py   INSTALLED_TOOLS: nine rows, three states; a planned tool is a page
     templates/      Jinja2; the disclaimer lives in the shell, not in pages
-    static/         committed build output and vendored libraries
-    styles/         Tailwind source (compiled to static/css/app.css)
+      _ui/          the component macros: card, kpi, empty, guide, provenance
+      _shell/       the drawer and the badge fragment
+    static/         committed build output and vendored libraries (htmx, Inter)
+    styles/app.css  Tailwind source, the design tokens and the `dark:` variant
 migrations/         Alembic migrations; the schema's only source of truth
 tests/              test suite; runs with no network access and no model spend
+  e2e/              Playwright against a real Chromium; its own pytest process
 docs/
-  PLAN.md           the full research, architecture and build plan
+  README.md         the index: five audiences, and which to read
   adr/              architecture decision records
-  polish-phase-1.md the fix sequence from the first complete run
-  anatomy-of-a-research-run.html   the pipeline, the gates and the agents, drawn
-  notebooks/        explainers that read the live code rather than describing it
+  product/          what it is, and the pipeline drawn as a standalone page
+  users/            how to run it, gate by gate
+  developers/       how to change it; knowledge-map.md is the orientation layer
+    notebooks/      explainers that read the live code rather than describing it
+  design/           the interface specification, per surface (roadmap §3.12)
+  plan/ROADMAP.md   the authority on scope
+  data-sources/     one dossier per publisher: terms, limits, and whether we may use it
+  archive/          superseded documents, kept whole, with an index saying what replaced each
 docker-compose.yml  Postgres, Redis, and MinIO under the `objectstore` profile
 package.json        build-time only: compiles the stylesheet. Not needed to run the app.
 .env.example        every setting, documented

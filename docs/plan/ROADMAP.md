@@ -28,8 +28,14 @@ thing that would otherwise put a wrong number, or no answer at all, in front of 
    dealt at all, so the portfolio tool is unusable on a machine whose runs were unpriced.
 3. **§2.4 — the report document's layout.** The disagreement appendix puts a two-hundred-word
    objection in a narrow column and one row spans three pages; neither position can be read.
-4. **§2.5 — the palette migration.** The last of the surfaces work, and the one most likely
-   to go wrong quietly, so it wants its own pass with screenshots.
+4. **§3.12 — the interface overhaul.** The specification landed 2026-08-25 in
+   [`../design/`](../design/README.md); the design itself has not. It is placed here rather
+   than lower because §2.5 is inside it: migrating the palette first would do the most
+   quietly-fragile item in this roadmap twice, once onto the present design and again onto
+   the new one.
+5. **§2.5 — the palette migration.** The last of the surfaces work, and the one most likely
+   to go wrong quietly, so it wants its own pass with screenshots. Sequenced *after* the
+   design it is migrating towards, not before it.
 
 *Finished 2026-08-25 and now in §4: the drafted-figure check (§4.14) and the comps
 disclosure (§4.15), which were the two at the top of this list.*
@@ -120,21 +126,49 @@ tables render label and value as separate stacked blocks, so a reader reassemble
 by counting. Rework the appendix as prose blocks per disagreement, fix the key-figure tables,
 and check every section's print layout against a real run rather than a fixture.
 
-**2.5 The palette is migrated only in part.** The theme *control* is done (§4.13) and this is
-what it left behind: a page's colours are correct in both schemes or they are slate grey
-beside navy, and roughly half of them are the second.
+**2.5 The palette is migrated only in part. Re-measured 2026-08-25; now the first tranche of
+§3.12.** The theme *control* is done (§4.13) and this is what it left behind: a page's colours
+are correct in both schemes or they are slate grey beside navy.
 
 `web/styles/app.css` added the semantic tokens *beside*
 Tailwind's stock ramps rather than over them, deliberately, so that `text-sky-700` still
-renders sky — overriding the ramp would re-skin thirty-eight templates for free and leave a
-codebase where a colour name is a lie. So it is a real rewrite: 1,334 occurrences of 138
-distinct ramp classes, onto `canvas / surface / ink / line / brand / good / warn / bad /
-info / mute`, ending with a test that fails when a template reintroduces a raw ramp.
+renders sky — overriding the ramp would re-skin the templates for free and leave a
+codebase where a colour name is a lie. So it is a real rewrite, onto `canvas / surface / ink
+/ line / brand / good / warn / bad / info / mute`, ending with a test that fails when a
+template reintroduces a raw ramp.
 
-Deliberately sequenced last in this bucket. Everything above it is a wrong number or a
-missing answer; this is a page that looks like two designs. It is also the item most likely
-to go wrong quietly, so it wants its own pass with screenshots rather than being folded into
-a functional change.
+**The split is not "roughly half"; it is by age, and it is sharper than that.** Measured on
+2026-08-25 over `src/aer/web/templates`:
+
+| | Templates | Raw ramp occurrences |
+|---|---|---|
+| Token-clean | 13 of 54 | 0 |
+| Still on the stock ramps | 41 of 54 | 1,837 |
+
+1,837 occurrences of **141** distinct variant-qualified class names (114 distinct base
+utilities), over six ramps — slate 1,143, sky 265, amber 208, red 80, emerald 71, rose 70.
+The earlier figure of 1,334 occurrences was correct when it was written and the count has
+grown since; **state the method with the number**, because counting variant-qualified names
+(`hover:bg-slate-100`) and counting base utilities (`bg-slate-100`) give 141 and 114 for the
+same tree, and a bare figure invites the next reader to think it moved when it did not:
+
+```bash
+grep -ohrE '\b(text|bg|border|ring|divide|from|to|via|placeholder|decoration|outline|shadow|accent|caret|fill|stroke)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]{2,3}' \
+  src/aer/web/templates | sort | uniq -c | sort -rn
+```
+
+The clean thirteen are the shell, the main menu and what arrived with them — `base.html`,
+`_nav.html`, `_shell/*`, `_ui/*`, `overview/*`, `index.html`, `tools/index.html`,
+`portfolio/empty.html`. The forty-one are the research tool, worst first: `runs/review.html`
+(226), `runs/console.html` (119), `runs/assumptions.html` (100), `skills/edit.html` (87),
+`plans/review.html` (85). **That is the same boundary the design brief draws** (§3.12): the
+surfaces that already answer to the tokens are the reference, and the research tool is the
+work.
+
+Deliberately sequenced after everything above it. Those are a wrong number or a missing
+answer; this is a page that looks like two designs. It is also the item most likely to go
+wrong quietly, so it wants its own pass with screenshots rather than being folded into a
+functional change.
 
 **2.6 A split must arrive as a transaction.** `corporate_actions` knows about splits, but
 nothing turns one into a change in holdings, so a book spanning a split is currently wrong.
@@ -271,6 +305,37 @@ mistake ADR 0075 names.
 
 **3.11 The methodology library.** Three `SkillKind`s that are versioned, pinned and
 composed. Mostly does not exist yet.
+
+**3.12 The interface overhaul. Specified 2026-08-25; the design is not done.** Four surfaces
+are in scope and the rest of the product is deliberately not: **the main menu, the menu
+system and shell, the Equity Research tool, and the Portfolio tool.**
+
+What does not exist is not a screen. It is a *specification a designer can work from*: the
+platform's interface grew a page at a time, each one correct in isolation, and the result is
+two designs sharing a shell — the boundary §2.5 measures. A palette migration alone would
+make the two halves the same colour without making them the same product.
+
+So the deliverable is [`../design/`](../design/README.md): every surface in scope with its
+purpose, its reader, its data contract, every input and how it is collected, every state it
+can be in, what is wrong with it today, and what a redesign must not break. It is written for
+a designer rather than for a developer, and it is the input to the work rather than the work.
+
+**The order is: specification, then design, then §2.5, then the templates.** Migrating the
+palette before the design exists would be doing the most quietly-fragile item in the roadmap
+twice.
+
+**The constraints are not negotiable inside the design, and are argued outside it.** ADR 0006
+makes the server the only renderer; ADR 0077 draws the line — chrome may be the client's, a
+figure never is — and every form works with scripting off. `design/01-constraints.md` states
+them as constraints a designer can satisfy, and keeps a *challenge appendix*: what a designer
+might reasonably want that a constraint forbids, with what it would cost to change. A design
+that needs one changed needs an ADR, not a diff.
+
+**What is deliberately outside this item.** The rendered report document (§2.4) is a
+document-layout problem in WeasyPrint's print stylesheet, not a screen; it keeps its own
+entry. The seven planned tools get their placeholder page and nothing more until each ships:
+designing a screen for a tool whose tables do not exist is how a specification becomes
+fiction.
 
 ### Before this leaves one machine
 

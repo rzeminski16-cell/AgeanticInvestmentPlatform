@@ -198,20 +198,44 @@ ones — read the ADR before touching its territory:
 
 - **Money and metering** — 0012 (provider abstraction), 0015 (the vendor contract is
   asserted, not assumed), 0048 (prompt caching: what repeats goes first), 0051 (the month
-  is UTC's and the cap does not join), 0052 (a step with no estimate is a step with no cap).
+  is UTC's and the cap does not join), 0052 (a step with no estimate is a step with no cap),
+  0053 (a call is capped in pounds, not in tokens).
 - **Evidence and provenance** — 0008 (content-addressed artefacts), 0010 (point-in-time is
   selection), 0014 (what may change after the fact), 0017 (locators), 0018 (only code
   confirms a citation), 0021 (look-ahead checked twice), 0024 (the evidence chain is a
   surface), 0031 (erasure is an appended event), 0044 (an aggregate is dated by its newest
-  component).
+  component), 0055 (evidence reaches a section ranked, and a thin report says so), 0058 (a
+  dimensioned fact is a different observation), 0061 (evidence is scoped to the subject, not
+  to the request), 0062 (a fiscal year belongs to the period, not to the filing), 0063 (a
+  claim about how a number was produced is a claim about a calculation), 0069 (a scheduled
+  filing is a date, not a catalyst), 0086 (a cited calculation must be the one the sentence
+  quotes).
 - **Calculation** — 0003 (the one rule), 0011 (unit-safe and traced), 0026 (FX ships the
   rate), 0027 (per cent is a convention), 0028 (a sensitivity grid is eighty-one
   valuations), 0029 (the sector block is a type), 0032 (the adjusted close is not a
-  column), 0034 (a withheld figure is a type with no field for it).
+  column), 0034 (a withheld figure is a type with no field for it), 0066 (a figure that is
+  traceable is not thereby possible), 0068 (the ledger records derivations, not calls),
+  0070 (a bank is valued on the spread over its book value).
 - **Agents and containment** — 0035 (a new role requires an ADR), 0036 (workers request,
   code executes), 0037–0039 (custom sections, validator advises, red team is separate),
   0040 (containment proved by a corpus), 0041 (dry runs), 0042 (the section writer holds
-  no tools), 0046 (assumptions: only what no filing answers).
+  no tools), 0046 (assumptions: only what no filing answers), 0059 (a model proposes peers
+  and the registry resolves them), 0064 (prior research may shape the questions, never the
+  answers), 0065 (themes are proposed, confirmed, and only then edges), 0067 (a proxy may be
+  proposed only if it names itself as one).
+- **Interface and presentation** — **start here before changing a screen.** 0006 (the GUI is
+  server-rendered HTML, progressively enhanced with htmx), 0077 (JavaScript may own chrome
+  and never a figure — and what a provenance badge is), 0056 (house style is configuration
+  applied at render), 0013 (report sections are data, not code), 0023 (the disagreement
+  ladder decides, or says it cannot), 0024 (the evidence chain is a surface, not a schema),
+  0043 (a chart is a figure), 0054 (a reference numeral is provenance, not a figure), 0057
+  (a count is not a figure and a clause is not a section), 0060 (a number inside a name is
+  not a figure).
+  **Read 0006 and 0077 together before designing anything.** 0006 decides that the server is
+  the only renderer; 0077 narrows the islands permission 0006 left open and draws the line
+  the whole interface sits behind — chrome may be the client's, a figure never is. The
+  design brief in [`../design/`](../design/README.md) restates both as constraints a
+  designer can work against.
 - **Data sources and licensing** — 0020 (pdfplumber alone), 0022 (FCA NSM declined), 0030
   (EODHD route 2), 0045 (the euro is the pivot because the Bank of England is closed).
 - **Security** — 0009 (egress is deterministic and guarded), 0019 (detection is not the
