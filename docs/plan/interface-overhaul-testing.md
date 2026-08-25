@@ -33,14 +33,45 @@ than discovered:
 
 ---
 
-## Machinery that does not exist yet
+## Machinery
 
-Four pieces. All four land in tranche 0 or 2, before anything visual moves.
+Four pieces were planned. **Two landed in tranche 0, along with two nobody had thought to
+ask for**; the other two are tranche 2's, because they need the new tokens to measure.
 
-### 1. axe-core, vendored
+| Piece | State | Where |
+|---|---|---|
+| axe-core, vendored | **Built** | `tests/a11y.py`, `tests/e2e/test_a11y_harness.py` |
+| The ramp ratchet | **Built** | `tests/test_palette_migration.py` |
+| The script/DOM contract | **Built** — not planned, found while inventorying the swap ids | `tests/test_script_dom_contract.py` |
+| Every page renders | **Built** — not planned, found because nothing opened a page | `tests/test_every_page_renders.py` |
+| The contrast harness | Tranche 2 | `tests/e2e/test_contrast.py` |
+| The viewport and theme matrix | Tranche 2 | folded into each family's e2e file |
+
+### The two that were not planned
+
+**The script/DOM contract.** The four scripts reach into markup by name and **nothing would
+have noticed a rename.** A console whose `#run-spend` became `#spend` keeps rendering, keeps
+its server-side value, and stops updating — correct on load and quietly wrong four minutes
+later. Out-of-band swaps are worse: htmx targets an id, and a swap that finds no target is
+not an error. The inventory the plan asked for is better as an assertion than as a note.
+
+**Every page renders.** `test_shell_nav.py` proves every page is *reachable* and never opens
+one, so the suite knew the map was honest and nothing knew whether the places on it rendered.
+Under `StrictUndefined` that is the single most likely failure of this overhaul, and the one
+that surfaces on one page in one state nothing else visits.
+
+---
+
+## What the built machinery looks like
+
+### 1. axe-core, vendored — built
 
 The handoff requires axe-core on every page family in both themes. **The suite runs with no
-network and `package.json` has Tailwind and htmx and nothing else** (correction D8).
+network and `package.json` had Tailwind and htmx and nothing else** (correction D8). Now
+`axe-core` 4.13.0, 568 kB, hash-pinned in `tests/a11y.py`, injected from disk and asserted
+never to reach the served tree. Twelve tests cover the harness itself — including a
+deliberately unlabelled image, because a harness nobody has watched catch something is a
+harness whose green means nothing.
 
 - Add `axe-core` as an npm devDependency.
 - Commit `axe.min.js` under `tests/fixtures/axe/` with its SHA-256 recorded and asserted,
@@ -53,7 +84,7 @@ network and `package.json` has Tailwind and htmx and nothing else** (correction 
 
 **Automated checking finds perhaps half of what is wrong.** The rest is the by-hand pass.
 
-### 2. The contrast harness
+### 2. The contrast harness — tranche 2
 
 The one test that would have caught roadmap §2.5, and the one that catches correction D1.
 
@@ -77,7 +108,7 @@ Rules that make it worth having:
 Thresholds: 4.5:1 normal text, 3:1 text ≥ 18.66px bold or 24px regular, 3:1 control boundaries
 and meaningful graphics.
 
-### 3. The viewport and theme matrix
+### 3. The viewport and theme matrix — tranche 2
 
 Nothing in `tests/e2e/` sets a viewport today. Two widths, held:
 
@@ -91,7 +122,7 @@ A wide table scrolls inside its own bounded region; the page body never scrolls 
 200% zoom as a third case on the three widest pages — the console, the assumptions gate and the
 review gate.
 
-### 4. The ramp ratchet
+### 4. The ramp ratchet — built
 
 Roadmap §2.5 asks the palette migration to end with a test that fails when a template
 reintroduces a raw ramp. **A test asserting zero is a test somebody deletes in week one of a
@@ -118,7 +149,7 @@ Exit criteria in testable form. **A tranche is not done until its row is green.*
 
 | Tranche | Must prove | Where |
 |---|---|---|
-| **0 — Hold** | Both suites green. Ceiling committed. Every state in the design has a fixture that renders under `StrictUndefined` | `just test-all`, `tests/test_palette_migration.py` |
+| **0 — Hold** | **Done.** Both suites baselined. Ceiling committed and watched failing in three shapes. axe vendored and watched catching a real violation. Every script-and-swap id asserted. Fifty pages opened against a driven run | `tests/test_palette_migration.py`, `tests/test_script_dom_contract.py`, `tests/test_every_page_renders.py`, `tests/e2e/test_a11y_harness.py` |
 | **1 — Vocabulary** | Every `JobStatus`, `StepStatus`, `GateKind`, request/report/skill state has a human label and a valid tone. **A new member without one is a red build.** Every composed verdict renders from a thin fixture as well as a rich one | `tests/test_presentation_vocabulary.py`, `tests/test_verdict.py` |
 | **2 — Tokens** | Every sanctioned pairing passes from computed colour, both schemes, **including the navigation rail**. Font chain verified in a browser; six hashes pinned; no `faint` token exists | `tests/e2e/test_contrast.py`, `tests/test_fonts.py` |
 | **3 — Macros** | Every macro renders in default, hover, focus, disabled, error, loading, empty — in both schemes. Every provenance badge has a working `href`. No macro accepts a class string | `tests/test_components.py`, `tests/e2e/test_component_states.py` |

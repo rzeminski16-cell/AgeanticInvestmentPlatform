@@ -154,6 +154,19 @@ exit criteria pass, not when its templates look right.**
 **Exit:** the suite is green, the ceiling is committed, and every state in the design has a
 fixture that renders.
 
+**Delivered, 2026-08-25.** Four guards rather than the two this section asked for, each
+watched failing before it was trusted:
+
+| Guard | What it stops |
+|---|---|
+| `tests/test_palette_migration.py` | A ramp coming back, a migrated template not recording it, a new template starting in the old dialect |
+| `tests/e2e/test_a11y_harness.py` | axe unavailable, unpinned, or shipped to an operator |
+| `tests/test_script_dom_contract.py` | A renamed id or attribute that leaves a script querying nothing — silent, and the shape a rewrite most easily produces |
+| `tests/test_every_page_renders.py` | A template naming a context key its handler stopped supplying. Fifty pages, one driven run |
+
+The last two were not planned. The inventory this section asked for turned out to be worth
+more as an assertion than as a note, and nothing in the suite opened a page at all.
+
 ### Tranche 1 — Presentation vocabulary
 
 Python only. No template changes.
