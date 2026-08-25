@@ -13,6 +13,7 @@ import re
 import pytest
 
 from aer.api.app import _LOCAL_MEDIA_TYPES
+from aer.api.security import CSRF_COOKIE_NAME
 from aer.config import load_settings
 from aer.version import version
 from aer.web.shell import flat_items, shell_for
@@ -527,3 +528,50 @@ def _template_classes() -> set[str]:
                 continue
             found.update(token for token in raw.split() if token)
     return found
+
+
+class TestATokenSurvivesAFragment:
+    """A render must not replace the token every form on the page is already carrying.
+
+    The bug this exists to prevent shipped and was invisible for a day. `render()` minted a
+    token for any handler that did not supply one and set the cookie from it — correct for a
+    page, wrong for a fragment. `GET /_shell/badges` is fetched by htmx on **every** page
+    load, renders through the same door, and landed a beat after the page: the cookie became
+    the fragment's, every form on the page was still carrying the page's, and the next
+    submission was refused with "the anti-forgery token was missing or stale".
+
+    **With scripting off nothing fetched the fragment and every form worked**, which is the
+    wrong half of the product to have working, and is why the in-process suite could not see
+    it — an HTTP client does not run htmx. Forty browser tests did.
+
+    The fix is that a double-submit cookie is a secret for the *session*: a render adopts the
+    token the request already carries and mints only when there is none.
+    """
+
+    async def test_a_fragment_render_keeps_the_token_the_page_issued(self, web_client):
+        page = await web_client.get("/requests/new")
+        issued = page.cookies.get(CSRF_COOKIE_NAME)
+        assert issued, "the page issued no CSRF cookie"
+
+        # Exactly what htmx does on load. The client's own jar carries the cookie forward,
+        # which is what a browser does and what makes this the real sequence rather than a
+        # reconstruction of it.
+        await web_client.get("/_shell/badges")
+
+        after = web_client.cookies.get(CSRF_COOKIE_NAME)
+        assert after == issued, (
+            "the badge fragment replaced the CSRF cookie. Every form already rendered on the "
+            "page is carrying the previous value, so the operator's next submission is "
+            "refused for a reason that has nothing to do with their submission."
+        )
+
+    async def test_the_form_and_the_cookie_agree_on_a_rendered_page(self, web_client):
+        page = await web_client.get("/requests/new")
+        in_cookie = page.cookies.get(CSRF_COOKIE_NAME)
+        in_form = re.findall(r'name="csrf_token"\s+value="([^"]+)"', page.text)
+
+        assert in_form, "the page rendered no CSRF field"
+        assert set(in_form) == {in_cookie}, (
+            "a form on the page carries a token the cookie does not hold. The double submit "
+            "compares the two for equality, so this is a form that cannot be submitted."
+        )

@@ -643,6 +643,34 @@ reaches prose in millions or billions), and a claim resting on a calculation wit
 it is not a violation. It joins `VALIDATION_FAILURE`, so it reaches the banner rather than
 only the table.
 
+**4.16 Every form in the browser was refused. Fixed 2026-08-25.** Found by tranche 0 of the
+interface overhaul, which baselined the browser suite for the first time since §4.12 landed:
+**40 of 124 browser tests failed**, every one of them on a form submission, every one with
+*"the anti-forgery token was missing or stale"*.
+
+§4.12 gave `render()` a CSRF token for handlers that never thought about one, so a menu whose
+preference controls are forms could not ship controls that silently do nothing. It also made
+`render()` set the cookie from that token. Correct for a page; wrong for a fragment.
+
+`GET /_shell/badges` is fetched by htmx on **every** page load and renders through the same
+door. It carries no form, so it supplied no token, so `render()` minted one and set it — and
+the cookie became the fragment's while every form already on the page still carried the
+page's. The next submission failed a check that was never about that submission.
+
+**The comment above the line predicted it and guarded the wrong thing.** *"Two `Set-Cookie`
+headers for one name is a race over which token the browser keeps — the form would then carry
+one and the cookie the other."* That is exactly the failure; the guard covered two handlers on
+one response, not a later response clobbering an earlier one.
+
+**A double-submit cookie is a secret for the session, not for the response.** A render now
+adopts the token the request already carries and mints only when there is none, so a fragment
+re-sets the same value and invalidates nothing.
+
+**Only the scripting-on path was broken**, which is the wrong half to have working and is why
+nothing caught it: the default suite drives the application in-process and an HTTP client does
+not run htmx. Two tests now do — one in the default suite that fetches the fragment on the same
+cookie jar and asserts the token survives, and 127 browser tests that pass again.
+
 **4.15 Comps said "for want of usable data" over a deliberate choice. Fixed 2026-08-25.**
 Eight peers were discovered on the 2026-08-24 MSFT run and all eight were excluded. Nothing
 was broken: `services.comps.UNACQUIRED_PEER_REASON` is the true reason, and this workflow

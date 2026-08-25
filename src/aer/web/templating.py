@@ -19,7 +19,12 @@ from starlette.requests import Request
 from aer.config import get_settings
 from aer.core.disagreement import position_figure
 from aer.version import version
-from aer.web.csrf import CSRF_FIELD_NAME, new_csrf_token, set_csrf_cookie
+from aer.web.csrf import (
+    CSRF_FIELD_NAME,
+    new_csrf_token,
+    set_csrf_cookie,
+    usable_csrf_token,
+)
 from aer.web.shell import GUIDANCE_COOKIE, THEME_COOKIE, shell_for
 
 __all__ = ["DISCLAIMER", "STATIC_DIR", "STYLES_DIR", "TEMPLATES_DIR", "render", "templates"]
@@ -92,7 +97,15 @@ def render(
     passed in the context, and this leaves it exactly alone.
     """
     supplied = context or {}
-    token = supplied.get("csrf_token") or new_csrf_token(get_settings())
+    settings = get_settings()
+    # The request's own token first. A fragment rendered through this door — the badge
+    # counts, a form's error list — would otherwise mint a new one and set it, replacing the
+    # value every form already on the page is carrying. See `usable_csrf_token`.
+    token = (
+        supplied.get("csrf_token")
+        or usable_csrf_token(request, settings)
+        or new_csrf_token(settings)
+    )
     merged: dict[str, Any] = {
         "shell": shell_for(
             request.url.path,
@@ -111,9 +124,13 @@ def render(
         context=merged,
         status_code=status_code,
     )
-    # Only for the token this function minted. A handler that supplied one owns setting its
-    # own cookie, and two `Set-Cookie` headers for one name is a race over which token the
-    # browser keeps — the form would then carry one and the cookie the other.
+    # Only for the token this function minted or adopted. A handler that supplied one owns
+    # setting its own cookie, and two `Set-Cookie` headers for one name is a race over which
+    # token the browser keeps — the form would then carry one and the cookie the other.
+    #
+    # Re-setting an adopted token is deliberate rather than wasteful: it refreshes the
+    # cookie's lifetime on a session that is plainly still in use, and writes the same value,
+    # so no form anywhere on the page is invalidated by it.
     if "csrf_token" not in supplied:
         set_csrf_cookie(response, token)
     return response
