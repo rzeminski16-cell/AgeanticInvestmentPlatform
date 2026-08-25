@@ -122,6 +122,16 @@ vendor-js:
     cp node_modules/htmx.org/dist/htmx.min.js src/aer/web/static/vendor/htmx.min.js
     @echo "htmx.min.js updated. Record its version and hash in the commit message."
 
+# Refresh the vendored axe-core the accessibility harness injects.
+#
+# A test asset, never a served one: it lands under `tests/fixtures/` rather than in the
+# static tree, because a page that loaded a 568 kB testing library would be charging the
+# suite's convenience to every operator's first paint.
+vendor-axe:
+    cp node_modules/axe-core/axe.min.js tests/fixtures/axe/axe.min.js
+    cp node_modules/axe-core/LICENSE tests/fixtures/axe/LICENSE
+    @echo "axe.min.js updated. Record its version and hash in tests/a11y.py -- the pin is a red build, not a note."
+
 # Apply all pending migrations.
 migrate:
     uv run alembic upgrade head
