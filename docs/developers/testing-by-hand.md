@@ -465,7 +465,7 @@ That button was once removed by a redesign and a browser test caught it; it is p
   - **Wrong:** any panel that stays light in dark mode. Roughly half the templates still
     use Tailwind's stock ramps; `dark:` is redefined to answer the theme choice as well as
     the OS, so those pages do flip — what they may still be is *slate grey beside navy*,
-    which is the outstanding migration in `docs/plan/ROADMAP.md` §3.1 and not a defect.
+    which is the outstanding migration in `docs/plan/ROADMAP.md` §2.7 and not a defect.
 - **Show explanations**, in the same block. It toggles the guidance callouts. Until
   2026-08-25 this flag had a route and no control anywhere in the application.
 - **Badge counts** load after the page, from `/_shell/badges`. **Expect** them to appear a
