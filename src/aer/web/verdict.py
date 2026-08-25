@@ -231,7 +231,10 @@ def sentence(
         for clause in clauses
         if isinstance(clause, str) or clause.n
     ]
-    kept = [text.strip() for text in rendered if text.strip()]
+    # A trailing full stop is dropped before joining and restored at the end, so a clause
+    # written as a whole sentence still reads correctly in the middle of one. Without this the
+    # module's claim that a clause works in any position is true only of the last position.
+    kept = [text.strip().rstrip(".") for text in rendered if text.strip().rstrip(".")]
 
     if not is_complete and not gap.strip():
         message = (

@@ -362,3 +362,26 @@ class TestTheFrontDoorAdmitsWhatItCouldNotAsk:
     def test_a_feed_that_was_read_and_is_empty_still_says_so_plainly(self) -> None:
         """The complement: the guard must not make the ordinary quiet day read as a problem."""
         assert overview_verdict([], gathered=True).composed == "Nothing is waiting for you."
+
+
+class TestAClauseWorksInAnyPosition:
+    """The property the lowercase-and-unpunctuated convention exists to give.
+
+    A clause written as a whole sentence still has to read correctly in the middle of one, or
+    the convention is only true of the last position and the first caller to break it produces
+    "The draft is complete.; two items are waiting".
+    """
+
+    def test_a_punctuated_clause_joins_cleanly(self) -> None:
+        verdict = sentence(
+            ["the draft is complete.", Count(2, *ITEMS)], when_none="nothing", tone=Tone.WARNING
+        )
+        assert verdict.composed == (
+            "The draft is complete; two items are waiting for your decision."
+        )
+
+    def test_the_same_clause_alone_is_a_sentence(self) -> None:
+        assert (
+            sentence(["the draft is complete."], when_none="nothing", tone=Tone.SUCCESS).composed
+            == "The draft is complete."
+        )
