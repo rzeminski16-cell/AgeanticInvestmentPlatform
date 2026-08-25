@@ -167,6 +167,31 @@ watched failing before it was trusted:
 The last two were not planned. The inventory this section asked for turned out to be worth
 more as an assertion than as a note, and nothing in the suite opened a page at all.
 
+**The baseline, measured on a real database and a real browser.**
+
+| Suite | Result |
+|---|---|
+| Default (`pytest --ignore=tests/e2e`) | **5,659 passed, 0 failed** |
+| Browser (`pytest tests/e2e`) | **127 passed, 0 failed** — after the fix below |
+
+Getting there took a local PostgreSQL and Redis, because there is no Docker daemon in this
+environment. **That mattered more than it sounds:** without a database the default suite skips
+1,849 tests, and two real failures were hiding in them — a stale assertion in
+`test_comps_service.py`, and the one below.
+
+**Tranche 0 found a serious regression and it is fixed** (roadmap §4.16). Forty of 124 browser
+tests failed, every one on a form submission: `render()` had been giving every response a fresh
+CSRF cookie, and the badge fragment htmx fetches on every page load was replacing the token
+every form on the page carried. **Only the scripting-on path was broken**, which is why the
+in-process suite never saw it — an HTTP client does not run htmx.
+
+**What is still owed.** The state fixtures this section asks for are partly covered: the render
+harness drives one complete run and a book, and the database-down and refusal states are held
+elsewhere. **First run, stale approval, budget refusal at both scopes, a failed run, an
+unverified claim, an incomplete portfolio and a section that did not generate still have no
+rendered fixture.** They are carried into tranche 1, where the presentation vocabulary needs
+every one of them anyway to prove a verdict composes from a thin run as well as a rich one.
+
 ### Tranche 1 — Presentation vocabulary
 
 Python only. No template changes.
