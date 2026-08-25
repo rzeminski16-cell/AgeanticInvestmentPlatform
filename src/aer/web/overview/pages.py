@@ -34,6 +34,7 @@ from aer.db.schema_check import schema_drift
 from aer.errors import AerError
 from aer.services.overview import spend_since, start_of_month
 from aer.version import build_identity
+from aer.web import figures
 from aer.web.overview.attention import Attention, Severity, items_for
 from aer.web.shell.badges import Badge, cached_counts_for
 from aer.web.templating import render
@@ -149,18 +150,14 @@ async def _database_problem(session: DbSession) -> str:
 
 
 def _pounds(amount: Decimal) -> str:
-    """Operator spend, in pounds, rendered here rather than in a template.
+    """Operator spend, in pounds.
 
-    Not through `render/display.money`: that door exists for a company's figures in a
-    report's own currency, resolved against a `HouseStyle` (ADR 0056), and this screen has
-    no report and no house style. What it shares with that door is the rule that the digits
-    are decided in Python — `_ui/surfaces.html` takes a rendered value precisely so that a
-    macro cannot become a second place formatting is decided.
+    Kept as a name because this module and its tests both read it; **the implementation moved
+    to `web/figures.py`** so the console and the seven gates render the same number the same
+    way. It was private here, and a private renderer is how a second one gets written.
 
-    A total that rounds to nothing says so rather than showing ``£0.00``, because "we have
-    spent nothing this month" and "we have spent a third of a penny" are different answers
-    and only one of them is true.
+    Not through `render/display.money`: that door exists for a company's figures in a report's
+    own currency, resolved against a `HouseStyle` (ADR 0056), and this screen has no report and
+    no house style.
     """
-    if amount and amount < Decimal("0.01"):
-        return "under £0.01"
-    return f"£{amount:,.2f}"
+    return figures.pounds(amount)

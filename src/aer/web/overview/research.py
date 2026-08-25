@@ -19,6 +19,7 @@ from aer.core.enums import GateKind
 from aer.services import overview as overview_service
 from aer.services.approvals import pending_gate
 from aer.web.overview.attention import Attention, Severity
+from aer.web.vocabulary import GATES
 
 if TYPE_CHECKING:
     import uuid
@@ -34,18 +35,11 @@ __all__ = ["GATE_ASKS", "items"]
 TOOL: Final = "research"
 
 # What each gate is asking the operator to do, in the second person, because the item is
-# addressed to them. Every member of `GateKind` appears; a gate added without a phrase is a
-# red build rather than a run described as waiting for nothing in particular.
-GATE_ASKS: Final[dict[GateKind, str]] = {
-    GateKind.PLAN: "approve its research plan",
-    GateKind.UNMAPPED_CONCEPTS: "decide about the figures nothing could map",
-    GateKind.PEER_SET: "confirm its peer set",
-    GateKind.SECTOR_SPECIALIST: "acknowledge that the standard model does not fit its sector",
-    GateKind.THEME_SET: "confirm the themes it belongs to",
-    GateKind.ASSUMPTIONS: "confirm the assumptions its valuation will be built on",
-    GateKind.BUDGET: "decide whether it may spend more than its ceiling",
-    GateKind.FINAL: "review the finished report",
-}
+# addressed to them. **Derived from `web/vocabulary.py` rather than written here**: this
+# mapping and the gate pages' own headings were two answers to one question, and the copy that
+# drifts is always the one nobody is looking at. Kept as a name because the work list, the
+# drawer preview and a test all read it.
+GATE_ASKS: Final[dict[GateKind, str]] = {gate: words.asks for gate, words in GATES.items()}
 
 
 async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attention]:

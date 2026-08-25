@@ -39,6 +39,7 @@ from aer.db.models import Attestation, Portfolio, PriceBar, Security, Transactio
 from aer.errors import AerError
 from aer.services import calculations as calculation_service
 from aer.services import portfolio as portfolio_service
+from aer.web import vocabulary
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
 
@@ -430,17 +431,19 @@ def _totals(view: portfolio_service.PortfolioView, book: Portfolio) -> dict[str,
     }
 
 
-# What the screen calls each grade.
+# What the screen calls each grade, derived from `web/vocabulary.py` rather than written
+# here.
 #
 # **"Typed", not "Attested", and the difference is not cosmetic.** The shell's provenance
-# vocabulary already spends the word ``Attested`` on a *record class* — a figure whose
-# origin is the operator's own book — and a `documented` attestation is every bit as
-# attested in that sense. This chip is about a different axis: how strong the evidence
-# behind it is. Two vocabularies sharing one word teach a reader that the word means
-# neither, so this one says plainly what happened instead.
+# vocabulary already spends the word ``Attested`` on a *record class* — a figure whose origin
+# is the operator's own book — and a `documented` attestation is every bit as attested in that
+# sense. This chip is about a different axis: how strong the evidence behind it is. Two
+# vocabularies sharing one word teach a reader that the word means neither.
+#
+# Kept as a name because a test and this module's own rendering both read it; kept *derived*
+# because a second copy of a label is a second answer to what a holding is called.
 GRADE_LABELS: Final[dict[Grade, str]] = {
-    Grade.DOCUMENTED: "Documented",
-    Grade.ATTESTED: "Typed",
+    grade: state.label for grade, state in vocabulary.GRADES.items()
 }
 
 
