@@ -124,6 +124,8 @@ src/aer/            application package
       platform.py   what the platform itself has waiting, which is no tool's business
     portfolio/pages.py  the book as at a date; every figure computed on the way to it
     tools/registry.py   INSTALLED_TOOLS: nine rows, three states; a planned tool is a page
+    styles/app.css  the token system: palette, type scale, spacing, radii (ADRs 0077, 0088)
+    static/fonts/   three families, eight files, all OFL 1.1 and all SHA-256 pinned
     templates/      Jinja2; the disclaimer lives in the shell, not in pages
       _ui/          the component macros: card, kpi, empty, guide, provenance
       _shell/       the drawer and the badge fragment

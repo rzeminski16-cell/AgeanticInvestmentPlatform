@@ -283,6 +283,39 @@ evidence spine gets its macro.
 the rail, in both schemes; the font chain is verified in a browser; nothing renders differently
 yet.
 
+**Done, 2026-08-27.**
+
+| | |
+|---|---|
+| Fonts | Eight files, three families, all OFL 1.1. Every SHA-256 pinned; every scale weight proved real in Chromium |
+| Palette | Forty-seven tokens from §2.2–2.6 plus the rail family, in three blocks that a drift test holds together |
+| Rail | `data-scheme="dark"` as a second selector on the explicit-dark block (ADR 0088) |
+| Scales | Fifteen type utilities, fifteen spacing steps, six radii, two shadows |
+| Contrast | 136 pairings measured from `getComputedStyle` in both schemes |
+| `faint` | Gone. Seventeen uses migrated, the ratchet retired to a permanent assertion (D3) |
+
+**Six became eight, and the mono changed supplier.** Barlow Semi Condensed has no variable
+release, so its two weights are two files per subset. More consequentially, the type scale asks
+for IBM Plex Mono at **450 and 550**, and no static cut has them — Google Fonts ships Plex Mono
+in hundreds only, so fontsource's family would have faked two of the four weights the scale is
+built on. `@ibm/plex-mono-variable` is a `100 700` axis from the same upstream repository and is
+*smaller* than the three static weights it replaces. That decision is now a test at two levels
+rather than a note.
+
+**The rail was the tranche's real work.** D1 said the light focus ring measures 2.04:1 on the
+permanently dark rail. Recomputed from the browser's own resolved colours: **2.04 for the focus
+ring, 2.23 for verification, 2.00 for decision — and 1.06 for primary ink**, which D1 did not
+list. Removing the scope reproduces all four, so the failure is now guarded rather than
+remembered. `nav-ink` and `nav-muted` are the dark ink tokens rather than two new colours, which
+measures 13.48 and 8.78 against D1's 13.65 and 8.54 — both pass, and it is two fewer values to
+keep in step.
+
+**One regression shipped and was caught by looking at the page.** Five buttons said
+`bg-brand … text-white`, correct while `brand` was a mid blue and 1.29:1 once `verification`
+became a pale teal in dark. The contrast test could not see it: that measures the pairings the
+design *sanctions*, and this was one a template invented. A second test now reads the templates
+and fails on a literal ink over any fill whose lightness flips.
+
 ### Tranche 3 — Shared macros
 
 The component set the research tool never had, which is why it has 1,837 ramps.
