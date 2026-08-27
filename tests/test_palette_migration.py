@@ -29,7 +29,7 @@ from typing import Final
 
 import pytest
 
-from aer.web.templating import STATIC_DIR, TEMPLATES_DIR
+from aer.web.templating import STATIC_DIR, STYLES_DIR, TEMPLATES_DIR
 
 # Tailwind's stock colour ramps. The migration replaces every one of these with a semantic
 # token — `canvas / surface / ink / line / verification / decision / success / warning /
@@ -239,65 +239,40 @@ class TestTheMappingCoversTheTree:
         )
 
 
-# `ink-faint` is retired *by the incoming system*, not by the current one, so it ratchets
-# like the ramps rather than asserting zero today.
+# `ink-faint` is gone. It ratcheted from seventeen uses to zero in tranche 2, and this is
+# what the ratchet was always going to become: an assertion that it stays gone.
 #
 # The delivered design system says plainly: "There is no separate 'faint' text token."
-# `ink-subtle` replaces it and clears 4.5:1 on every sanctioned background in both schemes,
-# where `ink-faint` measures **2.98:1 on canvas and 2.87:1 on sunken** — below even the
-# large-text threshold. Seventeen uses today, all small text, all in the templates that are
-# otherwise the cleanest in the tree.
-#
-# Tranche 2 lands the replacement token and takes every one of these to zero. Until then the
-# ceiling stops an eighteenth appearing.
-FAINT_CEILING: Final[dict[str, int]] = {
-    "_nav.html": 2,
-    "_ui/surfaces.html": 1,
-    "base.html": 1,
-    "index.html": 1,
-    "portfolio/index.html": 10,
-    "tools/index.html": 2,
-}
+# `ink-subtle` replaced it and clears 4.5:1 on every sanctioned background in both schemes,
+# where `ink-faint` measured **2.98:1 on canvas and 2.87:1 on sunken** — below even the
+# large-text threshold.
 
 _FAINT = re.compile(r"\b[\w-]*-faint\b")
 
 
-class TestTheRetiredTokenIsOnItsWayOut:
-    """The token the incoming palette abolishes, held so it cannot spread while it leaves.
+class TestTheRetiredTokenStaysRetired:
+    """The way this comes back is somebody lifting a rule from the prototype stylesheet,
+    which still defines and uses the old name eighteen times
+    (`docs/redesign/05-review-and-corrections.md` D3) and looks authoritative."""
 
-    The way this comes back after tranche 2 is somebody lifting a rule from the prototype
-    stylesheet, which still defines and uses the old name eighteen times
-    (`docs/redesign/05-review-and-corrections.md` D3) and looks authoritative.
-    """
-
-    def test_no_template_outside_the_ceiling_names_it(self) -> None:
+    def test_no_template_names_it(self) -> None:
         offenders = {
             name: found
             for name in _templates()
-            if name not in FAINT_CEILING
-            and (found := len(_FAINT.findall((TEMPLATES_DIR / name).read_text())))
+            if (found := len(_FAINT.findall((TEMPLATES_DIR / name).read_text())))
         }
         assert not offenders, (
-            f"These templates name a retired `faint` token: {offenders}. Use `ink-subtle` — "
-            "`ink-faint` measures 2.98:1 on canvas and 2.87:1 on sunken, which fails AA for "
+            f"These templates name the retired `faint` token: {offenders}. Use `ink-subtle` — "
+            "`ink-faint` measured 2.98:1 on canvas and 2.87:1 on sunken, which fails AA for "
             "small text and fails the large-text threshold too."
         )
 
-    @pytest.mark.parametrize("name", sorted(FAINT_CEILING))
-    def test_a_template_does_not_grow_more(self, name: str) -> None:
-        found = len(_FAINT.findall((TEMPLATES_DIR / name).read_text()))
-        assert found <= FAINT_CEILING[name], (
-            f"{name} names the retired `faint` token {found} times against a ceiling of "
-            f"{FAINT_CEILING[name]}."
-        )
+    def test_the_stylesheet_defines_no_such_token(self) -> None:
+        """The other half. A template cannot use a token that does not exist, but a token
+        that exists is a token somebody will find and use."""
+        source = (STYLES_DIR / "app.css").read_text(encoding="utf-8")
 
-    @pytest.mark.parametrize("name", sorted(FAINT_CEILING))
-    def test_a_cleared_template_lowers_its_ceiling(self, name: str) -> None:
-        found = len(_FAINT.findall((TEMPLATES_DIR / name).read_text()))
-        assert found >= FAINT_CEILING[name], (
-            f"{name} is down to {found} uses of the retired `faint` token. Lower the "
-            f"ceiling, or remove the entry entirely once it reaches zero."
-        )
+        assert not _FAINT.findall(source), "the stylesheet still defines a `faint` token"
 
 
 class TestNoClassIsComposedAtRunTime:

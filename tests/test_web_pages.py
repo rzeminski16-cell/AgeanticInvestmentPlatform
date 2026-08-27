@@ -336,14 +336,56 @@ class TestTheDarkPaletteIsOneThing:
                 found[name.strip()] = value.strip()
         return found
 
+    def _block(self, source: str, selector: str) -> str:
+        """The declarations under a selector, found by the selector rather than by an offset.
+
+        Matched by scanning forward from the selector to its opening brace and then to the
+        first line that closes it, because the selector *list* grows: the explicit-dark block
+        gained `[data-scheme="dark"]` when the navigation rail started sharing it, and a
+        `split` on the exact old text found nothing and raised rather than reporting drift.
+        """
+        at = -1
+        while True:
+            at = source.index(selector, at + 1)
+            body = source[source.index("{", at) + 1 :]
+            # The custom-property blocks contain no nested braces, so the first one closes it.
+            body = body[: body.index("}")]
+            # Both selectors also appear in the `@custom-variant dark` rule at the top of the
+            # file, which declares no tokens. Keep looking until the block that does.
+            if "--aer-" in body:
+                return body
+
     def test_the_two_dark_blocks_declare_the_same_values(self):
         source = (STYLES_DIR / "app.css").read_text(encoding="utf-8")
 
-        media = source.split(':root:not([data-theme="light"]) {', 1)[1].split("\n  }", 1)[0]
-        explicit = source.split(':root[data-theme="dark"] {', 1)[1].split("\n}", 1)[0]
+        media = self._declarations(self._block(source, ':root:not([data-theme="light"])'))
+        explicit = self._declarations(self._block(source, ':root[data-theme="dark"]'))
 
-        assert self._declarations(media) == self._declarations(explicit)
-        assert self._declarations(media), "no custom properties found; the parse has drifted"
+        assert media == explicit
+        assert media, "no custom properties found; the parse has drifted"
+
+    def test_the_fixed_dark_region_shares_that_block_rather_than_copying_it(self):
+        """ADR 0088: a region that keeps one scheme's colours takes that scheme's accents
+        entire, and does so **without duplicating tokens**.
+
+        The navigation rail is `#102b35` on a light page and on a dark one. Before this,
+        a focus ring inside it took the *light* accent and landed at 2.04:1 against the rail
+        — a WCAG 2.2 SC 1.4.11 failure, very nearly invisible, and unmeasured because the
+        rail's colours were in no token table.
+
+        A third copy of the dark values is the obvious way to fix that and the wrong one:
+        three copies drift where two only might. So the rail is a second selector on the
+        block that already exists, and this is what stops somebody splitting it back out.
+        """
+        source = (STYLES_DIR / "app.css").read_text(encoding="utf-8")
+
+        at = source.index(':root[data-theme="dark"]', source.index("@theme"))
+        selectors = source[at : source.index("{", at)]
+
+        assert '[data-scheme="dark"]' in selectors, (
+            "the rail no longer shares the explicit dark block. If it has its own copy of "
+            "the dark values, there are now three places for them to drift apart."
+        )
 
     def test_the_compiled_dark_variant_answers_an_explicit_choice(self):
         """Without the custom variant, `dark:` compiles to `prefers-color-scheme` alone.

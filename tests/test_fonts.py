@@ -86,7 +86,6 @@ LICENCES = (
 )
 
 
-
 def _declares(block: str, family: str) -> bool:
     """Whether an `@font-face` block is for this family.
 
@@ -128,7 +127,9 @@ class TestTheFontIsVendored:
         """
         shipped = {path.name for path in FONTS.glob("*.woff2")}
 
-        assert shipped == set(PINNED), f"unpinned font files in the static tree: {shipped - set(PINNED)}"
+        assert shipped == set(PINNED), (
+            f"unpinned font files in the static tree: {shipped - set(PINNED)}"
+        )
 
     def test_every_notice_belongs_to_a_family_that_is_here(self) -> None:
         stale = {path.name for path in FONTS.glob("LICENSE-*")} - set(LICENCES)
