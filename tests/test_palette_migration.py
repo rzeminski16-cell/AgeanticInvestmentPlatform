@@ -318,3 +318,58 @@ class TestNoClassIsComposedAtRunTime:
             "by `@source` today, which is a mitigation rather than a licence — the moment "
             "one composes a class the scan cannot resolve, it renders with no colour."
         )
+
+
+# Every background token whose *lightness* flips between the two schemes. A literal ink on one
+# of these is legible in exactly one of them.
+_FLIPPING_FILLS: Final[tuple[str, ...]] = (
+    "brand",
+    "brand-strong",
+    "verification",
+    "verification-strong",
+    "decision",
+    "decision-strong",
+    "danger-action",
+    "danger-action-hover",
+    "surface",
+    "surface-raised",
+    "surface-sunken",
+    "canvas",
+    "nav-surface",
+)
+
+_LITERAL_INK = re.compile(
+    r"bg-(" + "|".join(_FLIPPING_FILLS) + r")\b[^\"]*?\btext-(white|black)\b"
+)
+
+
+class TestNoLiteralInkSitsOnAFillThatFlips:
+    """The bug tranche 2 shipped for about an hour, and the reason it was not caught.
+
+    Five buttons said `bg-brand ... text-white`. That was correct while `brand` was a mid
+    blue in both schemes. The redesign's `verification` is a *pale* teal in dark, so white on
+    it measures **1.29:1** — and the hover state 1.14:1. The page still looked deliberate.
+
+    `text-white` cannot flip, and that is the whole defect: a token background changes with
+    the scheme and a literal foreground does not, so the pair is legible in one scheme by
+    luck. `on-verification`, `on-decision` and `on-danger-action` exist for exactly this and
+    are measured in `tests/e2e/test_contrast.py`.
+
+    The contrast test could not see it: that measures the pairings the design *sanctions*,
+    and this was a pairing a template invented. This reads the templates instead.
+
+    Ramp fills are deliberately not listed. `bg-sky-700` and `bg-slate-900` do not flip, so
+    `text-white` on them is fine — they are on the ramp ratchet for other reasons.
+    """
+
+    def test_no_template_pairs_one_with_a_token_fill(self) -> None:
+        offenders = {
+            name: sorted({f"bg-{fill} + text-{ink}" for fill, ink in found})
+            for name in _templates()
+            if (found := _LITERAL_INK.findall((TEMPLATES_DIR / name).read_text(encoding="utf-8")))
+        }
+        assert not offenders, (
+            f"These templates put a literal ink on a fill that flips with the scheme: "
+            f"{offenders}. Use the matching `on-*` token, which flips with it — white on "
+            "`verification` measures 1.29:1 in dark."
+        )
