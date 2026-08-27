@@ -25,17 +25,22 @@
     <title>{% block title %}Ageiantic Equity Research{% endblock %}</title>
     {# The typeface, asked for before the stylesheet that references it — otherwise the
        browser does not learn it needs the font until it has parsed the CSS, and the page
-       renders once in the fallback and again in Inter.
+       renders once in the fallback and again in Source Sans 3.
 
        `crossorigin` even though it is our own origin: fonts are fetched in CORS mode, and
        a preload without it is a second, separate request rather than a head start.
 
-       Only the latin file. `latin-ext` is fetched by `unicode-range` on the pages that
-       actually contain those letters, and preloading it would spend 85 kB on every page
+       **One file of eight.** The interface face carries most of the text on every page, so
+       it is the one worth a head start. Barlow arrives a beat later and reflows the
+       headings it sets, which is the trade `font-display: swap` exists to make; preloading
+       all three families would spend 83 kB before the first paint to avoid it.
+
+       Only the latin cut. `latin-ext` is fetched by `unicode-range` on the pages that
+       actually contain those letters, and preloading it would spend 59 kB on every page
        for characters most of them do not have. #}
     <link
       rel="preload"
-      href="{{ url_for('static', path='/fonts/inter-latin-wght-normal.woff2') }}"
+      href="{{ url_for('static', path='/fonts/source-sans-3-latin-wght-normal.woff2') }}"
       as="font"
       type="font/woff2"
       crossorigin

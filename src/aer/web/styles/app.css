@@ -41,53 +41,136 @@
 }
 
 /* ---------------------------------------------------------------------------------------
-   The typeface, served from this origin like every other asset (ADR 0006).
+   The three typefaces, served from this origin like every other asset (ADR 0006).
 
    Vendored rather than linked. `test_loads_no_third_party_asset` fails any page naming a
    CDN or a font host, and the reason is the one that record gives: this application is
    local-first and must work with no internet connection, and a third-party request from a
-   page that can reach the database is a supply-chain risk taken for convenience. Google
-   Fonts would also mean a request to a third party on every page load, from a tool whose
-   whole point is that nothing leaves the machine unless the operator asked for it.
+   page that can reach the database is a supply-chain risk taken for convenience.
 
-   Provenance, in the shape `htmx.min.js` set: `@fontsource-variable/inter@5.3.0`, upstream
-   Inter v20, SIL Open Font License 1.1 (`LICENSE-Inter.txt` beside the files). The SHA-256
-   of each file is pinned in `tests/test_fonts.py`, so a swapped binary is a red build
-   rather than a thing nobody would ever notice.
+   Three roles, deliberately distinct, from the design system's §3.1:
 
-   One variable file per range, weights 100-900, so a page that uses four weights makes one
-   request rather than four. **No italic**: nothing in thirty-nine templates is italic, and
-   a face nobody renders is 52 kB committed for the look of completeness.
+   * **Barlow Semi Condensed** for object identity and section hierarchy. Never body copy.
+   * **Source Sans 3** for interface and reading. This is what `--font-sans` resolves to, so
+     it is what Preflight puts on `html` and what most of the page is set in.
+   * **IBM Plex Mono** for anything that must align or be inspected — figures, dates,
+     identifiers, hashes. Never prose that merely wants to look technical.
+
+   **Eight files, not six.** Barlow Semi Condensed has no variable release, so the two
+   weights the type scale uses are two files per subset. The other two families are variable
+   and cover every weight the scale asks for in one file each.
+
+   **The mono is IBM's own package rather than fontsource's**, because the type scale calls
+   for weights 450 and 550 and no static cut has them — Google Fonts ships Plex Mono in
+   hundreds only. `@ibm/plex-mono-variable` is a `100 700` axis from the same upstream repo,
+   and it is *smaller* than the three static weights it replaces: 31.8 kB against 44.0 for
+   latin. Its subsets are called Latin1 and Latin2 upstream and are renamed on vendoring to
+   the latin/latin-ext convention the rest of this tree uses.
+
+   Provenance, in the shape `htmx.min.js` set:
+   `@fontsource/barlow-semi-condensed@5.3.0`, `@fontsource-variable/source-sans-3@5.3.0`,
+   `@ibm/plex-mono-variable@1.0.0` — all three SIL Open Font License 1.1, with the notice
+   beside the files. Every SHA-256 is pinned in `tests/test_fonts.py`, so a swapped binary is
+   a red build rather than a thing nobody would ever notice.
+
+   **No italic.** Nothing in these templates is italic, and three italic families would be
+   another 150 kB committed for the look of completeness. The design system is explicit that
+   italic and bold are never to be synthesised, which is a rule about faces we *do* ship.
 
    `latin-ext` is here because of what this tool renders. Issuer names come out of filings,
    and an LSE listing is routinely a European domicile — a report about Škoda or Société
    Générale would otherwise set those letters in whatever the system supplies, mid-word.
-   `unicode-range` means the browser fetches it only on a page that actually contains one,
-   so the common case still costs the 48 kB latin file alone. */
+   `unicode-range` means the browser fetches it only on a page that actually contains one. */
 
 @font-face {
-  font-family: "Inter Variable";
+  font-family: "Barlow Semi Condensed";
   font-style: normal;
-  font-weight: 100 900;
-  /* `swap`: text is readable in the fallback immediately and reflows when Inter arrives.
-     The alternative hides it for up to three seconds, and a research page that is blank
-     while a font loads is worse than one that changes shape. */
+  font-weight: 600;
   font-display: swap;
-  src: url("../fonts/inter-latin-wght-normal.woff2") format("woff2");
+  src: url("../fonts/barlow-semi-condensed-latin-600-normal.woff2") format("woff2");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
     U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
     U+FEFF, U+FFFD;
 }
 
 @font-face {
-  font-family: "Inter Variable";
+  font-family: "Barlow Semi Condensed";
   font-style: normal;
-  font-weight: 100 900;
+  font-weight: 700;
   font-display: swap;
-  src: url("../fonts/inter-latin-ext-wght-normal.woff2") format("woff2");
+  src: url("../fonts/barlow-semi-condensed-latin-700-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Barlow Semi Condensed";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../fonts/barlow-semi-condensed-latin-ext-600-normal.woff2") format("woff2");
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
-    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
-    U+2113, U+2C60-2C7F, U+A720-A7FF;
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Barlow Semi Condensed";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/barlow-semi-condensed-latin-ext-700-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Source Sans 3 Variable";
+  font-style: normal;
+  font-weight: 200 900;
+  /* `swap`: text is readable in the fallback immediately and reflows when the face arrives.
+     The alternative hides it for up to three seconds, and a research page that is blank
+     while a font loads is worse than one that changes shape. */
+  font-display: swap;
+  src: url("../fonts/source-sans-3-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Source Sans 3 Variable";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("../fonts/source-sans-3-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono Var";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url("../fonts/ibm-plex-mono-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC,
+    U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2030, U+2039-203A,
+    U+2044, U+20AC, U+2122, U+2212, U+FB01-FB02;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono Var";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url("../fonts/ibm-plex-mono-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-0101, U+0104-0130, U+0132-0151, U+0154-017F, U+018F, U+0192,
+    U+01A0-01A1, U+01AF-01B0, U+01FA-01FF, U+0218-021B, U+0237, U+0259, U+1E80-1E85,
+    U+1E9E, U+20A1, U+20A4, U+20A6, U+20A8-20AA, U+20AD;
 }
 
 /* ---------------------------------------------------------------------------------------
@@ -236,8 +319,14 @@
 }
 
 /* Layout constants, so a sidebar width lives in one place rather than in every template
-   that has to avoid it. */
-@theme {
+   that has to avoid it.
+
+   `static` rather than a bare `@theme`, because Tailwind v4 emits a theme variable only when
+   something it scanned looks like a utility that uses it. `--font-data` is the token the type
+   scale will resolve through and no template names it yet, so without `static` it is dropped
+   from the compiled output — and a token that vanishes until its first use is a token whose
+   contrast and fallback nobody can test until then. */
+@theme static {
   /* Inter first, then the stack Tailwind ships. The fallbacks are not decoration: they are
      what renders while the woff2 is in flight, and what renders for ever if it 404s.
 
@@ -247,10 +336,31 @@
      break anywhere in it leaves every page in the stock system stack — which looks exactly
      like a font that loaded. `tests/test_fonts.py` follows the chain in the compiled
      output rather than assuming it, and a browser test reads the face off a rendered page. */
-  --font-sans:
-    "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", "Noto Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
-    "Segoe UI Symbol", "Noto Color Emoji";
+  /* Source Sans 3 first, then the design system's own fallback stack. The fallbacks are not
+     decoration: they are what renders while the woff2 is in flight, and what renders for ever
+     if it 404s.
+
+     This one variable carries the page, but only because of a chain: Preflight sets
+     `font-family` on `html` from `--default-font-family`, and Tailwind's own theme defines
+     that as `--theme(--font-sans, initial)`. Three links, one of them inside a dependency, and
+     a break anywhere in it leaves every page in the stock system stack — which looks exactly
+     like a font that loaded. `tests/test_fonts.py` follows the chain in the compiled output
+     rather than assuming it, and a browser test reads the face off a rendered page. */
+  --font-sans: "Source Sans 3 Variable", "Segoe UI", Arial, sans-serif;
+
+  /* Object identity and section hierarchy. Reserved for that: Barlow is a display face and
+     a paragraph set in it is a paragraph nobody finishes. The fallback is narrow on purpose,
+     because a condensed heading replaced by a normal-width one reflows the page it titles. */
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", "Aptos Narrow", sans-serif;
+
+  /* Figures and records: anything that must align in a column or be read character by
+     character. Never prose that merely wants to look technical. */
+  --font-data: "IBM Plex Mono Var", "Cascadia Mono", Consolas, ui-monospace, monospace;
+
+  /* Tailwind's own `font-mono` utility, pointed at the same face. Templates written before
+     the token existed use `font-mono`, and leaving it on the stock stack would set half the
+     hashes on a page in the vendored face and half in whatever the machine supplies. */
+  --font-mono: "IBM Plex Mono Var", "Cascadia Mono", Consolas, ui-monospace, monospace;
 
   --radius-card: 14px;
   --radius-panel: 16px;

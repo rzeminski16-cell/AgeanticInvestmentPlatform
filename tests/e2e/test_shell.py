@@ -328,9 +328,9 @@ class TestTheDrawer:
 
 
 class TestTheTypeface:
-    """The one check on the font that a file cannot make.
+    """The one check on the fonts that a file cannot make.
 
-    Every other assertion about Inter is on bytes: the woff2 is on disk, its hash is the
+    Every other assertion about them is on bytes: the woff2 is on disk, its hash is the
     one recorded, the stylesheet asks for it by a relative path, the server hands it back
     as `font/woff2`. None of that says the browser used it — a `unicode-range` that matched
     nothing, a `format()` the parser rejected, or a chain that resolved to the fallback
@@ -342,24 +342,50 @@ class TestTheTypeface:
         page.evaluate("document.fonts.ready")
 
         assert page.evaluate("getComputedStyle(document.body).fontFamily").startswith(
-            '"Inter Variable"'
+            '"Source Sans 3 Variable"'
         )
         # `check` is true only once the face is available for that text, so this fails if
         # the woff2 never arrived — which is the state every file-level test above passes in.
-        assert page.evaluate("document.fonts.check('1em \"Inter Variable\"')")
+        assert page.evaluate("document.fonts.check('1em \"Source Sans 3 Variable\"')")
 
-    def test_the_weights_come_from_the_file_rather_than_the_browser(
-        self, page: Page, live_server: str
+    @pytest.mark.parametrize(
+        ("weight", "family"),
+        [
+            ("600", "Barlow Semi Condensed"),
+            ("700", "Barlow Semi Condensed"),
+            ("400", "Source Sans 3 Variable"),
+            ("600", "Source Sans 3 Variable"),
+            ("450", "IBM Plex Mono Var"),
+            ("550", "IBM Plex Mono Var"),
+        ],
+    )
+    def test_every_weight_the_scale_uses_is_a_real_one(
+        self, page: Page, live_server: str, weight: str, family: str
     ) -> None:
-        """A variable face covers 100-900, so a semibold heading is a real weight.
+        """The browser's own answer to the question `test_fonts.py` asks of the stylesheet.
 
-        Without the range, the browser synthesises one by smearing the regular — heavier,
-        blurrier, and on a page of small type the difference is the page looking cheap.
+        Without the weight in a file, the browser synthesises one by smearing the nearest cut
+        — heavier, blurrier, and on a page of small type the difference is the page looking
+        cheap. 450 and 550 are the pair that decided which mono this repository vendors: no
+        static IBM Plex Mono has them, so a static family here would pass every file-level
+        check and fake two of the four weights the type scale is built on.
+
+        `load` rather than `check`, because `check` answers "is this face already downloaded",
+        and a face no template has used yet never is — which would make this test pass only
+        after the tranche that renders it, exactly when it stops being the interesting check.
+        `load` fetches the woff2 and resolves to the faces that matched, so an empty list is a
+        404, a rejected `format()`, or a weight outside the declared axis.
         """
         page.goto(f"{live_server}/overview")
-        page.evaluate("document.fonts.ready")
 
-        assert page.evaluate("document.fonts.check('600 1em \"Inter Variable\"')")
+        matched = page.evaluate(
+            f"""document.fonts.load('{weight} 1em "{family}"').then(faces => faces.length)"""
+        )
+
+        assert matched, (
+            f"{family} at {weight} matched no vendored face, so the browser will synthesise "
+            "it. Either the woff2 did not load or its axis does not reach that weight."
+        )
 
     def test_nothing_was_fetched_from_anybody_else(self, page: Page, live_server: str) -> None:
         # The failure this whole arrangement exists to prevent, watched at the only level

@@ -139,7 +139,8 @@ class TestStaticAssets:
             )
 
     async def test_the_typeface_is_served_locally(self, web_client):
-        response = await web_client.get("/static/fonts/inter-latin-wght-normal.woff2")
+        # The preloaded face, which is the one whose absence shows on every page.
+        response = await web_client.get("/static/fonts/source-sans-3-latin-wght-normal.woff2")
 
         assert response.status_code == 200
         assert len(response.content) > 10_000
