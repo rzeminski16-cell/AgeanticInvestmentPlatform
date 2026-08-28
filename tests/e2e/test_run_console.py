@@ -266,7 +266,9 @@ class TestTheConsole:
         # By its text, not by an href prefix: "/requests/" also prefixes the nav link,
         # which would leave the browser on the list page and the failure would read as a
         # missing button rather than a mis-aimed click.
-        page.get_by_role("link", name="Microsoft Corporation").click()
+        # `exact`, because the row also carries a "Remove Microsoft Corporation" link and
+        # a substring match resolves to both.
+        page.get_by_role("link", name="Microsoft Corporation", exact=True).click()
         page.click("#open-run")
 
         page.wait_for_url(CONSOLE_URL)

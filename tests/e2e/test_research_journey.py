@@ -30,6 +30,7 @@ from sqlalchemy.pool import NullPool
 from aer.core.enums import JobStatus
 from aer.db.models import Job
 from tests.db_fixtures import run_async
+from tests.e2e.test_request_form import fill_valid
 from tests.e2e.worker import Worker
 from tests.workflow_fixtures import DEFAULT_PER_RUN_BUDGET_GBP
 
@@ -51,25 +52,20 @@ TICKER = "MSFT"
 
 
 def _commission(page: Page, live_server: str) -> None:
-    """Everything a person does to get from the front page to a request that exists."""
+    """Everything a person does to get from the front page to a request that exists.
+
+    The filling itself is ``fill_valid``, which knows the form's shape — four decisions,
+    then refinement behind a disclosure — so this walks the navigation and owns only the
+    one value the journey needs different: the platform-default ceiling rather than the
+    form test's £2.00. A run driven past the draft step needs a ceiling that step's
+    estimate does not exceed, and a journey that stopped at BUDGET_EXCEEDED would be
+    testing the cap rather than the tool.
+    """
     page.goto(live_server)
     page.locator('[data-tool="research"] [data-field="action"]').click()
     page.wait_for_url("**/requests/new")
 
-    page.fill("#company_name", COMPANY)
-    page.fill("#ticker", "msft")
-    page.fill("#as_of_date", "2026-07-01")
-    page.fill("#investment_horizon_months", "36")
-    page.fill("#current_weight_percent", "2.5")
-    page.fill("#maximum_weight_percent", "5")
-    page.fill("#benchmark", "MSCI World")
-    # The platform default rather than the form test's £2.00: a run driven past the draft
-    # step needs a ceiling that step's estimate does not exceed, and a journey that stopped
-    # at BUDGET_EXCEEDED would be testing the cap rather than the tool.
-    page.fill("#max_cost_gbp", str(DEFAULT_PER_RUN_BUDGET_GBP))
-    page.fill("#focus_questions", "How durable is the Azure gross margin?")
-    page.select_option("#exchange", "NASDAQ")
-    page.select_option("#base_currency", "USD")
+    fill_valid(page, max_cost_gbp=str(DEFAULT_PER_RUN_BUDGET_GBP))
     page.click("#submit")
 
 
