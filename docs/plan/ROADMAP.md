@@ -308,6 +308,41 @@ a future run inherits it, possibly through §3.11's methodology library rather t
 mechanism. Either way this needs an ADR before any of it is built: a new step is a new agent
 behaviour (ADR 0035), and this one touches invariant 7 by nature, whichever way it lands.
 
+**3.13 A web-search tool for the qualitative sections.** Nothing has a `web_search`
+capability today. `fetch_known_url` reaches only a host this run has already acquired a
+document from through the named adapters, and refuses anything else by design — an
+unlisted host gets back "this run holds no document from that host, and a host is never
+taken from a request." What is missing is not the trust model: `sources/tiering.py` and
+`fetch/policy.py` already carry `Provider.WEB_SEARCH`, tiered before this item existed —
+search-found news and issuer material at `T5_SECONDARY` ("never the sole support for a
+numeric claim"), search-found commentary at `T6_UNVERIFIED` ("never citable evidence").
+What is missing is a tool nothing calls: no role's allowlist grants it, and the commercial
+check still outstanding on the Anthropic web-search tool's price is what keeps it out of
+the budget guard (invariant 6).
+
+Scope it to the qualitative workers — `research_recent_developments` and the rest of the
+five parallel research agents (ADR 0036) — for what does not belong in `calc/`: business
+description, sentiment, recent developments, the colour a filing does not carry. It does
+not widen what can reach a figure. `calc/` consumes structured facts extracted from filings
+and nothing else, so a T5 or T6 source has no route into a number whatever tool exists —
+that boundary is the one rule (`CLAUDE.md`, ADR 0003), not a permission to add. Wired the
+same way as any other tool request — the model asks, code executes, results return wrapped
+as `<untrusted_source tier=…>` (ADR 0019) — it is contained the same way a filing already
+is, and the corroboration the operator wants ("confirmed when multiple sources agree") is
+`T5_SECONDARY`'s existing "never sole support" constraint, already enforced, not a new one
+to write.
+
+**Do not pre-approve named publishers.** Checked against robots.txt — the same mechanical
+test ADR 0009 already treats as an absolute refusal, no ToS reading required — Seeking
+Alpha disallows roughly 150 crawlers outright, `Claude-User` and `ClaudeBot` by name among
+them: it appears to refuse the model this platform itself runs on. `ft.com` could not be
+reached to check at all. That is the same shape of finding that put the Bank of England and
+the FCA NSM (ADR 0022) in §4's "decided against" — a documented block, not a negotiable
+one. So each specific always-on publisher, if wanted, is its own adapter-style decision — a
+ToS/robots determination recorded in an ADR before the first request, per the existing
+recipe — never a batch of sources assumed trustworthy for being well known. Needs an ADR
+either way: a new tool capability is new agent behaviour (ADR 0035).
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before
