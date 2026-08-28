@@ -136,6 +136,24 @@ async def unstarted_requests(
     return Bounded(rows=tuple(rows), remaining=max(0, total - len(rows)))
 
 
+async def has_ever_commissioned(session: AsyncSession, *, user_id: uuid.UUID) -> bool:
+    """Whether this operator has ever written a research request.
+
+    The one question that separates "nothing is waiting for you" from "you have not started
+    yet", and they are opposite pages. An empty work list means *caught up* to somebody who
+    has been using the platform and *nothing here works* to somebody who has just installed
+    it — and the second reader is the one who needs an instruction rather than congratulation.
+
+    A request rather than a run, deliberately: writing one is the first thing an operator does
+    and it costs nothing, so it is the earliest honest signal that they are under way. Somebody
+    who has saved a draft and not started it is not a new operator; they are one row of work.
+    """
+    written = await session.scalar(
+        select(ResearchRequest.id).where(ResearchRequest.user_id == user_id).limit(1)
+    )
+    return written is not None
+
+
 async def _runs_with_status(
     session: AsyncSession, status: JobStatus, user_id: uuid.UUID, limit: int
 ) -> Bounded[tuple[Job, ResearchRequest]]:

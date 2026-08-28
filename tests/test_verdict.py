@@ -385,3 +385,38 @@ class TestAClauseWorksInAnyPosition:
             sentence(["the draft is complete."], when_none="nothing", tone=Tone.SUCCESS).composed
             == "The draft is complete."
         )
+
+
+class TestTheFrontDoorDoesNotArgueWithItself:
+    """An empty feed is two different facts, and the verdict is the first line of both pages.
+
+    Caught up and never started produce the same empty work list and want opposite sentences.
+    Shipping only one of them put "Nothing is waiting for you." two inches above a panel headed
+    "Start with two things" — the front door contradicting itself in its own opening line, on
+    the one screen a new operator sees first. Found by looking at the page, not by a test.
+    """
+
+    def test_a_new_operator_is_not_told_they_are_up_to_date(self) -> None:
+        verdict = overview_verdict([], first_run=True)
+
+        assert NOTHING_WAITING not in verdict.composed
+        assert "commissioned" in verdict.composed
+
+    def test_and_is_not_congratulated_for_it(self) -> None:
+        """Success green over "you have not started" is the platform congratulating somebody
+        for not using it."""
+        assert overview_verdict([], first_run=True).tone is not Tone.SUCCESS
+
+    def test_a_returning_operator_still_gets_the_all_clear(self) -> None:
+        """The complement: the guard must not turn an ordinary quiet day into a to-do list."""
+        verdict = overview_verdict([], first_run=False)
+
+        assert verdict.composed == "Nothing is waiting for you."
+        assert verdict.tone is Tone.SUCCESS
+
+    def test_a_new_operator_with_work_waiting_reads_as_normal(self) -> None:
+        """`first_run` only decides the *empty* sentence. Somebody who wrote a request and
+        started it has work waiting like anybody else, and the flag must not reword that."""
+        verdict = overview_verdict([_item(severity=Severity.BLOCKED)], first_run=True)
+
+        assert verdict.composed == "One item is waiting for your decision."

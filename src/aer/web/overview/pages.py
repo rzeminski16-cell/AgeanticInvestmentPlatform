@@ -32,7 +32,7 @@ from aer.api.deps import DbSession, RedisClient, get_current_user
 from aer.core.dates import format_date
 from aer.db.schema_check import schema_drift
 from aer.errors import AerError
-from aer.services.overview import spend_since, start_of_month
+from aer.services.overview import has_ever_commissioned, spend_since, start_of_month
 from aer.version import build_identity
 from aer.web import figures
 from aer.web.overview.attention import Attention, Severity, items_for
@@ -76,6 +76,10 @@ async def main_menu(request: Request, session: DbSession, redis: RedisClient) ->
     badges: tuple[Badge, ...] = ()
     attention: tuple[Attention, ...] = ()
     spend: str | None = None
+    # Whether this operator has ever written a request. `False` until proven otherwise, so a
+    # database that could not be read shows the ordinary page rather than greeting a
+    # long-standing operator as a newcomer — the one way this flag can be actively insulting.
+    commissioned = True
     # Whether the feed was actually read, which is not the same as `problem is None`: a
     # schema two migrations behind sets a problem and then the queries run anyway. The
     # verdict below counts these rows, and an empty tuple means two opposite things — nothing
@@ -95,6 +99,7 @@ async def main_menu(request: Request, session: DbSession, redis: RedisClient) ->
         badges = await cached_counts_for(redis, session, user_id=user.id)
         attention = await items_for(session, user_id=user.id)
         gathered = True
+        commissioned = await has_ever_commissioned(session, user_id=user.id)
         spend = _pounds(await spend_since(session, since=since))
     except AerError as exc:
         # A configuration problem the operator can act on, such as no user having been
@@ -119,8 +124,20 @@ async def main_menu(request: Request, session: DbSession, redis: RedisClient) ->
             # Composed from the feed directly above it, and told whether that feed is a
             # count at all — the case where "nothing is waiting for you" is both the obvious
             # sentence and completely wrong.
-            "verdict": overview_verdict(attention, gathered=gathered),
+            "verdict": overview_verdict(attention, gathered=gathered, first_run=not commissioned),
+            # An empty work list means two opposite things. To somebody who has been using the
+            # platform it means caught up; to somebody who has just installed it, it means
+            # nothing here works yet — and only the second reader needs an instruction.
+            "first_run": gathered and not commissioned,
             "spend": spend,
+            # The context strip, assembled here rather than in the template: a list is data
+            # and Jinja has no comprehension, so a template that built one would be doing it
+            # with a loop and a namespace. `is_data` puts every value in the figures face so
+            # a column of counts lines up.
+            "summary_items": [
+                {"label": badge.title, "value": badge.count, "is_data": True} for badge in badges
+            ]
+            + ([{"label": "Spent this month", "value": spend, "is_data": True}] if spend else []),
             # Rendered here rather than in the template: `%-d` does not exist outside
             # glibc, and `format_date` is the one place that knows it.
             "since": f"Since {format_date(since, '%-d %B')}",

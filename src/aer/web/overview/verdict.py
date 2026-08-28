@@ -36,6 +36,13 @@ __all__ = ["NOTHING_WAITING", "overview_verdict"]
 # this sentence is only ever reached when every provider answered.
 NOTHING_WAITING: Final = "nothing is waiting for you"
 
+# And what it says to somebody who has not started. The distinction is the whole reason both
+# sentences exist: an empty work list is an achievement to one reader and a dead platform to
+# the other, and the verdict is the first line either of them reads. Congratulating a new
+# operator on being up to date, two inches above a panel telling them how to begin, is the
+# front door contradicting itself.
+NOTHING_COMMISSIONED: Final = "no research has been commissioned yet"
+
 # And what it says when it could not ask at all. The page beneath this renders a notice naming
 # the failure, so the verdict states the consequence rather than repeating the diagnosis.
 _NOT_ASKED: Final = "nothing here has been counted"
@@ -76,7 +83,9 @@ _TONES: Final[tuple[tuple[Severity, Tone], ...]] = (
 )
 
 
-def overview_verdict(items: Sequence[Attention], *, gathered: bool = True) -> Verdict:
+def overview_verdict(
+    items: Sequence[Attention], *, gathered: bool = True, first_run: bool = False
+) -> Verdict:
     """What is waiting, across every tool, in one sentence.
 
     ``Two items are waiting for your decision; one item needs diagnosis.``
@@ -84,6 +93,10 @@ def overview_verdict(items: Sequence[Attention], *, gathered: bool = True) -> Ve
     Counting rows the page is about to list, so the sentence and the list cannot disagree: a
     severity with nothing in it contributes no clause, and an empty feed produces the sentence
     written for an empty feed rather than an empty verdict.
+
+    ``first_run`` is true for an operator who has never written a request. Their empty feed
+    is not the same fact as a caught-up operator's, and the sentence has to match the panel
+    underneath it or the page argues with itself in its own first line.
 
     ``gathered`` is false when the feed could not be built at all — the database is unreachable
     or its schema has drifted, the two cases this page is specifically designed to survive.
@@ -98,14 +111,21 @@ def overview_verdict(items: Sequence[Attention], *, gathered: bool = True) -> Ve
     complete = gathered and not any(item.feed_is_incomplete for item in items)
     return sentence(
         [Count(counts[severity], *_PHRASES[severity]) for severity in _CLAUSE_ORDER],
-        when_none=NOTHING_WAITING if gathered else _NOT_ASKED,
-        tone=_tone_for(counts, complete=complete),
+        when_none=_when_empty(gathered=gathered, first_run=first_run),
+        tone=_tone_for(counts, complete=complete, first_run=first_run),
         is_complete=complete,
         gap="" if complete else (_NOT_ASKED_GAP if gathered else _NOT_REACHED_GAP),
     )
 
 
-def _tone_for(counts: dict[Severity, int], *, complete: bool) -> Tone:
+def _when_empty(*, gathered: bool, first_run: bool) -> str:
+    """Which of three sentences an empty feed gets. They are three different facts."""
+    if not gathered:
+        return _NOT_ASKED
+    return NOTHING_COMMISSIONED if first_run else NOTHING_WAITING
+
+
+def _tone_for(counts: dict[Severity, int], *, complete: bool, first_run: bool = False) -> Tone:
     """Worst thing present, and never the all-clear over a partial count.
 
     An empty feed is a success only when the feed is the whole of it. Reporting "nothing is
@@ -116,4 +136,8 @@ def _tone_for(counts: dict[Severity, int], *, complete: bool) -> Tone:
     for severity, tone in _TONES:
         if counts[severity]:
             return tone
+    if first_run:
+        # Not the all-clear. Nothing is waiting because nothing has been started, and a green
+        # tick over that is the platform congratulating somebody for not using it.
+        return Tone.INFO
     return Tone.SUCCESS if complete else Tone.INFO

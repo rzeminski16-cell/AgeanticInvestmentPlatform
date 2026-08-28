@@ -16,94 +16,123 @@
 {% block title %}Tracework{% endblock %}
 
 {% block content %}
-  <div>
-    <h1 class="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-      Your investment platform
-    </h1>
-    <p class="mt-2 max-w-prose text-sm text-ink-muted">
-      Research, positions and the decisions between them &mdash; each with its working
-      shown, and every figure traceable to the formula and the source behind it.
-    </p>
-  </div>
-
-  {{ ui.guide(1, "Everything the platform is going to be, in one place. A tool that is not built yet says what it is waiting for.") }}
+  {% call ui.page_header("Today's work", identity="Research, positions and the decisions between them — each with its working shown, and every figure traceable to the formula and the source behind it.") %}{% endcall %}
 
   {#
-    A `div` rather than a card-shaped anchor. A working tool carries a second link — the
-    thing you most often want to *do* with it — and an anchor inside an anchor is invalid
-    markup that browsers repair by guessing. The heading is the link; the whole card is not
-    clickable, which costs a little convenience and buys a card that can hold two
-    destinations.
+    The verdict first, and composed rather than authored (ADR 0087). Its subject is live state
+    across every open run, so there is no moment at which it is frozen and nothing to write it
+    once about — and this is the page an operator opens when something is broken, which a
+    verdict needing a model provider would take down with it.
   #}
-  <ul class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-    {% for tool in tools %}
-      <li
-        data-tool="{{ tool.key }}"
-        data-status="{{ tool.status.value }}"
-        class="flex h-full flex-col rounded-card border bg-surface p-4
-               {{ 'border-brand/40' if tool.is_built else 'border-line' }}"
-      >
-        <p class="flex items-baseline justify-between gap-2">
-          <a
-            href="{{ tool.href }}"
-            data-field="open"
-            class="text-sm font-semibold text-ink hover:text-brand"
-            >{{ tool.label }}</a
-          >
-          {#
-            The status is written, not only coloured. A state a colour-blind reader cannot
-            read is a state that is not there.
-          #}
-          <span
-            class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium
-                   {{ 'bg-good-wash text-good-ink' if tool.is_built
-                      else ('bg-warn-wash text-warn-ink' if tool.status.value == 'Under construction'
-                            else 'bg-mute-wash text-mute-ink') }}"
-            >{{ tool.status.value }}</span
-          >
-        </p>
-        <p class="mt-2 flex-1 text-sm text-ink-muted">{{ tool.summary }}</p>
-        {% if tool.action_label %}
-          <p class="mt-3">
-            <a
-              href="{{ tool.action_href }}"
-              data-field="action"
-              class="inline-flex items-center rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold text-on-verification hover:bg-brand-strong"
-              >{{ tool.action_label }}</a
-            >
-          </p>
-        {% endif %}
-      </li>
-    {% endfor %}
-  </ul>
-
-  {% if problem %}
-    <section
-      class="mt-10 rounded-card border border-warn-ink/40 bg-warn-wash p-4"
-      role="alert"
-      id="startup-problem"
-    >
-      <h2 class="text-sm font-semibold text-warn-ink">Not ready yet</h2>
-      <p class="mt-1 text-sm text-warn-ink">{{ problem }}</p>
-      <p class="mt-2 text-xs text-warn-ink/80">
-        The tools above are listed from the registry, so they render either way. Everything
-        that reads data is waiting for this to be fixed.
-      </p>
-    </section>
-  {% else %}
-    <h2 class="mt-10 text-lg font-semibold text-ink">Where you left off</h2>
-    <dl class="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3">
-      {% for badge in badges %}
-        {{ ui.figure(badge.title, badge.count) }}
-      {% endfor %}
-      {% if spend %}{{ ui.figure("Spent this month", spend, since) }}{% endif %}
-    </dl>
-    {{ ui.guide(2, "Every count here is the same one the menu shows, from the same registry — a tool contributes it once.") }}
-
-    <h2 class="mt-10 text-lg font-semibold text-ink">Your attention</h2>
-    {{ ui.guide(3, "Grouped by what it costs you: blocked work resumes the moment you decide, broken work needs reading first.") }}
-    {% include "overview/_attention.html" %}
+  {% if verdict %}
+    {{ ui.verdict("CURRENT STATE", verdict.composed, tone=verdict.tone.value) }}
   {% endif %}
 
-  <p class="mt-10 text-xs text-ink-subtle" id="build-identity">{{ build }}</p>
+  {#
+    The work list before the launcher. The first question on arrival is "what can this do";
+    the question on every arrival after that is "what needs me now", and there are many more
+    of the second. The launcher is still below the database boundary and still renders when
+    nothing else can.
+  #}
+  {% if problem %}
+    {% call ui.sheet() %}
+      {{ ui.callout(
+        "failure",
+        "The work list could not be read",
+        problem,
+        "Check which dependencies are answering",
+        "/healthz",
+      ) }}
+      <p class="mt-3 type-body-sm text-ink-muted">
+        The tools below are listed from the registry, so they render either way. Everything
+        that reads data is waiting for this to be fixed.
+      </p>
+    {% endcall %}
+  {% else %}
+    <section aria-labelledby="attention-heading">
+      <h2 id="attention-heading" class="sr-only">Your attention</h2>
+      {{ ui.guide(1, "Grouped by what it costs you: work waiting on you resumes the moment you decide, broken work needs reading first.") }}
+      {% include "overview/_attention.html" %}
+    </section>
+
+    {#
+      A restrained context strip: counts that do not merely repeat the ledger above. Spend
+      this month is the one figure the work list cannot show, because it is not about any
+      single run.
+    #}
+    {% if summary_items %}
+      {% call ui.sheet("Where you left off") %}
+        {{ ui.definition_list(summary_items, variant="summary") }}
+        {% if spend %}<p class="mt-3 type-caption text-ink-subtle">{{ since }}</p>{% endif %}
+        {{ ui.guide(2, "Every count here is the same one the index shows, from the same registry — a tool contributes it once.") }}
+      {% endcall %}
+    {% endif %}
+  {% endif %}
+
+  {#
+    The launcher. A `div` rather than a card-shaped anchor: a working tool carries a second
+    link — the thing you most often want to *do* with it — and an anchor inside an anchor is
+    invalid markup that browsers repair by guessing. The heading is the link; the whole card
+    is not clickable, which costs a little convenience and buys a card that holds two
+    destinations.
+  #}
+  {% set working = tools | selectattr("is_built") | list %}
+  {% set planned = tools | rejectattr("is_built") | list %}
+
+  {% call ui.sheet("Working tools") %}
+    {{ ui.guide(3, "Everything the platform is going to be, in one place. A tool that is not built yet says what it is waiting for.") }}
+    <ul class="grid gap-3 sm:grid-cols-2">
+      {% for tool in working %}
+        <li
+          data-tool="{{ tool.key }}"
+          data-status="{{ tool.status.value }}"
+          class="flex h-full flex-col rounded-sm border border-line p-4"
+        >
+          <p class="flex items-baseline justify-between gap-2">
+            <a href="{{ tool.href }}" data-field="open" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ tool.label }}</a>
+            {{ ui.status("success", tool.status.value) }}
+          </p>
+          <p class="mt-2 flex-1 type-body-sm text-ink-muted">{{ tool.summary }}</p>
+          {% if tool.action_label %}
+            <p class="mt-3">
+              <a
+                href="{{ tool.action_href }}"
+                data-field="action"
+                class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong"
+                >{{ tool.action_label }}</a
+              >
+            </p>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endcall %}
+
+  {#
+    Planned instruments as a quieter requirements index, in a native disclosure. Every
+    specific "what it needs first" is preserved: a planned tool that said only "coming soon"
+    would be a row carrying no information, and the whole reason these are listed is that the
+    shape of the product is visible on arrival rather than discovered.
+  #}
+  {% call ui.sheet() %}
+    {% call ui.disclosure("Planned instruments ({} more)".format(planned | length)) %}
+      <ul class="flex flex-col">
+        {% for tool in planned %}
+          <li
+            data-tool="{{ tool.key }}"
+            data-status="{{ tool.status.value }}"
+            class="grid grid-cols-1 gap-1 border-t border-line py-3 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6"
+          >
+            <div class="min-w-0">
+              <a href="{{ tool.href }}" data-field="open" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ tool.label }}</a>
+              <p class="mt-1 type-body-sm text-ink-muted">{{ tool.summary }}</p>
+            </div>
+            {{ ui.status("muted", tool.status.value) }}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endcall %}
+  {% endcall %}
+
+  <p class="sr-only" id="build-identity">{{ build }}</p>
 {% endblock %}

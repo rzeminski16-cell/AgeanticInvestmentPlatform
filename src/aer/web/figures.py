@@ -25,6 +25,7 @@ They are not interchangeable and merging them would be a fourth. A report that p
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Final
 
@@ -37,6 +38,7 @@ __all__ = [
     "RenderedFigure",
     "cost_context",
     "pounds",
+    "waited_for",
 ]
 
 # What a figure the platform cannot state looks like. Never a blank cell and never a zero: a
@@ -128,6 +130,36 @@ def cost_context(*, spent: Decimal, ceiling: Decimal | None, scope: str = "run")
         scope=scope,
     )
 
+
+
+def waited_for(since: datetime, *, now: datetime) -> str:
+    """How long something has been sitting there, in the coarsest honest unit.
+
+    "2 days" rather than "2 days, 4 hours, 11 minutes". The reader is triaging four rows, not
+    billing against them, and a duration precise to the minute makes the *ordering* harder to
+    see rather than easier.
+
+    **The clock is a parameter.** A renderer that read `datetime.now()` would be a function no
+    test could pin and a figure that changed between two calls in one render — the same reason
+    `core/` is free of clock reads. The handler reads the clock once and passes it down.
+
+    Rounds down, always. Something that started 47 hours ago has been waiting "1 day", not two:
+    on a page about what needs attention, rounding a duration up is inventing urgency.
+    """
+    elapsed = now - since
+    if elapsed < timedelta(0):
+        # A start time in the future is a clock that moved, not a negative wait.
+        return "just now"
+    days = elapsed.days
+    if days >= 1:
+        return "1 day" if days == 1 else f"{days} days"
+    hours = elapsed.seconds // 3600
+    if hours >= 1:
+        return "1 hour" if hours == 1 else f"{hours} hours"
+    minutes = elapsed.seconds // 60
+    if minutes >= 1:
+        return "1 minute" if minutes == 1 else f"{minutes} minutes"
+    return "just now"
 
 @dataclass(frozen=True, slots=True)
 class RenderedFigure:

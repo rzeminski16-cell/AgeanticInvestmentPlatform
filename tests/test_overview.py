@@ -440,12 +440,32 @@ class TestTheQueriesBound:
 
 @pytest.mark.integration
 class TestThePage:
-    async def test_nothing_waiting_says_what_to_do_next(self, client) -> None:
+    async def test_an_operator_who_has_never_started_is_told_how_to(self, client) -> None:
+        """An empty work list means two opposite things.
+
+        To somebody who has been using the platform it means caught up. To somebody who
+        installed it ten minutes ago it means nothing here works yet — and congratulating the
+        second reader on being up to date is the front door failing at its only job.
+        """
         response = await client.get("/")
 
         assert response.status_code == 200
-        assert "Nothing is waiting" in response.text
+        assert "Start with two things" in response.text
         assert "/requests/new" in response.text
+        assert "/settings" in response.text
+
+    async def test_an_operator_who_is_caught_up_is_not_told_to_start(
+        self, client, seed: _Seeder
+    ) -> None:
+        """The complement. Once a request exists the reader is under way, and the empty list
+        is an achievement rather than an instruction."""
+        request_id = await seed.request()
+        await seed.run(request_id, JobStatus.SUCCEEDED)
+
+        response = await client.get("/")
+
+        assert "Nothing is waiting" in response.text
+        assert "Start with two things" not in response.text
 
     async def test_a_stopped_run_appears_with_the_gate_it_wants(
         self, client, seed: _Seeder
