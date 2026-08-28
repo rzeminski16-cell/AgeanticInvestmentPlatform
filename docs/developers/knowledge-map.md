@@ -1,7 +1,7 @@
 # Knowledge map
 
-*The orientation layer. Read this first, before `docs/archive/PLAN.md` (the authority on scope),
-before the ADRs (the record of decisions), and before the code. It is written for a capable
+*The orientation layer. Read this first, before `docs/plan/ROADMAP.md` (the authority on
+scope), before the ADRs (the record of decisions), and before the code. It is written for a capable
 Python developer who has never seen this repository and needs to make a safe change in their
 first week.*
 

@@ -30,8 +30,8 @@ thing that would otherwise put a wrong number, or no answer at all, in front of 
    objection in a narrow column and one row spans three pages; neither position can be read.
 4. **§3.12 — the interface overhaul.** Five tranches of ten built by 2026-08-28, and the
    trunk merged **red**: thirty-three browser tests fail on tranche 5's rewordings, so making
-   the suite green again comes before anything else touches a template. Resume at
-   [`interface-overhaul-handover.md`](interface-overhaul-handover.md). It is placed here rather
+   the suite green again comes before anything else touches a template. Resume at the status
+   section of [`interface-overhaul.md`](interface-overhaul.md). It is placed here rather
    than lower because §2.5 is inside it: migrating the palette first would do the most
    quietly-fragile item in this roadmap twice, once onto the present design and again onto
    the new one.
@@ -42,10 +42,9 @@ thing that would otherwise put a wrong number, or no answer at all, in front of 
 *Finished 2026-08-25 and now in §4: the drafted-figure check (§4.14) and the comps
 disclosure (§4.15), which were the two at the top of this list.*
 
-Everything else sits in its bucket below. The execution plan across everything open — the
-phases, what blocks each, and what only the operator can move — is
-[`remaining-work.md`](remaining-work.md), written 2026-08-28; this list stays the authority
-on priority.
+Everything else sits in its bucket below. The running order across everything open — the
+phases, what gates each, and the moves only the operator can make — is
+[`remaining-work.md`](remaining-work.md); this list stays the authority on priority.
 
 ---
 
@@ -107,10 +106,27 @@ merge — a thin evidence pack, then a retry that swings past the target — and
 instrumentation to read it back is in place, and §4.6 put it on the screen. This is the fix
 behind it. Until it lands, more than a quarter of every report is a coverage notice.
 
+Read against the tree 2026-08-28, ahead of the data: `validate_draft` checks only the 1.25×
+word ceiling — **there is no minimum** — so a starved pack becomes a thin section or a
+refusal, never a retry; a truncation retry raises the token ceiling and **halves the word
+budget** (`sections/writing.py`), which can swing under as readily as the first attempt swung
+over; and `MAX_GENERATION_ATTEMPTS = 2` means one retry, ever. Which of these actually fired
+is what the diagnosis decides, and the diagnosis is **blocked on data rather than effort**:
+it is pinned to the 2026-08-24 run, whose rows live on the operator's machine. The two
+read-only exports in `scripts/README.md` are written and waiting to be run; only the final
+confirmation needs model spend.
+
 **2.2 Section confidence.** Three sections reporting 0.30 is either an honest signal about a
 starved pack (§2.1) or a floor nobody calibrated. Read it back from the same live run before
 changing anything: a confidence score that is always low is as useless as one that is always
 high.
+
+Half-settled from the code, 2026-08-28: **it is not a floor.** `confidence_of` takes the
+model's own declared figure — defaulting to 0.5 when it states none — and *caps* it at 0.3
+when the pack was degraded (`sections/evidence.py`). Three sections at exactly 0.30 is three
+degraded packs, which is §2.1's territory. What the live run still has to answer is which
+degradation fired, and whether a cap that flattens every degraded section to one number
+communicates anything.
 
 **2.3 A run that fails late cannot be resumed, only repeated. Resolved, 2026-08-28, ADR
 0090.** The engine skips completed steps, and does it well — that is how a run survives the
@@ -133,9 +149,10 @@ tables render label and value as separate stacked blocks, so a reader reassemble
 by counting. Rework the appendix as prose blocks per disagreement, fix the key-figure tables,
 and check every section's print layout against a real run rather than a fixture.
 
-**2.5 The palette is migrated only in part. Re-measured 2026-08-25; now the first tranche of
-§3.12.** The theme *control* is done (§4.13) and this is what it left behind: a page's colours
-are correct in both schemes or they are slate grey beside navy.
+**2.5 The palette is migrated only in part. Re-measured 2026-08-25; now tranches 2 and 4–9
+of §3.12, closed when that plan's ratchet reaches zero.** The theme *control* is done (§4.13)
+and this is what it left behind: a page's colours are correct in both schemes or they are
+slate grey beside navy.
 
 `web/styles/app.css` added the semantic tokens *beside*
 Tailwind's stock ramps rather than over them, deliberately, so that `text-sky-700` still
@@ -144,33 +161,12 @@ codebase where a colour name is a lie. So it is a real rewrite, onto `canvas / s
 / line / brand / good / warn / bad / info / mute`, ending with a test that fails when a
 template reintroduces a raw ramp.
 
-**The split is not "roughly half"; it is by age, and it is sharper than that.** Measured on
-2026-08-25 over `src/aer/web/templates`:
-
-| | Templates | Raw ramp occurrences |
-|---|---|---|
-| Token-clean | 13 of 54 | 0 |
-| Still on the stock ramps | 41 of 54 | 1,837 |
-
-1,837 occurrences of **141** distinct variant-qualified class names (114 distinct base
-utilities), over six ramps — slate 1,143, sky 265, amber 208, red 80, emerald 71, rose 70.
-The earlier figure of 1,334 occurrences was correct when it was written and the count has
-grown since; **state the method with the number**, because counting variant-qualified names
-(`hover:bg-slate-100`) and counting base utilities (`bg-slate-100`) give 141 and 114 for the
-same tree, and a bare figure invites the next reader to think it moved when it did not:
-
-```bash
-grep -ohrE '\b(text|bg|border|ring|divide|from|to|via|placeholder|decoration|outline|shadow|accent|caret|fill|stroke)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]{2,3}' \
-  src/aer/web/templates | sort | uniq -c | sort -rn
-```
-
-The clean thirteen are the shell, the main menu and what arrived with them — `base.html`,
-`_nav.html`, `_shell/*`, `_ui/*`, `overview/*`, `index.html`, `tools/index.html`,
-`portfolio/empty.html`. The forty-one are the research tool, worst first: `runs/review.html`
-(226), `runs/console.html` (119), `runs/assumptions.html` (100), `skills/edit.html` (87),
-`plans/review.html` (85). **That is the same boundary the design brief draws** (§3.12): the
-surfaces that already answer to the tokens are the reference, and the research tool is the
-work.
+The measurements live in one place now — **the ramp ledger in
+[`interface-overhaul.md`](interface-overhaul.md)**, with the census command and the standing
+caveat that the method must be stated with the number. Opened at 1,837 over forty-one
+templates; at 1,594 since tranche 5. The boundary it measures is the one the design brief
+draws: the surfaces that already answer to the tokens are the reference, and the research
+tool is the work.
 
 Deliberately sequenced after everything above it. Those are a wrong number or a missing
 answer; this is a page that looks like two designs. It is also the item most likely to go
@@ -186,6 +182,13 @@ that changed with nothing behind it.
 `ShareBasedCompensation…RiskFreeRate` tag must never map to `risk_free_rate`. It is an
 input to an option-pricing model in a footnote, not the discount-rate input, and mapping it
 would put a plausible wrong number in the cost of capital.
+
+Verified 2026-08-28: the mapping does not exist — **and neither does anything that would
+refuse it.** `core/concepts.py` holds alias tables and no never-map table, so an absent tag
+is indistinguishable from one nobody has looked at yet, and nothing stops the mapping
+arriving later in good faith. The fix is the mechanism: a deny table carrying the reason
+beside each entry, this family pinned in it, and the unmapped-concepts gate reading *refused*
+as distinct from *unplaced*.
 
 **2.8 A55 — concept-map coverage.** 175 concepts and 110 segment tags the map cannot place.
 This is judgement over accounting semantics rather than a code change, which is why it has
@@ -250,7 +253,9 @@ it. The work:
 
 1. **A work-order kind**, so a run and a book acquisition are distinguishable in the table
    rather than by inference. Needs an ADR amending 0072 — the record says the work order is
-   the *run* root, and this widens it.
+   the *run* root, and this widens it. `work_orders` already carries `tool` and
+   `subject_kind`; whether those two are the distinguisher or a new column is, is the ADR's
+   first question.
 2. **`record_acquisition` reads the point-in-time setting off the work order** instead of a
    research request. A book acquisition is inherently not point-in-time: you want today's
    close, and refusing it as post-dated would be enforcing a rule nobody set.
@@ -277,13 +282,15 @@ to the page, nothing stored, every figure carrying the grade of the weakest thin
 `approvals.request_id`, `source_documents.request_id` and the columns duplicated on
 `research_requests`. Deliberately staged as a later revision (ADR 0072): while those
 columns still hold the data, dropping `work_orders` discards nothing, so the downgrade is
-lossless rather than merely declared. Needs the ~20 `session.get(ResearchRequest,
-job.request_id)` lookups to become optional mandate reads first, since a monitor run will
-have none.
+lossless rather than merely declared. Needs the 25 `session.get(ResearchRequest, …)`
+lookups (re-counted 2026-08-28 across 11 files, 11 of them in `web/pages.py`) to become
+optional mandate reads first, since a monitor run will have none.
 
 **3.4 Scenarios and sensitivity for the residual-income model.** The bank model ships
-without them, and says so in its caveats rather than quietly. The discounted cash flow has
-an 81-cell grid; the bank model has none.
+without them, and says so in its caveats rather than quietly. The discounted cash flow ships
+two 5×5 grids — WACC against terminal growth and against the exit multiple, every cell a
+complete valuation under ADR 0028, whose "eighty-one" is the nine-point axis *ceiling*
+rather than what a run builds; the bank model has none.
 
 **3.5 Judgements and theses** (ADRs 0074, 0079). A thesis is a view a named person held at
 a time, with the evidence it rests on and the questions that would defeat it. The record
@@ -314,8 +321,8 @@ mistake ADR 0075 names.
 composed. Mostly does not exist yet.
 
 **3.12 The interface overhaul. Specified, designed and planned 2026-08-25; five tranches of
-ten built by 2026-08-28, with the browser suite red on tranche 5's rewordings — see
-[the handover](interface-overhaul-handover.md) before resuming.** Four
+ten built by 2026-08-28, with the browser suite red on tranche 5's rewordings — the live
+status is the top section of [`interface-overhaul.md`](interface-overhaul.md).** Four
 surfaces are in scope and the rest of the product is deliberately not: **the main menu, the menu
 system and shell, the Equity Research tool, and the Portfolio tool.**
 

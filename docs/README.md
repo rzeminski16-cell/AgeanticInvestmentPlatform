@@ -99,18 +99,15 @@ page specifications, a production handoff and a twelve-screen prototype.
 ### `plan/` — what happens next
 
 - [`ROADMAP.md`](plan/ROADMAP.md) — what is built, what is not, what is deliberately
-  excluded, and the sequenced work ahead. **This is the authority on scope.**
-- [`remaining-work.md`](plan/remaining-work.md) — everything open as one execution plan:
-  six phases, what blocks each item, what the code actually holds, and the short list of
-  moves only the operator can make.
-- [`interface-overhaul.md`](plan/interface-overhaul.md) — §3.12 as ten releasable tranches:
-  the decisions that gate it, how it interleaves with work in flight, and all 84 server
-  proposals resolved.
+  excluded, and the sequenced work ahead. **This is the authority on scope**, and each open
+  item carries its verified state.
+- [`remaining-work.md`](plan/remaining-work.md) — the running order over everything open:
+  the phases, what gates each, and the short list of moves only the operator can make.
+- [`interface-overhaul.md`](plan/interface-overhaul.md) — §3.12 as ten releasable tranches,
+  **with the live status — where it paused and why the suite is red — as its top section**;
+  the decisions that gate it and all 84 server proposals resolved.
 - [`interface-overhaul-testing.md`](plan/interface-overhaul-testing.md) — what each tranche
   must prove, and the four pieces of test machinery that do not exist yet.
-- [`interface-overhaul-handover.md`](plan/interface-overhaul-handover.md) — **read this before
-  resuming the overhaul.** Where it paused, what is verified, what is red, and what stays open
-  after the last tranche.
 
 ---
 

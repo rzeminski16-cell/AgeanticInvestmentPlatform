@@ -14,6 +14,82 @@ because the exit criteria below are stated in terms of it.
 
 ---
 
+## Where this stands — 2026-08-28
+
+**Paused five tranches into ten, and the trunk is red.** This section is the live status and
+the one place it is kept; the roadmap and the running order point here rather than repeating
+it. (It absorbs the separate handover document that briefly existed on 2026-08-28.)
+
+| Tranche | State | Last full verification |
+|---|---|---|
+| **0 — Hold** | Done | Both suites baselined; ceiling, axe, swap ids, fifty routes |
+| **1 — Vocabulary** | Done | 5,783 in-process · 127 browser |
+| **2 — Tokens** | Done | 5,823 · 137 |
+| **3 — Macros** | Done | 5,888 · 161 |
+| **4 — Shell** | Done | 5,888 · 161 |
+| **5 — Overview and requests** | **Code complete, suite red** | 33 browser failures; in-process not run since |
+| **6 — Console and gates** | Not started | — |
+| **7 — Evidence and reports** | Not started | — |
+| **8 — Portfolio, skills, knowledge** | Not started | — |
+| **9 — Removal and hardening** | Not started | — |
+
+**Why the thirty-three fail.** Tranche 5 rewrote ten templates and moved or reworded text the
+browser tests assert on — the confirmed pattern: the overview now says *"Start with two
+things"* on an empty database where a test still expects *"Nothing is waiting"*. That is the
+first-run state working exactly as tranche 5 intended, and a test with no way to know. The
+failure list was never captured before the pause, so reproducing it from a clean
+`pytest tests/e2e` run is the first act of resumption. One of the thirty-three is a design
+question rather than staleness: the seven planned tools sit behind a *closed* disclosure on
+the front door, against that page's stated job — the shape of the product visible on arrival
+rather than discovered. The `disclosure` macro already takes `open`; ship it open.
+
+**How it happened is the useful part.** Tranche 5 was verified against targeted subsets — the
+request suites, the component tests, the palette ratchet — and every one passed. Subsets
+cannot catch a page whose *words* changed; those tests live in the browser suite and take
+twenty minutes. So the standing rule: **a tranche that touches templates is finished when the
+browser suite has been seen green, before the commit.** The twenty minutes is part of the
+work.
+
+**The ramp ledger.** Opened at **1,837** raw Tailwind classes; stands at **1,594** — tranche 5
+removed exactly the 243 predicted. By area:
+
+| Ramps | Where | Tranche |
+|---:|---|---|
+| 848 | `runs/` | 6 (console and gates), 7 (evidence) |
+| 175 | `skills/` | 8 |
+| 102 | `reports/` | 7 |
+| 85 | `plans/` | 6 |
+| 56 | `knowledge` | 8 |
+| 18 | `portfolio/` | 8 |
+| 310 | everything else | 8, 9 |
+
+**State the method with the number** whenever this is re-measured: counting variant-qualified
+names (`hover:bg-slate-100`) and counting base utilities (`bg-slate-100`) give different
+totals over the same tree, and a bare figure invites the next reader to think the debt moved
+when it did not. The census command:
+
+```bash
+grep -ohrE '\b(text|bg|border|ring|divide|from|to|via|placeholder|decoration|outline|shadow|accent|caret|fill|stroke)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]{2,3}' \
+  src/aer/web/templates | sort | uniq -c | sort -rn
+```
+
+**Resuming:** fix the thirty-three and see both suites green — nothing else starts on a red
+base. Then tranche 6, the largest and the one piece of new model plumbing left (the `verdict`
+role under ADR 0087; building it needs no model spend, the fake provider covers the tests,
+and it touches the workflow engine, which is why it wants the green base under it). Then 7, 8
+and 9 in order.
+
+**Open beyond the last tranche:** roadmap §2.1 and §3.1, sequenced ahead of this overhaul and
+neither started — the running order is [`remaining-work.md`](remaining-work.md) · the Firefox
+half of D7 — only Chromium was available where tranche 4 was built; the mitigation is
+structural (the shell ships `<details open>` and closes it with script, so it never depends on
+revealing a *closed* `<details>` from author CSS, the behaviour that differs per engine), the
+risk is low and unverified, and one run on a machine with Firefox closes it · two
+order-dependent test failures, recorded in [the testing plan](interface-overhaul-testing.md),
+both predating this work · tranche 9's manual pass, for which no test substitutes.
+
+---
+
 ## The shape of the work
 
 **Forty-two templates carry 1,837 raw ramp classes. Twelve carry none.** The clean twelve are
@@ -148,8 +224,8 @@ exit criteria pass, not when its templates look right.**
 **Do first, and do not skip.** Nothing visual moves here.
 
 1. Run both suites and record the baseline: `pytest --ignore=tests/e2e`, then `pytest tests/e2e`.
-2. Record the ramp census per template — the command is in roadmap §2.5 — and commit it as the
-   ratchet's opening ceiling.
+2. Record the ramp census per template — the command is in the ledger above — and commit it as
+   the ratchet's opening ceiling.
 3. Build fixtures for every state the design names and the suite does not yet have: database
    down, first run, stale approval, budget refusal at both scopes, failed run, unverified
    claim, incomplete portfolio, a section that did not generate.
@@ -406,9 +482,9 @@ triages without scrolling; both validation rounds read as one problem list.
 **Code complete 2026-08-28, and the suite is red.** The work landed — the front door leads with
 what is waiting, the requests family is on the component set at zero ramps, the `confirm()`
 dialogue is gone, and the ratchet fell by exactly the 243 predicted. **Thirty-three browser
-tests fail**, because ten rewritten templates moved text those tests assert on. See
-[the handover](interface-overhaul-handover.md), which also records how the verification missed
-it: subsets passed, and the suite that reads words takes twenty minutes and was not waited for.
+tests fail**, because ten rewritten templates moved text those tests assert on. The status
+section at the top carries the detail, and how the verification missed it: subsets passed, and
+the suite that reads words takes twenty minutes and was not waited for.
 
 ### Tranche 6 — Run console and the seven gates
 
