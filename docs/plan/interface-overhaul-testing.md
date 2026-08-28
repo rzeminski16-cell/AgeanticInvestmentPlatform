@@ -224,6 +224,24 @@ three defects the by-hand sheet has found were invisible to CI by construction.
 
 ---
 
+## Two order-dependent failures, found and left alone
+
+Both predate this overhaul and both are invisible in a full run, because pytest collects
+alphabetically and the alphabetical order happens to be the working one. Anybody running a
+subset in a different order meets them, so they are written down here rather than rediscovered.
+
+**`test_overview.py` before `test_every_page_renders.py`** errors the render harness. The
+overview tests commit seed rows for real — they have to, because the browser is a separate
+client — and the harness then drives its own run over an estate it did not create. Reversing
+the two files passes. Verified as pre-existing by running the same pair at the commit before
+tranche 5 touched either.
+
+**`test_backup.py`** fails twelve tests when PostgreSQL is down but `pg_dump` is installed,
+where every other database test skips.
+
+Neither is in any tranche's scope. Both are real, and a suite whose result depends on
+invocation order is a suite that will eventually be wrong in the other direction.
+
 ## What this plan does not prove
 
 Stated so nobody reads a green build as more than it is.
