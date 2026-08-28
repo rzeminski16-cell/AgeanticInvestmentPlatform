@@ -55,7 +55,7 @@ async def api(api_settings: Any, db_engine: Any, fake_redis: Any, committed_user
 
 
 def _settings() -> Settings:
-    return Settings(http_user_agent="Ageiantic Test test@example.invalid")
+    return Settings(http_user_agent="Tracework Test test@example.invalid")
 
 
 async def _actor(session: AsyncSession) -> User:

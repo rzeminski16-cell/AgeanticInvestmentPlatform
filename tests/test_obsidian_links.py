@@ -73,7 +73,7 @@ _WIKI_LINK = re.compile(r"\[\[([^\]]+?)\]\]")
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
     return Settings(
-        http_user_agent="Ageiantic Test test@example.invalid",
+        http_user_agent="Tracework Test test@example.invalid",
         artefact_root=tmp_path / "artefacts",
         obsidian_vault_root=tmp_path / "vault",
         obsidian_personal_root=tmp_path / "personal",

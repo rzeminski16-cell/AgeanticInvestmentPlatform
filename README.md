@@ -1,4 +1,4 @@
-# Ageiantic Equity Research Platform
+# Tracework Invest
 
 A local-first, auditable equity research platform for UK and US listed equities.
 
@@ -40,8 +40,8 @@ about what is missing.
 ## Quickstart
 
 ```bash
-git clone https://github.com/rzeminski16-cell/AgeianticEquityResearchPlatform.git
-cd AgeianticEquityResearchPlatform
+git clone https://github.com/rzeminski16-cell/TraceworkEquityResearchPlatform.git
+cd TraceworkEquityResearchPlatform
 
 uv python install 3.12
 uv sync --all-groups

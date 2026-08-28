@@ -85,9 +85,13 @@ qualifier in the accent colour:
 Tracework Invest        →   Tracework <span class="text-verification">Invest</span>
 ```
 
-**Fifty files say "Ageiantic" today.** Most are documentation. The rename is mechanical and
-belongs to tranche 4, with the archive left alone: `docs/archive/` is a record of what was
-written at the time and renaming it would falsify it.
+**Fifty files said "Ageiantic".** Fifty-six, as it turned out, and the rename landed in
+tranche 4 with `docs/archive/` left alone: it is a record of what was written at the time and
+renaming it would falsify it. Two of the fifty-six were identifiers rather than display text —
+the distribution name in `pyproject.toml`, which `version.py` looks up, and the generator
+string stamped into exported vault notes. Both were renamed with the rest: `version()` already
+falls back to a sentinel rather than raising, and the generator already carries the version so
+nothing could have depended on it being stable.
 
 ### B7 — the navigation fails open
 

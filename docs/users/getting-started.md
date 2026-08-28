@@ -32,8 +32,8 @@ Everything else â€” matplotlib for charts, pikepdf for the PDF finishing pass â€
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
 # 2. Clone
-git clone https://github.com/rzeminski16-cell/AgeianticEquityResearchPlatform.git
-cd AgeianticEquityResearchPlatform
+git clone https://github.com/rzeminski16-cell/TraceworkEquityResearchPlatform.git
+cd TraceworkEquityResearchPlatform
 
 # 3. Pinned Python and dependencies
 uv python install 3.12

@@ -32,7 +32,7 @@ pytestmark = pytest.mark.integration
 @pytest.fixture
 def settings(tmp_path: Any) -> Settings:
     return Settings(
-        http_user_agent="Ageiantic Test test@example.invalid",
+        http_user_agent="Tracework Test test@example.invalid",
         artefact_root=tmp_path / "artefacts",
     )
 

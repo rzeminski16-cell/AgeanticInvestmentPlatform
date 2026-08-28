@@ -400,21 +400,60 @@ class TestTheTypeface:
         assert not strangers, f"the page fetched from elsewhere: {strangers}"
 
 
-class TestTheMenu:
-    """A `<details>` disclosure with no JavaScript behind it.
+# The width at which the index stops being a disclosure and becomes the persistent rail.
+# 960px is the design system's workbench breakpoint and the one place this number lives in a
+# test; the CSS gets it from `min-[60rem]:`.
+RAIL = 960
+NARROW = 380
 
-    Everything here is browser behaviour a server cannot send, and all of it comes free
-    from the element: focusable summary, Enter and Space to toggle, Escape to close. What a
-    test can add is proof that it is genuinely free — that the panel opens with scripting
-    disabled, which no amount of reading the template can show.
+
+class TestTheIndex:
+    """One DOM, two layouts, and never two trees.
+
+    A `<details>` at compact and rail widths; the same node is the persistent index from
+    960px. Rendering it twice would put two `id="aer-badge-approvals"` nodes on every page,
+    and an out-of-band swap targets an id — the first would fill and the second would sit
+    there showing nothing for ever.
+
+    **It ships `open` and script closes it when narrow** (decision B7). Everything below is
+    browser behaviour a server cannot send, and the scripting-off cases are the ones no
+    amount of reading the template can establish.
     """
 
-    def test_it_is_shut_until_you_open_it(self, page: Page, live_server: str) -> None:
+    def test_at_the_rail_width_every_destination_is_already_on_the_screen(
+        self, page: Page, live_server: str
+    ) -> None:
+        """The exit criterion: one action away, not two.
+
+        A menu that has to be opened first costs a click on every navigation, on the screen
+        that has the room not to.
+        """
+        page.set_viewport_size({"width": 1280, "height": 900})
+        page.goto(f"{live_server}")
+
+        index = page.locator('nav[aria-label="Main"]')
+        for label in ("Overview", "Requests", "Active run", "Reports", "Portfolio", "Settings"):
+            expect(index.get_by_role("link", name=label, exact=True)).to_be_visible()
+
+    def test_the_summary_is_gone_at_the_rail_width(self, page: Page, live_server: str) -> None:
+        """Removed from the visual flow rather than left as a control that closes the rail —
+        an index the operator can collapse into nothing on a 1280px screen is one they will
+        collapse by accident and not find again."""
+        page.set_viewport_size({"width": 1280, "height": 900})
+        page.goto(f"{live_server}")
+
+        expect(page.locator("#aer-menu summary")).to_be_hidden()
+
+    def test_it_is_shut_when_the_window_is_too_narrow_to_hold_it(
+        self, page: Page, live_server: str
+    ) -> None:
+        page.set_viewport_size({"width": NARROW, "height": 800})
         page.goto(f"{live_server}")
 
         expect(page.locator('nav[aria-label="Main"]')).to_be_hidden()
 
     def test_opening_it_reveals_every_section(self, page: Page, live_server: str) -> None:
+        page.set_viewport_size({"width": NARROW, "height": 800})
         page.goto(f"{live_server}")
         page.locator("#aer-menu summary").click()
 
@@ -425,29 +464,57 @@ class TestTheMenu:
                 page.locator('nav[aria-label="Main"]').get_by_role("heading", name=label)
             ).to_be_visible()
 
-    def test_the_page_you_are_on_is_marked(self, page: Page, live_server: str) -> None:
-        page.goto(f"{live_server}/reports")
+    def test_it_does_not_reopen_itself_after_the_operator_shuts_it(
+        self, page: Page, live_server: str
+    ) -> None:
+        """A control that undid the operator's own decision on the next resize would be a
+        control that ignores the person using it."""
+        page.set_viewport_size({"width": NARROW, "height": 800})
+        page.goto(f"{live_server}")
         page.locator("#aer-menu summary").click()
+        expect(page.locator('nav[aria-label="Main"]')).to_be_visible()
+
+        page.locator("#aer-menu summary").click()
+        page.set_viewport_size({"width": 1100, "height": 800})
+
+        expect(page.locator("#aer-menu")).not_to_have_attribute("open", "")
+
+    def test_the_page_you_are_on_is_marked(self, page: Page, live_server: str) -> None:
+        page.set_viewport_size({"width": 1280, "height": 900})
+        page.goto(f"{live_server}/reports")
 
         current = page.locator('nav[aria-label="Main"] a[aria-current="page"]')
         expect(current).to_have_count(1)
         expect(current).to_have_text("Reports")
 
-    def test_it_does_not_push_the_page_down(self, page: Page, live_server: str) -> None:
-        # Absolutely positioned. A panel that reflowed the content would move whatever the
-        # reader was about to click, every time they went looking for it.
+    def test_where_you_are_is_written_down_where_the_index_is_closed(
+        self, page: Page, live_server: str
+    ) -> None:
+        """At 320px with scripting on the index is shut, so its `aria-current` item is not on
+        the screen — and the page itself becomes the only thing saying which page it is. That
+        means opening the menu to find out where you already are."""
+        page.set_viewport_size({"width": NARROW, "height": 800})
+        page.goto(f"{live_server}/reports")
+
+        expect(page.get_by_text("Research · Reports")).to_be_visible()
+
+    def test_it_does_not_push_the_content_sideways_at_the_rail_width(
+        self, page: Page, live_server: str
+    ) -> None:
+        """At the rail width the index is a column beside the content rather than over it, so
+        the working area starts after it and nothing is covered."""
+        page.set_viewport_size({"width": 1280, "height": 900})
         page.goto(f"{live_server}")
-        before = page.locator("main").bounding_box()
 
-        page.locator("#aer-menu summary").click()
-        after = page.locator("main").bounding_box()
+        rail = page.locator("#aer-nav").bounding_box()
+        main = page.locator("main").bounding_box()
 
-        assert before is not None
-        assert after is not None
-        assert before["y"] == after["y"]
+        assert rail is not None
+        assert main is not None
+        assert main["x"] >= rail["x"] + rail["width"] - 1
 
     def test_one_badge_slot_and_not_two(self, page: Page, live_server: str) -> None:
-        """The reason the menu is one element rather than a pair.
+        """The reason the index is one element rather than a pair.
 
         Two copies would mean two nodes with one id, and an out-of-band swap targets an id:
         the first would fill and the second would sit there showing nothing for ever.
@@ -456,24 +523,86 @@ class TestTheMenu:
 
         expect(page.locator("#aer-badge-approvals")).to_have_count(1)
 
-    def test_it_opens_with_scripting_off(self, browser: Browser, live_server: str) -> None:
-        """The claim the whole choice rests on.
+    @pytest.mark.parametrize("width", [320, 1440])
+    def test_with_scripting_off_every_destination_is_reachable(
+        self, browser: Browser, live_server: str, width: int
+    ) -> None:
+        """The exit criterion, at both ends. **It fails open by design.**
 
-        A scripted dropdown would be a second focus-managing control beside `drawer.js`,
-        which ADR 0077 spends a paragraph refusing — and it would be dead with scripting
-        off, which is the state ADR 0006 requires every control to survive.
+        Shipping the disclosure closed would need author CSS to reveal a *closed*
+        `<details>`, which is not reliably specified across engines — Chromium's
+        `::details-content` carries `content-visibility: hidden`, which a `display` override
+        on the child does not defeat. Shipping it open needs no reveal at all, and when the
+        script never runs every link stays on the screen at every width. The cost is a panel
+        above the content at 320px; the cost of failing the other way is a menu button that
+        does not open.
         """
-        context = browser.new_context(java_script_enabled=False)
+        context = browser.new_context(
+            java_script_enabled=False, viewport={"width": width, "height": 900}
+        )
         try:
             page = context.new_page()
             page.goto(f"{live_server}")
-            expect(page.locator('nav[aria-label="Main"]')).to_be_hidden()
 
-            page.locator("#aer-menu summary").click()
-
-            expect(page.get_by_role("link", name="Requests")).to_be_visible()
+            index = page.locator('nav[aria-label="Main"]')
+            for label in ("Overview", "Requests", "Reports", "Portfolio", "Settings"):
+                expect(index.get_by_role("link", name=label, exact=True)).to_be_visible()
         finally:
             context.close()
+
+    @pytest.mark.parametrize("width", [320, 1440])
+    def test_with_scripting_off_both_preference_forms_still_submit(
+        self, browser: Browser, live_server: str, width: int
+    ) -> None:
+        """Both are server state under ADR 0077, and a preference that needs JavaScript is a
+        preference the operator cannot set on the page load where the script failed."""
+        context = browser.new_context(
+            java_script_enabled=False, viewport={"width": width, "height": 900}
+        )
+        try:
+            page = context.new_page()
+            page.goto(f"{live_server}")
+
+            page.locator("#aer-theme-dark").click()
+            expect(page.locator("html")).to_have_attribute("data-theme", "dark")
+
+            page.locator("#aer-guidance-toggle").click()
+            expect(page.locator("body")).to_have_attribute("data-guidance", "on")
+        finally:
+            context.close()
+
+    def test_the_skip_link_is_the_first_thing_focus_reaches(
+        self, page: Page, live_server: str
+    ) -> None:
+        """Without it, reaching the content past a nine-item index costs a keyboard user nine
+        tab stops on every single navigation."""
+        page.set_viewport_size({"width": 1280, "height": 900})
+        page.goto(f"{live_server}")
+        page.keyboard.press("Tab")
+
+        focused = page.evaluate("() => document.activeElement.getAttribute('href')")
+
+        assert focused == "#aer-main"
+
+    def test_a_focused_link_in_the_index_is_visible_against_it(
+        self, page: Page, live_server: str
+    ) -> None:
+        """ADR 0088, in the place it was written for. The index keeps the dark scheme's
+        colours whatever the page is doing, and the *light* focus ring measures 2.04:1 on it —
+        a WCAG 2.2 SC 1.4.11 failure, in the default theme, on the first link a keyboard user
+        reaches."""
+        page.set_viewport_size({"width": 1280, "height": 900})
+        page.goto(f"{live_server}")
+        page.evaluate("document.documentElement.setAttribute('data-theme', 'light')")
+        page.focus('nav[aria-label="Main"] a')
+
+        ring = page.evaluate(
+            "sel => getComputedStyle(document.querySelector(sel)).outlineColor",
+            'nav[aria-label="Main"] a',
+        )
+
+        # The dark accent, #b5ecf0, at 11.43:1 on the rail. Not the light one at 2.04:1.
+        assert ring == "rgb(181, 236, 240)", ring
 
 
 class TestTheLauncher:
@@ -544,7 +673,6 @@ class TestWithScriptingOff:
         try:
             page = context.new_page()
             page.goto(f"{live_server}/reports")
-            page.locator("#aer-menu summary").click()
 
             expect(page.get_by_role("link", name="Requests")).to_be_visible()
             expect(page.locator("#aer-badge-approvals")).to_be_hidden()

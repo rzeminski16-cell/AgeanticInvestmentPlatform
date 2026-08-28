@@ -1,5 +1,5 @@
 {
-  "name": "ageiantic-equity-research-styles",
+  "name": "tracework-invest-styles",
   "private": true,
   "description": "Build-time only. Compiles the Tailwind stylesheet; the OUTPUT is committed to src/aer/web/static/css/app.css, so neither CI nor a normal checkout needs Node.",
   "scripts": {

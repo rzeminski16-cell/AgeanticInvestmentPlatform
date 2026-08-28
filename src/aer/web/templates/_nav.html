@@ -1,61 +1,69 @@
 {#
-  The menu.
+  The index. **One DOM, two layouts, and never two trees.**
 
-  A `<details>` disclosure rather than a sidebar: one button, one panel, and **no
-  JavaScript at all** — `<summary>` is focusable, Enter and Space toggle it and Escape
-  closes it, all from the browser. A scripted dropdown would be a second focus-managing
-  control beside `drawer.js`, which ADR 0077 spends a paragraph refusing.
+  A `<details>` at compact and rail widths; the same node is the persistent 232px rail from
+  960px. Rendering it twice would put two `id="aer-badge-approvals"` nodes on every page, and
+  an out-of-band swap targets an id — the first would fill and the second would show nothing
+  for ever. That constraint is why the responsive answer is CSS rather than markup.
 
-  **The trade, stated.** Navigation now costs a click on a wide screen, where the sidebar
-  gave it for nothing. That is the operator's call and this is what they asked for; what it
-  buys is a page that is the same shape at every width, one nav element instead of a
-  responsive pair, and a header that does not compete with the content for the left edge.
+  **It ships `open`, and script closes it when the window is narrow** (decision B7). The
+  direction matters. Shipping it closed would need author CSS to reveal a *closed*
+  `<details>`, which is not reliably specified across engines — Chromium's `::details-content`
+  now carries `content-visibility: hidden`, which a `display` override on the child does not
+  defeat (D7). Shipping it open needs no reveal at all: at wide widths it is already open and
+  the summary is simply removed from the flow. With no script it stays open at every width,
+  which at 320px is a panel above the content with every link reachable. That is the safe way
+  to fail and it is now a decision rather than an accident.
 
-  Still one element, not two. Rendering the nav twice would put two nodes with
-  `id="aer-badge-approvals"` on every page, and an out-of-band swap targets an id — the
-  first would fill and the second would show nothing for ever.
+  **The rail is a fixed-dark region** (ADR 0088). `data-scheme="dark"` gives it the dark
+  scheme's accents in both themes, so a focus ring inside it resolves to `#b5ecf0` at 11.43:1
+  rather than the light `#00606d` at 2.04:1 — a WCAG 2.2 SC 1.4.11 failure that nothing
+  measured, because the rail's colours were in no token table.
 
-  The "not advice" badge sits beside the product name deliberately: it is the first thing
-  read on every page, not something found at the bottom.
+  **Selection is never carried by the fill.** `#183945` on the rail is 1.21:1, which is
+  nothing. The teal leading rule at 11.43:1 carries it visually and `aria-current="page"`
+  carries it to everybody else; the fill is decorative and is written down as decorative so a
+  later simplification cannot quietly make it the only cue.
 #}
-<header class="border-b border-line bg-surface">
-  <div class="mx-auto flex w-full max-w-shell flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-6">
-    <details class="relative" id="aer-menu">
-      <summary
-        class="flex cursor-pointer list-none items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-ink hover:bg-surface-sunken"
-        aria-haspopup="menu"
-      >
-        <span aria-hidden="true" class="text-ink-muted">☰</span>
-        Menu
-      </summary>
+<div
+  id="aer-nav"
+  data-scheme="dark"
+  class="bg-nav-surface text-nav-ink min-[60rem]:sticky min-[60rem]:top-0 min-[60rem]:h-dvh min-[60rem]:w-58 min-[60rem]:shrink-0 min-[60rem]:overflow-y-auto"
+>
+  <details id="aer-menu" open class="min-[60rem]:open:block">
+    <summary
+      class="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 type-label marker:content-none min-[60rem]:hidden"
+      aria-controls="aer-nav-panel"
+    >
+      <svg class="h-4 w-4 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 4h12M2 8h12M2 12h12" />
+      </svg>
+      <span class="aer-menu-open">Open index</span>
+      <span class="aer-menu-close">Close index</span>
+    </summary>
 
-      {#
-        Absolutely positioned so opening it does not push the page down, and `z-30` to sit
-        under the drawer's overlay rather than over it — two overlays fighting is how a
-        panel ends up on top of the thing that is meant to have trapped focus.
-      #}
-      <nav
-        aria-label="Main"
-        class="absolute left-0 z-30 mt-2 max-h-[70vh] w-64 overflow-y-auto rounded-panel border border-line bg-surface p-3 shadow-lg"
-      >
+    <div id="aer-nav-panel" class="px-4 pb-4 min-[60rem]:pt-4">
+      <a href="/" class="flex min-h-11 items-center type-title-2 text-nav-ink">Tracework</a>
+
+      <nav aria-label="Main" class="mt-2">
         {% for section in shell.nav %}
-          <div class="mt-3 first:mt-0">
-            <h2 class="text-xs font-semibold tracking-wide text-ink-subtle uppercase">
-              {{ section.label }}
-            </h2>
-            <ul class="mt-1 space-y-0.5">
+          <div class="mt-4 first:mt-0">
+            <h2 class="type-eyebrow text-nav-muted">{{ section.label }}</h2>
+            <ul class="mt-1">
               {% for item in section.items %}
                 <li>
                   <a
                     href="{{ item.href }}"
                     {% if shell.active == item.key %}aria-current="page"{% endif %}
-                    class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm
-                           {{ 'bg-brand-wash font-semibold text-brand' if shell.active == item.key
-                              else 'text-ink-muted hover:bg-surface-sunken hover:text-ink' }}"
+                    class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           {{ 'border-nav-accent bg-nav-selected text-nav-ink'
+                              if shell.active == item.key
+                              else 'border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink' }}"
                     >{{ item.label }}{% if item.badge_key %}<span
                       id="aer-badge-{{ item.badge_key }}"
                       aria-live="polite"
-                      class="ml-auto inline-flex min-w-5 justify-center rounded-full bg-brand-wash px-1.5 py-0.5 text-xs font-semibold text-brand empty:hidden"
+                      class="ml-auto inline-flex min-w-5 justify-center rounded-xs bg-nav-accent px-1.5 type-data-sm text-nav-surface empty:hidden"
                     ></span>{% endif %}</a
                   >
                 </li>
@@ -63,83 +71,66 @@
             </ul>
           </div>
         {% endfor %}
-
-        {#
-          The preference controls, in the menu rather than on a settings page.
-
-          Both are server state under ADR 0077 and both had a route and no control until
-          now — a colour scheme that could only be changed by changing the operating system,
-          and a guidance flag nothing could flip. A control nobody can find is the same as
-          no control.
-
-          Plain forms with submit buttons: three radios and an "apply" would be one more
-          click for the same result, and a `<select>` that needed scripting to submit on
-          change would put the whole thing behind JavaScript. `next` returns to the page the
-          operator was on; the route only honours a same-site absolute path.
-        #}
-        <div class="mt-4 border-t border-line pt-3" id="aer-appearance">
-          <h2 class="text-xs font-semibold tracking-wide text-ink-subtle uppercase">
-            Appearance
-          </h2>
-
-          <form method="post" action="/_shell/theme" class="mt-2">
-            <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-            <input type="hidden" name="next" value="{{ shell.path }}" />
-            <div
-              class="flex overflow-hidden rounded-md border border-line"
-              role="group"
-              aria-label="Colour scheme"
-            >
-              {% for choice, label in [("light", "Light"), ("dark", "Dark"), ("system", "Auto")] %}
-                <button
-                  type="submit"
-                  name="theme"
-                  value="{{ choice }}"
-                  id="aer-theme-{{ choice }}"
-                  {% if shell.theme == choice %}aria-current="true"{% endif %}
-                  class="flex-1 px-2 py-1 text-xs font-medium
-                         {{ 'bg-brand-wash text-brand' if shell.theme == choice
-                            else 'text-ink-muted hover:bg-surface-sunken hover:text-ink' }}"
-                >
-                  {{ label }}
-                </button>
-              {% endfor %}
-            </div>
-          </form>
-
-          <form method="post" action="/_shell/guidance" class="mt-2">
-            <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-            <input type="hidden" name="next" value="{{ shell.path }}" />
-            <input type="hidden" name="guidance" value="{{ 'off' if shell.guidance else 'on' }}" />
-            <button
-              type="submit"
-              id="aer-guidance-toggle"
-              class="w-full rounded-md border border-line px-2 py-1 text-xs font-medium text-ink-muted hover:bg-surface-sunken hover:text-ink"
-            >
-              {{ "Hide" if shell.guidance else "Show" }} explanations
-            </button>
-          </form>
-        </div>
       </nav>
-    </details>
 
-    <a href="/" class="text-base font-semibold tracking-tight text-ink">
-      Ageiantic <span class="text-brand">Equity Research</span>
-    </a>
+      {#
+        The preference controls, in the index rather than on a settings page.
 
-    <span
-      class="rounded-full bg-warn-wash px-2.5 py-0.5 text-xs font-medium text-warn-ink"
-      title="{{ disclaimer }}"
-    >
-      Not investment advice
-    </span>
+        Both are server state under ADR 0077 and both had a route and no control until this
+        existed — a colour scheme that could only be changed by changing the operating system,
+        and a guidance flag nothing could flip. A control nobody can find is the same as no
+        control.
 
-    {#
-      One request for every slot, fired once the page is on screen. `hx-swap="none"`
-      because the counts arrive out of band and this element is only the trigger; it is
-      empty and hidden, so a browser with no scripting renders the menu it already has and
-      nothing else happens.
-    #}
-    <span hx-get="/_shell/badges" hx-trigger="load" hx-swap="none" hidden aria-hidden="true"></span>
-  </div>
-</header>
+        Plain forms with submit buttons: three radios and an "apply" would be one more click
+        for the same result, and a `<select>` that needed scripting to submit on change would
+        put the whole thing behind JavaScript. `next` returns to the page the operator was on;
+        the route only honours a same-site absolute path.
+      #}
+      <div class="mt-6 border-t border-nav-selected pt-3" id="aer-appearance">
+        <h2 class="type-eyebrow text-nav-muted">Appearance</h2>
+
+        <form method="post" action="/_shell/theme" class="mt-2">
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+          <input type="hidden" name="next" value="{{ shell.path }}" />
+          <div class="flex overflow-hidden rounded-sm border border-nav-muted" role="group" aria-label="Colour scheme">
+            {% for choice, label in [("light", "Light"), ("dark", "Dark"), ("system", "Auto")] %}
+              <button
+                type="submit"
+                name="theme"
+                value="{{ choice }}"
+                id="aer-theme-{{ choice }}"
+                {% if shell.theme == choice %}aria-current="true"{% endif %}
+                class="flex-1 px-2 py-1 type-caption
+                       {{ 'bg-nav-accent text-nav-surface' if shell.theme == choice
+                          else 'text-nav-muted hover:bg-nav-selected hover:text-nav-ink' }}"
+              >
+                {{ label }}
+              </button>
+            {% endfor %}
+          </div>
+        </form>
+
+        <form method="post" action="/_shell/guidance" class="mt-2">
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+          <input type="hidden" name="next" value="{{ shell.path }}" />
+          <input type="hidden" name="guidance" value="{{ 'off' if shell.guidance else 'on' }}" />
+          <button
+            type="submit"
+            id="aer-guidance-toggle"
+            class="w-full rounded-sm border border-nav-muted px-2 py-1 type-caption text-nav-muted hover:bg-nav-selected hover:text-nav-ink"
+          >
+            {{ "Hide" if shell.guidance else "Show" }} explanations
+          </button>
+        </form>
+      </div>
+
+      {#
+        One request for every slot, fired once the page is on screen. `hx-swap="none"` because
+        the counts arrive out of band and this element is only the trigger; it is empty and
+        hidden, so a browser with no scripting renders the index it already has and nothing
+        else happens.
+      #}
+      <span hx-get="/_shell/badges" hx-trigger="load" hx-swap="none" hidden aria-hidden="true"></span>
+    </div>
+  </details>
+</div>

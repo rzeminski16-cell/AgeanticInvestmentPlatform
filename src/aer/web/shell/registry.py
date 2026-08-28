@@ -32,6 +32,12 @@ RESEARCH: Final = NavSection(
         # The one item carrying a count. `badge_key` names it; `web/shell/badges.py`
         # decides what it counts, and the number arrives after the page does.
         NavItem(key="requests", label="Requests", href="/requests", badge_key="approvals"),
+        # A literal href like any other item, matched by the same prefix logic and held
+        # by the same drift test. What is behind it is a redirect rather than a page,
+        # because "the run I am watching" is a question with an answer rather than a
+        # place (ADR 0089) — and the answer is resolved by the same function the console
+        # uses, so the link and the page cannot disagree about which run is current.
+        NavItem(key="active-run", label="Active run", href="/runs/active"),
         NavItem(key="reports", label="Reports", href="/reports"),
         NavItem(key="skills", label="Skills", href="/skills"),
         NavItem(key="knowledge", label="Knowledge", href="/knowledge"),

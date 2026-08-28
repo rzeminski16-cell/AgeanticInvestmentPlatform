@@ -33,7 +33,7 @@ A single row, currently containing, left to right:
 | Element | Notes |
 |---|---|
 | **Menu** button | A `<details>`/`<summary>` disclosure. **No JavaScript at all** |
-| **Product name** | "Ageiantic Equity Research", linking to `/` |
+| **Product name** | "Tracework Invest", linking to `/` |
 | **"Not investment advice"** chip | Deliberately beside the product name — the first thing read on every page, not something found at the bottom |
 | A hidden trigger | Fetches the badge counts once the page is on screen. Invisible, zero-sized |
 

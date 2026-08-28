@@ -41,10 +41,22 @@ class TestLandingPage:
         assert DISCLAIMER in (await web_client.get("/")).text
 
     async def test_says_it_is_not_investment_advice(self, web_client):
-        # Asserted independently of the exact disclaimer wording, so rephrasing the
-        # sentence cannot accidentally remove the claim it is there to make.
-        body = (await web_client.get("/")).text
-        assert "not investment advice" in body.lower()
+        """The claim `CLAUDE.md` requires every user-facing surface to make.
+
+        Asserted as the constant rather than as a phrase, so rephrasing the sentence cannot
+        accidentally remove the claim it is there to make — a substring check passes on
+        "not investment advice" and fails on "not *regulated* investment advice", which is
+        the same claim written better.
+        """
+        assert DISCLAIMER in (await web_client.get("/")).text
+
+    async def test_the_disclaimer_appears_exactly_once(self, web_client):
+        """The shell's footer owns it and no page duplicates it.
+
+        A disclaimer repeated in every sheet is a disclaimer people stop reading, which is the
+        opposite of what putting it there was for.
+        """
+        assert (await web_client.get("/")).text.count(DISCLAIMER) == 1
 
     async def test_shows_the_build_identity(self, web_client):
         assert version() in (await web_client.get("/")).text

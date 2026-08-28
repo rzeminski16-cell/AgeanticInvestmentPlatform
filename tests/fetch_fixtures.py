@@ -30,7 +30,7 @@ from aer.config import Settings, load_settings
 from aer.fetch.limits import CircuitBreaker, RateLimiter
 from aer.storage.local import LocalArtefactStore
 
-USER_AGENT = "Ageiantic Research Test test@example.invalid"
+USER_AGENT = "Tracework Research Test test@example.invalid"
 
 _LOOPBACK = frozenset({"127.0.0.1", "::1", "localhost"})
 

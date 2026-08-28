@@ -793,6 +793,14 @@ input[type="radio"] {
   }
 }
 
+/* The index summary says what activating it will do, not what state it is in. Two spans and
+   one rule, rather than a label the script rewrites: with scripting off the disclosure still
+   opens and closes, and a label only JavaScript could correct would be wrong exactly then. */
+#aer-menu[open] .aer-menu-open,
+#aer-menu:not([open]) .aer-menu-close {
+  display: none;
+}
+
 /* ---------------------------------------------------------------------------------------
    Guidance mode.
 

@@ -78,6 +78,25 @@ class Shell:
         return "on" if self.guidance else "off"
 
     @property
+    def location(self) -> str:
+        """Where the operator is, in the words the navigation uses.
+
+        Shown in the chrome at the widths where the index collapses. With scripting on at
+        320px the index is closed, so its `aria-current` item is not on the screen and the
+        page itself becomes the only thing saying which page it is — which means opening the
+        menu to find out where you already are.
+
+        Empty when nothing matches, which is a real state rather than an oversight: a page
+        reachable but unlisted (`UNLISTED` in the registry) has no navigation item to name,
+        and inventing one would put a label on the chrome that leads nowhere.
+        """
+        for section in self.nav:
+            for item in section.items:
+                if item.key == self.active:
+                    return f"{section.label} · {item.label}"
+        return ""
+
+    @property
     def theme_attr(self) -> str:
         """The value of ``data-theme`` on ``<html>``.
 
