@@ -64,7 +64,13 @@ class RunOutcome:
     @property
     def is_waiting(self) -> bool:
         """Whether the run stopped for a human rather than finishing or failing."""
-        return self.status in {JobStatus.AWAITING_APPROVAL, JobStatus.BUDGET_EXCEEDED}
+        return self.status in {
+            JobStatus.AWAITING_APPROVAL,
+            JobStatus.BUDGET_EXCEEDED,
+            # Step mode's deliberate stop (ADR 0090): waiting for whoever is at the
+            # terminal to confirm the step just executed, not broken.
+            JobStatus.PAUSED,
+        }
 
 
 async def start_run(session: AsyncSession, *, request: ResearchRequest) -> Job:

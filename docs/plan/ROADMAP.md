@@ -109,17 +109,19 @@ starved pack (§2.1) or a floor nobody calibrated. Read it back from the same li
 changing anything: a confidence score that is always low is as useless as one that is always
 high.
 
-**2.3 A run that fails late cannot be resumed, only repeated. Open.** The engine skips
-completed steps, and does it well — that is how a run survives the worker dying. But it only
-applies to the *same* job, and the only operator-facing path is superseding, which creates a
-new job precisely because the old one is a finished audit record. So a failure at the
-red-team step, one step from the end, costs the entire run again: on the 2026-08-24 MSFT run
-that was £8 of research and drafting to recover a £1 step.
+**2.3 A run that fails late cannot be resumed, only repeated. Resolved, 2026-08-28, ADR
+0090.** The engine skips completed steps, and does it well — that is how a run survives the
+worker dying. But it only applied to the *same* job, and the only operator-facing path was
+superseding, which creates a new job precisely because the old one is a finished audit
+record. So a failure at the red-team step, one step from the end, cost the entire run again:
+on the 2026-08-24 MSFT run that was £8 of research and drafting to recover a £1 step.
 
-The machinery to do better already exists; what is missing is a supported way to re-enqueue
-the *same* job after a terminal failure, and a decision about what that means for the audit
-record — a job row that says it failed, then later says it succeeded, is not obviously
-honest. That decision is the work here, not the plumbing.
+The decision was the work, and ADR 0090 records it: `jobs.status` is where the run is *now*,
+never a summary of everything it has been — the history was always in the step rows and the
+hash-linked audit chain, and resuming appends a `run.resumed` event (who, when, from what
+state) rather than rewriting anything. `aer resume` re-enqueues the same job;
+`aer.services.resume` refuses the states that do not admit continuing, each with its reason.
+The deliberate pause this settled alongside is §3.15's.
 
 **2.4 The report document — layout.** The rendered PDF has two defects a reader meets
 immediately. The disagreement appendix puts a two-hundred-word challenge in a narrow table
@@ -438,7 +440,15 @@ ToS/robots determination recorded in an ADR before the first request, per the ex
 recipe — never a batch of sources assumed trustworthy for being well known. Needs an ADR
 either way: a new tool capability is new agent behaviour (ADR 0035).
 
-**3.15 A step-by-step developer mode for debugging a run.** Pause after every step, print a
+**3.15 A step-by-step developer mode for debugging a run. Done, 2026-08-28, as §2.3's
+resolution — ADR 0090.** `jobs.step_mode` pauses the run (`PAUSED`, the status that was in
+the vocabulary from Phase 1 and set by nothing until now) after every step that actually
+executes, wherever it executes; `aer step` runs the next step in the terminal and prints its
+diagnostic, `aer diagnose` prints the readout without executing, and `aer resume` hands the
+job back to the worker. The diagnostic is assembled from what each step already records —
+no model call. The original case for the item follows.
+
+Pause after every step, print a
 diagnostic, let the operator confirm or correct before the next one spends anything — the
 point being to catch a defect at the step that caused it, not three steps and several pounds
 later. The primitive already exists for the accidental case: the engine already records

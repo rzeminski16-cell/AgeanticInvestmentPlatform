@@ -15,6 +15,7 @@ import asyncio
 import sys
 import uuid
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -25,9 +26,9 @@ from sqlalchemy import select, text
 from sqlalchemy.engine import make_url
 
 from aer.config import Settings, load_settings
-from aer.core.enums import Provider, UserRole
+from aer.core.enums import JobStatus, Provider, UserRole
 from aer.db.engine import create_engine, create_session_factory
-from aer.db.models import AuditEvent, User
+from aer.db.models import AuditEvent, Job, User
 from aer.errors import AerError
 from aer.logging import configure_logging, get_logger
 from aer.obsidian import ObsidianExportError, export_report
@@ -51,6 +52,7 @@ from aer.services.retention import (
     verify_store,
 )
 from aer.services.run_replay import RunReplay, replay_run
+from aer.services.step_diagnostic import RunDiagnostic, StepDiagnostic, run_diagnostic
 from aer.storage.local import LocalArtefactStore
 from aer.version import build_identity, git_sha, version
 
@@ -885,6 +887,343 @@ async def _purge_licensed(
             return outcome
     finally:
         await engine.dispose()
+
+
+@app.command(name="diagnose")
+def diagnose_command(
+    job_id: Annotated[uuid.UUID, typer.Argument(help="The run to read back.")],
+    step_key: Annotated[
+        str | None, typer.Argument(help="One step to show in full. Omit for the whole run.")
+    ] = None,
+) -> None:
+    """Print a run's per-step diagnostic, from what each step already recorded.
+
+    Roadmap §3.15's readout, ADR 0090. Status, attempts, timing, cost, the recorded error,
+    the step's stored output and every model call's tokens and archived payload hashes —
+    all reads, no fetch, no model call, no spend. Exits 1 when the run has failed, so a
+    script can tell a broken run from a waiting one.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    try:
+        readout = asyncio.run(_run_diagnostic(settings, job_id=job_id))
+    except AerError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+
+    if step_key is not None:
+        step = readout.step(step_key)
+        if step is None:
+            hint = "not reached yet" if step_key in readout.not_reached else "not a recorded step"
+            typer.secho(
+                f"Run {job_id} has no record of {step_key!r} ({hint}).", fg=typer.colors.RED
+            )
+            raise typer.Exit(code=1)
+        _print_step_detail(step)
+        return
+
+    _print_run_diagnostic(readout)
+    if readout.status is JobStatus.FAILED:
+        raise typer.Exit(code=1)
+
+
+@app.command(name="step")
+def step_command(
+    job_id: Annotated[uuid.UUID, typer.Argument(help="The run to advance by one step.")],
+) -> None:
+    """Execute exactly one step of a run, in this terminal, then pause and diagnose.
+
+    The deliberate half of resumption (roadmap §3.15, ADR 0090). Turns the job's step mode
+    on — so the run pauses after every executed step wherever it executes, the worker
+    included — runs the next incomplete step here with the same services the worker would
+    build, and prints the step's diagnostic before anything else can spend. Steps that
+    already succeeded are skipped for free; a FAILED run is first resumed, which appends
+    the audit event that decision requires.
+
+    Real steps spend real money: the provider, the fetcher and the budget guard are all
+    the production ones.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    try:
+        asyncio.run(_step_once(settings, job_id=job_id))
+    except AerError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+
+
+@app.command(name="resume")
+def resume_command(
+    job_id: Annotated[uuid.UUID, typer.Argument(help="The run to hand back to the worker.")],
+    reason: Annotated[
+        str | None, typer.Option(help="Why the run is being resumed; recorded in the audit chain.")
+    ] = None,
+    keep_step_mode: Annotated[
+        bool,
+        typer.Option(
+            "--keep-step-mode",
+            help="Leave step mode on, so the worker executes one step and pauses again.",
+        ),
+    ] = False,
+) -> None:
+    """Re-enqueue the same job — the supported way to continue after a terminal failure.
+
+    §2.3's resolution (ADR 0090). The decision to continue is appended to the audit chain
+    with who, when and the state it resumed from; nothing the run recorded about itself is
+    rewritten, and the engine skips every step that already succeeded. Refused for a run
+    that succeeded, was cancelled, or is running now — the message says which and why.
+
+    Step mode is turned off unless ``--keep-step-mode`` is passed: resuming means "carry
+    on", and a run that paused again after one step would not be carrying on.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    try:
+        queued = asyncio.run(
+            _resume(settings, job_id=job_id, reason=reason, keep_step_mode=keep_step_mode)
+        )
+    except AerError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+
+    if queued:
+        typer.secho(f"Run {job_id} is queued; the worker will continue it.", fg=typer.colors.GREEN)
+        return
+    typer.secho(
+        f"Run {job_id} is recorded as resumed, but the queue is unreachable. Start Redis "
+        "and run this again, or step it inline with: aer step",
+        fg=typer.colors.YELLOW,
+    )
+    raise typer.Exit(code=1)
+
+
+async def _run_diagnostic(settings: Settings, *, job_id: uuid.UUID) -> RunDiagnostic:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            return await run_diagnostic(session, job_id=job_id)
+    finally:
+        await engine.dispose()
+
+
+async def _step_once(settings: Settings, *, job_id: uuid.UUID) -> None:
+    """One stepped execution: resume if failed, arm step mode, run one step, diagnose."""
+    from aer.api.deps import current_user_or_none  # noqa: PLC0415 -- one query, one place
+    from aer.runtime import build_services  # noqa: PLC0415 -- constructs the provider
+    from aer.services import runs as run_service  # noqa: PLC0415
+    from aer.services.configuration import effective_settings  # noqa: PLC0415
+    from aer.services.resume import resume_run, set_step_mode  # noqa: PLC0415
+
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    try:
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            if job is None:
+                message = f"No run {job_id}."
+                raise AerError(message, context={"job_id": str(job_id)})
+            actor = await current_user_or_none(session)
+            if actor is None:
+                message = (
+                    "No user exists. Create one with: uv run aer seed-user --email you@example.com"
+                )
+                raise AerError(message)
+
+            if job.status is JobStatus.SUCCEEDED:
+                typer.secho(
+                    f"Run {job_id} already succeeded; nothing left to step.", fg=typer.colors.GREEN
+                )
+                return
+            if job.status is JobStatus.FAILED:
+                # The §2.3 decision applies to a stepped continuation too: continuing a
+                # failed run is a recorded choice, whoever executes the next step.
+                await resume_run(session, job=job, actor=actor, reason="stepped from the CLI")
+            await set_step_mode(session, job=job, actor=actor, enabled=True)
+            await session.commit()
+
+            # The same read the worker makes, so a stepped run is the run — same routing,
+            # same budget, same services (ADR 0050).
+            resolved = await effective_settings(session, settings)
+            services = build_services(resolved, redis=redis)
+
+            executed_after = datetime.now(UTC)
+            error_message: str | None = None
+            try:
+                await run_service.execute(
+                    session,
+                    job=job,
+                    settings=resolved,
+                    provider=services.provider,
+                    store=services.store,
+                    sec_client=services.sec_client,
+                    fetcher=services.fetcher,
+                    session_factory=factory,
+                )
+            except Exception as failure:
+                error_message = str(failure)
+            await session.commit()
+
+            readout = await run_diagnostic(session, job_id=job_id)
+
+        _print_stepped_outcome(readout, since=executed_after, error_message=error_message)
+        if error_message is not None:
+            raise typer.Exit(code=1)
+    finally:
+        await redis.aclose()
+        await engine.dispose()
+
+
+async def _resume(
+    settings: Settings, *, job_id: uuid.UUID, reason: str | None, keep_step_mode: bool
+) -> bool:
+    """Record the resume, then enqueue. Returns whether the queue accepted it."""
+    from aer.api.deps import current_user_or_none  # noqa: PLC0415 -- one query, one place
+    from aer.queue import enqueue_run  # noqa: PLC0415
+    from aer.services.resume import resume_run, set_step_mode  # noqa: PLC0415
+
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    try:
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            if job is None:
+                message = f"No run {job_id}."
+                raise AerError(message, context={"job_id": str(job_id)})
+            actor = await current_user_or_none(session)
+            if actor is None:
+                message = (
+                    "No user exists. Create one with: uv run aer seed-user --email you@example.com"
+                )
+                raise AerError(message)
+
+            await resume_run(session, job=job, actor=actor, reason=reason)
+            if not keep_step_mode:
+                await set_step_mode(session, job=job, actor=actor, enabled=False)
+            await session.commit()
+
+        return await enqueue_run(redis, job_id) is not None
+    finally:
+        await redis.aclose()
+        await engine.dispose()
+
+
+# How much of a stored value the run readout shows. Enough to recognise the content;
+# `aer diagnose <run> <step>` prints the full record for the step that matters.
+_VALUE_PREVIEW_CHARS = 100
+
+_STATUS_COLOURS = {
+    JobStatus.SUCCEEDED: typer.colors.GREEN,
+    JobStatus.FAILED: typer.colors.RED,
+    JobStatus.CANCELLED: typer.colors.RED,
+}
+
+
+def _status_colour(status: JobStatus) -> str:
+    return _STATUS_COLOURS.get(status, typer.colors.YELLOW)
+
+
+def _print_run_diagnostic(readout: RunDiagnostic) -> None:
+    step_mode = "on" if readout.step_mode else "off"
+    typer.secho(
+        f"Run {readout.job_id} — {readout.workflow_version} @ {readout.code_version[:12]} — "
+        f"{readout.status.value} — £{readout.spend_gbp:.4f} spent — step mode {step_mode}",
+        fg=typer.colors.CYAN,
+        bold=True,
+    )
+    for step in readout.steps:
+        elapsed = f"{step.elapsed_seconds:.1f}s" if step.elapsed_seconds is not None else "—"
+        calls = f"  {len(step.exchanges)} model call(s)" if step.exchanges else ""
+        typer.secho(
+            f"  [{step.status.value}] {step.key}  attempt {step.attempts}  {elapsed}  "
+            f"£{step.cost_gbp:.4f}{calls}",
+            fg=_status_colour(step.status),
+        )
+        if step.error:
+            code = step.error.get("code", "error")
+            typer.echo(f"      {code}: {step.error.get('message', '')}")
+    for key in readout.not_reached:
+        typer.secho(f"  [NOT REACHED] {key}", fg=typer.colors.WHITE)
+    if readout.next_step is not None:
+        typer.echo(f"  next: {readout.next_step}")
+
+
+def _print_step_detail(step: StepDiagnostic) -> None:
+    elapsed = f"{step.elapsed_seconds:.1f}s" if step.elapsed_seconds is not None else "not recorded"
+    typer.secho(
+        f"{step.key} — {step.status.value} — attempt {step.attempts} — {elapsed} — "
+        f"£{step.cost_gbp:.4f}",
+        fg=_status_colour(step.status),
+        bold=True,
+    )
+    if step.started_at is not None:
+        typer.echo(f"  started:  {step.started_at.isoformat()}")
+    if step.finished_at is not None:
+        typer.echo(f"  finished: {step.finished_at.isoformat()}")
+    if step.error:
+        typer.secho("  error:", fg=typer.colors.RED, bold=True)
+        for key, value in step.error.items():
+            typer.echo(f"    {key}: {value}")
+    if step.output:
+        typer.echo("  output:")
+        for key, value in step.output.items():
+            typer.echo(f"    {key}: {_preview(value)}")
+    for exchange in step.exchanges:
+        tokens = f"{exchange.input_tokens or 0} in / {exchange.output_tokens or 0} out"
+        typer.echo(
+            f"  model call: {exchange.agent_role} — {exchange.model}"
+            f"{f' ({exchange.effort})' if exchange.effort else ''} — {tokens}"
+            f" — stop: {exchange.stop_reason or 'unrecorded'}"
+        )
+        if exchange.request_sha256:
+            typer.echo(f"    request archived:  {exchange.request_sha256}")
+        if exchange.response_sha256:
+            typer.echo(f"    response archived: {exchange.response_sha256}")
+
+
+def _preview(value: object) -> str:
+    text_value = repr(value)
+    if len(text_value) <= _VALUE_PREVIEW_CHARS:
+        return text_value
+    return text_value[:_VALUE_PREVIEW_CHARS] + "…"
+
+
+def _print_stepped_outcome(
+    readout: RunDiagnostic, *, since: datetime, error_message: str | None
+) -> None:
+    """What one `aer step` did: the steps this invocation touched, then where things stand."""
+    touched = [
+        step for step in readout.steps if step.started_at is not None and step.started_at >= since
+    ]
+    if not touched:
+        typer.echo("No step needed to execute; every reachable step had already succeeded.")
+    for step in touched:
+        _print_step_detail(step)
+
+    guidance = {
+        JobStatus.PAUSED: (
+            "Paused deliberately (step mode). Continue with `aer step`, or hand it back "
+            "to the worker with `aer resume`."
+        ),
+        JobStatus.AWAITING_APPROVAL: (
+            "Waiting at a gate. Decide it in the console; with step mode on, the run "
+            "pauses again after the gate's step."
+        ),
+        JobStatus.BUDGET_EXCEEDED: (
+            "Stopped at a budget ceiling. The refusal above names which; raise it or "
+            "reject the run."
+        ),
+        JobStatus.SUCCEEDED: "Run complete.",
+        JobStatus.FAILED: "The step failed; the record above is the diagnostic.",
+    }
+    line = guidance.get(readout.status, readout.status.value)
+    colour = _status_colour(readout.status)
+    if error_message is not None and readout.status is not JobStatus.FAILED:
+        # The exception outran the record — say both rather than trusting either alone.
+        typer.secho(f"Execution raised: {error_message}", fg=typer.colors.RED)
+    typer.secho(line, fg=colour, bold=True)
 
 
 async def _schema_revision(settings: Settings) -> str:

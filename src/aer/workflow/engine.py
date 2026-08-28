@@ -11,6 +11,11 @@ budget decision — raises :class:`StepPaused`, and the engine records the job a
 rather than broken. Collapsing the two would put "you need to approve this" in the same
 bucket as "this crashed", and the operator would learn to ignore both.
 
+**Step mode is a deliberate pause after every step** (ADR 0090). A job whose ``step_mode``
+flag is set stops — ``PAUSED``, the job's state and never a step's — after each step that
+actually executes, before the next one spends anything. Steps already completed are still
+skipped for free, waves do not form, and the last step does not pause a finished run.
+
 **The budget guard runs before a step, never after.** Checking afterwards tells you what
 you already spent. The guard compares what a step is projected to cost against what remains
 of the request's ceiling, and pauses the run if it would exceed it — before the provider is
@@ -497,10 +502,11 @@ class WorkflowEngine:
             if skipped and not ready:
                 continue
 
-            if len(ready) == 1 or factory is None or self._max_parallel == 1:
+            if len(ready) == 1 or factory is None or self._max_parallel == 1 or job.step_mode:
                 # The serial path: today's engine, on the caller's session. Every linear
                 # workflow — a chain has one ready node at a time — stays on this path
-                # whatever services carry.
+                # whatever services carry. Step mode forces it too: a step-through that
+                # ran seven nodes at once would have nothing coherent to confirm.
                 step = ready[0]
                 pending.remove(step)
                 paused = await self._execute(
@@ -512,6 +518,11 @@ class WorkflowEngine:
                     outputs=outputs,
                 )
                 if paused:
+                    return outputs
+                if job.step_mode and pending:
+                    # `pending` guards the last step: a run whose final step just set
+                    # SUCCEEDED must finish, not flip back to a pause over nothing.
+                    await self._pause_stepwise(session, job=job, after_step=step.key)
                     return outputs
                 continue
 
@@ -1034,6 +1045,19 @@ class WorkflowEngine:
         session.add(row)
         await self._publish(session)
         return row
+
+    async def _pause_stepwise(self, session: AsyncSession, *, job: Job, after_step: str) -> None:
+        """The deliberate pause of step mode (ADR 0090), recorded on the job alone.
+
+        The step's own row stays exactly as it finished — ``SUCCEEDED``, no error —
+        because nothing happened to the step. Writing an error-shaped record onto it would
+        be the collapse of "waiting" into "broken" that :class:`JobStatus` exists to keep
+        apart. Resuming is :func:`aer.services.resume.resume_run` or another stepped
+        execution; either re-enters, skips what succeeded, and continues.
+        """
+        job.status = JobStatus.PAUSED
+        await self._publish(session)
+        _log.info("workflow.step_mode_paused", job_id=str(job.id), after_step=after_step)
 
     async def _pause(
         self,
