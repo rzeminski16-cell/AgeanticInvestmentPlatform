@@ -28,10 +28,10 @@ thing that would otherwise put a wrong number, or no answer at all, in front of 
    dealt at all, so the portfolio tool is unusable on a machine whose runs were unpriced.
 3. **§2.4 — the report document's layout.** The disagreement appendix puts a two-hundred-word
    objection in a narrow column and one row spans three pages; neither position can be read.
-4. **§3.12 — the interface overhaul.** Specified, designed, reviewed, decided and planned
-   2026-08-25; not built. Every blocking decision is cleared and three are ADRs 0087–0089.
-   Start at tranche 0 of [`interface-overhaul.md`](interface-overhaul.md), which may run
-   alongside §2.1. It is placed here rather
+4. **§3.12 — the interface overhaul.** Five tranches of ten built by 2026-08-28, and the
+   trunk merged **red**: thirty-three browser tests fail on tranche 5's rewordings, so making
+   the suite green again comes before anything else touches a template. Resume at
+   [`interface-overhaul-handover.md`](interface-overhaul-handover.md). It is placed here rather
    than lower because §2.5 is inside it: migrating the palette first would do the most
    quietly-fragile item in this roadmap twice, once onto the present design and again onto
    the new one.
@@ -42,7 +42,10 @@ thing that would otherwise put a wrong number, or no answer at all, in front of 
 *Finished 2026-08-25 and now in §4: the drafted-figure check (§4.14) and the comps
 disclosure (§4.15), which were the two at the top of this list.*
 
-Everything else sits in its bucket below.
+Everything else sits in its bucket below. The execution plan across everything open — the
+phases, what blocks each, and what only the operator can move — is
+[`remaining-work.md`](remaining-work.md), written 2026-08-28; this list stays the authority
+on priority.
 
 ---
 
@@ -310,7 +313,9 @@ mistake ADR 0075 names.
 **3.11 The methodology library.** Three `SkillKind`s that are versioned, pinned and
 composed. Mostly does not exist yet.
 
-**3.12 The interface overhaul. Specified, designed and planned 2026-08-25; not built.** Four
+**3.12 The interface overhaul. Specified, designed and planned 2026-08-25; five tranches of
+ten built by 2026-08-28, with the browser suite red on tranche 5's rewordings — see
+[the handover](interface-overhaul-handover.md) before resuming.** Four
 surfaces are in scope and the rest of the product is deliberately not: **the main menu, the menu
 system and shell, the Equity Research tool, and the Portfolio tool.**
 

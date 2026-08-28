@@ -100,6 +100,9 @@ page specifications, a production handoff and a twelve-screen prototype.
 
 - [`ROADMAP.md`](plan/ROADMAP.md) — what is built, what is not, what is deliberately
   excluded, and the sequenced work ahead. **This is the authority on scope.**
+- [`remaining-work.md`](plan/remaining-work.md) — everything open as one execution plan:
+  six phases, what blocks each item, what the code actually holds, and the short list of
+  moves only the operator can make.
 - [`interface-overhaul.md`](plan/interface-overhaul.md) — §3.12 as ten releasable tranches:
   the decisions that gate it, how it interleaves with work in flight, and all 84 server
   proposals resolved.
