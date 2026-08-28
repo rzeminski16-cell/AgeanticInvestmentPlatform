@@ -232,7 +232,9 @@ class TestTheOverviewScreen:
     ) -> None:
         page.goto(f"{live_server}/overview")
 
-        expect(page.get_by_text("Nothing is waiting")).to_be_visible()
+        # The heading specifically: the verdict above it also says "Nothing is waiting
+        # for you", and a bare text match resolves to both.
+        expect(page.get_by_role("heading", name="Nothing is waiting", exact=True)).to_be_visible()
         expect(page.get_by_role("link", name="Commission research")).to_be_visible()
 
     def test_the_callouts_are_hidden_until_guidance_is_on(

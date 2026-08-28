@@ -184,7 +184,11 @@ class TestTheWholeThing:
         page.goto(live_server)
 
         expect(page.locator(f'[data-attention="research.gate.{job_id}"]')).to_be_visible()
-        expect(page.get_by_text(f"{COMPANY} is waiting for you")).to_be_visible()
+        # `exact`, because the row's drawer trigger is "Preview Microsoft Corporation is
+        # waiting for you" and a substring match resolves to both links.
+        expect(
+            page.get_by_role("link", name=f"{COMPANY} is waiting for you", exact=True)
+        ).to_be_visible()
 
     def test_a_request_nobody_ran_is_listed_as_idle(self, page: Page, live_server: str) -> None:
         # The cheapest of the three feed states, and the one an operator hits most: a
