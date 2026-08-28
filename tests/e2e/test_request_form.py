@@ -202,9 +202,21 @@ class TestDisclaimer:
                 page.locator("footer").get_by_text("not regulated investment advice")
             ).to_be_visible()
 
-    def test_the_header_badge_is_present_too(self, page: Page, live_server: str):
+    def test_it_is_said_once_and_not_twice(self, page: Page, live_server: str):
+        """The shell's footer owns it and nothing duplicates it.
+
+        This replaced an assertion that a second "Not investment advice" badge sat beside the
+        wordmark. That badge was a second copy of one claim, and the design system is explicit
+        that the footer carries it once and no page repeats it — a disclaimer people meet twice
+        on every screen is one they stop reading, which is the opposite of why it is there.
+
+        The claim itself is asserted three ways and did not weaken: the footer test above
+        checks it is visible on three routes, and `tests/test_web_pages.py` checks the exact
+        constant is present and that it appears exactly once.
+        """
         page.goto(live_server)
-        expect(page.get_by_text("Not investment advice", exact=True)).to_be_visible()
+
+        expect(page.get_by_text("not regulated investment advice")).to_have_count(1)
 
 
 class TestEditingADraft:

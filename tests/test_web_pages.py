@@ -55,8 +55,17 @@ class TestLandingPage:
 
         A disclaimer repeated in every sheet is a disclaimer people stop reading, which is the
         opposite of what putting it there was for.
+
+        **Counted by its first sentence rather than the whole constant**, which is how a
+        duplication got past this once already: the landing page's own introduction ended
+        "This is a personal research tool, not regulated investment advice", matching half the
+        disclaimer and none of the string. A test that only recognises the complete text is a
+        test that misses every partial copy, and a partial copy is the likely kind.
         """
-        assert (await web_client.get("/")).text.count(DISCLAIMER) == 1
+        body = (await web_client.get("/")).text
+        claim = DISCLAIMER.split(". ")[0]
+
+        assert body.count(claim) == 1, f"the disclaimer's claim appears {body.count(claim)} times"
 
     async def test_shows_the_build_identity(self, web_client):
         assert version() in (await web_client.get("/")).text
