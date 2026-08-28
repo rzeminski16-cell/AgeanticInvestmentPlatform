@@ -16,9 +16,11 @@ because the exit criteria below are stated in terms of it.
 
 ## Where this stands — 2026-08-28
 
-**Paused five tranches into ten, and the trunk is red.** This section is the live status and
-the one place it is kept; the roadmap and the running order point here rather than repeating
-it. (It absorbs the separate handover document that briefly existed on 2026-08-28.)
+**Five tranches of ten are built, and the trunk is green.** Tranche 5 merged red on
+2026-08-28 — thirty-three browser failures, with the in-process suite unrun since — and was
+brought back to green the same day. This section is the live status and the one place it is
+kept; the roadmap and the running order point here rather than repeating it. (It absorbs the
+separate handover document that briefly existed on 2026-08-28.)
 
 | Tranche | State | Last full verification |
 |---|---|---|
@@ -27,28 +29,31 @@ it. (It absorbs the separate handover document that briefly existed on 2026-08-2
 | **2 — Tokens** | Done | 5,823 · 137 |
 | **3 — Macros** | Done | 5,888 · 161 |
 | **4 — Shell** | Done | 5,888 · 161 |
-| **5 — Overview and requests** | **Code complete, suite red** | 33 browser failures; in-process not run since |
+| **5 — Overview and requests** | Done | **5,945 · 163**, 2026-08-28, after the red merge below |
 | **6 — Console and gates** | Not started | — |
 | **7 — Evidence and reports** | Not started | — |
 | **8 — Portfolio, skills, knowledge** | Not started | — |
 | **9 — Removal and hardening** | Not started | — |
 
-**Why the thirty-three fail.** Tranche 5 rewrote ten templates and moved or reworded text the
-browser tests assert on — the confirmed pattern: the overview now says *"Start with two
-things"* on an empty database where a test still expects *"Nothing is waiting"*. That is the
-first-run state working exactly as tranche 5 intended, and a test with no way to know. The
-failure list was never captured before the pause, so reproducing it from a clean
-`pytest tests/e2e` run is the first act of resumption. One of the thirty-three is a design
-question rather than staleness: the seven planned tools sit behind a *closed* disclosure on
-the front door, against that page's stated job — the shape of the product visible on arrival
-rather than discovered. The `disclosure` macro already takes `open`; ship it open.
+**What the thirty-three were.** Reproduced on a clean run as thirty-two (the thirty-third was
+already cured by the first fix below landing mid-run), and six causes covered them all. Most
+were the suite not knowing what tranche 5 shipped: the refinement disclosure that a
+form-filling helper must open before `fill` can reach the fields inside it; role-name
+matching being substring by default, so "Microsoft Corporation" resolves to the company link
+*and* the row's new "Remove Microsoft Corporation" control; reworded empty states; the
+vocabulary's "Draft" where the enum's "DRAFT" had been asserted; point-in-time as two named
+radios; the `confirm()` dialogue deliberately replaced by a confirmation page. **Two were
+product gaps, not stale tests, and both are fixed:** the seven planned tools shipped behind a
+*closed* disclosure on the front door, against that page's stated job — it now ships open —
+and the full in-process run surfaced that nothing moves a request to CANCELLED when its run
+is cancelled, so the rewritten detail page never said what happened to the old run while
+offering to start a new one; the "This run" sheet now leads with the run's own state.
 
 **How it happened is the useful part.** Tranche 5 was verified against targeted subsets — the
 request suites, the component tests, the palette ratchet — and every one passed. Subsets
-cannot catch a page whose *words* changed; those tests live in the browser suite and take
-twenty minutes. So the standing rule: **a tranche that touches templates is finished when the
-browser suite has been seen green, before the commit.** The twenty minutes is part of the
-work.
+cannot catch a page whose *words* changed; those tests live in the browser suite. So the
+standing rule: **a tranche that touches templates is finished when the browser suite has been
+seen green, before the commit.** That time is part of the work.
 
 **The ramp ledger.** Opened at **1,837** raw Tailwind classes; stands at **1,594** — tranche 5
 removed exactly the 243 predicted. By area:
@@ -73,11 +78,10 @@ grep -ohrE '\b(text|bg|border|ring|divide|from|to|via|placeholder|decoration|out
   src/aer/web/templates | sort | uniq -c | sort -rn
 ```
 
-**Resuming:** fix the thirty-three and see both suites green — nothing else starts on a red
-base. Then tranche 6, the largest and the one piece of new model plumbing left (the `verdict`
-role under ADR 0087; building it needs no model spend, the fake provider covers the tests,
-and it touches the workflow engine, which is why it wants the green base under it). Then 7, 8
-and 9 in order.
+**Next is tranche 6** — the largest, and the one piece of new model plumbing left (the
+`verdict` role under ADR 0087; building it needs no model spend, the fake provider covers the
+tests, and it touches the workflow engine, which is why it wanted the green base it now has).
+Then 7, 8 and 9 in order. Roadmap §3.1 lands before tranche 8 rewrites the portfolio form.
 
 **Open beyond the last tranche:** roadmap §2.1 and §3.1, sequenced ahead of this overhaul and
 neither started — the running order is [`remaining-work.md`](remaining-work.md) · the Firefox

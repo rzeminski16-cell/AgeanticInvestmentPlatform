@@ -12,7 +12,7 @@ state — and the overhaul's live status is the top section of
 
 | Phase | What | Roadmap items | Gated on |
 |---|---|---|---|
-| **0** | Back to green | §3.12's red suite | Nothing. First |
+| **0** | Back to green — **done 2026-08-28** | §3.12's red suite | — |
 | **1A** | The drafting failure | §2.1, §2.2 | `run-diagnosis.json` from the operator |
 | **1B** | The portfolio's third door | §3.1 | The ADR amending 0072 — writable now |
 | **2** | The overhaul, tranches 6–9 | §3.12, closing §2.5 | Phase 0 green; tranche 8 wants §3.1 landed |
@@ -27,10 +27,12 @@ restores a baseline rather than building anything.
 
 ## What the order turns on
 
-**Phase 0 first because a red suite cannot tell a new failure from an old one.** The
-thirty-three, their cause and the one design question among them are in the overhaul plan's
-status section. In a remote session a local PostgreSQL and Redis come first — without a
-database the default suite silently skips 1,849 tests.
+**Phase 0 is done, 2026-08-28.** The thirty-three were fixed the day they were reproduced —
+two turned out to be product gaps rather than stale tests — and both suites are green:
+5,945 in-process, 163 browser. The record is the overhaul plan's status section; phase 2's
+gate is cleared, and tranche 6 is next. What stays true for every later phase: in a remote
+session a local PostgreSQL and Redis come first — without a database the default suite
+silently skips 1,849 tests.
 
 **1A and 1B are parallel tracks.** §2.1 and §2.2 diagnose from the export before anything is
 changed — the hypotheses the code already admits are recorded on the items — and the
