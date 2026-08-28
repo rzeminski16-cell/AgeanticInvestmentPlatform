@@ -604,6 +604,11 @@ def _detail_view(item: ResearchRequest, *, job: Job | None) -> dict[str, Any]:
     """
     now = datetime.now(UTC)
     state = vocabulary.request_state(item.status)
+    # The run's own state, which is not the request's. Nothing moves a request to
+    # CANCELLED when its run is cancelled — the job row is where that truth lives — so a
+    # page that showed only the request's state would offer "start a new run" without ever
+    # saying what happened to the old one.
+    run = vocabulary.job_state(job.status) if job is not None else None
     cost = figures.cost_context(
         spent=job.total_cost_gbp if job else Decimal(0), ceiling=item.max_cost_gbp
     )
@@ -617,6 +622,8 @@ def _detail_view(item: ResearchRequest, *, job: Job | None) -> dict[str, Any]:
     return {
         "status_label": state.label,
         "status_tone": state.tone.value,
+        "run_state_label": run.label if run else "",
+        "run_state_tone": run.tone.value if run else "",
         "verdict_statement": statement,
         "verdict_detail": state.detail,
         "run_cost": cost.summary,

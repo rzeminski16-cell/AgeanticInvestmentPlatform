@@ -37,6 +37,12 @@
   #}
   {% call ui.sheet("This run") %}
     {% if job %}
+      {#
+        The run's own state, not the request's — a cancelled or failed run is exactly what
+        this sheet exists to report, and offering "start a new run" without saying what
+        happened to the old one reads as a page that lost track.
+      #}
+      <p class="mb-4">{{ ui.status(run_state_tone, run_state_label) }}</p>
       {{ ui.definition_list([
         {"label": "Spent", "value": run_cost, "is_data": true},
         {"label": "Last activity", "value": last_activity, "is_data": true},
