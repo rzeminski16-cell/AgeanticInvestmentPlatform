@@ -456,6 +456,41 @@ class TestThePlantedContradictionIsChallenged:
         assert material[0].topic.startswith("Red team (growth)")
         assert f"severity {MATERIAL_SEVERITY + 1}/5" in str(material[0].position_b)
 
+    async def test_claim_attribution_resolves_to_sections_and_bad_ids_are_dropped(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """ADR 0091: the claims a challenge names route it to their sections, in code.
+
+        Attribution is filtering, not evidence: the fabricated claim id is dropped from
+        the detail while the challenge itself stands on its cited fact — unlike a
+        fabricated fact id, which refuses the whole argument.
+        """
+        report = RedTeamReport(
+            challenges=[
+                RedTeamChallenge(
+                    dimension=ChallengeDimension.GROWTH,
+                    severity=5,
+                    statement="The growth claim contradicts the recorded revenue fact.",
+                    basis="The claim contradicts the fact it should rest on.",
+                    fact_ids=[str(scene["fact"].id)],
+                    claim_ids=[str(scene["claim"].id), str(uuid.uuid4())],
+                )
+            ],
+            coverage_note="Attacked the growth claim.",
+        )
+        provider = FakeProvider({"RedTeamReport": report})
+        result = await run_red_team(
+            _context(scene, provider),
+            scene["session"],
+            job=scene["job"],
+            request=scene["request"],
+        )
+
+        assert len(result.recorded) == 1
+        detail = result.recorded[0].detail or {}
+        assert detail["claims"] == [str(scene["claim"].id)]
+        assert detail["sections"] == [scene["section"].section_key]
+
     async def test_severity_decides_the_banner_never_the_record(
         self, outcome: dict[str, Any]
     ) -> None:

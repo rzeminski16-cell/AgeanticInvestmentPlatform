@@ -237,8 +237,7 @@ async def list_requests_page(
                 status: state.label for status, state in vocabulary.REQUEST_STATES.items()
             },
             "request_tones": {
-                status: state.tone.value
-                for status, state in vocabulary.REQUEST_STATES.items()
+                status: state.tone.value for status, state in vocabulary.REQUEST_STATES.items()
             },
             # What each request has cost so far, already rendered. A row that showed a mandate
             # and not its spend is a row that answers the cheaper half of the question.
@@ -259,9 +258,7 @@ async def list_requests_page(
 
 
 @router.get("/requests/new", response_class=HTMLResponse, summary="New research request")
-async def new_request_form(
-    request: Request, session: DbSession, settings: SettingsDep
-) -> Response:
+async def new_request_form(request: Request, session: DbSession, settings: SettingsDep) -> Response:
     token = new_csrf_token(settings)
     response: Response = render(
         request,
@@ -628,9 +625,7 @@ def _detail_view(item: ResearchRequest, *, job: Job | None) -> dict[str, Any]:
         # repeating it costs. Said plainly rather than projected: a forecast dressed as a
         # figure is the thing this platform exists not to do.
         "repeat_cost_guidance": (
-            f"The last one cost {figures.pounds(job.total_cost_gbp)}."
-            if job is not None
-            else ""
+            f"The last one cost {figures.pounds(job.total_cost_gbp)}." if job is not None else ""
         ),
         "mandate_rows": [
             {

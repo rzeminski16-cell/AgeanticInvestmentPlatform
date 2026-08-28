@@ -63,6 +63,11 @@ class SectionWriterInput(BaseModel):
     # plan named none — the contract alone is a sufficient specification.
     focus: str = ""
 
+    # The revision turn only (ADR 0091): material red-team challenges against this
+    # section's previous draft. Direction, never evidence — a challenge is an argument,
+    # and nothing here relaxes the contract, the claim rules or the evidence policy.
+    challenges: list[str] = Field(default_factory=list)
+
     problems: list[str] = Field(default_factory=list)
     evidence_truncated: bool = False
 
@@ -210,6 +215,19 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
                 f"ceiling with a consequence, not a suggestion: past {payload.word_ceiling} "
                 "words the platform refuses or cuts the draft — the overrun is paid for "
                 "and then thrown away, never published."
+            )
+        if payload.challenges:
+            # The revise pass (ADR 0091). Same register as the focus line: for the
+            # writer, never for the reader — a section that narrates its own review
+            # process is the gap-R3 failure with a new cause.
+            parts.append(
+                "An adversarial review challenged this section's previous draft. Write "
+                "the section again with each challenge answered: correct the content "
+                "where a challenge is right, and where it is wrong, make the section's "
+                "basis explicit enough that a reader holding the challenge could weigh "
+                "both. Every rule above still applies, the challenge text is argument "
+                "and never evidence, and you never mention the review itself:\n- "
+                + "\n- ".join(payload.challenges)
             )
         if payload.evidence_truncated:
             parts.append(

@@ -111,6 +111,11 @@ class _EvidenceIndex:
     calculation_ids: set[str] = field(default_factory=set)
     source_tiers: dict[str, SourceTier] = field(default_factory=dict)
 
+    # Claim id -> section key, for the revise loop's attribution (ADR 0091). Filtering,
+    # not evidence: a claim id the run does not hold is dropped from the challenge's
+    # attribution and the challenge stands on its cited evidence as before.
+    claim_sections: dict[str, str] = field(default_factory=dict)
+
 
 async def run_red_team(
     context: AgentContext,
@@ -137,6 +142,7 @@ async def run_red_team(
         return RedTeamOutcome(skipped=True, coverage_note="The draft recorded no claims.")
 
     index = await _evidence_index(session, job=job, request=request)
+    index.claim_sections = {claim.claim_id: claim.section_key for claim in claims}
     agent = RedTeamAgent()
     problems: list[str] = []
     report = None
@@ -378,11 +384,20 @@ async def _record_challenge(
         source_id = index.fact_sources.get(fact_id)
         if source_id is not None and source_id not in sources:
             sources.append(source_id)
+    # The claims under attack, kept only where the run holds them, and the sections those
+    # claims belong to (ADR 0091). This is the whole of the revise loop's routing: a
+    # challenge with no resolvable attribution provokes no revision and stands for the
+    # human exactly as every challenge did before the loop existed.
+    claims = [
+        identifier for identifier in challenge.claim_ids if identifier in index.claim_sections
+    ]
     detail = {
         "challenge": challenge.statement,
         "basis": challenge.basis,
         "severity": challenge.severity,
         "dimension": challenge.dimension.value,
+        "claims": claims,
+        "sections": sorted({index.claim_sections[identifier] for identifier in claims}),
         "evidence": {
             "facts": list(challenge.fact_ids),
             "calculations": list(challenge.calculation_ids),

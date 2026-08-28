@@ -1389,9 +1389,9 @@ class TestTheMoatDurabilityExampleEndToEnd:
         }
 
         await run_to_next_stop(**args)
-        await approve(db_session, job=job, gate=GateKind.PLAN, actor=user, step="plan")
+        await approve(db_session, job=job, gate=GateKind.PLAN, actor=user, step="critique_plan")
         await run_clearing_the_assumptions_gate(actor=user, **args)
-        await approve(db_session, job=job, gate=GateKind.FINAL, actor=user, step="red_team")
+        await approve(db_session, job=job, gate=GateKind.FINAL, actor=user, step="revise")
         outcome = await run_to_next_stop(**args)
 
         return {

@@ -18,7 +18,7 @@ these three things".
 from __future__ import annotations
 
 import json
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic import ValidationError as PydanticValidationError
@@ -159,6 +159,12 @@ class PlannerInput(BaseModel):
     # prior run regardless of what a prompt says (ADR 0064).
     prior_research: list[PriorResearch] = Field(default_factory=list)
 
+    # The revision call only (ADR 0091): the plan as first proposed, and the critic's
+    # challenges against it. The critic never instructs — a revised plan that disagrees
+    # with a challenge answers it in `known_risks`, and gate 1 sees both positions.
+    previous_plan: dict[str, Any] | None = None
+    critique: list[str] = Field(default_factory=list)
+
 
 _SYSTEM_PROMPT = f"""\
 You are the research planner for an equity research platform. You produce a plan; you do \
@@ -269,6 +275,25 @@ class PlannerAgent(Agent[PlannerInput, ResearchPlanDraft]):
         lines.append("")
         lines.append("Sections available to you (propose only from this list):")
         lines.extend(f"  - {key}" for key in payload.available_section_keys)
+
+        if payload.critique:
+            # The revision turn (ADR 0091). The previous proposal travels as data so the
+            # revision is a revision rather than a fresh plan that happens to follow the
+            # same rules; the challenges are the critic's, and disagreeing with one is
+            # allowed — out loud, in known_risks, where the gate-1 reviewer can weigh it.
+            lines.append("")
+            lines.append(
+                "You proposed a plan for this request already; an adversarial reviewer "
+                "challenged it. Your previous proposal:"
+            )
+            lines.append(json.dumps(payload.previous_plan or {}, indent=2))
+            lines.append("")
+            lines.append(
+                "The reviewer's challenges. Produce a revised plan that addresses each "
+                "one — or, where you judge a challenge wrong, keeps the plan and names "
+                "the disagreement in known_risks so the person approving sees it:"
+            )
+            lines.extend(f"  - {challenge}" for challenge in payload.critique)
 
         return "\n".join(lines)
 

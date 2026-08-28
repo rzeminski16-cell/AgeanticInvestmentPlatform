@@ -992,9 +992,7 @@ def _snapshot(request: ResearchRequest) -> dict[str, Any]:
     return {name: _jsonable(getattr(request, name)) for name in _EDITABLE_FIELDS}
 
 
-async def spend_for(
-    session: AsyncSession, *, rows: Sequence[ResearchRequest]
-) -> list[Decimal]:
+async def spend_for(session: AsyncSession, *, rows: Sequence[ResearchRequest]) -> list[Decimal]:
     """What each request has cost across every run it has had, in the order given.
 
     **One query for the page rather than one per row.** A list of two hundred requests would

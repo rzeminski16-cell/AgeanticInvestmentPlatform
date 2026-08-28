@@ -114,7 +114,7 @@ async def _to_second_gate(scene: dict[str, Any]) -> None:
     pause it had no case for.
     """
     await _execute(scene)
-    await _approve(scene, gate=GateKind.PLAN, step="plan")
+    await _approve(scene, gate=GateKind.PLAN, step="critique_plan")
     await _execute(scene)
 
     while (clearing := gate_for(await paused_at(scene["session"], scene["job"].id))) is not None:
@@ -613,7 +613,7 @@ class TestTheDeterministicSections:
         verifiable statement."""
         await _to_second_gate(scene)
         red_team = await scene["session"].scalar(
-            select(JobStep).where(JobStep.job_id == scene["job"].id, JobStep.step_key == "red_team")
+            select(JobStep).where(JobStep.job_id == scene["job"].id, JobStep.step_key == "revise")
         )
         assert red_team is not None
         assert red_team.output_ref is not None

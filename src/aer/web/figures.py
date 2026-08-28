@@ -133,7 +133,6 @@ def cost_context(*, spent: Decimal, ceiling: Decimal | None, scope: str = "run")
     )
 
 
-
 def waited_for(since: datetime, *, now: datetime) -> str:
     """How long something has been sitting there, in the coarsest honest unit.
 
@@ -162,6 +161,7 @@ def waited_for(since: datetime, *, now: datetime) -> str:
     if minutes >= 1:
         return "1 minute" if minutes == 1 else f"{minutes} minutes"
     return "just now"
+
 
 @dataclass(frozen=True, slots=True)
 class RenderedFigure:
@@ -253,15 +253,12 @@ def cost_guidance(typical: TypicalCost) -> str:
     # so the convenient spelling is the one that needs a cast to compile.
     if typical.low is None or typical.high is None:
         if typical.sample:
-            runs = (
-                "one finished run" if typical.sample == 1 else f"{typical.sample} finished runs"
-            )
+            runs = "one finished run" if typical.sample == 1 else f"{typical.sample} finished runs"
             return (
                 f"Only {runs} at this depth so far, which is too few to quote a range. {enforced}"
             )
         return (
-            "No finished runs at this depth yet, so there is no typical range to show. "
-            f"{enforced}"
+            f"No finished runs at this depth yet, so there is no typical range to show. {enforced}"
         )
     return (
         f"Runs at this depth have cost {pounds(typical.low)} to {pounds(typical.high)} "

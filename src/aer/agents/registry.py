@@ -297,6 +297,23 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         adr="0038",
     ),
     RoleDefinition(
+        role="plan_critic",
+        purpose=(
+            "Attack the proposed plan from a separate context before gate 1: scored "
+            "challenges on a closed vocabulary of aspects, over the request and the plan "
+            "alone — never a view on the company, never a figure of its own."
+        ),
+        output_schema_ref="aer.agents.plan_critic:PlanCritique",
+        # No tools. The critic receives the request and the plan and nothing else; there
+        # are no findings yet for it to read, and a critic that could fetch would be
+        # building objections from material gate 1 never displays.
+        allowed_tools=frozenset(),
+        # The same figure the other judgement roles carry, for the reason they carry it:
+        # max_tokens bounds thinking and visible output together.
+        max_output_tokens=16_384,
+        adr="0091",
+    ),
+    RoleDefinition(
         role="red_team",
         purpose=(
             "Attack the draft's thesis from a separate context: scored, evidence-cited "

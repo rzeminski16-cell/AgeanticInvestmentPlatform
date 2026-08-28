@@ -369,7 +369,18 @@ entry. The seven planned tools get their placeholder page and nothing more until
 designing a screen for a tool whose tables do not exist is how a specification becomes
 fiction.
 
-**3.13 A critique-and-revise loop for drafting, with a memory of what needed revising.**
+**3.13 A critique-and-revise loop for drafting, with a memory of what needed revising.
+Done, 2026-08-28 — ADR 0091.** The `revise` step redrafts the sections the red team's
+material challenges attack — attribution by claim id, validated in code; one pass, at most
+four sections, custom sections stood aside from — and seals the gate-2 hash with the
+revision record inside it. The `critique_plan` step puts a separate-context critic
+(`plan_critic`, the role this ADR admits) between `plan` and gate 1, with one planner
+revision when a challenge clears severity 3 and the critique inside the gate-1 hash. The
+memory landed on the safe default the paragraphs below asked for: `revision_notes` records
+every decision, `aer lessons` counts recurrence across runs, and a lesson reaches a future
+run only as an operator-authored methodology skill — invariant 7 untouched. The original
+case for the item follows.
+
 Today `red_team` (ADR 0039) already attacks the draft from a separate context, and it has
 twice caught a section publishing a number that contradicts its own citation (4.14, ADR
 0086) — not a hypothetical failure mode, the platform's own log. What it does not do is loop

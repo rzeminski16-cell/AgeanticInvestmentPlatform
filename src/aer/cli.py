@@ -41,6 +41,7 @@ from aer.services.backup import (
     verify_backup,
 )
 from aer.services.knowledge import KnowledgeStats, knowledge_stats
+from aer.services.lessons import LessonCandidate, recurring_lessons
 from aer.services.retention import (
     GarbageCollected,
     IntegrityReport,
@@ -885,6 +886,58 @@ async def _purge_licensed(
             )
             await session.commit()
             return outcome
+    finally:
+        await engine.dispose()
+
+
+@app.command(name="lessons")
+def lessons_command(
+    all_notes: Annotated[
+        bool,
+        typer.Option(
+            "--all",
+            help="Include classes seen in only one run, not just the recurring ones.",
+        ),
+    ] = False,
+) -> None:
+    """Print what the critique loop keeps having to revise, grouped by class (ADR 0091).
+
+    Counted from the revision notes across runs; a class met in two or more runs is a
+    candidate lesson. The platform never acts on one: making a lesson standing guidance
+    means authoring a methodology skill — versioned, pinned at gate 1, additive-only —
+    which is the operator's act, on the operator's judgement.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    candidates = asyncio.run(_lessons(settings, minimum_jobs=1 if all_notes else 2))
+
+    if not candidates:
+        scope = "any run" if all_notes else "more than one run"
+        typer.echo(f"No challenge class has provoked the critique loop in {scope}.")
+        return
+
+    for candidate in candidates:
+        marker = "recurring" if candidate.recurring else "seen once"
+        typer.secho(
+            f"{candidate.scope}/{candidate.dimension} — {candidate.jobs} run(s), "
+            f"{candidate.notes} note(s) — {marker}",
+            fg=typer.colors.YELLOW if candidate.recurring else typer.colors.WHITE,
+            bold=candidate.recurring,
+        )
+        for statement in candidate.latest_statements:
+            typer.echo(f"    {statement}")
+    typer.echo(
+        "\nA recurring class becomes standing guidance only as a methodology skill you "
+        "author and enable; the platform records, and never teaches itself."
+    )
+
+
+async def _lessons(settings: Settings, *, minimum_jobs: int) -> list[LessonCandidate]:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            return await recurring_lessons(session, minimum_jobs=minimum_jobs)
     finally:
         await engine.dispose()
 

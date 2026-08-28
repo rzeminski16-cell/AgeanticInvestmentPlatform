@@ -308,7 +308,7 @@ class TestTheGateStaysOutOfTheWayOtherwise:
         """A conditional gate nobody decided must not stop the gate after it."""
         job_id = await run_to_the_financials_gate(api, mapped_runner, committed["request"].id)
 
-        sealed = await mapped_runner.output_of(job_id, "red_team")
+        sealed = await mapped_runner.output_of(job_id, "revise")
         assert sealed is not None
         await mapped_runner.approve(
             job_id, gate=GateKind.FINAL, payload_hash=str(sealed["payload_hash"])

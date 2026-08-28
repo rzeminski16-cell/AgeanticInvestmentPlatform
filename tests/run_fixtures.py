@@ -137,10 +137,10 @@ async def to_final_gate(api: Any, request_id: uuid.UUID, driver: Driver) -> uuid
     job_id = uuid.UUID(body["job_id"])
 
     await driver.advance(job_id)
-    await driver.approve(job_id, gate=GateKind.PLAN, step="plan")
+    await driver.approve(job_id, gate=GateKind.PLAN, step="critique_plan")
 
     status = await driver.advance(job_id)
-    while status is JobStatus.AWAITING_APPROVAL and not await driver.has_run(job_id, "red_team"):
+    while status is JobStatus.AWAITING_APPROVAL and not await driver.has_run(job_id, "revise"):
         paused_at = await driver.waiting_at(job_id)
         clearing = _CLEARED_ON_THE_WAY.get(paused_at or "")
         if clearing is None:

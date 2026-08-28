@@ -37,6 +37,8 @@ AgentRole = str
 _KNOWN_ROLES: Final[frozenset[str]] = frozenset(
     {
         "planner",
+        # The plan's adversary (ADR 0091): the red team's posture, one step earlier.
+        "plan_critic",
         "source_triage",
         "extraction",
         "analysis",

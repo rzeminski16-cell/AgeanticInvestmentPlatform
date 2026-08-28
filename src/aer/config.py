@@ -156,6 +156,9 @@ class HouseStyle(BaseModel):
 # Rationale and the cost model behind it: docs/archive/PLAN.md section 1.8.
 DEFAULT_MODEL_ROUTES: Final[dict[str, ModelRoute]] = {
     "planner": ModelRoute(model="claude-opus-5", effort="high"),
+    # The plan's adversary (ADR 0091). The judgement class of call, like the red team:
+    # once per run, small input, and what it catches is a whole run aimed wrong.
+    "plan_critic": ModelRoute(model="claude-opus-5", effort="high"),
     "source_triage": ModelRoute(model="claude-haiku-4-5", effort="low"),
     "extraction": ModelRoute(model="claude-sonnet-5", effort="medium"),
     "analysis": ModelRoute(model="claude-sonnet-5", effort="medium"),

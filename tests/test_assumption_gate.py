@@ -1242,7 +1242,7 @@ async def _to_the_assumptions_gate(api: Any, driver: Driver, request_id: Any) ->
     body = await start_run(api, request_id)
     job_id = uuid.UUID(body["job_id"])
     await driver.advance(job_id)
-    await driver.approve(job_id, gate=GateKind.PLAN, step="plan")
+    await driver.approve(job_id, gate=GateKind.PLAN, step="critique_plan")
     status = await driver.advance(job_id)
     while status is JobStatus.AWAITING_APPROVAL:
         paused = await driver.waiting_at(job_id)

@@ -169,7 +169,7 @@ async def approved(
 ) -> dict[str, Any]:
     """One run, driven through both gates to an approved and frozen report."""
     job_id = await to_final_gate(api, committed["request"].id, driver)
-    await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+    await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
     await driver.advance(job_id)
 
     factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
