@@ -81,6 +81,7 @@ from tests.workflow_fixtures import (
     assumption_proposal_draft,
     declared_schema_name,
     peer_slate,
+    plan_critique,
     planner_response,
     section_draft_for,
     seed_job,
@@ -1313,6 +1314,7 @@ def moat_provider() -> FakeProvider:
             ),
             "AssumptionProposalDraft": assumption_proposal_draft,
             "PeerSlate": peer_slate,
+            "PlanCritique": plan_critique,
             "ThemeSlate": theme_slate,
         }
         if name in static:
@@ -1389,9 +1391,9 @@ class TestTheMoatDurabilityExampleEndToEnd:
         }
 
         await run_to_next_stop(**args)
-        await approve(db_session, job=job, gate=GateKind.PLAN, actor=user, step="plan")
+        await approve(db_session, job=job, gate=GateKind.PLAN, actor=user, step="critique_plan")
         await run_clearing_the_assumptions_gate(actor=user, **args)
-        await approve(db_session, job=job, gate=GateKind.FINAL, actor=user, step="red_team")
+        await approve(db_session, job=job, gate=GateKind.FINAL, actor=user, step="revise")
         outcome = await run_to_next_stop(**args)
 
         return {

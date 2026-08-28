@@ -37,11 +37,21 @@ from tests.injection_fixtures import FILINGS, INNOCENT_BUT_FLAGGED, PAYLOADS
 
 SRC_ROOT = Path(__file__).resolve().parent.parent / "src"
 
-# Names a tool would plausibly have if one could reach the network. None of these exist, and
-# the test below is what stops one appearing quietly.
+# Names a tool would plausibly have if one could reach the network. The test below is what
+# stops one appearing quietly: every appearance is a deliberate admission with an ADR, and
+# the admissions are listed beside it.
 _NETWORK_SHAPED = frozenset(
     {"fetch", "fetch_url", "http_get", "browse", "search", "web_search", "download", "request"}
 )
+
+# The network-shaped grants that were decided rather than drifted, per role. `web_search`
+# (ADR 0092) is the analysis role's: the query is the one thing that leaves, it is bounded
+# in code (500 characters, three searches per worker node), and it travels to the model
+# vendor's own search — a party that already receives the entire prompt, injected content
+# included, on every call. What the test still guarantees: no tool reaches an
+# attacker-chosen endpoint (results are a listing, never fetched), and no other role gets
+# any of these names without a diff here.
+_ADMITTED_NETWORK: dict[str, frozenset[str]] = {"analysis": frozenset({"web_search"})}
 
 
 # The registered contract for the probe role. The base verifies at construction that the
@@ -103,19 +113,24 @@ class TestContainmentDoesNotDependOnDetection:
 
         return [agent for agent in _subclasses(Agent) if not agent.__module__.startswith("tests.")]
 
-    def test_no_role_has_a_network_tool(self) -> None:
+    def test_no_role_has_an_unadmitted_network_tool(self) -> None:
         """Threat T3's real control. An injected "send the database to evil.invalid" has
-        nothing to call, so exfiltration is not mitigated — it is unavailable.
+        nothing to call: no tool reaches an attacker-chosen endpoint, so exfiltration to
+        one is not mitigated — it is unavailable.
 
         Asserted over the registry rather than over agent classes, because the registry is
         where tools now come from — a role with a network tool would be the breach whether
-        or not an agent class for it exists yet.
+        or not an agent class for it exists yet. The one admission is `web_search`
+        (ADR 0092), listed with its reasoning at `_ADMITTED_NETWORK`: what leaves is a
+        bounded query to the model vendor — who already holds the whole prompt — and what
+        returns is a listing nobody fetches.
         """
         for role in registered_roles():
             granted = resolve_role(role).allowed_tools & _NETWORK_SHAPED
-            assert not granted, (
-                f"the {role} role grants {sorted(granted)}; exfiltration stops being "
-                "structurally impossible the moment a network-shaped tool exists"
+            assert granted == _ADMITTED_NETWORK.get(role, frozenset()), (
+                f"the {role} role grants {sorted(granted)}; a network-shaped tool is a "
+                "decided admission with an ADR and a row in _ADMITTED_NETWORK, never a "
+                "default that drifted"
             )
 
     def test_every_agent_role_resolves_in_the_registry(self) -> None:
@@ -138,7 +153,9 @@ class TestContainmentDoesNotDependOnDetection:
         """
         searches = frozenset({"search_facts", "search_sources", "fetch_known_url"})
         granted = {
-            "analysis": searches | {"search_filings_full_text"},
+            # Plus the live-web listing (ADR 0092): a bounded query out, titles and URLs
+            # back, wrapped untrusted at T6 and never citable.
+            "analysis": searches | {"search_filings_full_text", "web_search"},
             "custom_section": searches,
         }
         for role in registered_roles():

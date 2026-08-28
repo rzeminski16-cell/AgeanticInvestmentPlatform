@@ -162,14 +162,14 @@ async def run_to_report(
         )
 
     await advance()
-    await approve(GateKind.PLAN, "plan")
+    await approve(GateKind.PLAN, "critique_plan")
     await advance()
 
     while (clearing := gate_for(await paused_at(session, job.id))) is not None:
         await approve(*clearing)
         await advance()
 
-    await approve(GateKind.FINAL, "red_team")
+    await approve(GateKind.FINAL, "revise")
     await advance()
 
     report = await session.scalar(select(Report).where(Report.job_id == job.id))

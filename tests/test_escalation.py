@@ -869,7 +869,7 @@ async def driven(
         "sec_client": sec_client,
     }
     await run_to_next_stop(**args)
-    await approve(db_session, job=job, gate=GateKind.PLAN, actor=user, step="plan")
+    await approve(db_session, job=job, gate=GateKind.PLAN, actor=user, step="critique_plan")
     outcome = await run_clearing_the_assumptions_gate(actor=user, **args)
     return {
         "session": db_session,
@@ -920,9 +920,7 @@ class TestTheGatePausesNamingTheTriggers:
         ]
 
         step = await driven["session"].scalar(
-            select(JobStep).where(
-                JobStep.job_id == driven["job"].id, JobStep.step_key == "red_team"
-            )
+            select(JobStep).where(JobStep.job_id == driven["job"].id, JobStep.step_key == "revise")
         )
         assert step is not None
         sealed = str((step.output_ref or {})["payload_hash"])
@@ -937,7 +935,7 @@ class TestTheGatePausesNamingTheTriggers:
             job=driven["job"],
             gate=GateKind.FINAL,
             actor=driven["user"],
-            step="red_team",
+            step="revise",
         )
         outcome = await run_to_next_stop(**driven["args"])
         assert outcome.status is JobStatus.SUCCEEDED

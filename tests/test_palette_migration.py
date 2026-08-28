@@ -344,9 +344,7 @@ _FLIPPING_FILLS: Final[tuple[str, ...]] = (
     "nav-surface",
 )
 
-_LITERAL_INK = re.compile(
-    r"bg-(" + "|".join(_FLIPPING_FILLS) + r")\b[^\"]*?\btext-(white|black)\b"
-)
+_LITERAL_INK = re.compile(r"bg-(" + "|".join(_FLIPPING_FILLS) + r")\b[^\"]*?\btext-(white|black)\b")
 
 
 class TestNoLiteralInkSitsOnAFillThatFlips:

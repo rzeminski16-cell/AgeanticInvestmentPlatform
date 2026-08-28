@@ -127,7 +127,7 @@ class Worker:
                 if outcome.status is not JobStatus.AWAITING_APPROVAL:
                     return outcome.status  # type: ignore[no-any-return]
                 sealed = await session.scalar(
-                    select(JobStep).where(JobStep.job_id == job_id, JobStep.step_key == "red_team")
+                    select(JobStep).where(JobStep.job_id == job_id, JobStep.step_key == "revise")
                 )
                 if sealed is not None:
                     return outcome.status  # type: ignore[no-any-return]

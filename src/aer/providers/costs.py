@@ -31,11 +31,13 @@ __all__ = [
     "CONTEXT_WINDOW_TOKENS",
     "DEFAULT_CONTEXT_WINDOW_TOKENS",
     "DEFAULT_PRICES",
+    "WEB_SEARCH_USD_PER_CALL",
     "CostCategory",
     "CostLine",
     "ModelPrices",
     "context_window_for",
     "price_usage",
+    "price_web_search",
     "unknown_model_prices",
 ]
 
@@ -82,6 +84,15 @@ DEFAULT_PRICES: Final[dict[str, ModelPrices]] = {
     "claude-sonnet-5": ModelPrices.from_input_rate("3.00", "15.00"),
     "claude-haiku-4-5": ModelPrices.from_input_rate("1.00", "5.00"),
 }
+
+
+# The vendor's per-search fee, beside the token rates it is charged on top of. Verified
+# against the official pricing page on 2026-08-28 — "$10 per 1,000 searches, plus standard
+# token costs"; each search is one use whatever it returns, and an errored search is not
+# billed (ADR 0092, which closes the roadmap's commercial check 1). The price entering the
+# meter is what admits the tool to the budget guard at all: a fee the caps cannot see is
+# invariant 6's failure mode.
+WEB_SEARCH_USD_PER_CALL: Final = Decimal("0.01")
 
 
 class CostCategory(StrEnum):
@@ -177,6 +188,36 @@ def price_usage(
             )
         )
     return lines
+
+
+def price_web_search(
+    searches: int,
+    *,
+    provider: str,
+    model: str,
+    usd_to_gbp: Decimal,
+) -> CostLine | None:
+    """The per-search fee as one priced line, or ``None`` when nothing was searched.
+
+    Priced separately from the carrying call's tokens — those go through
+    :func:`price_usage` like any other call — because the fee is a different unit with a
+    different published rate, and a meter that folded them together could never be
+    reconciled against the vendor's own bill.
+    """
+    if searches <= 0:
+        return None
+    units = Decimal(searches)
+    amount_usd = units * WEB_SEARCH_USD_PER_CALL
+    return CostLine(
+        category=CostCategory.WEB_SEARCH,
+        provider=provider,
+        model=model,
+        units=units,
+        unit_type="searches",
+        amount_usd=amount_usd,
+        amount_gbp=amount_usd * usd_to_gbp,
+        fx_rate=usd_to_gbp,
+    )
 
 
 def total_gbp(lines: list[CostLine]) -> Decimal:

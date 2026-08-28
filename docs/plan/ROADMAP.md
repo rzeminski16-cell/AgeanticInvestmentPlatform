@@ -109,17 +109,19 @@ starved pack (§2.1) or a floor nobody calibrated. Read it back from the same li
 changing anything: a confidence score that is always low is as useless as one that is always
 high.
 
-**2.3 A run that fails late cannot be resumed, only repeated. Open.** The engine skips
-completed steps, and does it well — that is how a run survives the worker dying. But it only
-applies to the *same* job, and the only operator-facing path is superseding, which creates a
-new job precisely because the old one is a finished audit record. So a failure at the
-red-team step, one step from the end, costs the entire run again: on the 2026-08-24 MSFT run
-that was £8 of research and drafting to recover a £1 step.
+**2.3 A run that fails late cannot be resumed, only repeated. Resolved, 2026-08-28, ADR
+0090.** The engine skips completed steps, and does it well — that is how a run survives the
+worker dying. But it only applied to the *same* job, and the only operator-facing path was
+superseding, which creates a new job precisely because the old one is a finished audit
+record. So a failure at the red-team step, one step from the end, cost the entire run again:
+on the 2026-08-24 MSFT run that was £8 of research and drafting to recover a £1 step.
 
-The machinery to do better already exists; what is missing is a supported way to re-enqueue
-the *same* job after a terminal failure, and a decision about what that means for the audit
-record — a job row that says it failed, then later says it succeeded, is not obviously
-honest. That decision is the work here, not the plumbing.
+The decision was the work, and ADR 0090 records it: `jobs.status` is where the run is *now*,
+never a summary of everything it has been — the history was always in the step rows and the
+hash-linked audit chain, and resuming appends a `run.resumed` event (who, when, from what
+state) rather than rewriting anything. `aer resume` re-enqueues the same job;
+`aer.services.resume` refuses the states that do not admit continuing, each with its reason.
+The deliberate pause this settled alongside is §3.15's.
 
 **2.4 The report document — layout.** The rendered PDF has two defects a reader meets
 immediately. The disagreement appendix puts a two-hundred-word challenge in a narrow table
@@ -367,7 +369,18 @@ entry. The seven planned tools get their placeholder page and nothing more until
 designing a screen for a tool whose tables do not exist is how a specification becomes
 fiction.
 
-**3.13 A critique-and-revise loop for drafting, with a memory of what needed revising.**
+**3.13 A critique-and-revise loop for drafting, with a memory of what needed revising.
+Done, 2026-08-28 — ADR 0091.** The `revise` step redrafts the sections the red team's
+material challenges attack — attribution by claim id, validated in code; one pass, at most
+four sections, custom sections stood aside from — and seals the gate-2 hash with the
+revision record inside it. The `critique_plan` step puts a separate-context critic
+(`plan_critic`, the role this ADR admits) between `plan` and gate 1, with one planner
+revision when a challenge clears severity 3 and the critique inside the gate-1 hash. The
+memory landed on the safe default the paragraphs below asked for: `revision_notes` records
+every decision, `aer lessons` counts recurrence across runs, and a lesson reaches a future
+run only as an operator-authored methodology skill — invariant 7 untouched. The original
+case for the item follows.
+
 Today `red_team` (ADR 0039) already attacks the draft from a separate context, and it has
 twice caught a section publishing a number that contradicts its own citation (4.14, ADR
 0086) — not a hypothetical failure mode, the platform's own log. What it does not do is loop
@@ -403,7 +416,16 @@ a future run inherits it, possibly through §3.11's methodology library rather t
 mechanism. Either way this needs an ADR before any of it is built: a new step is a new agent
 behaviour (ADR 0035), and this one touches invariant 7 by nature, whichever way it lands.
 
-**3.14 A web-search tool for the qualitative sections.** Nothing has a `web_search`
+**3.14 A web-search tool for the qualitative sections. Done, 2026-08-28 — ADR 0092.**
+The `analysis` role's allowlist now grants `web_search`: the worker asks, code executes
+one bounded server-side search through the provider, and what returns is a listing —
+titles, URLs, age notes — wrapped untrusted at T6, never a page and never citable.
+Reading stays behind `fetch_known_url`'s host-admission rule, so no trust boundary moved;
+the pricing check below was verified against the official page and the fee is metered per
+search (commercial check 1, closed). Point-in-time runs with a past as-of date are
+refused the tool in code. The original case for the item follows.
+
+Nothing has a `web_search`
 capability today. `fetch_known_url` reaches only a host this run has already acquired a
 document from through the named adapters, and refuses anything else by design — an
 unlisted host gets back "this run holds no document from that host, and a host is never
@@ -438,7 +460,15 @@ ToS/robots determination recorded in an ADR before the first request, per the ex
 recipe — never a batch of sources assumed trustworthy for being well known. Needs an ADR
 either way: a new tool capability is new agent behaviour (ADR 0035).
 
-**3.15 A step-by-step developer mode for debugging a run.** Pause after every step, print a
+**3.15 A step-by-step developer mode for debugging a run. Done, 2026-08-28, as §2.3's
+resolution — ADR 0090.** `jobs.step_mode` pauses the run (`PAUSED`, the status that was in
+the vocabulary from Phase 1 and set by nothing until now) after every step that actually
+executes, wherever it executes; `aer step` runs the next step in the terminal and prints its
+diagnostic, `aer diagnose` prints the readout without executing, and `aer resume` hands the
+job back to the worker. The diagnostic is assembled from what each step already records —
+no model call. The original case for the item follows.
+
+Pause after every step, print a
 diagnostic, let the operator confirm or correct before the next one spends anything — the
 point being to catch a defect at the step that caused it, not three steps and several pounds
 later. The primitive already exists for the accidental case: the engine already records
@@ -492,7 +522,10 @@ Carried forward from the original plan. Each is a verification against a primary
 not a design task, and each should be done **before** money or a dependency is committed.
 
 1. Verify Anthropic **web-search tool pricing** against the official pricing page — the
-   figure in the cost model came from secondary aggregators.
+   figure in the cost model came from secondary aggregators. **Done, 2026-08-28**: the
+   official pricing page states $10 per 1,000 searches plus standard token costs, one use
+   per search whatever it returns, and no charge for an errored search. Recorded as
+   `aer.providers.costs.WEB_SEARCH_USD_PER_CALL` and in ADR 0092.
 2. Verify the **Companies House rate limit** (600 requests / 5 minutes) against the official
    developer documentation.
 3. Verify **EODHD's licence terms** for internal commercial use versus redistribution, in

@@ -353,6 +353,17 @@ def red_team_report() -> Any:
     return RedTeamReport(challenges=[], coverage_note="Scripted adversary; no challenges raised.")
 
 
+def plan_critique() -> Any:
+    """A scripted plan critic that raises nothing (ADR 0091).
+
+    The same honesty as the red team's script: "the plan survives" is a real answer, and
+    the challenge-and-revise path has its own tests where the challenge is the point.
+    """
+    from aer.agents.plan_critic import PlanCritique  # noqa: PLC0415 -- keeps import light
+
+    return PlanCritique(challenges=[], coverage_note="Scripted critic; no challenges raised.")
+
+
 def validator_advisory() -> Any:
     """Advice that decides nothing.
 
@@ -415,6 +426,7 @@ def theme_slate() -> Any:
 _STATIC_ANSWERS: dict[str, Any] = {
     "AssumptionProposalDraft": assumption_proposal_draft,
     "PeerSlate": peer_slate,
+    "PlanCritique": plan_critique,
     "RedTeamReport": red_team_report,
     "ThemeSlate": theme_slate,
     "ValidatorAdvisory": validator_advisory,

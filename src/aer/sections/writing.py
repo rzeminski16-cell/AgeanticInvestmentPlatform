@@ -11,6 +11,7 @@ as the only steer beyond the contract.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Any, Final
 
@@ -273,12 +274,19 @@ async def execute_builtin_section(
     section: ReportSection,
     request: ResearchRequest,
     focus: str = "",
+    challenges: Sequence[str] = (),
 ) -> SectionExecution:
     """Write one built-in section to a recorded outcome. Never raises for a bad draft.
 
     Mirrors :func:`aer.skills.execution.execute_custom_section` deliberately: the section
     row is mutated in place, claims and citations are recorded through the same services,
     and every failure mode is a visible state on the row rather than an absent section.
+
+    ``challenges`` is the revise pass's input (ADR 0091): material red-team challenges
+    against this section's previous draft, composed into the instruction block as
+    direction to address. Everything else — the contract, the evidence policy, the claim
+    rules, validation — is exactly the first draft's, which is what stops a revision
+    being a second way to publish an unsupported sentence.
     """
     definition = section.definition
     # The model is bound by the contract minus any platform-filled fields (ADR 0063):
@@ -337,6 +345,7 @@ async def execute_builtin_section(
             internal_evidence=evidence.internal,
             untrusted_evidence=evidence.untrusted,
             focus=focus,
+            challenges=list(challenges),
             problems=problems,
             evidence_truncated=evidence.truncated,
             # The budget with its consequence, from the numbers the validator reads

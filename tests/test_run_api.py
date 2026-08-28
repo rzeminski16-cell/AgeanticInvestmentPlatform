@@ -253,10 +253,12 @@ class TestReadingARun:
 
         assert keys == list(run_service.declared_steps(WORKFLOW_VERSION))
         assert state["steps_total"] == len(keys)
-        assert state["steps_done"] == 1
+        # Two, since ADR 0091: the plan and its critique both complete before gate 1.
+        assert state["steps_done"] == 2
         # The declared order, not the order things happened to start in: the point is to
-        # show what is left.
-        unreached = {step["status"] for step in state["steps"][2:]}
+        # show what is left. Three entries precede it: the plan, its critique, and the
+        # gate the run is waiting at.
+        unreached = {step["status"] for step in state["steps"][3:]}
         assert unreached == {JobStatus.QUEUED.value}
 
     async def test_a_running_step_says_when_it_started(
@@ -365,7 +367,7 @@ class TestTheGateApi:
         await driver.advance(job_id)
 
         plan = (await api.get(f"/api/plans/for-run/{job_id}")).json()
-        assert plan["payload_hash"] == await driver.payload_hash_of(job_id, "plan")
+        assert plan["payload_hash"] == await driver.payload_hash_of(job_id, "critique_plan")
         assert plan["planned_sources"]
 
     async def test_approving_records_the_decision_and_queues_a_continuation(
@@ -384,7 +386,7 @@ class TestTheGateApi:
             f"/api/runs/{job_id}/gates/{GateKind.PLAN.value}/decide",
             json={
                 "decision": Decision.APPROVED.value,
-                "payload_hash": await driver.payload_hash_of(job_id, "plan"),
+                "payload_hash": await driver.payload_hash_of(job_id, "critique_plan"),
             },
         )
 
@@ -401,7 +403,7 @@ class TestTheGateApi:
         body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
-        digest = await driver.payload_hash_of(job_id, "plan")
+        digest = await driver.payload_hash_of(job_id, "critique_plan")
 
         payload = {"decision": Decision.APPROVED.value, "payload_hash": digest}
         assert (
@@ -449,7 +451,7 @@ class TestTheGateApi:
         draft = (await api.get(f"/api/runs/{job_id}/draft")).json()
         # The authoritative hash lives on the red_team step since task 40 — the last
         # step that can change the gate-2 payload.
-        assert draft["payload_hash"] == await driver.payload_hash_of(job_id, "red_team")
+        assert draft["payload_hash"] == await driver.payload_hash_of(job_id, "revise")
         assert [section["key"] for section in draft["sections"]] == list(SPINE_KEYS)
 
     async def test_the_draft_endpoint_reports_unsettled_disagreements(
@@ -527,7 +529,7 @@ class TestTheReportApi:
     @pytest.fixture
     async def finished(self, api: Any, committed: dict, driver: Driver) -> uuid.UUID:
         job_id = await _to_second_gate(api, committed, driver)
-        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+        await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
         await driver.advance(job_id)
         return job_id
 
@@ -945,7 +947,7 @@ class TestTheEventStream:
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
         job_id = await _to_second_gate(api, committed, driver)
-        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+        await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
         await driver.advance(job_id)
 
         async with api.stream("GET", f"/api/runs/{job_id}/events") as response:
@@ -962,7 +964,7 @@ class TestTheEventStream:
     ) -> None:
         """Buffering defeats it entirely: an hour of progress delivered at the end."""
         job_id = await _to_second_gate(api, committed, driver)
-        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+        await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
         await driver.advance(job_id)
 
         async with api.stream("GET", f"/api/runs/{job_id}/events") as response:
@@ -1064,7 +1066,7 @@ class TestTheWebPages:
     ) -> None:
         """ "Working on..." under a report that is already written is noise, and wrong."""
         job_id = await _to_second_gate(api, committed, driver)
-        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+        await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
         await driver.advance(job_id)
 
         page = await api.get(f"/runs/{job_id}")
@@ -1125,7 +1127,7 @@ class TestTheWebPages:
         self, api: Any, committed: dict, driver: Driver
     ) -> None:
         job_id = await _to_second_gate(api, committed, driver)
-        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+        await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
         await driver.advance(job_id)
 
         page = await api.get(f"/runs/{job_id}")
@@ -1143,7 +1145,7 @@ class TestTheWebPages:
         assert page.status_code == 200
 
         shown = _hidden_value(page.text, "payload_hash")
-        assert shown == await driver.payload_hash_of(job_id, "plan")
+        assert shown == await driver.payload_hash_of(job_id, "critique_plan")
 
     async def test_the_plan_page_lists_the_section_spine(
         self, api: Any, committed: dict, driver: Driver
@@ -1192,7 +1194,7 @@ class TestTheWebPages:
         response = await api.post(
             f"/runs/{job_id}/gates/{GateKind.PLAN.value}",
             data={
-                "payload_hash": await driver.payload_hash_of(job_id, "plan"),
+                "payload_hash": await driver.payload_hash_of(job_id, "critique_plan"),
                 "decision": Decision.APPROVED.value,
             },
         )
@@ -1206,7 +1208,7 @@ class TestTheWebPages:
         body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
-        await driver.approve(job_id, gate=GateKind.PLAN, step="plan")
+        await driver.approve(job_id, gate=GateKind.PLAN, step="critique_plan")
 
         page = await api.get(f"/runs/{job_id}/plan")
         assert 'id="already-decided"' in page.text
@@ -1222,7 +1224,7 @@ class TestTheWebPages:
         assert page.status_code == 200
         assert 'id="draft-markdown"' in page.text
         assert _hidden_value(page.text, "payload_hash") == await driver.payload_hash_of(
-            job_id, "red_team"
+            job_id, "revise"
         )
 
     async def test_the_review_page_renders_the_gate_two_dashboard(
@@ -1409,7 +1411,7 @@ class TestTheWebPages:
         self, api: Any, committed: dict, driver: Driver, db_session: Any
     ) -> None:
         job_id = await _to_second_gate(api, committed, driver)
-        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+        await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
         await driver.advance(job_id)
 
         report = await db_session.scalar(select(Report).where(Report.job_id == job_id))
@@ -1487,7 +1489,7 @@ class TestTheWebPages:
             )
             await session.commit()
 
-        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+        await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
         await driver.advance(job_id)
 
         report = await db_session.scalar(select(Report).where(Report.job_id == job_id))
@@ -1509,7 +1511,7 @@ class TestTheWebPages:
         archived bytes, provably — the digest header, the artefact row and the body's own
         hash are one value. The PDF carries a bookmark for every section row."""
         job_id = await _to_second_gate(api, committed, driver)
-        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+        await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
         await driver.advance(job_id)
 
         report = await db_session.scalar(select(Report).where(Report.job_id == job_id))
@@ -1610,7 +1612,7 @@ class TestTheWebPages:
         self, api: Any, committed: dict, driver: Driver, db_engine: Any
     ) -> None:
         job_id = await _to_second_gate(api, committed, driver)
-        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+        await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
         await driver.advance(job_id)
 
         # Backdate the row before viewing: a report produced moments ago carries a
@@ -1664,7 +1666,7 @@ class TestTheObsidianSurface:
         self, api: Any, committed: dict, driver: Driver, db_session: Any
     ) -> None:
         job_id = await _to_second_gate(api, committed, driver)
-        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+        await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
         await driver.advance(job_id)
         report = await db_session.scalar(select(Report).where(Report.job_id == job_id))
         assert report is not None
@@ -1896,7 +1898,7 @@ class TestStartingAgainAfterACancelledRun:
         # One report per request still holds. Starting again on a run that produced one
         # would need a story about which report is current, and there is not one yet.
         job_id = await _to_second_gate(api, committed, driver)
-        await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+        await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
         assert await driver.advance(job_id) is JobStatus.SUCCEEDED
 
         assert (await start_run(api, committed["request"].id))["job_id"] == str(job_id)

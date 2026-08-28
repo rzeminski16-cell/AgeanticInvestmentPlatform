@@ -66,6 +66,13 @@ class Job(Base):
         server_default=JobStatus.QUEUED.value,
     )
 
+    # Developer step-through (ADR 0090). On the row rather than in the invocation, so the
+    # pause after each executed step holds wherever the run executes — the CLI stepping it
+    # and the worker continuing it after a gate approval read the same flag.
+    step_mode: Mapped[bool] = mapped_column(
+        nullable=False, default=False, server_default=text("false")
+    )
+
     started_at: Mapped[TimestampOptional]
     finished_at: Mapped[TimestampOptional]
 

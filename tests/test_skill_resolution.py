@@ -517,8 +517,12 @@ class TestThePlanStepCarriesTheSkills:
 
         # The recorded hash is the hash of the payload with the pins inside it — the
         # same one the review page and the API compute.
+        # The critique step's record, not the plan step's (ADR 0091): the critique block
+        # joins the plan body after the plan step sealed its own interim hash, and the
+        # gate — like the review page and the API — verifies against the last step that
+        # can change what it displays.
         row = await db_session.scalar(
-            select(JobStep).where(JobStep.job_id == job.id, JobStep.step_key == "plan")
+            select(JobStep).where(JobStep.job_id == job.id, JobStep.step_key == "critique_plan")
         )
         assert row is not None
         recorded = (row.output_ref or {})["payload_hash"]

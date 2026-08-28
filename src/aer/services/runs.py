@@ -64,7 +64,13 @@ class RunOutcome:
     @property
     def is_waiting(self) -> bool:
         """Whether the run stopped for a human rather than finishing or failing."""
-        return self.status in {JobStatus.AWAITING_APPROVAL, JobStatus.BUDGET_EXCEEDED}
+        return self.status in {
+            JobStatus.AWAITING_APPROVAL,
+            JobStatus.BUDGET_EXCEEDED,
+            # Step mode's deliberate stop (ADR 0090): waiting for whoever is at the
+            # terminal to confirm the step just executed, not broken.
+            JobStatus.PAUSED,
+        }
 
 
 async def start_run(session: AsyncSession, *, request: ResearchRequest) -> Job:
@@ -140,8 +146,10 @@ async def current_run(session: AsyncSession, *, user_id: uuid.UUID) -> Job | Non
     Nulls last, for the reason `latest_run` gives: a queued-but-unstarted job has no
     `started_at` and must not shadow one that is actually running.
     """
-    live = select(Job).join(WorkOrder, WorkOrder.id == Job.work_order_id).where(
-        WorkOrder.user_id == user_id
+    live = (
+        select(Job)
+        .join(WorkOrder, WorkOrder.id == Job.work_order_id)
+        .where(WorkOrder.user_id == user_id)
     )
     found: Job | None = await session.scalar(
         live.where(Job.status.not_in(TERMINAL_JOB_STATUSES)).order_by(

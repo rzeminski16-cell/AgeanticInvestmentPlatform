@@ -110,7 +110,7 @@ async def _completed_run(
 ) -> uuid.UUID:
     driver = Driver(db_engine, settings)
     job_id = await to_final_gate(api, request_id, driver)
-    await driver.approve(job_id, gate=GateKind.FINAL, step="red_team")
+    await driver.approve(job_id, gate=GateKind.FINAL, step="revise")
     await driver.advance(job_id)
     return job_id
 

@@ -31,13 +31,14 @@ from decimal import Decimal
 from typing import Any, Final
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
 from aer.agents.base import AgentContext
 from aer.agents.peers import PROPOSED_BY as PEERS_PROPOSED_BY
 from aer.agents.peers import PeerProposalAgent, PeerProposalInput
+from aer.agents.plan_critic import PlanCriticAgent, PlanCriticInput, PlanCritique
 from aer.agents.planner import PlannerAgent, PlannerInput, PriorResearch, salvaged_plan
 from aer.agents.themes import PROPOSED_BY as THEMES_PROPOSED_BY
 from aer.agents.themes import ThemeProposalAgent, ThemeProposalInput, ThemeSlate
@@ -73,11 +74,15 @@ from aer.db.models import (
     ReportSection,
     ResearchPlan,
     ResearchRequest,
+    RevisionNote,
     SectionStatus,
     SourceDocument,
 )
 from aer.db.models.plan_skill_pin import PLANNED as PIN_PLANNED
 from aer.db.models.plan_skill_pin import SKIPPED_NOT_APPLICABLE, PlanSkillPin
+from aer.db.models.revision_note import DISPOSITION_REVISED as REVISION_DISPOSITION_REVISED
+from aer.db.models.revision_note import DISPOSITION_STOOD as REVISION_DISPOSITION_STOOD
+from aer.db.models.revision_note import SCOPE_PLAN as REVISION_SCOPE_PLAN
 from aer.db.models.section_definition import BUILTIN, SKILL
 from aer.errors import AerError, BudgetExceededError, ValidationError
 from aer.extract import extract_bytes
@@ -123,6 +128,7 @@ from aer.services.price_acquisition import acquire_prices
 from aer.services.red_team import run_red_team
 from aer.services.research import build_executors, run_worker
 from aer.services.residual_income_run import value_the_bank
+from aer.services.revision import revise_challenged_sections, revisions_for_job
 from aer.services.sectors import (
     CLASSIFY_STEP,
     classification_payload,
@@ -193,8 +199,11 @@ WORKFLOW_VERSION: Final = "vertical_slice_v1"
 PLANNER_ESTIMATE_GBP: Final = Decimal("0.20")
 
 # Per research worker (task 37): a bounded request/execute loop on the analysis route.
-# Measured £0.083-£0.241 across the five workers; the estimate covers the dearest.
-WORKER_ESTIMATE_GBP: Final = Decimal("0.25")
+# Measured £0.083-£0.241 across the five workers; the estimate covers the dearest, plus
+# the worker's bounded web searches (ADR 0092) — at most three per node at the verified
+# $0.01 fee, carried by small routed calls whose results also enter later rounds as
+# input.
+WORKER_ESTIMATE_GBP: Final = Decimal("0.30")
 
 # The validate step (task 39): at most a handful of capped advisory calls on the
 # validator route, and frequently none at all — the run measured £0.00, and the
@@ -221,6 +230,22 @@ PEER_PROPOSAL_ESTIMATE_GBP: Final = Decimal("0.02")
 # The theme proposer is the same shape of call as the peer proposer — one short slate
 # from identity and classification — so it carries the same estimate.
 THEME_PROPOSAL_ESTIMATE_GBP: Final = Decimal("0.02")
+
+# The plan critic plus at most one planner revision (ADR 0091): the critic's input is the
+# request and the plan alone — smaller than the planner's own — and the revision is the
+# planner's measured call again. Priced as the pair, because the step spends both when a
+# challenge clears the revision threshold.
+CRITIQUE_PLAN_ESTIMATE_GBP: Final = Decimal("0.30")
+
+# The revise pass (ADR 0091): at most MAX_REVISED_SECTIONS section redrafts, priced from
+# the draft step's measurement — £4.84 across sixteen sections is roughly £0.30 each, and
+# the margin covers the challenged sections skewing dear (they are the ones with claims).
+REVISE_ESTIMATE_GBP: Final = Decimal("1.50")
+
+# The severity at which a plan challenge sends the plan back for a revision. Deliberately
+# below the draft's material line (severity 4): a plan revision costs one planner call
+# while a wrong plan costs the run, and gate 1 sees the critique either way.
+PLAN_REVISION_SEVERITY: Final = 3
 
 # The draft: one Opus call per model-written section, and by a wide margin the most
 # expensive step in the workflow — a measured £5.17 on the first full live run.
@@ -278,6 +303,15 @@ def build_steps() -> list[WorkflowStep]:
     """The workflow, in order."""
     return [
         WorkflowStep(key="plan", run=_plan, estimated_cost_gbp=PLANNER_ESTIMATE_GBP),
+        # The plan's adversary, before the person (ADR 0091): scored challenges from a
+        # separate context, one planner revision where a challenge clears the threshold,
+        # and the critique inside the gate-1 hash so approving the plan approves it with
+        # the critique in view.
+        WorkflowStep(
+            key="critique_plan",
+            run=_critique_plan,
+            estimated_cost_gbp=CRITIQUE_PLAN_ESTIMATE_GBP,
+        ),
         WorkflowStep(key="gate_plan", run=_gate_plan, gate=GateKind.PLAN.value),
         WorkflowStep(key="acquire", run=_acquire),
         # Classification before extraction, because what kind of business this is decides
@@ -441,6 +475,11 @@ def build_steps() -> list[WorkflowStep]:
         # as escalations, so the hash gate 2 verifies is computed here — by the final
         # step that can change what the operator will be shown.
         WorkflowStep(key="red_team", run=_red_team, estimated_cost_gbp=RED_TEAM_ESTIMATE_GBP),
+        # The writer's second attempt (ADR 0091): the sections the material challenges
+        # attack are redrafted once, with the challenge in front of the writer, before a
+        # person ever sees the draft. Seals the gate-2 hash, as the new last step that
+        # can change what the operator is shown.
+        WorkflowStep(key="revise", run=_revise, estimated_cost_gbp=REVISE_ESTIMATE_GBP),
         WorkflowStep(key="gate_final", run=_gate_final, gate=GateKind.FINAL.value),
         WorkflowStep(key="render", run=_render),
     ]
@@ -689,6 +728,10 @@ def plan_gate_payload(plan: ResearchPlan, pins: Sequence[PlanSkillPin] = ()) -> 
         "planned_sources": list(plan.planned_sources or []),
         "known_risks": list(plan.known_risks or []),
         "prior_research": body.get("prior_research", ""),
+        # The critic's challenges and whether the plan was revised for them (ADR 0091).
+        # Inside the hash: a plan approved with a severity-4 challenge showing and one
+        # approved clean are different approvals. Empty for a plan the critic never saw.
+        "critique": dict(body.get("critique", {})),
         "estimated_cost_gbp": str(plan.estimated_cost_gbp),
         "estimated_runtime_seconds": plan.estimated_runtime_seconds,
         "skills": [
@@ -711,8 +754,232 @@ def plan_gate_payload(plan: ResearchPlan, pins: Sequence[PlanSkillPin] = ()) -> 
 
 
 async def _gate_plan(context: StepContext) -> StepResult:
-    """Stop until a human approves the plan."""
-    return await _require_approval(context, gate=GateKind.PLAN, of_step="plan")
+    """Stop until a human approves the plan — with the critique in view (ADR 0091).
+
+    The hash comes from the critique step, the last one that can change what the gate
+    displays: it recomputed the payload after any revision and after the critique block
+    joined the plan body.
+    """
+    return await _require_approval(context, gate=GateKind.PLAN, of_step="critique_plan")
+
+
+async def _critique_plan(context: StepContext) -> StepResult:
+    """Attack the plan from a separate context, revise it once if warranted, and re-seal.
+
+    ADR 0091. The critic sees the request and the plan — there are no findings yet to
+    leak — and a challenge at :data:`PLAN_REVISION_SEVERITY` or above sends the plan back
+    to the planner exactly once, with the critique and its own previous proposal in front
+    of it. The critique block then joins the plan body, so it sits inside the gate-1 hash
+    and the reviewer approves the plan *with* its critique, never beside it.
+
+    **The failure discipline is the peer proposer's.** A critic call that dies leaves the
+    plan as proposed, says so, and re-seals the unchanged payload; a budget refusal is
+    control flow the engine turns into a paused run, never absorbed.
+    """
+    request = await _request_for(context)
+    plan = await context.session.get(ResearchPlan, context.job.plan_id)
+    if plan is None:  # pragma: no cover -- written by the prior step
+        message = "The plan step's row is missing."
+        raise StepPaused(message, gate=None)
+
+    body = dict(plan.plan or {})
+    agent_context = AgentContext(
+        session=context.session,
+        provider=context.service("provider"),
+        router=context.service("router"),
+        settings=context.service("settings"),
+        store=context.service("store"),
+        job_step=context.step,
+    )
+
+    critique, consulted = await _critique_from_model(
+        context, agent_context, request=request, body=body
+    )
+    actionable = [
+        challenge
+        for challenge in critique.challenges
+        if challenge.severity >= PLAN_REVISION_SEVERITY
+    ]
+
+    revised = False
+    if consulted and actionable:
+        revised = await _revised_plan(
+            context, agent_context, request=request, plan=plan, body=body, critique=critique
+        )
+        body = dict(plan.plan or {})
+
+    body["critique"] = {
+        "consulted": consulted,
+        "revised": revised,
+        "coverage_note": critique.coverage_note if consulted else "",
+        "challenges": [
+            {
+                "aspect": challenge.aspect.value,
+                "severity": challenge.severity,
+                "statement": challenge.statement,
+                "suggestion": challenge.suggestion,
+            }
+            for challenge in critique.challenges
+        ],
+    }
+    plan.plan = body
+    await context.session.flush()
+
+    # A retried step re-decides from a fresh critique, so its record replaces the earlier
+    # attempt's — this step is the only writer of the plan-scope notes, and duplicates
+    # would double-count the run in `aer lessons`' note tally.
+    await context.session.execute(
+        delete(RevisionNote).where(
+            RevisionNote.job_id == context.job.id,
+            RevisionNote.scope == REVISION_SCOPE_PLAN,
+        )
+    )
+    # One note per challenge (ADR 0091's memory half): what the loop did about each, so
+    # `aer lessons` can count a class across runs whatever the loop decided this time.
+    for challenge in critique.challenges:
+        context.session.add(
+            RevisionNote(
+                job_id=context.job.id,
+                scope=REVISION_SCOPE_PLAN,
+                dimension=challenge.aspect.value,
+                severity=challenge.severity,
+                statement=challenge.statement,
+                disposition=(
+                    REVISION_DISPOSITION_REVISED
+                    if revised and challenge.severity >= PLAN_REVISION_SEVERITY
+                    else REVISION_DISPOSITION_STOOD
+                ),
+            )
+        )
+    await context.session.flush()
+
+    # Refreshed before hashing, for the reason `_plan` refreshes: the hash must cover what
+    # the database holds, and NUMERIC columns round what memory carried.
+    await context.session.refresh(plan)
+    pins = await pinned_skills_for_work_order(context.session, work_order_id=plan.request_id)
+    payload_hash = sha256_hex(canonical_json(plan_gate_payload(plan, pins)))
+
+    return StepResult(
+        output={
+            "payload_hash": payload_hash,
+            "consulted": consulted,
+            "challenges": len(critique.challenges),
+            "actionable": len(actionable),
+            "revised": revised,
+        },
+        cost_gbp=agent_context.spend_gbp,
+    )
+
+
+async def _critique_from_model(
+    context: StepContext,
+    agent_context: AgentContext,
+    *,
+    request: ResearchRequest,
+    body: Mapping[str, Any],
+) -> tuple[PlanCritique, bool]:
+    """Ask the critic, or return an empty critique and say so.
+
+    An outage or an unusable reply must not cost the run its gate — the plan as proposed
+    is still a plan a person can judge — and a budget refusal is never absorbed.
+    """
+    try:
+        critique = await PlanCriticAgent().run(
+            agent_context,
+            PlanCriticInput(
+                company_name=request.company_name,
+                ticker=request.ticker,
+                exchange=request.exchange,
+                as_of_date=request.as_of_date.isoformat(),
+                point_in_time=request.point_in_time,
+                analysis_mode=request.analysis_mode.value,
+                investment_horizon_months=request.investment_horizon_months,
+                focus_questions=list(request.focus_questions or []),
+                summary=str(body.get("summary", "")),
+                sections=list(body.get("sections", [])),
+                planned_sources=list(body.get("planned_sources", [])),
+                known_risks=list(body.get("known_risks", [])),
+            ),
+        )
+    except BudgetExceededError:
+        raise
+    except (AerError, ValueError) as exc:
+        _log.warning(
+            "plan_critic.model_unavailable",
+            job_id=str(context.job.id),
+            error_code=getattr(exc, "code", ""),
+        )
+        return PlanCritique(challenges=[], coverage_note="unavailable"), False
+    return critique, True
+
+
+async def _revised_plan(
+    context: StepContext,
+    agent_context: AgentContext,
+    *,
+    request: ResearchRequest,
+    plan: ResearchPlan,
+    body: dict[str, Any],
+    critique: PlanCritique,
+) -> bool:
+    """One planner revision against the critique. Returns whether the plan changed.
+
+    Only the planner's own fields move — summary, per-section focus, sources, risks,
+    confidence. The code-derived spine (`section_listing`), the prior-research note, the
+    pins and the run's `report_sections` are all exactly as gate 1 resolved them: the
+    critique challenges the proposal, never the platform's own assembly.
+
+    A revision that fails leaves the original plan standing — the critique still reaches
+    the gate, which is most of the value — and a budget refusal is never absorbed.
+    """
+    keys = [str(entry.get("key", "")) for entry in body.get("section_listing", [])]
+    try:
+        draft = await PlannerAgent().run(
+            agent_context,
+            PlannerInput(
+                request=ResearchRequestRead.model_validate(request, from_attributes=True),
+                available_section_keys=[key for key in keys if key],
+                prior_research=await _prior_digests(context.session, request=request),
+                previous_plan={
+                    "summary": body.get("summary", ""),
+                    "sections": body.get("sections", []),
+                    "planned_sources": body.get("planned_sources", []),
+                    "known_risks": body.get("known_risks", []),
+                },
+                critique=[
+                    f"[{challenge.aspect.value}, severity {challenge.severity}/5] "
+                    f"{challenge.statement} Suggestion: {challenge.suggestion}"
+                    for challenge in critique.challenges
+                    if challenge.severity >= PLAN_REVISION_SEVERITY
+                ],
+            ),
+        )
+    except BudgetExceededError:
+        raise
+    except SpentButUnusableError as unusable:
+        rescued = salvaged_plan(unusable)
+        if rescued is None:
+            _log.warning("plan_critic.revision_unusable", job_id=str(context.job.id))
+            return False
+        draft, trimmed = rescued
+        _log.warning("plan_critic.revision_trimmed", job_id=str(context.job.id), trimmed=trimmed)
+    except (AerError, ValueError) as exc:
+        _log.warning(
+            "plan_critic.revision_failed",
+            job_id=str(context.job.id),
+            error_code=getattr(exc, "code", ""),
+        )
+        return False
+
+    payload = draft.model_dump(mode="json")
+    revised_body = dict(plan.plan or {})
+    for key in ("summary", "sections", "planned_sources", "known_risks", "confidence"):
+        revised_body[key] = payload[key]
+    plan.plan = revised_body
+    plan.planned_sources = payload["planned_sources"]
+    plan.known_risks = payload["known_risks"]
+    await context.session.flush()
+    return True
 
 
 # What an unmapped line is measured against, in order of preference. Revenue first because
@@ -1312,14 +1579,54 @@ async def _red_team(context: StepContext) -> StepResult:
     )
     outcome = await run_red_team(agent_context, context.session, job=context.job, request=request)
 
-    # Refilled *after* the challenges land and *before* the payload is hashed (gap A41).
-    # The validate step wrote this section a step earlier, when the disagreements table
-    # was still empty — so a live report said "no disagreements recorded" above eight
-    # recorded challenges, two of them material. The builders overwrite, so the refill
-    # is the same fill with the red team's rows now in its denominator.
+    # Refilled *after* the challenges land (gap A41). The validate step wrote this section
+    # a step earlier, when the disagreements table was still empty — so a live report said
+    # "no disagreements recorded" above eight recorded challenges, two of them material.
+    # The builders overwrite, so the refill is the same fill with the red team's rows now
+    # in its denominator. The gate-2 hash is sealed by the revise step (ADR 0091), which
+    # is now the last step that can change what the operator is shown.
     await fill_deterministic_sections(
         context.session, job=context.job, request=request, stage=SectionStage.VALIDATE
     )
+
+    return StepResult(output=outcome.as_dict(), cost_gbp=agent_context.spend_gbp)
+
+
+async def _revise(context: StepContext) -> StepResult:
+    """Give the writer its second attempt, then seal what gate 2 approves.
+
+    ADR 0091. The sections the material challenges attack are redrafted once with the
+    challenge in front of the writer — same contract, same evidence policy, same
+    validation as the first draft — before a person ever sees the draft. The challenge's
+    own disagreement row is never auto-resolved: the revision happens beside it, both
+    reach the gate, and the payload's ``revisions`` block puts what happened inside the
+    hash the approval records.
+    """
+    request = await _request_for(context)
+    agent_context = AgentContext(
+        session=context.session,
+        provider=context.service("provider"),
+        router=context.service("router"),
+        settings=context.service("settings"),
+        store=context.service("store"),
+        job_step=context.step,
+    )
+
+    outcome = await revise_challenged_sections(
+        agent_context,
+        context.session,
+        job=context.job,
+        request=request,
+        focus_by_key=await _focus_by_key(context),
+    )
+
+    if outcome.revised:
+        # The deterministic sections describe the run's own record, and the record just
+        # changed under them — the same reason the red team refills after its challenges
+        # land.
+        await fill_deterministic_sections(
+            context.session, job=context.job, request=request, stage=SectionStage.VALIDATE
+        )
 
     payload = await final_gate_payload(context.session, job_id=context.job.id)
     return StepResult(
@@ -1333,6 +1640,24 @@ async def _red_team(context: StepContext) -> StepResult:
     )
 
 
+async def _focus_by_key(context: StepContext) -> dict[str, str]:
+    """The planner's approved one-line brief per section, or nothing for none.
+
+    Shared by the draft and the revise pass, so a revision writes to the same approved
+    direction the first draft did.
+    """
+    if context.job.plan_id is None:
+        return {}
+    plan = await context.session.get(ResearchPlan, context.job.plan_id)
+    if plan is None:
+        return {}
+    return {
+        str(entry.get("key", "")): str(entry.get("focus", ""))
+        for entry in (plan.plan or {}).get("sections", [])
+        if isinstance(entry, dict)
+    }
+
+
 async def _gate_final(context: StepContext) -> StepResult:
     """Check the evidence, then stop until a human approves the draft.
 
@@ -1344,7 +1669,7 @@ async def _gate_final(context: StepContext) -> StepResult:
     """
     await _refuse_unsupported_evidence(context)
     await _pause_naming_triggers(context)
-    return await _require_approval(context, gate=GateKind.FINAL, of_step="red_team")
+    return await _require_approval(context, gate=GateKind.FINAL, of_step="revise")
 
 
 async def _pause_naming_triggers(context: StepContext) -> None:
@@ -2252,6 +2577,9 @@ def _research(topic: ResearchTopic) -> Any:
                     settings=context.service("settings"),
                     job_id=context.job.id,
                     sec_client=context.services.get("sec_client"),
+                    # Binds `web_search` (ADR 0092): the context carries the provider,
+                    # the route and the step the search's costs are metered against.
+                    agent_context=agent_context,
                 ),
             )
         except (WorkerExhaustedError, ValidationError) as failed:
@@ -2512,15 +2840,7 @@ async def _draft(context: StepContext) -> StepResult:
     # The planner's one-line brief per section, approved at gate 1. Keyed lookup rather
     # than trusting order: the planner proposes focus for the sections it chose to speak
     # about, and a section it named none for is written from its contract alone.
-    focus_by_key: dict[str, str] = {}
-    if context.job.plan_id is not None:
-        plan = await context.session.get(ResearchPlan, context.job.plan_id)
-        if plan is not None:
-            focus_by_key = {
-                str(entry.get("key", "")): str(entry.get("focus", ""))
-                for entry in (plan.plan or {}).get("sections", [])
-                if isinstance(entry, dict)
-            }
+    focus_by_key = await _focus_by_key(context)
 
     pins = await pinned_skills_for_job(context.session, job=context.job)
     pin_by_skill = {pin.skill_id: pin for pin in pins}
@@ -2597,13 +2917,16 @@ async def step_output(session: AsyncSession, *, job_id: uuid.UUID, step_key: str
 # Which step's frozen output each gate approves. Five of the seven gates read nothing else,
 # which is why they can share one entry point at all.
 _GATE_STEPS: Final[Mapping[str, str]] = {
-    GateKind.PLAN.value: "plan",
+    # The critique step, not the plan step (ADR 0091): the last one that can change what
+    # gate 1 displays, since a revision and the critique block both land after `plan`.
+    GateKind.PLAN.value: "critique_plan",
     GateKind.SECTOR_SPECIALIST.value: CLASSIFY_STEP,
     GateKind.PEER_SET.value: PEER_SET_STEP,
     GateKind.THEME_SET.value: THEME_STEP,
     GateKind.UNMAPPED_CONCEPTS.value: "extract",
     GateKind.ASSUMPTIONS.value: ASSUMPTIONS_STEP,
-    GateKind.FINAL.value: "red_team",
+    # The revise step, not the red team (ADR 0091), on the same principle.
+    GateKind.FINAL.value: "revise",
 }
 
 
@@ -2693,6 +3016,10 @@ async def final_gate_payload(session: AsyncSession, *, job_id: uuid.UUID) -> dic
         # Status and the degradation note ride inside the hash: a failed custom section
         # and an insufficiency banner are part of what the operator approves, and a
         # payload without them would let "approved" mean "approved, unaware".
+        # What the revise pass did rides inside it too (ADR 0091): "approved with these
+        # revisions in view" must be verifiable, and the notes are frozen once the revise
+        # step — the only writer of them — has run.
+        "revisions": await revisions_for_job(session, job_id),
         "sections": [
             {
                 "key": s.section_key,

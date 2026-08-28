@@ -303,7 +303,7 @@ class TestDrainNeverAbandon:
         body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
-        await driver.approve(job_id, gate=GateKind.PLAN, step="plan")
+        await driver.approve(job_id, gate=GateKind.PLAN, step="critique_plan")
 
         with pytest.raises(RuntimeError, match="scripted outage"):
             await _drive_through_gates(driver, job_id)

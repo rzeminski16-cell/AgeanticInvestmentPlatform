@@ -47,6 +47,8 @@ __all__ = [
     "SpentButUnusableError",
     "StructuredResult",
     "Usage",
+    "WebSearchHit",
+    "WebSearchOutcome",
 ]
 
 
@@ -120,6 +122,43 @@ class BatchRequest:
 
     system: str
     messages: tuple[Message, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class WebSearchHit:
+    """One result of a web search: the listing's fields, and only those (ADR 0092).
+
+    Deliberately no snippet and no page text. A search result's content is not an
+    artefact this platform holds, and quoted into a prompt it would be externally derived
+    text with no hash behind it. Title and URL are still external text — the executor
+    wraps them as untrusted before a model sees them — but they are the index's own
+    listing fields, which is the most that can be carried honestly.
+    """
+
+    url: str
+    title: str
+
+    # The index's own note of the page's age ("2 days ago", a date), verbatim, or empty.
+    # External text like the title; never parsed into an admissibility decision.
+    page_age: str = ""
+
+    def as_dict(self) -> dict[str, str]:
+        return {"url": self.url, "title": self.title, "page_age": self.page_age}
+
+
+@dataclass(frozen=True, slots=True)
+class WebSearchOutcome:
+    """What one search request came to: the listing, the count billed, and the bill's basis.
+
+    ``searches`` is the number the vendor will bill — the priced unit ADR 0092 verifies at
+    $10 per 1,000 — and ``usage`` is the carrying call's tokens, priced like any other
+    call. Both are metered by the executor, because a search the caps cannot see is
+    invariant 6's failure mode with a new name.
+    """
+
+    hits: tuple[WebSearchHit, ...]
+    searches: int
+    usage: Usage
 
 
 @dataclass(frozen=True, slots=True)
@@ -238,5 +277,20 @@ class LLMProvider(Protocol):
         Used for the cost estimate at the approval gate and for the budget guard. An
         estimate derived from character counts is wrong by enough to make the gate
         misleading, so this must count properly even when that costs a round trip.
+        """
+        ...
+
+    async def search_web(self, query: str, *, model: str, max_results: int = 8) -> WebSearchOutcome:
+        """Run one web search and return the listing (ADR 0092).
+
+        One search per call, executed by the provider's own server-side search on the
+        routed model, returning titles, URLs and age notes — never page text. The caller
+        meters both halves of the outcome: the per-search fee and the carrying call's
+        tokens.
+
+        Raises:
+            ExternalServiceError: The search failed or the provider refused it. Per the
+                vendor's published billing, a failed search is not charged, so a raise
+                here is a raise before any cost row exists.
         """
         ...

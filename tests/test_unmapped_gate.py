@@ -198,7 +198,9 @@ async def run_to_the_financials_gate(api: Any, runner: Runner, request_id: uuid.
     job_id = uuid.UUID(response.json()["job_id"])
 
     await runner.advance(job_id)
-    plan = await runner.output_of(job_id, "plan")
+    # The critique step's hash, not the plan step's (ADR 0091): the gate verifies against
+    # the last step that can change what it displays.
+    plan = await runner.output_of(job_id, "critique_plan")
     assert plan is not None
     await runner.approve(job_id, gate=GateKind.PLAN, payload_hash=str(plan["payload_hash"]))
     await runner.advance(job_id)
@@ -308,7 +310,7 @@ class TestTheGateStaysOutOfTheWayOtherwise:
         """A conditional gate nobody decided must not stop the gate after it."""
         job_id = await run_to_the_financials_gate(api, mapped_runner, committed["request"].id)
 
-        sealed = await mapped_runner.output_of(job_id, "red_team")
+        sealed = await mapped_runner.output_of(job_id, "revise")
         assert sealed is not None
         await mapped_runner.approve(
             job_id, gate=GateKind.FINAL, payload_hash=str(sealed["payload_hash"])

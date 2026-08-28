@@ -93,6 +93,13 @@ class RedTeamChallenge(BaseModel):
     calculation_ids: list[str] = Field(default_factory=list, max_length=6)
     source_document_ids: list[str] = Field(default_factory=list, max_length=6)
 
+    # Which of the draft's recorded claims this challenge attacks (ADR 0091). Attribution,
+    # not evidence: it is how the revise loop finds the section that provoked a material
+    # challenge, so it is validated against the run's own claim rows and a bad id is
+    # dropped without dropping the challenge — unlike the evidence lists above, where a
+    # fabricated id refuses the whole argument.
+    claim_ids: list[str] = Field(default_factory=list, max_length=6)
+
     @property
     def cites_nothing(self) -> bool:
         """Whether this objection rests on no evidence at all.
@@ -160,7 +167,9 @@ it asserts. Attack the load-bearing claims, not the phrasing.
 as useless as none.
 3. Every challenge cites the evidence it rests on, by id, from the index you were shown. \
 Ids you were not shown do not exist. A challenge you cannot evidence is not a challenge; \
-leave it out and mention the gap in your coverage note.
+leave it out and mention the gap in your coverage note. Name the claims you are attacking \
+in `claim_ids`, from the claim list — that is how the section that made them gets a \
+chance to answer you before a person reads it.
 4. You never produce a figure of your own. Where the evidence is thin, say the evidence \
 is thin — that is itself a finding.
 5. If the claims genuinely survive your attack, say so in the coverage note and return \
@@ -178,7 +187,9 @@ class RedTeamAgent(Agent[RedTeamInput, RedTeamReport]):
 
     role: ClassVar[str] = "red_team"
     output_schema: ClassVar[type[BaseModel]] = RedTeamReport
-    prompt_version: ClassVar[str] = "1"
+    # Bumped when challenges gained claim attribution (ADR 0091): rule 3 now asks for the
+    # claims under attack by id, so the revise loop can route them to their sections.
+    prompt_version: ClassVar[str] = "2"
 
     def system_prompt(self, payload: RedTeamInput) -> str:  # noqa: ARG002 -- fixed by design
         return _SYSTEM_PROMPT
