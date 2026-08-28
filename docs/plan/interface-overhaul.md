@@ -403,6 +403,13 @@ badge request that never returns.
 **Exit:** a new operator commissions a run having made four decisions; a returning operator
 triages without scrolling; both validation rounds read as one problem list.
 
+**Code complete 2026-08-28, and the suite is red.** The work landed — the front door leads with
+what is waiting, the requests family is on the component set at zero ramps, the `confirm()`
+dialogue is gone, and the ratchet fell by exactly the 243 predicted. **Thirty-three browser
+tests fail**, because ten rewritten templates moved text those tests assert on. See
+[the handover](interface-overhaul-handover.md), which also records how the verification missed
+it: subsets passed, and the suite that reads words takes twenty minutes and was not waited for.
+
 ### Tranche 6 — Run console and the seven gates
 
 11 templates, **806 ramps — 44% of the debt** — and the largest design change.

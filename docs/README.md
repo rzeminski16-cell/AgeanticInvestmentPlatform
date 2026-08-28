@@ -105,6 +105,9 @@ page specifications, a production handoff and a twelve-screen prototype.
   proposals resolved.
 - [`interface-overhaul-testing.md`](plan/interface-overhaul-testing.md) — what each tranche
   must prove, and the four pieces of test machinery that do not exist yet.
+- [`interface-overhaul-handover.md`](plan/interface-overhaul-handover.md) — **read this before
+  resuming the overhaul.** Where it paused, what is verified, what is red, and what stays open
+  after the last tranche.
 
 ---
 
