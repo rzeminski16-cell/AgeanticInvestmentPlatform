@@ -367,6 +367,113 @@ entry. The seven planned tools get their placeholder page and nothing more until
 designing a screen for a tool whose tables do not exist is how a specification becomes
 fiction.
 
+**3.13 A critique-and-revise loop for drafting, with a memory of what needed revising.**
+Today `red_team` (ADR 0039) already attacks the draft from a separate context, and it has
+twice caught a section publishing a number that contradicts its own citation (4.14, ADR
+0086) — not a hypothetical failure mode, the platform's own log. What it does not do is loop
+back: a challenge reaches the disagreement ladder for a human at `gate_final`, the section
+that provoked it is never redrafted, and nothing about the challenge survives past that one
+run. The machinery to critique already exists; what is missing is a writer that gets a
+second attempt before a human ever sees the draft, and a way for a recurring class of
+challenge to be recognised as recurring.
+
+Scope it to where an open-ended, model-written step is both expensive and wrong often
+enough to matter. `draft` first — already the largest cost line per report, already the
+most reader-facing, already the step §2.1, §2.2 and 4.14 are about. `plan` second — cheap on
+its own, but a wrong plan sends the whole run after the wrong target, so catching it early is
+the highest leverage in the workflow. `propose_assumptions` is a plausible third and a lower
+priority: high-stakes, but already narrow (ADR 0046) and immediately human-gated. It does not
+belong on `acquire`, `classify`, `extract`, `calculate`, `comps`, `value` or `render` — those
+are correct by construction under the one rule (`CLAUDE.md`, ADR 0003), and a model's opinion
+feeding back into one of them is the "calculation drifting into a prompt" failure the
+architecture exists to prevent. It does not belong on the gates either, since the human is
+already the critic there, nor on `validate`, which is advisory-only by design and was never
+meant to have the last word (ADR 0038), nor on `red_team` itself — recursing the loop onto
+the critic is diminishing returns that the disagreement ladder already covers.
+
+**The revise loop is the easy half.** The knowledge base is not: a memory that changes what
+a future agent writes is exactly the shape of thing invariant 7 exists to govern — skill
+files may only add requirements, never relax them, proved by a corpus that must all fail
+(ADR 0040), not assumed. An auto-written "do not repeat this" lesson has no such proof
+behind it, and a critic that was wrong once would otherwise get to entrench its own mistake,
+unreviewed. Whether that memory has to be a skill file, or some other mechanism that still
+needs the same proof, is an architectural choice CLAUDE.md says to stop and ask about rather
+than guess — the safe default is a person confirming a finding is real and recurring before
+a future run inherits it, possibly through §3.11's methodology library rather than a new
+mechanism. Either way this needs an ADR before any of it is built: a new step is a new agent
+behaviour (ADR 0035), and this one touches invariant 7 by nature, whichever way it lands.
+
+**3.14 A web-search tool for the qualitative sections.** Nothing has a `web_search`
+capability today. `fetch_known_url` reaches only a host this run has already acquired a
+document from through the named adapters, and refuses anything else by design — an
+unlisted host gets back "this run holds no document from that host, and a host is never
+taken from a request." What is missing is not the trust model: `sources/tiering.py` and
+`fetch/policy.py` already carry `Provider.WEB_SEARCH`, tiered before this item existed —
+search-found news and issuer material at `T5_SECONDARY` ("never the sole support for a
+numeric claim"), search-found commentary at `T6_UNVERIFIED` ("never citable evidence").
+What is missing is a tool nothing calls: no role's allowlist grants it, and the commercial
+check still outstanding on the Anthropic web-search tool's price is what keeps it out of
+the budget guard (invariant 6).
+
+Scope it to the qualitative workers — `research_recent_developments` and the rest of the
+five parallel research agents (ADR 0036) — for what does not belong in `calc/`: business
+description, sentiment, recent developments, the colour a filing does not carry. It does
+not widen what can reach a figure. `calc/` consumes structured facts extracted from filings
+and nothing else, so a T5 or T6 source has no route into a number whatever tool exists —
+that boundary is the one rule (`CLAUDE.md`, ADR 0003), not a permission to add. Wired the
+same way as any other tool request — the model asks, code executes, results return wrapped
+as `<untrusted_source tier=…>` (ADR 0019) — it is contained the same way a filing already
+is, and the corroboration the operator wants ("confirmed when multiple sources agree") is
+`T5_SECONDARY`'s existing "never sole support" constraint, already enforced, not a new one
+to write.
+
+**Do not pre-approve named publishers.** Checked against robots.txt — the same mechanical
+test ADR 0009 already treats as an absolute refusal, no ToS reading required — Seeking
+Alpha disallows roughly 150 crawlers outright, `Claude-User` and `ClaudeBot` by name among
+them: it appears to refuse the model this platform itself runs on. `ft.com` could not be
+reached to check at all. That is the same shape of finding that put the Bank of England and
+the FCA NSM (ADR 0022) in §4's "decided against" — a documented block, not a negotiable
+one. So each specific always-on publisher, if wanted, is its own adapter-style decision — a
+ToS/robots determination recorded in an ADR before the first request, per the existing
+recipe — never a batch of sources assumed trustworthy for being well known. Needs an ADR
+either way: a new tool capability is new agent behaviour (ADR 0035).
+
+**3.15 A step-by-step developer mode for debugging a run.** Pause after every step, print a
+diagnostic, let the operator confirm or correct before the next one spends anything — the
+point being to catch a defect at the step that caused it, not three steps and several pounds
+later. The primitive already exists for the accidental case: the engine already records
+each step and skips the ones already completed on resume, which is how a run survives a
+worker dying today. What does not exist is the deliberate case. §2.3 already names the gap
+this depends on: there is no supported way to pause and continue *the same job*, only crash
+recovery and superseding into a new job — and superseding is wrong here specifically,
+because it creates a fresh audit record when the whole point is reviewing one run as it
+happens. Build this as §2.3's resolution, not a second mechanism beside it, and settle its
+open question — what a deliberately paused, not-failed job's own status record says — once,
+for both. Unlike §3.13 and §3.14, nothing here touches an invariant or adds an agent
+capability, so the item itself does not obviously need its own ADR — only §2.3's decision
+does, and that one already stands regardless of this.
+
+It is not a gate. `gate_plan`, `gate_final` and the rest are domain-approval checkpoints
+through `services/approvals`, each meaning something specific about a business decision;
+stepping through a run is a generic, lighter thing — closer to a breakpoint than an
+approval — and belongs in the engine's own execution loop instead. Unlike §3.13, scope it
+to every step, not only the model-written ones: a wrong number out of `calculate` or a bad
+extraction is a code bug, and catching it here matters at least as much as catching a bad
+paragraph out of `draft` — arguably more, since a silent arithmetic mistake is exactly the
+kind of thing nothing today stops to show anyone.
+
+**The diagnostic is code, not a model call.** An LLM judging each step would add a paid
+call to steps that cost nothing today (`extract`, `calculate`, `render`), work against the
+speed this is meant to buy, and duplicate the critique agent in §3.13. Most of what it needs
+is already captured and simply not surfaced — a failed section already records its attempt
+count, its evidence tally and its own refusal reason (4.6), and the roadmap's own words for
+the gap are "the run console still shows none of this." Assemble it from what each step
+already records — timing, retries, raw versus parsed output, validation errors, cost — in
+the same family as the existing `job_id`-scoped CLI commands (`replay-run`, `acceptance`)
+that already print a typed readout to the console rather than a web page, which is the right
+shape for something meant to be read by whoever — human or Claude — is sitting at the
+terminal deciding whether to continue.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before
