@@ -343,6 +343,42 @@ ToS/robots determination recorded in an ADR before the first request, per the ex
 recipe — never a batch of sources assumed trustworthy for being well known. Needs an ADR
 either way: a new tool capability is new agent behaviour (ADR 0035).
 
+**3.14 A step-by-step developer mode for debugging a run.** Pause after every step, print a
+diagnostic, let the operator confirm or correct before the next one spends anything — the
+point being to catch a defect at the step that caused it, not three steps and several pounds
+later. The primitive already exists for the accidental case: the engine already records
+each step and skips the ones already completed on resume, which is how a run survives a
+worker dying today. What does not exist is the deliberate case. §2.3 already names the gap
+this depends on: there is no supported way to pause and continue *the same job*, only crash
+recovery and superseding into a new job — and superseding is wrong here specifically,
+because it creates a fresh audit record when the whole point is reviewing one run as it
+happens. Build this as §2.3's resolution, not a second mechanism beside it, and settle its
+open question — what a deliberately paused, not-failed job's own status record says — once,
+for both. Unlike §3.12 and §3.13, nothing here touches an invariant or adds an agent
+capability, so the item itself does not obviously need its own ADR — only §2.3's decision
+does, and that one already stands regardless of this.
+
+It is not a gate. `gate_plan`, `gate_final` and the rest are domain-approval checkpoints
+through `services/approvals`, each meaning something specific about a business decision;
+stepping through a run is a generic, lighter thing — closer to a breakpoint than an
+approval — and belongs in the engine's own execution loop instead. Unlike §3.12, scope it
+to every step, not only the model-written ones: a wrong number out of `calculate` or a bad
+extraction is a code bug, and catching it here matters at least as much as catching a bad
+paragraph out of `draft` — arguably more, since a silent arithmetic mistake is exactly the
+kind of thing nothing today stops to show anyone.
+
+**The diagnostic is code, not a model call.** An LLM judging each step would add a paid
+call to steps that cost nothing today (`extract`, `calculate`, `render`), work against the
+speed this is meant to buy, and duplicate the critique agent in §3.12. Most of what it needs
+is already captured and simply not surfaced — a failed section already records its attempt
+count, its evidence tally and its own refusal reason (4.6), and the roadmap's own words for
+the gap are "the run console still shows none of this." Assemble it from what each step
+already records — timing, retries, raw versus parsed output, validation errors, cost — in
+the same family as the existing `job_id`-scoped CLI commands (`replay-run`, `acceptance`)
+that already print a typed readout to the console rather than a web page, which is the right
+shape for something meant to be read by whoever — human or Claude — is sitting at the
+terminal deciding whether to continue.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before
