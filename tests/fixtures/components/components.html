@@ -1,0 +1,196 @@
+{#
+  Every component, in every state it has, in one page.
+
+  **This is a test fixture and it is never a route** (decision B6). A Components page shipped
+  in the navigation is a page that has to be kept working, gets linked to, and eventually gets
+  a state nobody rendered anywhere else — a gallery that is more complete than the product.
+  Here it is rendered by `tests/test_components.py` and photographed by
+  `tests/e2e/test_component_states.py`, and neither needs it to be reachable.
+
+  It lives under `tests/` rather than in the template tree for the same reason: a file in
+  `web/templates/` is a file `test_every_template_is_present` and the class-coverage guard
+  both count, and a fixture is not part of the served product.
+
+  Add a component and you add it here, or the state tests have nothing to open.
+#}
+{% import "_ui/index.html" as ui with context %}
+{% from "_ui/provenance.html" import provenance, confirmation %}
+<!doctype html>
+<html lang="en-GB" {% if theme %}data-theme="{{ theme }}"{% endif %}>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Components</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body class="bg-canvas text-ink">
+<main class="mx-auto flex max-w-4xl flex-col gap-8 p-6">
+
+  {% call ui.page_header("Contoso plc", eyebrow="RESEARCH RUN", identity="CTSO · LSE · as at 24 August 2026", breadcrumbs=[{"href": "/requests", "label": "Requests"}]) %}
+    {{ ui.button("Open the run", variant="verification") }}
+    {{ ui.button("Cancel the run", variant="secondary") }}
+  {% endcall %}
+
+  {# ---- verdict, one per tone ---- #}
+  <div id="verdicts" class="flex flex-col gap-4">
+    {{ ui.verdict("CURRENT STATE", "Two items are waiting for your decision; one item needs diagnosis.", tone="warning", provenance_href="/runs/1") }}
+    {{ ui.verdict("CURRENT VIEW", "The draft is complete and every figure traces to a formula.", detail="The critic found one valuation dependency worth reading.", tone="info", provenance_href="/claims/1", provenance_label="Read the working") }}
+    {{ ui.verdict("ANSWER WITHHELD", "No comparable figure was computed, because the peer set was never confirmed.", tone="refusal") }}
+    {{ ui.verdict("CURRENT STATE", "The run stopped at the drafting step and nothing after it ran.", tone="failure") }}
+    {{ ui.verdict("CURRENT VIEW", "Approved on 24 August 2026.", tone="success") }}
+    {{ ui.verdict("CURRENT STATE", "Nothing has been started for this company yet.", tone="muted") }}
+  </div>
+
+  {# ---- status labels, one per tone ---- #}
+  <div id="statuses" class="flex flex-wrap items-start gap-3">
+    {{ ui.status("success", "Approved") }}
+    {{ ui.status("warning", "Waiting for you") }}
+    {{ ui.status("refusal", "Stopped before overspending") }}
+    {{ ui.status("failure", "Failed") }}
+    {{ ui.status("info", "Running", detail="Drafting the report") }}
+    {{ ui.status("muted", "Draft") }}
+    {{ ui.grade("Typed") }}
+    {{ ui.grade("Documented") }}
+  </div>
+
+  {# ---- callouts, one per tone ---- #}
+  <div id="callouts" class="flex flex-col gap-4">
+    {{ ui.callout("refusal", "No valuation was produced", "Two of the three methods need a confirmed peer set, and this run has none. Confirm the peer set and the comparables method becomes available. The rule exists so a multiple is never computed against companies nobody agreed were comparable.", "Confirm the peer set", "/gates/peers") }}
+    {{ ui.callout("failure", "Drafting did not finish", "Five sections did not generate. Everything acquired before this point is stored and will not be fetched again. Supersede the run to retry from the evidence already gathered.", "Supersede this run", "/runs/1/supersede") }}
+    {{ ui.callout("warning", "The plan is waiting for you", "Approving it starts the acquisition steps, which is where most of a run's cost is incurred. This one estimates £6.40 of an £8.00 ceiling.") }}
+    {{ ui.callout("success", "The report is approved", "It is in the reports list and has been projected into the vault.") }}
+    {{ ui.callout("info", "Point-in-time is on", "Nothing published after 24 August 2026 may support a claim in this run.") }}
+    {{ ui.callout("muted", "This request has no run yet", "Nothing has been fetched and nothing has been spent.") }}
+  </div>
+
+  {# ---- buttons, every variant and state ---- #}
+  <div id="buttons" class="flex flex-wrap items-center gap-3">
+    {{ ui.button("Commission research", variant="verification") }}
+    {{ ui.button("Approve plan", variant="decision", busy_label="Approving plan…") }}
+    {{ ui.button("Go back", variant="secondary") }}
+    {{ ui.button("Read the source", variant="quiet") }}
+    {{ ui.button("Remove request", variant="destructive") }}
+    {{ ui.button("Approve plan", variant="decision", disabled=true) }}
+    {{ ui.button("Commission research", variant="verification", disabled=true) }}
+  </div>
+
+  {# ---- fields: rest, hinted, invalid, required ---- #}
+  <form id="fields" method="post" action="/nowhere" class="flex flex-col gap-5">
+    {{ ui.field("company", "Company", value="Contoso plc", required=true, hint="The listed entity, not its parent.") }}
+    {{ ui.field("ticker", "Ticker", value="CTSO", required=true) }}
+    {{ ui.field("ceiling", "Spending ceiling", value="8.00", hint="In pounds. The run stops before crossing it rather than after.", error="A ceiling below £2.00 cannot complete a standard run.") }}
+    {{ ui.field("notes", "What you want answered", rows=5, placeholder="For example: is the margin recovery real?", hint="Optional. It shapes the plan rather than the conclusion.") }}
+    {{ ui.button("Save request", variant="verification", type="submit") }}
+  </form>
+
+  {# ---- sheets, including the empty state ---- #}
+  <div id="sheets" class="flex flex-col gap-6">
+    {% call ui.sheet("What this run cost", subtitle="Every model call, metered and capped in code.") %}
+      {{ ui.definition_list([
+        {"label": "Spent", "value": "£6.40 of £8.00", "is_data": true},
+        {"label": "Remaining", "value": "£1.60", "is_data": true},
+        {"label": "Started", "value": "24 August 2026 at 09:12", "is_data": true},
+        {"label": "Mandate", "value": "Standard depth, twelve-month horizon"},
+      ]) }}
+    {% endcall %}
+
+    {% call ui.sheet("At a glance") %}
+      {{ ui.definition_list([
+        {"label": "Sources", "value": "18", "is_data": true},
+        {"label": "Claims", "value": "42", "is_data": true},
+        {"label": "Confirmed", "value": "38", "is_data": true},
+      ], variant="summary") }}
+    {% endcall %}
+
+    {% call ui.sheet("One figure") %}
+      {{ ui.figure("Net asset value", "£1,284,300.15", note="Exact to the penny, in the book's own currency.", provenance_href="/calculations/1") }}
+    {% endcall %}
+
+    {% call ui.sheet("Nothing here yet") %}
+      {{ ui.empty("No research has been commissioned", "Nothing has been fetched and nothing has been spent. Commissioning a run writes a mandate first, and stops for your approval before it costs anything.", "Commission research", "/requests/new") }}
+    {% endcall %}
+  </div>
+
+  {# ---- records ---- #}
+  <div id="records" class="flex flex-col gap-6">
+    {% call ui.record_list("Waiting for you") %}
+      {% call ui.record("Contoso plc", "/runs/1", sentence="The run stopped so you could approve the research plan before it spends anything.", meta="Waiting 2 days · £0.15 of £8.00") %}
+        {{ ui.button("Review the plan", variant="decision") }}
+      {% endcall %}
+      {% call ui.record("Fabrikam Ltd", "/runs/2", sentence="The run stopped before overspending. The next step would cross the monthly cap.", meta="Waiting 6 hours · £8.00 of £8.00") %}
+        {{ ui.button("Allow more spend", variant="decision") }}
+      {% endcall %}
+    {% endcall %}
+
+    {% call ui.table("Claims and their verification", [
+      {"label": "Claim"}, {"label": "Figure", "numeric": true}, {"label": "Verdict"},
+    ]) %}
+      <tr>
+        {{ ui.cell("Revenue grew 12% year on year", header=true) }}
+        {{ ui.cell("£4,182.0m", numeric=true) }}
+        {{ ui.cell("Confirmed") }}
+      </tr>
+      <tr>
+        {{ ui.cell("Operating margin expanded 140bp", header=true) }}
+        {{ ui.cell("18.4%", numeric=true) }}
+        {{ ui.cell("Unconfirmed") }}
+      </tr>
+    {% endcall %}
+
+    {% call ui.disclosure("Show payload record") %}
+      {{ ui.definition_list([
+        {"label": "Payload hash", "value": "a3f1c9b28d4e7f60a3f1c9b28d4e7f60a3f1c9b28d4e7f60a3f1c9b28d4e7f60", "is_data": true},
+      ]) }}
+    {% endcall %}
+  </div>
+
+  {# ---- provenance and confirmation, two chips that are never merged ---- #}
+  <div id="provenance" class="flex flex-wrap items-start gap-3">
+    {{ provenance(source_fact) }}
+    {{ provenance(calculated) }}
+    {{ provenance(attested) }}
+    {{ provenance(assumed) }}
+    {{ provenance(judged) }}
+  </div>
+
+  {# ---- the evidence spine, in each of its states ---- #}
+  <div id="spines" class="flex flex-col gap-8">
+    {{ ui.evidence_spine(spine_ok, id="spine-ok") }}
+    {{ ui.evidence_spine(spine_missing, label="How this was established", id="spine-missing") }}
+    {{ ui.evidence_spine(spine_incomplete, label="How this was established", id="spine-incomplete") }}
+  </div>
+
+  {# ---- the decision panel, required and recorded ---- #}
+  <div id="decisions" class="flex flex-col gap-6">
+    {% call ui.decision_panel("DECISION REQUIRED", "Approve the research plan?", "Approving starts the acquisition steps, which is where most of a run's cost is incurred. This plan estimates £6.40 of an £8.00 ceiling.") %}
+      {{ ui.definition_list([
+        {"label": "Estimated cost", "value": "£6.40 of £8.00", "is_data": true},
+        {"label": "Waiting", "value": "2 days", "is_data": true},
+      ]) }}
+      <form id="gate-form" method="post" action="/gates/plan">
+        <input type="hidden" name="csrf_token" value="fixture" />
+        <input type="hidden" name="payload_hash" value="a3f1c9b2" />
+      </form>
+      <div class="flex flex-wrap gap-3">
+        {{ ui.button("Approve research plan", variant="decision", type="submit", form_id="gate-form", name="decision", value="approve", busy_label="Approving research plan…") }}
+        {{ ui.button("Send the plan back for rework", variant="secondary", type="submit", form_id="gate-form", name="decision", value="reject") }}
+      </div>
+    {% endcall %}
+
+    {% call ui.decision_panel("DECISION RECORDED", "The research plan was approved", "Recorded on 24 August 2026 at 09:14. The run continued from the acquisition steps.", integrity=false) %}
+      {{ ui.status("success", "Approved", detail="by the operator, 24 August 2026") }}
+    {% endcall %}
+
+    {% call ui.decision_panel("NO DECISION AVAILABLE", "The evidence changed since this page loaded", "A newer version of this gate exists, so the controls have been removed rather than left to submit against evidence you have not seen.", integrity=false) %}
+      {{ ui.callout("refusal", "This page is out of date", "Reload the gate to decide on the current evidence.", "Reload the gate", "/gates/plan") }}
+    {% endcall %}
+  </div>
+
+  {# ---- guidance ---- #}
+  <p id="guidance" class="type-body text-ink">
+    The spending ceiling {{ ui.guide(1, "A run stops before crossing this, not after.") }}
+  </p>
+
+</main>
+</body>
+</html>

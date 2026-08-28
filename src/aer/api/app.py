@@ -146,7 +146,7 @@ def create_app(settings: Settings | None = None, *, state: AppState | None = Non
             _log.info("application.stopped")
 
     app = FastAPI(
-        title="Ageiantic Equity Research Platform",
+        title="Tracework Invest",
         description=_DESCRIPTION,
         version=version(),
         lifespan=lifespan,

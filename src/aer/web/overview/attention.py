@@ -103,6 +103,33 @@ class Attention:
     replacement for it (ADR 0006).
     """
 
+    waited: str = ""
+    """How long this has been sitting there, already rendered — "2 days", "6 hours".
+
+    A row that says a run is waiting and not *how long* is a row an operator cannot triage:
+    the whole question on this page is which of four things to do first, and age is most of
+    the answer. Rendered here rather than in the template because a duration is arithmetic on
+    a clock, and a template that computed one would be reading a clock inside a render.
+    """
+
+    cost: str = ""
+    """What it has spent against what it is allowed — "£6.40 of £8.00" — from
+    `web/figures.py`, so this reads identically to the console and the seven gates.
+
+    Empty where the item has no run behind it. A draft that was never started has spent
+    nothing, and "£0.00 of £8.00" would be a measurement of a thing that never happened.
+    """
+
+    feed_is_incomplete: bool = False
+    """Whether this item exists *because* rows are missing from the feed around it.
+
+    Set only by :func:`_could_not_ask`. The distinction matters one layer up: a page that
+    leads with a composed verdict is counting these rows, and a count taken over part of the
+    estate must not be presented as the whole of it. The detail line here already tells a
+    reader to treat the feed as incomplete; this is the same fact in a form the composer can
+    act on, rather than a string it would have to parse.
+    """
+
     def __post_init__(self) -> None:
         if not self.href:
             message = (
@@ -251,4 +278,5 @@ def _could_not_ask(provider: AttentionProvider, failure: Exception) -> Attention
         ),
         href="/healthz",
         action="Check the platform",
+        feed_is_incomplete=True,
     )

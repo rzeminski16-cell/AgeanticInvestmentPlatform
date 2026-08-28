@@ -2,15 +2,41 @@
   The work list, grouped by severity rather than sorted into one.
 
   "Three runs are waiting for you" and "one run failed" are different kinds of day, and a
-  single ordered list makes the reader work out which is which.
+  single ordered list makes the reader work out which is which. The order is fixed — waiting
+  for you, needs diagnosis, not started — and never re-sorted by date: a date-sorted feed
+  answers "what happened last", and the question on this page is "what needs me now".
 
   A partial because the main menu is long enough already, and because the grouping is the
   part somebody will come back to change.
 #}
 {% import "_ui/index.html" as ui with context %}
 
-{% if not attention %}
-  {% call ui.card() %}
+{% set GROUPS = {
+  blocked: ("Waiting for you", "warning"),
+  broken: ("Needs diagnosis", "failure"),
+  idle: ("Not started", "muted"),
+} %}
+
+{% if first_run %}
+  {#
+    Not the same page as "nothing is waiting". An empty work list reads as *caught up* to
+    somebody who has been using the platform and as *nothing here works* to somebody who
+    installed it ten minutes ago, and only the second reader needs telling what to do.
+  #}
+  {% call ui.sheet() %}
+    {{ ui.empty(
+      "Start with two things",
+      "Connect a model provider, then commission your first report. Writing a request costs nothing and starts nothing — the run stops for your approval before it spends anything.",
+      "Commission research",
+      "/requests/new",
+    ) }}
+    <p class="mt-4 type-body-sm text-ink-muted">
+      No provider configured yet?
+      <a href="/settings" class="text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Set one up in Settings</a>.
+    </p>
+  {% endcall %}
+{% elif not attention %}
+  {% call ui.sheet() %}
     {{ ui.empty(
       "Nothing is waiting",
       "No run is stopped at a gate, nothing failed, and every request you have written has been run. Start another when you are ready.",
@@ -22,23 +48,36 @@
   {% for severity in severity_order %}
     {% set group = attention | selectattr("severity", "equalto", severity) | list %}
     {% if group %}
-      <section class="mt-4">
-        <h3 class="text-sm font-semibold tracking-wide text-ink-muted uppercase">
-          {% if severity == blocked %}Blocked{% elif severity == broken %}Broken{% else %}Idle{% endif %}
-        </h3>
-        <ul class="mt-2 space-y-2">
+      {% set heading, tone = GROUPS[severity] %}
+      <section class="mt-6">
+        <h2 class="type-eyebrow text-ink-muted">
+          {{ heading }} <span class="text-ink-subtle">({{ group | length }})</span>
+        </h2>
+        {% call ui.record_list(heading) %}
           {% for item in group %}
+            {#
+              `record` takes the object's name as its link, because "Open the run" repeated
+              down a column tells somebody navigating by link nothing about which run.
+              `meta` carries age and cost as text rather than a tooltip: a figure only a
+              pointer can reveal is a figure a keyboard user does not have.
+            #}
             <li
-              class="rounded-card border border-l-4 border-line bg-surface p-4
-                     {% if severity == blocked %}border-l-warn-ink{% elif severity == broken %}border-l-bad-ink{% else %}border-l-mute-ink{% endif %}"
+              class="grid grid-cols-1 gap-2 border-t border-line py-4 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6"
               data-attention="{{ item.key }}"
               data-tool="{{ item.tool }}"
             >
-              <p class="text-sm font-semibold text-ink">
-                <a href="{{ item.href }}" class="hover:underline">{{ item.title }}</a>
-              </p>
-              <p class="mt-1 max-w-prose text-sm text-ink-muted">{{ item.detail }}</p>
-              <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+              <div class="min-w-0">
+                <a href="{{ item.href }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ item.title }}</a>
+                <p class="mt-1 max-w-prose type-body text-ink">{{ item.detail }}</p>
+                {% if item.waited or item.cost %}
+                  <p class="mt-1 type-data-sm text-ink-muted" data-field="meta">
+                    {%- if item.waited %}Waiting {{ item.waited }}{% endif -%}
+                    {%- if item.waited and item.cost %} · {% endif -%}
+                    {%- if item.cost %}{{ item.cost }}{% endif -%}
+                  </p>
+                {% endif %}
+              </div>
+              <p class="flex flex-wrap items-center gap-3">
                 {% if item.preview_href %}
                   {#
                     The drawer trigger, and it is an ordinary link first. `href` goes to the
@@ -53,19 +92,19 @@
                     hx-target="#aer-drawer-body"
                     hx-swap="innerHTML"
                     data-drawer-title="{{ item.title }}"
-                    class="inline-flex items-center text-sm font-semibold text-brand hover:text-brand-strong"
-                    >Preview</a
+                    class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2"
+                    >Preview {{ item.title }}</a
                   >
                 {% endif %}
                 <a
                   href="{{ item.href }}"
-                  class="inline-flex items-center text-sm font-semibold text-brand hover:text-brand-strong"
-                  >{{ item.action or "Open" }} &rarr;</a
+                  class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2"
+                  >{{ item.action or "Open" }}</a
                 >
               </p>
             </li>
           {% endfor %}
-        </ul>
+        {% endcall %}
       </section>
     {% endif %}
   {% endfor %}

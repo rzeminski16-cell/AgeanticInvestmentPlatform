@@ -13,12 +13,15 @@ row doing the work. That costs two statements per stopped run — bounded at eig
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Final
 
 from aer.core.enums import GateKind
 from aer.services import overview as overview_service
 from aer.services.approvals import pending_gate
+from aer.web import figures
 from aer.web.overview.attention import Attention, Severity
+from aer.web.vocabulary import GATES
 
 if TYPE_CHECKING:
     import uuid
@@ -34,23 +37,20 @@ __all__ = ["GATE_ASKS", "items"]
 TOOL: Final = "research"
 
 # What each gate is asking the operator to do, in the second person, because the item is
-# addressed to them. Every member of `GateKind` appears; a gate added without a phrase is a
-# red build rather than a run described as waiting for nothing in particular.
-GATE_ASKS: Final[dict[GateKind, str]] = {
-    GateKind.PLAN: "approve its research plan",
-    GateKind.UNMAPPED_CONCEPTS: "decide about the figures nothing could map",
-    GateKind.PEER_SET: "confirm its peer set",
-    GateKind.SECTOR_SPECIALIST: "acknowledge that the standard model does not fit its sector",
-    GateKind.THEME_SET: "confirm the themes it belongs to",
-    GateKind.ASSUMPTIONS: "confirm the assumptions its valuation will be built on",
-    GateKind.BUDGET: "decide whether it may spend more than its ceiling",
-    GateKind.FINAL: "review the finished report",
-}
+# addressed to them. **Derived from `web/vocabulary.py` rather than written here**: this
+# mapping and the gate pages' own headings were two answers to one question, and the copy that
+# drifts is always the one nobody is looking at. Kept as a name because the work list, the
+# drawer preview and a test all read it.
+GATE_ASKS: Final[dict[GateKind, str]] = {gate: words.asks for gate, words in GATES.items()}
 
 
 async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attention]:
     """Everything the research tool has waiting, worst first within this tool."""
     collected: list[Attention] = []
+    # Read once, for every row on the page. A clock read per item would give two rows that
+    # started together two different ages, which is the sort of inconsistency nobody can
+    # explain and everybody notices.
+    now = datetime.now(UTC)
 
     stopped = await overview_service.stopped_runs(session, user_id=user_id)
     for job, request in stopped.rows:
@@ -70,6 +70,8 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
                 href=f"/runs/{job.id}",
                 action="Open the run",
                 preview_href=f"/research/runs/{job.id}/preview",
+                waited=_waited(job, now),
+                cost=_cost(job, request),
             )
         )
     collected.extend(_and_more(stopped, "runs are waiting at a gate", Severity.BLOCKED, "gate"))
@@ -88,6 +90,8 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
             href=f"/runs/{job.id}",
             action="Open the run",
             preview_href=f"/research/runs/{job.id}/preview",
+            waited=_waited(job, now),
+            cost=_cost(job, request),
         )
         for job, request in capped.rows
     )
@@ -104,6 +108,8 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
             href=f"/runs/{job.id}",
             action="Read the timeline",
             preview_href=f"/research/runs/{job.id}/preview",
+            waited=_waited(job, now),
+            cost=_cost(job, request),
         )
         for job, request in failed.rows
     )
@@ -119,12 +125,37 @@ async def items(session: AsyncSession, *, user_id: uuid.UUID) -> Sequence[Attent
             detail="The request is written and nothing has been spent on it.",
             href=f"/requests/{request.id}",
             action="Open the request",
+            waited=figures.waited_for(request.created_at, now=now),
+            # No `cost`: a draft that never ran has spent nothing, and "£0.00 of £8.00" would
+            # be a measurement of a thing that did not happen.
         )
         for request in idle.rows
     )
     collected.extend(_and_more(idle, "drafts have never been run", Severity.IDLE, "idle"))
 
     return collected
+
+
+def _waited(job: Job, now: datetime) -> str:
+    """How long this run has been sitting where it is.
+
+    From `started_at` rather than from the last step: the operator's question is how long the
+    thing has been theirs to deal with, and a run that stopped at its first gate an hour in has
+    been waiting since it stopped, not since it started. `finished_at` is the better anchor
+    where there is one, and there is one for exactly the states this feed reports.
+    """
+    since = job.finished_at or job.started_at
+    return figures.waited_for(since, now=now) if since is not None else ""
+
+
+def _cost(job: Job, request: ResearchRequest) -> str:
+    """What the run has spent against what the mandate allowed.
+
+    Through `web/figures.py`, so this row, the console and all seven gates render the same
+    number the same way — and so a missing ceiling says so rather than becoming a percentage
+    of nothing.
+    """
+    return figures.cost_context(spent=job.total_cost_gbp, ceiling=request.max_cost_gbp).summary
 
 
 def _named(request: ResearchRequest) -> str:

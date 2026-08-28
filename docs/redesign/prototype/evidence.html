@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Tracework redesign prototype — evidence and calculation lineage">
+  <title>Evidence for Northstar Group · Tracework prototype</title>
+  <link rel="stylesheet" href="assets/tracework.css">
+  <script src="assets/tracework.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <div class="app-shell">
+    <details class="nav-shell" open>
+      <summary class="nav-summary">Tracework</summary>
+      <div class="nav-panel">
+        <a class="brand-lockup" href="index.html" aria-label="Tracework overview"><span class="brand-mark" aria-hidden="true">T↳</span><span><span class="brand-name">Tracework</span><span class="brand-note">Evidence-led research</span></span></a>
+        <nav class="nav-primary" aria-label="Primary navigation">
+          <section class="nav-section" aria-labelledby="nav-work"><span class="nav-section-label" id="nav-work">Workspace</span><ul class="nav-list"><li><a class="nav-link" href="index.html"><span>Overview</span><span class="nav-badge" id="nav-attention-count" aria-label="3 items need attention">3</span></a></li></ul></section>
+          <section class="nav-section" aria-labelledby="nav-research"><span class="nav-section-label" id="nav-research">Research</span><ul class="nav-list"><li><a class="nav-link" href="requests.html"><span>Requests</span><span class="nav-badge" aria-label="2 runs waiting for a decision">2</span></a></li><li><a class="nav-link" href="run.html" aria-current="page"><span>Active run</span></a></li><li><a class="nav-link" href="reports.html"><span>Reports</span></a></li><li><a class="nav-link" href="skills.html"><span>Skills</span></a></li><li><a class="nav-link" href="knowledge.html"><span>Knowledge</span></a></li></ul></section>
+          <section class="nav-section" aria-labelledby="nav-book"><span class="nav-section-label" id="nav-book">Book</span><ul class="nav-list"><li><a class="nav-link" href="portfolio.html"><span>Portfolio</span></a></li></ul></section>
+          <section class="nav-section" aria-labelledby="nav-reference"><span class="nav-section-label" id="nav-reference">Design reference</span><ul class="nav-list"><li><a class="nav-link" href="components.html"><span>Components</span></a></li></ul></section>
+        </nav>
+        <div class="nav-utility"><div><span class="nav-section-label">Appearance</span><div class="theme-control" aria-label="Prototype colour scheme"><button type="button" data-theme-choice="light" aria-pressed="false">Light</button><button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button><button type="button" data-theme-choice="system" aria-pressed="true">Auto</button></div></div></div>
+      </div>
+    </details>
+    <div class="work-area">
+      <header class="context-bar"><nav class="breadcrumbs" aria-label="Breadcrumb"><a href="requests.html">Research</a> / <a href="requests.html">Northstar Group</a> / <a href="review.html">Run 183</a> / <span aria-current="page">Evidence</span></nav><div class="context-actions"><a class="button button-quiet button-small" href="review.html">Back to review</a><a class="button button-small" href="#sources">All sources</a></div></header>
+      <main class="page" id="main">
+        <header class="page-header"><div><span class="page-kicker">Footnote 12 · Claim 68 · Calculation 47</span><h1>Why the report says $47.20</h1><p class="page-lede">Start with whether the figure checks out. Open exact formulas, input origins, archived words, and hashes only as far as you need.</p></div><span class="status status-good">Checks out</span></header>
+
+        <section class="verdict" aria-labelledby="evidence-verdict"><div><span class="utility-label">Verification verdict</span><h2 id="evidence-verdict">The figure is reproducible from stored inputs and every input has an origin.</h2><p>The central value was produced by deterministic Python from five confirmed assumptions and 18 sourced financial facts. Replaying the calculation on 25 August produced the same result.</p></div><div class="verdict-aside"><span class="utility-label">Central value</span><span class="metric-strong">$47.20</span><span class="metric-note">Calculated · per share · USD</span></div></section>
+
+        <section class="evidence-spine" id="claims" aria-labelledby="claim-title">
+          <aside class="spine-margin" aria-label="Evidence lineage"><span class="spine-title">Evidence spine</span><ol class="spine-chain"><li><a href="#claim-title">Claim 68</a><small>Judged conclusion</small></li><li><a href="#calculation">Calculation 47</a><small>DCF central case</small></li><li><a href="#inputs">23 inputs</a><small>Facts + assumptions</small></li><li><a href="#source-excerpt">Source 11</a><small>Archived filing</small></li></ol></aside>
+          <div class="spine-content"><span class="utility-label">Claim in the report</span><h2 id="claim-title">The central valuation of $47.20 sits 9.0% below the $51.84 boundary price.</h2><p>The sentence contains two calculations and one judgement. The values resolve to stored calculations; “sits below” is a comparison; the conclusion elsewhere remains clearly labelled judgement.</p><div class="provenance-row"><a class="provenance" href="#calculation">Calculated · $47.20</a><a class="provenance" href="#boundary-price">Source fact · $51.84</a><span class="confirmation confirmation-good">Verified 25 Aug 2026, 09:36</span></div></div>
+        </section>
+
+        <div class="two-column" style="margin-top:1.5rem">
+          <div class="section-stack">
+            <section class="sheet" id="calculation" aria-labelledby="calculation-title"><div class="sheet-head"><div><span class="utility-label">Calculation 47</span><h2 id="calculation-title">Discounted cash flow · central case</h2><p>Formula, units, and inputs are displayed exactly as recorded. Nothing is recalculated in this page.</p></div><span class="status status-good">Replayed exactly</span></div><div class="sheet-body"><code class="formula">equity_value_per_share = (Σ FCFₜ / (1 + WACC)ᵗ + terminal_value / (1 + WACC)⁵ − net_debt) / diluted_shares</code><dl class="definition-grid"><div><dt>Enterprise value</dt><dd class="number" style="text-align:left">$8,462.0m</dd></div><div><dt>Net debt</dt><dd class="number" style="text-align:left">$1,127.4m</dd></div><div><dt>Diluted shares</dt><dd class="number" style="text-align:left">155.39m</dd></div><div><dt>WACC</dt><dd class="number" style="text-align:left">8.70%</dd></div><div><dt>Terminal growth</dt><dd class="number" style="text-align:left">2.25%</dd></div><div><dt>Output</dt><dd class="number" style="text-align:left">$47.20 / share</dd></div></dl></div></section>
+
+            <section class="sheet" id="inputs" aria-labelledby="inputs-title"><div class="sheet-head"><div><span class="utility-label">Input ledger</span><h2 id="inputs-title">Every input, its unit, and its origin</h2></div><a href="#">Download recorded inputs</a></div><div class="table-wrap"><table><caption>Six material inputs shown; the full calculation contains 23.</caption><thead><tr><th scope="col">Input</th><th scope="col" class="number">Value</th><th scope="col">Kind</th><th scope="col">Origin</th></tr></thead><tbody>
+              <tr><th scope="row">FY2025 free cash flow</th><td class="number">$426.8m</td><td><a class="provenance" href="#source-excerpt">Source fact</a></td><td>FY2025 Form 10-K · cash-flow statement</td></tr>
+              <tr><th scope="row">Terminal operating margin</th><td class="number">18.00%</td><td><a class="provenance" href="#">Assumed</a></td><td>Confirmed by operator · 25 Aug 09:21</td></tr>
+              <tr><th scope="row">Risk-free rate</th><td class="number">3.91%</td><td><a class="provenance" href="#">Source fact</a></td><td>US Treasury record · boundary date</td></tr>
+              <tr><th scope="row">Equity risk premium</th><td class="number">4.33%</td><td><a class="provenance" href="#">Source fact</a></td><td>Approved market-data series</td></tr>
+              <tr><th scope="row">Net debt</th><td class="number">$1,127.4m</td><td><a class="provenance" href="#source-excerpt">Calculated</a></td><td>Cash and debt components · Calculation 18</td></tr>
+              <tr><th scope="row">Diluted shares</th><td class="number">155.39m</td><td><a class="provenance" href="#source-excerpt">Source fact</a></td><td>FY2025 Form 10-K · note 17</td></tr>
+            </tbody></table></div></section>
+
+            <section class="sheet" id="source-excerpt" aria-labelledby="excerpt-title"><div class="sheet-head"><div><span class="utility-label">Archived source · exact words</span><h2 id="excerpt-title">Northstar Group FY2025 Form 10-K</h2><p>Filed 14 February 2026 · acquired 21 August 2026 · primary · admissible</p></div><span class="status status-good">Citation verified</span></div><div class="sheet-body"><blockquote class="quote-evidence">“Net cash provided by operating activities was <mark>$612.4 million</mark> in fiscal 2025, while additions to property and equipment were <mark>$185.6 million</mark>, principally related to the distribution modernisation programme.”</blockquote><p>The excerpt is stored verbatim. Highlighting identifies the words used by the calculation; it does not change the archived bytes.</p><details><summary><strong>Technical record</strong></summary><code class="formula">sha256: 9d8ab71e4f4b…d31b · artefact 6f2d…19aa · page 84 · lines 11–16</code></details></div></section>
+          </div>
+
+          <aside class="section-stack">
+            <section class="sheet" id="boundary-price"><div class="sheet-head"><div><h2>Boundary price</h2><p>The closing price at the as-of boundary.</p></div></div><div class="sheet-body"><span class="metric-strong">$51.84</span><div class="provenance-row"><a class="provenance" href="#">Source fact · price record</a></div></div></section>
+            <section class="notice notice-good"><strong>Replay found no drift.</strong>All deterministic calculations still reproduce their stored outputs. Archived sources and confirmed assumptions are unchanged.</section>
+            <section class="sheet" id="sources"><div class="sheet-head"><div><h2>Source record</h2><p>Refusals remain part of the acquisition record.</p></div></div><div class="sheet-body"><dl class="definition-grid" style="grid-template-columns:1fr 1fr"><div><dt>Admissible</dt><dd>34</dd></div><div><dt>Supporting</dt><dd>6</dd></div><div><dt>Quarantined</dt><dd>2</dd></div><div><dt>After boundary</dt><dd>3 refused</dd></div></dl><p class="field-hint">A refused source is the platform working, not missing data.</p></div></section>
+          </aside>
+        </div>
+
+        <section class="sheet" id="valuation" aria-labelledby="sensitivity-title"><div class="sheet-head"><div><span class="utility-label">Sensitivity · stored valuation ledger</span><h2 id="sensitivity-title">What changes the central value</h2><p>The central cell is identified with more than colour. Values are server-rendered; this grid performs no browser arithmetic.</p></div></div><div class="sheet-body"><div class="table-wrap"><div class="sensitivity-grid" role="table" aria-label="Value per share sensitivity to WACC and terminal growth"><div class="grid-head">g \ WACC</div><div class="grid-head">7.9%</div><div class="grid-head">8.3%</div><div class="grid-head">8.7%</div><div class="grid-head">9.1%</div><div class="grid-head">9.5%</div><div class="grid-head">1.75%</div><div>$49.10</div><div>$46.80</div><div>$44.70</div><div>$42.80</div><div>$41.10</div><div class="grid-head">2.00%</div><div>$51.90</div><div>$49.30</div><div>$46.90</div><div>$44.80</div><div>$42.90</div><div class="grid-head">2.25%</div><div>$55.10</div><div>$52.00</div><div class="grid-centre" aria-label="Central case, $47.20">$47.20<br><small>central</small></div><div>$47.10</div><div>$44.90</div><div class="grid-head">2.50%</div><div>$58.80</div><div>$55.20</div><div>$52.00</div><div>$49.10</div><div>$46.50</div><div class="grid-head">2.75%</div><div>$63.20</div><div>$59.00</div><div>$55.30</div><div>$52.00</div><div>$49.10</div></div></div></div></section>
+
+        <footer class="prototype-note"><strong>This is not investment advice.</strong> Companies and figures shown here are illustrative.</footer>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

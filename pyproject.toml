@@ -1,11 +1,11 @@
 [project]
-name = "ageiantic-equity-research"
+name = "tracework-invest"
 version = "0.1.0"
 description = "Local-first, auditable equity research platform for UK and US listed equities"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = { text = "MIT" }
-authors = [{ name = "Ageiantic Equity Research Platform" }]
+authors = [{ name = "Tracework Invest" }]
 keywords = ["equity-research", "finance", "provenance", "point-in-time"]
 classifiers = [
   "Private :: Do Not Upload",

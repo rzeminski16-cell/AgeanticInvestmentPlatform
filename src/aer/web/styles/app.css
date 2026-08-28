@@ -41,53 +41,136 @@
 }
 
 /* ---------------------------------------------------------------------------------------
-   The typeface, served from this origin like every other asset (ADR 0006).
+   The three typefaces, served from this origin like every other asset (ADR 0006).
 
    Vendored rather than linked. `test_loads_no_third_party_asset` fails any page naming a
    CDN or a font host, and the reason is the one that record gives: this application is
    local-first and must work with no internet connection, and a third-party request from a
-   page that can reach the database is a supply-chain risk taken for convenience. Google
-   Fonts would also mean a request to a third party on every page load, from a tool whose
-   whole point is that nothing leaves the machine unless the operator asked for it.
+   page that can reach the database is a supply-chain risk taken for convenience.
 
-   Provenance, in the shape `htmx.min.js` set: `@fontsource-variable/inter@5.3.0`, upstream
-   Inter v20, SIL Open Font License 1.1 (`LICENSE-Inter.txt` beside the files). The SHA-256
-   of each file is pinned in `tests/test_fonts.py`, so a swapped binary is a red build
-   rather than a thing nobody would ever notice.
+   Three roles, deliberately distinct, from the design system's §3.1:
 
-   One variable file per range, weights 100-900, so a page that uses four weights makes one
-   request rather than four. **No italic**: nothing in thirty-nine templates is italic, and
-   a face nobody renders is 52 kB committed for the look of completeness.
+   * **Barlow Semi Condensed** for object identity and section hierarchy. Never body copy.
+   * **Source Sans 3** for interface and reading. This is what `--font-sans` resolves to, so
+     it is what Preflight puts on `html` and what most of the page is set in.
+   * **IBM Plex Mono** for anything that must align or be inspected — figures, dates,
+     identifiers, hashes. Never prose that merely wants to look technical.
+
+   **Eight files, not six.** Barlow Semi Condensed has no variable release, so the two
+   weights the type scale uses are two files per subset. The other two families are variable
+   and cover every weight the scale asks for in one file each.
+
+   **The mono is IBM's own package rather than fontsource's**, because the type scale calls
+   for weights 450 and 550 and no static cut has them — Google Fonts ships Plex Mono in
+   hundreds only. `@ibm/plex-mono-variable` is a `100 700` axis from the same upstream repo,
+   and it is *smaller* than the three static weights it replaces: 31.8 kB against 44.0 for
+   latin. Its subsets are called Latin1 and Latin2 upstream and are renamed on vendoring to
+   the latin/latin-ext convention the rest of this tree uses.
+
+   Provenance, in the shape `htmx.min.js` set:
+   `@fontsource/barlow-semi-condensed@5.3.0`, `@fontsource-variable/source-sans-3@5.3.0`,
+   `@ibm/plex-mono-variable@1.0.0` — all three SIL Open Font License 1.1, with the notice
+   beside the files. Every SHA-256 is pinned in `tests/test_fonts.py`, so a swapped binary is
+   a red build rather than a thing nobody would ever notice.
+
+   **No italic.** Nothing in these templates is italic, and three italic families would be
+   another 150 kB committed for the look of completeness. The design system is explicit that
+   italic and bold are never to be synthesised, which is a rule about faces we *do* ship.
 
    `latin-ext` is here because of what this tool renders. Issuer names come out of filings,
    and an LSE listing is routinely a European domicile — a report about Škoda or Société
    Générale would otherwise set those letters in whatever the system supplies, mid-word.
-   `unicode-range` means the browser fetches it only on a page that actually contains one,
-   so the common case still costs the 48 kB latin file alone. */
+   `unicode-range` means the browser fetches it only on a page that actually contains one. */
 
 @font-face {
-  font-family: "Inter Variable";
+  font-family: "Barlow Semi Condensed";
   font-style: normal;
-  font-weight: 100 900;
-  /* `swap`: text is readable in the fallback immediately and reflows when Inter arrives.
-     The alternative hides it for up to three seconds, and a research page that is blank
-     while a font loads is worse than one that changes shape. */
+  font-weight: 600;
   font-display: swap;
-  src: url("../fonts/inter-latin-wght-normal.woff2") format("woff2");
+  src: url("../fonts/barlow-semi-condensed-latin-600-normal.woff2") format("woff2");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
     U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
     U+FEFF, U+FFFD;
 }
 
 @font-face {
-  font-family: "Inter Variable";
+  font-family: "Barlow Semi Condensed";
   font-style: normal;
-  font-weight: 100 900;
+  font-weight: 700;
   font-display: swap;
-  src: url("../fonts/inter-latin-ext-wght-normal.woff2") format("woff2");
+  src: url("../fonts/barlow-semi-condensed-latin-700-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Barlow Semi Condensed";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../fonts/barlow-semi-condensed-latin-ext-600-normal.woff2") format("woff2");
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
-    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
-    U+2113, U+2C60-2C7F, U+A720-A7FF;
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Barlow Semi Condensed";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/barlow-semi-condensed-latin-ext-700-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Source Sans 3 Variable";
+  font-style: normal;
+  font-weight: 200 900;
+  /* `swap`: text is readable in the fallback immediately and reflows when the face arrives.
+     The alternative hides it for up to three seconds, and a research page that is blank
+     while a font loads is worse than one that changes shape. */
+  font-display: swap;
+  src: url("../fonts/source-sans-3-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Source Sans 3 Variable";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("../fonts/source-sans-3-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono Var";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url("../fonts/ibm-plex-mono-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0020-007E, U+00A0-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC,
+    U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026, U+2030, U+2039-203A,
+    U+2044, U+20AC, U+2122, U+2212, U+FB01-FB02;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono Var";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url("../fonts/ibm-plex-mono-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-0101, U+0104-0130, U+0132-0151, U+0154-017F, U+018F, U+0192,
+    U+01A0-01A1, U+01AF-01B0, U+01FA-01FF, U+0218-021B, U+0237, U+0259, U+1E80-1E85,
+    U+1E9E, U+20A1, U+20A4, U+20A6, U+20A8-20AA, U+20AD;
 }
 
 /* ---------------------------------------------------------------------------------------
@@ -99,43 +182,83 @@
    values and silently does nothing. Plain custom properties do flip, and `@theme inline`
    below aliases them into the utilities by reference rather than by value.
 
+   Every value here is from the design system's §2.2-2.6, and every sanctioned pairing of
+   them is measured in `tests/test_contrast.py` **from the computed colour**, in both
+   schemes. "It uses a token" is not a contrast test: the tokens are only trustworthy
+   because something recomputes the ratios rather than trusting the table they came from.
+
+   **There is no `faint` ink.** `ink-subtle` is the quietest text permitted and clears 4.5:1
+   on every sanctioned background in both schemes; a fourth, quieter grey is how a timestamp
+   ends up at 3.9:1 on a page nobody measured (D3).
+
+   `line` and `line-strong` are **decorative rules and nothing else** — 1.45:1 and 2.31:1,
+   deliberately below 3:1. They cannot outline an input, a selected region, an evidence node,
+   a chart mark or a focus ring. `control-boundary` is the token for anything a person has to
+   find, and it clears 3:1 on every surface it is allowed on.
+
    These are added beside Tailwind's stock ramps rather than replacing them. Overriding
    `sky` and `slate` would re-skin all thirty-seven existing templates for free and leave a
-   codebase where `text-sky-700` renders navy — a small permanent lie in a repository whose
+   codebase where `text-sky-700` renders teal — a small permanent lie in a repository whose
    habit is to refuse exactly that. New surfaces use the semantic names; the existing pages
-   keep the ramps they were written against until they are rewritten. */
+   keep the ramps they were written against until they are rewritten, and
+   `tests/test_palette_migration.py` ratchets the count down. */
 
 :root {
-  /* Structure */
-  --aer-canvas: #f4f7fb;
-  --aer-surface: #ffffff;
-  --aer-surface-sunken: #eef3f9;
-  --aer-line: #d9e2ef;
-  --aer-line-strong: #b8c7da;
+  /* Foundations */
+  --aer-canvas: #f4f7f8;  /* Page paper */
+  --aer-surface: #ffffff;  /* Standard working sheet and control fill */
+  --aer-surface-raised: #ffffff;  /* Drawer, menu and floating sheet only */
+  --aer-surface-sunken: #eaf0f1;  /* Recessed rows, code blocks, disabled fill */
+  --aer-surface-selected: #e2f3f4;  /* Selected navigation or selected record */
+  --aer-ink: #15252e;  /* Primary text */
+  --aer-ink-muted: #52656e;  /* Secondary text and labels */
+  --aer-ink-subtle: #5b6d75;  /* Timestamps and hints; the quietest text there is */
+  --aer-line: #cdd8dc;  /* Ordinary ledger rule. Decorative only */
+  --aer-line-strong: #9aaeb5;  /* Section rule. Decorative only */
+  --aer-control-boundary: #6d8189;  /* Inputs, buttons and meaningful graphics */
+  --aer-overlay: #15252eb3;  /* Drawer scrim; the last two digits are alpha */
 
-  /* Type */
-  --aer-ink: #152033;
-  --aer-ink-muted: #60718a;
-  --aer-ink-faint: #8291a7;
+  /* Verification and decision accents */
+  --aer-verification: #0f6673;  /* Brand mark, links, selected nav, evidence nodes */
+  --aer-verification-strong: #084d57;  /* Hover and pressed verification action */
+  --aer-verification-wash: #e2f3f4;  /* Information and selected background */
+  --aer-on-verification: #ffffff;  /* Text on a filled verification action */
+  --aer-decision: #7a4b00;  /* Human decision, cost ceiling, attention */
+  --aer-decision-strong: #5d3900;  /* Hover and pressed decision action */
+  --aer-decision-wash: #fff3d6;  /* Decision panel and attention background */
+  --aer-on-decision: #ffffff;  /* Text on a filled decision action */
+  --aer-focus-ring: #00606d;  /* Universal outer focus ring */
+  --aer-focus-gap: #ffffff;  /* One pixel between the control and its ring */
 
-  /* The one accent. Used once or twice per screen, for the action that is the point of it. */
-  --aer-brand: #246bfd;
-  --aer-brand-strong: #1858dd;
-  --aer-brand-wash: #eaf1ff;
-  --aer-navy: #0b2945;
+  /* Semantic pairs */
+  --aer-success-ink: #14613f;  /* Complete, confirmed, documented */
+  --aer-success-wash: #e3f4ea;
+  --aer-warning-ink: #7a4b00;  /* Waiting for a decision, spending ceiling */
+  --aer-warning-wash: #fff3d6;
+  --aer-refusal-ink: #6b3f60;  /* A guardrail deliberately withheld an answer */
+  --aer-refusal-wash: #f6eaf2;
+  --aer-failure-ink: #9b293f;  /* A fault or an unsuccessful operation */
+  --aer-failure-wash: #fbeaed;
+  --aer-info-ink: #0f6673;  /* Running, calculated, neutral notice */
+  --aer-info-wash: #e2f3f4;
+  --aer-muted-ink: #52656e;  /* Draft, queued, skipped, inactive */
+  --aer-muted-wash: #eaf0f1;
 
-  /* Meaning. Never carried by colour alone — every use pairs with a word or an icon,
-     because a status a colour-blind reader cannot read is a status that is not there. */
-  --aer-good-wash: #e3f6ef;
-  --aer-good-ink: #087a5b;
-  --aer-warn-wash: #fff3d7;
-  --aer-warn-ink: #9a6200;
-  --aer-bad-wash: #fde7e9;
-  --aer-bad-ink: #b42333;
-  --aer-info-wash: #e8f1ff;
-  --aer-info-ink: #175cd3;
-  --aer-mute-wash: #edf1f6;
-  --aer-mute-ink: #506176;
+  /* Destructive action */
+  --aer-danger-action: #9b293f;
+  --aer-danger-action-hover: #781a2d;
+  --aer-on-danger-action: #ffffff;
+
+  /* The navigation rail (ADR 0088) */
+  --aer-nav-surface: #102b35;
+  --aer-nav-ink: #edf6f7;
+  --aer-nav-muted: #bbcace;
+  --aer-nav-accent: #b5ecf0;
+  --aer-nav-selected: #183945;
+
+  /* Elevation */
+  --aer-shadow-sheet: #07171d0a;
+  --aer-shadow-float: #07171d29;
 }
 
 /* Three states, two selectors, one set of values.
@@ -149,60 +272,119 @@
    values` is what stops the two drifting apart. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --aer-canvas: #071e33;
-    --aer-surface: #0b2945;
-    --aer-surface-sunken: #061a2c;
-    --aer-line: #1c3a5c;
-    --aer-line-strong: #2b4a6e;
+    /* Foundations */
+    --aer-canvas: #07171d;
+    --aer-surface: #0c222b;
+    --aer-surface-raised: #102b35;
+    --aer-surface-sunken: #081b22;
+    --aer-surface-selected: #12343d;
+    --aer-ink: #edf6f7;
+    --aer-ink-muted: #bbcace;
+    --aer-ink-subtle: #9aadb3;
+    --aer-line: #2b414a;
+    --aer-line-strong: #45606a;
+    --aer-control-boundary: #687f88;
+    --aer-overlay: #000000b8;
 
-    --aer-ink: #eaf1ff;
-    --aer-ink-muted: #9db0c9;
-    --aer-ink-faint: #7286a1;
+    /* Verification and decision accents */
+    --aer-verification: #b5ecf0;
+    --aer-verification-strong: #d0f7f8;
+    --aer-verification-wash: #12343d;
+    --aer-on-verification: #07171d;
+    --aer-decision: #ffd27a;
+    --aer-decision-strong: #ffe4a8;
+    --aer-decision-wash: #3b2b0c;
+    --aer-on-decision: #2b1900;
+    --aer-focus-ring: #b5ecf0;
+    --aer-focus-gap: #07171d;
 
-    --aer-brand: #4d86ff;
-    --aer-brand-strong: #6d9bff;
-    --aer-brand-wash: #10305a;
-    --aer-navy: #eaf1ff;
+    /* Semantic pairs */
+    --aer-success-ink: #8ce2b4;
+    --aer-success-wash: #123528;
+    --aer-warning-ink: #ffd27a;
+    --aer-warning-wash: #3b2b0c;
+    --aer-refusal-ink: #edb9db;
+    --aer-refusal-wash: #3a2034;
+    --aer-failure-ink: #ffb3bd;
+    --aer-failure-wash: #401a21;
+    --aer-info-ink: #b5ecf0;
+    --aer-info-wash: #12343d;
+    --aer-muted-ink: #bbcace;
+    --aer-muted-wash: #1a3038;
 
-    --aer-good-wash: #06301f;
-    --aer-good-ink: #6ee7b7;
-    --aer-warn-wash: #3a2a05;
-    --aer-warn-ink: #fcd34d;
-    --aer-bad-wash: #3d1119;
-    --aer-bad-ink: #fda4af;
-    --aer-info-wash: #10305a;
-    --aer-info-ink: #93c5fd;
-    --aer-mute-wash: #12283f;
-    --aer-mute-ink: #9db0c9;
+    /* Destructive action */
+    --aer-danger-action: #ffb3bd;
+    --aer-danger-action-hover: #ffd1d7;
+    --aer-on-danger-action: #27070d;
+
+    /* Elevation */
+    --aer-shadow-sheet: #00000052;
+    --aer-shadow-float: #00000073;
   }
 }
 
-:root[data-theme="dark"] {
-    --aer-canvas: #071e33;
-  --aer-surface: #0b2945;
-  --aer-surface-sunken: #061a2c;
-  --aer-line: #1c3a5c;
-  --aer-line-strong: #2b4a6e;
+/* The explicit choice, and — the second selector — **any region that is permanently the
+   colour of the dark scheme while the page around it is not** (ADR 0088).
 
-  --aer-ink: #eaf1ff;
-  --aer-ink-muted: #9db0c9;
-  --aer-ink-faint: #7286a1;
+   The navigation rail is that region: it is `#102b35` on a light page and on a dark one.
+   Until this rule existed, a focus ring inside it took the *light* accent and landed at
+   2.04:1 against the rail, which is a WCAG 2.2 SC 1.4.11 failure and very nearly invisible.
+   The rail's own colours were in no token table, so nothing measured the pairing.
 
-  --aer-brand: #4d86ff;
-  --aer-brand-strong: #6d9bff;
-  --aer-brand-wash: #10305a;
-  --aer-navy: #eaf1ff;
+   `data-scheme="dark"` on the region is the whole fix, and it is deliberately a second
+   selector on this block rather than a fourth copy of the values: a region that keeps one
+   scheme's colours takes that scheme's accents entire, so a macro dropped into the rail is
+   correct without knowing it is in the rail. */
+:root[data-theme="dark"],
+[data-scheme="dark"] {
+  /* Foundations */
+  --aer-canvas: #07171d;
+  --aer-surface: #0c222b;
+  --aer-surface-raised: #102b35;
+  --aer-surface-sunken: #081b22;
+  --aer-surface-selected: #12343d;
+  --aer-ink: #edf6f7;
+  --aer-ink-muted: #bbcace;
+  --aer-ink-subtle: #9aadb3;
+  --aer-line: #2b414a;
+  --aer-line-strong: #45606a;
+  --aer-control-boundary: #687f88;
+  --aer-overlay: #000000b8;
 
-  --aer-good-wash: #06301f;
-  --aer-good-ink: #6ee7b7;
-  --aer-warn-wash: #3a2a05;
-  --aer-warn-ink: #fcd34d;
-  --aer-bad-wash: #3d1119;
-  --aer-bad-ink: #fda4af;
-  --aer-info-wash: #10305a;
-  --aer-info-ink: #93c5fd;
-  --aer-mute-wash: #12283f;
-  --aer-mute-ink: #9db0c9;
+  /* Verification and decision accents */
+  --aer-verification: #b5ecf0;
+  --aer-verification-strong: #d0f7f8;
+  --aer-verification-wash: #12343d;
+  --aer-on-verification: #07171d;
+  --aer-decision: #ffd27a;
+  --aer-decision-strong: #ffe4a8;
+  --aer-decision-wash: #3b2b0c;
+  --aer-on-decision: #2b1900;
+  --aer-focus-ring: #b5ecf0;
+  --aer-focus-gap: #07171d;
+
+  /* Semantic pairs */
+  --aer-success-ink: #8ce2b4;
+  --aer-success-wash: #123528;
+  --aer-warning-ink: #ffd27a;
+  --aer-warning-wash: #3b2b0c;
+  --aer-refusal-ink: #edb9db;
+  --aer-refusal-wash: #3a2034;
+  --aer-failure-ink: #ffb3bd;
+  --aer-failure-wash: #401a21;
+  --aer-info-ink: #b5ecf0;
+  --aer-info-wash: #12343d;
+  --aer-muted-ink: #bbcace;
+  --aer-muted-wash: #1a3038;
+
+  /* Destructive action */
+  --aer-danger-action: #ffb3bd;
+  --aer-danger-action-hover: #ffd1d7;
+  --aer-on-danger-action: #27070d;
+
+  /* Elevation */
+  --aer-shadow-sheet: #00000052;
+  --aer-shadow-float: #00000073;
 }
 
 /* `inline` is what makes the flip work: the utility is emitted as `var(--aer-canvas)`
@@ -210,34 +392,73 @@
 @theme inline {
   --color-canvas: var(--aer-canvas);
   --color-surface: var(--aer-surface);
+  --color-surface-raised: var(--aer-surface-raised);
   --color-surface-sunken: var(--aer-surface-sunken);
-  --color-line: var(--aer-line);
-  --color-line-strong: var(--aer-line-strong);
-
+  --color-surface-selected: var(--aer-surface-selected);
   --color-ink: var(--aer-ink);
   --color-ink-muted: var(--aer-ink-muted);
-  --color-ink-faint: var(--aer-ink-faint);
-
-  --color-brand: var(--aer-brand);
-  --color-brand-strong: var(--aer-brand-strong);
-  --color-brand-wash: var(--aer-brand-wash);
-  --color-navy: var(--aer-navy);
-
-  --color-good-wash: var(--aer-good-wash);
-  --color-good-ink: var(--aer-good-ink);
-  --color-warn-wash: var(--aer-warn-wash);
-  --color-warn-ink: var(--aer-warn-ink);
-  --color-bad-wash: var(--aer-bad-wash);
-  --color-bad-ink: var(--aer-bad-ink);
-  --color-info-wash: var(--aer-info-wash);
+  --color-ink-subtle: var(--aer-ink-subtle);
+  --color-line: var(--aer-line);
+  --color-line-strong: var(--aer-line-strong);
+  --color-control-boundary: var(--aer-control-boundary);
+  --color-overlay: var(--aer-overlay);
+  --color-verification: var(--aer-verification);
+  --color-verification-strong: var(--aer-verification-strong);
+  --color-verification-wash: var(--aer-verification-wash);
+  --color-on-verification: var(--aer-on-verification);
+  --color-decision: var(--aer-decision);
+  --color-decision-strong: var(--aer-decision-strong);
+  --color-decision-wash: var(--aer-decision-wash);
+  --color-on-decision: var(--aer-on-decision);
+  --color-focus-ring: var(--aer-focus-ring);
+  --color-focus-gap: var(--aer-focus-gap);
+  --color-success-ink: var(--aer-success-ink);
+  --color-success-wash: var(--aer-success-wash);
+  --color-warning-ink: var(--aer-warning-ink);
+  --color-warning-wash: var(--aer-warning-wash);
+  --color-refusal-ink: var(--aer-refusal-ink);
+  --color-refusal-wash: var(--aer-refusal-wash);
+  --color-failure-ink: var(--aer-failure-ink);
+  --color-failure-wash: var(--aer-failure-wash);
   --color-info-ink: var(--aer-info-ink);
-  --color-mute-wash: var(--aer-mute-wash);
-  --color-mute-ink: var(--aer-mute-ink);
+  --color-info-wash: var(--aer-info-wash);
+  --color-muted-ink: var(--aer-muted-ink);
+  --color-muted-wash: var(--aer-muted-wash);
+  --color-danger-action: var(--aer-danger-action);
+  --color-danger-action-hover: var(--aer-danger-action-hover);
+  --color-on-danger-action: var(--aer-on-danger-action);
+  --color-nav-surface: var(--aer-nav-surface);
+  --color-nav-ink: var(--aer-nav-ink);
+  --color-nav-muted: var(--aer-nav-muted);
+  --color-nav-accent: var(--aer-nav-accent);
+  --color-nav-selected: var(--aer-nav-selected);
+
+  /* The names the twelve already-clean templates were written against, kept resolving so
+     they keep rendering. They are aliases rather than values: a second definition is a
+     second answer to what "good" means, and the two would drift the first time one moved. */
+  --color-good-ink: var(--aer-success-ink);
+  --color-good-wash: var(--aer-success-wash);
+  --color-warn-ink: var(--aer-warning-ink);
+  --color-warn-wash: var(--aer-warning-wash);
+  --color-bad-ink: var(--aer-failure-ink);
+  --color-bad-wash: var(--aer-failure-wash);
+  --color-mute-ink: var(--aer-muted-ink);
+  --color-mute-wash: var(--aer-muted-wash);
+  --color-brand: var(--aer-verification);
+  --color-brand-strong: var(--aer-verification-strong);
+  --color-brand-wash: var(--aer-verification-wash);
+  --color-navy: var(--aer-ink);
 }
 
 /* Layout constants, so a sidebar width lives in one place rather than in every template
-   that has to avoid it. */
-@theme {
+   that has to avoid it.
+
+   `static` rather than a bare `@theme`, because Tailwind v4 emits a theme variable only when
+   something it scanned looks like a utility that uses it. `--font-data` is the token the type
+   scale will resolve through and no template names it yet, so without `static` it is dropped
+   from the compiled output — and a token that vanishes until its first use is a token whose
+   contrast and fallback nobody can test until then. */
+@theme static {
   /* Inter first, then the stack Tailwind ships. The fallbacks are not decoration: they are
      what renders while the woff2 is in flight, and what renders for ever if it 404s.
 
@@ -247,16 +468,337 @@
      break anywhere in it leaves every page in the stock system stack — which looks exactly
      like a font that loaded. `tests/test_fonts.py` follows the chain in the compiled
      output rather than assuming it, and a browser test reads the face off a rendered page. */
-  --font-sans:
-    "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", "Noto Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
-    "Segoe UI Symbol", "Noto Color Emoji";
+  /* Source Sans 3 first, then the design system's own fallback stack. The fallbacks are not
+     decoration: they are what renders while the woff2 is in flight, and what renders for ever
+     if it 404s.
+
+     This one variable carries the page, but only because of a chain: Preflight sets
+     `font-family` on `html` from `--default-font-family`, and Tailwind's own theme defines
+     that as `--theme(--font-sans, initial)`. Three links, one of them inside a dependency, and
+     a break anywhere in it leaves every page in the stock system stack — which looks exactly
+     like a font that loaded. `tests/test_fonts.py` follows the chain in the compiled output
+     rather than assuming it, and a browser test reads the face off a rendered page. */
+  --font-sans: "Source Sans 3 Variable", "Segoe UI", Arial, sans-serif;
+
+  /* Object identity and section hierarchy. Reserved for that: Barlow is a display face and
+     a paragraph set in it is a paragraph nobody finishes. The fallback is narrow on purpose,
+     because a condensed heading replaced by a normal-width one reflows the page it titles. */
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", "Aptos Narrow", sans-serif;
+
+  /* Figures and records: anything that must align in a column or be read character by
+     character. Never prose that merely wants to look technical. */
+  --font-data: "IBM Plex Mono Var", "Cascadia Mono", Consolas, ui-monospace, monospace;
+
+  /* Tailwind's own `font-mono` utility, pointed at the same face. Templates written before
+     the token existed use `font-mono`, and leaving it on the stock stack would set half the
+     hashes on a page in the vendored face and half in whatever the machine supplies. */
+  --font-mono: "IBM Plex Mono Var", "Cascadia Mono", Consolas, ui-monospace, monospace;
 
   --radius-card: 14px;
   --radius-panel: 16px;
   --spacing-sidebar: 15rem;
   --spacing-drawer: 28rem;
   --container-shell: 77.5rem;
+}
+
+/* ---------------------------------------------------------------------------------------
+   The type scale.
+
+   Each token is a whole typographic decision — family, size, line height, weight and
+   tracking together — because that is how the design system states them and because half of
+   one is how a heading ends up in the display face at the body weight. A template names the
+   role; it does not assemble the metrics.
+
+   `@utility` rather than theme variables: these are compound, and Tailwind's `text-*`
+   namespace carries a size and a line height but not a family or a tracking. A class is also
+   what a macro can take as data, which is the rule tranche 3 is built on.
+
+   Sizes are CSS pixels at a 16px root, and the root is never made smaller — a scale that
+   only works when the browser is at its default is a scale that fails the first reader who
+   changed it. Below 640px only the two largest shrink; everything else holds, because
+   shrinking body copy on a small screen is the opposite of what a small screen needs.
+
+   `tabular-nums lining-nums` on every data token: a column of figures that does not align is
+   a column nobody can scan. The slashed zero is deliberately *not* on by default — it is for
+   hashes and identifiers, where a zero and an O are a real ambiguity, and in running figures
+   it is noise. */
+
+
+/* Page-defining object or report title */
+@utility type-display {
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 44px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+/* Standard h1 */
+@utility type-title-1 {
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 36px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* h2, major sheet title */
+@utility type-title-2 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+/* h3, subsection title */
+@utility type-heading {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* Dense component heading */
+@utility type-subheading {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* Verdict and introductory explanation */
+@utility type-body-lg {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  line-height: 28px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* Default prose and controls */
+@utility type-body {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* Emphasis, never a whole paragraph */
+@utility type-body-strong {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* Dense table and supporting copy */
+@utility type-body-sm {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* Form and component labels */
+@utility type-label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+}
+
+/* Timestamps and short notes */
+@utility type-caption {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* One consequential figure, not a grid */
+@utility type-data-xl {
+  font-family: var(--font-data);
+  font-size: 28px;
+  line-height: 34px;
+  font-weight: 550;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Figures, dates and compact records */
+@utility type-data {
+  font-family: var(--font-data);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 450;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Hash labels and utility records */
+@utility type-data-sm {
+  font-family: var(--font-data);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.015em;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Short structural label */
+@utility type-eyebrow {
+  font-family: var(--font-data);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.055em;
+  font-variant-numeric: tabular-nums lining-nums;
+  text-transform: uppercase;
+}
+
+
+/* The only two that shrink. A 40px title on a 320px screen is four words a line. */
+@media (width < 40rem) {
+  .type-display {
+    font-size: 32px;
+    line-height: 36px;
+  }
+
+  .type-title-1 {
+    font-size: 28px;
+    line-height: 32px;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------
+   Spacing, radii and elevation.
+
+   The scale has no 10, 14, 18 or 28: those are type metrics rather than layout increments,
+   and a layout that borrows them drifts off the rhythm one component at a time. A rule may
+   still be 1px or 3px — a hairline is not a gap.
+
+   Radii are small and few. Tracework does not use pill-shaped status chips and does not nest
+   rounded cards: a working sheet contains ruled sections, not more cards.
+
+   **Elevation means occlusion, not importance.** A standard sheet has a ledger boundary and
+   no shadow; the two shadows here are for the two things that genuinely float above the page
+   and cover it. */
+@theme static {
+
+  /* Spacing */
+  --space-0: 0;  /* Reset */
+  --space-half: 2px;  /* Optical adjustment only */
+  --space-1: 4px;  /* Icon-to-label micro gap */
+  --space-1-5: 6px;  /* Tight inline group */
+  --space-2: 8px;  /* Chip and compact-row inset */
+  --space-3: 12px;  /* Control gap, table cell inset */
+  --space-4: 16px;  /* Narrow page gutter, component inset */
+  --space-5: 20px;  /* Standard sheet inset */
+  --space-6: 24px;  /* Section rhythm and medium gutter */
+  --space-8: 32px;  /* Major section gap */
+  --space-10: 40px;  /* Page-block separation */
+  --space-12: 48px;  /* Major content separation */
+  --space-16: 64px;  /* Page section boundary */
+  --space-20: 80px;  /* Large report rhythm */
+  --space-24: 96px;  /* Maximum editorial separation */
+
+  /* Radii */
+  --radius-none: 0;  /* Tables, ledger rows, docked edges */
+  --radius-xs: 2px;  /* Status labels and evidence labels */
+  --radius-sm: 4px;  /* Buttons, inputs, inline callouts */
+  --radius-md: 8px;  /* Working sheets, menus and the decision panel */
+  --radius-lg: 12px;  /* Drawer or a one-off floating panel only */
+  --radius-round: 9999px;  /* Running dot, avatar or circular icon control only */
+
+  /* Elevation. The dark values are in the dark blocks with the rest of the palette. */
+  --shadow-sheet: 0 1px 2px var(--aer-shadow-sheet);
+  --shadow-float: 0 16px 40px var(--aer-shadow-float);
+}
+
+/* ---------------------------------------------------------------------------------------
+   Focus, once, for everything.
+
+   §6.1 of the design system, and the reason it is a base rule rather than a utility repeated
+   on every control: a focus ring is the one affordance a keyboard user has, and a component
+   that forgets it is invisible to exactly the person who cannot work around it. A rule here
+   cannot be forgotten by the next macro.
+
+   **Two edges, deliberately.** The one-pixel gap separates the ring from a filled button; the
+   outer ring separates it from the page. A single ring is legible against one of those two
+   and disappears against the other, and which one depends on where the control happens to sit.
+
+   `:focus-visible` with a `:focus` fallback, and the fallback comes *first* so a browser that
+   understands both keeps the narrower rule. The outline is never suppressed: a control that
+   removes it on `:focus` and forgets to add it back is the single most common accessibility
+   defect there is.
+
+   The rail's ring is the *dark* accent, because `[data-scheme="dark"]` redefines
+   `--aer-focus-ring` on the region — the light one measures 2.04:1 there (ADR 0088). Nothing
+   below knows that; it resolves the token and is correct. */
+
+:focus {
+  outline: 2px solid var(--aer-focus-ring);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--aer-focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 1px var(--aer-focus-gap);
+}
+
+/* Selection carries the same accent, so a dragged phrase does not become the one place on the
+   page using a colour nobody chose. */
+::selection {
+  background: var(--aer-verification);
+  color: var(--aer-on-verification);
+}
+
+/* Native checkboxes, radios and range inputs, so a checked box is the verification teal
+   rather than the browser's own blue. */
+@theme static {
+  --color-accent: var(--aer-verification);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--aer-verification);
+}
+
+/* Forced colours: keep the system's palette and let the words and shapes carry the state.
+   A semantic wash forced back over a user's own high-contrast choice is a page that ignores
+   the setting they made because they need it. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
+
+  .aer-status,
+  .aer-callout,
+  .aer-spine-node {
+    border: 1px solid currentColor;
+  }
+}
+
+/* The index summary says what activating it will do, not what state it is in. Two spans and
+   one rule, rather than a label the script rewrites: with scripting off the disclosure still
+   opens and closes, and a label only JavaScript could correct would be wrong exactly then. */
+#aer-menu[open] .aer-menu-open,
+#aer-menu:not([open]) .aer-menu-close {
+  display: none;
 }
 
 /* ---------------------------------------------------------------------------------------

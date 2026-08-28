@@ -168,6 +168,26 @@ async def start_run_page(
     return RedirectResponse(f"/runs/{job.id}", status_code=HTTP_303_SEE_OTHER)
 
 
+@router.get("/runs/active", summary="The run you are watching")
+async def active_run(session: DbSession, user: CurrentUser) -> Response:
+    """Wherever the operator's current run is, right now (ADR 0089).
+
+    **A redirect and not a page.** It renders nothing and holds no state; opening it lands the
+    operator somewhere real, and that is the whole of its behaviour.
+
+    303 to `/requests` when there is no run at all, because the honest next action for somebody
+    with nothing in flight is to look at their requests — not an empty console explaining that
+    there is nothing to console.
+
+    Declared **above** `/runs/{job_id}` deliberately: FastAPI matches in declaration order, and
+    below it `active` would be parsed as a job id and 404 on a uuid it never was.
+    """
+    job = await run_service.current_run(session, user_id=user.id)
+    if job is None:
+        return RedirectResponse("/requests", status_code=HTTP_303_SEE_OTHER)
+    return RedirectResponse(f"/runs/{job.id}", status_code=HTTP_303_SEE_OTHER)
+
+
 @router.get("/runs/{job_id}", response_class=HTMLResponse, summary="Run console")
 async def run_console(
     request: Request,

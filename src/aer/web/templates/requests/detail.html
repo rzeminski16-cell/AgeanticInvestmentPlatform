@@ -1,237 +1,163 @@
 {% extends "base.html" %}
-
-{% macro row(label, value, muted_when_empty=True) %}
-  <div class="border-t border-slate-200 py-3 sm:grid sm:grid-cols-3 sm:gap-4 dark:border-slate-800">
-    <dt class="text-sm font-medium text-slate-600 dark:text-slate-400">{{ label }}</dt>
-    <dd class="mt-1 text-sm sm:col-span-2 sm:mt-0
-               {% if not value and muted_when_empty %}text-slate-400{% else %}text-slate-900 dark:text-slate-100{% endif %}">
-      {{ value if value else "Not specified" }}
-    </dd>
-  </div>
-{% endmacro %}
+{% import "_ui/index.html" as ui with context %}
 
 {% block title %}{{ item.ticker }} &middot; Research request{% endblock %}
 
 {% block content %}
-  <div class="flex flex-wrap items-start justify-between gap-4">
-    <div>
-      <h1 class="text-2xl font-semibold tracking-tight" id="company-name">{{ item.company_name }}</h1>
-      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-        <span class="font-mono" id="ticker">{{ item.ticker }}</span>
-        on <span id="exchange">{{ item.exchange | replace('_', ' ') }}</span>
-        &middot; as at <span id="as-of-date">{{ item.as_of_date.isoformat() }}</span>
-      </p>
-    </div>
-    <div class="flex flex-col items-end gap-2">
-      <span
-        id="status"
-        class="rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-800 dark:bg-slate-800 dark:text-slate-200"
-      >
-        {{ item.status.value }}
-      </span>
-      {% if not item.resolved %}
-        <span class="text-xs text-slate-500" id="resolution-state">
-          Ticker not yet confirmed against a data source
-        </span>
-      {% endif %}
-    </div>
-  </div>
+  {% call ui.page_header(
+    item.company_name,
+    eyebrow="RESEARCH REQUEST",
+    identity=item.ticker ~ " · " ~ (item.exchange | replace("_", " ")) ~ " · as at " ~ item.as_of_date.isoformat(),
+    breadcrumbs=[{"href": "/requests", "label": "Requests"}],
+  ) %}
+    <span id="company-name" class="sr-only">{{ item.company_name }}</span>
+    <span id="ticker" class="sr-only">{{ item.ticker }}</span>
+    <span id="exchange" class="sr-only">{{ item.exchange | replace("_", " ") }}</span>
+    <span id="as-of-date" class="sr-only">{{ item.as_of_date.isoformat() }}</span>
+    <span id="status">{{ ui.status(status_tone, status_label) }}</span>
+  {% endcall %}
 
-  <div
-    class="mt-6 rounded-md border border-sky-300 bg-sky-50 p-4 dark:border-sky-900 dark:bg-sky-950/40"
-    role="note"
-  >
+  {#
+    What is true about this commission, before the record that proves it. Composed from the
+    request's own state and its latest run — never authored, because this page changes every
+    time the run does (ADR 0087).
+  #}
+  {{ ui.verdict("CURRENT STATE", verdict_statement, tone=status_tone, detail=verdict_detail) }}
+
+  {% if not item.resolved %}
+    <p class="type-body-sm text-ink-muted" id="resolution-state">
+      Ticker not yet confirmed against a data source.
+    </p>
+  {% endif %}
+
+  {#
+    The run sheet first: what is happening now and the one next valid action. The mandate is
+    below it, because somebody opening this page mid-run wants the state, and somebody opening
+    it before one wants the button.
+  #}
+  {% call ui.sheet("This run") %}
     {% if job %}
-      {% if can_start_again %}
-        {#
-          A cancelled or failed run produced no report, so there is nothing to choose
-          between and starting again is the obvious next move. Without this the page offered
-          only "open the run" and a cancelled request was a dead end.
-        #}
-        <p class="text-sm text-sky-900 dark:text-sky-100">
-          The last run <strong>{{ job.status.value | lower | replace('_', ' ') }}</strong> and
-          produced no report. You can start a fresh run, or open the old one to see how far it
-          got and what it cost.
-        </p>
-        <div class="mt-3 flex flex-wrap items-center gap-3">
-          {# A POST, because starting a run spends money. A GET must never have that effect. #}
+      {{ ui.definition_list([
+        {"label": "Spent", "value": run_cost, "is_data": true},
+        {"label": "Last activity", "value": last_activity, "is_data": true},
+      ]) }}
+      <div class="mt-4 flex flex-wrap items-center gap-4">
+        {% if can_start_again %}
+          {#
+            A cancelled or failed run produced no report, so there is nothing to choose between
+            and starting again is the obvious next move. Without this the page offered only
+            "open the run" and a cancelled request was a dead end.
+
+            A POST, because starting a run spends money. A GET must never have that effect.
+          #}
           <form method="post" action="/runs" id="start-run-form">
             <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
             <input type="hidden" name="request_id" value="{{ item.id }}" />
             <button
               type="submit"
               id="start-run"
-              class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
-            >
-              Start a new run
-            </button>
+              class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong"
+            >Start a new run</button>
           </form>
-          <a
-            href="/runs/{{ job.id }}"
-            class="text-sm text-sky-800 underline underline-offset-2 dark:text-sky-300"
-            id="open-run"
-          >
-            Open the {{ job.status.value | lower | replace('_', ' ') }} run
-          </a>
-        </div>
-      {% else %}
-        <p class="text-sm text-sky-900 dark:text-sky-100">
-          A run exists for this request. Follow it to see where it is up to, and to approve or
-          reject at each gate.
+        {% endif %}
+        <a href="/runs/{{ job.id }}" id="open-run" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Open the run</a>
+      </div>
+      {% if can_start_again %}
+        <p class="mt-3 type-body-sm text-ink-muted">
+          Starting again repeats the run and its cost. {{ repeat_cost_guidance }}
         </p>
-        <a
-          href="/runs/{{ job.id }}"
-          class="mt-3 inline-block rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
-          id="open-run"
-        >
-          Open the run
-        </a>
       {% endif %}
     {% else %}
-      <p class="text-sm text-sky-900 dark:text-sky-100">
-        Saved as a draft. Nothing has been fetched and nothing has been spent. Starting a run
-        produces a costed plan, which you approve before any research is carried out.
+      <p class="type-body text-ink">
+        Nothing has been fetched and nothing has been spent. Starting a run produces a costed
+        plan, which you approve before any research is carried out.
       </p>
       {# A POST, because starting a run spends money. A GET must never have that effect. #}
-      <form method="post" action="/runs" class="mt-3" id="start-run-form">
+      <form method="post" action="/runs" class="mt-4" id="start-run-form">
         <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
         <input type="hidden" name="request_id" value="{{ item.id }}" />
         <button
           type="submit"
           id="start-run"
-          class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
-        >
-          Start the run
-        </button>
+          class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong"
+        >Start the run</button>
       </form>
     {% endif %}
-  </div>
+  {% endcall %}
 
   {#
-    Always offered, even before a run proposes anything: the page says so itself when the
-    list is empty, and an operator looking for "what is this valuation assuming?" should not
-    have to know whether a step has run yet to find out where to look.
+    Always offered, even before a run proposes anything: the page says so itself when the list
+    is empty, and an operator looking for "what is this valuation assuming?" should not have to
+    know whether a step has run yet to find out where to look.
   #}
-  <p class="mt-4 text-sm">
-    <a
-      href="/requests/{{ item.id }}/assumptions"
-      class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
-      id="open-assumptions"
-    >
-      Assumptions this analysis rests on
-    </a>
+  <p>
+    <a href="/requests/{{ item.id }}/assumptions" id="open-assumptions" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Assumptions this analysis rests on</a>
   </p>
 
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold tracking-tight">Mandate</h2>
-    <dl class="mt-2">
-      {{ row("Horizon", item.investment_horizon_months ~ " months" ~ (" — " ~ item.horizon_label if item.horizon_label else "")) }}
-      {{ row("Depth", item.analysis_mode.value | capitalize) }}
-      {{ row("Point-in-time", "On — no source published after the as-of date may be used" if item.point_in_time else "Off — look-ahead bias is possible") }}
-      {{ row("Base currency", item.base_currency) }}
-      {{ row("Reporting currency", item.reporting_currency) }}
-      {{ row("ISIN", item.isin) }}
-    </dl>
-  </section>
+  {% call ui.sheet("The mandate", subtitle="What you asked for, and the constraints it must respect.") %}
+    {{ ui.definition_list(mandate_rows) }}
 
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold tracking-tight">Portfolio context</h2>
-    <dl class="mt-2">
-      {{ row("Current weight", (item.portfolio_context.get('current_weight') | percent) if item.portfolio_context.get('current_weight') else None) }}
-      {{ row("Maximum weight", (item.portfolio_context.get('maximum_weight') | percent) if item.portfolio_context.get('maximum_weight') else None) }}
-      {{ row("Benchmark", item.portfolio_context.get('benchmark')) }}
-    </dl>
-  </section>
-
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold tracking-tight">Your priorities</h2>
-    <dl class="mt-2">
-      {{ row("Risk tolerance", item.risk_tolerance | capitalize if item.risk_tolerance else None) }}
-      {{ row("ESG weighting", item.esg_sensitivity | capitalize if item.esg_sensitivity else None) }}
-      {{ row("Liquidity constraint", ("£" ~ "{:,.2f}".format(item.liquidity_constraint_gbp)) if item.liquidity_constraint_gbp is not none else None) }}
-    </dl>
-
-    <h3 class="mt-6 text-sm font-semibold text-slate-800 dark:text-slate-200">Questions to answer</h3>
+    <h3 class="mt-6 type-subheading text-ink">Questions to answer</h3>
     {% if item.focus_questions %}
-      <ul class="mt-2 list-disc space-y-1 pl-5 text-sm" id="focus-questions">
+      <ul class="mt-2 flex list-disc flex-col gap-1 pl-5 type-body text-ink" id="focus-questions">
         {% for question in item.focus_questions %}<li>{{ question }}</li>{% endfor %}
       </ul>
     {% else %}
-      <p class="mt-2 text-sm text-slate-400">None given.</p>
+      <p class="mt-2 type-body text-ink-muted">None given.</p>
     {% endif %}
 
-    <h3 class="mt-6 text-sm font-semibold text-slate-800 dark:text-slate-200">Excluded sources</h3>
+    <h3 class="mt-6 type-subheading text-ink">Excluded sources</h3>
     {% if item.excluded_sources %}
-      <ul class="mt-2 list-disc space-y-1 pl-5 text-sm font-mono" id="excluded-sources">
+      <ul class="mt-2 flex list-disc flex-col gap-1 pl-5 type-data text-ink" id="excluded-sources">
         {% for domain in item.excluded_sources %}<li>{{ domain }}</li>{% endfor %}
       </ul>
     {% else %}
-      <p class="mt-2 text-sm text-slate-400">None.</p>
+      <p class="mt-2 type-body text-ink-muted">None.</p>
     {% endif %}
-  </section>
+  {% endcall %}
 
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold tracking-tight">Cost ceiling</h2>
-    <dl class="mt-2">
-      {{ row("Maximum spend", "£" ~ "{:,.2f}".format(item.max_cost_gbp)) }}
-      {{ row("Created", item.created_at.strftime("%d %B %Y at %H:%M %Z")) }}
-    </dl>
-  </section>
+  {% call ui.sheet() %}
+    {% call ui.disclosure("Technical record") %}
+      {{ ui.definition_list(technical_rows) }}
+    {% endcall %}
+  {% endcall %}
 
-  <section class="mt-8 border-t border-slate-200 pt-6 dark:border-slate-800">
+  {% call ui.sheet() %}
     {% if immutable_reason %}
       {#
         No edit, no delete, and the reason in place of the buttons. Rendering them disabled
-        would be worse: a greyed-out button invites the operator to hunt for the condition
-        that re-enables it, and there isn't one.
+        would be worse: a greyed-out button invites the operator to hunt for the condition that
+        re-enables it, and there isn't one.
       #}
-      <p class="max-w-3xl text-sm text-slate-600 dark:text-slate-400" id="immutable-reason">
-        {{ immutable_reason }}
-      </p>
+      {{ ui.callout("muted", "This request is now part of the audit record", immutable_reason) }}
+      <p class="sr-only" id="immutable-reason">{{ immutable_reason }}</p>
     {% else %}
       <div class="flex flex-wrap items-center gap-4">
         <a
           href="/requests/{{ item.id }}/edit"
-          class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           id="edit-request"
+          class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-3 type-label text-ink hover:bg-surface-selected"
+          >Edit this request</a
         >
-          Edit this request
-        </a>
         {#
-          A POST, because deleting destroys something, and confirmed in the browser because
-          unlike cancelling a run this cannot be undone by starting again. The confirmation
-          is an enhancement, not the guard: the service refuses a delete that would take
-          evidence with it whether or not any dialogue appeared.
+          A link to the confirmation page rather than a `confirm()` dialogue. What is about to
+          be destroyed has counts, and the counts have to be read before the decision — a
+          browser dialogue cannot hold them, cannot be styled, cannot be reached by anybody
+          who has scripting off, and is dismissed by reflex. The service refuses a removal that
+          would take evidence with it whether or not any page appeared; this is about the
+          operator being able to see what they are agreeing to.
         #}
-        <form
-          method="post"
-          action="/requests/{{ item.id }}/delete"
-          id="delete-request-form"
-          onsubmit="return confirm('Delete this draft request? This cannot be undone.');"
+        <a
+          href="/requests/{{ item.id }}/remove"
+          id="delete-request"
+          class="inline-flex min-h-11 items-center rounded-sm border border-danger-action px-3 type-label text-danger-action hover:bg-failure-wash"
+          >Remove this request</a
         >
-          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-          <button
-            type="submit"
-            id="delete-request"
-            class="rounded-md border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-800 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/40"
-          >
-            Delete
-          </button>
-        </form>
       </div>
-      <p class="mt-3 max-w-3xl text-xs text-slate-500">
-        Nothing has been fetched or spent against this request, so it can still be changed
-        or removed. Both stop being possible once a run starts.
+      <p class="mt-3 type-body-sm text-ink-muted">
+        Nothing has been fetched or spent against this request, so it can still be changed or
+        removed. Both stop being possible once a run starts.
       </p>
     {% endif %}
-  </section>
-
-  <div class="mt-8 flex gap-4 border-t border-slate-200 pt-6 dark:border-slate-800">
-    <a href="/requests" class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400">
-      All requests
-    </a>
-    <a href="/requests/new" class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400">
-      New request
-    </a>
-  </div>
+  {% endcall %}
 {% endblock %}

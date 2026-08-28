@@ -22,20 +22,25 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>{% block title %}Ageiantic Equity Research{% endblock %}</title>
+    <title>{% block title %}Tracework Invest{% endblock %}</title>
     {# The typeface, asked for before the stylesheet that references it — otherwise the
        browser does not learn it needs the font until it has parsed the CSS, and the page
-       renders once in the fallback and again in Inter.
+       renders once in the fallback and again in Source Sans 3.
 
        `crossorigin` even though it is our own origin: fonts are fetched in CORS mode, and
        a preload without it is a second, separate request rather than a head start.
 
-       Only the latin file. `latin-ext` is fetched by `unicode-range` on the pages that
-       actually contain those letters, and preloading it would spend 85 kB on every page
+       **One file of eight.** The interface face carries most of the text on every page, so
+       it is the one worth a head start. Barlow arrives a beat later and reflows the
+       headings it sets, which is the trade `font-display: swap` exists to make; preloading
+       all three families would spend 83 kB before the first paint to avoid it.
+
+       Only the latin cut. `latin-ext` is fetched by `unicode-range` on the pages that
+       actually contain those letters, and preloading it would spend 59 kB on every page
        for characters most of them do not have. #}
     <link
       rel="preload"
-      href="{{ url_for('static', path='/fonts/inter-latin-wght-normal.woff2') }}"
+      href="{{ url_for('static', path='/fonts/source-sans-3-latin-wght-normal.woff2') }}"
       as="font"
       type="font/woff2"
       crossorigin
@@ -47,6 +52,9 @@
     {# The chrome layer: focus, Escape, the scroll lock. Loaded on every page because
        the drawer is in the shell, and inert on a page whose links never target it. #}
     <script src="{{ url_for('static', path='/js/drawer.js') }}" defer></script>
+    {# Closes the index below the rail breakpoint. Fails open: if it never runs, every link
+       stays on the screen at every width (decision B7). #}
+    <script src="{{ url_for('static', path='/js/nav.js') }}" defer></script>
     {# Pages that need more than the shared behaviour add it here rather than inline, so a
        Content-Security-Policy can forbid inline script without rewriting any template. #}
     {% block head_extra %}{% endblock %}
@@ -62,21 +70,47 @@
     data-guidance="{{ shell.guidance_attr }}"
     class="min-h-full bg-canvas text-ink antialiased"
   >
-    <div class="flex min-h-full flex-col">
+    {# The skip link is the first focusable element on every page: off-canvas until it takes
+       focus, then at the top-left on a raised surface. Without it, reaching the content past a
+       nine-item index costs a keyboard user nine tab stops on every navigation. #}
+    <a
+      href="#aer-main"
+      class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-sm focus:bg-surface-raised focus:px-4 focus:py-3 focus:type-label focus:text-ink"
+      >Skip to the content</a
+    >
+
+    {# The index and the working area side by side from 960px, stacked below it. `min-h-dvh`
+       rather than `min-h-full` so the rail reaches the bottom of the viewport on a short page
+       instead of stopping where the content does. #}
+    <div class="flex min-h-dvh flex-col min-[60rem]:flex-row">
       {% include "_nav.html" %}
 
-      <main class="mx-auto w-full max-w-shell flex-1 px-4 py-8 sm:px-6">
-        {% block content %}{% endblock %}
-      </main>
+      <div class="flex min-w-0 flex-1 flex-col">
+        {# Where you are, outside the part that collapses.
 
-      <footer class="border-t border-line">
-        <div class="mx-auto w-full max-w-shell px-4 py-6 sm:px-6">
-          <p class="text-sm text-ink-muted">{{ disclaimer }}</p>
-          <p class="mt-2 text-xs text-ink-faint">
-            Ageiantic Equity Research Platform &middot; version {{ app_version }}
-          </p>
-        </div>
-      </footer>
+           At 320px with scripting on, the index is closed and its `aria-current` item is
+           invisible — so the page would be the only thing saying which page it is, and the
+           reader would have to open the menu to find out. This says it in the chrome, always,
+           and disappears at the width where the rail is showing the same thing. #}
+        {% if shell.location %}
+        <p class="border-b border-line px-4 py-2 type-caption text-ink-muted sm:px-6 min-[60rem]:hidden">
+          {{ shell.location }}
+        </p>
+        {% endif %}
+
+        <main id="aer-main" class="mx-auto w-full max-w-shell flex-1 px-4 py-8 sm:px-6 min-[80rem]:px-8">
+          {% block content %}{% endblock %}
+        </main>
+
+        <footer class="border-t border-line">
+          <div class="mx-auto w-full max-w-shell px-4 py-6 sm:px-6">
+            <p class="type-body-sm text-ink-muted">{{ disclaimer }}</p>
+            <p class="mt-2 type-caption text-ink-subtle">
+              Tracework Invest &middot; version {{ app_version }}
+            </p>
+          </div>
+        </footer>
+      </div>
     </div>
 
     {% include "_shell/drawer.html" %}

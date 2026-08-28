@@ -41,7 +41,7 @@ from weasyprint import HTML
 
 __all__ = ["PDF_PRODUCER", "finish_pdf", "render_pdf"]
 
-PDF_PRODUCER = "Ageiantic Equity Research"
+PDF_PRODUCER = "Tracework Invest"
 
 
 def render_pdf(html: str, *, report_id: str, content_hash: str, approved_at: datetime) -> bytes:
@@ -82,7 +82,7 @@ def finish_pdf(raw: bytes, *, report_id: str, content_hash: str, approved_at: da
         with pdf.open_metadata(set_pikepdf_as_editor=False) as meta:
             meta["dc:identifier"] = report_id
             meta["dc:description"] = (
-                f"Ageiantic Equity Research report {report_id}; "
+                f"Tracework Invest report {report_id}; "
                 f"content sha256 {content_hash}. Personal research tool output, "
                 "not regulated investment advice."
             )

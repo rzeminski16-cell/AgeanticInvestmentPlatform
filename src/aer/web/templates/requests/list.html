@@ -1,141 +1,106 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
 
-{% block title %}Research requests &middot; Ageiantic Equity Research{% endblock %}
+{% block title %}Research requests &middot; Tracework Invest{% endblock %}
 
 {% block content %}
-  <div class="flex flex-wrap items-center justify-between gap-4">
-    <h1 class="text-2xl font-semibold tracking-tight">
-      {% if archived %}Archived requests{% else %}Research requests{% endif %}
-    </h1>
-    <div class="flex items-center gap-3">
-      {% if archived %}
-        <a href="/requests" class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400">
-          Back to active
-        </a>
-      {% elif counterpart %}
-        <a
-          href="/requests?archived=1"
-          id="show-archived"
-          class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
-        >
-          Archived ({{ counterpart }})
-        </a>
-      {% endif %}
-      <a
-        href="/requests/new"
-        class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
-      >
-        New request
-      </a>
-    </div>
-  </div>
+  {% call ui.page_header(
+    "Archived requests" if archived else "Research requests",
+    eyebrow="RESEARCH",
+    identity=("Off the active list, and everything they produced is kept." if archived
+              else "What you have asked for, and what each one has cost so far."),
+  ) %}
+    <a
+      href="/requests/new"
+      class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong"
+      >New request</a
+    >
+    {% if archived %}
+      <a href="/requests" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Back to active</a>
+    {% elif counterpart %}
+      <a href="/requests?archived=1" id="show-archived" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Archived ({{ counterpart }})</a>
+    {% endif %}
+  {% endcall %}
 
   {% if requests %}
-    <div class="mt-6 overflow-x-auto">
-      <table class="w-full min-w-[40rem] text-left text-sm">
-        <thead class="border-b border-slate-300 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700">
+    {% call ui.sheet() %}
+      {#
+        A table because these rows genuinely compare column by column — six mandates at three
+        depths, and the question is which one to open. `ui.table` puts the scroller inside the
+        component with `tabindex`, so the last columns are reachable by keyboard and the page
+        itself never scrolls sideways.
+      #}
+      {% call ui.table(
+        ("Archived research requests" if archived else "Active research requests")
+        ~ ". The company name links to the request.",
+        [
+          {"label": "Company"},
+          {"label": "Mandate"},
+          {"label": "Status"},
+          {"label": "Spend", "numeric": true},
+          {"label": "Actions"},
+        ],
+      ) %}
+        {% for item in requests %}
           <tr>
-            <th scope="col" class="py-2 pr-4 font-medium">Company</th>
-            <th scope="col" class="py-2 pr-4 font-medium">Ticker</th>
-            <th scope="col" class="py-2 pr-4 font-medium">Exchange</th>
-            <th scope="col" class="py-2 pr-4 font-medium">As at</th>
-            <th scope="col" class="py-2 pr-4 font-medium">Depth</th>
-            <th scope="col" class="py-2 pr-4 font-medium">Status</th>
-            <th scope="col" class="py-2 text-right font-medium">
-              <span class="sr-only">Actions</span>
+            <th scope="row" class="border-b border-line py-3 pr-4 text-left">
+              <a href="/requests/{{ item.id }}" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ item.company_name }}</a>
+              <span class="mt-0.5 block type-data-sm text-ink-muted">{{ item.ticker }} · {{ item.exchange | replace("_", " ") }}</span>
             </th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in requests %}
-            <tr class="border-b border-slate-200 dark:border-slate-800">
-              <td class="py-2 pr-4">
-                <a
-                  href="/requests/{{ item.id }}"
-                  class="font-medium text-sky-700 underline underline-offset-2 dark:text-sky-400"
-                >
-                  {{ item.company_name }}
-                </a>
-              </td>
-              <td class="py-2 pr-4 font-mono">{{ item.ticker }}</td>
-              <td class="py-2 pr-4">{{ item.exchange | replace('_', ' ') }}</td>
-              <td class="py-2 pr-4">{{ item.as_of_date.isoformat() }}</td>
-              <td class="py-2 pr-4">{{ item.analysis_mode.value | capitalize }}</td>
-              <td class="py-2 pr-4">
-                <span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide dark:bg-slate-800">
-                  {{ item.status.value }}
-                </span>
-              </td>
+            <td class="border-b border-line py-3 pr-4 type-body-sm text-ink">
+              {{ item.as_of_date.isoformat() }}
+              <span class="mt-0.5 block type-data-sm text-ink-muted">{{ item.analysis_mode.value | capitalize }}</span>
+            </td>
+            <td class="border-b border-line py-3 pr-4">
+              {#
+                The sentence rather than the enum. `SUBMITTED` is a database value; "Waiting
+                for your plan decision" is what the row is for. The raw value stays reachable
+                in the request's own technical record.
+              #}
+              {{ ui.status(request_tones[item.status], request_labels[item.status]) }}
+            </td>
+            {{ ui.cell(spend_by_request.get(item.id, "—"), numeric=true) }}
+            <td class="border-b border-line py-3 whitespace-nowrap">
               {#
                 Archive is one click and no dialogue, because one more click undoes it.
-                Removing is a link to a page that lists what would be destroyed — the
-                counts have to be read before the decision, and a browser confirm() box
-                cannot hold them.
+                Removing is a link to a page that lists what would be destroyed — the counts
+                have to be read before the decision, and a browser `confirm()` cannot hold
+                them.
               #}
-              <td class="py-2 text-right whitespace-nowrap">
-                {% if archived %}
-                  <form
-                    method="post"
-                    action="/requests/{{ item.id }}/restore"
-                    class="inline"
-                  >
-                    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-                    <button
-                      type="submit"
-                      class="restore-request rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                      data-request-id="{{ item.id }}"
-                    >
-                      Restore
-                    </button>
-                  </form>
-                {% else %}
-                  <form
-                    method="post"
-                    action="/requests/{{ item.id }}/archive"
-                    class="inline"
-                  >
-                    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-                    <button
-                      type="submit"
-                      class="archive-request rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                      data-request-id="{{ item.id }}"
-                    >
-                      Archive
-                    </button>
-                  </form>
-                {% endif %}
-                <a
-                  href="/requests/{{ item.id }}/remove"
-                  class="remove-request ml-1 rounded-md border border-red-300 px-2 py-1 text-xs font-semibold text-red-800 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/40"
+              <form method="post" action="/requests/{{ item.id }}/{{ 'restore' if archived else 'archive' }}" class="inline">
+                <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                <button
+                  type="submit"
+                  class="{{ 'restore-request' if archived else 'archive-request' }} inline-flex min-h-8 items-center rounded-sm border border-control-boundary px-2 type-caption text-ink hover:bg-surface-selected"
                   data-request-id="{{ item.id }}"
-                >
-                  Remove
-                </a>
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% elif archived %}
-    <div class="mt-8 rounded-lg border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
-      <p class="text-sm text-slate-600 dark:text-slate-400">
-        Nothing is archived. Archiving takes a request off the active list and keeps
-        everything it produced.
-      </p>
-    </div>
+                >{{ "Restore" if archived else "Archive" }} {{ item.company_name }}</button>
+              </form>
+              <a
+                href="/requests/{{ item.id }}/remove"
+                class="remove-request ml-2 inline-flex min-h-8 items-center rounded-sm border border-danger-action px-2 type-caption text-danger-action hover:bg-failure-wash"
+                data-request-id="{{ item.id }}"
+                >Remove {{ item.company_name }}</a
+              >
+            </td>
+          </tr>
+        {% endfor %}
+      {% endcall %}
+    {% endcall %}
   {% else %}
-    <div class="mt-8 rounded-lg border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
-      <p class="text-sm text-slate-600 dark:text-slate-400">
-        No requests yet. A request records what you want researched and the constraints it
-        must respect &mdash; creating one costs nothing and starts nothing.
-      </p>
-      <a
-        href="/requests/new"
-        class="mt-4 inline-block rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
-      >
-        Create the first one
-      </a>
-    </div>
+    {% call ui.sheet() %}
+      {% if archived %}
+        {{ ui.empty(
+          "The archive is empty",
+          "Archiving takes a request off the active list and keeps everything it produced. Anything archived will be recoverable here.",
+        ) }}
+      {% else %}
+        {{ ui.empty(
+          "No active requests",
+          "A request records what you want researched and the constraints it must respect. Creating one costs nothing and starts nothing — the run stops for your approval before it spends anything.",
+          "Create the first one",
+          "/requests/new",
+        ) }}
+      {% endif %}
+    {% endcall %}
   {% endif %}
 {% endblock %}

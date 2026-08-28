@@ -29,7 +29,13 @@ from aer.api.security import (
 )
 from aer.config import Settings
 
-__all__ = ["CSRF_FIELD_NAME", "csrf_is_valid", "new_csrf_token", "set_csrf_cookie"]
+__all__ = [
+    "CSRF_FIELD_NAME",
+    "csrf_is_valid",
+    "new_csrf_token",
+    "set_csrf_cookie",
+    "usable_csrf_token",
+]
 
 _SAME_SITE: Final = "strict"
 
@@ -62,6 +68,29 @@ def set_csrf_cookie(response: Response, token: str) -> None:
         secure=False,
         path="/",
     )
+
+
+def usable_csrf_token(request: Request, settings: Settings) -> str | None:
+    """The token this request already carries, if it is one this server signed.
+
+    **A double-submit cookie is a secret for the session, not for the response.** Minting a
+    fresh one on every render looks harmless and is not: any response that sets the cookie
+    replaces the value every form already rendered on the page is carrying, and the next
+    submission fails a check that was never about that submission.
+
+    The way that actually happens here is a fragment. `GET /_shell/badges` is fetched by
+    htmx on every page load, renders through the same door as a page, and used to arrive a
+    beat after the form it invalidated. With scripting off nothing fetched it and every form
+    worked, which is the wrong half of the product to have working.
+
+    So a render reuses what the request brought. ``None`` when there is no cookie, or when
+    the one presented does not verify — a stale or tampered value is not a reason to keep
+    using it.
+    """
+    presented = request.cookies.get(CSRF_COOKIE_NAME)
+    if not presented or not verify_csrf_token(settings.signing_key, presented):
+        return None
+    return presented
 
 
 def csrf_is_valid(request: Request, submitted: str | None, settings: Settings) -> bool:

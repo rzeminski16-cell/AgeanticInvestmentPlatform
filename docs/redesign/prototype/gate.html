@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Tracework redesign prototype — plan approval gate">
+  <title>Approve the research plan · Tracework prototype</title>
+  <link rel="stylesheet" href="assets/tracework.css">
+  <script src="assets/tracework.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <div class="app-shell">
+    <details class="nav-shell" open>
+      <summary class="nav-summary">Tracework</summary>
+      <div class="nav-panel">
+        <a class="brand-lockup" href="index.html" aria-label="Tracework overview"><span class="brand-mark" aria-hidden="true">T↳</span><span><span class="brand-name">Tracework</span><span class="brand-note">Evidence-led research</span></span></a>
+        <nav class="nav-primary" aria-label="Primary navigation">
+          <section class="nav-section" aria-labelledby="nav-work"><span class="nav-section-label" id="nav-work">Workspace</span><ul class="nav-list"><li><a class="nav-link" href="index.html"><span>Overview</span><span class="nav-badge" id="nav-attention-count" aria-label="3 items need attention">3</span></a></li></ul></section>
+          <section class="nav-section" aria-labelledby="nav-research"><span class="nav-section-label" id="nav-research">Research</span><ul class="nav-list"><li><a class="nav-link" href="requests.html" aria-current="page"><span>Requests</span><span class="nav-badge" aria-label="2 runs waiting for a decision">2</span></a></li><li><a class="nav-link" href="run.html"><span>Active run</span></a></li><li><a class="nav-link" href="reports.html"><span>Reports</span></a></li><li><a class="nav-link" href="skills.html"><span>Skills</span></a></li><li><a class="nav-link" href="knowledge.html"><span>Knowledge</span></a></li></ul></section>
+          <section class="nav-section" aria-labelledby="nav-book"><span class="nav-section-label" id="nav-book">Book</span><ul class="nav-list"><li><a class="nav-link" href="portfolio.html"><span>Portfolio</span></a></li></ul></section>
+          <section class="nav-section" aria-labelledby="nav-reference"><span class="nav-section-label" id="nav-reference">Design reference</span><ul class="nav-list"><li><a class="nav-link" href="components.html"><span>Components</span></a></li></ul></section>
+        </nav>
+        <div class="nav-utility"><div><span class="nav-section-label">Appearance</span><div class="theme-control" aria-label="Prototype colour scheme"><button type="button" data-theme-choice="light" aria-pressed="false">Light</button><button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button><button type="button" data-theme-choice="system" aria-pressed="true">Auto</button></div></div></div>
+      </div>
+    </details>
+    <div class="work-area">
+      <header class="context-bar"><nav class="breadcrumbs" aria-label="Breadcrumb"><a href="requests.html">Research</a> / <a href="requests.html">Contoso plc</a> / <a href="run.html">Run 184</a> / <span aria-current="page">Plan decision</span></nav><div class="context-actions"><a class="button button-quiet button-small" href="run.html">Back to run</a></div></header>
+      <main class="page" id="main">
+        <header class="page-header"><div><span class="page-kicker">Decision point · always required · £0.16 spent</span><h1>Approve the research plan</h1><p class="page-lede">Decide whether this is the right work for Contoso plc before the run commits to acquisition, analysis, and drafting.</p></div><span class="status status-warn">Waiting for you</span></header>
+
+        <section class="verdict" aria-labelledby="gate-verdict">
+          <div><span class="utility-label">What this decision means</span><h2 id="gate-verdict">The plan answers your mandate and stays inside the £4.00 ceiling.</h2><p>It proposes a full report as at 22 August 2026, with primary filings first, five peers, and explicit tests of margin recovery. Approving permits the expensive phases to begin.</p></div>
+          <div class="verdict-aside"><span class="utility-label">Expected additional spend</span><span class="metric-strong">£2.23–£2.88</span><span class="metric-note">Server estimate · £3.04 likely total</span></div>
+        </section>
+
+        <div class="decision-layout">
+          <div class="section-stack">
+            <section class="evidence-spine" aria-labelledby="plan-answer">
+              <aside class="spine-margin" aria-label="Plan lineage"><span class="spine-title">Why this plan</span><ol class="spine-chain"><li><a href="#mandate">Mandate</a><small>Operator supplied</small></li><li><a href="#method">Method</a><small>Core equity research</small></li><li><a href="#cost">Cost bound</a><small>Deterministic estimate</small></li></ol></aside>
+              <div class="spine-content"><span class="utility-label">Plan answer</span><h2 id="plan-answer">Test whether operating leverage is real, durable, and already priced in.</h2><p>The plan centres the question supplied in the mandate. It separates filed margin history from management guidance, tests distribution-centre savings against peer evidence, and values the business under an explicit recovery range rather than assuming the narrative is true.</p><div class="provenance-row"><a class="provenance" href="#mandate">Judged · operator question</a><span class="confirmation confirmation-good">Confirmed by mandate</span></div></div>
+            </section>
+
+            <section class="sheet" id="mandate" aria-labelledby="mandate-title"><div class="sheet-head"><div><span class="utility-label">The commission</span><h2 id="mandate-title">What you asked</h2></div></div><div class="sheet-body"><blockquote class="quote-evidence">“Is margin recovery supported by the new distribution centre, or only by pricing assumptions?”</blockquote><dl class="definition-grid"><div><dt>Company</dt><dd>Contoso plc · CTSO · LSE</dd></div><div><dt>Evidence boundary</dt><dd>22 August 2026</dd></div><div><dt>Research depth</dt><dd>Full research</dd></div><div><dt>Cost ceiling</dt><dd>£4.00</dd></div><div><dt>Forecast horizon</dt><dd>Five years</dd></div><div><dt>Point in time</dt><dd>Enforced</dd></div></dl></div></section>
+
+            <section class="sheet" id="method" aria-labelledby="method-title"><div class="sheet-head"><div><span class="utility-label">The work proposed</span><h2 id="method-title">Six bounded lines of enquiry</h2><p>Each line says what evidence it seeks and how it changes the final conclusion.</p></div></div><div class="sheet-body"><ol class="record-list section-stack">
+              <li><strong>Reconstruct reported margin and cash conversion.</strong><span class="cell-secondary">Primary annual and interim filings; no model arithmetic.</span></li>
+              <li><strong>Separate volume, price, mix, and logistics effects.</strong><span class="cell-secondary">Management disclosures cross-checked against segment movements.</span></li>
+              <li><strong>Test the distribution-centre claim.</strong><span class="cell-secondary">Capital spend, commissioning timing, stated savings, and evidence of delivery.</span></li>
+              <li><strong>Compare with five approved peers.</strong><span class="cell-secondary">Margins, returns, reinvestment, leverage, and valuation on like-for-like definitions.</span></li>
+              <li><strong>Build explicit recovery assumptions.</strong><span class="cell-secondary">You will confirm any value that cannot be derived before it enters valuation.</span></li>
+              <li><strong>Attack the conclusion.</strong><span class="cell-secondary">A second model tests disconfirming evidence, circular reasoning, and unsupported confidence.</span></li>
+            </ol></div></section>
+
+            <section class="sheet" id="cost" aria-labelledby="cost-title"><div class="sheet-head"><div><span class="utility-label">Cost and stopping rules</span><h2 id="cost-title">The run is estimated to finish below its ceiling</h2><p>The range is a server-supplied planning estimate. The ceiling remains the authoritative boundary.</p></div></div><div class="sheet-body"><div class="cost-meter"><div class="meter-labels"><span>£0.16 already spent</span><span>£4.00 hard ceiling</span></div><div class="meter-track" role="img" aria-label="Estimated total £2.39 to £3.04 against a £4.00 ceiling"><div class="meter-fill" style="--meter:76%"></div></div><span class="field-hint">Estimated total: £2.39–£3.04. If the next call would cross £4.00, the run stops before making it.</span></div></div></section>
+
+            <details class="sheet"><summary class="sheet-head"><span><strong>Sources and exclusions</strong><span class="cell-secondary">Primary filings first; post-boundary documents refused</span></span></summary><div class="sheet-body"><p>The plan seeks annual reports, interim results, results presentations, investor transcripts, exchange announcements, and deterministic price records. It may use reputable supporting context only when the report labels it accordingly. Anything published after 22 August 2026 is refused.</p></div></details>
+
+            <div class="guarantee"><strong>Your decision is bound to this exact plan.</strong>The server records a hash of the payload you reviewed. If the plan changes before your decision arrives, approval is refused and the changed payload is shown again.</div>
+          </div>
+
+          <form class="decision-panel" id="gate-form" action="run.html#decision-recorded" method="get">
+            <div class="decision-panel-head"><span class="utility-label">Decision required</span><h2>Permit this work?</h2></div>
+            <div class="decision-panel-body"><p><strong>Approve</strong> starts acquisition and permits up to £3.84 more under this run ceiling.</p><p><strong>Reject</strong> ends this run. The £0.16 plan cost remains in the record.</p><div class="field"><label for="decision-note">Decision note <span class="cell-secondary">optional</span></label><textarea id="decision-note" name="decision_note" rows="3" placeholder="Record why, especially if rejecting."></textarea></div></div>
+            <div class="decision-panel-foot"><button class="button button-decision" type="submit" name="decision" value="approve">Approve plan and continue</button><button class="button" type="submit" name="decision" value="reject">Reject and end this run</button><span class="field-hint">No optimistic state: the server confirms the recorded decision.</span></div>
+          </form>
+        </div>
+
+        <footer class="prototype-note"><strong>This is not investment advice.</strong> Companies and figures shown here are illustrative.</footer>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

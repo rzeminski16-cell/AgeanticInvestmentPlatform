@@ -13,6 +13,7 @@ import re
 import pytest
 
 from aer.api.app import _LOCAL_MEDIA_TYPES
+from aer.api.security import CSRF_COOKIE_NAME
 from aer.config import load_settings
 from aer.version import version
 from aer.web.shell import flat_items, shell_for
@@ -40,10 +41,31 @@ class TestLandingPage:
         assert DISCLAIMER in (await web_client.get("/")).text
 
     async def test_says_it_is_not_investment_advice(self, web_client):
-        # Asserted independently of the exact disclaimer wording, so rephrasing the
-        # sentence cannot accidentally remove the claim it is there to make.
+        """The claim `CLAUDE.md` requires every user-facing surface to make.
+
+        Asserted as the constant rather than as a phrase, so rephrasing the sentence cannot
+        accidentally remove the claim it is there to make — a substring check passes on
+        "not investment advice" and fails on "not *regulated* investment advice", which is
+        the same claim written better.
+        """
+        assert DISCLAIMER in (await web_client.get("/")).text
+
+    async def test_the_disclaimer_appears_exactly_once(self, web_client):
+        """The shell's footer owns it and no page duplicates it.
+
+        A disclaimer repeated in every sheet is a disclaimer people stop reading, which is the
+        opposite of what putting it there was for.
+
+        **Counted by its first sentence rather than the whole constant**, which is how a
+        duplication got past this once already: the landing page's own introduction ended
+        "This is a personal research tool, not regulated investment advice", matching half the
+        disclaimer and none of the string. A test that only recognises the complete text is a
+        test that misses every partial copy, and a partial copy is the likely kind.
+        """
         body = (await web_client.get("/")).text
-        assert "not investment advice" in body.lower()
+        claim = DISCLAIMER.split(". ")[0]
+
+        assert body.count(claim) == 1, f"the disclaimer's claim appears {body.count(claim)} times"
 
     async def test_shows_the_build_identity(self, web_client):
         assert version() in (await web_client.get("/")).text
@@ -82,6 +104,20 @@ class TestLandingPage:
 
         assert "not reachable" in body
         assert "just up" in body
+
+    async def test_the_request_form_still_draws_with_no_database(self, web_client):
+        """It has no data to show, so it has no reason to need any.
+
+        Cost guidance briefly gave it one: the depth hint queries finished runs, and taking a
+        `CurrentUser` to run that query made the whole form 500 when the database was down. A
+        form that will not draw because a *hint* could not be computed is a form broken by a
+        nicety, and the half of the hint that matters — that the ceiling is enforced in code
+        rather than reported — is true whether or not any history could be read.
+        """
+        body = (await web_client.get("/requests/new")).text
+
+        assert 'name="company_name"' in body
+        assert "Enforced in code" in body
 
     async def test_pages_that_show_data_still_fail_loudly(self, web_client):
         # Only the landing page degrades. A list page that rendered "no requests" while
@@ -138,7 +174,8 @@ class TestStaticAssets:
             )
 
     async def test_the_typeface_is_served_locally(self, web_client):
-        response = await web_client.get("/static/fonts/inter-latin-wght-normal.woff2")
+        # The preloaded face, which is the one whose absence shows on every page.
+        response = await web_client.get("/static/fonts/source-sans-3-latin-wght-normal.woff2")
 
         assert response.status_code == 200
         assert len(response.content) > 10_000
@@ -334,14 +371,56 @@ class TestTheDarkPaletteIsOneThing:
                 found[name.strip()] = value.strip()
         return found
 
+    def _block(self, source: str, selector: str) -> str:
+        """The declarations under a selector, found by the selector rather than by an offset.
+
+        Matched by scanning forward from the selector to its opening brace and then to the
+        first line that closes it, because the selector *list* grows: the explicit-dark block
+        gained `[data-scheme="dark"]` when the navigation rail started sharing it, and a
+        `split` on the exact old text found nothing and raised rather than reporting drift.
+        """
+        at = -1
+        while True:
+            at = source.index(selector, at + 1)
+            body = source[source.index("{", at) + 1 :]
+            # The custom-property blocks contain no nested braces, so the first one closes it.
+            body = body[: body.index("}")]
+            # Both selectors also appear in the `@custom-variant dark` rule at the top of the
+            # file, which declares no tokens. Keep looking until the block that does.
+            if "--aer-" in body:
+                return body
+
     def test_the_two_dark_blocks_declare_the_same_values(self):
         source = (STYLES_DIR / "app.css").read_text(encoding="utf-8")
 
-        media = source.split(':root:not([data-theme="light"]) {', 1)[1].split("\n  }", 1)[0]
-        explicit = source.split(':root[data-theme="dark"] {', 1)[1].split("\n}", 1)[0]
+        media = self._declarations(self._block(source, ':root:not([data-theme="light"])'))
+        explicit = self._declarations(self._block(source, ':root[data-theme="dark"]'))
 
-        assert self._declarations(media) == self._declarations(explicit)
-        assert self._declarations(media), "no custom properties found; the parse has drifted"
+        assert media == explicit
+        assert media, "no custom properties found; the parse has drifted"
+
+    def test_the_fixed_dark_region_shares_that_block_rather_than_copying_it(self):
+        """ADR 0088: a region that keeps one scheme's colours takes that scheme's accents
+        entire, and does so **without duplicating tokens**.
+
+        The navigation rail is `#102b35` on a light page and on a dark one. Before this,
+        a focus ring inside it took the *light* accent and landed at 2.04:1 against the rail
+        — a WCAG 2.2 SC 1.4.11 failure, very nearly invisible, and unmeasured because the
+        rail's colours were in no token table.
+
+        A third copy of the dark values is the obvious way to fix that and the wrong one:
+        three copies drift where two only might. So the rail is a second selector on the
+        block that already exists, and this is what stops somebody splitting it back out.
+        """
+        source = (STYLES_DIR / "app.css").read_text(encoding="utf-8")
+
+        at = source.index(':root[data-theme="dark"]', source.index("@theme"))
+        selectors = source[at : source.index("{", at)]
+
+        assert '[data-scheme="dark"]' in selectors, (
+            "the rail no longer shares the explicit dark block. If it has its own copy of "
+            "the dark values, there are now three places for them to drift apart."
+        )
 
     def test_the_compiled_dark_variant_answers_an_explicit_choice(self):
         """Without the custom variant, `dark:` compiles to `prefers-color-scheme` alone.
@@ -502,6 +581,12 @@ _NOT_UTILITIES: frozenset[str] = frozenset(
         "edge-membership",
         "node-company",
         "node-theme",
+        # The two spans a button carries so htmx can swap its label for the gerund. With
+        # scripting off the browser's own navigation is the loading state and the second span
+        # is never shown, which is why neither is a utility and neither may become one: a
+        # busy label that styled itself would be a loading state the no-script path renders.
+        "aer-button-label",
+        "aer-button-busy",
     }
 )
 
@@ -520,10 +605,60 @@ def _template_classes() -> set[str]:
     """
     found: set[str] = set()
     for template in TEMPLATES_DIR.rglob("*.html"):
-        body = template.read_text(encoding="utf-8")
+        # Jinja comments are stripped first. They are prose, and prose about markup contains
+        # markup: a comment explaining that a macro must never accept `class="…"` put a
+        # literal ellipsis into this set and failed the build for a class no page renders.
+        body = re.sub(r"\{#.*?#\}", "", template.read_text(encoding="utf-8"), flags=re.S)
         for match in re.finditer(r'class="([^"]*)"', body):
             raw = match.group(1)
             if "{" in raw or "}" in raw:
                 continue
             found.update(token for token in raw.split() if token)
     return found
+
+
+class TestATokenSurvivesAFragment:
+    """A render must not replace the token every form on the page is already carrying.
+
+    The bug this exists to prevent shipped and was invisible for a day. `render()` minted a
+    token for any handler that did not supply one and set the cookie from it — correct for a
+    page, wrong for a fragment. `GET /_shell/badges` is fetched by htmx on **every** page
+    load, renders through the same door, and landed a beat after the page: the cookie became
+    the fragment's, every form on the page was still carrying the page's, and the next
+    submission was refused with "the anti-forgery token was missing or stale".
+
+    **With scripting off nothing fetched the fragment and every form worked**, which is the
+    wrong half of the product to have working, and is why the in-process suite could not see
+    it — an HTTP client does not run htmx. Forty browser tests did.
+
+    The fix is that a double-submit cookie is a secret for the *session*: a render adopts the
+    token the request already carries and mints only when there is none.
+    """
+
+    async def test_a_fragment_render_keeps_the_token_the_page_issued(self, web_client):
+        page = await web_client.get("/requests/new")
+        issued = page.cookies.get(CSRF_COOKIE_NAME)
+        assert issued, "the page issued no CSRF cookie"
+
+        # Exactly what htmx does on load. The client's own jar carries the cookie forward,
+        # which is what a browser does and what makes this the real sequence rather than a
+        # reconstruction of it.
+        await web_client.get("/_shell/badges")
+
+        after = web_client.cookies.get(CSRF_COOKIE_NAME)
+        assert after == issued, (
+            "the badge fragment replaced the CSRF cookie. Every form already rendered on the "
+            "page is carrying the previous value, so the operator's next submission is "
+            "refused for a reason that has nothing to do with their submission."
+        )
+
+    async def test_the_form_and_the_cookie_agree_on_a_rendered_page(self, web_client):
+        page = await web_client.get("/requests/new")
+        in_cookie = page.cookies.get(CSRF_COOKIE_NAME)
+        in_form = re.findall(r'name="csrf_token"\s+value="([^"]+)"', page.text)
+
+        assert in_form, "the page rendered no CSRF field"
+        assert set(in_form) == {in_cookie}, (
+            "a form on the page carries a token the cookie does not hold. The double submit "
+            "compares the two for equality, so this is a form that cannot be submitted."
+        )

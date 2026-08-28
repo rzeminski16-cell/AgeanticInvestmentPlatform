@@ -17,7 +17,7 @@ from typing import Final
 
 __all__ = ["__version__", "build_identity", "git_sha", "version"]
 
-_DISTRIBUTION_NAME: Final = "ageiantic-equity-research"
+_DISTRIBUTION_NAME: Final = "tracework-invest"
 _FALLBACK_VERSION: Final = "0.0.0+unknown"
 _GIT_TIMEOUT_SECONDS: Final = 5.0
 

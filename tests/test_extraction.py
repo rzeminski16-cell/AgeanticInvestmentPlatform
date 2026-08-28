@@ -70,7 +70,7 @@ SENTENCE = "Total revenue was $198,270 million for fiscal year 2022."
 
 @pytest.fixture
 def settings() -> Settings:
-    return Settings(http_user_agent="Ageiantic Test test@example.invalid")
+    return Settings(http_user_agent="Tracework Test test@example.invalid")
 
 
 # -- The contract locators depend on --------------------------------------------------------

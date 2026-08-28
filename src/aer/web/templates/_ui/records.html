@@ -1,0 +1,118 @@
+{#
+  The components that show a record: label/value pairs, a work queue, and a table.
+  See `_ui/index.html` for the rule about classes.
+#}
+
+{% macro definition_list(items, variant="standard") %}
+{#
+  A `<dl>` for mandate details, metadata and cost summaries. `items` is a sequence of objects
+  with `label`, `value` and an optional `is_data`.
+
+  Two columns from 640px with a 160px label track, one column below — a label track that
+  survives to 320px squeezes the value into three characters a line.
+
+  `is_data` switches the value to the data face for a figure, a date or an identifier. It is
+  the caller's answer rather than a guess here: "2026" is a year in one row and a quantity in
+  the next, and a template cannot tell which.
+
+  The `summary` variant is for three to six short peer-level values at the top of a sheet.
+  **It is a metadata summary and not a row of KPI cards** — no shadows, no accent colours, no
+  click behaviour on the cells. It stays one semantic `<dl>`.
+#}
+{% if variant == "summary" %}
+<dl class="grid grid-cols-1 gap-px border border-line bg-line sm:grid-cols-2 lg:grid-cols-{{ items | length if items | length <= 6 else 6 }}">
+  {% for item in items %}
+  <div class="bg-surface p-4">
+    <dt class="type-label text-ink-muted">{{ item.label }}</dt>
+    <dd class="mt-1 {% if item.is_data | default(false) %}type-data{% else %}type-body{% endif %} text-ink">{{ item.value }}</dd>
+  </div>
+  {% endfor %}
+</dl>
+{% else %}
+<dl class="grid grid-cols-1 sm:grid-cols-[160px_1fr]">
+  {% for item in items %}
+  <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">{{ item.label }}</dt>
+  <dd class="border-line py-3 type-body text-ink sm:border-t
+             {% if item.is_data | default(false) %}type-data [overflow-wrap:anywhere]{% endif %}">{{ item.value }}</dd>
+  {% endfor %}
+</dl>
+{% endif %}
+{% endmacro %}
+
+{% macro record_list(label) %}
+{#
+  A work queue: rows a person acts on, as a semantic `<ul>` rather than a table.
+
+  **Deliberately not a table**, because these rows wrap. A run waiting for a decision carries
+  a company name, a sentence about why it stopped, a status, a waiting time and an action, and
+  at 320px a table of those five columns either scrolls sideways or truncates the sentence
+  that is the only part worth reading. A list wraps and keeps its semantics.
+
+  The caller supplies `record` items. The whole row is never made clickable: a row containing
+  two actions and a link that all do different things, plus a click target over all of them,
+  is a row where the reader cannot predict what anything does.
+#}
+<ul aria-label="{{ label }}" class="flex flex-col">{{ caller() }}</ul>
+{% endmacro %}
+
+{% macro record(title, href, sentence="", meta="") %}
+{#
+  One row of a work queue. The object's name is the link, because "Review run" repeated down a
+  column tells somebody navigating by link nothing about which run.
+#}
+<li class="grid grid-cols-1 gap-2 border-t border-line py-4 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6">
+  <div class="min-w-0">
+    <a href="{{ href }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ title }}</a>
+    {%- if sentence %}<p class="mt-1 type-body text-ink">{{ sentence }}</p>{% endif -%}
+    {%- if meta %}<p class="mt-1 type-data-sm text-ink-muted">{{ meta }}</p>{% endif -%}
+  </div>
+  {%- if caller is defined %}
+  <div class="flex flex-wrap items-center gap-3">{{ caller() }}</div>
+  {% endif -%}
+</li>
+{% endmacro %}
+
+{% macro table(caption, columns) %}
+{#
+  A real table, for a record whose rows are genuinely comparable column by column.
+
+  `caption` is required and is not decoration: it is what a screen reader announces before the
+  rows, and a table introduced only by a nearby heading is a table somebody lands in with no
+  idea what they are reading.
+
+  `columns` is a sequence of objects with `label` and an optional `numeric`. A numeric column
+  is right-aligned and set in the data face so the figures line up — a column of money that
+  does not align is a column nobody can scan, which is most of what this platform shows.
+
+  **The scroller is inside the component**, with `tabindex="0"` so it can be reached by
+  keyboard: an overflow region that only a mouse can scroll hides the last columns from
+  everybody else. The page itself never scrolls sideways.
+#}
+<div class="overflow-x-auto" tabindex="0" role="region" aria-label="{{ caption }}">
+  <table class="w-full border-collapse">
+    <caption class="sr-only">{{ caption }}</caption>
+    <thead>
+      <tr>
+        {% for column in columns %}
+        <th scope="col" class="border-b border-line-strong py-2 pr-4 type-label text-ink-muted
+                               {% if column.numeric | default(false) %}text-right{% else %}text-left{% endif %}">{{ column.label }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>{{ caller() }}</tbody>
+  </table>
+</div>
+{% endmacro %}
+
+{% macro cell(value, numeric=false, header=false) %}
+{#
+  One cell. `header=true` makes it the row's `<th scope="row">`, which is what lets a screen
+  reader say which row a figure belongs to instead of reading a column of bare numbers.
+#}
+{% if header %}
+<th scope="row" class="border-b border-line py-2 pr-4 text-left type-body-sm font-normal text-ink">{{ value }}</th>
+{% else %}
+<td class="border-b border-line py-2 pr-4 text-ink
+           {% if numeric %}text-right type-data{% else %}type-body-sm{% endif %}">{{ value }}</td>
+{% endif %}
+{% endmacro %}

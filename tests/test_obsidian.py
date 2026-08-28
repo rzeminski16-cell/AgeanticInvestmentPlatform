@@ -40,7 +40,7 @@ APPROVED_AT = datetime(2022, 7, 2, 10, 15, tzinfo=UTC)
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
     return Settings(
-        http_user_agent="Ageiantic Test test@example.invalid",
+        http_user_agent="Tracework Test test@example.invalid",
         artefact_root=tmp_path / "artefacts",
         obsidian_vault_root=tmp_path / "vault",
         obsidian_personal_root=tmp_path / "personal",

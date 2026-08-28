@@ -10,11 +10,11 @@
   particular tool is written here.
 #}
 
-{% block title %}{{ tool.label }} &middot; Ageiantic{% endblock %}
+{% block title %}{{ tool.label }} &middot; Tracework{% endblock %}
 
 {% block content %}
   <div>
-    <p class="text-xs font-semibold tracking-wide text-ink-faint uppercase" data-field="status">
+    <p class="text-xs font-semibold tracking-wide text-ink-subtle uppercase" data-field="status">
       {{ tool.status.value }}
     </p>
     <h1 class="mt-1 text-2xl font-semibold tracking-tight text-ink">{{ tool.label }}</h1>
@@ -22,11 +22,11 @@
   </div>
 
   <div class="mt-6 grid gap-4 sm:grid-cols-2">
-    {% call ui.card("What it needs first") %}
+    {% call ui.sheet("What it needs first") %}
       <p class="max-w-prose text-sm text-ink-muted">{{ tool.needs }}</p>
     {% endcall %}
 
-    {% call ui.card("Where it was decided") %}
+    {% call ui.sheet("Where it was decided") %}
       {#
         Named rather than linked. The decision records are files in the repository, not
         pages this application serves, and a link to a route that does not exist is the
@@ -53,7 +53,7 @@
           data-tool="{{ sibling.key }}"
         >
           <span class="text-sm font-semibold text-ink">{{ sibling.label }}</span>
-          <span class="mt-0.5 block text-xs text-ink-faint">{{ sibling.status.value }}</span>
+          <span class="mt-0.5 block text-xs text-ink-subtle">{{ sibling.status.value }}</span>
         </a>
       </li>
     {% endfor %}

@@ -1,4 +1,4 @@
-"""Ageiantic Equity Research Platform.
+"""Tracework Invest.
 
 A local-first, auditable equity research platform for UK and US listed equities.
 

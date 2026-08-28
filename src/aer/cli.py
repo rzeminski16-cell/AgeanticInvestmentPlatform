@@ -58,7 +58,7 @@ __all__ = ["app", "main"]
 
 app = typer.Typer(
     name="aer",
-    help="Ageiantic Equity Research Platform. A personal research tool, not investment advice.",
+    help="Tracework Invest. A personal research tool, not investment advice.",
     no_args_is_help=True,
     add_completion=False,
 )

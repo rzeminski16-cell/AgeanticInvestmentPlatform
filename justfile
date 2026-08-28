@@ -122,6 +122,46 @@ vendor-js:
     cp node_modules/htmx.org/dist/htmx.min.js src/aer/web/static/vendor/htmx.min.js
     @echo "htmx.min.js updated. Record its version and hash in the commit message."
 
+# Copy the three type families out of node_modules into the served static tree.
+#
+# Eight files, not six: Barlow Semi Condensed has no variable release, so the two weights the
+# type scale uses are two files per subset. The other two families are variable and cover
+# every weight in one file each.
+#
+# IBM Plex Mono comes from IBM's own package rather than fontsource, because the type scale
+# asks for 450 and 550 and no static cut has them. Its subsets are named Latin1/Latin2 and are
+# renamed here to the latin/latin-ext convention the rest of the tree uses.
+vendor-fonts:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dest=src/aer/web/static/fonts
+    barlow=node_modules/@fontsource/barlow-semi-condensed/files
+    for subset in latin latin-ext; do
+      for weight in 600 700; do
+        cp "$barlow/barlow-semi-condensed-$subset-$weight-normal.woff2" "$dest/"
+      done
+    done
+    sans=node_modules/@fontsource-variable/source-sans-3/files
+    cp "$sans/source-sans-3-latin-wght-normal.woff2" "$dest/"
+    cp "$sans/source-sans-3-latin-ext-wght-normal.woff2" "$dest/"
+    mono="node_modules/@ibm/plex-mono-variable/fonts/split/woff2"
+    cp "$mono/IBM Plex Mono Var-Roman-Latin1.woff2" "$dest/ibm-plex-mono-latin-wght-normal.woff2"
+    cp "$mono/IBM Plex Mono Var-Roman-Latin2.woff2" "$dest/ibm-plex-mono-latin-ext-wght-normal.woff2"
+    cp node_modules/@fontsource/barlow-semi-condensed/LICENSE "$dest/LICENSE-Barlow-Semi-Condensed.txt"
+    cp node_modules/@fontsource-variable/source-sans-3/LICENSE "$dest/LICENSE-Source-Sans-3.txt"
+    cp node_modules/@ibm/plex-mono-variable/LICENSE.txt "$dest/LICENSE-IBM-Plex-Mono.txt"
+    @echo "Fonts updated. Re-pin every SHA-256 in tests/test_fonts.py -- the pin is a red build, not a note."
+
+# Refresh the vendored axe-core the accessibility harness injects.
+#
+# A test asset, never a served one: it lands under `tests/fixtures/` rather than in the
+# static tree, because a page that loaded a 568 kB testing library would be charging the
+# suite's convenience to every operator's first paint.
+vendor-axe:
+    cp node_modules/axe-core/axe.min.js tests/fixtures/axe/axe.min.js
+    cp node_modules/axe-core/LICENSE tests/fixtures/axe/LICENSE
+    @echo "axe.min.js updated. Record its version and hash in tests/a11y.py -- the pin is a red build, not a note."
+
 # Apply all pending migrations.
 migrate:
     uv run alembic upgrade head

@@ -17,7 +17,7 @@ from aer.fetch.robots import RobotsCache, robots_url_for
 
 pytestmark = pytest.mark.usefixtures("no_real_sockets")
 
-USER_AGENT = "Ageiantic Research Test test@example.invalid"
+USER_AGENT = "Tracework Research Test test@example.invalid"
 
 PERMISSIVE = """
 User-agent: *

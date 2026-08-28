@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Tracework redesign prototype — commission research">
+  <title>Commission research · Tracework prototype</title>
+  <link rel="stylesheet" href="assets/tracework.css">
+  <script src="assets/tracework.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <div class="app-shell">
+    <details class="nav-shell" open>
+      <summary class="nav-summary">Tracework</summary>
+      <div class="nav-panel">
+        <a class="brand-lockup" href="index.html" aria-label="Tracework overview"><span class="brand-mark" aria-hidden="true">T↳</span><span><span class="brand-name">Tracework</span><span class="brand-note">Evidence-led research</span></span></a>
+        <nav class="nav-primary" aria-label="Primary navigation">
+          <section class="nav-section" aria-labelledby="nav-work"><span class="nav-section-label" id="nav-work">Workspace</span><ul class="nav-list"><li><a class="nav-link" href="index.html"><span>Overview</span><span class="nav-badge" id="nav-attention-count" aria-label="3 items need attention">3</span></a></li></ul></section>
+          <section class="nav-section" aria-labelledby="nav-research"><span class="nav-section-label" id="nav-research">Research</span><ul class="nav-list"><li><a class="nav-link" href="requests.html" aria-current="page"><span>Requests</span><span class="nav-badge" aria-label="2 runs waiting for a decision">2</span></a></li><li><a class="nav-link" href="run.html"><span>Active run</span></a></li><li><a class="nav-link" href="reports.html"><span>Reports</span></a></li><li><a class="nav-link" href="skills.html"><span>Skills</span></a></li><li><a class="nav-link" href="knowledge.html"><span>Knowledge</span></a></li></ul></section>
+          <section class="nav-section" aria-labelledby="nav-book"><span class="nav-section-label" id="nav-book">Book</span><ul class="nav-list"><li><a class="nav-link" href="portfolio.html"><span>Portfolio</span></a></li></ul></section>
+          <section class="nav-section" aria-labelledby="nav-reference"><span class="nav-section-label" id="nav-reference">Design reference</span><ul class="nav-list"><li><a class="nav-link" href="components.html"><span>Components</span></a></li></ul></section>
+        </nav>
+        <div class="nav-utility"><div><span class="nav-section-label">Appearance</span><div class="theme-control" aria-label="Prototype colour scheme"><button type="button" data-theme-choice="light" aria-pressed="false">Light</button><button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button><button type="button" data-theme-choice="system" aria-pressed="true">Auto</button></div></div></div>
+      </div>
+    </details>
+    <div class="work-area">
+      <header class="context-bar"><nav class="breadcrumbs" aria-label="Breadcrumb"><a href="index.html">Overview</a> / <a href="requests.html">Research requests</a> / <span aria-current="page">New request</span></nav><div class="context-actions"><a class="button button-quiet button-small" href="requests.html">Cancel</a></div></header>
+      <main class="page" id="main">
+        <header class="page-header"><div><span class="page-kicker">New mandate</span><h1>Commission research</h1><p class="page-lede">Make four decisions now. The platform will propose the detailed work and stop for your approval before committing to the expensive phases.</p></div></header>
+
+        <section class="verdict" aria-labelledby="cost-anchor">
+          <div><span class="utility-label">Before you begin</span><h2 id="cost-anchor">A comparable full report usually costs £2.10–£3.40.</h2><p>The plan costs about £0.15. You will see the proposed work and its expected range before deciding whether the rest may proceed.</p></div>
+          <div class="verdict-aside"><span class="utility-label">Your control</span><span class="metric-strong">A hard ceiling</span><span class="metric-note">The run stops before a call would cross it</span></div>
+        </section>
+
+        <form class="sheet" action="request-new.html#form-result" method="get" novalidate>
+          <div class="sheet-head"><div><h2>Research mandate</h2><p>Required fields are grouped by the decisions they support, not by the database columns that store them.</p></div><span class="status status-info">Draft</span></div>
+          <div class="sheet-body">
+            <section class="form-section" aria-labelledby="company-heading">
+              <div class="form-heading"><div><span class="utility-label">Decision 1 of 4</span><h2 id="company-heading">Which listed company?</h2></div><p>Choose the exact listing. The currency, exchange, and identifier remain visible together so a dual listing cannot be selected by accident.</p></div>
+              <div class="field-grid">
+                <div class="field field-wide"><label for="listing">Company or ticker</label><input id="listing" name="listing" list="listings" autocomplete="off" placeholder="Start typing a company or ticker" required><datalist id="listings"><option value="Contoso plc — CTSO · LSE · GB00CTSO1842"><option value="Northstar Group — NSTG · NASDAQ · US66718N1037"><option value="Meridian Bank plc — MRDN · LSE · GB00MRDN6108"></datalist><span class="field-hint">A typeable native list. The production server validates the listing against its bounded universe.</span></div>
+              </div>
+            </section>
+
+            <section class="form-section" aria-labelledby="date-heading">
+              <div class="form-heading"><div><span class="utility-label">Decision 2 of 4</span><h2 id="date-heading">What could have been known when?</h2></div><p>The as-of date defines the evidence boundary. Documents published later are refused rather than silently filtered into the analysis.</p></div>
+              <div class="field-grid">
+                <div class="field"><label for="as-of">As-of date</label><input id="as-of" name="as_of" type="date" value="2026-08-25" required><span class="field-hint">Today or an earlier date.</span></div>
+                <div class="field"><label for="horizon">Forecast horizon</label><select id="horizon" name="horizon"><option>Five years</option><option>Three years</option><option>Ten years</option></select><span class="field-hint">The report still distinguishes sourced history from assumptions.</span></div>
+                <fieldset class="field field-wide" style="border:0;padding:0;margin:0"><legend>Point-in-time discipline</legend><label class="choice"><input type="checkbox" name="point_in_time" checked><span><strong>Refuse evidence published after the as-of date</strong><small>Turning this off invites look-ahead bias, which silently invalidates backward-looking analysis. Leave it on unless you have a specific reason not to.</small></span></label></fieldset>
+              </div>
+            </section>
+
+            <section class="form-section" aria-labelledby="depth-heading">
+              <div class="form-heading"><div><span class="utility-label">Decision 3 of 4</span><h2 id="depth-heading">How much work is warranted?</h2></div><p>Depth changes the intended coverage, not the standard of provenance. A focused update still refuses unsupported figures.</p></div>
+              <fieldset class="field" style="border:0;padding:0;margin:0"><legend class="sr-only">Research depth</legend><div class="choice-list">
+                <label class="choice"><input type="radio" name="depth" value="full" checked><span><strong>Full research</strong><small>Business, sector, peers, themes, financials, valuation, risks, adversarial review, and full document.</small></span></label>
+                <label class="choice"><input type="radio" name="depth" value="focused"><span><strong>Focused update</strong><small>Answer the operator questions and test what changed against the most recent approved report.</small></span></label>
+                <label class="choice"><input type="radio" name="depth" value="valuation"><span><strong>Valuation refresh</strong><small>Reacquire current inputs, re-run deterministic calculations, and explain the movement.</small></span></label>
+              </div></fieldset>
+              <div class="field" style="margin-top:1.5rem"><label for="questions">Questions this report must answer <span class="cell-secondary">optional, high value</span></label><textarea id="questions" name="questions" placeholder="For example: Is margin recovery supported by the new distribution centre, or only by pricing assumptions?"></textarea><span class="field-hint">Write from the decision you expect to make. These questions shape the plan you approve next.</span></div>
+            </section>
+
+            <section class="form-section" aria-labelledby="ceiling-heading">
+              <div class="form-heading"><div><span class="utility-label">Decision 4 of 4</span><h2 id="ceiling-heading">What may this run spend?</h2></div><p>The ceiling is a refusal boundary, not a target. The run stops before a model call would cross it and tells you what changing the ceiling would permit.</p></div>
+              <div class="field-grid"><div class="field"><label for="ceiling">Run ceiling</label><div style="display:flex;align-items:center;gap:.5rem"><span aria-hidden="true">£</span><input id="ceiling" name="ceiling" inputmode="decimal" value="4.00" required></div><span class="field-hint">Comparable full runs: £2.10–£3.40. Monthly limits still apply.</span></div><div class="field"><label for="currency">Reporting currency</label><select id="currency" name="currency"><option>GBP — pound sterling</option><option>USD — US dollar</option></select><span class="field-hint">Figures arrive from the server already formatted in the chosen house style.</span></div></div>
+            </section>
+
+            <details class="form-section">
+              <summary><strong>Method and source preferences</strong> <span class="cell-secondary">Optional · current defaults are safe</span></summary>
+              <div class="field-grid" style="margin-top:1.5rem"><div class="field"><label for="skill">Methodology skill</label><select id="skill" name="skill"><option>Core equity research</option><option>Bank research</option><option>Capital-intensive businesses</option></select></div><div class="field"><label for="sources">Source emphasis</label><select id="sources" name="sources"><option>Primary filings first</option><option>Filings and transcripts</option></select></div><div class="field field-wide"><label for="notes">Operator context</label><textarea id="notes" name="notes" placeholder="Known issues, a prior decision, or context the plan should take into account."></textarea></div></div>
+            </details>
+
+            <div class="form-actions"><span class="field-hint">Submitting creates the mandate. The plan remains a separate approval.</span><div class="button-row"><a class="button" href="requests.html">Cancel</a><button class="button button-primary" type="submit">Create request and plan</button></div></div>
+          </div>
+        </form>
+
+        <div class="notice notice-good" id="form-result"><strong>The production path posts, validates, and redirects.</strong>This static prototype does not create a request. With scripting off, the same server-rendered form and validation summary remain the real path.</div>
+        <footer class="prototype-note"><strong>This is not investment advice.</strong> Companies and figures shown here are illustrative.</footer>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

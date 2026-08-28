@@ -757,13 +757,13 @@ class TestTheRemovalConfirmation:
 
         body = (await web.get(f"/requests/{request_id}/remove")).text
 
-        assert "What survives" in body, (
+        assert "What will remain" in body, (
             "a page that lists only the destruction overstates it, and a warning that "
             "overstates is one people learn to click through"
         )
-        assert "The audit trail." in body
-        assert "The spend." in body
-        assert "The archived documents." in body
+        assert "The audit trail" in body
+        assert "The spend" in body
+        assert "The archived documents" in body
 
     async def test_a_draft_says_only_the_request_goes(self, web):
         request_id = await a_saved_request(web)

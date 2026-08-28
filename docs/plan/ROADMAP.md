@@ -28,8 +28,16 @@ thing that would otherwise put a wrong number, or no answer at all, in front of 
    dealt at all, so the portfolio tool is unusable on a machine whose runs were unpriced.
 3. **§2.4 — the report document's layout.** The disagreement appendix puts a two-hundred-word
    objection in a narrow column and one row spans three pages; neither position can be read.
-4. **§2.5 — the palette migration.** The last of the surfaces work, and the one most likely
-   to go wrong quietly, so it wants its own pass with screenshots.
+4. **§3.12 — the interface overhaul.** Specified, designed, reviewed, decided and planned
+   2026-08-25; not built. Every blocking decision is cleared and three are ADRs 0087–0089.
+   Start at tranche 0 of [`interface-overhaul.md`](interface-overhaul.md), which may run
+   alongside §2.1. It is placed here rather
+   than lower because §2.5 is inside it: migrating the palette first would do the most
+   quietly-fragile item in this roadmap twice, once onto the present design and again onto
+   the new one.
+5. **§2.5 — the palette migration.** The last of the surfaces work, and the one most likely
+   to go wrong quietly, so it wants its own pass with screenshots. Sequenced *after* the
+   design it is migrating towards, not before it.
 
 *Finished 2026-08-25 and now in §4: the drafted-figure check (§4.14) and the comps
 disclosure (§4.15), which were the two at the top of this list.*
@@ -120,21 +128,49 @@ tables render label and value as separate stacked blocks, so a reader reassemble
 by counting. Rework the appendix as prose blocks per disagreement, fix the key-figure tables,
 and check every section's print layout against a real run rather than a fixture.
 
-**2.5 The palette is migrated only in part.** The theme *control* is done (§4.13) and this is
-what it left behind: a page's colours are correct in both schemes or they are slate grey
-beside navy, and roughly half of them are the second.
+**2.5 The palette is migrated only in part. Re-measured 2026-08-25; now the first tranche of
+§3.12.** The theme *control* is done (§4.13) and this is what it left behind: a page's colours
+are correct in both schemes or they are slate grey beside navy.
 
 `web/styles/app.css` added the semantic tokens *beside*
 Tailwind's stock ramps rather than over them, deliberately, so that `text-sky-700` still
-renders sky — overriding the ramp would re-skin thirty-eight templates for free and leave a
-codebase where a colour name is a lie. So it is a real rewrite: 1,334 occurrences of 138
-distinct ramp classes, onto `canvas / surface / ink / line / brand / good / warn / bad /
-info / mute`, ending with a test that fails when a template reintroduces a raw ramp.
+renders sky — overriding the ramp would re-skin the templates for free and leave a
+codebase where a colour name is a lie. So it is a real rewrite, onto `canvas / surface / ink
+/ line / brand / good / warn / bad / info / mute`, ending with a test that fails when a
+template reintroduces a raw ramp.
 
-Deliberately sequenced last in this bucket. Everything above it is a wrong number or a
-missing answer; this is a page that looks like two designs. It is also the item most likely
-to go wrong quietly, so it wants its own pass with screenshots rather than being folded into
-a functional change.
+**The split is not "roughly half"; it is by age, and it is sharper than that.** Measured on
+2026-08-25 over `src/aer/web/templates`:
+
+| | Templates | Raw ramp occurrences |
+|---|---|---|
+| Token-clean | 13 of 54 | 0 |
+| Still on the stock ramps | 41 of 54 | 1,837 |
+
+1,837 occurrences of **141** distinct variant-qualified class names (114 distinct base
+utilities), over six ramps — slate 1,143, sky 265, amber 208, red 80, emerald 71, rose 70.
+The earlier figure of 1,334 occurrences was correct when it was written and the count has
+grown since; **state the method with the number**, because counting variant-qualified names
+(`hover:bg-slate-100`) and counting base utilities (`bg-slate-100`) give 141 and 114 for the
+same tree, and a bare figure invites the next reader to think it moved when it did not:
+
+```bash
+grep -ohrE '\b(text|bg|border|ring|divide|from|to|via|placeholder|decoration|outline|shadow|accent|caret|fill|stroke)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]{2,3}' \
+  src/aer/web/templates | sort | uniq -c | sort -rn
+```
+
+The clean thirteen are the shell, the main menu and what arrived with them — `base.html`,
+`_nav.html`, `_shell/*`, `_ui/*`, `overview/*`, `index.html`, `tools/index.html`,
+`portfolio/empty.html`. The forty-one are the research tool, worst first: `runs/review.html`
+(226), `runs/console.html` (119), `runs/assumptions.html` (100), `skills/edit.html` (87),
+`plans/review.html` (85). **That is the same boundary the design brief draws** (§3.12): the
+surfaces that already answer to the tokens are the reference, and the research tool is the
+work.
+
+Deliberately sequenced after everything above it. Those are a wrong number or a missing
+answer; this is a page that looks like two designs. It is also the item most likely to go
+wrong quietly, so it wants its own pass with screenshots rather than being folded into a
+functional change.
 
 **2.6 A split must arrive as a transaction.** `corporate_actions` knows about splits, but
 nothing turns one into a change in holdings, so a book spanning a split is currently wrong.
@@ -271,6 +307,172 @@ mistake ADR 0075 names.
 
 **3.11 The methodology library.** Three `SkillKind`s that are versioned, pinned and
 composed. Mostly does not exist yet.
+
+**3.12 The interface overhaul. Specified, designed and planned 2026-08-25; not built.** Four
+surfaces are in scope and the rest of the product is deliberately not: **the main menu, the menu
+system and shell, the Equity Research tool, and the Portfolio tool.**
+
+**Where it stands.** The requirements are in [`../design/`](../design/README.md); the design
+came back as [`../redesign/`](../redesign/README.md) — a token system, page specifications, a
+production handoff and a twelve-screen prototype. It was reviewed against the invariants and
+the code, and **adopted with nine corrections**, one of which is a WCAG failure the design's own
+validation reported as passing: the navigation rail keeps dark colours on a light page, its
+tokens were never in the normative table, and the light-theme focus ring measures 2.04:1 on it.
+The review is [`../redesign/05-review-and-corrections.md`](../redesign/05-review-and-corrections.md)
+and it wins where it and the design system disagree.
+
+**The work is sequenced in [`interface-overhaul.md`](interface-overhaul.md)** — ten tranches,
+each independently releasable — with its testing in
+[`interface-overhaul-testing.md`](interface-overhaul-testing.md).
+
+**Every blocking decision was cleared on 2026-08-25** and three became records: **0087** (a
+verdict has two halves — a composed half that is live, and an authored half a model writes once
+over a frozen subject and which is never evidence), **0088** (a fixed-scheme region carries its
+own measured palette), **0089** (`/runs/active` resolves the current run). The product is named
+**Tracework Invest**; the navigation carries one badge, on Requests.
+
+**Sequenced behind §2.1 and §3.1**, on the operator's direction. Tranche 0 touches no template
+and no service, so it may run alongside either.
+
+What does not exist is not a screen. It is a *specification a designer can work from*: the
+platform's interface grew a page at a time, each one correct in isolation, and the result is
+two designs sharing a shell — the boundary §2.5 measures. A palette migration alone would
+make the two halves the same colour without making them the same product.
+
+So the deliverable is [`../design/`](../design/README.md): every surface in scope with its
+purpose, its reader, its data contract, every input and how it is collected, every state it
+can be in, what is wrong with it today, and what a redesign must not break. It is written for
+a designer rather than for a developer, and it is the input to the work rather than the work.
+
+**The order is: specification, then design, then §2.5, then the templates.** Migrating the
+palette before the design exists would be doing the most quietly-fragile item in the roadmap
+twice. **§2.5 is no longer a separate item**: it is tranches 2 and 4–9 of the plan, and it
+closes when the ramp ratchet reaches zero.
+
+**Two items in flight go first, and neither is blocked by this.** §2.1 puts a wrong number in
+front of somebody and this is a page that looks like two designs; §3.1 adds a control to a
+portfolio form that is the smallest migration in the plan. Both land before the tranche that
+rewrites their surface.
+
+**The constraints are not negotiable inside the design, and are argued outside it.** ADR 0006
+makes the server the only renderer; ADR 0077 draws the line — chrome may be the client's, a
+figure never is — and every form works with scripting off. `design/01-constraints.md` states
+them as constraints a designer can satisfy, and keeps a *challenge appendix*: what a designer
+might reasonably want that a constraint forbids, with what it would cost to change. A design
+that needs one changed needs an ADR, not a diff.
+
+**What is deliberately outside this item.** The rendered report document (§2.4) is a
+document-layout problem in WeasyPrint's print stylesheet, not a screen; it keeps its own
+entry. The seven planned tools get their placeholder page and nothing more until each ships:
+designing a screen for a tool whose tables do not exist is how a specification becomes
+fiction.
+
+**3.13 A critique-and-revise loop for drafting, with a memory of what needed revising.**
+Today `red_team` (ADR 0039) already attacks the draft from a separate context, and it has
+twice caught a section publishing a number that contradicts its own citation (4.14, ADR
+0086) — not a hypothetical failure mode, the platform's own log. What it does not do is loop
+back: a challenge reaches the disagreement ladder for a human at `gate_final`, the section
+that provoked it is never redrafted, and nothing about the challenge survives past that one
+run. The machinery to critique already exists; what is missing is a writer that gets a
+second attempt before a human ever sees the draft, and a way for a recurring class of
+challenge to be recognised as recurring.
+
+Scope it to where an open-ended, model-written step is both expensive and wrong often
+enough to matter. `draft` first — already the largest cost line per report, already the
+most reader-facing, already the step §2.1, §2.2 and 4.14 are about. `plan` second — cheap on
+its own, but a wrong plan sends the whole run after the wrong target, so catching it early is
+the highest leverage in the workflow. `propose_assumptions` is a plausible third and a lower
+priority: high-stakes, but already narrow (ADR 0046) and immediately human-gated. It does not
+belong on `acquire`, `classify`, `extract`, `calculate`, `comps`, `value` or `render` — those
+are correct by construction under the one rule (`CLAUDE.md`, ADR 0003), and a model's opinion
+feeding back into one of them is the "calculation drifting into a prompt" failure the
+architecture exists to prevent. It does not belong on the gates either, since the human is
+already the critic there, nor on `validate`, which is advisory-only by design and was never
+meant to have the last word (ADR 0038), nor on `red_team` itself — recursing the loop onto
+the critic is diminishing returns that the disagreement ladder already covers.
+
+**The revise loop is the easy half.** The knowledge base is not: a memory that changes what
+a future agent writes is exactly the shape of thing invariant 7 exists to govern — skill
+files may only add requirements, never relax them, proved by a corpus that must all fail
+(ADR 0040), not assumed. An auto-written "do not repeat this" lesson has no such proof
+behind it, and a critic that was wrong once would otherwise get to entrench its own mistake,
+unreviewed. Whether that memory has to be a skill file, or some other mechanism that still
+needs the same proof, is an architectural choice CLAUDE.md says to stop and ask about rather
+than guess — the safe default is a person confirming a finding is real and recurring before
+a future run inherits it, possibly through §3.11's methodology library rather than a new
+mechanism. Either way this needs an ADR before any of it is built: a new step is a new agent
+behaviour (ADR 0035), and this one touches invariant 7 by nature, whichever way it lands.
+
+**3.14 A web-search tool for the qualitative sections.** Nothing has a `web_search`
+capability today. `fetch_known_url` reaches only a host this run has already acquired a
+document from through the named adapters, and refuses anything else by design — an
+unlisted host gets back "this run holds no document from that host, and a host is never
+taken from a request." What is missing is not the trust model: `sources/tiering.py` and
+`fetch/policy.py` already carry `Provider.WEB_SEARCH`, tiered before this item existed —
+search-found news and issuer material at `T5_SECONDARY` ("never the sole support for a
+numeric claim"), search-found commentary at `T6_UNVERIFIED` ("never citable evidence").
+What is missing is a tool nothing calls: no role's allowlist grants it, and the commercial
+check still outstanding on the Anthropic web-search tool's price is what keeps it out of
+the budget guard (invariant 6).
+
+Scope it to the qualitative workers — `research_recent_developments` and the rest of the
+five parallel research agents (ADR 0036) — for what does not belong in `calc/`: business
+description, sentiment, recent developments, the colour a filing does not carry. It does
+not widen what can reach a figure. `calc/` consumes structured facts extracted from filings
+and nothing else, so a T5 or T6 source has no route into a number whatever tool exists —
+that boundary is the one rule (`CLAUDE.md`, ADR 0003), not a permission to add. Wired the
+same way as any other tool request — the model asks, code executes, results return wrapped
+as `<untrusted_source tier=…>` (ADR 0019) — it is contained the same way a filing already
+is, and the corroboration the operator wants ("confirmed when multiple sources agree") is
+`T5_SECONDARY`'s existing "never sole support" constraint, already enforced, not a new one
+to write.
+
+**Do not pre-approve named publishers.** Checked against robots.txt — the same mechanical
+test ADR 0009 already treats as an absolute refusal, no ToS reading required — Seeking
+Alpha disallows roughly 150 crawlers outright, `Claude-User` and `ClaudeBot` by name among
+them: it appears to refuse the model this platform itself runs on. `ft.com` could not be
+reached to check at all. That is the same shape of finding that put the Bank of England and
+the FCA NSM (ADR 0022) in §4's "decided against" — a documented block, not a negotiable
+one. So each specific always-on publisher, if wanted, is its own adapter-style decision — a
+ToS/robots determination recorded in an ADR before the first request, per the existing
+recipe — never a batch of sources assumed trustworthy for being well known. Needs an ADR
+either way: a new tool capability is new agent behaviour (ADR 0035).
+
+**3.15 A step-by-step developer mode for debugging a run.** Pause after every step, print a
+diagnostic, let the operator confirm or correct before the next one spends anything — the
+point being to catch a defect at the step that caused it, not three steps and several pounds
+later. The primitive already exists for the accidental case: the engine already records
+each step and skips the ones already completed on resume, which is how a run survives a
+worker dying today. What does not exist is the deliberate case. §2.3 already names the gap
+this depends on: there is no supported way to pause and continue *the same job*, only crash
+recovery and superseding into a new job — and superseding is wrong here specifically,
+because it creates a fresh audit record when the whole point is reviewing one run as it
+happens. Build this as §2.3's resolution, not a second mechanism beside it, and settle its
+open question — what a deliberately paused, not-failed job's own status record says — once,
+for both. Unlike §3.13 and §3.14, nothing here touches an invariant or adds an agent
+capability, so the item itself does not obviously need its own ADR — only §2.3's decision
+does, and that one already stands regardless of this.
+
+It is not a gate. `gate_plan`, `gate_final` and the rest are domain-approval checkpoints
+through `services/approvals`, each meaning something specific about a business decision;
+stepping through a run is a generic, lighter thing — closer to a breakpoint than an
+approval — and belongs in the engine's own execution loop instead. Unlike §3.13, scope it
+to every step, not only the model-written ones: a wrong number out of `calculate` or a bad
+extraction is a code bug, and catching it here matters at least as much as catching a bad
+paragraph out of `draft` — arguably more, since a silent arithmetic mistake is exactly the
+kind of thing nothing today stops to show anyone.
+
+**The diagnostic is code, not a model call.** An LLM judging each step would add a paid
+call to steps that cost nothing today (`extract`, `calculate`, `render`), work against the
+speed this is meant to buy, and duplicate the critique agent in §3.13. Most of what it needs
+is already captured and simply not surfaced — a failed section already records its attempt
+count, its evidence tally and its own refusal reason (4.6), and the roadmap's own words for
+the gap are "the run console still shows none of this." Assemble it from what each step
+already records — timing, retries, raw versus parsed output, validation errors, cost — in
+the same family as the existing `job_id`-scoped CLI commands (`replay-run`, `acceptance`)
+that already print a typed readout to the console rather than a web page, which is the right
+shape for something meant to be read by whoever — human or Claude — is sitting at the
+terminal deciding whether to continue.
 
 ### Before this leaves one machine
 
@@ -547,6 +749,34 @@ platform actually produces are admitted (a percentage is the fraction times a hu
 reaches prose in millions or billions), and a claim resting on a calculation without printing
 it is not a violation. It joins `VALIDATION_FAILURE`, so it reaches the banner rather than
 only the table.
+
+**4.16 Every form in the browser was refused. Fixed 2026-08-25.** Found by tranche 0 of the
+interface overhaul, which baselined the browser suite for the first time since §4.12 landed:
+**40 of 124 browser tests failed**, every one of them on a form submission, every one with
+*"the anti-forgery token was missing or stale"*.
+
+§4.12 gave `render()` a CSRF token for handlers that never thought about one, so a menu whose
+preference controls are forms could not ship controls that silently do nothing. It also made
+`render()` set the cookie from that token. Correct for a page; wrong for a fragment.
+
+`GET /_shell/badges` is fetched by htmx on **every** page load and renders through the same
+door. It carries no form, so it supplied no token, so `render()` minted one and set it — and
+the cookie became the fragment's while every form already on the page still carried the
+page's. The next submission failed a check that was never about that submission.
+
+**The comment above the line predicted it and guarded the wrong thing.** *"Two `Set-Cookie`
+headers for one name is a race over which token the browser keeps — the form would then carry
+one and the cookie the other."* That is exactly the failure; the guard covered two handlers on
+one response, not a later response clobbering an earlier one.
+
+**A double-submit cookie is a secret for the session, not for the response.** A render now
+adopts the token the request already carries and mints only when there is none, so a fragment
+re-sets the same value and invalidates nothing.
+
+**Only the scripting-on path was broken**, which is the wrong half to have working and is why
+nothing caught it: the default suite drives the application in-process and an HTTP client does
+not run htmx. Two tests now do — one in the default suite that fetches the fragment on the same
+cookie jar and asserts the token survives, and 127 browser tests that pass again.
 
 **4.15 Comps said "for want of usable data" over a deliberate choice. Fixed 2026-08-25.**
 Eight peers were discovered on the 2026-08-24 MSFT run and all eight were excluded. Nothing

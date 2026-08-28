@@ -1,0 +1,129 @@
+{#
+  The components that carry a meaning, and the one place that decides what a meaning looks
+  like. See `_ui/index.html` for the rule about classes.
+
+  **Every one of these takes a `Tone`**, which is `aer.web.vocabulary.Tone` — the same enum
+  the handlers resolve a `JobStatus` or a `Grade` through. Not a colour, not a class, not a
+  free string: a template that could be handed `"teal"` is a template that can render a
+  refusal in the success family, and the distance between those two is the whole point of
+  having six of them.
+
+  The class strings are literal and complete. Tailwind's scanner reads this file, sees
+  `bg-success-wash` written out, and emits it; a class assembled as `bg-{{ tone }}-wash`
+  exists in no file it scans and renders with no colour at all. That failure is silent and
+  looks like a styling bug, which is why `tests/test_palette_migration.py` fails a build that
+  composes one.
+#}
+
+{% set _INK = {
+  "success": "text-success-ink",
+  "warning": "text-warning-ink",
+  "refusal": "text-refusal-ink",
+  "failure": "text-failure-ink",
+  "info": "text-info-ink",
+  "muted": "text-muted-ink",
+} %}
+
+{% set _WASH = {
+  "success": "bg-success-wash",
+  "warning": "bg-warning-wash",
+  "refusal": "bg-refusal-wash",
+  "failure": "bg-failure-wash",
+  "info": "bg-info-wash",
+  "muted": "bg-muted-wash",
+} %}
+
+{% set _RULE = {
+  "success": "border-success-ink",
+  "warning": "border-warning-ink",
+  "refusal": "border-refusal-ink",
+  "failure": "border-failure-ink",
+  "info": "border-info-ink",
+  "muted": "border-muted-ink",
+} %}
+
+{#
+  A 14px mark per family, so the state survives being read by somebody who cannot tell the
+  washes apart — and survives being printed. §2.1's rule is that colour is never the only
+  carrier, and a shape that differs per family is the cheapest way to keep it: a tick, a
+  clock, a raised hand, a cross, a dot, a dash.
+#}
+{% macro _mark(tone) %}
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  {%- if tone == "success" -%}
+  <path d="M3 8.5 6.5 12 13 4" />
+  {%- elif tone == "warning" -%}
+  <circle cx="8" cy="8" r="6" /><path d="M8 5v3.5l2 1.5" />
+  {%- elif tone == "refusal" -%}
+  <circle cx="8" cy="8" r="6" /><path d="M4 12 12 4" />
+  {%- elif tone == "failure" -%}
+  <path d="M4 4l8 8M12 4l-8 8" />
+  {%- elif tone == "info" -%}
+  <circle cx="8" cy="8" r="6" /><path d="M8 7.5v4" /><path d="M8 4.6v.1" />
+  {%- else -%}
+  <path d="M4 8h8" />
+  {%- endif -%}
+</svg>
+{% endmacro %}
+
+{% macro status(tone, label, detail="") %}
+{#
+  A state, as a person reads it. `label` comes from `web/vocabulary.py`, never from an enum.
+
+  A rectangle at radius 2px rather than a pill: a pill reads as a tag the reader could remove,
+  and none of these is removable. `detail` is the sentence a surface with room shows beside
+  it; the label alone is what fits in a table cell.
+#}
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             {{ _RULE[tone] }} {{ _WASH[tone] }} {{ _INK[tone] }}">
+  {{ _mark(tone) }}
+  <span>{{ label }}</span>
+  {%- if detail %}<span class="type-body-sm text-ink">{{ detail }}</span>{% endif -%}
+</span>
+{% endmacro %}
+
+{% macro grade(label) %}
+{#
+  How strong the evidence under a figure is: `Typed` or `Documented` (ADR 0073).
+
+  **A separate control from provenance and from confirmation**, and never merged with either.
+  A documented attestation and a calculated figure are answers to different questions, and one
+  chip carrying both would say neither — the same collapse ADR 0077 refuses for the other two.
+  Neutral by design: a grade is a fact about the record, not a verdict on it.
+#}
+<span class="inline-flex items-center rounded-xs bg-muted-wash px-2 py-0.5 type-data-sm text-muted-ink">
+  {{ label }}
+</span>
+{% endmacro %}
+
+{% macro callout(tone, title, explanation, action_label="", action_href="") %}
+{#
+  A notice that is part of the page rather than a message that floats over it.
+
+  **Never dismissible.** A refusal, a failure or a pending decision is state, and state does
+  not go away because the reader clicked a cross — a page that let them hide it would be a
+  page that can lie about itself by having been tidied.
+
+  The content shape is normative and the caller owns it (§8.9): a refusal says what was
+  withheld, what would change it and why the rule exists; a failure says what failed, what
+  work is safe and how to recover. `action_label` is for the *stated remedy* only, which is
+  why it is not a general slot — a retry button on a refusal offers to repeat a decision the
+  platform already made correctly.
+#}
+<div class="aer-callout rounded-sm border-l-[3px] p-4 {{ _RULE[tone] }} {{ _WASH[tone] }}"
+     {% if tone in ("refusal", "failure") %}role="alert"{% endif %}>
+  <div class="flex items-start gap-3">
+    <span class="mt-0.5 {{ _INK[tone] }}">{{ _mark(tone) }}</span>
+    <div class="min-w-0">
+      <p class="type-subheading {{ _INK[tone] }}">{{ title }}</p>
+      <p class="mt-1 type-body text-ink">{{ explanation }}</p>
+      {%- if action_label and action_href %}
+      <p class="mt-3">
+        <a href="{{ action_href }}" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ action_label }}</a>
+      </p>
+      {% endif -%}
+    </div>
+  </div>
+</div>
+{% endmacro %}

@@ -27,8 +27,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
-from aer.core.enums import JobStatus
-from aer.db.models import Job, JobStep, Report, ResearchRequest
+from aer.core.enums import TERMINAL_JOB_STATUSES, JobStatus
+from aer.db.models import Job, JobStep, Report, ResearchRequest, WorkOrder
 from aer.errors import ValidationError
 from aer.providers.protocol import LLMProvider
 from aer.providers.router import Router
@@ -122,6 +122,36 @@ async def latest_run(session: AsyncSession, *, request_id: uuid.UUID) -> Job | N
         .order_by(Job.started_at.desc().nullslast())
     )
     return found
+
+
+async def current_run(session: AsyncSession, *, user_id: uuid.UUID) -> Job | None:
+    """The run the operator is watching, across every request they own (ADR 0089).
+
+    **Defined once, here, and never guessed by a template.** The navigation item and the
+    `/runs/active` redirect both call this, so the link and the page it lands on cannot
+    disagree about which run is current — which they would, the first time two definitions of
+    "latest" were written by two people a fortnight apart.
+
+    The most recently started run that has not reached a terminal state; failing that, the most
+    recently touched one. A finished run is still somewhere to go when nothing is in flight —
+    the alternative is a navigation item that vanishes the moment a run ends, which is exactly
+    when an operator goes looking for it.
+
+    Nulls last, for the reason `latest_run` gives: a queued-but-unstarted job has no
+    `started_at` and must not shadow one that is actually running.
+    """
+    live = select(Job).join(WorkOrder, WorkOrder.id == Job.work_order_id).where(
+        WorkOrder.user_id == user_id
+    )
+    found: Job | None = await session.scalar(
+        live.where(Job.status.not_in(TERMINAL_JOB_STATUSES)).order_by(
+            Job.started_at.desc().nullslast()
+        )
+    )
+    if found is not None:
+        return found
+    touched: Job | None = await session.scalar(live.order_by(Job.started_at.desc().nullslast()))
+    return touched
 
 
 async def _may_be_superseded(session: AsyncSession, *, job: Job) -> bool:

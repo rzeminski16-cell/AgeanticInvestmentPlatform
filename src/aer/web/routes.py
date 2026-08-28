@@ -39,6 +39,7 @@ from aer.api.deps import (
     RedisClient,
     SettingsDep,
     current_user_or_none,
+    get_current_user,
 )
 from aer.api.routes.assumptions import ProposeRequest, assumptions_payload
 from aer.core.assumption_scales import UNIT_CHOICES
@@ -50,19 +51,21 @@ from aer.core.schemas.request import (
     RiskTolerance,
 )
 from aer.core.universe import SUPPORTED_EXCHANGES
-from aer.db.models import Assumption, Report
-from aer.errors import ConflictError, ValidationError
+from aer.db.models import Assumption, Job, Report, ResearchRequest
+from aer.errors import AerError, ConflictError, ValidationError
 from aer.services import assumptions as assumption_service
+from aer.services import overview as overview_service
 from aer.services import requests as request_service
 from aer.services import runs as run_service
 from aer.services import scenarios as scenario_service
 from aer.services.approvals import payload_hash_for
 from aer.services.assumption_gate import outstanding_for
+from aer.web import figures, vocabulary
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.forms import ParsedForm, form_values_from, parse_request_form
 from aer.web.shell import GUIDANCE_COOKIE, THEME_COOKIE, THEMES
 from aer.web.shell.badges import cached_counts_for
-from aer.web.templating import render
+from aer.web.templating import percent, render
 from aer.workflow.workflows.vertical_slice_v1 import FORECAST_YEARS
 
 __all__ = ["router"]
@@ -119,6 +122,37 @@ def _is_htmx(request: Request) -> bool:
     return request.headers.get("HX-Request", "").lower() == "true"
 
 
+async def _cost_hint(session: DbSession, *, values: dict[str, str] | None = None) -> str:
+    """What runs at the chosen depth have cost, rendered, or an honest admission of no history.
+
+    The depth comes from what the operator has already picked; on a blank form there is none,
+    so the default is used — which is the depth the form itself defaults to, so the guidance
+    matches the control beside it rather than describing a choice nobody made.
+
+    **A database failure degrades to the no-history sentence rather than failing the page.**
+    `/requests/new` rendered without a database before this guidance existed, and it has to
+    keep doing so: a form that will not draw because a *hint* could not be computed is a form
+    broken by a nicety. The half that matters — that the ceiling is enforced in code rather
+    than reported — is true whether or not any history could be read.
+    """
+    chosen = (values or {}).get("analysis_mode", "")
+    try:
+        mode = AnalysisMode(chosen) if chosen else AnalysisMode.STANDARD
+    except ValueError:
+        # A depth the enum does not have is a rejected submission being re-rendered. The
+        # guidance for the default is better than none while the operator fixes it.
+        mode = AnalysisMode.STANDARD
+
+    try:
+        user = await get_current_user(session)
+        typical = await overview_service.typical_cost(session, user_id=user.id, mode=mode)
+    except (AerError, SQLAlchemyError, OSError):
+        # `OSError` too: asyncpg raises the operating system's error directly when it cannot
+        # reach the server, before SQLAlchemy has anything to wrap.
+        typical = overview_service.TypicalCost(low=None, high=None, sample=0)
+    return figures.cost_guidance(typical)
+
+
 def _form_context(
     page: _FormPage,
     *,
@@ -127,6 +161,7 @@ def _form_context(
     banner: str | None = None,
     oob_csrf: bool = False,
     values: dict[str, str] | None = None,
+    cost_hint: str = "",
 ) -> dict[str, Any]:
     """Everything ``requests/_form.html`` needs, for both the new and the edit page.
 
@@ -140,7 +175,13 @@ def _form_context(
         "oob_csrf": oob_csrf,
         "exchanges": _EXCHANGE_CHOICES,
         "currencies": _CURRENCY_CHOICES,
-        "analysis_modes": list(AnalysisMode),
+        # The vocabulary's words rather than the enum's. A depth select offering "quick",
+        # "standard" and "full" in lower case is the schema showing through a control the
+        # operator is meant to make a decision with.
+        "analysis_modes": [
+            {"value": mode.value, "label": state.label}
+            for mode, state in vocabulary.ANALYSIS_MODES.items()
+        ],
         "risk_tolerances": list(RiskTolerance),
         "esg_sensitivities": list(EsgSensitivity),
         "today": datetime.now(UTC).date().isoformat(),
@@ -153,6 +194,10 @@ def _form_context(
         "form_action": page.action,
         "submit_label": page.submit_label,
         "cancel_href": page.cancel_href,
+        # What runs at this depth have actually cost, or an honest admission that there
+        # is not enough history to say. Passed in rather than looked up here, because this
+        # builder is deliberately free of I/O and the guidance needs a query.
+        "cost_hint": cost_hint,
         "error_summary_heading": page.error_summary_heading,
         **page.extra,
     }
@@ -185,6 +230,28 @@ async def list_requests_page(
             "counterpart": counterpart,
             "csrf_token": token,
             "csrf_field": CSRF_FIELD_NAME,
+            # The sentence and the colour for each state, from the one vocabulary. `SUBMITTED`
+            # is a database value; "Waiting for your plan decision" is what the row is for, and
+            # deriving both here means the list and every other surface cannot disagree.
+            "request_labels": {
+                status: state.label for status, state in vocabulary.REQUEST_STATES.items()
+            },
+            "request_tones": {
+                status: state.tone.value
+                for status, state in vocabulary.REQUEST_STATES.items()
+            },
+            # What each request has cost so far, already rendered. A row that showed a mandate
+            # and not its spend is a row that answers the cheaper half of the question.
+            "spend_by_request": dict(
+                zip(
+                    (item.id for item in rows),
+                    (
+                        figures.pounds(spent)
+                        for spent in await request_service.spend_for(session, rows=rows)
+                    ),
+                    strict=True,
+                )
+            ),
         },
     )
     set_csrf_cookie(response, token)
@@ -192,10 +259,18 @@ async def list_requests_page(
 
 
 @router.get("/requests/new", response_class=HTMLResponse, summary="New research request")
-async def new_request_form(request: Request, settings: SettingsDep) -> Response:
+async def new_request_form(
+    request: Request, session: DbSession, settings: SettingsDep
+) -> Response:
     token = new_csrf_token(settings)
     response: Response = render(
-        request, _NEW_PAGE.template, _form_context(_NEW_PAGE, csrf_token=token)
+        request,
+        _NEW_PAGE.template,
+        _form_context(
+            _NEW_PAGE,
+            csrf_token=token,
+            cost_hint=await _cost_hint(session),
+        ),
     )
     set_csrf_cookie(response, token)
     return response
@@ -269,7 +344,12 @@ async def edit_request_form(
     response: Response = render(
         request,
         page.template,
-        _form_context(page, csrf_token=token, values=form_values_from(found)),
+        _form_context(
+            page,
+            csrf_token=token,
+            values=form_values_from(found),
+            cost_hint=await _cost_hint(session),
+        ),
     )
     set_csrf_cookie(response, token)
     return response
@@ -518,6 +598,108 @@ async def _csrf_ok(request: Request, settings: SettingsDep) -> bool:
     return csrf_is_valid(request, str(token) if isinstance(token, str) else None, settings)
 
 
+def _detail_view(item: ResearchRequest, *, job: Job | None) -> dict[str, Any]:
+    """What the detail page says about this commission, decided here rather than in Jinja.
+
+    Every value is a finished string. A template that formatted a date, a percentage or a
+    duration would be a second house style beside `web/figures.py`, and the whole reason that
+    module exists is that the console, the gates and this page render one number one way.
+    """
+    now = datetime.now(UTC)
+    state = vocabulary.request_state(item.status)
+    cost = figures.cost_context(
+        spent=job.total_cost_gbp if job else Decimal(0), ceiling=item.max_cost_gbp
+    )
+    since = (job.finished_at or job.started_at) if job else None
+
+    if job is None:
+        statement = "Saved as a draft. Nothing has been fetched and nothing has been spent."
+    else:
+        statement = f"{state.label}. {cost.summary} spent."
+
+    return {
+        "status_label": state.label,
+        "status_tone": state.tone.value,
+        "verdict_statement": statement,
+        "verdict_detail": state.detail,
+        "run_cost": cost.summary,
+        "last_activity": figures.waited_for(since, now=now) + " ago" if since else "—",
+        # Depth is most of what a run costs, so what this one cost is the honest guide to what
+        # repeating it costs. Said plainly rather than projected: a forecast dressed as a
+        # figure is the thing this platform exists not to do.
+        "repeat_cost_guidance": (
+            f"The last one cost {figures.pounds(job.total_cost_gbp)}."
+            if job is not None
+            else ""
+        ),
+        "mandate_rows": [
+            {
+                "label": "Horizon",
+                "value": f"{item.investment_horizon_months} months"
+                + (f" — {item.horizon_label}" if item.horizon_label else ""),
+            },
+            {"label": "Depth", "value": item.analysis_mode.value.capitalize()},
+            {
+                "label": "Point-in-time",
+                "value": (
+                    "On — no source published after the as-of date may be used"
+                    if item.point_in_time
+                    else "Off — look-ahead bias is possible"
+                ),
+            },
+            {"label": "Base currency", "value": item.base_currency, "is_data": True},
+            {
+                "label": "Reporting currency",
+                "value": item.reporting_currency or "Same as base",
+                "is_data": True,
+            },
+            {
+                "label": "Most it may cost",
+                "value": figures.pounds(item.max_cost_gbp),
+                "is_data": True,
+            },
+            {
+                "label": "Current weight",
+                "value": percent(item.portfolio_context.get("current_weight")),
+                "is_data": True,
+            },
+            {
+                "label": "Maximum weight",
+                "value": percent(item.portfolio_context.get("maximum_weight")),
+                "is_data": True,
+            },
+            {"label": "Benchmark", "value": item.portfolio_context.get("benchmark") or "None"},
+            {
+                "label": "Liquidity constraint",
+                "value": (
+                    figures.pounds(item.liquidity_constraint_gbp)
+                    if item.liquidity_constraint_gbp is not None
+                    else "Not stated"
+                ),
+                "is_data": True,
+            },
+            {
+                "label": "Risk tolerance",
+                "value": (item.risk_tolerance or "Not stated").capitalize(),
+            },
+            {
+                "label": "ESG weighting",
+                "value": (item.esg_sensitivity or "Not stated").capitalize(),
+            },
+        ],
+        "technical_rows": [
+            {"label": "Request id", "value": str(item.id), "is_data": True},
+            {"label": "ISIN", "value": item.isin or "Not given", "is_data": True},
+            {
+                "label": "Created",
+                "value": item.created_at.strftime("%d %B %Y at %H:%M %Z"),
+                "is_data": True,
+            },
+            {"label": "Resolved", "value": "Yes" if item.resolved else "No"},
+        ],
+    }
+
+
 @router.get(
     "/requests/{request_id}", response_class=HTMLResponse, summary="Research request detail"
 )
@@ -559,6 +741,7 @@ async def request_detail(
             "immutable_reason": await request_service.immutable_reason(session, request=found),
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
+            **_detail_view(found, job=job),
         },
     )
     set_csrf_cookie(detail, token)
@@ -679,6 +862,7 @@ def _render_failure(
     page: _FormPage,
     status: int,
     banner: str | None = None,
+    cost_hint: str = "",
 ) -> Response:
     """Re-render the form, or just its errors for an HTMX submission.
 
@@ -693,7 +877,14 @@ def _render_failure(
     response: Response = render(
         request,
         template,
-        _form_context(page, csrf_token=token, parsed=parsed, banner=banner, oob_csrf=htmx),
+        _form_context(
+            page,
+            csrf_token=token,
+            parsed=parsed,
+            banner=banner,
+            oob_csrf=htmx,
+            cost_hint=cost_hint,
+        ),
         status_code=status,
     )
     set_csrf_cookie(response, token)

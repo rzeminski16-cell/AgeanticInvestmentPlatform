@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Tracework redesign prototype — overview and attention queue">
+  <title>Overview · Tracework prototype</title>
+  <link rel="stylesheet" href="assets/tracework.css">
+  <script src="assets/tracework.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <div class="app-shell">
+    <details class="nav-shell" open>
+      <summary class="nav-summary">Tracework</summary>
+      <div class="nav-panel">
+        <a class="brand-lockup" href="index.html" aria-label="Tracework overview">
+          <span class="brand-mark" aria-hidden="true">T↳</span>
+          <span><span class="brand-name">Tracework</span><span class="brand-note">Evidence-led research</span></span>
+        </a>
+        <nav class="nav-primary" aria-label="Primary navigation">
+          <section class="nav-section" aria-labelledby="nav-work">
+            <span class="nav-section-label" id="nav-work">Workspace</h2>
+            <ul class="nav-list">
+              <li><a class="nav-link" href="index.html" aria-current="page"><span>Overview</span><span class="nav-badge" id="nav-attention-count" aria-label="3 items need attention">3</span></a></li>
+            </ul>
+          </section>
+          <section class="nav-section" aria-labelledby="nav-research">
+            <span class="nav-section-label" id="nav-research">Research</h2>
+            <ul class="nav-list">
+              <li><a class="nav-link" href="requests.html"><span>Requests</span><span class="nav-badge" aria-label="2 runs waiting for a decision">2</span></a></li>
+              <li><a class="nav-link" href="run.html"><span>Active run</span></a></li>
+              <li><a class="nav-link" href="reports.html"><span>Reports</span></a></li>
+              <li><a class="nav-link" href="skills.html"><span>Skills</span></a></li>
+              <li><a class="nav-link" href="knowledge.html"><span>Knowledge</span></a></li>
+            </ul>
+          </section>
+          <section class="nav-section" aria-labelledby="nav-book">
+            <span class="nav-section-label" id="nav-book">Book</h2>
+            <ul class="nav-list">
+              <li><a class="nav-link" href="portfolio.html"><span>Portfolio</span></a></li>
+            </ul>
+          </section>
+          <section class="nav-section" aria-labelledby="nav-reference">
+            <span class="nav-section-label" id="nav-reference">Design reference</h2>
+            <ul class="nav-list">
+              <li><a class="nav-link" href="components.html"><span>Components</span></a></li>
+            </ul>
+          </section>
+        </nav>
+        <div class="nav-utility">
+          <div>
+            <span class="nav-section-label">Appearance</span>
+            <div class="theme-control" aria-label="Prototype colour scheme">
+              <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
+              <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+              <button type="button" data-theme-choice="system" aria-pressed="true">Auto</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <div class="work-area">
+      <header class="context-bar">
+        <nav class="breadcrumbs" aria-label="Breadcrumb"><span aria-current="page">Overview</span></nav>
+        <div class="context-actions">
+          <a class="button button-quiet button-small" href="components.html#guidance">Guidance on</a>
+          <a class="button button-small" href="request-new.html">Commission research</a>
+        </div>
+      </header>
+
+      <main class="page" id="main">
+        <header class="page-header">
+          <div>
+            <span class="page-kicker">Tuesday, 25 August · 09:42</span>
+            <h1>Your work, with the waiting made visible</h1>
+            <p class="page-lede">Return here to see what needs a decision, what stopped safely, and what is still working. Nothing is ordered by noise.</p>
+          </div>
+        </header>
+
+        <section class="verdict" aria-labelledby="today-verdict">
+          <div>
+            <span class="utility-label">Your attention</span>
+            <h2 id="today-verdict">Two runs are waiting for you. One stopped safely.</h2>
+            <p>Contoso needs its plan approved before it spends beyond £0.16. Northstar is ready for final review. Meridian reached its ceiling before making the next model call.</p>
+          </div>
+          <div class="verdict-aside">
+            <span class="utility-label">Committed across open runs</span>
+            <span class="metric-strong">£8.74</span>
+            <span class="metric-note">£2.41 spent · £6.33 remaining</span>
+          </div>
+        </section>
+
+        <section class="sheet" aria-labelledby="attention-title">
+          <div class="sheet-head">
+            <div><h2 id="attention-title">What needs you</h2><p>Decisions first, then refusals and failures, then work that may have gone quiet.</p></div>
+            <a href="requests.html">See all requests</a>
+          </div>
+          <div class="sheet-body-flush">
+            <ol class="attention-list">
+              <li class="attention-row">
+                <span class="attention-mark" aria-hidden="true"></span>
+                <div class="attention-main"><strong>Contoso plc is waiting for you</strong><span>Approve its research plan before the run commits to acquisition and analysis.</span></div>
+                <div class="attention-meta"><span>waiting 18 min</span><span>£0.16 / £4.00</span><a class="button button-small" href="gate.html">Review plan</a></div>
+              </li>
+              <li class="attention-row">
+                <span class="attention-mark" aria-hidden="true"></span>
+                <div class="attention-main"><strong>Northstar Group is waiting for you</strong><span>Review the finished report, its validation results, cost, coverage, and adversarial challenge.</span></div>
+                <div class="attention-meta"><span>waiting 2 h</span><span>£2.11 / £3.50</span><a class="button button-small" href="review.html">Review report</a></div>
+              </li>
+              <li class="attention-row">
+                <span class="attention-mark mute" aria-hidden="true"></span>
+                <div class="attention-main"><strong>Meridian Bank stopped before overspending</strong><span>The next step would cross the run ceiling. Nothing failed and no call was made.</span></div>
+                <div class="attention-meta"><span>stopped 5 d</span><span>£0.14 / £0.15</span><a class="button button-small" href="run.html" data-drawer-open data-drawer-title="Meridian Bank · budget stop" data-drawer-content="&lt;div class='notice notice-warn'&gt;&lt;strong&gt;The run stopped before spending.&lt;/strong&gt;Raise its ceiling or leave the run safely stopped. £0.14 has been spent; the next phase is expected to add £0.38–£0.55.&lt;/div&gt;&lt;p&gt;&lt;a href='run.html'&gt;Open the full run console&lt;/a&gt;&lt;/p&gt;">Preview</a></div>
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        <section aria-labelledby="tools-title">
+          <div class="page-header">
+            <div><span class="page-kicker">The platform</span><h2 id="tools-title">Two working tools, seven honest intentions</h2><p class="page-lede">Working tools are prominent. Planned tools explain the capability they are waiting on without pretending to be available.</p></div>
+          </div>
+          <div class="tool-grid">
+            <a class="tool-card" href="requests.html"><span class="utility-label">Working</span><h3>Equity Research</h3><p>Commission a point-in-time report and challenge every conclusion back to its evidence.</p><span class="tool-state">2 decisions waiting →</span></a>
+            <a class="tool-card" href="portfolio.html"><span class="utility-label">Working</span><h3>Portfolio</h3><p>Reconstruct the book from transactions and reconcile every total to the weakest evidence beneath it.</p><span class="tool-state">Book current to 24 August →</span></a>
+            <article class="tool-card tool-card-planned"><span class="utility-label">Planned</span><h3>Watchlist</h3><p>Follow companies before they warrant a full research commission.</p><span class="tool-state">Waiting on observation records</span></article>
+            <article class="tool-card tool-card-planned"><span class="utility-label">Planned</span><h3>Theses</h3><p>Keep explicit investment views separate from facts and calculations.</p><span class="tool-state">Waiting on thesis records</span></article>
+            <article class="tool-card tool-card-planned"><span class="utility-label">Planned</span><h3>Decisions</h3><p>Record what was decided, on what evidence, and what would change the view.</p><span class="tool-state">Waiting on decision records</span></article>
+            <article class="tool-card tool-card-planned"><span class="utility-label">Planned</span><h3>Monitor</h3><p>Surface material changes against approved research and open theses.</p><span class="tool-state">Waiting on monitoring rules</span></article>
+            <article class="tool-card tool-card-planned"><span class="utility-label">Planned</span><h3>Risk</h3><p>See concentration and thesis risks without turning judgement into a sourced fact.</p><span class="tool-state">Waiting on risk records</span></article>
+            <article class="tool-card tool-card-planned"><span class="utility-label">Planned</span><h3>Post-trade review</h3><p>Compare a decision with what followed, using the record available at the time.</p><span class="tool-state">Waiting on decision outcomes</span></article>
+            <article class="tool-card tool-card-planned"><span class="utility-label">Planned</span><h3>Decision analytics</h3><p>Find repeated strengths and errors across the operator's own decisions.</p><span class="tool-state">Waiting on a larger decision history</span></article>
+          </div>
+        </section>
+
+        <footer class="prototype-note"><strong>This is not investment advice.</strong> Tracework is a working identity for this visual prototype. Figures and companies shown here are illustrative.</footer>
+      </main>
+    </div>
+  </div>
+
+  <div class="drawer-backdrop" data-drawer-backdrop data-open="false" hidden>
+    <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+      <header class="drawer-head"><h2 id="drawer-title" data-drawer-title>Preview</h2><button class="button button-small" type="button" data-drawer-close>Close <span class="sr-only">this panel</span></button></header>
+      <div class="drawer-body" data-drawer-body></div>
+    </aside>
+  </div>
+</body>
+</html>

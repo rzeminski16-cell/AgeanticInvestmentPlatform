@@ -7,7 +7,7 @@
   currency are both changeable, and neither is worth a wizard.
 #}
 
-{% block title %}Portfolio &middot; Ageiantic{% endblock %}
+{% block title %}Portfolio &middot; Tracework{% endblock %}
 
 {% block content %}
   <h1 class="text-2xl font-semibold tracking-tight text-ink">Portfolio</h1>
@@ -17,7 +17,7 @@
   </p>
 
   <div class="mt-6 max-w-md">
-    {% call ui.card("Start a book", "You can rename it or add another later.") %}
+    {% call ui.sheet("Start a book", "You can rename it or add another later.") %}
       <form method="post" action="/portfolio" class="grid gap-4">
         <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
         <div>
@@ -53,7 +53,7 @@
           <button
             id="create-book"
             type="submit"
-            class="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-strong"
+            class="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-on-verification hover:bg-brand-strong"
           >
             Create it
           </button>

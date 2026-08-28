@@ -3,107 +3,6 @@ revision = 3
 requires-python = "==3.12.*"
 
 [[package]]
-name = "ageiantic-equity-research"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "alembic" },
-    { name = "anthropic" },
-    { name = "arelle-release" },
-    { name = "arq" },
-    { name = "asyncpg" },
-    { name = "fastapi" },
-    { name = "httpx" },
-    { name = "jinja2" },
-    { name = "lxml" },
-    { name = "matplotlib" },
-    { name = "opentelemetry-exporter-otlp-proto-http" },
-    { name = "opentelemetry-sdk" },
-    { name = "pdfplumber" },
-    { name = "pikepdf" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "python-frontmatter" },
-    { name = "python-multipart" },
-    { name = "pyyaml" },
-    { name = "rapidfuzz" },
-    { name = "redis" },
-    { name = "selectolax" },
-    { name = "sqlalchemy", extra = ["asyncio"] },
-    { name = "structlog" },
-    { name = "typer" },
-    { name = "uvicorn", extra = ["standard"] },
-    { name = "weasyprint" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "asgi-lifespan" },
-    { name = "fakeredis", extra = ["lua"] },
-    { name = "httpx" },
-    { name = "hypothesis" },
-    { name = "lxml-stubs" },
-    { name = "mypy" },
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "pytest-playwright" },
-    { name = "respx" },
-    { name = "ruff" },
-    { name = "types-pyyaml" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "alembic", specifier = ">=1.14" },
-    { name = "anthropic", specifier = ">=0.40" },
-    { name = "arelle-release", specifier = ">=2.36" },
-    { name = "arq", specifier = ">=0.26" },
-    { name = "asyncpg", specifier = ">=0.30" },
-    { name = "fastapi", specifier = ">=0.115" },
-    { name = "httpx", specifier = ">=0.28" },
-    { name = "jinja2", specifier = ">=3.1" },
-    { name = "lxml", specifier = ">=5.3" },
-    { name = "matplotlib", specifier = ">=3.11.1" },
-    { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.44.0" },
-    { name = "opentelemetry-sdk", specifier = ">=1.44.0" },
-    { name = "pdfplumber", specifier = ">=0.11" },
-    { name = "pikepdf", specifier = ">=10.11.0" },
-    { name = "pydantic", specifier = ">=2.9" },
-    { name = "pydantic-settings", specifier = ">=2.5" },
-    { name = "python-frontmatter", specifier = ">=1.3.0" },
-    { name = "python-multipart", specifier = ">=0.0.20" },
-    { name = "pyyaml", specifier = ">=6.0" },
-    { name = "rapidfuzz", specifier = ">=3.9" },
-    { name = "redis", specifier = ">=5.2" },
-    { name = "selectolax", specifier = ">=0.3.21" },
-    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.36" },
-    { name = "structlog", specifier = ">=24.4" },
-    { name = "typer", specifier = ">=0.15" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-    { name = "weasyprint", specifier = ">=69.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "asgi-lifespan", specifier = ">=2.1" },
-    { name = "fakeredis", extras = ["lua"], specifier = ">=2.26" },
-    { name = "httpx", specifier = ">=0.28" },
-    { name = "hypothesis", specifier = ">=6.140" },
-    { name = "lxml-stubs", specifier = ">=0.5" },
-    { name = "mypy", specifier = ">=1.13" },
-    { name = "pre-commit", specifier = ">=4.0" },
-    { name = "pytest", specifier = ">=8.3" },
-    { name = "pytest-asyncio", specifier = ">=0.24" },
-    { name = "pytest-cov", specifier = ">=5.0" },
-    { name = "pytest-playwright", specifier = ">=0.6" },
-    { name = "respx", specifier = ">=0.22" },
-    { name = "ruff", specifier = ">=0.7" },
-    { name = "types-pyyaml", specifier = ">=6.0" },
-]
-
-[[package]]
 name = "alembic"
 version = "1.18.5"
 source = { registry = "https://pypi.org/simple" }
@@ -1960,6 +1859,107 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b1/1f/cfe2f6b30557c92b3f31d41707e09cef5c1efbd87392bc6c0430c46b0e4d/tinyhtml5-2.1.0.tar.gz", hash = "sha256:60a50ec3d938a37e491efa01af895853060943dcebb5627de5b10d188b338a67", size = 179242, upload-time = "2026-03-05T17:06:30.704Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/52/48/01695a036b695f83fea7aef6955d735db0f517b1c8e25ddb399ac0bdbcbf/tinyhtml5-2.1.0-py3-none-any.whl", hash = "sha256:6e11cfff38515834268daf89d5f85bbde0b6dd02e8d9e212d1385c2289b89f0a", size = 39686, upload-time = "2026-03-05T17:06:28.498Z" },
+]
+
+[[package]]
+name = "tracework-invest"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "alembic" },
+    { name = "anthropic" },
+    { name = "arelle-release" },
+    { name = "arq" },
+    { name = "asyncpg" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "jinja2" },
+    { name = "lxml" },
+    { name = "matplotlib" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-sdk" },
+    { name = "pdfplumber" },
+    { name = "pikepdf" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "python-frontmatter" },
+    { name = "python-multipart" },
+    { name = "pyyaml" },
+    { name = "rapidfuzz" },
+    { name = "redis" },
+    { name = "selectolax" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "structlog" },
+    { name = "typer" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "weasyprint" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "asgi-lifespan" },
+    { name = "fakeredis", extra = ["lua"] },
+    { name = "httpx" },
+    { name = "hypothesis" },
+    { name = "lxml-stubs" },
+    { name = "mypy" },
+    { name = "pre-commit" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "pytest-playwright" },
+    { name = "respx" },
+    { name = "ruff" },
+    { name = "types-pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alembic", specifier = ">=1.14" },
+    { name = "anthropic", specifier = ">=0.40" },
+    { name = "arelle-release", specifier = ">=2.36" },
+    { name = "arq", specifier = ">=0.26" },
+    { name = "asyncpg", specifier = ">=0.30" },
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "httpx", specifier = ">=0.28" },
+    { name = "jinja2", specifier = ">=3.1" },
+    { name = "lxml", specifier = ">=5.3" },
+    { name = "matplotlib", specifier = ">=3.11.1" },
+    { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.44.0" },
+    { name = "opentelemetry-sdk", specifier = ">=1.44.0" },
+    { name = "pdfplumber", specifier = ">=0.11" },
+    { name = "pikepdf", specifier = ">=10.11.0" },
+    { name = "pydantic", specifier = ">=2.9" },
+    { name = "pydantic-settings", specifier = ">=2.5" },
+    { name = "python-frontmatter", specifier = ">=1.3.0" },
+    { name = "python-multipart", specifier = ">=0.0.20" },
+    { name = "pyyaml", specifier = ">=6.0" },
+    { name = "rapidfuzz", specifier = ">=3.9" },
+    { name = "redis", specifier = ">=5.2" },
+    { name = "selectolax", specifier = ">=0.3.21" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.36" },
+    { name = "structlog", specifier = ">=24.4" },
+    { name = "typer", specifier = ">=0.15" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
+    { name = "weasyprint", specifier = ">=69.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "asgi-lifespan", specifier = ">=2.1" },
+    { name = "fakeredis", extras = ["lua"], specifier = ">=2.26" },
+    { name = "httpx", specifier = ">=0.28" },
+    { name = "hypothesis", specifier = ">=6.140" },
+    { name = "lxml-stubs", specifier = ">=0.5" },
+    { name = "mypy", specifier = ">=1.13" },
+    { name = "pre-commit", specifier = ">=4.0" },
+    { name = "pytest", specifier = ">=8.3" },
+    { name = "pytest-asyncio", specifier = ">=0.24" },
+    { name = "pytest-cov", specifier = ">=5.0" },
+    { name = "pytest-playwright", specifier = ">=0.6" },
+    { name = "respx", specifier = ">=0.22" },
+    { name = "ruff", specifier = ">=0.7" },
+    { name = "types-pyyaml", specifier = ">=6.0" },
 ]
 
 [[package]]
