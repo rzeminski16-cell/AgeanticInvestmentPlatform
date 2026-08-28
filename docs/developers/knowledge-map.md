@@ -39,10 +39,14 @@ A **run** is the system's unit of work: one research request in, one cited repor
 production workflow is `vertical_slice_v1` (`src/aer/workflow/workflows/vertical_slice_v1.py`,
 `build_steps()`); the engine that executes it is `src/aer/workflow/engine.py`. Steps are
 recorded, resumable, and independently budgeted; **gates** pause the run for a human.
+Resuming is a first-class act (ADR 0090): `aer resume` re-enqueues the *same* job after a
+failure with the decision appended to the audit chain, `aer step` walks a run one step at
+a time (`jobs.step_mode` pauses it `PAUSED` after every executed step), and `aer diagnose`
+prints each step's recorded readout without spending anything.
 
 ```mermaid
 flowchart TD
-    plan --> gate_plan{{gate_plan}}
+    plan --> critique_plan --> gate_plan{{gate_plan}}
     gate_plan --> acquire --> classify
     classify --> gate_sector_specialist{{gate_sector_specialist}}
     gate_sector_specialist --> propose_peers --> gate_peer_set{{gate_peer_set}}
@@ -55,7 +59,7 @@ flowchart TD
     research --> propose_assumptions --> gate_assumptions{{gate_assumptions}}
     gate_assumptions --> value --> draft
     comps --> draft
-    draft --> validate --> red_team --> gate_final{{gate_final}} --> render
+    draft --> validate --> red_team --> revise --> gate_final{{gate_final}} --> render
 ```
 
 What to know per step, beyond the diagram:
@@ -63,6 +67,7 @@ What to know per step, beyond the diagram:
 | Step | Owner | Spends money? | Notes |
 |---|---|---|---|
 | `plan` | `agents/planner` | yes (~£0.15) | Proposes sections and sources; never findings |
+| `critique_plan` | `agents/plan_critic` | yes (~£0.30 with a revision) | Attacks the plan before gate 1; one planner revision at severity ≥ 3 (ADR 0091) |
 | `gate_plan` | `services/approvals` | no | First of the two gates every run passes |
 | `acquire` | `services` + `sources/sec` or `sources/uk` | no | Filings fetched, hashed, stored |
 | `classify` | `services` | no | Filing types; may trigger the sector gate |
@@ -71,7 +76,7 @@ What to know per step, beyond the diagram:
 | `gate_theme_set` | `services/approvals` | no | Conditional; skipped on an empty slate |
 | `extract` | `extract/` | no | Bytes → text with locators; iXBRL/PDF/HTML |
 | `calculate` | `calc/` via `services` | no | Statements, ratios, quality — all traced |
-| `research_*` (five, parallel) | `agents/worker` | yes (~£0.10 each) | Tool *requests* executed by code (ADR 0036) |
+| `research_*` (five, parallel) | `agents/worker` | yes (~£0.10 each) | Tool *requests* executed by code (ADR 0036); `web_search` returns a listing, metered per search (ADR 0092) |
 | `comps` | `calc/comps` | no | Withholds rather than publishes licensed rows |
 | `propose_assumptions` | `agents/assumptions` | yes (~£0.20) | Only the two numbers no filing answers (ADR 0046) |
 | `gate_assumptions` | `services/approvals` | no | The one gate that approves work not yet done |
@@ -79,6 +84,7 @@ What to know per step, beyond the diagram:
 | `draft` | `agents/section_writer`, `sections/` | **yes (~£5, the largest)** | One call per model-written section; see ADR 0052 |
 | `validate` | `verify/`, `agents/validator` | small | Deterministic checks; the model only *advises* (ADR 0038) |
 | `red_team` | `agents/red_team` | yes (~£1) | Attacks the draft from a separate context (ADR 0039) |
+| `revise` | `services/revision` | yes (~£1.50 at the bound) | Redrafts the sections material challenges attack, once, then seals the gate-2 hash (ADR 0091) |
 | `gate_final` | `services/approvals` | no | Second universal gate; shows scores, not promises |
 | `render` | `render/`, `charts/` | no | Stored sections → document; a chart is a figure (ADR 0043) |
 

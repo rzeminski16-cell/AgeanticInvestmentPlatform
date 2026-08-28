@@ -31,7 +31,7 @@ from decimal import Decimal
 from typing import Any, Final
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
@@ -825,6 +825,15 @@ async def _critique_plan(context: StepContext) -> StepResult:
     plan.plan = body
     await context.session.flush()
 
+    # A retried step re-decides from a fresh critique, so its record replaces the earlier
+    # attempt's — this step is the only writer of the plan-scope notes, and duplicates
+    # would double-count the run in `aer lessons`' note tally.
+    await context.session.execute(
+        delete(RevisionNote).where(
+            RevisionNote.job_id == context.job.id,
+            RevisionNote.scope == REVISION_SCOPE_PLAN,
+        )
+    )
     # One note per challenge (ADR 0091's memory half): what the loop did about each, so
     # `aer lessons` can count a class across runs whatever the loop decided this time.
     for challenge in critique.challenges:

@@ -109,6 +109,16 @@ async def revise_challenged_sections(
     if not targets:
         return outcome
 
+    # A retried step re-decides from the same challenges, so its record replaces the
+    # earlier attempt's rather than piling onto it — this step is the only writer of the
+    # draft-scope notes, and duplicates would double every row the gate-2 payload shows.
+    await session.execute(
+        delete(RevisionNote).where(
+            RevisionNote.job_id == job.id, RevisionNote.scope == SCOPE_DRAFT
+        )
+    )
+    await session.flush()
+
     sections = {
         section.section_key: section
         for section in await session.scalars(
