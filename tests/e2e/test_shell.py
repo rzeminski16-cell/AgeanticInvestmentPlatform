@@ -90,6 +90,62 @@ def stopped_runs(live_server: str, database_url: str) -> StoppedRuns:
     return StoppedRuns(database_url, count=2)
 
 
+class FinishedRun:
+    """One commissioned request whose run succeeded.
+
+    The caught-up state, as distinct from first-run: ``has_ever_commissioned`` reads the
+    request, and a succeeded job leaves nothing waiting, broken or unstarted — an empty
+    work list for a reader who has been here before. On a fresh database the same empty
+    list is the *first-run* page, which says something else entirely.
+    """
+
+    def __init__(self, database_url: str) -> None:
+        self._database_url = database_url
+        run_async(self._create())
+
+    async def _create(self) -> None:
+        engine = create_async_engine(self._database_url, poolclass=NullPool)
+        try:
+            factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+            async with factory() as session:
+                user = await session.scalar(select(User))
+                assert user is not None, "the live_server fixture seeds one"
+
+                request = ResearchRequest(
+                    user_id=user.id,
+                    company_name="Contoso Finished",
+                    ticker="CTSF",
+                    exchange="NASDAQ",
+                    as_of_date=AS_OF_DATE,
+                    point_in_time=True,
+                    base_currency="USD",
+                    investment_horizon_months=12,
+                    max_cost_gbp=DEFAULT_PER_RUN_BUDGET_GBP,
+                )
+                session.add(request)
+                await session.flush()
+                finished = datetime.now(UTC)
+                session.add(
+                    Job(
+                        work_order_id=request.id,
+                        request_id=request.id,
+                        workflow_version="test",
+                        code_version="abc",
+                        status=JobStatus.SUCCEEDED,
+                        started_at=finished,
+                        finished_at=finished,
+                    )
+                )
+                await session.commit()
+        finally:
+            await engine.dispose()
+
+
+@pytest.fixture
+def finished_run(live_server: str, database_url: str) -> FinishedRun:
+    return FinishedRun(database_url)
+
+
 def _number(page: Page) -> Any:
     # The visible half. The slot also holds an `sr-only` sentence, so asking the slot
     # itself for its text would get the digit twice.
@@ -161,8 +217,18 @@ class TestTheOverviewScreen:
         expect(rows).to_have_count(stopped_runs.count)
         expect(rows.first.get_by_role("link", name="Open the run")).to_be_visible()
 
+    def test_a_new_operator_is_told_where_to_start(self, page: Page, live_server: str) -> None:
+        # An empty database is the first-run state, deliberately distinct from caught-up
+        # (tranche 5): the same empty work list means "nothing here works yet" to a new
+        # operator and "caught up" to a returning one, and only the first needs telling
+        # what to do.
+        page.goto(f"{live_server}/overview")
+
+        expect(page.get_by_text("Start with two things")).to_be_visible()
+        expect(page.get_by_role("link", name="Commission research")).to_be_visible()
+
     def test_nothing_waiting_offers_the_next_thing_to_do(
-        self, page: Page, live_server: str
+        self, page: Page, live_server: str, finished_run: FinishedRun
     ) -> None:
         page.goto(f"{live_server}/overview")
 
