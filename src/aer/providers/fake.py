@@ -39,7 +39,14 @@ from typing import Any, Final, cast
 from pydantic import BaseModel, ValidationError
 
 from aer.errors import ExternalServiceError
-from aer.providers.protocol import BatchRequest, Message, StructuredResult, Usage
+from aer.providers.protocol import (
+    BatchRequest,
+    Message,
+    StructuredResult,
+    Usage,
+    WebSearchHit,
+    WebSearchOutcome,
+)
 
 __all__ = ["FakeProvider", "ScriptedResponse"]
 
@@ -104,12 +111,17 @@ class FakeProvider:
         *,
         fail_with: Exception | None = None,
         inspect_schema: Callable[[type[BaseModel]], None] | None = None,
+        web_search_hits: Sequence[WebSearchHit] | None = None,
+        web_search_error: str | None = None,
     ) -> None:
         self._responses = responses or {}
         self._fail_with = fail_with
         self._inspect_schema = inspect_schema
         self.calls: list[dict[str, Any]] = []
         self.token_counts: list[dict[str, Any]] = []
+        self.web_searches: list[dict[str, Any]] = []
+        self.web_search_hits = list(web_search_hits) if web_search_hits is not None else None
+        self.web_search_error = web_search_error
 
     @property
     def name(self) -> str:
@@ -235,6 +247,47 @@ class FakeProvider:
     async def count_tokens(self, *, system: str, messages: Sequence[Message], model: str) -> int:
         self.token_counts.append({"model": model, "messages": len(messages)})
         return _token_estimate(system, messages)
+
+    async def search_web(self, query: str, *, model: str, max_results: int = 8) -> WebSearchOutcome:
+        """A scripted listing, recorded like every other call (ADR 0092).
+
+        Default hits rather than none, for the reason the scripted peer slate exists: a
+        fake that returned nothing would leave every run exercising the empty path and
+        nothing exercising the one a real search takes. Set ``web_search_hits=[]`` to
+        script the empty case, or ``web_search_error`` to script a refused search.
+        """
+        self.web_searches.append({"query": query, "model": model, "max_results": max_results})
+        if self.web_search_error is not None:
+            raise ExternalServiceError(
+                f"The web search was refused by the provider: {self.web_search_error}.",
+                provider=PROVIDER_NAME,
+                retryable=False,
+            )
+        hits = (
+            self.web_search_hits
+            if self.web_search_hits is not None
+            else [
+                WebSearchHit(
+                    url="https://news.example.com/contoso-results",
+                    title="Contoso reports quarterly results",
+                    page_age="2 days ago",
+                ),
+                WebSearchHit(
+                    url="https://commentary.example.com/contoso-view",
+                    title="A commentator's view of Contoso",
+                    page_age="1 week ago",
+                ),
+            ]
+        )
+        return WebSearchOutcome(
+            hits=tuple(hits[:max_results]),
+            searches=1,
+            usage=Usage(
+                input_tokens=max(1, len(query) // _CHARS_PER_TOKEN),
+                output_tokens=_DEFAULT_OUTPUT_TOKENS,
+                model=model,
+            ),
+        )
 
     def _lookup(self, schema: type[BaseModel]) -> ScriptedResponse:
         if callable(self._responses):

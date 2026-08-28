@@ -37,10 +37,11 @@ from aer.agents.worker import (
 )
 from aer.config import Settings
 from aer.core.enums import Provider, SourceTier
-from aer.db.models import Artefact, Company, FinancialFact, ResearchRequest, SourceDocument
+from aer.db.models import Artefact, Company, Cost, FinancialFact, ResearchRequest, SourceDocument
 from aer.errors import AerError
 from aer.extract import extract_text
 from aer.extract.dates import extract_publication_date
+from aer.providers.costs import price_usage, price_web_search
 from aer.services.acquisition import record_acquisition
 from aer.services.facts import visible_facts
 from aer.services.scope import scope_for_request, with_subject
@@ -50,6 +51,7 @@ from aer.sources.tiering import DocumentKind, tier_for
 
 __all__ = [
     "MAX_HITS",
+    "MAX_WEB_SEARCHES",
     "build_executors",
     "run_worker",
     "validate_report",
@@ -64,6 +66,12 @@ MAX_HITS: Final = 10
 # How much of a fetched page reaches the model. The role's input cap is 30k tokens and the
 # loop accumulates evidence across rounds, so one page must not be able to fill it.
 MAX_FETCHED_CHARS: Final = 20_000
+
+# Web searches per worker node (ADR 0092). Counted in code, because the bound is what the
+# step's cost estimate is priced against: five workers at three searches is at most
+# fifteen billed searches per run, at the fee the ADR verifies. The fourth request is a
+# refusal naming the bound, which the worker's own prompt already warns of.
+MAX_WEB_SEARCHES: Final = 3
 
 # What a page the worker chose enters at when nothing establishes more. Named once and
 # used for both the row and the answer: a literal in each place is a literal that can
@@ -113,6 +121,7 @@ def build_executors(
     settings: Settings | None = None,
     job_id: uuid.UUID | None = None,
     sec_client: Any = None,
+    agent_context: AgentContext | None = None,
 ) -> dict[str, Any]:
     """The tool executors for one run: searches over what the run already holds, a search
     of the regulator's index for what it does not, and — when a fetcher is bound — one more
@@ -120,9 +129,11 @@ def build_executors(
 
     The allowlist grants the *capability*, the run decides the *availability*, and an
     unavailable tool is a recorded refusal rather than an error. ``fetch_known_url`` is
-    bound only when a fetcher, a store and settings are all supplied, and
-    ``search_filings_full_text`` only when a client is; a caller that omits them gets
-    exactly the two searches it always did.
+    bound only when a fetcher, a store and settings are all supplied,
+    ``search_filings_full_text`` only when a client is, and ``web_search`` (ADR 0092)
+    only when an agent context is — the search is a billed provider call, and the context
+    is what carries the provider, the route and the step its costs are metered against.
+    A caller that omits them gets exactly the two searches it always did.
     """
     # Filings the index has named to this worker, by URL — the bridge that lets a fetch
     # of a searched-for filing keep the tier and date the search established.
@@ -301,6 +312,19 @@ def build_executors(
             internal_results=results,
         )
 
+    # This worker node's search spend, counted where the bound is enforced.
+    searches_spent = {"count": 0}
+
+    async def web_search(tool_request: ToolRequest) -> ExecutedTool:
+        assert agent_context is not None  # bound only when a context was supplied
+        return await _web_search(
+            session,
+            tool_request,
+            agent_context=agent_context,
+            request=request,
+            searches_spent=searches_spent,
+        )
+
     executors: dict[str, Any] = {
         "search_facts": search_facts,
         "search_sources": search_sources,
@@ -309,7 +333,159 @@ def build_executors(
         executors["fetch_known_url"] = fetch_known_url
     if sec_client is not None:
         executors["search_filings_full_text"] = search_filings_full_text
+    if agent_context is not None:
+        executors["web_search"] = web_search
     return executors
+
+
+async def _web_search(
+    session: AsyncSession,
+    tool_request: ToolRequest,
+    *,
+    agent_context: AgentContext,
+    request: ResearchRequest,
+    searches_spent: dict[str, int],
+) -> ExecutedTool:
+    """One web search: refused where it cannot be honest, metered where it can (ADR 0092).
+
+    Three refusals, each deterministic and each stated:
+
+    * **Point-in-time.** A live index cannot be bounded by an as-of date, and a result's
+      own date line is external text — so a point-in-time run whose as-of date is in the
+      past never searches. Invariant 4, enforced at acquisition, in code.
+    * **The bound.** :data:`MAX_WEB_SEARCHES` per worker node, counted here.
+    * **No route.** A deployment that never configured the ``web_search`` route gets a
+      recorded refusal, not a silent default model — the router's own rule.
+
+    What comes back is a listing — titles, URLs, age notes — and the titles and URLs are
+    external text, so they reach the model only in the untrusted channel, labelled
+    ``T6_UNVERIFIED`` and explicitly uncitable. Both halves of the bill — the per-search
+    fee and the carrying call's tokens — land as ``costs`` rows against this step before
+    the results are returned.
+    """
+    if request.point_in_time and request.as_of_date < datetime.now(UTC).date():
+        return ExecutedTool(
+            tool=tool_request.tool,
+            query=tool_request.query,
+            executed=False,
+            refusal=(
+                "Refused: this is a point-in-time run with an as-of date in the past, and "
+                "a live web search cannot be bounded by that date. Nothing published "
+                "after the as-of date may inform this run, and a search result's own "
+                "date is not evidence of when it was published."
+            ),
+        )
+
+    if searches_spent["count"] >= MAX_WEB_SEARCHES:
+        return ExecutedTool(
+            tool=tool_request.tool,
+            query=tool_request.query,
+            executed=False,
+            refusal=(
+                f"Refused: this investigation's web-search budget of {MAX_WEB_SEARCHES} "
+                "is spent. Work from what the searches returned, or record what is left "
+                "as a lead."
+            ),
+        )
+
+    try:
+        route = agent_context.router.resolve("web_search")
+    except AerError as unrouted:
+        return ExecutedTool(
+            tool=tool_request.tool,
+            query=tool_request.query,
+            executed=False,
+            refusal=f"Refused: {unrouted.message}",
+        )
+
+    try:
+        outcome = await agent_context.provider.search_web(
+            tool_request.query.strip(), model=route.model, max_results=MAX_HITS
+        )
+    except AerError as failed:
+        # A failed search is not billed — the vendor's published rule, and the reason
+        # the meter below only runs on success.
+        return ExecutedTool(
+            tool=tool_request.tool,
+            query=tool_request.query,
+            executed=False,
+            refusal=f"The web search failed: {failed.message}",
+        )
+
+    searches_spent["count"] += 1
+    await _meter_search(session, agent_context, outcome=outcome)
+
+    remaining = MAX_WEB_SEARCHES - searches_spent["count"]
+    return ExecutedTool(
+        tool=tool_request.tool,
+        query=tool_request.query,
+        executed=True,
+        internal_results=[
+            {
+                "results": len(outcome.hits),
+                "searches_remaining": remaining,
+                "note": (
+                    "A listing, not a reading: titles, URLs and the index's age notes. "
+                    "Nothing here is citable evidence and no result carries an id."
+                ),
+            }
+        ],
+        # Titles, URLs and age notes are the search engine's text — external, so they
+        # travel only in the wrapped channel, at the tier that says what they are:
+        # hypothesis material, never evidence.
+        untrusted_evidence=[
+            {
+                "source_document_id": "web-search-result (not citable)",
+                "tier": SourceTier.T6_UNVERIFIED.value,
+                "title": hit.title or "(untitled)",
+                "text": f"{hit.title or '(untitled)'} — {hit.url}"
+                + (f" ({hit.page_age})" if hit.page_age else ""),
+            }
+            for hit in outcome.hits
+        ],
+    )
+
+
+async def _meter_search(
+    session: AsyncSession, agent_context: AgentContext, *, outcome: Any
+) -> None:
+    """Both halves of a search's bill, as ``costs`` rows against the worker's step.
+
+    The carrying call's tokens through the ordinary pricer, and the per-search fee at the
+    verified rate — separate lines, because they are different units with different
+    published prices and the ledger must reconcile against the vendor's own bill.
+    """
+    lines = price_usage(
+        outcome.usage,
+        provider=agent_context.provider.name,
+        usd_to_gbp=agent_context.settings.usd_to_gbp,
+    )
+    fee = price_web_search(
+        outcome.searches,
+        provider=agent_context.provider.name,
+        model=outcome.usage.model,
+        usd_to_gbp=agent_context.settings.usd_to_gbp,
+    )
+    if fee is not None:
+        lines.append(fee)
+
+    for line in lines:
+        session.add(
+            Cost(
+                job_id=agent_context.job_step.job_id,
+                job_step_id=agent_context.job_step.id,
+                category=line.category.value,
+                provider=line.provider,
+                model=line.model,
+                units=line.units,
+                unit_type=line.unit_type,
+                amount_usd=line.amount_usd,
+                amount_gbp=line.amount_gbp,
+                fx_rate=line.fx_rate,
+            )
+        )
+        agent_context.spend_gbp += line.amount_gbp
+    await session.flush()
 
 
 async def _already_held(

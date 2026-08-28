@@ -169,6 +169,9 @@ DEFAULT_MODEL_ROUTES: Final[dict[str, ModelRoute]] = {
     "validator": ModelRoute(model="claude-sonnet-5", effort="medium"),
     "custom_section": ModelRoute(model="claude-sonnet-5", effort="medium"),
     "report_writer": ModelRoute(model="claude-opus-5", effort="high"),
+    # The carrier of a web search (ADR 0092): one server-side search, no judgement, the
+    # listing read by code. The cheapest model there is, at the lowest effort.
+    "web_search": ModelRoute(model="claude-haiku-4-5", effort="low"),
     # Comparable companies by ticker (ADR 0059). The workhorse rather than the judgement
     # model: the answer is a short list drawn from general knowledge of the market, every
     # ticker in it is resolved against EDGAR in code, and a person confirms the set at a

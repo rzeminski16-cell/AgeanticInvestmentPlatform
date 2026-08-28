@@ -317,6 +317,16 @@ _TOOL_BRIEFS: Final[dict[str, str]] = {
         "refused, however plausible the URL: the platform never learns a new host from a "
         "request."
     ),
+    "web_search": (
+        "web_search — query: a plain search-engine query, e.g. 'Contoso earnings "
+        "announcement' or 'Contoso CEO departure'. Searches the live web and returns a "
+        "listing — titles, URLs and dates — never the pages. The listing is colour and "
+        "leads: nothing in it is citable evidence, no result carries an id, and "
+        "fetch_known_url will still refuse a host this run holds nothing from. Use it "
+        "for what no filing carries — recent developments, sentiment, the news — and "
+        "sparingly: each search costs real money and you have very few per "
+        "investigation."
+    ),
 }
 
 
@@ -375,9 +385,9 @@ class ResearchWorker(Agent[WorkerInput, WorkerTurn]):
 
     role: ClassVar[str] = "analysis"
     output_schema: ClassVar[type[BaseModel]] = WorkerTurn
-    # 4: the full-text tool says the index is exact-phrase (gap A59). The tool menu is
-    # interpolated into the system prompt, so a description change is a prompt change.
-    prompt_version: ClassVar[str] = "4"
+    # 5: the web_search brief joined the menu (ADR 0092). The tool menu is interpolated
+    # into the system prompt, so a description change is a prompt change.
+    prompt_version: ClassVar[str] = "5"
 
     def system_prompt(self, payload: WorkerInput) -> str:
         return _SYSTEM_PROMPT.format(

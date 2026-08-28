@@ -50,6 +50,8 @@ from aer.providers.protocol import (
     SpentButUnusableError,
     StructuredResult,
     Usage,
+    WebSearchHit,
+    WebSearchOutcome,
 )
 
 if TYPE_CHECKING:  # pragma: no cover -- import-time only for type checking
@@ -492,6 +494,89 @@ class AnthropicProvider:
 
         return int(counted.input_tokens)
 
+    async def search_web(self, query: str, *, model: str, max_results: int = 8) -> WebSearchOutcome:
+        """One web search through the vendor's server-side tool, returned as a listing.
+
+        The routed model is told to run exactly one search and stop; ``max_uses: 1``
+        makes the bound the server's rather than the prompt's. What comes back to the
+        caller is the result blocks' listing fields — title, URL, age note — and never
+        the model's own prose or a page's text (ADR 0092): the deterministic read of the
+        response is the whole of what this method trusts.
+
+        A server-tool error arrives as a result block rather than an HTTP error, so it is
+        detected here and raised as :class:`ExternalServiceError` — which matches the
+        published billing: an errored search is not charged, and a raise here happens
+        before any cost row exists.
+
+        ``pause_turn`` is the one loop: the API may split a long server-tool turn, and
+        the documented continuation is to send the paused content back unchanged. Bounded
+        to a handful of resumes so a pathological turn becomes an error rather than a
+        worker that never returns.
+        """
+        request: dict[str, Any] = {
+            "model": model,
+            "max_tokens": 2048,
+            "system": (
+                "You are the search half of a research tool. Run exactly one web search "
+                "for the user's query, then stop. Do not write an answer, a summary, or "
+                "any commentary; the platform reads the search results directly."
+            ),
+            "messages": [{"role": "user", "content": query}],
+            "tools": [
+                {
+                    "type": _web_search_tool_type(model),
+                    "name": "web_search",
+                    "max_uses": 1,
+                }
+            ],
+        }
+
+        usages: list[Usage] = []
+        try:
+            response = await self._client.messages.create(**request)
+            usages.append(_usage_from(response, model=model))
+            for _ in range(_SEARCH_RESUME_LIMIT):
+                if str(getattr(response, "stop_reason", "")) != "pause_turn":
+                    break
+                request["messages"] = [
+                    *request["messages"],
+                    {"role": "assistant", "content": response.content},
+                ]
+                response = await self._client.messages.create(**request)
+                usages.append(_usage_from(response, model=model))
+        except Exception as exc:
+            message = f"The web search call failed ({type(exc).__name__}: {exc})."
+            raise ExternalServiceError(
+                message,
+                provider=PROVIDER_NAME,
+                retryable=_is_retryable(exc),
+                context={"model": model},
+            ) from exc
+
+        hits, searches, error = _search_results(response, limit=max_results)
+        if error is not None:
+            message = f"The web search was refused by the provider: {error}."
+            raise ExternalServiceError(
+                message,
+                provider=PROVIDER_NAME,
+                # The one code that names a transient state; everything else — a blocked
+                # query, an unavailable tool — will fail the same way again.
+                retryable=error == "unavailable",
+                context={"model": model, "error_code": error},
+            )
+
+        usage = usages[0] if len(usages) == 1 else _billed_together(usages)
+        _log.info(
+            "provider.web_search",
+            provider=PROVIDER_NAME,
+            model=model,
+            results=len(hits),
+            searches=searches,
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+        )
+        return WebSearchOutcome(hits=tuple(hits), searches=searches, usage=usage)
+
     # -- Internals -------------------------------------------------------------------------
 
     def _parse[T: BaseModel](
@@ -510,6 +595,67 @@ class AnthropicProvider:
         downstream treats it as complete.
         """
         return _validated(response, schema, model=model, max_tokens=max_tokens)
+
+
+# How many pause_turn continuations one search may take before it becomes an error. A
+# single bounded search rarely pauses at all; the limit exists so a pathological turn is
+# an error rather than a worker that never returns.
+_SEARCH_RESUME_LIMIT: Final = 3
+
+# Models the dynamic-filtering search variant runs on; anything else takes the basic one.
+# The same generational line as `_MODELS_ACCEPTING_EFFORT`, kept as its own table because
+# they answer different questions and either could move without the other.
+_MODELS_WITH_DYNAMIC_SEARCH: Final[frozenset[str]] = frozenset(
+    {
+        "claude-fable-5",
+        "claude-opus-5",
+        "claude-opus-4-8",
+        "claude-opus-4-7",
+        "claude-opus-4-6",
+        "claude-sonnet-5",
+        "claude-sonnet-4-6",
+    }
+)
+
+
+def _web_search_tool_type(model: str) -> str:
+    """The vendor's search-tool type for this model."""
+    if model in _MODELS_WITH_DYNAMIC_SEARCH:
+        return "web_search_20260209"
+    return "web_search_20250305"
+
+
+def _search_results(response: Any, *, limit: int) -> tuple[list[WebSearchHit], int, str | None]:
+    """The listing, the billed search count, and the error code if the tool refused.
+
+    A server-tool error is HTTP 200 with a result block whose ``content`` is an error
+    *object* rather than a result *list* — so the branch is on that shape, exactly as the
+    vendor documents it, before anything indexes into the content.
+    """
+    hits: list[WebSearchHit] = []
+    error: str | None = None
+    for block in getattr(response, "content", []) or []:
+        if getattr(block, "type", "") != "web_search_tool_result":
+            continue
+        content = getattr(block, "content", None)
+        if not isinstance(content, list):
+            error = str(getattr(content, "error_code", "unknown_error"))
+            continue
+        for item in content:
+            if getattr(item, "type", "") != "web_search_result":
+                continue
+            hits.append(
+                WebSearchHit(
+                    url=str(getattr(item, "url", "") or ""),
+                    title=str(getattr(item, "title", "") or ""),
+                    page_age=str(getattr(item, "page_age", "") or ""),
+                )
+            )
+
+    usage = getattr(response, "usage", None)
+    server_use = getattr(usage, "server_tool_use", None)
+    searches = int(getattr(server_use, "web_search_requests", 0) or 0)
+    return hits[:limit], searches, error
 
 
 # What a cache breakpoint looks like on the wire. Five-minute ephemeral rather than the

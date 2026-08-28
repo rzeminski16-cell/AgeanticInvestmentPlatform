@@ -416,7 +416,16 @@ a future run inherits it, possibly through §3.11's methodology library rather t
 mechanism. Either way this needs an ADR before any of it is built: a new step is a new agent
 behaviour (ADR 0035), and this one touches invariant 7 by nature, whichever way it lands.
 
-**3.14 A web-search tool for the qualitative sections.** Nothing has a `web_search`
+**3.14 A web-search tool for the qualitative sections. Done, 2026-08-28 — ADR 0092.**
+The `analysis` role's allowlist now grants `web_search`: the worker asks, code executes
+one bounded server-side search through the provider, and what returns is a listing —
+titles, URLs, age notes — wrapped untrusted at T6, never a page and never citable.
+Reading stays behind `fetch_known_url`'s host-admission rule, so no trust boundary moved;
+the pricing check below was verified against the official page and the fee is metered per
+search (commercial check 1, closed). Point-in-time runs with a past as-of date are
+refused the tool in code. The original case for the item follows.
+
+Nothing has a `web_search`
 capability today. `fetch_known_url` reaches only a host this run has already acquired a
 document from through the named adapters, and refuses anything else by design — an
 unlisted host gets back "this run holds no document from that host, and a host is never
@@ -513,7 +522,10 @@ Carried forward from the original plan. Each is a verification against a primary
 not a design task, and each should be done **before** money or a dependency is committed.
 
 1. Verify Anthropic **web-search tool pricing** against the official pricing page — the
-   figure in the cost model came from secondary aggregators.
+   figure in the cost model came from secondary aggregators. **Done, 2026-08-28**: the
+   official pricing page states $10 per 1,000 searches plus standard token costs, one use
+   per search whatever it returns, and no charge for an errored search. Recorded as
+   `aer.providers.costs.WEB_SEARCH_USD_PER_CALL` and in ADR 0092.
 2. Verify the **Companies House rate limit** (600 requests / 5 minutes) against the official
    developer documentation.
 3. Verify **EODHD's licence terms** for internal commercial use versus redistribution, in

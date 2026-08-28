@@ -199,8 +199,11 @@ WORKFLOW_VERSION: Final = "vertical_slice_v1"
 PLANNER_ESTIMATE_GBP: Final = Decimal("0.20")
 
 # Per research worker (task 37): a bounded request/execute loop on the analysis route.
-# Measured £0.083-£0.241 across the five workers; the estimate covers the dearest.
-WORKER_ESTIMATE_GBP: Final = Decimal("0.25")
+# Measured £0.083-£0.241 across the five workers; the estimate covers the dearest, plus
+# the worker's bounded web searches (ADR 0092) — at most three per node at the verified
+# $0.01 fee, carried by small routed calls whose results also enter later rounds as
+# input.
+WORKER_ESTIMATE_GBP: Final = Decimal("0.30")
 
 # The validate step (task 39): at most a handful of capped advisory calls on the
 # validator route, and frequently none at all — the run measured £0.00, and the
@@ -2565,6 +2568,9 @@ def _research(topic: ResearchTopic) -> Any:
                     settings=context.service("settings"),
                     job_id=context.job.id,
                     sec_client=context.services.get("sec_client"),
+                    # Binds `web_search` (ADR 0092): the context carries the provider,
+                    # the route and the step the search's costs are metered against.
+                    agent_context=agent_context,
                 ),
             )
         except (WorkerExhaustedError, ValidationError) as failed:

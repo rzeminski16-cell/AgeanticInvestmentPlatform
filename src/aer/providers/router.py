@@ -54,6 +54,10 @@ _KNOWN_ROLES: Final[frozenset[str]] = frozenset(
         # A route, not a capability: the writer keeps the report_writer role's registry
         # definition and only its bill changes.
         "section_writer_workhorse",
+        # The model that carries a web search (ADR 0092). A route, not an agent role: the
+        # call runs one server-side search and code reads the listing, so the model's
+        # only judgement is none at all — which is why the default is the cheapest model.
+        "web_search",
     }
 )
 
