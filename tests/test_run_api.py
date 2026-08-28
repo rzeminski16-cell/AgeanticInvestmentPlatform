@@ -253,10 +253,12 @@ class TestReadingARun:
 
         assert keys == list(run_service.declared_steps(WORKFLOW_VERSION))
         assert state["steps_total"] == len(keys)
-        assert state["steps_done"] == 1
+        # Two, since ADR 0091: the plan and its critique both complete before gate 1.
+        assert state["steps_done"] == 2
         # The declared order, not the order things happened to start in: the point is to
-        # show what is left.
-        unreached = {step["status"] for step in state["steps"][2:]}
+        # show what is left. Three entries precede it: the plan, its critique, and the
+        # gate the run is waiting at.
+        unreached = {step["status"] for step in state["steps"][3:]}
         assert unreached == {JobStatus.QUEUED.value}
 
     async def test_a_running_step_says_when_it_started(

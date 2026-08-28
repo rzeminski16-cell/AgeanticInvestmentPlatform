@@ -665,18 +665,25 @@ class TestTheDeterministicSections:
         assert "1 disagreement(s)" in after.content["summary"]
         assert after.content["disagreements"], "the recorded challenge never reached the section"
 
-    def test_the_red_team_step_refills_after_recording_and_before_sealing(self) -> None:
-        """The ordering itself, pinned at the source: record, refill, then hash.
+    def test_the_red_team_step_refills_after_recording_and_the_revise_step_seals(self) -> None:
+        """The ordering itself, pinned at the source: record, refill, revise, then hash.
 
         A refill moved after ``final_gate_payload`` would seal a payload the operator
         approves without the challenges in its disagreements section — the live failure
-        with an extra step of indirection.
+        with an extra step of indirection. Since ADR 0091 the seal lives in the revise
+        step, the new last step that can change what the operator is shown, so the pin
+        spans both: the red team records then refills, and the revise step revises,
+        refills again where anything changed, and only then hashes.
         """
-        source = inspect.getsource(vertical_slice_v1._red_team)
-        recorded = source.index("run_red_team(")
-        refilled = source.index("fill_deterministic_sections(")
-        sealed = source.index("final_gate_payload(")
-        assert recorded < refilled < sealed
+        red_team = inspect.getsource(vertical_slice_v1._red_team)
+        assert red_team.index("run_red_team(") < red_team.index("fill_deterministic_sections(")
+        assert "final_gate_payload(" not in red_team, "the seal moved back before the revise pass"
+
+        revise = inspect.getsource(vertical_slice_v1._revise)
+        revised = revise.index("revise_challenged_sections(")
+        refilled = revise.index("fill_deterministic_sections(")
+        sealed = revise.index("final_gate_payload(")
+        assert revised < refilled < sealed
 
     def test_a_settled_disagreement_names_the_rule_that_settled_it(self) -> None:
         row = Disagreement(

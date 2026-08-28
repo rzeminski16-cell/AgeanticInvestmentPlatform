@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Text
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from aer.db.base import Base, created_at_column
@@ -58,7 +58,9 @@ class RevisionNote(Base):
 
     # Empty for the plan scope: a plan has no sections to name, and NULL-versus-'' games
     # in a grouping column cost more than they buy.
-    section_key: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    section_key: Mapped[str] = mapped_column(
+        Text, nullable=False, default="", server_default=text("''")
+    )
 
     dimension: Mapped[str] = mapped_column(Text, nullable=False)
     severity: Mapped[int] = mapped_column(nullable=False)

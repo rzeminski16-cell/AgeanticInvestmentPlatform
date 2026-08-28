@@ -35,8 +35,8 @@ from aer.db.models import (
     SectionDefinition,
     SectionStatus,
 )
-from aer.db.models.skill import Skill
 from aer.db.models.revision_note import SCOPE_DRAFT, SCOPE_PLAN
+from aer.db.models.skill import Skill
 from aer.providers.fake import FakeProvider
 from aer.sections.evidence import SectionExecution
 from aer.services import revision as revision_service

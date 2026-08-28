@@ -920,9 +920,7 @@ class TestTheGatePausesNamingTheTriggers:
         ]
 
         step = await driven["session"].scalar(
-            select(JobStep).where(
-                JobStep.job_id == driven["job"].id, JobStep.step_key == "revise"
-            )
+            select(JobStep).where(JobStep.job_id == driven["job"].id, JobStep.step_key == "revise")
         )
         assert step is not None
         sealed = str((step.output_ref or {})["payload_hash"])

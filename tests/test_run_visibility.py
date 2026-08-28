@@ -59,6 +59,10 @@ _TABLES = "research_requests, audit_events, users, artefacts, prompts, companies
 # The first step, and the one the operator waits on: a model call lasting about a minute.
 _PLAN = "plan"
 
+# Where the gate-1 hash is sealed since ADR 0091: the critique step, the last one that
+# can change what the gate displays.
+_PLAN_SEAL = "critique_plan"
+
 
 @pytest.fixture
 async def clean_slate(db_engine: Any) -> AsyncIterator[None]:
@@ -310,7 +314,7 @@ class TestACrashDoesNotUnspendCompletedWork:
         worker = Worker(db_engine, workflow_settings)
 
         await worker.run(job_id)
-        await worker.approve(job_id, gate=GateKind.PLAN, step=_PLAN)
+        await worker.approve(job_id, gate=GateKind.PLAN, step=_PLAN_SEAL)
         # Two conditional gates now pause this stretch — the peer set (ADR 0059) and the
         # theme set (K1) — and both sit before the leg this test makes fail. Clear each.
         await worker.run(job_id)
@@ -345,7 +349,7 @@ class TestACrashDoesNotUnspendCompletedWork:
         worker = Worker(db_engine, workflow_settings)
 
         await worker.run(job_id)
-        await worker.approve(job_id, gate=GateKind.PLAN, step=_PLAN)
+        await worker.approve(job_id, gate=GateKind.PLAN, step=_PLAN_SEAL)
         # Two conditional gates now pause this stretch — the peer set (ADR 0059) and the
         # theme set (K1) — and both sit before the leg this test makes fail. Clear each.
         await worker.run(job_id)

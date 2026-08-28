@@ -433,7 +433,9 @@ class TestTheDiagnosticIsAssembledFromTheRecord:
         # workflow follows in order, so the readout says what is still to come.
         assert readout.next_step == "acquire"
         assert job.workflow_version == WORKFLOW_VERSION
-        assert readout.not_reached[0] == "gate_plan"
+        # The first declared-but-unrecorded step; the critique step (ADR 0091)
+        # follows the plan in the shipped workflow.
+        assert readout.not_reached[0] == "critique_plan"
 
     async def test_an_unknown_run_is_refused_by_name(self, db_session: AsyncSession) -> None:
         from aer.errors import ValidationError  # noqa: PLC0415

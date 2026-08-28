@@ -81,6 +81,7 @@ from tests.workflow_fixtures import (
     assumption_proposal_draft,
     declared_schema_name,
     peer_slate,
+    plan_critique,
     planner_response,
     section_draft_for,
     seed_job,
@@ -1313,6 +1314,7 @@ def moat_provider() -> FakeProvider:
             ),
             "AssumptionProposalDraft": assumption_proposal_draft,
             "PeerSlate": peer_slate,
+            "PlanCritique": plan_critique,
             "ThemeSlate": theme_slate,
         }
         if name in static:

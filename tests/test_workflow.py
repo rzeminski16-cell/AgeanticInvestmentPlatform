@@ -313,12 +313,12 @@ class TestTheWholeRun:
         job = scenario["job"]
 
         await run_to_next_stop(**_args(scenario))
-        await approve(session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan")
+        await approve(
+            session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan"
+        )
 
         await run_clearing_the_assumptions_gate(actor=scenario["user"], **_args(scenario))
-        await approve(
-            session, job=job, gate=GateKind.FINAL, actor=scenario["user"], step="revise"
-        )
+        await approve(session, job=job, gate=GateKind.FINAL, actor=scenario["user"], step="revise")
 
         outcome = await run_to_next_stop(**_args(scenario))
         return {**scenario, "outcome": outcome}
@@ -603,7 +603,11 @@ class TestThePeerSetAModelProposed:
         session = scenario["session"]
         await run_to_next_stop(**_args(scenario))
         await approve(
-            session, job=scenario["job"], gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan"
+            session,
+            job=scenario["job"],
+            gate=GateKind.PLAN,
+            actor=scenario["user"],
+            step="critique_plan",
         )
         await run_to_next_stop(**_args(scenario), stop_after="propose_peers")
 
@@ -654,7 +658,11 @@ class TestThePeerSetAModelProposed:
         session = scenario["session"]
         await run_to_next_stop(**_args(scenario))
         await approve(
-            session, job=scenario["job"], gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan"
+            session,
+            job=scenario["job"],
+            gate=GateKind.PLAN,
+            actor=scenario["user"],
+            step="critique_plan",
         )
 
         broken = FakeProvider(fail_with=ValidationError("the provider is unavailable"))
@@ -687,7 +695,11 @@ class TestThePeerSetAModelProposed:
         session = scenario["session"]
         await run_to_next_stop(**_args(scenario))
         await approve(
-            session, job=scenario["job"], gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan"
+            session,
+            job=scenario["job"],
+            gate=GateKind.PLAN,
+            actor=scenario["user"],
+            step="critique_plan",
         )
 
         capped = FakeProvider(fail_with=BudgetExceededError("the run is at its ceiling"))
@@ -840,7 +852,9 @@ class TestResumability:
         job = scenario["job"]
 
         await run_to_next_stop(**_args(scenario))
-        await approve(session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan")
+        await approve(
+            session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan"
+        )
 
         # The worker gets as far as acquiring, then "dies".
         await run_to_next_stop(**_args(scenario), stop_after="acquire")
@@ -857,7 +871,9 @@ class TestResumability:
         job = scenario["job"]
 
         await run_to_next_stop(**_args(scenario))
-        await approve(session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan")
+        await approve(
+            session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan"
+        )
         await run_to_next_stop(**_args(scenario), stop_after="acquire")
 
         outcome = await run_clearing_the_assumptions_gate(actor=scenario["user"], **_args(scenario))
@@ -875,7 +891,9 @@ class TestResumability:
         job = scenario["job"]
 
         await run_to_next_stop(**_args(scenario))
-        await approve(session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan")
+        await approve(
+            session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan"
+        )
         await run_to_next_stop(**_args(scenario))
 
         planner_calls = [
@@ -889,7 +907,9 @@ class TestTheApprovalGates:
         session = scenario["session"]
         job = scenario["job"]
         await run_to_next_stop(**_args(scenario))
-        await approve(session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan")
+        await approve(
+            session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan"
+        )
 
         approval = await session.scalar(select(Approval).where(Approval.job_id == job.id))
         assert approval is not None
@@ -899,10 +919,14 @@ class TestTheApprovalGates:
         session = scenario["session"]
         job = scenario["job"]
         await run_to_next_stop(**_args(scenario))
-        await approve(session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan")
+        await approve(
+            session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan"
+        )
 
         with pytest.raises(ValidationError, match="already approved"):
-            await approve(session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan")
+            await approve(
+                session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan"
+            )
 
     async def test_the_second_gate_cannot_be_decided_before_the_first(self, scenario: dict) -> None:
         session = scenario["session"]
@@ -968,7 +992,9 @@ class TestTheApprovalGates:
         session = scenario["session"]
         job = scenario["job"]
         await run_to_next_stop(**_args(scenario))
-        await approve(session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan")
+        await approve(
+            session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan"
+        )
         await run_clearing_the_assumptions_gate(actor=scenario["user"], **_args(scenario))
 
         await approval_service.record_decision(
@@ -1034,7 +1060,9 @@ class TestGateTwoWillNotOpenOnUnsupportedEvidence:
     async def _reach_the_draft(scenario: dict) -> None:
         session, job = scenario["session"], scenario["job"]
         await run_to_next_stop(**_args(scenario))
-        await approve(session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan")
+        await approve(
+            session, job=job, gate=GateKind.PLAN, actor=scenario["user"], step="critique_plan"
+        )
         await run_clearing_the_assumptions_gate(actor=scenario["user"], **_args(scenario))
 
     async def test_a_run_with_no_claims_reaches_the_gate_as_before(self, scenario: dict) -> None:

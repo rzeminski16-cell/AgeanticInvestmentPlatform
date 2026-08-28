@@ -35,7 +35,11 @@ class TestTheRegistry:
         definition = resolve_workflow(DEFAULT_WORKFLOW_VERSION)
 
         assert definition.version == DEFAULT_WORKFLOW_VERSION
-        assert [step.key for step in definition.build_steps()][:2] == ["plan", "gate_plan"]
+        assert [step.key for step in definition.build_steps()][:3] == [
+            "plan",
+            "critique_plan",
+            "gate_plan",
+        ]
 
     def test_an_unregistered_version_raises_rather_than_answering_nothing(self):
         with pytest.raises(WorkflowRegistryError, match="No workflow named"):

@@ -89,6 +89,19 @@ Invariant 4 stays enforced at acquisition, in code.
   T6 source has no route into a number whatever tool exists. That boundary is the one
   rule, not a permission this ADR could move.
 
+### The channel this opens, named
+
+The containment suite's rule is that no role holds a network-shaped tool, so exfiltration
+to an attacker-chosen endpoint is unavailable rather than mitigated. `web_search` is the
+first deliberate admission against that rule, and the admission is exactly this wide: the
+**query string** leaves the platform — at most 500 characters, at most three per worker
+node, sent to the model vendor's own search. That recipient already receives the entire
+prompt, injected content included, on every model call this platform makes, so the query
+adds reach to no party that lacked it. What the rule still guarantees is unchanged: no
+tool reaches an endpoint a prompt can choose — the results are a listing nobody fetches —
+and every other role holds none of these names. The injection tests carry this admission
+per role, so a second one is a diff in a containment test citing an ADR, never a drift.
+
 ## Consequences
 
 - The qualitative workers — recent developments above all — can see this week's headlines
