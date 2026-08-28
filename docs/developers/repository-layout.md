@@ -127,7 +127,15 @@ src/aer/            application package
     styles/app.css  the token system: palette, type scale, spacing, radii (ADRs 0077, 0088)
     static/fonts/   three families, eight files, all OFL 1.1 and all SHA-256 pinned
     templates/      Jinja2; the disclaimer lives in the shell, not in pages
-      _ui/          the component macros: card, kpi, empty, guide, provenance
+      _ui/          nineteen macros; a macro takes data and never classes
+        index.html    the one import a page makes; re-exports every macro by name
+        semantics.html  status, grade, callout — each takes a Tone, never a colour
+        controls.html   button, field, disclosure; all work with scripting off
+        page.html       page header, verdict (ADR 0087), sheet, figure
+        records.html    definition list, record list, table
+        signatures.html evidence spine (ADR 0076) and decision panel
+        provenance.html a badge is a link, and one chip cannot carry two axes (ADR 0077)
+        surfaces.html   empty and guide
       _shell/       the drawer and the badge fragment
     static/         committed build output and vendored libraries (htmx, Inter)
     styles/app.css  Tailwind source, the design tokens and the `dark:` variant

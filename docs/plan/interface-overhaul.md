@@ -330,6 +330,40 @@ native disclosure · provenance · confirmation · grade · **evidence spine** �
 loading and empty; each has its no-script behaviour written beside it; a new page needs no raw
 ramp and no repeated form or table class block.
 
+**Done, 2026-08-28.** Nineteen macros in five files, plus the focus rule and the fixture.
+
+| | |
+|---|---|
+| `_ui/semantics.html` | status, grade, callout — each takes a `Tone` from the vocabulary, never a colour |
+| `_ui/controls.html` | button (five variants), field, disclosure |
+| `_ui/page.html` | page header, verdict, sheet, figure |
+| `_ui/records.html` | definition list, record list, record, table, cell |
+| `_ui/signatures.html` | evidence spine, decision panel |
+| `app.css` | the universal `:focus-visible` treatment, selection colour and forced-colours handling |
+
+**`card` and `kpi` are gone**, with their ten callers renamed. Their successors have the same
+signatures, so the migration was mechanical — and keeping both would have been two answers to
+what a card looks like, which is what a component set exists to prevent. All five new files
+enter the ramp ratchet at zero, which is the entry condition rather than an achievement.
+
+**Two rules are red builds now.** A macro that grows a `class`, `style`, `html` or `attrs`
+argument fails: a caller who can pass a class can build a refusal in the success family. A
+macro declared and not re-exported fails: Jinja does not re-export a `{% from %}` name, and the
+aggregator once shipped exporting nothing at all.
+
+**The Components page is a fixture and never a route** (B6). The browser tests route it onto
+the live server, so its stylesheet and its eight woff2 resolve exactly as the product's do
+without the application ever offering it. axe passes over the whole set in both schemes — worth
+more than the same check on a product page, because a product page only renders the states it
+happens to be in.
+
+**What the browser establishes and a file cannot:** that the focus outline is actually
+computed, that a hover fill differs from its rest fill, that a disabled button ignores the
+pointer at full opacity, that every sheet keeps one width so the page does not rearrange when a
+state changes, that nothing on the page animates, and that 320px causes no sideways scroll. One
+defect surfaced that way — `evidence_spine` took an `id` and put it only on its heading, so the
+element it named was not addressable.
+
 ### Tranche 4 — Shell and navigation
 
 Twelve templates, zero ramps — so this is design work rather than migration.
