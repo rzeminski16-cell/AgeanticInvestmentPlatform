@@ -272,6 +272,42 @@ mistake ADR 0075 names.
 **3.11 The methodology library.** Three `SkillKind`s that are versioned, pinned and
 composed. Mostly does not exist yet.
 
+**3.12 A critique-and-revise loop for drafting, with a memory of what needed revising.**
+Today `red_team` (ADR 0039) already attacks the draft from a separate context, and it has
+twice caught a section publishing a number that contradicts its own citation (4.14, ADR
+0086) — not a hypothetical failure mode, the platform's own log. What it does not do is loop
+back: a challenge reaches the disagreement ladder for a human at `gate_final`, the section
+that provoked it is never redrafted, and nothing about the challenge survives past that one
+run. The machinery to critique already exists; what is missing is a writer that gets a
+second attempt before a human ever sees the draft, and a way for a recurring class of
+challenge to be recognised as recurring.
+
+Scope it to where an open-ended, model-written step is both expensive and wrong often
+enough to matter. `draft` first — already the largest cost line per report, already the
+most reader-facing, already the step §2.1, §2.2 and 4.14 are about. `plan` second — cheap on
+its own, but a wrong plan sends the whole run after the wrong target, so catching it early is
+the highest leverage in the workflow. `propose_assumptions` is a plausible third and a lower
+priority: high-stakes, but already narrow (ADR 0046) and immediately human-gated. It does not
+belong on `acquire`, `classify`, `extract`, `calculate`, `comps`, `value` or `render` — those
+are correct by construction under the one rule (`CLAUDE.md`, ADR 0003), and a model's opinion
+feeding back into one of them is the "calculation drifting into a prompt" failure the
+architecture exists to prevent. It does not belong on the gates either, since the human is
+already the critic there, nor on `validate`, which is advisory-only by design and was never
+meant to have the last word (ADR 0038), nor on `red_team` itself — recursing the loop onto
+the critic is diminishing returns that the disagreement ladder already covers.
+
+**The revise loop is the easy half.** The knowledge base is not: a memory that changes what
+a future agent writes is exactly the shape of thing invariant 7 exists to govern — skill
+files may only add requirements, never relax them, proved by a corpus that must all fail
+(ADR 0040), not assumed. An auto-written "do not repeat this" lesson has no such proof
+behind it, and a critic that was wrong once would otherwise get to entrench its own mistake,
+unreviewed. Whether that memory has to be a skill file, or some other mechanism that still
+needs the same proof, is an architectural choice CLAUDE.md says to stop and ask about rather
+than guess — the safe default is a person confirming a finding is real and recurring before
+a future run inherits it, possibly through §3.11's methodology library rather than a new
+mechanism. Either way this needs an ADR before any of it is built: a new step is a new agent
+behaviour (ADR 0035), and this one touches invariant 7 by nature, whichever way it lands.
+
 ### Before this leaves one machine
 
 None of this is needed for a personal tool on a laptop, and all of it is needed before
