@@ -19,7 +19,7 @@
 #}
 {% from "_ui/provenance.html" import provenance as _provenance, confirmation as _confirmation %}
 {% from "_ui/semantics.html" import status as _status, grade as _grade, callout as _callout %}
-{% from "_ui/controls.html" import button as _button, field as _field, disclosure as _disclosure %}
+{% from "_ui/controls.html" import button as _button, field as _field, choice_group as _choice_group, disclosure as _disclosure %}
 {% from "_ui/page.html" import page_header as _page_header, verdict as _verdict, sheet as _sheet, figure as _figure %}
 {% from "_ui/records.html" import definition_list as _definition_list, record_list as _record_list, record as _record, table as _table, cell as _cell %}
 {% from "_ui/signatures.html" import evidence_spine as _evidence_spine, decision_panel as _decision_panel %}
@@ -32,6 +32,7 @@
 {% set callout = _callout %}
 {% set button = _button %}
 {% set field = _field %}
+{% set choice_group = _choice_group %}
 {% set disclosure = _disclosure %}
 {% set page_header = _page_header %}
 {% set verdict = _verdict %}

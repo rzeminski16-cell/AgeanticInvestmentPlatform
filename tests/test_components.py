@@ -48,6 +48,7 @@ EXPECTED: Final[frozenset[str]] = frozenset(
         "callout",
         "button",
         "field",
+        "choice_group",
         "disclosure",
         "page_header",
         "verdict",

@@ -49,7 +49,9 @@
 </button>
 {% endmacro %}
 
-{% macro field(name, label, value="", type="text", hint="", error="", required=false, autocomplete="", placeholder="", rows=0) %}
+{% macro field(name, label, value="", type="text", hint="", error="", required=false,
+               autocomplete="", placeholder="", rows=0, choices=none, blank_label=none,
+               minimum="", maximum="", step="") %}
 {#
   A native control with a real label, a persistent hint and an error that is associated
   programmatically rather than merely adjacent.
@@ -61,36 +63,67 @@
   `(required)` is written in the label rather than left to an asterisk. An asterisk is a
   convention people have to already know, and the ones who do not are the ones filling in a
   research mandate for the first time.
+
+  **One macro, three controls.** Input, `<select>` when `choices` is given, `<textarea>` when
+  `rows` is. Three macros would be three copies of the label-hint-error wiring, and that wiring
+  is the whole reason this exists — copied three times it is wrong in one of them.
+
+  `minimum`, `maximum` and `step` are the native constraints, as typed arguments. They replaced
+  a raw `attrs` string the old field macro accepted, which was a hole straight through the rule
+  that a macro takes meaning and never markup: anything at all could go through it, and
+  `max="…"` is exactly the kind of thing that arrives beside `class="…"` eventually. The server
+  still validates; these only let the browser help first.
 #}
 {% set described = [] %}
 {% if hint %}{% set _ = described.append(name ~ "-hint") %}{% endif %}
 {% if error %}{% set _ = described.append(name ~ "-error") %}{% endif %}
+{% set boundary = "border-2 border-failure-ink" if error else "border border-control-boundary" %}
 <div class="flex flex-col gap-2">
   <label for="{{ name }}" class="type-label text-ink">
     {{ label }}
     <span class="text-ink-muted">{% if required %}(required){% else %}(optional){% endif %}</span>
   </label>
 
-  {% if rows %}
+  {% if choices is not none %}
+  <select
+    id="{{ name }}" name="{{ name }}"
+    {% if required %}required{% endif %}
+    {% if described %}aria-describedby="{{ described | join(' ') }}"{% endif %}
+    {% if error %}aria-invalid="true"{% endif %}
+    class="min-h-11 rounded-sm bg-surface px-3 type-body text-ink {{ boundary }}"
+  >
+    {% if blank_label is not none %}
+    <option value="" {% if not value %}selected{% endif %}>{{ blank_label }}</option>
+    {% endif %}
+    {% for choice in choices %}
+    {% set option = choice.value if choice.value is defined else choice %}
+    {% set text = choice.label if choice.label is defined else (option | replace("_", " ")) %}
+    <option value="{{ option }}" {% if value == option %}selected{% endif %}>{{ text }}</option>
+    {% endfor %}
+  </select>
+
+  {% elif rows %}
   <textarea
     id="{{ name }}" name="{{ name }}" rows="{{ rows }}"
     {% if required %}required{% endif %}
     {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
     {% if described %}aria-describedby="{{ described | join(' ') }}"{% endif %}
     {% if error %}aria-invalid="true"{% endif %}
-    class="min-h-30 rounded-sm bg-surface px-3 py-2 type-body text-ink
-           {% if error %}border-2 border-failure-ink{% else %}border border-control-boundary{% endif %}"
+    class="min-h-30 rounded-sm bg-surface px-3 py-2 type-body text-ink {{ boundary }}"
   >{{ value }}</textarea>
+
   {% else %}
   <input
     id="{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"
     {% if required %}required{% endif %}
     {% if autocomplete %}autocomplete="{{ autocomplete }}"{% endif %}
     {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+    {% if minimum != "" %}min="{{ minimum }}"{% endif %}
+    {% if maximum != "" %}max="{{ maximum }}"{% endif %}
+    {% if step %}step="{{ step }}"{% endif %}
     {% if described %}aria-describedby="{{ described | join(' ') }}"{% endif %}
     {% if error %}aria-invalid="true"{% endif %}
-    class="min-h-11 rounded-sm bg-surface px-3 type-body text-ink
-           {% if error %}border-2 border-failure-ink{% else %}border border-control-boundary{% endif %}"
+    class="min-h-11 rounded-sm bg-surface px-3 type-body text-ink {{ boundary }}"
   />
   {% endif %}
 
@@ -101,6 +134,41 @@
   <p id="{{ name }}-error" class="type-body-sm text-failure-ink">{{ error }}</p>
   {% endif -%}
 </div>
+{% endmacro %}
+
+{% macro choice_group(name, legend, options, chosen="", hint="") %}
+{#
+  A decision expressed as radios, where a checkbox would express it as a default with an
+  opt-out.
+
+  **The difference is not cosmetic.** A checkbox has one label, so the state it is *not* in
+  goes unnamed — the reader sees "point-in-time mode" and has to infer what unticking it does.
+  Radios name both outcomes and put the consequence of each beside it, which is what makes an
+  unusual choice a decision rather than an accident.
+
+  `options` carries `value`, `label` and an optional `consequence`, which is part of the
+  control's accessible description rather than a note near it.
+#}
+<fieldset class="flex flex-col gap-3">
+  <legend class="type-label text-ink">{{ legend }}</legend>
+  {%- if hint %}<p class="type-body-sm text-ink-muted">{{ hint }}</p>{% endif -%}
+  {% for option in options %}
+  <div class="flex items-start gap-3">
+    <input
+      type="radio" id="{{ name }}-{{ option.value }}" name="{{ name }}" value="{{ option.value }}"
+      {% if chosen == option.value %}checked{% endif %}
+      {% if option.consequence is defined %}aria-describedby="{{ name }}-{{ option.value }}-why"{% endif %}
+      class="mt-1 h-5 w-5 shrink-0"
+    />
+    <label for="{{ name }}-{{ option.value }}" class="min-h-11 type-body text-ink">
+      {{ option.label }}
+      {%- if option.consequence is defined %}
+      <span id="{{ name }}-{{ option.value }}-why" class="mt-1 block type-body-sm text-ink-muted">{{ option.consequence }}</span>
+      {% endif -%}
+    </label>
+  </div>
+  {% endfor %}
+</fieldset>
 {% endmacro %}
 
 {% macro disclosure(summary, open=false) %}

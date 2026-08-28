@@ -105,6 +105,20 @@ class TestLandingPage:
         assert "not reachable" in body
         assert "just up" in body
 
+    async def test_the_request_form_still_draws_with_no_database(self, web_client):
+        """It has no data to show, so it has no reason to need any.
+
+        Cost guidance briefly gave it one: the depth hint queries finished runs, and taking a
+        `CurrentUser` to run that query made the whole form 500 when the database was down. A
+        form that will not draw because a *hint* could not be computed is a form broken by a
+        nicety, and the half of the hint that matters — that the ceiling is enforced in code
+        rather than reported — is true whether or not any history could be read.
+        """
+        body = (await web_client.get("/requests/new")).text
+
+        assert 'name="company_name"' in body
+        assert "Enforced in code" in body
+
     async def test_pages_that_show_data_still_fail_loudly(self, web_client):
         # Only the landing page degrades. A list page that rendered "no requests" while
         # the database was unreachable would be stating something false.
@@ -591,7 +605,10 @@ def _template_classes() -> set[str]:
     """
     found: set[str] = set()
     for template in TEMPLATES_DIR.rglob("*.html"):
-        body = template.read_text(encoding="utf-8")
+        # Jinja comments are stripped first. They are prose, and prose about markup contains
+        # markup: a comment explaining that a macro must never accept `class="…"` put a
+        # literal ellipsis into this set and failed the build for a class no page renders.
+        body = re.sub(r"\{#.*?#\}", "", template.read_text(encoding="utf-8"), flags=re.S)
         for match in re.finditer(r'class="([^"]*)"', body):
             raw = match.group(1)
             if "{" in raw or "}" in raw:

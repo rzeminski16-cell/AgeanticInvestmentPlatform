@@ -1,3 +1,4 @@
+{% import "_ui/index.html" as ui with context %}
 {#
   The error summary.
 
@@ -30,37 +31,35 @@
 {% endif %}
 
 {% if banner %}
-  <div
-    class="mb-4 rounded-md border border-amber-400 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
-    role="alert"
-  >
-    <p class="text-sm text-amber-900 dark:text-amber-100">{{ banner }}</p>
-  </div>
+  {{ ui.callout("warning", "Before this can be saved", banner) }}
 {% endif %}
 
 {% if errors %}
-  <div
-    class="mb-4 rounded-md border border-rose-400 bg-rose-50 p-4 dark:border-rose-800 dark:bg-rose-950/40"
-    role="alert"
-    tabindex="-1"
-    id="error-summary"
-  >
-    <h2 class="text-sm font-semibold text-rose-900 dark:text-rose-100">
-      {{ error_summary_heading | default("This request was not created", true) }}
-      {% set total = errors.values() | map('length') | sum %}
-      ({{ total }} problem{{ '' if total == 1 else 's' }})
-    </h2>
-    <ul class="mt-2 space-y-1">
-      {% for field_name, messages in errors.items() %}
-        {% for message in messages %}
-          <li class="text-sm text-rose-800 dark:text-rose-200">
-            <a href="#{{ field_name }}" class="font-medium underline underline-offset-2">
-              {{ field_name | replace('_', ' ') | replace(' percent', ' (%)') }}
-            </a>
-            &mdash; {{ message }}
-          </li>
-        {% endfor %}
-      {% endfor %}
-    </ul>
+  {#
+    `tabindex="-1"` so the handler can move focus here after a rejected submission. A form
+    this long that reported failure without moving focus leaves the operator at the submit
+    button with the reason somewhere above them.
+  #}
+  <div role="alert" tabindex="-1" id="error-summary" class="mb-4">
+    {% set total = errors.values() | map("length") | sum %}
+    {% call ui.sheet() %}
+      <div class="aer-callout rounded-sm border-l-[3px] border-failure-ink bg-failure-wash p-4">
+        <h2 class="type-subheading text-failure-ink">
+          {{ error_summary_heading | default("Check these fields", true) }}
+          ({{ total }} problem{{ "" if total == 1 else "s" }})
+        </h2>
+        <ul class="mt-2 flex flex-col gap-1">
+          {% for field_name, messages in errors.items() %}
+            {% for message in messages %}
+              <li class="type-body-sm text-ink">
+                <a href="#{{ field_name }}" class="type-label text-failure-ink underline underline-offset-[3px] hover:decoration-2">
+                  {{ field_name | replace("_", " ") | replace(" percent", " (%)") }}</a>
+                &mdash; {{ message }}
+              </li>
+            {% endfor %}
+          {% endfor %}
+        </ul>
+      </div>
+    {% endcall %}
   </div>
 {% endif %}

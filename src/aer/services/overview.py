@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 from sqlalchemy import Select, func, select
 
-from aer.core.enums import JobStatus, RequestStatus
+from aer.core.enums import AnalysisMode, JobStatus, RequestStatus
 from aer.db.models import Cost, Job, ResearchRequest
 
 if TYPE_CHECKING:
@@ -184,3 +184,55 @@ async def _count(session: AsyncSession, base: Select[Any]) -> int:
     """
     counted = await session.scalar(select(func.count()).select_from(base.order_by(None).subquery()))
     return int(counted or 0)
+
+
+@dataclass(frozen=True, slots=True)
+class TypicalCost:
+    """What runs at this depth have actually cost, when there are enough of them to say.
+
+    **The unavailable case is the important one.** A fresh install has no history, and the
+    tempting answer — average the zero runs, render "£0.00" — is a figure with the confidence
+    of a measurement and nothing behind it. Every field here is empty when `sample` is too
+    small, so a template cannot print a range that was never computed.
+    """
+
+    low: Decimal | None
+    high: Decimal | None
+    sample: int
+
+    @property
+    def is_known(self) -> bool:
+        return self.low is not None and self.high is not None
+
+
+# Below this, the spread is one or two runs' luck rather than a typical cost. Three is not a
+# statistical claim; it is the point at which quoting a range stops being a single anecdote
+# wearing a plural.
+MINIMUM_SAMPLE: Final = 3
+
+
+async def typical_cost(
+    session: AsyncSession, *, user_id: uuid.UUID, mode: AnalysisMode
+) -> TypicalCost:
+    """The cheapest and dearest finished run at this depth, for this operator.
+
+    Their own runs rather than a global figure: cost depends on the provider, the model and
+    the company, and a number from somebody else's setup is guidance about somebody else.
+
+    Extremes rather than a mean. An operator setting a ceiling wants to know what it might
+    cost, and a mean hides the run that went to eight pounds behind four that went to two.
+    """
+    finished = (
+        select(Job.total_cost_gbp)
+        .join(ResearchRequest, ResearchRequest.id == Job.request_id)
+        .where(
+            ResearchRequest.user_id == user_id,
+            ResearchRequest.analysis_mode == mode,
+            Job.status == JobStatus.SUCCEEDED,
+            Job.total_cost_gbp > 0,
+        )
+    )
+    costs = sorted((await session.scalars(finished)).all())
+    if len(costs) < MINIMUM_SAMPLE:
+        return TypicalCost(low=None, high=None, sample=len(costs))
+    return TypicalCost(low=costs[0], high=costs[-1], sample=len(costs))

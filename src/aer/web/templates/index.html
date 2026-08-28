@@ -35,7 +35,10 @@
     nothing else can.
   #}
   {% if problem %}
-    {% call ui.sheet() %}
+    {# The id is a test hook and a support one: "tell me what the page says when the database
+       is down" is a question somebody asks over a chat window, and a stable anchor is how
+       they point at the answer. #}
+    {% call ui.sheet(id="startup-problem") %}
       {{ ui.callout(
         "failure",
         "The work list could not be read",

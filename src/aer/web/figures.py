@@ -29,6 +29,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Final
 
+from aer.services.overview import TypicalCost
 from aer.web.shell.provenance import ProvenanceRef
 from aer.web.vocabulary import Tone
 
@@ -37,6 +38,7 @@ __all__ = [
     "CostContext",
     "RenderedFigure",
     "cost_context",
+    "cost_guidance",
     "pounds",
     "waited_for",
 ]
@@ -231,6 +233,40 @@ class RenderedFigure:
         the reader to two different places, and a dash sends them to neither.
         """
         return cls(value_display=NOT_AVAILABLE, unavailable_because=because, label=label)
+
+
+def cost_guidance(typical: TypicalCost) -> str:
+    """What to tell an operator who is about to choose a spending ceiling.
+
+    **The unknown case is the one that matters**, and it is the one a fresh install is always
+    in. A range averaged from no runs would be a figure with the confidence of a measurement
+    and nothing behind it, so there is no range — and the sentence still says the thing the
+    operator actually needs, which is that the number they type is enforced rather than
+    reported. That half is true whether or not there is any history.
+    """
+    enforced = (
+        "Enforced in code: a run projected to cross this stops for your decision rather "
+        "than quietly spending past it."
+    )
+    # The two bounds are checked rather than `is_known`, which reads better and narrows
+    # nothing: a property cannot tell the type checker that two other fields are not None,
+    # so the convenient spelling is the one that needs a cast to compile.
+    if typical.low is None or typical.high is None:
+        if typical.sample:
+            runs = (
+                "one finished run" if typical.sample == 1 else f"{typical.sample} finished runs"
+            )
+            return (
+                f"Only {runs} at this depth so far, which is too few to quote a range. {enforced}"
+            )
+        return (
+            "No finished runs at this depth yet, so there is no typical range to show. "
+            f"{enforced}"
+        )
+    return (
+        f"Runs at this depth have cost {pounds(typical.low)} to {pounds(typical.high)} "
+        f"across {typical.sample} finished runs. {enforced}"
+    )
 
 
 def tone_for(cost: CostContext) -> Tone:

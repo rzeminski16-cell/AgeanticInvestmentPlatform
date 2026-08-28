@@ -1,25 +1,24 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
 
 {% block title %}Edit {{ item.ticker }} &middot; Research request{% endblock %}
 
 {% block content %}
-  <nav class="text-sm">
-    <a
-      href="/requests/{{ item.id }}"
-      class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
-    >
-      &larr; Back to the request
-    </a>
-  </nav>
+  {% call ui.page_header(
+    "Edit this request",
+    eyebrow="RESEARCH REQUEST",
+    identity=item.company_name ~ " · " ~ item.ticker,
+    breadcrumbs=[
+      {"href": "/requests", "label": "Requests"},
+      {"href": "/requests/" ~ item.id, "label": item.company_name},
+    ],
+  ) %}{% endcall %}
 
-  <h1 class="mt-4 text-2xl font-semibold tracking-tight">
-    Edit request &middot; <span class="font-mono">{{ item.ticker }}</span>
-  </h1>
-  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-    This request is still a draft and nothing has been fetched against it, so it can be
-    changed freely. Once a run starts it becomes the record of what was researched and
-    stops being editable &mdash; from that point a correction means a new request.
-  </p>
+  {{ ui.callout(
+    "info",
+    "Editing is available until the first run starts",
+    "Nothing has been fetched against this request, so it can be changed freely. Once a run starts it becomes the record of what was researched and stops being editable — from that point a correction means a new request.",
+  ) }}
 
   {% include "requests/_form.html" %}
 {% endblock %}

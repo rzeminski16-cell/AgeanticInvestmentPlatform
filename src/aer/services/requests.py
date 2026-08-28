@@ -990,3 +990,28 @@ def _jsonable(value: Any) -> Any:
 def _snapshot(request: ResearchRequest) -> dict[str, Any]:
     """The operator-controlled fields, in a form the audit payload can hold."""
     return {name: _jsonable(getattr(request, name)) for name in _EDITABLE_FIELDS}
+
+
+async def spend_for(
+    session: AsyncSession, *, rows: Sequence[ResearchRequest]
+) -> list[Decimal]:
+    """What each request has cost across every run it has had, in the order given.
+
+    **One query for the page rather than one per row.** A list of two hundred requests would
+    otherwise be two hundred round trips, and the symptom of that is a page that is fine on
+    the developer's six rows and unusable on the operator's two hundred.
+
+    Zero where a request has never run, which is a true statement about it: nothing has been
+    spent, and the row saying `£0.00` is different from a row that cannot say.
+    """
+    if not rows:
+        return []
+    found = await session.execute(
+        select(Job.request_id, func.coalesce(func.sum(Job.total_cost_gbp), 0))
+        .where(Job.request_id.in_([item.id for item in rows]))
+        .group_by(Job.request_id)
+    )
+    totals: dict[uuid.UUID, Decimal] = {
+        request_id: total for request_id, total in found.all() if request_id is not None
+    }
+    return [totals.get(item.id, Decimal(0)) for item in rows]

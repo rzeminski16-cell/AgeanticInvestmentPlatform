@@ -20,10 +20,14 @@
   {%- if breadcrumbs %}
   <nav aria-label="Breadcrumb">
     <ol class="flex flex-wrap items-center gap-2 type-body-sm text-ink-muted">
+      {#
+        The separator goes *between* crumbs, not after each one. After each one leaves a
+        trailing "/" pointing at nothing, which reads as a level the page forgot to name.
+      #}
       {% for crumb in breadcrumbs %}
       <li class="flex items-center gap-2">
+        {% if not loop.first %}<span aria-hidden="true">/</span>{% endif %}
         <a href="{{ crumb.href }}" class="underline underline-offset-[3px] hover:text-verification">{{ crumb.label }}</a>
-        <span aria-hidden="true">/</span>
       </li>
       {% endfor %}
     </ol>
