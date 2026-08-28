@@ -22,11 +22,11 @@
   </div>
 
   <div class="mt-6 grid gap-4 sm:grid-cols-2">
-    {% call ui.card("What it needs first") %}
+    {% call ui.sheet("What it needs first") %}
       <p class="max-w-prose text-sm text-ink-muted">{{ tool.needs }}</p>
     {% endcall %}
 
-    {% call ui.card("Where it was decided") %}
+    {% call ui.sheet("Where it was decided") %}
       {#
         Named rather than linked. The decision records are files in the repository, not
         pages this application serves, and a link to a route that does not exist is the

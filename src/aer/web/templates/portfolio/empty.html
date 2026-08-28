@@ -17,7 +17,7 @@
   </p>
 
   <div class="mt-6 max-w-md">
-    {% call ui.card("Start a book", "You can rename it or add another later.") %}
+    {% call ui.sheet("Start a book", "You can rename it or add another later.") %}
       <form method="post" action="/portfolio" class="grid gap-4">
         <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
         <div>

@@ -108,6 +108,13 @@ CEILING: Final[dict[str, int]] = {
     "_ui/index.html": 0,
     "_ui/provenance.html": 0,
     "_ui/surfaces.html": 0,
+    # The tranche 3 component set, written after the design system existed and therefore
+    # written in it. Zero is the entry condition rather than an achievement.
+    "_ui/controls.html": 0,
+    "_ui/page.html": 0,
+    "_ui/records.html": 0,
+    "_ui/semantics.html": 0,
+    "_ui/signatures.html": 0,
     "assumptions/detail.html": 19,
     "assumptions/list.html": 82,
     "base.html": 0,

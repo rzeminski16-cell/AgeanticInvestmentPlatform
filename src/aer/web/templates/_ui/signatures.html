@@ -1,0 +1,92 @@
+{#
+  The two components the design system calls signatures: the evidence spine and the decision
+  panel. See `_ui/index.html` for the rule about classes.
+
+  Both are server rendered, always. A spine that appeared only after a client request would
+  make lineage an enhancement, and lineage is the answer rather than a decoration on it.
+#}
+
+{% set _NODE = {
+  "ok": "border-verification bg-surface text-ink",
+  "missing": "border-refusal-ink bg-refusal-wash text-refusal-ink",
+  "incomplete": "border-warning-ink bg-decision-wash text-warning-ink",
+} %}
+
+{% macro evidence_spine(nodes, label="How this was established", id="evidence-spine") %}
+{#
+  Lineage as a structural part of the answer: conclusion to origin, `Judged → Calculated →
+  Source fact`.
+
+  `nodes` is an **ordered list the server built** — each with `kind` (the provenance label,
+  verbatim from ADR 0077's five), `label`, `href`, and optionally `grade`, `confirmation`,
+  `state` and `reason`. The template must not reconstruct a lineage from identifiers: a spine
+  assembled here would be a second answer to what rests on what, and the first one is a
+  `LineageNode` tree that resolves against the database by table (ADR 0076).
+
+  **Three things are three things.** Provenance class, evidence grade and confirmation state
+  are separate lines and are never merged — `Calculated`, `Documented` and `Confirmed by …`
+  answer different questions, and one chip carrying two of them would say neither (ADR 0077).
+
+  The connector is decorative; the node border and the link label carry the meaningful 3:1.
+  Below 960px the same ordered list becomes a wrapping horizontal sequence — the same DOM in
+  both, never a second tree, and it never causes page-level scroll.
+
+  No JavaScript: every node navigates to the full record. A drawer may preview that same
+  destination, over the same `href`.
+#}
+<aside id="{{ id }}" aria-labelledby="{{ id }}-label">
+  <h2 id="{{ id }}-label" class="type-eyebrow text-ink-muted">{{ label }}</h2>
+  <ol class="mt-3 flex flex-wrap items-start gap-2 min-[60rem]:flex-col min-[60rem]:gap-4">
+    {% for node in nodes %}
+    <li class="flex min-w-0 items-start gap-2">
+      <span class="aer-spine-node mt-1 h-2 w-2 shrink-0 rounded-round border-2 {{ _NODE[node.state | default('ok')] }}"
+            aria-hidden="true"></span>
+      <span class="min-w-0">
+        <span class="block type-data-sm text-ink-muted">{{ node.kind }}</span>
+        <a href="{{ node.href }}"
+           class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2"
+           {% if node.is_current | default(false) %}aria-current="location"{% endif %}>{{ node.label }}</a>
+        {%- if node.grade | default('') %}<span class="block type-data-sm text-ink-muted">{{ node.grade }}</span>{% endif -%}
+        {%- if node.confirmation | default('') %}<span class="block type-data-sm text-ink-muted">{{ node.confirmation }}</span>{% endif -%}
+        {%- if node.reason | default('') %}<span class="block type-body-sm text-refusal-ink">{{ node.reason }}</span>{% endif -%}
+      </span>
+      {%- if not loop.last %}
+      <span class="mt-2 type-body-sm text-line-strong min-[60rem]:hidden" aria-hidden="true">&rsaquo;</span>
+      {% endif -%}
+    </li>
+    {% endfor %}
+  </ol>
+</aside>
+{% endmacro %}
+
+{% macro decision_panel(eyebrow, heading, consequence, form_id="gate-form", integrity=true) %}
+{#
+  The server-owned action edge of a gate: what is waiting, what the choice changes, what it
+  costs, and exactly which evidence the decision binds.
+
+  **It follows all editable evidence in DOM and focus order**, so a keyboard user reaches the
+  submit button after everything it commits rather than before it. It never overlays evidence.
+
+  The integrity sentence is not boilerplate. A gate binds a payload hash, and *"You are
+  deciding on exactly the evidence shown here"* is the plain-language form of that promise —
+  which is why the stale case removes the controls rather than warning beside them: a form
+  that still submits after the evidence moved would break the sentence it is printed under.
+
+  No JavaScript: the controls are a real POST form with the CSRF field and the payload hash.
+  Buttons placed outside the form for layout carry `form="{{ form_id }}"`, and a browser test
+  asserts that association rather than trusting it.
+#}
+<section class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-surface">
+  <div class="rounded-t-md bg-decision-wash px-5 py-3">
+    <p class="type-eyebrow text-warning-ink">{{ eyebrow }}</p>
+    <h2 class="mt-1 type-title-2 text-ink">{{ heading }}</h2>
+  </div>
+  <div class="flex flex-col gap-4 p-5">
+    <p class="type-body text-ink">{{ consequence }}</p>
+    {{ caller() }}
+    {%- if integrity %}
+    <p class="type-body-sm text-ink-muted">You are deciding on exactly the evidence shown here.</p>
+    {% endif -%}
+  </div>
+</section>
+{% endmacro %}

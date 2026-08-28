@@ -1,33 +1,13 @@
 {#
-  The surfaces a page is built from. See `_ui/index.html` for the rule about classes.
-#}
+  What a surface says when it has nothing on it, and the guidance that sits beside it.
+  See `_ui/index.html` for the rule about classes.
 
-{% macro card(title="", subtitle="") %}
-<section class="rounded-card border border-line bg-surface p-6 shadow-sm">
-  {% if title %}
-  <h2 class="text-lg font-semibold text-ink">{{ title }}</h2>
-  {% endif %}
-  {% if subtitle %}
-  <p class="mt-1 text-sm text-ink-muted">{{ subtitle }}</p>
-  {% endif %}
-  {% if title or subtitle %}<div class="mt-4">{{ caller() }}</div>{% else %}{{ caller() }}{% endif %}
-</section>
-{% endmacro %}
-
-{% macro kpi(label, value, note="") %}
-{#
-  A figure and its name. `value` arrives already rendered — `aer/render/display.py` is the
-  one door for formatting a figure, and a macro that formatted one here would be a second
-  house style nobody configured (ADR 0077).
+  **`card` and `kpi` used to live here and are gone.** `sheet` and `figure` in `_ui/page.html`
+  replace them with the same signatures — a sheet has a ledger boundary and no shadow, because
+  elevation means occlusion rather than importance, and a figure is set in the data face at a
+  size that suits one consequential number rather than a row of tiles. Two answers to what a
+  card looks like is exactly what a component set exists to prevent, so there is one.
 #}
-<div class="rounded-card border border-line bg-surface p-5">
-  <dt class="text-sm font-medium text-ink-muted">{{ label }}</dt>
-  <dd class="mt-2 text-3xl font-semibold tracking-tight text-ink">{{ value }}</dd>
-  {% if note %}
-  <p class="mt-1 text-xs text-ink-subtle">{{ note }}</p>
-  {% endif %}
-</div>
-{% endmacro %}
 
 {% macro empty(title, explanation, action_label="", action_href="") %}
 {#

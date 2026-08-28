@@ -1,0 +1,138 @@
+{#
+  The furniture every page is assembled from: its header, the verdict it leads with, and the
+  sheets the record sits on. See `_ui/index.html` for the rule about classes.
+#}
+
+{% macro page_header(title, eyebrow="", identity="", breadcrumbs=()) %}
+{#
+  Exactly one non-empty `h1` per page, and the server supplies a meaningful fallback when the
+  object has no name — `Untitled research request`, never an empty node. A heading that
+  renders blank is a page a screen-reader user cannot identify at all, and it looks fine.
+
+  The eyebrow names the *object type* in the data face — `RESEARCH RUN` — and never a status.
+  A status is a thing that changes; an eyebrow that changed would move the page's identity
+  every time the work moved on.
+
+  Actions come after the heading in DOM order and are the caller's block, so keyboard order
+  is title, identity, then what you can do about it.
+#}
+<header class="flex flex-col gap-3">
+  {%- if breadcrumbs %}
+  <nav aria-label="Breadcrumb">
+    <ol class="flex flex-wrap items-center gap-2 type-body-sm text-ink-muted">
+      {% for crumb in breadcrumbs %}
+      <li class="flex items-center gap-2">
+        <a href="{{ crumb.href }}" class="underline underline-offset-[3px] hover:text-verification">{{ crumb.label }}</a>
+        <span aria-hidden="true">/</span>
+      </li>
+      {% endfor %}
+    </ol>
+  </nav>
+  {% endif -%}
+
+  {%- if eyebrow %}<p class="type-eyebrow text-ink-muted">{{ eyebrow }}</p>{% endif -%}
+
+  <h1 class="type-title-1 text-ink">{{ title }}</h1>
+
+  {%- if identity %}<p class="type-body text-ink-muted">{{ identity }}</p>{% endif -%}
+
+  {%- if caller is defined %}
+  <div class="flex flex-wrap items-center gap-3">{{ caller() }}</div>
+  {% endif -%}
+</header>
+{% endmacro %}
+
+{% set _VERDICT_RULE = {
+  "success": "border-success-ink",
+  "warning": "border-warning-ink",
+  "refusal": "border-refusal-ink",
+  "failure": "border-failure-ink",
+  "info": "border-verification",
+  "muted": "border-muted-ink",
+} %}
+
+{% set _VERDICT_WASH = {
+  "success": "bg-transparent",
+  "warning": "bg-decision-wash",
+  "refusal": "bg-refusal-wash",
+  "failure": "bg-failure-wash",
+  "info": "bg-transparent",
+  "muted": "bg-transparent",
+} %}
+
+{% macro verdict(label, statement, detail="", tone="info", provenance_href="", provenance_label="") %}
+{#
+  What is true on this page, said before the record that proves it (ADR 0087).
+
+  **The first ruled section beneath the header, and not a hero card.** A verdict in a box with
+  a shadow reads as an advertisement for the page; a verdict on a rule reads as the page's own
+  first sentence, which is what it is.
+
+  `statement` is the composed half — assembled in Python from stored rows on every render, so
+  it cannot go stale. `detail` is where an authored half goes on the surfaces that have one,
+  and it is deliberately a separate argument: interpretation sits *beside* the counts, never
+  in place of them, and a run that failed before writing one still renders a complete verdict.
+
+  `label` is the mono eyebrow — `CURRENT VIEW`, `CURRENT STATE`, `ANSWER WITHHELD`. The
+  provenance link is a real link to the full record; a drawer is an enhancement over it.
+#}
+<section class="border-l-[3px] p-5 {{ _VERDICT_RULE[tone] }} {{ _VERDICT_WASH[tone] }}">
+  <p class="type-eyebrow text-ink-muted">{{ label }}</p>
+  <p class="mt-2 type-body-lg text-ink">{{ statement }}</p>
+  {%- if detail %}
+  <p class="mt-2 type-body text-ink-muted">{{ detail }}</p>
+  {% endif -%}
+  {%- if provenance_href %}
+  <p class="mt-3">
+    <a href="{{ provenance_href }}" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ provenance_label or "See the working" }}</a>
+  </p>
+  {% endif -%}
+</section>
+{% endmacro %}
+
+{% macro sheet(title="", subtitle="", id="") %}
+{#
+  The working sheet: `surface`, radius 8px, a 1px ledger boundary, and **no shadow**.
+
+  Elevation means occlusion rather than importance (§4.3), so an ordinary section does not
+  float. Sheets divide their content with horizontal rules and headings and do not contain
+  grids of smaller cards: a card inside a card is a hierarchy the reader has to decode before
+  they can read anything.
+
+  Empty, refused and failed sheets keep this exact geometry, so the page does not rearrange
+  when the state changes underneath it.
+#}
+<section {% if id %}id="{{ id }}"{% endif %} class="rounded-md border border-line bg-surface p-5 sm:p-6">
+  {%- if title %}
+  <h2 class="type-title-2 text-ink">{{ title }}</h2>
+  {% endif -%}
+  {%- if subtitle %}
+  <p class="mt-1 type-body text-ink-muted">{{ subtitle }}</p>
+  {% endif -%}
+  <div {% if title or subtitle %}class="mt-4"{% endif %}>{{ caller() }}</div>
+</section>
+{% endmacro %}
+
+{% macro figure(label, value, note="", provenance_href="", provenance_label="") %}
+{#
+  One consequential figure. **Not a KPI tile and never repeated into a row of them.**
+
+  `value` arrives already rendered. `web/figures.py` and `render/display.py` are the two doors
+  that format a figure, and a macro that formatted one here would be a third house style
+  nobody configured (ADR 0077). The distinction that matters and that this must not erase: a
+  report figure is in millions, a portfolio figure is exact to the penny, and `£0.00` and
+  `under £0.01` are different answers.
+
+  Provenance is required whenever the figure's kind is not obvious from its label, because a
+  number with no way to read where it came from is the confidently-wrong surface this platform
+  exists to prevent.
+#}
+<div class="flex flex-col gap-1">
+  <p class="type-label text-ink-muted">{{ label }}</p>
+  <p class="type-data-xl text-ink">{{ value }}</p>
+  {%- if note %}<p class="type-body-sm text-ink-muted">{{ note }}</p>{% endif -%}
+  {%- if provenance_href %}
+  <p><a href="{{ provenance_href }}" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ provenance_label or "Where this came from" }}</a></p>
+  {% endif -%}
+</div>
+{% endmacro %}

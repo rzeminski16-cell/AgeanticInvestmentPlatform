@@ -101,7 +101,7 @@
   <dl class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
     <div id="tile-net-assets">
       {{
-        ui.kpi(
+        ui.figure(
           "Net assets",
           totals.net_assets,
           "Holdings and cash together." if totals.is_complete else unavailable,
@@ -110,7 +110,7 @@
     </div>
     <div id="tile-securities">
       {{
-        ui.kpi(
+        ui.figure(
           "Securities",
           totals.securities,
           "Marked at the last close on or before the date." if totals.is_complete else unavailable,
@@ -119,7 +119,7 @@
     </div>
     <div id="tile-cash">
       {{
-        ui.kpi(
+        ui.figure(
           "Cash",
           totals.cash,
           "Every currency, converted." if totals.is_complete else unavailable,
@@ -128,7 +128,7 @@
     </div>
     <div id="tile-unrealised">
       {{
-        ui.kpi(
+        ui.figure(
           "Unrealised",
           totals.unrealised,
           "Mark less pooled cost. Not a chargeable gain." if totals.is_complete else unavailable,

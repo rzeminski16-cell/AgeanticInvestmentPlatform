@@ -546,6 +546,12 @@ _NOT_UTILITIES: frozenset[str] = frozenset(
         "edge-membership",
         "node-company",
         "node-theme",
+        # The two spans a button carries so htmx can swap its label for the gerund. With
+        # scripting off the browser's own navigation is the loading state and the second span
+        # is never shown, which is why neither is a utility and neither may become one: a
+        # busy label that styled itself would be a loading state the no-script path renders.
+        "aer-button-label",
+        "aer-button-busy",
     }
 )
 

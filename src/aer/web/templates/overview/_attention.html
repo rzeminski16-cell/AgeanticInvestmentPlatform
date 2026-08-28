@@ -10,7 +10,7 @@
 {% import "_ui/index.html" as ui with context %}
 
 {% if not attention %}
-  {% call ui.card() %}
+  {% call ui.sheet() %}
     {{ ui.empty(
       "Nothing is waiting",
       "No run is stopped at a gate, nothing failed, and every request you have written has been run. Start another when you are ready.",

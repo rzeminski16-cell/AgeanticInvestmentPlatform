@@ -724,6 +724,76 @@
 }
 
 /* ---------------------------------------------------------------------------------------
+   Focus, once, for everything.
+
+   §6.1 of the design system, and the reason it is a base rule rather than a utility repeated
+   on every control: a focus ring is the one affordance a keyboard user has, and a component
+   that forgets it is invisible to exactly the person who cannot work around it. A rule here
+   cannot be forgotten by the next macro.
+
+   **Two edges, deliberately.** The one-pixel gap separates the ring from a filled button; the
+   outer ring separates it from the page. A single ring is legible against one of those two
+   and disappears against the other, and which one depends on where the control happens to sit.
+
+   `:focus-visible` with a `:focus` fallback, and the fallback comes *first* so a browser that
+   understands both keeps the narrower rule. The outline is never suppressed: a control that
+   removes it on `:focus` and forgets to add it back is the single most common accessibility
+   defect there is.
+
+   The rail's ring is the *dark* accent, because `[data-scheme="dark"]` redefines
+   `--aer-focus-ring` on the region — the light one measures 2.04:1 there (ADR 0088). Nothing
+   below knows that; it resolves the token and is correct. */
+
+:focus {
+  outline: 2px solid var(--aer-focus-ring);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--aer-focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 1px var(--aer-focus-gap);
+}
+
+/* Selection carries the same accent, so a dragged phrase does not become the one place on the
+   page using a colour nobody chose. */
+::selection {
+  background: var(--aer-verification);
+  color: var(--aer-on-verification);
+}
+
+/* Native checkboxes, radios and range inputs, so a checked box is the verification teal
+   rather than the browser's own blue. */
+@theme static {
+  --color-accent: var(--aer-verification);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--aer-verification);
+}
+
+/* Forced colours: keep the system's palette and let the words and shapes carry the state.
+   A semantic wash forced back over a user's own high-contrast choice is a page that ignores
+   the setting they made because they need it. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
+
+  .aer-status,
+  .aer-callout,
+  .aer-spine-node {
+    border: 1px solid currentColor;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------
    Guidance mode.
 
    Callouts are markup that is always present and shown by an attribute on <body>, so a page
