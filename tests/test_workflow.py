@@ -404,10 +404,33 @@ class TestTheWholeRun:
             # this run, so it revises nothing — and seals the payload hash the final
             # gate verifies, as the last step that can change what the operator sees.
             "revise",
+            # The review gate's authored half (ADR 0087), written once the draft has
+            # frozen. It joins no payload and moves no hash; the gate-2 seal stays with
+            # revise.
+            "verdict",
             "gate_final",
             "render",
         ]
         assert all(row.status is JobStatus.SUCCEEDED for row in rows)
+
+    async def test_the_verdict_wrote_the_authored_half(self, finished: dict) -> None:
+        """ADR 0087: one sentence and a tone, stored as the step's own output.
+
+        The review page reads exactly this shape back; a claim cannot name it and a
+        citation cannot resolve to it, because the output carries no field for either —
+        the schema-level half of that enforcement is asserted in `test_verdict_step.py`.
+        """
+        session = finished["session"]
+        step = await session.scalar(
+            select(JobStep).where(
+                JobStep.job_id == finished["job"].id, JobStep.step_key == "verdict"
+            )
+        )
+        assert step is not None
+        produced = step.output_ref or {}
+        assert produced["written"] is True
+        assert produced["sentence"].strip()
+        assert produced["tone"] in {"success", "warning", "info"}
 
     async def test_the_valuation_section_carries_the_rendered_method(self, finished: dict) -> None:
         """ADR 0063: the method fields are the platform's, merged into the model's draft.
@@ -552,7 +575,11 @@ class TestTheWholeRun:
         # ever produced a comps table; naming comparables is the judgement this platform
         # asks a model for, and every ticker it returns is resolved against EDGAR in code.
         assert schemas.count("PeerSlate") == 1
-        assert finished["provider"].call_count == 26
+        # The authored half of the review verdict (ADR 0087), once, over the frozen
+        # draft. The cheapest call in the run, and a call all the same: it is counted
+        # here so it can never quietly become two.
+        assert schemas.count("AuthoredVerdict") == 1
+        assert finished["provider"].call_count == 27
 
     async def test_the_writer_receives_the_planners_approved_focus(self, finished: dict) -> None:
         """The plan's per-section brief — text a human approved at gate 1 — reaches the

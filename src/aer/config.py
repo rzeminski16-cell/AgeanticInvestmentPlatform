@@ -183,6 +183,10 @@ DEFAULT_MODEL_ROUTES: Final[dict[str, ModelRoute]] = {
     # the workhorse; the judgement sections stay on report_writer's route above.
     "section_writer_workhorse": ModelRoute(model="claude-sonnet-5", effort="medium"),
     "theme_proposal": ModelRoute(model="claude-sonnet-5", effort="medium"),
+    # The review gate's authored half (ADR 0087): one or two sentences over a digest of
+    # outcomes, once per run. The cheap end of the router by decision — "a few pence on a
+    # run that costs pounds" is the accepted cost the record names.
+    "verdict": ModelRoute(model="claude-haiku-4-5", effort="low"),
 }
 
 

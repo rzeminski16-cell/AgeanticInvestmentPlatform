@@ -42,12 +42,14 @@ from aer.agents.plan_critic import PlanCriticAgent, PlanCriticInput, PlanCritiqu
 from aer.agents.planner import PlannerAgent, PlannerInput, PriorResearch, salvaged_plan
 from aer.agents.themes import PROPOSED_BY as THEMES_PROPOSED_BY
 from aer.agents.themes import ThemeProposalAgent, ThemeProposalInput, ThemeSlate
+from aer.agents.verdict import VerdictAgent, VerdictInput
 from aer.agents.worker import ResearchTopic, WorkerExhaustedError, degraded_report
 from aer.calc.basic import cagr
 from aer.calc.comps import MultipleBasis, WithheldComps
 from aer.calc.engine import CalculationContext
 from aer.calc.units import Quantity, SourceRef, Unit, money
 from aer.core.concepts import CANONICAL_CONCEPTS
+from aer.core.disagreement import DisagreementKind
 from aer.core.enums import Decision, FactBasis, GateKind, JobStatus, Provider, SourceTier
 from aer.core.escalation import FiredTrigger
 from aer.core.hashing import canonical_json, sha256_hex
@@ -241,6 +243,11 @@ CRITIQUE_PLAN_ESTIMATE_GBP: Final = Decimal("0.30")
 # the draft step's measurement — £4.84 across sixteen sections is roughly £0.30 each, and
 # the margin covers the challenged sections skewing dear (they are the ones with claims).
 REVISE_ESTIMATE_GBP: Final = Decimal("1.50")
+
+# The review gate's authored half (ADR 0087): one sentence over a digest of outcomes, on
+# the cheapest route the platform has. The margin over the expected fraction of a penny is
+# the guard's, not the step's — a step with no estimate is a step the cap cannot pause.
+VERDICT_ESTIMATE_GBP: Final = Decimal("0.10")
 
 # The severity at which a plan challenge sends the plan back for a revision. Deliberately
 # below the draft's material line (severity 4): a plan revision costs one planner call
@@ -480,6 +487,11 @@ def build_steps() -> list[WorkflowStep]:
         # person ever sees the draft. Seals the gate-2 hash, as the new last step that
         # can change what the operator is shown.
         WorkflowStep(key="revise", run=_revise, estimated_cost_gbp=REVISE_ESTIMATE_GBP),
+        # The review gate's authored half (ADR 0087), written once the draft has frozen.
+        # After revise deliberately: the subject must have stopped changing. It writes no
+        # section, joins no payload and seals no hash — the gate-2 hash stays with revise,
+        # because interpretation is never part of what the operator approves.
+        WorkflowStep(key="verdict", run=_verdict, estimated_cost_gbp=VERDICT_ESTIMATE_GBP),
         WorkflowStep(key="gate_final", run=_gate_final, gate=GateKind.FINAL.value),
         WorkflowStep(key="render", run=_render),
     ]
@@ -1637,6 +1649,94 @@ async def _revise(context: StepContext) -> StepResult:
             "payload_hash": sha256_hex(canonical_json(payload)),
         },
         cost_gbp=agent_context.spend_gbp,
+    )
+
+
+async def _verdict(context: StepContext) -> StepResult:
+    """Write the review gate's authored half, once, over the frozen draft (ADR 0087).
+
+    The subject stopped changing when the revise step sealed the gate-2 hash; this step
+    interprets it and stores the sentence as its own output, where the review page reads
+    it back. **It joins no payload and moves no hash**: interpretation is never part of
+    what the operator approves, no claim may name it, and a run that fails here still
+    renders a complete composed verdict — which is why every failure short of a budget
+    refusal degrades to ``written: False`` rather than costing the run its gate.
+    """
+    request = await _request_for(context)
+    agent_context = AgentContext(
+        session=context.session,
+        provider=context.service("provider"),
+        router=context.service("router"),
+        settings=context.service("settings"),
+        store=context.service("store"),
+        job_step=context.step,
+    )
+
+    payload = await final_gate_payload(context.session, job_id=context.job.id)
+    try:
+        authored = await VerdictAgent().run(
+            agent_context, _verdict_subject(request, payload=payload)
+        )
+    except BudgetExceededError:
+        raise
+    except (AerError, ValueError) as exc:
+        _log.warning(
+            "verdict.model_unavailable",
+            job_id=str(context.job.id),
+            error_code=getattr(exc, "code", ""),
+        )
+        return StepResult(output={"written": False}, cost_gbp=agent_context.spend_gbp)
+
+    return StepResult(
+        output={
+            "written": True,
+            "sentence": authored.sentence,
+            "tone": authored.tone.value,
+        },
+        cost_gbp=agent_context.spend_gbp,
+    )
+
+
+def _verdict_subject(request: ResearchRequest, *, payload: Mapping[str, Any]) -> VerdictInput:
+    """The frozen record's shape, and deliberately not its prose.
+
+    The one excerpt is the opening section's first lines, for register alone. Everything
+    else is outcomes, challenges and flags — the digest a one-sentence interpretation
+    actually rests on, at a fraction of the input cost of handing over the draft.
+    """
+    sections = [row for row in payload.get("sections", []) if isinstance(row, dict)]
+    escalations = [row for row in payload.get("escalations", []) if isinstance(row, dict)]
+    challenges = [
+        row for row in escalations if row.get("kind") == DisagreementKind.THESIS_CONFLICT.value
+    ]
+    conflicts = len(escalations) - len(challenges)
+    opening = next((str(row.get("content") or "") for row in sections if row.get("content")), "")
+
+    return VerdictInput(
+        company_name=request.company_name,
+        ticker=request.ticker,
+        sections=[
+            {
+                "key": str(row.get("key", "")),
+                "status": str(row.get("status", "")),
+                "words": len(str(row.get("content") or "").split()),
+            }
+            for row in sections
+        ],
+        not_generated=[str(row.get("key", "")) for row in sections if not row.get("content")],
+        challenges=[
+            {
+                "material": bool(row.get("material")),
+                "topic": str(row.get("topic") or "")[:200],
+                "challenge": str(row.get("position_b") or "")[:400],
+            }
+            for row in challenges
+        ],
+        open_conflicts=conflicts,
+        triggers=[
+            str(row.get("kind", "")) for row in payload.get("triggers", []) if isinstance(row, dict)
+        ],
+        opening_excerpt=opening[:600],
     )
 
 

@@ -344,6 +344,22 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         max_output_tokens=16_384,
         adr="0039",
     ),
+    RoleDefinition(
+        role="verdict",
+        purpose=(
+            "Interpret a frozen record for a reader about to decide: one or two sentences "
+            "and a tone from a closed vocabulary, over the shape of the finished draft — "
+            "never a figure, never a fact, never a recommendation, and never evidence."
+        ),
+        output_schema_ref="aer.agents.verdict:AuthoredVerdict",
+        # No tools. It is handed what it interprets, as the section writer is (ADR 0042),
+        # and what it is handed is a digest of outcomes rather than the draft itself.
+        allowed_tools=frozenset(),
+        # A sentence and a tone key. The smallest output cap in the registry, because this
+        # is deliberately the cheapest call in the run (ADR 0087's accepted cost).
+        max_output_tokens=4_096,
+        adr="0087",
+    ),
 )
 
 

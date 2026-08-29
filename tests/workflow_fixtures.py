@@ -423,8 +423,24 @@ def theme_slate() -> Any:
     )
 
 
+def authored_verdict() -> Any:
+    """A scripted authored half (ADR 0087): a plain sentence in the info tone.
+
+    Deliberately unremarkable — the composed half is the one under test everywhere the
+    verdict renders, and the authored sentence's job in the suite is to exist, carry a
+    valid tone, and never be citable.
+    """
+    from aer.agents.verdict import AuthoredTone, AuthoredVerdict  # noqa: PLC0415
+
+    return AuthoredVerdict(
+        sentence="Scripted verdict; the record reads complete and unchallenged.",
+        tone=AuthoredTone.INFO,
+    )
+
+
 _STATIC_ANSWERS: dict[str, Any] = {
     "AssumptionProposalDraft": assumption_proposal_draft,
+    "AuthoredVerdict": authored_verdict,
     "PeerSlate": peer_slate,
     "PlanCritique": plan_critique,
     "RedTeamReport": red_team_report,
