@@ -1,224 +1,232 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
 
 {#
-  The assumptions surface. Everything below is rendered from `payload`, whose hash sits in
-  each confirm form -- confirming what the page showed rather than what the database happens
-  to hold at the moment of the click.
+  The assumptions a request rests on, outside a stopped run. The same rows, the same
+  confirm-amend-create acts and the same stale-hash refusal as the assumptions gate — what
+  this page deliberately omits is the gate itself: no decision panel, no journey, no
+  "run is paused" copy, because nothing here decides anything. It prepares and inspects
+  the values the next run will read.
+
+  Everything below renders from `payload`, whose hash sits in each confirm form —
+  confirming what the page showed rather than what the database happens to hold at the
+  moment of the click.
 #}
 
 {% block title %}Assumptions &middot; Tracework Invest{% endblock %}
 
 {% block content %}
-  <nav class="text-sm">
-    <a href="/requests/{{ research_request.id }}" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
-      &larr; Back to the request
-    </a>
-  </nav>
+  {{ ui.page_header(
+    "Assumptions for " ~ research_request.company_name,
+    eyebrow="ASSUMPTIONS",
+    identity="Every number below was chosen rather than observed.",
+    breadcrumbs=[
+      {"href": "/requests", "label": "Requests"},
+      {"href": "/requests/" ~ research_request.id, "label": research_request.company_name},
+    ],
+  ) }}
 
-  <h1 class="mt-4 text-2xl font-semibold tracking-tight">
-    Assumptions for {{ research_request.company_name }}
-  </h1>
-  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-    Every number below was <em>chosen</em> rather than observed. A model may propose one;
-    only you can confirm it, and nothing that reaches a valuation may rest on a value nobody
-    agreed to.
-  </p>
+  {#
+    Composed from the rows as they stand, never authored (ADR 0087): this page changes
+    every time a value does.
+  #}
+  {% set outstanding_count = outstanding | length %}
+  {% if outstanding_count and unconfirmed %}
+    {% set statement = outstanding_count ~ (" input still has" if outstanding_count == 1 else " inputs still have") ~ " no value at all, and " ~ unconfirmed ~ (" value awaits" if unconfirmed == 1 else " values await") ~ " your confirmation." %}
+  {% elif outstanding_count %}
+    {% set statement = outstanding_count ~ (" input still has" if outstanding_count == 1 else " inputs still have") ~ " no value at all." %}
+  {% elif unconfirmed %}
+    {% set statement = "Every input has a value; " ~ unconfirmed ~ (" awaits" if unconfirmed == 1 else " await") ~ " your confirmation." %}
+  {% else %}
+    {% set statement = "Every input has a value and every value is confirmed." %}
+  {% endif %}
+  {{ ui.verdict(
+    "AVAILABLE TO THE NEXT RUN",
+    statement,
+    detail="A model may propose a value; only you can confirm one, and nothing that reaches a valuation may rest on a number nobody agreed to.",
+    tone=("warning" if outstanding_count or unconfirmed else "success"),
+  ) }}
 
   {% if unconfirmed %}
-    <section
-      class="mt-6 rounded-md border border-amber-400 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
-      role="status"
-      id="unconfirmed-banner"
-    >
-      <p class="text-sm text-amber-900 dark:text-amber-100">
-        <strong>{{ unconfirmed }}</strong>
-        assumption{{ '' if unconfirmed == 1 else 's' }} still waiting on you. A valuation
-        cannot use {{ 'it' if unconfirmed == 1 else 'them' }} until you confirm or amend.
-      </p>
-    </section>
+    <div id="unconfirmed-banner" role="status">
+      {{ ui.callout(
+        "warning",
+        unconfirmed ~ (" assumption is" if unconfirmed == 1 else " assumptions are") ~ " still waiting on you",
+        "A valuation cannot use " ~ ("it" if unconfirmed == 1 else "them") ~ " until you confirm or amend below.",
+      ) }}
+    </div>
   {% endif %}
 
   {% if not payload.assumptions %}
-    <p class="mt-8 text-sm text-slate-400" id="no-assumptions">
-      This request has no assumptions yet. They arrive when the run proposes them.
-    </p>
+    {% call ui.sheet() %}
+      <p class="type-body text-ink" id="no-assumptions">
+        This request has no assumptions yet. They arrive when the run proposes them.
+      </p>
+    {% endcall %}
   {% else %}
-    <ul class="mt-8 space-y-6" id="assumptions">
-      {% for assumption in payload.assumptions %}
-        <li
-          class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
-          id="assumption-{{ assumption.id }}"
-        >
-          <div class="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 class="font-mono text-sm font-semibold">{{ assumption.name }}</h2>
-            {% if assumption.approved %}
-              <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-900 dark:bg-emerald-900/50 dark:text-emerald-100">
-                confirmed by {{ assumption.approved_by }}
-              </span>
-            {% else %}
-              <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-100">
-                proposed by {{ assumption.proposed_by }}
-              </span>
-            {% endif %}
-          </div>
-
-          <p class="mt-2 font-mono text-lg">{{ assumption.value }} {{ assumption.unit }}</p>
-
-          <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">
-            {{ assumption.justification }}
-          </p>
-
-          {% if assumption.confidence is not none %}
-            <p class="mt-1 text-xs text-slate-500">
-              Proposed with confidence {{ assumption.confidence }}.
+    {% call ui.sheet("Proposed assumptions") %}
+      <ul class="flex flex-col divide-y divide-line" id="assumptions">
+        {% for assumption in payload.assumptions %}
+          <li class="py-4" id="assumption-{{ assumption.id }}">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              <p class="type-body text-ink">
+                <span class="type-data text-ink">{{ assumption.name }}</span>
+                &mdash;
+                <span class="type-data text-ink">{{ assumption.value }}</span>
+                {% if assumption.unit %}<span class="type-body-sm text-ink-muted">{{ assumption.unit }}</span>{% endif %}
+              </p>
+              {% if assumption.approved %}
+                {{ ui.status("success", "Confirmed", detail="by " ~ assumption.approved_by) }}
+              {% else %}
+                {{ ui.status("warning", "Not yet confirmed") }}
+              {% endif %}
+            </div>
+            <p class="mt-1 type-body-sm text-ink-muted">
+              Proposed by <span class="type-data-sm">{{ assumption.proposed_by }}</span>{% if assumption.confidence is not none %},
+              confidence {{ assumption.confidence }}{% endif %}.
             </p>
-          {% endif %}
+            {% if assumption.justification %}
+              <p class="mt-2 max-w-prose type-body text-ink">{{ assumption.justification }}</p>
+            {% else %}
+              <p class="mt-2 max-w-prose type-body text-warning-ink">
+                No justification was recorded for this number. That is worth resolving
+                before you agree to it.
+              </p>
+            {% endif %}
+            <p class="mt-2">
+              <a
+                href="/requests/{{ research_request.id }}/assumptions/{{ assumption.id }}"
+                class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong"
+              >Every value proposed for this</a>
+            </p>
 
-          <div class="mt-4 flex flex-wrap gap-3">
-            <a
-              href="/requests/{{ research_request.id }}/assumptions/{{ assumption.id }}"
-              class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
-            >
-              Every value proposed for this
-            </a>
-          </div>
-
-          {% if not assumption.approved %}
-            <form
-              method="post"
-              action="/requests/{{ research_request.id }}/assumptions/{{ assumption.id }}/confirm"
-              class="mt-4"
-            >
-              <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+            {% if not assumption.approved %}
               {#
-                The hash of exactly the list rendered above. If an assumption changed between
-                this page being served and the button being pressed, confirming is refused --
-                agreeing to something else is not agreeing to this.
+                Confirming carries the hash of exactly the list rendered above. If an
+                assumption changed between this page being served and the button being
+                pressed, confirming is refused — agreeing to something else is not
+                agreeing to this. Amending goes through the same proposal path a model
+                uses: typing a value and agreeing the run may rest on it are separate acts.
               #}
-              <input type="hidden" name="payload_hash" value="{{ payload_hash }}" />
-              <button
-                type="submit"
-                class="rounded-md bg-sky-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-800"
+              <form
+                method="post"
+                action="/requests/{{ research_request.id }}/assumptions/{{ assumption.id }}/confirm"
+                class="mt-3"
               >
-                Confirm this value
-              </button>
-            </form>
+                <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                <input type="hidden" name="payload_hash" value="{{ payload_hash }}" />
+                <button
+                  type="submit"
+                  class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong"
+                >Confirm this value</button>
+              </form>
 
-            <form
-              method="post"
-              action="/requests/{{ research_request.id }}/assumptions/{{ assumption.id }}/amend"
-              class="mt-4 space-y-3 border-t border-slate-200 pt-4 dark:border-slate-800"
-            >
-              <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-              <div class="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label for="value-{{ assumption.id }}" class="block text-sm font-medium">
-                    Your value
+              {% call ui.disclosure("Amend it instead") %}
+                <form
+                  method="post"
+                  action="/requests/{{ research_request.id }}/assumptions/{{ assumption.id }}/amend"
+                  class="flex flex-col gap-3"
+                >
+                  <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label for="value-{{ assumption.id }}" class="block type-label text-ink">Your value</label>
+                      <input
+                        type="text"
+                        inputmode="decimal"
+                        id="value-{{ assumption.id }}"
+                        name="value"
+                        value="{{ assumption.value }}"
+                        class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink"
+                      />
+                    </div>
+                    <div>
+                      <label for="unit-{{ assumption.id }}" class="block type-label text-ink">Unit</label>
+                      <select
+                        id="unit-{{ assumption.id }}"
+                        name="unit"
+                        class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink"
+                      >
+                        {% for choice in unit_choices %}
+                          <option value="{{ choice }}"{{ " selected" if choice == assumption.unit else "" }}>{{ choice }}</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label for="why-{{ assumption.id }}" class="block type-label text-ink">Why yours rather than theirs</label>
+                    <textarea
+                      id="why-{{ assumption.id }}"
+                      name="justification"
+                      rows="2"
+                      maxlength="4000"
+                      required
+                      class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink"
+                      placeholder="Recorded on the assumption's history. The proposal above is kept whatever you enter."
+                    ></textarea>
+                  </div>
+                  <label class="flex items-start gap-2 type-body-sm text-ink-muted">
+                    <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5 h-5 w-5" />
+                    <span>I mean this figure, even if it falls outside the usual range.</span>
                   </label>
-                  <input
-                    type="text"
-                    inputmode="decimal"
-                    id="value-{{ assumption.id }}"
-                    name="value"
-                    value="{{ assumption.value }}"
-                    class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
-                  />
-                </div>
-                <div>
-                  <label for="unit-{{ assumption.id }}" class="block text-sm font-medium">Unit</label>
-                  <select
-                    id="unit-{{ assumption.id }}"
-                    name="unit"
-                    class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
-                  >
-                    {% for choice in unit_choices %}
-                      <option value="{{ choice }}"{{ " selected" if choice == assumption.unit else "" }}>{{ choice }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label for="why-{{ assumption.id }}" class="block text-sm font-medium">
-                  Why yours rather than theirs
-                </label>
-                <textarea
-                  id="why-{{ assumption.id }}"
-                  name="justification"
-                  rows="2"
-                  maxlength="4000"
-                  required
-                  class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-                  placeholder="Recorded on the assumption's history. The proposal above is kept whatever you enter."
-                ></textarea>
-              </div>
-              <label class="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
-                <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5" />
-                <span>I mean this figure, even if it falls outside the usual range.</span>
-              </label>
-              <button
-                type="submit"
-                class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                Amend
-              </button>
-            </form>
-          {% endif %}
-        </li>
-      {% endfor %}
-    </ul>
+                  <p>
+                    <button
+                      type="submit"
+                      class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected"
+                    >Amend</button>
+                  </p>
+                </form>
+              {% endcall %}
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endcall %}
   {% endif %}
 
-  <section class="mt-10" id="create-assumption">
-    <h2 class="text-lg font-semibold tracking-tight">Add an assumption</h2>
-    <p class="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-      For a value no run could derive — a risk-free rate, a beta, a forecast driver.
-      What you add here is a proposal like any other: the run cannot rest on it until
-      you also confirm it above.
+  {% call ui.sheet("Add an assumption", subtitle="For a value no run could derive — a risk-free rate, a beta, a forecast driver.", id="create-assumption") %}
+    <p class="type-body-sm text-ink-muted">
+      What you add here is a proposal like any other: the run cannot rest on it until you
+      also confirm it above.
     </p>
     {% if outstanding %}
-      <p class="mt-2 max-w-3xl text-sm text-amber-900 dark:text-amber-100" id="outstanding-names">
+      <p class="mt-3 max-w-prose type-body-sm text-warning-ink" id="outstanding-names">
         The forecast still has no value at all for:
-        {% for name in outstanding %}
-          <button
-            type="button"
-            class="font-mono underline underline-offset-2"
-            onclick="document.getElementById('create-name').value='{{ name }}'; document.getElementById('create-name').focus()"
-          >{{ name }}</button>{{ '' if loop.last else ', ' }}
-        {% endfor %}
+        {% for name in outstanding %}<span class="type-data-sm">{{ name }}</span>{{ '' if loop.last else ', ' }}{% endfor %}.
       </p>
     {% endif %}
     <form
       method="post"
       action="/requests/{{ research_request.id }}/assumptions/create"
-      class="mt-4 max-w-xl space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+      class="mt-4 flex max-w-xl flex-col gap-3"
     >
       <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
       <div>
-        <label for="create-name" class="block text-sm font-medium">Name</label>
+        <label for="create-name" class="block type-label text-ink">Name</label>
         <input
           type="text"
           id="create-name"
           name="name"
           required
-          class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
+          class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink"
           placeholder="risk_free_rate"
         />
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label for="create-value" class="block text-sm font-medium">Value</label>
+          <label for="create-value" class="block type-label text-ink">Value</label>
           <input
             type="text"
             id="create-value"
             name="value"
             required
             inputmode="decimal"
-            class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
+            class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink"
             placeholder="0.042"
           />
         </div>
         <div>
-          <label for="create-unit" class="block text-sm font-medium">Unit</label>
+          <label for="create-unit" class="block type-label text-ink">Unit</label>
           {#
             A list rather than a box (gap B14). Every assumption a forecast needs is
             dimensionless, so `pure` leads and the currencies are here only for a name the
@@ -229,7 +237,7 @@
             id="create-unit"
             name="unit"
             required
-            class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
+            class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink"
           >
             {% for choice in unit_choices %}
               <option value="{{ choice }}"{{ " selected" if choice == "pure" else "" }}>{{ choice }}</option>
@@ -237,64 +245,59 @@
           </select>
         </div>
       </div>
-      <p class="text-xs text-slate-500" id="fraction-rule">
+      <p class="type-body-sm text-ink-muted" id="fraction-rule">
         Rates and ratios are decimal fractions: a 4.5% risk-free rate is
-        <span class="font-mono">0.045</span>, not <span class="font-mono">4.5</span>. An
-        exit multiple is the multiple itself &mdash; <span class="font-mono">12</span>, not
-        <span class="font-mono">0.12</span>.
+        <span class="type-data-sm">0.045</span>, not <span class="type-data-sm">4.5</span>. An
+        exit multiple is the multiple itself &mdash; <span class="type-data-sm">12</span>, not
+        <span class="type-data-sm">0.12</span>.
       </p>
       <div>
-        <label for="create-why" class="block text-sm font-medium">Where this number comes from</label>
+        <label for="create-why" class="block type-label text-ink">Where this number comes from</label>
         <textarea
           id="create-why"
           name="justification"
           rows="2"
           maxlength="4000"
           required
-          class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+          class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink"
           placeholder="e.g. 10-year gilt yield, Bank of England, 16 August 2026."
         ></textarea>
       </div>
-      <label class="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
-        <input type="checkbox" name="accepted_anyway" value="1" id="create-accepted-anyway" class="mt-0.5" />
+      <label class="flex items-start gap-2 type-body-sm text-ink-muted">
+        <input type="checkbox" name="accepted_anyway" value="1" id="create-accepted-anyway" class="mt-0.5 h-5 w-5" />
         <span>
           I mean this figure, even if it falls outside the usual range. Tick only after
           re-reading it &mdash; the check exists because a factor of a hundred looks exactly
           like a number somebody chose.
         </span>
       </label>
-      <button
-        type="submit"
-        class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-900"
-      >
-        Propose
-      </button>
+      <p>
+        <button
+          type="submit"
+          class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong"
+        >Propose</button>
+      </p>
     </form>
-  </section>
+  {% endcall %}
 
   {% if scenarios %}
-    <section class="mt-10">
-      <h2 class="text-lg font-semibold tracking-tight">Cases</h2>
-      <p class="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-        A case stores only what it disagrees with the base about, so correcting a base-case
-        assumption corrects every case that did not argue about it.
-      </p>
-      <div class="mt-4 space-y-4" id="scenarios">
+    {% call ui.sheet("Cases", subtitle="A case stores only what it disagrees with the base about, so correcting a base-case assumption corrects every case that did not argue about it.", id="scenarios") %}
+      <ul class="flex flex-col divide-y divide-line">
         {% for scenario in scenarios %}
-          <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-            <h3 class="text-sm font-semibold">{{ scenario.label }}</h3>
-            <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">{{ scenario.description }}</p>
+          <li class="py-4">
+            <h3 class="type-subheading text-ink">{{ scenario.label }}</h3>
+            <p class="mt-1 max-w-prose type-body-sm text-ink-muted">{{ scenario.description }}</p>
             {% if scenario.overridden %}
-              <p class="mt-2 text-xs text-slate-500">
+              <p class="mt-2 type-body-sm text-ink-muted">
                 Differs from the base case in:
-                <span class="font-mono">{{ scenario.overridden | join(', ') }}</span>
+                <span class="type-data-sm">{{ scenario.overridden | join(', ') }}</span>
               </p>
             {% else %}
-              <p class="mt-2 text-xs text-slate-500">Uses the base case unchanged.</p>
+              <p class="mt-2 type-body-sm text-ink-muted">Uses the base case unchanged.</p>
             {% endif %}
-          </div>
+          </li>
         {% endfor %}
-      </div>
-    </section>
+      </ul>
+    {% endcall %}
   {% endif %}
 {% endblock %}
