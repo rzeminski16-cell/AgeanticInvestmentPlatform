@@ -113,9 +113,7 @@ async def revise_challenged_sections(
     # earlier attempt's rather than piling onto it — this step is the only writer of the
     # draft-scope notes, and duplicates would double every row the gate-2 payload shows.
     await session.execute(
-        delete(RevisionNote).where(
-            RevisionNote.job_id == job.id, RevisionNote.scope == SCOPE_DRAFT
-        )
+        delete(RevisionNote).where(RevisionNote.job_id == job.id, RevisionNote.scope == SCOPE_DRAFT)
     )
     await session.flush()
 
