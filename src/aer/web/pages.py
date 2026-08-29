@@ -2128,7 +2128,44 @@ async def knowledge_page(
     connectivity that does not exist.
     """
     stats = await knowledge_stats(session, settings=settings)
-    page: Response = render(request, "knowledge/index.html", {"stats": stats})
+
+    stale = len(stats.freshness.stale)
+    windows = len(stats.freshness.closed_windows)
+    if not stats.size.approved_reports:
+        lead = verdicts.sentence(
+            [
+                "knowledge is empty; approved research reports create companies, claims, "
+                "themes and relations here"
+            ],
+            when_none="Knowledge is empty",
+            tone=vocabulary.Tone.MUTED,
+        )
+    elif stale or windows:
+        lead = verdicts.sentence(
+            [
+                verdicts.Count(
+                    stale, "company has stale research", "companies have stale research"
+                ),
+                verdicts.Count(
+                    windows,
+                    "closed catalyst window needs its outcome recorded",
+                    "closed catalyst windows need their outcomes recorded",
+                ),
+            ],
+            when_none="Useful and current",
+            tone=vocabulary.Tone.WARNING,
+        )
+    else:
+        lead = verdicts.sentence(
+            [
+                "current enough to use: no catalyst window awaits an outcome and nothing "
+                "covered has gone stale"
+            ],
+            when_none="Current enough to use",
+            tone=vocabulary.Tone.SUCCESS,
+        )
+
+    page: Response = render(request, "knowledge/index.html", {"stats": stats, "verdict": lead})
     return page
 
 
@@ -2212,13 +2249,43 @@ async def company_page(
             if outcome.status != "pending" and outcome.label not in resolutions
         }
     )
+    timeline = list(reversed(views))
+    # The wording avoids "as of": that phrase is the timeline link's, and a page test pins
+    # it appearing exactly once per approved report.
+    if not timeline:
+        lead = verdicts.sentence(
+            [
+                "no approved view exists for this company yet; drafts and rejected runs do "
+                "not appear here"
+            ],
+            when_none="No approved view exists yet",
+            tone=vocabulary.Tone.MUTED,
+        )
+    else:
+        newest = timeline[0]
+        clauses: list[verdicts.Count | str] = [
+            f"the last approved view is {newest.rating or 'no view reached'}, "
+            f"{newest.valuation_range}, dated {newest.as_of_date.isoformat()}",
+            verdicts.Count(
+                len(unresolved),
+                "catalyst window has since closed and needs its outcome recorded",
+                "catalyst windows have since closed and need their outcomes recorded",
+            ),
+        ]
+        lead = verdicts.sentence(
+            clauses,
+            when_none="One approved view exists",
+            tone=vocabulary.Tone.WARNING if unresolved else vocabulary.Tone.INFO,
+        )
+
     token = new_csrf_token(settings)
     page: Response = render(
         request,
         "companies/detail.html",
         {
             "company": company,
-            "timeline": list(reversed(views)),
+            "verdict": lead,
+            "timeline": timeline,
             "chart_uri": svg_data_uri(chart.svg),
             "chart_caption": chart.caption,
             "chart_is_placeholder": chart.placeholder,
