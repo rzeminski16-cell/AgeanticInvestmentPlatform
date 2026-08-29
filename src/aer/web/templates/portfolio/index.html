@@ -4,13 +4,18 @@
 {#
   The book, as at a date.
 
-  Four tiles, a holdings table, a cash row per currency, and a form. Every figure on this
-  page was computed on the way to it from the transactions below — there is no `positions`
-  table (ADR 0083) — and every one carries the grade of the weakest thing beneath it.
+  A verdict, four coupled figures, a holdings table with cash in it, and a form. Every
+  figure on this page was computed on the way to it from the transactions below — there is
+  no `positions` table (ADR 0083) — and every one carries the grade of the weakest thing
+  beneath it. Exact pennies everywhere: this is the one tool an operator reconciles against
+  a broker statement, and a rounded figure cannot be reconciled against anything.
 
   **The grade chip is not the containment.** It is what an operator reads; the containment
   is `Figure.for_sharing()`, which hands an attested figure to any outward surface as a type
   with no field for the figure at all. A chip can be ignored; a missing field cannot.
+
+  Return and exposure deliberately do not appear yet: they are roadmap §3.2, which needs
+  arithmetic that does not exist, and a simulated chart would be a figure with no working.
 #}
 
 {% block title %}{{ book.name }} &middot; Tracework{% endblock %}
@@ -44,61 +49,72 @@
 {% endmacro %}
 
 {% block content %}
-  <div class="flex flex-wrap items-end justify-between gap-4">
-    <div>
-      <h1 class="text-2xl font-semibold tracking-tight text-ink">{{ book.name }}</h1>
-      <p class="mt-1 text-sm text-ink-muted">
-        As at <span id="as-of-date" class="font-medium text-ink">{{ as_of.isoformat() }}</span>,
-        reported in {{ book.base_currency }}.
-      </p>
-    </div>
-
-    {#
-      A GET, so a view is a link somebody can keep. "As it stood on the thirtieth" is a
-      thing an operator wants to send themselves, and a date held only in a POST is a view
-      that cannot be returned to.
-    #}
+  {#
+    The as-at lens is part of the heading, not a minor filter: which instant the book is
+    read at changes every figure below, and the GET form makes a view a link somebody can
+    keep — "as it stood on the thirtieth" is a thing an operator sends themselves.
+  #}
+  {% call ui.page_header(book.name, eyebrow="THE BOOK") %}
+    <p class="type-body text-ink-muted">
+      As at <span id="as-of-date" class="type-data-sm text-ink">{{ as_of.isoformat() }}</span>
+      &middot; last market close held &middot; reported in {{ book.base_currency }}.
+    </p>
     <form method="get" action="/portfolio" class="flex items-end gap-2">
       <div>
-        <label for="as_of" class="block text-xs font-medium text-ink-muted">Show as at</label>
+        <label for="as_of" class="block type-label text-ink-muted">Show as at</label>
         <input
           id="as_of"
           name="as_of"
           type="date"
           value="{{ as_of.isoformat() }}"
           max="{{ today }}"
-          class="mt-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
+          class="mt-1 min-h-11 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink"
         />
       </div>
       <button
         id="reprice"
         type="submit"
-        class="rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold text-ink hover:border-line"
+        class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected"
       >
         Show
       </button>
     </form>
-  </div>
+  {% endcall %}
+
+  {{ ui.verdict("THE BOOK, VALUED", verdict.composed, tone=verdict.tone.value) }}
+
+  {% if view.rests_on_anything_typed %}
+    {#
+      The book-level grade, stated once and beside the verdict (§10.1). The per-row chips
+      stay for the rows; this is the sentence about the whole.
+    #}
+    <p
+      id="attested-notice"
+      class="max-w-prose rounded-md border border-line bg-surface-sunken p-3 type-body-sm text-ink-muted"
+    >
+      Some figures here rest on transactions you typed rather than documented. They are
+      shown in full on your own copy and withheld from anything shared, by construction.
+    </p>
+  {% endif %}
 
   {% if view.problem %}
-    <section
-      class="mt-6 rounded-card border border-amber-400 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
-      role="alert"
-      id="portfolio-problem"
-    >
-      <p class="max-w-prose text-sm text-amber-900/90 dark:text-amber-100/90">
-        {{ view.problem }}
-      </p>
-    </section>
+    <div id="portfolio-problem">
+      {{ ui.callout(
+        "warning",
+        "The book cannot be fully valued as at this date",
+        view.problem,
+      ) }}
+    </div>
   {% endif %}
 
   {#
-    All four tiles go blank together. Each is a sum over the rows that resolved, so if any
-    row did not, none of them may be shown — a cash tile reading £50,000 beside a refused
-    total is the "a subtotal looks like a total" failure wearing the screen's own clothes.
+    The exact-value ledger. All four go blank together: each is a sum over the rows that
+    resolved, so if any row did not, none of them may be shown — a cash tile reading
+    £50,000 beside a refused total is the "a subtotal looks like a total" failure wearing
+    the screen's own clothes.
   #}
   {% set unavailable = "Unavailable while a position cannot be valued." %}
-  <dl class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+  <dl class="grid gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
     <div id="tile-net-assets">
       {{
         ui.figure(
@@ -137,283 +153,271 @@
     </div>
   </dl>
 
-  {% if view.rests_on_anything_typed %}
-    <p
-      id="attested-notice"
-      class="mt-4 max-w-prose rounded-card border border-line bg-surface-sunken p-3 text-sm text-ink-muted"
-    >
-      Some figures here rest on transactions you typed rather than documented. They are
-      shown in full on your own copy and withheld from anything shared, by construction.
-    </p>
-  {% endif %}
-
-  <h2 class="mt-10 text-lg font-semibold text-ink">Holdings</h2>
-  {#
-    Cash counts. A book holding nothing but a deposit is a book, and a table gated on
-    securities alone would have shown it the empty state — "nothing recorded yet" over a
-    balance somebody had just entered.
-  #}
-  {% if rows or cash %}
-    <div class="mt-3 overflow-x-auto">
-      <table class="w-full min-w-[52rem] text-sm" id="holdings">
-        <thead class="text-left text-xs tracking-wide text-ink-subtle uppercase">
-          <tr class="border-b border-line">
-            <th class="py-2 pr-4 font-medium">Security</th>
-            <th class="py-2 pr-4 text-right font-medium">Quantity</th>
-            <th class="py-2 pr-4 text-right font-medium">Cost</th>
-            <th class="py-2 pr-4 text-right font-medium">Value</th>
-            <th class="py-2 pr-4 text-right font-medium">Unrealised</th>
-            <th class="py-2 text-right font-medium">Weight</th>
-          </tr>
-        </thead>
-        <tbody class="tabular-nums">
-          {% for row in rows %}
-            <tr class="border-b border-line/60" data-holding="{{ row.key }}">
-              <td class="py-2 pr-4">
-                <span class="font-semibold text-ink" data-field="ticker">{{ row.ticker }}</span>
-                <span class="ml-1 text-xs text-ink-subtle">{{ row.exchange }}</span>
-                {{ grade_chip(row.grade, row.grade_label) }}
-              </td>
-              <td class="py-2 pr-4 text-right text-ink" data-field="quantity">
-                {{ row.quantity }}
-              </td>
-              <td class="py-2 pr-4 text-right text-ink-muted" data-field="cost">{{ row.cost }}</td>
-              {% if row.problem %}
-                {#
-                  A holding nobody could price, or one that closed. The reason goes where
-                  the number would be: a blank cell reads as nil, which is a claim.
-                #}
-                <td class="py-2 pr-4 text-right text-xs text-ink-subtle" colspan="3">
-                  <span data-field="problem">
-                    {% if row.is_closed %}Closed{% else %}{{ row.problem }}{% endif %}
-                  </span>
-                </td>
-              {% else %}
-                <td class="py-2 pr-4 text-right font-medium text-ink" data-field="value">
-                  {{ row.value }}
-                </td>
-                <td
-                  class="py-2 pr-4 text-right {% if row.is_down %}text-rose-600 dark:text-rose-400{% else %}text-emerald-700 dark:text-emerald-400{% endif %}"
-                  data-field="unrealised"
-                >
-                  {{ row.unrealised }}
-                </td>
-                <td class="py-2 text-right text-ink-muted" data-field="weight">
-                  {{ row.weight }}
-                </td>
-              {% endif %}
-            </tr>
-          {% endfor %}
-
-          {#
-            Cash is a position and belongs in the same table. Without it every weight on the
-            page is a fraction of the wrong denominator — silently, and in the direction
-            that overstates every holding.
-          #}
-          {% for row in cash %}
-            <tr class="border-b border-line/60 bg-surface-sunken" data-cash="{{ row.currency }}">
-              <td class="py-2 pr-4">
-                <span class="font-semibold text-ink">Cash</span>
-                <span class="ml-1 text-xs text-ink-subtle">{{ row.currency }}</span>
-                {{ grade_chip(row.grade, row.grade_label) }}
-              </td>
-              <td class="py-2 pr-4 text-right text-ink" data-field="balance">
-                {{ row.balance }}
-              </td>
-              {% if row.problem %}
-                {#
-                  The reason goes where the number would be and spans the columns it would
-                  have filled, rather than being crushed into one cell.
-                #}
-                <td class="py-2 pr-4 text-right text-xs text-ink-subtle" colspan="4">
-                  <span data-field="problem">{{ row.problem }}</span>
-                </td>
-              {% else %}
-                <td class="py-2 pr-4"></td>
-                <td class="py-2 pr-4 text-right font-medium text-ink" data-field="in-base">
-                  {{ row.in_base }}
-                </td>
-                <td class="py-2 pr-4"></td>
-                <td class="py-2 text-right text-ink-muted" data-field="weight">
-                  {{ row.weight }}
-                </td>
-              {% endif %}
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% else %}
-    {{
-      ui.empty(
-        "Nothing recorded yet",
-        "Enter a deposit and a trade below and the book computes itself from them. Nothing here is stored as a position — every figure is recomputed from what you enter.",
-      )
-    }}
-  {% endif %}
-
-  <h2 class="mt-10 text-lg font-semibold text-ink">Record a transaction</h2>
-  <p class="mt-1 max-w-prose text-sm text-ink-muted">
-    Typed entries are marked <em>attested</em>: self-certified, with no document behind them.
-    Every figure computed from one inherits that, and is withheld from anything shared.
-  </p>
-
-  <form
-    method="post"
-    action="/portfolio/transactions"
-    class="mt-4 grid max-w-4xl gap-4 sm:grid-cols-3"
-    id="record-transaction"
-  >
-    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-
-    <div>
-      <label for="kind" class="block text-sm font-medium text-ink">What happened</label>
-      <select
-        id="kind"
-        name="kind"
-        class="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-      >
-        {% for kind in kinds %}
-          <option value="{{ kind.value }}">{{ kind.value | capitalize }}</option>
-        {% endfor %}
-      </select>
-      <p class="mt-1 text-xs text-ink-subtle">
-        Enter every amount positive. A sale, a fee and a withdrawal are signed for you.
-      </p>
-    </div>
-
+  {% call ui.sheet("Holdings") %}
     {#
-      Typed, not picked (gap R18).
-
-      This was a `<select>` over every listing, which is unusable at any real size and was
-      worse than unusable at size zero: on a machine whose runs had no market-data
-      subscription it offered one option reading "cash, no security", and an operator could
-      neither type a ticker nor find out why not.
-
-      `<input list>` over a `<datalist>` is a native typeable combobox with no script behind
-      it — the same rule the menu follows. What is typed is resolved on the server against
-      the listings actually held, so a dual listing is refused with both choices named
-      rather than resolved by guessing.
+      Cash counts. A book holding nothing but a deposit is a book, and a table gated on
+      securities alone would have shown it the empty state — "nothing recorded yet" over a
+      balance somebody had just entered.
     #}
-    <div>
-      <label for="security" class="block text-sm font-medium text-ink">Security</label>
-      <input
-        id="security"
-        name="security"
-        list="dealable-listings"
-        autocomplete="off"
-        placeholder="Leave empty for cash"
-        class="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-      />
-      <datalist id="dealable-listings">
-        {% for security in securities %}
-          <option value="{{ security.ticker }}.{{ security.exchange }}">
-            {{ security.name or security.ticker }}
-          </option>
-        {% endfor %}
-      </datalist>
-      {% if securities %}
-        <p class="mt-1 text-xs text-ink-subtle">
-          Type a ticker, or <code>TICKER.EXCHANGE</code> for a dual listing. Leave it empty
-          for a deposit, a withdrawal, a dividend or a fee. Only listings the platform can
-          price: one it cannot would leave the whole book without a total.
-        </p>
-      {% else %}
-        {#
-          The honest empty state. "No options" told an operator nothing about why, and the
-          why is the useful half — this is the one path that creates a listing today.
-        #}
-        <p class="mt-1 max-w-prose text-xs text-warn-ink" id="no-listings">
-          {{ no_listings }}
-        </p>
-      {% endif %}
-    </div>
+    {% if rows or cash %}
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[52rem]" id="holdings">
+          <caption class="sr-only">
+            Every holding and every cash balance, with the grade of evidence under each.
+          </caption>
+          <thead class="text-left">
+            <tr class="border-b border-line-strong">
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Security</th>
+              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Quantity</th>
+              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Cost</th>
+              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Value</th>
+              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Unrealised</th>
+              <th scope="col" class="py-2 text-right type-label text-ink-muted">Weight</th>
+            </tr>
+          </thead>
+          <tbody class="tabular-nums">
+            {% for row in rows %}
+              <tr class="border-b border-line" data-holding="{{ row.key }}">
+                <th scope="row" class="py-2 pr-4 text-left">
+                  <span class="type-body-strong text-ink" data-field="ticker">{{ row.ticker }}</span>
+                  <span class="ml-1 type-data-sm text-ink-subtle">{{ row.exchange }}</span>
+                  {{ grade_chip(row.grade, row.grade_label) }}
+                </th>
+                <td class="py-2 pr-4 text-right type-data-sm text-ink" data-field="quantity">
+                  {{ row.quantity }}
+                </td>
+                <td class="py-2 pr-4 text-right type-data-sm text-ink-muted" data-field="cost">{{ row.cost }}</td>
+                {% if row.problem %}
+                  {#
+                    A holding nobody could price, or one that closed. The reason goes where
+                    the number would be: a blank cell reads as nil, which is a claim.
+                  #}
+                  <td class="py-2 pr-4 text-right type-body-sm text-ink-subtle" colspan="3">
+                    <span data-field="problem">
+                      {% if row.is_closed %}Closed{% else %}{{ row.problem }}{% endif %}
+                    </span>
+                  </td>
+                {% else %}
+                  <td class="py-2 pr-4 text-right type-data-sm text-ink" data-field="value">
+                    {{ row.value }}
+                  </td>
+                  <td
+                    class="py-2 pr-4 text-right type-data-sm {% if row.is_down %}text-failure-ink{% else %}text-success-ink{% endif %}"
+                    data-field="unrealised"
+                  >
+                    {{ row.unrealised }}
+                  </td>
+                  <td class="py-2 text-right type-data-sm text-ink-muted" data-field="weight">
+                    {{ row.weight }}
+                  </td>
+                {% endif %}
+              </tr>
+            {% endfor %}
 
-    <div>
-      <label for="trade_date" class="block text-sm font-medium text-ink">Trade date</label>
-      <input
-        id="trade_date"
-        name="trade_date"
-        type="date"
-        value="{{ today }}"
-        max="{{ today }}"
-        required
-        class="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-      />
-    </div>
+            {#
+              Cash is a position and belongs in the same table. Without it every weight on
+              the page is a fraction of the wrong denominator — silently, and in the
+              direction that overstates every holding.
+            #}
+            {% for row in cash %}
+              <tr class="border-b border-line bg-surface-sunken" data-cash="{{ row.currency }}">
+                <th scope="row" class="py-2 pr-4 text-left">
+                  <span class="type-body-strong text-ink">Cash</span>
+                  <span class="ml-1 type-data-sm text-ink-subtle">{{ row.currency }}</span>
+                  {{ grade_chip(row.grade, row.grade_label) }}
+                </th>
+                <td class="py-2 pr-4 text-right type-data-sm text-ink" data-field="balance">
+                  {{ row.balance }}
+                </td>
+                {% if row.problem %}
+                  {#
+                    The reason goes where the number would be and spans the columns it would
+                    have filled, rather than being crushed into one cell.
+                  #}
+                  <td class="py-2 pr-4 text-right type-body-sm text-ink-subtle" colspan="4">
+                    <span data-field="problem">{{ row.problem }}</span>
+                  </td>
+                {% else %}
+                  <td class="py-2 pr-4"></td>
+                  <td class="py-2 pr-4 text-right type-data-sm text-ink" data-field="in-base">
+                    {{ row.in_base }}
+                  </td>
+                  <td class="py-2 pr-4"></td>
+                  <td class="py-2 text-right type-data-sm text-ink-muted" data-field="weight">
+                    {{ row.weight }}
+                  </td>
+                {% endif %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      {{
+        ui.empty(
+          "Nothing recorded yet",
+          "Enter a deposit and a trade below and the book computes itself from them. Nothing here is stored as a position — every figure is recomputed from what you enter.",
+        )
+      }}
+    {% endif %}
+  {% endcall %}
 
-    <div>
-      <label for="quantity" class="block text-sm font-medium text-ink">
-        Quantity or amount
-      </label>
-      <input
-        id="quantity"
-        name="quantity"
-        inputmode="decimal"
-        required
-        class="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-      />
-      <p class="mt-1 text-xs text-ink-subtle">Shares for a deal, money for anything else.</p>
-    </div>
+  {% call ui.sheet("Record a transaction", subtitle="Enter positive amounts; the transaction type determines the sign. Typed entries are marked attested — self-certified, with no document behind them — and every figure computed from one inherits that.") %}
+    <form
+      method="post"
+      action="/portfolio/transactions"
+      class="grid max-w-4xl gap-4 sm:grid-cols-3"
+      id="record-transaction"
+    >
+      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
 
-    <div>
-      <label for="price" class="block text-sm font-medium text-ink">Price per share</label>
-      <input
-        id="price"
-        name="price"
-        inputmode="decimal"
-        class="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-      />
-      <p class="mt-1 text-xs text-ink-subtle">
-        Buys and sells only. In the dealing currency — pence for a London listing, if that
-        is what the contract note says.
-      </p>
-    </div>
+      <div>
+        <label for="kind" class="block type-label text-ink">What happened</label>
+        <select
+          id="kind"
+          name="kind"
+          class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink"
+        >
+          {% for kind in kinds %}
+            <option value="{{ kind.value }}">{{ kind.value | capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
 
-    <div>
-      <label for="currency" class="block text-sm font-medium text-ink">Currency</label>
-      <input
-        id="currency"
-        name="currency"
-        value="{{ book.base_currency }}"
-        maxlength="3"
-        required
-        class="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm uppercase text-ink"
-      />
-    </div>
+      <div>
+        <label for="trade_date" class="block type-label text-ink">Trade date</label>
+        <input
+          id="trade_date"
+          name="trade_date"
+          type="date"
+          value="{{ today }}"
+          max="{{ today }}"
+          required
+          class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink"
+        />
+      </div>
 
-    <div>
-      <label for="fees" class="block text-sm font-medium text-ink">Dealing costs</label>
-      <input
-        id="fees"
-        name="fees"
-        inputmode="decimal"
-        placeholder="0"
-        class="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-      />
-      <p class="mt-1 text-xs text-ink-subtle">
-        Commission and stamp duty. On a purchase they join the cost; on a sale they only
-        take cash.
-      </p>
-    </div>
+      <div>
+        <label for="quantity" class="block type-label text-ink">Quantity or amount</label>
+        <input
+          id="quantity"
+          name="quantity"
+          inputmode="decimal"
+          required
+          class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink"
+        />
+        <p class="mt-1 type-body-sm text-ink-subtle">Shares for a deal, money for anything else.</p>
+      </div>
 
-    <div class="sm:col-span-2">
-      <label for="note" class="block text-sm font-medium text-ink">Note</label>
-      <input
-        id="note"
-        name="note"
-        class="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-      />
-    </div>
+      {#
+        Typed, not picked (gap R18): `<input list>` over a `<datalist>` is a native
+        typeable combobox with no script behind it. What is typed is resolved on the
+        server against the listings actually held — a dual listing is refused with both
+        choices named, and a ticker never seen is verified with the vendor at first
+        sight (roadmap §3.1, ADR 0093).
+      #}
+      <div>
+        <label for="security" class="block type-label text-ink">Security</label>
+        <input
+          id="security"
+          name="security"
+          list="dealable-listings"
+          autocomplete="off"
+          placeholder="Leave empty for cash"
+          class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink"
+        />
+        <datalist id="dealable-listings">
+          {% for security in securities %}
+            <option value="{{ security.ticker }}.{{ security.exchange }}">
+              {{ security.name or security.ticker }}
+            </option>
+          {% endfor %}
+        </datalist>
+        {% if securities %}
+          <p class="mt-1 type-body-sm text-ink-subtle">
+            A ticker, <span class="type-data-sm">TICKER.EXCHANGE</span> for a dual listing,
+            or <span class="type-data-sm">TICKER EXCHANGE</span> for one this platform has
+            never priced. Empty means cash: a deposit, a withdrawal, a dividend or a fee.
+          </p>
+        {% else %}
+          {#
+            The honest empty state. "No options" told an operator nothing about why, and
+            the why is the useful half — it names both paths that create a listing.
+          #}
+          <p class="mt-1 max-w-prose type-body-sm text-warning-ink" id="no-listings">
+            {{ no_listings }}
+          </p>
+        {% endif %}
+      </div>
 
-    <div class="sm:col-span-3">
-      <button
-        id="record"
-        type="submit"
-        class="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-on-verification hover:bg-brand-strong"
-      >
-        Record it
-      </button>
-    </div>
-  </form>
+      <div>
+        <label for="currency" class="block type-label text-ink">Currency</label>
+        <input
+          id="currency"
+          name="currency"
+          value="{{ book.base_currency }}"
+          maxlength="3"
+          required
+          class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 uppercase type-data text-ink"
+        />
+      </div>
+
+      <div>
+        <label for="note" class="block type-label text-ink">Note</label>
+        <input
+          id="note"
+          name="note"
+          class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink"
+        />
+      </div>
+
+      {#
+        What only a purchase or sale needs, behind a native disclosure so the four cash
+        kinds read as the short forms they are — open by default when the reader arrives
+        planning a deal costs nothing, so it ships closed only in markup, never by script.
+      #}
+      <details class="sm:col-span-3 rounded-md border border-line bg-surface p-4" open>
+        <summary class="cursor-pointer type-label text-ink">For a purchase or sale</summary>
+        <div class="mt-3 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label for="price" class="block type-label text-ink">Price per share</label>
+            <input
+              id="price"
+              name="price"
+              inputmode="decimal"
+              class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink"
+            />
+            <p class="mt-1 type-body-sm text-ink-subtle">
+              In the dealing currency — pence for a London listing, if that is what the
+              contract note says.
+            </p>
+          </div>
+          <div>
+            <label for="fees" class="block type-label text-ink">Dealing costs</label>
+            <input
+              id="fees"
+              name="fees"
+              inputmode="decimal"
+              placeholder="0"
+              class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink"
+            />
+            <p class="mt-1 type-body-sm text-ink-subtle">
+              Commission and stamp duty. On a purchase they join the cost; on a sale they
+              only take cash.
+            </p>
+          </div>
+        </div>
+      </details>
+
+      <div class="sm:col-span-3">
+        <button
+          id="record"
+          type="submit"
+          class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 type-label text-on-verification hover:bg-verification-strong"
+        >
+          Record it
+        </button>
+      </div>
+    </form>
+  {% endcall %}
 {% endblock %}

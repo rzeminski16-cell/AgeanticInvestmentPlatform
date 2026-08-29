@@ -42,6 +42,7 @@ from aer.services import calculations as calculation_service
 from aer.services import portfolio as portfolio_service
 from aer.services.listings import add_listing
 from aer.storage.local import LocalArtefactStore
+from aer.web import verdict as verdicts
 from aer.web import vocabulary
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
@@ -120,6 +121,7 @@ async def portfolio_page(
         )
         return broken
 
+    totals = _totals(view, book)
     response = render(
         request,
         "portfolio/index.html",
@@ -129,7 +131,8 @@ async def portfolio_page(
             "view": view,
             "rows": [_holding_row(row, book) for row in view.holdings],
             "cash": [_cash_row(row, book) for row in view.cash],
-            "totals": _totals(view, book),
+            "totals": totals,
+            "verdict": _book_verdict(view, totals=totals),
             "securities": await _dealable(session),
             "no_listings": NO_LISTINGS,
             "kinds": list(TransactionKind),
@@ -141,6 +144,45 @@ async def portfolio_page(
     )
     set_csrf_cookie(response, token)
     return response
+
+
+def _book_verdict(
+    view: portfolio_service.PortfolioView, *, totals: dict[str, object]
+) -> verdicts.Verdict:
+    """The sentence the book leads with, composed from what the walk actually resolved.
+
+    The book-level grade is stated here, once (the redesign's §10.1): every row's chip
+    stays for the row, and the sentence carries the weakest grade the whole book rests on.
+    An incomplete valuation refuses the success tone by construction — a partial book
+    presented as the all-clear is the exact failure the four coupled totals exist to stop.
+    """
+    if not view.holdings and not view.cash:
+        return verdicts.sentence(
+            ["nothing is recorded yet, so there is nothing to value"],
+            when_none="Nothing is recorded yet",
+            tone=vocabulary.Tone.MUTED,
+        )
+    if not totals["is_complete"]:
+        return verdicts.sentence(
+            [
+                "the four figures are withheld while a position cannot be valued",
+                "a partial sum shown as a total would overstate every weight on the page",
+            ],
+            when_none="The four figures are withheld",
+            tone=vocabulary.Tone.WARNING,
+            is_complete=False,
+            gap="the rows below name what could not be priced",
+        )
+    grade_clause = (
+        "some figures rest on typed, self-certified entries and are withheld from anything shared"
+        if view.rests_on_anything_typed
+        else "every figure rests on documented entries"
+    )
+    return verdicts.sentence(
+        [f"fully valued, net assets {totals['net_assets']}", grade_clause],
+        when_none="Fully valued",
+        tone=vocabulary.Tone.SUCCESS,
+    )
 
 
 @router.post("/portfolio", summary="Create the book")
