@@ -1206,7 +1206,77 @@ async def replay_run_page(
     report = await replay_run(session, store, job_id=job_id, settings=settings)
     await session.commit()
 
-    page: Response = render(request, "runs/replay.html", {"job": job, "report": report})
+    if not report.reproduces:
+        lead = verdicts.sentence(
+            [
+                verdicts.Count(
+                    len(report.calculations_diverged),
+                    "calculation re-derives outside tolerance",
+                    "calculations re-derive outside tolerance",
+                ),
+                verdicts.Count(
+                    len(report.citations_failed),
+                    "citation could not be re-verified",
+                    "citations could not be re-verified",
+                ),
+                verdicts.Count(
+                    len(report.artefacts_unreadable),
+                    "archived artefact cannot be read back",
+                    "archived artefacts cannot be read back",
+                ),
+                verdicts.Count(
+                    len(report.model_calls_unarchived),
+                    "model call has no archived exchange",
+                    "model calls have no archived exchange",
+                ),
+            ],
+            when_none="This run no longer reproduces",
+            tone=vocabulary.Tone.FAILURE,
+        )
+    elif report.checked:
+        lead = verdicts.sentence(
+            [
+                verdicts.Count(
+                    report.checked,
+                    "recorded derivation or citation still holds",
+                    "recorded derivations and citations still hold",
+                )
+            ],
+            when_none="Reproduces",
+            tone=vocabulary.Tone.SUCCESS,
+        )
+    else:
+        # Zero checks is not a pass: nothing failed because nothing was checkable, and the
+        # tone must not read as the all-clear (the verdict module refuses SUCCESS here).
+        lead = verdicts.sentence(
+            ["nothing in this run's record was checkable, which is not a pass"],
+            when_none="Nothing in this run's record was checkable, which is not a pass",
+            tone=vocabulary.Tone.MUTED,
+        )
+
+    page: Response = render(
+        request,
+        "runs/replay.html",
+        {
+            "job": job,
+            "report": report,
+            "verdict": lead,
+            "replayed_at_display": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
+            "findings": [
+                group
+                for group in (
+                    {
+                        "title": "Re-derivation outside tolerance",
+                        "items": report.calculations_diverged,
+                    },
+                    {"title": "Citation verification", "items": report.citations_failed},
+                    {"title": "Archived bytes", "items": report.artefacts_unreadable},
+                    {"title": "Model call archive", "items": report.model_calls_unarchived},
+                )
+                if group["items"]
+            ],
+        },
+    )
     return page
 
 

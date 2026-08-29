@@ -150,7 +150,7 @@ CEILING: Final[dict[str, int]] = {
     "runs/footnote.html": 0,
     "runs/peers.html": 0,
     "runs/problem.html": 0,
-    "runs/replay.html": 32,
+    "runs/replay.html": 0,
     "runs/review.html": 0,
     "runs/sector.html": 0,
     "runs/sources.html": 0,
