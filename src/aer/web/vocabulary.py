@@ -56,6 +56,7 @@ __all__ = [
     "REQUEST_STATES",
     "SECTION_STATES",
     "SKILL_KINDS",
+    "STEP_WORDS",
     "TRANSACTION_KINDS",
     "GateCertainty",
     "GateWords",
@@ -65,6 +66,7 @@ __all__ = [
     "job_state",
     "request_state",
     "section_state",
+    "step_label",
 ]
 
 
@@ -149,6 +151,56 @@ class GateWords:
 
 
 # -- Runs and steps ------------------------------------------------------------------------
+
+# What each workflow step is doing, in the operator's language. The technical key stays on
+# the page as secondary text — it is what a log line and the worker terminal say, and the
+# console's own explainer sends the operator to that terminal — but it is no longer the
+# primary label: nineteen technical tokens were the main content of the main page of the
+# main tool.
+#
+# Keyed by the workflow's own step keys rather than an enum, because step keys are strings a
+# workflow declares. `tests/test_presentation_vocabulary.py` walks `build_steps()` and fails
+# when a declared step has no words here; `step_label` still falls back to the key itself,
+# because a run recorded under a workflow this build no longer declares must render its
+# history rather than raise over it.
+STEP_WORDS: Final[dict[str, str]] = {
+    "plan": "Planning the research",
+    "critique_plan": "Critiquing the plan",
+    "gate_plan": "Your decision — the plan",
+    "acquire": "Fetching the filings",
+    "classify": "Deciding what kind of business this is",
+    "gate_sector_specialist": "Your decision — the sector",
+    "propose_peers": "Proposing comparable companies",
+    "gate_peer_set": "Your decision — the peer set",
+    "propose_themes": "Proposing themes",
+    "gate_theme_set": "Your decision — the themes",
+    "acquire_prices": "Fetching the price history",
+    "extract": "Reading the financial statements",
+    "gate_unmapped_concepts": "Your decision — the financials",
+    "calculate": "Computing the ratios and history",
+    "research_company": "Researching the company",
+    "research_industry": "Researching the industry",
+    "research_macro": "Researching the macro backdrop",
+    "research_recent_developments": "Researching recent developments",
+    "research_technical_context": "Researching the trading context",
+    "comps": "Building the comparables table",
+    "propose_assumptions": "Proposing valuation assumptions",
+    "gate_assumptions": "Your decision — the assumptions",
+    "value": "Valuing the company",
+    "draft": "Drafting the report",
+    "validate": "Checking the draft against the record",
+    "red_team": "Challenging the thesis",
+    "revise": "Redrafting the challenged sections",
+    "verdict": "Summing up the draft for review",
+    "gate_final": "Your decision — the report",
+    "render": "Rendering the report document",
+}
+
+
+def step_label(key: str) -> str:
+    """The human name of a step, or the key itself for one this build no longer declares."""
+    return STEP_WORDS.get(key, key)
+
 
 # `JobStatus` is the status of a step as well as of a run, so these labels are read in two
 # places: a nineteen-row step list, and the one chip at the top of the console. That is why
