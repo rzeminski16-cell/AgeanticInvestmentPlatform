@@ -2070,13 +2070,37 @@ async def reports_index(
             if needle in req.ticker.lower() or needle in req.company_name.lower()
         ]
 
+    # What each report's run cost, in one grouped query — the history row answers "was
+    # this conclusion worth what it cost?" without a click per report.
+    job_ids = [report.job_id for report, _ in rows if report.job_id is not None]
+    spend_by_job: dict[uuid.UUID, Decimal] = {}
+    if job_ids:
+        totals = await session.execute(
+            select(JobStep.job_id, func.sum(JobStep.cost_gbp))
+            .where(JobStep.job_id.in_(job_ids))
+            .group_by(JobStep.job_id)
+        )
+        spend_by_job = {
+            job_id: Decimal(total) for job_id, total in totals.tuples() if total is not None
+        }
+
     groups: dict[str, dict[str, Any]] = {}
     for report, req in rows:
         label = f"{req.company_name} ({req.ticker})"
         group = groups.setdefault(label, {"label": label, "company_id": None, "reports": []})
         if report.company_id is not None:
             group["company_id"] = report.company_id
-        group["reports"].append({"report": report, "request": req})
+        group["reports"].append(
+            {
+                "report": report,
+                "request": req,
+                "spend_display": (
+                    figures.pounds(spend_by_job[report.job_id])
+                    if report.job_id in spend_by_job
+                    else None
+                ),
+            }
+        )
 
     page: Response = render(
         request,

@@ -1,7 +1,9 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
 
 {#
-  A finished report.
+  A finished report. The document is the page: everything else — proof, export, evidence —
+  stays within reach but does not precede it for long.
 
   The Markdown is displayed as text and downloaded from the artefact store, never
   re-rendered. A re-render could differ from what was approved — by a section definition
@@ -14,166 +16,171 @@
 {% endblock %}
 
 {% block content %}
-  <div class="flex flex-wrap items-start justify-between gap-4">
-    <div>
-      <h1 class="text-2xl font-semibold tracking-tight">
-        {{ research_request.company_name if research_request else "Research note" }}
-      </h1>
-      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-        {% if research_request %}
-          <span class="font-mono">{{ research_request.ticker }}</span> &middot;
-        {% endif %}
-        as at <span id="as-of-date">{{ report.as_of_date.isoformat() }}</span>
-      </p>
-    </div>
-    <div class="flex flex-col items-end gap-2">
-      {% if report.immutable %}
-        <span
-          class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
-          id="immutable-badge"
-          title="Approved by a human and frozen. The stored bytes cannot change."
-        >
-          Approved and frozen
-        </span>
-      {% else %}
-        <span
-          class="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-900 dark:bg-amber-950 dark:text-amber-200"
-          id="draft-badge"
-        >
-          Not approved
-        </span>
+  {% call ui.page_header(
+    research_request.company_name if research_request else "Research note",
+    eyebrow="RESEARCH REPORT",
+  ) %}
+    <p class="type-body text-ink-muted">
+      {% if research_request %}
+        <span class="type-data-sm">{{ research_request.ticker }}</span> &middot;
       {% endif %}
-      <a
-        href="/api/reports/{{ report.id }}/download"
-        class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
-        id="download-report"
-      >
-        Download the archived Markdown
-      </a>
-      {% if report.html_artefact_id %}
-        <a
-          href="/api/reports/{{ report.id }}/download/html"
-          class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
-          id="download-html"
-        >
-          Download the archived HTML
-        </a>
-      {% endif %}
-      {% if report.pdf_artefact_id %}
-        <a
-          href="/api/reports/{{ report.id }}/download/pdf"
-          class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
-          id="download-pdf"
-        >
-          Download the PDF
-        </a>
-      {% else %}
-        <span class="text-sm text-slate-500 dark:text-slate-400" id="no-pdf">
-          No PDF: one is rendered only when a report is approved.
-        </span>
-      {% endif %}
-    </div>
-  </div>
+      as at <span id="as-of-date" class="type-data-sm">{{ report.as_of_date.isoformat() }}</span>
+    </p>
+    {% if report.immutable %}
+      <span id="immutable-badge" title="Approved by a human and frozen. The stored bytes cannot change.">
+        {{ ui.status("success", "Approved and frozen") }}
+      </span>
+    {% else %}
+      <span id="draft-badge">
+        {{ ui.status("muted", "Not approved") }}
+      </span>
+    {% endif %}
+  {% endcall %}
 
-  <dl class="mt-6 grid gap-4 sm:grid-cols-3">
-    <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-      <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Non-binding view</dt>
-      <dd class="mt-1 text-sm" id="rating">{{ report.rating or "no view reached" }}</dd>
+  {% if report.immutable %}
+    {{ ui.verdict(
+      "THE RECORD",
+      (report.rating or "No conclusion produced") ~ " — approved and frozen; the archived Markdown is byte-for-byte what was approved.",
+      tone="success",
+    ) }}
+  {% else %}
+    {{ ui.verdict(
+      "THE RECORD",
+      (report.rating or "No conclusion produced") ~ " — a draft, not approved and not part of company history.",
+      tone="muted",
+    ) }}
+  {% endif %}
+
+  <nav class="flex flex-wrap items-center gap-x-5 gap-y-2" aria-label="Report actions">
+    <a
+      href="/reports/{{ report.id }}/preview"
+      class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong"
+      id="report-preview"
+    >
+      Open the document preview
+    </a>
+    <a
+      href="/api/reports/{{ report.id }}/download"
+      class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong"
+      id="download-report"
+    >
+      Download the archived Markdown
+    </a>
+    {% if report.html_artefact_id %}
+      <a
+        href="/api/reports/{{ report.id }}/download/html"
+        class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong"
+        id="download-html"
+      >
+        Download the archived HTML
+      </a>
+    {% endif %}
+    {% if report.pdf_artefact_id %}
+      <a
+        href="/api/reports/{{ report.id }}/download/pdf"
+        class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong"
+        id="download-pdf"
+      >
+        Download the PDF
+      </a>
+    {% else %}
+      <span class="type-body-sm text-ink-muted" id="no-pdf">
+        No PDF: one is rendered only when a report is approved.
+      </span>
+    {% endif %}
+  </nav>
+
+  {% call ui.sheet("The report", subtitle="The archived Markdown, exactly as stored — the hashed record of what was approved. The preview shows the same rows as a formatted page.") %}
+    {# Text, not markup: see the note in the draft review page. #}
+    <pre
+      id="report-markdown"
+      class="overflow-x-auto whitespace-pre-wrap rounded-sm bg-surface-sunken p-4 type-data-sm text-ink"
+    >{{ markdown }}</pre>
+  {% endcall %}
+
+  <dl class="flex flex-wrap gap-x-10 gap-y-3">
+    <div>
+      <dt class="type-eyebrow text-ink-muted">Non-binding view</dt>
+      <dd class="mt-1 type-body text-ink" id="rating">{{ report.rating or "no view reached" }}</dd>
     </div>
-    <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-      <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Sections</dt>
-      <dd class="mt-1 font-mono text-sm" id="section-count">{{ section_keys | length }}</dd>
+    <div>
+      <dt class="type-eyebrow text-ink-muted">Sections</dt>
+      <dd class="mt-1 type-data text-ink" id="section-count">{{ section_keys | length }}</dd>
     </div>
-    <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-      <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Content hash</dt>
-      <dd class="mt-1 truncate font-mono text-xs" id="content-hash" title="{{ report.content_hash }}">
-        {{ report.content_hash[:16] }}…
+    <div>
+      <dt class="type-eyebrow text-ink-muted">Content hash</dt>
+      <dd class="mt-1 type-data-sm text-ink" id="content-hash" title="{{ report.content_hash }}">
+        {{ report.content_hash[:16] }}&hellip;
       </dd>
     </div>
   </dl>
 
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold tracking-tight">Sections</h2>
-    <ul class="mt-2 flex flex-wrap gap-2" id="section-keys">
-      {% for key in section_keys %}
-        <li
-          class="rounded-full bg-slate-200 px-3 py-1 font-mono text-xs text-slate-800 dark:bg-slate-800 dark:text-slate-200"
-        >
-          {{ key }}
-        </li>
-      {% endfor %}
-    </ul>
-  </section>
+  {% call ui.disclosure("Technical record") %}
+    <dl class="flex flex-col gap-3">
+      <div>
+        <dt class="type-eyebrow text-ink-muted">Full content hash</dt>
+        <dd class="mt-1 break-all type-data-sm text-ink">{{ report.content_hash }}</dd>
+      </div>
+      <div>
+        <dt class="type-eyebrow text-ink-muted">Sections in order</dt>
+        <dd class="mt-1">
+          <ul class="flex flex-wrap gap-x-4 gap-y-1" id="section-keys">
+            {% for key in section_keys %}
+              <li class="type-data-sm text-ink-muted">{{ key }}</li>
+            {% endfor %}
+          </ul>
+        </dd>
+      </div>
+    </dl>
+  {% endcall %}
 
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold tracking-tight">The report</h2>
-    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-      <a
-        href="/reports/{{ report.id }}/preview"
-        class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
-        id="report-preview"
-      >
-        Open the document preview
-      </a>
-      — the report as a formatted page. The archived Markdown below remains the hashed
-      record of what was approved.
-    </p>
-    {# Text, not markup: see the note in the draft review page. #}
-    <pre
-      id="report-markdown"
-      class="mt-3 overflow-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-4 font-mono text-xs leading-relaxed dark:border-slate-800 dark:bg-slate-900"
-    >{{ markdown }}</pre>
-  </section>
-
-  <section class="mt-8" id="obsidian-export">
-    <h2 class="text-lg font-semibold tracking-tight">Obsidian vault</h2>
+  {% call ui.sheet("Obsidian vault", id="obsidian-export") %}
     {% if not report.immutable %}
-      <p class="mt-2 text-sm text-slate-600 dark:text-slate-400" id="export-refused-draft">
+      <p class="type-body-sm text-ink-muted" id="export-refused-draft">
         Only approved reports export. This draft leaves no trace in the vault.
       </p>
     {% elif not vault_configured %}
-      <p class="mt-2 text-sm text-slate-600 dark:text-slate-400" id="export-unconfigured">
-        No vault is configured. Set <code class="font-mono">AER_OBSIDIAN_VAULT_ROOT</code>
+      <p class="type-body-sm text-ink-muted" id="export-unconfigured">
+        No vault is configured. Set <code class="type-data-sm">AER_OBSIDIAN_VAULT_ROOT</code>
         to enable exporting.
       </p>
     {% else %}
       <form
         method="post"
         action="/reports/{{ report.id }}/export-obsidian"
-        class="mt-2"
         id="export-form"
       >
         <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
         <button
           type="submit"
-          class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-slate-100 dark:text-slate-900"
+          class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong"
           id="export-obsidian-button"
         >
           Export to vault
         </button>
-        <span class="ml-2 text-xs text-slate-500 dark:text-slate-400">
+        <span class="ml-2 type-body-sm text-ink-muted">
           Nothing exports automatically; every export is an explicit act, recorded below.
         </span>
       </form>
     {% endif %}
     {% if exports %}
-      <ul class="mt-3 space-y-1 text-sm" id="export-history">
+      <ul class="mt-3 flex flex-col gap-1" id="export-history">
         {% for export in exports %}
-          <li class="text-slate-600 dark:text-slate-400">
+          <li class="type-body-sm text-ink-muted">
             {{ export.exported_at.strftime("%Y-%m-%d %H:%M UTC") }} &mdash;
             {{ export.files | length }} file(s), {{ export.generator_version }}
           </li>
         {% endfor %}
       </ul>
     {% endif %}
-  </section>
+  {% endcall %}
 
   <section
-    class="mt-8 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/40"
+    class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-warning-wash p-4"
     role="note"
   >
-    <h2 class="text-sm font-semibold text-amber-900 dark:text-amber-200">Important</h2>
-    <p class="mt-1 text-sm text-amber-900/90 dark:text-amber-100/90">{{ disclaimer }}</p>
+    <h2 class="type-label text-ink">Important</h2>
+    <p class="mt-1 type-body-sm text-ink">{{ disclaimer }}</p>
   </section>
 
   {#
@@ -182,29 +189,29 @@
     document end. Both are on the report itself rather than only on the console, because the
     report is what a reader has in front of them when they doubt a number.
   #}
-  <div class="mt-8 flex flex-wrap gap-4 border-t border-slate-200 pt-6 dark:border-slate-800">
+  <nav class="flex flex-wrap gap-5 border-t border-line pt-6" aria-label="Onwards">
     <a
       href="/runs/{{ report.job_id }}/claims"
-      class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
+      class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong"
       id="report-claims-link"
     >
       Every claim and its evidence
     </a>
     <a
       href="/runs/{{ report.job_id }}/sources"
-      class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
+      class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong"
       id="report-sources-link"
     >
       Sources and provenance
     </a>
     <a
       href="/runs/{{ report.job_id }}"
-      class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
+      class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong"
     >
       The run that produced this
     </a>
-    <a href="/requests" class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400">
+    <a href="/requests" class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong">
       All requests
     </a>
-  </div>
+  </nav>
 {% endblock %}
