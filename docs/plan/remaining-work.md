@@ -15,7 +15,7 @@ state — and the overhaul's live status is the top section of
 | **0** | Back to green — **done 2026-08-28** | §3.12's red suite | — |
 | **1A** | The drafting failure | §2.1, §2.2 | `run-diagnosis.json` from the operator |
 | **1B** | The portfolio's third door | §3.1 | The ADR amending 0072 — writable now |
-| **2** | The overhaul, tranches 6–9 | §3.12, closing §2.5 | Phase 0 green; tranche 8 wants §3.1 landed |
+| **2** | The overhaul, tranches 7–9 — 6 done 2026-08-29 | §3.12, closing §2.5 | Tranche 8 wants §3.1 landed |
 | **3** | The document and the data fixes | §2.4, §2.6, §2.7, §2.8 | Nothing — surfaces phase 2 does not touch |
 | **4** | Portfolio depth | §3.2, §3.3, §3.4 | §3.2 wants tranche 8's layout |
 | **5** | The judgement layer | §3.5–§3.11 | Strict order; §3.3 before §3.6 |
@@ -27,12 +27,12 @@ restores a baseline rather than building anything.
 
 ## What the order turns on
 
-**Phase 0 is done, 2026-08-28.** The thirty-three were fixed the day they were reproduced —
-two turned out to be product gaps rather than stale tests — and both suites are green:
-5,945 in-process, 163 browser. The record is the overhaul plan's status section; phase 2's
-gate is cleared, and tranche 6 is next. What stays true for every later phase: in a remote
-session a local PostgreSQL and Redis come first — without a database the default suite
-silently skips 1,849 tests.
+**Phase 0 is done, 2026-08-28, and tranche 6 followed on 2026-08-29** — the console, the
+seven gates on one frame, the per-request assumptions surfaces and the `verdict` role
+(ADR 0087), with both suites seen green before the closing commit. The record is the
+overhaul plan's status section; tranche 7 is next. What stays true for every later phase: in
+a remote session a local PostgreSQL and Redis come first — without a database the default
+suite silently skips 1,849 tests.
 
 **1A and 1B are parallel tracks.** §2.1 and §2.2 diagnose from the export before anything is
 changed — the hypotheses the code already admits are recorded on the items — and the
@@ -41,8 +41,8 @@ loop (ADR 0091) against the same sections for the first time. §3.1 is four step
 roadmap's own order, the ADR first, and must land before tranche 8 rewrites the portfolio
 form it adds a door to.
 
-**Phase 2 resumes exactly where the overhaul plan's status section says.** Tranche 6 wants
-the green base because it touches the workflow engine (the `verdict` role, ADR 0087);
+**Phase 2 resumes exactly where the overhaul plan's status section says.** Tranche 6 is
+done — it was the one that touched the workflow engine (the `verdict` role, ADR 0087);
 tranche 7 is where a handler first builds a `RenderedFigure` from a `LineageNode` — the one
 gap tranche 1 left open by design; tranche 9 closes §2.5 and §3.12 together and ends with the
 manual pass.

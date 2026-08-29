@@ -28,8 +28,9 @@ thing that would otherwise put a wrong number, or no answer at all, in front of 
    dealt at all, so the portfolio tool is unusable on a machine whose runs were unpriced.
 3. **§2.4 — the report document's layout.** The disagreement appendix puts a two-hundred-word
    objection in a narrow column and one row spans three pages; neither position can be read.
-4. **§3.12 — the interface overhaul.** Five tranches of ten built and, since 2026-08-28,
-   verified green — 5,945 in-process and 163 browser tests. Resume at tranche 6; the live
+4. **§3.12 — the interface overhaul.** Six tranches of ten built and verified green —
+   tranche 6 (the console, the seven gates and the `verdict` role under ADR 0087) landed
+   2026-08-29. Resume at tranche 7; the live
    record is the status section of [`interface-overhaul.md`](interface-overhaul.md). It is
    placed here rather
    than lower because §2.5 is inside it: migrating the palette first would do the most
@@ -320,8 +321,8 @@ mistake ADR 0075 names.
 **3.11 The methodology library.** Three `SkillKind`s that are versioned, pinned and
 composed. Mostly does not exist yet.
 
-**3.12 The interface overhaul. Specified, designed and planned 2026-08-25; five tranches of
-ten built and verified green by 2026-08-28 — the live
+**3.12 The interface overhaul. Specified, designed and planned 2026-08-25; six tranches of
+ten built and verified green by 2026-08-29 — the live
 status is the top section of [`interface-overhaul.md`](interface-overhaul.md).** Four
 surfaces are in scope and the rest of the product is deliberately not: **the main menu, the menu
 system and shell, the Equity Research tool, and the Portfolio tool.**

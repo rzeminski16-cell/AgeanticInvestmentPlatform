@@ -14,13 +14,15 @@ because the exit criteria below are stated in terms of it.
 
 ---
 
-## Where this stands — 2026-08-28
+## Where this stands — 2026-08-29
 
-**Five tranches of ten are built, and the trunk is green.** Tranche 5 merged red on
-2026-08-28 — thirty-three browser failures, with the in-process suite unrun since — and was
-brought back to green the same day. This section is the live status and the one place it is
-kept; the roadmap and the running order point here rather than repeating it. (It absorbs the
-separate handover document that briefly existed on 2026-08-28.)
+**Six tranches of ten are built, and the trunk is green.** Tranche 6 — the largest, 44% of
+the debt — landed on 2026-08-29 with both suites seen green before the closing commit, the
+rule tranche 5 paid for applied for the first time. It carried the one piece of new model
+plumbing in the overhaul: the `verdict` role and step under ADR 0087. This section is the
+live status and the one place it is kept; the roadmap and the running order point here
+rather than repeating it. (It absorbs the separate handover document that briefly existed
+on 2026-08-28.)
 
 | Tranche | State | Last full verification |
 |---|---|---|
@@ -29,8 +31,8 @@ separate handover document that briefly existed on 2026-08-28.)
 | **2 — Tokens** | Done | 5,823 · 137 |
 | **3 — Macros** | Done | 5,888 · 161 |
 | **4 — Shell** | Done | 5,888 · 161 |
-| **5 — Overview and requests** | Done | **5,945 · 163**, 2026-08-28, after the red merge below |
-| **6 — Console and gates** | Not started | — |
+| **5 — Overview and requests** | Done | 5,945 · 163, 2026-08-28, after the red merge below |
+| **6 — Console and gates** | Done | **5,968 · 172**, 2026-08-29, green before the commit |
 | **7 — Evidence and reports** | Not started | — |
 | **8 — Portfolio, skills, knowledge** | Not started | — |
 | **9 — Removal and hardening** | Not started | — |
@@ -55,18 +57,23 @@ cannot catch a page whose *words* changed; those tests live in the browser suite
 standing rule: **a tranche that touches templates is finished when the browser suite has been
 seen green, before the commit.** That time is part of the work.
 
-**The ramp ledger.** Opened at **1,837** raw Tailwind classes; stands at **1,594** — tranche 5
-removed exactly the 243 predicted. By area:
+**The ramp ledger.** Opened at **1,837** raw Tailwind classes; stands at **788** — tranche 6
+removed exactly the 806 predicted, across the console, the seven gates, the problem page and
+the per-request assumptions surfaces. What remains, by area — and the remainders still match
+the plan's tranche predictions exactly (410 · 311 · 67):
 
 | Ramps | Where | Tranche |
 |---:|---|---|
-| 848 | `runs/` | 6 (console and gates), 7 (evidence) |
+| 228 | `runs/` (evidence pages; the console and gates are done) | 7 |
 | 175 | `skills/` | 8 |
 | 102 | `reports/` | 7 |
-| 85 | `plans/` | 6 |
-| 56 | `knowledge` | 8 |
+| 62 | `companies/` | 8 |
+| 56 | `knowledge/` | 8 |
+| 53 | `claims/` | 7 |
+| 34 | `settings/` | 9 |
+| 33 | `spend/` | 9 |
+| 27 | `calculations/` | 7 |
 | 18 | `portfolio/` | 8 |
-| 310 | everything else | 8, 9 |
 
 **State the method with the number** whenever this is re-measured: counting variant-qualified
 names (`hover:bg-slate-100`) and counting base utilities (`bg-slate-100`) give different
@@ -78,10 +85,10 @@ grep -ohrE '\b(text|bg|border|ring|divide|from|to|via|placeholder|decoration|out
   src/aer/web/templates | sort | uniq -c | sort -rn
 ```
 
-**Next is tranche 6** — the largest, and the one piece of new model plumbing left (the
-`verdict` role under ADR 0087; building it needs no model spend, the fake provider covers the
-tests, and it touches the workflow engine, which is why it wanted the green base it now has).
-Then 7, 8 and 9 in order. Roadmap §3.1 lands before tranche 8 rewrites the portfolio form.
+**Next is tranche 7** — evidence and reports, 410 ramps across nine templates, and the
+tranche where a handler first builds a `RenderedFigure` from a `LineageNode` (the one gap
+tranche 1 left open by design). Then 8 and 9 in order. Roadmap §3.1 lands before tranche 8
+rewrites the portfolio form.
 
 **Open beyond the last tranche:** roadmap §2.1 and §3.1, sequenced ahead of this overhaul and
 neither started — the running order is [`remaining-work.md`](remaining-work.md) · the Firefox
@@ -518,6 +525,15 @@ shared; the evidence is not.
 stays hash-bound, non-optimistic and refused when stale; the assumptions gate still renders
 from current rows; **the authored verdict is never citable and its absence never reads as a
 defect.**
+
+**Done 2026-08-29, both suites seen green before the closing commit.** The console reads its
+state from data attributes the script never composes; the seven gates share one frame
+(`runs/_gate.html`) with the decision panel after the evidence in DOM order; a stale payload
+hash is now refused at POST time on every gate, exercised from a real browser; the `verdict`
+step joined the workflow between `revise` and the final gate without moving the gate's hash
+seal, and a run it fails on still renders a complete composed verdict. The per-request
+assumptions surfaces moved onto the component set with the same rows and acts as the gate,
+minus the gate. Exactly the predicted 806 ramps came out.
 
 ### Tranche 7 — Evidence and reports
 
