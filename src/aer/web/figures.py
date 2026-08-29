@@ -27,10 +27,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Final
+from typing import Any, Final
 
+from aer.config import HouseStyle
+from aer.render import display
 from aer.services.overview import TypicalCost
-from aer.web.shell.provenance import ProvenanceRef
+from aer.web.shell.provenance import Provenance, ProvenanceRef
 from aer.web.vocabulary import Tone
 
 __all__ = [
@@ -39,6 +41,7 @@ __all__ = [
     "RenderedFigure",
     "cost_context",
     "cost_guidance",
+    "lineage_figure",
     "pounds",
     "waited_for",
 ]
@@ -233,6 +236,67 @@ class RenderedFigure:
         the reader to two different places, and a dash sends them to neither.
         """
         return cls(value_display=NOT_AVAILABLE, unavailable_because=because, label=label)
+
+
+# The lineage kinds the walk resolves, mapped into ADR 0077's taxonomy. A kind outside this
+# mapping is a node the walk could not resolve, and its figure says so rather than guessing.
+_LINEAGE_PROVENANCE: Final[dict[str, Provenance]] = {
+    "calculation": Provenance.CALCULATED,
+    "calculation_ref": Provenance.CALCULATED,
+    "fact": Provenance.SOURCE_FACT,
+    "assumption": Provenance.ASSUMED,
+    "attestation": Provenance.ATTESTED,
+}
+
+_UNAVAILABLE_BECAUSE: Final[dict[str, str]] = {
+    "missing": "this input points at something no longer here",
+    "truncated": "the walk stops here; the tree is deeper than this page renders",
+}
+
+
+def lineage_figure(
+    row: dict[str, Any], *, request_id: Any, job_id: Any, style: HouseStyle
+) -> RenderedFigure:
+    """One lineage row's value as a figure, with its drill-down or the reason there is none.
+
+    The gap tranche 1 left open by design: :class:`~aer.services.calculations.LineageNode`
+    carries a ``Decimal`` and a unit string, and a template rendering the walk would have to
+    format the figure itself, against the ``_display`` convention. So the handler builds the
+    figure here — the value in house style, and a provenance reference whose ``href`` is the
+    same walk the old template composed inline: a calculation to its own page, an assumption
+    to its history, a fact to the document it was reported in, an attestation to the book.
+    """
+    label = str(row.get("label") or row.get("kind") or "input")
+    reason = _UNAVAILABLE_BECAUSE.get(str(row["kind"]))
+    if reason is not None:
+        return RenderedFigure.unavailable(reason, label=label)
+
+    kind = _LINEAGE_PROVENANCE.get(str(row["kind"]))
+    if kind is None or not row.get("is_resolved", True):
+        return RenderedFigure.unavailable(_UNAVAILABLE_BECAUSE["missing"], label=label)
+    if row.get("value") is None:
+        return RenderedFigure.unavailable("this input records no value", label=label)
+
+    detail = row.get("detail") or {}
+    document = str(detail.get("source_document_id") or "")
+    if kind is Provenance.CALCULATED:
+        # The root row is this page; its walk is the formula above the table.
+        href = f"/calculations/{row['id']}" if row.get("depth") else "#formula"
+    elif kind is Provenance.ASSUMED:
+        href = f"/requests/{request_id}/assumptions/{row['id']}"
+    elif document:
+        href = f"/runs/{job_id}/sources#source-{document}"
+    elif kind is Provenance.ATTESTED:
+        href = "/portfolio"
+    else:
+        href = f"/runs/{job_id}/sources"
+
+    shown = display.scalar(
+        row["value"], style=style, unit=str(row.get("unit") or ""), label=label, in_table=True
+    )
+    return RenderedFigure.traced(
+        shown, ProvenanceRef(kind=kind, identifier=label, href=href), label=label
+    )
 
 
 def cost_guidance(typical: TypicalCost) -> str:

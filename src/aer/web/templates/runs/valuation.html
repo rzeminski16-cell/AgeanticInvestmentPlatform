@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
 
 {#
   The valuation surface. Server-rendered, no script of its own -- the pattern task 20
@@ -13,99 +14,91 @@
      discounted cash flow whose terminal value is three-quarters of the answer is a statement
      about one assumption, and a reader has to meet that where they meet the number.
 
-  Every figure is a link to the calculation that produced it. That is the two-click standard:
-  one click to the arithmetic, one more to the fact or assumption underneath.
+  Every figure is a link to the calculation that produced it, printed exactly as the ledger
+  recorded it. Nothing here is recomputed — a page that re-ran the valuation would show
+  today's answer against yesterday's report, and both would look authoritative.
 #}
 
 {% block title %}Valuation &middot; Tracework Invest{% endblock %}
 
 {% block content %}
-  <nav class="text-sm">
-    <a href="/runs/{{ job.id }}" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
-      &larr; Back to the run
-    </a>
-  </nav>
-
-  <h1 class="mt-4 text-2xl font-semibold tracking-tight">Valuation</h1>
-  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-    Every figure below is a link to the calculation that produced it, and every calculation
-    lists the facts and assumptions it rests on. Nothing here is recomputed &mdash; this is
-    what the run recorded.
-  </p>
+  {{ ui.page_header(
+    "Valuation",
+    eyebrow="WHAT THE RUN PRODUCED",
+    identity="Every figure links to the calculation that produced it; every calculation lists the facts and assumptions it rests on.",
+    breadcrumbs=[{"href": "/runs/" ~ job.id, "label": "Run console"}],
+  ) }}
 
   {% if view.sector %}
     <section
-      class="mt-6 rounded-md border-2 border-amber-500 bg-amber-50 p-5 dark:border-amber-700 dark:bg-amber-950/40"
+      class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-warning-wash p-5"
       role="alert"
       id="sector-banner"
     >
-      <h2 class="text-base font-bold text-amber-900 dark:text-amber-100">
-        {{ view.sector.label }}
-      </h2>
+      <h2 class="type-title-2 text-ink">{{ view.sector.label }}</h2>
       {% if view.sector.blocked_models %}
-        <p class="mt-2 text-sm font-semibold text-amber-900 dark:text-amber-100">
+        <p class="mt-2 type-body text-ink">
           This platform does not run
           {{ view.sector.blocked_models | join(', ') }} for this sector. The model is blocked
           rather than discouraged: it was not run, and no figure on this page came from it.
         </p>
       {% endif %}
       {% if view.sector.warnings %}
-        <ul class="mt-3 list-disc space-y-2 pl-5 text-sm text-amber-900/90 dark:text-amber-100/90">
+        <ul class="mt-3 flex list-disc flex-col gap-2 pl-5 type-body-sm text-ink">
           {% for warning in view.sector.warnings %}<li>{{ warning }}</li>{% endfor %}
         </ul>
       {% endif %}
     </section>
   {% endif %}
 
+  {{ ui.verdict("THE VALUATION", verdict.composed, tone=verdict.tone.value) }}
+
   {% if view.sector and view.sector.blocks_the_dcf %}
-    <p class="mt-8 text-sm" id="no-dcf">
+    <p class="type-body text-ink" id="no-dcf">
       No discounted cash flow is shown, because none was run.
     </p>
   {% elif not view.has_valuation %}
-    <p class="mt-8 text-sm" id="no-valuation">
+    <p class="type-body text-ink" id="no-valuation">
       This run recorded no valuation. Nothing is computed here to fill the gap &mdash; a
       figure produced by this page would be a figure the report does not contain.
     </p>
   {% else %}
-    <section class="mt-8">
-      <h2 class="text-lg font-semibold tracking-tight">Both terminal methods</h2>
-      <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-        Two terminal assumptions, carried through separately. Where they disagree, that
-        disagreement is the finding.
-      </p>
-
-      <div class="mt-4 overflow-x-auto">
-        <table class="w-full min-w-[36rem] border-collapse text-sm" id="terminal-methods">
+    {% call ui.sheet("Both terminal methods", subtitle="Two terminal assumptions, carried through separately. Where they disagree, that disagreement is the finding.") %}
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[36rem] border-collapse" id="terminal-methods">
+          <caption class="sr-only">
+            Both terminal methods, carried to a value per share, each figure a link to its
+            recorded calculation.
+          </caption>
           <thead>
-            <tr class="border-b border-slate-300 text-left dark:border-slate-700">
-              <th scope="col" class="py-2 pr-4 font-semibold">Figure</th>
+            <tr class="border-b border-line-strong text-left">
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Figure</th>
               {% for outcome in outcomes %}
-                <th scope="col" class="py-2 pr-4 font-semibold">{{ outcome.label }}</th>
+                <th scope="col" class="py-2 pr-4 type-label text-ink-muted">{{ outcome.label }}</th>
               {% endfor %}
             </tr>
           </thead>
-          <tbody>
+          <tbody class="divide-y divide-line">
             {% for row_key, row_label in rows %}
-              <tr class="border-b border-slate-200 dark:border-slate-800">
-                <th scope="row" class="py-2 pr-4 text-left font-normal">{{ row_label }}</th>
+              <tr>
+                <th scope="row" class="py-3 pr-4 text-left type-body text-ink">{{ row_label }}</th>
                 {% for outcome in outcomes %}
                   {% set figure = outcome[row_key] %}
-                  <td class="py-2 pr-4">
+                  <td class="py-3 pr-4">
                     {% if figure %}
                       <a
                         href="{{ figure.href }}"
-                        class="font-mono text-sky-700 underline underline-offset-2 dark:text-sky-400"
+                        class="type-data text-verification underline underline-offset-[3px] hover:text-verification-strong"
                         id="figure-{{ outcome.method.value }}-{{ row_key }}"
                       >{{ figure.value }}</a>
-                      <span class="text-xs text-slate-500">{{ figure.unit }}</span>
+                      <span class="type-data-sm text-ink-muted">{{ figure.unit }}</span>
                       {% if row_key == 'terminal_share' and outcome.terminal_share_is_high %}
-                        <span
-                          class="ml-1 rounded bg-amber-200 px-1 text-xs font-semibold text-amber-900 dark:bg-amber-900 dark:text-amber-100"
-                          id="high-terminal-{{ outcome.method.value }}"
-                        >most of the answer</span>
+                        <span class="ml-1" id="high-terminal-{{ outcome.method.value }}">
+                          {{ ui.status("warning", "most of the answer") }}
+                        </span>
                       {% endif %}
                     {% else %}
-                      <span class="text-slate-500">not recorded</span>
+                      <span class="type-body-sm text-ink-muted">not recorded</span>
                     {% endif %}
                   </td>
                 {% endfor %}
@@ -115,48 +108,67 @@
         </table>
       </div>
 
-      {% if view.methods_disagree is not none %}
-        <p class="mt-3 text-sm" id="method-disagreement">
+      {% if disagreement_display %}
+        <p class="mt-4 type-body text-ink" id="method-disagreement">
           The two methods differ by
-          <span class="font-mono">{{ '%.1f' | format(view.methods_disagree * 100) }}%</span>
+          <span class="type-data">{{ disagreement_display }}%</span>
           of the lower figure.
         </p>
       {% endif %}
-    </section>
+    {% endcall %}
   {% endif %}
 
   {% if view.grids %}
-    <section class="mt-10">
-      <h2 class="text-lg font-semibold tracking-tight">Sensitivity</h2>
+    {% call ui.sheet("Sensitivity") %}
+      {% if heatmap %}
+        {#
+          Drawn by code from the same stored rows the table below shows — byte-identical
+          for identical rows, every cell a recorded calculation. The table stays beside it
+          with the exact ledger values; the drawing adds shape, never data.
+        #}
+        <figure id="sensitivity-heatmap">
+          <div class="overflow-x-auto">
+            <img
+              src="{{ heatmap.uri }}"
+              alt="{{ heatmap.caption }}"
+              class="w-full max-w-3xl rounded-sm border border-line bg-surface"
+            />
+          </div>
+          <figcaption class="mt-2 max-w-prose type-body-sm text-ink-muted">
+            {{ heatmap.caption }}
+          </figcaption>
+        </figure>
+      {% endif %}
       {% for grid in view.grids %}
-        <h3 class="mt-4 text-sm font-semibold">{{ grid.label }}</h3>
-        <p class="mt-1 text-xs text-slate-500">
+        <h3 class="mt-6 type-subheading text-ink">{{ grid.label }}</h3>
+        <p class="mt-1 type-body-sm text-ink-muted">
           {{ grid.output_name }} ({{ grid.output_unit }}),
-          <span class="font-mono">{{ grid.y_assumption }}</span> down against
-          <span class="font-mono">{{ grid.x_assumption }}</span> across.
+          <span class="type-data-sm">{{ grid.y_assumption }}</span> down against
+          <span class="type-data-sm">{{ grid.x_assumption }}</span> across.
           Every cell is a valuation of its own and links to it.
         </p>
         <div class="mt-2 overflow-x-auto">
-          <table class="min-w-full border-collapse text-sm" id="grid-{{ loop.index0 }}">
+          <table class="min-w-full border-collapse" id="grid-{{ loop.index0 }}">
+            <caption class="sr-only">{{ grid.label }}, every cell a recorded calculation.</caption>
             <thead>
-              <tr class="border-b border-slate-300 text-left dark:border-slate-700">
-                <th scope="col" class="py-2 pr-4 font-semibold">
+              <tr class="border-b border-line-strong text-left">
+                <th scope="col" class="py-2 pr-4 type-label text-ink-muted">
                   {{ grid.y_assumption }} \ {{ grid.x_assumption }}
                 </th>
                 {% for x in grid.x_values %}
-                  <th scope="col" class="py-2 pr-4 text-right font-mono font-semibold">{{ x }}</th>
+                  <th scope="col" class="py-2 pr-4 text-right type-data-sm text-ink">{{ x }}</th>
                 {% endfor %}
               </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-line">
               {% for y, cells in grid.rows %}
-                <tr class="border-b border-slate-200 dark:border-slate-800">
-                  <th scope="row" class="py-2 pr-4 text-left font-mono font-normal">{{ y }}</th>
+                <tr>
+                  <th scope="row" class="py-2 pr-4 text-left type-data-sm text-ink">{{ y }}</th>
                   {% for x, output, calculation_id in cells %}
                     <td class="py-2 pr-4 text-right">
                       <a
                         href="/calculations/{{ calculation_id }}"
-                        class="font-mono text-sky-700 underline underline-offset-2 dark:text-sky-400"
+                        class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong"
                       >{{ output }}</a>
                     </td>
                   {% endfor %}
@@ -166,57 +178,55 @@
           </table>
         </div>
       {% endfor %}
-    </section>
+    {% endcall %}
   {% endif %}
 
-  <section class="mt-10">
-    <h2 class="text-lg font-semibold tracking-tight">Comparable companies</h2>
+  {% call ui.sheet("Comparable companies") %}
     {% if comps_rows %}
-      <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+      <p class="max-w-prose type-body-sm text-ink-muted">
         Against
         {{ comps_rows | length }} peer{{ '' if comps_rows | length == 1 else 's' }} a person
-        confirmed, on a <span class="font-mono">{{ view.comps.basis.value }}</span> basis as at
+        confirmed, on a <span class="type-data-sm">{{ view.comps.basis.value }}</span> basis as at
         {{ view.comps.as_of }}.
       </p>
-      <div
-        class="mt-3 rounded-md border border-slate-300 bg-slate-100 p-3 text-sm dark:border-slate-700 dark:bg-slate-800"
-        role="note"
-        id="internal-only"
-      >
+      <div class="mt-3 rounded-sm border border-line bg-surface-sunken p-3 type-body-sm text-ink" role="note" id="internal-only">
         <strong>Internal only.</strong> These figures derive from market data licensed for
         internal use with no derived-data exemption. They appear on this page and in no
         exported report.
       </div>
       <div class="mt-3 overflow-x-auto">
-        <table class="w-full min-w-[40rem] border-collapse text-sm" id="comps-table">
+        <table class="w-full min-w-[40rem] border-collapse" id="comps-table">
+          <caption class="sr-only">
+            Confirmed peers and the subject, one column per multiple, with the peer median.
+          </caption>
           <thead>
-            <tr class="border-b border-slate-300 text-left dark:border-slate-700">
-              <th scope="col" class="py-2 pr-4 font-semibold">Company</th>
+            <tr class="border-b border-line-strong text-left">
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Company</th>
               {% for key, label in comps_keys %}
-                <th scope="col" class="py-2 pr-4 text-right font-semibold">{{ label }}</th>
+                <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">{{ label }}</th>
               {% endfor %}
             </tr>
           </thead>
-          <tbody>
+          <tbody class="divide-y divide-line">
             {% for row in comps_rows %}
-              <tr class="border-b border-slate-200 dark:border-slate-800">
-                <th scope="row" class="py-2 pr-4 text-left font-normal">
+              <tr>
+                <th scope="row" class="py-2 pr-4 text-left type-body text-ink">
                   {{ row.name }}
                   {% if row.identifier == view.comps.subject.identifier %}
-                    <span class="ml-1 text-xs font-semibold text-sky-700 dark:text-sky-400">subject</span>
+                    <span class="ml-1 type-label text-verification">subject</span>
                   {% endif %}
                 </th>
                 {% for key, label in comps_keys %}
                   {% set found = row.multiple(key) %}
                   <td class="py-2 pr-4 text-right">
                     {% if found and found.present %}
-                      <span class="font-mono">{{ '%.1f' | format(found.value) }}x</span>
+                      <span class="type-data-sm text-ink">{{ '%.1f' | format(found.value) }}x</span>
                       {% if found.is_implausible %}
-                        <span class="ml-1 text-xs text-amber-700 dark:text-amber-400">check</span>
+                        <span class="ml-1 type-body-sm text-warning-ink">check</span>
                       {% endif %}
                     {% else %}
                       <span
-                        class="text-xs text-slate-500"
+                        class="type-body-sm text-ink-muted"
                         title="{{ found.absent_because if found else 'not computed' }}"
                       >n/m</span>
                     {% endif %}
@@ -224,11 +234,11 @@
                 {% endfor %}
               </tr>
             {% endfor %}
-            <tr class="border-t-2 border-slate-400 dark:border-slate-600">
-              <th scope="row" class="py-2 pr-4 text-left font-semibold">Peer median</th>
+            <tr class="border-t-2 border-line-strong">
+              <th scope="row" class="py-2 pr-4 text-left type-body-strong text-ink">Peer median</th>
               {% for key, label in comps_keys %}
                 {% set median = view.comps.median_of(key) %}
-                <td class="py-2 pr-4 text-right font-mono font-semibold">
+                <td class="py-2 pr-4 text-right type-data-sm text-ink">
                   {{ '%.1f' | format(median) ~ 'x' if median is not none else '—' }}
                 </td>
               {% endfor %}
@@ -238,46 +248,41 @@
       </div>
 
       {% if comps_excluded %}
-        <h3 class="mt-4 text-sm font-semibold">Excluded, and why</h3>
-        <ul class="mt-2 list-disc space-y-1 pl-5 text-sm" id="comps-excluded">
+        <h3 class="mt-4 type-subheading text-ink">Excluded, and why</h3>
+        <ul class="mt-2 flex list-disc flex-col gap-1 pl-5 type-body-sm text-ink" id="comps-excluded">
           {% for excluded in comps_excluded %}
             <li><strong>{{ excluded.name }}</strong> &mdash; {{ excluded.reason }}</li>
           {% endfor %}
         </ul>
       {% endif %}
     {% else %}
-      <p class="mt-2 text-sm" id="no-comps">
+      <p class="type-body text-ink" id="no-comps">
         No comparables table was produced for this run. Either no peers were proposed, or the
         peer set was never confirmed &mdash; and an unconfirmed comparison is one nobody can
         defend, so none is shown.
       </p>
     {% endif %}
-  </section>
+  {% endcall %}
 
   {% if internal_charts %}
-    <section class="mt-8" id="internal-charts">
-      <h2 class="text-lg font-semibold tracking-tight">Internal charts</h2>
+    {% call ui.sheet("Internal charts", subtitle="Drawn from licensed market data for internal review; none of this appears in any exportable report.", id="internal-charts") %}
       {#
         Licensed geometry. These render here and nowhere else: their builders mark them
         non-exportable and the report assembler refuses them (ADR 0043), so this page is
         the only surface that can carry a price line.
       #}
-      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-        Drawn from licensed market data for internal review; none of this appears in any
-        exportable report.
-      </p>
       {% for chart in internal_charts %}
-        <figure class="mt-4" id="internal-chart-{{ chart.key }}">
+        <figure class="mt-4 first:mt-0" id="internal-chart-{{ chart.key }}">
           <img
             src="{{ chart.uri }}"
             alt="{{ chart.title }}"
-            class="w-full rounded-md border border-slate-200 bg-white dark:border-slate-800"
+            class="w-full rounded-sm border border-line bg-surface"
           />
-          <figcaption class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          <figcaption class="mt-1 type-body-sm text-ink-muted">
             {{ chart.title }}
           </figcaption>
         </figure>
       {% endfor %}
-    </section>
+    {% endcall %}
   {% endif %}
 {% endblock %}

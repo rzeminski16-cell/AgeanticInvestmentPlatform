@@ -15,7 +15,15 @@ from decimal import Decimal
 
 import pytest
 
-from aer.web.figures import NOT_AVAILABLE, RenderedFigure, cost_context, pounds, tone_for
+from aer.config import HouseStyle
+from aer.web.figures import (
+    NOT_AVAILABLE,
+    RenderedFigure,
+    cost_context,
+    lineage_figure,
+    pounds,
+    tone_for,
+)
 from aer.web.overview.pages import _pounds
 from aer.web.shell.provenance import Provenance, ProvenanceRef
 from aer.web.vocabulary import Tone
@@ -198,3 +206,72 @@ class TestAnAbsentFigureSaysWhyItIsAbsent:
             RenderedFigure(
                 value_display=NOT_AVAILABLE, provenance=_REF, unavailable_because="not filed"
             )
+
+
+class TestALineageRowBecomesAFigure:
+    """The tranche-7 closure of the gap tranche 1 left: the handler formats the node's
+    value and attaches the drill-down, so no template touches a Decimal or composes an
+    origin link."""
+
+    @staticmethod
+    def _row(**overrides: object) -> dict[str, object]:
+        base: dict[str, object] = {
+            "kind": "calculation",
+            "id": "calc-1",
+            "label": "value_per_share",
+            "value": Decimal("42.10"),
+            "unit": "GBP",
+            "detail": {},
+            "depth": 1,
+            "is_leaf": False,
+            "is_resolved": True,
+        }
+        base.update(overrides)
+        return base
+
+    def _figure(self, row: dict[str, object]) -> RenderedFigure:
+        return lineage_figure(row, request_id="req-1", job_id="job-1", style=HouseStyle())
+
+    def test_a_sub_calculation_walks_to_its_own_page(self) -> None:
+        figure = self._figure(self._row())
+        assert figure.provenance is not None
+        assert figure.provenance.kind is Provenance.CALCULATED
+        assert figure.provenance.href == "/calculations/calc-1"
+
+    def test_the_root_row_walks_to_the_formula_above_it(self) -> None:
+        figure = self._figure(self._row(depth=0))
+        assert figure.provenance is not None
+        assert figure.provenance.href == "#formula"
+
+    def test_an_assumption_walks_to_its_history(self) -> None:
+        figure = self._figure(self._row(kind="assumption", id="asm-1"))
+        assert figure.provenance is not None
+        assert figure.provenance.kind is Provenance.ASSUMED
+        assert figure.provenance.href == "/requests/req-1/assumptions/asm-1"
+
+    def test_a_fact_walks_to_the_document_it_was_reported_in(self) -> None:
+        figure = self._figure(self._row(kind="fact", detail={"source_document_id": "doc-9"}))
+        assert figure.provenance is not None
+        assert figure.provenance.kind is Provenance.SOURCE_FACT
+        assert figure.provenance.href == "/runs/job-1/sources#source-doc-9"
+
+    def test_a_fact_with_no_document_still_reaches_the_sources_table(self) -> None:
+        figure = self._figure(self._row(kind="fact"))
+        assert figure.provenance is not None
+        assert figure.provenance.href == "/runs/job-1/sources"
+
+    def test_a_dangling_reference_is_shown_as_unresolved_not_hidden(self) -> None:
+        figure = self._figure(self._row(kind="missing", value=None, is_resolved=False))
+        assert not figure.is_available
+        assert figure.provenance is None
+        assert "no longer here" in figure.unavailable_because
+
+    def test_a_truncated_walk_says_the_tree_is_deeper(self) -> None:
+        figure = self._figure(self._row(kind="truncated", value=None))
+        assert not figure.is_available
+        assert "deeper" in figure.unavailable_because
+
+    def test_a_node_with_no_value_carries_no_badge(self) -> None:
+        figure = self._figure(self._row(value=None))
+        assert not figure.is_available
+        assert figure.provenance is None

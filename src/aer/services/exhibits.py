@@ -136,6 +136,17 @@ async def exportable_charts_for(
     return charts
 
 
+async def sensitivity_chart(session: AsyncSession, *, job: Job) -> Chart:
+    """The stored sensitivity grid, drawn for the valuation surface.
+
+    The same builder the report's exhibits use, salted the same way, so the page and the
+    document show one drawing — and the byte-identity the testing plan pins for the report
+    covers the page for free. A run with no stored grid gets the honest placeholder, which
+    the valuation handler declines to render rather than framing a picture of absence.
+    """
+    return sensitivity_heatmap(await _heatmap_input(session, job=job), hashsalt=str(job.id))
+
+
 async def internal_charts_for(
     session: AsyncSession,
     *,

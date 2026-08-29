@@ -96,7 +96,7 @@ from aer.services.comps_run import grouped_exclusions
 from aer.services.disagreements import disagreements_for_job, settle_by_hand
 from aer.services.escalation import cost_scene_for_job
 from aer.services.evaluations import evaluations_for_job, section_coverage_for_job
-from aer.services.exhibits import exportable_charts_for, internal_charts_for
+from aer.services.exhibits import exportable_charts_for, internal_charts_for, sensitivity_chart
 from aer.services.graph_view import graph_picture
 from aer.services.knowledge import knowledge_stats
 from aer.services.run_replay import replay_run
@@ -1382,7 +1382,9 @@ async def run_sources(
     # The breakdown is by what happened to each document, so it always sums: a quarantined
     # source a person overrode counts as admissible, exactly as the verifier now treats it.
     admissible = sum(1 for source in sources if source.is_admissible)
-    quarantined_out = sum(1 for source in sources if source.quarantined and not source.is_admissible)
+    quarantined_out = sum(
+        1 for source in sources if source.quarantined and not source.is_admissible
+    )
     other_out = len(sources) - admissible - quarantined_out
     page: Response = render(
         request,
@@ -1698,6 +1700,42 @@ async def valuation_page(
         else ()
     )
 
+    # The stored grid, drawn by the same builder the report's exhibits use — deterministic,
+    # byte-identical for identical rows, every cell a recorded calculation. The full table
+    # renders beside it; the figure is a reading aid, never the record.
+    heatmap = await sensitivity_chart(session, job=job) if view.grids else None
+
+    style = HouseStyle()
+    if view.sector and view.sector.blocks_the_dcf:
+        lead = verdicts.sentence(
+            ["no discounted cash flow is shown, because none was run for this sector"],
+            when_none="No discounted cash flow is shown, because none was run for this sector",
+            tone=vocabulary.Tone.REFUSAL,
+        )
+    elif not view.has_valuation:
+        lead = verdicts.sentence(
+            ["this run recorded no valuation, and nothing is computed here to fill the gap"],
+            when_none="This run recorded no valuation",
+            tone=vocabulary.Tone.MUTED,
+        )
+    else:
+        per_share = []
+        for outcome in (view.gordon, view.exit_multiple):
+            if outcome.value_per_share is None:
+                continue
+            shown = display.scalar(
+                outcome.value_per_share.value,
+                style=style,
+                unit=outcome.value_per_share.unit,
+                label="value per share",
+            )
+            per_share.append(f"{shown} per share by {outcome.label}")
+        lead = verdicts.sentence(
+            per_share,
+            when_none="This run recorded a valuation",
+            tone=vocabulary.Tone.INFO,
+        )
+
     page: Response = render(
         request,
         "runs/valuation.html",
@@ -1724,6 +1762,21 @@ async def valuation_page(
                 for chart in internal_charts
                 if not chart.placeholder
             ],
+            "verdict": lead,
+            "heatmap": (
+                {
+                    "uri": svg_data_uri(heatmap.svg),
+                    "title": heatmap.title,
+                    "caption": heatmap.caption,
+                }
+                if heatmap is not None and not heatmap.placeholder
+                else None
+            ),
+            "disagreement_display": (
+                f"{view.methods_disagree * Decimal('100'):.1f}"
+                if view.methods_disagree is not None
+                else None
+            ),
         },
     )
     return page
@@ -1756,15 +1809,46 @@ async def calculation_detail(
 
     tree = await calculation_service.lineage(session, calculation_id)
 
+    # The tranche-1 gap, closed where the plan said it would be: the handler builds a
+    # figure from each lineage node, so the template formats no Decimal and composes no
+    # origin link — the value arrives in house style with its drill-down attached.
+    style = HouseStyle()
+    rows = [
+        {
+            **row,
+            "figure": figures.lineage_figure(
+                row, request_id=job.request_id, job_id=job.id, style=style
+            ),
+        }
+        for row in lineage_rows(tree)
+    ]
     page: Response = render(
         request,
         "calculations/detail.html",
         {
             "calculation": calculation,
-            "lineage": lineage_rows(tree),
+            "lineage": rows,
             "request_id": job.request_id,
             "job_id": job.id,
             "back_href": f"/runs/{job.id}/valuation",
+            "shown_output": display.scalar(
+                calculation.output_value,
+                style=style,
+                unit=calculation.output_unit,
+                label=calculation.name,
+            ),
+            "verdict": verdicts.sentence(
+                [
+                    "calculated by code, with the formula and every input recorded",
+                    verdicts.Count(
+                        len(calculation.inputs or []),
+                        "recorded input directly beneath it",
+                        "recorded inputs directly beneath it",
+                    ),
+                ],
+                when_none="Calculated by code, with the formula recorded",
+                tone=vocabulary.Tone.INFO,
+            ),
         },
     )
     return page
