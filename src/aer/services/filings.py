@@ -42,7 +42,7 @@ from aer.core.schemas.extraction import Excerpt
 from aer.db.models import Company, ResearchRequest, SourceDocument
 from aer.errors import AerError
 from aer.extract import extract_text
-from aer.services.acquisition import record_acquisition
+from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.extractions import record_excerpts
 from aer.sources.base import ResolvedEntity
 from aer.sources.sec.submissions import ANNUAL_FORMS, QUARTERLY_FORMS, Filing, SubmissionsIndex
@@ -371,7 +371,7 @@ async def _acquire_one(
     acquisition = await record_acquisition(
         session,
         store,
-        request=request,
+        work_order=await acquisition_root(session, request),
         job_id=job_id,
         company_id=company.id,
         result=result,

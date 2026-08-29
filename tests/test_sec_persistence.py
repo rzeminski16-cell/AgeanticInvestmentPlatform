@@ -25,7 +25,7 @@ from aer.core.enums import FactBasis, Provider, RequestStatus, SourceTier, UserR
 from aer.db.models import Artefact, Company, FinancialFact, ResearchRequest, SourceDocument, User
 from aer.errors import IntegrityError
 from aer.fetch.client import FetchResult
-from aer.services.acquisition import record_acquisition
+from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.facts import persist_facts, upsert_company
 from aer.services.sources import NO_PUBLICATION_DATE
 from aer.sources.base import ResolvedEntity
@@ -100,7 +100,7 @@ class TestAcquisition:
         await record_acquisition(
             db_session,
             store,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             result=result,
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
@@ -122,7 +122,7 @@ class TestAcquisition:
         acquisition = await record_acquisition(
             db_session,
             store,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             result=result,
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
@@ -141,7 +141,7 @@ class TestAcquisition:
         await record_acquisition(
             db_session,
             store,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             result=result,
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
@@ -160,7 +160,7 @@ class TestAcquisition:
             await record_acquisition(
                 db_session,
                 store,
-                request=request_row,
+                work_order=await acquisition_root(db_session, request_row),
                 result=missing,
                 provider=Provider.SEC_EDGAR,
                 source_tier=SourceTier.T1_REGULATORY,
@@ -182,7 +182,7 @@ class TestAcquisition:
         acquisition = await record_acquisition(
             db_session,
             store,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             result=result,
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
@@ -208,7 +208,7 @@ class TestAcquisition:
         acquisition = await record_acquisition(
             db_session,
             store,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             result=result,
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
@@ -225,7 +225,7 @@ class TestAcquisition:
         acquisition = await record_acquisition(
             db_session,
             store,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             result=result,
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
@@ -246,7 +246,7 @@ class TestAcquisition:
         acquisition = await record_acquisition(
             db_session,
             store,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             result=result,
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
@@ -317,7 +317,7 @@ class TestPersistingFacts:
         acquisition = await record_acquisition(
             db_session,
             store,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             result=result,
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
@@ -557,7 +557,7 @@ class TestTwoTagsForOneObservation:
         acquisition = await record_acquisition(
             db_session,
             store,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             result=result,
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
@@ -651,7 +651,7 @@ class TestTheFullSlice:
         acquisition = await record_acquisition(
             db_session,
             store,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             result=result,
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,

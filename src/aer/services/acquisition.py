@@ -26,14 +26,15 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import Provider, SourceTier
-from aer.db.models import Artefact, ResearchRequest, SourceDocument
+from aer.db.models import Artefact, ResearchRequest, SourceDocument, WorkOrder
+from aer.errors import IntegrityError
 from aer.extract.dates import PublicationDate
 from aer.fetch.client import FetchResult
 from aer.services.artefacts import ArtefactRecord, record_fetched_artefact
 from aer.services.sources import record_source_document
 from aer.storage.protocol import ArtefactStore
 
-__all__ = ["Acquisition", "record_acquisition"]
+__all__ = ["Acquisition", "acquisition_root", "record_acquisition"]
 
 _log = structlog.get_logger("aer.services.acquisition")
 
@@ -60,11 +61,26 @@ class Acquisition:
         return self.source_document.quarantined
 
 
+async def acquisition_root(session: AsyncSession, request: ResearchRequest) -> WorkOrder:
+    """The work order a research request details, which is what acquisition roots on.
+
+    The two rows share an id (ADR 0072's backfill), so this is one identity-map lookup on
+    a warm session. Raised rather than defaulted when absent: a request with no root is
+    referential breakage, and a guard that shrugged here would let an orphaned mandate
+    acquire evidence under no clock at all.
+    """
+    work_order = await session.get(WorkOrder, request.id)
+    if work_order is None:
+        message = f"Research request {request.id} has no work order to root an acquisition on."
+        raise IntegrityError(message, context={"request_id": str(request.id)})
+    return work_order
+
+
 async def record_acquisition(
     session: AsyncSession,
     store: ArtefactStore,
     *,
-    request: ResearchRequest,
+    work_order: WorkOrder,
     result: FetchResult,
     provider: Provider,
     source_tier: SourceTier,
@@ -80,8 +96,10 @@ async def record_acquisition(
     """Record the artefact and the provenance for one completed fetch.
 
     Args:
-        request: The request this was gathered for. Supplies the point-in-time setting
-            that decides admissibility.
+        work_order: The acquisition root this was gathered under (ADR 0093). Supplies the
+            as-of date and the point-in-time setting that decide admissibility — for a
+            research run's root via :func:`acquisition_root`, and for a portfolio data
+            acquisition from the act's own order, which has no mandate row at all.
         company_id: Which issuer the document is about, passed straight through to
             :func:`~aer.services.sources.record_source_document`. See ADR 0061: a request
             can hold documents about more than one company, so the document has to say
@@ -111,7 +129,7 @@ async def record_acquisition(
 
     document = await record_source_document(
         session,
-        request=request,
+        work_order=work_order,
         artefact=artefact_record.artefact,
         url=result.url,
         provider=provider,

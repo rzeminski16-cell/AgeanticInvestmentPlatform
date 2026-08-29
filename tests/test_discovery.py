@@ -30,7 +30,7 @@ from aer.fetch.client import SafeFetcher
 from aer.fetch.errors import RobotsDisallowedError, UrlNotAllowedError
 from aer.fetch.policy import host_matches, policy_for
 from aer.fetch.robots import RobotsCache
-from aer.services.acquisition import record_acquisition
+from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.sources import PUBLISHED_AFTER_AS_OF
 from aer.sources.issuer import PROVIDER, SOURCE_TIER, Rejection, discover_documents
 from aer.sources.sec.client import SecEdgarClient
@@ -582,7 +582,7 @@ class TestARunAcquiresMoreThanOneDocument:
                     await record_acquisition(
                         db_session,
                         artefact_store,
-                        request=research_request,
+                        work_order=await acquisition_root(db_session, research_request),
                         result=result,
                         provider=provider,
                         source_tier=tier,
@@ -628,7 +628,7 @@ class TestARunAcquiresMoreThanOneDocument:
         acquisition = await record_acquisition(
             db_session,
             artefact_store,
-            request=research_request,
+            work_order=await acquisition_root(db_session, research_request),
             result=result,
             provider=Provider.ISSUER_IR,
             source_tier=SourceTier.T2_ISSUER,
@@ -670,7 +670,7 @@ class TestARunAcquiresMoreThanOneDocument:
         acquisition = await record_acquisition(
             db_session,
             artefact_store,
-            request=research_request,
+            work_order=await acquisition_root(db_session, research_request),
             result=result,
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,

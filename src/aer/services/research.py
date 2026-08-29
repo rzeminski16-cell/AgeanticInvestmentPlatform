@@ -42,7 +42,7 @@ from aer.errors import AerError
 from aer.extract import extract_text
 from aer.extract.dates import extract_publication_date
 from aer.providers.costs import price_usage, price_web_search
-from aer.services.acquisition import record_acquisition
+from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.facts import visible_facts
 from aer.services.scope import scope_for_request, with_subject
 from aer.services.sources import visible_sources
@@ -647,7 +647,7 @@ async def _fetch_known_url(
         acquisition = await record_acquisition(
             session,
             store,
-            request=request,
+            work_order=await acquisition_root(session, request),
             job_id=job_id,
             # The full-text search is scoped to the subject's CIK, so a filing the
             # index named to this worker is the subject's own (ADR 0061).
@@ -664,7 +664,7 @@ async def _fetch_known_url(
         acquisition = await record_acquisition(
             session,
             store,
-            request=request,
+            work_order=await acquisition_root(session, request),
             job_id=job_id,
             result=result,
             provider=provider,

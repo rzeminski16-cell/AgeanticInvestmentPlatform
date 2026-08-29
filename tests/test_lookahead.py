@@ -41,6 +41,7 @@ from aer.extract.dates import (
     from_metadata,
     from_text,
 )
+from aer.services.acquisition import acquisition_root
 from aer.services.citations import record_citation, record_claim
 from aer.services.sources import (
     NO_PUBLICATION_DATE,
@@ -553,7 +554,7 @@ class TestAtAcquisitionTime:
 
         source = await record_source_document(
             db_session,
-            request=scene["request"],
+            work_order=await acquisition_root(db_session, scene["request"]),
             artefact=await _fresh_artefact(db_session, "late"),
             url="https://example.invalid/late.htm",
             provider=Provider.SEC_EDGAR,
@@ -575,7 +576,7 @@ class TestAtAcquisitionTime:
 
         source = await record_source_document(
             db_session,
-            request=scene["request"],
+            work_order=await acquisition_root(db_session, scene["request"]),
             artefact=await _fresh_artefact(db_session, "report"),
             url="https://example.invalid/report.pdf",
             provider=Provider.SEC_EDGAR,
@@ -610,7 +611,7 @@ class TestAtAcquisitionTime:
 
         source = await record_source_document(
             db_session,
-            request=scene["request"],
+            work_order=await acquisition_root(db_session, scene["request"]),
             artefact=await _fresh_artefact(db_session, "disputed"),
             url="https://example.invalid/disputed.htm",
             provider=Provider.SEC_EDGAR,
@@ -630,7 +631,7 @@ class TestAtAcquisitionTime:
 
         source = await record_source_document(
             db_session,
-            request=scene["request"],
+            work_order=await acquisition_root(db_session, scene["request"]),
             artefact=await _fresh_artefact(db_session, "tenk"),
             url="https://example.invalid/10-k.htm",
             provider=Provider.SEC_EDGAR,
@@ -651,7 +652,7 @@ class TestTheOverride:
         reader of the finished report would have no way to know a judgement had been made."""
         source = await record_source_document(
             db_session,
-            request=scene["request"],
+            work_order=await acquisition_root(db_session, scene["request"]),
             artefact=await _fresh_artefact(db_session, "undated"),
             url="https://example.invalid/undated.htm",
             provider=Provider.SEC_EDGAR,
@@ -678,7 +679,7 @@ class TestTheOverride:
     ) -> None:
         source = await record_source_document(
             db_session,
-            request=scene["request"],
+            work_order=await acquisition_root(db_session, scene["request"]),
             artefact=await _fresh_artefact(db_session, "undated2"),
             url="https://example.invalid/undated2.htm",
             provider=Provider.SEC_EDGAR,
@@ -695,7 +696,7 @@ class TestTheOverride:
     ) -> None:
         source = await record_source_document(
             db_session,
-            request=scene["request"],
+            work_order=await acquisition_root(db_session, scene["request"]),
             artefact=await _fresh_artefact(db_session, "fine"),
             url="https://example.invalid/fine.htm",
             provider=Provider.SEC_EDGAR,

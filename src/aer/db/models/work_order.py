@@ -147,7 +147,10 @@ class WorkOrder(Base):
     __table_args__: Any = (
         # A cap of zero is not a cheap run; it is a run that cannot make a single call, and
         # the guard would refuse every step. `research_requests` carries the same check.
-        CheckConstraint("max_cost_gbp > 0", name="ck_work_orders_cost_is_positive"),
+        # `>= 0` since ADR 0093: a portfolio data acquisition is budgeted at zero model
+        # spend by design, and a zero cap is the enforcement — the budget guard refuses
+        # every call under it. The name survives the widening so no rename ripples.
+        CheckConstraint("max_cost_gbp >= 0", name="ck_work_orders_cost_is_positive"),
         Index("ix_work_orders_user_id", "user_id"),
         Index("ix_work_orders_subject", "subject_kind", "subject_id"),
         # The live-work list, which is what every landing page asks for.

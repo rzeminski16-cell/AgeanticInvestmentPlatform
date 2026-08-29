@@ -52,7 +52,7 @@ from aer.db.models import (
 )
 from aer.errors import ValidationError
 from aer.services import calculations as calculation_service
-from aer.services.acquisition import record_acquisition
+from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.facts import upsert_company
 from aer.sources.base import ResolvedEntity
 from aer.storage.local import LocalArtefactStore
@@ -436,7 +436,7 @@ async def revenue_facts(db_session, store, request_row) -> list[FinancialFact]:
     acquisition = await record_acquisition(
         db_session,
         store,
-        request=request_row,
+        work_order=await acquisition_root(db_session, request_row),
         result=result,
         provider=Provider.SEC_EDGAR,
         source_tier=SourceTier.T1_REGULATORY,

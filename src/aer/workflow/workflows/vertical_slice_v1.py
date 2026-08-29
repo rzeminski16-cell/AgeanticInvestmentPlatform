@@ -99,7 +99,7 @@ from aer.sections.evidence import SectionExecution
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
 from aer.sections.writing import execute_builtin_section
 from aer.services import calculations as calculation_service
-from aer.services.acquisition import record_acquisition
+from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.analysis import analyse_company
 from aer.services.artefacts import store_artefact
 from aer.services.assumption_gate import assemble as assemble_assumptions
@@ -1958,7 +1958,7 @@ async def _acquire(context: StepContext) -> StepResult:
     acquisition = await record_acquisition(
         context.session,
         store,
-        request=request,
+        work_order=await acquisition_root(context.session, request),
         company_id=company.id,
         # Which run fetched it. Optional on the service because a document can be supplied
         # by hand or gathered while planning — but a run that omits it produces provenance

@@ -40,7 +40,7 @@ from aer.calc.units import Quantity, SourceRef, Unit
 from aer.core.enums import Provider, SourceTier
 from aer.db.models import Company, ResearchRequest, Security
 from aer.errors import AerError
-from aer.services.acquisition import record_acquisition
+from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.prices import (
     adjusted_series_for,
     market_capitalisation_for,
@@ -415,7 +415,7 @@ async def _record_listing(
     acquisition = await record_acquisition(
         session,
         store,
-        request=request,
+        work_order=await acquisition_root(session, request),
         job_id=job_id,
         # Whose series this is (ADR 0061). The subject's listing passes its company; the
         # market proxy passes ``None``, which is the honest answer — an index is not an
