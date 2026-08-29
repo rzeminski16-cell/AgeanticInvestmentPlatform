@@ -1379,6 +1379,11 @@ async def run_sources(
     sources = await provenance.sources_for_run(session, job_id)
     research_request = await session.get(ResearchRequest, job.request_id)
 
+    # The breakdown is by what happened to each document, so it always sums: a quarantined
+    # source a person overrode counts as admissible, exactly as the verifier now treats it.
+    admissible = sum(1 for source in sources if source.is_admissible)
+    quarantined_out = sum(1 for source in sources if source.quarantined and not source.is_admissible)
+    other_out = len(sources) - admissible - quarantined_out
     page: Response = render(
         request,
         "runs/sources.html",
@@ -1389,6 +1394,24 @@ async def run_sources(
             "quarantined": sum(1 for source in sources if source.quarantined),
             "inadmissible": sum(1 for source in sources if not source.is_admissible),
             "flagged": sum(1 for source in sources if source.injection_flagged),
+            "verdict": verdicts.tally(
+                verdicts.Count(len(sources), "source acquired", "sources acquired"),
+                [
+                    verdicts.Part(admissible, "admissible"),
+                    verdicts.Part(quarantined_out, "quarantined"),
+                    verdicts.Part(other_out, "inadmissible for other reasons"),
+                ],
+                when_none="Acquisition has not completed, so no source record exists yet.",
+                tone=(
+                    vocabulary.Tone.MUTED
+                    if not sources
+                    else (
+                        vocabulary.Tone.SUCCESS
+                        if admissible == len(sources)
+                        else vocabulary.Tone.INFO
+                    )
+                ),
+            ),
         },
     )
     return page
@@ -1413,6 +1436,7 @@ async def run_claims(
     claims = await provenance.claims_for_run(session, job_id)
     research_request = await session.get(ResearchRequest, job.request_id)
 
+    unsupported = sum(1 for claim in claims if not claim.is_supported)
     page: Response = render(
         request,
         "runs/claims.html",
@@ -1420,7 +1444,20 @@ async def run_claims(
             "job": job,
             "research_request": research_request,
             "claims": claims,
-            "unsupported": sum(1 for claim in claims if not claim.is_supported),
+            "unsupported": unsupported,
+            "verdict": verdicts.tally(
+                verdicts.Count(len(claims), "claim recorded", "claims recorded"),
+                [
+                    verdicts.Part(len(claims) - unsupported, "supported"),
+                    verdicts.Part(unsupported, "unsupported"),
+                ],
+                when_none="No claims have been recorded yet; drafting has not produced assertions.",
+                tone=(
+                    vocabulary.Tone.MUTED
+                    if not claims
+                    else (vocabulary.Tone.WARNING if unsupported else vocabulary.Tone.SUCCESS)
+                ),
+            ),
         },
     )
     return page
@@ -1446,7 +1483,41 @@ async def claim_detail(
     if view is None:  # pragma: no cover -- visibility already proved it exists
         return _problem(request, f"No claim {claim_id}.", status=HTTP_404_NOT_FOUND)
 
-    page: Response = render(request, "claims/detail.html", {"claim": view})
+    states = [citation.state for citation in view.citations]
+    verified = states.count("verified")
+    overridden = states.count("overridden")
+    unverified = len(states) - verified - overridden
+    page: Response = render(
+        request,
+        "claims/detail.html",
+        {
+            "claim": view,
+            "verdict": verdicts.tally(
+                verdicts.Count(
+                    len(states), "citation stands behind it", "citations stand behind it"
+                ),
+                [
+                    verdicts.Part(verified, "verified against the archived bytes"),
+                    verdicts.Part(overridden, "accepted by a person after verification failed"),
+                    verdicts.Part(unverified, "not confirmed"),
+                ],
+                when_none=(
+                    "This claim cites nothing. Its kind carries a stated basis instead."
+                    if view.is_supported
+                    else "This claim cites nothing, and its kind requires that it does."
+                ),
+                tone=(
+                    vocabulary.Tone.SUCCESS
+                    if states and unverified == 0 and overridden == 0
+                    else (
+                        vocabulary.Tone.WARNING
+                        if overridden or unverified or not view.is_supported
+                        else vocabulary.Tone.MUTED
+                    )
+                ),
+            ),
+        },
+    )
     return page
 
 
@@ -1541,6 +1612,18 @@ async def _footnote_answer(
             "source": source,
             "rows": rows,
             "unresolved": None,
+            "verdict": verdicts.sentence(
+                [
+                    f"resolved to {source.title or source.url}",
+                    verdicts.Count(
+                        len(rows),
+                        "claim in this run was checked against it",
+                        "claims in this run were checked against it",
+                    ),
+                ],
+                when_none="This marker resolved to a source",
+                tone=vocabulary.Tone.SUCCESS,
+            ),
         },
     )
     return page
