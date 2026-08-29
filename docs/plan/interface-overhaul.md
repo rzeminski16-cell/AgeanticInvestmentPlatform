@@ -16,16 +16,16 @@ because the exit criteria below are stated in terms of it.
 
 ## Where this stands — 2026-08-29
 
-**Seven tranches of ten are built, and the trunk is green.** Tranche 6 — the largest, 44%
-of the debt — landed on 2026-08-29 with the `verdict` role and step under ADR 0087, the one
-piece of new model plumbing in the overhaul; tranche 7 followed the same day, closing the
-gap tranche 1 left open by design (a handler now builds a `RenderedFigure` from every
-lineage node) and putting the stored sensitivity grid on the valuation page as the same
-byte-stable drawing the report's exhibits use. Both were seen green in both suites before
-their closing commits — the rule tranche 5 paid for. This section is the live status and
-the one place it is kept; the roadmap and the running order point here rather than
-repeating it. (It absorbs the separate handover document that briefly existed on
-2026-08-28.)
+**Eight tranches of ten are built, and the trunk is green.** 2026-08-29 landed three in
+sequence: tranche 6 — the largest, 44% of the debt — with the `verdict` role and step under
+ADR 0087; tranche 7, closing the tranche-1 gap (a handler now builds a `RenderedFigure`
+from every lineage node) and drawing the stored sensitivity grid with the report's own
+byte-stable builder; and tranche 8, which put the portfolio, skills and knowledge families
+on the component set — with roadmap §3.1 landed between 7 and 8 so the portfolio form was
+rebuilt with all three of its doors. Each was seen green in both suites before its closing
+commit — the rule tranche 5 paid for. This section is the live status and the one place it
+is kept; the roadmap and the running order point here rather than repeating it. (It absorbs
+the separate handover document that briefly existed on 2026-08-28.)
 
 | Tranche | State | Last full verification |
 |---|---|---|
@@ -36,8 +36,8 @@ repeating it. (It absorbs the separate handover document that briefly existed on
 | **4 — Shell** | Done | 5,888 · 161 |
 | **5 — Overview and requests** | Done | 5,945 · 163, 2026-08-28, after the red merge below |
 | **6 — Console and gates** | Done | 5,968 · 172, 2026-08-29, green before the commit |
-| **7 — Evidence and reports** | Done | **5,977 · 173**, 2026-08-29, green before the commit |
-| **8 — Portfolio, skills, knowledge** | Not started | — |
+| **7 — Evidence and reports** | Done | 5,977 · 173, 2026-08-29, green before the commit |
+| **8 — Portfolio, skills, knowledge** | Done | **5,990 · 175**, 2026-08-29, green before the commit |
 | **9 — Removal and hardening** | Not started | — |
 
 **What the thirty-three were.** Reproduced on a clean run as thirty-two (the thirty-third was
@@ -60,19 +60,14 @@ cannot catch a page whose *words* changed; those tests live in the browser suite
 standing rule: **a tranche that touches templates is finished when the browser suite has been
 seen green, before the commit.** That time is part of the work.
 
-**The ramp ledger.** Opened at **1,837** raw Tailwind classes; stands at **378** — tranche 6
-removed exactly the 806 predicted and tranche 7 exactly its 410, so every remaining ramp
-belongs to the last two tranches and the remainders still match the plan's predictions
-exactly (311 · 67):
+**The ramp ledger.** Opened at **1,837** raw Tailwind classes; stands at **67** — tranches
+6, 7 and 8 each removed exactly what the plan predicted (806, 410, 311), so what remains is
+precisely tranche 9's two templates:
 
 | Ramps | Where | Tranche |
 |---:|---|---|
-| 175 | `skills/` | 8 |
-| 62 | `companies/` | 8 |
-| 56 | `knowledge/` | 8 |
 | 34 | `settings/` | 9 |
 | 33 | `spend/` | 9 |
-| 18 | `portfolio/` | 8 |
 
 **State the method with the number** whenever this is re-measured: counting variant-qualified
 names (`hover:bg-slate-100`) and counting base utilities (`bg-slate-100`) give different
@@ -84,10 +79,11 @@ grep -ohrE '\b(text|bg|border|ring|divide|from|to|via|placeholder|decoration|out
   src/aer/web/templates | sort | uniq -c | sort -rn
 ```
 
-**Next is tranche 8** — portfolio, skills and knowledge, 311 ramps across ten templates.
-Its prerequisite is met: roadmap §3.1 landed 2026-08-29 under ADR 0093, so the portfolio
-form the tranche rewrites already has all three of its doors. Then 9, which ends with the
-ratchet at zero and the manual pass.
+**Next is tranche 9, the last** — settings and costs onto the system, the legacy aliases
+and final ramps removed, the ratchet to zero and made a hard assertion, the stylesheet
+recompiled with every vendored hash verified, the full manual pass (keyboard, 320px, 200%
+zoom, both schemes, scripting off), and `docs/design/` and `docs/developers/` updated to
+describe what shipped. It closes roadmap §2.5 and §3.12 together.
 
 **Open beyond the last tranche:** roadmap §2.1 and §3.1, sequenced ahead of this overhaul and
 neither started — the running order is [`remaining-work.md`](remaining-work.md) · the Firefox
@@ -578,6 +574,18 @@ the grid rows do not carry them yet, and the figure does not guess.
 
 **Exit:** each side-tool has a clear hierarchy; no new client state; portfolio totals are all
 present or all withheld.
+
+**Done 2026-08-29, both suites seen green before the closing commit.** The book opens with
+a composed verdict that carries the book-level grade once and structurally cannot wear the
+success tone while a position is unpriced; the deal-only fields sit behind a native
+disclosure; the four exact-value figures stay coupled. The skills editor became the paired
+working paper — source left, composed policy sticky beside it, issues above the composition
+when invalid — with source bytes still round-tripping untouched and the import diff still
+two uncollapsible steps. Knowledge leads with its close-the-loop work list, every item a
+company link; the graph keeps its deterministic server-laid SVG and gains a relation list
+in words built from the same placed edges; the company page promotes the catalyst form to a
+primary surface. Exactly the predicted 311 ramps came out. Return and exposure stayed
+reserved for §3.2, unsimulated.
 
 ### Tranche 9 — Removal and hardening
 

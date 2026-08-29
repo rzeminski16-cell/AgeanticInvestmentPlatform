@@ -15,7 +15,7 @@ state — and the overhaul's live status is the top section of
 | **0** | Back to green — **done 2026-08-28** | §3.12's red suite | — |
 | **1A** | The drafting failure | §2.1, §2.2 | `run-diagnosis.json` from the operator |
 | **1B** | The portfolio's third door — **done 2026-08-29**, ADR 0093 | §3.1 | — |
-| **2** | The overhaul, tranches 8–9 — 6 and 7 done 2026-08-29 | §3.12, closing §2.5 | None left — §3.1 landed 2026-08-29 |
+| **2** | The overhaul, tranche 9 — 6, 7 and 8 done 2026-08-29 | §3.12, closing §2.5 | — |
 | **3** | The document and the data fixes | §2.4, §2.6, §2.7, §2.8 | Nothing — surfaces phase 2 does not touch |
 | **4** | Portfolio depth | §3.2, §3.3, §3.4 | §3.2 wants tranche 8's layout |
 | **5** | The judgement layer | §3.5–§3.11 | Strict order; §3.3 before §3.6 |
@@ -27,13 +27,14 @@ restores a baseline rather than building anything.
 
 ## What the order turns on
 
-**Phase 0 is done (2026-08-28), and 2026-08-29 closed tranches 6 and 7 and phase 1B** — the
-console, the seven gates on one frame, the `verdict` role (ADR 0087), the evidence and
-report surfaces, and the portfolio's third door (ADR 0093), each with both suites seen green
-before its closing commit. The record is the overhaul plan's status section; tranche 8 is
-next and nothing blocks it. What stays true for every later phase: in a remote session a
-local PostgreSQL and Redis come first — without a database the default suite silently skips
-1,849 tests.
+**Phase 0 is done (2026-08-28), and 2026-08-29 closed tranches 6, 7 and 8 and phase 1B** —
+the console, the seven gates on one frame, the `verdict` role (ADR 0087), the evidence and
+report surfaces, the portfolio's third door (ADR 0093), and the portfolio, skills and
+knowledge families, each with both suites seen green before its closing commit. The record
+is the overhaul plan's status section; only tranche 9 — removal and hardening, with the
+manual pass — remains of the overhaul. What stays true for every later phase: in a remote
+session a local PostgreSQL and Redis come first — without a database the default suite
+silently skips 1,849 tests.
 
 **1A waits on the operator; 1B is done.** §2.1 and §2.2 diagnose from the export before
 anything is changed — the hypotheses the code already admits are recorded on the items — and

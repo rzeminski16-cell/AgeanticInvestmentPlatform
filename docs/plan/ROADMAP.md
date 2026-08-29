@@ -29,10 +29,9 @@ thing that would otherwise put a wrong number, or no answer at all, in front of 
    refused with the reason. Tranche 8's prerequisite is landed.
 3. **§2.4 — the report document's layout.** The disagreement appendix puts a two-hundred-word
    objection in a narrow column and one row spans three pages; neither position can be read.
-4. **§3.12 — the interface overhaul.** Seven tranches of ten built and verified green —
-   tranches 6 and 7 (the console, the seven gates, the `verdict` role under ADR 0087, and
-   the evidence and report surfaces) both landed 2026-08-29. Next is tranche 8, whose
-   prerequisite — §3.1 — landed the same day; the live
+4. **§3.12 — the interface overhaul.** Eight tranches of ten built and verified green —
+   tranches 6, 7 and 8 all landed 2026-08-29, with §3.1 in between. One remains: tranche 9,
+   the removal-and-hardening pass that closes §2.5 and §3.12 together; the live
    record is the status section of [`interface-overhaul.md`](interface-overhaul.md). It is
    placed here rather
    than lower because §2.5 is inside it: migrating the palette first would do the most
@@ -300,7 +299,7 @@ mistake ADR 0075 names.
 **3.11 The methodology library.** Three `SkillKind`s that are versioned, pinned and
 composed. Mostly does not exist yet.
 
-**3.12 The interface overhaul. Specified, designed and planned 2026-08-25; seven tranches of
+**3.12 The interface overhaul. Specified, designed and planned 2026-08-25; eight tranches of
 ten built and verified green by 2026-08-29 — the live
 status is the top section of [`interface-overhaul.md`](interface-overhaul.md).** Four
 surfaces are in scope and the rest of the product is deliberately not: **the main menu, the menu
