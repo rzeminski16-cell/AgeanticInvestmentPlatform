@@ -1834,6 +1834,65 @@ def _hidden_value(html: str, name: str) -> str:
     return match.group(1)
 
 
+class TestTheBudgetBanner:
+    """The two ceilings, worded apart — because the remedies differ (tranche 6).
+
+    A per-run stop is released by raising the request's own cap; a monthly stop is not,
+    and a banner that reported one as the other would send the operator to change the
+    wrong number.
+    """
+
+    async def _stopped_on_budget(
+        self, api: Any, committed: dict, db_engine: Any, *, scope: str
+    ) -> uuid.UUID:
+        body = await start_run(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+
+        # Painted directly, the way the engine records it: the job refused, and the step
+        # that met the ceiling carrying the scope in its recorded error. No step has run
+        # yet on a job the worker never touched, so the refused row is written whole.
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            assert job is not None
+            job.status = JobStatus.BUDGET_EXCEEDED
+            session.add(
+                JobStep(
+                    job_id=job_id,
+                    step_key="draft",
+                    sequence=1,
+                    status=JobStatus.BUDGET_EXCEEDED,
+                    idempotency_key=f"budget-test-{scope}",
+                    input_hash="0" * 64,
+                    error={"code": "budget_exceeded", "context": {"scope": scope}},
+                )
+            )
+            await session.commit()
+        return job_id
+
+    async def test_a_per_run_stop_names_the_requests_own_cap(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        job_id = await self._stopped_on_budget(api, committed, db_engine, scope="per_run")
+
+        page = await api.get(f"/runs/{job_id}")
+
+        assert 'id="budget-exceeded"' in page.text
+        assert "Raise the cap on" in page.text
+        assert "monthly budget" not in page.text
+
+    async def test_a_monthly_stop_says_the_requests_cap_will_not_release_it(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        job_id = await self._stopped_on_budget(api, committed, db_engine, scope="monthly")
+
+        page = await api.get(f"/runs/{job_id}")
+
+        assert 'id="budget-exceeded"' in page.text
+        assert "raising this" in page.text
+        assert "will not release it" in page.text
+
+
 class TestStartingAgainAfterACancelledRun:
     """The dead end, at the surface an operator touches.
 

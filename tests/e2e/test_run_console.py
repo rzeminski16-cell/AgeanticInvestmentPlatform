@@ -113,6 +113,9 @@ class RunFixture:
     def advance_to_the_final_gate(self) -> JobStatus:
         return self._worker.advance_to_the_final_gate(self.job_id)
 
+    def advance_until(self, gate: GateKind) -> JobStatus:
+        return self._worker.advance_until(self.job_id, gate)
+
     def hold_step(self, step_key: str, *, started_seconds_ago: int) -> None:
         """Put a step back into ``RUNNING``, as if the worker were still inside it.
 

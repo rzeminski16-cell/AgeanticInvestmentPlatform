@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -944,8 +944,8 @@ async def draft_review(
 def _review_verdict(
     *,
     payload: dict[str, Any],
-    evaluations: list[Any],
-    recorded: list[Any],
+    evaluations: Sequence[Any],
+    recorded: Sequence[Any],
     cost_scene: Any,
     cost_alert_gbp: Decimal,
     cost_summary: str,
@@ -1318,6 +1318,21 @@ async def decide_gate_page(
         if submitted.get("decision") == Decision.APPROVED.value
         else Decision.REJECTED
     )
+
+    # A stale page is refused before anything is recorded. The workflow's own
+    # `_require_approval` is the deep guarantee — an approval carrying the wrong hash
+    # never unlocks the gate however it got recorded — but an operator who pressed the
+    # button on a page that has moved deserves the reason now, not a run that quietly
+    # stays paused. Verified against the same builder the page rendered from; a workflow
+    # this build cannot read returns an empty payload, and the deep check still holds.
+    current = await _payload_for(session, job=job, gate=gate)
+    if current and submitted.get("payload_hash", "") != payload_hash_for(current):
+        return _problem(
+            request,
+            "The proposal changed after this page was opened. Nothing was approved. "
+            "Review the current version and decide again.",
+            status=HTTP_409_CONFLICT,
+        )
 
     try:
         await approval_service.record_decision(

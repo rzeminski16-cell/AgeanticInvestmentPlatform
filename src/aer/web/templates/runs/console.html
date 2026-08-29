@@ -146,10 +146,10 @@
       >
         <h2 class="type-title-2 text-ink">{{ failed_step.label }} failed</h2>
         <p class="mt-2 type-body text-ink">
-          {{ failed_step.error.message if failed_step.error and failed_step.error.message else "The step did not finish. The worker terminal holds the full record." }}
+          {{ (failed_step.error or {}).get("message") or "The step did not finish. The worker terminal holds the full record." }}
         </p>
-        {% if failed_step.error and failed_step.error.code %}
-          <p class="mt-1 type-data-sm text-ink-muted">{{ failed_step.error.code }}</p>
+        {% if (failed_step.error or {}).get("code") %}
+          <p class="mt-1 type-data-sm text-ink-muted">{{ failed_step.error.get("code") }}</p>
         {% endif %}
         <p class="mt-3 type-body-sm text-ink-muted">
           Continuing repeats nothing: the completed steps are kept, and the run picks up
@@ -296,11 +296,11 @@
               {# The message, not the dictionary: the most important sentence on the page
                  deserves better than an unpunctuated error payload. #}
               <p class="w-full type-body-sm text-failure-ink" data-field="error">
-                {{ step.error.message or step.error }}
+                {{ step.error.get("message") or step.error }}
               </p>
-              {% if step.error.code %}
+              {% if step.error.get("code") %}
                 <p class="w-full type-data-sm text-failure-ink" data-field="error-code">
-                  {{ step.error.code }}
+                  {{ step.error.get("code") }}
                 </p>
               {% endif %}
             {% endif %}
