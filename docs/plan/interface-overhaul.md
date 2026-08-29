@@ -85,9 +85,9 @@ grep -ohrE '\b(text|bg|border|ring|divide|from|to|via|placeholder|decoration|out
 ```
 
 **Next is tranche 8** — portfolio, skills and knowledge, 311 ramps across ten templates.
-**Roadmap §3.1 lands first**: the tranche rewrites the portfolio form §3.1 adds a door to,
-and building the form before its third door exists would mean building it twice. Then 9,
-which ends with the ratchet at zero and the manual pass.
+Its prerequisite is met: roadmap §3.1 landed 2026-08-29 under ADR 0093, so the portfolio
+form the tranche rewrites already has all three of its doors. Then 9, which ends with the
+ratchet at zero and the manual pass.
 
 **Open beyond the last tranche:** roadmap §2.1 and §3.1, sequenced ahead of this overhaul and
 neither started — the running order is [`remaining-work.md`](remaining-work.md) · the Firefox

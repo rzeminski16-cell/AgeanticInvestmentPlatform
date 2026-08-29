@@ -23,15 +23,16 @@ thing that would otherwise put a wrong number, or no answer at all, in front of 
 
 1. **§2.1 — five sections fail to draft.** More than a quarter of the last report was a
    coverage notice. The diagnosis now reaches the screen (§4.6); this is the fix behind it.
-2. **§3.1 — the portfolio's third door.** Decided 2026-08-25: **a work order roots the
-   book's own acquisitions.** Until it exists, a ticker no research run has priced cannot be
-   dealt at all, so the portfolio tool is unusable on a machine whose runs were unpriced.
+2. **§3.1 — the portfolio's third door. Done 2026-08-29, under ADR 0093.** A work order
+   roots the book's own acquisitions; a typed `TICKER EXCHANGE` the platform has never seen
+   is verified with the vendor once, at first sight, and either becomes dealable or is
+   refused with the reason. Tranche 8's prerequisite is landed.
 3. **§2.4 — the report document's layout.** The disagreement appendix puts a two-hundred-word
    objection in a narrow column and one row spans three pages; neither position can be read.
 4. **§3.12 — the interface overhaul.** Seven tranches of ten built and verified green —
    tranches 6 and 7 (the console, the seven gates, the `verdict` role under ADR 0087, and
-   the evidence and report surfaces) both landed 2026-08-29. Next is tranche 8, which
-   wants §3.1 landed first; the live
+   the evidence and report surfaces) both landed 2026-08-29. Next is tranche 8, whose
+   prerequisite — §3.1 — landed the same day; the live
    record is the status section of [`interface-overhaul.md`](interface-overhaul.md). It is
    placed here rather
    than lower because §2.5 is inside it: migrating the palette first would do the most
@@ -211,8 +212,8 @@ Nothing here is broken; it does not exist. §3.1 is the one an operator is curre
 by. §3.5 onwards is the judgement layer, and the order there is forced by dependency —
 nothing after theses can exist before them.
 
-**3.1 The portfolio — getting a ticker in. Two doors of three, 2026-08-25.** `Security` rows
-exist only where a priced research run created one, so on a fresh database the control held
+**3.1 The portfolio — getting a ticker in. All three doors, 2026-08-29.** `Security` rows
+existed only where a priced research run created one, so on a fresh database the control held
 one option reading "cash, no security" and an operator could neither type a ticker nor find
 out why not.
 
@@ -226,46 +227,23 @@ out why not.
   creates the subject's listing, so a company you have researched with a subscription
   configured is dealable with no second step. The empty state names this as the one path
   that creates a listing today, rather than reporting an absence.
-- **A ticker the platform has never seen. Blocked on a decision, not on plumbing.**
+- **A ticker the platform has never seen. Done 2026-08-29, under ADR 0093.** A typed
+  `TICKER EXCHANGE` that resolves to nothing held is verified with the market-data vendor
+  once, at first sight: `services.listings.add_listing` fetches a short window of bars and
+  records them the way every acquisition is recorded — the series hashed and stored
+  (invariant 1), the source document rooted on the act's own work order, the security keyed
+  on the vendor's symbol — or refuses with the reason: no subscription configured, a venue
+  the vendor mapping does not document, a symbol the vendor returns nothing for. A bare
+  ticker is asked for its exchange rather than guessed at.
 
-**The blocked one, and why it is a decision.** Verifying a new ticker means fetching its
-price series, and a fetched series is an externally derived fact — invariant 1 says it was
-hashed and stored. The machinery for that is `services.acquisition.record_acquisition`,
-which requires a `ResearchRequest`: it needs the point-in-time setting, and the source
-document is scoped to a run. A portfolio has neither.
-
-`price_bars.source_document_id` is nullable and writing `NULL` there would compile, but its
-nullability means something else — `ON DELETE SET NULL` for the licensed-payload purge under
-ADR 0031, so the column reads "the bytes are gone", not "there were never any". Using it to
-mean the second would quietly retire invariant 1 for every price the portfolio touches.
-
-**Decided 2026-08-25: a work order roots the book's own acquisitions.** Of the three
-candidates — a work order, loosening `record_acquisition` to take the point-in-time flag
-directly, or a synthetic research request per portfolio — the first is the one consistent
-with where the schema already went. ADR 0072 makes the work order the run root; a *portfolio
-data acquisition* is a work order whose subject is the portfolio rather than a company, and
-`source_documents.work_order_id` already exists and is already what §3.3 is migrating
-everything onto. The other two were smaller: loosening the signature leaves the source
-document scoped to nothing in particular, and a synthetic request puts a row in
-`research_requests` that nobody commissioned and every "how many reports have I run?" query
-then has to know to exclude.
-
-It is the largest of the three and that is the cost of the decision, not an argument against
-it. The work:
-
-1. **A work-order kind**, so a run and a book acquisition are distinguishable in the table
-   rather than by inference. Needs an ADR amending 0072 — the record says the work order is
-   the *run* root, and this widens it. `work_orders` already carries `tool` and
-   `subject_kind`; whether those two are the distinguisher or a new column is, is the ADR's
-   first question.
-2. **`record_acquisition` reads the point-in-time setting off the work order** instead of a
-   research request. A book acquisition is inherently not point-in-time: you want today's
-   close, and refusing it as post-dated would be enforcing a rule nobody set.
-3. **`add_listing(session, ticker, exchange, client)`** — resolve the symbol, fetch a short
-   window of bars, refuse with the reason where the vendor returns none, and record the
-   artefact, the security and the bars under the book's work order.
-4. **The form's third door**, which is then just a call: what is typed and not held gets
-   verified once, at first sight, and either becomes dealable or is refused with why.
+**How the decision landed** (decided 2026-08-25, recorded as
+[ADR 0093](../adr/0093-a-work-order-roots-the-books-own-acquisitions.md)): a *portfolio data
+acquisition* is a work order whose subject is the book — one per act, `tool` and
+`subject_kind` the distinguisher with no new column, `point_in_time` off because today's
+close is the point, and a cap of zero that structurally refuses any model call under it.
+`record_acquisition` now reads the clock off the work order rather than the mandate row,
+which was the exact coupling ADR 0072 exists to remove; every attempt, refused or not,
+leaves a `COMPLETED` or `FAILED` order on the record.
 
 **3.2 The portfolio — return and exposure.** Four tiles is not an overview. Add:
 
