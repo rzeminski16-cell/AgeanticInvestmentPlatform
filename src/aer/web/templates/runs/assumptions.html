@@ -1,72 +1,82 @@
-{% extends "base.html" %}
+{% extends "runs/_gate.html" %}
 
 {#
-  The assumptions gate (ADR 0046). Everything below is rendered from `payload`, whose hash sits
-  in the hidden field -- rendering one thing and hashing another is the failure a gate exists to
-  prevent. Since gap A52 the payload is assembled from the assumption rows as they now stand,
-  not from the step's frozen record: the rows are what the valuation will read, and they are
-  what the operator can change right here while the run waits.
+  The assumptions gate (ADR 0046). Everything below renders from `payload`, whose hash sits
+  in the decision form. Since gap A52 the payload is assembled from the assumption rows as
+  they now stand, not from the step's frozen record: the rows are what the valuation will
+  read, and they are what the operator can change right here while the run waits.
 
-  Every other gate confirms something the run produced. This one confirms the numbers a valuation
-  is about to be built on, so each row shows its justification and its proposer at full length: a
-  number from the filings and a number a model suggested are different kinds of thing, and a page
-  that showed only the figures would invite agreeing to the difference without seeing it.
+  Every other gate confirms something the run produced. This one confirms the numbers a
+  valuation is about to be built on, so each row shows its justification and its proposer at
+  full length: a number from the filings and a number a model suggested are different kinds
+  of thing, and a page that showed only the figures would invite agreeing to the difference
+  without seeing it.
+
+  **The row forms are siblings of the gate form, never children.** Confirm, amend and
+  create each post to the per-request routes and return here; the outer decision form lives
+  in the frame's own column. Nesting them would submit a row action as a gate decision,
+  which is two different acts pretending to be one.
 #}
 
-{% block title %}Confirm the assumptions &middot; Tracework Invest{% endblock %}
+{% block gate_verdict %}
+  {% set outstanding = payload.outstanding | length %}
+  {% if outstanding and unconfirmed %}
+    {% set statement = outstanding ~ (" input still has" if outstanding == 1 else " inputs still have") ~ " no value at all, and " ~ unconfirmed ~ (" value awaits" if unconfirmed == 1 else " values await") ~ " your confirmation." %}
+  {% elif outstanding %}
+    {% set statement = outstanding ~ (" input still has" if outstanding == 1 else " inputs still have") ~ " no value at all." %}
+  {% elif unconfirmed %}
+    {% set statement = "Every input has a value; " ~ unconfirmed ~ (" awaits" if unconfirmed == 1 else " await") ~ " your confirmation." %}
+  {% else %}
+    {% set statement = "Every input has a value and every value is confirmed." %}
+  {% endif %}
+  {{ ui.verdict(
+    "WHAT THIS ASKS",
+    statement,
+    detail="This is the one gate that approves work which has not happened yet: everything below is an input to a discounted cash flow that has not been run, and agreeing to these figures is agreeing to the forecast built from them.",
+    tone=("warning" if (outstanding or unconfirmed) and not decided else ("info" if not decided else "muted")),
+  ) }}
+{% endblock %}
 
-{% block content %}
-  <nav class="text-sm">
-    <a href="/runs/{{ job.id }}" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
-      &larr; Back to the run
-    </a>
-  </nav>
-
-  <h1 class="mt-4 text-2xl font-semibold tracking-tight">Confirm the numbers the valuation will use</h1>
-  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-    This is the one gate that approves work which has not happened yet. Everything below is an
-    input to a discounted cash flow that has not been run: agreeing to these figures is agreeing
-    to the forecast built from them.
-  </p>
-
+{% block gate_evidence %}
   {% if payload.assumptions %}
-    <section class="mt-8">
-      <h2 class="text-lg font-semibold tracking-tight">Proposed assumptions</h2>
-      <ul class="mt-3 space-y-4" id="proposed-assumptions">
+    {% call ui.sheet("Proposed assumptions") %}
+      <ul class="flex flex-col divide-y divide-line" id="proposed-assumptions">
         {% for row in payload.assumptions %}
           {% set stored = rows.get(row.name) %}
-          <li class="rounded-md border border-slate-200 p-4 dark:border-slate-700">
+          <li class="py-4">
             <div class="flex flex-wrap items-baseline justify-between gap-2">
-              <p class="font-semibold">
-                <span class="font-mono">{{ row.name }}</span>
+              <p class="type-body text-ink">
+                <span class="type-data text-ink">{{ row.name }}</span>
                 &mdash;
-                <span class="font-mono">{{ row.value }}</span>
-                {% if row.unit %}<span class="text-sm text-slate-500">{{ row.unit }}</span>{% endif %}
+                <span class="type-data text-ink">{{ row.value }}</span>
+                {% if row.unit %}<span class="type-body-sm text-ink-muted">{{ row.unit }}</span>{% endif %}
               </p>
               {% if stored and stored.approved %}
-                <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-900 dark:bg-emerald-900/50 dark:text-emerald-100">
-                  confirmed by {{ stored.approved_by }}
-                </span>
+                {{ ui.status("success", "Confirmed", detail="by " ~ stored.approved_by) }}
               {% else %}
-                <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-100">
-                  not yet confirmed
-                </span>
+                {{ ui.status("warning", "Not yet confirmed") }}
               {% endif %}
             </div>
-            <p class="mt-1 text-xs text-slate-500">
-              Proposed by <span class="font-mono">{{ row.proposed_by }}</span>{% if row.confidence is not none %},
+            <p class="mt-1 type-body-sm text-ink-muted">
+              Proposed by <span class="type-data-sm">{{ row.proposed_by }}</span>{% if row.confidence is not none %},
               confidence {{ row.confidence }}{% endif %}.
             </p>
             {% if row.justification %}
-              <p class="mt-2 text-sm">{{ row.justification }}</p>
+              <p class="mt-2 max-w-prose type-body text-ink">{{ row.justification }}</p>
             {% else %}
-              <p class="mt-2 text-sm font-semibold text-amber-800 dark:text-amber-300">
-                No justification was recorded for this number. That is worth resolving before you
-                agree to it.
+              <p class="mt-2 max-w-prose type-body text-warning-ink">
+                No justification was recorded for this number. That is worth resolving
+                before you agree to it.
               </p>
             {% endif %}
 
             {% if not decided and stored and not stored.approved %}
+              {#
+                Confirming carries the hash of the list as displayed, so a confirmation of
+                one set of rows cannot land on a changed one. Creating and amending go
+                through the same proposal path a model uses: typing a value and agreeing
+                the run may rest on it are separate acts.
+              #}
               <form
                 method="post"
                 action="/requests/{{ request_id }}/assumptions/{{ stored.id }}/confirm"
@@ -77,41 +87,36 @@
                 <input type="hidden" name="return_to" value="{{ return_to }}" />
                 <button
                   type="submit"
-                  class="rounded-md bg-sky-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-800"
-                >
-                  Confirm this value
-                </button>
+                  class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong"
+                >Confirm this value</button>
               </form>
 
-              <details class="mt-3">
-                <summary class="cursor-pointer text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400">
-                  Amend it instead
-                </summary>
+              {% call ui.disclosure("Amend it instead") %}
                 <form
                   method="post"
                   action="/requests/{{ request_id }}/assumptions/{{ stored.id }}/amend"
-                  class="mt-3 space-y-3 border-t border-slate-200 pt-3 dark:border-slate-800"
+                  class="flex flex-col gap-3"
                 >
                   <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
                   <input type="hidden" name="return_to" value="{{ return_to }}" />
                   <div class="grid gap-3 sm:grid-cols-2">
                     <div>
-                      <label for="value-{{ stored.id }}" class="block text-sm font-medium">Your value</label>
+                      <label for="value-{{ stored.id }}" class="block type-label text-ink">Your value</label>
                       <input
                         type="text"
                         inputmode="decimal"
                         id="value-{{ stored.id }}"
                         name="value"
                         value="{{ row.value }}"
-                        class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
+                        class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink"
                       />
                     </div>
                     <div>
-                      <label for="unit-{{ stored.id }}" class="block text-sm font-medium">Unit</label>
+                      <label for="unit-{{ stored.id }}" class="block type-label text-ink">Unit</label>
                       <select
                         id="unit-{{ stored.id }}"
                         name="unit"
-                        class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
+                        class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink"
                       >
                         {% for choice in unit_choices %}
                           <option value="{{ choice }}"{{ " selected" if choice == row.unit else "" }}>{{ choice }}</option>
@@ -120,83 +125,85 @@
                     </div>
                   </div>
                   <div>
-                    <label for="why-{{ stored.id }}" class="block text-sm font-medium">Why yours rather than theirs</label>
+                    <label for="why-{{ stored.id }}" class="block type-label text-ink">Why yours rather than theirs</label>
                     <textarea
                       id="why-{{ stored.id }}"
                       name="justification"
                       rows="2"
                       maxlength="4000"
                       required
-                      class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                      class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink"
                       placeholder="Recorded on the assumption's history. The proposal above is kept whatever you enter."
                     ></textarea>
                   </div>
-                  <label class="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
-                    <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5" />
+                  <label class="flex items-start gap-2 type-body-sm text-ink-muted">
+                    <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5 h-5 w-5" />
                     <span>I mean this figure, even if it falls outside the usual range.</span>
                   </label>
-                  <button
-                    type="submit"
-                    class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                  >
-                    Amend
-                  </button>
+                  <p>
+                    <button
+                      type="submit"
+                      class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected"
+                    >Amend</button>
+                  </p>
                 </form>
-              </details>
+              {% endcall %}
             {% endif %}
           </li>
         {% endfor %}
       </ul>
-    </section>
+    {% endcall %}
   {% else %}
-    <p class="mt-8 text-sm" id="no-assumptions">
-      No assumptions carry a value yet. Everything this valuation needs is outstanding below.
-    </p>
+    {% call ui.sheet() %}
+      <p class="type-body text-ink" id="no-assumptions">
+        No assumptions carry a value yet. Everything this valuation needs is outstanding
+        below.
+      </p>
+    {% endcall %}
   {% endif %}
 
   {% if payload.outstanding %}
-    <section class="mt-8">
-      <h2 class="text-lg font-semibold tracking-tight">Still outstanding</h2>
-      <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-        No number could be put against these, and none was invented. Supply a value below and it
-        appears in the list above, saved and waiting on your confirmation; a saved value moves
-        out of this section the moment the page reloads.
+    {% call ui.sheet("Still outstanding", subtitle="No number could be put against these, and none was invented.") %}
+      <p class="type-body-sm text-ink-muted">
+        Supply a value and it appears in the list above, saved and waiting on your
+        confirmation. Creating a value and agreeing that the valuation may rely on it are
+        separate decisions.
       </p>
-      <ul class="mt-3 space-y-3" id="outstanding-assumptions">
+      <ul class="mt-3 flex flex-col divide-y divide-line" id="outstanding-assumptions">
         {% for row in payload.outstanding %}
-          <li class="rounded-md border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40">
-            <p class="font-semibold font-mono">{{ row.name }}</p>
-            <p class="mt-1 text-sm text-slate-700 dark:text-slate-300">{{ row.reason }}</p>
+          <li class="py-4">
+            <p class="type-data text-ink">{{ row.name }}</p>
+            <p class="mt-1 max-w-prose type-body-sm text-ink">{{ row.reason }}</p>
 
             {% if not decided %}
               <form
                 method="post"
                 action="/requests/{{ request_id }}/assumptions/create"
-                class="mt-3 space-y-3 border-t border-amber-200 pt-3 dark:border-amber-900"
+                class="mt-3 flex flex-col gap-3"
               >
                 <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
                 <input type="hidden" name="return_to" value="{{ return_to }}" />
                 <input type="hidden" name="name" value="{{ row.name }}" />
                 <div class="grid gap-3 sm:grid-cols-2">
                   <div>
-                    <label for="supply-value-{{ row.name }}" class="block text-sm font-medium">Value</label>
+                    <label for="supply-value-{{ row.name }}" class="block type-label text-ink">Value</label>
                     <input
                       type="text"
                       id="supply-value-{{ row.name }}"
                       name="value"
                       required
                       inputmode="decimal"
-                      class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
+                      class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink"
                       placeholder="0.042"
                     />
                   </div>
                   <div>
-                    <label for="supply-unit-{{ row.name }}" class="block text-sm font-medium">Unit</label>
+                    <label for="supply-unit-{{ row.name }}" class="block type-label text-ink">Unit</label>
                     <select
                       id="supply-unit-{{ row.name }}"
                       name="unit"
                       required
-                      class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-900"
+                      class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink"
                     >
                       {% for choice in unit_choices %}
                         <option value="{{ choice }}"{{ " selected" if choice == "pure" else "" }}>{{ choice }}</option>
@@ -204,159 +211,82 @@
                     </select>
                   </div>
                 </div>
-                <p class="text-xs text-slate-500">
+                <p class="type-body-sm text-ink-muted">
                   Rates and ratios are decimal fractions: a 4.5% risk-free rate is
-                  <span class="font-mono">0.045</span>, not <span class="font-mono">4.5</span>.
+                  <span class="type-data-sm">0.045</span>, not <span class="type-data-sm">4.5</span>.
                 </p>
                 <div>
-                  <label for="supply-why-{{ row.name }}" class="block text-sm font-medium">Where this number comes from</label>
+                  <label for="supply-why-{{ row.name }}" class="block type-label text-ink">Where this number comes from</label>
                   <textarea
                     id="supply-why-{{ row.name }}"
                     name="justification"
                     rows="2"
                     maxlength="4000"
                     required
-                    class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                    class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink"
                     placeholder="e.g. 10-year gilt yield, Bank of England, 16 August 2026."
                   ></textarea>
                 </div>
-                <label class="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
-                  <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5" />
+                <label class="flex items-start gap-2 type-body-sm text-ink-muted">
+                  <input type="checkbox" name="accepted_anyway" value="1" class="mt-0.5 h-5 w-5" />
                   <span>I mean this figure, even if it falls outside the usual range.</span>
                 </label>
-                <button
-                  type="submit"
-                  class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-900"
-                >
-                  Save this value
-                </button>
+                <p>
+                  <button
+                    type="submit"
+                    class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong"
+                  >Save this value</button>
+                </p>
               </form>
             {% endif %}
           </li>
         {% endfor %}
       </ul>
-    </section>
+    {% endcall %}
   {% endif %}
 
   {% if payload.refused %}
-    <section class="mt-8">
-      <h2 class="text-lg font-semibold tracking-tight">Refused</h2>
-      <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-        Proposed and rejected in code, for breaking a bound the platform enforces rather than
-        argues about. Shown so the refusal is visible rather than silent.
-      </p>
-      <ul class="mt-3 space-y-3" id="refused-assumptions">
+    {% call ui.sheet("Refused", subtitle="Proposed and rejected in code, for breaking a bound the platform enforces rather than argues about.") %}
+      <ul class="flex flex-col divide-y divide-line" id="refused-assumptions">
         {% for row in payload.refused %}
-          <li class="rounded-md border border-slate-200 p-4 dark:border-slate-700">
-            <p class="font-semibold">
-              <span class="font-mono">{{ row.name }}</span>
+          <li class="py-3">
+            <p class="type-body text-ink">
+              <span class="type-data text-ink">{{ row.name }}</span>
               &mdash;
-              <span class="font-mono">{{ row.value }}</span>
+              <span class="type-data text-ink">{{ row.value }}</span>
             </p>
-            <p class="mt-1 text-sm text-slate-700 dark:text-slate-300">{{ row.reason }}</p>
+            <p class="mt-1 max-w-prose type-body-sm text-refusal-ink">{{ row.reason }}</p>
           </li>
         {% endfor %}
       </ul>
-    </section>
+    {% endcall %}
   {% endif %}
 
   {% if payload.skipped %}
-    <section class="mt-8">
-      <h2 class="text-lg font-semibold tracking-tight">Not derived</h2>
-      <ul class="mt-3 list-inside list-disc text-sm text-slate-700 dark:text-slate-300" id="skipped-assumptions">
-        {% for note in payload.skipped %}
-          <li>{{ note }}</li>
-        {% endfor %}
+    {% call ui.sheet("Not derived") %}
+      <ul class="flex list-disc flex-col gap-1 pl-5 type-body-sm text-ink" id="skipped-assumptions">
+        {% for note in payload.skipped %}<li>{{ note }}</li>{% endfor %}
       </ul>
-    </section>
+    {% endcall %}
   {% endif %}
 
-  <p class="mt-8 text-sm">
+  {% if not decided and (payload.outstanding or unconfirmed) %}
+    {% call ui.sheet() %}
+      <div id="approval-consequence" role="status">
+        {{ ui.callout(
+          "warning",
+          "Approving now produces no discounted cash flow",
+          "With unresolved inputs there is no forecast to build: no scenario bridge, no sensitivity grid, and no valuation section beyond an explanation of what was missing. The run will finish, but the forecast it exists to gate will not be built.",
+        ) }}
+      </div>
+    {% endcall %}
+  {% endif %}
+
+  <p>
     <a
       href="/requests/{{ request_id }}/assumptions"
-      class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
+      class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2"
       id="amend-assumptions"
-    >
-      The full assumptions surface, with every value's history
-    </a>
+    >The full assumptions surface, with every value's history</a>
   </p>
-
-  {% if decided %}
-    <section
-      class="mt-8 rounded-md border border-slate-300 bg-slate-100 p-4 dark:border-slate-700 dark:bg-slate-800"
-      role="status"
-      id="already-decided"
-    >
-      <p class="text-sm text-slate-800 dark:text-slate-200">
-        This gate was already <strong>{{ decided | lower }}</strong>. A decision is not a state
-        to be re-asserted; changing it needs a new run.
-      </p>
-    </section>
-  {% else %}
-    {% if payload.outstanding or unconfirmed %}
-      <section
-        class="mt-8 rounded-md border border-amber-400 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
-        role="status"
-        id="approval-consequence"
-      >
-        <p class="text-sm text-amber-900 dark:text-amber-100">
-          {% if payload.outstanding %}
-            <strong>{{ payload.outstanding | length }}</strong> input{{ '' if payload.outstanding | length == 1 else 's' }}
-            still {{ 'has' if payload.outstanding | length == 1 else 'have' }} no value at all{% if unconfirmed %} and
-            <strong>{{ unconfirmed }}</strong> {{ 'value awaits' if unconfirmed == 1 else 'values await' }} your confirmation{% endif %}.
-          {% else %}
-            <strong>{{ unconfirmed }}</strong> value{{ ' awaits' if unconfirmed == 1 else 's await' }} your confirmation above.
-          {% endif %}
-          <strong>Approving now produces no discounted cash flow</strong> — and with it no
-          scenario bridge, no sensitivity grid and no valuation section beyond an explanation
-          of what was missing. The run will finish, but the forecast it exists to gate will
-          not be built.
-        </p>
-      </section>
-    {% endif %}
-
-    <form method="post" action="/runs/{{ job.id }}/gates/{{ gate }}" class="mt-8 space-y-4" id="gate-form">
-      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-      <input type="hidden" name="payload_hash" id="payload-hash" value="{{ payload_hash }}" />
-
-      <div>
-        <label for="notes" class="block text-sm font-medium">Notes (optional)</label>
-        <textarea
-          id="notes"
-          name="notes"
-          rows="3"
-          maxlength="4000"
-          class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-          placeholder="Which numbers you doubt, and why. Recorded in the audit trail."
-        ></textarea>
-      </div>
-
-      <div class="flex flex-wrap gap-3">
-        <button
-          type="submit"
-          name="decision"
-          value="APPROVED"
-          id="approve"
-          class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
-        >
-          Confirm and continue
-        </button>
-        <button
-          type="submit"
-          name="decision"
-          value="REJECTED"
-          id="reject"
-          class="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-        >
-          Reject and stop
-        </button>
-      </div>
-
-      <p class="text-xs text-slate-500">
-        Confirming records a hash of exactly the figures above. An approval of one set of numbers
-        is not an approval of a revised one, so amending a row after this point needs a fresh
-        decision.
-      </p>
-    </form>
-  {% endif %}
 {% endblock %}

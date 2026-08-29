@@ -110,8 +110,9 @@ from aer.services.themes import THEME_STEP, theme_set_payload, theme_set_require
 from aer.services.valuation_view import lineage_rows, valuation_view
 from aer.storage.local import LocalArtefactStore
 from aer.web import figures, vocabulary
+from aer.web import verdict as verdicts
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
-from aer.web.gates import journey
+from aer.web.gates import frame_for, journey
 from aer.web.templating import render
 from aer.workflow.registry import WorkflowRegistryError, resolve_workflow
 from aer.workflow.workflows.vertical_slice_v1 import (
@@ -468,7 +469,7 @@ async def plan_review(
     # The pins reach the page inside the payload now — the builder reads them itself, so
     # fetching them here as well would be a second answer to the question the gate hashes.
     payload = await _payload_for(session, job=job, gate=GateKind.PLAN)
-    decided = await _decision_for(session, job_id=job_id, gate=GateKind.PLAN)
+    frame = await frame_for(session, job=job, gate=GateKind.PLAN)
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -481,8 +482,7 @@ async def plan_review(
             # The hash of exactly the structure rendered below. Carried back by the form,
             # so approving a plan that has since changed is refused rather than recorded.
             "payload_hash": payload_hash_for(payload),
-            "decided": decided,
-            "gate": GateKind.PLAN.value,
+            **frame,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
@@ -525,7 +525,7 @@ async def financials_review(
         )
 
     payload = await _payload_for(session, job=job, gate=GateKind.UNMAPPED_CONCEPTS)
-    decided = await _decision_for(session, job_id=job_id, gate=GateKind.UNMAPPED_CONCEPTS)
+    frame = await frame_for(session, job=job, gate=GateKind.UNMAPPED_CONCEPTS)
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -536,8 +536,7 @@ async def financials_review(
             "payload": payload,
             "counts": _extraction_counts(produced),
             "payload_hash": payload_hash_for(payload),
-            "decided": decided,
-            "gate": GateKind.UNMAPPED_CONCEPTS.value,
+            **frame,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
@@ -581,7 +580,7 @@ async def sector_review(
         )
 
     payload = classification_payload(produced)
-    decided = await _decision_for(session, job_id=job_id, gate=GateKind.SECTOR_SPECIALIST)
+    frame = await frame_for(session, job=job, gate=GateKind.SECTOR_SPECIALIST)
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -591,8 +590,7 @@ async def sector_review(
             "job": job,
             "payload": payload,
             "payload_hash": payload_hash_for(payload),
-            "decided": decided,
-            "gate": GateKind.SECTOR_SPECIALIST.value,
+            **frame,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
@@ -651,7 +649,7 @@ async def peer_review(
         )
 
     payload = peer_set_payload(produced)
-    decided = await _decision_for(session, job_id=job_id, gate=GateKind.PEER_SET)
+    frame = await frame_for(session, job=job, gate=GateKind.PEER_SET)
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -662,8 +660,7 @@ async def peer_review(
             "payload": payload,
             "payload_hash": payload_hash_for(payload),
             "refused": [item for item in produced.get("refused", []) if isinstance(item, dict)],
-            "decided": decided,
-            "gate": GateKind.PEER_SET.value,
+            **frame,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
@@ -710,7 +707,7 @@ async def theme_review(
     # hash covers what is being approved, and the name is presentation.
     payload_for_page = dict(payload)
     payload_for_page["subject_name"] = str(produced.get("subject_name", ""))
-    decided = await _decision_for(session, job_id=job_id, gate=GateKind.THEME_SET)
+    frame = await frame_for(session, job=job, gate=GateKind.THEME_SET)
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -720,8 +717,7 @@ async def theme_review(
             "job": job,
             "payload": payload_for_page,
             "payload_hash": payload_hash_for(payload),
-            "decided": decided,
-            "gate": GateKind.THEME_SET.value,
+            **frame,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
@@ -782,7 +778,7 @@ async def assumptions_review(
 
     rows = await assumptions_for_request(session, job.work_order_id)
     payload = await _payload_for(session, job=job, gate=GateKind.ASSUMPTIONS)
-    decided = await _decision_for(session, job_id=job_id, gate=GateKind.ASSUMPTIONS)
+    frame = await frame_for(session, job=job, gate=GateKind.ASSUMPTIONS)
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -803,8 +799,7 @@ async def assumptions_review(
             # Every save posts to the per-request routes and returns here, so the operator
             # never leaves the decision they are making.
             "return_to": f"/runs/{job.id}/assumptions",
-            "decided": decided,
-            "gate": GateKind.ASSUMPTIONS.value,
+            **frame,
             # Where the full history lives; editing no longer requires leaving this page.
             "request_id": str(job.request_id),
             "csrf_field": CSRF_FIELD_NAME,
@@ -888,7 +883,16 @@ async def draft_review(
     cost = await cost_scene_for_job(session, job=job, request=research_request)
     outcomes = await _section_outcomes(session, job_id=job.id)
 
-    decided = await _decision_for(session, job_id=job_id, gate=GateKind.FINAL)
+    frame = await frame_for(session, job=job, gate=GateKind.FINAL)
+    review = _review_verdict(
+        payload=payload,
+        evaluations=evaluations,
+        recorded=recorded,
+        cost_scene=cost,
+        cost_alert_gbp=cost.cap_gbp * COST_ALERT_RATIO,
+        cost_summary=frame["gate_cost"].summary,
+        authored_output=await _step_output(session, job_id=job_id, step_key="verdict"),
+    )
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -926,14 +930,134 @@ async def draft_review(
             "markdown": preview.markdown,
             "footnote_count": preview.footnote_count,
             "payload_hash": payload_hash_for(payload),
-            "decided": decided,
-            "gate": GateKind.FINAL.value,
+            "review_verdict": review["verdict"],
+            "attention_index": review["attention"],
+            **frame,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
     )
     set_csrf_cookie(response, token)
     return response
+
+
+def _review_verdict(
+    *,
+    payload: dict[str, Any],
+    evaluations: list[Any],
+    recorded: list[Any],
+    cost_scene: Any,
+    cost_alert_gbp: Decimal,
+    cost_summary: str,
+    authored_output: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """The review's two-half verdict and its attention index (ADR 0087).
+
+    The composed half counts what actually needs the operator — open conflicts, failed
+    checks, missing sections, spend — and the attention index links each count to the
+    real heading beneath it, so the page is triageable in thirty seconds without a block
+    being removed. The red team's challenges ride in both as value received, never as
+    faults, and never move the tone on their own: a run where the adversary found nothing
+    would be the one worth worrying about.
+    """
+    challenges = [row for row in recorded if row.kind is DisagreementKind.THESIS_CONFLICT]
+    conflicts = [row for row in recorded if row.kind is not DisagreementKind.THESIS_CONFLICT]
+    open_conflicts = [row for row in conflicts if row.resolution is ResolutionOutcome.ESCALATED]
+    failed_checks = [row for row in evaluations if row.passed is False]
+    not_generated = [row for row in payload["sections"] if not row["content"]]
+    triggers = payload["triggers"]
+    over_alert = cost_scene.actual_gbp >= cost_alert_gbp or (
+        cost_scene.estimated_gbp is not None and cost_scene.estimated_gbp >= cost_alert_gbp
+    )
+
+    attention: list[dict[str, str]] = []
+    if triggers:
+        attention.append(
+            {
+                "label": f"{len(triggers)} escalation trigger"
+                + ("" if len(triggers) == 1 else "s")
+                + " fired",
+                "target": "#triggers",
+                "tone": "failure",
+            }
+        )
+    if failed_checks:
+        attention.append(
+            {
+                "label": f"{len(failed_checks)} check"
+                + (" failed" if len(failed_checks) == 1 else "s failed"),
+                "target": "#validations",
+                "tone": "failure",
+            }
+        )
+    if open_conflicts:
+        attention.append(
+            {
+                "label": f"{len(open_conflicts)} source conflict"
+                + ("" if len(open_conflicts) == 1 else "s")
+                + " unsettled",
+                "target": "#escalations",
+                "tone": "warning",
+            }
+        )
+    if not_generated:
+        attention.append(
+            {
+                "label": f"{len(not_generated)} section"
+                + ("" if len(not_generated) == 1 else "s")
+                + " not generated",
+                "target": "#draft-sections",
+                "tone": "warning",
+            }
+        )
+    if over_alert:
+        attention.append(
+            {"label": "Spend is near the ceiling", "target": "#cost", "tone": "warning"}
+        )
+    if challenges:
+        attention.append(
+            {
+                "label": f"{len(challenges)} challenge"
+                + ("" if len(challenges) == 1 else "s")
+                + " to read — the review the run paid for",
+                "target": "#red-team",
+                "tone": "info",
+            }
+        )
+
+    authored = None
+    if authored_output and authored_output.get("written"):
+        authored = verdicts.Authored(
+            str(authored_output.get("sentence", "")),
+            vocabulary.Tone(str(authored_output.get("tone", "info"))),
+        )
+
+    demands_attention = bool(triggers or failed_checks or open_conflicts or not_generated)
+    verdict = verdicts.sentence(
+        [
+            verdicts.Count(
+                len(open_conflicts),
+                "source conflict needs settling",
+                "source conflicts need settling",
+            ),
+            verdicts.Count(len(failed_checks), "check failed", "checks failed"),
+            verdicts.Count(
+                len(not_generated),
+                "section was not generated",
+                "sections were not generated",
+            ),
+            verdicts.Count(
+                len(challenges),
+                "red-team challenge is there to read",
+                "red-team challenges are there to read",
+            ),
+            f"{cost_summary} spent",
+        ],
+        when_none=f"Nothing needs your attention before the decision; {cost_summary} spent",
+        tone=vocabulary.Tone.WARNING if demands_attention else vocabulary.Tone.SUCCESS,
+        authored=authored,
+    )
+    return {"verdict": verdict, "attention": attention}
 
 
 @router.get(
@@ -2145,20 +2269,6 @@ async def _payload_for(session: AsyncSession, *, job: Job, gate: GateKind) -> di
     except WorkflowRegistryError:
         return {}
     return dict(await builder(session, job=job, gate=gate.value))
-
-
-async def _decision_for(session: AsyncSession, *, job_id: uuid.UUID, gate: GateKind) -> str | None:
-    """What was already decided at this gate, if anything.
-
-    Drives the page's read-only state. A gate that has been decided shows the decision
-    rather than a live form, because the service will refuse a second one and offering a
-    button that cannot work is worse than offering none.
-    """
-    decisions = await approval_service.approvals_for_job(session, job_id)
-    for approval in decisions:
-        if approval.gate is gate:
-            return approval.decision.value
-    return None
 
 
 def _problem(request: Request, message: str, *, status: int) -> Response:

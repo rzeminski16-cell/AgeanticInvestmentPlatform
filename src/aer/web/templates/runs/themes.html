@@ -1,113 +1,51 @@
-{% extends "base.html" %}
+{% extends "runs/_gate.html" %}
 
 {#
   The theme-set gate (K1, ADR 0065). Everything below renders from `payload`, whose hash
-  sits in the hidden field -- rendering one thing and hashing another is the failure a
-  gate exists to prevent.
+  sits in the decision form — rendering one thing and hashing another is the failure a gate
+  exists to prevent.
 
   Each rationale is shown at full length. A theme shapes how every later reader of the
-  research library weighs this company, and it does so invisibly -- which is exactly why
-  a person reads the reasons before any of it becomes an edge.
+  research library weighs this company, and it does so invisibly — which is exactly why a
+  person reads the reasons before any of it becomes an edge. The smallest gate, and kept so.
 #}
 
-{% block title %}Confirm the themes &middot; Tracework Invest{% endblock %}
+{% block gate_verdict %}
+  {{ ui.verdict(
+    "WHAT THIS ASKS",
+    "Confirming files " ~ (payload.subject_name or "this company") ~ " under "
+      ~ (payload.themes | length) ~ (" theme" if payload.themes | length == 1 else " themes")
+      ~ " — the research library's connective tissue.",
+    detail="These shape how later searches and comparisons find the company; they change nothing about the current valuation. Other companies join a theme only through their own runs, each behind its own gate.",
+    tone="warning" if not decided else "muted",
+  ) }}
+{% endblock %}
 
-{% block content %}
-  <nav class="text-sm">
-    <a href="/runs/{{ job.id }}" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
-      &larr; Back to the run
-    </a>
-  </nav>
-
-  <h1 class="mt-4 text-2xl font-semibold tracking-tight">Confirm which stories this company is filed under</h1>
-  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-    A theme links companies across industries &mdash; the research library&rsquo;s
-    connective tissue. Confirming files {{ payload.subject_name or 'this company' }} under
-    {{ payload.themes | length }} theme{{ '' if payload.themes | length == 1 else 's' }};
-    other companies join a theme only through their own runs, each behind its own gate.
-  </p>
-
-  {% if payload.themes %}
-    <section class="mt-8">
-      <h2 class="text-lg font-semibold tracking-tight">Proposed themes</h2>
-      <ul class="mt-3 space-y-4" id="proposed-themes">
-        {% for theme in payload.themes %}
-          <li class="rounded-md border border-slate-200 p-4 dark:border-slate-700">
-            <p class="font-semibold">{{ theme.label }}</p>
-            <p class="mt-1 text-xs text-slate-500">
-              <span class="font-mono">{{ theme.key }}</span>
+{% block gate_evidence %}
+  {% call ui.sheet("Proposed themes") %}
+    <ul class="flex flex-col divide-y divide-line" id="proposed-themes">
+      {% for theme in payload.themes %}
+        <li class="py-4">
+          <article aria-label="{{ theme.label }}">
+            <h3 class="type-subheading text-ink">{{ theme.label }}</h3>
+            <p class="mt-1 type-body-sm text-ink-muted">
+              <span class="type-data-sm">{{ theme.key }}</span>
               {% if theme.existing %}
                 &mdash; joins a theme this library already tracks
               {% else %}
                 &mdash; would found a new theme
               {% endif %}
             </p>
-            <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">{{ theme.rationale }}</p>
-          </li>
-        {% endfor %}
-      </ul>
-    </section>
-  {% endif %}
-
-  {% if payload.proposed_by %}
-    <p class="mt-4 text-xs text-slate-500" id="proposed-by">
-      Proposed by <span class="font-mono">{{ payload.proposed_by }}</span>. Keys are
-      normalised in code, so a spelling cannot found a duplicate of a tracked theme.
-    </p>
-  {% endif %}
-
-  {% if decided %}
-    <section
-      class="mt-8 rounded-md border border-slate-300 bg-slate-100 p-4 dark:border-slate-700 dark:bg-slate-800"
-      role="status"
-      id="already-decided"
-    >
-      <p class="text-sm text-slate-800 dark:text-slate-200">
-        This gate was already <strong>{{ decided | lower }}</strong>. A decision is not a
-        state to be re-asserted; changing it needs a new run.
+            <p class="mt-2 max-w-prose type-body text-ink">{{ theme.rationale }}</p>
+          </article>
+        </li>
+      {% endfor %}
+    </ul>
+    {% if payload.proposed_by %}
+      <p class="mt-3 type-body-sm text-ink-muted" id="proposed-by">
+        Proposed by <span class="type-data-sm">{{ payload.proposed_by }}</span>. Keys are
+        normalised in code, so a spelling cannot found a duplicate of a tracked theme.
       </p>
-    </section>
-  {% elif payload.themes %}
-    <form method="post" action="/runs/{{ job.id }}/gates/{{ gate }}" class="mt-8 space-y-4" id="gate-form">
-      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-      <input type="hidden" name="payload_hash" id="payload-hash" value="{{ payload_hash }}" />
-
-      <div>
-        <label for="notes" class="block text-sm font-medium">Notes (optional)</label>
-        <textarea
-          id="notes"
-          name="notes"
-          rows="3"
-          maxlength="4000"
-          class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-          placeholder="Which themes you doubt, and why. Recorded in the audit trail."
-        ></textarea>
-      </div>
-
-      <div class="flex flex-wrap gap-3">
-        <button
-          type="submit"
-          name="decision"
-          value="APPROVED"
-          id="approve"
-          class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
-        >
-          Confirm and continue
-        </button>
-        <button
-          type="submit"
-          name="decision"
-          value="REJECTED"
-          id="reject"
-          class="rounded-md border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
-        >
-          Reject the themes
-        </button>
-      </div>
-      <p class="text-xs text-slate-500">
-        Rejecting stops the run. An unconfirmed theme contributes nothing &mdash; no edge,
-        no note, no line in any journal.
-      </p>
-    </form>
-  {% endif %}
+    {% endif %}
+  {% endcall %}
 {% endblock %}

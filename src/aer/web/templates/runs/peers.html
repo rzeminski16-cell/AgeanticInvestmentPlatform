@@ -1,169 +1,99 @@
-{% extends "base.html" %}
+{% extends "runs/_gate.html" %}
 
 {#
-  The peer-set gate. Everything below is rendered from `payload`, whose hash sits in the hidden
-  field -- rendering one thing and hashing another is the failure a gate exists to prevent.
+  The peer-set gate. Everything inside "What you are approving" renders from `payload`,
+  whose hash sits in the decision form — rendering one thing and hashing another is the
+  failure a gate exists to prevent. The refusals sit beside the set and deliberately
+  outside it (ADR 0059): a reviewer judging the peers that resolved is better off knowing
+  what did not, but what they approve is the set, so the hash covers that and nothing else.
 
-  Each peer's rationale is shown at full length and never truncated. A reviewer skimming names
-  is a reviewer approving a peer set they have not read, and a badly chosen peer moves a median
-  more than most modelling choices do.
+  Each peer's rationale is shown at full length and never truncated. A reviewer skimming
+  names is a reviewer approving a set they have not read, and a badly chosen peer moves a
+  median more than most modelling choices do.
 #}
 
-{% block title %}Confirm the peer set &middot; Tracework Invest{% endblock %}
+{% block gate_verdict %}
+  {{ ui.verdict(
+    "WHAT THIS ASKS",
+    "Any multiple this platform computes is computed against "
+      ~ ("this one company" if payload.peers | length == 1 else ("these " ~ (payload.peers | length) ~ " companies")) ~ ".",
+    detail="Confirming records the set; it fetches nothing. Computing a peer's multiple needs its filings and its prices, and this run acquires neither — the confirmed set is held for when a price subscription makes the comparison computable.",
+    tone="warning" if not decided else "muted",
+  ) }}
+{% endblock %}
 
-{% block content %}
-  <nav class="text-sm">
-    <a href="/runs/{{ job.id }}" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
-      &larr; Back to the run
-    </a>
-  </nav>
+{% block gate_evidence %}
+  {% call ui.sheet() %}
+    <div id="internal-only" role="note">
+      {{ ui.callout(
+        "muted",
+        "These figures do not leave this machine",
+        "Every multiple is computed from licensed market data whose terms grant no derived-data exemption. The comparables analysis is internal working material; a shareable report carries a note that it was performed and withholds the figures.",
+      ) }}
+    </div>
+  {% endcall %}
 
-  <h1 class="mt-4 text-2xl font-semibold tracking-tight">Confirm which companies this one is compared with</h1>
-  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-    Any multiple this platform computes is computed against these
-    {{ payload.peers | length }} compan{{ 'y' if payload.peers | length == 1 else 'ies' }}.
-    A badly chosen peer moves a median more than most modelling choices do, and it does so
-    invisibly &mdash; the arithmetic is right and the company should not have been in the set.
-  </p>
-  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-    Confirming records the set; it fetches nothing. Computing a peer&rsquo;s multiple needs
-    its filings and its prices, and this run acquires neither &mdash; the confirmed set is
-    held for when a price subscription makes the comparison computable.
-  </p>
-
-  <section
-    class="mt-6 rounded-md border border-slate-300 bg-slate-100 p-4 dark:border-slate-700 dark:bg-slate-800"
-    role="note"
-    id="internal-only"
-  >
-    <h2 class="text-sm font-semibold">These figures do not leave this machine</h2>
-    <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">
-      Every multiple is computed from licensed market data whose terms grant no derived-data
-      exemption. The comparables analysis is internal working material; a shareable report
-      carries a note that it was performed and withholds the figures.
-    </p>
-  </section>
-
-  {% if payload.peers %}
-    <section class="mt-8">
-      <h2 class="text-lg font-semibold tracking-tight">Proposed peers</h2>
-      <ul class="mt-3 space-y-4" id="proposed-peers">
+  {% call ui.sheet("What you are approving", subtitle="The peer set below is exactly what your decision binds.") %}
+    {% if payload.peers %}
+      <ul class="flex flex-col divide-y divide-line" id="proposed-peers">
         {% for peer in payload.peers %}
-          <li class="rounded-md border border-slate-200 p-4 dark:border-slate-700">
-            <p class="font-semibold">{{ peer.name }}</p>
-            <p class="mt-1 text-xs text-slate-500">
-              {% if peer.period_end %}
-                Reports to <span class="font-mono">{{ peer.period_end }}</span>
-              {% else %}
-                Recorded by name &mdash; nothing of this company has been fetched
-              {% endif %}
-            </p>
-            {% if peer.rationale %}
-              <p class="mt-2 text-sm">{{ peer.rationale }}</p>
-            {% else %}
-              <p class="mt-2 text-sm font-semibold text-amber-800 dark:text-amber-300">
-                No reason was given for including this company. That is worth resolving before
-                you agree to it.
+          <li class="py-4">
+            <article aria-label="{{ peer.name }}">
+              <h3 class="type-subheading text-ink">{{ peer.name }}</h3>
+              <p class="mt-1 type-body-sm text-ink-muted">
+                {% if peer.period_end %}
+                  Reports to <span class="type-data-sm">{{ peer.period_end }}</span>
+                {% else %}
+                  Recorded by name &mdash; nothing of this company has been fetched
+                {% endif %}
               </p>
-            {% endif %}
+              {% if peer.rationale %}
+                <p class="mt-2 max-w-prose type-body text-ink">{{ peer.rationale }}</p>
+              {% else %}
+                <p class="mt-2 max-w-prose type-body text-warning-ink">
+                  No reason was given for including this company. That is worth resolving
+                  before you agree to it.
+                </p>
+              {% endif %}
+            </article>
           </li>
         {% endfor %}
       </ul>
-    </section>
 
-    <section class="mt-8">
-      <h2 class="text-lg font-semibold tracking-tight">On what basis</h2>
-      <p class="mt-2 text-sm" id="basis">
-        Every multiple is computed on a <span class="font-mono">{{ payload.basis }}</span>
+      <h3 class="mt-6 type-subheading text-ink">On what basis</h3>
+      <p class="mt-2 max-w-prose type-body text-ink" id="basis">
+        Every multiple is computed on a <span class="type-data-sm">{{ payload.basis }}</span>
         basis against a subject reporting to
-        <span class="font-mono">{{ payload.subject_period_end }}</span>. A peer whose own
+        <span class="type-data-sm">{{ payload.subject_period_end }}</span>. A peer whose own
         period sits more than six weeks from that is excluded from the table with the reason
         recorded, rather than compared across different twelve months.
       </p>
-      <p class="mt-2 text-xs text-slate-500">
-        Proposed by <span class="font-mono">{{ payload.proposed_by }}</span>.
+      <p class="mt-2 type-body-sm text-ink-muted">
+        Proposed by <span class="type-data-sm">{{ payload.proposed_by }}</span>.
       </p>
-    </section>
-  {% else %}
-    <p class="mt-8 text-sm" id="no-peers">
-      No peers were proposed, so there is nothing to confirm and no comparables table will be
-      produced.
-    </p>
-  {% endif %}
+    {% else %}
+      <p class="type-body text-ink" id="no-peers">
+        No peers were proposed, so there is nothing to confirm and no comparables table
+        will be produced.
+      </p>
+    {% endif %}
+  {% endcall %}
 
   {% if refused %}
-    <section class="mt-8">
-      <h2 class="text-lg font-semibold tracking-tight">Proposed and not used</h2>
-      <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-        These were put forward and did not become peers. They are shown so a proposal of six
-        that arrives as four does not read as a proposal of four &mdash; and they are not part
-        of what you are confirming.
+    {% call ui.sheet("Context — not part of this approval", subtitle="Put forward, and not in the set your decision binds.") %}
+      <p class="type-body-sm text-ink-muted">
+        Shown so a proposal of six that arrives as four does not read as a proposal of
+        four.
       </p>
-      <ul class="mt-3 space-y-3" id="refused-peers">
+      <ul class="mt-3 flex flex-col divide-y divide-line" id="refused-peers">
         {% for item in refused %}
-          <li class="rounded-md border border-slate-200 p-3 text-sm dark:border-slate-700">
-            <span class="font-mono font-semibold">{{ item.ticker }}</span>
-            {% if item.name %}<span class="text-slate-600 dark:text-slate-400">&mdash; {{ item.name }}</span>{% endif %}
-            <p class="mt-1 text-slate-600 dark:text-slate-400">{{ item.reason }}</p>
+          <li class="py-3">
+            <span class="type-data text-ink">{{ item.ticker }}</span>
+            {% if item.name %}<span class="type-body-sm text-ink-muted"> &mdash; {{ item.name }}</span>{% endif %}
+            <p class="mt-1 type-body-sm text-ink-muted">{{ item.reason }}</p>
           </li>
         {% endfor %}
       </ul>
-    </section>
-  {% endif %}
-
-  {% if decided %}
-    <section
-      class="mt-8 rounded-md border border-slate-300 bg-slate-100 p-4 dark:border-slate-700 dark:bg-slate-800"
-      role="status"
-      id="already-decided"
-    >
-      <p class="text-sm text-slate-800 dark:text-slate-200">
-        This gate was already <strong>{{ decided | lower }}</strong>. A decision is not a state
-        to be re-asserted; changing it needs a new run.
-      </p>
-    </section>
-  {% elif payload.peers %}
-    <form method="post" action="/runs/{{ job.id }}/gates/{{ gate }}" class="mt-8 space-y-4" id="gate-form">
-      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-      <input type="hidden" name="payload_hash" id="payload-hash" value="{{ payload_hash }}" />
-
-      <div>
-        <label for="notes" class="block text-sm font-medium">Notes (optional)</label>
-        <textarea
-          id="notes"
-          name="notes"
-          rows="3"
-          maxlength="4000"
-          class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-          placeholder="Which peers you doubt, and why. Recorded in the audit trail."
-        ></textarea>
-      </div>
-
-      <div class="flex flex-wrap gap-3">
-        <button
-          type="submit"
-          name="decision"
-          value="APPROVED"
-          id="approve"
-          class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
-        >
-          Confirm and continue
-        </button>
-        <button
-          type="submit"
-          name="decision"
-          value="REJECTED"
-          id="reject"
-          class="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-        >
-          Reject and stop
-        </button>
-      </div>
-
-      <p class="text-xs text-slate-500">
-        Confirming records a hash of exactly the peer set above. An approval of one set of
-        companies is not an approval of a different one.
-      </p>
-    </form>
+    {% endcall %}
   {% endif %}
 {% endblock %}
