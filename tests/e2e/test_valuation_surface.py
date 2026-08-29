@@ -219,6 +219,16 @@ class TestWhatTheReaderIsTold:
 
         expect(page.locator("#no-comps")).to_contain_text("nobody can defend")
 
+    def test_the_grid_is_drawn_as_well_as_tabled(
+        self, page: Page, live_server: str, valuation: ValuationFixture
+    ) -> None:
+        """Tranche 7: the stored grid is also a server-drawn figure. The table keeps every
+        ledger value beside it, so the drawing adds shape, never data."""
+        page.goto(f"{live_server}/runs/{valuation.job_id}/valuation")
+
+        expect(page.locator("#sensitivity-heatmap img")).to_be_visible()
+        expect(page.locator("#grid-0")).to_be_visible()
+
 
 class TestWithScriptingOff:
     def test_the_valuation_table_renders(

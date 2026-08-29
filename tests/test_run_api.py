@@ -611,6 +611,39 @@ class TestReproducingARun:
         assert replayed.status_code == 200
         assert 'id="reproduces"' in replayed.text
 
+    async def test_findings_are_grouped_by_what_they_are(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """The tranche 7 exit criterion: typed findings, never one pooled list.
+
+        A calculation that re-derives differently and a citation the verifier cannot find
+        again are different problems with different remedies, so the answer names the kind.
+        The tampering is the cheapest honest divergence: edit a stored output and the
+        record genuinely no longer reproduces.
+        """
+        job_id = await _to_second_gate(api, committed, driver)
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            row = await session.scalar(
+                select(Calculation).where(Calculation.job_id == job_id).limit(1)
+            )
+            assert row is not None, "the driven run recorded no calculation to tamper with"
+            row.output_value = (row.output_value or Decimal(0)) + Decimal(1)
+            await session.commit()
+
+        console = await api.get(f"/runs/{job_id}")
+        replayed = await api.post(
+            f"/runs/{job_id}/replay",
+            data={CSRF_FIELD_NAME: _hidden_value(console.text, CSRF_FIELD_NAME)},
+        )
+
+        assert replayed.status_code == 200
+        assert 'id="does-not-reproduce"' in replayed.text
+        assert 'id="findings"' in replayed.text
+        assert "Re-derivation outside tolerance" in replayed.text
+        assert 'id="reproduces"' not in replayed.text
+
     async def test_a_post_without_a_token_replays_nothing(self, api: Any, committed: dict) -> None:
         """A POST because re-verifying a citation writes its verdict back onto the row.
 
