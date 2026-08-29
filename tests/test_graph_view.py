@@ -266,6 +266,18 @@ class TestThePage:
         assert response.status_code == 200, response.text
         assert 'id="knowledge-graph-link"' in response.text
 
+    async def test_every_relation_also_exists_in_words(
+        self, api: Any, committed: dict[str, Any]
+    ) -> None:
+        """Tranche 8: the drawing gains an adjacent relation list built from the same
+        placed edges, so the topology is readable by somebody who cannot perceive it —
+        and checkable by anybody who doubts a line."""
+        response = await api.get("/knowledge/graph")
+
+        assert response.status_code == 200, response.text
+        assert 'id="relation-list"' in response.text
+        assert "is comparable to" in response.text or "is a member of" in response.text
+
     async def test_an_empty_graph_explains_itself(
         self, api_settings: Settings, db_engine: Any, fake_redis: Any
     ) -> None:

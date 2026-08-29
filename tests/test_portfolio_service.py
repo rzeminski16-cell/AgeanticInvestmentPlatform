@@ -45,7 +45,9 @@ from aer.db.models import (
     WorkOrder,
 )
 from aer.services import portfolio as portfolio_service
+from aer.web.portfolio import pages as pages_module
 from aer.web.portfolio.pages import NO_LISTINGS, _resolve_security, _Unheld
+from aer.web.vocabulary import Tone
 
 pytestmark = pytest.mark.integration
 
@@ -590,9 +592,7 @@ class TestNamingTheSecurityYouMean:
         assert unheld.ticker == "TSLA"
         assert unheld.exchange is None
 
-    async def test_a_named_exchange_travels_with_the_unheld_ticker(
-        self, db_session, book
-    ) -> None:
+    async def test_a_named_exchange_travels_with_the_unheld_ticker(self, db_session, book) -> None:
         for typed in ("TSLA NASDAQ", "tsla.nasdaq"):
             unheld = await _resolve_security(db_session, typed)
             assert isinstance(unheld, _Unheld)
@@ -636,3 +636,56 @@ class TestNamingTheSecurityYouMean:
         assert "market-data subscription" in NO_LISTINGS
         assert "cash transactions" in NO_LISTINGS.lower()
         assert "verified" in NO_LISTINGS
+
+
+class TestTheBookLeadsWithAVerdict:
+    """Tranche 8: the page opens with a sentence composed from what the walk resolved,
+    and an incomplete valuation structurally cannot wear the success tone."""
+
+    async def test_a_fully_valued_book_says_so_and_carries_the_grade_once(
+        self, db_session, book, context
+    ) -> None:
+        await funded(db_session, book)
+        await trade(db_session, book, security=book["msft"])
+        view = await view_of(db_session, context, book)
+
+        totals = pages_module._totals(view, book["portfolio"])
+        lead = pages_module._book_verdict(view, totals=totals)
+
+        assert lead.tone is Tone.SUCCESS
+        assert "Fully valued" in lead.composed
+        assert "typed" in lead.composed
+
+    async def test_an_incomplete_book_refuses_the_all_clear(
+        self, db_session, book, context
+    ) -> None:
+        """A GBP deposit and a franc one with no rate to join them: the four figures are
+        withheld, and the verdict says so in the warning family, never the success one."""
+        await funded(db_session, book)
+        await trade(
+            db_session,
+            book,
+            kind=TransactionKind.DEPOSIT,
+            security=None,
+            price=None,
+            quantity="1000",
+            currency="CHF",
+        )
+        view = await view_of(db_session, context, book)
+
+        totals = pages_module._totals(view, book["portfolio"])
+        lead = pages_module._book_verdict(view, totals=totals)
+
+        assert lead.tone is not Tone.SUCCESS
+        assert "withheld" in lead.composed
+
+    async def test_an_empty_book_is_muted_rather_than_reassuring(
+        self, db_session, book, context
+    ) -> None:
+        view = await view_of(db_session, context, book)
+
+        totals = pages_module._totals(view, book["portfolio"])
+        lead = pages_module._book_verdict(view, totals=totals)
+
+        assert lead.tone is Tone.MUTED
+        assert "Nothing is recorded yet" in lead.composed
