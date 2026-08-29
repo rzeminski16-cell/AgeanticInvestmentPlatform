@@ -50,6 +50,9 @@ _KNOWN_ROLES: Final[frozenset[str]] = frozenset(
         "report_writer",
         "peer_proposal",
         "theme_proposal",
+        # The authored half of the review verdict (ADR 0087): one sentence over a frozen
+        # subject, so the cheapest route is the right default.
+        "verdict",
         # The cheaper route a descriptive section's definition row may name (gap O1).
         # A route, not a capability: the writer keeps the report_writer role's registry
         # definition and only its bill changes.

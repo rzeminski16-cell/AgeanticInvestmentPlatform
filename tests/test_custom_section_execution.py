@@ -79,6 +79,7 @@ from tests.test_workflow import approve, run_clearing_the_assumptions_gate, run_
 from tests.workflow_fixtures import (
     StubSecClient,
     assumption_proposal_draft,
+    authored_verdict,
     declared_schema_name,
     peer_slate,
     plan_critique,
@@ -1313,6 +1314,7 @@ def moat_provider() -> FakeProvider:
                 challenges=[], coverage_note="Scripted fixture: no challenge raised."
             ),
             "AssumptionProposalDraft": assumption_proposal_draft,
+            "AuthoredVerdict": authored_verdict,
             "PeerSlate": peer_slate,
             "PlanCritique": plan_critique,
             "ThemeSlate": theme_slate,
