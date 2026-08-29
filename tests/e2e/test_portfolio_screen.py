@@ -138,3 +138,44 @@ class TestASubtotalIsNeverShownAsATotal:
         expect(page.locator('[data-cash="USD"] [data-field="problem"]')).to_contain_text(
             "No EUR/USD rate"
         )
+
+
+class TestTheThirdDoor:
+    """Roadmap §3.1: a ticker the platform has never seen, typed into the form.
+
+    This server has no market-data key, so the wiring is provable without a network: the
+    unknown ticker reaches the verifier and the answer is the configuration — named, with
+    what to do about it — never a dead end and never a guess.
+    """
+
+    def test_an_unknown_ticker_reaches_the_verifier_and_the_refusal_names_the_key(
+        self, page: Page, live_server: str
+    ) -> None:
+        _open_the_book(page, live_server)
+        page.select_option("#kind", "buy")
+        page.fill("#security", "TSLA NASDAQ")
+        page.fill("#trade_date", TRADE_DATE)
+        page.fill("#quantity", "10")
+        page.fill("#price", "100")
+        page.fill("#currency", "USD")
+
+        page.click("#record")
+
+        expect(page.get_by_text("No market-data subscription is configured")).to_be_visible()
+
+    def test_a_bare_unknown_ticker_is_told_to_name_the_exchange(
+        self, page: Page, live_server: str
+    ) -> None:
+        """Verifying against a guessed venue could resolve a different company's listing
+        somewhere else, so a bare ticker gets the ask rather than a guess."""
+        _open_the_book(page, live_server)
+        page.select_option("#kind", "buy")
+        page.fill("#security", "TSLA")
+        page.fill("#trade_date", TRADE_DATE)
+        page.fill("#quantity", "10")
+        page.fill("#price", "100")
+        page.fill("#currency", "USD")
+
+        page.click("#record")
+
+        expect(page.get_by_text("Name the exchange too")).to_be_visible()

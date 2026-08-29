@@ -45,7 +45,7 @@ from aer.db.models import (
     WorkOrder,
 )
 from aer.services import portfolio as portfolio_service
-from aer.web.portfolio.pages import NO_LISTINGS, _resolve_security
+from aer.web.portfolio.pages import NO_LISTINGS, _resolve_security, _Unheld
 
 pytestmark = pytest.mark.integration
 
@@ -580,16 +580,24 @@ class TestNamingTheSecurityYouMean:
     ) -> None:
         assert await _resolve_security(db_session, "   ") is None
 
-    async def test_a_ticker_nobody_holds_is_refused_with_what_to_do_about_it(
+    async def test_a_ticker_nobody_holds_is_the_third_doors_case(self, db_session, book) -> None:
+        """Since §3.1 an unknown ticker is not a dead end: resolution hands the handler
+        what was typed, parsed, and the handler decides whether it can be verified at
+        first sight. A bare ticker carries no venue — the door needs one."""
+        unheld = await _resolve_security(db_session, "TSLA")
+
+        assert isinstance(unheld, _Unheld)
+        assert unheld.ticker == "TSLA"
+        assert unheld.exchange is None
+
+    async def test_a_named_exchange_travels_with_the_unheld_ticker(
         self, db_session, book
     ) -> None:
-        """A holding this platform cannot price refuses the *whole* net asset value, so the
-        place to stop it is here rather than at the total."""
-        refusal = await _resolve_security(db_session, "TSLA")
-
-        assert isinstance(refusal, str)
-        assert "TSLA" in refusal
-        assert "research run acquires prices" in refusal
+        for typed in ("TSLA NASDAQ", "tsla.nasdaq"):
+            unheld = await _resolve_security(db_session, typed)
+            assert isinstance(unheld, _Unheld)
+            assert unheld.ticker == "TSLA"
+            assert unheld.exchange == "NASDAQ"
 
     async def test_an_ambiguous_ticker_names_the_choices_rather_than_picking_one(
         self, db_session, book
@@ -612,16 +620,19 @@ class TestNamingTheSecurityYouMean:
         assert "MSFT.NASDAQ" in refusal
         assert "MSFT.LSE" in refusal
 
-    async def test_a_platform_holding_nothing_says_why_rather_than_saying_no(
+    async def test_a_platform_holding_nothing_still_offers_the_third_door(
         self, db_session, book
     ) -> None:
-        """The empty state is the one an operator actually meets first."""
+        """The empty state is the one an operator actually meets first — and since §3.1 a
+        typed ticker on an empty platform is a verification waiting to happen, not a
+        refusal. The empty-state copy names both doors."""
         for security in (book["msft"], book["barc"]):
             security.is_active = False
         await db_session.flush()
 
-        refusal = await _resolve_security(db_session, "MSFT")
+        unheld = await _resolve_security(db_session, "MSFT NASDAQ")
 
-        assert refusal == NO_LISTINGS
+        assert isinstance(unheld, _Unheld)
         assert "market-data subscription" in NO_LISTINGS
         assert "cash transactions" in NO_LISTINGS.lower()
+        assert "verified" in NO_LISTINGS

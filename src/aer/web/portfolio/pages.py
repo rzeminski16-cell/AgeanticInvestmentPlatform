@@ -32,13 +32,16 @@ from sqlalchemy import func, select
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
-from aer.api.deps import CurrentUser, DbSession, SettingsDep
+from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
 from aer.calc.units import CalculationError
 from aer.core.enums import AttestationKind, Grade, TransactionKind
 from aer.db.models import Attestation, Portfolio, PriceBar, Security, Transaction
 from aer.errors import AerError
+from aer.runtime import standalone_price_client
 from aer.services import calculations as calculation_service
 from aer.services import portfolio as portfolio_service
+from aer.services.listings import add_listing
+from aer.storage.local import LocalArtefactStore
 from aer.web import vocabulary
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
@@ -166,7 +169,11 @@ async def create_book(
 
 @router.post("/portfolio/transactions", summary="Record a transaction")
 async def record_transaction(
-    request: Request, session: DbSession, settings: SettingsDep, user: CurrentUser
+    request: Request,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+    redis: RedisClient,
 ) -> Response:
     """Write down one thing that happened to the book.
 
@@ -185,6 +192,14 @@ async def record_transaction(
         return _refused(request, "Nothing was recorded.")
 
     resolved = await _resolve_security(session, submitted.get("security", ""))
+    if isinstance(resolved, _Unheld):
+        # The third door (roadmap §3.1, ADR 0093): a ticker the platform has never seen is
+        # verified with the market-data provider once, at first sight, and either becomes
+        # dealable — the trade then records against it in the same submission — or the
+        # operator gets the reason it cannot.
+        resolved = await _verified_at_first_sight(
+            session, settings=settings, redis=redis, book=book, unheld=resolved
+        )
     if isinstance(resolved, str):
         # A refusal that names what to do about it, not a validation error. The operator
         # typed a ticker; the useful answer is why this platform cannot deal it.
@@ -295,21 +310,77 @@ async def _dealable(session: DbSession) -> list[Security]:
     return list(rows)
 
 
-# What to say when the platform holds no listing at all. Not a shrug: it names the one thing
-# that creates a `Security` row today, which is the honest and complete answer.
+# What to say when the platform holds no listing at all. Not a shrug: it names both things
+# that create a `Security` row, which is the honest and complete answer (roadmap §3.1).
 NO_LISTINGS: Final = (
-    "This platform holds no priced listing yet. A listing is created when a research run "
-    "acquires prices for a company, which needs a market-data subscription configured. "
-    "Until there is one, cash transactions — a deposit, a withdrawal, a dividend, a fee — "
-    "work exactly as they will later."
+    "This platform holds no priced listing yet. Type a ticker with its exchange — "
+    "MSFT NASDAQ, BARC LSE — and it is verified with the market-data provider at first "
+    "sight; a research run that acquires prices creates a listing too. Both need a "
+    "market-data subscription configured. Cash transactions — a deposit, a withdrawal, "
+    "a dividend, a fee — work either way."
 )
 
 
-async def _resolve_security(session: DbSession, typed: str) -> Security | str | None:
-    """One typed ticker to the listing it names, or the reason it names none.
+async def _verified_at_first_sight(
+    session: DbSession,
+    *,
+    settings: SettingsDep,
+    redis: RedisClient,
+    book: Portfolio,
+    unheld: _Unheld,
+) -> Security | str:
+    """The third door: verify a never-seen ticker once, or say exactly why not.
+
+    Committed as it lands, whatever happens to the trade being recorded around it: a
+    verification is an acquisition with an artefact and a work order behind it, and losing
+    it to a typo in the quantity field would mean fetching the same series twice. The
+    refused attempt is committed too — a `FAILED` order is the record that the question
+    was asked.
+    """
+    if unheld.exchange is None:
+        return (
+            f"This platform holds no priced listing for {unheld.ticker!r}. Name the "
+            f"exchange too — for example {unheld.ticker} NASDAQ — and it will "
+            "be verified with the market-data provider at first sight. Commissioning a "
+            "research report on it also creates the listing, with the company's full "
+            "price history behind it."
+        )
+
+    store = LocalArtefactStore(settings.artefact_root, max_bytes=settings.max_artefact_bytes)
+    added = await add_listing(
+        session,
+        store,
+        portfolio=book,
+        ticker=unheld.ticker,
+        exchange=unheld.exchange,
+        client=standalone_price_client(settings, store=store, redis=redis),
+    )
+    await session.commit()
+    if added.security is None:
+        return added.refusal
+    return added.security
+
+
+@dataclass(frozen=True, slots=True)
+class _Unheld:
+    """A ticker this platform holds no listing for, parsed for the third door.
+
+    ``exchange`` is what the operator named, or ``None`` for a bare ticker — and the third
+    door needs one: verifying against a guessed venue could resolve a different company's
+    listing somewhere else, which is worse than a refusal.
+    """
+
+    ticker: str
+    exchange: str | None
+
+
+async def _resolve_security(session: DbSession, typed: str) -> Security | str | _Unheld | None:
+    """One typed ticker to the listing it names, or what to do about it naming none.
 
     ``None`` for an empty box, which is a cash transaction and not a mistake. A string is a
-    refusal an operator can act on; a :class:`Security` is the answer.
+    refusal an operator can act on; a :class:`Security` is the answer; an :class:`_Unheld`
+    is the third door's case — nothing held matches, and the handler decides whether it can
+    be verified at first sight (roadmap §3.1, ADR 0093).
 
     Three shapes are accepted because all three are what somebody types: ``MSFT``,
     ``MSFT.US`` — the vendor's own symbol, which is what a research run stored — and
@@ -321,9 +392,6 @@ async def _resolve_security(session: DbSession, typed: str) -> Security | str | 
         return None
 
     held = list(await session.scalars(select(Security).where(Security.is_active)))
-    if not held:
-        return NO_LISTINGS
-
     exact = [
         row
         for row in held
@@ -341,12 +409,13 @@ async def _resolve_security(session: DbSession, typed: str) -> Security | str | 
             "and picking one for you is the kind of guess a book cannot be reconciled against."
         )
 
-    return (
-        f"This platform holds no priced listing for {typed.strip()!r}. A listing is created "
-        "when a research run acquires prices for a company; commissioning a report on this "
-        "ticker is what makes it dealable. Holding a security the platform cannot price "
-        "would refuse the whole net asset value rather than only that row."
-    )
+    # Nothing held matches. `TICKER EXCHANGE` or `TICKER.EXCHANGE` names a venue the third
+    # door can verify against; a bare ticker names none, and the handler says so.
+    for separator in (" ", "."):
+        ticker, found, venue = wanted.partition(separator)
+        if found and ticker and venue:
+            return _Unheld(ticker=ticker, exchange=venue)
+    return _Unheld(ticker=wanted, exchange=None)
 
 
 # -- Rendering -----------------------------------------------------------------------------
