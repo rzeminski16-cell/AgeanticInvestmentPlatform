@@ -1,12 +1,18 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
 
 {#
-  The run console.
-
-  Rendered complete on the server. `console.js` then subscribes to the event stream and
-  keeps the step list and the spend current. When `EventSource` is unavailable the same
-  page refreshes itself on a timer instead -- slower, identical information, and never a
+  The run console. Rendered complete on the server; `console.js` keeps the step rows, the
+  spend and the liveness line current and re-fetches the page when the status moves, because
+  most of what a status means is chrome the stream cannot patch. With no EventSource the
+  noscript refresh below reloads the page instead — slower, identical information, never a
   blank page for a run that is still spending money.
+
+  Three questions decide the layout, in the operator's order: is it alive, does it want
+  something from me, what has it cost. The step ledger keeps every declared step — "nothing
+  is happening" and "step one is thinking" must never look identical — with the technical
+  key as secondary text, because the worker terminal speaks in keys and the explainer sends
+  the operator there.
 #}
 
 {% block title %}Run &middot; {{ research_request.ticker if research_request else job.id }}{% endblock %}
@@ -16,9 +22,7 @@
   {#
     The no-JavaScript fallback, inside `noscript` so a scripting browser never parses it.
     That containment is load-bearing: a declarative refresh is *scheduled at parse time*
-    and removing the element afterwards does not cancel it (verified against Chromium),
-    so the previous scheme -- emit it bare, have `console.js` delete it -- still reloaded
-    the page every few seconds and threw away the event stream it had just opened.
+    and removing the element afterwards does not cancel it (verified against Chromium).
   #}
   {% if not is_terminal %}
     <noscript>
@@ -30,166 +34,138 @@
 {% block content %}
   <div
     id="run-console"
+    class="flex flex-col gap-6"
     data-job-id="{{ job.id }}"
     data-events-url="/api/runs/{{ job.id }}/events"
     data-terminal="{{ 'true' if is_terminal else 'false' }}"
     {#
-      The status this markup was rendered for. Most of what a status implies is *chrome*
-      the event stream cannot patch -- the approval banner and its buttons, the budget
-      notice, the report link -- all of it server-rendered from this value. `console.js`
+      The status this markup was rendered for, as the machine says it. `console.js`
       compares each frame against it and re-fetches the page when they diverge, rather
-      than rendering the same banners a second time in JavaScript.
+      than rendering the same banners a second time in JavaScript. The labels beside it
+      are the vocabulary's, so the one script that patches a row never invents a word.
     #}
     data-status="{{ state.status }}"
+    data-status-labels='{{ status_labels_json }}'
   >
-    <nav class="text-sm">
-      <a
-        href="/requests/{{ job.request_id }}"
-        class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
-      >
-        &larr; Back to the request
-      </a>
-    </nav>
+    {% call ui.page_header(
+      research_request.company_name if research_request else "Research run",
+      eyebrow="RESEARCH RUN",
+      identity=(research_request.ticker ~ " · as at " ~ research_request.as_of_date.isoformat())
+               if research_request else "",
+      breadcrumbs=([{"href": "/requests", "label": "Requests"},
+                    {"href": "/requests/" ~ job.request_id, "label": research_request.company_name}]
+                   if research_request else [{"href": "/requests", "label": "Requests"}]),
+    ) %}
+      <span id="run-status">{{ ui.status(run_words.tone.value, run_words.label) }}</span>
+    {% endcall %}
 
-    <div class="mt-4 flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <h1 class="text-2xl font-semibold tracking-tight">
-          {{ research_request.company_name if research_request else "Research run" }}
-        </h1>
-        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          {% if research_request %}
-            <span class="font-mono">{{ research_request.ticker }}</span> &middot; as at
-            {{ research_request.as_of_date.isoformat() }} &middot;
-          {% endif %}
-          workflow <span class="font-mono">{{ job.workflow_version }}</span>
-        </p>
-      </div>
-      <div class="flex flex-col items-end gap-1">
-        <span
-          id="run-status"
-          class="rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-800 dark:bg-slate-800 dark:text-slate-200"
-        >
-          {{ state.status }}
-        </span>
-        <span class="text-xs text-slate-500">
-          spent <span class="font-mono" id="run-spend">£{{ spend_gbp }}</span>
-        </span>
-      </div>
-    </div>
+    {{ ui.verdict("CURRENT STATE", plain_status, tone=run_words.tone.value) }}
 
     {% if awaiting %}
       <section
-        class="mt-6 rounded-md border border-sky-300 bg-sky-50 p-4 dark:border-sky-900 dark:bg-sky-950/40"
+        class="rounded-md border border-line border-l-[3px] border-l-warning-ink bg-decision-wash p-5"
         role="alert"
         id="awaiting-approval"
       >
-        <h2 class="text-sm font-semibold text-sky-900 dark:text-sky-100">Waiting for you</h2>
-        <p class="mt-1 text-sm text-sky-900/90 dark:text-sky-100/90">
-          This run has stopped at a gate. Nothing further happens, and nothing further is
-          spent, until you approve or reject it.
+        <h2 class="type-title-2 text-ink">Waiting for you</h2>
+        <p class="mt-2 type-body text-ink">
+          Nothing further happens, and nothing further is spent, until you approve or
+          reject it.
         </p>
-        <div class="mt-3 flex flex-wrap gap-3">
-          <a
-            href="/runs/{{ job.id }}/plan"
-            class="rounded-md bg-sky-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-800"
-            id="review-plan"
-          >
-            Review the plan
-          </a>
+        <div class="mt-4 flex flex-wrap gap-3">
           {#
-            Shown only when this run actually stopped here. Unlike the plan and the draft,
-            this gate is conditional -- offering it on every run would send most operators to
-            a page telling them there is nothing to confirm.
+            The pending gate leads. The plan and the draft stay reachable on every stopped
+            run; the conditional gates appear only when this run actually stopped there,
+            because offering them on every run sends most operators to a page saying there
+            is nothing to confirm.
           #}
           {% if pending_gate == 'SECTOR_SPECIALIST' %}
-            <a
-              href="/runs/{{ job.id }}/sector"
-              class="rounded-md border border-sky-700 px-3 py-1.5 text-sm font-semibold text-sky-800 hover:bg-sky-100 dark:text-sky-300 dark:hover:bg-sky-900/40"
-              id="review-sector"
-            >
-              Confirm the sector
-            </a>
+            <a href="/runs/{{ job.id }}/sector" id="review-sector"
+               class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm the sector</a>
           {% endif %}
           {% if pending_gate == 'PEER_SET' %}
-            <a
-              href="/runs/{{ job.id }}/peers"
-              class="rounded-md border border-sky-700 px-3 py-1.5 text-sm font-semibold text-sky-800 hover:bg-sky-100 dark:text-sky-300 dark:hover:bg-sky-900/40"
-              id="review-peers"
-            >
-              Confirm the peer set
-            </a>
+            <a href="/runs/{{ job.id }}/peers" id="review-peers"
+               class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm the peer set</a>
           {% endif %}
           {% if pending_gate == 'THEME_SET' %}
-            <a
-              href="/runs/{{ job.id }}/themes"
-              class="rounded-md border border-sky-700 px-3 py-1.5 text-sm font-semibold text-sky-800 hover:bg-sky-100 dark:text-sky-300 dark:hover:bg-sky-900/40"
-              id="review-themes"
-            >
-              Confirm the themes
-            </a>
+            <a href="/runs/{{ job.id }}/themes" id="review-themes"
+               class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm the themes</a>
           {% endif %}
           {% if pending_gate == 'ASSUMPTIONS' %}
-            <a
-              href="/runs/{{ job.id }}/assumptions"
-              class="rounded-md border border-sky-700 px-3 py-1.5 text-sm font-semibold text-sky-800 hover:bg-sky-100 dark:text-sky-300 dark:hover:bg-sky-900/40"
-              id="review-assumptions"
-            >
-              Confirm the assumptions
-            </a>
+            <a href="/runs/{{ job.id }}/assumptions" id="review-assumptions"
+               class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm the assumptions</a>
           {% endif %}
           {% if pending_gate == 'UNMAPPED_CONCEPTS' %}
-            <a
-              href="/runs/{{ job.id }}/financials"
-              class="rounded-md border border-sky-700 px-3 py-1.5 text-sm font-semibold text-sky-800 hover:bg-sky-100 dark:text-sky-300 dark:hover:bg-sky-900/40"
-              id="review-financials"
-            >
-              Confirm the financials
-            </a>
+            <a href="/runs/{{ job.id }}/financials" id="review-financials"
+               class="inline-flex min-h-11 items-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Confirm the financials</a>
           {% endif %}
-          <a
-            href="/runs/{{ job.id }}/review"
-            class="rounded-md border border-sky-700 px-3 py-1.5 text-sm font-semibold text-sky-800 hover:bg-sky-100 dark:text-sky-300 dark:hover:bg-sky-900/40"
-            id="review-draft"
-          >
-            Review the draft
-          </a>
+          <a href="/runs/{{ job.id }}/plan" id="review-plan"
+             class="inline-flex min-h-11 items-center rounded-sm {{ 'bg-decision text-on-decision hover:bg-decision-strong' if pending_gate == 'PLAN' else 'border border-control-boundary bg-surface text-ink hover:bg-surface-selected' }} px-3 type-label">Review the plan</a>
+          <a href="/runs/{{ job.id }}/review" id="review-draft"
+             class="inline-flex min-h-11 items-center rounded-sm {{ 'bg-decision text-on-decision hover:bg-decision-strong' if pending_gate == 'FINAL' else 'border border-control-boundary bg-surface text-ink hover:bg-surface-selected' }} px-3 type-label">Review the draft</a>
         </div>
       </section>
     {% endif %}
 
     {% if budget_exceeded %}
       <section
-        class="mt-6 rounded-md border border-amber-400 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
+        class="rounded-md border border-line border-l-[3px] border-l-refusal-ink bg-refusal-wash p-5"
         role="alert"
         id="budget-exceeded"
       >
-        <h2 class="text-sm font-semibold text-amber-900 dark:text-amber-200">
-          {% if budget_scope == "monthly" %}Stopped on the monthly budget{% else %}Stopped on budget{% endif %}
+        <h2 class="type-title-2 text-ink">
+          {% if budget_scope == "monthly" %}Stopped on the monthly budget{% else %}Stopped before overspending{% endif %}
         </h2>
-        <p class="mt-1 text-sm text-amber-900/90 dark:text-amber-100/90">
-          The next step would take this run past a spending cap, so it stopped before making
-          the call rather than after paying for it.
+        <p class="mt-2 type-body text-ink">
+          The next step would take this run past a spending cap, so it stopped before
+          making the call rather than after paying for it.
           {% if budget_scope == "monthly" %}
             The cap it reached is the ceiling across every run this month, so raising this
             request&rsquo;s own cap will not release it &mdash; change the monthly budget in
-            <a class="underline" href="/settings">settings</a>, or wait for the month to turn.
+            <a class="underline underline-offset-[3px]" href="/settings">settings</a>, or
+            wait for the month to turn.
           {% else %}
-            Raise the cap on the request to continue.
+            Raise the cap on
+            <a class="underline underline-offset-[3px]" href="/requests/{{ job.request_id }}">the request</a>,
+            then continue the run below &mdash; it picks up from where it stopped.
           {% endif %}
+        </p>
+      </section>
+    {% endif %}
+
+    {% if failed_step and not cancellation %}
+      {#
+        A failed run gets somewhere to go (ADR 0090). Continuing re-enqueues the same job
+        and the engine skips the completed steps, so recovery costs the failed step onward
+        — not the whole run again. Starting afresh stays on the request page, priced there.
+      #}
+      <section
+        class="rounded-md border border-line border-l-[3px] border-l-failure-ink bg-failure-wash p-5"
+        role="alert"
+        id="run-failed"
+      >
+        <h2 class="type-title-2 text-ink">{{ failed_step.label }} failed</h2>
+        <p class="mt-2 type-body text-ink">
+          {{ failed_step.error.message if failed_step.error and failed_step.error.message else "The step did not finish. The worker terminal holds the full record." }}
+        </p>
+        {% if failed_step.error and failed_step.error.code %}
+          <p class="mt-1 type-data-sm text-ink-muted">{{ failed_step.error.code }}</p>
+        {% endif %}
+        <p class="mt-3 type-body-sm text-ink-muted">
+          Continuing repeats nothing: the completed steps are kept, and the run picks up
+          at the step that failed.
         </p>
       </section>
     {% endif %}
 
     {% if cancellation %}
       <section
-        class="mt-6 rounded-md border border-slate-300 bg-slate-100 p-4 dark:border-slate-700 dark:bg-slate-800"
+        class="rounded-md border border-line bg-surface-sunken p-5"
         role="status"
         id="cancellation-requested"
       >
-        <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-200">
-          {% if is_terminal %}Cancelled{% else %}Stopping{% endif %}
-        </h2>
-        <p class="mt-1 text-sm text-slate-700 dark:text-slate-300">
+        <h2 class="type-title-2 text-ink">{% if is_terminal %}Cancelled{% else %}Stopping{% endif %}</h2>
+        <p class="mt-2 type-body text-ink">
           Cancellation requested at
           {{ cancellation.requested_at.strftime("%H:%M:%S on %d %B %Y") }}.
           {% if not is_terminal %}
@@ -198,159 +174,139 @@
           {% endif %}
         </p>
         {% if cancellation.reason %}
-          <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            Reason: {{ cancellation.reason }}
-          </p>
+          <p class="mt-2 type-body-sm text-ink-muted">Reason: {{ cancellation.reason }}</p>
         {% endif %}
       </section>
     {% endif %}
 
     {% if report_id %}
-      <section class="mt-6">
+      <p>
         <a
           href="/reports/{{ report_id }}"
-          class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
           id="view-report"
-        >
-          View the report
-        </a>
-      </section>
+          class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 type-label text-on-verification hover:bg-verification-strong"
+        >Read the report</a>
+      </p>
     {% endif %}
 
-    {# Reproduce this run. Offered whatever the run's state, because a failed or cancelled
-       run is often the one worth interrogating. Costs nothing to press: no fetch, no model. #}
-    <form method="post" action="/runs/{{ job.id }}/replay" class="mt-6" id="replay-form">
-      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-      <button
-        type="submit"
-        class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-      >
-        Reproduce this run
-      </button>
-      <span class="ml-2 text-xs text-slate-500">
-        Re-checks the calculations, citations, artefacts and archived exchanges.
-      </span>
-    </form>
-
-    {% if can_cancel and not cancellation %}
-      {# A POST, because stopping a run changes something. No confirmation dialogue: the
-         worst case is a run you start again, and a modal that has to be dismissed to stop
-         spending money is a modal in the wrong place. #}
-      <form method="post" action="/runs/{{ job.id }}/cancel" class="mt-6" id="cancel-form">
+    {% if can_resume %}
+      <form method="post" action="/runs/{{ job.id }}/resume" id="resume-form">
         <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-        <label for="cancel-reason" class="block text-xs font-medium text-slate-600 dark:text-slate-400">
-          Why? (optional, recorded in the audit trail)
-        </label>
-        <div class="mt-1 flex flex-wrap items-center gap-3">
-          <input
-            type="text"
-            id="cancel-reason"
-            name="reason"
-            maxlength="4000"
-            placeholder="Wrong as-of date"
-            class="w-64 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
-          />
-          <button
-            type="submit"
-            id="cancel-run"
-            class="rounded-md border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-800 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/40"
-          >
-            Cancel this run
-          </button>
-        </div>
+        <button
+          type="submit"
+          id="resume-run"
+          class="inline-flex min-h-11 items-center rounded-sm bg-decision px-4 type-label text-on-decision hover:bg-decision-strong"
+        >Continue this run</button>
+        <span class="ml-2 type-body-sm text-ink-muted">
+          Same run, same record: the completed steps are skipped, and only what remains is
+          spent.
+        </span>
       </form>
     {% endif %}
 
     {#
-      The evidence surfaces. Linked from the console rather than only from a finished
-      report, because "what has this run actually gathered?" is a question worth being able
-      to ask while it is still running.
+      The run's decisions, without overstating: a conditional gate whose moment has not
+      come is a possibility, never a promised step.
     #}
-    <nav class="mt-8 flex flex-wrap gap-4 text-sm" id="evidence-links">
-      <a
-        href="/runs/{{ job.id }}/sources"
-        class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
-        id="sources-link"
-      >
-        Sources and provenance
+    {% call ui.sheet("The decisions", id="run-journey") %}
+      <ol class="flex flex-wrap gap-x-5 gap-y-2">
+        {% for entry in journey.entries %}
+          <li class="flex items-baseline gap-2" data-journey-gate="{{ entry.gate.value }}" data-journey-state="{{ entry.state.value }}">
+            <span class="type-label {{ 'text-warning-ink' if entry.state.value == 'current' else ('text-ink' if entry.state.value == 'decided' else 'text-ink-muted') }}">{{ entry.name }}</span>
+            <span class="type-body-sm {{ 'text-warning-ink' if entry.state.value == 'current' else 'text-ink-subtle' }}">
+              {%- if entry.state.value == 'decided' %}{{ entry.decision_label | lower }}
+              {%- elif entry.state.value == 'current' %}now
+              {%- elif entry.state.value == 'not_needed' %}not needed
+              {%- elif entry.state.value == 'upcoming' %}to come
+              {%- else %}if needed{% endif -%}
+            </span>
+          </li>
+        {% endfor %}
+      </ol>
+      <p class="mt-3 type-body-sm text-ink-muted" id="decisions-remaining">{{ journey.remaining_display }}</p>
+    {% endcall %}
+
+    {% call ui.sheet("Spend against ceiling") %}
+      <p class="type-data-xl text-ink">
+        <span id="run-spend">{{ cost.spent_display }}</span>
+        <span class="text-ink-muted">of {{ cost.ceiling_display }}</span>
+      </p>
+      <p class="mt-1 type-body-sm text-ink-muted">
+        The run stops before any step that would cross the ceiling. The ceiling is the
+        request&rsquo;s, and raising it there releases the run.
+      </p>
+    {% endcall %}
+
+    {#
+      What the run has actually gathered, with honest counts — never a bare link to a page
+      that turns out to be empty.
+    #}
+    <nav class="flex flex-wrap gap-x-6 gap-y-2" id="evidence-links" aria-label="Evidence">
+      <a href="/runs/{{ job.id }}/sources" id="sources-link"
+         class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">
+        Sources{% if evidence_counts.sources %} · {{ evidence_counts.sources }}{% else %} — none yet{% endif %}
       </a>
-      <a
-        href="/runs/{{ job.id }}/claims"
-        class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
-        id="claims-link"
-      >
-        Claims and their evidence
+      <a href="/runs/{{ job.id }}/claims" id="claims-link"
+         class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">
+        Claims{% if evidence_counts.claims %} · {{ evidence_counts.claims }}{% else %} — none yet{% endif %}
       </a>
-      <a
-        href="/runs/{{ job.id }}/valuation"
-        class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
-        id="valuation-link"
-      >
-        Valuation and comparables
+      <a href="/runs/{{ job.id }}/valuation" id="valuation-link"
+         class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">
+        Valuation{% if evidence_counts.valuation_ready %} · ready{% else %} — not built yet{% endif %}
       </a>
     </nav>
 
-    <section class="mt-8">
+    <section aria-labelledby="steps-heading">
       <div class="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 class="text-lg font-semibold tracking-tight">Steps</h2>
-        <p class="text-xs text-slate-500">
+        <h2 id="steps-heading" class="type-title-2 text-ink">The steps</h2>
+        <p class="type-body-sm text-ink-muted">
           <span data-field="steps-done">{{ state.steps_done }}</span> of
           <span data-field="steps-total">{{ state.steps_total }}</span> done
         </p>
       </div>
 
       {#
-        Every declared step, not only the ones that have started. A run showing one line
-        for its first five minutes tells the operator nothing about how much is left, and
-        "nothing is happening" and "step one of nine is thinking" look identical.
+        Every declared step, not only the ones that have started: "nothing is happening"
+        and "step one of thirty is thinking" must never look identical. The row's status
+        lives in `data-status`, which the stylesheet keys the dot on and the script keys
+        its clock on — the visible words stay the vocabulary's.
       #}
-      <ol class="mt-3 divide-y divide-slate-200 dark:divide-slate-800" id="run-steps">
-        {% for step in state.steps %}
+      <ol class="mt-3 divide-y divide-line" id="run-steps">
+        {% for step in steps_display %}
           <li
-            class="flex flex-wrap items-baseline justify-between gap-2 py-2"
+            class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5"
             data-step="{{ step.key }}"
+            data-status="{{ step.status }}"
+            data-label="{{ step.label }}"
             data-started-at="{{ step.started_at or '' }}"
           >
-            <span class="flex items-baseline gap-2">
-              {#
-                A pulsing dot on the step that is running. Purely a liveness cue -- it says
-                the server recorded this step as started and not finished, which is exactly
-                what it looks like it says.
-              #}
-              <span
-                class="inline-block h-2 w-2 shrink-0 rounded-full {{ 'animate-pulse bg-sky-500' if step.status == 'RUNNING' else ('bg-emerald-500' if step.status == 'SUCCEEDED' else 'bg-slate-300 dark:bg-slate-700') }}"
-                data-field="dot"
-                aria-hidden="true"
-              ></span>
-              <span class="font-mono text-sm {{ 'text-slate-400' if step.status == 'QUEUED' else '' }}">
-                {{ step.key }}
+            <span class="flex min-w-0 items-baseline gap-2">
+              <span class="aer-step-dot inline-block h-2 w-2 shrink-0 rounded-round" data-field="dot" aria-hidden="true"></span>
+              <span class="min-w-0">
+                <span class="type-body {{ 'text-ink-muted' if step.status == 'QUEUED' else 'text-ink' }}">{{ step.label }}</span>
+                <span class="ml-2 type-data-sm text-ink-subtle">{{ step.key }}</span>
               </span>
             </span>
-            <span class="flex items-baseline gap-3 text-xs">
-              <span class="font-mono tabular-nums text-sky-700 dark:text-sky-400" data-field="elapsed"></span>
-              <span class="uppercase tracking-wide text-slate-500" data-field="status">
-                {{ step.status }}
-              </span>
-              <span class="font-mono text-slate-500" data-field="cost">£{{ step.cost_gbp }}</span>
+            <span class="flex items-baseline gap-3">
+              <span class="type-data-sm tabular-nums text-verification" data-field="elapsed"></span>
+              <span class="type-body-sm text-ink-muted" data-field="status">{{ step.status_words.label }}</span>
+              <span class="type-data-sm text-ink-muted" data-field="cost">£{{ step.cost_gbp }}</span>
             </span>
             {% if step.error %}
-              {#
-                The message, not the dictionary. A run that failed used to print its whole
-                error payload -- code, context and all -- as one unpunctuated line, which is
-                the least readable form of the most important sentence on the page.
-              #}
-              <p class="w-full text-xs text-red-700 dark:text-red-400" data-field="error">
+              {# The message, not the dictionary: the most important sentence on the page
+                 deserves better than an unpunctuated error payload. #}
+              <p class="w-full type-body-sm text-failure-ink" data-field="error">
                 {{ step.error.message or step.error }}
               </p>
               {% if step.error.code %}
-                <p class="w-full font-mono text-[11px] text-red-600/80 dark:text-red-400/70" data-field="error-code">
+                <p class="w-full type-data-sm text-failure-ink" data-field="error-code">
                   {{ step.error.code }}
                 </p>
               {% endif %}
             {% endif %}
           </li>
         {% else %}
-          <li class="py-2 text-sm text-slate-400">This run has not started a step yet.</li>
+          <li class="py-2 type-body-sm text-ink-muted">This run has not started a step yet.</li>
         {% endfor %}
       </ol>
     </section>
@@ -358,39 +314,91 @@
     {% if not is_terminal %}
       {#
         What "still working" looks like when nothing has changed for four minutes. Every
-        figure here comes from the server: the step name and its start time from the
-        database, the last-seen time from the event stream. The elapsed clock is the
-        browser's, counting from the server's start time.
+        figure comes from the server; the elapsed clock is the browser's, counting from
+        the server's own start time.
       #}
       <section
-        class="mt-6 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-900/40"
+        class="rounded-md border border-line bg-surface-sunken p-5"
         id="run-progress"
         role="status"
         aria-live="polite"
       >
-        <p class="text-slate-700 dark:text-slate-300" data-field="summary">
-          {% if state.current_step %}
-            Working on <span class="font-mono">{{ state.current_step }}</span>.
+        <p class="type-body text-ink" data-field="summary">
+          {% if current_label %}
+            Working on {{ current_label | lower }}.
           {% elif awaiting or budget_exceeded %}
             Stopped for you. Nothing is being spent.
           {% else %}
             Queued. The worker picks this up within a second or two.
           {% endif %}
         </p>
-        <p class="mt-1 text-xs text-slate-500">
+        <p class="mt-2 type-body-sm text-ink-muted">
           A step that calls a model routinely takes two to five minutes: the model reasons
           before it writes, and nothing is recorded until it has finished. Past about ten
           minutes on one step, look at the terminal running
-          <span class="font-mono">just worker</span> &mdash; that is where this run is
+          <span class="type-data-sm">just worker</span> &mdash; that is where this run is
           actually happening, and where a failure appears first.
         </p>
-        <p class="mt-2 text-xs text-slate-500" data-field="last-seen">
+        <p class="mt-2 type-body-sm text-ink-muted" data-field="last-seen">
           {# Filled in by the event stream. Absent until the first heartbeat arrives. #}
         </p>
       </section>
     {% endif %}
 
-    <p class="mt-6 text-xs text-slate-500" id="stream-note">
+    {% if can_cancel and not cancellation %}
+      {#
+        A POST, because stopping a run changes something. No confirmation dialogue: the
+        worst case is a run you start again, and a modal that must be dismissed to stop
+        spending money is a modal in the wrong place.
+      #}
+      <form method="post" action="/runs/{{ job.id }}/cancel" id="cancel-form">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        <label for="cancel-reason" class="block type-label text-ink-muted">
+          Why? (optional, recorded in the audit trail)
+        </label>
+        <div class="mt-2 flex flex-wrap items-center gap-3">
+          <input
+            type="text"
+            id="cancel-reason"
+            name="reason"
+            maxlength="4000"
+            placeholder="Wrong as-of date"
+            class="min-h-11 w-72 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink"
+          />
+          <button
+            type="submit"
+            id="cancel-run"
+            class="inline-flex min-h-11 items-center rounded-sm border border-danger-action px-3 type-label text-danger-action hover:bg-failure-wash"
+          >Cancel this run</button>
+        </div>
+      </form>
+    {% endif %}
+
+    {% call ui.sheet() %}
+      {% call ui.disclosure("Technical record") %}
+        {{ ui.definition_list([
+          {"label": "Run", "value": job.id, "is_data": true},
+          {"label": "Workflow", "value": job.workflow_version, "is_data": true},
+        ]) }}
+        {#
+          Reproduce this run. Offered whatever the run's state, because a failed or
+          cancelled run is often the one worth interrogating. Costs nothing: no fetch,
+          no model call.
+        #}
+        <form method="post" action="/runs/{{ job.id }}/replay" class="mt-4" id="replay-form">
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+          <button
+            type="submit"
+            class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected"
+          >Reproduce this run</button>
+          <span class="ml-2 type-body-sm text-ink-muted">
+            Re-checks the calculations, citations, artefacts and archived exchanges.
+          </span>
+        </form>
+      {% endcall %}
+    {% endcall %}
+
+    <p class="type-body-sm text-ink-subtle" id="stream-note">
       Live updates require JavaScript. Without it this page refreshes itself every
       {{ poll_seconds }} seconds.
     </p>

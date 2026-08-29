@@ -816,6 +816,47 @@ body[data-guidance="on"] .aer-guide {
   display: inline-flex;
 }
 
+/* ---------------------------------------------------------------------------------------
+   The console's step dots. Colour keyed on the row's recorded status attribute, so the
+   script that keeps a row current sets data and never composes a class name — a
+   runtime-composed class is one the scanner cannot see, and it renders with no colour at
+   all. The pulse is a liveness cue and nothing more; reduced motion (below) removes it and
+   the word "Working" carries the meaning. */
+
+.aer-step-dot {
+  background-color: var(--aer-line-strong);
+}
+
+[data-status="RUNNING"] .aer-step-dot {
+  background-color: var(--aer-verification);
+  animation: aer-step-pulse 2s ease-in-out infinite;
+}
+
+[data-status="SUCCEEDED"] .aer-step-dot {
+  background-color: var(--aer-success-ink);
+}
+
+[data-status="FAILED"] .aer-step-dot {
+  background-color: var(--aer-failure-ink);
+}
+
+[data-status="AWAITING_APPROVAL"] .aer-step-dot,
+[data-status="PAUSED"] .aer-step-dot,
+[data-status="BUDGET_EXCEEDED"] .aer-step-dot {
+  background-color: var(--aer-warning-ink);
+}
+
+@keyframes aer-step-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -27,6 +27,7 @@ from aer.config import load_settings
 from aer.core.enums import GateKind, JobStatus
 from aer.db.models import Job, JobStep, Report, ResearchRequest, User
 from aer.services import runs as run_service
+from aer.web.vocabulary import JOB_STATES
 from tests.db_fixtures import run_async
 from tests.e2e.worker import Worker
 from tests.workflow_fixtures import (
@@ -190,7 +191,9 @@ class TestTheConsole:
     ) -> None:
         page.goto(f"{live_server}/runs/{waiting_run.job_id}")
 
-        expect(page.locator("#run-status")).to_have_text(JobStatus.AWAITING_APPROVAL.value)
+        expect(page.locator("#run-status")).to_have_text(
+            JOB_STATES[JobStatus.AWAITING_APPROVAL].label
+        )
         expect(page.locator('[data-step="plan"]')).to_be_visible()
         expect(page.locator("#awaiting-approval")).to_be_visible()
 
@@ -202,7 +205,7 @@ class TestTheConsole:
 
         expect(page.locator('[data-step="render"]')).to_be_visible()
         expect(page.locator('[data-step="render"] [data-field="status"]')).to_have_text(
-            JobStatus.QUEUED.value
+            JOB_STATES[JobStatus.QUEUED].label
         )
 
     def test_a_long_step_shows_a_clock_that_moves(
@@ -231,7 +234,8 @@ class TestTheConsole:
         waiting_run.hold_step("plan", started_seconds_ago=5)
         page.goto(f"{live_server}/runs/{waiting_run.job_id}")
 
-        expect(page.locator("#run-progress")).to_contain_text("Working on plan")
+        # The step's human name, not its key: the vocabulary reached the liveness line.
+        expect(page.locator("#run-progress")).to_contain_text("Working on planning the research")
         expect(page.locator("#run-progress")).to_contain_text("just worker")
 
     def test_reaching_a_gate_reveals_the_banner_without_a_manual_refresh(
@@ -383,7 +387,9 @@ class TestWithoutJavaScript:
         page.goto(f"{live_server}/runs/{waiting_run.job_id}")
 
         expect(page.locator('[data-step="plan"]')).to_be_visible()
-        expect(page.locator("#run-status")).to_have_text(JobStatus.AWAITING_APPROVAL.value)
+        expect(page.locator("#run-status")).to_have_text(
+            JOB_STATES[JobStatus.AWAITING_APPROVAL].label
+        )
 
     def test_the_polling_fallback_is_present_before_any_script_runs(
         self, no_script: Any, live_server: str, waiting_run: RunFixture
@@ -466,7 +472,7 @@ class TestCancelling:
         # cancelled run whose page still offers a cancel button is the thing that would
         # go unnoticed.
         expect(page.locator("#run-status")).to_have_text(
-            JobStatus.CANCELLED.value, timeout=REFETCH_TIMEOUT_MS
+            JOB_STATES[JobStatus.CANCELLED].label, timeout=REFETCH_TIMEOUT_MS
         )
         expect(page.locator("#cancel-run")).to_have_count(0)
 

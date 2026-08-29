@@ -1024,7 +1024,10 @@ class TestTheWebPages:
 
         await driver.advance(job_id)
         page = await api.get(f"/runs/{job_id}")
-        started = re.search(r'data-step="plan"\s+data-started-at="([^"]+)"', page.text)
+        # The row carries other data attributes between the two — the status the dot keys
+        # on, the human label the liveness line reads — so anything up to the tag's close
+        # may separate them.
+        started = re.search(r'data-step="plan"[^>]*data-started-at="([^"]+)"', page.text)
         assert started is not None
         assert datetime.fromisoformat(started.group(1)).tzinfo is not None
 

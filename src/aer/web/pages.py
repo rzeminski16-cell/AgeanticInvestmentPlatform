@@ -29,7 +29,7 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, Request
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import (
@@ -67,6 +67,7 @@ from aer.db.models import (
     ReportSection,
     ResearchPlan,
     ResearchRequest,
+    SourceDocument,
 )
 from aer.errors import ConflictError, ValidationError
 from aer.obsidian import ObsidianExportError, VaultWriteError, export_report
@@ -82,6 +83,7 @@ from aer.services import cancellation as cancellation_service
 from aer.services import catalyst_resolutions as catalyst_service
 from aer.services import configuration, provenance
 from aer.services import history as history_service
+from aer.services import resume as resume_service
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
 from aer.services.assumptions import assumptions_for_request
@@ -107,7 +109,9 @@ from aer.services.spend import recent_runs, spend_by_role, spend_summary
 from aer.services.themes import THEME_STEP, theme_set_payload, theme_set_required
 from aer.services.valuation_view import lineage_rows, valuation_view
 from aer.storage.local import LocalArtefactStore
+from aer.web import figures, vocabulary
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.gates import journey
 from aer.web.templating import render
 from aer.workflow.registry import WorkflowRegistryError, resolve_workflow
 from aer.workflow.workflows.vertical_slice_v1 import (
@@ -210,7 +214,9 @@ async def run_console(
     research_request = await session.get(ResearchRequest, job.request_id)
     report = await session.scalar(select(Report).where(Report.job_id == job_id))
     pending = await approval_service.pending_gate(session, job)
+    approvals = await approval_service.approvals_for_job(session, job_id)
     cancellation = await cancellation_service.cancellation_for(session, job_id=job_id)
+    state_dict = state.as_dict()
 
     token = new_csrf_token(settings)
     response: Response = render(
@@ -221,22 +227,176 @@ async def run_console(
             "research_request": research_request,
             "cancellation": cancellation,
             "can_cancel": job.status not in cancellation_service.TERMINAL_STATUSES,
-            "state": state.as_dict(),
-            "steps": state.steps,
+            "state": state_dict,
             "spend_gbp": state.spend_gbp,
             "is_terminal": state.is_terminal,
             "awaiting": job.status is JobStatus.AWAITING_APPROVAL,
             "budget_exceeded": job.status is JobStatus.BUDGET_EXCEEDED,
             "budget_scope": state.budget_scope,
             "pending_gate": pending.value if pending else None,
+            "pending_words": vocabulary.GATES[pending] if pending else None,
             "report_id": str(report.id) if report else None,
             "poll_seconds": POLL_SECONDS,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
+            **await _console_view(
+                session,
+                job=job,
+                request_row=research_request,
+                state_dict=state_dict,
+                spend_gbp=state.spend_gbp,
+                pending=pending,
+                approvals=approvals,
+            ),
         },
     )
     set_csrf_cookie(response, token)
     return response
+
+
+async def _console_view(
+    session: AsyncSession,
+    *,
+    job: Job,
+    request_row: ResearchRequest | None,
+    state_dict: dict[str, Any],
+    spend_gbp: Decimal,
+    pending: GateKind | None,
+    approvals: list[Any],
+) -> dict[str, Any]:
+    """What the console says, decided here rather than in Jinja.
+
+    Every value is a finished string or a typed shape from the vocabulary. The step keys
+    stay on the page as secondary text — the worker terminal speaks in them — but the
+    primary answer to "is it alive, does it want me, what has it cost" is composed here,
+    in the operator's language.
+    """
+    run_words = vocabulary.job_state(job.status)
+    steps = [
+        {
+            **entry,
+            "label": vocabulary.step_label(str(entry.get("key", ""))),
+            "status_words": vocabulary.job_state(JobStatus(str(entry.get("status")))),
+        }
+        for entry in state_dict["steps"]
+    ]
+
+    current = state_dict.get("current_step")
+    current_label = vocabulary.step_label(str(current)) if current else None
+    if current_label:
+        plain_status = f"Working: {current_label.lower()[:1]}{current_label[1:]}."
+    elif job.status is JobStatus.AWAITING_APPROVAL and pending is not None:
+        asks = vocabulary.GATES[pending].asks
+        plain_status = f"The run stopped so you could {asks}. {run_words.detail}"
+    elif job.status is JobStatus.SUCCEEDED:
+        plain_status = "The report is approved and frozen. Read it, or inspect its evidence."
+    elif job.status is JobStatus.QUEUED:
+        plain_status = "Queued. A worker normally begins within a few seconds."
+    elif run_words.detail:
+        plain_status = f"{run_words.label}. {run_words.detail}"
+    else:
+        plain_status = f"{run_words.label}."
+
+    failed = next((row for row in steps if row.get("status") == JobStatus.FAILED.value), None)
+
+    # Honest counts for the evidence links: what the run has actually gathered, so an
+    # operator is never sent to an empty page without being told it is empty.
+    source_count = (
+        await session.scalar(
+            select(func.count()).select_from(SourceDocument).where(SourceDocument.job_id == job.id)
+        )
+        or 0
+    )
+    claim_count = (
+        await session.scalar(
+            select(func.count())
+            .select_from(Claim)
+            .join(ReportSection, Claim.report_section_id == ReportSection.id)
+            .where(ReportSection.job_id == job.id)
+        )
+        or 0
+    )
+    valuation_ready = any(
+        row.get("key") == "value" and row.get("status") == JobStatus.SUCCEEDED.value
+        for row in steps
+    )
+
+    return {
+        "run_words": run_words,
+        "plain_status": plain_status,
+        "steps_display": steps,
+        "current_label": current_label,
+        "failed_step": failed,
+        # FAILED, PAUSED and BUDGET_EXCEEDED continue as themselves (ADR 0090); the
+        # service refuses the states that do not admit it, so this only decides whether
+        # the form renders.
+        "can_resume": job.status not in resume_service.UNRESUMABLE_STATUSES
+        and job.status is not JobStatus.QUEUED
+        and job.status is not JobStatus.AWAITING_APPROVAL,
+        "journey": journey(
+            state_dict["steps"],
+            decisions={row.gate: row.decision for row in approvals},
+            pending=pending,
+        ),
+        "cost": figures.cost_context(
+            spent=spend_gbp,
+            ceiling=request_row.max_cost_gbp if request_row is not None else None,
+        ),
+        "evidence_counts": {
+            "sources": source_count,
+            "claims": claim_count,
+            "valuation_ready": valuation_ready,
+        },
+        # The vocabulary's labels, for the one script that keeps rows current between
+        # server renders. Authored here so the words stay the server's (ADR 0077: chrome
+        # may be the client's, a label is not invented there).
+        "status_labels_json": json.dumps(
+            {status.value: words.label for status, words in vocabulary.JOB_STATES.items()}
+        ),
+    }
+
+
+@router.post("/runs/{job_id}/resume", summary="Continue a stopped run as itself")
+async def resume_run_page(
+    request: Request,
+    job_id: uuid.UUID,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    redis: RedisClient,
+    user: CurrentUser,
+) -> Response:
+    """Record the decision to continue, re-enqueue the same job, return to the console.
+
+    ADR 0090: resuming appends to the audit chain and re-enqueues the *same* job — the
+    engine skips the completed steps, so a failure one step from the end costs the failed
+    step onward rather than the whole run again. The service refuses the states that do
+    not admit continuing, each with its reason, and the page shows that reason.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
+
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was resumed.",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        await resume_service.resume_run(
+            session, job=job, actor=user, reason=(submitted.get("reason") or None)
+        )
+    except ConflictError as exc:
+        return _problem(request, exc.message, status=HTTP_409_CONFLICT)
+
+    await session.commit()
+    await enqueue_run(redis, job.id)
+    return RedirectResponse(f"/runs/{job_id}", status_code=HTTP_303_SEE_OTHER)
 
 
 @router.post("/runs/{job_id}/cancel", summary="Ask a run to stop")

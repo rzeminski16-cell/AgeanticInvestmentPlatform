@@ -144,7 +144,7 @@ CEILING: Final[dict[str, int]] = {
     "requests/remove.html": 0,
     "runs/assumptions.html": 100,
     "runs/claims.html": 22,
-    "runs/console.html": 119,
+    "runs/console.html": 0,
     "runs/financials.html": 60,
     "runs/footnote.html": 58,
     "runs/peers.html": 44,

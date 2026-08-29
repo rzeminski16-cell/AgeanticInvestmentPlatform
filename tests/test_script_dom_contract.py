@@ -38,7 +38,9 @@ SCRIPTS: Final = STATIC_DIR / "js"
 # that grew a new dependency without it being recorded here is a dependency nobody reviewed.
 REQUIRED_IDS: Final[dict[str, tuple[str, ...]]] = {
     "drawer.js": ("aer-drawer", "aer-drawer-body", "aer-drawer-title"),
-    "console.js": ("run-console", "run-spend", "run-status", "stream-note"),
+    # `run-status` left this list when the chip became the vocabulary's: the script now
+    # re-fetches on any status change rather than patching a label it would have to invent.
+    "console.js": ("run-console", "run-spend", "stream-note"),
 }
 
 # Attributes the scripts key on instead of ids, because the thing they address repeats.
@@ -47,7 +49,19 @@ REQUIRED_IDS: Final[dict[str, tuple[str, ...]]] = {
 # about without composing a selector out of user data; `data-filters` and `data-search` are
 # how `tables.js` finds a table and its rows. Each is a contract in exactly the way an id is.
 REQUIRED_ATTRIBUTES: Final[dict[str, tuple[str, ...]]] = {
-    "console.js": ("data-step", "data-field", "data-started-at", "data-job-id"),
+    # `data-status` carries each row's machine state (the stylesheet keys the dot on it,
+    # the script keys its clock on it); `data-label` is the step's human name, so the
+    # liveness line never invents a word; `data-status-labels` is the vocabulary's map for
+    # patching a row's visible status between server renders.
+    "console.js": (
+        "data-step",
+        "data-field",
+        "data-started-at",
+        "data-job-id",
+        "data-status",
+        "data-label",
+        "data-status-labels",
+    ),
     "tables.js": ("data-filters", "data-search"),
     "drawer.js": ("data-drawer-title",),
 }
