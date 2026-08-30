@@ -40,6 +40,7 @@ from aer.services.backup import (
     restore_backup,
     verify_backup,
 )
+from aer.services.curation import Worksheet, curation_worksheet, render_worksheet
 from aer.services.knowledge import KnowledgeStats, knowledge_stats
 from aer.services.lessons import LessonCandidate, recurring_lessons
 from aer.services.retention import (
@@ -938,6 +939,61 @@ async def _lessons(settings: Settings, *, minimum_jobs: int) -> list[LessonCandi
     try:
         async with factory() as session:
             return await recurring_lessons(session, minimum_jobs=minimum_jobs)
+    finally:
+        await engine.dispose()
+
+
+@app.command(name="curation-worksheet")
+def curation_worksheet_command(
+    out: Annotated[
+        Path | None,
+        typer.Option("--out", help="Write the worksheet here instead of to the terminal."),
+    ] = None,
+    top: Annotated[
+        int | None,
+        typer.Option("--top", help="Only the highest-ranked rows. A sitting, not the list."),
+    ] = None,
+) -> None:
+    """Prepare the concept-map curation worksheet (roadmap §2.8).
+
+    A55 is 175 concepts and 110 segment tags the map cannot place, and it has survived
+    several passes because it is judgement over accounting semantics rather than a code
+    change. What this does is prepare the sitting: read what every run's extract step
+    already recorded, aggregate it, rank it by the largest share of a mapped line any run
+    saw, and write a worksheet with a column to fill in.
+
+    **It decides nothing.** The output is a document you edit; turning what you write into
+    alias-table entries is a separate, deliberate act. Tags already refused (§2.7) are
+    listed apart and are not up for decision.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    worksheet = asyncio.run(_curation_worksheet(settings, limit=top))
+
+    if not worksheet.rows:
+        typer.echo(
+            f"No unplaced tags in {worksheet.runs_read} recorded run(s). Either every tag "
+            "mapped, or no run has reached the extract step yet."
+        )
+        return
+
+    document = render_worksheet(worksheet)
+    if out is None:
+        typer.echo(document)
+        return
+    out.write_text(document, encoding="utf-8")
+    typer.secho(
+        f"{len(worksheet.rows)} tag(s) to decide about, from {worksheet.runs_read} run(s) → {out}",
+        fg=typer.colors.GREEN,
+    )
+
+
+async def _curation_worksheet(settings: Settings, *, limit: int | None) -> Worksheet:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            return await curation_worksheet(session, limit=limit)
     finally:
         await engine.dispose()
 

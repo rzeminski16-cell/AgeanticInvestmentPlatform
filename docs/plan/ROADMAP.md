@@ -221,11 +221,17 @@ reported under its own heading with its reason, is excluded from the tags the ga
 about, and **does not stop a run on its own** — asking about a decision already taken is
 how a considered refusal gets approved away as noise.
 
-**2.8 A55 — concept-map coverage.** 175 concepts and 110 segment tags the map cannot place.
-This is judgement over accounting semantics rather than a code change, which is why it has
-survived several passes: it needs somebody who knows what a tag *means* deciding what it
-maps to. The gate that names the lines a filing would lose is the mechanism; the curation is
-the work.
+**2.8 A55 — concept-map coverage. The mechanism is built, 2026-08-30; the curation is
+still the work.** 175 concepts and 110 segment tags the map cannot place. This is judgement
+over accounting semantics rather than a code change, which is why it has survived several
+passes: it needs somebody who knows what a tag *means* deciding what it maps to. The gate
+that names the lines a filing would lose is one half of the mechanism; the other is now
+`aer curation-worksheet`, which reads every run's recorded extract rows, aggregates them,
+ranks them by the largest share of a mapped line any run saw, and writes a worksheet with a
+column to fill in and the canonical vocabulary listed beneath it. Refused tags (§2.7) are
+listed apart and are not up for decision. **A sitting works down from the top and stops** —
+the first rows are the ones that would most change a report — and turning what the operator
+writes into alias-table entries stays a deliberate act by a person reading it.
 
 **2.9 Report readability.** The register is clean — every sentence in a report that was
 *about the report* is gone or moved to where disclosure belongs. Keep it that way: the
