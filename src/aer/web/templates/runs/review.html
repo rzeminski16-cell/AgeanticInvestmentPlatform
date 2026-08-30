@@ -101,7 +101,10 @@
     <div class="grid gap-6 sm:grid-cols-3">
       <div id="section-count">{{ ui.figure("Sections", sections | length) }}</div>
       <div id="footnote-count">{{ ui.figure("Footnotes", footnote_count) }}</div>
-      <div id="content-hash" title="{{ payload_hash }}">
+      {# `break-all` cascades into the figure's value: sixteen mono characters outgrow a
+         one-third column at tablet widths, and a fingerprint has no word boundaries to
+         wrap at. #}
+      <div id="content-hash" class="break-all" title="{{ payload_hash }}">
         {{ ui.figure("Content hash", payload_hash[:16] ~ "…", note="The full fingerprint is in the decision panel.") }}
       </div>
     </div>

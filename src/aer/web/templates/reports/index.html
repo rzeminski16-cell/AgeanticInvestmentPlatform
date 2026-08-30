@@ -15,7 +15,7 @@
     eyebrow="THE RECORD",
     identity=total ~ (" report" if total == 1 else " reports") ~ ", grouped by company, newest first.",
   ) %}
-    <form method="get" action="/reports" class="flex items-center gap-2" id="company-filter">
+    <form method="get" action="/reports" class="flex flex-wrap items-center gap-2" id="company-filter">
       <label for="company" class="type-label text-ink-muted">Filter</label>
       <input
         type="text"

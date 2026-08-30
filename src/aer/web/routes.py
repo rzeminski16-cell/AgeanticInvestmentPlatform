@@ -17,7 +17,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, Final
 
 import structlog
 from fastapi import APIRouter, Request
@@ -257,6 +257,17 @@ async def list_requests_page(
     return response
 
 
+# The blank form holds the defaults its own hints promise. The schema defaults the base
+# currency to GBP, but a select with no blank option cannot submit "nothing" — left
+# unseeded, the browser picks the first option alphabetically and the default silently
+# became AUD. And a required horizon with no value, sitting behind the closed disclosure,
+# blocked every submission on a field the reader was never shown — the browser refuses to
+# submit and cannot focus the invalid control to say why. Both found by the tranche 9
+# keyboard sweep. Seeding them keeps the disclosure's contract: everything inside it is
+# optional or already holds its default.
+_BLANK_REQUEST: Final = {"base_currency": "GBP", "investment_horizon_months": "12"}
+
+
 @router.get("/requests/new", response_class=HTMLResponse, summary="New research request")
 async def new_request_form(request: Request, session: DbSession, settings: SettingsDep) -> Response:
     token = new_csrf_token(settings)
@@ -266,6 +277,7 @@ async def new_request_form(request: Request, session: DbSession, settings: Setti
         _form_context(
             _NEW_PAGE,
             csrf_token=token,
+            values=dict(_BLANK_REQUEST),
             cost_hint=await _cost_hint(session),
         ),
     )
