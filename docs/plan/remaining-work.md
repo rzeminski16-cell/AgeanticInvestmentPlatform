@@ -50,7 +50,8 @@ its residuals, in the overhaul plan's status section.
 
 **Phase 3 is done (2026-08-30), and it interleaved with phase 2 exactly as planned** —
 `src/aer/render/` and the extraction layer are surfaces the overhaul deliberately did not
-touch, so nothing collided.
+touch, so nothing collided. Verified at **5,987 in-process · 175 browser**, each suite in
+its own process against the shared `aer_test`.
 
 - **§2.4** — the disagreement appendix reads as prose (contract v4, migration 0061); the
   stacked label/value pairs did not reproduce under the pinned WeasyPrint ≥ 69 and are
