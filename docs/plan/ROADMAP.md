@@ -21,8 +21,14 @@ the platform got here and why; this is the record of where it goes.*
 In this order. It is the operator's order rather than the author's: each one is the next
 thing that would otherwise put a wrong number, or no answer at all, in front of somebody.
 
-1. **§2.1 — five sections fail to draft.** More than a quarter of the last report was a
-   coverage notice. The diagnosis now reaches the screen (§4.6); this is the fix behind it.
+**As at 2026-08-30, one of these five is open, and it is waiting on the operator.** Items
+2 to 5 are done; §2.1 needs the `run-diagnosis.json` export before anything is changed,
+because §2.1 and §2.2 diagnose from the record rather than from a hypothesis. What is
+buildable meanwhile has moved to phase 4 of [`remaining-work.md`](remaining-work.md).
+
+1. **§2.1 — five sections fail to draft. Open, and gated on the operator.** More than a
+   quarter of the last report was a coverage notice. The diagnosis now reaches the screen
+   (§4.6); this is the fix behind it, and it starts with the export rather than with code.
 2. **§3.1 — the portfolio's third door. Done 2026-08-29, under ADR 0093.** A work order
    roots the book's own acquisitions; a typed `TICKER EXCHANGE` the platform has never seen
    is verified with the vendor once, at first sight, and either becomes dealable or is

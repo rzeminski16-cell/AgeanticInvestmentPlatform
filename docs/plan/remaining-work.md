@@ -16,7 +16,7 @@ state — and the overhaul's live status is the top section of
 | **1A** | The drafting failure | §2.1, §2.2 | `run-diagnosis.json` from the operator |
 | **1B** | The portfolio's third door — **done 2026-08-29**, ADR 0093 | §3.1 | — |
 | **2** | The overhaul — **done 2026-08-30**, all ten tranches | §3.12, closing §2.5 | — |
-| **3** | The document and the data fixes | §2.4, §2.6, §2.7, §2.8 | Nothing — surfaces phase 2 does not touch |
+| **3** | The document and the data fixes — **done 2026-08-30** | §2.4, §2.6, §2.7, §2.8 | Nothing — surfaces phase 2 does not touch |
 | **4** | Portfolio depth | §3.2, §3.3, §3.4 | §3.2 wants tranche 8's layout |
 | **5** | The judgement layer | §3.5–§3.11 | Strict order; §3.3 before §3.6 |
 | **6** | Before it leaves one machine | A5, A7, A8 | Intent to run anywhere else |
@@ -48,14 +48,28 @@ portfolio form it adds a door to.
 the manual pass — recorded, with its instrument (`tests/e2e/sweep.py`), its findings and
 its residuals, in the overhaul plan's status section.
 
-**Phase 3 interleaves with phase 2 freely** — `src/aer/render/` and the extraction layer are
-surfaces the overhaul deliberately does not touch. §2.4 pairs with commercial check 5
-(WeasyPrint's native dependencies) since both want a real document generated where the
-operator actually runs. §2.6 wants a short ADR before the code: a split transaction kind is a
-schema decision with a shape question, the more so given a currency-exchange kind was refused
-until its row shape was safe — and the derivation multiplies quantity while leaving the cost
-pool alone (ADR 0085; a split is not a purchase). §2.8 is batched curation sittings over a
-worksheet a session prepares from the gate's own ranked rows, not one heroic pass.
+**Phase 3 is done (2026-08-30), and it interleaved with phase 2 exactly as planned** —
+`src/aer/render/` and the extraction layer are surfaces the overhaul deliberately did not
+touch, so nothing collided.
+
+- **§2.4** — the disagreement appendix reads as prose (contract v4, migration 0061); the
+  stacked label/value pairs did not reproduce under the pinned WeasyPrint ≥ 69 and are
+  guarded so they cannot return. The layout check became a test rather than a pass:
+  `tests/test_report_layout.py` walks the paged box tree of the golden document *and* of a
+  full-pipeline run whose red team argues at the length that broke the live document. What
+  it cannot hold — a live-provider document on the machine the operator actually runs, which
+  is commercial check 5 — stays named in the roadmap entry rather than claimed.
+- **§2.6** — ADR 0094 first, as this document asked. The shape question turned on the
+  quantity: a share *delta* goes stale the moment an earlier trade is backfilled, so the row
+  carries the *ratio* and the walk multiplies at the split's place in trade-date order.
+  Units multiply, the cost pool is untouched (ADR 0085), and the kind is refused on the form.
+- **§2.7** — `NEVER_MAP` with a reason beside each entry, refused in `canonical_concept`
+  itself so an alias added in good faith cannot take effect; the gate reports refused tags
+  apart from unplaced ones and no longer stops a run for a decision already taken.
+- **§2.8** — the mechanism only, which is all a session can honestly build:
+  `aer curation-worksheet` prepares the ranked sitting. **The curation itself remains the
+  operator's work**, in batched sittings, and is the one part of this phase that is not
+  finished by anybody but them.
 
 **Phase 4:** §3.3 is a prerequisite for §3.6, not tidying — a monitor run has no research
 request, so the mandate reads must become optional before a monitor can exist. §3.4 mirrors
