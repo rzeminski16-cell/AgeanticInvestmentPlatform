@@ -33,14 +33,14 @@
 {% macro grade_chip(grade, label) %}
   {% if grade == "attested" %}
     <span
-      class="ml-2 inline-flex items-center rounded-full bg-warn-wash px-2 py-0.5 text-xs font-semibold text-warn-ink"
+      class="ml-2 inline-flex items-center rounded-full bg-warning-wash px-2 py-0.5 text-xs font-semibold text-warning-ink"
       data-grade="attested"
       title="Typed and self-certified. No document behind it, and every figure above it inherits that."
       >{{ label }}</span
     >
   {% elif grade == "documented" %}
     <span
-      class="ml-2 inline-flex items-center rounded-full bg-good-wash px-2 py-0.5 text-xs font-semibold text-good-ink"
+      class="ml-2 inline-flex items-center rounded-full bg-success-wash px-2 py-0.5 text-xs font-semibold text-success-ink"
       data-grade="documented"
       title="Extracted from a hashed document, with a citation behind it."
       >{{ label }}</span

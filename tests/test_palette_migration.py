@@ -1,15 +1,18 @@
-"""The palette migration, held by a ceiling that may only fall.
+"""Raw Tailwind ramps are gone from the templates. This is the assertion that they stay gone.
 
 Roadmap §2.5 asks the migration to end with "a test that fails when a template reintroduces
-a raw ramp". A test asserting zero is the obvious way to write that and the wrong one: the
-migration is tranches 2 and 4 to 9 of `docs/plan/interface-overhaul.md`, forty-two templates
-and 1,837 occurrences, and a red build on day one is a test somebody deletes in week one.
+a raw ramp". For as long as the migration ran — tranches 2 and 4 to 9 of
+`docs/plan/interface-overhaul.md`, forty-two templates and 1,837 occurrences at the opening
+count — this file was deliberately not that test but a ratchet: a per-template ceiling that
+could only fall, because a red build on day one is a test somebody deletes in week one.
+Tranche 9 lowered the last ceiling to zero, and the ratchet has become what it was always
+going to become: the plain assertion §2.5 asked for.
 
-So it ratchets. Every template has a ceiling; a file above its ceiling is a regression and
-a file *below* it fails too, naming the number to write down. The second half is what makes
-this a ratchet rather than a budget — a template that got better and did not say so leaves
-room for it to get worse again silently, which is exactly how 1,334 occurrences became
-1,837 while the roadmap still said 1,334.
+The per-template enrolment mapping went with it. While ceilings differed per file, a scan
+that discovered its own contents could only agree with itself, so templates were enrolled
+explicitly in the `INSTALLED_TOOLS` idiom. Now that the expected figure is the same zero
+for every template, discovery is the honest shape: a new template is covered the moment it
+exists, and there is no entry to forget.
 
 **Why a grep rather than a parse.** The same enforcement shape ADR 0013 uses for section
 keys and ADR 0077 uses for provenance labels: read the file, refuse the string. A Jinja
@@ -31,7 +34,7 @@ import pytest
 
 from aer.web.templating import STATIC_DIR, STYLES_DIR, TEMPLATES_DIR
 
-# Tailwind's stock colour ramps. The migration replaces every one of these with a semantic
+# Tailwind's stock colour ramps. The migration replaced every one of these with a semantic
 # token — `canvas / surface / ink / line / verification / decision / success / warning /
 # refusal / failure / info / muted` — so that a colour name stops being a lie about what
 # renders (roadmap §2.5, and `docs/redesign/01-design-system.md` §2).
@@ -82,7 +85,7 @@ _UTILITIES: Final = (
 )
 
 # Deliberately matches a *base* utility, so `hover:bg-slate-100` and `bg-slate-100` count as
-# one occurrence of one thing. Counting variant-qualified names instead gives 141 distinct
+# one occurrence of one thing. Counting variant-qualified names instead gave 141 distinct
 # strings for the same 1,837 occurrences, and a bare figure quoted without its method is how
 # the roadmap's own count came to look like it had moved when it had not.
 RAMP_CLASS: Final = re.compile(
@@ -90,84 +93,6 @@ RAMP_CLASS: Final = re.compile(
         utils="|".join(_UTILITIES), ramps="|".join(_RAMPS)
     )
 )
-
-# The ceiling, per template, as measured on 2026-08-25 at the opening of tranche 0.
-#
-# **A number here may only ever fall.** Lower it in the same commit that migrates the
-# template; the test tells you what to write. The twelve at zero are the shell, the main
-# menu and the component macros — everything that arrived with the design tokens — plus
-# `portfolio/empty.html`, and they are already at the end state.
-#
-# A template not in this mapping fails: a new one starts at zero and is added explicitly,
-# in the `INSTALLED_TOOLS` idiom of a tuple somebody edits rather than a scan that
-# discovers.
-CEILING: Final[dict[str, int]] = {
-    "_nav.html": 0,
-    "_shell/badges.html": 0,
-    "_shell/drawer.html": 0,
-    "_ui/index.html": 0,
-    "_ui/provenance.html": 0,
-    "_ui/surfaces.html": 0,
-    # The tranche 3 component set, written after the design system existed and therefore
-    # written in it. Zero is the entry condition rather than an achievement.
-    "_ui/controls.html": 0,
-    "_ui/page.html": 0,
-    "_ui/records.html": 0,
-    "_ui/semantics.html": 0,
-    "_ui/signatures.html": 0,
-    "assumptions/detail.html": 0,
-    "assumptions/list.html": 0,
-    "base.html": 0,
-    "calculations/detail.html": 0,
-    "claims/detail.html": 0,
-    "companies/detail.html": 0,
-    "index.html": 0,
-    "knowledge/graph.html": 0,
-    "knowledge/index.html": 0,
-    "overview/_attention.html": 0,
-    "overview/_missing.html": 0,
-    "overview/_run_preview.html": 0,
-    "plans/review.html": 0,
-    "portfolio/broken.html": 0,
-    "portfolio/empty.html": 0,
-    "portfolio/index.html": 0,
-    "reports/detail.html": 0,
-    "reports/index.html": 0,
-    "requests/_form.html": 0,
-    "requests/_form_errors.html": 0,
-    "requests/detail.html": 0,
-    "requests/edit.html": 0,
-    "requests/immutable.html": 0,
-    "requests/list.html": 0,
-    "requests/new.html": 0,
-    "requests/not_found.html": 0,
-    "requests/remove.html": 0,
-    "runs/_gate.html": 0,
-    "runs/assumptions.html": 0,
-    "runs/claims.html": 0,
-    "runs/console.html": 0,
-    "runs/financials.html": 0,
-    "runs/footnote.html": 0,
-    "runs/peers.html": 0,
-    "runs/problem.html": 0,
-    "runs/replay.html": 0,
-    "runs/review.html": 0,
-    "runs/sector.html": 0,
-    "runs/sources.html": 0,
-    "runs/themes.html": 0,
-    "runs/valuation.html": 0,
-    "settings/index.html": 0,
-    "skills/edit.html": 0,
-    "skills/examples.html": 0,
-    "skills/import.html": 0,
-    "skills/list.html": 0,
-    "spend/index.html": 0,
-    "tools/index.html": 0,
-}
-
-# What the whole tree was when the ratchet was set. Asserted as a total as well as per file,
-# because a plan that says "1,837" wants one place that fails when the figure moves.
-OPENING_TOTAL: Final = 1_837
 
 
 def _templates() -> list[str]:
@@ -178,76 +103,31 @@ def _ramps_in(name: str) -> int:
     return len(RAMP_CLASS.findall((TEMPLATES_DIR / name).read_text(encoding="utf-8")))
 
 
-class TestTheCeilingHoldsAndOnlyFalls:
+class TestNoTemplateSpeaksTheOldDialect:
     """One test per template, so a failure names the file rather than a total."""
 
-    @pytest.mark.parametrize("name", sorted(CEILING))
-    def test_a_template_is_at_or_below_its_ceiling(self, name: str) -> None:
+    @pytest.mark.parametrize("name", _templates())
+    def test_a_template_holds_no_raw_ramp(self, name: str) -> None:
         found = _ramps_in(name)
-        ceiling = CEILING[name]
-        assert found <= ceiling, (
-            f"{name} has {found} raw Tailwind ramp classes against a ceiling of {ceiling}. "
-            "The palette migration replaces these with semantic tokens; reintroducing one "
-            "puts a template back into the dialect roadmap §2.5 exists to remove. Use a "
-            "token from `web/styles/app.css`, or — if this is genuinely new debt somebody "
-            "has decided to accept — say so in the commit and raise the ceiling knowingly."
+        assert found == 0, (
+            f"{name} holds {found} raw Tailwind ramp classes. The migration removed all "
+            "1,837 of these across seven tranches; reintroducing one puts a template back "
+            "into the dialect roadmap §2.5 existed to remove. Use a token from "
+            "`web/styles/app.css` — and if no token says what this element needs, that is "
+            "a design-system change to make in the stylesheet, not a ramp to reach for."
         )
 
-    @pytest.mark.parametrize("name", sorted(CEILING))
-    def test_a_migrated_template_lowers_its_ceiling(self, name: str) -> None:
-        """A file that improved and did not record it leaves room to regress silently.
+    def test_the_scan_sees_the_tree(self) -> None:
+        """A glob that silently found nothing would pass every case above by having none.
 
-        This is the half that makes the mapping a ratchet. Without it a template migrated
-        from 226 to 4 keeps a ceiling of 226, and the 222 occurrences somebody could add
-        back would be invisible — which is the shape of the drift that let the roadmap's
-        own figure age by five hundred occurrences.
+        The tree held fifty-nine templates when the ratchet closed; a floor of forty
+        catches a broken path or a moved tree without tripping on ordinary deletions.
         """
-        found = _ramps_in(name)
-        ceiling = CEILING[name]
-        assert found >= ceiling, (
-            f"{name} is down to {found} raw ramp classes from a ceiling of {ceiling}. "
-            f"Good — now lower it: set CEILING[{name!r}] = {found}. Until it is written "
-            "down the difference is room to regress into without this test noticing."
-        )
+        assert len(_templates()) >= 40
 
 
-class TestTheMappingCoversTheTree:
-    def test_every_template_has_a_ceiling(self) -> None:
-        """A new template is added here explicitly, at zero.
-
-        Contribute-or-fail, in the shape `db/models/__init__.py` settled for models and
-        `web/tools/registry.py` for tools. A scan that discovered its own contents could
-        only ever agree with itself.
-        """
-        missing = sorted(set(_templates()) - set(CEILING))
-        assert not missing, (
-            f"These templates have no ceiling: {missing}. Add each to CEILING at 0 — a "
-            "template written after the design system exists has no reason to carry a raw "
-            "ramp, and starting it anywhere above zero is starting it in the old dialect."
-        )
-
-    def test_no_ceiling_names_a_template_that_is_gone(self) -> None:
-        stale = sorted(set(CEILING) - set(_templates()))
-        assert not stale, (
-            f"These ceilings name templates that no longer exist: {stale}. Remove them; a "
-            "stale entry is an excuse the tree cannot contradict."
-        )
-
-    def test_the_total_matches_what_the_plan_says(self) -> None:
-        """The one figure quoted across the roadmap, the design brief and the plan.
-
-        `docs/plan/interface-overhaul.md` sizes every tranche off it. A total that moved
-        without those documents moving is a plan describing a different codebase.
-        """
-        total = sum(_ramps_in(name) for name in _templates())
-        assert total <= OPENING_TOTAL, (
-            f"The tree now holds {total} raw ramp classes against {OPENING_TOTAL} when the "
-            "ratchet was set. Something added debt faster than the migration removed it."
-        )
-
-
-# `ink-faint` is gone. It ratcheted from seventeen uses to zero in tranche 2, and this is
-# what the ratchet was always going to become: an assertion that it stays gone.
+# `ink-faint` is gone. It ratcheted from seventeen uses to zero in tranche 2, the first
+# name this file walked to zero and then pinned there.
 #
 # The delivered design system says plainly: "There is no separate 'faint' text token."
 # `ink-subtle` replaced it and clears 4.5:1 on every sanctioned background in both schemes,
@@ -280,6 +160,41 @@ class TestTheRetiredTokenStaysRetired:
         source = (STYLES_DIR / "app.css").read_text(encoding="utf-8")
 
         assert not _FAINT.findall(source), "the stylesheet still defines a `faint` token"
+
+
+# The compatibility aliases — `good`/`warn`/`bad`/`mute` for the status pairs, `brand` for
+# verification, `navy` for ink — let migrated and unmigrated templates coexist while the
+# ratchet fell. Tranche 9 retired the last template that spoke them and then the aliases
+# themselves: a name that resolves is a name somebody will write, and two vocabularies for
+# one palette is the drift §2.5 existed to end.
+
+_ALIAS = re.compile(r"\b[\w-]+-(?:good|warn|bad|mute)-(?:ink|wash)\b|\b[\w-]+-(?:brand|navy)\b")
+
+
+class TestTheLegacyAliasesStayGone:
+    """Same shape as the `faint` guard, for the same reason: the old names survive in the
+    prototype stylesheets under `docs/redesign/`, where they look authoritative."""
+
+    def test_no_template_names_one(self) -> None:
+        offenders = {
+            name: sorted(set(found))
+            for name in _templates()
+            if (found := _ALIAS.findall((TEMPLATES_DIR / name).read_text(encoding="utf-8")))
+        }
+        assert not offenders, (
+            f"These templates speak the retired alias dialect: {offenders}. The aliases "
+            "were removed in tranche 9 — write the token itself: `success`/`warning`/"
+            "`failure`/`muted` ink-and-wash pairs for good/warn/bad/mute, `verification` "
+            "for brand, `ink` for navy."
+        )
+
+    def test_the_stylesheet_defines_none(self) -> None:
+        """Both halves of the stylesheet: the source, so no alias can be reintroduced, and
+        the compiled output, so a stale build carrying dead alias utilities fails here
+        rather than shipping a vocabulary no template is allowed to use."""
+        for sheet in (STYLES_DIR / "app.css", STATIC_DIR / "css" / "app.css"):
+            found = sorted(set(_ALIAS.findall(sheet.read_text(encoding="utf-8"))))
+            assert not found, f"{sheet.name} still defines retired aliases: {found}"
 
 
 class TestNoClassIsComposedAtRunTime:
@@ -330,8 +245,6 @@ class TestNoClassIsComposedAtRunTime:
 # Every background token whose *lightness* flips between the two schemes. A literal ink on one
 # of these is legible in exactly one of them.
 _FLIPPING_FILLS: Final[tuple[str, ...]] = (
-    "brand",
-    "brand-strong",
     "verification",
     "verification-strong",
     "decision",

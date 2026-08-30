@@ -15,11 +15,11 @@
 <a
   href="{{ ref.href }}"
   class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium
-    {% if ref.kind.value == 'Source fact' %}border-good-ink/30 bg-good-wash text-good-ink
+    {% if ref.kind.value == 'Source fact' %}border-success-ink/30 bg-success-wash text-success-ink
     {% elif ref.kind.value == 'Calculated' %}border-info-ink/30 bg-info-wash text-info-ink
-    {% elif ref.kind.value == 'Attested' %}border-warn-ink/30 bg-warn-wash text-warn-ink
-    {% elif ref.kind.value == 'Assumed' %}border-mute-ink/30 bg-mute-wash text-mute-ink
-    {% else %}border-bad-ink/30 bg-bad-wash text-bad-ink{% endif %}"
+    {% elif ref.kind.value == 'Attested' %}border-warning-ink/30 bg-warning-wash text-warning-ink
+    {% elif ref.kind.value == 'Assumed' %}border-muted-ink/30 bg-muted-wash text-muted-ink
+    {% else %}border-failure-ink/30 bg-failure-wash text-failure-ink{% endif %}"
   title="Read where this figure came from"
 >
   {# The kind is spelled out as well as coloured. A status carried by colour alone is a
@@ -31,9 +31,9 @@
 {% macro confirmation(ref) %}
 <span
   class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium
-    {% if ref.confirmation.value == 'Confirmed' %}bg-good-wash text-good-ink
+    {% if ref.confirmation.value == 'Confirmed' %}bg-success-wash text-success-ink
     {% elif ref.confirmation.value == 'Suggested' %}bg-info-wash text-info-ink
-    {% else %}bg-mute-wash text-mute-ink{% endif %}"
+    {% else %}bg-muted-wash text-muted-ink{% endif %}"
 >
   {# Who and when, not a bare "Confirmed" — which invites a reader to supply their own idea
      of both. `confirmation_text` builds the sentence so no template has to. #}

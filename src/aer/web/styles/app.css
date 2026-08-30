@@ -433,21 +433,10 @@
   --color-nav-accent: var(--aer-nav-accent);
   --color-nav-selected: var(--aer-nav-selected);
 
-  /* The names the twelve already-clean templates were written against, kept resolving so
-     they keep rendering. They are aliases rather than values: a second definition is a
-     second answer to what "good" means, and the two would drift the first time one moved. */
-  --color-good-ink: var(--aer-success-ink);
-  --color-good-wash: var(--aer-success-wash);
-  --color-warn-ink: var(--aer-warning-ink);
-  --color-warn-wash: var(--aer-warning-wash);
-  --color-bad-ink: var(--aer-failure-ink);
-  --color-bad-wash: var(--aer-failure-wash);
-  --color-mute-ink: var(--aer-muted-ink);
-  --color-mute-wash: var(--aer-muted-wash);
-  --color-brand: var(--aer-verification);
-  --color-brand-strong: var(--aer-verification-strong);
-  --color-brand-wash: var(--aer-verification-wash);
-  --color-navy: var(--aer-ink);
+  /* The legacy aliases — good/warn/bad/mute, brand, navy — lived here until tranche 9
+     removed the last template that spoke them. Gone rather than kept "just in case": a
+     name that resolves is a name somebody will write, and two vocabularies for one palette
+     is the drift §2.5 existed to end. */
 }
 
 /* Layout constants, so a sidebar width lives in one place rather than in every template
