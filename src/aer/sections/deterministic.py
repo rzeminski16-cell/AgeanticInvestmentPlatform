@@ -168,7 +168,9 @@ async def _validation_disagreements(
     if findings:
         content["failed_check_findings"] = findings
     if disagreements:
-        content["disagreements"] = [_disagreement_row(row) for row in disagreements]
+        content["disagreements"] = [
+            block for row in disagreements for block in _disagreement_blocks(row)
+        ]
     return content
 
 
@@ -297,47 +299,56 @@ def _validation_row(row: Evaluation) -> dict[str, str]:
     }
 
 
-def _disagreement_row(row: Disagreement) -> dict[str, str]:
-    """One recorded conflict, in the shape the reader's appendix lays out.
+def _disagreement_blocks(row: Disagreement) -> list[dict[str, str]]:
+    """One recorded conflict as a short run of prose blocks — an argument, not a table row.
 
-    A red-team challenge — recognised by its structured ``detail`` — renders as topic,
-    severity, challenge and basis, with its evidence as ordinary footnotes through the
-    renderer's citation keys. The statement appears once, where before it appeared three
-    times (truncated in the topic, and twice inside the rationale blob), and no UUID
-    reaches the reader (gap R5). A source conflict has no structure beyond the ladder's
-    rationale and keeps its original shape.
+    v2 laid these out as columns, and a live document put a two-hundred-word challenge in
+    a narrow one: a single row spanned three pages and neither position could be read
+    (roadmap §2.4). So each conflict now becomes paragraphs through the renderer's
+    prose-block convention — the challenge under its identity, then its basis, then its
+    resolution — and a long argument flows down the page the way arguments do.
+
+    Gap R5's guarantees carry over unchanged: the statement appears once, the evidence
+    rides the citation keys the renderer turns into footnotes, and no UUID or rationale
+    blob reaches a reader. The lead-ins carry no trailing punctuation — both serialisers
+    append the colon themselves.
     """
     resolution = {
-        "chose_a": f"resolved by rule '{row.rule.value}': position A selected",
-        "chose_b": f"resolved by rule '{row.rule.value}': position B selected",
-        "escalated": "escalated for human decision at approval",
-        "agreed": "the positions agree",
-    }.get(row.resolution.value, row.resolution.value)
+        "chose_a": f"Resolved by rule '{row.rule.value}': position A selected.",
+        "chose_b": f"Resolved by rule '{row.rule.value}': position B selected.",
+        "escalated": "Escalated for human decision at approval.",
+        "agreed": "The positions agree.",
+    }.get(row.resolution.value, f"{row.resolution.value}.")
 
     detail = row.detail or {}
     challenge = detail.get("challenge")
     if not challenge:
-        return {
-            "topic": row.topic,
-            "kind": row.kind.value,
-            "resolution": resolution,
-            "rationale": row.resolution_rationale,
-        }
+        kind = row.kind.value.replace("_", " ")
+        return [
+            {
+                "lead_in": f"{row.topic} ({kind})",
+                "text": str(row.resolution_rationale or "\N{EM DASH}"),
+            },
+            {"lead_in": "Resolution", "text": resolution},
+        ]
 
     dimension = str(detail.get("dimension") or "").replace("_", " ").strip()
-    shown = {
-        "topic": f"Red team \N{EM DASH} {dimension}" if dimension else row.topic,
-        "severity": f"{detail['severity']}/5" if detail.get("severity") else "\N{EM DASH}",
-        "challenge": str(challenge),
-        "basis": str(detail.get("basis") or "\N{EM DASH}"),
-        "resolution": resolution,
-    }
+    head = f"Red team \N{EM DASH} {dimension}" if dimension else row.topic
+    if detail.get("severity"):
+        head = f"{head}, severity {detail['severity']}/5"
+    opening = {"lead_in": head, "text": str(challenge)}
     evidence = detail.get("evidence") or {}
     for kind, key in (("sources", "source_document_id"), ("calculations", "calculation_id")):
         ids = evidence.get(kind) or []
         if ids:
-            shown[key] = str(ids[0])
-    return shown
+            opening[key] = str(ids[0])
+
+    blocks = [opening]
+    basis = detail.get("basis")
+    if basis:
+        blocks.append({"lead_in": "Basis", "text": str(basis)})
+    blocks.append({"lead_in": "Resolution", "text": resolution})
+    return blocks
 
 
 BUILDERS: dict[str, DeterministicSection] = {
