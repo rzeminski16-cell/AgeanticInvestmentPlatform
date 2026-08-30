@@ -41,7 +41,7 @@ handover document that briefly existed on 2026-08-28.)
 | **6 — Console and gates** | Done | 5,968 · 172, 2026-08-29, green before the commit |
 | **7 — Evidence and reports** | Done | 5,977 · 173, 2026-08-29, green before the commit |
 | **8 — Portfolio, skills, knowledge** | Done | 5,990 · 175, 2026-08-29, green before the commit |
-| **9 — Removal and hardening** | Done | Full double verification in flight 2026-08-30; the numbers land with this section's closing update |
+| **9 — Removal and hardening** | Done | **5,931 · 175**, 2026-08-30, green before this closing commit. The fall from 5,990 is the ratchet itself: 122 per-template ceiling tests became 67 hard-zero ones when the mapping gave way to discovery — coverage widened, the count fell |
 
 **What the thirty-three were.** Reproduced on a clean run as thirty-two (the thirty-third was
 already cured by the first fix below landing mid-run), and six causes covered them all. Most
