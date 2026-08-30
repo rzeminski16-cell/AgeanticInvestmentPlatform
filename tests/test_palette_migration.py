@@ -156,12 +156,12 @@ CEILING: Final[dict[str, int]] = {
     "runs/sources.html": 0,
     "runs/themes.html": 0,
     "runs/valuation.html": 0,
-    "settings/index.html": 34,
+    "settings/index.html": 0,
     "skills/edit.html": 0,
     "skills/examples.html": 0,
     "skills/import.html": 0,
     "skills/list.html": 0,
-    "spend/index.html": 33,
+    "spend/index.html": 0,
     "tools/index.html": 0,
 }
 
