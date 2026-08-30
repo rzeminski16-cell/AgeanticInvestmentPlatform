@@ -27,8 +27,9 @@ thing that would otherwise put a wrong number, or no answer at all, in front of 
    roots the book's own acquisitions; a typed `TICKER EXCHANGE` the platform has never seen
    is verified with the vendor once, at first sight, and either becomes dealable or is
    refused with the reason. Tranche 8's prerequisite is landed.
-3. **§2.4 — the report document's layout.** The disagreement appendix puts a two-hundred-word
-   objection in a narrow column and one row spans three pages; neither position can be read.
+3. **§2.4 — the report document's layout. Done 2026-08-30.** The disagreement appendix
+   reads as prose (migration 0061); the stacked pairs closed with the WeasyPrint ≥ 69 pin;
+   both are held by the geometry assertions in `tests/test_report_layout.py`.
 4. **§3.12 — the interface overhaul. Done 2026-08-30.** All ten tranches built and
    verified green — tranche 9, the removal-and-hardening pass, closed §2.5 and §3.12
    together; the record is the status section of
@@ -141,12 +142,25 @@ state) rather than rewriting anything. `aer resume` re-enqueues the same job;
 `aer.services.resume` refuses the states that do not admit continuing, each with its reason.
 The deliberate pause this settled alongside is §3.15's.
 
-**2.4 The report document — layout.** The rendered PDF has two defects a reader meets
-immediately. The disagreement appendix puts a two-hundred-word challenge in a narrow table
-column, so one row spans three pages and neither position can be read. The "at a glance"
-tables render label and value as separate stacked blocks, so a reader reassembles the pairing
-by counting. Rework the appendix as prose blocks per disagreement, fix the key-figure tables,
-and check every section's print layout against a real run rather than a fixture.
+**2.4 The report document — layout. Done 2026-08-30.** The rendered PDF had two defects a
+reader met immediately, and each closed differently. The disagreement appendix put a
+two-hundred-word challenge in a narrow table column — one row spanned three pages —
+and now reads as prose: `validation_disagreements` v4 (migration 0061) declares the
+appendix in the renderer's prose-block shape, and each recorded conflict becomes a short
+run of paragraphs the page can break inside. The stacked label/value pairs do not
+reproduce under the engine now pinned — WeasyPrint ≥ 69 lays the cover grid and every
+table out correctly, where pre-grid engines stacked each `dt` over its `dd` — so that
+defect closed with the version pin and is guarded so it cannot silently return.
+
+The layout check is a test rather than a pass: `tests/test_report_layout.py` renders the
+golden document *and* a document from a full fake-provider pipeline run whose red team is
+scripted to argue at the length that broke the live document, then walks WeasyPrint's own
+box tree asserting the rules the defects broke — nothing paints past the page edge, no
+table row outgrows a page, a row's cells share a line, a label shares its line with its
+value, and the challenges reach the reader as paragraphs, never inside a cell. What no
+instrument holds stays the operator's: a live-provider document on the machine the
+platform actually runs on (commercial check 5), and the typographic judgement beyond
+those rules.
 
 **2.5 The palette migration. Done 2026-08-30, as tranches 2 and 4–9 of §3.12: the ratchet
 reached zero and became a hard assertion.** The ledger fell 1,837 → 0 — tranches 6, 7, 8
