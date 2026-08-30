@@ -29,17 +29,14 @@ thing that would otherwise put a wrong number, or no answer at all, in front of 
    refused with the reason. Tranche 8's prerequisite is landed.
 3. **§2.4 — the report document's layout.** The disagreement appendix puts a two-hundred-word
    objection in a narrow column and one row spans three pages; neither position can be read.
-4. **§3.12 — the interface overhaul.** Eight tranches of ten built and verified green —
-   tranches 6, 7 and 8 all landed 2026-08-29, with §3.1 in between. One remains: tranche 9,
-   the removal-and-hardening pass that closes §2.5 and §3.12 together; the live
-   record is the status section of [`interface-overhaul.md`](interface-overhaul.md). It is
-   placed here rather
-   than lower because §2.5 is inside it: migrating the palette first would do the most
-   quietly-fragile item in this roadmap twice, once onto the present design and again onto
-   the new one.
-5. **§2.5 — the palette migration.** The last of the surfaces work, and the one most likely
-   to go wrong quietly, so it wants its own pass with screenshots. Sequenced *after* the
-   design it is migrating towards, not before it.
+4. **§3.12 — the interface overhaul. Done 2026-08-30.** All ten tranches built and
+   verified green — tranche 9, the removal-and-hardening pass, closed §2.5 and §3.12
+   together; the record is the status section of
+   [`interface-overhaul.md`](interface-overhaul.md).
+5. **§2.5 — the palette migration. Done 2026-08-30, inside §3.12.** The ramp ledger fell
+   1,837 → 0 across tranches 2 and 4–9, the legacy aliases are gone from the stylesheet,
+   and the ratchet is now the hard zero §2.5 asked for
+   (`tests/test_palette_migration.py`).
 
 *Finished 2026-08-25 and now in §4: the drafted-figure check (§4.14) and the comps
 disclosure (§4.15), which were the two at the top of this list.*
@@ -151,24 +148,28 @@ tables render label and value as separate stacked blocks, so a reader reassemble
 by counting. Rework the appendix as prose blocks per disagreement, fix the key-figure tables,
 and check every section's print layout against a real run rather than a fixture.
 
-**2.5 The palette is migrated only in part. Re-measured 2026-08-25; now tranches 2 and 4–9
-of §3.12, closed when that plan's ratchet reaches zero.** The theme *control* is done (§4.13)
+**2.5 The palette migration. Done 2026-08-30, as tranches 2 and 4–9 of §3.12: the ratchet
+reached zero and became a hard assertion.** The ledger fell 1,837 → 0 — tranches 6, 7, 8
+and 9 each removed exactly what the plan predicted — the compatibility aliases are gone
+from the stylesheet, and `tests/test_palette_migration.py` now asserts every template at
+zero raw ramps with the retired names pinned gone. What was true when this was written,
+kept for the record: the theme *control* was done first (§4.13)
 and this is what it left behind: a page's colours are correct in both schemes or they are
 slate grey beside navy.
 
 `web/styles/app.css` added the semantic tokens *beside*
 Tailwind's stock ramps rather than over them, deliberately, so that `text-sky-700` still
 renders sky — overriding the ramp would re-skin the templates for free and leave a
-codebase where a colour name is a lie. So it is a real rewrite, onto `canvas / surface / ink
-/ line / brand / good / warn / bad / info / mute`, ending with a test that fails when a
-template reintroduces a raw ramp.
+codebase where a colour name is a lie. So it was a real rewrite, onto the semantic
+vocabulary — those working names shipped as `canvas / surface / ink / line / verification /
+decision / success / warning / refusal / failure / info / muted`, and the working aliases
+themselves were removed in tranche 9 — ending with exactly the test asked for: one that
+fails when a template reintroduces a raw ramp.
 
-The measurements live in one place now — **the ramp ledger in
+The measurements live in one place — **the ramp ledger in
 [`interface-overhaul.md`](interface-overhaul.md)**, with the census command and the standing
 caveat that the method must be stated with the number. Opened at 1,837 over forty-one
-templates; at 1,594 since tranche 5. The boundary it measures is the one the design brief
-draws: the surfaces that already answer to the tokens are the reference, and the research
-tool is the work.
+templates; closed at zero on 2026-08-30.
 
 Deliberately sequenced after everything above it. Those are a wrong number or a missing
 answer; this is a page that looks like two designs. It is also the item most likely to go
@@ -299,10 +300,10 @@ mistake ADR 0075 names.
 **3.11 The methodology library.** Three `SkillKind`s that are versioned, pinned and
 composed. Mostly does not exist yet.
 
-**3.12 The interface overhaul. Specified, designed and planned 2026-08-25; eight tranches of
-ten built and verified green by 2026-08-29 — the live
-status is the top section of [`interface-overhaul.md`](interface-overhaul.md).** Four
-surfaces are in scope and the rest of the product is deliberately not: **the main menu, the menu
+**3.12 The interface overhaul. Done 2026-08-30: specified, designed and planned 2026-08-25;
+all ten tranches built and verified green by 2026-08-30 — the record
+is the top section of [`interface-overhaul.md`](interface-overhaul.md).** Four
+surfaces were in scope and the rest of the product deliberately not: **the main menu, the menu
 system and shell, the Equity Research tool, and the Portfolio tool.**
 
 **Where it stands.** The requirements are in [`../design/`](../design/README.md); the design
@@ -339,8 +340,8 @@ a designer rather than for a developer, and it is the input to the work rather t
 
 **The order is: specification, then design, then §2.5, then the templates.** Migrating the
 palette before the design exists would be doing the most quietly-fragile item in the roadmap
-twice. **§2.5 is no longer a separate item**: it is tranches 2 and 4–9 of the plan, and it
-closes when the ramp ratchet reaches zero.
+twice. **§2.5 is no longer a separate item**: it was tranches 2 and 4–9 of the plan, and it
+closed with the ratchet's hard zero on 2026-08-30.
 
 **Two items in flight go first, and neither is blocked by this.** §2.1 puts a wrong number in
 front of somebody and this is a page that looks like two designs; §3.1 adds a control to a

@@ -15,7 +15,7 @@ state — and the overhaul's live status is the top section of
 | **0** | Back to green — **done 2026-08-28** | §3.12's red suite | — |
 | **1A** | The drafting failure | §2.1, §2.2 | `run-diagnosis.json` from the operator |
 | **1B** | The portfolio's third door — **done 2026-08-29**, ADR 0093 | §3.1 | — |
-| **2** | The overhaul, tranche 9 — 6, 7 and 8 done 2026-08-29 | §3.12, closing §2.5 | — |
+| **2** | The overhaul — **done 2026-08-30**, all ten tranches | §3.12, closing §2.5 | — |
 | **3** | The document and the data fixes | §2.4, §2.6, §2.7, §2.8 | Nothing — surfaces phase 2 does not touch |
 | **4** | Portfolio depth | §3.2, §3.3, §3.4 | §3.2 wants tranche 8's layout |
 | **5** | The judgement layer | §3.5–§3.11 | Strict order; §3.3 before §3.6 |
@@ -27,14 +27,15 @@ restores a baseline rather than building anything.
 
 ## What the order turns on
 
-**Phase 0 is done (2026-08-28), and 2026-08-29 closed tranches 6, 7 and 8 and phase 1B** —
-the console, the seven gates on one frame, the `verdict` role (ADR 0087), the evidence and
-report surfaces, the portfolio's third door (ADR 0093), and the portfolio, skills and
-knowledge families, each with both suites seen green before its closing commit. The record
-is the overhaul plan's status section; only tranche 9 — removal and hardening, with the
-manual pass — remains of the overhaul. What stays true for every later phase: in a remote
-session a local PostgreSQL and Redis come first — without a database the default suite
-silently skips 1,849 tests.
+**Phase 0 is done (2026-08-28); 2026-08-29 closed tranches 6, 7 and 8 and phase 1B; and
+2026-08-30 closed tranche 9 and with it the overhaul** — the console, the seven gates on one
+frame, the `verdict` role (ADR 0087), the evidence and report surfaces, the portfolio's
+third door (ADR 0093), the portfolio, skills and knowledge families, then settings and
+costs, the ramp ledger to zero with the ratchet made a hard assertion, and the §8.3
+hardening sweep — each tranche with both suites seen green before its closing commit. The
+record is the overhaul plan's status section. What stays true for every later phase: in a
+remote session a local PostgreSQL and Redis come first — without a database the default
+suite silently skips 1,849 tests.
 
 **1A waits on the operator; 1B is done.** §2.1 and §2.2 diagnose from the export before
 anything is changed — the hypotheses the code already admits are recorded on the items — and
@@ -43,10 +44,9 @@ critique-and-revise loop (ADR 0091) against the same sections for the first time
 landed 2026-08-29 in the roadmap's own order, ADR 0093 first, before tranche 8 rewrites the
 portfolio form it adds a door to.
 
-**Phase 2 resumes exactly where the overhaul plan's status section says.** Tranches 6 and 7
-are done — the workflow engine's `verdict` role (ADR 0087) and the `RenderedFigure`-from-
-`LineageNode` gap both closed with them; tranche 8's prerequisite, §3.1, is landed;
-tranche 9 closes §2.5 and §3.12 together and ends with the manual pass.
+**Phase 2 is done (2026-08-30).** Tranche 9 closed §2.5 and §3.12 together and ended with
+the manual pass — recorded, with its instrument (`tests/e2e/sweep.py`), its findings and
+its residuals, in the overhaul plan's status section.
 
 **Phase 3 interleaves with phase 2 freely** — `src/aer/render/` and the extraction layer are
 surfaces the overhaul deliberately does not touch. §2.4 pairs with commercial check 5

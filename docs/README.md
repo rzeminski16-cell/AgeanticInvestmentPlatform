@@ -104,10 +104,12 @@ page specifications, a production handoff and a twelve-screen prototype.
 - [`remaining-work.md`](plan/remaining-work.md) — the running order over everything open:
   the phases, what gates each, and the short list of moves only the operator can make.
 - [`interface-overhaul.md`](plan/interface-overhaul.md) — §3.12 as ten releasable tranches,
-  **with the live status — where it paused and why the suite is red — as its top section**;
-  the decisions that gate it and all 84 server proposals resolved.
+  **all ten closed 2026-08-30, with the record — the ledger, the verification numbers and
+  the manual pass — as its top section**; the decisions that gated it and all 84 server
+  proposals resolved.
 - [`interface-overhaul-testing.md`](plan/interface-overhaul-testing.md) — what each tranche
-  must prove, and the four pieces of test machinery that do not exist yet.
+  had to prove, and the test machinery that was built to prove it — the ratchet, the axe
+  harness, the measured contrast and the §8.3 sweep instrument.
 
 ---
 

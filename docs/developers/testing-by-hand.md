@@ -493,6 +493,12 @@ That button was once removed by a redesign and a browser test caught it; it is p
 each is missing from it, and [`../design/`](../design/README.md) for what the screens are
 meant to be.*
 
+*The automatable floor of this section is scripted in `tests/e2e/sweep.py` — run
+`uv run pytest tests/e2e/sweep.py -q` in its own pytest process. It drives all four passes
+plus scripting-off over every rebuilt surface, and it caught three real defects when first
+run (tranche 9). It does not replace this section: it cannot hold a screen reader, another
+engine, or the judgement of whether a page that technically reflows still reads.*
+
 **Do these on one surface per tool at minimum** — the main menu, a run console and the
 portfolio screen — and on every surface you have changed.
 
