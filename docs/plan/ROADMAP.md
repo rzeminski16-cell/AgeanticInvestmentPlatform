@@ -190,10 +190,14 @@ answer; this is a page that looks like two designs. It is also the item most lik
 wrong quietly, so it wants its own pass with screenshots rather than being folded into a
 functional change.
 
-**2.6 A split must arrive as a transaction.** `corporate_actions` knows about splits, but
-nothing turns one into a change in holdings, so a book spanning a split is currently wrong.
-Derive it from the corporate action and write it as a transaction — never as a quantity
-that changed with nothing behind it.
+**2.6 A split arrives as a transaction. Done 2026-08-30, under ADR 0094.** A recorded
+split becomes a derived transaction in every book that has dealt the listing, pointing at
+the corporate action behind it — never a quantity that changed with nothing behind it.
+**The quantity is the ratio, not a share delta**, so the row derives from the action alone
+and stays right when an earlier trade is backfilled: the walk multiplies at the split's
+place in trade-date order. Units multiply, the cost pool is untouched (ADR 0085 — a split
+is not a purchase), and the kind is refused on the form because a split you can type is a
+share count with nothing behind it.
 
 **2.7 R18 — the share-based-compensation risk-free rate.** A
 `ShareBasedCompensation…RiskFreeRate` tag must never map to `risk_free_rate`. It is an

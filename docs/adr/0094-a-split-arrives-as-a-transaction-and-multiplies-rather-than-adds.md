@@ -142,9 +142,12 @@ price, closing the route by which a share count could have reached a cash balanc
 - A book spanning a split is right, and stays right under backfills, supersessions and
   point-in-time reads — the row derives from the action alone, so there is nothing to go
   stale.
-- The transaction form does not grow a seventh option: a split is derived, never typed.
-  The row still appears in the book's transaction listing with its kind and its
-  provenance, because a row the operator cannot see is a row they cannot audit.
+- The transaction form does not grow a seventh option: a split is derived, never typed,
+  and the handler refuses the kind even if a submission carries it. **Where the operator
+  sees it** is the share count's own working: `quantity_held` records every movement as a
+  separate input, so the split appears there with its ratio and its grade, beside the
+  trades. That is the audit surface today; a transaction listing route is adopted
+  elsewhere and is not built here.
 - `quantity` now has three meanings by kind — units, money, ratio — which is one more
   than the class docstring admits today; the docstring changes with the code, and
   `_movement` remains the single place the meaning is decided.

@@ -57,6 +57,7 @@ from tests.fetch_fixtures import (  # noqa: F401
     redis_client,
     sleeper,
 )
+from tests.portfolio_fixtures import book  # noqa: F401
 from tests.workflow_fixtures import (  # noqa: F401
     provider,
     sec_client,

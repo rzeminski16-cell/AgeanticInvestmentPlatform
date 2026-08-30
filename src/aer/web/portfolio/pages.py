@@ -40,6 +40,7 @@ from aer.errors import AerError
 from aer.runtime import standalone_price_client
 from aer.services import calculations as calculation_service
 from aer.services import portfolio as portfolio_service
+from aer.services import splits as splits_service
 from aer.services.listings import add_listing
 from aer.storage.local import LocalArtefactStore
 from aer.web import verdict as verdicts
@@ -135,7 +136,9 @@ async def portfolio_page(
             "verdict": _book_verdict(view, totals=totals),
             "securities": await _dealable(session),
             "no_listings": NO_LISTINGS,
-            "kinds": list(TransactionKind),
+            # Every kind except SPLIT: a split is derived from the corporate action,
+            # never typed (ADR 0094), so the form does not offer it.
+            "kinds": [kind for kind in TransactionKind if kind is not TransactionKind.SPLIT],
             "cash_kinds": sorted(kind.value for kind in CASH_KINDS),
             "today": datetime.now(UTC).date().isoformat(),
             "csrf_field": CSRF_FIELD_NAME,
@@ -275,6 +278,13 @@ async def record_transaction(
             currency=trade.currency,
         )
     )
+
+    if resolved is not None:
+        # ADR 0094: the self-healing half of the derivation. A backfilled first-ever
+        # trade in a security that has since split gets the derived rows the book had no
+        # reason to carry before this submission.
+        await session.flush()
+        await splits_service.ensure_for(session, portfolio_id=book.id, security=resolved)
 
     try:
         await session.commit()
@@ -597,6 +607,12 @@ def _parsed(submitted: dict[str, str], *, security: Security | None = None) -> _
     sell entered as a positive number is refused by a check constraint, not by this.
     """
     kind = TransactionKind(submitted["kind"])
+    if kind is TransactionKind.SPLIT:
+        # Derived, never typed (ADR 0094). The form does not offer it, so a submission
+        # carrying it is a tampered request — and even without this refusal, the
+        # `transaction_split_derives_from_an_action` constraint would reject the row.
+        message = "A split is derived from the corporate action, never entered by hand."
+        raise ValueError(message)
     quantity = Decimal(submitted["quantity"].replace(",", "").strip())
 
     # The sign is the form's job, not the operator's. Nobody types a minus in front of a

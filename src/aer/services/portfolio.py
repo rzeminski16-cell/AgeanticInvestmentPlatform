@@ -413,6 +413,12 @@ def _cash_effects(
     """
     effects: dict[str, list[Quantity]] = {}
     for trade in trades:
+        if trade.kind is TransactionKind.SPLIT:
+            # A split touches no money (ADR 0094). Skipped before the no-price branch
+            # below, which would otherwise pour a share multiplier into a cash balance —
+            # the exact silent double-count the currency-exchange refusal was written
+            # against.
+            continue
         money = Unit.currency(trade.currency)
         fees = Quantity.of(trade.fees, money, source=_source(trade, "fees"))
         if trade.kind in CASH_KINDS or trade.price is None:
@@ -576,6 +582,10 @@ def _movement(trade: Transaction) -> Quantity:
         unit = Unit.currency(trade.currency)
     elif trade.kind in (TransactionKind.BUY, TransactionKind.SELL):
         unit = calc.SHARES
+    elif trade.kind is TransactionKind.SPLIT:
+        # The third answer (ADR 0094): neither money nor units but the ratio the walk
+        # multiplies the share count by.
+        unit = calc.RATIO
     else:  # pragma: no cover -- unreachable until TransactionKind grows a value
         message = (
             f"{trade.kind.value!r} has no cash treatment. A transaction kind reaches the "
@@ -594,6 +604,10 @@ def _acquisition_cost(context: CalculationContext, trade: Transaction) -> Quanti
     for, because an unsourced one would be refused by the engine and rightly.
     """
     money = Unit.currency(trade.currency)
+    if trade.kind is TransactionKind.SPLIT:
+        # A split is not a purchase (ADR 0094): the pool's cost is untouched, and the
+        # paired entry is a sourced nil exactly as a disposal's is.
+        return Quantity.of(Decimal(0), money, source=_source(trade, "reorganisation"))
     if trade.quantity <= 0 or trade.price is None:
         return Quantity.of(Decimal(0), money, source=_source(trade, "disposal"))
     return calc.acquisition_cost(

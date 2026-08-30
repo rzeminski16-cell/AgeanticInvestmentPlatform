@@ -356,7 +356,7 @@ class AttestationKind(StrEnum):
 class TransactionKind(StrEnum):
     """What happened to the book.
 
-    Six, and the list is deliberately short for the reason
+    Seven, and the list is deliberately short for the reason
     :class:`~aer.db.models.security.CorporateActionKind` gives: each needs its own
     arithmetic, and a wrong one is worse than an absent one.
 
@@ -386,6 +386,12 @@ class TransactionKind(StrEnum):
 
     WITHDRAWAL = "withdrawal"
     """Cash taken out. Quantity is negative."""
+
+    SPLIT = "split"
+    """A share reorganisation. Quantity is the *ratio* the share count is multiplied by —
+    2 for a two-for-one, 0.1 for a one-for-ten consolidation — so the row derives from the
+    corporate action alone and never goes stale when history is backfilled. Derived, never
+    typed: every split row points at the ``corporate_actions`` row behind it (ADR 0094)."""
 
 
 class SkillKind(StrEnum):

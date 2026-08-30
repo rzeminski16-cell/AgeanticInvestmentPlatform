@@ -158,11 +158,13 @@ class Transaction(Base):
     entirely ordinary — so the database refuses it rather than leaving the negation to
     whichever form happened to be used.
 
-    **What the quantity counts depends on whether there is a security.** A buy of 100 shares
-    is 100 units of that security at a price per unit. A dividend of £50 is 50 units of GBP
-    with no price at all, because cash has no price in its own currency. That is why the
-    price is present exactly when the transaction is a buy or a sell, and why every other
-    kind's quantity is money.
+    **What the quantity counts depends on the kind, and there are three answers.** A buy of
+    100 shares is 100 units of that security at a price per unit. A dividend of £50 is 50
+    units of GBP with no price at all, because cash has no price in its own currency. And a
+    split's quantity is the *ratio* the share count is multiplied by (ADR 0094) — derived
+    from the corporate action it points at, never typed, and read by the book's walk as a
+    multiplication rather than an addition. The price is present exactly when the
+    transaction is a buy or a sell.
 
     Nothing here is a position. A holding, a cost basis, a cash balance and a net asset
     value are all recorded calculations over these rows as at a date, and there is no
@@ -195,6 +197,15 @@ class Transaction(Base):
     # from under a trade would leave a holding of something nameless.
     security_id: Mapped[UuidFkOptional] = mapped_column(
         ForeignKey("securities.id", ondelete="RESTRICT")
+    )
+
+    # The corporate action a derived row derives from — carried by splits, and only by
+    # splits (ADR 0094). "Never as a quantity that changed with nothing behind it", made
+    # structural: the provenance chain runs row → action → the action's hashed vendor
+    # artefact. `RESTRICT`, because a derived row's source is not deletable out from
+    # under it.
+    corporate_action_id: Mapped[UuidFkOptional] = mapped_column(
+        ForeignKey("corporate_actions.id", ondelete="RESTRICT")
     )
 
     # When it was dealt, and when it settled. The first is what a position as at a date is
@@ -230,10 +241,30 @@ class Transaction(Base):
         # Into the book or out of it, and never neither. A transaction that moves nothing is
         # a mis-entry, and summing it changes no answer while looking like a record.
         CheckConstraint("quantity <> 0", name="transaction_moves_something"),
-        # The sign follows from the kind, so a sell cannot be entered as an addition.
+        # The sign follows from the kind, so a sell cannot be entered as an addition. A
+        # split is positive whichever way it points: 0.1 is a consolidation, not a
+        # negative quantity (ADR 0094).
         CheckConstraint(
-            "(kind IN ('buy', 'dividend', 'deposit')) = (quantity > 0)",
+            "(kind IN ('buy', 'dividend', 'deposit', 'split')) = (quantity > 0)",
             name="transaction_sign_matches_its_kind",
+        ),
+        # A ratio of one moves nothing, and `transaction_moves_something` cannot see that:
+        # a ratio of one is not a quantity of zero.
+        CheckConstraint(
+            "kind <> 'split' OR quantity <> 1",
+            name="transaction_split_multiplies",
+        ),
+        # A multiplication needs a subject. Nothing else forces a non-priced row to name a
+        # security.
+        CheckConstraint(
+            "kind <> 'split' OR security_id IS NOT NULL",
+            name="transaction_split_names_its_security",
+        ),
+        # Every split points at the action behind it, and nothing else may. A split the
+        # vendor has not recorded is not enterable by hand (ADR 0094).
+        CheckConstraint(
+            "(kind = 'split') = (corporate_action_id IS NOT NULL)",
+            name="transaction_split_derives_from_an_action",
         ),
         # Buys and sells are priced; nothing else is. Cash has no price in its own currency,
         # and a dividend with a "price" would be a number nothing could interpret.
@@ -261,6 +292,17 @@ class Transaction(Base):
         # in that order.
         Index("ix_transactions_portfolio_trade_date", "portfolio_id", "trade_date"),
         Index("ix_transactions_security_id", "security_id"),
+        # One derived row per book per action, held by the database for the reason
+        # `uq_source_document_per_artefact` gives: the database is the only participant
+        # that sees both writers. Partial, in migration 0018's idiom: ordinary trades
+        # carry no action and stay out of the index entirely.
+        Index(
+            "uq_transactions_split_per_action",
+            "portfolio_id",
+            "corporate_action_id",
+            unique=True,
+            postgresql_where=text("corporate_action_id IS NOT NULL"),
+        ),
     )
 
     def __repr__(self) -> str:

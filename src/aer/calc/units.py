@@ -97,7 +97,12 @@ _CURRENCY_PATTERN: Final = re.compile(r"\A[A-Z]{3}\Z")
 
 # Non-currency base symbols this platform understands. Kept small deliberately: a unit
 # system that accepts any string is a unit system in which a typo is a new dimension.
-_KNOWN_SYMBOLS: Final[frozenset[str]] = frozenset({"shares", "year", "day"})
+#
+# `ratio` is a share reorganisation's multiplier (ADR 0094), and it is a *base* symbol
+# rather than `DIMENSIONLESS` on purpose: the book's walk multiplies by a `ratio` movement
+# and adds a `shares` one, so the two must not compare equal. A dimensionless split would
+# be silently summed into the share count — a two-for-one reading as two extra shares.
+_KNOWN_SYMBOLS: Final[frozenset[str]] = frozenset({"shares", "year", "day", "ratio"})
 
 # EDGAR writes a dimensionless ratio as "pure". Mapped rather than treated as a base
 # symbol, because it is not a dimension -- it is the absence of one. "segment" joins the

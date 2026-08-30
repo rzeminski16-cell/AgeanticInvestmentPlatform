@@ -119,6 +119,10 @@ the exact property this record refuses. So in the first version a split is enter
 anything else. Deriving it from `corporate_actions` and writing the transaction it implies
 is worth doing, and it is worth doing as a transaction rather than as an exception.
 
+> **Done 2026-08-30, as ADR 0094 (roadmap §2.6).** A split is a derived transaction whose
+> quantity is the ratio, pointing at the corporate action behind it. The cost this
+> paragraph named is paid.
+
 **Nothing is faster to build.** A `positions` table would be one migration and one update
 statement. This is a calculation module, its unit tests and its property tests. That is the
 correct trade for the one screen in the platform where a wrong number has a cost measured

@@ -109,7 +109,7 @@ Below the table, on the same page. Eight controls:
 
 | Control | Type | Notes |
 |---|---|---|
-| **What happened** | select | Buy · Sell · Dividend · Fee · Deposit · Withdrawal |
+| **What happened** | select | Buy · Sell · Dividend · Fee · Deposit · Withdrawal. **Not Split**: a split is derived from the corporate action (ADR 0094), and one that could be typed would be a share count with nothing behind it |
 | **Security** | `<input list>` over a `<datalist>` | Typeable. **Empty means cash** |
 | **Trade date** | date, defaults today, capped today | |
 | **Quantity or amount** | decimal | *"Shares for a deal, money for anything else"* |

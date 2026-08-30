@@ -376,6 +376,12 @@ TRANSACTION_KINDS: Final[dict[TransactionKind, HumanState]] = {
         Tone.MUTED,
         "Cash taken out. A flow, never a loss.",
     ),
+    TransactionKind.SPLIT: HumanState(
+        "Split",
+        Tone.MUTED,
+        "Share count multiplied by the ratio shown. Derived from the corporate action, "
+        "never typed; no cash moved.",
+    ),
 }
 
 SKILL_KINDS: Final[dict[SkillKind, HumanState]] = {
