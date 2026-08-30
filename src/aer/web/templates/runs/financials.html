@@ -112,6 +112,33 @@
     {% endif %}
   {% endcall %}
 
+  {% if payload.refused_concepts %}
+    {% call ui.sheet("Tags this platform refuses to map") %}
+      {#
+        The distinction roadmap §2.7 exists to draw. These are not gaps in the map: each
+        one is a decision somebody took and wrote down, and the reason travels with it. In
+        one undifferentiated list they read as work outstanding — which is how a considered
+        refusal gets approved away, and how the mapping it was refused for arrives later in
+        good faith.
+      #}
+      <p class="max-w-prose type-body-sm text-ink-muted">
+        Nothing here is asked of you. These tags produced figures, and this platform has
+        decided each must never become a statement line — the reason is beside it.
+      </p>
+      <ul class="mt-3 flex flex-col divide-y divide-line" id="refused-tags">
+        {% for row in payload.refused_concepts %}
+          <li class="py-3">
+            <span class="break-all type-data-sm text-ink">{{ row.tag }}</span>
+            {% if row.label %}
+              <span class="mt-0.5 block type-body-sm text-ink-muted">{{ row.label }}</span>
+            {% endif %}
+            <p class="mt-1 max-w-prose type-body-sm text-ink-subtle">{{ row.refusal }}</p>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endcall %}
+  {% endif %}
+
   {% if payload.mapped_concepts %}
     {% call ui.sheet() %}
       {#

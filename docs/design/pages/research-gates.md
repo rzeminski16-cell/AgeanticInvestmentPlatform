@@ -88,12 +88,17 @@ what this gate is for, and the source list is currently the fourth of seven bloc
 **The question is: does this gap matter?** Some tags in the filing could not be mapped to a
 canonical concept. Should the run proceed without them?
 
-Three tables:
+Three tables and one list:
 
 - **Tags with no canonical concept.** Each carries its label, **the largest figure it held in
   this filing**, the period that figure belongs to, and what it is **as a share of the biggest
   mapped line**. Sorted biggest share first, so the row that decides the gate is the first on
   the screen.
+- **Tags this platform refuses to map**, each with the reason (roadmap §2.7) — *not* a
+  question, and said so on the page. A refusal is a decision already taken; shown in the
+  same list as the gaps it reads as work outstanding, which is how a considered refusal
+  gets approved away and how the mapping it was refused for arrives later in good faith.
+  A filing whose only unmapped tags are refused ones does not stop the run at all.
 - **What did map** — closed by default. Because the question is a comparison, and an operator
   asked it over element names alone was being asked to hold the statements in their head.
 - **What the extractor complained about.**

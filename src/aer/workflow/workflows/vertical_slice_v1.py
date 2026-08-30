@@ -1045,6 +1045,9 @@ def _unmapped_rows(
                 # mapped to scale it against, which is a state worth showing rather than
                 # papering over with a zero.
                 "share": f"{share:.6f}" if share is not None else "",
+                # Why this tag must never map, or empty when it is merely unplaced
+                # (§2.7). The gate reads the two as different questions.
+                "refusal": concept.refusal,
             }
         )
 
@@ -1103,6 +1106,11 @@ def unmapped_gate_payload(produced: Mapping[str, Any]) -> dict[str, Any]:
         # Empty for a run recorded before 2026-08-25. The gate falls back to the tag list,
         # which is what it always showed, rather than rendering an absence as a hole.
         "unmapped_concepts": list(produced.get("unmapped_concepts", [])),
+        # Tags this platform has decided must never map, each with its reason (§2.7).
+        # Reported, never asked about: the decision is already taken. Empty for a run
+        # recorded before 2026-08-30, and for one whose filing used none of them.
+        "refused_tags": list(produced.get("refused_tags", [])),
+        "refused_concepts": list(produced.get("refused_concepts", [])),
         "mapped_concepts": list(produced.get("mapped_concepts", [])),
         "facts_written": produced.get("facts_written", 0),
         "load_errors": list(produced.get("load_errors", [])),
@@ -1116,6 +1124,11 @@ def unmapped_gate_required(produced: Mapping[str, Any]) -> bool:
     company's headline profit measure matters and forty carrying segment breakdowns nobody
     asked for do not, and only a person can tell which — see
     :attr:`aer.extract.ixbrl.IxbrlExtraction.needs_confirmation`, which this mirrors.
+
+    **A refused tag does not count** (§2.7). ``unmapped_tags`` no longer carries them: they
+    are reported under ``refused_tags`` with the reason each was refused, because stopping
+    a run to ask about a decision already taken is how a considered refusal gets approved
+    away as noise.
     """
     return bool(produced.get("unmapped_tags"))
 
@@ -2495,11 +2508,21 @@ async def _extract(context: StepContext) -> StepResult:
     # concept map is deliberately the top sixty rather than the whole taxonomy, so a filing
     # falling outside it is expected — and a run that silently ignored the overflow would be
     # a run whose statements are missing lines nobody was told about.
-    unmapped = tuple(sorted({f"{c.taxonomy}:{c.tag}" for c in parsed.unmapped}))
+    unmapped = tuple(sorted({f"{c.taxonomy}:{c.tag}" for c in parsed.unmapped if not c.is_refused}))
+    # Kept apart from `unmapped_tags`, which drives the gate: a refused tag is a decision
+    # already taken (§2.7), so it is reported rather than asked about.
+    refused = tuple(sorted({f"{c.taxonomy}:{c.tag}" for c in parsed.unmapped if c.is_refused}))
     # The same tags with the numbers behind them (gap R17). A list of taxonomy element
     # names asks "does this gap matter?" and gives the operator nothing to answer it with;
     # what settles the question is how big the missing line is against a line that mapped.
-    unmapped_detail = _unmapped_rows(parsed.unmapped, chosen=selection.chosen)
+    unmapped_detail = _unmapped_rows(
+        [concept for concept in parsed.unmapped if not concept.is_refused],
+        chosen=selection.chosen,
+    )
+    refused_detail = _unmapped_rows(
+        [concept for concept in parsed.unmapped if concept.is_refused],
+        chosen=selection.chosen,
+    )
 
     # The aggregate holds only consolidated figures, so the segment breakdown comes from
     # the annual report itself — inline XBRL, already fetched and hashed by the acquire
@@ -2522,6 +2545,8 @@ async def _extract(context: StepContext) -> StepResult:
         "exchange": request.exchange,
         "unmapped_tags": list(unmapped),
         "unmapped_concepts": unmapped_detail,
+        "refused_tags": list(refused),
+        "refused_concepts": refused_detail,
         "mapped_concepts": _mapped_rows(selection.chosen),
         "load_errors": [],
         **segments.as_dict(),

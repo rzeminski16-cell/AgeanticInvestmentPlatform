@@ -444,6 +444,8 @@ class TestThePayloadItself:
         assert set(payload) == {
             "unmapped_tags",
             "unmapped_concepts",
+            "refused_tags",
+            "refused_concepts",
             "mapped_concepts",
             "facts_written",
             "exchange",
@@ -462,3 +464,39 @@ class TestThePayloadItself:
         assert payload["unmapped_concepts"] == []
         assert payload["mapped_concepts"] == []
         assert payload["unmapped_tags"] == ["us-gaap:Whatever"]
+        # The refusals arrived on 2026-08-30 and older outputs do not carry them either.
+        assert payload["refused_tags"] == []
+        assert payload["refused_concepts"] == []
+
+
+class TestARefusedTagAsksNothing:
+    """Roadmap §2.7. A refusal is a decision already taken, so it is reported rather than
+    put to the operator — and a run that stopped to ask about one would be asking a
+    question this platform has already answered, repeatedly, until somebody stopped
+    reading the list."""
+
+    def test_a_refusal_alone_does_not_stop_a_run(self) -> None:
+        produced = {
+            "unmapped_tags": [],
+            "refused_tags": ["us-gaap:ShareBasedCompensation…RiskFreeInterestRate"],
+        }
+
+        assert unmapped_gate_required(produced) is False
+
+    def test_an_unplaced_tag_beside_a_refusal_still_stops_it(self) -> None:
+        produced = {
+            "unmapped_tags": ["us-gaap:Whatever"],
+            "refused_tags": ["us-gaap:ShareBasedCompensation…RiskFreeInterestRate"],
+        }
+
+        assert unmapped_gate_required(produced) is True
+
+    def test_the_reason_travels_with_the_refusal_into_the_payload(self) -> None:
+        """What makes the row reviewable rather than another line of taxonomy noise."""
+        row = {
+            "tag": "us-gaap:ShareBasedCompensation…RiskFreeInterestRate",
+            "refusal": "An option-pricing assumption from the footnote.",
+        }
+        payload = unmapped_gate_payload({"unmapped_tags": [], "refused_concepts": [row]})
+
+        assert payload["refused_concepts"] == [row]

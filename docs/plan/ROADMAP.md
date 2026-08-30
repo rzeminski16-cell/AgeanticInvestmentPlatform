@@ -211,6 +211,16 @@ arriving later in good faith. The fix is the mechanism: a deny table carrying th
 beside each entry, this family pinned in it, and the unmapped-concepts gate reading *refused*
 as distinct from *unplaced*.
 
+**Done 2026-08-30.** `NEVER_MAP` in `core/concepts.py` holds the five tags of the
+share-based-compensation assumption family, each with the reason a reader can act on, and
+`canonical_concept` returns `None` for them whatever the alias tables say — the refusal is
+in the resolver rather than only in a test, so an alias added in good faith cannot take
+effect while somebody argues about the table; a test then catches the contradiction rather
+than being what prevents it. The distinction reaches the operator: a refused tag is
+reported under its own heading with its reason, is excluded from the tags the gate asks
+about, and **does not stop a run on its own** — asking about a decision already taken is
+how a considered refusal gets approved away as noise.
+
 **2.8 A55 — concept-map coverage.** 175 concepts and 110 segment tags the map cannot place.
 This is judgement over accounting semantics rather than a code change, which is why it has
 survived several passes: it needs somebody who knows what a tag *means* deciding what it

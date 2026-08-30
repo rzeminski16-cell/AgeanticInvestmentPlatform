@@ -37,7 +37,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any, Final
 
-from aer.core.concepts import canonical_concept, revenue_tag_rank
+from aer.core.concepts import canonical_concept, refusal_reason, revenue_tag_rank
 from aer.core.dates import fiscal_year_of
 from aer.core.schemas.facts import RawFact, format_accession
 from aer.errors import ExternalServiceError
@@ -58,6 +58,12 @@ class UnmappedConcept:
 
     Surfaced rather than dropped. A filer tagging segment revenue with a custom element is
     reporting something real, and a concept map with a gap in it should show the gap.
+
+    **Two kinds of gap, and they mean opposite things** (roadmap §2.7). A tag with an empty
+    ``refusal`` is *unplaced*: nobody has decided what it means, and deciding is the
+    curation work. A tag carrying a refusal is *refused*: somebody decided it must never
+    map and wrote down why. Shown as one undifferentiated list, the second kind reads as
+    work outstanding and invites exactly the mapping it was refused for.
     """
 
     taxonomy: str
@@ -65,6 +71,13 @@ class UnmappedConcept:
     label: str
     units: tuple[str, ...]
     observations: int
+
+    # Why this tag must never map, or empty when it is merely unplaced.
+    refusal: str = ""
+
+    @property
+    def is_refused(self) -> bool:
+        return bool(self.refusal)
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,6 +180,7 @@ def parse_company_facts(payload: bytes, *, include_unmapped: bool = True) -> Com
                         label=str(definition.get("label") or "").strip(),
                         units=units,
                         observations=observation_count,
+                        refusal=refusal_reason(tag) or "",
                     )
                 )
                 if not include_unmapped:
