@@ -92,4 +92,3 @@ The first route was a conventional cool-blue application with a sidebar, cards, 
 3. Conditional research gates are shown as decision points within phases, not as a generic seven-step wizard that would lie about the workflow.
 
 The rest of the interface stays restrained so this one idea carries the identity.
-
