@@ -125,9 +125,8 @@
             <a class="underline underline-offset-[3px]" href="/settings">settings</a>, or
             wait for the month to turn.
           {% else %}
-            Raise the cap on
-            <a class="underline underline-offset-[3px]" href="/requests/{{ job.request_id }}">the request</a>,
-            then continue the run below &mdash; it picks up from where it stopped.
+            Raise this run&rsquo;s ceiling below, then continue the run &mdash; it picks up
+            from where it stopped, and the steps already paid for are not repeated.
           {% endif %}
         </p>
       </section>
@@ -242,9 +241,44 @@
         <span class="text-ink-muted">of {{ cost.ceiling_display }}</span>
       </p>
       <p class="mt-1 type-body-sm text-ink-muted">
-        The run stops before any step that would cross the ceiling. The ceiling is the
-        request&rsquo;s, and raising it there releases the run.
+        The run stops before any step that would cross the ceiling, rather than after
+        paying for it.
       </p>
+      {% if cap.offered %}
+        {#
+          The raise belongs where the operator meets the ceiling. The request page refuses
+          an edit while a run is live — correctly, since a moved as-of date would falsify
+          evidence already gathered — so until this existed both spend guards named a
+          remedy ("raise the cap on this request") that nothing allowed.
+        #}
+        {% if cap.at_ceiling %}
+          <p class="mt-4 type-body-sm text-ink" id="cap-at-ceiling">
+            This request is already at the platform&rsquo;s own per-run budget of
+            {{ cap.ceiling_display }}, which no request may exceed. Raise that in
+            <a class="underline underline-offset-[3px]" href="/settings">settings</a> first.
+          </p>
+        {% else %}
+          <form method="post" action="/runs/{{ job.id }}/cap" id="raise-cap-form"
+                class="mt-4 flex flex-col gap-3">
+            <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+            {% set cap_hint %}Above {{ cap.cap_display }} and no higher than {{ cap.ceiling_display }}, the platform&rsquo;s own per-run budget. The run takes the new ceiling at its next step; changing it spends nothing.{% endset %}
+            {{ ui.field(
+                 "max_cost_gbp",
+                 "Raise this run's ceiling to (£)",
+                 value=cap.cap_value,
+                 type="number",
+                 minimum=cap.cap_value,
+                 maximum=cap.ceiling_value,
+                 step="0.01",
+                 hint=cap_hint,
+                 required=true) }}
+            <div>
+              <button type="submit" id="raise-cap"
+                      class="inline-flex min-h-11 items-center rounded-sm bg-decision px-4 type-label text-on-decision hover:bg-decision-strong">Raise the ceiling</button>
+            </div>
+          </form>
+        {% endif %}
+      {% endif %}
     {% endcall %}
 
     {#

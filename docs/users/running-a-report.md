@@ -123,6 +123,17 @@ projected cost would break either. A cap that only warned would not be a cap.
 Actual spend is metered per call into a `costs` table and never recomputed from estimates.
 `/costs` shows it per role, with the prompt-cache hit rate.
 
+**The run's own cap can be raised while the run is going**, from the console's spend panel,
+which offers it from three-quarters of the way through the ceiling and on any run stopped
+against it. Only upwards, never past the platform's own per-run budget, and recorded under
+your name in the audit chain. A run still going takes the new ceiling at its next step; one
+already stopped continues from where it stopped, without repeating a step you paid for.
+
+That is the only field on a request that changes while a run is under way. Everything else
+is frozen for the run's lifetime, because moving an as-of date or a ticker would falsify
+evidence the run has already gathered — and the monthly ceiling is not on the request at
+all, so no figure here releases a run stopped by it.
+
 One consequence worth knowing: a step with no cost estimate is invisible to the guard.
 That is a recorded lesson rather than a theoretical risk — it is why every step now
 declares one.

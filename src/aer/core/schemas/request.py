@@ -45,6 +45,7 @@ __all__ = [
     "ResearchRequestSummary",
     "RiskTolerance",
     "check_limits",
+    "cost_above_ceiling",
 ]
 
 # Uppercase alphanumerics plus dot and hyphen: covers "MSFT", "BRK.B", "RIO.L" and
@@ -378,19 +379,31 @@ def check_limits(payload: ResearchRequestCreate, limits: RequestLimits) -> list[
             )
         )
 
-    if payload.max_cost_gbp > limits.per_run_budget_gbp:
-        problems.append(
-            FieldProblem(
-                field="max_cost_gbp",
-                message=(
-                    f"£{payload.max_cost_gbp} exceeds the per-run budget of "
-                    f"£{limits.per_run_budget_gbp}. Raise AER_PER_RUN_BUDGET_GBP if you "
-                    "genuinely intend to spend more on a single report."
-                ),
-            )
-        )
+    above_ceiling = cost_above_ceiling(payload.max_cost_gbp, limits.per_run_budget_gbp)
+    if above_ceiling is not None:
+        problems.append(above_ceiling)
 
     return problems
+
+
+def cost_above_ceiling(cap: Decimal, ceiling: Decimal) -> FieldProblem | None:
+    """The one rule that bounds what a report may cost, or ``None`` if ``cap`` is inside it.
+
+    Named and shared because it is asked twice from different directions: when a request
+    is written, and when an operator raises the ceiling on a run that is already going
+    (:func:`aer.services.requests.raise_cap`). Two copies of a bound are two bounds, and
+    the one that drifts is always the one nobody was looking at.
+    """
+    if cap <= ceiling:
+        return None
+    return FieldProblem(
+        field="max_cost_gbp",
+        message=(
+            f"£{cap} exceeds the per-run budget of £{ceiling}. Raise "
+            "AER_PER_RUN_BUDGET_GBP if you genuinely intend to spend more on a single "
+            "report."
+        ),
+    )
 
 
 def _domain_of(raw: str) -> str | None:

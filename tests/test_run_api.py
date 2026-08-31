@@ -1980,7 +1980,13 @@ class TestTheBudgetBanner:
     """
 
     async def _stopped_on_budget(
-        self, api: Any, committed: dict, db_engine: Any, *, scope: str
+        self,
+        api: Any,
+        committed: dict,
+        db_engine: Any,
+        *,
+        scope: str,
+        cap: str = "4.00",
     ) -> uuid.UUID:
         body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
@@ -1993,6 +1999,12 @@ class TestTheBudgetBanner:
             job = await session.get(Job, job_id)
             assert job is not None
             job.status = JobStatus.BUDGET_EXCEEDED
+            # Below the platform's own per-run budget, which is where a request that can
+            # still be raised sits. The seed puts them equal, and equal is the one case
+            # with nowhere to go.
+            research = await session.get(ResearchRequest, job.request_id)
+            assert research is not None
+            research.max_cost_gbp = Decimal(cap)
             session.add(
                 JobStep(
                     job_id=job_id,
@@ -2007,15 +2019,16 @@ class TestTheBudgetBanner:
             await session.commit()
         return job_id
 
-    async def test_a_per_run_stop_names_the_requests_own_cap(
+    async def test_a_per_run_stop_offers_the_raise_that_releases_it(
         self, api: Any, committed: dict, db_engine: Any
     ) -> None:
+        """The remedy the banner names is on the same page, not on one that refuses it."""
         job_id = await self._stopped_on_budget(api, committed, db_engine, scope="per_run")
 
         page = await api.get(f"/runs/{job_id}")
 
         assert 'id="budget-exceeded"' in page.text
-        assert "Raise the cap on" in page.text
+        assert 'id="raise-cap-form"' in page.text
         assert "monthly budget" not in page.text
 
     async def test_a_monthly_stop_says_the_requests_cap_will_not_release_it(
@@ -2028,6 +2041,99 @@ class TestTheBudgetBanner:
         assert 'id="budget-exceeded"' in page.text
         assert "raising this" in page.text
         assert "will not release it" in page.text
+
+    async def test_a_request_already_at_the_platform_ceiling_is_sent_to_settings(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        """No form, because there is no legal figure to put in it."""
+        job_id = await self._stopped_on_budget(
+            api, committed, db_engine, scope="per_run", cap="12.00"
+        )
+
+        page = await api.get(f"/runs/{job_id}")
+
+        assert 'id="cap-at-ceiling"' in page.text
+        assert 'id="raise-cap-form"' not in page.text
+
+    async def test_posting_the_form_releases_the_run(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        """End to end, on the console, without touching the request page that refuses it."""
+        job_id = await self._stopped_on_budget(api, committed, db_engine, scope="per_run")
+        page = await api.get(f"/runs/{job_id}")
+        assert 'id="raise-cap-form"' in page.text
+
+        token = api.cookies.get("aer_csrf")
+        assert token
+        posted = await api.post(
+            f"/runs/{job_id}/cap",
+            data={CSRF_FIELD_NAME: token, "max_cost_gbp": "9.00"},
+            follow_redirects=False,
+        )
+
+        assert posted.status_code == 303
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            assert job is not None
+            research = await session.get(ResearchRequest, job.request_id)
+            assert research is not None
+            assert Decimal(str(research.max_cost_gbp)) == Decimal("9.00")
+
+    async def test_a_figure_that_is_not_a_number_is_refused_by_name(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        """The browser's `type="number"` is a convenience; the server is the rule."""
+        job_id = await self._stopped_on_budget(api, committed, db_engine, scope="per_run")
+        await api.get(f"/runs/{job_id}")
+        token = api.cookies.get("aer_csrf")
+
+        posted = await api.post(
+            f"/runs/{job_id}/cap", data={CSRF_FIELD_NAME: token, "max_cost_gbp": "lots"}
+        )
+
+        assert posted.status_code == 422
+        assert "is not an amount" in posted.text
+
+    async def test_a_lowering_is_refused_at_the_route_too(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        job_id = await self._stopped_on_budget(api, committed, db_engine, scope="per_run")
+        await api.get(f"/runs/{job_id}")
+        token = api.cookies.get("aer_csrf")
+
+        posted = await api.post(
+            f"/runs/{job_id}/cap", data={CSRF_FIELD_NAME: token, "max_cost_gbp": "1.00"}
+        )
+
+        assert posted.status_code == 422
+        assert "cancel it" in posted.text
+
+    async def test_without_a_token_nothing_moves(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        job_id = await self._stopped_on_budget(api, committed, db_engine, scope="per_run")
+
+        posted = await api.post(f"/runs/{job_id}/cap", data={"max_cost_gbp": "9.00"})
+
+        assert posted.status_code == 403
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            assert job is not None
+            research = await session.get(ResearchRequest, job.request_id)
+            assert research is not None
+            assert Decimal(str(research.max_cost_gbp)) == Decimal("4.00")
+
+    async def test_a_monthly_stop_is_not_offered_a_raise_that_would_do_nothing(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        """This run's own cap is not what stopped it, and a form saying otherwise lies."""
+        job_id = await self._stopped_on_budget(api, committed, db_engine, scope="monthly")
+
+        page = await api.get(f"/runs/{job_id}")
+
+        assert 'id="raise-cap-form"' not in page.text
 
 
 class TestStartingAgainAfterACancelledRun:

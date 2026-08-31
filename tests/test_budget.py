@@ -388,18 +388,19 @@ class TestWhatTheConsoleSays:
 
         assert page.status_code == 200
         assert "Stopped on the monthly budget" in page.text
-        assert "Raise the cap on" not in page.text
+        assert "Raise this run" not in page.text
         assert "will not release it" in page.text
 
-    async def test_a_per_run_stop_still_points_at_the_request(
+    async def test_a_per_run_stop_offers_the_ceiling_it_names(
         self, api: Any, stopped_run: Any
     ) -> None:
+        """The remedy and the control are on one page. They were on two, and one refused."""
         job_id = await stopped_run(scope="per_run")
 
         page = await api.get(f"/runs/{job_id}")
 
-        assert "Raise the cap on" in page.text
-        assert "then continue the run below" in page.text
+        assert "Raise this run" in page.text
+        assert 'id="raise-cap-form"' in page.text
         assert "Stopped on the monthly budget" not in page.text
 
     async def test_a_stop_with_no_recorded_scope_falls_back_to_the_request(
@@ -410,5 +411,5 @@ class TestWhatTheConsoleSays:
 
         page = await api.get(f"/runs/{job_id}")
 
-        assert "Raise the cap on" in page.text
-        assert "then continue the run below" in page.text
+        assert "Raise this run" in page.text
+        assert 'id="raise-cap-form"' in page.text

@@ -141,9 +141,25 @@ the reset the message names. The run keeps every completed step in the meantime.
 
 ## The run refuses to start a step: budget
 
-The engine refuses to start a step whose projected cost would break the run's cap or the
-month's. This is a cap, not a warning. Either raise the ceiling deliberately or accept the
-run stops here.
+The engine refuses to start a step whose *projected* cost would break the run's cap or the
+month's. This is a cap, not a warning — it stops before paying, so a run can halt having
+spent a fraction of its ceiling with an expensive step in front of it.
+
+**Raise it on the console, where the run is.** From three-quarters of the way through the
+ceiling, and on any run stopped against it, the spend panel carries a form: put in the new
+figure, then continue the run. The steps already paid for are not repeated. The run takes
+the new ceiling at its next step, so a run still going need not stop at all.
+
+Two ceilings it will not move:
+
+- **The monthly one.** A run stopped on the month's total says so, and no per-request
+  figure releases it — change the monthly budget in settings, or wait for the month.
+- **The platform's own per-run budget.** No request may exceed it, so a request already at
+  it is sent to settings rather than shown a form that would be refused.
+
+The cap is the only field on a request that can change while a run is under way. Everything
+else is frozen for the run's lifetime, because moving an as-of date or a ticker would
+falsify evidence already gathered.
 
 ## The final gate refuses my approval
 

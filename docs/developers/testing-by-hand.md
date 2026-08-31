@@ -1211,6 +1211,19 @@ ceiling. Not a warning after the fact.
 **Wrong:** a run that overspends and reports it afterwards. A cap that only warns is not a
 cap.
 
+**Then raise it, on the console, and continue.** The spend panel carries a form from
+three-quarters of the way through the ceiling and on any run stopped against it.
+
+- **Expect** the run to continue from where it stopped, without repeating a paid step, and
+  the raise to appear in `aer verify-audit`'s chain as `request.cap_raised`.
+- **Expect** a lower figure to be refused, naming cancellation as the way to stop a run.
+- **Expect** a figure above the platform's own per-run budget to be refused, and a request
+  already at it to be sent to settings instead of shown a form.
+- **Wrong:** a run stopped on the *monthly* ceiling offering the form. Its own cap is not
+  what stopped it.
+- **Wrong, and the reason this exists:** the remedy naming the request page, which refuses
+  every edit while a run is live. The platform used to name a remedy nothing allowed.
+
 Then check `/costs`.
 
 **Expect:** spend per role, metered per call, with the prompt-cache hit rate. Actual spend is

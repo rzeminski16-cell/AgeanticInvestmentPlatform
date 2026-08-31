@@ -24,8 +24,9 @@ from __future__ import annotations
 import json
 import uuid
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -83,6 +84,7 @@ from aer.services import cancellation as cancellation_service
 from aer.services import catalyst_resolutions as catalyst_service
 from aer.services import configuration, provenance
 from aer.services import history as history_service
+from aer.services import requests as requests_service
 from aer.services import resume as resume_service
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
@@ -240,6 +242,15 @@ async def run_console(
             "poll_seconds": POLL_SECONDS,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
+            "cap": _cap_offer(
+                request_row=research_request,
+                spend_gbp=state.spend_gbp,
+                is_terminal=state.is_terminal,
+                stopped_on_run_budget=(
+                    job.status is JobStatus.BUDGET_EXCEEDED and state.budget_scope != "monthly"
+                ),
+                settings=settings,
+            ),
             **await _console_view(
                 session,
                 job=job,
@@ -253,6 +264,59 @@ async def run_console(
     )
     set_csrf_cookie(response, token)
     return response
+
+
+@dataclass(frozen=True, slots=True)
+class CapOffer:
+    """Whether to offer a raise on the console, and what the form needs to render one."""
+
+    offered: bool
+    cap_display: str
+    cap_value: str
+    ceiling_display: str
+    ceiling_value: str
+    at_ceiling: bool
+
+
+def _cap_offer(
+    *,
+    request_row: ResearchRequest | None,
+    spend_gbp: Decimal,
+    is_terminal: bool,
+    stopped_on_run_budget: bool,
+    settings: Settings,
+) -> CapOffer:
+    """Offer the raise where the operator meets the problem, at the ratio that warns.
+
+    ``budget_warn_ratio`` rather than a constant of this module's own: the engine already
+    logs that a run is approaching its ceiling at exactly that fraction, and an offer
+    appearing at some other one would be a second opinion about when a run is in trouble.
+
+    **A run stopped on its ceiling is offered it whatever it has spent.** The guard refuses
+    a step whose *projection* would cross the line, so a run with an expensive step ahead
+    of it can stop having spent a tenth of its cap — the case that needs the offer most,
+    and the one a threshold on spend alone would not show it to.
+
+    A finished run is not offered a raise, having nothing left to spend it on; a run
+    stopped on the *monthly* ceiling is not either, because its own cap is not what
+    stopped it and the block above it says so. A request already at the platform's own
+    per-run budget is shown where that ceiling lifts instead of a form that would be
+    refused.
+    """
+    if request_row is None:
+        return CapOffer(False, "", "", "", "", at_ceiling=False)
+
+    cap = Decimal(str(request_row.max_cost_gbp))
+    ceiling = Decimal(str(settings.per_run_budget_gbp))
+    near = cap > 0 and spend_gbp >= cap * Decimal(str(settings.budget_warn_ratio))
+    return CapOffer(
+        offered=(near or stopped_on_run_budget) and not is_terminal,
+        cap_display=figures.pounds(cap),
+        cap_value=f"{cap:.2f}",
+        ceiling_display=figures.pounds(ceiling),
+        ceiling_value=f"{ceiling:.2f}",
+        at_ceiling=cap >= ceiling,
+    )
 
 
 async def _console_view(
@@ -405,6 +469,69 @@ async def resume_run_page(
 
     await session.commit()
     await enqueue_run(redis, job.id)
+    return RedirectResponse(f"/runs/{job_id}", status_code=HTTP_303_SEE_OTHER)
+
+
+@router.post("/runs/{job_id}/cap", summary="Raise what this run may spend")
+async def raise_run_cap(
+    request: Request,
+    job_id: uuid.UUID,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Raise this run's ceiling from the console, and return to it.
+
+    On the console rather than on the request page because this is a decision about a run
+    in front of the operator watching it — and because the request page refuses an edit
+    while a run is live, correctly. :func:`aer.services.requests.raise_cap` is the narrow
+    exception and says why the cap is the one field that can move under a worker.
+
+    The run is not restarted here. A run still going picks the new ceiling up at its next
+    step; one already stopped on the old one continues through the button beside this
+    form, which is the same recorded decision continuing has always been.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
+
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was changed.",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    research_request = await session.get(ResearchRequest, job.request_id)
+    if research_request is None:  # pragma: no cover -- a job cannot outlive its request
+        return _problem(request, f"No request for run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    raw = (submitted.get("max_cost_gbp") or "").strip()
+    try:
+        asked = Decimal(raw)
+    except InvalidOperation:
+        return _problem(
+            request,
+            f"{raw!r} is not an amount. Give the new ceiling in pounds, as a number.",
+            status=HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+
+    try:
+        await requests_service.raise_cap(
+            session,
+            request=research_request,
+            actor=user,
+            to=asked,
+            ceiling_gbp=settings.per_run_budget_gbp,
+        )
+    except ValidationError as exc:
+        return _problem(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
+
+    await session.commit()
     return RedirectResponse(f"/runs/{job_id}", status_code=HTTP_303_SEE_OTHER)
 
 

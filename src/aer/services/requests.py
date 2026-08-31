@@ -59,6 +59,7 @@ from aer.core.schemas.request import (
     RequestLimits,
     ResearchRequestCreate,
     check_limits,
+    cost_above_ceiling,
 )
 from aer.core.universe import Exclusion, ExclusionRule, check_universe
 from aer.db.base import Base
@@ -506,6 +507,70 @@ async def update_request(
         request_id=str(request.id),
         ticker=request.ticker,
         changed_fields=sorted(changes),
+    )
+    return request
+
+
+async def raise_cap(
+    session: AsyncSession,
+    *,
+    request: ResearchRequest,
+    actor: User,
+    to: Decimal,
+    ceiling_gbp: Decimal,
+) -> ResearchRequest:
+    """Raise this request's cost ceiling, including while a run against it is going.
+
+    **The one field an operator may change with a worker reading the row**, and the
+    exception is narrow deliberately. :func:`immutable_reason` freezes a request the moment
+    a run is live because an edit would falsify what the run has already done: move the
+    as-of date and evidence that was admissible is not, change the ticker and the filings
+    belong to another company. A ceiling falsifies nothing behind it. It governs what
+    happens next, both spend guards re-read it before every step and every model call, and
+    gate 2 records the money it sealed with, so a raise cannot invalidate a draft nobody
+    rewrote.
+
+    Without this the platform asked for something it forbade. Both guards' refusals say
+    "raise the cap on this request to continue", and the console repeated it — while the
+    only route to the cap was an edit that a live run refused. A run stopped at its ceiling
+    had no way forward but to be abandoned.
+
+    **Upwards only.** Lowering a ceiling under a run that has already spent past it would
+    stop that run against a limit it never ran under, retroactively; cancelling is how an
+    operator stops a run, and it is on the same page.
+
+    Raises:
+        ValidationError: If ``to`` does not raise anything, or goes above the platform's
+            own per-run budget — the ceiling on the ceiling, which lives in settings.
+    """
+    current = Decimal(str(request.max_cost_gbp))
+    if to <= current:
+        message = (
+            f"£{to} does not raise this run's ceiling of £{current}. A cap can only go up "
+            "while a run is under way — to stop a run, cancel it."
+        )
+        raise ValidationError(
+            message,
+            context={"request_id": str(request.id), "cap_gbp": str(current), "asked": str(to)},
+        )
+
+    above = cost_above_ceiling(to, ceiling_gbp)
+    if above is not None:
+        raise ValidationError(above.message, context={"request_id": str(request.id)})
+
+    request.max_cost_gbp = to
+    await _mirror_to_work_order(session, request)
+    await session.flush()
+
+    await _record(
+        session,
+        actor=str(actor.id),
+        event_type="request.cap_raised",
+        request_id=request.id,
+        payload={"request_id": str(request.id), "from_gbp": str(current), "to_gbp": str(to)},
+    )
+    _log.info(
+        "request.cap_raised", request_id=str(request.id), from_gbp=str(current), to_gbp=str(to)
     )
     return request
 
