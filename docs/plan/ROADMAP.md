@@ -205,7 +205,7 @@ place in trade-date order. Units multiply, the cost pool is untouched (ADR 0085 
 is not a purchase), and the kind is refused on the form because a split you can type is a
 share count with nothing behind it.
 
-**2.7 R18 — the share-based-compensation risk-free rate.** A
+**2.7 R18 — the share-based-compensation risk-free rate. Done 2026-08-30.** A
 `ShareBasedCompensation…RiskFreeRate` tag must never map to `risk_free_rate`. It is an
 input to an option-pricing model in a footnote, not the discount-rate input, and mapping it
 would put a plausible wrong number in the cost of capital.
