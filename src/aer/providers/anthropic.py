@@ -35,7 +35,7 @@ looks wrong.
 from __future__ import annotations
 
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
 import anyio
@@ -1042,26 +1042,43 @@ _NO_ACCESS_REMEDY: Final = (
     "The Anthropic API key may not use the model this step is routed to. Route the role to "
     "a model the key's workspace is allowed, in settings, or use a key that may reach it."
 )
+_USAGE_LIMIT_REMEDY: Final = (
+    "That is a spending limit set on the Anthropic account itself, not one of this "
+    "platform's caps — none of ours stopped this, and raising one will not release it. "
+    "Raise or clear the limit at https://platform.claude.com/settings/limits, on the "
+    "organisation and on the workspace the key belongs to, or wait for the reset above: "
+    "these limits are monthly budgets and turn over at the start of the UTC month, which "
+    "is why a prepaid balance still has a date attached."
+)
 
 
 def _operator_remedy(exc: Exception) -> str | None:
     """The remedy, when the provider's refusal is the operator's to clear rather than ours.
 
-    Three refusals mean this platform is unfunded or misconfigured rather than that a
-    request was malformed or a service was unwell: no credit, no valid key, no access to
-    the routed model. They are worth separating because the console's standing offer —
-    continue, and the run picks up where it stopped — is *wrong* for all three. Continuing
-    buys the identical refusal, at the same step, for as long as the operator has not
-    acted; and an operator told only ``BadRequestError: 400`` has no way to know that.
+    Four refusals mean this platform is unfunded, capped or misconfigured rather than that
+    a request was malformed or a service was unwell: no credit, a spending limit set at the
+    provider, no valid key, no access to the routed model. They are worth separating
+    because the console's standing offer — continue, and the run picks up where it stopped
+    — is *wrong* for all four. Continuing buys the identical refusal, at the same step, for
+    as long as the operator has not acted; and an operator told only ``BadRequestError:
+    400`` has no way to know that.
 
-    The credit case is matched on the vendor's wording because the vendor offers nothing
-    else to match on: it arrives as a 400 ``invalid_request_error``, the same status and
+    The provider's own spending limit is worth naming loudest, because it is the one that
+    reads like one of ours and is not. This platform's caps refuse a step *before* the call
+    and say which cap and which scope (``BudgetExceededError``); this arrives from the
+    other side of the wire, after the request, and no setting here releases it.
+
+    The first two are matched on the vendor's wording because the vendor offers nothing
+    else to match on: both arrive as a 400 ``invalid_request_error``, the same status and
     the same type a genuinely malformed request has. That is fragile by construction, and
-    fails safe — reworded, it degrades to an ordinary non-retryable external error, which
-    is precisely what it is treated as today.
+    fails safe — reworded, they degrade to an ordinary non-retryable external error, which
+    is precisely what they are treated as today.
     """
-    if "credit balance is too low" in str(exc).lower():
+    said = str(exc).lower()
+    if "credit balance is too low" in said:
         return _NO_CREDIT_REMEDY
+    if "usage limit" in said:
+        return _USAGE_LIMIT_REMEDY
 
     status = getattr(exc, "status_code", None)
     unauthorised, forbidden = 401, 403
@@ -1072,12 +1089,31 @@ def _operator_remedy(exc: Exception) -> str | None:
     return None
 
 
+def _vendor_sentence(exc: Exception) -> str | None:
+    """The provider's own words for a person, dug out of the decoded error body.
+
+    ``str`` of an SDK status error is ``Error code: 400 - {…dict repr…}``, which buries the
+    one readable sentence inside a printed dictionary. That sentence sometimes carries the
+    only fact the operator needs and this code cannot know — the moment a spending limit
+    resets, say — so it is worth reaching for the field the vendor writes for a reader.
+    """
+    body = getattr(exc, "body", None)
+    if isinstance(body, Mapping):
+        error = body.get("error")
+        if isinstance(error, Mapping):
+            said = error.get("message")
+            if isinstance(said, str) and said.strip():
+                return said.strip()
+    return None
+
+
 def _api_failure(exc: Exception, doing: str, *, context: dict[str, Any]) -> ExternalServiceError:
     """The vendor's exception as this platform's error, with the remedy when there is one.
 
     Without a remedy the vendor's repr *is* the most useful thing there is to say. With
-    one, it is noise in front of the sentence that matters, so it moves into the context —
-    where the technical-details disclosure and the logs still hold it whole.
+    one, the repr is noise in front of the sentence that matters, so what survives into the
+    message is the vendor's readable sentence and then the remedy; the repr moves into the
+    context, where ``aer diagnose`` and the logs still hold it whole.
     """
     remedy = _operator_remedy(exc)
     if remedy is None:
@@ -1087,9 +1123,22 @@ def _api_failure(exc: Exception, doing: str, *, context: dict[str, Any]) -> Exte
             retryable=_is_retryable(exc),
             context=context,
         )
+
+    said = _vendor_sentence(exc)
+    detail: dict[str, Any] = {
+        **context,
+        "remedy": remedy,
+        "provider_error": f"{type(exc).__name__}: {exc}",
+    }
+    # The vendor's own handle on the refusal. Quoting it is what turns "it keeps failing"
+    # into something their support can look up.
+    request_id = getattr(exc, "request_id", None)
+    if isinstance(request_id, str) and request_id:
+        detail["provider_request_id"] = request_id
+
     return ExternalServiceError(
-        f"{doing}. {remedy}",
+        f"{doing}. {said} {remedy}" if said else f"{doing}. {remedy}",
         provider=PROVIDER_NAME,
         retryable=False,
-        context={**context, "remedy": remedy, "provider_error": f"{type(exc).__name__}: {exc}"},
+        context=detail,
     )

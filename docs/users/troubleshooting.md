@@ -118,6 +118,27 @@ Retrying costs nothing while the balance is empty: the first thing every model c
 count its tokens, that count is free, and it is what fails. So the cheapest confirmation
 that a top-up landed is to continue the run.
 
+## The run stopped: an Anthropic usage limit was reached
+
+> You have reached your specified API usage limits. You will regain access on
+> 2026-09-01 at 00:00 UTC.
+
+**"Specified" means specified by you.** This is not a subscription quota, and prepaid
+credit does not exempt you from it: an Anthropic account carries *spend limits* — one on the
+organisation, and optionally one per workspace — which are monthly budgets. They exist so a
+runaway job cannot drain a balance, and they turn over at the start of the UTC month. That
+is where the reset date comes from, and why a date appears on an account you top up rather
+than subscribe to.
+
+It is also not one of this platform's caps. Those refuse a step *before* the call and name
+the cap and the scope; this one arrives from the other side of the wire, and raising a
+budget here will not release it.
+
+Either raise or clear the limit at
+[platform.claude.com/settings/limits](https://platform.claude.com/settings/limits) — check
+the workspace as well as the organisation, since the tighter of the two wins — or wait for
+the reset the message names. The run keeps every completed step in the meantime.
+
 ## The run refuses to start a step: budget
 
 The engine refuses to start a step whose projected cost would break the run's cap or the
