@@ -238,12 +238,8 @@ class AnthropicProvider:
             async with self._client.messages.stream(output_format=wire_format, **request) as stream:
                 response = await stream.get_final_message()
         except Exception as exc:
-            message = f"The Anthropic API call failed ({type(exc).__name__}: {exc})."
-            raise ExternalServiceError(
-                message,
-                provider=PROVIDER_NAME,
-                retryable=_is_retryable(exc),
-                context={"model": model},
+            raise _api_failure(
+                exc, "The Anthropic API call failed", context={"model": model}
             ) from exc
         elapsed_ms = (time.perf_counter() - started) * 1000
 
@@ -372,11 +368,9 @@ class AnthropicProvider:
         except ExternalServiceError:
             raise
         except Exception as exc:
-            message = f"The Anthropic batch call failed ({type(exc).__name__}: {exc})."
-            raise ExternalServiceError(
-                message,
-                provider=PROVIDER_NAME,
-                retryable=_is_retryable(exc),
+            raise _api_failure(
+                exc,
+                "The Anthropic batch call failed",
                 context={"model": model, "items": len(requests)},
             ) from exc
         elapsed_ms = (time.perf_counter() - started) * 1000
@@ -484,13 +478,7 @@ class AnthropicProvider:
                 messages=cast("Any", [_message_payload(m) for m in messages]),
             )
         except Exception as exc:
-            message = f"Counting tokens failed ({type(exc).__name__}: {exc})."
-            raise ExternalServiceError(
-                message,
-                provider=PROVIDER_NAME,
-                retryable=_is_retryable(exc),
-                context={"model": model},
-            ) from exc
+            raise _api_failure(exc, "Counting tokens failed", context={"model": model}) from exc
 
         return int(counted.input_tokens)
 
@@ -545,13 +533,7 @@ class AnthropicProvider:
                 response = await self._client.messages.create(**request)
                 usages.append(_usage_from(response, model=model))
         except Exception as exc:
-            message = f"The web search call failed ({type(exc).__name__}: {exc})."
-            raise ExternalServiceError(
-                message,
-                provider=PROVIDER_NAME,
-                retryable=_is_retryable(exc),
-                context={"model": model},
-            ) from exc
+            raise _api_failure(exc, "The web search call failed", context={"model": model}) from exc
 
         hits, searches, error = _search_results(response, limit=max_results)
         if error is not None:
@@ -1040,3 +1022,74 @@ def _is_retryable(exc: Exception) -> bool:
         too_many_requests = 429
         return status >= server_error or status == too_many_requests
     return "timeout" in type(exc).__name__.lower() or "connection" in type(exc).__name__.lower()
+
+
+# What the operator must change, for the three refusals only they can clear. Each names the
+# variable and the page, because "external_service_error" names neither.
+_NO_CREDIT_REMEDY: Final = (
+    "The Anthropic account the API key belongs to is out of credit, so no model call can "
+    "be made — not even the free token count this failed on. Top it up at "
+    "https://platform.claude.com/settings/billing, then check the balance landed in the "
+    "same organisation and workspace as the key in AER_ANTHROPIC_API_KEY: credit added to "
+    "a different one leaves this failing in exactly the same way."
+)
+_BAD_KEY_REMEDY: Final = (
+    "The Anthropic API key was rejected. Check AER_ANTHROPIC_API_KEY against "
+    "https://platform.claude.com/settings/keys — a revoked, rotated or mistyped key fails "
+    "like this on every call, immediately, whatever the run was doing."
+)
+_NO_ACCESS_REMEDY: Final = (
+    "The Anthropic API key may not use the model this step is routed to. Route the role to "
+    "a model the key's workspace is allowed, in settings, or use a key that may reach it."
+)
+
+
+def _operator_remedy(exc: Exception) -> str | None:
+    """The remedy, when the provider's refusal is the operator's to clear rather than ours.
+
+    Three refusals mean this platform is unfunded or misconfigured rather than that a
+    request was malformed or a service was unwell: no credit, no valid key, no access to
+    the routed model. They are worth separating because the console's standing offer —
+    continue, and the run picks up where it stopped — is *wrong* for all three. Continuing
+    buys the identical refusal, at the same step, for as long as the operator has not
+    acted; and an operator told only ``BadRequestError: 400`` has no way to know that.
+
+    The credit case is matched on the vendor's wording because the vendor offers nothing
+    else to match on: it arrives as a 400 ``invalid_request_error``, the same status and
+    the same type a genuinely malformed request has. That is fragile by construction, and
+    fails safe — reworded, it degrades to an ordinary non-retryable external error, which
+    is precisely what it is treated as today.
+    """
+    if "credit balance is too low" in str(exc).lower():
+        return _NO_CREDIT_REMEDY
+
+    status = getattr(exc, "status_code", None)
+    unauthorised, forbidden = 401, 403
+    if status == unauthorised:
+        return _BAD_KEY_REMEDY
+    if status == forbidden:
+        return _NO_ACCESS_REMEDY
+    return None
+
+
+def _api_failure(exc: Exception, doing: str, *, context: dict[str, Any]) -> ExternalServiceError:
+    """The vendor's exception as this platform's error, with the remedy when there is one.
+
+    Without a remedy the vendor's repr *is* the most useful thing there is to say. With
+    one, it is noise in front of the sentence that matters, so it moves into the context —
+    where the technical-details disclosure and the logs still hold it whole.
+    """
+    remedy = _operator_remedy(exc)
+    if remedy is None:
+        return ExternalServiceError(
+            f"{doing} ({type(exc).__name__}: {exc}).",
+            provider=PROVIDER_NAME,
+            retryable=_is_retryable(exc),
+            context=context,
+        )
+    return ExternalServiceError(
+        f"{doing}. {remedy}",
+        provider=PROVIDER_NAME,
+        retryable=False,
+        context={**context, "remedy": remedy, "provider_error": f"{type(exc).__name__}: {exc}"},
+    )

@@ -1432,6 +1432,14 @@ removes. Check the list before ever passing that flag.
 > real requests to the SEC.** Expect a few pounds for a full report. Do not start it on a
 > connection you do not control, and set a cost ceiling on the request first.
 
+**Check the balance on the account, not just the cap on the request.** The platform's own
+budget caps are the only spending limits it can enforce; whether the Anthropic account
+behind `AER_ANTHROPIC_API_KEY` has credit is the vendor's business, and a run that starts
+funded can still hit zero halfway. When it does, the console says so in a sentence naming
+the top-up — and continuing before you have topped up asks the same question and gets the
+same answer. If it *keeps* failing after a top-up, the credit almost certainly landed in a
+different organisation or workspace from the one the key belongs to.
+
 ### 18.1 First, the wire contract
 
 ```powershell

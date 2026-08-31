@@ -151,10 +151,20 @@
         {% if (failed_step.error or {}).get("code") %}
           <p class="mt-1 type-data-sm text-ink-muted">{{ failed_step.error.get("code") }}</p>
         {% endif %}
-        <p class="mt-3 type-body-sm text-ink-muted">
-          Continuing repeats nothing: the completed steps are kept, and the run picks up
-          at the step that failed.
-        </p>
+        {% set remedy = (failed_step.error or {}).get("context", {}).get("remedy") %}
+        {% if remedy %}
+          {# A refusal only the operator can clear. Offering to continue would be advice
+             that costs them a step and teaches them nothing. #}
+          <p class="mt-3 type-body-sm text-ink-muted">
+            Continuing before that is put right asks the same question and gets the same
+            answer. The completed steps are kept either way.
+          </p>
+        {% else %}
+          <p class="mt-3 type-body-sm text-ink-muted">
+            Continuing repeats nothing: the completed steps are kept, and the run picks up
+            at the step that failed.
+          </p>
+        {% endif %}
       </section>
     {% endif %}
 

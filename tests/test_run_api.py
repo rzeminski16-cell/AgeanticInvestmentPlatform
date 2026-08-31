@@ -1116,6 +1116,82 @@ class TestTheWebPages:
         The whole error dictionary -- code, context, message -- rendered as one
         unpunctuated line, with the only readable part buried in the middle of it.
         """
+        job_id = await self._failed_at_plan(
+            api,
+            committed,
+            driver,
+            db_engine,
+            error={
+                "code": "external_service_error",
+                "message": "The Anthropic API call failed (APIConnectionError).",
+                "context": {"provider": "anthropic", "retryable": True},
+            },
+        )
+
+        page = await api.get(f"/runs/{job_id}")
+        assert "The Anthropic API call failed (APIConnectionError)." in page.text
+        assert "external_service_error" in page.text
+        assert "&#39;retryable&#39;" not in page.text
+        assert "Continuing repeats nothing" in page.text
+
+    async def test_a_resumed_run_stops_showing_the_failure_it_was_resumed_from(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """The step row stays failed until it re-executes; the run does not.
+
+        This is how an operator comes to believe a fixed failure recurred. They correct
+        what caused it, press continue, and the same red alert is still on the page --
+        because it is the record of the attempt before, and nothing has run since.
+        """
+        job_id = await self._failed_at_plan(
+            api,
+            committed,
+            driver,
+            db_engine,
+            error={"code": "external_service_error", "message": "It fell over."},
+        )
+        assert 'id="run-failed"' in (await api.get(f"/runs/{job_id}")).text
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            assert job is not None
+            job.status = JobStatus.QUEUED  # what a resume leaves behind
+            await session.commit()
+
+        page = await api.get(f"/runs/{job_id}")
+        assert 'id="run-failed"' not in page.text
+        # The step list keeps it, and should: that row *is* the record of the last
+        # attempt. What goes is the alert claiming the run is failed right now.
+        assert 'data-field="error-code"' in page.text
+
+    async def test_a_refusal_the_operator_must_clear_does_not_offer_to_continue(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """An empty credit balance is not cleared by pressing continue, so do not say so."""
+        remedy = "The Anthropic account the API key belongs to is out of credit."
+        job_id = await self._failed_at_plan(
+            api,
+            committed,
+            driver,
+            db_engine,
+            error={
+                "code": "external_service_error",
+                "message": f"Counting tokens failed. {remedy}",
+                "context": {"provider": "anthropic", "retryable": False, "remedy": remedy},
+            },
+        )
+
+        page = await api.get(f"/runs/{job_id}")
+        assert remedy in page.text
+        assert "Continuing repeats nothing" not in page.text
+        assert "asks the same question" in page.text
+
+    @staticmethod
+    async def _failed_at_plan(
+        api: Any, committed: dict, driver: Driver, db_engine: Any, *, error: dict
+    ) -> uuid.UUID:
+        """A run stopped at `plan` with `error` on the row, and the job failed with it."""
         body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
@@ -1127,17 +1203,13 @@ class TestTheWebPages:
             )
             assert row is not None
             row.status = JobStatus.FAILED
-            row.error = {
-                "code": "external_service_error",
-                "message": "The Anthropic API call failed (APIConnectionError).",
-                "context": {"provider": "anthropic", "retryable": True},
-            }
+            row.error = error
+            job = await session.get(Job, job_id)
+            assert job is not None
+            job.status = JobStatus.FAILED
             await session.commit()
 
-        page = await api.get(f"/runs/{job_id}")
-        assert "The Anthropic API call failed (APIConnectionError)." in page.text
-        assert "external_service_error" in page.text
-        assert "&#39;retryable&#39;" not in page.text
+        return job_id
 
     async def test_the_console_falls_back_to_polling(
         self, api: Any, committed: dict, driver: Driver

@@ -91,6 +91,33 @@ provider is used, naming the variable to set. You are never blocked on credentia
 service you have not reached yet — but you can be stopped mid-run by one. The plan at gate
 1 names the sources it intends to use; that is the moment to notice.
 
+## The run stopped: the Anthropic account is out of credit
+
+The console names it, and the sentence is the whole of the diagnosis:
+
+> The Anthropic account the API key belongs to is out of credit, so no model call can be
+> made — not even the free token count this failed on.
+
+**This is not one of the platform's own budget caps.** Those stop a run *before* a call and
+say so (below). This is the provider refusing the account, and no setting here clears it.
+
+Two things make it look like it recurs after a top-up:
+
+- **The credit went somewhere else.** A key belongs to one organisation and one workspace,
+  and a balance added to a different one leaves this failing identically. Check the key in
+  `.env` against the organisation you topped up, at
+  [platform.claude.com](https://platform.claude.com/settings/keys). This is by far the
+  commonest cause of a second identical failure.
+- **Nothing has run since.** Continuing re-queues the run; a worker executes it. If the
+  worker is stopped — which stepping through a run under developer mode requires — the run
+  sits queued and the step keeps the error from its last attempt. The console no longer
+  raises the red alert once a run has been re-queued, but the step row still shows what
+  happened last time, because that is what happened last time.
+
+Retrying costs nothing while the balance is empty: the first thing every model call does is
+count its tokens, that count is free, and it is what fails. So the cheapest confirmation
+that a top-up landed is to continue the run.
+
 ## The run refuses to start a step: budget
 
 The engine refuses to start a step whose projected cost would break the run's cap or the

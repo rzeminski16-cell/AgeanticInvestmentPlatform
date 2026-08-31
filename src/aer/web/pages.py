@@ -298,7 +298,15 @@ async def _console_view(
     else:
         plain_status = f"{run_words.label}."
 
-    failed = next((row for row in steps if row.get("status") == JobStatus.FAILED.value), None)
+    # Only while the run is *still* failed. A resume re-queues the job and leaves the step
+    # row failed until it is re-executed, so an unconditional read put a red "this failed"
+    # alert on a run that was queued and waiting for a worker — which is how an operator
+    # comes to believe a fixed failure recurred when nothing has run since.
+    failed = (
+        next((row for row in steps if row.get("status") == JobStatus.FAILED.value), None)
+        if job.status is JobStatus.FAILED
+        else None
+    )
 
     # Honest counts for the evidence links: what the run has actually gathered, so an
     # operator is never sent to an empty page without being told it is empty.

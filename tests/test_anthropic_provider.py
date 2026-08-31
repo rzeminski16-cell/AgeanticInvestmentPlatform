@@ -20,7 +20,7 @@ from __future__ import annotations
 import inspect
 import typing
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Final
 
 import pytest
 
@@ -594,6 +594,104 @@ class TestFailures:
             await provider.count_tokens(
                 system="s", messages=[Message(role="user", content="q")], model=OPUS
             )
+
+
+# -- The refusals only the operator can clear ----------------------------------------------
+
+
+_NO_CREDIT: Final = (
+    "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', "
+    "'message': 'Your credit balance is too low to access the Anthropic API. Please go to "
+    "Plans & Billing to upgrade or purchase credits.'}}"
+)
+
+
+def _rejection(name: str, message: str, *, status: int | None = None) -> Exception:
+    attrs = {"status_code": status} if status is not None else {}
+    return type(name, (Exception,), attrs)(message)
+
+
+class TestARefusalTheOperatorMustClear:
+    """An unfunded or misconfigured account is not a service that failed.
+
+    This class exists because of a real run. The drafting step died on
+    ``BadRequestError: 400 ... credit balance is too low``, the console reported
+    ``external_service_error`` and offered to continue, and continuing bought the same
+    refusal — which is the only outcome continuing can buy, for as long as the balance is
+    what it is. The failure was legible to the vendor and illegible here.
+    """
+
+    async def test_an_empty_balance_says_what_to_top_up_rather_than_quoting_the_sdk(
+        self,
+    ) -> None:
+        provider, _ = _provider(raises=_rejection("BadRequestError", _NO_CREDIT, status=400))
+
+        with pytest.raises(ExternalServiceError) as caught:
+            await provider.count_tokens(
+                system="s", messages=[Message(role="user", content="q")], model=OPUS
+            )
+
+        assert "out of credit" in caught.value.message
+        assert "AER_ANTHROPIC_API_KEY" in caught.value.message
+        assert caught.value.retryable is False
+
+    async def test_an_empty_balance_keeps_the_vendors_own_words_in_the_record(self) -> None:
+        """Out of the sentence, into the detail — `aer diagnose` still prints it whole."""
+        provider, _ = _provider(raises=_rejection("BadRequestError", _NO_CREDIT, status=400))
+
+        with pytest.raises(ExternalServiceError) as caught:
+            await provider.count_tokens(
+                system="s", messages=[Message(role="user", content="q")], model=OPUS
+            )
+
+        assert "credit balance is too low" not in caught.value.message
+        assert "credit balance is too low" in caught.value.context["provider_error"]
+        assert caught.value.context["remedy"] == caught.value.context["remedy"].strip()
+
+    async def test_the_remedy_travels_where_the_console_reads_it(self) -> None:
+        """The console decides on `context.remedy` whether continuing is worth offering."""
+        provider, _ = _provider(raises=_rejection("BadRequestError", _NO_CREDIT, status=400))
+
+        with pytest.raises(ExternalServiceError) as caught:
+            await _call(provider)
+
+        assert caught.value.to_dict()["context"]["remedy"] in caught.value.message
+
+    @pytest.mark.parametrize(
+        ("status", "phrase"),
+        [(401, "was rejected"), (403, "may not use the model")],
+    )
+    async def test_a_rejected_key_and_a_forbidden_model_each_name_their_own_fix(
+        self, status: int, phrase: str
+    ) -> None:
+        provider, _ = _provider(raises=_rejection("APIStatusError", "no", status=status))
+
+        with pytest.raises(ExternalServiceError) as caught:
+            await _call(provider)
+
+        assert phrase in caught.value.message
+        assert caught.value.retryable is False
+
+    async def test_an_ordinary_bad_request_still_reads_as_the_sdk_said_it(self) -> None:
+        """Only the three refusals are translated. A malformed request is our defect."""
+        provider, _ = _provider(
+            raises=_rejection("BadRequestError", "output_config.schema: Extra inputs", status=400)
+        )
+
+        with pytest.raises(ExternalServiceError) as caught:
+            await _call(provider)
+
+        assert "BadRequestError: output_config.schema" in caught.value.message
+        assert "remedy" not in caught.value.context
+
+    async def test_a_transient_failure_is_untouched_by_any_of_this(self) -> None:
+        provider, _ = _provider(raises=_rejection("APIStatusError", "later", status=503))
+
+        with pytest.raises(ExternalServiceError) as caught:
+            await _call(provider)
+
+        assert caught.value.retryable is True
+        assert "remedy" not in caught.value.context
 
 
 # -- The contract with the SDK -------------------------------------------------------------
