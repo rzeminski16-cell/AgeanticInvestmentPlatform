@@ -51,7 +51,7 @@ from aer.calc.units import Quantity, SourceRef, Unit, money
 from aer.core.concepts import CANONICAL_CONCEPTS
 from aer.core.disagreement import DisagreementKind
 from aer.core.enums import Decision, FactBasis, GateKind, JobStatus, Provider, SourceTier
-from aer.core.escalation import FiredTrigger
+from aer.core.escalation import CostScene, FiredTrigger
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.core.schemas.facts import RawFact
 from aer.core.schemas.request import ResearchRequestRead
@@ -118,7 +118,7 @@ from aer.services.comps import (
 from aer.services.comps_run import build_comps_table
 from aer.services.consistency import check_report_consistency
 from aer.services.disagreements import escalations_for_job
-from aer.services.escalation import triggers_for_job
+from aer.services.escalation import cost_scene_for_job, triggers_for_job
 from aer.services.evaluations import evaluate_run
 from aer.services.exhibits import exportable_charts_for
 from aer.services.extractions import record_excerpts
@@ -1617,6 +1617,70 @@ async def _red_team(context: StepContext) -> StepResult:
     return StepResult(output=outcome.as_dict(), cost_gbp=agent_context.spend_gbp)
 
 
+# The last step that can change what gate 2 approves (ADR 0091). Named because the seal is
+# also what fixes the payload's money figures — see `sealed_cost_scene`.
+_SEAL_STEP: Final = "revise"
+
+# Where the sealing step records the cap, the estimate and the spend it sealed with.
+_COST_SCENE: Final = "cost_scene"
+
+
+def _cost_record(scene: CostScene) -> dict[str, str | None]:
+    """The sealed money figures, as strings, because JSON has no decimal."""
+    return {
+        "cap_gbp": str(scene.cap_gbp),
+        "estimated_gbp": None if scene.estimated_gbp is None else str(scene.estimated_gbp),
+        "actual_gbp": str(scene.actual_gbp),
+    }
+
+
+def _cost_scene_from(record: object) -> CostScene | None:
+    """A sealed record back into a scene, or ``None`` if this run has no such record."""
+    if not isinstance(record, Mapping):
+        return None
+    try:
+        estimated = record["estimated_gbp"]
+        return CostScene(
+            cap_gbp=Decimal(str(record["cap_gbp"])),
+            estimated_gbp=None if estimated is None else Decimal(str(estimated)),
+            actual_gbp=Decimal(str(record["actual_gbp"])),
+        )
+    except (KeyError, TypeError, ArithmeticError):  # pragma: no cover -- a record we wrote
+        return None
+
+
+async def sealed_cost_scene(
+    session: AsyncSession, *, job: Job, request: ResearchRequest
+) -> CostScene:
+    """The cap, the estimate and the spend that gate 2's payload was sealed with.
+
+    **Money is the only input to the §2.4 triggers that is not frozen at the seal, and it
+    broke the gate.** The cost trigger's evidence carries the running total, the verdict
+    step runs after the seal and pays for itself, and the cap is a number the operator may
+    change at any time. So on a run above 80% of its cap, the figure the review page
+    hashed was never the figure the seal held — and the gate refused every approval of a
+    payload nobody could ever match. It was right to refuse. The payload should not have
+    moved.
+
+    The sealing step records what it sealed with, so this is a read rather than a
+    recomputation — the same standard the other five gates already meet. Two consequences
+    worth stating: raising the cap mid-run cannot invalidate a draft nobody rewrote, and a
+    banner that says "close to its £12 cap" keeps saying so afterwards, because that is
+    what was true when the draft was approved.
+
+    A run sealed before that record existed falls back to deriving the same figure from
+    the same rows: the spend across the steps at or before the seal, with the cap as it
+    stands. That is also the path the sealing step itself takes, since it is writing the
+    record it would otherwise read.
+    """
+    sealed = _cost_scene_from(
+        (await step_output(session, job_id=job.id, step_key=_SEAL_STEP)).get(_COST_SCENE)
+    )
+    if sealed is not None:
+        return sealed
+    return await cost_scene_for_job(session, job=job, request=request, through_step=_SEAL_STEP)
+
+
 async def _revise(context: StepContext) -> StepResult:
     """Give the writer its second attempt, then seal what gate 2 approves.
 
@@ -1653,10 +1717,14 @@ async def _revise(context: StepContext) -> StepResult:
             context.session, job=context.job, request=request, stage=SectionStage.VALIDATE
         )
 
-    payload = await final_gate_payload(context.session, job_id=context.job.id)
+    # Recorded before the payload is built, and read back by everything that builds it
+    # afterwards, so the money in the hash is a record rather than a moving read.
+    cost = await sealed_cost_scene(context.session, job=context.job, request=request)
+    payload = await final_gate_payload(context.session, job_id=context.job.id, cost=cost)
     return StepResult(
         output={
             **outcome.as_dict(),
+            _COST_SCENE: _cost_record(cost),
             # Gate 2 approves exactly this. The hash is what the approval records, so an
             # approval of an earlier payload cannot be reused for a later one.
             "payload_hash": sha256_hex(canonical_json(payload)),
@@ -1782,7 +1850,7 @@ async def _gate_final(context: StepContext) -> StepResult:
     """
     await _refuse_unsupported_evidence(context)
     await _pause_naming_triggers(context)
-    return await _require_approval(context, gate=GateKind.FINAL, of_step="revise")
+    return await _require_approval(context, gate=GateKind.FINAL, of_step=_SEAL_STEP)
 
 
 async def _pause_naming_triggers(context: StepContext) -> None:
@@ -1809,7 +1877,12 @@ async def _pause_naming_triggers(context: StepContext) -> None:
         return
 
     request = await _request_for(context)
-    fired = await triggers_for_job(context.session, job=context.job, request=request)
+    fired = await triggers_for_job(
+        context.session,
+        job=context.job,
+        request=request,
+        cost=await sealed_cost_scene(context.session, job=context.job, request=request),
+    )
     if not fired:
         return
 
@@ -1909,15 +1982,39 @@ async def _require_approval(
         raise StepPaused(message, gate=gate.value, context={"decision": approval.decision.value})
 
     if expected_hash and approval.payload_hash != expected_hash:
+        # Three hashes, and which two agree is the whole diagnosis. The operator's
+        # approval carries the hash the review page computed; `expected_hash` is what the
+        # run sealed. When the page agrees with the approval, the seal is the odd one out
+        # and no approval taken from that page can ever match — which is a defect in the
+        # run, and telling somebody to "decide again" would be sending them round a loop.
+        # A live run went round it four times before anybody could say which case it was.
+        live = sha256_hex(
+            canonical_json(await gate_payload(context.session, job=context.job, gate=gate.value))
+        )
+        if live == approval.payload_hash:
+            detail = (
+                "What this run sealed and what the review page shows have drifted apart, "
+                "so no approval taken from that page can match. Nothing you decide will "
+                "release it: this is a defect in the run rather than a decision to retake."
+            )
+        else:
+            detail = (
+                "The page it was taken from has moved since. Open the review page again "
+                "and decide on what it shows now."
+            )
         message = (
             f"The {gate.value} approval was recorded against different content from what "
             "this run produced. An approval of something else is not an approval of this, "
-            "so the run stops rather than proceeding on it."
+            f"so the run stops rather than proceeding on it. {detail}"
         )
         raise StepPaused(
             message,
             gate=gate.value,
-            context={"approved_hash": approval.payload_hash, "actual_hash": expected_hash},
+            context={
+                "approved_hash": approval.payload_hash,
+                "actual_hash": expected_hash,
+                "live_hash": live,
+            },
         )
 
     return StepResult(output={"approval_id": str(approval.id), "gate": gate.value})
@@ -3051,7 +3148,7 @@ _GATE_STEPS: Final[Mapping[str, str]] = {
     GateKind.UNMAPPED_CONCEPTS.value: "extract",
     GateKind.ASSUMPTIONS.value: ASSUMPTIONS_STEP,
     # The revise step, not the red team (ADR 0091), on the same principle.
-    GateKind.FINAL.value: "revise",
+    GateKind.FINAL.value: _SEAL_STEP,
 }
 
 
@@ -3109,7 +3206,9 @@ _STEP_OUTPUT_GATES: Final[Mapping[str, Callable[[Mapping[str, Any]], dict[str, A
 }
 
 
-async def final_gate_payload(session: AsyncSession, *, job_id: uuid.UUID) -> dict[str, Any]:
+async def final_gate_payload(
+    session: AsyncSession, *, job_id: uuid.UUID, cost: CostScene | None = None
+) -> dict[str, Any]:
     """Exactly what gate 2 approves, as one structure.
 
     Built here and used both by the draft step and by the review page, so "what the run
@@ -3136,7 +3235,14 @@ async def final_gate_payload(session: AsyncSession, *, job_id: uuid.UUID) -> dic
     if job is not None:
         request = await session.get(ResearchRequest, job.request_id)
         if request is not None:
-            triggers = await triggers_for_job(session, job=job, request=request)
+            # From the seal, so this payload is the same object whether the revise step
+            # is building it or the review page is rendering it an hour later.
+            triggers = await triggers_for_job(
+                session,
+                job=job,
+                request=request,
+                cost=cost or await sealed_cost_scene(session, job=job, request=request),
+            )
     return {
         # Status and the degradation note ride inside the hash: a failed custom section
         # and an insufficiency banner are part of what the operator approves, and a

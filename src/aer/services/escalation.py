@@ -31,7 +31,15 @@ from aer.core.escalation import (
     SourceScene,
     fire_triggers,
 )
-from aer.db.models import Cost, Evaluation, Job, ResearchPlan, ResearchRequest, SourceDocument
+from aer.db.models import (
+    Cost,
+    Evaluation,
+    Job,
+    JobStep,
+    ResearchPlan,
+    ResearchRequest,
+    SourceDocument,
+)
 from aer.db.models.plan_skill_pin import PLANNED
 from aer.db.models.section_definition import SKILL
 from aer.sections.registry import sections_for_job
@@ -43,9 +51,18 @@ __all__ = ["cost_scene_for_job", "triggers_for_job"]
 
 
 async def triggers_for_job(
-    session: AsyncSession, *, job: Job, request: ResearchRequest
+    session: AsyncSession,
+    *,
+    job: Job,
+    request: ResearchRequest,
+    cost: CostScene | None = None,
 ) -> tuple[FiredTrigger, ...]:
-    """Every §2.4 trigger that holds for this run, from its recorded rows alone."""
+    """Every §2.4 trigger that holds for this run, from its recorded rows alone.
+
+    ``cost`` replaces the live spend and cap, and the gate-2 payload always supplies one:
+    money is the only input here that is not frozen when the payload is sealed. See
+    :func:`cost_scene_for_job`.
+    """
     return fire_triggers(
         point_in_time=request.point_in_time,
         metrics=await _metric_scores(session, job=job),
@@ -53,22 +70,58 @@ async def triggers_for_job(
         conflicts=await _conflict_scenes(session, job=job),
         clamps=await _policy_clamps(session, job=job),
         sources=await _source_scenes(session, request=request),
-        cost=await cost_scene_for_job(session, job=job, request=request),
+        cost=cost
+        if cost is not None
+        else await cost_scene_for_job(session, job=job, request=request),
     )
 
 
 async def cost_scene_for_job(
-    session: AsyncSession, *, job: Job, request: ResearchRequest
+    session: AsyncSession,
+    *,
+    job: Job,
+    request: ResearchRequest,
+    through_step: str | None = None,
 ) -> CostScene:
     """The run's cap, its approved estimate, and what the cost rows actually sum to.
 
     The actual figure is the same sum the budget guard enforces against — the ``costs``
     table, nothing derived — so the banner and the hard cap cannot disagree about what
     was spent.
+
+    **``through_step`` bounds the sum to the steps at or before that one, and the gate-2
+    payload is built with it.** Spend is the only input to the §2.4 triggers that is not
+    frozen when the revise step seals the payload: the verdict step runs after the seal
+    and writes a cost row of its own. With a live sum, the cost trigger's evidence carried
+    a total that had already moved by the time the review page rendered — so on any run
+    above 80% of its cap the sealed hash and the page's hash differed by construction, and
+    the gate refused every approval of a payload nobody could ever match. It was correct
+    to refuse; the payload should not have moved. Bounding the sum makes the step that
+    seals and every reader after it compute one figure from one set of rows.
+
+    A step that has not run yet bounds nothing — the sum stays live — because "as at a
+    step that has not happened" has no meaning, and silently returning zero would put a
+    run below its own alert threshold.
     """
-    actual = await session.scalar(
-        select(func.coalesce(func.sum(Cost.amount_gbp), 0)).where(Cost.job_id == job.id)
-    )
+    query = select(func.coalesce(func.sum(Cost.amount_gbp), 0)).where(Cost.job_id == job.id)
+    if through_step is not None:
+        sealed_at = await session.scalar(
+            select(JobStep.sequence).where(
+                JobStep.job_id == job.id, JobStep.step_key == through_step
+            )
+        )
+        if sealed_at is not None:
+            # Every cost row carries the step that incurred it, so the bound is the
+            # workflow's own order rather than a timestamp comparison — which would make
+            # the gate turn on which of two writes landed first.
+            query = query.where(
+                Cost.job_step_id.in_(
+                    select(JobStep.id).where(
+                        JobStep.job_id == job.id, JobStep.sequence <= sealed_at
+                    )
+                )
+            )
+    actual = await session.scalar(query)
     estimated: Decimal | None = None
     if job.plan_id is not None:
         plan = await session.get(ResearchPlan, job.plan_id)

@@ -44,9 +44,14 @@ from aer.errors import BudgetExceededError, ValidationError
 from aer.providers.fake import FakeProvider
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
+from aer.services.approvals import payload_hash_for
 from aer.services.citations import record_claim
 from aer.storage.local import LocalArtefactStore
-from aer.workflow.workflows.vertical_slice_v1 import build_steps, peer_gate_payload
+from aer.workflow.workflows.vertical_slice_v1 import (
+    build_steps,
+    gate_payload,
+    peer_gate_payload,
+)
 from tests.workflow_fixtures import (
     CONDITIONAL_GATES,
     SPINE_KEYS,
@@ -84,7 +89,19 @@ async def run_to_next_stop(
 async def approve(
     session: AsyncSession, *, job: Job, gate: GateKind, actor: object, step: str
 ) -> None:
-    """Record an approval carrying the hash the run's own step produced."""
+    """Record an approval carrying the hash **the review page would show**.
+
+    Not the hash the sealing step wrote, which is what this used to do and what let a
+    whole class of defect through. The two are supposed to be equal -- that equality is
+    the gate's guarantee -- so approving with the step's own hash compared a number
+    against itself and could never fail. A live run then found the case where they are
+    not: the gate-2 payload carried the run's spend, which kept moving after the seal, and
+    every approval an operator made was refused against a payload nobody could match.
+
+    So every gate test now goes the way an operator goes, through the same builder the
+    page renders from. ``step`` is kept as the precondition it always was: the gate's step
+    must have produced something before there is anything to approve.
+    """
     row = await session.scalar(
         select(JobStep).where(JobStep.job_id == job.id, JobStep.step_key == step)
     )
@@ -95,7 +112,7 @@ async def approve(
         gate=gate,
         decision=Decision.APPROVED,
         actor=actor,  # type: ignore[arg-type]
-        payload_hash=str((row.output_ref or {})["payload_hash"]),
+        payload_hash=payload_hash_for(await gate_payload(session, job=job, gate=gate.value)),
     )
 
 

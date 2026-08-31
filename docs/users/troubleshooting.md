@@ -145,6 +145,25 @@ The engine refuses to start a step whose projected cost would break the run's ca
 month's. This is a cap, not a warning. Either raise the ceiling deliberately or accept the
 run stops here.
 
+## The final gate refuses my approval
+
+> The FINAL approval was recorded against different content from what this run produced.
+
+The gate approves a *hash* of the draft, not a timestamp — so an approval of one version
+cannot be reused for another. That is the point of it. What matters is which two of the
+three hashes agree, and the message now says:
+
+- **"the page it was taken from has moved since"** — something changed between opening the
+  review page and pressing approve. Open the review page again and decide on what it shows.
+- **"what this run sealed and what the review page shows have drifted apart"** — no approval
+  taken from that page can ever match. Approving again will not help; this is a defect to
+  report, with `uv run aer diagnose <run-id>` beside it.
+
+One cause of the second is fixed: on a run above 80% of its cost cap, the banner's evidence
+carried the running spend, which kept moving after the draft was sealed. Runs sealed before
+that fix recover on their own — reload the review page and approve; nothing is re-run and
+nothing is spent.
+
 ## A figure is missing from the report
 
 This is usually correct behaviour, not a fault. See

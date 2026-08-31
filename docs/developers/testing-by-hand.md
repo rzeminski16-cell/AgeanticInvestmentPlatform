@@ -887,6 +887,15 @@ Approve. **Expect** the document to render and freeze into Markdown, HTML and PD
 **Wrong:** a PDF step that errors — that is the WeasyPrint native stack from §0, and the
 Markdown and HTML archives will be fine.
 
+**Wrong, and worth the whole section:** *"The FINAL approval was recorded against different
+content from what this run produced"*, on an approval you have just taken from a page you
+have just loaded. The gate approves a hash of the draft, and what it is telling you is that
+the draft moved after the run sealed it — which nothing but a defect can do. The message
+distinguishes the two cases: a page that has moved since you opened it (open it again and
+decide), and a run whose seal and page have drifted apart (no approval can ever match; this
+is a bug to report). A run above 80% of its cost cap used to hit the second on every
+attempt, because the banner's evidence carried a spend figure that kept moving.
+
 ### 10.7 The document itself  **[B]**
 
 **Open the PDF, not just the page.** Roadmap §2.4 was two defects a reader met immediately

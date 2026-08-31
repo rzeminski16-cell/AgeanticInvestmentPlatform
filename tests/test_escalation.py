@@ -51,7 +51,11 @@ from aer.db.models import (
 from aer.db.models.plan_skill_pin import PLANNED
 from aer.db.models.report_section import ReportSection
 from aer.eval.metrics import Metric
-from aer.services.disagreements import record_resolution, settle_by_hand
+from aer.sections.registry import sections_for_job
+from aer.services.disagreements import (
+    record_resolution,
+    settle_by_hand,
+)
 from aer.services.escalation import cost_scene_for_job, triggers_for_job
 from aer.services.skills import save_skill
 from aer.storage.local import LocalArtefactStore
@@ -939,3 +943,204 @@ class TestTheGatePausesNamingTheTriggers:
         )
         outcome = await run_to_next_stop(**driven["args"])
         assert outcome.status is JobStatus.SUCCEEDED
+
+
+# ==========================================================================================
+# The seal holds while the run keeps spending
+# ==========================================================================================
+
+
+async def _revise_row(driven: dict[str, Any]) -> JobStep:
+    row = await driven["session"].scalar(
+        select(JobStep).where(JobStep.job_id == driven["job"].id, JobStep.step_key == "revise")
+    )
+    assert row is not None, "the revise step seals the gate-2 payload"
+    return row
+
+
+async def _seal_a_cap_the_run_is_over(driven: dict[str, Any]) -> Decimal:
+    """Rewrite the seal's own record as a run that sealed above 80% of its cap.
+
+    The condition has to hold **at the seal**, not afterwards, which is the whole point:
+    a cap lowered later changes nothing, and that is now tested too. Editing the record
+    the sealing step wrote is the honest way to stand a fixture in that run's shoes
+    without tuning a fake provider's spend against a budget guard.
+    """
+    row = await _revise_row(driven)
+    output = dict(row.output_ref or {})
+    scene = dict(output["cost_scene"])
+    spent = Decimal(str(scene["actual_gbp"]))
+    cap = (spent / Decimal("0.9")).quantize(Decimal("0.0001"))
+    scene["cap_gbp"] = str(cap)
+    output["cost_scene"] = scene
+    row.output_ref = output
+    await driven["session"].flush()
+    assert spent > cap * COST_ALERT_RATIO
+    return cap
+
+
+class TestTheSealHoldsWhileTheRunKeepsSpending:
+    """The gate-2 payload must not move after the revise step seals it.
+
+    **A live run reached gate 2 at £11.51 and could not be approved.** Every attempt came
+    back "the FINAL approval was recorded against different content from what this run
+    produced", which was true and unhelpful: the operator approved four times.
+
+    Money was the one input to the §2.4 triggers that was not frozen at the seal. The cost
+    trigger's evidence carries the running total -- `actual spend £11.5006 exceeds ...` --
+    and the verdict step runs *after* the revise step and pays for itself. So on a run
+    above 80% of its cap, the figure the review page hashed was never the figure the seal
+    held, and never could be.
+
+    No test saw it because the drivers approved with the hash the sealing step wrote,
+    while an operator approves with the hash the page computed. Both routes now go through
+    the page's, which is the operator's.
+    """
+
+    async def test_the_spend_the_seal_records_stops_at_the_seal(
+        self, driven: dict[str, Any]
+    ) -> None:
+        """The verdict step's own spend is outside what the draft was sealed with."""
+        session: AsyncSession = driven["session"]
+        sealed = Decimal(str((await _revise_row(driven)).output_ref["cost_scene"]["actual_gbp"]))
+        live = await cost_scene_for_job(session, job=driven["job"], request=driven["request"])
+
+        rows = await session.scalars(
+            select(Cost.amount_gbp)
+            .join(JobStep, Cost.job_step_id == JobStep.id)
+            .where(JobStep.job_id == driven["job"].id, JobStep.step_key == "verdict")
+        )
+        verdict = sum((Decimal(str(row)) for row in rows), Decimal("0"))
+        assert verdict > 0, "the step that spends after the seal"
+        assert sealed == live.actual_gbp - verdict
+
+    async def test_the_derivation_agrees_with_the_record(self, driven: dict[str, Any]) -> None:
+        """The fallback for a run sealed before the record existed, held to the same figure."""
+        derived = await cost_scene_for_job(
+            driven["session"],
+            job=driven["job"],
+            request=driven["request"],
+            through_step="revise",
+        )
+        sealed = Decimal(str((await _revise_row(driven)).output_ref["cost_scene"]["actual_gbp"]))
+
+        assert derived.actual_gbp == sealed
+
+    async def test_a_step_that_has_not_run_leaves_the_sum_live(
+        self, driven: dict[str, Any]
+    ) -> None:
+        """Bounding by a step that never happened must not read as "nothing spent"."""
+        live = await cost_scene_for_job(
+            driven["session"], job=driven["job"], request=driven["request"]
+        )
+        bounded = await cost_scene_for_job(
+            driven["session"],
+            job=driven["job"],
+            request=driven["request"],
+            through_step="a_step_this_workflow_does_not_have",
+        )
+
+        assert bounded.actual_gbp == live.actual_gbp
+        assert bounded.actual_gbp > 0
+
+    async def test_the_cost_trigger_fires_from_what_the_seal_recorded(
+        self, driven: dict[str, Any]
+    ) -> None:
+        """The precondition, asserted alone so the two below cannot pass vacuously."""
+        cap = await _seal_a_cap_the_run_is_over(driven)
+        payload = await final_gate_payload(driven["session"], job_id=driven["job"].id)
+
+        cost = next(
+            row
+            for row in payload["triggers"]
+            if row["kind"] == TriggerKind.COST_ABOVE_THRESHOLD.value
+        )
+        assert f"£{cap}" in cost["message"]
+        assert any("actual spend" in line for line in cost["evidence"])
+
+    async def test_spending_after_the_seal_does_not_move_the_payload(
+        self, driven: dict[str, Any]
+    ) -> None:
+        """What the verdict step does, done again: one more cost row after the seal."""
+        await _seal_a_cap_the_run_is_over(driven)
+        before = await final_gate_payload(driven["session"], job_id=driven["job"].id)
+
+        verdict = await driven["session"].scalar(
+            select(JobStep).where(JobStep.job_id == driven["job"].id, JobStep.step_key == "verdict")
+        )
+        assert verdict is not None
+        driven["session"].add(
+            Cost(
+                job_id=driven["job"].id,
+                job_step_id=verdict.id,
+                category="model",
+                provider="anthropic",
+                model="a-model",
+                units=Decimal("1"),
+                unit_type="call",
+                amount_usd=Decimal("0.0150"),
+                amount_gbp=Decimal("0.0115"),
+                fx_rate=Decimal("0.79"),
+            )
+        )
+        await driven["session"].flush()
+
+        after = await final_gate_payload(driven["session"], job_id=driven["job"].id)
+        assert canonical_json(before) == canonical_json(after)
+
+    async def test_raising_the_cap_after_the_seal_does_not_brick_the_gate(
+        self, driven: dict[str, Any]
+    ) -> None:
+        """The cap is a live control, and the draft it seals is not about the cap.
+
+        Raising it is the operator's move when a run is running out of room, so it must
+        not invalidate a draft nobody rewrote. The banner keeps saying what was true when
+        the draft was sealed, which is what "approved with this banner showing" means.
+        """
+        await _seal_a_cap_the_run_is_over(driven)
+        before = await final_gate_payload(driven["session"], job_id=driven["job"].id)
+
+        driven["request"].max_cost_gbp = Decimal(str(driven["request"].max_cost_gbp)) * 10
+        await driven["session"].flush()
+
+        after = await final_gate_payload(driven["session"], job_id=driven["job"].id)
+        assert canonical_json(before) == canonical_json(after)
+
+    async def test_a_rewritten_section_still_invalidates_the_approval(
+        self, driven: dict[str, Any]
+    ) -> None:
+        """The other half. The payload must stop moving on its own, not stop moving.
+
+        Content the operator did not approve over is exactly what the hash exists to
+        catch. The gate refusing here is the guard working -- and it is the same guard
+        that was refusing the live run, for a difference nobody had made.
+        """
+        session: AsyncSession = driven["session"]
+        sections = await sections_for_job(session, driven["job"].id)
+        assert sections, "the draft the gate approves"
+        sections[0].content = {
+            **(sections[0].content or {}),
+            "summary": "rewritten after the draft was sealed",
+        }
+        await session.flush()
+
+        await approve(
+            session, job=driven["job"], gate=GateKind.FINAL, actor=driven["user"], step="revise"
+        )
+        outcome = await run_to_next_stop(**driven["args"])
+
+        assert outcome.status is JobStatus.AWAITING_APPROVAL
+        step = await session.scalar(
+            select(JobStep).where(
+                JobStep.job_id == driven["job"].id, JobStep.step_key == "gate_final"
+            )
+        )
+        assert step is not None
+        error = step.error or {}
+        assert "different content" in str(error.get("message", ""))
+        # The page and the approval agree with each other and not with the seal, so no
+        # decision taken from that page can open the gate. Saying "approve again" would
+        # have sent the live run round the loop a fifth time.
+        assert "drifted apart" in str(error.get("message", ""))
+        assert error["context"]["live_hash"] == error["context"]["approved_hash"]
+        assert error["context"]["actual_hash"] != error["context"]["approved_hash"]
