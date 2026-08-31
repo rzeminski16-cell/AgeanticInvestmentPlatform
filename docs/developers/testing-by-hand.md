@@ -50,11 +50,33 @@ and forward slashes; where a command genuinely differs, both are given.
 
 ## The readiness scorecard
 
-Copy this and fill it in as you go. It is the deliverable, not a formality — a pass with no
-record of what was actually seen is a pass nobody can act on later.
+**This is the deliverable.** Copy it into a file you can type in, fill a row in as you
+finish each section, and keep it — a pass with no record of what was actually seen is a pass
+nobody can act on a month later, including you.
+
+Write one of three things in **Result**:
+
+| Write | When |
+|---|---|
+| `pass` | you saw what the section said to expect |
+| `fail` | you did not — **and write what you saw beside it**, not just the word (§19) |
+| `not run` | you skipped it. A real answer, and **not the same as `pass`** |
+
+**How the verdict is decided — it is not a score.** The only question is: **did any [B] row
+fail?** One blocking failure outweighs seventeen passes, and that is the entire reason for
+the column. A **[B]** failure means the platform is not ready for use, whatever else passed.
+An **[A]** failure is worth reporting and does not stop you using it.
+
+**If a [B] fails mid-pass, keep going** unless it physically blocks you. A second failure
+often explains the first, and a scorecard with one row filled in tells you much less than a
+complete one with a fail in it. §3 and §4 are the exceptions: nothing after them works if
+they are broken.
 
 | # | Check | B/A | Result |
 |---|---|---|---|
+| 0 | Prerequisites present (Python 3.12, Docker, GTK stack) | B | |
+| 1 | The commit under test is known and written down | B | |
+| 2 | Clean install, config loads, secrets masked | A | |
 | 3 | Infrastructure up and bound to loopback | B | |
 | 4 | Migrations round-trip, and refuse to eat data | B | |
 | 5 | Static gates clean (lint, types, secrets) | B | |
@@ -64,6 +86,7 @@ record of what was actually seen is a pass nobody can act on later.
 | 8.3 | Keyboard, 320px, 200%, both schemes, no JS | A | |
 | 9 | **A run stepped through, every step read** | B | |
 | 10 | Every gate says what turns on it; a stale approval is refused | B | |
+| 10.7 | The rendered document reads: prose appendix, paired figures | B | |
 | 11 | A footnote walks to bytes; a figure walks to its leaves; replay agrees | B | |
 | 12 | The book computes from transactions; grades propagate; a split multiplies | B | |
 | 13 | Refused and unplaced tags are told apart | A | |
@@ -72,6 +95,15 @@ record of what was actually seen is a pass nobody can act on later.
 | 16 | A killed worker resumes; a failed run is superseded, not lost | B | |
 | 17 | Backup restores and verifies | A | |
 | 18 | The live run reaches a report you would act on | B | |
+
+A filled row looks like this — the failure is the useful one:
+
+```
+| 12 | The book computes from transactions… | B | fail — split multiplied the
+       share count correctly but the USD cash balance moved by 2.00. §12.3's
+       "Wrong" case. job a025a0c2, worker log attached |
+```
+
 
 ---
 
@@ -1470,19 +1502,29 @@ just worker 2>&1 | tee var/worker.log                      # bash, zsh
 
 ## The verdict
 
-Fill this in when you stop, whatever section you stopped at.
+Fill this in when you stop, whatever section you stopped at. It is the scorecard totalled
+up, and it is what you would send somebody.
 
-> **Commit tested:** `<sha>`
-> **Sections run:** `<list>`
-> **Blocking failures:** `<count, and which>`
-> **Advisory failures:** `<count, and which>`
+> **Commit tested:** `<sha, from §1>`
+> **Sections run:** `<which — and `not run` is not `pass`>`
+> **Blocking failures:** `<count, and which rows>`
+> **Advisory failures:** `<count, and which rows>`
 
-**Ready for use** means: every **[B]** section you ran passed, and you would act on a number
-this platform showed you *because* you could walk it back to a hash or a formula — not
-because it looked plausible.
+**Ready for use** means both of these, not one:
 
-**Not ready** means any blocking failure, and the honest response is to name it rather than
-work around it.
+1. **Every [B] section you ran passed.** Count the `fail` rows in the B column; the number
+   must be zero. This is arithmetic, not judgement.
+2. **You would act on a number this platform showed you** — *because* you walked one back to
+   a hash or a formula in §11, not because it looked plausible. That is judgement, and it is
+   yours; nobody else can make it for you.
+
+**Not ready** means any blocking failure. The honest response is to name it and stop, rather
+than work around it — a workaround you remember today is a wrong number you trust in March.
+
+**Partly established** is the common and honest outcome, and the scorecard is built to say
+it: every blocking row you ran passed, and several read `not run`. You are then ready for
+exactly what you tested and no more. Skipping §18 is the usual case — the offline platform
+is established, the live path is not.
 
 ### What a pass establishes
 
