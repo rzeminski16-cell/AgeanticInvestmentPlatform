@@ -455,14 +455,51 @@ moved, and every number downstream inherits it.
 
 ### The hooks
 
+> **These hooks edit your working tree.** `end-of-file-fixer` and `trailing-whitespace` do
+> not report and stop — they *rewrite the file and then fail*. So a failure here leaves you
+> with local modifications you did not make, and the next `git pull` aborts with "your local
+> changes would be overwritten". Read the clean-up step below before running this.
+
 ```powershell
 uv run pre-commit run --all-files
 ```
 
-**Expect:** every hook passing, including `detect-secrets`.
+**Expect:** every hook passing, including `detect-secrets`, **and `git status` clean
+afterwards.** Both halves matter. On a correct checkout the hooks have nothing to do.
 
-**Wrong:** a hook that *modifies* files and then reports success. A formatting hook that
-rewrites the tree it is checking makes "the committed tree is clean" untestable.
+**Wrong:** a hook that *modifies* files. That is the finding, not a fix to keep — a
+formatting hook rewriting the tree it is checking makes "the committed tree is clean"
+untestable, and if the file is vendored or generated, the hook is editing bytes that are
+somebody else's or that must match what produced them.
+
+**Then put the tree back**, whatever happened:
+
+```powershell
+git status --short
+git checkout -- <each file the hooks touched>
+```
+
+**Do not keep a hook's edits** unless you have decided, deliberately, that the file was
+wrong rather than the hook. Two things this pass has caught, both of which look identical
+from the terminal and need opposite answers: our own file carrying a stray trailing blank
+line (the hook is right — commit it), and `trailing-whitespace` quietly editing the SIL OFL
+licence text IBM ships with Plex Mono (the hook is wrong — the notice is a document we were
+given, and `static/fonts/` is excluded for that reason).
+
+**If `detect-secrets` reports a hash you recognise** — a vendored asset's SHA-256, a fixture's
+fake digest — the baseline has gone stale rather than a credential having leaked. It records
+findings by file *and line*, so vendoring a new asset or moving a line invalidates it. Check
+every entry, then:
+
+```powershell
+uv run detect-secrets scan --baseline .secrets.baseline
+git add .secrets.baseline
+```
+
+**Read what that adds before committing it.** Regenerating a secrets baseline silences
+everything it finds, so an actual credential in the tree would be baselined along with the
+false positives. Each new entry should be a hash by construction — a pin, a digest, a
+fixture — and never something that could authenticate anything.
 
 ---
 
