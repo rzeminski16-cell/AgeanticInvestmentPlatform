@@ -851,9 +851,12 @@ not resumable.
    faults. **Wrong:** the red team appearing here. A red team that contradicts the draft is
    the red team working, and it was counted as a fault until 2026-08-25 — which made a run
    with two real problems report three.
-3. **What the red team found**, its own section, one block per challenge with the objection
-   at reading width, the basis under it and the evidence it cited. **Expect** every
-   challenge to reach the report's appendix whether or not you agree with it.
+3. **What the red team found**, its own section, one block per challenge headed by the
+   dimension it attacks and its severity, then the objection at reading width, the basis
+   under it and the evidence it cited. **Expect** every challenge to reach the report's
+   appendix whether or not you agree with it. **Wrong:** a heading that is the first
+   hundred-odd characters of the objection printed directly above the objection — the same
+   sentence twice, the first one cut through a word.
 4. **Unresolved disagreements**, amber. **Expect** source conflicts only — two documents
    reporting different numbers with no rule to choose between them.
 5. **Settle this**, on any open disagreement or challenge. Choose a side, give a reason.

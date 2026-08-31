@@ -59,6 +59,7 @@ from aer.db.models import (
 )
 from aer.db.models.report_section import SectionStatus
 from aer.services import runs as run_service
+from aer.services.red_team import _shortened
 from aer.web.csrf import CSRF_FIELD_NAME
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
 from tests.api_fixtures import build_app, client_for
@@ -1452,6 +1453,37 @@ class TestTheWebPages:
         # And the fault banner does not claim it. This is the run's only disagreement, so
         # an amber "1 unresolved disagreement" here would be the whole regression.
         assert 'id="escalations"' not in page.text
+
+    async def test_a_challenge_is_not_announced_by_a_severed_copy_of_itself(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """What the operator reported after a live run: sentences cut off.
+
+        The heading was the row's ``topic``, which `services.red_team` builds by
+        shortening the statement to name the row — and the statement in full sat in the
+        paragraph directly beneath it. So every challenge read as the same sentence twice,
+        the first one cut through a word.
+        """
+        job_id = await _to_second_gate(api, committed, driver)
+        statement = (
+            "The discounted cash flow leans on a terminal growth rate of three per cent, "
+            "which exceeds the long-run nominal growth of the economy it operates in and "
+            "therefore cannot hold beyond the explicit forecast."
+        )
+        row = _planted_challenge(job_id)
+        # Exactly as the service records one: the topic is the shortened statement.
+        row.topic = f"Red team (valuation): {_shortened(statement)}"
+        row.detail = {**(row.detail or {}), "challenge": statement}
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as writer:
+            writer.add(row)
+            await writer.commit()
+
+        page = await api.get(f"/runs/{job_id}/review")
+
+        assert statement in page.text
+        assert _shortened(statement) not in page.text
+        assert "Red team \N{EM DASH} valuation, severity 4/5" in page.text
 
     async def test_a_challenge_can_be_settled_on_the_record(
         self, api: Any, committed: dict, driver: Driver, db_engine: Any

@@ -356,12 +356,15 @@
       <ul class="flex flex-col divide-y divide-line">
         {% for row in challenges %}
           <li class="py-4" data-challenge="{{ row.id }}">
-            <p class="type-body text-ink">
-              {{ row.topic }}
+            {#
+              The dimension and the severity, not the topic. A red-team topic is a
+              shortened copy of the statement -- it fingerprints the row -- and printing
+              it here put the same sentence on the page twice: cut short, then whole,
+              immediately below. Same wording as the report's appendix, from one function.
+            #}
+            <p class="type-label text-ink">
+              {{ row.detail | challenge_heading(fallback=row.topic) }}
               {% if row.material %}{{ ui.status("warning", "Material") }}{% endif %}
-              {% if row.detail and row.detail.get("severity") %}
-                <span class="ml-2 type-data-sm text-ink-muted">severity {{ row.detail["severity"] }}</span>
-              {% endif %}
             </p>
 
             {% if row.detail and row.detail.get("challenge") %}

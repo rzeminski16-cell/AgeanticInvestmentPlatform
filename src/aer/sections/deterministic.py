@@ -32,6 +32,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.core.disagreement import challenge_heading
 from aer.db.models import Disagreement, Evaluation, Job, ResearchRequest, SectionStatus
 from aer.eval import BLOCKING, RUN_TIME, THRESHOLDS, Direction, Metric
 from aer.sections.registry import sections_for_job
@@ -332,11 +333,10 @@ def _disagreement_blocks(row: Disagreement) -> list[dict[str, str]]:
             {"lead_in": "Resolution", "text": resolution},
         ]
 
-    dimension = str(detail.get("dimension") or "").replace("_", " ").strip()
-    head = f"Red team \N{EM DASH} {dimension}" if dimension else row.topic
-    if detail.get("severity"):
-        head = f"{head}, severity {detail['severity']}/5"
-    opening = {"lead_in": head, "text": str(challenge)}
+    opening = {
+        "lead_in": challenge_heading(detail, fallback=row.topic),
+        "text": str(challenge),
+    }
     evidence = detail.get("evidence") or {}
     for kind, key in (("sources", "source_document_id"), ("calculations", "calculation_id")):
         ids = evidence.get(kind) or []
