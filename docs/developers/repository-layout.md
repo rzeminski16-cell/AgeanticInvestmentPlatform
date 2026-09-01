@@ -35,6 +35,8 @@ src/aer/            application package
     fx.py           conversion that refuses upside-down, future and stale rates
     wacc.py         the discount rate; no defaults, every input sourced
     dcf.py          driver-based FCFF, both terminal values, the sensitivity grid
+    portfolio.py    what a book holds and what it cost; no positions table (ADR 0083)
+    performance.py  time- and money-weighted return, exposure, concentration
   db/               engine, session management, and ORM models
   storage/          content-addressed artefact store; the evidence substrate
     protocol.py     the ArtefactStore interface: no delete, no update, no move

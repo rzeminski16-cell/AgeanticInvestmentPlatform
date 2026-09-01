@@ -182,7 +182,7 @@ class TestACorrectionReplacesWhatItCorrects:
         mistake = await trade(db_session, book, security=book["msft"], quantity="1000")
         await trade(db_session, book, security=book["msft"], quantity="100", supersedes=mistake)
 
-        trades = await portfolio_service._current_trades(
+        trades = await portfolio_service.transactions_in_force(
             db_session, portfolio=book["portfolio"], as_of=AS_OF
         )
 

@@ -17,7 +17,7 @@ state — and the overhaul's live status is the top section of
 | **1B** | The portfolio's third door — **done 2026-08-29**, ADR 0093 | §3.1 | — |
 | **2** | The overhaul — **done 2026-08-30**, all ten tranches | §3.12, closing §2.5 | — |
 | **3** | The document and the data fixes — **done 2026-08-30** | §2.4, §2.6, §2.7, §2.8 | Nothing — surfaces phase 2 does not touch |
-| **4** | Portfolio depth | §3.2, §3.3, §3.4 | §3.2 wants tranche 8's layout |
+| **4** | Portfolio depth | §3.2 **done 2026-09-01**, §3.3, §3.4 | — |
 | **5** | The judgement layer | §3.5–§3.11 | Strict order; §3.3 before §3.6 |
 | **6** | Before it leaves one machine | A5, A7, A8 | Intent to run anywhere else |
 
@@ -81,7 +81,9 @@ its own process against the shared `aer_test`.
   operator's work**, in batched sittings, and is the one part of this phase that is not
   finished by anybody but them.
 
-**Phase 4:** §3.3 is a prerequisite for §3.6, not tidying — a monitor run has no research
+**Phase 4:** §3.2 landed 2026-09-01 — `calc/performance.py` and `services/performance.py`,
+two returns that disagree on purpose and four exposure bands that name what they cannot
+classify. §3.3 is a prerequisite for §3.6, not tidying — a monitor run has no research
 request, so the mandate reads must become optional before a monitor can exist. §3.4 mirrors
 the DCF's real grid shape onto the bank model's own axes, with the property tests `calc/`
 demands.

@@ -39,6 +39,7 @@ from aer.db.models import Attestation, Portfolio, PriceBar, Security, Transactio
 from aer.errors import AerError
 from aer.runtime import standalone_price_client
 from aer.services import calculations as calculation_service
+from aer.services import performance as performance_service
 from aer.services import portfolio as portfolio_service
 from aer.services import splits as splits_service
 from aer.services.listings import add_listing
@@ -75,6 +76,19 @@ def _pounds(value: Decimal, currency: str) -> str:
     symbol = {"GBP": "£", "USD": "$", "EUR": "€"}.get(currency.upper(), f"{currency.upper()} ")
     sign = "-" if value < 0 else ""
     return f"{sign}{symbol}{abs(value):,.2f}"
+
+
+def _percent(value: Decimal) -> str:
+    """A rate, to one decimal place, with its sign always shown.
+
+    **The sign is never dropped**, even at zero, because the reader's question is which way
+    the book went and a bare "0.0%" answers it while "+0.0%" and "-0.0%" both say it moved
+    and rounded away. Rounding stops at one place on purpose: a return quoted to four is a
+    precision the price history does not have.
+    """
+    scaled = (value * 100).quantize(Decimal("0.1"))
+    sign = "-" if scaled < 0 else "+"
+    return f"{sign}{abs(scaled):,.1f}%"
 
 
 def _shares(value: Decimal) -> str:
@@ -123,6 +137,13 @@ async def portfolio_page(
         return broken
 
     totals = _totals(view, book)
+    # Both are computed in the *same* ledger as the book above, which is what lets the
+    # exposure reuse it: a view from another context cites calculations this one does not
+    # hold, and grading it would be a claim about the part that happened to be readable.
+    returns = await performance_service.returns_as_at(session, context, portfolio=book, as_of=as_of)
+    exposure = await performance_service.exposure_as_at(
+        session, context, portfolio=book, as_of=as_of, view=view
+    )
     response = render(
         request,
         "portfolio/index.html",
@@ -133,6 +154,11 @@ async def portfolio_page(
             "rows": [_holding_row(row, book) for row in view.holdings],
             "cash": [_cash_row(row, book) for row in view.cash],
             "totals": totals,
+            "returns": _return_rows(returns),
+            "returns_problem": returns.problem,
+            "exposure": _exposure_bands(exposure, book),
+            "concentration": _concentration(exposure),
+            "exposure_problem": exposure.problem,
             "verdict": _book_verdict(view, totals=totals),
             "securities": await _dealable(session),
             "no_listings": NO_LISTINGS,
@@ -549,6 +575,84 @@ def _totals(view: portfolio_service.PortfolioView, book: Portfolio) -> dict[str,
         "grade": _grade_of(view.net_assets),
         "grade_label": _grade_label(view.net_assets),
         "is_complete": True,
+    }
+
+
+def _return_rows(view: performance_service.ReturnView) -> list[dict[str, object]]:
+    """One row per measured interval, with both figures and whatever refused either.
+
+    **Two columns rather than one**, and they are labelled for the questions they answer.
+    A screen showing a single "return" is quietly asserting which one the reader meant,
+    and the whole point of showing both is that a well-timed top-up moves one and not the
+    other.
+    """
+    return [
+        {
+            "label": period.label,
+            "span": f"{period.begin.isoformat()} to {period.end.isoformat()}",
+            "time_weighted": (
+                _percent(period.time_weighted.value) if period.time_weighted else NO_FIGURE
+            ),
+            "money_weighted": (
+                _percent(period.money_weighted.value) if period.money_weighted else NO_FIGURE
+            ),
+            "is_down": bool(period.time_weighted and period.time_weighted.value < 0),
+            "problem": period.problem,
+            "grade": _grade_of(period.time_weighted or period.money_weighted),
+            "grade_label": _grade_label(period.time_weighted or period.money_weighted),
+        }
+        for period in view.periods
+    ]
+
+
+def _exposure_bands(
+    view: performance_service.ExposureView, book: Portfolio
+) -> list[dict[str, object]]:
+    """The four cuts, each with its unclassified group held separately.
+
+    ``unknown`` is its own key rather than a slice with a flag, so a template cannot render
+    "Sector not known" as though it were a sector the book is in. The roadmap's own words:
+    it reports what it knows and names what it does not.
+    """
+    return [
+        {
+            "kind": band.kind,
+            "title": band.title,
+            "slices": [_exposure_row(row, book) for row in band.slices],
+            "unknown": _exposure_row(band.unknown, book) if band.unknown else None,
+        }
+        for band in view.bands
+    ]
+
+
+def _exposure_row(row: performance_service.ExposureSlice, book: Portfolio) -> dict[str, object]:
+    return {
+        "label": row.label,
+        "value": _pounds(row.value.value, book.base_currency),
+        "share": _percent(row.share.value).lstrip("+"),
+        # The bar's width, as a whole number of percent. Presentation only: the figure
+        # beside it is the one a reader takes away.
+        "width": int(max(Decimal(0), min(Decimal(1), row.share.value)) * 100),
+        "members": ", ".join(row.members),
+        "count": len(row.members),
+        "grade": _grade_of(row.share),
+        "grade_label": _grade_label(row.share),
+    }
+
+
+def _concentration(view: performance_service.ExposureView) -> dict[str, object]:
+    """The top-five figure, and how many holdings it actually covers.
+
+    The count matters: a book of three names has a top five of everything it holds, and a
+    figure of 100% with no count beside it reads as dangerous concentration rather than as
+    a small book.
+    """
+    holdings = next((band for band in view.bands if band.kind == "holding"), None)
+    covered = len(holdings.slices) if holdings is not None else 0
+    return {
+        "share": _percent(view.top_holdings.value).lstrip("+") if view.top_holdings else NO_FIGURE,
+        "count": min(covered, performance_service.CONCENTRATION_COUNT),
+        "of": covered,
     }
 
 

@@ -341,18 +341,28 @@ close is the point, and a cap of zero that structurally refuses any model call u
 which was the exact coupling ADR 0072 exists to remove; every attempt, refused or not,
 leaves a `COMPLETED` or `FAILED` order on the record.
 
-**3.2 The portfolio — return and exposure.** Four tiles is not an overview. Add:
+**3.2 The portfolio — return and exposure. Done 2026-09-01.** Four tiles was not an
+overview; the page now answers whether the book has *done well* as well as what it is worth.
 
-- **Return over time.** Time-weighted and money-weighted, since inception and per period,
-  over a value series walked from the transactions and the price history. Deposits and
-  withdrawals are flows, not gains, and a top-up must not read as performance.
+- **Return over time.** Time-weighted and money-weighted, since inception and per calendar
+  year, over a value series walked from the transactions and the price history. Deposits and
+  withdrawals are the only external flows — a dividend is money the holdings produced and
+  belongs inside the return — and the series is broken at every one of them, so a top-up
+  cannot read as performance. The two figures are shown side by side because they disagree
+  on purpose: the first is comparable to an index, the second credits the operator's own
+  timing. A true time-weighted return needs a valuation per flow date, which is bounded at
+  `MAX_VALUATION_POINTS` and refused *with its reason* above that rather than silently
+  approximated by a Dietz weighting answering a different question under the same label.
 - **Concentration and exposure.** Weight by holding, sector, currency and listing country,
-  with a top-five concentration figure. Sector comes from the company record behind the
-  security, which exists only for names a run has touched — so it reports what it knows and
-  names what it does not, rather than bucketing the rest as "other".
+  with a top-five figure that says how many holdings it covers. Cash is in the currency band
+  because cash is a position. Sector comes from the company record behind the security and
+  listing country from an explicit venue table, so both report what they know and **name
+  what they do not** in a group held apart from the weighted ones, members listed.
 
 Both are calculations under ADR 0083 like everything else on that screen: derived on the way
-to the page, nothing stored, every figure carrying the grade of the weakest thing beneath it.
+to the page, nothing stored, every figure carrying the grade of the weakest thing beneath it
+— including the sign flip that turns the book's side of a flow into the investor's, which is
+the one arithmetic step nobody would think to check.
 
 **3.3 Step 4 of the work-order migration.** Drop `jobs.request_id`,
 `approvals.request_id`, `source_documents.request_id` and the columns duplicated on

@@ -1112,6 +1112,106 @@
         "value": "1500",
         "unit": "GBP"
       }
+    },
+    {
+      "name": "time_weighted_return",
+      "inputs": [
+        {
+          "name": "openings[0]",
+          "value": "100",
+          "unit": "GBP",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "openings[1]",
+          "value": "210",
+          "unit": "GBP",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "closings[0]",
+          "value": "110",
+          "unit": "GBP",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "closings[1]",
+          "value": "231",
+          "unit": "GBP",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        }
+      ],
+      "parameters": {},
+      "expected": {
+        "value": "0.21",
+        "unit": "pure"
+      }
+    },
+    {
+      "name": "money_weighted_return",
+      "inputs": [
+        {
+          "name": "flows[0]",
+          "value": "-1000",
+          "unit": "GBP",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "flows[1]",
+          "value": "1100",
+          "unit": "GBP",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "years[0]",
+          "value": "0",
+          "unit": "year",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "years[1]",
+          "value": "1",
+          "unit": "year",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        }
+      ],
+      "parameters": {},
+      "expected": {
+        "value": "0.10",
+        "unit": "pure"
+      }
     }
   ]
 }

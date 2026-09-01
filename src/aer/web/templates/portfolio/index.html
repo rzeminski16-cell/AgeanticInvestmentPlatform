@@ -14,8 +14,10 @@
   is `Figure.for_sharing()`, which hands an attested figure to any outward surface as a type
   with no field for the figure at all. A chip can be ignored; a missing field cannot.
 
-  Return and exposure deliberately do not appear yet: they are roadmap §3.2, which needs
-  arithmetic that does not exist, and a simulated chart would be a figure with no working.
+  **Return and exposure are two sheets, not two tiles** (§3.2). Both are questions with
+  more than one answer — a time-weighted return and a money-weighted one disagree on
+  purpose, and a book has four different concentrations — and a single number for either
+  would be the page choosing which question the reader meant.
 #}
 
 {% block title %}{{ book.name }} &middot; Tracework{% endblock %}
@@ -152,6 +154,122 @@
       }}
     </div>
   </dl>
+
+  {#
+    How the book has done. Two columns because they answer two questions, and a screen
+    showing one is quietly asserting which the reader meant: the time-weighted figure takes
+    the flows out, so it is the one comparable to an index; the money-weighted one leaves
+    them in, so it is the one that credits good timing.
+  #}
+  {% call ui.sheet("Return", subtitle="Deposits and withdrawals are flows, not gains.") %}
+    {% if returns %}
+      <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Return by period">
+        <table class="w-full min-w-[40rem]" id="returns">
+          <caption class="sr-only">
+            How the book has done, since inception and per calendar year, on both measures.
+          </caption>
+          <thead class="text-left">
+            <tr class="border-b border-line-strong">
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Period</th>
+              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">
+                Time-weighted
+              </th>
+              <th scope="col" class="py-2 text-right type-label text-ink-muted">Money-weighted</th>
+            </tr>
+          </thead>
+          <tbody class="tabular-nums">
+            {% for row in returns %}
+              <tr class="border-b border-line" data-period="{{ row.label }}">
+                <th scope="row" class="py-2 pr-4 text-left">
+                  <span class="type-body-strong text-ink">{{ row.label }}</span>
+                  <span class="ml-1 type-data-sm text-ink-subtle">{{ row.span }}</span>
+                  {{ grade_chip(row.grade, row.grade_label) }}
+                </th>
+                <td
+                  class="py-2 pr-4 text-right type-data-sm {% if row.is_down %}text-critical{% else %}text-ink{% endif %}"
+                  data-field="time-weighted"
+                >
+                  {{ row.time_weighted }}
+                </td>
+                <td class="py-2 text-right type-data-sm text-ink" data-field="money-weighted">
+                  {{ row.money_weighted }}
+                </td>
+              </tr>
+              {% if row.problem %}
+                {#
+                  The reason goes under the row rather than into the cell: a blank cell reads
+                  as nil, and one of the two figures can be refused while the other stands.
+                #}
+                <tr class="border-b border-line">
+                  <td colspan="3" class="pb-2 type-body-sm text-ink-subtle" data-field="problem">
+                    {{ row.problem }}
+                  </td>
+                </tr>
+              {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-3 max-w-prose type-body-sm text-ink-muted">
+        The time-weighted figure breaks the series at every deposit and withdrawal, so
+        paying money in cannot read as performance. The money-weighted figure is the rate
+        you actually earned on what you had at work, timing included.
+      </p>
+    {% else %}
+      <p id="returns-problem" class="type-body text-ink-muted">{{ returns_problem }}</p>
+    {% endif %}
+  {% endcall %}
+
+  {#
+    What the book is concentrated in. Four cuts of the same total, so each band sums to the
+    whole book — cash included, because cash is a position and a band that left it out would
+    overstate every other group.
+  #}
+  {% call ui.sheet("Exposure") %}
+    {% if exposure %}
+      <p id="concentration" class="type-body text-ink">
+        The largest {{ concentration.count }} of {{ concentration.of }} holdings are
+        <span class="type-data-sm">{{ concentration.share }}</span> of the book.
+      </p>
+      <div class="mt-4 grid gap-6 lg:grid-cols-2">
+        {% for band in exposure %}
+          <div data-band="{{ band.kind }}">
+            <h3 class="type-body-strong text-ink">{{ band.title }}</h3>
+            <dl class="mt-2 space-y-2">
+              {% for row in band.slices %}
+                <div class="grid grid-cols-[1fr_auto] items-baseline gap-x-3" data-slice="{{ row.label }}">
+                  <dt class="type-body-sm text-ink">{{ row.label }}</dt>
+                  <dd class="type-data-sm tabular-nums text-ink" data-field="share">{{ row.share }}</dd>
+                  <div class="col-span-2 h-1 rounded-full bg-surface-sunken">
+                    <div class="h-1 rounded-full bg-verification" style="width: {{ row.width }}%"></div>
+                  </div>
+                  <p class="col-span-2 type-body-sm text-ink-subtle" data-field="value">
+                    {{ row.value }}
+                  </p>
+                </div>
+              {% endfor %}
+            </dl>
+            {% if band.unknown %}
+              {#
+                Named, with its members listed, and held out of the list above. Bucketing
+                these as "other" would invent a category, give it a weight, and leave a
+                reader unable to tell it from a group the book is genuinely in.
+              #}
+              <div class="mt-3 rounded-md border border-line bg-surface-sunken p-3" data-unknown="{{ band.kind }}">
+                <p class="type-body-sm text-ink">
+                  {{ band.unknown.label }} for {{ band.unknown.count }} holding{% if band.unknown.count != 1 %}s{% endif %}
+                  &middot; <span class="type-data-sm">{{ band.unknown.share }}</span>
+                </p>
+                <p class="type-body-sm text-ink-subtle">{{ band.unknown.members }}</p>
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p id="exposure-problem" class="type-body text-ink-muted">{{ exposure_problem }}</p>
+    {% endif %}
+  {% endcall %}
 
   {% call ui.sheet("Holdings") %}
     {#

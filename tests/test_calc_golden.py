@@ -43,7 +43,12 @@ GOLDEN_TOLERANCE = Decimal("0.0001")
 # exists to force. `pooled_cost` is the case most worth having: ADR 0085's worked example is
 # the one where the three cost conventions disagree, so it fails if pooling is ever quietly
 # replaced by first-in-first-out.
-EXPECTED_CORPUS_SIZE = 33
+#
+# Then twice more for §3.2's two returns. `time_weighted_return`'s case is the pair that
+# carries the item's whole argument: a £100 book rises 10%, takes a £100 deposit, rises 10%
+# again, and the answer is 21% — the number every naive reading of the same rows gets
+# wrong, and the one an operator would believe.
+EXPECTED_CORPUS_SIZE = 35
 
 
 def _replayed(case: dict[str, Any]) -> ReplayObservation:
