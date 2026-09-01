@@ -14,7 +14,7 @@ import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 from pydantic import ValidationError as PydanticValidationError
@@ -40,16 +40,19 @@ from aer.core.section_output import (
     CLAIM_EDIT_NOTE,
     INSUFFICIENT_EVIDENCE_CEILING,
     LENGTH_EDIT_NOTE,
+    MAX_GAP_SENTENCES,
     NUMERAL_EDIT_NOTE,
     UNSOURCED_MATERIAL_CEILING,
     confidence_ceiling,
     contract_violations,
+    gap_sentences,
     numerals_in,
     prose_word_count,
     trimmed_to_word_count,
     unsourced_numerals,
     without_document_references,
     without_product_names,
+    without_surplus_gap_sentences,
     without_unsourced_numeral_sentences,
 )
 from aer.db.models import (
@@ -725,6 +728,76 @@ class TestAMalformedClaimCostsTheClaim:
         _, figures = covered_figures([sound], evidence=Evidence())
 
         assert figures == []
+
+
+class TestTheGapSalvage:
+    """ADR 0100. The gap budget is right; refusing the whole draft for it was not.
+
+    Rule 6 says state the gap in one clause and move on, and a live report spent a third
+    of its prose describing absent disclosure — so the budget is enforced in code rather
+    than hoped for (R4). But the remedy threw away the other two thirds, which were about
+    the company and fully cited. Two sections of the MSFT run tripped it.
+    """
+
+    _PROSE: ClassVar[dict[str, Any]] = {
+        "commentary": (
+            "Operating cash flow rose. The proxy statement is not disclosed. "
+            "Margins widened. Executive compensation figures are not available. "
+            "Segment data is missing."
+        )
+    }
+
+    def test_the_first_remark_stays_and_the_repetition_goes(self) -> None:
+        narrowed = without_surplus_gap_sentences(self._PROSE)
+
+        assert narrowed == {
+            "commentary": (
+                "Operating cash flow rose. The proxy statement is not disclosed. Margins widened."
+            )
+        }
+
+    def test_what_remains_satisfies_the_rule_that_refused_it(self) -> None:
+        """The salvage and the rule must agree, or the repair hands back a draft the
+        revalidation refuses for the thing it just repaired."""
+        narrowed = without_surplus_gap_sentences(self._PROSE)
+
+        assert narrowed is not None
+        assert len(gap_sentences(narrowed)) <= MAX_GAP_SENTENCES
+
+    def test_the_first_is_the_first_a_reader_meets_across_fields(self) -> None:
+        """The allowance is spent by the walk, not per field: a section keeps one remark,
+        not one per string it happens to be split across."""
+        content = {
+            "summary": "Revenue grew. Segment detail is not disclosed.",
+            "detail": "Margins widened. Insider ownership is not reported. Buybacks continued.",
+        }
+
+        narrowed = without_surplus_gap_sentences(content)
+
+        assert narrowed == {
+            "summary": "Revenue grew. Segment detail is not disclosed.",
+            "detail": "Margins widened. Buybacks continued.",
+        }
+
+    def test_a_draft_within_the_budget_is_not_salvaged(self) -> None:
+        """Nothing to remove means the gap rule was not the problem, and the caller should
+        know that rather than be handed an identical draft."""
+        assert without_surplus_gap_sentences({"c": "All good. One thing is not disclosed."}) is None
+
+    def test_it_declines_rather_than_leaving_a_field_blank(self) -> None:
+        content = {
+            "summary": "Segment detail is not disclosed.",
+            "detail": "Insider ownership is not reported. Compensation is not available.",
+        }
+
+        assert without_surplus_gap_sentences(content) is None
+
+    def test_prose_that_is_not_about_the_disclosure_is_never_touched(self) -> None:
+        """The rule is not weakened: a sentence about the company survives however many
+        hedges it carries, because the phrases decide and none of them are here."""
+        content = {"c": "Growth may slow. Margins may compress. The mix may shift again."}
+
+        assert without_surplus_gap_sentences(content) is None
 
 
 class TestTheConfidenceCeiling:

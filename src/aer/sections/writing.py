@@ -22,10 +22,12 @@ from aer.agents.section_writer import SectionDraft, SectionWriterAgent, SectionW
 from aer.core.enums import SourceTier
 from aer.core.section_output import (
     CLAIM_EDIT_NOTE,
+    GAP_EDIT_NOTE,
     LENGTH_EDIT_NOTE,
     NUMERAL_EDIT_NOTE,
     confidence_ceiling,
     trimmed_to_word_count,
+    without_surplus_gap_sentences,
     without_unsourced_numeral_sentences,
 )
 from aer.db.models import ReportSection, ResearchRequest, SectionDefinition, SectionStatus
@@ -564,6 +566,7 @@ class _Salvage:
 # log, never in a rendered document.
 _NUMERAL_NOTE: Final = NUMERAL_EDIT_NOTE
 _CLAIM_NOTE: Final = CLAIM_EDIT_NOTE
+_GAP_NOTE: Final = GAP_EDIT_NOTE
 _LENGTH_NOTE: Final = LENGTH_EDIT_NOTE
 
 
@@ -615,6 +618,10 @@ def _salvaged(
     * **Unsourced-numeral sentences removed.** Both sections the first live report lost
       died over a single flagged token each — a whole paid-for draft discarded for one
       clause the rule had a quarrel with.
+    * **Repeated remarks about missing evidence reduced to one.** The gap budget is right
+      — a live report spent a third of its prose describing absent disclosure — but
+      refusing the draft for it threw away the other two thirds, which were about the
+      company and fully cited. The first remark stays, which is what the rule asks for.
     * **Length trimmed to the ceiling.** Nine of the next report's sixteen sections
       overran their budget, several for *nothing else*: complete, fully cited drafts
       thrown away for being long, which is the worst trade in the pipeline.
@@ -622,8 +629,10 @@ def _salvaged(
     Order matters and is deliberate. Dropping a claim removes the cover its statement and
     its named figure gave a numeral, so the claim repair runs before the numeral one and
     the sentences that rested on a dropped claim go with it — the section keeps nothing it
-    can no longer support. Removing sentences also removes words, so the trim runs last and
-    takes only what is still over.
+    can no longer support. The gap repair runs after the numeral one, which may already
+    have removed a gap sentence that carried an unsourced figure and so cost nothing.
+    Removing sentences also removes words, so the trim runs last and takes only what is
+    still over.
 
     What counts as covered comes from :func:`aer.sections.evidence.covered_figures`, the
     same call the validator makes: the salvage that removes a sentence and the rule that
@@ -647,6 +656,11 @@ def _salvaged(
     if narrowed is not None:
         content = narrowed
         notes.append(_NUMERAL_NOTE)
+
+    reduced = without_surplus_gap_sentences(content)
+    if reduced is not None:
+        content = reduced
+        notes.append(_GAP_NOTE)
 
     if policy.word_budget > 0:
         shortened = trimmed_to_word_count(content, word_ceiling(policy.word_budget))

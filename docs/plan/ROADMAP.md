@@ -21,17 +21,18 @@ the platform got here and why; this is the record of where it goes.*
 In this order. It is the operator's order rather than the author's: each one is the next
 thing that would otherwise put a wrong number, or no answer at all, in front of somebody.
 
-**As at 2026-09-01, one of these five is open and it is no longer blocked.** Items 2 to 5
-are done; the operator's `run-diagnosis.json` landed on 2026-09-01 and §2.1 is diagnosed
-from the record rather than from a hypothesis, with three of its four causes fixed. What
-remains is one rule and one operator-approved confirmation run.
+**As at 2026-09-01, all five are closed in code.** Items 2 to 5 were already done; the
+operator's `run-diagnosis.json` landed on 2026-09-01, §2.1 was diagnosed from the record
+rather than from a hypothesis, and all five of its causes are fixed — along with §2.2,
+which the same export settled. **What remains is one operator-approved confirmation run**,
+which is the operator's move rather than a session's.
 
-1. **§2.1 — sections fail to draft. Diagnosed 2026-09-01; four of five causes fixed.**
-   More than a quarter of the last report was a coverage notice. The export settled it:
-   nothing starved, and every failure was a contract refusal — six at `draft` and two
-   *destroyed by `revise`* after drafting cleanly. ADR 0096, ADR 0097 and ADR 0098 close
-   three causes and the erasers close a fourth; the "missing evidence" rule is what is
-   left, and then the operator-approved confirmation run.
+1. **§2.1 — sections fail to draft. Diagnosed and fixed 2026-09-01; the confirmation run
+   is outstanding.** More than a quarter of the last report was a coverage notice. The
+   export settled it: nothing starved, and every failure was a contract refusal — six at
+   `draft` and two *destroyed by `revise`* after drafting cleanly. All five causes are
+   closed (ADRs 0096, 0097, 0098, 0100 and the two eraser gaps), and §2.2 with them
+   (ADR 0099). **What is left is one operator-approved live run.**
 2. **§3.1 — the portfolio's third door. Done 2026-08-29, under ADR 0093.** A work order
    roots the book's own acquisitions; a typed `TICKER EXCHANGE` the platform has never seen
    is verified with the vendor once, at first sight, and either becomes dealable or is
@@ -129,7 +130,7 @@ revision was refused.
 | The platform's own rendering of a figure read as an unsourced numeral | Historical Financial Analysis (`331,839`), Scenarios & Sensitivities (`$331.8 billion`), Capital Allocation | **Fixed** — ADR 0097 |
 | A product name and a year naming a document read as figures | Business Overview (`Dynamics 365`), Management & Governance (`2025 proxy statement`) | **Fixed** — the erasers, `343fc3e` |
 | **A failed revision discards the draft it was improving** | Balance Sheet & Liquidity, Scenarios & Sensitivities | **Fixed** — ADR 0098 |
-| More than one "missing evidence" sentence | Historical Financial Analysis, Management & Governance *(a second cause on each)* | **Open** |
+| More than one "missing evidence" sentence | Historical Financial Analysis, Management & Governance *(a second cause on each)* | **Fixed** — ADR 0100 |
 
 **The revise defect was the worst of the five and was not a validation rule at all.**
 `revise_challenged_sections` deleted the section's claims, then redrafted over
@@ -142,10 +143,16 @@ snapshotted and restored, and a fourth disposition — `revision_refused`, migra
 puts the attempt and its refusal inside the gate-2 hash rather than leaving the spend
 invisible.
 
-**The `gaps` rule is the one open cause**: at most one sentence may describe missing
+**The `gaps` rule was the last of the five**: at most one sentence may describe missing
 evidence. Both sections that tripped it tripped something else too, so neither is known to
-have failed *for* it — but it refuses a whole draft over a count of its own hedging and has
-no salvage, which is the trade ADR 0057 exists to refuse.
+have failed *for* it — but it refused a whole draft over a count of its own hedging and had
+no salvage, which is the trade ADR 0057 exists to refuse. **ADR 0100 gives it the fourth
+repair**: the surplus remarks go and the first one stays, which is what the rule asked the
+writer to do in the first place. The budget itself is untouched.
+
+**All five causes are closed. What remains is the confirmation run** — one live,
+operator-approved report on the same subject, which also exercises the critique-and-revise
+loop (ADR 0091) against these sections for the first time since they were fixed.
 
 *What was read against the tree 2026-08-28, ahead of the data, and turned out not to be the
 cause: `validate_draft` checks only the 1.25× word ceiling with no minimum; a truncation

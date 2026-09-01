@@ -13,7 +13,7 @@ state — and the overhaul's live status is the top section of
 | Phase | What | Roadmap items | Gated on |
 |---|---|---|---|
 | **0** | Back to green — **done 2026-08-28** | §3.12's red suite | — |
-| **1A** | The drafting failure | §2.1, §2.2 | Diagnosed 2026-09-01; one rule left, then a confirmation run |
+| **1A** | The drafting failure | §2.1, §2.2 | Fixed 2026-09-01; the operator's confirmation run |
 | **1B** | The portfolio's third door — **done 2026-08-29**, ADR 0093 | §3.1 | — |
 | **2** | The overhaul — **done 2026-08-30**, all ten tranches | §3.12, closing §2.5 | — |
 | **3** | The document and the data fixes — **done 2026-08-30** | §2.4, §2.6, §2.7, §2.8 | Nothing — surfaces phase 2 does not touch |
@@ -44,13 +44,13 @@ failures were contract refusals in five causes — and six failed at `draft` whi
 drafted cleanly and were destroyed by `revise`**. Four causes are closed: ADR 0096 (a
 malformed claim costs the claim), ADR 0097 (a numeral is checked against the figure, not
 its spelling), ADR 0098 (a refused revision leaves the approved draft standing) and the two
-eraser gaps. **One is open**: the one-"missing evidence"-sentence rule refuses a whole
-draft over a count of its own hedging with no salvage, which is the trade ADR 0057 exists
-to refuse — a decision rather than a fix. §2.2 is closed the same day under ADR 0099: the
-0.30 was a cap firing on edits that say nothing about the evidence, and each degradation
-now carries its own ceiling. The confirmation is still one
-operator-approved live run, which also exercises the critique-and-revise loop (ADR 0091)
-against the same sections for the first time. §3.1 landed 2026-08-29 in the roadmap's own
+eraser gaps; the fifth, the one-"missing evidence"-sentence rule, closes under ADR 0100 —
+it refused a whole draft over a count of its own hedging and now loses the surplus remarks
+instead. §2.2 is closed the same day under ADR 0099: the 0.30 was a cap firing on edits
+that say nothing about the evidence, and each degradation now carries its own ceiling.
+**Phase 1A is finished in code. What is left is the confirmation** — one operator-approved
+live run, which also exercises the critique-and-revise loop (ADR 0091) against the same
+sections for the first time. §3.1 landed 2026-08-29 in the roadmap's own
 order, ADR 0093 first, before tranche 8 rewrites the portfolio form it adds a door to.
 
 **Phase 2 is done (2026-08-30).** Tranche 9 closed §2.5 and §3.12 together and ended with

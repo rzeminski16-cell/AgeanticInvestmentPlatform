@@ -42,6 +42,7 @@ from aer.core.schemas.skill import RESERVED_OUTPUT_FIELDS
 __all__ = [
     "CLAIM_EDIT_NOTE",
     "EDIT_NOTES",
+    "GAP_EDIT_NOTE",
     "INSUFFICIENT_EVIDENCE_CEILING",
     "LENGTH_EDIT_NOTE",
     "MAX_GAP_SENTENCES",
@@ -62,6 +63,7 @@ __all__ = [
     "without_document_references",
     "without_plain_counts",
     "without_product_names",
+    "without_surplus_gap_sentences",
     "without_unsourced_numeral_sentences",
 ]
 
@@ -80,12 +82,20 @@ NUMERAL_EDIT_NOTE: Final = (
 CLAIM_EDIT_NOTE: Final = (
     "One or more statements were set aside because what they rested on was not recorded with them."
 )
+GAP_EDIT_NOTE: Final = (
+    "Repeated remarks about what the evidence does not cover were reduced to one."
+)
 
 # Every note that describes an *edit* rather than a condition of the analysis. Named once
 # because two readers walk it — the classifier that sends edits to the appendix, and the
 # one that keeps them out from under a section heading — and a note added to one list and
 # not the other would surface to a reader as an evidence shortfall it is not.
-EDIT_NOTES: Final[tuple[str, ...]] = (NUMERAL_EDIT_NOTE, LENGTH_EDIT_NOTE, CLAIM_EDIT_NOTE)
+EDIT_NOTES: Final[tuple[str, ...]] = (
+    NUMERAL_EDIT_NOTE,
+    LENGTH_EDIT_NOTE,
+    CLAIM_EDIT_NOTE,
+    GAP_EDIT_NOTE,
+)
 
 # What each kind of degradation says about whether a section can be relied on (ADR 0099).
 # These were one boolean, and a live run showed what that costs: five surviving sections
@@ -844,8 +854,7 @@ def gap_sentences(content: dict[str, Any]) -> list[str]:
     def walk(value: Any) -> None:
         if isinstance(value, str):
             for sentence in _SENTENCES.split(value):
-                lowered = sentence.lower()
-                if any(phrase in lowered for phrase in _GAP_PHRASES):
+                if _is_gap_sentence(sentence):
                     found.append(sentence.strip())
         elif isinstance(value, dict):
             for item in value.values():
@@ -923,6 +932,85 @@ def without_unsourced_numeral_sentences(
     if narrowed_content == content:
         return None
     return narrowed_content
+
+
+def without_surplus_gap_sentences(content: dict[str, Any]) -> dict[str, Any] | None:
+    """The content with every gap sentence past the first removed, or ``None``.
+
+    The fourth repair under ADR 0057, and ADR 0100's whole mechanism. The gap budget
+    (R4) is right — a live report spent a third of its prose describing absent
+    disclosure — but refusing the draft for it threw away the *other* two thirds, which
+    were about the company and fully cited. Two sections of the MSFT run tripped it.
+
+    **The first one is kept**, in document order, which is exactly what the rule asks
+    for: state the gap in one clause and spend the rest of the section on what the
+    evidence does support. What goes is the repetition.
+
+    ``None`` — declined — when there is nothing surplus to remove, or when removing it
+    would empty a string: a field built wholly of gap sentences should fail loudly rather
+    than render blank. That is the same line :func:`without_unsourced_numeral_sentences`
+    draws, deliberately, including where it costs something — a surplus gap sentence
+    standing alone as one item of a list of strings empties that item, so the salvage
+    declines rather than dropping the item. Dropping it would be defensible and might be
+    better; what is not defensible is two erasers with two decline policies, and moving
+    both is a decision of its own rather than a detail of this one.
+
+    The result must be revalidated in full by the caller. Removal narrows the gap count
+    and the word count, and can break neither, but a shorter text can still fall foul of
+    its contract's other rules.
+    """
+    if len(gap_sentences(content)) <= MAX_GAP_SENTENCES:
+        return None
+
+    # Consumed as the walk goes, so "the first" means the first a reader meets rather
+    # than the first in whichever field the walk happens to reach first.
+    allowance = MAX_GAP_SENTENCES
+
+    def scrub_text(value: str) -> str:
+        nonlocal allowance
+        sentences = _SENTENCES.split(value)
+        kept: list[str] = []
+        for sentence in sentences:
+            if not _is_gap_sentence(sentence):
+                kept.append(sentence)
+                continue
+            if allowance > 0:
+                allowance -= 1
+                kept.append(sentence)
+        if len(kept) == len(sentences):
+            return value
+        narrowed = " ".join(kept).strip()
+        if not narrowed:
+            raise _SalvageDeclinedError
+        return narrowed
+
+    def scrub(value: Any) -> Any:
+        if isinstance(value, str):
+            return scrub_text(value)
+        if isinstance(value, dict):
+            return {key: scrub(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [scrub(item) for item in value]
+        return value
+
+    try:
+        narrowed_content = {key: scrub(item) for key, item in content.items()}
+    except _SalvageDeclinedError:
+        return None
+    if narrowed_content == content:
+        return None
+    return narrowed_content
+
+
+def _is_gap_sentence(sentence: str) -> bool:
+    """Whether this sentence's subject is the missing disclosure rather than the company.
+
+    The one predicate :func:`gap_sentences` and the eraser above both read, for the same
+    reason the numeral rule and its eraser share `covered_figures`: a rule that counts one
+    set and a salvage that removes another leaves a draft the revalidation still refuses.
+    """
+    lowered = sentence.lower()
+    return any(phrase in lowered for phrase in _GAP_PHRASES)
 
 
 class _SalvageDeclinedError(Exception):

@@ -35,6 +35,7 @@ from aer.agents.section_writer import SectionDraft, SectionWriterAgent, SectionW
 from aer.config import Settings
 from aer.core.enums import AnalysisMode, FactBasis, JobStatus, Provider, SourceTier
 from aer.core.section_output import (
+    GAP_EDIT_NOTE,
     INSUFFICIENT_EVIDENCE_CEILING,
     LENGTH_EDIT_NOTE,
     UNSOURCED_MATERIAL_CEILING,
@@ -520,6 +521,72 @@ class TestASectionWithAMalformedClaim:
         statements = [row.text for row in recorded]
         assert "The cloud market is growing quickly." not in statements
         assert statements
+
+
+class TestASectionRefusedOnlyForItsGapRemarks:
+    """ADR 0100, from the MSFT run's record (roadmap §2.1).
+
+    Two of the eight sections that failed tripped the gap budget, and it had no salvage:
+    a draft that said "not disclosed" twice was refused whole, twice, and the section was
+    stored with no content — losing everything it *did* say about the company.
+    """
+
+    @staticmethod
+    def _repetitive(scene: dict[str, Any]) -> SectionDraft:
+        draft = _good_draft(scene)
+        draft.content["commentary"] = (
+            "Operating cash generation covered the capital programme. "
+            "The compensation policy is not disclosed. "
+            "Working capital absorbed less cash. "
+            "Insider ownership levels are not available."
+        )
+        return draft
+
+    async def test_the_section_is_published_rather_than_discarded(
+        self, scene: dict[str, Any]
+    ) -> None:
+        draft = self._repetitive(scene)
+
+        outcome = await _run(scene, _scripted([draft, draft]))
+
+        assert outcome.status is SectionStatus.GENERATED
+        assert scene["section"].content["commentary"]
+
+    async def test_it_keeps_the_first_remark_and_what_the_section_said(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The rule's own instruction, carried out: state the gap in one clause and spend
+        the rest of the section on what the evidence does support."""
+        draft = self._repetitive(scene)
+
+        await _run(scene, _scripted([draft, draft]))
+
+        commentary = scene["section"].content["commentary"]
+        assert "The compensation policy is not disclosed." in commentary
+        assert "Insider ownership levels are not available." not in commentary
+        assert "Operating cash generation covered the capital programme." in commentary
+        assert "Working capital absorbed less cash." in commentary
+
+    async def test_the_edit_is_on_the_record_in_the_readers_own_register(
+        self, scene: dict[str, Any]
+    ) -> None:
+        draft = self._repetitive(scene)
+
+        await _run(scene, _scripted([draft, draft]))
+
+        reason = str(scene["section"].low_confidence_reason)
+        assert GAP_EDIT_NOTE in reason
+        assert "Insufficient evidence" not in reason
+        assert "ADR" not in reason
+
+    async def test_the_reduction_does_not_move_the_confidence(self, scene: dict[str, Any]) -> None:
+        """ADR 0099's line applied to this edit: the removed sentences were true and the
+        remaining prose passed everything. What went was repetition, not reliability."""
+        draft = self._repetitive(scene)
+
+        await _run(scene, _scripted([draft, draft]))
+
+        assert scene["section"].confidence == 0.5
 
 
 class TestASectionRefusedOnlyForLength:
