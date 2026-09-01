@@ -8,6 +8,7 @@ payload hash must cover the triggers.
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -29,6 +30,7 @@ from aer.core.escalation import (
     COST_ALERT_RATIO,
     ConflictScene,
     CostScene,
+    EvidenceTally,
     MetricScore,
     PolicyClamp,
     SectionScene,
@@ -302,6 +304,7 @@ class TestEachTriggerFiresAloneAndNamesItself:
         assert "candidate excerpt" in fired.evidence[0]
 
     def test_a_required_section_that_was_not_generated(self) -> None:
+        """With nothing recorded about why, the status is all there is to say."""
         scene = _clean_scene(
             sections=(
                 SectionScene(
@@ -315,6 +318,88 @@ class TestEachTriggerFiresAloneAndNamesItself:
         assert fired.kind is TriggerKind.MATERIAL_MISSING_SECTION
         assert "not generated" in fired.evidence[0]
         assert "failed" in fired.evidence[0]
+        assert "recorded no reason" in fired.evidence[0]
+
+    def test_a_starved_section_says_it_was_dealt_nothing(self) -> None:
+        """The operator's question. "Status: failed" four times over does not answer it.
+
+        A section dealt nothing citable is an evidence problem, and no amount of
+        redrafting touches it — which is a different remedy from a section that refused
+        drafts it could have written, and the banner has to tell them apart.
+        """
+        scene = _clean_scene(
+            sections=(
+                SectionScene(
+                    key="business_overview",
+                    status=SectionStatus.FAILED.value,
+                    required=True,
+                    dealt=EvidenceTally(),
+                    attempts=3,
+                ),
+            )
+        )
+        [fired] = fire_triggers(**scene)
+
+        assert "dealt nothing it could cite" in fired.evidence[0]
+
+    def test_a_refused_section_names_the_kinds_of_refusal(self) -> None:
+        scene = _clean_scene(
+            sections=(
+                SectionScene(
+                    key="segment_analysis",
+                    status=SectionStatus.FAILED.value,
+                    required=True,
+                    dealt=EvidenceTally(facts=10, calculations=2, excerpts=4),
+                    attempts=3,
+                    refusal_causes=("citation", "numeral"),
+                ),
+            )
+        )
+        [fired] = fire_triggers(**scene)
+
+        assert "refused in 3 tries for: citation, numeral" in fired.evidence[0]
+        # Not starved: it had evidence and would not use it acceptably.
+        assert "dealt nothing" not in fired.evidence[0]
+
+    def test_a_section_dealt_figures_and_no_prose_says_so(self) -> None:
+        """The shape a narrative section starves in on a run rich in numbers.
+
+        A total would report this one as well supplied: forty pieces of evidence, none of
+        them a passage the section could quote. It is the operator's own question — why is
+        business_overview missing when the run gathered thousands of facts — answered.
+        """
+        scene = _clean_scene(
+            sections=(
+                SectionScene(
+                    key="business_overview",
+                    status=SectionStatus.FAILED.value,
+                    required=True,
+                    dealt=EvidenceTally(facts=38, calculations=2, excerpts=0),
+                    attempts=3,
+                    refusal_causes=("gaps",),
+                ),
+            )
+        )
+        [fired] = fire_triggers(**scene)
+
+        assert "dealt 40 figures and no passage to cite" in fired.evidence[0]
+
+    def test_a_section_that_never_reached_the_writer_is_not_called_starved(self) -> None:
+        """No tally recorded is not a tally of nothing, and the remedies differ."""
+        scene = _clean_scene(
+            sections=(
+                SectionScene(
+                    key="catalysts",
+                    status=SectionStatus.PENDING.value,
+                    required=True,
+                    dealt=None,
+                ),
+            )
+        )
+        [fired] = fire_triggers(**scene)
+
+        assert "recorded no reason" in fired.evidence[0]
+        assert "dealt nothing" not in fired.evidence[0]
 
     def test_a_custom_section_below_its_floor(self) -> None:
         scene = _clean_scene(
@@ -795,6 +880,62 @@ class TestTheServiceReadsTheRecordedRows:
         # the missing-section trigger names the floor. Both belong on the banner.
         assert TriggerKind.LOW_SOURCE_COVERAGE.value in fired
         assert TriggerKind.MATERIAL_MISSING_SECTION.value in fired
+
+    async def test_a_failed_section_carries_the_reason_the_draft_step_recorded(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The wiring, not the wording: the banner reads the record rather than a status.
+
+        This is the half that could silently do nothing — the engine can distinguish
+        starved from refused all it likes if the scene arrives with neither field set.
+        """
+        session: AsyncSession = scene["session"]
+        definition = await session.scalar(
+            select(SectionDefinition)
+            .where(SectionDefinition.required.is_(True))
+            .order_by(SectionDefinition.position, SectionDefinition.key)
+            .limit(1)
+        )
+        assert definition is not None
+        session.add(
+            ReportSection(
+                job_id=scene["job"].id,
+                section_definition_id=definition.id,
+                section_key=definition.key,
+                position=definition.position,
+                status=SectionStatus.FAILED,
+                content=None,
+            )
+        )
+        session.add(
+            JobStep(
+                job_id=scene["job"].id,
+                step_key="draft",
+                sequence=1,
+                status=JobStatus.SUCCEEDED,
+                idempotency_key=f"draft-{uuid.uuid4()}",
+                input_hash="0" * 64,
+                output_ref={
+                    "builtin_sections": [
+                        {
+                            "section_key": definition.key,
+                            "status": "failed",
+                            "attempts": 3,
+                            "evidence_dealt": {"facts": 0, "calculations": 0, "excerpts": 0},
+                            "refusal_causes": {"citation": 3},
+                            "problems": ["cites extraction 1 which this run does not hold"],
+                        }
+                    ]
+                },
+            )
+        )
+        await session.flush()
+
+        fired = await triggers_for_job(session, job=scene["job"], request=scene["request"])
+        missing = next(row for row in fired if row.kind is TriggerKind.MATERIAL_MISSING_SECTION)
+
+        # Dealt nothing, so it is the evidence that failed and no redraft would have helped.
+        assert any("dealt nothing it could cite" in line for line in missing.evidence)
 
     async def test_a_pinned_clamp_escalates(self, scene: dict[str, Any]) -> None:
         session: AsyncSession = scene["session"]

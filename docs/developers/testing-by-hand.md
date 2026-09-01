@@ -851,6 +851,12 @@ not resumable.
    faults. **Wrong:** the red team appearing here. A red team that contradicts the draft is
    the red team working, and it was counted as a fault until 2026-08-25 — which made a run
    with two real problems report three.
+   **A missing section names its reason, not its status.** Expect one of: dealt nothing,
+   dealt figures and no passage to cite, or refused in N tries for named causes. **Wrong:**
+   `was not generated (status: failed)` — the record holds the reason and the banner used
+   to decline to read it, which left an operator cross-referencing a table to find out
+   whether a section had starved or misbehaved. They are different problems: the first is
+   the prose supply, the second is the writer.
 3. **What the red team found**, its own section, one block per challenge headed by the
    dimension it attacks and its severity, then the objection at reading width, the basis
    under it and the evidence it cited. **Expect** every challenge to reach the report's

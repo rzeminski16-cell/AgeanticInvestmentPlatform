@@ -14,6 +14,7 @@ one failure mode a banner must not have.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from decimal import Decimal
 from typing import Any
 
@@ -24,6 +25,7 @@ from aer.core.disagreement import ResolvedBy
 from aer.core.escalation import (
     ConflictScene,
     CostScene,
+    EvidenceTally,
     FiredTrigger,
     MetricScore,
     PolicyClamp,
@@ -42,7 +44,7 @@ from aer.db.models import (
 )
 from aer.db.models.plan_skill_pin import PLANNED
 from aer.db.models.section_definition import SKILL
-from aer.sections.registry import sections_for_job
+from aer.sections.registry import section_outcomes, sections_for_job
 from aer.services.disagreements import disagreements_for_job
 from aer.services.evaluations import evaluations_for_job, section_coverage_for_job
 from aer.skills.resolution import pinned_skills_for_job
@@ -182,6 +184,10 @@ async def _section_scenes(
     coverage = {
         row.name: row for row in await section_coverage_for_job(session, job=job, request=request)
     }
+    # The draft step's own record of what each section was dealt and why it refused. The
+    # same reader the review page's per-section table uses, so the banner at the top of the
+    # gate and the table below it cannot tell different stories about one section.
+    outcomes = await section_outcomes(session, job_id=job.id)
     scenes: list[SectionScene] = []
     for section in await sections_for_job(session, job.id):
         covered = coverage.get(section.section_key)
@@ -196,9 +202,35 @@ async def _section_scenes(
                 shortfall=covered.shortfall if covered is not None else "no coverage row",
                 confidence=section.confidence,
                 requires_primary=covered.requires_primary if covered is not None else True,
+                **_recorded(outcomes.get(section.section_key)),
             )
         )
     return tuple(scenes)
+
+
+def _recorded(outcome: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The draft step's record of one section, in the scene's own fields.
+
+    ``dealt`` stays ``None`` when the step recorded no tally, which is not the same as a
+    tally of nothing: a section that never reached the writer was not dealt an empty pack,
+    it was never dealt anything at all, and the trigger says so differently.
+    """
+    if not outcome:
+        return {}
+    recorded = outcome.get("evidence_dealt")
+    dealt: EvidenceTally | None = None
+    if isinstance(recorded, Mapping):
+        dealt = EvidenceTally(
+            facts=int(recorded.get("facts", 0) or 0),
+            calculations=int(recorded.get("calculations", 0) or 0),
+            excerpts=int(recorded.get("excerpts", 0) or 0),
+        )
+    causes = outcome.get("refusal_causes")
+    return {
+        "dealt": dealt,
+        "attempts": int(outcome.get("attempts", 0) or 0),
+        "refusal_causes": tuple(causes) if isinstance(causes, Mapping) else (),
+    }
 
 
 async def _conflict_scenes(session: AsyncSession, *, job: Job) -> tuple[ConflictScene, ...]:

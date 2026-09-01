@@ -35,6 +35,7 @@ __all__ = [
     "COST_ALERT_RATIO",
     "ConflictScene",
     "CostScene",
+    "EvidenceTally",
     "FiredTrigger",
     "MetricScore",
     "PolicyClamp",
@@ -118,6 +119,29 @@ class MetricScore:
 
 
 @dataclass(frozen=True, slots=True)
+class EvidenceTally:
+    """What one section's drafting call was actually handed, by kind.
+
+    Kept as three numbers rather than a total because the shortfalls are different
+    problems. A narrative section dealt forty facts and no prose has plenty of evidence
+    and none it can use; a total would report it as well supplied.
+    """
+
+    facts: int = 0
+    calculations: int = 0
+    excerpts: int = 0
+
+    @property
+    def nothing(self) -> bool:
+        return not (self.facts or self.calculations or self.excerpts)
+
+    @property
+    def no_prose(self) -> bool:
+        """Numbers but no passage to cite — the shape a narrative section starves in."""
+        return not self.excerpts and bool(self.facts or self.calculations)
+
+
+@dataclass(frozen=True, slots=True)
 class SectionScene:
     """One report section with its coverage verdict and its own self-assessment.
 
@@ -139,6 +163,17 @@ class SectionScene:
     # ``requires_primary: false`` because their evidence is the run's own rows; a trigger
     # that demanded a primary source of them would fire on every clean run.
     requires_primary: bool = True
+
+    # What the draft step recorded about this section: what it was dealt, how many tries it
+    # took, and which kinds of refusal it met. All three are already on the step's own
+    # output; the missing-section trigger reported a *status* where the record held a
+    # reason, so an operator reading "was not generated (status: failed)" four times over
+    # had to cross-reference a table to learn that three of them had been dealt no prose
+    # and the fourth had kept citing ids it was never shown — two different problems with
+    # two different remedies.
+    dealt: EvidenceTally | None = None
+    attempts: int = 0
+    refusal_causes: tuple[str, ...] = ()
 
     @property
     def generated(self) -> bool:
@@ -363,6 +398,27 @@ def _high_model_uncertainty(
     )
 
 
+def _why_missing(row: SectionScene) -> str:
+    """Why one required section produced nothing, from what the draft step recorded.
+
+    Four answers, and the operator does something different for each. **Nothing dealt** and
+    **no prose dealt** are evidence problems: redrafting changes neither, and the second is
+    the one a narrative section dies of on a run rich in figures — it is why "dealt" is
+    three numbers here rather than a total. **Refused** is a drafting problem, named by
+    kind, and the kinds are the producers' own. **Nothing recorded** is a section that
+    never reached the writer: a step that failed before it, or a run from an older build.
+    """
+    if row.dealt is not None and row.dealt.nothing:
+        return "it was dealt nothing it could cite"
+    if row.dealt is not None and row.dealt.no_prose:
+        figures = row.dealt.facts + row.dealt.calculations
+        return f"it was dealt {figures} figures and no passage to cite"
+    if row.refusal_causes:
+        tries = f" in {row.attempts} tries" if row.attempts else ""
+        return f"every draft was refused{tries} for: {', '.join(row.refusal_causes)}"
+    return f"status {row.status}, and the draft step recorded no reason"
+
+
 def _material_missing_section(sections: tuple[SectionScene, ...]) -> FiredTrigger | None:
     """A required built-in or enabled custom section is empty or below its evidence floor."""
     evidence: list[str] = []
@@ -370,7 +426,7 @@ def _material_missing_section(sections: tuple[SectionScene, ...]) -> FiredTrigge
         if not (row.required or row.custom) or not row.enabled:
             continue
         if not row.generated:
-            evidence.append(f"'{row.key}' was not generated (status: {row.status})")
+            evidence.append(f"'{row.key}' was not generated — {_why_missing(row)}")
         elif not row.covered:
             evidence.append(f"'{row.key}' is below its evidence floor ({row.shortfall})")
     if not evidence:

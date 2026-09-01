@@ -180,6 +180,30 @@ carried the running spend, which kept moving after the draft was sealed. Runs se
 that fix recover on their own — reload the review page and approve; nothing is re-run and
 nothing is spent.
 
+## Sections are missing from the draft
+
+The gate-2 banner names each one and **why**, and the three reasons want three different
+things from you:
+
+- **"it was dealt nothing it could cite"** — the section reached the writer with an empty
+  pack. Redrafting it changes nothing; the evidence never arrived.
+- **"it was dealt N figures and no passage to cite"** — the common one, and the one that
+  surprises people. The run gathered thousands of numbers and the section needed *prose*.
+  A narrative section can quote only what the filings' statutory items yielded: the
+  business description, the risk factors and management's discussion, cut into excerpts of
+  at least 120 characters, at most sixty per document, over the latest annual report, the
+  quarterlies filed since it and the five most recent current reports. On a real run that
+  whole prose base has come to a few dozen excerpts, shared across every narrative section
+  — so a section whose subject is not in those items has little or nothing to quote, and
+  refuses rather than writing unsupported prose. That is the design working, not a fault:
+  the alternative is a paragraph nobody can trace.
+- **"every draft was refused in N tries for: …"** — the section had evidence and would not
+  produce an acceptable draft. The named causes are the producers' own; the per-section
+  table lower down the review page carries the refusals verbatim.
+
+`/runs/{id}/review` lists every section with what it was dealt — `40f · 2c · 0e` is forty
+facts, two calculations and no excerpts — how many tries it took, and the refusals in full.
+
 ## A figure is missing from the report
 
 This is usually correct behaviour, not a fault. See

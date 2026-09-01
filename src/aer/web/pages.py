@@ -78,6 +78,7 @@ from aer.render.document import UnresolvedFootnote, assemble_document
 from aer.render.html import render_html
 from aer.render.markdown import render_markdown
 from aer.render.summary import summary_document
+from aer.sections.registry import section_outcomes
 from aer.services import approvals as approval_service
 from aer.services import calculations as calculation_service
 from aer.services import cancellation as cancellation_service
@@ -1017,7 +1018,7 @@ async def draft_review(
         )
     ]
     cost = await cost_scene_for_job(session, job=job, request=research_request)
-    outcomes = await _section_outcomes(session, job_id=job.id)
+    outcomes = await section_outcomes(session, job_id=job.id)
 
     frame = await frame_for(session, job=job, gate=GateKind.FINAL)
     review = _review_verdict(
@@ -2644,26 +2645,6 @@ async def report_preview(
 
 
 # -- Internals ---------------------------------------------------------------------------
-
-
-async def _section_outcomes(session: DbSession, *, job_id: uuid.UUID) -> dict[str, dict[str, Any]]:
-    """What the draft step recorded about each section, keyed by section.
-
-    Read from the step's own frozen output rather than recomputed: `SectionExecution`
-    already carries the evidence tally, the attempt count, the refusal causes and the
-    problems in the producers' own words, and a second derivation here would be a place for
-    the page and the record to disagree.
-
-    Empty for a run that has not drafted, which the template treats as "nothing to say"
-    rather than as an error.
-    """
-    produced = await _step_output(session, job_id=job_id, step_key="draft") or {}
-    rows: dict[str, dict[str, Any]] = {}
-    for outcome in [*produced.get("builtin_sections", []), *produced.get("custom_sections", [])]:
-        key = str(outcome.get("section_key", ""))
-        if key:
-            rows[key] = outcome
-    return rows
 
 
 async def _owned_job(session: AsyncSession, *, job_id: uuid.UUID, user: Any) -> Job | None:
