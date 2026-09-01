@@ -192,6 +192,7 @@ STEP_WORDS: Final[dict[str, str]] = {
     "red_team": "Challenging the thesis",
     "revise": "Redrafting the challenged sections",
     "verdict": "Summing up the draft for review",
+    "brief_challenges": "Briefing the unsettled challenges",
     "gate_final": "Your decision — the report",
     "render": "Rendering the report document",
 }
