@@ -360,6 +360,24 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         max_output_tokens=4_096,
         adr="0087",
     ),
+    RoleDefinition(
+        role="challenge_brief",
+        purpose=(
+            "Read an unsettled red-team challenge as the choice it puts to the operator: "
+            "what each side assumes, what the report becomes either way, and which side it "
+            "leans to and why. Advisory — it settles nothing, states no figure, asserts no "
+            "fact, is never evidence, and reaches no rendered report."
+        ),
+        output_schema_ref="aer.agents.challenge_brief:ChallengeBriefs",
+        # No tools, and not even the evidence. It is handed two arguments and compares
+        # them; a briefer that could read the facts behind them would be a second
+        # validator whose output starts to look like a finding (ADR 0095).
+        allowed_tools=frozenset(),
+        # Six short fields per challenge, up to eight challenges. Larger than the
+        # verdict's, which is one sentence, and far short of a writer's.
+        max_output_tokens=8_192,
+        adr="0095",
+    ),
 )
 
 

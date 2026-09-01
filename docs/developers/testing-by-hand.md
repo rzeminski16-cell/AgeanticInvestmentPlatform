@@ -857,22 +857,30 @@ not resumable.
    appendix whether or not you agree with it. **Wrong:** a heading that is the first
    hundred-odd characters of the objection printed directly above the objection — the same
    sentence twice, the first one cut through a word.
-4. **Unresolved disagreements**, amber. **Expect** source conflicts only — two documents
+4. **The brief of the choice**, on each challenge nobody has settled: what keeping the
+   draft's position assumes and means, what accepting the challenge assumes and means, and
+   which way it leans with one sentence of why (ADR 0095). **Expect** it to read as advice
+   beside the controls, labelled as a model's reading and not a decision. **Wrong:** a
+   figure in it, a claim about the company, or a lean that has prefilled or replaced the
+   rationale you must write. **Expect none of it in the report** — open the PDF and check.
+   A challenge with no brief is not a defect: a briefing that failed degrades to the page
+   as it was, which is why §16's killed-worker run is worth reading here too.
+5. **Unresolved disagreements**, amber. **Expect** source conflicts only — two documents
    reporting different numbers with no rule to choose between them.
-5. **Settle this**, on any open disagreement or challenge. Choose a side, give a reason.
+6. **Settle this**, on any open disagreement or challenge. Choose a side, give a reason.
    **Expect** the choice recorded under your name beside the rule that escalated it, and
    the rule *not* overwritten. Try it with an empty reason: **expect a refusal**, because a
    decision that overrides a rule without saying why is the least reviewable row in the
    table.
-6. **The validation results** — citation accuracy, temporal compliance, numerical
+7. **The validation results** — citation accuracy, temporal compliance, numerical
    consistency, source coverage, completeness. Deterministic numbers against thresholds.
-7. **Source coverage.** A section that failed to draft must read *not generated* across the
+8. **Source coverage.** A section that failed to draft must read *not generated* across the
    row. **Wrong:** "0 sources, floor 1, primary: none" in red — that is arithmetic over an
    absence, and it made five drafting failures read as five coverage failures.
-8. **Calculations**, closed. A real run records a thousand; open it and filter by name,
+9. **Calculations**, closed. A real run records a thousand; open it and filter by name,
    period or formula. **Wrong:** a table that starts open, or a filter box that does nothing
    with JavaScript off — with scripting off the box should not be there at all.
-9. Links to every claim and every source.
+10. Links to every claim and every source.
 
 **Expect:** the validator's model-written advice is clearly *advisory* and cannot overrule a
 deterministic verdict.

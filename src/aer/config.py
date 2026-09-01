@@ -187,6 +187,9 @@ DEFAULT_MODEL_ROUTES: Final[dict[str, ModelRoute]] = {
     # outcomes, once per run. The cheap end of the router by decision — "a few pence on a
     # run that costs pounds" is the accepted cost the record names.
     "verdict": ModelRoute(model="claude-haiku-4-5", effort="low"),
+    # Comparison of two short arguments, on the same cheap end as the verdict. It reads no
+    # evidence and writes no prose the report carries (ADR 0095).
+    "challenge_brief": ModelRoute(model="claude-haiku-4-5", effort="low"),
 }
 
 

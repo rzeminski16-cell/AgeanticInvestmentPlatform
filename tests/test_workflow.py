@@ -425,6 +425,9 @@ class TestTheWholeRun:
             # frozen. It joins no payload and moves no hash; the gate-2 seal stays with
             # revise.
             "verdict",
+            # What each side of an unsettled challenge assumes and implies (ADR 0095).
+            # Beside the verdict, and on the same terms: advisory, no payload, no hash.
+            "brief_challenges",
             "gate_final",
             "render",
         ]

@@ -96,6 +96,12 @@ resumable.
   against a threshold. The model's own validator *advises* and cannot overrule them.
 - **The red team's bear case.** A separate pass, working from its own context rather than
   the drafter's, attacking the thesis it was handed.
+- **A brief of each choice you are being asked to make.** For every challenge nobody has
+  settled: what keeping the draft's position assumes and what the report then says, the
+  same for accepting the challenge, and which way it leans with one sentence of why. It is
+  a model's reading of two arguments — advice beside your decision, never the decision. It
+  settles nothing, it is not in the approval hash, and it is not in the report. The reason
+  you record is still yours to write.
 - **Every claim**, at `/runs/{id}/claims`, with whether its evidence verified.
 - **Every source**, at `/runs/{id}/sources`, including the ones the run refused and why.
 

@@ -89,6 +89,7 @@ from aer.services import resume as resume_service
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
 from aer.services.assumptions import assumptions_for_request
+from aer.services.challenge_briefs import briefs_from_output
 from aer.services.comps import (
     PEER_SET_STEP,
     peer_set_payload,
@@ -1047,6 +1048,12 @@ async def draft_review(
                 if row["kind"] != DisagreementKind.THESIS_CONFLICT.value
             ],
             "challenges": [row for row in recorded if row.kind is DisagreementKind.THESIS_CONFLICT],
+            # Keyed by disagreement id, so a challenge with no brief renders exactly as it
+            # did before ADR 0095 — which is the fallback for a run that predates the step,
+            # one whose briefing failed, and one whose adversary raised more than a sitting.
+            "briefs": briefs_from_output(
+                await _step_output(session, job_id=job_id, step_key="brief_challenges")
+            ),
             "triggers": payload["triggers"],
             "evaluations": evaluations,
             "coverage": coverage,

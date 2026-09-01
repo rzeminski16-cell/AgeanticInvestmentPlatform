@@ -59,7 +59,8 @@ flowchart TD
     research --> propose_assumptions --> gate_assumptions{{gate_assumptions}}
     gate_assumptions --> value --> draft
     comps --> draft
-    draft --> validate --> red_team --> revise --> gate_final{{gate_final}} --> render
+    draft --> validate --> red_team --> revise --> verdict --> brief_challenges
+    brief_challenges --> gate_final{{gate_final}} --> render
 ```
 
 What to know per step, beyond the diagram:
@@ -85,6 +86,8 @@ What to know per step, beyond the diagram:
 | `validate` | `verify/`, `agents/validator` | small | Deterministic checks; the model only *advises* (ADR 0038) |
 | `red_team` | `agents/red_team` | yes (~£1) | Attacks the draft from a separate context (ADR 0039) |
 | `revise` | `services/revision` | yes (~£1.50 at the bound) | Redrafts the sections material challenges attack, once, then seals the gate-2 hash (ADR 0091) |
+| `verdict` | `agents/verdict` | yes (~£0.01) | One sentence of interpretation over the frozen draft (ADR 0087); no payload, no hash, never evidence |
+| `brief_challenges` | `agents/challenge_brief` | yes (~£0.02) | What each side of an unsettled challenge assumes and implies, and which way it leans (ADR 0095); advisory, and reaches no report |
 | `gate_final` | `services/approvals` | no | Second universal gate; shows scores, not promises |
 | `render` | `render/`, `charts/` | no | Stored sections → document; a chart is a figure (ADR 0043) |
 

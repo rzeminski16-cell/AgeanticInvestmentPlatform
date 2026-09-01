@@ -1485,6 +1485,66 @@ class TestTheWebPages:
         assert _shortened(statement) not in page.text
         assert "Red team \N{EM DASH} valuation, severity 4/5" in page.text
 
+    async def test_an_open_challenge_carries_the_brief_of_the_choice(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """ADR 0095: what each side assumes and means, and which way it leans."""
+        job_id = await _to_second_gate(api, committed, driver)
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as writer:
+            row = _planted_challenge(job_id)
+            writer.add(row)
+            await writer.flush()
+            # The step has already run — the challenge is planted after the gate, so it
+            # briefed nothing. Its own row is where the briefs live, so that is what a
+            # briefed run looks like.
+            step = await writer.scalar(
+                select(JobStep).where(
+                    JobStep.job_id == job_id, JobStep.step_key == "brief_challenges"
+                )
+            )
+            assert step is not None, "the briefing step runs on every slice run"
+            step.output_ref = {
+                "written": True,
+                "briefs": {
+                    str(row.id): {
+                        "keeping_assumes": "The fade holds at the peer median.",
+                        "keeping_means": "The report keeps its base case.",
+                        "accepting_assumes": "The fade is slower than peers.",
+                        "accepting_means": "The report gives up its terminal value.",
+                        "leans": "challenge",
+                        "because": "The peer medians are the stronger record.",
+                    }
+                },
+            }
+            await writer.commit()
+
+        page = await api.get(f"/runs/{job_id}/review")
+
+        assert "The fade holds at the peer median." in page.text
+        assert "The report gives up its terminal value." in page.text
+        assert "accepting the challenge" in page.text
+        assert "The peer medians are the stronger record." in page.text
+        # Advice beside the decision, and labelled as such -- the controls are unchanged.
+        assert "not a decision and not" in page.text
+        assert f'id="settle-{row.id}"' in page.text
+
+    async def test_a_run_with_no_briefing_reads_as_it_did_before(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """A run from before ADR 0095, or one whose briefing failed. No empty box."""
+        job_id = await _to_second_gate(api, committed, driver)
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as writer:
+            writer.add(_planted_challenge(job_id))
+            await writer.commit()
+
+        page = await api.get(f"/runs/{job_id}/review")
+
+        assert 'id="red-team"' in page.text
+        assert "data-brief=" not in page.text
+        assert "Leans towards" not in page.text
+
     async def test_a_challenge_can_be_settled_on_the_record(
         self, api: Any, committed: dict, driver: Driver, db_engine: Any
     ) -> None:

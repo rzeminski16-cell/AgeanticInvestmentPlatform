@@ -107,6 +107,7 @@ from aer.services.assumption_gate import gate_payload as gate_payload_for_assump
 from aer.services.assumption_gate import gate_required, refreshed_payload
 from aer.services.assumption_gate import valuation_model as assumptions_valuation_model
 from aer.services.assumptions import assumptions_for_request
+from aer.services.challenge_briefs import brief_unsettled_challenges
 from aer.services.citations import review_evidence
 from aer.services.comps import (
     PEER_SET_STEP,
@@ -248,6 +249,11 @@ REVISE_ESTIMATE_GBP: Final = Decimal("1.50")
 # the cheapest route the platform has. The margin over the expected fraction of a penny is
 # the guard's, not the step's — a step with no estimate is a step the cap cannot pause.
 VERDICT_ESTIMATE_GBP: Final = Decimal("0.10")
+
+# The briefing of unsettled challenges (ADR 0095): six short fields per challenge, up to
+# eight of them, on the same cheap route as the verdict. Larger than the verdict's estimate
+# because the output is, and still a rounding error against the draft's.
+CHALLENGE_BRIEF_ESTIMATE_GBP: Final = Decimal("0.20")
 
 # The severity at which a plan challenge sends the plan back for a revision. Deliberately
 # below the draft's material line (severity 4): a plan revision costs one planner call
@@ -492,6 +498,14 @@ def build_steps() -> list[WorkflowStep]:
         # section, joins no payload and seals no hash — the gate-2 hash stays with revise,
         # because interpretation is never part of what the operator approves.
         WorkflowStep(key="verdict", run=_verdict, estimated_cost_gbp=VERDICT_ESTIMATE_GBP),
+        # What each side of an unsettled challenge assumes and implies (ADR 0095). After
+        # revise for the same reason the verdict is: the arguments have stopped changing.
+        # Advisory throughout — it joins no payload, settles no row, and reaches no report.
+        WorkflowStep(
+            key="brief_challenges",
+            run=_brief_challenges,
+            estimated_cost_gbp=CHALLENGE_BRIEF_ESTIMATE_GBP,
+        ),
         WorkflowStep(key="gate_final", run=_gate_final, gate=GateKind.FINAL.value),
         WorkflowStep(key="render", run=_render),
     ]
@@ -1776,6 +1790,48 @@ async def _verdict(context: StepContext) -> StepResult:
         },
         cost_gbp=agent_context.spend_gbp,
     )
+
+
+async def _brief_challenges(context: StepContext) -> StepResult:
+    """Brief the operator on each challenge no rule could settle (ADR 0095).
+
+    **The same frozen test the verdict passes, and the same standing beside the record.**
+    The arguments stopped changing when the revise step sealed the gate-2 payload; this
+    reads them and stores the briefs as its own output, where the review page picks them up
+    per challenge. It joins no payload and moves no hash, because a model's reading of a
+    conflict is never part of what the operator approves — and it settles nothing, because
+    the operator's reason for choosing a side is theirs to write.
+
+    A run that fails here loses its briefs and nothing else: the page falls back to the
+    statement, the basis and the two controls, which is what it showed before this step
+    existed. Only a budget refusal is allowed to stop the run, for the reason every
+    advisory step gives — a cap that a nice-to-have could spend past is not a cap.
+    """
+    request = await _request_for(context)
+    agent_context = AgentContext(
+        session=context.session,
+        provider=context.service("provider"),
+        router=context.service("router"),
+        settings=context.service("settings"),
+        store=context.service("store"),
+        job_step=context.step,
+    )
+
+    try:
+        outcome = await brief_unsettled_challenges(
+            agent_context, context.session, job_id=context.job.id, request=request
+        )
+    except BudgetExceededError:
+        raise
+    except (AerError, ValueError) as exc:
+        _log.warning(
+            "challenge_briefs.unavailable",
+            job_id=str(context.job.id),
+            error_code=getattr(exc, "code", ""),
+        )
+        return StepResult(output={"written": False}, cost_gbp=agent_context.spend_gbp)
+
+    return StepResult(output=outcome.as_dict(), cost_gbp=agent_context.spend_gbp)
 
 
 def _verdict_subject(request: ResearchRequest, *, payload: Mapping[str, Any]) -> VerdictInput:

@@ -217,7 +217,7 @@ exists. Nine blocks:
 | **Validation results** | Every evaluation metric and its verdict |
 | **Source coverage** | Per section. *Not generated* across the row for a section that never ran, rather than zero coverage for an absence |
 | **Disagreements** | Source conflicts — two documents saying different numbers |
-| **The red team's challenges** | Its own section: severity, the objection **at reading width**, its basis, its cited evidence |
+| **The red team's challenges** | Its own section: dimension and severity, the objection **at reading width**, its basis, its cited evidence, and — while it is unsettled — a brief of what either answer commits the report to (ADR 0095) |
 | **Cost** | Against the cap, with an alert threshold |
 | **Sections in this draft** | Per section: outcome, evidence tally by kind, attempt count, the refusal in the producer's own words, and the causes counted |
 | **Calculations** | Name, formula, period, the value in house style, input count. **Closed by default**, with a filter over name, period and formula |
@@ -240,6 +240,18 @@ overwritten. The labels follow the kind — "keep the draft's position" and "acc
 challenge" for a red-team row, because asking somebody to choose between A and B on a thesis
 is asking an unanswerable question. **A disagreement nobody settles keeps publishing both
 sides**, which is the default and the honest outcome for most of them.
+
+**An unsettled challenge carries a brief of the choice** (ADR 0095). The objection says what
+is wrong with the draft; the brief says what each answer *commits the report to* — what
+keeping the draft's position assumes and means, what accepting the challenge assumes and
+means — and leans one way with a sentence of why. It was built because the page asked for a
+decision between two paragraphs of argument and gave the reader nothing to compare them by.
+
+It is advice beside the decision and never the decision: it settles nothing, prefills no
+rationale, changes no row, is inside no approval hash, and appears in no rendered report.
+The controls beneath it are unchanged. A challenge with no brief — a run from before the
+step, one whose briefing failed, one past the eight a sitting briefs — renders exactly as
+it did before, which is the fallback the feature is designed around rather than a gap.
 
 ### Two adjacent surfaces
 

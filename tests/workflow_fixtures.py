@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -307,6 +308,13 @@ class ScriptedSectionBrain:
             # so one builder answers both.
             assert self.provider is not None, "bind the provider before the first call"
             return custom_section_draft_for(self.provider.calls[-1])
+        if name == "ChallengeBriefs":
+            # One brief per challenge it was shown, keyed by the ids in the prompt. A
+            # static answer could not key them, and a briefing keyed to nothing is exactly
+            # what the service drops -- so the fake would silently exercise the drop path
+            # on every run that has a challenge.
+            assert self.provider is not None, "bind the provider before the first call"
+            return challenge_briefs_for(self.provider.calls[-1])
         answer = _STATIC_ANSWERS.get(name)
         if answer is not None:
             return answer()
@@ -435,6 +443,41 @@ def authored_verdict() -> Any:
     return AuthoredVerdict(
         sentence="Scripted verdict; the record reads complete and unchallenged.",
         tone=AuthoredTone.INFO,
+    )
+
+
+def challenge_briefs_for(call: dict[str, Any]) -> Any:
+    """A brief for each disagreement id in the prompt, read back off the call itself.
+
+    Unremarkable prose and a lean towards the draft. What the suite needs from a brief is
+    that it exists, keys to a real challenge, and never becomes a decision -- the wording
+    is under test nowhere, and a scripted lean towards the challenge would make every
+    fixture read as though the adversary had won.
+    """
+    from aer.agents.challenge_brief import (  # noqa: PLC0415 -- keeps import light
+        ChallengeBrief,
+        ChallengeBriefs,
+        ChallengeSide,
+    )
+
+    text = " ".join(
+        f"{message.get('cache_prefix') or ''} {message.get('content') or ''}"
+        for message in call["messages"]
+    )
+    ids = re.findall(r"'disagreement_id':\s*'([0-9a-f-]{36})'", text)
+    return ChallengeBriefs(
+        briefs=[
+            ChallengeBrief(
+                disagreement_id=identifier,
+                keeping_assumes="Scripted: the draft's reading of the record holds.",
+                keeping_means="Scripted: the report keeps its position and notes the objection.",
+                accepting_assumes="Scripted: the objection describes the record better.",
+                accepting_means="Scripted: the report gives up the position it argued for.",
+                leans=ChallengeSide.DRAFT,
+                because="Scripted: the objection restates a risk the draft already carries.",
+            )
+            for identifier in ids
+        ]
     )
 
 

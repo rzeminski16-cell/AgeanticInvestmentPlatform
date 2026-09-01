@@ -386,6 +386,52 @@
               </p>
             {% endif %}
 
+            {% set brief = briefs.get(row.id | string) %}
+            {% if brief and row.resolution == open_outcome %}
+              {#
+                What the choice actually is, ADR 0095. The objection above says what is
+                wrong with the draft; this says what either answer commits the report to.
+                It settles nothing — the controls below are unchanged, and the reason for
+                the choice is still the operator's to write.
+              #}
+              <div class="mt-3 rounded-md border border-line bg-surface-sunken p-4"
+                   data-brief="{{ row.id }}">
+                <div class="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <p class="type-label text-ink">Keeping the draft&rsquo;s position</p>
+                    <p class="mt-1 max-w-prose type-body-sm text-ink-muted">
+                      <span class="type-label text-ink-subtle">Assumes</span>
+                      {{ brief["keeping_assumes"] }}
+                    </p>
+                    <p class="mt-1 max-w-prose type-body-sm text-ink-muted">
+                      <span class="type-label text-ink-subtle">Means</span>
+                      {{ brief["keeping_means"] }}
+                    </p>
+                  </div>
+                  <div>
+                    <p class="type-label text-ink">Accepting the challenge</p>
+                    <p class="mt-1 max-w-prose type-body-sm text-ink-muted">
+                      <span class="type-label text-ink-subtle">Assumes</span>
+                      {{ brief["accepting_assumes"] }}
+                    </p>
+                    <p class="mt-1 max-w-prose type-body-sm text-ink-muted">
+                      <span class="type-label text-ink-subtle">Means</span>
+                      {{ brief["accepting_means"] }}
+                    </p>
+                  </div>
+                </div>
+                <p class="mt-3 max-w-prose type-body-sm text-ink" data-lean="{{ brief["leans"] }}">
+                  <span class="type-label text-ink-subtle">Leans towards</span>
+                  {% if brief["leans"] == "challenge" %}accepting the challenge{% else %}keeping the draft&rsquo;s position{% endif %}
+                  &mdash; {{ brief["because"] }}
+                </p>
+                <p class="mt-2 type-body-sm text-ink-subtle">
+                  A model&rsquo;s reading of the two arguments, not a decision and not
+                  evidence. It settles nothing, and it is not in the report.
+                </p>
+              </div>
+            {% endif %}
+
             {% if row.resolution == open_outcome %}
               {{ settle(job, row, "Keep the draft's position", "Accept the challenge") }}
             {% else %}
