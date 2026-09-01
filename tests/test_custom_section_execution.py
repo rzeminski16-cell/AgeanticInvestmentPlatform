@@ -502,6 +502,25 @@ class TestAReferenceIsNotAFigure:
         assert any("2014" in p for p in problems)
         assert any("2024" in p for p in problems)
 
+    def test_a_year_that_names_a_document_or_a_meeting_is_a_reference(self) -> None:
+        """The MSFT run (roadmap §2.1). Management & Governance was refused on two years
+        that named documents rather than quantities, and the mirror form — "the 2026
+        fiscal year" — had been excused since ADR 0054 while this one had not.
+        """
+        for text in (
+            "Set out in the company's 2025 proxy statement.",
+            "He will not stand for re-election at the 2026 annual shareholder meeting.",
+            "Revenue grew, per the 2025 Form 10-K.",
+            "Restated in the 2024 annual report and accounts.",
+        ):
+            assert unsourced_numerals({"s": text}, []) == [], text
+
+    def test_the_noun_is_the_anchor_and_a_quantity_reaches_none_of_them(self) -> None:
+        """The trade ADR 0054 made, held: the span is excused, never the value."""
+        problems = unsourced_numerals({"s": "Deferred revenue of 2025 million was booked."}, [])
+
+        assert any("2025" in problem for problem in problems)
+
 
 class TestACountIsNotAFigure:
     """ADR 0057: both sections the live run lost died over a count of their own prose —
@@ -585,10 +604,25 @@ class TestAProductNameIsNotAFigure:
             "Adoption of Windows 11 accelerated in the commercial channel.",
             "The Xbox 360 era is long past.",
             "Deliveries of the Boeing 737 resumed.",
+            # At a clause or a sentence boundary, which is where a product name in a list
+            # usually sits. The MSFT run (roadmap §2.1) lost Business Overview here: the
+            # trailing guard refused a word character *and* any stop or comma, so the same
+            # name this rule already excused mid-clause was a figure at the end of one.
+            "Business applications: Dynamics 365, ERP and CRM.",
+            "The suite includes Dynamics 365.",
+            "Sold as Dynamics 365 and Office 365.",
         ],
     )
     def test_a_number_inside_a_name_is_excused(self, text: str) -> None:
         assert unsourced_numerals({"s": text}, []) == []
+
+    @pytest.mark.parametrize(
+        "text", ["Income was 365,000.", "It reached 365.25.", "Azure 1,234 was the figure."]
+    )
+    def test_a_separator_that_really_is_one_still_blocks_the_erasure(self, text: str) -> None:
+        """The guard's actual job: a stop or comma with digits after it is part of the
+        number, and the number is a figure."""
+        assert unsourced_numerals({"s": text}, []) != []
 
     @pytest.mark.parametrize(
         "text",

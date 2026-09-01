@@ -187,6 +187,16 @@ _REFERENCE: Final[re.Pattern[str]] = re.compile(
             r"\b(?:19|20)\d{2}(?:\s*(?:,|and|or|to)\s*(?:19|20)\d{2})+\b",
             # A year the sentence itself marks as one: "the 2026 fiscal year".
             r"\b(?:19|20)\d{2}\s+(?:fiscal|financial|calendar)\b",
+            # A year naming the document or the meeting it belongs to: "the 2025 proxy
+            # statement", "the 2026 annual general meeting", "the 2025 Form 10-K". The
+            # mirror of the line above, and the one a live run died on twice: the noun is
+            # the anchor, so "revenue of 2,026 million" reaches none of these and still
+            # needs lineage. The form labels repeat here rather than lean on the filing
+            # alternative below, because that one anchors on the label and leaves the year
+            # in front of it uncovered — which is exactly how "the 2025 Form 10-K" failed.
+            r"\b(?:19|20)\d{2}\s+(?:proxy|annual|interim|quarterly|half-year|"
+            r"registration|shelf|prospectus|circular|Form|Report|Accounts|"
+            r"10-K|10-Q|8-K|20-F|40-F|6-K)\b",
             # Filing references, where the label is the anchor and an enumeration keeps
             # its cover: "Item 2.02", "Items 2.02 and 9.01", "Exhibit 99.1", "Form 4".
             r"\b(?:Item|Exhibit|Note|Form|Rule|Section)s?\s+\d+(?:\.\d+)?[A-Za-z]?"
@@ -265,9 +275,14 @@ _FINANCIAL_WORDS: Final[frozenset[str]] = _CONCEPT_WORDS | _PROSE_FINANCE_WORDS
 # A number that is part of a name: "Microsoft 365", "Windows 11", "Boeing 737". Matched as
 # the pair, so the guards below can read the word that owns the number — a bare regex
 # cannot tell "Microsoft 365" from "Revenue 365", and only one of those is a product.
+# The trailing guard refuses a word character, and a stop or comma **only when digits
+# follow it**. Written `(?![\w.,])` it also refused the punctuation that ends a clause, so
+# "Dynamics 365 and ERP" was recognised as a product and "Dynamics 365, ERP" was not — and
+# a name at the end of a sentence or a list item is where a product name usually sits. A
+# live run refused Business Overview on exactly that comma.
 _NAMED_NUMBER: Final[re.Pattern[str]] = re.compile(
     rf"(?<![\w.,$£€])([A-Za-z][A-Za-z'\u2019&.\-]*)(\s)(\d{{1,4}})(?!\s*%)"
-    rf"(?!\s+(?:{_MEASURE_WORDS})\b)(?![\w.,])"
+    rf"(?!\s+(?:{_MEASURE_WORDS})\b)(?!\w)(?![.,]\d)"
 )
 
 _JSON_SCALARS: Final[dict[str, type | tuple[type, ...]]] = {
