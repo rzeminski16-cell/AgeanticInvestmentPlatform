@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.calc.dcf import METHOD_DISAGREEMENT_CAVEAT
 from aer.calc.wacc import CapitalStructure, EquityBasis, cost_of_capital
 from aer.core.enums import JobStatus, UserRole
-from aer.db.models import JobStep, ResearchRequest, User
+from aer.db.models import JobStep, User
 from aer.sections.deterministic import AUGMENTERS, model_facing_contract
 from aer.sections.valuation_method import (
     commentary_problems,
@@ -30,6 +30,7 @@ from aer.sections.valuation_method import (
 from aer.services import assumptions as assumption_service
 from aer.services import valuation as valuation_service
 from aer.services.calculations import new_context, persist_context
+from tests.request_fixtures import research_request
 from tests.test_valuation_surface import AS_OF_DATE, MANDATE, base_inputs, rate, usd
 from tests.workflow_fixtures import seed_job
 
@@ -52,7 +53,7 @@ async def seed_method_scene(session: AsyncSession) -> dict[str, Any]:
     )
     session.add(analyst)
     await session.flush()
-    request = ResearchRequest(
+    request = research_request(
         user_id=analyst.id,
         company_name="Testco plc",
         ticker="TEST",

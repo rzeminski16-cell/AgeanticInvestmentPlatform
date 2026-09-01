@@ -281,9 +281,14 @@ class ResearchRequestCreate(BaseModel):
 
 
 class ResearchRequestSummary(BaseModel):
-    """The list view: enough to choose one, not enough to re-read the whole request."""
+    """The list view: enough to choose one, not enough to re-read the whole request.
 
-    model_config = ConfigDict(from_attributes=True)
+    **Built explicitly, never validated off an ORM row.** A mandate lives on two tables
+    since ADR 0072 — `as_of_date`, `status` and `archived_at` are the work order's — so
+    `from_attributes` would silently see three of these fields as missing. Flattening the
+    two rows is `services.requests.mandate_summary`'s job, and having exactly one place that
+    knows which column comes from where is the point of taking `from_attributes` away.
+    """
 
     id: UUID
     company_name: str

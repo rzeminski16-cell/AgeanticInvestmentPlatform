@@ -400,7 +400,7 @@ class TestTheCountItself:
     async def test_it_counts_only_this_operators_stopped_runs(self, scene: dict[str, Any]) -> None:
         session = scene["session"]
         job = scene["job"]
-        owner = scene["request"].user_id
+        owner = scene["request"].work_order.user_id
         before = await awaiting_approval_count(session, user_id=owner)
 
         job.status = JobStatus.AWAITING_APPROVAL

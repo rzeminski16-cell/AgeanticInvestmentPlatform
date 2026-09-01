@@ -43,13 +43,14 @@ from aer.config import Settings
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.core.sectors import ValuationModel, profile_for, unclassified_mandate
-from aer.db.models import Calculation, Job, JobStep, ResearchRequest, User
+from aer.db.models import Calculation, Job, JobStep, User
 from aer.services import approvals as approval_service
 from aer.services import valuation as valuation_service
 from aer.services.sectors import CLASSIFY_STEP, classification_payload
 from aer.services.valuation_view import valuation_view
 from aer.web.templating import DISCLAIMER
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE, seed_job
 
 pytestmark = pytest.mark.integration
@@ -103,7 +104,7 @@ async def seed_scene(session: AsyncSession, *, email: str = EMAIL) -> dict[str, 
     session.add(analyst)
     await session.flush()
 
-    research_request = ResearchRequest(
+    mandate = research_request(
         user_id=analyst.id,
         company_name="Testco plc",
         ticker="TEST",
@@ -115,10 +116,10 @@ async def seed_scene(session: AsyncSession, *, email: str = EMAIL) -> dict[str, 
         investment_horizon_months=12,
         max_cost_gbp="2.50",
     )
-    session.add(research_request)
+    session.add(mandate)
     await session.flush()
 
-    job = await seed_job(session, request=research_request)
+    job = await seed_job(session, request=mandate)
     job.status = JobStatus.SUCCEEDED
     await session.flush()
 
@@ -128,7 +129,7 @@ async def seed_scene(session: AsyncSession, *, email: str = EMAIL) -> dict[str, 
 
     return {
         "analyst": analyst,
-        "request": research_request,
+        "request": mandate,
         "job": job,
         "result": result,
     }
@@ -319,7 +320,7 @@ class TestItReadsTheLedgerBack:
         )
         db_session.add(analyst)
         await db_session.flush()
-        research_request = ResearchRequest(
+        mandate = research_request(
             user_id=analyst.id,
             company_name="Empty plc",
             ticker="EMPT",
@@ -331,9 +332,9 @@ class TestItReadsTheLedgerBack:
             investment_horizon_months=12,
             max_cost_gbp="2.50",
         )
-        db_session.add(research_request)
+        db_session.add(mandate)
         await db_session.flush()
-        job = await seed_job(db_session, request=research_request)
+        job = await seed_job(db_session, request=mandate)
 
         view = await valuation_view(db_session, job)
 

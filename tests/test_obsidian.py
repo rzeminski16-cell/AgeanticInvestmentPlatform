@@ -100,7 +100,6 @@ async def scene(db_session: AsyncSession, store: LocalArtefactStore) -> dict[str
     await db_session.flush()
     quarantined = SourceDocument(
         work_order_id=built["request"].id,
-        request_id=built["request"].id,
         job_id=built["job"].id,
         artefact_id=aggregate_artefact.id,
         url="https://example.invalid/undated-aggregate",
@@ -117,7 +116,7 @@ async def scene(db_session: AsyncSession, store: LocalArtefactStore) -> dict[str
         job_id=built["job"].id,
         request_id=built["request"].id,
         company_id=company.id,
-        as_of_date=built["request"].as_of_date,
+        as_of_date=built["request"].work_order.as_of_date,
         rating="Constructive (non-binding)",
         confidence=0.62,
         valuation_low=Decimal("180"),
@@ -229,7 +228,9 @@ class TestTheExport:
         record = await export_report(db_session, settings=settings, report_id=scene["report"].id)
 
         vault = settings.obsidian_vault_root
-        run_note = vault / "20-Runs" / f"{scene['request'].as_of_date.isoformat()} MSFT.md"
+        run_note = (
+            vault / "20-Runs" / f"{scene['request'].work_order.as_of_date.isoformat()} MSFT.md"
+        )
         assert run_note.exists()
         assert (vault / "00-Meta" / "README-generated.md").exists()
         assert (vault / "00-Meta" / "MOC-Companies.md").exists()
@@ -248,7 +249,7 @@ class TestTheExport:
         run_note = (
             settings.obsidian_vault_root
             / "20-Runs"
-            / f"{scene['request'].as_of_date.isoformat()} MSFT.md"
+            / f"{scene['request'].work_order.as_of_date.isoformat()} MSFT.md"
         )
         post = frontmatter.loads(run_note.read_text(encoding="utf-8"))
 
@@ -274,7 +275,7 @@ class TestTheExport:
         run_note = (
             settings.obsidian_vault_root
             / "20-Runs"
-            / f"{scene['request'].as_of_date.isoformat()} MSFT.md"
+            / f"{scene['request'].work_order.as_of_date.isoformat()} MSFT.md"
         )
         body = run_note.read_text(encoding="utf-8")
         assert f"^claim-{scene['claim'].id.hex[:12]}" in body

@@ -31,13 +31,14 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aer.core.enums import JobStatus, RequestStatus, UserRole
-from aer.db.models import Cost, Job, JobStep, ResearchRequest, User
+from aer.db.models import Cost, Job, JobStep, User
 from aer.errors import BudgetExceededError
 from aer.services.runs import RunState
 from aer.workflow.engine import BudgetGuard, spend_this_month
 from tests.api_fixtures import build_app, client_for
 from tests.db_cleanup import delete_all
 from tests.log_helpers import structlog_events
+from tests.request_fixtures import research_request
 
 pytestmark = pytest.mark.integration
 
@@ -53,7 +54,7 @@ async def _job(session: AsyncSession) -> Job:
     )
     session.add(user)
     await session.flush()
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -70,7 +71,6 @@ async def _job(session: AsyncSession) -> Job:
     await session.flush()
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version="test-1",
         code_version="abc",
         status=JobStatus.RUNNING,
@@ -288,7 +288,6 @@ class TestWhichCapTheConsoleReports:
     def _state(self, error: dict[str, Any] | None) -> RunState:
         job = Job(
             work_order_id=uuid.uuid4(),
-            request_id=uuid.uuid4(),
             workflow_version="test-1",
             code_version="abc",
             status=JobStatus.BUDGET_EXCEEDED,

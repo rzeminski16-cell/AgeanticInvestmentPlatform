@@ -34,6 +34,7 @@ from aer.db.models import (
     ResearchRequest,
     User,
 )
+from tests.request_fixtures import research_request
 
 pytestmark = pytest.mark.integration
 
@@ -58,7 +59,7 @@ async def make_request(session, *, user_id, **overrides) -> ResearchRequest:
         "point_in_time": True,
         "max_cost_gbp": Decimal("2.50"),
     }
-    request = ResearchRequest(**{**defaults, **overrides})
+    request = research_request(**{**defaults, **overrides})
     session.add(request)
     await session.flush()
     return request
@@ -67,7 +68,6 @@ async def make_request(session, *, user_id, **overrides) -> ResearchRequest:
 async def make_job(session, request: ResearchRequest, **overrides) -> Job:
     defaults = {
         "work_order_id": request.id,
-        "request_id": request.id,
         "workflow_version": "equity-research@1.0.0",
         "code_version": "abc1234",
     }
@@ -154,7 +154,6 @@ class TestPersistenceAndRelationships:
 
         approval = Approval(
             work_order_id=request.id,
-            request_id=request.id,
             gate=GateKind.PLAN,
             decision=Decision.APPROVED,
             actor_user_id=user.id,
@@ -181,12 +180,15 @@ class TestPersistenceAndRelationships:
 
         reloaded_request = await db_session.get(ResearchRequest, request.id)
         assert reloaded_request is not None
-        assert reloaded_request.status is RequestStatus.DRAFT
+        assert reloaded_request.work_order.status is RequestStatus.DRAFT
         assert reloaded_request.analysis_mode is AnalysisMode.FULL
-        assert reloaded_request.point_in_time is True
+        assert reloaded_request.work_order.point_in_time is True
         assert reloaded_request.portfolio_context == {}
 
-    async def test_deleting_a_request_cascades_to_jobs_and_steps(self, db_session):
+    async def test_deleting_the_run_root_cascades_to_jobs_and_steps(self, db_session):
+        """The **work order**, since ADR 0072's step four. A job hangs off the run rather
+        than off the mandate, so deleting a mandate now leaves the run it was the subject
+        of — which is right, and is why this test names the row it deletes."""
         user = await make_user(db_session)
         request = await make_request(db_session, user_id=user.id)
         job = await make_job(db_session, request)
@@ -202,7 +204,7 @@ class TestPersistenceAndRelationships:
         await db_session.commit()
 
         await db_session.execute(
-            text("DELETE FROM research_requests WHERE id = :rid"), {"rid": request.id}
+            text("DELETE FROM work_orders WHERE id = :rid"), {"rid": request.id}
         )
         await db_session.commit()
 
@@ -260,10 +262,16 @@ class TestConstraints:
         request = await make_request(db_session, user_id=user.id, investment_horizon_months=months)
         assert request.investment_horizon_months == months
 
-    async def test_non_positive_budget_is_rejected(self, db_session):
+    async def test_a_negative_budget_is_rejected(self, db_session):
+        """The cap is the run root's since ADR 0072, and so is the constraint on it.
+
+        A cap of zero is admissible there and was not here: a book's own acquisition runs
+        under a work order that may spend nothing (ADR 0093), so the constraint that moved
+        with the column is `>= 0` rather than `> 0`.
+        """
         user = await make_user(db_session)
         with pytest.raises(IntegrityError):
-            await make_request(db_session, user_id=user.id, max_cost_gbp=Decimal("0"))
+            await make_request(db_session, user_id=user.id, max_cost_gbp=Decimal("-1"))
 
     async def test_malformed_currency_code_is_rejected(self, db_session):
         user = await make_user(db_session)
@@ -350,7 +358,6 @@ class TestConstraints:
         # error -- the bug the UuidPk/UuidFk split exists to prevent.
         job = Job(
             work_order_id=uuid.uuid4(),
-            request_id=uuid.uuid4(),
             workflow_version="equity-research@1.0.0",
             code_version="abc1234",
         )

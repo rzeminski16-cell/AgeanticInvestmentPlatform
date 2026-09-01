@@ -39,7 +39,6 @@ from aer.db.models import (
     FinancialFact,
     Job,
     JobStep,
-    ResearchRequest,
     SourceDocument,
     User,
 )
@@ -51,6 +50,7 @@ from aer.sources.base import ResolvedEntity
 from aer.storage.local import LocalArtefactStore
 from aer.workflow.workflows.vertical_slice_v1 import peer_gate_payload
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 from tests.sec_fixtures import MSFT_CIK
 from tests.workflow_fixtures import AS_OF_DATE, StubSecClient, seed_job
 
@@ -93,7 +93,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     db_session.add(user)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Contoso Corporation",
         ticker="CTSO",
@@ -111,7 +111,6 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
 
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version="test",
         code_version="abc",
         status=JobStatus.RUNNING,
@@ -152,7 +151,7 @@ async def _seed_gate(engine: Any, *, peers: list[dict[str, str]] | None, refused
         session.add(user)
         await session.flush()
 
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Contoso Corporation",
             ticker="CTSO",
@@ -397,10 +396,10 @@ class TestAPeerNeedsOnlyToResolve:
                 concept="revenue",
                 value=Decimal("100"),
                 unit="USD",
-                period_end=scene["request"].as_of_date + timedelta(days=200),
+                period_end=scene["request"].work_order.as_of_date + timedelta(days=200),
                 fiscal_period="FY",
-                fiscal_year=scene["request"].as_of_date.year + 1,
-                filed_date=scene["request"].as_of_date + timedelta(days=230),
+                fiscal_year=scene["request"].work_order.as_of_date.year + 1,
+                filed_date=scene["request"].work_order.as_of_date + timedelta(days=230),
                 basis=FactBasis.AS_REPORTED,
             )
         )
@@ -473,7 +472,6 @@ async def _peer_document(scene: dict[str, Any], company: Company) -> SourceDocum
     await session.flush()
     document = SourceDocument(
         work_order_id=scene["request"].id,
-        request_id=scene["request"].id,
         job_id=scene["job"].id,
         company_id=company.id,
         artefact_id=artefact.id,

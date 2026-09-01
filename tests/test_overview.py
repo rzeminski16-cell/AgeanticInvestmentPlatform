@@ -20,7 +20,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.core.enums import GateKind, JobStatus, RequestStatus, UserRole
-from aer.db.models import Cost, Job, ResearchRequest, User
+from aer.db.models import Cost, Job, User
 from aer.errors import IntegrityError
 from aer.services import overview as overview_service
 from aer.web.overview import attention as attention_module
@@ -38,6 +38,7 @@ from aer.web.overview.pages import _pounds
 from aer.web.overview.research import GATE_ASKS
 from aer.web.shell import NAV, flat_items
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 
 ADR_DIR = Path(__file__).parent.parent / "docs" / "adr"
 
@@ -286,7 +287,7 @@ class _Seeder:
     async def request(self, *, status: RequestStatus = RequestStatus.DRAFT, **kw: Any) -> uuid.UUID:
         self._n += 1
         async with self._factory() as session:
-            row = ResearchRequest(
+            row = research_request(
                 user_id=kw.pop("user_id", self._user.id),
                 company_name=kw.pop("company_name", f"Contoso {self._n}"),
                 ticker=f"CTS{self._n}",
@@ -306,7 +307,6 @@ class _Seeder:
         async with self._factory() as session:
             job = Job(
                 work_order_id=request_id,
-                request_id=request_id,
                 workflow_version="test",
                 code_version="abc",
                 status=status,

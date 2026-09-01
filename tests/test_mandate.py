@@ -1,7 +1,7 @@
 """The mandate behind a run, when the run has one — roadmap §3.3, ADR 0072.
 
 The last thing standing between the schema and a run that is not about a company. While
-every caller reached for `job.request_id` and assumed a row came back, a monitor could not
+every caller reached for `job.work_order_id` and assumed a row came back, a monitor could not
 exist: the read asserted an equity mandate, for every kind of run there would ever be.
 
 Two functions rather than one, because the callers genuinely split. A run console serves
@@ -61,8 +61,8 @@ async def _monitor_run(session: AsyncSession) -> WorkOrder:
 class TestAResearchRunHasOne:
     async def test_it_is_read_by_the_work_orders_id(self, db_session: AsyncSession) -> None:
         """The detail row shares the run root's key, so there is no join to find and no
-        second column to keep in step — which is what lets `jobs.request_id` be dropped
-        without any of these callers changing again."""
+        second column to keep in step — which is what let migration `0064` drop
+        `jobs.request_id` without any of these callers changing again."""
         job = await _research_run(db_session)
 
         mandate = await mandate_of(db_session, job)

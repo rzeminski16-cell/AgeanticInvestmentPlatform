@@ -47,6 +47,7 @@ from aer.obsidian import (
 from aer.services import approvals as approval_service
 from aer.services.comps import PEER_SET_STEP, peer_set_payload
 from aer.services.sectors import CLASSIFY_STEP, classification_payload
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import seed_job
 
 pytestmark = [pytest.mark.anyio, pytest.mark.integration]
@@ -83,7 +84,7 @@ def settings(tmp_path: Path) -> Settings:
 async def _request(
     session: AsyncSession, *, user: User, name: str, ticker: str, as_of: date
 ) -> ResearchRequest:
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name=name,
         ticker=ticker,
@@ -115,7 +116,7 @@ async def _report(
         job_id=job.id,
         request_id=request.id,
         company_id=company.id,
-        as_of_date=request.as_of_date,
+        as_of_date=request.work_order.as_of_date,
         rating="Constructive (non-binding)",
         confidence=0.6,
         valuation_low=Decimal(low),
@@ -360,7 +361,6 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     db_session.add(
         SourceDocument(
             work_order_id=a2_request.id,
-            request_id=a2_request.id,
             job_id=a2_job.id,
             artefact_id=artefact.id,
             url="https://www.sec.gov/Archives/edgar/data/201/alpha-10k.htm",
@@ -702,7 +702,7 @@ class TestTheJournalStaysHonest:
             job_id=zeta_job.id,
             request_id=zeta_request.id,
             company_id=None,
-            as_of_date=zeta_request.as_of_date,
+            as_of_date=zeta_request.work_order.as_of_date,
             rating=None,
             content={"markdown": "# Report\n"},
             content_hash="f" * 64,

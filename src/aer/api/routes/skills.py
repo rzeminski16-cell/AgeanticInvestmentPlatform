@@ -248,7 +248,7 @@ async def dry_run(
 
 async def _owns(session: DbSession, *, job: Job, user: CurrentUser) -> bool:
     request = await mandate_of(session, job)
-    return request is not None and request.user_id == user.id
+    return request is not None and request.work_order.user_id == user.id
 
 
 async def _read(session: DbSession, skill: Skill) -> SkillRead:

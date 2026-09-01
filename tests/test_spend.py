@@ -25,9 +25,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aer.core.enums import JobStatus, RequestStatus, UserRole
-from aer.db.models import AgentRun, Cost, Job, JobStep, ResearchRequest, User
+from aer.db.models import AgentRun, Cost, Job, JobStep, User
 from aer.services.spend import CacheUse, recent_runs, spend_by_role, spend_summary
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 
 
 async def _job(session: AsyncSession) -> Job:
@@ -36,7 +37,7 @@ async def _job(session: AsyncSession) -> Job:
     )
     session.add(user)
     await session.flush()
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -53,7 +54,6 @@ async def _job(session: AsyncSession) -> Job:
     await session.flush()
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version="test-1",
         code_version="abc",
         status=JobStatus.RUNNING,

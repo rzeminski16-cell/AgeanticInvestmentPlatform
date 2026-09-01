@@ -600,7 +600,7 @@ class TestAtAcquisitionTime:
         the bound is what the rule is for. Asserted here rather than only against
         ``decide_quarantine``, because the service is what chooses which of the two to pass.
         """
-        as_of = scene["request"].as_of_date
+        as_of = scene["request"].work_order.as_of_date
         found = extract_publication_date(
             index_date=as_of - timedelta(days=30),
             text=f"Published {(as_of + timedelta(days=30)).strftime('%d %B %Y')}",
@@ -625,7 +625,7 @@ class TestAtAcquisitionTime:
     async def test_an_admissible_source_is_not_quarantined(
         self, db_session: AsyncSession, scene: dict[str, Any]
     ) -> None:
-        a_week_early = scene["request"].as_of_date - timedelta(days=7)
+        a_week_early = scene["request"].work_order.as_of_date - timedelta(days=7)
         found = extract_publication_date(index_date=a_week_early)
         assert found is not None
 
@@ -701,7 +701,7 @@ class TestTheOverride:
             url="https://example.invalid/fine.htm",
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
-            publication_date=scene["request"].as_of_date - timedelta(days=7),
+            publication_date=scene["request"].work_order.as_of_date - timedelta(days=7),
         )
         assert not source.quarantined
 
@@ -724,7 +724,8 @@ class TestAtClaimTime:
         self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
     ) -> None:
         citation = await _cited_claim(db_session, scene)
-        scene["document"].publication_date_latest = scene["request"].as_of_date + timedelta(days=10)
+        as_of = scene["request"].work_order.as_of_date
+        scene["document"].publication_date_latest = as_of + timedelta(days=10)
         await db_session.flush()
 
         outcome = await verify(db_session, scene["store"], citation=citation, settings=settings)
@@ -802,7 +803,8 @@ class TestAtClaimTime:
         recent document."""
         work_order = await db_session.get(WorkOrder, scene["request"].id)
         work_order.point_in_time = False
-        scene["document"].publication_date_latest = scene["request"].as_of_date + timedelta(days=90)
+        as_of = scene["request"].work_order.as_of_date
+        scene["document"].publication_date_latest = as_of + timedelta(days=90)
         await db_session.flush()
 
         citation = await _cited_claim(db_session, scene)
@@ -814,7 +816,7 @@ class TestAtClaimTime:
         self, db_session: AsyncSession, scene: dict[str, Any], settings: Settings
     ) -> None:
         """The boundary, at claim time as well as at acquisition."""
-        scene["document"].publication_date_latest = scene["request"].as_of_date
+        scene["document"].publication_date_latest = scene["request"].work_order.as_of_date
         await db_session.flush()
 
         citation = await _cited_claim(db_session, scene)
@@ -827,7 +829,8 @@ class TestAtClaimTime:
     ) -> None:
         """The conservative bound is what the check reads, here as at acquisition."""
         scene["document"].publication_date = date(2022, 6, 1)
-        scene["document"].publication_date_latest = scene["request"].as_of_date + timedelta(days=30)
+        as_of = scene["request"].work_order.as_of_date
+        scene["document"].publication_date_latest = as_of + timedelta(days=30)
         await db_session.flush()
 
         citation = await _cited_claim(db_session, scene)

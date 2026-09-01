@@ -252,7 +252,6 @@ class TestTheSourceDrilldown:
             await session.flush()
             second = SourceDocument(
                 work_order_id=built["request"].id,
-                request_id=built["request"].id,
                 job_id=job_id,
                 artefact_id=artefact.id,
                 url="https://www.sec.gov/Archives/edgar/data/789019/msft-10q.htm",

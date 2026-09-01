@@ -19,15 +19,12 @@ it. See ADR 0014.
 
 from __future__ import annotations
 
-from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     ARRAY,
     CheckConstraint,
-    Date,
-    DateTime,
     ForeignKey,
     Index,
     Numeric,
@@ -41,16 +38,13 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from aer.core.enums import AnalysisMode, RequestStatus
+from aer.core.enums import AnalysisMode
 from aer.db.base import Base, created_at_column
-from aer.db.types import Timestamp, UuidFk, UuidFkOptional, UuidPk
+from aer.db.types import Timestamp, UuidFkOptional, UuidPk
 
 if TYPE_CHECKING:
-    from aer.db.models.approval import Approval
-    from aer.db.models.job import Job
     from aer.db.models.plan import ResearchPlan
-    from aer.db.models.source_document import SourceDocument
-    from aer.db.models.user import User
+    from aer.db.models.work_order import WorkOrder
 
 __all__ = ["ResearchRequest"]
 
@@ -62,9 +56,12 @@ def _enum(python_enum: type, name: str) -> SaEnum:
 class ResearchRequest(Base):
     __tablename__ = "research_requests"
 
-    id: Mapped[UuidPk]
-    user_id: Mapped[UuidFk] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    # **The work order's id, shared.** A detail row takes its supertype's key (ADR 0072),
+    # so this is not merely equal to `work_orders.id` — it is that id, which is what lets
+    # every caller reach the mandate from a run without a join and lets a run reach nothing
+    # at all when it is not about a company.
+    id: Mapped[UuidPk] = mapped_column(
+        ForeignKey("work_orders.id", ondelete="CASCADE"), primary_key=True
     )
 
     # -- Subject -----------------------------------------------------------------------
@@ -73,8 +70,7 @@ class ResearchRequest(Base):
     exchange: Mapped[str] = mapped_column(String(32), nullable=False)
     isin: Mapped[str | None] = mapped_column(String(12))
 
-    # -- Temporal and currency ---------------------------------------------------------
-    as_of_date: Mapped[date] = mapped_column(Date, nullable=False)
+    # -- Currency ------------------------------------------------------------------------
     base_currency: Mapped[str] = mapped_column(String(3), nullable=False)
     reporting_currency: Mapped[str | None] = mapped_column(String(3))
 
@@ -87,10 +83,6 @@ class ResearchRequest(Base):
         default=AnalysisMode.FULL,
         server_default=AnalysisMode.FULL.value,
     )
-    point_in_time: Mapped[bool] = mapped_column(
-        nullable=False, default=True, server_default=text("true")
-    )
-
     # current_weight, maximum_weight, benchmark. JSONB rather than columns because the
     # shape is validated by Pydantic at the API boundary and is likely to grow; the
     # database does not need to understand it to store it faithfully.
@@ -107,17 +99,6 @@ class ResearchRequest(Base):
     # addresses the actual question rather than a generic template.
     focus_questions: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     excluded_sources: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
-
-    # -- Control -----------------------------------------------------------------------
-    max_cost_gbp: Mapped[Decimal] = mapped_column(
-        Numeric(10, 2), nullable=False, server_default=text("2.50")
-    )
-    status: Mapped[RequestStatus] = mapped_column(
-        _enum(RequestStatus, "request_status"),
-        nullable=False,
-        default=RequestStatus.DRAFT,
-        server_default=RequestStatus.DRAFT.value,
-    )
 
     # Whether the ticker and exchange have been confirmed against a real security by an
     # external lookup. Always false at creation: no outbound call is made while a request
@@ -149,34 +130,21 @@ class ResearchRequest(Base):
 
     created_at: Mapped[Timestamp] = created_at_column()
 
-    # When the operator put this request out of the way, or NULL while it is on the list.
-    #
-    # **A timestamp rather than a boolean, and nullable rather than defaulted.** "Archived"
-    # is an event somebody performed on a date, and the date is the useful half: a list of
-    # things hidden six months ago reads differently from one hidden this morning. A
-    # boolean would answer only the question the list page asks and none of the questions
-    # asked of it afterwards.
-    #
-    # Archiving is deliberately *not* a `RequestStatus`. Status describes where a request
-    # is in the research lifecycle, and being filed away is orthogonal to that — an
-    # archived request keeps the status it earned, so restoring it does not have to guess
-    # what it used to be.
-    archived_at: Mapped[Timestamp | None] = mapped_column(DateTime(timezone=True))
-
-    @property
-    def is_archived(self) -> bool:
-        return self.archived_at is not None
-
     # -- Relationships -----------------------------------------------------------------
-    user: Mapped[User] = relationship(back_populates="requests")
+    #
+    # **The run root, reached by the shared key.** Who asked, what the run may spend, what
+    # date its evidence is judged against and whether it is archived are properties of a
+    # *run* rather than of an equity report (ADR 0072), and they live on exactly one table
+    # now. `request.work_order.as_of_date` is a join the reader can see; the alternative was
+    # a second copy kept in step by one function remembering to write both, which is the
+    # shape of every defect this expansion turned up.
+    #
+    # ``lazy="joined"``, which is unusual here and deliberate. Reading a mandate's run-root
+    # fields is what forty call sites do, this session is async, and an async lazy load is
+    # not a slow path — it raises. One join on a primary key, always, beats a class of
+    # failure that only appears where somebody forgot a `selectinload`.
+    work_order: Mapped[WorkOrder] = relationship(back_populates="request", lazy="joined")
     plans: Mapped[list[ResearchPlan]] = relationship(
-        back_populates="request", cascade="all, delete-orphan"
-    )
-    approvals: Mapped[list[Approval]] = relationship(
-        back_populates="request", cascade="all, delete-orphan"
-    )
-    jobs: Mapped[list[Job]] = relationship(back_populates="request", cascade="all, delete-orphan")
-    sources: Mapped[list[SourceDocument]] = relationship(
         back_populates="request", cascade="all, delete-orphan"
     )
 
@@ -185,7 +153,6 @@ class ResearchRequest(Base):
             "investment_horizon_months BETWEEN 1 AND 240",
             name="horizon_months_in_range",
         ),
-        CheckConstraint("max_cost_gbp > 0", name="max_cost_positive"),
         CheckConstraint("char_length(base_currency) = 3", name="base_currency_iso4217"),
         CheckConstraint(
             "reporting_currency IS NULL OR char_length(reporting_currency) = 3",
@@ -221,14 +188,8 @@ class ResearchRequest(Base):
             """,
             name="maximum_weight_is_a_fraction",
         ),
-        Index("ix_research_requests_user_id_created_at", "user_id", text("created_at DESC")),
-        Index("ix_research_requests_ticker_as_of_date", "ticker", "as_of_date"),
-        # Partial, because the list page's default question is "what is not archived?" and
-        # a partial index answers it without carrying the rows it is there to exclude.
-        Index(
-            "ix_research_requests_live",
-            "user_id",
-            text("created_at DESC"),
-            postgresql_where=text("archived_at IS NULL"),
-        ),
+        # The list page's questions — whose, and not archived — are asked of the *work
+        # order* now, and its own indexes answer them. What is left here is the one lookup
+        # that is genuinely about the mandate: which requests were about this ticker.
+        Index("ix_research_requests_ticker", "ticker"),
     )

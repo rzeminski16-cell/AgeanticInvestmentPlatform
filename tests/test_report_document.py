@@ -46,7 +46,6 @@ from aer.db.models import (
     FinancialFact,
     Job,
     ReportSection,
-    ResearchRequest,
     SectionDefinition,
     SectionStatus,
     Skill,
@@ -77,6 +76,7 @@ from aer.render.markdown import (
 from aer.render.summary import summary_document
 from aer.sections.evidence import refusal_causes_in
 from aer.sections.render import Banner, Heading, StatusLine, _unescaped, render_section
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
 pytestmark = pytest.mark.anyio
@@ -188,7 +188,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     db_session.add(user)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -206,7 +206,6 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     job = Job(
         id=JOB_ID,
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version="golden_scene_v1",
         code_version="goldencode123456",
         status=JobStatus.RUNNING,
@@ -245,7 +244,6 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     dated = SourceDocument(
         id=DOC_ONE_ID,
         work_order_id=request.id,
-        request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,
         url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",
@@ -260,7 +258,6 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     undated = SourceDocument(
         id=DOC_TWO_ID,
         work_order_id=request.id,
-        request_id=request.id,
         job_id=job.id,
         artefact_id=artefact_two.id,
         url="https://www.microsoft.com/investor/segment-data.html",
@@ -530,7 +527,7 @@ class TestTheReportFacesTheReader:
         assert "published after the as-of date" in note.sentence
 
     async def test_a_point_in_time_off_run_carries_the_notice(self, scene: dict[str, Any]) -> None:
-        scene["request"].point_in_time = False
+        scene["request"].work_order.point_in_time = False
         await scene["session"].flush()
 
         document = await _document(scene)
@@ -1282,7 +1279,7 @@ class TestTheFrontPageNumbers:
         # ending 30 June, filed the following month, so a run as at 30 June could not
         # have seen the latest of them — and under ADR 0061 the evidence pack now says
         # so rather than showing a fact filed after the as-of date.
-        scene["request"].as_of_date = date(2022, 9, 30)
+        scene["request"].work_order.as_of_date = date(2022, 9, 30)
         for year, value in ((2020, "143015000000"), (2021, "168088000000"), (2022, "198270000000")):
             session.add(
                 FinancialFact(

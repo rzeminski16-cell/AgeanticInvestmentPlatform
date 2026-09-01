@@ -36,7 +36,14 @@ reviewing a change, ask which column each new behaviour belongs to.
 ## 2. The anatomy of one run
 
 A **run** is the system's unit of work: one research request in, one cited report out. The
-production workflow is `vertical_slice_v1` (`src/aer/workflow/workflows/vertical_slice_v1.py`,
+row it hangs off is a `work_orders` row, not a `research_requests` one (ADR 0072): who asked,
+what the run may spend, what date its evidence is judged against and whether it is archived
+are properties of a *run*, and since migration `0064` they live on that table alone. The
+equity mandate is a detail row sharing the work order's primary key, reached through
+`services/mandate.py` — which answers `None` for a run that is not about one listed company,
+and that `None` is a real answer rather than a missing row.
+
+The production workflow is `vertical_slice_v1` (`src/aer/workflow/workflows/vertical_slice_v1.py`,
 `build_steps()`); the engine that executes it is `src/aer/workflow/engine.py`. Steps are
 recorded, resumable, and independently budgeted; **gates** pause the run for a human.
 Resuming is a first-class act (ADR 0090): `aer resume` re-enqueues the *same* job after a

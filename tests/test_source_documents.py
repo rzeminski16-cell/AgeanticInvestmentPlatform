@@ -39,6 +39,7 @@ from aer.services.sources import (
     record_source_document,
 )
 from aer.storage.local import LocalArtefactStore
+from tests.request_fixtures import research_request
 
 pytestmark = pytest.mark.integration
 
@@ -57,7 +58,7 @@ async def request_row(db_session) -> ResearchRequest:
     db_session.add(user)
     await db_session.flush()
 
-    row = ResearchRequest(
+    row = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -416,7 +417,7 @@ class TestRecordingSources:
         assert document.provider is Provider.SEC_EDGAR
         assert document.source_tier is SourceTier.T1_REGULATORY
         assert document.artefact_id == artefact.id
-        assert document.request_id == request_row.id
+        assert document.work_order_id == request_row.id
         assert document.quarantined is False
         assert document.robots_allowed is True
         assert document.licence_note
@@ -454,14 +455,14 @@ class TestRecordingSources:
         assert second.source_tier is SourceTier.T1_REGULATORY
         held = await db_session.scalars(
             select(SourceDocument).where(
-                SourceDocument.request_id == request_row.id,
+                SourceDocument.work_order_id == request_row.id,
                 SourceDocument.artefact_id == artefact.id,
             )
         )
         assert len(list(held)) == 1
 
     async def test_an_undated_source_is_auto_quarantined(self, db_session, request_row, artefact):
-        assert request_row.point_in_time is True
+        assert request_row.work_order.point_in_time is True
 
         document = await record_source_document(
             db_session,
@@ -639,7 +640,6 @@ class TestSourceDocumentConstraints:
         db_session.add(
             SourceDocument(
                 work_order_id=request_row.id,
-                request_id=request_row.id,
                 artefact_id=artefact.id,
                 url="https://example.invalid/x",
                 provider=Provider.WEB_SEARCH,
@@ -659,7 +659,6 @@ class TestSourceDocumentConstraints:
         db_session.add(
             SourceDocument(
                 work_order_id=request_row.id,
-                request_id=request_row.id,
                 artefact_id=artefact.id,
                 url="https://example.invalid/y",
                 provider=Provider.WEB_SEARCH,
@@ -679,7 +678,6 @@ class TestSourceDocumentConstraints:
         db_session.add(
             SourceDocument(
                 work_order_id=request_row.id,
-                request_id=request_row.id,
                 artefact_id=artefact.id,
                 url="https://example.invalid/z",
                 provider=Provider.SEC_EDGAR,

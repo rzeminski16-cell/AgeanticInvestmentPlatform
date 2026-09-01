@@ -25,7 +25,6 @@ from aer.db.models import (
     JobStep,
     ReportSection,
     ResearchPlan,
-    ResearchRequest,
     Skill,
     SkillVersion,
     User,
@@ -43,6 +42,7 @@ from aer.skills.resolution import (
     resolve_skills_for_plan,
 )
 from aer.workflow.workflows.vertical_slice_v1 import plan_gate_payload
+from tests.request_fixtures import research_request
 from tests.test_skill_frontmatter import MOAT_DURABILITY
 from tests.test_workflow import run_to_next_stop
 from tests.workflow_fixtures import seed_job, seed_request, seed_user
@@ -146,7 +146,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     db_session.add(user)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -444,7 +444,6 @@ class TestTheRunKnowsItsSkills:
 
         job = Job(
             work_order_id=scene["request"].id,
-            request_id=scene["request"].id,
             plan_id=scene["plan"].id,
             workflow_version="test",
             code_version="abc",
@@ -465,7 +464,6 @@ class TestTheRunKnowsItsSkills:
     ) -> None:
         job = Job(
             work_order_id=scene["request"].id,
-            request_id=scene["request"].id,
             workflow_version="test",
             code_version="abc",
             status=JobStatus.SUCCEEDED,

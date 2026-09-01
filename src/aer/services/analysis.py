@@ -234,8 +234,8 @@ async def analyse_company(
     facts = await annual_facts(
         session,
         company_id=company_id,
-        as_of=request.as_of_date,
-        point_in_time=request.point_in_time,
+        as_of=request.work_order.as_of_date,
+        point_in_time=request.work_order.point_in_time,
     )
     if not facts:
         return AnalysisOutcome(

@@ -21,7 +21,7 @@ from sqlalchemy import select
 from starlette.status import HTTP_404_NOT_FOUND
 
 from aer.api.deps import CurrentUser, DbSession
-from aer.db.models import Job, PlanSkillPin, ResearchPlan, ResearchRequest
+from aer.db.models import Job, PlanSkillPin, ResearchPlan, WorkOrder
 from aer.errors import AerError
 from aer.services.approvals import payload_hash_for
 from aer.skills.resolution import pinned_skills_for_work_order
@@ -65,8 +65,8 @@ class PlanRead(BaseModel):
 async def read_plan(plan_id: uuid.UUID, session: DbSession, user: CurrentUser) -> PlanRead:
     plan = await session.scalar(
         select(ResearchPlan)
-        .join(ResearchRequest, ResearchRequest.id == ResearchPlan.request_id)
-        .where(ResearchPlan.id == plan_id, ResearchRequest.user_id == user.id)
+        .join(WorkOrder, WorkOrder.id == ResearchPlan.request_id)
+        .where(ResearchPlan.id == plan_id, WorkOrder.user_id == user.id)
     )
     if plan is None:
         message = f"No plan {plan_id}."
@@ -85,8 +85,8 @@ async def read_plan_for_run(job_id: uuid.UUID, session: DbSession, user: Current
     plan = await session.scalar(
         select(ResearchPlan)
         .join(Job, Job.work_order_id == ResearchPlan.request_id)
-        .join(ResearchRequest, ResearchRequest.id == ResearchPlan.request_id)
-        .where(Job.id == job_id, ResearchRequest.user_id == user.id)
+        .join(WorkOrder, WorkOrder.id == ResearchPlan.request_id)
+        .where(Job.id == job_id, WorkOrder.user_id == user.id)
         .order_by(ResearchPlan.created_at.desc())
     )
     if plan is None:

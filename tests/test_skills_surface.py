@@ -34,7 +34,6 @@ from aer.db.models import (
     JobStep,
     ReportSection,
     ResearchPlan,
-    ResearchRequest,
     SectionStatus,
     SkillVersion,
     SourceDocument,
@@ -55,6 +54,7 @@ from aer.skills.resolution import (
 from aer.storage.local import LocalArtefactStore
 from aer.web.csrf import CSRF_FIELD_NAME
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 from tests.test_skill_frontmatter import MOAT_DURABILITY
 from tests.workflow_fixtures import declared_schema_name
 
@@ -194,7 +194,7 @@ class TestThePreviewMatchesWhatARunComposes:
         await save_skill(db_session, source=GREEDY_SOURCE, actor=user)
         await set_enabled(db_session, key="greedy_section", enabled=True, actor=user)
 
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",
@@ -374,7 +374,7 @@ async def _seed_finished_run(
         session.add(user)
         await session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker=ticker,
@@ -391,7 +391,6 @@ async def _seed_finished_run(
 
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version="vertical_slice_v1",
         code_version="test",
         status=JobStatus.SUCCEEDED,
@@ -418,7 +417,6 @@ async def _seed_finished_run(
 
     document = SourceDocument(
         work_order_id=request.id,
-        request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,
         url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",
@@ -668,7 +666,7 @@ class TestTheDryRun:
         self, finished_run: dict[str, Any], section_provider: FakeProvider
     ) -> None:
         session: AsyncSession = finished_run["session"]
-        finished_run["request"].max_cost_gbp = Decimal("0.01")
+        finished_run["request"].work_order.max_cost_gbp = Decimal("0.01")
         await session.flush()
 
         with pytest.raises(DryRunRefusedError):

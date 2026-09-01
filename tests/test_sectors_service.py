@@ -21,7 +21,7 @@ from sqlalchemy import text
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.core.sectors import ModelNotPermittedError, ValuationModel, profile_for
-from aer.db.models import JobStep, ResearchRequest, SectionStatus, User
+from aer.db.models import JobStep, SectionStatus, User
 from aer.render.markdown import SectorNote, _sector_block, render_markdown
 from aer.sections.registry import (
     create_report_sections,
@@ -39,6 +39,7 @@ from aer.services.sectors import (
     propose_from_sic,
     sector_gate_required,
 )
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE, seed_job
 
 pytestmark = pytest.mark.integration
@@ -54,7 +55,7 @@ async def scene(db_session: Any) -> dict[str, Any]:
     db_session.add(analyst)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=analyst.id,
         company_name="Barclays PLC",
         ticker="BARC",

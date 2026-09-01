@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.config import Settings
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
-from aer.db.models import Approval, Job, JobStep, ResearchRequest, User
+from aer.db.models import Approval, Job, JobStep, User, WorkOrder
 from aer.providers.fake import FakeProvider
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
@@ -33,6 +33,7 @@ from aer.workflow.workflows.vertical_slice_v1 import (
     unmapped_gate_required,
 )
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 from tests.sec_fixtures import fixture_bytes
 from tests.workflow_fixtures import (
     DEFAULT_PER_RUN_BUDGET_GBP,
@@ -80,7 +81,7 @@ async def committed(clean_slate: None, db_engine: Any) -> dict[str, Any]:
         session.add(user)
         await session.flush()
 
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",
@@ -413,9 +414,9 @@ class TestThePageShowsWhatItHashes:
             )
             session.add(stranger)
             await session.flush()
-            request = await session.get(ResearchRequest, committed["request"].id)
-            assert request is not None
-            request.user_id = stranger.id
+            order = await session.get(WorkOrder, committed["request"].id)
+            assert order is not None
+            order.user_id = stranger.id
             await session.commit()
 
         assert (await api.get(f"/api/runs/{job_id}/financials")).status_code == 404

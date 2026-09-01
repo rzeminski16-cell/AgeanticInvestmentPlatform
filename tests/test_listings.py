@@ -161,8 +161,8 @@ class TestAVerifiedListing:
         self, db_session: AsyncSession, store: LocalArtefactStore, book: Portfolio
     ) -> None:
         """Invariant 1, which is the reason the third door needed a decision at all: the
-        fetched series is hashed and stored, its provenance row roots on the act's order
-        with no mandate pointer to a request that does not exist, and every bar points at
+        fetched series is hashed and stored, its provenance row roots on the act's own work
+        order rather than on a research request that does not exist, and every bar points at
         that document rather than at nothing."""
         added = await add_listing(
             db_session,
@@ -178,7 +178,6 @@ class TestAVerifiedListing:
             select(SourceDocument).where(SourceDocument.work_order_id == order.id)
         )
         assert document is not None
-        assert document.request_id is None
         assert document.company_id is None
         assert document.licence_note == "Licensed market data; internal use only."
         assert not document.quarantined

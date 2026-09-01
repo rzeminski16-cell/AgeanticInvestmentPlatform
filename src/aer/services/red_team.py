@@ -186,7 +186,7 @@ async def run_red_team(
             # The filer's own name, not the one typed into the form (gap A67).
             company_name=await subject_name(session, request),
             ticker=request.ticker,
-            as_of_date=request.as_of_date.isoformat(),
+            as_of_date=request.work_order.as_of_date.isoformat(),
             claims=claims,
             facts=index.facts,
             calculations=index.calculations,
@@ -388,7 +388,7 @@ async def _record_challenge(
         value=Decimal(0),
         unit=THESIS_UNIT,
         tier=_best_tier(challenge, index, fallback=base.tier),
-        filed_date=request.as_of_date,
+        filed_date=request.work_order.as_of_date,
         basis=FactBasis.AS_REPORTED,
     )
 
@@ -463,7 +463,7 @@ def _base_position(
         value=Decimal(0),
         unit=THESIS_UNIT,
         tier=best,
-        filed_date=request.as_of_date,
+        filed_date=request.work_order.as_of_date,
         basis=FactBasis.AS_REPORTED,
     )
 

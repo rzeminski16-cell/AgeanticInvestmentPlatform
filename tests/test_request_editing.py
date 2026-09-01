@@ -26,7 +26,7 @@ from decimal import Decimal
 import pytest
 
 from aer.core.enums import AnalysisMode
-from aer.db.models import ResearchRequest
+from aer.db.models import ResearchRequest, WorkOrder
 from aer.services import requests as request_service
 from aer.web.forms import (
     FORM_FIELDS,
@@ -35,6 +35,7 @@ from aer.web.forms import (
     parse_request_form,
     percent_to_fraction,
 )
+from tests.request_fixtures import research_request
 
 
 def a_request(**overrides: object) -> ResearchRequest:
@@ -68,15 +69,20 @@ def a_request(**overrides: object) -> ResearchRequest:
         "max_cost_gbp": Decimal("2.50"),
     }
     values.update(overrides)
-    return ResearchRequest(**values)
+    return research_request(**values)
 
 
 def _fields_assigned_by_apply() -> set[str]:
-    """Every ``request.<name> = ...`` in :func:`_apply`, read from its source.
+    """Every field ``_apply`` writes, read from its source.
 
     Structural rather than behavioural on purpose. The failure this guards against is a
     field added to ``_apply`` and forgotten in ``_EDITABLE_FIELDS`` — which is invisible to
     any test written against the fields that exist today.
+
+    Both rows count. Since ADR 0072's fourth step three of these land on the work order as
+    ``request.work_order.<name> = ...``, and a scan that only saw ``request.<name>`` would
+    have quietly stopped covering the as-of date, the point-in-time flag and the cap — the
+    three whose silent edit matters most.
     """
     source = textwrap.dedent(inspect.getsource(request_service._apply))
     assigned: set[str] = set()
@@ -84,13 +90,21 @@ def _fields_assigned_by_apply() -> set[str]:
         if not isinstance(node, ast.Assign):
             continue
         for target in node.targets:
-            if (
-                isinstance(target, ast.Attribute)
-                and isinstance(target.value, ast.Name)
-                and target.value.id == "request"
-            ):
+            if isinstance(target, ast.Attribute) and _rooted_at_the_request(target.value):
                 assigned.add(target.attr)
     return assigned
+
+
+def _rooted_at_the_request(node: ast.expr) -> bool:
+    """``request`` itself, or ``request.work_order`` — the two rows a mandate lives on."""
+    if isinstance(node, ast.Name):
+        return node.id == "request"
+    return (
+        isinstance(node, ast.Attribute)
+        and node.attr == "work_order"
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "request"
+    )
 
 
 class TestTheAuditDiffCoversEveryEditableField:
@@ -104,7 +118,19 @@ class TestTheAuditDiffCoversEveryEditableField:
 
     def test_every_declared_field_is_a_real_column(self) -> None:
         for name in request_service._EDITABLE_FIELDS:
-            assert hasattr(ResearchRequest, name), name
+            holder = WorkOrder if name in request_service._RUN_ROOT_FIELDS else ResearchRequest
+            assert hasattr(holder, name), name
+
+    def test_the_run_roots_share_is_declared_and_not_guessed(self) -> None:
+        """The split is a fact about the schema, so it is asserted against the schema.
+
+        A field moved to `work_orders` and left out of `_RUN_ROOT_FIELDS` would make the
+        audit diff read it from the wrong row — which raises today and would silently diff
+        a stale copy the moment anything put one back.
+        """
+        assert set(request_service._EDITABLE_FIELDS) >= request_service._RUN_ROOT_FIELDS
+        for name in request_service._RUN_ROOT_FIELDS:
+            assert not hasattr(ResearchRequest, name), name
 
 
 class TestTheFormRoundTrip:
@@ -119,16 +145,16 @@ class TestTheFormRoundTrip:
         assert payload.ticker == stored.ticker
         assert payload.exchange == stored.exchange
         assert payload.isin == stored.isin
-        assert payload.as_of_date == stored.as_of_date
+        assert payload.as_of_date == stored.work_order.as_of_date
         assert payload.base_currency == stored.base_currency
         assert payload.reporting_currency == stored.reporting_currency
         assert payload.investment_horizon_months == stored.investment_horizon_months
         assert payload.horizon_label == stored.horizon_label
         assert payload.analysis_mode is stored.analysis_mode
-        assert payload.point_in_time == stored.point_in_time
+        assert payload.point_in_time == stored.work_order.point_in_time
         assert payload.focus_questions == stored.focus_questions
         assert payload.excluded_sources == stored.excluded_sources
-        assert payload.max_cost_gbp == stored.max_cost_gbp
+        assert payload.max_cost_gbp == stored.work_order.max_cost_gbp
         assert payload.liquidity_constraint_gbp == stored.liquidity_constraint_gbp
         assert payload.risk_tolerance is not None
         assert payload.risk_tolerance.value == stored.risk_tolerance

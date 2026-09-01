@@ -129,7 +129,7 @@ async def execute_custom_section(
             title=section.definition.title,
             company_name=subject,
             ticker=request.ticker,
-            as_of_date=request.as_of_date.isoformat(),
+            as_of_date=request.work_order.as_of_date.isoformat(),
             output_contract=contract,
             evidence_policy=policy.as_prompt_payload(),
             internal_evidence=evidence.internal,

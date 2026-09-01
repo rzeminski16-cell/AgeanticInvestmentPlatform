@@ -39,13 +39,13 @@ from aer.core.enums import GateKind, UserRole
 from aer.db.models import (
     Report,
     ReportSection,
-    ResearchRequest,
     SectionDefinition,
     User,
 )
 from aer.obsidian import SENTINEL, export_report
 from aer.services.skills import save_skill, set_enabled
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 from tests.run_fixtures import Driver, to_final_gate
 from tests.test_skill_frontmatter import MOAT_DURABILITY
 from tests.workflow_fixtures import AS_OF_DATE, DEFAULT_PER_RUN_BUDGET_GBP
@@ -115,7 +115,7 @@ async def committed(clean_slate: None, db_engine: Any, settings: Settings) -> di
         session.add(user)
         await session.flush()
 
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",

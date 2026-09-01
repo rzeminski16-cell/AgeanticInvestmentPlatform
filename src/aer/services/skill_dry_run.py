@@ -181,7 +181,7 @@ async def dry_run_skill(
     # engine uses, against the same request ceiling, so a rehearsal cannot spend what a
     # run would have been refused.
     guard = BudgetGuard(
-        per_run_cap_gbp=Decimal(str(request.max_cost_gbp)),
+        per_run_cap_gbp=Decimal(str(request.work_order.max_cost_gbp)),
         monthly_cap_gbp=settings.monthly_budget_gbp,
     )
 
@@ -195,21 +195,20 @@ async def dry_run_skill(
     # skill), so a dry run sharing the source run's work order could not rehearse a skill
     # that run had already pinned, which is every skill worth rehearsing.
     work_order = WorkOrder(
-        user_id=request.user_id,
+        user_id=request.work_order.user_id,
         tool="research",
         subject_kind="company",
         subject_id=request.company_id,
-        as_of_date=request.as_of_date,
-        point_in_time=request.point_in_time,
-        max_cost_gbp=request.max_cost_gbp,
-        status=request.status,
+        as_of_date=request.work_order.as_of_date,
+        point_in_time=request.work_order.point_in_time,
+        max_cost_gbp=request.work_order.max_cost_gbp,
+        status=request.work_order.status,
     )
     session.add(work_order)
     await session.flush()
 
     job = Job(
         work_order_id=work_order.id,
-        request_id=request.id,
         workflow_version=DRY_RUN_WORKFLOW,
         code_version=git_sha() or "unknown",
         status=JobStatus.RUNNING,
@@ -236,6 +235,7 @@ async def dry_run_skill(
         session,
         job=job,
         source_job=source_job,
+        request=request,
         skill=skill,
         version=version,
         definition=definition,
@@ -308,6 +308,7 @@ async def _stage(
     *,
     job: Job,
     source_job: Job,
+    request: ResearchRequest,
     skill: Skill,
     version: SkillVersion,
     definition: SectionDefinition,
@@ -319,9 +320,16 @@ async def _stage(
     All of it on the dry run's own job. The source run is named only in the plan's summary
     and the step's input hash, which is where a reader looks to answer "what was this a
     rehearsal *of*?".
+
+    **The plan's ``request_id`` is the mandate's, not the rehearsal's work order.**
+    ``research_plans`` still hangs off ``research_requests``, and a dry run deliberately
+    gets a work order of its own with no mandate under it — so pointing the plan at that
+    work order would be pointing it at a request that does not exist. What the rehearsal
+    owns is its job, its step, its pin and its section; the plan names what it is a
+    rehearsal of.
     """
     plan = ResearchPlan(
-        request_id=job.request_id,
+        request_id=request.id,
         workflow_version=DRY_RUN_WORKFLOW,
         plan={"summary": f"Dry run of {skill.key} against run {source_job.id}", "sections": []},
         planned_sources=[],

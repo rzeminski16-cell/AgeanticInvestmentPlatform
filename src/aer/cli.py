@@ -429,11 +429,16 @@ async def _discard_queued(settings: Settings) -> int:
 
 
 def _research_tables() -> tuple[str, ...]:
-    """Every table holding part of a research request, in the order it must be emptied.
+    """Every table holding part of a run, in the order it must be emptied.
 
-    Walked from ``research_requests`` through the foreign keys rather than listed by hand,
-    so a table added next month is included without anyone remembering to add it here — and
-    a hand-written list that has gone stale is how a "clean" database keeps one run's rows.
+    Walked from ``work_orders`` through the foreign keys rather than listed by hand, so a
+    table added next month is included without anyone remembering to add it here — and a
+    hand-written list that has gone stale is how a "clean" database keeps one run's rows.
+
+    **From the run root, not from the mandate.** Since ADR 0072's fourth step, ``approvals``
+    and ``plan_skill_pins`` reach a run only through ``work_orders``; a walk that still
+    started at ``research_requests`` would leave both behind, and a "clean" database would
+    still hold every approval anybody had ever given.
 
     **Deepest first, and that is not tidiness.** Several of these references are
     ``RESTRICT`` on purpose — a citation pins the extraction it quotes, a claim pins the
@@ -448,7 +453,7 @@ def _research_tables() -> tuple[str, ...]:
         for name, table in Base.metadata.tables.items()
     }
 
-    reached = {"research_requests"}
+    reached = {"work_orders"}
     while True:
         grown = {name for name, refs in parents.items() if refs & reached} | reached
         if grown == reached:

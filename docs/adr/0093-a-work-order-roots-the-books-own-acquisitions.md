@@ -89,13 +89,14 @@ transition anticipated — the mandate row's duplicated `as_of_date` and `point_
 columns are scheduled to drop at its migration step 4, and acquisition reading them was a
 reach into the mandate table for run-root fields, the exact coupling 0072 exists to remove.
 
-**`source_documents.request_id` is written only under a research root.** The column is
-transitional (nullable since 0072's step 3, dropped at its step 4) and carries a foreign
-key to `research_requests`; a portfolio work order has no such row, and writing its id
-there would violate the constraint. The rule is the distinguisher earning its keep: a root
-whose `tool` is `"research"` shares its id with its mandate row by 0072's backfill, so
-`request_id = work_order.id` there and `NULL` otherwise. When 0072's step 4 drops the
-column, this rule goes with it.
+**`source_documents.request_id` was written only under a research root.** The column was
+transitional (nullable since 0072's step 3) and carried a foreign key to
+`research_requests`; a portfolio work order has no such row, and writing its id there would
+have violated the constraint. The rule was the distinguisher earning its keep: a root whose
+`tool` is `"research"` shares its id with its mandate row by 0072's backfill, so
+`request_id = work_order.id` there and `NULL` otherwise. 0072's step 4 dropped the column
+(migration `0064`) and this rule went with it, as anticipated — the work order is the only
+root a source document has now.
 
 **`company_id` on a book acquisition's source document is `NULL` when no company row
 exists.** A never-researched ticker has no `companies` row, and inventing one from a vendor

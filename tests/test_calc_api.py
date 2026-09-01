@@ -35,12 +35,12 @@ from aer.db.models import (
     Company,
     FinancialFact,
     Job,
-    ResearchRequest,
     SourceDocument,
     User,
 )
 from aer.services import calculations as calculation_service
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 from tests.sec_fixtures import MSFT_CIK
 
 pytestmark = pytest.mark.integration
@@ -84,7 +84,7 @@ async def committed(clean_slate, db_engine):
         session.add(user)
         await session.flush()
 
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",
@@ -102,7 +102,6 @@ async def committed(clean_slate, db_engine):
 
         job = Job(
             work_order_id=request.id,
-            request_id=request.id,
             workflow_version="test-1",
             code_version="a1b2c3d4",
             status=JobStatus.RUNNING,
@@ -223,7 +222,6 @@ class TestTheLineageTree:
 
             document = SourceDocument(
                 work_order_id=committed["request"].id,
-                request_id=committed["request"].id,
                 artefact_id=artefact.id,
                 url="https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json",
                 provider=Provider.SEC_EDGAR,

@@ -30,7 +30,6 @@ from aer.db.models import (
     ObsidianExport,
     Report,
     ReportSection,
-    ResearchRequest,
     SectionDefinition,
     SectionStatus,
     User,
@@ -40,6 +39,7 @@ from aer.services import comps as comps_service
 from aer.services.knowledge import knowledge_stats
 from aer.services.sectors import CLASSIFY_STEP
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import seed_job
 
 pytestmark = pytest.mark.anyio
@@ -79,7 +79,7 @@ async def _run(
     A job carries at most one report, so a draft needs a job of its own rather than a
     second row against an approved run's.
     """
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name=company.name,
         ticker=company.ticker or "",

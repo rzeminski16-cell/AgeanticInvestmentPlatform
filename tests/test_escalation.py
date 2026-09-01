@@ -684,7 +684,6 @@ async def _seed_source(
         extras = {"injection_flagged": True, "injection_findings": injection_findings}
     document = SourceDocument(
         work_order_id=scene["request"].id,
-        request_id=scene["request"].id,
         job_id=scene["job"].id,
         artefact_id=artefact.id,
         url=f"https://example.invalid/{artefact.sha256[:12]}.html",
@@ -771,7 +770,7 @@ class TestTheServiceReadsTheRecordedRows:
 
     async def test_cost_rows_near_the_cap_escalate(self, scene: dict[str, Any]) -> None:
         session: AsyncSession = scene["session"]
-        cap = Decimal(str(scene["request"].max_cost_gbp))
+        cap = Decimal(str(scene["request"].work_order.max_cost_gbp))
         session.add(
             Cost(
                 job_id=scene["job"].id,
@@ -1241,7 +1240,8 @@ class TestTheSealHoldsWhileTheRunKeepsSpending:
         await _seal_a_cap_the_run_is_over(driven)
         before = await final_gate_payload(driven["session"], job_id=driven["job"].id)
 
-        driven["request"].max_cost_gbp = Decimal(str(driven["request"].max_cost_gbp)) * 10
+        order = driven["request"].work_order
+        order.max_cost_gbp = Decimal(str(order.max_cost_gbp)) * 10
         await driven["session"].flush()
 
         after = await final_gate_payload(driven["session"], job_id=driven["job"].id)

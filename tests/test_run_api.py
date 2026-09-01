@@ -63,6 +63,7 @@ from aer.services.red_team import _shortened
 from aer.web.csrf import CSRF_FIELD_NAME
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 from tests.run_fixtures import Driver, start_run, to_final_gate
 from tests.workflow_fixtures import (
     AS_OF_DATE,
@@ -122,7 +123,7 @@ async def committed(clean_slate: None, db_engine: Any) -> dict[str, Any]:
         session.add(user)
         await session.flush()
 
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",
@@ -320,7 +321,6 @@ class TestTheTimelineWhenTheWorkflowIsUnknown:
     def _state(version: str) -> run_service.RunState:
         job = Job(
             work_order_id=uuid.uuid4(),
-            request_id=uuid.uuid4(),
             workflow_version=version,
             code_version="test",
             status=JobStatus.RUNNING,
@@ -571,7 +571,7 @@ async def someone_elses_run(committed: dict, db_engine: Any) -> uuid.UUID:
         session.add(other)
         await session.flush()
 
-        request = ResearchRequest(
+        request = research_request(
             user_id=other.id,
             company_name="Rio Tinto plc",
             ticker="RIO",
@@ -1754,7 +1754,6 @@ class TestTheWebPages:
         async with factory() as session:
             job = Job(
                 work_order_id=committed["request"].id,
-                request_id=committed["request"].id,
                 workflow_version="vertical_slice_v1",
                 code_version="unapproved123456",
                 status=JobStatus.SUCCEEDED,
@@ -1764,7 +1763,7 @@ class TestTheWebPages:
             report = Report(
                 job_id=job.id,
                 request_id=committed["request"].id,
-                as_of_date=committed["request"].as_of_date,
+                as_of_date=committed["request"].work_order.as_of_date,
                 content={"markdown": "draft"},
                 content_hash="0" * 64,
                 immutable=False,
@@ -1905,14 +1904,12 @@ class TestTheHistorySurfaces:
 
             approved_job = Job(
                 work_order_id=committed["request"].id,
-                request_id=committed["request"].id,
                 workflow_version="vertical_slice_v1",
                 code_version="historyseed12345",
                 status=JobStatus.SUCCEEDED,
             )
             draft_job = Job(
                 work_order_id=committed["request"].id,
-                request_id=committed["request"].id,
                 workflow_version="vertical_slice_v1",
                 code_version="historyseed12345",
                 status=JobStatus.SUCCEEDED,
@@ -1924,7 +1921,7 @@ class TestTheHistorySurfaces:
                 job_id=approved_job.id,
                 request_id=committed["request"].id,
                 company_id=company.id,
-                as_of_date=committed["request"].as_of_date,
+                as_of_date=committed["request"].work_order.as_of_date,
                 valuation_low=Decimal("180"),
                 valuation_high=Decimal("220"),
                 valuation_currency="USD",
@@ -1937,7 +1934,7 @@ class TestTheHistorySurfaces:
                 job_id=draft_job.id,
                 request_id=committed["request"].id,
                 company_id=company.id,
-                as_of_date=committed["request"].as_of_date,
+                as_of_date=committed["request"].work_order.as_of_date,
                 content={"markdown": "draft"},
                 content_hash="d" * 64,
                 immutable=False,
@@ -2062,9 +2059,9 @@ class TestTheBudgetBanner:
             # Below the platform's own per-run budget, which is where a request that can
             # still be raised sits. The seed puts them equal, and equal is the one case
             # with nowhere to go.
-            research = await session.get(ResearchRequest, job.request_id)
+            research = await session.get(ResearchRequest, job.work_order_id)
             assert research is not None
-            research.max_cost_gbp = Decimal(cap)
+            research.work_order.max_cost_gbp = Decimal(cap)
             session.add(
                 JobStep(
                     job_id=job_id,
@@ -2136,9 +2133,9 @@ class TestTheBudgetBanner:
         async with factory() as session:
             job = await session.get(Job, job_id)
             assert job is not None
-            research = await session.get(ResearchRequest, job.request_id)
+            research = await session.get(ResearchRequest, job.work_order_id)
             assert research is not None
-            assert Decimal(str(research.max_cost_gbp)) == Decimal("9.00")
+            assert Decimal(str(research.work_order.max_cost_gbp)) == Decimal("9.00")
 
     async def test_a_figure_that_is_not_a_number_is_refused_by_name(
         self, api: Any, committed: dict, db_engine: Any
@@ -2181,9 +2178,9 @@ class TestTheBudgetBanner:
         async with factory() as session:
             job = await session.get(Job, job_id)
             assert job is not None
-            research = await session.get(ResearchRequest, job.request_id)
+            research = await session.get(ResearchRequest, job.work_order_id)
             assert research is not None
-            assert Decimal(str(research.max_cost_gbp)) == Decimal("4.00")
+            assert Decimal(str(research.work_order.max_cost_gbp)) == Decimal("4.00")
 
     async def test_a_monthly_stop_is_not_offered_a_raise_that_would_do_nothing(
         self, api: Any, committed: dict, db_engine: Any

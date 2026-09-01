@@ -43,6 +43,7 @@ from aer.sources.sec.submissions import parse_submissions
 from aer.storage.local import LocalArtefactStore
 from aer.version import git_sha
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
+from tests.request_fixtures import research_request
 from tests.schema_guard import refuse_unanswerable_schema
 from tests.sec_fixtures import MSFT_CIK, fixture_bytes
 
@@ -743,7 +744,7 @@ async def seed_request(
     max_cost_gbp: Decimal = DEFAULT_PER_RUN_BUDGET_GBP,
     as_of_date: date = AS_OF_DATE,
 ) -> ResearchRequest:
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -763,7 +764,6 @@ async def seed_request(
 async def seed_job(session: AsyncSession, *, request: ResearchRequest) -> Job:
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version=WORKFLOW_VERSION,
         code_version=git_sha() or "test",
         status=JobStatus.QUEUED,

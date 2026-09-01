@@ -36,7 +36,7 @@ from aer.api.deps import (
     StoreDep,
 )
 from aer.core.enums import JobStatus
-from aer.db.models import Job, ResearchRequest, Skill
+from aer.db.models import Job, Skill, WorkOrder
 from aer.errors import AerError
 from aer.services import skills as skill_service
 from aer.services.mandate import mandate_of
@@ -444,9 +444,9 @@ async def _dry_run_targets(session: DbSession, *, user: CurrentUser) -> list[dic
     """
     rows = await session.scalars(
         select(Job)
-        .join(ResearchRequest, ResearchRequest.id == Job.work_order_id)
+        .join(WorkOrder, WorkOrder.id == Job.work_order_id)
         .where(
-            ResearchRequest.user_id == user.id,
+            WorkOrder.user_id == user.id,
             Job.workflow_version != DRY_RUN_WORKFLOW,
             Job.status.in_([JobStatus.SUCCEEDED, JobStatus.AWAITING_APPROVAL]),
         )
@@ -463,7 +463,7 @@ async def _dry_run_targets(session: DbSession, *, user: CurrentUser) -> list[dic
                 "job_id": str(job.id),
                 "label": (
                     f"{research_request.company_name} ({research_request.ticker}) "
-                    f"as at {research_request.as_of_date.isoformat()}"
+                    f"as at {research_request.work_order.as_of_date.isoformat()}"
                 ),
                 "status": job.status.value,
             }
@@ -480,7 +480,7 @@ async def _owned_job(session: DbSession, *, job_id: str, user: CurrentUser) -> J
     if job is None:
         return None
     research_request = await mandate_of(session, job)
-    if research_request is None or research_request.user_id != user.id:
+    if research_request is None or research_request.work_order.user_id != user.id:
         return None
     return job
 

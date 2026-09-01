@@ -25,11 +25,12 @@ from sqlalchemy.pool import NullPool
 
 from aer.config import load_settings
 from aer.core.enums import GateKind, JobStatus
-from aer.db.models import Job, JobStep, Report, ResearchRequest, User
+from aer.db.models import Job, JobStep, Report, User
 from aer.services import runs as run_service
 from aer.web.vocabulary import JOB_STATES
 from tests.db_fixtures import run_async
 from tests.e2e.worker import Worker
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import (
     AS_OF_DATE,
     DEFAULT_PER_RUN_BUDGET_GBP,
@@ -76,7 +77,7 @@ class RunFixture:
                 user = await session.scalar(select(User))
                 assert user is not None, "the live_server fixture seeds one"
 
-                request = ResearchRequest(
+                request = research_request(
                     user_id=user.id,
                     company_name="Microsoft Corporation",
                     ticker="MSFT",

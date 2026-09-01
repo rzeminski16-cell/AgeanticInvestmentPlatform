@@ -428,7 +428,6 @@ async def _document_for(
 
     document = SourceDocument(
         work_order_id=request.id,
-        request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,
         url=url,

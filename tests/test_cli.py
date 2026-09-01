@@ -30,6 +30,7 @@ from aer.fetch.policy import DEFAULT_POLICIES, RetentionClass
 from aer.storage.local import LocalArtefactStore
 from aer.version import version
 from tests.db_cleanup import empty_the_database
+from tests.request_fixtures import research_request
 
 runner = CliRunner()
 
@@ -296,7 +297,7 @@ def _seed_request(database_url: str) -> None:
                 session.add(user)
                 await session.flush()
                 session.add(
-                    ResearchRequest(
+                    research_request(
                         user_id=user.id,
                         company_name="Contoso Corporation",
                         ticker="CTSO",
@@ -476,7 +477,7 @@ def _seed_licensed_artefact(database_url: str, root: Path, payload: bytes) -> st
                 user = User(email="purge@example.invalid", display_name="P", role=UserRole.OWNER)
                 session.add(user)
                 await session.flush()
-                request = ResearchRequest(
+                request = research_request(
                     user_id=user.id,
                     company_name="Microsoft Corporation",
                     ticker="MSFT",
@@ -498,7 +499,6 @@ def _seed_licensed_artefact(database_url: str, root: Path, payload: bytes) -> st
                 session.add(
                     SourceDocument(
                         work_order_id=request.id,
-                        request_id=request.id,
                         artefact_id=artefact.id,
                         url="https://eodhd.com/api/eod/MSFT.US",
                         title="MSFT end-of-day prices",

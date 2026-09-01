@@ -17,9 +17,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import Decision, GateKind, JobStatus, RequestStatus, UserRole
 from aer.core.hashing import chain_hash, find_chain_break
-from aer.db.models import AuditEvent, Job, ResearchRequest, User
+from aer.db.models import AuditEvent, Job, User
 from aer.services.approvals import payload_hash_for, record_decision
 from aer.services.audit_verify import verify_audit_chain
+from tests.request_fixtures import research_request
 
 
 class _Link:
@@ -262,7 +263,7 @@ class TestTheChainOverARealLog:
         user = User(email="audit@example.invalid", display_name="Audit", role=UserRole.OWNER)
         db_session.add(user)
         await db_session.flush()
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",
@@ -279,7 +280,6 @@ class TestTheChainOverARealLog:
         await db_session.flush()
         job = Job(
             work_order_id=request.id,
-            request_id=request.id,
             workflow_version="test-1",
             code_version="a1b2c3d4",
             status=JobStatus.RUNNING,

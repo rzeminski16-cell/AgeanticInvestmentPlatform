@@ -126,7 +126,6 @@ async def record_decision(
 
     approval = Approval(
         work_order_id=job.work_order_id,
-        request_id=job.request_id,
         job_id=job.id,
         gate=gate,
         decision=decision,
@@ -148,7 +147,7 @@ async def record_decision(
             "approval_id": str(approval.id),
         },
         previous=previous,
-        request_id=job.request_id,
+        request_id=job.work_order_id,
         job_id=job.id,
     )
     session.add(event)

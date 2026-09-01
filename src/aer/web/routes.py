@@ -615,14 +615,14 @@ def _detail_view(item: ResearchRequest, *, job: Job | None) -> dict[str, Any]:
     module exists is that the console, the gates and this page render one number one way.
     """
     now = datetime.now(UTC)
-    state = vocabulary.request_state(item.status)
+    state = vocabulary.request_state(item.work_order.status)
     # The run's own state, which is not the request's. Nothing moves a request to
     # CANCELLED when its run is cancelled — the job row is where that truth lives — so a
     # page that showed only the request's state would offer "start a new run" without ever
     # saying what happened to the old one.
     run = vocabulary.job_state(job.status) if job is not None else None
     cost = figures.cost_context(
-        spent=job.total_cost_gbp if job else Decimal(0), ceiling=item.max_cost_gbp
+        spent=job.total_cost_gbp if job else Decimal(0), ceiling=item.work_order.max_cost_gbp
     )
     since = (job.finished_at or job.started_at) if job else None
 
@@ -657,7 +657,7 @@ def _detail_view(item: ResearchRequest, *, job: Job | None) -> dict[str, Any]:
                 "label": "Point-in-time",
                 "value": (
                     "On — no source published after the as-of date may be used"
-                    if item.point_in_time
+                    if item.work_order.point_in_time
                     else "Off — look-ahead bias is possible"
                 ),
             },
@@ -669,7 +669,7 @@ def _detail_view(item: ResearchRequest, *, job: Job | None) -> dict[str, Any]:
             },
             {
                 "label": "Most it may cost",
-                "value": figures.pounds(item.max_cost_gbp),
+                "value": figures.pounds(item.work_order.max_cost_gbp),
                 "is_data": True,
             },
             {

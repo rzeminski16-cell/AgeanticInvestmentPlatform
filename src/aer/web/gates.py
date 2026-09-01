@@ -238,12 +238,13 @@ async def frame_for(session: AsyncSession, *, job: Job, gate: GateKind) -> dict[
         ),
         "gate_cost": figures.cost_context(
             spent=state.spend_gbp,
-            ceiling=request.max_cost_gbp if request is not None else None,
+            ceiling=request.work_order.max_cost_gbp if request is not None else None,
         ),
         "decided": decided_label or None,
         "decided_note": decided_note,
         "run_identity": (
-            f"{request.company_name} · {request.ticker} · as at {request.as_of_date.isoformat()}"
+            f"{request.company_name} · {request.ticker} · "
+            f"as at {request.work_order.as_of_date.isoformat()}"
             if request is not None
             else "Research run"
         ),

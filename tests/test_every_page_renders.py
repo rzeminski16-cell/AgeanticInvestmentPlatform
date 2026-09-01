@@ -40,10 +40,10 @@ from aer.db.models import (
     Company,
     Portfolio,
     Report,
-    ResearchRequest,
     User,
 )
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 from tests.route_fixtures import page_routes_for
 from tests.run_fixtures import Driver, to_final_gate
 from tests.workflow_fixtures import AS_OF_DATE, DEFAULT_PER_RUN_BUDGET_GBP
@@ -81,7 +81,7 @@ async def committed(db_engine: Any) -> Any:
         user = User(email="owner@example.invalid", display_name="Owner", role=UserRole.OWNER)
         session.add(user)
         await session.flush()
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",

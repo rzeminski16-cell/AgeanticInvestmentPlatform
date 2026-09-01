@@ -79,7 +79,7 @@ class TestTheCapIsTheOneFieldThatMovesUnderAWorker:
             ceiling_gbp=CEILING,
         )
 
-        assert Decimal(str(scene["request"].max_cost_gbp)) == Decimal("2.00")
+        assert Decimal(str(scene["request"].work_order.max_cost_gbp)) == Decimal("2.00")
 
     async def test_the_work_order_moves_with_it(self, scene: dict[str, Any]) -> None:
         """ADR 0072: the guards read the work order, so a mandate-only raise raises nothing."""
@@ -131,7 +131,7 @@ class TestOnlyUpwards:
             )
 
         assert "cancel it" in caught.value.message
-        assert Decimal(str(scene["request"].max_cost_gbp)) == Decimal("1.00")
+        assert Decimal(str(scene["request"].work_order.max_cost_gbp)) == Decimal("1.00")
 
     async def test_the_platform_s_own_budget_is_still_the_ceiling(
         self, scene: dict[str, Any]
@@ -147,7 +147,7 @@ class TestOnlyUpwards:
             )
 
         assert "AER_PER_RUN_BUDGET_GBP" in caught.value.message
-        assert Decimal(str(scene["request"].max_cost_gbp)) == Decimal("1.00")
+        assert Decimal(str(scene["request"].work_order.max_cost_gbp)) == Decimal("1.00")
 
 
 class TestTheGuardSeesItAtTheNextStep:

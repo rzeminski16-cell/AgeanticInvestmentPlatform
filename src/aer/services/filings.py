@@ -303,7 +303,7 @@ def _wanted(
     possible place, and the one where a filing that postdates the as-of date stops being a
     candidate rather than being fetched and then refused.
     """
-    as_of = request.as_of_date if request.point_in_time else None
+    as_of = request.work_order.as_of_date if request.work_order.point_in_time else None
     annual = index.latest(ANNUAL_FORMS, as_of_date=as_of)
 
     candidates = index.filed_on_or_before(as_of) if as_of else index.filings

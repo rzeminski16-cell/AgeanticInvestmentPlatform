@@ -715,8 +715,8 @@ async def _price_input(session: AsyncSession, *, request: ResearchRequest) -> Pr
     series = await adjusted_series_for(
         session,
         security,
-        as_of=request.as_of_date,
-        since=request.as_of_date - timedelta(days=_PRICE_WINDOW_DAYS),
+        as_of=request.work_order.as_of_date,
+        since=request.work_order.as_of_date - timedelta(days=_PRICE_WINDOW_DAYS),
     )
     if not series.bars:
         return PriceRelativeInput()

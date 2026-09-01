@@ -56,6 +56,7 @@ from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.facts import upsert_company
 from aer.sources.base import ResolvedEntity
 from aer.storage.local import LocalArtefactStore
+from tests.request_fixtures import research_request
 from tests.sec_fixtures import MSFT_CIK, fixture_bytes
 from tests.test_sec_persistence import fetched
 
@@ -397,7 +398,7 @@ async def request_row(db_session) -> ResearchRequest:
     db_session.add(user)
     await db_session.flush()
 
-    row = ResearchRequest(
+    row = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -419,7 +420,6 @@ async def request_row(db_session) -> ResearchRequest:
 async def job(db_session, request_row) -> Job:
     row = Job(
         work_order_id=request_row.id,
-        request_id=request_row.id,
         workflow_version="test-1",
         code_version="a1b2c3d4",
         status=JobStatus.RUNNING,

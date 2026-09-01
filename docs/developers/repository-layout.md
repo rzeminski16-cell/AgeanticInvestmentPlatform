@@ -91,6 +91,7 @@ src/aer/            application package
   render/markdown.py  the document: header, sections, footnotes, sources, disclaimer
   services/         business operations: requests, artefacts, provenance, facts,
                     calculations, approvals (gate order and payload hashes), runs
+    mandate.py      the equity mandate for a run, if it has one; None is a real answer
   runtime.py        assembles the service bundle both processes share
   queue.py          enqueueing a run, from the web process
   worker.py         the arq worker: where a research run actually executes

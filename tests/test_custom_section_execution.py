@@ -67,7 +67,6 @@ from aer.db.models import (
     Report,
     ReportSection,
     ResearchPlan,
-    ResearchRequest,
     SectionStatus,
     SourceDocument,
     User,
@@ -83,6 +82,7 @@ from aer.skills.execution import MAX_GENERATION_ATTEMPTS, execute_custom_section
 from aer.skills.resolution import PLANNED_CUSTOM_SECTION_TOOLS, resolve_skills_for_plan
 from aer.storage.local import LocalArtefactStore
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
+from tests.request_fixtures import research_request
 from tests.test_skill_frontmatter import MOAT_DURABILITY
 from tests.test_workflow import approve, run_clearing_the_assumptions_gate, run_to_next_stop
 from tests.workflow_fixtures import (
@@ -1161,7 +1161,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     db_session.add(user)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -1178,7 +1178,6 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
 
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version=WORKFLOW_VERSION,
         code_version="test",
         status=JobStatus.RUNNING,
@@ -1217,7 +1216,6 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
 
     document = SourceDocument(
         work_order_id=request.id,
-        request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,
         url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",
@@ -1699,7 +1697,6 @@ class TestTheMoatDurabilityExampleEndToEnd:
         await db_session.flush()
         document = SourceDocument(
             work_order_id=request.id,
-            request_id=request.id,
             job_id=job.id,
             artefact_id=artefact.id,
             url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",

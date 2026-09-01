@@ -63,7 +63,7 @@ async def create_request(
     await session.commit()
 
     response.headers["Location"] = f"{router.prefix}/{created.id}"
-    return ResearchRequestRead.model_validate(created)
+    return request_service.mandate_read(created)
 
 
 @router.get("", response_model=list[ResearchRequestSummary], summary="List research requests")
@@ -77,7 +77,7 @@ async def list_requests(
     rows = await request_service.list_requests(
         session, user_id=user.id, limit=limit, offset=offset, archived=archived
     )
-    return [ResearchRequestSummary.model_validate(row) for row in rows]
+    return [request_service.mandate_summary(row) for row in rows]
 
 
 @router.get("/{request_id}", response_model=ResearchRequestRead, summary="Read one request")
@@ -86,7 +86,7 @@ async def read_request(
     session: DbSession,
     user: CurrentUser,
 ) -> ResearchRequestRead:
-    return ResearchRequestRead.model_validate(await _owned(session, request_id, user))
+    return request_service.mandate_read(await _owned(session, request_id, user))
 
 
 @router.put("/{request_id}", response_model=ResearchRequestRead, summary="Replace a draft request")
@@ -118,7 +118,7 @@ async def replace_request(
         limits=request_service.limits_from(settings),
     )
     await session.commit()
-    return ResearchRequestRead.model_validate(updated)
+    return request_service.mandate_read(updated)
 
 
 @router.delete("/{request_id}", status_code=HTTP_204_NO_CONTENT, summary="Delete a draft request")
@@ -158,7 +158,7 @@ async def archive_request(
     found = await _owned(session, request_id, user)
     archived = await request_service.archive_request(session, request=found, actor=user)
     await session.commit()
-    return ResearchRequestRead.model_validate(archived)
+    return request_service.mandate_read(archived)
 
 
 @router.post(
@@ -177,7 +177,7 @@ async def restore_request(
     found = await _owned(session, request_id, user)
     restored = await request_service.restore_request(session, request=found, actor=user)
     await session.commit()
-    return ResearchRequestRead.model_validate(restored)
+    return request_service.mandate_read(restored)
 
 
 @router.get(

@@ -41,6 +41,7 @@ from aer.db.models import (
     ReportSection,
     ResearchRequest,
     SectionStatus,
+    WorkOrder,
 )
 from aer.services.analysis import annual_facts, quantities_of
 from aer.services.calculations import new_context, persist_context
@@ -123,8 +124,9 @@ async def company_for_user(
         return None
     theirs = await session.scalar(
         select(ResearchRequest.id)
+        .join(WorkOrder, WorkOrder.id == ResearchRequest.id)
         .where(
-            ResearchRequest.user_id == user_id,
+            WorkOrder.user_id == user_id,
             ResearchRequest.ticker == company.ticker,
             ResearchRequest.exchange == company.exchange,
         )
@@ -616,7 +618,9 @@ async def prior_comparison_content(
         )
     )
     priors = (
-        await approved_reports_for(session, company_id=company.id, before=request.as_of_date)
+        await approved_reports_for(
+            session, company_id=company.id, before=request.work_order.as_of_date
+        )
         if company is not None
         else []
     )
@@ -663,7 +667,9 @@ async def prior_comparison_content(
     outcome_context = new_context()
 
     for prior in priors:
-        for outcome in await catalyst_outcomes_for(session, prior=prior, as_of=request.as_of_date):
+        for outcome in await catalyst_outcomes_for(
+            session, prior=prior, as_of=request.work_order.as_of_date
+        ):
             comparisons.append(
                 {
                     "aspect": f"Catalyst — {outcome.label}",
@@ -685,8 +691,8 @@ async def prior_comparison_content(
             session,
             outcome_context,
             prior=prior,
-            as_of=request.as_of_date,
-            point_in_time=request.point_in_time,
+            as_of=request.work_order.as_of_date,
+            point_in_time=request.work_order.point_in_time,
         ):
             comparisons.append(_assumption_row(measured))
 

@@ -66,7 +66,7 @@ async def triggers_for_job(
     :func:`cost_scene_for_job`.
     """
     return fire_triggers(
-        point_in_time=request.point_in_time,
+        point_in_time=request.work_order.point_in_time,
         metrics=await _metric_scores(session, job=job),
         sections=await _section_scenes(session, job=job, request=request),
         conflicts=await _conflict_scenes(session, job=job),
@@ -133,7 +133,7 @@ async def cost_scene_for_job(
     # the writer assigned — a string, in several test seeds — until it round-trips the
     # NUMERIC column. The engine does arithmetic on the cap, and "2.50" * Decimal raises.
     return CostScene(
-        cap_gbp=Decimal(str(request.max_cost_gbp)),
+        cap_gbp=Decimal(str(request.work_order.max_cost_gbp)),
         estimated_gbp=estimated,
         actual_gbp=Decimal(str(actual if actual is not None else 0)),
     )
@@ -281,7 +281,7 @@ async def _source_scenes(
         scenes.append(
             SourceScene(
                 name=row.title or row.url,
-                post_dated=latest is not None and latest > request.as_of_date,
+                post_dated=latest is not None and latest > request.work_order.as_of_date,
                 admissible=row.is_admissible,
                 injection_flagged=row.injection_flagged,
             )

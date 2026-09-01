@@ -28,6 +28,7 @@ from aer.db.models import (
 from aer.services.segments import sweep_segment_facts
 from aer.storage.local import LocalArtefactStore
 from tests.ixbrl_fixtures import SEGMENT_AXIS, SEGMENT_TRUTH, WITH_SEGMENTS
+from tests.request_fixtures import research_request
 
 pytestmark = [pytest.mark.anyio, pytest.mark.integration]
 
@@ -46,7 +47,7 @@ async def scene(db_session: AsyncSession, store: LocalArtefactStore) -> dict[str
     db_session.add(user)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Acme Holdings plc",
         ticker="ACME",
@@ -62,7 +63,6 @@ async def scene(db_session: AsyncSession, store: LocalArtefactStore) -> dict[str
 
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version="vertical_slice_v1",
         code_version="test",
         status=JobStatus.RUNNING,
@@ -109,7 +109,6 @@ async def _record(
 
     document = SourceDocument(
         work_order_id=request.id,
-        request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,
         url=f"https://www.sec.gov/Archives/edgar/data/1234567/{stored.sha256[:8]}.htm",

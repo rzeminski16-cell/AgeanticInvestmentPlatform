@@ -50,10 +50,10 @@
     {% call ui.page_header(
       research_request.company_name if research_request else "Research run",
       eyebrow="RESEARCH RUN",
-      identity=(research_request.ticker ~ " · as at " ~ research_request.as_of_date.isoformat())
+      identity=(research_request.ticker ~ " · as at " ~ research_request.work_order.as_of_date.isoformat())
                if research_request else "",
       breadcrumbs=([{"href": "/requests", "label": "Requests"},
-                    {"href": "/requests/" ~ job.request_id, "label": research_request.company_name}]
+                    {"href": "/requests/" ~ job.work_order_id, "label": research_request.company_name}]
                    if research_request else [{"href": "/requests", "label": "Requests"}]),
     ) %}
       <span id="run-status">{{ ui.status(run_words.tone.value, run_words.label) }}</span>

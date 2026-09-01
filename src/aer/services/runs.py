@@ -95,7 +95,6 @@ async def start_run(session: AsyncSession, *, request: ResearchRequest) -> Job:
 
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version=DEFAULT_WORKFLOW_VERSION,
         code_version=git_sha() or "unknown",
         status=JobStatus.QUEUED,
@@ -449,7 +448,7 @@ async def awaiting_approval_count(session: AsyncSession, *, user_id: uuid.UUID) 
     total = await session.scalar(
         select(func.count())
         .select_from(Job)
-        .join(ResearchRequest, ResearchRequest.id == Job.work_order_id)
-        .where(Job.status == JobStatus.AWAITING_APPROVAL, ResearchRequest.user_id == user_id)
+        .join(WorkOrder, WorkOrder.id == Job.work_order_id)
+        .where(Job.status == JobStatus.AWAITING_APPROVAL, WorkOrder.user_id == user_id)
     )
     return int(total or 0)

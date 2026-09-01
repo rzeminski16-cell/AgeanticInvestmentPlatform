@@ -220,15 +220,8 @@ async def record_source_document(
         as_of_date=work_order.as_of_date,
     )
 
-    # The transitional mandate pointer is written only under a research root, whose id the
-    # mandate row shares (ADR 0072's backfill). A portfolio work order has no
-    # `research_requests` row, and writing its id here would violate the foreign key.
-    # Dropped entirely at 0072's migration step 4.
-    request_id = work_order.id if work_order.tool == "research" else None
-
     document = SourceDocument(
         work_order_id=work_order.id,
-        request_id=request_id,
         job_id=job_id,
         company_id=company_id,
         artefact_id=artefact.id,
@@ -306,7 +299,11 @@ async def record_source_document(
                     "reason": decision.reason,
                 },
                 previous=previous,
-                request_id=request_id,
+                # The run root's id. `audit_events.request_id` is an unconstrained
+                # correlation column, and it correlates a record to the run rather than to
+                # a mandate — so a book's acquisition, which has no mandate, is reachable by
+                # the same query instead of chaining against NULL.
+                request_id=work_order.id,
                 job_id=job_id,
             )
         )
@@ -369,7 +366,7 @@ async def override_admissibility(
                 "reason": source.admissibility_override_reason,
             },
             previous=previous,
-            request_id=source.request_id,
+            request_id=source.work_order_id,
             job_id=source.job_id,
         )
     )

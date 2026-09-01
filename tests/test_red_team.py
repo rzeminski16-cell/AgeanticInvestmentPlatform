@@ -48,7 +48,6 @@ from aer.db.models import (
     FinancialFact,
     Job,
     JobStep,
-    ResearchRequest,
     SectionDefinition,
     SectionStatus,
     SourceDocument,
@@ -67,6 +66,7 @@ from aer.services.escalation import triggers_for_job
 from aer.services.red_team import MATERIAL_SEVERITY, _shortened, run_red_team
 from aer.storage.local import LocalArtefactStore
 from tests.ledger_fixtures import record_valuation_ledger
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
 pytestmark = pytest.mark.anyio
@@ -288,7 +288,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     db_session.add(user)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -305,7 +305,6 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
 
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version="vertical_slice_v1",
         code_version="test",
         status=JobStatus.RUNNING,
@@ -345,7 +344,6 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
 
     document = SourceDocument(
         work_order_id=request.id,
-        request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,
         url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",

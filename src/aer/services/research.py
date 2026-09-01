@@ -257,7 +257,9 @@ def build_executors(
             found = await sec_client.search_full_text(
                 tool_request.query.strip(),
                 cik=cik,
-                as_of_date=request.as_of_date if request.point_in_time else None,
+                as_of_date=request.work_order.as_of_date
+                if request.work_order.point_in_time
+                else None,
                 size=MAX_HITS,
             )
         except AerError as refused:
@@ -269,7 +271,7 @@ def build_executors(
             )
 
         usable, excluded = found.data.admissible(
-            request.as_of_date if request.point_in_time else None
+            request.work_order.as_of_date if request.work_order.point_in_time else None
         )
         # Newest first (gap O9): a live run spent two of its twelve fetches on
         # decade-old 10-Ks because the listing arrived in index order. Nothing is
@@ -363,7 +365,10 @@ async def _web_search(
     fee and the carrying call's tokens — land as ``costs`` rows against this step before
     the results are returned.
     """
-    if request.point_in_time and request.as_of_date < datetime.now(UTC).date():
+    if (
+        request.work_order.point_in_time
+        and request.work_order.as_of_date < datetime.now(UTC).date()
+    ):
         return ExecutedTool(
             tool=tool_request.tool,
             query=tool_request.query,
@@ -938,7 +943,7 @@ async def run_worker(
         # The filer's own name, not the one typed into the form (gap A67).
         company_name=await subject_name(session, request),
         ticker=request.ticker,
-        as_of_date=request.as_of_date.isoformat(),
+        as_of_date=request.work_order.as_of_date.isoformat(),
         executors=executors if executors is not None else build_executors(session, request=request),
         validate=validator,
     )

@@ -22,7 +22,6 @@ from aer.db.models import (
     Company,
     Evaluation,
     ReportSection,
-    ResearchRequest,
     SectionStatus,
     SourceDocument,
     User,
@@ -31,6 +30,7 @@ from aer.errors import ValidationError
 from aer.render.glance import Glance
 from aer.services.acceptance import acceptance_readout
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 from tests.run_fixtures import Driver, to_final_gate
 from tests.workflow_fixtures import AS_OF_DATE, DEFAULT_PER_RUN_BUDGET_GBP
 
@@ -68,7 +68,7 @@ async def committed(clean_slate: None, db_engine: Any) -> dict[str, Any]:
         user = User(email="p11@example.invalid", display_name="P11", role=UserRole.OWNER)
         session.add(user)
         await session.flush()
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",

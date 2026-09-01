@@ -22,10 +22,11 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from aer.core.enums import JobStatus
-from aer.db.models import Job, ResearchRequest, User
+from aer.db.models import Job, User
 from aer.services.runs import awaiting_approval_count
 from aer.web.shell import GUIDANCE_COOKIE
 from tests.db_fixtures import run_async
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE, DEFAULT_PER_RUN_BUDGET_GBP
 
 pytestmark = [pytest.mark.e2e, pytest.mark.integration]
@@ -57,7 +58,7 @@ class StoppedRuns:
                 assert user is not None, "the live_server fixture seeds one"
 
                 for index in range(self.count):
-                    request = ResearchRequest(
+                    request = research_request(
                         user_id=user.id,
                         company_name=f"Contoso {index}",
                         ticker=f"CTS{index}",
@@ -73,7 +74,6 @@ class StoppedRuns:
                     session.add(
                         Job(
                             work_order_id=request.id,
-                            request_id=request.id,
                             workflow_version="test",
                             code_version="abc",
                             status=JobStatus.AWAITING_APPROVAL,
@@ -111,7 +111,7 @@ class FinishedRun:
                 user = await session.scalar(select(User))
                 assert user is not None, "the live_server fixture seeds one"
 
-                request = ResearchRequest(
+                request = research_request(
                     user_id=user.id,
                     company_name="Contoso Finished",
                     ticker="CTSF",
@@ -128,7 +128,6 @@ class FinishedRun:
                 session.add(
                     Job(
                         work_order_id=request.id,
-                        request_id=request.id,
                         workflow_version="test",
                         code_version="abc",
                         status=JobStatus.SUCCEEDED,

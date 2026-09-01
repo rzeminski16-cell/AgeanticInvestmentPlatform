@@ -364,13 +364,25 @@ to the page, nothing stored, every figure carrying the grade of the weakest thin
 — including the sign flip that turns the book's side of a flow into the investor's, which is
 the one arithmetic step nobody would think to check.
 
-**3.3 Step 4 of the work-order migration.** Drop `jobs.request_id`,
-`approvals.request_id`, `source_documents.request_id` and the columns duplicated on
-`research_requests`. Deliberately staged as a later revision (ADR 0072): while those
-columns still hold the data, dropping `work_orders` discards nothing, so the downgrade is
-lossless rather than merely declared. Needs the 25 `session.get(ResearchRequest, …)`
-lookups (re-counted 2026-08-28 across 11 files, 11 of them in `web/pages.py`) to become
-optional mandate reads first, since a monitor run will have none.
+**3.3 Step 4 of the work-order migration.** **Done 2026-09-01** — migration `0064`.
+`jobs.request_id`, `approvals.request_id` and `source_documents.request_id` are gone, and so
+are the six columns duplicated on `research_requests` (`user_id`, `as_of_date`,
+`point_in_time`, `max_cost_gbp`, `status`, `archived_at`) and the function that kept the two
+copies in step. `research_requests.id` is a foreign key to `work_orders.id` now, so the shared
+key is something the database keeps rather than a convention two modules remember.
+
+Staged as a later revision on purpose (ADR 0072): while the columns still held the data,
+dropping `work_orders` discarded nothing, so the downgrade was lossless rather than merely
+declared. `0064`'s own downgrade is where that stops being free, and it says so — it backfills
+every column exactly, then deletes work orders with no detail row before re-imposing `NOT
+NULL`, because downgrading past this point is downgrading past the existence of runs that are
+not about a company.
+
+The mandate lookups moved first: `services/mandate.py` answers "the mandate for this run, if
+it has one" and the 17 `session.get(ResearchRequest, …)` sites read through it, so a monitor
+run with no research request is an ordinary `None` rather than a missing row. ADR 0072 records
+what step four actually cost — the purge walk and `aer reset-research` both had to move their
+root, and the edit diff had to learn which of the two rows holds each field.
 
 **3.4 Scenarios and sensitivity for the residual-income model.** The bank model ships
 without them, and says so in its caveats rather than quietly. The discounted cash flow ships

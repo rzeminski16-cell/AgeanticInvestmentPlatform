@@ -2,9 +2,9 @@
 
 ADR 0072 made `work_orders` the run root and demoted `research_requests` to the detail row
 describing what a run is *about* when that thing is one listed company. **A monitor run has
-no mandate**, and it is the last thing standing between the schema and one existing: while
-twenty-seven call sites reach for `job.request_id` and assume a row comes back, nothing
-tool-agnostic can run.
+no mandate**, and that was the last thing standing between the schema and one existing: while
+twenty-seven call sites reached for `job.request_id` and assumed a row came back, nothing
+tool-agnostic could run.
 
 So the read moves here, and it becomes two reads rather than one, because the callers
 genuinely split in two:
@@ -20,8 +20,8 @@ genuinely split in two:
 **Both read by the work order's id, not by ``jobs.request_id``.** The detail row shares the
 run root's primary key — `research_requests.id` *is* its work order's id, which is what
 migration 0054's backfill wrote and what `services/scope` already relies on — so there is
-no join to find and no second column to keep in step. That is what lets the follow-up
-revision drop `jobs.request_id` without any of these callers changing again.
+no join to find and no second column to keep in step. That is what let migration `0064` drop
+`jobs.request_id` outright without any of these callers changing again.
 """
 
 from __future__ import annotations

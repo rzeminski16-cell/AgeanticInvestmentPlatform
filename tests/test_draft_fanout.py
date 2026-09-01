@@ -35,7 +35,6 @@ from aer.db.models import (
     Job,
     JobStep,
     ReportSection,
-    ResearchRequest,
     SectionDefinition,
     SectionStatus,
     User,
@@ -43,6 +42,7 @@ from aer.db.models import (
 from aer.providers.fake import FakeProvider
 from aer.workflow.workflows.vertical_slice_v1 import DRAFT_FAN_OUT
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 from tests.run_fixtures import Driver, start_run, to_final_gate
 from tests.schema_guard import refuse_unanswerable_schema
 from tests.workflow_fixtures import (
@@ -149,7 +149,7 @@ async def committed(clean_slate: None, db_engine: Any) -> dict[str, Any]:
         user = User(email="fanout@example.invalid", display_name="P10", role=UserRole.OWNER)
         session.add(user)
         await session.flush()
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",

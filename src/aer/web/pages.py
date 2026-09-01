@@ -69,6 +69,7 @@ from aer.db.models import (
     ResearchPlan,
     ResearchRequest,
     SourceDocument,
+    WorkOrder,
 )
 from aer.errors import ConflictError, ValidationError
 from aer.obsidian import ObsidianExportError, VaultWriteError, export_report
@@ -168,7 +169,7 @@ async def start_run_page(
         return _problem(request, "That is not a research request.", status=HTTP_404_NOT_FOUND)
 
     found = await session.get(ResearchRequest, request_id)
-    if found is None or found.user_id != user.id:
+    if found is None or found.work_order.user_id != user.id:
         return _problem(request, f"No research request {request_id}.", status=HTTP_404_NOT_FOUND)
 
     job = await run_service.start_run(session, request=found)
@@ -309,7 +310,7 @@ def _cap_offer(
     if request_row is None:
         return CapOffer(False, "", "", "", "", at_ceiling=False)
 
-    cap = Decimal(str(request_row.max_cost_gbp))
+    cap = Decimal(str(request_row.work_order.max_cost_gbp))
     ceiling = Decimal(str(settings.per_run_budget_gbp))
     near = cap > 0 and spend_gbp >= cap * Decimal(str(settings.budget_warn_ratio))
     return CapOffer(
@@ -416,7 +417,7 @@ async def _console_view(
         ),
         "cost": figures.cost_context(
             spent=spend_gbp,
-            ceiling=request_row.max_cost_gbp if request_row is not None else None,
+            ceiling=(request_row.work_order.max_cost_gbp if request_row is not None else None),
         ),
         "evidence_counts": {
             "sources": source_count,
@@ -594,7 +595,7 @@ async def plan_review(
 
     plan = await session.scalar(
         select(ResearchPlan)
-        .where(ResearchPlan.request_id == job.request_id)
+        .where(ResearchPlan.request_id == job.work_order_id)
         .order_by(ResearchPlan.created_at.desc())
     )
     if plan is None:
@@ -939,7 +940,7 @@ async def assumptions_review(
             "return_to": f"/runs/{job.id}/assumptions",
             **frame,
             # Where the full history lives; editing no longer requires leaving this page.
-            "request_id": str(job.request_id),
+            "request_id": str(job.work_order_id),
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
@@ -2031,7 +2032,7 @@ async def calculation_detail(
         {
             **row,
             "figure": figures.lineage_figure(
-                row, request_id=job.request_id, job_id=job.id, style=style
+                row, request_id=job.work_order_id, job_id=job.id, style=style
             ),
         }
         for row in lineage_rows(tree)
@@ -2042,7 +2043,7 @@ async def calculation_detail(
         {
             "calculation": calculation,
             "lineage": rows,
-            "request_id": job.request_id,
+            "request_id": job.work_order_id,
             "job_id": job.id,
             "back_href": f"/runs/{job.id}/valuation",
             "shown_output": display.scalar(
@@ -2202,7 +2203,8 @@ async def reports_index(
     fetched = await session.execute(
         select(Report, ResearchRequest)
         .join(ResearchRequest, ResearchRequest.id == Report.request_id)
-        .where(ResearchRequest.user_id == user.id)
+        .join(WorkOrder, WorkOrder.id == Report.request_id)
+        .where(WorkOrder.user_id == user.id)
         .order_by(Report.as_of_date.desc(), Report.created_at.desc())
     )
     rows: list[tuple[Report, ResearchRequest]] = [(report, req) for report, req in fetched.tuples()]
@@ -2513,8 +2515,8 @@ async def report_detail(
     """The report as approved, with its hash and a link to the archived bytes."""
     report = await session.scalar(
         select(Report)
-        .join(ResearchRequest, ResearchRequest.id == Report.request_id)
-        .where(Report.id == report_id, ResearchRequest.user_id == user.id)
+        .join(WorkOrder, WorkOrder.id == Report.request_id)
+        .where(Report.id == report_id, WorkOrder.user_id == user.id)
     )
     if report is None:
         return _problem(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
@@ -2564,8 +2566,8 @@ async def export_obsidian_page(
     """
     report = await session.scalar(
         select(Report)
-        .join(ResearchRequest, ResearchRequest.id == Report.request_id)
-        .where(Report.id == report_id, ResearchRequest.user_id == user.id)
+        .join(WorkOrder, WorkOrder.id == Report.request_id)
+        .where(Report.id == report_id, WorkOrder.user_id == user.id)
     )
     if report is None:
         return _problem(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
@@ -2609,8 +2611,8 @@ async def report_preview(
     """
     report = await session.scalar(
         select(Report)
-        .join(ResearchRequest, ResearchRequest.id == Report.request_id)
-        .where(Report.id == report_id, ResearchRequest.user_id == user.id)
+        .join(WorkOrder, WorkOrder.id == Report.request_id)
+        .where(Report.id == report_id, WorkOrder.user_id == user.id)
     )
     if report is None:
         return _problem(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
@@ -2657,8 +2659,8 @@ async def _owned_job(session: AsyncSession, *, job_id: uuid.UUID, user: Any) -> 
     """
     job: Job | None = await session.scalar(
         select(Job)
-        .join(ResearchRequest, ResearchRequest.id == Job.work_order_id)
-        .where(Job.id == job_id, ResearchRequest.user_id == user.id)
+        .join(WorkOrder, WorkOrder.id == Job.work_order_id)
+        .where(Job.id == job_id, WorkOrder.user_id == user.id)
     )
     return job
 
@@ -2673,8 +2675,8 @@ async def _claim_is_visible(
     *who* may see a claim, which is why both are one query against the same join.
     """
     owner = await session.scalar(
-        select(ResearchRequest.user_id)
-        .join(Job, Job.work_order_id == ResearchRequest.id)
+        select(WorkOrder.user_id)
+        .join(Job, Job.work_order_id == WorkOrder.id)
         .join(ReportSection, ReportSection.job_id == Job.id)
         .join(Claim, Claim.report_section_id == ReportSection.id)
         .where(Claim.id == claim_id)

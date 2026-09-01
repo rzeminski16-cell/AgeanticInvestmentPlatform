@@ -54,7 +54,6 @@ from aer.core.enums import Decision, FactBasis, GateKind, JobStatus, Provider, S
 from aer.core.escalation import CostScene, FiredTrigger
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.core.schemas.facts import RawFact
-from aer.core.schemas.request import ResearchRequestRead
 from aer.core.sectors import (
     ModelNotPermittedError,
     ValuationMandate,
@@ -99,6 +98,7 @@ from aer.sections.evidence import SectionExecution
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
 from aer.sections.writing import execute_builtin_section
 from aer.services import calculations as calculation_service
+from aer.services import requests as request_service
 from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.analysis import analyse_company
 from aer.services.artefacts import store_artefact
@@ -555,7 +555,7 @@ async def _plan(context: StepContext) -> StepResult:
         draft = await agent.run(
             agent_context,
             PlannerInput(
-                request=ResearchRequestRead.model_validate(request, from_attributes=True),
+                request=request_service.mandate_read(request),
                 available_section_keys=[definition.key for definition in definitions],
                 prior_research=priors,
             ),
@@ -711,7 +711,7 @@ async def _prior_digests(session: AsyncSession, *, request: ResearchRequest) -> 
             catalyst_lines=list(digest.catalyst_lines),
         )
         for digest in await prior_digest_for(
-            session, company_id=company.id, before=request.as_of_date
+            session, company_id=company.id, before=request.work_order.as_of_date
         )
     ]
 
@@ -917,8 +917,8 @@ async def _critique_from_model(
                 company_name=request.company_name,
                 ticker=request.ticker,
                 exchange=request.exchange,
-                as_of_date=request.as_of_date.isoformat(),
-                point_in_time=request.point_in_time,
+                as_of_date=request.work_order.as_of_date.isoformat(),
+                point_in_time=request.work_order.point_in_time,
                 analysis_mode=request.analysis_mode.value,
                 investment_horizon_months=request.investment_horizon_months,
                 focus_questions=list(request.focus_questions or []),
@@ -964,7 +964,7 @@ async def _revised_plan(
         draft = await PlannerAgent().run(
             agent_context,
             PlannerInput(
-                request=ResearchRequestRead.model_validate(request, from_attributes=True),
+                request=request_service.mandate_read(request),
                 available_section_keys=[key for key in keys if key],
                 prior_research=await _prior_digests(context.session, request=request),
                 previous_plan={
@@ -1514,7 +1514,7 @@ async def _comps(context: StepContext) -> StepResult:
         ticker=request.ticker,
         analysis=analysis,
         market_capitalisation=_market_capitalisation_from(prices, currency=request.base_currency),
-        as_of=request.as_of_date,
+        as_of=request.work_order.as_of_date,
         client=context.optional_service("eodhd_client"),
         store=context.service("store"),
     )
@@ -2281,7 +2281,9 @@ async def _propose_peers(context: StepContext) -> StepResult:
         raise StepPaused(message, gate=None)
 
     request = await _request_for(context)
-    floor = await propose_peers_from_sic(context.session, subject=company, as_of=request.as_of_date)
+    floor = await propose_peers_from_sic(
+        context.session, subject=company, as_of=request.work_order.as_of_date
+    )
 
     agent_context = AgentContext(
         session=context.session,
@@ -2304,7 +2306,7 @@ async def _propose_peers(context: StepContext) -> StepResult:
     output: dict[str, Any] = {
         "subject": str(company.id),
         "subject_name": company.name,
-        "subject_period_end": request.as_of_date.isoformat(),
+        "subject_period_end": request.work_order.as_of_date.isoformat(),
         "basis": MultipleBasis.TRAILING_TWELVE_MONTHS.value,
         # Who actually contributed, rather than who was asked. A run whose model call
         # failed, or whose every suggestion was refused, is one whose peers came from the
@@ -2364,7 +2366,7 @@ async def _peers_from_model(
                 company_name=company.name,
                 ticker=request.ticker,
                 exchange=request.exchange,
-                as_of_date=request.as_of_date.isoformat(),
+                as_of_date=request.work_order.as_of_date.isoformat(),
                 sic=company.sic or "",
                 sic_description=company.sic_description or "",
                 sector=sector_key,
@@ -2484,7 +2486,7 @@ async def _themes_from_model(
                 company_name=company.name,
                 ticker=request.ticker,
                 exchange=request.exchange,
-                as_of_date=request.as_of_date.isoformat(),
+                as_of_date=request.work_order.as_of_date.isoformat(),
                 sic=company.sic or "",
                 sic_description=company.sic_description or "",
                 sector=sector_key,
@@ -2602,8 +2604,8 @@ async def _filed_share_count(
         .order_by(FinancialFact.period_end.desc(), FinancialFact.filed_date.desc())
         .limit(1)
     )
-    if request.point_in_time:
-        statement = statement.where(FinancialFact.filed_date <= request.as_of_date)
+    if request.work_order.point_in_time:
+        statement = statement.where(FinancialFact.filed_date <= request.work_order.as_of_date)
 
     fact = await context.session.scalar(statement)
     if fact is None:
@@ -2629,7 +2631,7 @@ async def _extract(context: StepContext) -> StepResult:
     payload = await store.read(acquired["artefact_sha256"])
     parsed = parse_company_facts(payload)
 
-    selection = select_point_in_time(parsed.facts, as_of_date=request.as_of_date)
+    selection = select_point_in_time(parsed.facts, as_of_date=request.work_order.as_of_date)
 
     company = await context.session.get(Company, _uuid(acquired["company_id"]))
     document = await context.session.get(SourceDocument, _uuid(acquired["source_document_id"]))
@@ -3411,7 +3413,7 @@ async def comps_note_for(
         # Outcomes recorded before the step stored its exclusion count fall back to the
         # identity `build` maintains: every confirmed peer is in the table or excluded.
         excluded_count=int(outcome.get("excluded_count", len(confirmed) - peers)),
-        as_of=date.fromisoformat(as_of_text) if as_of_text else request.as_of_date,
+        as_of=date.fromisoformat(as_of_text) if as_of_text else request.work_order.as_of_date,
         licence_note=DEFAULT_POLICIES[Provider.EODHD].licence_note,
         # The reasons the step already grouped, so the report says why rather than "for
         # want of usable data" (gap R20). Deduplicated again here because the grouping is
@@ -3495,7 +3497,7 @@ async def _render(context: StepContext) -> StepResult:
         job_id=context.job.id,
         request_id=request.id,
         company_id=company.id if company is not None else None,
-        as_of_date=request.as_of_date,
+        as_of_date=request.work_order.as_of_date,
         rating=None,
         confidence=None,
         content={"markdown": markdown, "sections": document.section_keys},
@@ -3560,7 +3562,7 @@ async def _render(context: StepContext) -> StepResult:
 
 
 async def _request_for(context: StepContext) -> ResearchRequest:
-    request = await context.session.get(ResearchRequest, context.job.request_id)
+    request = await context.session.get(ResearchRequest, context.job.work_order_id)
     if request is None:  # pragma: no cover -- a job cannot exist without its request
         message = "The job's research request is missing."
         raise StepPaused(message, gate=None)
