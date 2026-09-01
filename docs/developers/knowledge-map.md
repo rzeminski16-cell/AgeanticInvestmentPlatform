@@ -85,7 +85,7 @@ What to know per step, beyond the diagram:
 | `draft` | `agents/section_writer`, `sections/` | **yes (~£5, the largest)** | One call per model-written section; see ADR 0052 |
 | `validate` | `verify/`, `agents/validator` | small | Deterministic checks; the model only *advises* (ADR 0038) |
 | `red_team` | `agents/red_team` | yes (~£1) | Attacks the draft from a separate context (ADR 0039) |
-| `revise` | `services/revision` | yes (~£1.50 at the bound) | Redrafts the sections material challenges attack, once, then seals the gate-2 hash (ADR 0091) |
+| `revise` | `services/revision` | yes (~£1.50 at the bound) | Redrafts the sections material challenges attack, once, then seals the gate-2 hash (ADR 0091). A redraft that does not pass leaves the approved draft standing (ADR 0098) |
 | `verdict` | `agents/verdict` | yes (~£0.01) | One sentence of interpretation over the frozen draft (ADR 0087); no payload, no hash, never evidence |
 | `brief_challenges` | `agents/challenge_brief` | yes (~£0.02) | What each side of an unsettled challenge assumes and implies, and which way it leans (ADR 0095); advisory, and reaches no report |
 | `gate_final` | `services/approvals` | no | Second universal gate; shows scores, not promises |
@@ -240,7 +240,8 @@ ones — read the ADR before touching its territory:
   0043 (a chart is a figure), 0054 (a reference numeral is provenance, not a figure), 0057
   (a count is not a figure and a clause is not a section), 0060 (a number inside a name is
   not a figure), 0096 (a malformed claim costs the claim, not the section), 0097 (a numeral
-  is checked against the figure, not against its spelling), 0087 (a verdict has two halves:
+  is checked against the figure, not against its spelling), 0098 (a refused revision leaves
+  the approved draft standing), 0087 (a verdict has two halves:
   one composed, one authored), 0088 (a
   fixed-scheme region carries its own measured palette), 0089 (the run you are watching has an
   address).

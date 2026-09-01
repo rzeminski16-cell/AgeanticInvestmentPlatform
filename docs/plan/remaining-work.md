@@ -41,13 +41,12 @@ suite silently skips 1,849 tests.
 2026-09-01 and §2.1 was read from the record rather than from a hypothesis. It refuted the
 standing one: nothing starved, every failed section used both attempts, and all eight
 failures were contract refusals in five causes — and six failed at `draft` while **two
-drafted cleanly and were destroyed by `revise`**. Three causes are closed: ADR 0096 (a
+drafted cleanly and were destroyed by `revise`**. Four causes are closed: ADR 0096 (a
 malformed claim costs the claim), ADR 0097 (a numeral is checked against the figure, not
-its spelling) and the two eraser gaps. **Two are open**, both decisions rather than fixes:
-a failed revision discards the draft it was improving, which is ADR 0091's loop losing a
-section that already passed; and the one-"missing evidence"-sentence rule refuses a whole
+its spelling), ADR 0098 (a refused revision leaves the approved draft standing) and the two
+eraser gaps. **One is open**: the one-"missing evidence"-sentence rule refuses a whole
 draft over a count of its own hedging with no salvage, which is the trade ADR 0057 exists
-to refuse. §2.2 is settled in the same reading — the 0.30 is a cap, not a floor, and
+to refuse — a decision rather than a fix. §2.2 is settled in the same reading — the 0.30 is a cap, not a floor, and
 what it flattens is the remaining question. The confirmation is still one
 operator-approved live run, which also exercises the critique-and-revise loop (ADR 0091)
 against the same sections for the first time. §3.1 landed 2026-08-29 in the roadmap's own

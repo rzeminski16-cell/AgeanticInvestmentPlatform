@@ -1704,6 +1704,10 @@ async def _revise(context: StepContext) -> StepResult:
     own disagreement row is never auto-resolved: the revision happens beside it, both
     reach the gate, and the payload's ``revisions`` block puts what happened inside the
     hash the approval records.
+
+    **A revision that does not pass leaves the approved draft standing** (ADR 0098), and
+    says so in that same block — so a redraft can only ever improve what the operator is
+    shown, never cost them the section it was aimed at.
     """
     request = await _request_for(context)
     agent_context = AgentContext(

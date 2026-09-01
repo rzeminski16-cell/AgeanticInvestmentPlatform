@@ -26,12 +26,12 @@ are done; the operator's `run-diagnosis.json` landed on 2026-09-01 and §2.1 is 
 from the record rather than from a hypothesis, with three of its four causes fixed. What
 remains is one rule and one operator-approved confirmation run.
 
-1. **§2.1 — sections fail to draft. Diagnosed 2026-09-01; three of five causes fixed.**
+1. **§2.1 — sections fail to draft. Diagnosed 2026-09-01; four of five causes fixed.**
    More than a quarter of the last report was a coverage notice. The export settled it:
    nothing starved, and every failure was a contract refusal — six at `draft` and two
-   *destroyed by `revise`* after drafting cleanly. ADR 0096 and ADR 0097 close two causes
-   and the erasers close a third; the discarded revision and the "missing evidence" rule
-   are what is left, and then the operator-approved confirmation run.
+   *destroyed by `revise`* after drafting cleanly. ADR 0096, ADR 0097 and ADR 0098 close
+   three causes and the erasers close a fourth; the "missing evidence" rule is what is
+   left, and then the operator-approved confirmation run.
 2. **§3.1 — the portfolio's third door. Done 2026-08-29, under ADR 0093.** A work order
    roots the book's own acquisitions; a typed `TICKER EXCHANGE` the platform has never seen
    is verified with the vendor once, at first sight, and either becomes dealable or is
@@ -128,19 +128,21 @@ revision was refused.
 | A numeric claim naming no figure, or naming one and citing nothing | Segment Analysis, Industry & Competitive Positioning, Capital Allocation, Balance Sheet & Liquidity | **Fixed** — ADR 0096 |
 | The platform's own rendering of a figure read as an unsourced numeral | Historical Financial Analysis (`331,839`), Scenarios & Sensitivities (`$331.8 billion`), Capital Allocation | **Fixed** — ADR 0097 |
 | A product name and a year naming a document read as figures | Business Overview (`Dynamics 365`), Management & Governance (`2025 proxy statement`) | **Fixed** — the erasers, `343fc3e` |
-| **A failed revision discards the draft it was improving** | Balance Sheet & Liquidity, Scenarios & Sensitivities | **Open** |
+| **A failed revision discards the draft it was improving** | Balance Sheet & Liquidity, Scenarios & Sensitivities | **Fixed** — ADR 0098 |
 | More than one "missing evidence" sentence | Historical Financial Analysis, Management & Governance *(a second cause on each)* | **Open** |
 
-**The revise defect is the worst of the five and is not a validation rule at all.**
-`revise_challenged_sections` deletes the section's claims, then redrafts over
-`section.content`; a refused revision leaves `FAILED` with nothing. So a section that
-drafted, validated and was paid for is traded for no section at all because the red team
-had something to say about it — and ADR 0091's loop, which exists to *improve* a draft, is
-the only way to lose one that already passed. The fix is that a revision that does not pass
-leaves the approved draft standing. Nothing about the run's cost or its record makes that
-hard; it wants an ADR because it changes what ADR 0091 promised.
+**The revise defect was the worst of the five and was not a validation rule at all.**
+`revise_challenged_sections` deleted the section's claims, then redrafted over
+`section.content`; a refused revision left `FAILED` with nothing. So a section that
+drafted, validated and was paid for was traded for no section at all because the red team
+had something to say about it — and ADR 0091's loop, which exists to *improve* a draft, was
+the only way to lose one that already passed. **ADR 0098 closes it**: the claim replacement
+moved to `record_draft_claims`, where it only runs for a draft that passed, the row is
+snapshotted and restored, and a fourth disposition — `revision_refused`, migration 0063 —
+puts the attempt and its refusal inside the gate-2 hash rather than leaving the spend
+invisible.
 
-**The `gaps` rule is the other open one**: at most one sentence may describe missing
+**The `gaps` rule is the one open cause**: at most one sentence may describe missing
 evidence. Both sections that tripped it tripped something else too, so neither is known to
 have failed *for* it — but it refuses a whole draft over a count of its own hedging and has
 no salvage, which is the trade ADR 0057 exists to refuse.

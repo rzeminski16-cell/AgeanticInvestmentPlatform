@@ -29,7 +29,7 @@ from dataclasses import dataclass, field, replace
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Final
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from aer.core.concepts import is_canonical_concept
 from aer.core.enums import AnalysisMode, ClaimKind, SourceTier
@@ -43,6 +43,7 @@ from aer.core.section_output import (
 )
 from aer.db.models import (
     Calculation,
+    Claim,
     Extraction,
     FinancialFact,
     ReportSection,
@@ -971,7 +972,16 @@ async def record_draft_claims(
     Runs only after :func:`validate_draft` came back empty, so every id here resolves;
     the cited-source set feeds the policy-shortfall check, with a fact's own source
     counting for the claim that names the fact.
+
+    **A recorded draft replaces the section's claims, and only a recorded one does**
+    (ADR 0098). The replacement lives here because here is where there is something to
+    replace them with: the revise pass used to delete them before its attempt, so a
+    refused revision left a validated section with no claims and no content. On a first
+    draft the delete matches nothing and costs a statement.
     """
+    await session.execute(delete(Claim).where(Claim.report_section_id == section.id))
+    await session.flush()
+
     recorded = 0
     cited_source_ids: set[str] = set()
     for proposal in draft.claims:
