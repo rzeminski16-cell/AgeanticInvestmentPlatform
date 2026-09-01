@@ -239,7 +239,9 @@ ones — read the ADR before touching its territory:
   ladder decides, or says it cannot), 0024 (the evidence chain is a surface, not a schema),
   0043 (a chart is a figure), 0054 (a reference numeral is provenance, not a figure), 0057
   (a count is not a figure and a clause is not a section), 0060 (a number inside a name is
-  not a figure), 0087 (a verdict has two halves: one composed, one authored), 0088 (a
+  not a figure), 0096 (a malformed claim costs the claim, not the section), 0097 (a numeral
+  is checked against the figure, not against its spelling), 0087 (a verdict has two halves:
+  one composed, one authored), 0088 (a
   fixed-scheme region carries its own measured palette), 0089 (the run you are watching has an
   address).
   **Read 0006 and 0077 together before designing anything.** 0006 decides that the server is
@@ -325,7 +327,10 @@ been re-litigated at least once already, which is why it is recorded here.
   only token-shaped bound left is the routed model's context window (ADR 0053).
 - **The numeral rule stays strict** (gap A32, open). Dates, CIKs and exhibit numbers in
   prose trip it and are recovered by retry. Relaxing it moves invariant 3's boundary and
-  needs an ADR and an operator decision.
+  needs an ADR and an operator decision. What it does *not* do is compare spellings: a
+  numeral is checked against the **value** of the figure its claim names, under the readings
+  in `core/figures.py` — the same ones `cited_figure_agreement` uses (ADR 0097). "$331.8
+  billion" over a stored `331839000000` is that figure; "$412.6 billion" is not.
 - **The FakeProvider is an alternative implementation, not a fake transport.** Nothing
   offline sees the wire; `just test-live` exists because of what that blindness cost
   (gap A30). Do not mistake a green offline suite for a proven vendor contract.

@@ -25,10 +25,11 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Final
 
 from aer.calc.plausibility import FigureScene, impossible_relations
+from aer.core.figures import reads_as
 from aer.core.section_output import gap_sentences
 from aer.eval.metrics import (
     THRESHOLDS,
@@ -354,18 +355,6 @@ def presentation_integrity(markdown: str, html: str, *, sections: int) -> Metric
 # amount of symbol-matching would confirm.
 _FIGURE: Final[re.Pattern[str]] = re.compile(r"-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?")
 
-# How a stored value can legitimately reach prose. `render.display` scales a dimensionless
-# figure by a hundred for a percentage, and `money` renders in millions; a drafter writing
-# longhand says billions. Each is the same figure said differently, and none of them is the
-# figure being wrong.
-_READINGS: Final[tuple[Decimal, ...]] = (
-    Decimal(1),
-    Decimal(100),
-    Decimal("0.001"),
-    Decimal("0.000001"),
-    Decimal("0.000000001"),
-)
-
 
 def cited_figure_agreement(observations: Sequence[CitedFigureObservation]) -> MetricResult:
     """Claims that quote a figure their cited calculation does not hold — threshold zero.
@@ -397,7 +386,7 @@ def cited_figure_agreement(observations: Sequence[CitedFigureObservation]) -> Me
         quoted = [Decimal(found.replace(",", "")) for found in _FIGURE.findall(row.text)]
         if not quoted:
             continue
-        if any(_reads_as(figure, row.value) for figure in quoted):
+        if any(reads_as(figure, row.value) for figure in quoted):
             continue
         shown = ", ".join(str(figure) for figure in quoted[:4])
         failures.append(
@@ -413,29 +402,6 @@ def cited_figure_agreement(observations: Sequence[CitedFigureObservation]) -> Me
         population=len(observations),
         failures=tuple(failures),
     )
-
-
-def _reads_as(quoted: Decimal, stored: Decimal) -> bool:
-    """Whether ``quoted`` is ``stored`` said at the precision ``quoted`` chose.
-
-    The precision comes from the drafted figure rather than from a setting: "46.8" claims
-    one decimal place and "0.09" claims two, and each is entitled to be judged against what
-    it actually asserts.
-    """
-    # `as_tuple().exponent` is `'n'`, `'N'` or `'F'` for a NaN or an infinity, which no
-    # figure scraped out of prose can be — but the type says otherwise, so it is narrowed
-    # rather than asserted away.
-    exponent = quoted.as_tuple().exponent
-    places = -exponent if isinstance(exponent, int) and exponent < 0 else 0
-    step = Decimal(1).scaleb(-places)
-    for scale in _READINGS:
-        scaled = stored * scale
-        try:
-            if scaled.quantize(step, rounding=ROUND_HALF_UP) == quoted:
-                return True
-        except InvalidOperation:  # pragma: no cover -- a figure too large to quantise
-            continue
-    return False
 
 
 def figure_plausibility(scenes: tuple[FigureScene, ...]) -> MetricResult:

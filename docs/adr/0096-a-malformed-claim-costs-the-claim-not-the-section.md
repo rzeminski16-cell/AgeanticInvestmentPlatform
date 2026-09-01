@@ -10,7 +10,7 @@ discard it, and named the two repairs. This adds the third.
 
 Eight of eighteen sections failed to draft on the run that finally produced a diagnosis.
 The standing hypothesis was a thin evidence pack; the record refutes it — every section
-was dealt 25–43 facts, 3–9 excerpts and 11–29 calculations, and the run held 780
+was dealt 17–43 facts, 3–9 excerpts and 11–29 calculations, and the run held 780
 calculations and 153 claims. Nothing starved.
 
 **Four of the eight died on one rule**, and it is the rule the wire format cannot carry.

@@ -39,6 +39,7 @@ from aer.sections.evidence import (
     classify_refusals,
     confidence_of,
     content_source_ids,
+    covered_figures,
     degradation_note,
     gather_evidence,
     policy_shortfalls,
@@ -614,11 +615,16 @@ def _salvaged(
       overran their budget, several for *nothing else*: complete, fully cited drafts
       thrown away for being long, which is the worst trade in the pipeline.
 
-    Order matters and is deliberate. Dropping a claim removes the cover its statement gave
-    a numeral, so the claim repair runs before the numeral one and the sentences that
-    rested on a dropped claim go with it — the section keeps nothing it can no longer
-    support. Removing sentences also removes words, so the trim runs last and takes only
-    what is still over.
+    Order matters and is deliberate. Dropping a claim removes the cover its statement and
+    its named figure gave a numeral, so the claim repair runs before the numeral one and
+    the sentences that rested on a dropped claim go with it — the section keeps nothing it
+    can no longer support. Removing sentences also removes words, so the trim runs last and
+    takes only what is still over.
+
+    What counts as covered comes from :func:`aer.sections.evidence.covered_figures`, the
+    same call the validator makes: the salvage that removes a sentence and the rule that
+    refuses it must agree exactly about which numerals are accounted for, or the salvage
+    hands back a draft the revalidation below rejects for the sentence it just kept.
 
     The salvage declines unless the narrowed draft passes **full** revalidation, so it can
     only ever turn a refused draft into a conforming one, and a draft failing for any
@@ -632,8 +638,8 @@ def _salvaged(
         candidate = candidate.model_copy(update={"claims": claims})
         notes.append(_CLAIM_NOTE)
 
-    covered = [claim.statement for claim in candidate.claims if claim.kind == "numeric"]
-    narrowed = without_unsourced_numeral_sentences(content, covered)
+    covered, figures = covered_figures(candidate.claims, evidence=evidence)
+    narrowed = without_unsourced_numeral_sentences(content, covered, figures)
     if narrowed is not None:
         content = narrowed
         notes.append(_NUMERAL_NOTE)

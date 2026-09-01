@@ -13,7 +13,7 @@ state — and the overhaul's live status is the top section of
 | Phase | What | Roadmap items | Gated on |
 |---|---|---|---|
 | **0** | Back to green — **done 2026-08-28** | §3.12's red suite | — |
-| **1A** | The drafting failure | §2.1, §2.2 | `run-diagnosis.json` from the operator |
+| **1A** | The drafting failure | §2.1, §2.2 | Diagnosed 2026-09-01; one rule left, then a confirmation run |
 | **1B** | The portfolio's third door — **done 2026-08-29**, ADR 0093 | §3.1 | — |
 | **2** | The overhaul — **done 2026-08-30**, all ten tranches | §3.12, closing §2.5 | — |
 | **3** | The document and the data fixes — **done 2026-08-30** | §2.4, §2.6, §2.7, §2.8 | Nothing — surfaces phase 2 does not touch |
@@ -37,12 +37,21 @@ record is the overhaul plan's status section. What stays true for every later ph
 remote session a local PostgreSQL and Redis come first — without a database the default
 suite silently skips 1,849 tests.
 
-**1A waits on the operator; 1B is done.** §2.1 and §2.2 diagnose from the export before
-anything is changed — the hypotheses the code already admits are recorded on the items — and
-the confirmation is one operator-approved live run, which also exercises the
-critique-and-revise loop (ADR 0091) against the same sections for the first time. §3.1
-landed 2026-08-29 in the roadmap's own order, ADR 0093 first, before tranche 8 rewrites the
-portfolio form it adds a door to.
+**1A is diagnosed and mostly fixed; 1B is done.** The operator's export landed on
+2026-09-01 and §2.1 was read from the record rather than from a hypothesis. It refuted the
+standing one: nothing starved, every failed section used both attempts, and all eight
+failures were contract refusals in five causes — and six failed at `draft` while **two
+drafted cleanly and were destroyed by `revise`**. Three causes are closed: ADR 0096 (a
+malformed claim costs the claim), ADR 0097 (a numeral is checked against the figure, not
+its spelling) and the two eraser gaps. **Two are open**, both decisions rather than fixes:
+a failed revision discards the draft it was improving, which is ADR 0091's loop losing a
+section that already passed; and the one-"missing evidence"-sentence rule refuses a whole
+draft over a count of its own hedging with no salvage, which is the trade ADR 0057 exists
+to refuse. §2.2 is settled in the same reading — the 0.30 is a cap, not a floor, and
+what it flattens is the remaining question. The confirmation is still one
+operator-approved live run, which also exercises the critique-and-revise loop (ADR 0091)
+against the same sections for the first time. §3.1 landed 2026-08-29 in the roadmap's own
+order, ADR 0093 first, before tranche 8 rewrites the portfolio form it adds a door to.
 
 **Phase 2 is done (2026-08-30).** Tranche 9 closed §2.5 and §3.12 together and ended with
 the manual pass — recorded, with its instrument (`tests/e2e/sweep.py`), its findings and
@@ -88,12 +97,10 @@ whole of the next phase — the three parts stand or fall together.
 
 In leverage order. Everything else above is a session's work.
 
-1. **Export the run diagnosis** — `just runs` to find the run, `just diagnose-run <uuid>` to
-   write it, then hand over `run-diagnosis.json` (read it first). Both read-only, both
-   through the container, so no local `psql` is needed. Unblocks §2.1 and §2.2, the top of
-   the roadmap. **It does not need an approvable run**: a run stranded at gate 2 carries the
-   same drafting record, so the export costs nothing and waits on nothing.
-2. **Approve one confirmation run's spend** when the §2.1 fix lands.
+1. ~~**Export the run diagnosis.**~~ **Done 2026-09-01** — run
+   `7b05643a-4f95-4e08-ba5c-9d14d772f7c9`, stranded at gate 2 and diagnosed all the same.
+   It unblocked §2.1 and §2.2 and settled both.
+2. **Approve one confirmation run's spend** when the last §2.1 fix lands.
 3. **The peer-discovery decision** (§4.15's remnant): `propose_peers` buys a reasoned peer
    list that can contribute no figure. Skip it when no price client is configured, or amend
    ADR 0059 and acquire peer data so comps compute — the second multiplies the data

@@ -21,14 +21,17 @@ the platform got here and why; this is the record of where it goes.*
 In this order. It is the operator's order rather than the author's: each one is the next
 thing that would otherwise put a wrong number, or no answer at all, in front of somebody.
 
-**As at 2026-08-30, one of these five is open, and it is waiting on the operator.** Items
-2 to 5 are done; §2.1 needs the `run-diagnosis.json` export before anything is changed,
-because §2.1 and §2.2 diagnose from the record rather than from a hypothesis. What is
-buildable meanwhile has moved to phase 4 of [`remaining-work.md`](remaining-work.md).
+**As at 2026-09-01, one of these five is open and it is no longer blocked.** Items 2 to 5
+are done; the operator's `run-diagnosis.json` landed on 2026-09-01 and §2.1 is diagnosed
+from the record rather than from a hypothesis, with three of its four causes fixed. What
+remains is one rule and one operator-approved confirmation run.
 
-1. **§2.1 — five sections fail to draft. Open, and gated on the operator.** More than a
-   quarter of the last report was a coverage notice. The diagnosis now reaches the screen
-   (§4.6); this is the fix behind it, and it starts with the export rather than with code.
+1. **§2.1 — sections fail to draft. Diagnosed 2026-09-01; three of five causes fixed.**
+   More than a quarter of the last report was a coverage notice. The export settled it:
+   nothing starved, and every failure was a contract refusal — six at `draft` and two
+   *destroyed by `revise`* after drafting cleanly. ADR 0096 and ADR 0097 close two causes
+   and the erasers close a third; the discarded revision and the "missing evidence" rule
+   are what is left, and then the operator-approved confirmation run.
 2. **§3.1 — the portfolio's third door. Done 2026-08-29, under ADR 0093.** A work order
    roots the book's own acquisitions; a typed `TICKER EXCHANGE` the platform has never seen
    is verified with the vendor once, at first sight, and either becomes dealable or is
@@ -105,34 +108,76 @@ ADR by its old number reads four low.
 Something here is wrong and should not be. Ordered by how much of a report or a screen each
 one costs, worst first. **§2.1 is next.**
 
-**2.1 A63 — five sections fail to draft.** Business Overview, Segment Analysis, Industry &
-Competitive Positioning, Earnings Quality and Capital Allocation did not generate on the
-2026-08-24 run, and three more rated themselves 0.30. One cause was identified before the
-merge — a thin evidence pack, then a retry that swings past the target — and the
-instrumentation to read it back is in place, and §4.6 put it on the screen. This is the fix
-behind it. Until it lands, more than a quarter of every report is a coverage notice.
+**2.1 A63 — sections fail to draft. Diagnosed 2026-09-01 from the operator's export;
+the fixes are landing, and the confirmation run is outstanding.** Eight of eighteen
+sections did not generate on the MSFT run of 2026-08-31, and more than a quarter of the
+report was a coverage notice.
 
-Read against the tree 2026-08-28, ahead of the data: `validate_draft` checks only the 1.25×
-word ceiling — **there is no minimum** — so a starved pack becomes a thin section or a
-refusal, never a retry; a truncation retry raises the token ceiling and **halves the word
-budget** (`sections/writing.py`), which can swing under as readily as the first attempt swung
-over; and `MAX_GENERATION_ATTEMPTS = 2` means one retry, ever. Which of these actually fired
-is what the diagnosis decides, and the diagnosis is **blocked on data rather than effort**:
-it is pinned to the 2026-08-24 run, whose rows live on the operator's machine. The two
-read-only exports in `scripts/README.md` are written and waiting to be run; only the final
-confirmation needs model spend.
+**The standing hypothesis is refuted.** Nothing starved. Every section was dealt 17–43
+facts, 3–9 excerpts and 11–29 calculations; the run held 780 calculations and 153 claims.
+Neither did the retry ladder mis-fire: every failed section used both of its two attempts,
+and every failure was a refusal on the *contract* — not on length, not on an empty pack.
 
-**2.2 Section confidence.** Three sections reporting 0.30 is either an honest signal about a
-starved pack (§2.1) or a floor nobody calibrated. Read it back from the same live run before
-changing anything: a confidence score that is always low is as useless as one that is always
-high.
+**And they did not all fail in the same step.** Six failed at `draft`. **Two drafted
+successfully and were destroyed by `revise`** — Balance Sheet & Liquidity with 24 recorded
+claims and Scenarios & Sensitivities with 21, each reduced to a four-byte null when its
+revision was refused.
+
+| Cause | Sections | State |
+|---|---|---|
+| A numeric claim naming no figure, or naming one and citing nothing | Segment Analysis, Industry & Competitive Positioning, Capital Allocation, Balance Sheet & Liquidity | **Fixed** — ADR 0096 |
+| The platform's own rendering of a figure read as an unsourced numeral | Historical Financial Analysis (`331,839`), Scenarios & Sensitivities (`$331.8 billion`), Capital Allocation | **Fixed** — ADR 0097 |
+| A product name and a year naming a document read as figures | Business Overview (`Dynamics 365`), Management & Governance (`2025 proxy statement`) | **Fixed** — the erasers, `343fc3e` |
+| **A failed revision discards the draft it was improving** | Balance Sheet & Liquidity, Scenarios & Sensitivities | **Open** |
+| More than one "missing evidence" sentence | Historical Financial Analysis, Management & Governance *(a second cause on each)* | **Open** |
+
+**The revise defect is the worst of the five and is not a validation rule at all.**
+`revise_challenged_sections` deletes the section's claims, then redrafts over
+`section.content`; a refused revision leaves `FAILED` with nothing. So a section that
+drafted, validated and was paid for is traded for no section at all because the red team
+had something to say about it — and ADR 0091's loop, which exists to *improve* a draft, is
+the only way to lose one that already passed. The fix is that a revision that does not pass
+leaves the approved draft standing. Nothing about the run's cost or its record makes that
+hard; it wants an ADR because it changes what ADR 0091 promised.
+
+**The `gaps` rule is the other open one**: at most one sentence may describe missing
+evidence. Both sections that tripped it tripped something else too, so neither is known to
+have failed *for* it — but it refuses a whole draft over a count of its own hedging and has
+no salvage, which is the trade ADR 0057 exists to refuse.
+
+*What was read against the tree 2026-08-28, ahead of the data, and turned out not to be the
+cause: `validate_draft` checks only the 1.25× word ceiling with no minimum; a truncation
+retry halves the word budget; `MAX_GENERATION_ATTEMPTS = 2`. All three still hold, and none
+of them fired on this run.*
+
+**2.2 Section confidence. Diagnosed 2026-09-01; the fix is open.** Sections reporting 0.30
+were either an honest signal about a starved pack (§2.1) or a floor nobody calibrated. The
+export says neither: it is a *cap*, and it fires on edits that have nothing to do with
+evidence.
 
 Half-settled from the code, 2026-08-28: **it is not a floor.** `confidence_of` takes the
 model's own declared figure — defaulting to 0.5 when it states none — and *caps* it at 0.3
-when the pack was degraded (`sections/evidence.py`). Three sections at exactly 0.30 is three
-degraded packs, which is §2.1's territory. What the live run still has to answer is which
-degradation fired, and whether a cap that flattens every degraded section to one number
-communicates anything.
+when the pack was degraded (`sections/evidence.py`).
+
+**Settled from the export, 2026-09-01, and the answer is that the cap is misfiring.** Five
+of the ten sections that survived the run report exactly 0.30, and **not one of them is a
+degraded pack**:
+
+| Section | Why it was capped |
+|---|---|
+| Executive Summary, Earnings Quality, Cash Flow Analysis, Growth Outlook | "Shortened to fit the length allotted to this section." |
+| Valuation & DCF | "One or more sentences were removed because their figures could not be traced to a recorded source." |
+
+Four of the five were capped for being **trimmed to their word budget** — the mildest edit
+the platform makes, and one that says nothing about whether the section is right. The fifth
+had sentences deleted for untraceable figures, which says a great deal. Both land on 0.30,
+which is a strong statement about reliability, and neither of them earns it: a complete,
+fully cited section that ran long now reads to a person exactly like one the platform had
+to cut for lineage. **This is the fix, and it is `confidence_of`'s, not the salvage's**: an
+edit that only shortened is not the same degradation as an edit that removed unsupported
+prose, and an evidence shortfall is a third thing again. The three must not share one
+number. `low_confidence_reason` already distinguishes them in words (gap R2), which is why
+the flattening is visible at all.
 
 **2.3 A run that fails late cannot be resumed, only repeated. Resolved, 2026-08-28, ADR
 0090.** The engine skips completed steps, and does it well — that is how a run survives the

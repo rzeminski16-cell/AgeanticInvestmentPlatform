@@ -32,9 +32,11 @@ import re
 from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from typing import Any, Final
 
 from aer.core.concepts import CANONICAL_CONCEPTS
+from aer.core.figures import reads_as
 from aer.core.schemas.skill import RESERVED_OUTPUT_FIELDS
 
 __all__ = [
@@ -363,6 +365,23 @@ def numerals_in(text: str) -> frozenset[str]:
     return frozenset(_canonical_numeral(match.replace(",", "")) for match in _NUMERAL.findall(text))
 
 
+def _reads_as_named(token: str, figures: tuple[Decimal, ...]) -> bool:
+    """Whether this numeral is one of the named figures, said at the precision it chose.
+
+    Read through :func:`aer.core.figures.reads_as`, which is the same reading the
+    ``cited_figure_agreement`` metric applies — one definition of "the same figure said
+    differently", so the rule that refuses a numeral and the check that measures one
+    cannot come to different answers about the same sentence.
+    """
+    if not figures:
+        return False
+    try:
+        quoted = Decimal(token)
+    except InvalidOperation:  # pragma: no cover -- `_NUMERAL` only matches decimal text
+        return False
+    return any(reads_as(quoted, stored) for stored in figures)
+
+
 def _canonical_numeral(token: str) -> str:
     """One spelling per number, so lineage survives a round trip through the contract.
 
@@ -460,15 +479,25 @@ def without_plain_counts(text: str) -> str:
     return _PLAIN_COUNT.sub(" ", text)
 
 
-def unsourced_numerals(content: dict[str, Any], covered_by: Iterable[str]) -> list[str]:
+def unsourced_numerals(
+    content: dict[str, Any],
+    covered_by: Iterable[str],
+    figures: Iterable[Decimal] = (),
+) -> list[str]:
     """Numerals in the content that nothing accounts for, with where they sit.
 
     Numerals inside recognised date and document-reference spans are not figures and are
     not scanned — see :func:`without_document_references` and ADR 0054. For the rest, a
-    numeral has lineage two ways, and either satisfies the rule:
+    numeral has lineage three ways, and any of them satisfies the rule:
 
-    * it appears in a numeric claim's statement (``covered_by``) — each of which, by
-      schema, names exactly one stored fact or recorded calculation; or
+    * it appears in a numeric claim's statement (``covered_by``) — each of which names
+      exactly one stored fact or recorded calculation; or
+    * it **reads as** one of the figures those claims name (``figures``), under the
+      scalings this platform's own renderer produces — see :mod:`aer.core.figures`. A
+      drafter writing about a company does not write ``331839000000``; it writes "$331.8
+      billion", and refusing that as unsourced cost a live run two sections (roadmap
+      §2.1). The values are the *stored* ones, so the arithmetic is Python's; nothing here
+      trusts a rescaling the model performed; or
     * it sits inside an object that itself names its figure by ``calculation_id`` or
       ``financial_fact_id`` — the figure-row convention every built-in section has used
       since Phase 1, and the one the renderer turns into a footnote. **The named id is
@@ -481,10 +510,13 @@ def unsourced_numerals(content: dict[str, Any], covered_by: Iterable[str]) -> li
     covered: set[str] = set()
     for statement in covered_by:
         covered.update(numerals_in(statement))
+    named = tuple(figures)
 
     problems: list[str] = []
     for found in sorted(_numerals_by_path(content, path="content"), key=lambda item: item.path):
-        uncovered = sorted(found.numerals - covered)
+        uncovered = sorted(
+            token for token in found.numerals - covered if not _reads_as_named(token, named)
+        )
         if not uncovered:
             continue
         listed = ", ".join(uncovered)
@@ -788,7 +820,7 @@ def gap_sentences(content: dict[str, Any]) -> list[str]:
 
 
 def without_unsourced_numeral_sentences(
-    content: dict[str, Any], covered_by: Iterable[str]
+    content: dict[str, Any], covered_by: Iterable[str], figures: Iterable[Decimal] = ()
 ) -> dict[str, Any] | None:
     """The content with every sentence carrying an unsourced numeral removed, or ``None``.
 
@@ -809,10 +841,19 @@ def without_unsourced_numeral_sentences(
     covered: set[str] = set()
     for statement in covered_by:
         covered.update(numerals_in(statement))
+    named = tuple(figures)
+
+    def accounted(sentence: str) -> bool:
+        """Every numeral in this sentence has lineage — the same three ways the scan
+        admits, so the remover and the rule cannot disagree about one sentence."""
+        return all(
+            token in covered or _reads_as_named(token, named)
+            for token in numerals_in(_erased(sentence))
+        )
 
     def scrub_text(value: str) -> str:
         sentences = _SENTENCES.split(value)
-        kept = [sentence for sentence in sentences if numerals_in(_erased(sentence)) <= covered]
+        kept = [sentence for sentence in sentences if accounted(sentence)]
         if len(kept) == len(sentences):
             return value
         narrowed = " ".join(kept).strip()

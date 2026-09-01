@@ -66,7 +66,7 @@ from aer.db.models import (
 from aer.extract.html import extract_html
 from aer.providers.fake import FakeProvider, ScriptedResponse
 from aer.providers.router import Router
-from aer.sections.evidence import word_ceiling
+from aer.sections.evidence import Evidence, covered_figures, word_ceiling
 from aer.sections.registry import create_report_sections, sections_for_job
 from aer.services.extractions import record_excerpt
 from aer.services.skills import save_skill, set_enabled
@@ -548,6 +548,80 @@ class TestACountIsNotAFigure:
         assert unsourced_numerals({"s": "Total exposure stands at 42."}, []) != []
 
 
+class TestAFigureSaidDifferentlyIsStillTheFigure:
+    """Roadmap §2.1, from the MSFT run. A drafter does not write `331839000000`.
+
+    EDGAR facts are stored absolute — `scale` is 0 throughout, so Microsoft's FY2025
+    revenue is `331839000000` — and this platform's own renderer prints that as `331,839`
+    in a table of millions, while prose asked for longhand says "$331.8 billion". The
+    numeral rule compared digit strings, so every one of those spellings was an unsourced
+    numeral over a fact the section had cited, and it cost whole drafts.
+
+    The readings are `aer.core.figures`', which is where `cited_figure_agreement` has
+    always got them: the two questions are neighbours and there is now one answer.
+    """
+
+    _REVENUE = Decimal("331839000000")
+    _MARGIN = Decimal("0.4676")
+
+    def test_longhand_billions_are_the_stored_figure(self) -> None:
+        content = {"summary": "Revenue reached $331.8 billion."}
+
+        assert unsourced_numerals(content, ["Total revenue for the year."], [self._REVENUE]) == []
+
+    def test_a_table_of_millions_is_the_same_stored_figure(self) -> None:
+        """`render.display` renders money in millions, so a section may too."""
+        content = {"summary": "Revenue of 331,839 for the year."}
+
+        assert unsourced_numerals(content, ["Total revenue for the year."], [self._REVENUE]) == []
+
+    def test_a_percentage_is_the_stored_ratio(self) -> None:
+        content = {"summary": "The operating margin was 46.8%."}
+
+        assert unsourced_numerals(content, ["Operating margin."], [self._MARGIN]) == []
+
+    def test_the_precision_quoted_is_the_precision_judged(self) -> None:
+        """One decimal place and two are both true of the same ratio; 46.9 is neither.
+
+        A relative tolerance cannot draw this line — loose enough to accept a rounding of
+        a small ratio, it would accept half the errors the rule exists to catch.
+        """
+        assert unsourced_numerals({"s": "A margin of 46.76%."}, ["m"], [self._MARGIN]) == []
+        assert unsourced_numerals({"s": "A margin of 46.9%."}, ["m"], [self._MARGIN]) != []
+
+    def test_a_different_figure_is_still_refused(self) -> None:
+        """The whole point of the rule survives: only *this* figure's readings pass."""
+        problems = unsourced_numerals(
+            {"summary": "Revenue reached $412.6 billion."},
+            ["Total revenue for the year."],
+            [self._REVENUE],
+        )
+
+        assert any("412.6" in problem for problem in problems)
+
+    def test_a_claim_naming_no_figure_lends_no_reading(self) -> None:
+        """Cover comes from the figure a claim *names*, never from having claimed."""
+        content = {"summary": "Revenue reached $331.8 billion."}
+
+        assert unsourced_numerals(content, ["Total revenue for the year."], []) != []
+
+    def test_the_salvage_keeps_the_sentence_the_rule_admits(self) -> None:
+        """The eraser and the rule must agree, or the salvage returns a draft that fails
+        revalidation for the sentence it just decided to keep."""
+        content = {
+            "commentary": (
+                "The quarter was solid. Revenue reached $331.8 billion. "
+                "Margins expanded 340 points."
+            )
+        }
+
+        narrowed = without_unsourced_numeral_sentences(
+            content, ["Total revenue for the year."], [self._REVENUE]
+        )
+
+        assert narrowed == {"commentary": "The quarter was solid. Revenue reached $331.8 billion."}
+
+
 class TestAMalformedClaimCostsTheClaim:
     """ADR 0096, from the MSFT run's record (roadmap §2.1).
 
@@ -614,13 +688,37 @@ class TestAMalformedClaimCostsTheClaim:
         whose lineage is being thrown away in the same breath."""
         malformed = ProposedClaim(statement="Revenue was $198,270 million.", kind="numeric")
 
-        covered = [
-            claim.statement
-            for claim in [malformed]
-            if claim.kind == "numeric" and claim.malformed_reason is None
-        ]
+        covered, _ = covered_figures([malformed], evidence=Evidence())
 
         assert unsourced_numerals({"s": "Revenue was $198,270 million."}, covered) != []
+
+    def test_nor_does_it_lend_the_figure_it_named(self) -> None:
+        """The reading is the sharper half of the same point: a claim that names a figure
+        but cites nothing is malformed, and its stored value must not cover a numeral."""
+        fact_id = str(uuid.uuid4())
+        malformed = ProposedClaim(
+            statement="Revenue grew.", kind="numeric", financial_fact_id=fact_id
+        )
+        evidence = Evidence(figure_values={fact_id: Decimal("331839000000")})
+
+        covered, figures = covered_figures([malformed], evidence=evidence)
+
+        assert figures == []
+        assert unsourced_numerals({"s": "Revenue reached $331.8 billion."}, covered, figures) != []
+
+    def test_a_figure_the_pack_does_not_hold_lends_nothing(self) -> None:
+        """A sound-looking claim naming an id this run never assembled: the cover comes
+        from the stored value, so an id with no value behind it covers nothing."""
+        sound = ProposedClaim(
+            statement="Revenue reached $331.8 billion.",
+            kind="numeric",
+            financial_fact_id=str(uuid.uuid4()),
+            citations=[ProposedCitation(extraction_id=str(uuid.uuid4()))],
+        )
+
+        _, figures = covered_figures([sound], evidence=Evidence())
+
+        assert figures == []
 
 
 class TestTheSalvage:
