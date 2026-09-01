@@ -26,9 +26,10 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Final
 
 from aer.core.enums import Decision, GateKind
-from aer.db.models import ResearchRequest, User
+from aer.db.models import User
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
+from aer.services.mandate import mandate_of
 from aer.web import figures
 from aer.web.vocabulary import DECISIONS, GATES, GateCertainty
 
@@ -211,7 +212,7 @@ async def frame_for(session: AsyncSession, *, job: Job, gate: GateKind) -> dict[
     state = await run_service.run_state(session, job_id=job.id)
     approvals = await approval_service.approvals_for_job(session, job.id)
     pending = await approval_service.pending_gate(session, job)
-    request = await session.get(ResearchRequest, job.request_id)
+    request = await mandate_of(session, job)
 
     decided = next((row for row in approvals if row.gate is gate), None)
     decided_note = ""

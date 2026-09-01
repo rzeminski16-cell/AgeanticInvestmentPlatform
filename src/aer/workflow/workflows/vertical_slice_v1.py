@@ -126,6 +126,7 @@ from aer.services.extractions import record_excerpts
 from aer.services.facts import persist_facts, upsert_company
 from aer.services.filings import acquire_filings
 from aer.services.history import prior_digest_for
+from aer.services.mandate import mandate_of
 from aer.services.peer_discovery import DiscoveredPeers, discover_peers, merged_with
 from aer.services.price_acquisition import acquire_prices
 from aer.services.red_team import run_red_team
@@ -3293,7 +3294,7 @@ async def final_gate_payload(
     triggers: tuple[FiredTrigger, ...] = ()
     job = await session.get(Job, job_id)
     if job is not None:
-        request = await session.get(ResearchRequest, job.request_id)
+        request = await mandate_of(session, job)
         if request is not None:
             # From the seal, so this payload is the same object whether the revise step
             # is building it or the review page is rendering it an hour later.

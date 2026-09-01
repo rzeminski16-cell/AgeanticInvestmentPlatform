@@ -39,6 +39,7 @@ from aer.core.enums import JobStatus
 from aer.db.models import Job, ResearchRequest, Skill
 from aer.errors import AerError
 from aer.services import skills as skill_service
+from aer.services.mandate import mandate_of
 from aer.services.skill_authoring import import_diff, validate_skill_source
 from aer.services.skill_dry_run import DRY_RUN_WORKFLOW, dry_run_skill
 from aer.skills.frontmatter import SkillFileError
@@ -454,7 +455,7 @@ async def _dry_run_targets(session: DbSession, *, user: CurrentUser) -> list[dic
     )
     targets: list[dict[str, Any]] = []
     for job in rows:
-        research_request = await session.get(ResearchRequest, job.request_id)
+        research_request = await mandate_of(session, job)
         if research_request is None:  # pragma: no cover -- a job cannot exist without one
             continue
         targets.append(
@@ -478,7 +479,7 @@ async def _owned_job(session: DbSession, *, job_id: str, user: CurrentUser) -> J
     job = await session.get(Job, identifier)
     if job is None:
         return None
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
     if research_request is None or research_request.user_id != user.id:
         return None
     return job

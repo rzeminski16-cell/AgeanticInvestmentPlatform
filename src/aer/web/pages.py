@@ -103,6 +103,7 @@ from aer.services.evaluations import evaluations_for_job, section_coverage_for_j
 from aer.services.exhibits import exportable_charts_for, internal_charts_for, sensitivity_chart
 from aer.services.graph_view import graph_picture
 from aer.services.knowledge import knowledge_stats
+from aer.services.mandate import mandate_of
 from aer.services.run_replay import replay_run
 from aer.services.sectors import (
     CLASSIFY_STEP,
@@ -216,7 +217,7 @@ async def run_console(
         return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     state = await run_service.run_state(session, job_id=job_id)
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
     report = await session.scalar(select(Report).where(Report.job_id == job_id))
     pending = await approval_service.pending_gate(session, job)
     approvals = await approval_service.approvals_for_job(session, job_id)
@@ -508,7 +509,7 @@ async def raise_run_cap(
             status=HTTP_403_FORBIDDEN,
         )
 
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
     if research_request is None:  # pragma: no cover -- a job cannot outlive its request
         return _problem(request, f"No request for run {job_id}.", status=HTTP_404_NOT_FOUND)
 
@@ -971,7 +972,7 @@ async def draft_review(
             status=HTTP_404_NOT_FOUND,
         )
 
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
     if research_request is None:  # pragma: no cover -- a job cannot exist without its request
         return _problem(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
 
@@ -1225,7 +1226,7 @@ async def run_preview(
     if job is None:
         return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
     if research_request is None:  # pragma: no cover -- a job cannot exist without its request
         return _problem(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
 
@@ -1265,7 +1266,7 @@ async def run_summary(
     if job is None:
         return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
     if research_request is None:  # pragma: no cover -- a job cannot exist without its request
         return _problem(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
 
@@ -1590,7 +1591,7 @@ async def run_sources(
         return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     sources = await provenance.sources_for_run(session, job_id)
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
 
     # The breakdown is by what happened to each document, so it always sums: a quarantined
     # source a person overrode counts as admissible, exactly as the verifier now treats it.
@@ -1649,7 +1650,7 @@ async def run_claims(
         return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     claims = await provenance.claims_for_run(session, job_id)
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
 
     unsupported = sum(1 for claim in claims if not claim.is_supported)
     page: Response = render(
@@ -1759,7 +1760,7 @@ async def footnote_drilldown(
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
         return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
     if research_request is None:  # pragma: no cover -- a job cannot exist without its request
         return _problem(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
 
@@ -1897,7 +1898,7 @@ async def valuation_page(
         return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     view = await valuation_view(session, job)
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
 
     # The comps table is rendered at INTERNAL because this page is not exported. The Markdown
     # report is the shareable artefact and takes a `WithheldComps` instead -- ADR 0034.

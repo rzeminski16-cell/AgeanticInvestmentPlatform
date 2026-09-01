@@ -56,6 +56,7 @@ from aer.db.models import (
 from aer.db.models.plan_skill_pin import PLANNED
 from aer.errors import AerError, ValidationError
 from aer.render.markdown import render_markdown
+from aer.services.mandate import mandate_of
 from aer.services.skills import current_version
 from aer.skills.execution import execute_custom_section
 from aer.skills.resolution import (
@@ -164,7 +165,7 @@ async def dry_run_skill(
         )
         raise ValidationError(message, context={"key": key, "kind": skill.kind})
 
-    request = await session.get(ResearchRequest, source_job.request_id)
+    request = await mandate_of(session, source_job)
     if request is None:  # pragma: no cover -- a job cannot exist without its request
         message = "The chosen run has no research request."
         raise ValidationError(message, context={"job_id": str(source_job.id)})

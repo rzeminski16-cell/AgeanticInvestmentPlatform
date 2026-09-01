@@ -32,6 +32,7 @@ from aer.db.models import Job, JobStep, Report, ResearchRequest, WorkOrder
 from aer.errors import ValidationError
 from aer.providers.protocol import LLMProvider
 from aer.providers.router import Router
+from aer.services.mandate import mandate_of
 from aer.storage.protocol import ArtefactStore
 from aer.version import git_sha
 from aer.workflow.engine import BudgetGuard, WorkflowEngine, spend_so_far
@@ -193,7 +194,7 @@ async def execute(
     recovery after the worker died. A step that already succeeded returns its stored output
     and does not execute.
     """
-    request = await session.get(ResearchRequest, job.request_id)
+    request = await mandate_of(session, job)
     if request is None:
         message = f"Job {job.id} has no research request."
         raise ValidationError(message, context={"job_id": str(job.id)})
