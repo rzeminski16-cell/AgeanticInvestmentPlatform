@@ -88,9 +88,11 @@ whole of the next phase — the three parts stand or fall together.
 
 In leverage order. Everything else above is a session's work.
 
-1. **Export the run diagnosis** — two read-only `psql` commands from `scripts/README.md`,
-   then hand over `run-diagnosis.json` (read it first). Unblocks §2.1 and §2.2, the top of
-   the roadmap.
+1. **Export the run diagnosis** — `just runs` to find the run, `just diagnose-run <uuid>` to
+   write it, then hand over `run-diagnosis.json` (read it first). Both read-only, both
+   through the container, so no local `psql` is needed. Unblocks §2.1 and §2.2, the top of
+   the roadmap. **It does not need an approvable run**: a run stranded at gate 2 carries the
+   same drafting record, so the export costs nothing and waits on nothing.
 2. **Approve one confirmation run's spend** when the §2.1 fix lands.
 3. **The peer-discovery decision** (§4.15's remnant): `propose_peers` buys a reasoned peer
    list that can contribute no figure. Skip it when no price client is configured, or amend
