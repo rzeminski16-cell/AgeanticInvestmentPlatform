@@ -152,9 +152,9 @@ cause: `validate_draft` checks only the 1.25× word ceiling with no minimum; a t
 retry halves the word budget; `MAX_GENERATION_ATTEMPTS = 2`. All three still hold, and none
 of them fired on this run.*
 
-**2.2 Section confidence. Diagnosed 2026-09-01; the fix is open.** Sections reporting 0.30
-were either an honest signal about a starved pack (§2.1) or a floor nobody calibrated. The
-export says neither: it is a *cap*, and it fires on edits that have nothing to do with
+**2.2 Section confidence. Resolved 2026-09-01, ADR 0099.** Sections reporting 0.30 were
+either an honest signal about a starved pack (§2.1) or a floor nobody calibrated. The
+export said neither: it is a *cap*, and it was firing on edits that have nothing to do with
 evidence.
 
 Half-settled from the code, 2026-08-28: **it is not a floor.** `confidence_of` takes the
@@ -172,14 +172,16 @@ degraded pack**:
 
 Four of the five were capped for being **trimmed to their word budget** — the mildest edit
 the platform makes, and one that says nothing about whether the section is right. The fifth
-had sentences deleted for untraceable figures, which says a great deal. Both land on 0.30,
-which is a strong statement about reliability, and neither of them earns it: a complete,
-fully cited section that ran long now reads to a person exactly like one the platform had
-to cut for lineage. **This is the fix, and it is `confidence_of`'s, not the salvage's**: an
-edit that only shortened is not the same degradation as an edit that removed unsupported
-prose, and an evidence shortfall is a third thing again. The three must not share one
-number. `low_confidence_reason` already distinguishes them in words (gap R2), which is why
-the flattening is visible at all.
+had sentences deleted for untraceable figures, which says a great deal. Both landed on
+0.30, a strong statement about reliability that neither of them earned: a complete, fully
+cited section that ran long read to a person exactly like one the platform had to cut for
+lineage.
+
+**ADR 0099 gives each degradation its own ceiling and takes the lowest that applies** — an
+evidence shortfall keeps §2.12's 0.3, removed unsourced material caps at the platform's own
+0.5 prior, and a length trim moves the number not at all. Nothing stops being *disclosed*:
+`low_confidence_reason` already told the three apart in the reader's words (gap R2), which
+is how the flattening was visible at all, and it still does.
 
 **2.3 A run that fails late cannot be resumed, only repeated. Resolved, 2026-08-28, ADR
 0090.** The engine skips completed steps, and does it well — that is how a run survives the

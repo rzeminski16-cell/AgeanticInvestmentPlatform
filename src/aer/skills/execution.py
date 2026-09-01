@@ -30,7 +30,7 @@ import structlog
 
 from aer.agents.base import AgentContext, TokenCapExceededError, schema_problems
 from aer.agents.custom_section import CustomSectionAgent, CustomSectionDraft, CustomSectionInput
-from aer.core.section_output import reserved_fields_in
+from aer.core.section_output import confidence_ceiling, reserved_fields_in
 from aer.db.models import PlanSkillPin, ReportSection, ResearchRequest, SectionStatus
 from aer.errors import ValidationError
 from aer.sections.evidence import (
@@ -192,7 +192,9 @@ async def execute_custom_section(
 
     section.content = draft.content
     section.status = SectionStatus.GENERATED
-    section.confidence = confidence_of(draft.content, degraded=bool(shortfalls))
+    section.confidence = confidence_of(
+        draft.content, ceiling=confidence_ceiling(insufficient_evidence=bool(shortfalls))
+    )
     section.low_confidence_reason = degradation_note(shortfalls)
     await context.session.flush()
 

@@ -34,7 +34,12 @@ from aer.agents.registry import resolve_role
 from aer.agents.section_writer import SectionDraft, SectionWriterAgent, SectionWriterInput
 from aer.config import Settings
 from aer.core.enums import AnalysisMode, FactBasis, JobStatus, Provider, SourceTier
-from aer.core.section_output import LENGTH_EDIT_NOTE, prose_word_count
+from aer.core.section_output import (
+    INSUFFICIENT_EVIDENCE_CEILING,
+    LENGTH_EDIT_NOTE,
+    UNSOURCED_MATERIAL_CEILING,
+    prose_word_count,
+)
 from aer.db.models import (
     AgentRun,
     Artefact,
@@ -448,7 +453,11 @@ class TestTheFailureLadder:
         assert "340" not in str(scene["section"].content)
         reason = str(scene["section"].low_confidence_reason)
         assert "removed" in reason
-        assert scene["section"].confidence is not None
+        # ADR 0099: the platform removed material the model could not support, which is a
+        # fact about this drafting — so a ceiling, but not the evidence shortfall's. The
+        # section's evidence was never in question.
+        assert scene["section"].confidence == UNSOURCED_MATERIAL_CEILING
+        assert UNSOURCED_MATERIAL_CEILING > INSUFFICIENT_EVIDENCE_CEILING
 
 
 class TestASectionWithAMalformedClaim:
@@ -576,7 +585,7 @@ class TestASectionRefusedOnlyForLength:
         assert commentary.startswith("Operating cash generation covered the capital programme.")
         assert "recurring revenue" not in commentary
 
-    async def test_the_cut_is_on_the_record_and_the_section_reads_as_degraded(
+    async def test_the_cut_is_on_the_record_in_the_readers_own_register(
         self, budgeted: dict[str, Any]
     ) -> None:
         """The platform edited a person's report; that is not something to do quietly —
@@ -591,8 +600,22 @@ class TestASectionRefusedOnlyForLength:
         assert "Insufficient evidence" not in reason
         assert "word budget" not in reason
         assert "ADR" not in reason
-        assert budgeted["section"].confidence is not None
-        assert budgeted["section"].confidence <= 0.3, "an edited section reads as degraded"
+
+    async def test_the_cut_does_not_move_the_confidence(self, budgeted: dict[str, Any]) -> None:
+        """ADR 0099. Every sentence that survived the trim passed exactly the validation
+        the whole draft passed, so there is nothing here to trust less — and capping for
+        it made a shortened section read like one whose evidence fell short. Four of the
+        five sections a live run capped at 0.30 were capped for nothing worse than this.
+
+        0.5 is the platform's prior for a draft that declares no confidence of its own,
+        which this one does not: the trimmed section lands exactly where an untouched one
+        would.
+        """
+        draft = self._long_draft(budgeted)
+
+        await _run(budgeted, _scripted([draft, draft]))
+
+        assert budgeted["section"].confidence == 0.5
 
     async def test_a_draft_that_cannot_fit_by_trimming_still_fails(
         self, budgeted: dict[str, Any]
@@ -791,7 +814,7 @@ class TestTheDegradationLadder:
         assert "distinct source(s)" in reason
         assert "primary source" in reason
         assert scene["section"].confidence is not None
-        assert scene["section"].confidence <= 0.3
+        assert scene["section"].confidence <= INSUFFICIENT_EVIDENCE_CEILING
 
     async def test_the_policy_comes_from_the_definition_row(self, scene: dict[str, Any]) -> None:
         policy = policy_of_definition(scene["section"].definition)

@@ -24,6 +24,7 @@ from aer.core.section_output import (
     CLAIM_EDIT_NOTE,
     LENGTH_EDIT_NOTE,
     NUMERAL_EDIT_NOTE,
+    confidence_ceiling,
     trimmed_to_word_count,
     without_unsourced_numeral_sentences,
 )
@@ -438,8 +439,11 @@ async def execute_builtin_section(
     # keys, so nothing of the draft is overwritten.
     section.content = {**draft.content, **block} if block else draft.content
     section.status = SectionStatus.GENERATED
+    # Three degradations, three ceilings (ADR 0099). A section shortened to fit is not a
+    # section whose evidence fell short, and the number a reader sees has to say which.
     section.confidence = confidence_of(
-        draft.content, degraded=bool(shortfalls) or bool(salvage_notes)
+        draft.content,
+        ceiling=confidence_ceiling(insufficient_evidence=bool(shortfalls), edits=salvage_notes),
     )
     section.low_confidence_reason = " ".join(notes) or None
     await context.session.flush()

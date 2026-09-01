@@ -1036,7 +1036,14 @@ def policy_shortfalls(
     return shortfalls
 
 
-def confidence_of(content: dict[str, Any], *, degraded: bool) -> float:
+def confidence_of(content: dict[str, Any], *, ceiling: float | None) -> float:
+    """The model's declared confidence, held under whatever ceiling its degradation sets.
+
+    ``ceiling`` comes from :func:`aer.core.section_output.confidence_ceiling`, which is
+    where the three kinds of degradation are told apart (ADR 0099). ``None`` means the
+    section's confidence is the model's own: a draft that passed every rule, or one the
+    platform only shortened.
+    """
     declared = content.get("confidence")
     chosen = (
         float(declared)
@@ -1045,9 +1052,7 @@ def confidence_of(content: dict[str, Any], *, degraded: bool) -> float:
         and 0 <= float(declared) <= 1
         else 0.5
     )
-    # §2.12: findings under an insufficiency banner are marked low-confidence, whatever
-    # the model thought of them.
-    return min(chosen, 0.3) if degraded else chosen
+    return min(chosen, ceiling) if ceiling is not None else chosen
 
 
 def degradation_note(shortfalls: list[str]) -> str | None:

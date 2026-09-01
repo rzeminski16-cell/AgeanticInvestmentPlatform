@@ -46,8 +46,9 @@ malformed claim costs the claim), ADR 0097 (a numeral is checked against the fig
 its spelling), ADR 0098 (a refused revision leaves the approved draft standing) and the two
 eraser gaps. **One is open**: the one-"missing evidence"-sentence rule refuses a whole
 draft over a count of its own hedging with no salvage, which is the trade ADR 0057 exists
-to refuse — a decision rather than a fix. §2.2 is settled in the same reading — the 0.30 is a cap, not a floor, and
-what it flattens is the remaining question. The confirmation is still one
+to refuse — a decision rather than a fix. §2.2 is closed the same day under ADR 0099: the
+0.30 was a cap firing on edits that say nothing about the evidence, and each degradation
+now carries its own ceiling. The confirmation is still one
 operator-approved live run, which also exercises the critique-and-revise loop (ADR 0091)
 against the same sections for the first time. §3.1 landed 2026-08-29 in the roadmap's own
 order, ADR 0093 first, before tranche 8 rewrites the portfolio form it adds a door to.

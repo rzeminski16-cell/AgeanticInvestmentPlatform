@@ -241,7 +241,8 @@ ones — read the ADR before touching its territory:
   (a count is not a figure and a clause is not a section), 0060 (a number inside a name is
   not a figure), 0096 (a malformed claim costs the claim, not the section), 0097 (a numeral
   is checked against the figure, not against its spelling), 0098 (a refused revision leaves
-  the approved draft standing), 0087 (a verdict has two halves:
+  the approved draft standing), 0099 (three degradations are three numbers, not one),
+  0087 (a verdict has two halves:
   one composed, one authored), 0088 (a
   fixed-scheme region carries its own measured palette), 0089 (the run you are watching has an
   address).

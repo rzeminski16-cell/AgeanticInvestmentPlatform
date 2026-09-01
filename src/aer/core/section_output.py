@@ -42,10 +42,13 @@ from aer.core.schemas.skill import RESERVED_OUTPUT_FIELDS
 __all__ = [
     "CLAIM_EDIT_NOTE",
     "EDIT_NOTES",
+    "INSUFFICIENT_EVIDENCE_CEILING",
     "LENGTH_EDIT_NOTE",
     "MAX_GAP_SENTENCES",
     "NUMERAL_EDIT_NOTE",
     "NUMERAL_EXEMPT_KEYS",
+    "UNSOURCED_MATERIAL_CEILING",
+    "confidence_ceiling",
     "contract_violations",
     "editorial_notes_in",
     "gap_sentences",
@@ -83,6 +86,42 @@ CLAIM_EDIT_NOTE: Final = (
 # one that keeps them out from under a section heading — and a note added to one list and
 # not the other would surface to a reader as an evidence shortfall it is not.
 EDIT_NOTES: Final[tuple[str, ...]] = (NUMERAL_EDIT_NOTE, LENGTH_EDIT_NOTE, CLAIM_EDIT_NOTE)
+
+# What each kind of degradation says about whether a section can be relied on (ADR 0099).
+# These were one boolean, and a live run showed what that costs: five surviving sections
+# all reported 0.30, four of them for nothing worse than running long.
+#
+# §2.12's own number, unchanged: findings under an insufficiency banner are low-confidence
+# whatever the model thought of them. It is a statement about the evidence.
+INSUFFICIENT_EVIDENCE_CEILING: Final = 0.3
+# The platform had to remove material the model could not support. The section that
+# remains passed the *full* revalidation (ADR 0057), so it is sound — but the drafting
+# produced figures with no lineage, and that is a fact about this section's drafting. The
+# ceiling is the neutral prior: no better than a section that declared nothing.
+UNSOURCED_MATERIAL_CEILING: Final = 0.5
+
+# The edits that say something about reliability. A length trim is not one of them: every
+# sentence that survived it passed exactly the validation the whole draft passed, and the
+# cut is disclosed to the reader in its own words. Capping for it says "trust this less"
+# about prose there is no reason to trust less.
+_UNSOURCED_MATERIAL_EDITS: Final[frozenset[str]] = frozenset({NUMERAL_EDIT_NOTE, CLAIM_EDIT_NOTE})
+
+
+def confidence_ceiling(*, insufficient_evidence: bool, edits: Iterable[str] = ()) -> float | None:
+    """The lowest ceiling this section's degradations impose, or ``None`` for none.
+
+    Three different facts about a section, which used to share one number and therefore
+    communicated the weakest of them about all three. A section shortened to fit is not a
+    section whose evidence fell short, and a reader given one number cannot tell them
+    apart — which is the whole job of the number.
+    """
+    ceilings: list[float] = []
+    if insufficient_evidence:
+        ceilings.append(INSUFFICIENT_EVIDENCE_CEILING)
+    if any(note in _UNSOURCED_MATERIAL_EDITS for note in edits):
+        ceilings.append(UNSOURCED_MATERIAL_CEILING)
+    return min(ceilings) if ceilings else None
+
 
 # The sentences earlier builds stored for the same two edits, normalised on read so a
 # report re-rendered from old rows comes out in the current register. Matched whole,

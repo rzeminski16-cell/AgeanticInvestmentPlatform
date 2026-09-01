@@ -37,6 +37,12 @@ from aer.config import Settings
 from aer.core.concepts import CANONICAL_CONCEPTS
 from aer.core.enums import FactBasis, GateKind, JobStatus, Provider, SourceTier
 from aer.core.section_output import (
+    CLAIM_EDIT_NOTE,
+    INSUFFICIENT_EVIDENCE_CEILING,
+    LENGTH_EDIT_NOTE,
+    NUMERAL_EDIT_NOTE,
+    UNSOURCED_MATERIAL_CEILING,
+    confidence_ceiling,
     contract_violations,
     numerals_in,
     prose_word_count,
@@ -719,6 +725,48 @@ class TestAMalformedClaimCostsTheClaim:
         _, figures = covered_figures([sound], evidence=Evidence())
 
         assert figures == []
+
+
+class TestTheConfidenceCeiling:
+    """ADR 0099. Three facts about a section, which used to share one number.
+
+    The MSFT run's five surviving degraded sections all reported 0.30. Four of them had
+    been *shortened to fit* and nothing else; the fifth had sentences removed for
+    untraceable figures. Neither is an evidence shortfall, and a reader given one number
+    could not tell any of the three apart — which is the whole job of the number.
+    """
+
+    def test_a_clean_section_has_no_ceiling(self) -> None:
+        assert confidence_ceiling(insufficient_evidence=False) is None
+
+    def test_a_length_trim_alone_is_not_a_ceiling(self) -> None:
+        """Every sentence that survived it passed the validation the whole draft passed."""
+        assert confidence_ceiling(insufficient_evidence=False, edits=[LENGTH_EDIT_NOTE]) is None
+
+    def test_removing_unsourced_material_caps_at_its_own_ceiling(self) -> None:
+        for note in (NUMERAL_EDIT_NOTE, CLAIM_EDIT_NOTE):
+            assert (
+                confidence_ceiling(insufficient_evidence=False, edits=[note])
+                == UNSOURCED_MATERIAL_CEILING
+            )
+
+    def test_an_evidence_shortfall_keeps_the_number_2_12_chose(self) -> None:
+        assert confidence_ceiling(insufficient_evidence=True) == INSUFFICIENT_EVIDENCE_CEILING
+
+    def test_the_lowest_ceiling_wins(self) -> None:
+        """A section can be both, and the reader is owed the weaker of the two claims."""
+        assert (
+            confidence_ceiling(insufficient_evidence=True, edits=[NUMERAL_EDIT_NOTE])
+            == INSUFFICIENT_EVIDENCE_CEILING
+        )
+
+    def test_a_trim_beside_a_lineage_edit_does_not_soften_it(self) -> None:
+        assert (
+            confidence_ceiling(
+                insufficient_evidence=False, edits=[LENGTH_EDIT_NOTE, NUMERAL_EDIT_NOTE]
+            )
+            == UNSOURCED_MATERIAL_CEILING
+        )
 
 
 class TestTheSalvage:
