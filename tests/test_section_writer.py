@@ -451,6 +451,68 @@ class TestTheFailureLadder:
         assert scene["section"].confidence is not None
 
 
+class TestASectionWithAMalformedClaim:
+    """ADR 0096, from the MSFT run's record (roadmap §2.1).
+
+    Four of the eight sections that failed died on a claim marked numeric that named no
+    figure. It raised in the response schema, so the reply never became an object, so
+    nothing could be narrowed and the section was stored with no content at all — a dozen
+    sound claims and a finished draft lost to one malformed sibling.
+    """
+
+    async def test_the_bad_claim_goes_and_the_section_stands(self, scene: dict[str, Any]) -> None:
+        draft = _good_draft(scene)
+        # Marked numeric, naming nothing: the shape the decoder is free to produce, since
+        # the rule is a relation between fields and JSON Schema cannot state it.
+        draft.claims.append(
+            ProposedClaim(statement="The cloud market is growing quickly.", kind="numeric")
+        )
+
+        outcome = await _run(scene, _scripted([draft, draft]))
+
+        assert outcome.status is SectionStatus.GENERATED
+        assert "set aside" in str(scene["section"].low_confidence_reason)
+        assert scene["section"].content["commentary"]
+
+    async def test_what_rested_on_it_goes_with_it(self, scene: dict[str, Any]) -> None:
+        """The order the salvage applies its repairs in, end to end: a dropped claim
+        stops covering its numeral, so the sentence resting on it fails the numeral rule
+        and the repair that already exists removes it."""
+        draft = _good_draft(scene)
+        draft.content["commentary"] = (
+            "Operating cash generation covered the capital programme. "
+            "The market grew 340 basis points."
+        )
+        draft.claims.append(
+            ProposedClaim(statement="The market grew 340 basis points.", kind="numeric")
+        )
+
+        outcome = await _run(scene, _scripted([draft, draft]))
+
+        assert outcome.status is SectionStatus.GENERATED
+        assert "340" not in str(scene["section"].content)
+        reason = str(scene["section"].low_confidence_reason)
+        assert "set aside" in reason
+        assert "removed" in reason
+
+    async def test_nothing_malformed_is_ever_recorded(self, scene: dict[str, Any]) -> None:
+        """The rule is not weakened: the claims table's own constraint is the last word,
+        and a claim that would break it never reaches the insert."""
+        draft = _good_draft(scene)
+        draft.claims.append(
+            ProposedClaim(statement="The cloud market is growing quickly.", kind="numeric")
+        )
+
+        await _run(scene, _scripted([draft, draft]))
+
+        recorded = await scene["session"].scalars(
+            select(Claim).where(Claim.report_section_id == scene["section"].id)
+        )
+        statements = [row.text for row in recorded]
+        assert "The cloud market is growing quickly." not in statements
+        assert statements
+
+
 class TestASectionRefusedOnlyForLength:
     """ADR 0057. Nine of one live report's sixteen sections overran their budget, and
     several were refused for nothing else: complete, cited drafts thrown away for being

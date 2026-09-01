@@ -22,7 +22,7 @@ formula and every fact traceable to a hashed source document.
 | About to change the code | [`developers/knowledge-map.md`](developers/knowledge-map.md) |
 | Deciding what to build next | [`plan/ROADMAP.md`](plan/ROADMAP.md) |
 | About to design a screen | [`design/README.md`](design/README.md) |
-| Wondering why something was built that way | [`adr/`](adr/) — 95 decision records |
+| Wondering why something was built that way | [`adr/`](adr/) — 96 decision records |
 
 ---
 
@@ -116,7 +116,7 @@ page specifications, a production handoff and a twelve-screen prototype.
 
 ## Reference
 
-- [`adr/`](adr/) — 95 architecture decision records, chronological. Each is a claim, not a
+- [`adr/`](adr/) — 96 architecture decision records, chronological. Each is a claim, not a
   topic. They are immutable once accepted: a change needs a superseding record.
   `developers/knowledge-map.md` §6 indexes them by theme.
 - [`data-sources/`](data-sources/) — one dossier per publisher: what it offers, its terms,

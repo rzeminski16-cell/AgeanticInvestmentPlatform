@@ -548,6 +548,81 @@ class TestACountIsNotAFigure:
         assert unsourced_numerals({"s": "Total exposure stands at 42."}, []) != []
 
 
+class TestAMalformedClaimCostsTheClaim:
+    """ADR 0096, from the MSFT run's record (roadmap §2.1).
+
+    Four of the eight sections that failed died here, each with zero bytes recorded. The
+    rule — a numeric claim names exactly one figure and cites something — is a relation
+    between fields, so JSON Schema cannot state it and the server's decoder cannot honour
+    it. It was a `model_validator`, so it raised during the parse: the reply never became
+    an object, `last_candidate` was never set, and the salvage had nothing to narrow.
+    """
+
+    def test_the_reply_now_parses_so_there_is_something_to_narrow(self) -> None:
+        """The structural change. Constructing this used to raise."""
+        claim = ProposedClaim(statement="Revenue grew 12%.", kind="numeric")
+
+        assert claim.malformed_reason is not None
+        assert "not 0" in claim.malformed_reason
+
+    @pytest.mark.parametrize(
+        ("claim", "expected"),
+        [
+            (
+                ProposedClaim(statement="Revenue grew.", kind="numeric"),
+                "names exactly one figure",
+            ),
+            (
+                ProposedClaim(
+                    statement="Revenue grew.", kind="numeric", calculation_id=str(uuid.uuid4())
+                ),
+                "needs at least one proposed citation",
+            ),
+            (
+                ProposedClaim(
+                    statement="Margins look safe.",
+                    kind="opinion",
+                    calculation_id=str(uuid.uuid4()),
+                ),
+                "must not name a figure",
+            ),
+            (
+                ProposedClaim(statement="The filing says so.", kind="factual"),
+                "needs at least one proposed citation",
+            ),
+            (ProposedClaim(statement="It may grow.", kind="forward_looking"), "stated basis"),
+        ],
+    )
+    def test_each_shape_says_what_it_owes(self, claim: ProposedClaim, expected: str) -> None:
+        reason = claim.malformed_reason
+
+        assert reason is not None
+        assert expected in reason
+
+    def test_a_sound_claim_has_no_reason(self) -> None:
+        claim = ProposedClaim(
+            statement="Revenue was $198,270 million.",
+            kind="numeric",
+            financial_fact_id=str(uuid.uuid4()),
+            citations=[ProposedCitation(extraction_id=str(uuid.uuid4()))],
+        )
+
+        assert claim.malformed_reason is None
+
+    def test_a_malformed_claim_lends_no_cover_on_its_way_out(self) -> None:
+        """It is about to be dropped, so letting it excuse a numeral would pass a figure
+        whose lineage is being thrown away in the same breath."""
+        malformed = ProposedClaim(statement="Revenue was $198,270 million.", kind="numeric")
+
+        covered = [
+            claim.statement
+            for claim in [malformed]
+            if claim.kind == "numeric" and claim.malformed_reason is None
+        ]
+
+        assert unsourced_numerals({"s": "Revenue was $198,270 million."}, covered) != []
+
+
 class TestTheSalvage:
     """ADR 0057, part three: the offending sentence goes, not the section."""
 
@@ -814,17 +889,27 @@ class TestARatingIsUnrepresentable:
                 {"content": {"summary": "s"}, "claims": [], "rating": "Buy"}
             )
 
-    def test_a_numeric_claim_names_exactly_one_figure(self) -> None:
-        with pytest.raises(PydanticValidationError):
-            ProposedClaim(
-                statement="Revenue was 100.",
-                kind="numeric",
-                citations=[ProposedCitation(extraction_id="b")],
-            )
+    def test_the_claim_rules_are_refused_rather_than_unrepresentable(self) -> None:
+        """ADR 0096. These two used to raise here, and raising was the defect.
 
-    def test_an_opinion_needs_a_basis_not_a_figure(self) -> None:
-        with pytest.raises(PydanticValidationError):
-            ProposedClaim(statement="The moat is durable.", kind="opinion")
+        The rule is a relation between fields, so JSON Schema cannot state it and the
+        server's decoder cannot honour it — the reply arrives breaking it whatever this
+        model says, and raising during the parse meant the whole billed draft was lost
+        rather than the one claim. It is refused in `validate_draft` and dropped by the
+        salvage now; `TestAMalformedClaimCostsTheClaim` above holds both, and the
+        `claims` table's own check constraint is still the last word on what is stored.
+        """
+        no_figure = ProposedClaim(
+            statement="Revenue was 100.",
+            kind="numeric",
+            citations=[ProposedCitation(extraction_id="b")],
+        )
+        opinion_with_a_figure = ProposedClaim(
+            statement="The moat is durable.", kind="opinion", calculation_id=str(uuid.uuid4())
+        )
+
+        assert no_figure.malformed_reason is not None
+        assert opinion_with_a_figure.malformed_reason is not None
 
 
 class TestACitationIsAnOpaqueHandle:

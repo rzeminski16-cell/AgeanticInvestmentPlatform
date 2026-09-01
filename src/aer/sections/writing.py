@@ -21,6 +21,7 @@ from aer.agents.base import AgentContext, TokenCapExceededError, schema_problems
 from aer.agents.section_writer import SectionDraft, SectionWriterAgent, SectionWriterInput
 from aer.core.enums import SourceTier
 from aer.core.section_output import (
+    CLAIM_EDIT_NOTE,
     LENGTH_EDIT_NOTE,
     NUMERAL_EDIT_NOTE,
     trimmed_to_word_count,
@@ -557,6 +558,7 @@ class _Salvage:
 # the mechanism (ADR 0057's trim-not-discard trade) stays in the ADR and the structured
 # log, never in a rendered document.
 _NUMERAL_NOTE: Final = NUMERAL_EDIT_NOTE
+_CLAIM_NOTE: Final = CLAIM_EDIT_NOTE
 _LENGTH_NOTE: Final = LENGTH_EDIT_NOTE
 
 
@@ -601,6 +603,10 @@ def _salvaged(
     output from the billed reply, never adding to it. Two repairs, applied in order and
     either sufficient on its own:
 
+    * **Malformed claims dropped.** A claim that does not stand on what its kind requires
+      — a numeric one naming no figure, or naming one and citing nothing — is set aside.
+      Four of the eight sections the MSFT run lost died on this (roadmap §2.1), each
+      taking a dozen sound claims and a finished draft with it.
     * **Unsourced-numeral sentences removed.** Both sections the first live report lost
       died over a single flagged token each — a whole paid-for draft discarded for one
       clause the rule had a quarrel with.
@@ -608,8 +614,11 @@ def _salvaged(
       overran their budget, several for *nothing else*: complete, fully cited drafts
       thrown away for being long, which is the worst trade in the pipeline.
 
-    Order matters and is deliberate: removing unsourced sentences also removes words, so
-    the numeral repair runs first and the trim only takes what is still over.
+    Order matters and is deliberate. Dropping a claim removes the cover its statement gave
+    a numeral, so the claim repair runs before the numeral one and the sentences that
+    rested on a dropped claim go with it — the section keeps nothing it can no longer
+    support. Removing sentences also removes words, so the trim runs last and takes only
+    what is still over.
 
     The salvage declines unless the narrowed draft passes **full** revalidation, so it can
     only ever turn a refused draft into a conforming one, and a draft failing for any
@@ -617,6 +626,11 @@ def _salvaged(
     """
     content = candidate.content
     notes: list[str] = []
+
+    claims = [claim for claim in candidate.claims if claim.malformed_reason is None]
+    if len(claims) != len(candidate.claims):
+        candidate = candidate.model_copy(update={"claims": claims})
+        notes.append(_CLAIM_NOTE)
 
     covered = [claim.statement for claim in candidate.claims if claim.kind == "numeric"]
     narrowed = without_unsourced_numeral_sentences(content, covered)

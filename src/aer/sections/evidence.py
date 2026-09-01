@@ -782,6 +782,13 @@ def validate_draft(
     problems = contract_violations(draft.content, contract)
 
     for index, claim in enumerate(draft.claims, start=1):
+        # The rule the wire format cannot carry (see `ProposedClaim.malformed_reason`):
+        # a relation between fields, so the server's decoder cannot be made to honour it
+        # and a reply that breaks it is only refusable after it has been paid for. Here
+        # rather than in the schema so it costs the claim rather than the whole reply.
+        malformed = claim.malformed_reason
+        if malformed is not None:
+            problems.append(f"Claim {index}: {malformed}")
         if claim.financial_fact_id is not None and claim.financial_fact_id not in (
             evidence.fact_sources
         ):
@@ -817,7 +824,14 @@ def validate_draft(
     # refused here or "names its figure" would cover fabrications.
     problems.extend(_content_id_violations(draft.content, evidence=evidence))
 
-    covered = [claim.statement for claim in draft.claims if claim.kind == "numeric"]
+    # Cover comes from numeric claims that stand up. A malformed one is dropped before
+    # anything is recorded, so letting it cover a numeral here would pass a figure whose
+    # lineage is about to be thrown away.
+    covered = [
+        claim.statement
+        for claim in draft.claims
+        if claim.kind == "numeric" and claim.malformed_reason is None
+    ]
     problems.extend(unsourced_numerals(draft.content, covered))
 
     # The gap budget (R4). A live report spent a third of its prose describing absent

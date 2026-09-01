@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 from typing import Any, ClassVar, Final, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from aer.agents.base import Agent
 from aer.agents.contract_schema import draft_model_for
@@ -93,30 +93,50 @@ class ProposedClaim(BaseModel):
     basis: str | None = Field(default=None, max_length=CLAIM_BASIS_CEILING)
     citations: list[ProposedCitation] = Field(default_factory=list, max_length=4)
 
-    @model_validator(mode="after")
-    def _stands_on_the_right_thing(self) -> ProposedClaim:
+    @property
+    def malformed_reason(self) -> str | None:
+        """Why this claim does not stand on what its kind requires, or ``None``.
+
+        **Read by the caller rather than raised here, and that is the whole point.** This
+        was a ``model_validator``: one claim that named no figure raised, which failed the
+        parse of the *whole reply*, which meant the draft never became an object — so the
+        salvage had nothing to narrow and the section was recorded with no content at all.
+        Four of the eight sections a live run lost died exactly there (roadmap §2.1), and
+        each took a dozen sound claims and a finished draft down with it. It is the same
+        blast radius ``RedTeamChallenge.cites_nothing`` was moved out of the schema to
+        stop, for the same reason.
+
+        **The rule is not weakened.** A malformed claim is a refusal like any other in
+        :func:`aer.sections.evidence.validate_draft`, it is dropped before anything is
+        recorded, and the numerals it used to cover lose their cover — so the sentences
+        resting on it go too. What changes is that the rest of the draft survives.
+
+        This is also the one rule the wire format cannot carry: it is a relation between
+        fields, JSON Schema has no way to say it, and the server's constrained decoder is
+        therefore free to produce a reply that breaks it. A rule enforced only after the
+        reply is paid for should cost the offending claim, not the section.
+        """
         named = (self.financial_fact_id is not None) + (self.calculation_id is not None)
         if self.kind == "numeric":
-            if named != 1:
-                message = (
-                    "A numeric claim names exactly one figure — a financial fact id or a "
-                    f"calculation id, not {named}."
-                )
-                raise ValueError(message)
-            if not self.citations:
-                message = "A numeric claim needs at least one proposed citation."
-                raise ValueError(message)
-        else:
-            if named:
-                message = f"A {self.kind} claim must not name a figure."
-                raise ValueError(message)
-            if self.kind == "factual" and not self.citations:
-                message = "A factual claim needs at least one proposed citation."
-                raise ValueError(message)
-            if self.kind in {"forward_looking", "opinion"} and not (self.basis or "").strip():
-                message = f"A {self.kind} claim needs a stated basis."
-                raise ValueError(message)
-        return self
+            return self._numeric_reason(named)
+        if named:
+            return f"A {self.kind} claim must not name a figure."
+        if self.kind == "factual" and not self.citations:
+            return "A factual claim needs at least one proposed citation."
+        if self.kind in {"forward_looking", "opinion"} and not (self.basis or "").strip():
+            return f"A {self.kind} claim needs a stated basis."
+        return None
+
+    def _numeric_reason(self, named: int) -> str | None:
+        """What a numeric claim owes: exactly one figure, and something to read it in."""
+        if named != 1:
+            return (
+                "A numeric claim names exactly one figure — a financial fact id or a "
+                f"calculation id, not {named}."
+            )
+        if not self.citations:
+            return "A numeric claim needs at least one proposed citation."
+        return None
 
 
 class CustomSectionDraft(BaseModel):

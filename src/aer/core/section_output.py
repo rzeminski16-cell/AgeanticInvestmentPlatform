@@ -38,6 +38,8 @@ from aer.core.concepts import CANONICAL_CONCEPTS
 from aer.core.schemas.skill import RESERVED_OUTPUT_FIELDS
 
 __all__ = [
+    "CLAIM_EDIT_NOTE",
+    "EDIT_NOTES",
     "LENGTH_EDIT_NOTE",
     "MAX_GAP_SENTENCES",
     "NUMERAL_EDIT_NOTE",
@@ -70,6 +72,15 @@ NUMERAL_EDIT_NOTE: Final = (
     "One or more sentences were removed because their figures could not be traced to a "
     "recorded source."
 )
+CLAIM_EDIT_NOTE: Final = (
+    "One or more statements were set aside because what they rested on was not recorded with them."
+)
+
+# Every note that describes an *edit* rather than a condition of the analysis. Named once
+# because two readers walk it — the classifier that sends edits to the appendix, and the
+# one that keeps them out from under a section heading — and a note added to one list and
+# not the other would surface to a reader as an evidence shortfall it is not.
+EDIT_NOTES: Final[tuple[str, ...]] = (NUMERAL_EDIT_NOTE, LENGTH_EDIT_NOTE, CLAIM_EDIT_NOTE)
 
 # The sentences earlier builds stored for the same two edits, normalised on read so a
 # report re-rendered from old rows comes out in the current register. Matched whole,
@@ -103,7 +114,7 @@ def editorial_notes_in(reason: str | None) -> tuple[str, ...]:
     if not reason:
         return ()
     normalised = _normalised_degradation(reason)
-    return tuple(note for note in (NUMERAL_EDIT_NOTE, LENGTH_EDIT_NOTE) if note in normalised)
+    return tuple(note for note in EDIT_NOTES if note in normalised)
 
 
 def reader_warning(reason: str | None) -> str | None:
@@ -117,7 +128,7 @@ def reader_warning(reason: str | None) -> str | None:
     if not reason:
         return None
     remaining = _normalised_degradation(reason)
-    for note in (NUMERAL_EDIT_NOTE, LENGTH_EDIT_NOTE):
+    for note in EDIT_NOTES:
         remaining = remaining.replace(note, "")
     # A note that was only edits leaves a bare label behind — "Insufficient evidence:"
     # with nothing after it says the opposite of what happened, so it goes too.
