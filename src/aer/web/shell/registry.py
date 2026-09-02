@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import Final
 
+from aer.web.decisions.nav import DECISIONS
 from aer.web.monitor.nav import MONITOR
 from aer.web.nav import NavItem, NavSection
 from aer.web.overview.nav import OVERVIEW
@@ -60,7 +61,15 @@ PLATFORM: Final = NavSection(
 
 # One import per tool, and one line here. Overview is the first section this file did
 # not declare itself, which is the whole claim the nav-as-data slice made.
-NAV: Final[tuple[NavSection, ...]] = (OVERVIEW, RESEARCH, PORTFOLIO, THESES, MONITOR, PLATFORM)
+NAV: Final[tuple[NavSection, ...]] = (
+    OVERVIEW,
+    RESEARCH,
+    PORTFOLIO,
+    THESES,
+    DECISIONS,
+    MONITOR,
+    PLATFORM,
+)
 
 
 def flat_items() -> tuple[NavItem, ...]:
@@ -98,7 +107,6 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         # use is worse than a launcher that shows the shape once. Each becomes a nav item
         # on the day its row turns `WORKING`.
         "/analytics",
-        "/decisions",
         "/review",
         "/risk",
         "/watchlist",
@@ -122,6 +130,8 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         "/theses/{thesis_id}",
         # One finding, reached from the monitor's list and from the work list.
         "/monitor/findings/{finding_id}",
+        # One decision, reached from the journal, from its thesis and from the work list.
+        "/decisions/{decision_id}",
         # A request and everything done to one.
         "/requests/new",
         "/requests/{request_id}",

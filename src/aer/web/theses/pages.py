@@ -34,13 +34,14 @@ from aer.api.deps import CurrentUser, DbSession, SettingsDep
 from aer.core.enums import PremiseComparator
 from aer.db.models import Company, Premise, Thesis
 from aer.errors import AerError
+from aer.services import decisions as decision_service
 from aer.services import theses as thesis_service
 from aer.web import verdict as verdicts
 from aer.web import vocabulary
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
 
-__all__ = ["COMPARATOR_LABELS", "router"]
+__all__ = ["COMPARATOR_LABELS", "PremiseRow", "premise_rows", "router"]
 
 router = APIRouter(include_in_schema=False)
 
@@ -94,6 +95,11 @@ def _row(premise: Premise) -> PremiseRow:
         withdrawn_on=f"{judgement.withdrawn_at:%d %B %Y}" if judgement.withdrawn_at else "",
         withdrawn_reason=judgement.withdrawn_reason or "",
     )
+
+
+def premise_rows(thesis: Thesis) -> list[PremiseRow]:
+    """The thesis's premises as a page shows them — here, and on a decision taken on them."""
+    return [_row(premise) for premise in thesis.premises]
 
 
 def _plain(value: Decimal | None) -> str:
@@ -227,7 +233,18 @@ async def thesis_page(
         {
             "item": thesis,
             "subject": await thesis_service.subject_name(session, thesis),
-            "premises": [_row(premise) for premise in thesis.premises],
+            "premises": premise_rows(thesis),
+            "decisions": [
+                {
+                    "id": row.judgement_id,
+                    "action": decision_service.ACTION_WORDS[row.action],
+                    "statement": row.statement,
+                    "decided_on": f"{row.judgement.held_at:%d %B %Y}",
+                    "is_withdrawn": row.judgement.is_withdrawn,
+                    "carried_out": len(row.transactions),
+                }
+                for row in await decision_service.decisions_of_thesis(session, thesis)
+            ],
             "verdict": _thesis_verdict(thesis),
             "comparators": [
                 {"value": member.value, "label": label}

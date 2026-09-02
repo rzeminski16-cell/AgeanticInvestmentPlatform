@@ -105,7 +105,7 @@ columns it would have filled. A blank cell reads as nil, which is a claim. A clo
 says *Closed*.
 
 ### The transaction form
-Below the table, on the same page. Eight controls:
+Below the table, on the same page. Nine controls:
 
 | Control | Type | Notes |
 |---|---|---|
@@ -116,6 +116,7 @@ Below the table, on the same page. Eight controls:
 | **Price per share** | decimal | Buys and sells only. **In the dealing currency — pence for a London listing, if that is what the contract note says** |
 | **Currency** | text, 3 chars, defaults to base | |
 | **Dealing costs** | decimal | *"On a purchase they join the cost; on a sale they only take cash"* |
+| **Carries out** | select, optional | The held decision this trade carries out (ADR 0104), from the operator's journal. A sale offered against a decision to buy is refused with the reason |
 | **Note** | text | |
 
 **Every amount is typed positive. The sign is the form's job.** Nobody types a minus in front

@@ -35,6 +35,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.config import Settings
 from aer.core.enums import (
+    DecisionAction,
     FindingKind,
     GateKind,
     PremiseComparator,
@@ -51,6 +52,7 @@ from aer.db.models import (
     Report,
     User,
 )
+from aer.services import decisions as decision_service
 from aer.services import theses as thesis_service
 from aer.services.theses import Predicate
 from tests.api_fixtures import build_app, client_for
@@ -156,6 +158,17 @@ async def committed(db_engine: Any) -> Any:
             opens_gate=True,
         )
         session.add(finding)
+        # A decision on the thesis, so the journal's detail page has a row to render.
+        decision = await decision_service.record_decision(
+            session,
+            actor=user,
+            thesis=thesis,
+            action=DecisionAction.BUY,
+            statement="Open an initial position.",
+            basis="The FY25 report.",
+            size_statement="about 2% of the book",
+            horizon_months=24,
+        )
         await session.commit()
         yield {
             "user": user,
@@ -163,6 +176,7 @@ async def committed(db_engine: Any) -> Any:
             "book": book,
             "thesis": thesis,
             "finding": finding,
+            "decision": decision,
         }
     await _truncate(db_engine)
 
@@ -234,6 +248,7 @@ async def finished_run(
         "portfolio_id": committed["book"].id,
         "thesis_id": committed["thesis"].id,
         "finding_id": committed["finding"].id,
+        "decision_id": committed["decision"].judgement_id,
     }
 
 

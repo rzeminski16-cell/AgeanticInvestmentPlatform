@@ -98,7 +98,9 @@ and the theses tool working — the record §3.6's monitor reads and had nothing
 landed the same day (ADR 0103): the `thesis_monitor` role, a pass that measures the crossing in
 code before the model is asked anything, `findings` kept apart from approvals with the tier as a
 column, the one gate a contradicted premise opens, and the monitor as the fourth working tool.
-§3.7 is next. §3.11
+§3.7 landed the same day (ADR 0104): decisions as the second judgement subtype with the size
+as a sentence, the trade pointing back at its decision, the six sizing names reserved with
+their attack files, and the Decisions tool as the fifth working tool. §3.8 is next. §3.11
 is quietly the missing half of ADR 0091's memory: an operator-authored methodology skill is
 the only route a recorded lesson has into a future run.
 

@@ -95,6 +95,21 @@
     {% endif %}
   {% endcall %}
 
+  {% call ui.sheet("Decisions taken on it", subtitle="What you decided to do about this thesis, written before the outcome. Each is a judgement of its own, with the trades that carried it out.", id="decisions") %}
+    {% if decisions %}
+      {% call ui.record_list("Decisions") %}
+        {% for row in decisions %}
+          <li class="border-t border-line py-3" data-decision="{{ row.id }}" data-withdrawn="{{ 'yes' if row.is_withdrawn else 'no' }}">
+            <a href="/decisions/{{ row.id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2 {% if row.is_withdrawn %}line-through{% endif %}">{{ row.action | capitalize }}: {{ row.statement }}</a>
+            <p class="mt-1 type-data-sm text-ink-muted">Decided {{ row.decided_on }} · {{ row.carried_out }} trade{{ "" if row.carried_out == 1 else "s" }} carried it out</p>
+          </li>
+        {% endfor %}
+      {% endcall %}
+    {% else %}
+      {{ ui.empty("Nothing decided yet", "A decision is what you do about a thesis — open a position, add, trim, close, keep holding, or pass — written down before the outcome is known.", action_label="Record a decision", action_href="/decisions") }}
+    {% endif %}
+  {% endcall %}
+
   {% if not item.is_retired %}
     {% call ui.sheet("Add a premise", subtitle="What you believe, the basis for it, and what would defeat it — a threshold code can test, or a date a person will look again by.") %}
       <form method="post" action="/theses/{{ item.id }}/premises" class="grid max-w-2xl gap-4" id="add-premise">

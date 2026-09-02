@@ -79,11 +79,23 @@ RESERVED_OUTPUT_FIELDS: Final[frozenset[str]] = frozenset(
         "valuation_range",
         "fair_value",
         "conviction",
+        # The six sizing names, reserved in the change that first introduced a sizing
+        # concept — a decision's action and its size (ADR 0080, ADR 0104) — and never in a
+        # follow-up. A skill that can declare `recommended_weight` sets position sizes.
+        "position_size",
+        "weight",
+        "recommended_weight",
+        "action",
+        "order_quantity",
+        "stop_loss",
     }
 )
 
-# The one reserved name whose refusal is not about ownership, and says so.
+# The reserved names whose refusal is not about ownership, and say so.
 _NOT_A_FIGURE: Final[frozenset[str]] = frozenset({"conviction"})
+_NOT_THE_MODELS_TO_SIZE: Final[frozenset[str]] = frozenset(
+    {"position_size", "weight", "recommended_weight", "action", "order_quantity", "stop_loss"}
+)
 
 _IDENTIFIER: Final = re.compile(r"\A[a-z][a-z0-9_]{0,63}\Z")
 
@@ -211,6 +223,15 @@ class SkillFrontmatter(BaseModel):
                     "section's output, and nothing to check it against (ADR 0074). Write the "
                     "view as prose; a number under that name is a judgement wearing a figure's "
                     "clothes."
+                )
+                raise ValueError(message)
+            if name in _NOT_THE_MODELS_TO_SIZE:
+                message = (
+                    f"The output field {name!r} is reserved. What to do about a position, "
+                    "and how much, is the operator's decision, written in the journal "
+                    "before the outcome (ADR 0104); a section has no writable path to a "
+                    "size, an action or a stop, and that starts with not being able to "
+                    "declare the field (ADR 0080)."
                 )
                 raise ValueError(message)
             if name in RESERVED_OUTPUT_FIELDS:

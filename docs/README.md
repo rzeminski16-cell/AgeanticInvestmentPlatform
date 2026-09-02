@@ -53,6 +53,8 @@ For the operator: the person who installs it, commissions research and approves 
   would defeat it
 - [`monitor.md`](users/monitor.md) — what has been filed since, read against each premise;
   a finding is a question, and the gate it can open.
+- [`decisions.md`](users/decisions.md) — what you decided to do about a thesis, written
+  before the outcome, and the trade that carries it out.
 - [`troubleshooting.md`](users/troubleshooting.md) — when a run stalls, fails, or refuses.
 
 ### `developers/` — how to change it

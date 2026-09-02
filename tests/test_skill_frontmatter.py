@@ -155,6 +155,25 @@ class TestTheReservedOutputFields:
         assert {"rating", "recommendation", "target_price", "valuation_range", "conviction"} <= (
             RESERVED_OUTPUT_FIELDS
         )
+        # ADR 0080's six, reserved with the first sizing concept (ADR 0104).
+        assert {
+            "position_size",
+            "weight",
+            "recommended_weight",
+            "action",
+            "order_quantity",
+            "stop_loss",
+        } <= RESERVED_OUTPUT_FIELDS
+
+    def test_a_size_is_refused_as_the_operators_decision(self) -> None:
+        """ADR 0080: the reason is not ownership of a report figure, and the message says so."""
+        broken = MOAT_DURABILITY.replace("  summary: string", "  recommended_weight: number")
+
+        with pytest.raises(SkillFileError) as caught:
+            parse_skill_file(broken)
+
+        [issue] = caught.value.issues
+        assert "operator's decision" in issue.message
 
     def test_a_conviction_is_refused_as_a_view_rather_than_as_an_owned_figure(self) -> None:
         """ADR 0074: the reason is not ownership, and the message says which reason it is."""

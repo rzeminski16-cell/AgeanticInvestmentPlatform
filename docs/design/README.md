@@ -56,6 +56,7 @@ Four surfaces, from roadmap §3.12:
 | **Portfolio** | The book as at a date, its empty and broken states, the transaction form | [`pages/portfolio.md`](pages/portfolio.md) |
 | **Theses** | The list, one thesis and its premises, the four forms | [`pages/theses.md`](pages/theses.md) |
 | **Monitor** | Findings grouped by what they ask, one finding, the thesis gate | [`pages/monitor.md`](pages/monitor.md) |
+| **Decisions** | The journal, one decision with its premises and trades, the trade form's *Carries out* | [`pages/decisions.md`](pages/decisions.md) |
 
 ## What is deliberately out of scope
 
@@ -63,11 +64,11 @@ Four surfaces, from roadmap §3.12:
   defects and their own roadmap entry ([§2.4](../plan/ROADMAP.md)). It is a document-layout
   problem, not a screen one, and mixing them would put page-break debugging in the middle of
   an interface design.
-- **The five planned tools** — Watchlist, Decisions, Risk, Post-trade review, Decision
-  analytics. Each is a placeholder page saying what it would be and what it is waiting on,
-  and that is all it should be until its tables exist. Theses and Monitor have since shipped
+- **The four planned tools** — Watchlist, Risk, Post-trade review, Decision analytics.
+  Each is a placeholder page saying what it would be and what it is waiting on, and that is
+  all it should be until its tables exist. Theses, Monitor and Decisions have since shipped
   and have specifications of their own ([`pages/theses.md`](pages/theses.md),
-  [`pages/monitor.md`](pages/monitor.md)). Designing a screen for
+  [`pages/monitor.md`](pages/monitor.md), [`pages/decisions.md`](pages/decisions.md)). Designing a screen for
   a tool with no data is how a specification becomes fiction. **The placeholder pattern
   itself is in scope** — it appears in the launcher and is specified in
   [`pages/overview.md`](pages/overview.md).

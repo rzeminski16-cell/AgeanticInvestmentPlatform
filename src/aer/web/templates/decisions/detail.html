@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  One decision in full: what was decided, on what basis, the premises it was taken on, the
+  trades that carried it out, and the two acts a person can record — withdraw it with a
+  reason, or revise it as a new entry that supersedes this one.
+
+  Nothing is edited in place and nothing is deleted. A decision quietly rewritten after the
+  outcome is the row the post-trade reviewer exists to read (ADR 0104).
+#}
+
+{% block title %}{{ item.action | capitalize }} &middot; {{ item.thesis_title }} &middot; Decisions{% endblock %}
+
+{% block content %}
+  {% call ui.page_header(
+    item.action | capitalize ~ ": " ~ item.statement,
+    eyebrow="A DECISION",
+    identity=item.thesis_title ~ " · decided " ~ item.decided_on,
+    breadcrumbs=[{"href": "/decisions", "label": "Decisions"}],
+  ) %}
+    <span id="subject" class="sr-only">{{ subject }}</span>
+  {% endcall %}
+
+  {% if item.is_withdrawn %}
+    <div id="withdrawn-notice">
+      {{ ui.callout("info", "This decision is withdrawn", "Withdrawn on " ~ item.withdrawn_on ~ ". " ~ item.withdrawn_reason ~ " It is kept as a record of what was decided when.") }}
+    </div>
+  {% endif %}
+
+  {% call ui.sheet("What was decided", id="decision") %}
+    <dl class="grid grid-cols-1 sm:grid-cols-[160px_1fr]">
+      <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Decided</dt>
+      <dd class="border-line py-3 type-body text-ink sm:border-t" data-field="action">{{ item.action | capitalize }}</dd>
+      <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">In a line</dt>
+      <dd class="border-line py-3 type-body-strong text-ink sm:border-t" data-field="statement">{{ item.statement }}</dd>
+      <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">On what basis</dt>
+      <dd class="border-line py-3 type-body text-ink sm:border-t" data-field="basis">{{ item.basis }}</dd>
+      <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Held by</dt>
+      <dd class="border-line py-3 type-body text-ink sm:border-t">{{ item.held_by }} on {{ item.decided_on }}</dd>
+      {% if item.security %}
+        <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Listing</dt>
+        <dd class="border-line py-3 type-data text-ink sm:border-t" data-field="security">{{ item.security }}</dd>
+      {% endif %}
+      {% if item.size_statement %}
+        <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">How much</dt>
+        <dd class="border-line py-3 type-body text-ink sm:border-t" data-field="size">{{ item.size_statement }}</dd>
+      {% endif %}
+      {% if item.horizon %}
+        <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Intended holding period</dt>
+        <dd class="border-line py-3 type-body text-ink sm:border-t" data-field="horizon">{{ item.horizon }}</dd>
+      {% endif %}
+      {% if item.exit_plan %}
+        <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Reversed if</dt>
+        <dd class="border-line py-3 type-body text-ink sm:border-t" data-field="exit-plan">{{ item.exit_plan }}</dd>
+      {% endif %}
+      {% if item.review_by %}
+        <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Review by</dt>
+        <dd class="border-line py-3 type-body text-ink sm:border-t" data-field="review-by">{{ item.review_by }}</dd>
+      {% endif %}
+    </dl>
+  {% endcall %}
+
+  {% call ui.sheet("The premises it was taken on", subtitle="The thesis as it stands. A withdrawn premise is struck through with its reason; a review reads these against what happened.", id="premises") %}
+    <p class="type-body-sm text-ink-muted">
+      <a href="/theses/{{ item.thesis_id }}" class="text-verification underline underline-offset-[3px]">Open the thesis</a>
+    </p>
+    {% if premises %}
+      <ol class="mt-3 flex flex-col" aria-label="Premises">
+        {% for row in premises %}
+          <li class="border-t border-line py-3" data-premise="{{ row.position }}" data-withdrawn="{{ 'yes' if row.is_withdrawn else 'no' }}">
+            <p class="type-body-strong text-ink {% if row.is_withdrawn %}line-through text-ink-muted{% endif %}">{{ row.position }}. {{ row.statement }}</p>
+            <p class="mt-1 type-data-sm text-ink-muted">{% if row.is_tested %}Tested by a threshold: {% else %}Reviewed by a person: {% endif %}{{ row.defeated_by }}</p>
+            {% if row.is_withdrawn %}<p class="mt-1 type-body-sm text-ink-muted">Withdrawn on {{ row.withdrawn_on }}: {{ row.withdrawn_reason }}</p>{% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p class="mt-3 type-body text-ink-muted">The thesis has no premises yet.</p>
+    {% endif %}
+  {% endcall %}
+
+  {% call ui.sheet("The trades that carried it out", subtitle="Recorded on the portfolio form, each naming this decision. A decision to keep holding or to pass is carried out by nothing.", id="trades") %}
+    {% if item.trades %}
+      <ol class="flex flex-col" aria-label="Trades">
+        {% for row in item.trades %}
+          <li class="border-t border-line py-3 type-body text-ink" data-trade="{{ row.kind }}">
+            {{ row.kind | capitalize }} on {{ row.trade_date }}: <span class="type-data">{{ row.quantity }}</span>{% if row.price %} at <span class="type-data">{{ row.price }} {{ row.currency }}</span>{% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+    {% elif item.moves_the_book %}
+      {{ ui.empty("Not yet carried out", "When you record the trade, choose this decision under \"Carries out\" on the portfolio form.", action_label="Record the trade", action_href="/portfolio") }}
+    {% else %}
+      <p class="type-body text-ink-muted">Nothing to carry out: this decision moves no position.</p>
+    {% endif %}
+  {% endcall %}
+
+  {% if not item.is_withdrawn %}
+    {% call ui.sheet("Revise it", subtitle="A new entry that supersedes this one. This one stays, withdrawn as superseded, so what was decided when is on the record.", id="revise") %}
+      <form method="post" action="/decisions/{{ item.id }}/revise" class="grid max-w-2xl gap-4" id="revise-decision">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        {{ ui.field("action", "What you now decide", required=true, choices=actions, value=item.action_value) }}
+        {{ ui.field("statement", "In a line", required=true, rows=2, value=item.statement) }}
+        {{ ui.field("basis", "On what basis", required=true, rows=3, hint="What changed. The earlier basis stays on the earlier entry.") }}
+        <div class="grid gap-4 sm:grid-cols-2">
+          {{ ui.field("security", "Listing", value=item.security) }}
+          {{ ui.field("size_statement", "How much, in words", value=item.size_statement) }}
+          {{ ui.field("horizon_months", "Intended holding period, in months", type="number", value=item.horizon_months or "") }}
+          {{ ui.field("review_by", "Review by", type="date", value=item.review_by_iso) }}
+        </div>
+        {{ ui.field("exit_plan", "What would make you reverse it", rows=2, value=item.exit_plan) }}
+        <div>
+          <button id="revise" type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong">Record the revision</button>
+        </div>
+      </form>
+    {% endcall %}
+
+    {% call ui.sheet("Withdraw it", subtitle="You no longer stand by this decision, and say why. The entry stays.", id="withdraw") %}
+      <form method="post" action="/decisions/{{ item.id }}/withdraw" class="flex max-w-2xl flex-wrap items-end gap-2" id="withdraw-decision">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        <div class="min-w-0 flex-1">
+          <label for="withdraw-reason" class="block type-label text-ink-muted">Because</label>
+          <input id="withdraw-reason" name="reason" required class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink" />
+        </div>
+        <button id="withdraw" type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-3 type-label text-ink hover:bg-surface-selected">Withdraw</button>
+      </form>
+    {% endcall %}
+  {% endif %}
+{% endblock %}

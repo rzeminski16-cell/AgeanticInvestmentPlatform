@@ -18,6 +18,7 @@ pasted into an AI design tool — on its own, alongside
 | [`portfolio.md`](portfolio.md) | The book, its empty and broken states, the transaction form |
 | [`theses.md`](theses.md) | The theses list, one thesis and its premises, the four forms |
 | [`monitor.md`](monitor.md) | The findings list, one finding, the thesis gate and the acts that close a finding |
+| [`decisions.md`](decisions.md) | The journal, one decision with the premises it was taken on and the trades that carried it out |
 
 ---
 

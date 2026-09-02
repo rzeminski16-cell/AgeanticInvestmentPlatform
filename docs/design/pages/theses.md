@@ -87,6 +87,12 @@ its consequence) · the threshold fields (**Metric**, **Comparator** as words, *
 The radio decides which fields count. A review date typed beside a threshold is a premise with
 two answers; the one the operator chose is the one recorded.
 
+### Decisions taken on it
+
+Every decision recorded against the thesis (ADR 0104), newest first: *"{Action}: {statement}"*
+as a link to the decision, and *decided {date} · N trades carried it out*. A withdrawn
+decision is struck through. With none, an empty state pointing at Decisions.
+
 ### The retire form
 
 One reason and a button. Absent on a retired thesis, along with the add form; the retired
@@ -153,7 +159,8 @@ hierarchy.
 
 **3. Linking a thesis to its report and its position.** The subject is a company; the
 research tool has reports about it and the portfolio may hold it. Both are queries over the
-subject, never foreign keys (ADR 0064), and both belong on this page as links.
+subject, never foreign keys (ADR 0064), and both belong on this page as links. The decisions
+taken on the thesis are here now; the position they produced is not yet.
 
 ---
 

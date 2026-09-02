@@ -37,6 +37,11 @@ and a wrong kind is worse than an absent one.
 | `deposit` | Cash paid into the account |
 | `withdrawal` | Cash taken out |
 
+**A trade can name the decision it carries out.** If you wrote the decision down first in
+[Decisions](decisions.md), choose it under **Carries out** when you record the trade; the
+decision's page then lists the trade. The form refuses a pairing that cannot be what it says,
+such as a sale against a decision to buy.
+
 **Exchanging currency is not on that list**, on purpose. It is one event touching two
 currencies, and a transaction row holds one — so it would need either a second currency
 column nothing else uses, or a pair of rows whose "these two are one event" invariant no

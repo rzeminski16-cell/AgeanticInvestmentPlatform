@@ -404,16 +404,18 @@ class TestAJudgementIsNeverASourceReference:
         columns = {column.name for column in Base.metadata.tables["claims"].columns}
         assert not any("judgement" in name or "thesis" in name for name in columns), columns
 
-    def test_only_premises_reference_judgements(self) -> None:
+    def test_only_the_subtypes_reference_judgements(self) -> None:
         """The check that keeps the rule structural. A later table pointing at a judgement
-        would be the first step of a judgement entering a lineage, and this names it."""
+        would be the first step of a judgement entering a lineage, and this names it. The
+        two subtypes are the judgement seen from its thesis and from its consequence
+        (ADRs 0102, 0104); neither is a source."""
         referrers = sorted(
             table.name
             for table in Base.metadata.sorted_tables
             for key in table.foreign_keys
             if key.column.table.name == "judgements" and table.name != "judgements"
         )
-        assert referrers == ["premises"]
+        assert referrers == ["decisions", "premises"]
 
     def test_no_column_could_hold_a_conviction(self) -> None:
         """Not a rule ADR 0074 states — it permits a stored confidence for calibration — but

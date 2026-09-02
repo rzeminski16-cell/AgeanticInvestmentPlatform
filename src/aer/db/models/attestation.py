@@ -66,6 +66,7 @@ from aer.db.base import Base, created_at_column
 from aer.db.types import Timestamp, UuidFk, UuidFkOptional, UuidPk
 
 if TYPE_CHECKING:
+    from aer.db.models.judgement import Decision
     from aer.db.models.security import Security
 
 __all__ = ["Attestation", "Transaction"]
@@ -234,8 +235,18 @@ class Transaction(Base):
 
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
 
+    # The decision this trade carried out, where the operator said so (ADR 0104). On the
+    # trade and pointing at the judgement, never the other way round: a judgement may not
+    # enter a lineage (ADR 0074), and what a position's arithmetic reads off this row is
+    # the quantity, the price and the fees — never this column. SET NULL, because a trade
+    # is a fact about the book whatever became of the reasoning behind it.
+    decision_id: Mapped[UuidFkOptional] = mapped_column(
+        ForeignKey("decisions.judgement_id", ondelete="SET NULL")
+    )
+
     attestation: Mapped[Attestation] = relationship(back_populates="transaction")
     security: Mapped[Security | None] = relationship()
+    decision: Mapped[Decision | None] = relationship(back_populates="transactions")
 
     __table_args__ = (
         # Into the book or out of it, and never neither. A transaction that moves nothing is
@@ -303,6 +314,7 @@ class Transaction(Base):
             unique=True,
             postgresql_where=text("corporate_action_id IS NOT NULL"),
         ),
+        Index("ix_transactions_decision_id", "decision_id"),
     )
 
     def __repr__(self) -> str:

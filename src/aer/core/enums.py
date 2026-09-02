@@ -22,6 +22,7 @@ __all__ = [
     "AttestationKind",
     "ClaimKind",
     "Decision",
+    "DecisionAction",
     "ExtractionKind",
     "FactBasis",
     "FindingAction",
@@ -429,14 +430,46 @@ class SkillKind(StrEnum):
 class JudgementKind(StrEnum):
     """Which kind of view a person is recording (ADR 0074).
 
-    One value, and a statement about what exists rather than a placeholder — the same shape
+    Two values, and a statement about what exists rather than a placeholder — the same shape
     :class:`AttestationKind` takes. A subtype here is a value *and* a detail table:
-    ``PREMISE`` has ``premises``, and a decision or a post-trade verdict will each arrive
-    with a table of their own, so adding one is visibly a schema change rather than a string.
+    ``PREMISE`` has ``premises``, ``DECISION`` has ``decisions``, and a post-trade verdict
+    will arrive with a table of its own, so adding one is visibly a schema change rather
+    than a string.
     """
 
     PREMISE = "premise"
     """One thing a thesis asserts, with what would defeat it (ADR 0079)."""
+
+    DECISION = "decision"
+    """What a person decided to do about a thesis, written before the outcome (ADR 0104)."""
+
+
+class DecisionAction(StrEnum):
+    """What a decision commits the operator to, from a closed list of six (ADR 0104).
+
+    Four move the book and two do not. ``HOLD`` is a decision to keep a position that a
+    finding or a review put in question; ``PASS`` is a decision not to act on a thesis at
+    all. Both are decisions — "I saw this and chose to do nothing" is the row ADR 0078 calls
+    decision data — and a journal that only held the trades would lose exactly the entries
+    the post-trade reviewer most wants.
+    """
+
+    BUY = "buy"
+    ADD = "add"
+    TRIM = "trim"
+    SELL = "sell"
+    HOLD = "hold"
+    PASS = "pass"  # noqa: S105 -- a decision not to act, not a credential
+
+    @property
+    def moves_the_book(self) -> bool:
+        """Whether a transaction can carry this decision out."""
+        return self in {
+            DecisionAction.BUY,
+            DecisionAction.ADD,
+            DecisionAction.TRIM,
+            DecisionAction.SELL,
+        }
 
 
 class PremiseComparator(StrEnum):

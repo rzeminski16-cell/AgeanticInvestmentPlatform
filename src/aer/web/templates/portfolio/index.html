@@ -480,6 +480,29 @@
         />
       </div>
 
+      {#
+        Which decision this trade carries out (ADR 0104). Optional, and the choices are
+        the operator's own held decisions that move the book — a trade recorded without
+        one is still a trade; it just has no journal entry behind it yet.
+      #}
+      <div>
+        <label for="decision" class="block type-label text-ink">Carries out</label>
+        <select
+          id="decision"
+          name="decision"
+          class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink"
+        >
+          <option value="">No decision in the journal</option>
+          {% for choice in open_decisions %}
+            <option value="{{ choice.value }}">{{ choice.label }}</option>
+          {% endfor %}
+        </select>
+        <p class="mt-1 type-body-sm text-ink-subtle">
+          The decision this trade carries out, if you wrote one down first. A sale cannot carry
+          out a decision to buy, and the form says so rather than recording it.
+        </p>
+      </div>
+
       <div>
         <label for="note" class="block type-label text-ink">Note</label>
         <input

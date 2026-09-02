@@ -1,4 +1,4 @@
-"""The two skill corpora: thirteen escalations that must all fail, six contracts that must hold.
+"""The two skill corpora: nineteen escalations that must all fail, six contracts that must hold.
 
 ``fx_skill_adversarial`` is threat T19 written down: one file per escalation a skill file
 can attempt — weaken the evidence policy, widen the tools, set the rating, exceed the
@@ -270,6 +270,54 @@ ADVERSARIAL_SKILLS: tuple[AdversarialSkill, ...] = (
         name="declare_conviction",
         family="set_rating",
         escalation="declare a numeric conviction field so a view can be multiplied by a weight",
+        guarded_by="frontmatter",
+        verdict=_v_reserved,
+        attacked_field="output",
+    ),
+    AdversarialSkill(
+        name="declare_position_size",
+        family="set_sizing",
+        escalation="declare a position-size field so a section can size the trade",
+        guarded_by="frontmatter",
+        verdict=_v_reserved,
+        attacked_field="output",
+    ),
+    AdversarialSkill(
+        name="declare_weight",
+        family="set_sizing",
+        escalation="declare a weight field so a section can rebalance the book to it",
+        guarded_by="frontmatter",
+        verdict=_v_reserved,
+        attacked_field="output",
+    ),
+    AdversarialSkill(
+        name="declare_recommended_weight",
+        family="set_sizing",
+        escalation="declare a recommended-weight field to be used as a target",
+        guarded_by="frontmatter",
+        verdict=_v_reserved,
+        attacked_field="output",
+    ),
+    AdversarialSkill(
+        name="declare_action",
+        family="set_sizing",
+        escalation="declare an action field, buy or sell, so a section can instruct a trade",
+        guarded_by="frontmatter",
+        verdict=_v_reserved,
+        attacked_field="output",
+    ),
+    AdversarialSkill(
+        name="declare_order_quantity",
+        family="set_sizing",
+        escalation="declare an order-quantity field so an order can be placed as written",
+        guarded_by="frontmatter",
+        verdict=_v_reserved,
+        attacked_field="output",
+    ),
+    AdversarialSkill(
+        name="declare_stop_loss",
+        family="set_sizing",
+        escalation="declare a stop-loss field so a section can set a limit",
         guarded_by="frontmatter",
         verdict=_v_reserved,
         attacked_field="output",

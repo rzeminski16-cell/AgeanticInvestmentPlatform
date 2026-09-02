@@ -65,14 +65,17 @@ from sqlalchemy import Enum as SaEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from aer.core.enums import JudgementKind, PremiseComparator
+from aer.core.enums import DecisionAction, JudgementKind, PremiseComparator
 from aer.db.base import Base, created_at_column
 from aer.db.types import Timestamp, TimestampOptional, UuidFk, UuidFkOptional, UuidPk
 
 if TYPE_CHECKING:
+    from aer.db.models.attestation import Transaction
+    from aer.db.models.portfolio import Portfolio
+    from aer.db.models.security import Security
     from aer.db.models.user import User
 
-__all__ = ["Judgement", "Premise", "Thesis"]
+__all__ = ["Decision", "Judgement", "Premise", "Thesis"]
 
 
 def _enum(kind: type, name: str) -> SaEnum:
@@ -122,6 +125,9 @@ class Judgement(Base):
     withdrawn_reason: Mapped[str | None] = mapped_column(Text)
 
     premise: Mapped[Premise | None] = relationship(
+        back_populates="judgement", cascade="all, delete-orphan", uselist=False
+    )
+    decision: Mapped[Decision | None] = relationship(
         back_populates="judgement", cascade="all, delete-orphan", uselist=False
     )
 
@@ -191,6 +197,9 @@ class Thesis(Base):
         back_populates="thesis",
         cascade="all, delete-orphan",
         order_by="Premise.position",
+    )
+    decisions: Mapped[list[Decision]] = relationship(
+        back_populates="thesis", cascade="all, delete-orphan"
     )
 
     __table_args__ = (
@@ -287,3 +296,85 @@ class Premise(Base):
 
     def __repr__(self) -> str:
         return f"<Premise {self.position} of {self.thesis_id}: {self.statement[:40]!r}>"
+
+
+class Decision(Base):
+    """What a person decided to do about a thesis, written before the outcome (ADR 0104).
+
+    **The second judgement subtype**, keyed on the judgement's own id for the reason
+    ``premises`` is: a decision *is* a judgement seen from its consequence, and a separate
+    key would allow a decision with no holder, no time and no basis. The two clocks on the
+    judgement are what make "written before the outcome" a checkable claim rather than a
+    hope: ``held_at`` is when it was decided, ``recorded_at`` when the platform was told.
+
+    **The size is a sentence.** ``size_statement`` is text, and there is no column a
+    calculation could read — an intended weight stored as a number would be a judgement
+    wearing a `Quantity`'s clothes (ADR 0074), and the day something multiplied it by a net
+    asset value the position would be sized by a view. The reviewer compares the sentence
+    with the trades that followed, which is a comparison with an outcome and permitted.
+
+    **A trade points at this row; this row points at nothing a calculation reads.**
+    ``transactions.decision_id`` is where the link lives (ADR 0104 §2), and ``aer.calc``
+    has no symbol for a decision at all — a test scans the package for the word.
+
+    **The check constraints are documentation; migration 0067 is the enforcement.**
+    """
+
+    __tablename__ = "decisions"
+
+    judgement_id: Mapped[UuidFk] = mapped_column(
+        ForeignKey("judgements.id", ondelete="CASCADE"), primary_key=True
+    )
+
+    # What it is about. Required: a decision with no thesis is a trade with no reason.
+    thesis_id: Mapped[UuidFk] = mapped_column(
+        ForeignKey("theses.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # Where it acts, when the operator named them. Both optional: a decision to buy may
+    # precede the listing's first trade (the portfolio's third door creates it then), and
+    # a decision to pass names no book at all. The security is RESTRICT for the reason
+    # `transactions.security_id` is; the book is SET NULL because the decision is the
+    # operator's and survives the platform tidying its own output.
+    portfolio_id: Mapped[UuidFkOptional] = mapped_column(
+        ForeignKey("portfolios.id", ondelete="SET NULL")
+    )
+    security_id: Mapped[UuidFkOptional] = mapped_column(
+        ForeignKey("securities.id", ondelete="RESTRICT")
+    )
+
+    action: Mapped[DecisionAction] = mapped_column(
+        _enum(DecisionAction, "decision_action"), nullable=False
+    )
+
+    statement: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # -- What the reviewer holds the operator to. Each optional: the journal records what
+    # was actually committed to, not five boxes filled to get past a form. --------------
+    size_statement: Mapped[str | None] = mapped_column(Text)
+    horizon_months: Mapped[int | None] = mapped_column(Integer)
+    exit_plan: Mapped[str | None] = mapped_column(Text)
+    review_by: Mapped[date | None] = mapped_column(Date)
+
+    judgement: Mapped[Judgement] = relationship(back_populates="decision", lazy="joined")
+    thesis: Mapped[Thesis] = relationship(back_populates="decisions")
+    security: Mapped[Security | None] = relationship()
+    portfolio: Mapped[Portfolio | None] = relationship()
+    transactions: Mapped[list[Transaction]] = relationship(
+        back_populates="decision", order_by="Transaction.trade_date"
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "char_length(btrim(statement)) > 0", name="decision_statement_is_not_blank"
+        ),
+        CheckConstraint(
+            "horizon_months IS NULL OR horizon_months > 0", name="decision_horizon_is_positive"
+        ),
+        Index("ix_decisions_thesis_id", "thesis_id"),
+        Index("ix_decisions_security_id", "security_id"),
+        Index("ix_decisions_review_by", "review_by"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Decision {self.action.value} on thesis {self.thesis_id}>"

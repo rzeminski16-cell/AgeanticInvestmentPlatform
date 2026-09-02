@@ -173,17 +173,16 @@ INSTALLED_TOOLS: Final[tuple[Tool, ...]] = (
     Tool(
         key="decisions",
         label="Decisions",
-        status=ToolStatus.PLANNED,
+        status=ToolStatus.WORKING,
         href="/decisions",
         summary=(
             "What you decided to do about a thesis, when, and on what basis — the journal "
-            "entry written before the outcome is known rather than after."
+            "entry written before the outcome is known rather than after, and the trades "
+            "that carried it out."
         ),
-        needs=(
-            "Judgements, and the reserved-field guard that keeps a conviction score from "
-            "becoming a number something else can multiply (ADR 0074)."
-        ),
-        adr="0074",
+        action_label="Record a decision",
+        action_href="/decisions",
+        adr="0104",
     ),
     Tool(
         key="monitor",

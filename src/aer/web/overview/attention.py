@@ -213,6 +213,14 @@ _PROVIDERS: Final[tuple[AttentionProvider, ...]] = (
         items_ref="aer.web.overview.monitor:items",
         adr="0103",
     ),
+    # A decision never carried out, and a decision past the date its holder said they
+    # would look at it again (ADR 0104).
+    AttentionProvider(
+        key="decisions",
+        tool="decisions",
+        items_ref="aer.web.overview.decisions:items",
+        adr="0104",
+    ),
 )
 
 

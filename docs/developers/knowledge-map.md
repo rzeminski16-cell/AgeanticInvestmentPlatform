@@ -234,7 +234,8 @@ ones — read the ADR before touching its territory:
   0070 (a bank is valued on the spread over its book value), 0101 (a bank's grid varies the
   spread, and a fading driver is refused rather than shifted), 0102 (a thesis is premises,
   and a premise is the judgement), 0103 (the monitor measures the crossing, and the model
-  reads the rest).
+  reads the rest), 0104 (a decision is written before the outcome, and the trade points back
+  at it).
 - **Agents and containment** — 0035 (a new role requires an ADR), 0036 (workers request,
   code executes), 0037–0039 (custom sections, validator advises, red team is separate),
   0040 (containment proved by a corpus), 0041 (dry runs), 0042 (the section writer holds

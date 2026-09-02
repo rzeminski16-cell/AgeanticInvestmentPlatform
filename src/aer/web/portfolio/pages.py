@@ -35,10 +35,11 @@ from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NO
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
 from aer.calc.units import CalculationError
 from aer.core.enums import AttestationKind, Grade, TransactionKind
-from aer.db.models import Attestation, Portfolio, PriceBar, Security, Transaction
+from aer.db.models import Attestation, Portfolio, PriceBar, Security, Transaction, User
 from aer.errors import AerError
 from aer.runtime import standalone_price_client
 from aer.services import calculations as calculation_service
+from aer.services import decisions as decision_service
 from aer.services import performance as performance_service
 from aer.services import portfolio as portfolio_service
 from aer.services import splits as splits_service
@@ -161,6 +162,19 @@ async def portfolio_page(
             "exposure_problem": exposure.problem,
             "verdict": _book_verdict(view, totals=totals),
             "securities": await _dealable(session),
+            # The decisions a trade could carry out (ADR 0104): held, and of a kind that
+            # moves the book. Labelled by what was decided, so the operator picks the entry
+            # they wrote rather than an id.
+            "open_decisions": [
+                {
+                    "value": str(row.judgement_id),
+                    "label": (
+                        f"{decision_service.ACTION_WORDS[row.action].capitalize()} — "
+                        f"{row.thesis.title} ({row.judgement.held_at:%d %b %Y})"
+                    ),
+                }
+                for row in await decision_service.open_for_the_book(session, user_id=user.id)
+            ],
             "no_listings": NO_LISTINGS,
             # Every kind except SPLIT: a split is derived from the corporate action,
             # never typed (ADR 0094), so the form does not offer it.
@@ -239,7 +253,7 @@ async def create_book(
 
 
 @router.post("/portfolio/transactions", summary="Record a transaction")
-async def record_transaction(
+async def record_transaction(  # noqa: PLR0911 -- one refusal per thing a trade can get wrong
     request: Request,
     session: DbSession,
     settings: SettingsDep,
@@ -290,20 +304,25 @@ async def record_transaction(
     )
     session.add(attestation)
     await session.flush()
-    session.add(
-        Transaction(
-            attestation_id=attestation.id,
-            portfolio_id=book.id,
-            kind=trade.kind,
-            security_id=trade.security_id,
-            trade_date=trade.trade_date,
-            settlement_date=trade.settlement_date,
-            quantity=trade.quantity,
-            price=trade.price,
-            fees=trade.fees,
-            currency=trade.currency,
-        )
+    recorded = Transaction(
+        attestation_id=attestation.id,
+        portfolio_id=book.id,
+        kind=trade.kind,
+        security_id=trade.security_id,
+        trade_date=trade.trade_date,
+        settlement_date=trade.settlement_date,
+        quantity=trade.quantity,
+        price=trade.price,
+        fees=trade.fees,
+        currency=trade.currency,
     )
+    session.add(recorded)
+
+    refused_link = await _carried_out(
+        session, request, submitted.get("decision", ""), trade=recorded, user=user
+    )
+    if refused_link is not None:
+        return refused_link
 
     if resolved is not None:
         # ADR 0094: the self-healing half of the derivation. A backfilled first-ever
@@ -682,6 +701,38 @@ def _grade_label(figure: portfolio_service.Figure | None) -> str:
 
 
 # -- Form handling -------------------------------------------------------------------------
+
+
+async def _carried_out(
+    session: DbSession, request: Request, raw: str, *, trade: Transaction, user: User
+) -> Response | None:
+    """Name the decision this trade carried out, or say why it cannot (ADR 0104).
+
+    Resolved against the operator's own journal and refused if the pairing cannot be what
+    it claims — a sale carrying out a buy — so the journal never holds a trade under the
+    wrong entry. ``None`` is success, including the ordinary case of no decision named.
+    """
+    decision_id = _uuid_or_none(raw)
+    if decision_id is None:
+        return None
+    decision = await decision_service.decision_of(session, decision_id, user_id=user.id)
+    if decision is None:
+        await session.rollback()
+        return _problem(request, "That decision is not one in your journal.")
+    await session.flush()
+    try:
+        await decision_service.carry_out(session, transaction=trade, decision=decision, actor=user)
+    except AerError as refused:
+        await session.rollback()
+        return _problem(request, str(refused), status=refused.http_status)
+    return None
+
+
+def _uuid_or_none(raw: str) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(raw.strip()) if raw.strip() else None
+    except ValueError:
+        return None
 
 
 async def _submitted(request: Request) -> dict[str, str]:

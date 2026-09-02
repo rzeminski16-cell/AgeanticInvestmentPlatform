@@ -68,7 +68,7 @@ document in which every figure carries a footnote resolving to either the formul
 produced it or the archived bytes it came from. That path has no gap in it, and the
 evaluation gate re-derives every stored calculation from its own record on every run.
 
-Four of nine tools work:
+Five of nine tools work:
 
 | Tool | State | Waiting on |
 |---|---|---|
@@ -76,7 +76,7 @@ Four of nine tools work:
 | **Portfolio** | Working | — |
 | Watchlist | Planned | A standing budget that is not one run's cap; the two clocks |
 | **Theses** | Working | — |
-| Decisions | Planned | Judgements, and the reserved-field guard |
+| **Decisions** | Working | — |
 | **Monitor** | Working | — |
 | Risk | Planned | A book to be about, and the rate store *(the rate store now exists)* |
 | Post-trade review | Planned | Decisions and positions |
@@ -446,7 +446,23 @@ or an overdue review *not started*), a worker task, and `aer monitor` for a nigh
 What it cannot measure is written on the finding: segment lines are dimensioned facts the
 analysis excludes, so "Azure revenue growth" is unobservable until a later change reads them.
 
-**3.7 Decisions and the trade journal.** The entry written *before* the outcome is known.
+**3.7 Decisions and the trade journal.** **Done 2026-09-02** — ADR 0104. The entry written
+*before* the outcome is known. `decisions` is the second judgement subtype, keyed on the
+judgement's own id in `premises`' shape: the thesis it acts on, an action from six, the
+statement and basis, and the four things a post-trade review holds the operator to — a size
+**as a sentence** (the schema has no numeric size column, on purpose: ADR 0074), a horizon in
+months, an exit plan, a review date. Revising writes a new entry that supersedes the old;
+withdrawing records the reason; nothing is edited.
+
+`transactions.decision_id` is the trade saying which decision it carried out — on the
+attestation and pointing at the judgement, never the reverse, so a judgement still enters no
+lineage and a test keeps `aer.calc` free of the word. The trade form gained *Carries out*, and
+a pairing that cannot be what it claims (a sale carrying out a buy) is refused.
+
+ADR 0080's six sizing names are reserved in this change, with their attack files, because a
+decision's action and size are the first sizing concept: the adversarial corpus is nineteen.
+The Decisions tool is the fifth working tool, with an attention row for a decision never
+carried out and one past its review date.
 
 **3.8 Post-trade review and decision analytics** (ADR 0081). Scored against the process
 that was supposed to be followed, deliberately **not** against whether it made money.
