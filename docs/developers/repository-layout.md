@@ -93,6 +93,7 @@ src/aer/            application package
   services/         business operations: requests, artefacts, provenance, facts,
                     calculations, approvals (gate order and payload hashes), runs
     mandate.py      the equity mandate for a run, if it has one; None is a real answer
+    theses.py       the only writer of judgements: a thesis, its premises, on the audit chain
   runtime.py        assembles the service bundle both processes share
   queue.py          enqueueing a run, from the web process
   worker.py         the arq worker: where a research run actually executes
@@ -127,6 +128,7 @@ src/aer/            application package
       research.py   the research tool's answer to "is anything waiting for me"
       platform.py   what the platform itself has waiting, which is no tool's business
     portfolio/pages.py  the book as at a date; every figure computed on the way to it
+    theses/pages.py     what you believe, as premises with what would defeat each; no figure
     tools/registry.py   INSTALLED_TOOLS: nine rows, three states; a planned tool is a page
     styles/app.css  the token system: palette, type scale, spacing, radii (ADRs 0077, 0088)
     static/fonts/   three families, eight files, all OFL 1.1 and all SHA-256 pinned

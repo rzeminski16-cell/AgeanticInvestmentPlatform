@@ -27,6 +27,8 @@ __all__ = [
     "GateKind",
     "Grade",
     "JobStatus",
+    "JudgementKind",
+    "PremiseComparator",
     "Provider",
     "RequestStatus",
     "SourceTier",
@@ -413,3 +415,31 @@ class SkillKind(StrEnum):
     METHODOLOGY = "methodology"
     PREFERENCE = "preference"
     HOUSE_VIEW = "house_view"
+
+
+class JudgementKind(StrEnum):
+    """Which kind of view a person is recording (ADR 0074).
+
+    One value, and a statement about what exists rather than a placeholder — the same shape
+    :class:`AttestationKind` takes. A subtype here is a value *and* a detail table:
+    ``PREMISE`` has ``premises``, and a decision or a post-trade verdict will each arrive
+    with a table of their own, so adding one is visibly a schema change rather than a string.
+    """
+
+    PREMISE = "premise"
+    """One thing a thesis asserts, with what would defeat it (ADR 0079)."""
+
+
+class PremiseComparator(StrEnum):
+    """How a premise's threshold is read against the metric it names.
+
+    Four, and named in words rather than symbols because a premise is a sentence: "revenue
+    growth at least 25 percent" is what the operator wrote, and what the monitor will one
+    day test against a stored fact — through :class:`~aer.calc.units.Quantity`'s own
+    comparisons, which refuse a unit mismatch rather than coercing one (ADR 0079).
+    """
+
+    AT_LEAST = "at_least"
+    AT_MOST = "at_most"
+    ABOVE = "above"
+    BELOW = "below"

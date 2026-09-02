@@ -152,9 +152,19 @@ class TestTheReservedOutputFields:
     def test_the_reserved_set_itself_holds_the_report_owned_names(self) -> None:
         # The parametrised test below iterates the constant, so an emptied constant would
         # silently remove the tests that check it. This pin is what makes that loud.
-        assert {"rating", "recommendation", "target_price", "valuation_range"} <= (
+        assert {"rating", "recommendation", "target_price", "valuation_range", "conviction"} <= (
             RESERVED_OUTPUT_FIELDS
         )
+
+    def test_a_conviction_is_refused_as_a_view_rather_than_as_an_owned_figure(self) -> None:
+        """ADR 0074: the reason is not ownership, and the message says which reason it is."""
+        broken = MOAT_DURABILITY.replace("  summary: string", "  conviction: number")
+
+        with pytest.raises(SkillFileError) as caught:
+            parse_skill_file(broken)
+
+        [issue] = caught.value.issues
+        assert "not a figure" in issue.message
 
     @pytest.mark.parametrize("reserved", sorted(RESERVED_OUTPUT_FIELDS))
     def test_an_output_contract_cannot_declare_one(self, reserved: str) -> None:

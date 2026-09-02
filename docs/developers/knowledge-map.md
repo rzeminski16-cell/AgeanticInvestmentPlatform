@@ -232,7 +232,8 @@ ones — read the ADR before touching its territory:
   column), 0034 (a withheld figure is a type with no field for it), 0066 (a figure that is
   traceable is not thereby possible), 0068 (the ledger records derivations, not calls),
   0070 (a bank is valued on the spread over its book value), 0101 (a bank's grid varies the
-  spread, and a fading driver is refused rather than shifted).
+  spread, and a fading driver is refused rather than shifted), 0102 (a thesis is premises,
+  and a premise is the judgement).
 - **Agents and containment** — 0035 (a new role requires an ADR), 0036 (workers request,
   code executes), 0037–0039 (custom sections, validator advises, red team is separate),
   0040 (containment proved by a corpus), 0041 (dry runs), 0042 (the section writer holds

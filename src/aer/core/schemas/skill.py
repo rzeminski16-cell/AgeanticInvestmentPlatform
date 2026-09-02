@@ -64,6 +64,12 @@ MAX_OUTPUT_FIELDS: Final = 16
 # The fields a custom-section output contract may not declare, under any spelling the
 # report model owns. Declaring one is refused at validation — there is deliberately no
 # runtime check downstream, because after this there is nothing for one to catch.
+#
+# `conviction` is the seventh and is reserved for a different reason (ADR 0074): not
+# because a built-in section owns it, but because a view somebody holds is not a figure at
+# all. A contract declaring it would put a model's own view straight into a rendered
+# section under a name a reader takes for a number — no holder, no time, no stated basis,
+# and nothing to check, because there is no citation and no calculation behind it.
 RESERVED_OUTPUT_FIELDS: Final[frozenset[str]] = frozenset(
     {
         "rating",
@@ -72,8 +78,12 @@ RESERVED_OUTPUT_FIELDS: Final[frozenset[str]] = frozenset(
         "price_target",
         "valuation_range",
         "fair_value",
+        "conviction",
     }
 )
+
+# The one reserved name whose refusal is not about ownership, and says so.
+_NOT_A_FIGURE: Final[frozenset[str]] = frozenset({"conviction"})
 
 _IDENTIFIER: Final = re.compile(r"\A[a-z][a-z0-9_]{0,63}\Z")
 
@@ -193,6 +203,15 @@ class SkillFrontmatter(BaseModel):
         for name in value:
             if not _IDENTIFIER.match(name):
                 message = f"{name!r} is not a valid output field name."
+                raise ValueError(message)
+            if name in _NOT_A_FIGURE:
+                message = (
+                    f"The output field {name!r} is reserved. A conviction is a view somebody "
+                    "holds, not a figure: it has no holder, no time and no stated basis in a "
+                    "section's output, and nothing to check it against (ADR 0074). Write the "
+                    "view as prose; a number under that name is a judgement wearing a figure's "
+                    "clothes."
+                )
                 raise ValueError(message)
             if name in RESERVED_OUTPUT_FIELDS:
                 message = (

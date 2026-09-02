@@ -42,6 +42,7 @@ from aer.db.models import (
     Report,
     User,
 )
+from aer.services import theses as thesis_service
 from tests.api_fixtures import build_app, client_for
 from tests.request_fixtures import research_request
 from tests.route_fixtures import page_routes_for
@@ -50,7 +51,10 @@ from tests.workflow_fixtures import AS_OF_DATE, DEFAULT_PER_RUN_BUDGET_GBP
 
 pytestmark = pytest.mark.integration
 
-_TABLES = "research_requests, audit_events, users, artefacts, prompts, companies, portfolios"
+_TABLES = (
+    "research_requests, audit_events, users, artefacts, prompts, companies, portfolios, "
+    "theses, judgements"
+)
 
 # A page may refuse. It may not raise.
 #
@@ -94,9 +98,18 @@ async def committed(db_engine: Any) -> Any:
             max_cost_gbp=DEFAULT_PER_RUN_BUDGET_GBP,
         )
         book = Portfolio(user_id=user.id, name="My portfolio", base_currency="GBP")
-        session.add_all([request, book])
+        # A company the run will *not* resolve — the drive below upserts MSFT, and a second
+        # row on the same listing would collide — so the thesis has a subject of its own.
+        contoso = Company(
+            name="Contoso plc", ticker="CTSO", exchange="LSE", company_number="01234567"
+        )
+        session.add_all([request, book, contoso])
+        await session.flush()
+        thesis = await thesis_service.write_thesis(
+            session, user=user, company=contoso, title="Contoso keeps its pricing power"
+        )
         await session.commit()
-        yield {"user": user, "request": request, "book": book}
+        yield {"user": user, "request": request, "book": book, "thesis": thesis}
     await _truncate(db_engine)
 
 
@@ -165,6 +178,7 @@ async def finished_run(
         "calculation_id": calculation.id if calculation else uuid.uuid4(),
         "company_id": company.id if company else uuid.uuid4(),
         "portfolio_id": committed["book"].id,
+        "thesis_id": committed["thesis"].id,
     }
 
 

@@ -16,6 +16,7 @@ pasted into an AI design tool — on its own, alongside
 | [`research-reports.md`](research-reports.md) | Report history, a finished report, its HTML notation |
 | [`research-skills-and-knowledge.md`](research-skills-and-knowledge.md) | The skills library and editor; the knowledge graph and company history |
 | [`portfolio.md`](portfolio.md) | The book, its empty and broken states, the transaction form |
+| [`theses.md`](theses.md) | The theses list, one thesis and its premises, the four forms |
 
 ---
 

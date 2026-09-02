@@ -93,20 +93,21 @@ class TestEachToolIsARowWithARecord:
             if tool.is_built:
                 assert tool.needs == "", tool.key
 
-    def test_the_platform_has_two_working_tools_and_nothing_half_built(self) -> None:
+    def test_the_platform_has_three_working_tools_and_nothing_half_built(self) -> None:
         """Stated rather than counted loosely: this is the claim the launcher makes.
 
         Portfolio was ``UNDER_CONSTRUCTION`` while its tables and arithmetic were being
         built and is working now — it has a screen, an entry form and figures that resolve
-        to their trades. Nothing occupies the middle state today, which is a fact about
-        this moment rather than a reason to remove the state: the next tool will start
-        there.
+        to their trades. Theses arrived whole (§3.5): a judgement table, a list, a detail
+        and four forms, in one change. Nothing occupies the middle state today, which is a
+        fact about this moment rather than a reason to remove the state.
         """
         by_status = {tool.key: tool.status for tool in installed_tools()}
 
         assert by_status["research"] is ToolStatus.WORKING
         assert by_status["portfolio"] is ToolStatus.WORKING
-        assert sum(1 for status in by_status.values() if status is ToolStatus.WORKING) == 2
+        assert by_status["theses"] is ToolStatus.WORKING
+        assert sum(1 for status in by_status.values() if status is ToolStatus.WORKING) == 3
         assert not [
             key for key, status in by_status.items() if status is ToolStatus.UNDER_CONSTRUCTION
         ]
@@ -161,11 +162,12 @@ class TestWhereEachStatePutsATool:
 
         assert not missing, f"tools the application does not serve: {missing}"
 
-    def test_the_navigation_is_four_sections_now(self) -> None:
+    def test_the_navigation_is_five_sections_now(self) -> None:
         assert [section.key for section in NAV] == [
             "overview",
             "research",
             "portfolio",
+            "theses",
             "platform",
         ]
 

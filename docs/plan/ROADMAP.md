@@ -400,13 +400,24 @@ interprets. `residual_income_value` gained a `case` so a bank's scenarios are at
 the ledger, and the scenario bridge and football field read the bank's per-share rows rather
 than looking for a discounted cash flow's and finding nothing.
 
-**3.5 Judgements and theses** (ADRs 0074, 0079). A thesis is a view a named person held at
-a time, with the evidence it rests on and the questions that would defeat it. The record
-that makes it *storable without becoming evidence* already exists — **a judgement is never
-a source reference** — and this is where it earns its keep.
+**3.5 Judgements and theses** (ADRs 0074, 0079). **Done 2026-09-02** — ADR 0102. A
+thesis is a view a named person held at a time, with the evidence it rests on and the
+questions that would defeat it. The record that makes it *storable without becoming evidence*
+already existed — **a judgement is never a source reference** — and this is where it earned
+its keep: `judgements` is the supertype (holder, two clocks, basis, withdrawal with a
+reason), `premises` the first subtype keyed on the judgement's own id, and `theses` the
+container. A premise is a statement plus an optional predicate, and one with no predicate
+must name the date a person reviews it by, so nothing stored is a view the platform silently
+stops asking about. Nothing is deleted; every act is on the audit chain with the thesis as
+its subject, which is what `AuditEvent.create_linked` gained the subject correlation for.
 
-Also here: `RESERVED_OUTPUT_FIELDS` gains `conviction`, with its attack file. A conviction
-score that something else can multiply is exactly the laundering ADR 0074 refuses.
+The theses tool is the third working tool: a list, a detail and four forms. The rule is proved
+off the schema — no table but `premises` references `judgements`, `claims` has no column for
+one, `SourceKind` has four members — rather than remembered.
+
+`RESERVED_OUTPUT_FIELDS` gained `conviction` in the same change, with its attack file and its
+own refusal clause: not because a section owns it, but because a view somebody holds is not a
+figure at all.
 
 **3.6 The thesis monitor** (ADRs 0078, 0079). What has happened since a thesis was written
 that bears on it. **It raises questions and answers none**, and a monitor finding is not a

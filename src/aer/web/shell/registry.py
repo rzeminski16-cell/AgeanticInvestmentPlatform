@@ -18,6 +18,7 @@ from typing import Final
 
 from aer.web.nav import NavItem, NavSection
 from aer.web.overview.nav import OVERVIEW
+from aer.web.theses.nav import THESES
 from aer.web.tools.registry import PORTFOLIO
 
 __all__ = ["NAV", "UNLISTED", "flat_items"]
@@ -58,7 +59,7 @@ PLATFORM: Final = NavSection(
 
 # One import per tool, and one line here. Overview is the first section this file did
 # not declare itself, which is the whole claim the nav-as-data slice made.
-NAV: Final[tuple[NavSection, ...]] = (OVERVIEW, RESEARCH, PORTFOLIO, PLATFORM)
+NAV: Final[tuple[NavSection, ...]] = (OVERVIEW, RESEARCH, PORTFOLIO, THESES, PLATFORM)
 
 
 def flat_items() -> tuple[NavItem, ...]:
@@ -100,7 +101,6 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         "/monitor",
         "/review",
         "/risk",
-        "/theses",
         "/watchlist",
         # Liveness and readiness, reached by an operator or a probe, not by a person
         # browsing. `/healthz` is in the nav; `/readyz` is its unlinked sibling.
@@ -118,6 +118,8 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         "/knowledge/graph",
         "/reports/{report_id}",
         "/reports/{report_id}/preview",
+        # One thesis, reached from the list above it.
+        "/theses/{thesis_id}",
         # A request and everything done to one.
         "/requests/new",
         "/requests/{request_id}",

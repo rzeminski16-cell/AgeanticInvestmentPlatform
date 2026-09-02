@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  Every open thesis, and the form to write one.
+
+  A thesis is a document a person wrote, so this list is a work queue of documents rather
+  than a table of figures: the title is the link, the subject and the count of premises are
+  the sentence beneath it. Nothing here is a number anything rests on (ADR 0074).
+#}
+
+{% block title %}Theses &middot; Tracework{% endblock %}
+
+{% block content %}
+  {% call ui.page_header("Theses", eyebrow="WHAT YOU BELIEVE") %}
+    <p class="type-body text-ink-muted">
+      What you believe about a company and why, as premises a person wrote — each with the
+      evidence it rests on and the question that would defeat it.
+    </p>
+  {% endcall %}
+
+  {% call ui.sheet("Retired" if showing_retired else "Open", id="theses-list") %}
+    {% if rows %}
+      {% call ui.record_list("Theses") %}
+        {% for row in rows %}
+          {{ ui.record(
+            row.thesis.title,
+            "/theses/" ~ row.thesis.id,
+            sentence=row.subject,
+            meta=(row.held ~ " premise" ~ ("s" if row.held != 1 else "") ~ " held · written " ~ row.thesis.created_at.strftime("%d %B %Y"))
+          ) }}
+        {% endfor %}
+      {% endcall %}
+    {% elif showing_retired %}
+      {{ ui.empty("Nothing retired", "A retired thesis is kept with the reason it was put away. None has been yet.") }}
+    {% else %}
+      {{
+        ui.empty(
+          "Nothing written yet",
+          "A thesis starts with a title and the company it is about, and grows one premise at a time. Write the first below.",
+        )
+      }}
+    {% endif %}
+    <p class="mt-4 type-body-sm text-ink-muted">
+      {% if showing_retired %}
+        <a href="/theses" class="text-verification underline underline-offset-[3px]">Back to open theses</a>
+      {% else %}
+        <a href="/theses?retired=1" id="show-retired" class="text-verification underline underline-offset-[3px]">Show retired theses</a>
+      {% endif %}
+    </p>
+  {% endcall %}
+
+  {% call ui.sheet("Write a thesis", subtitle="A title and the company it is about. The premises come next, one at a time.") %}
+    {% if companies %}
+      <form method="post" action="/theses" class="grid max-w-2xl gap-4" id="write-thesis">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        {{ ui.field("title", "Title", required=true, hint="What this thesis claims, in a line. \"Azure keeps compounding above 25%\", not \"Microsoft\".") }}
+        {{
+          ui.field(
+            "company_id",
+            "About",
+            required=true,
+            choices=companies,
+            hint="A company the research tool has looked up. A thesis about a ticker nobody has resolved would be a view about a string.",
+          )
+        }}
+        {{ ui.field("written_on", "Written on", type="date", value=today, maximum=today, hint="When you formed this view. Defaults to today; backdate it if you are writing up something you already held.") }}
+        <div>
+          <button
+            id="write"
+            type="submit"
+            class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong"
+          >
+            Write it
+          </button>
+        </div>
+      </form>
+    {% else %}
+      {{
+        ui.empty(
+          "Nothing to be about yet",
+          "A thesis is about a company the platform can resolve, and none has been researched. Commission a research request first; the company it resolves becomes something a thesis can be written about.",
+          action_label="Start a research request",
+          action_href="/requests/new",
+        )
+      }}
+    {% endif %}
+  {% endcall %}
+{% endblock %}

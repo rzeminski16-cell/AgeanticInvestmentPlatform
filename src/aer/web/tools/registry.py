@@ -160,17 +160,15 @@ INSTALLED_TOOLS: Final[tuple[Tool, ...]] = (
     Tool(
         key="theses",
         label="Theses",
-        status=ToolStatus.PLANNED,
+        status=ToolStatus.WORKING,
         href="/theses",
         summary=(
             "What you believe about a company and why, as a statement a person wrote, with "
             "the evidence it rests on and the questions that would defeat it."
         ),
-        needs=(
-            "The judgement table. A thesis is a view a named person held at a time, and "
-            "ADR 0074 is the record that makes it storable without becoming evidence."
-        ),
-        adr="0079",
+        action_label="Write a thesis",
+        action_href="/theses",
+        adr="0102",
     ),
     Tool(
         key="decisions",

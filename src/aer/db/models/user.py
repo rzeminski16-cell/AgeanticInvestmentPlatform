@@ -22,6 +22,7 @@ from aer.db.types import Timestamp, UuidPk
 
 if TYPE_CHECKING:
     from aer.db.models.approval import Approval
+    from aer.db.models.judgement import Thesis
     from aer.db.models.work_order import WorkOrder
 
 __all__ = ["User"]
@@ -55,5 +56,6 @@ class User(Base):
         cascade="all, delete-orphan",
     )
     approvals: Mapped[list[Approval]] = relationship(back_populates="actor")
+    theses: Mapped[list[Thesis]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
     __table_args__ = (Index("ix_users_created_at", "created_at"),)

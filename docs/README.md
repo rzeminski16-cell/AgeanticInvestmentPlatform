@@ -49,6 +49,8 @@ For the operator: the person who installs it, commissions research and approves 
   figure back to its source, and interpret a refusal.
 - [`portfolio.md`](users/portfolio.md) — recording what you hold, and why no position is
   ever stored as a number.
+- [`theses.md`](users/theses.md) — writing down what you believe about a company, and what
+  would defeat it
 - [`troubleshooting.md`](users/troubleshooting.md) — when a run stalls, fails, or refuses.
 
 ### `developers/` — how to change it
