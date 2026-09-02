@@ -1630,10 +1630,11 @@ failure loses nothing; and that you can now step a run and read every step befor
 - **That the vendor contract holds**, unless you ran §18.1.
 - **That the drafting failure is fixed.** Roadmap §2.1 is open and gated on a live run's
   diagnosis. A live run that drafts every section is good news, not a closure.
-- **That the platform is feature-complete.** Two tools work. The judgement layer — theses,
-  the monitor, the trade journal, post-trade review, portfolio risk, the watchlist — is
-  roadmap §3.5 to §3.11 and **does not exist**. The seven planned tools say so on their own
-  pages, which is the design, not an oversight.
+- **That the platform is feature-complete.** Four tools work — research, portfolio, theses
+  and the monitor. The rest of the judgement layer — the trade journal, post-trade review,
+  portfolio risk, the watchlist — is roadmap §3.7 to §3.11 and **does not exist**. The five
+  planned tools say so on their own pages, which is the design, not an oversight. This
+  guide walks the research tool; the browser suites walk the other three.
 - **That it is safe on a network.** A5, A7 and A8 — no authentication, no inbound rate
   limiting, no deployment story — are known, deliberate, and correct for a single-machine
   personal tool. They are also the reason not to expose it.

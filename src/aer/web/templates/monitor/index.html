@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  The monitor's list: what the platform noticed, grouped by what it asks of the reader.
+
+  Two groups, and the grouping is the control (ADR 0078). A contradicted premise opened a
+  gate and is *a decision waiting*; everything else is *a question raised* — a finding, with
+  no approval semantics, that stays until a person says what they did about it. Nothing on
+  this page approves anything, and the words on it say so.
+#}
+
+{% block title %}Monitor &middot; Tracework{% endblock %}
+
+{% block content %}
+  {% call ui.page_header("Monitor", eyebrow="WHAT HAS HAPPENED SINCE") %}
+    <p class="type-body text-ink-muted">
+      What has been filed since each thesis was written, read against its premises. The
+      monitor raises questions and answers none: a finding changes nothing until you say
+      what you did about it.
+    </p>
+  {% endcall %}
+
+  {{ ui.verdict("WHAT IS WAITING", verdict.composed, tone=verdict.tone.value) }}
+
+  {% if queued %}
+    <div id="queued-notice" class="mt-4">
+      {% if queued == "0" %}
+        {{ ui.callout("warning", "Nothing was queued", "The queue could not be reached, so no pass was started. Check that Redis and the worker are running, then try again; or run `aer monitor` from a terminal.") }}
+      {% elif "of" in queued %}
+        {{ ui.callout("warning", "Only some passes were queued", queued.replace("of", " of ") ~ " theses were queued; the queue stopped answering part way through. The rest can be queued again.") }}
+      {% else %}
+        {{ ui.callout("info", "Passes queued", queued ~ " " ~ ("pass is" if queued == "1" else "passes are") ~ " queued. The worker reads each thesis against what has been filed since; findings appear here as each pass finishes.") }}
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% call ui.sheet("Decisions waiting", subtitle="A filing defeated a premise's predicate. Each opened a gate: withdraw the premise or keep it, with your reason.", id="gated") %}
+    {% if gated %}
+      {% call ui.record_list("Contradicted premises") %}
+        {% for row in gated %}
+          <li class="border-t border-line py-4" data-finding="{{ row.id }}" data-status="contradicted">
+            <a href="/monitor/findings/{{ row.id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ row.thesis_title }}</a>
+            <p class="mt-1 type-body-strong text-ink">{{ row.premise }}</p>
+            <p class="mt-1 max-w-prose type-body text-ink">{{ row.observed }}</p>
+            <p class="mt-1 type-data-sm text-ink-muted">Raised {{ row.raised_on }} · a decision waiting</p>
+          </li>
+        {% endfor %}
+      {% endcall %}
+    {% else %}
+      {{ ui.empty("No premise has been contradicted", "When a filing defeats a threshold you set, the finding appears here with the gate it opened.") }}
+    {% endif %}
+  {% endcall %}
+
+  {% call ui.sheet("Questions raised", subtitle="Findings, not decisions. Each stays here until you say what you did about it — even if that is nothing, with the reason.", id="unread") %}
+    {% if unread %}
+      {% call ui.record_list("Open findings") %}
+        {% for row in unread %}
+          <li class="grid grid-cols-1 gap-2 border-t border-line py-4 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6" data-finding="{{ row.id }}" data-status="{{ row.label | lower }}">
+            <div class="min-w-0">
+              <a href="/monitor/findings/{{ row.id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ row.thesis_title }}</a>
+              {% if row.premise %}<p class="mt-1 type-body-strong text-ink">{{ row.premise }}</p>{% endif %}
+              <p class="mt-1 max-w-prose type-body text-ink">{{ row.justification }}</p>
+              <p class="mt-1 type-data-sm text-ink-muted">Raised {{ row.raised_on }} · a finding, not a decision</p>
+            </div>
+            <div>{{ ui.status(row.tone, row.label) }}</div>
+          </li>
+        {% endfor %}
+      {% endcall %}
+    {% else %}
+      {{ ui.empty("Nothing raised", "Every finding the monitor has raised has been acted on, or none has been raised yet.") }}
+    {% endif %}
+    <p class="mt-4 type-body-sm text-ink-muted">
+      {% if showing_resolved %}
+        <a href="/monitor" class="text-verification underline underline-offset-[3px]">Hide resolved findings</a>
+      {% else %}
+        <a href="/monitor?resolved=1" id="show-resolved" class="text-verification underline underline-offset-[3px]">Show resolved findings</a>
+      {% endif %}
+    </p>
+  {% endcall %}
+
+  {% if showing_resolved %}
+    {% call ui.sheet("Resolved", subtitle="What was done about each, with the reason. Nothing is deleted; a finding can be reopened from its own page.", id="resolved") %}
+      {% if resolved %}
+        {% call ui.record_list("Resolved findings") %}
+          {% for row in resolved %}
+            <li class="border-t border-line py-4" data-finding="{{ row.id }}" data-resolved="yes">
+              <a href="/monitor/findings/{{ row.id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ row.thesis_title }}</a>
+              {% if row.premise %}<p class="mt-1 type-body-strong text-ink">{{ row.premise }}</p>{% endif %}
+              {% set last = row.last_resolution %}
+              <p class="mt-1 type-body-sm text-ink-muted">{{ row.label }} · {{ last.action }} by {{ last.actor }} on {{ last.at }}: {{ last.reason }}</p>
+            </li>
+          {% endfor %}
+        {% endcall %}
+      {% else %}
+        {{ ui.empty("Nothing resolved yet", "A resolved finding keeps what was done and why.") }}
+      {% endif %}
+    {% endcall %}
+  {% endif %}
+
+  {% call ui.sheet("Reviews due", subtitle="Premises no filing tests. You named the date you would look at each again, and it has passed.", id="reviews") %}
+    {% if reviews %}
+      {% call ui.record_list("Premises due for review") %}
+        {% for row in reviews %}
+          <li class="border-t border-line py-4" data-review="{{ row.judgement_id }}">
+            <a href="/theses/{{ row.thesis_id }}#premise-{{ row.judgement_id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ row.thesis_title }}</a>
+            <p class="mt-1 type-body text-ink">{{ row.statement }}</p>
+            <p class="mt-1 type-data-sm text-ink-muted">Review by {{ row.review_by }} · reviewed by a person, not by a filing</p>
+          </li>
+        {% endfor %}
+      {% endcall %}
+    {% else %}
+      {{ ui.empty("No review is due", "A premise you review by a date appears here when the date passes.") }}
+    {% endif %}
+  {% endcall %}
+
+  {% call ui.sheet("Run the monitor", subtitle="One pass per open thesis, on the worker. A pass reads only the premises with a threshold, only against filings newer than its last reading, and stops with a finding rather than pausing if it would breach a cost ceiling.", id="run") %}
+    {% if theses_to_monitor %}
+      <form method="post" action="/monitor/run" id="run-monitor">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        <button
+          id="run"
+          type="submit"
+          class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong"
+        >
+          Run the monitor over {{ theses_to_monitor }} {{ "thesis" if theses_to_monitor == 1 else "theses" }}
+        </button>
+      </form>
+    {% else %}
+      {{ ui.empty("Nothing to monitor", "The monitor reads open theses. Write one, and give at least one premise a threshold code can test.", action_label="Write a thesis", action_href="/theses") }}
+    {% endif %}
+    {% if passes %}
+      <h3 class="mt-6 type-eyebrow text-ink-muted">Recent passes</h3>
+      <ol class="flex flex-col" aria-label="Recent passes" id="passes">
+        {% for row in passes %}
+          <li class="border-t border-line py-3 type-body-sm text-ink" data-pass="{{ row.job_id }}">
+            {{ row.thesis_title }} · {{ row.status }} · started {{ row.started }} · {{ row.findings }} finding{{ "" if row.findings == 1 else "s" }} · {{ row.cost }}
+          </li>
+        {% endfor %}
+      </ol>
+    {% endif %}
+  {% endcall %}
+{% endblock %}

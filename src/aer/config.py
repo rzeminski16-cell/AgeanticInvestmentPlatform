@@ -190,6 +190,12 @@ DEFAULT_MODEL_ROUTES: Final[dict[str, ModelRoute]] = {
     # Comparison of two short arguments, on the same cheap end as the verdict. It reads no
     # evidence and writes no prose the report carries (ADR 0095).
     "challenge_brief": ModelRoute(model="claude-haiku-4-5", effort="low"),
+    # One premise against one filing's numbers, unattended (ADRs 0079, 0103). The
+    # workhorse rather than the judgement model: the crossing is code's before the call,
+    # what the model adds is an interpretation of a handful of figures, and the shape of
+    # the cost is a standing subscription rather than a report (ADR 0078) — pence per
+    # premise per filing against the monthly cap.
+    "thesis_monitor": ModelRoute(model="claude-sonnet-5", effort="medium"),
 }
 
 

@@ -46,14 +46,9 @@ router = APIRouter(include_in_schema=False)
 
 _log = structlog.get_logger("aer.web.theses")
 
-# What a comparator is called on the screen. Words rather than symbols: ">=" reads fine in
-# a formula and badly in a sentence, and a premise is a sentence.
-COMPARATOR_LABELS: Final[dict[PremiseComparator, str]] = {
-    PremiseComparator.AT_LEAST: "at least",
-    PremiseComparator.AT_MOST: "at most",
-    PremiseComparator.ABOVE: "above",
-    PremiseComparator.BELOW: "below",
-}
+# What a comparator is called on the screen: the service's words, so the thesis page and
+# the predicate the monitor reads out say the same thing.
+COMPARATOR_LABELS: Final[dict[PremiseComparator, str]] = thesis_service.COMPARATOR_WORDS
 
 # How the form asks what would defeat a premise. Two answers, named for what each is.
 DEFEAT_THRESHOLD: Final = "threshold"

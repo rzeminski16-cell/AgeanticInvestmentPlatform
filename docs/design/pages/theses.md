@@ -132,9 +132,10 @@ which counts, and nothing on the page responds to it. A no-JavaScript answer exi
 disclosure sections, or the choice leading to the right form — and the redesign's rule is
 that chrome may be the client's (ADR 0077).
 
-**The metric is free text with no help.** The monitor (§3.6) will resolve it, and until it
-exists there is no list to offer. When it does, the field should offer what the platform can
-read and still accept what it cannot.
+**The metric is free text with no list.** The monitor resolves it (§3.6, ADR 0103) — a
+growth of a statement line, a ratio, or a line's level — and `measurable_metrics()` names
+what it understands; the field's help text describes the shape and does not yet offer the
+words. A premise about anything else is recorded and read as unobservable, which is late.
 
 **A thesis does not show the report it was written against.** `report_id` is stored and not
 yet rendered, because the write form does not yet offer a report to choose.

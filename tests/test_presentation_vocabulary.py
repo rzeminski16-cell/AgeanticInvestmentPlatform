@@ -239,6 +239,12 @@ class TestTheGateSequenceIsHonest:
         would promise a stop most runs never make."""
         assert GATES[GateKind.BUDGET].certainty is GateCertainty.ON_REFUSAL
 
+    def test_the_thesis_gate_is_opened_by_a_finding_and_never_by_a_run(self) -> None:
+        """The one gate no research run opens (ADRs 0078, 0103). It has words in this table
+        because every gate must be nameable in one vocabulary, and a certainty of its own so
+        that no run console can list it as a stop on the way to a report."""
+        assert GATES[GateKind.THESIS].certainty is GateCertainty.ON_FINDING
+
     def test_the_rest_are_conditional(self) -> None:
         sometimes = {
             gate for gate, words in GATES.items() if words.certainty is GateCertainty.SOMETIMES

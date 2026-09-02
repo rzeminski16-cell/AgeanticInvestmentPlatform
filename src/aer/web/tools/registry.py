@@ -188,17 +188,15 @@ INSTALLED_TOOLS: Final[tuple[Tool, ...]] = (
     Tool(
         key="monitor",
         label="Monitor",
-        status=ToolStatus.PLANNED,
+        status=ToolStatus.WORKING,
         href="/monitor",
         summary=(
             "What has happened since a thesis was written that bears on it — findings the "
-            "platform raises and never answers."
+            "platform raises and never answers, and the one gate a contradicted premise opens."
         ),
-        needs=(
-            "Theses and their predicates. A monitor with nothing to monitor against is an "
-            "alert feed, which is the thing ADR 0079 refuses."
-        ),
-        adr="0079",
+        action_label="Read the findings",
+        action_href="/monitor",
+        adr="0103",
     ),
     Tool(
         key="risk",

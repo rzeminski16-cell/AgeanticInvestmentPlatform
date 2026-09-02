@@ -205,6 +205,14 @@ _PROVIDERS: Final[tuple[AttentionProvider, ...]] = (
         items_ref="aer.web.overview.platform:items",
         adr="0071",
     ),
+    # The monitor's findings and the reviews a person promised (ADR 0078: the attention
+    # queue is the cross-tool surface, and a finding is labelled a finding on it).
+    AttentionProvider(
+        key="monitor",
+        tool="monitor",
+        items_ref="aer.web.overview.monitor:items",
+        adr="0103",
+    ),
 )
 
 

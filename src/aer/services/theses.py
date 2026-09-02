@@ -33,6 +33,7 @@ from aer.db.models import AuditEvent, Company, Judgement, Premise, Thesis, User
 from aer.errors import ConflictError, ValidationError
 
 __all__ = [
+    "COMPARATOR_WORDS",
     "SUBJECT_COMPANY",
     "Predicate",
     "add_premise",
@@ -52,6 +53,16 @@ _log = structlog.get_logger("aer.services.theses")
 # reason `work_orders.subject_kind` is: the vocabulary is the tool registry's (ADR 0071),
 # and a second kind arrives with the tool that resolves it.
 SUBJECT_COMPANY = "company"
+
+# What a comparator is called in a sentence. Words rather than symbols: ">=" reads fine in
+# a formula and badly in a sentence, and a premise is a sentence — on the thesis page and
+# in the predicate the monitor hands the model.
+COMPARATOR_WORDS: dict[PremiseComparator, str] = {
+    PremiseComparator.AT_LEAST: "at least",
+    PremiseComparator.AT_MOST: "at most",
+    PremiseComparator.ABOVE: "above",
+    PremiseComparator.BELOW: "below",
+}
 
 
 @dataclass(frozen=True, slots=True)

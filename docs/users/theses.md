@@ -67,5 +67,5 @@ you stopped believing it are both on the record.
   anything (ADR 0074).
 - It does not test a premise against the share price. Price is an outcome, not evidence about
   a premise (ADR 0079).
-- It does not decide anything. When the monitor arrives it will raise questions about premises;
+- It does not decide anything. The [monitor](monitor.md) raises questions about premises;
   answering them is yours.

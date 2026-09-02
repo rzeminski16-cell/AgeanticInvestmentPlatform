@@ -1003,6 +1003,90 @@ async def _curation_worksheet(settings: Settings, *, limit: int | None) -> Works
         await engine.dispose()
 
 
+@app.command(name="monitor")
+def monitor_command(
+    thesis_id: Annotated[
+        uuid.UUID | None,
+        typer.Option("--thesis", help="One thesis to read. Omit for every open thesis."),
+    ] = None,
+) -> None:
+    """Run the thesis monitor in this process: one pass per open thesis (roadmap §3.6).
+
+    The same pass the worker runs — same routing, same budget, same services — for a
+    scheduler that has a terminal and no queue. Each pass reads the premises that carry a
+    threshold against what has been filed since their last reading, spends against the
+    per-run cap and the month's, and stops with a finding rather than pausing if a call
+    would breach either (ADR 0078). Exits 1 if any pass stopped.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    try:
+        stopped = asyncio.run(_monitor(settings, thesis_id=thesis_id))
+    except AerError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+    if stopped:
+        raise typer.Exit(code=1)
+
+
+async def _monitor(settings: Settings, *, thesis_id: uuid.UUID | None) -> bool:
+    from aer.api.deps import current_user_or_none  # noqa: PLC0415 -- one query, one place
+    from aer.runtime import build_services  # noqa: PLC0415 -- constructs the provider
+    from aer.services import theses as thesis_service  # noqa: PLC0415
+    from aer.services import thesis_monitor  # noqa: PLC0415
+    from aer.services.configuration import effective_settings  # noqa: PLC0415
+
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    any_stopped = False
+    try:
+        async with factory() as session:
+            user = await current_user_or_none(session)
+            if user is None:
+                message = (
+                    "No user exists. Create one with: uv run aer seed-user --email you@example.com"
+                )
+                raise AerError(message)
+            if thesis_id is None:
+                theses = await thesis_monitor.theses_to_monitor(session, user_id=user.id)
+            else:
+                one = await thesis_service.thesis_of(session, thesis_id, user_id=user.id)
+                if one is None:
+                    message = f"No thesis {thesis_id}."
+                    raise AerError(message, context={"thesis_id": str(thesis_id)})
+                theses = [one]
+            if not theses:
+                typer.secho("No open thesis to monitor.", fg=typer.colors.YELLOW)
+                return False
+
+            resolved = await effective_settings(session, settings)
+            services = build_services(resolved, redis=redis)
+            for thesis in theses:
+                outcome = await thesis_monitor.run_monitor(
+                    session,
+                    settings=resolved,
+                    provider=services.provider,
+                    router=services.router,
+                    store=services.store,
+                    user=user,
+                    thesis=thesis,
+                )
+                any_stopped = any_stopped or outcome.stopped
+                colour = typer.colors.RED if outcome.stopped else typer.colors.GREEN
+                typer.secho(
+                    f"{thesis.title}: {outcome.read} read, {outcome.nothing_new} nothing new, "
+                    f"{outcome.unobservable} unobservable, {len(outcome.findings)} "
+                    f"finding(s), £{outcome.spend_gbp:.4f}"
+                    + (" — STOPPED at a cost ceiling" if outcome.stopped else ""),
+                    fg=colour,
+                )
+    finally:
+        await redis.aclose()
+        await engine.dispose()
+    return any_stopped
+
+
 @app.command(name="diagnose")
 def diagnose_command(
     job_id: Annotated[uuid.UUID, typer.Argument(help="The run to read back.")],

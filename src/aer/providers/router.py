@@ -61,6 +61,10 @@ _KNOWN_ROLES: Final[frozenset[str]] = frozenset(
         # short fields over arguments that have already stopped changing, so the cheapest
         # route is the right default — it decides nothing and reaches no report.
         "challenge_brief",
+        # One premise read against the facts that arrived after it was written (ADR 0079).
+        # Code has already measured the crossing; the model interprets within the bounds
+        # it is handed (ADR 0103).
+        "thesis_monitor",
         # The model that carries a web search (ADR 0092). A route, not an agent role: the
         # call runs one server-side search and code reads the listing, so the model's
         # only judgement is none at all — which is why the default is the cheapest model.

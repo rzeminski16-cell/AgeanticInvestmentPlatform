@@ -378,6 +378,26 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         max_output_tokens=8_192,
         adr="0095",
     ),
+    RoleDefinition(
+        role="thesis_monitor",
+        purpose=(
+            "Read one premise of a thesis against the facts filed after it was written and "
+            "return a status from a closed enum with a justification naming source "
+            "documents. Code has already measured the crossing; the model interprets "
+            "within its bounds. Raises a question and answers none: no rating, no action, "
+            "no target, no conviction, and never a price."
+        ),
+        output_schema_ref="aer.agents.thesis_monitor:PremiseReading",
+        # No tools — the whole of ADR 0079's "why no tools". Code enumerates the window, so
+        # what the monitor sees never depends on it thinking to ask; a monitor that could
+        # search would be gathering evidence aimed at a prior conclusion it has already
+        # read, which is the confirmation-shaped failure the design exists to refuse.
+        allowed_tools=frozenset(),
+        # A status, a paragraph and a handful of ids. Small on purpose: this is the call
+        # that runs unattended, per premise, per filing, against the monthly cap.
+        max_output_tokens=4_096,
+        adr="0103",
+    ),
 )
 
 

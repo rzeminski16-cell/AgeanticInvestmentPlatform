@@ -41,6 +41,7 @@ from aer.core.enums import (
     GateKind,
     Grade,
     JobStatus,
+    PremiseStatus,
     RequestStatus,
     SkillKind,
     TransactionKind,
@@ -53,10 +54,12 @@ __all__ = [
     "GATES",
     "GRADES",
     "JOB_STATES",
+    "PREMISE_STATES",
     "REQUEST_STATES",
     "SECTION_STATES",
     "SKILL_KINDS",
     "STEP_WORDS",
+    "STOPPED_PASS",
     "TRANSACTION_KINDS",
     "GateCertainty",
     "GateWords",
@@ -130,6 +133,10 @@ class GateCertainty(StrEnum):
 
     ON_REFUSAL = "on_refusal"
     """Not part of the sequence at all: it exists only when a guardrail stops the run."""
+
+    ON_FINDING = "on_finding"
+    """Not part of a research run at all: opened by the monitor when a premise is
+    contradicted (ADRs 0078, 0103), and decided on the finding rather than on a step."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -272,6 +279,42 @@ SECTION_STATES: Final[dict[SectionStatus, HumanState]] = {
     ),
 }
 
+# What one reading of a premise found (ADR 0079), and the tone each reads in. `Contradicted`
+# is the one status with a consequence and reads in the decision tone the gates use; a
+# finding is never a fault, so nothing here is `FAILURE`. `Unobservable` is muted rather than
+# a warning: it says the platform could not measure the thing, which is a fact about the
+# platform's reach and not about the premise (ADR 0103).
+PREMISE_STATES: Final[dict[PremiseStatus, HumanState]] = {
+    PremiseStatus.UNCHANGED: HumanState(
+        "Unchanged", Tone.MUTED, "The new filing neither supports nor weakens this premise."
+    ),
+    PremiseStatus.WEAKENED: HumanState(
+        "Weakened", Tone.INFO, "The premise still holds, and the evidence moved against it."
+    ),
+    PremiseStatus.STRENGTHENED: HumanState(
+        "Strengthened", Tone.SUCCESS, "The premise holds, and the evidence moved in its favour."
+    ),
+    PremiseStatus.CONTRADICTED: HumanState(
+        "Contradicted",
+        Tone.WARNING,
+        "A filing defeated the predicate this premise carries. A decision is waiting.",
+    ),
+    PremiseStatus.UNOBSERVABLE: HumanState(
+        "Unobservable",
+        Tone.MUTED,
+        "No filing this platform reads measures what the premise names.",
+    ),
+}
+
+# A pass that hit its cost ceiling and stopped rather than pausing for nobody (ADR 0078).
+# The refusal tone, because a guard did its job; a stopped pass is not a broken one.
+STOPPED_PASS: Final = HumanState(
+    "Stopped at its ceiling",
+    Tone.REFUSAL,
+    "The pass stopped rather than spend past a cap, and left this finding instead of pausing.",
+)
+
+
 DECISIONS: Final[dict[Decision, HumanState]] = {
     Decision.APPROVED: HumanState("Approved", Tone.SUCCESS),
     Decision.REJECTED: HumanState("Rejected", Tone.MUTED),
@@ -334,6 +377,14 @@ GATES: Final[dict[GateKind, GateWords]] = {
         asks="review the finished report",
         question="Approve this report?",
         certainty=GateCertainty.ALWAYS,
+    ),
+    # The one gate no research run opens. It sits in this table because every gate must be
+    # nameable in one vocabulary, and out of every run's journey because it is not a step.
+    GateKind.THESIS: GateWords(
+        name="The premise",
+        asks="decide what to do about a premise a filing has contradicted",
+        question="What do you do about this premise?",
+        certainty=GateCertainty.ON_FINDING,
     ),
 }
 

@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  One finding in full, and the forms that close it.
+
+  Three shapes. A contradicted finding that is still open shows the thesis gate: two
+  buttons that say what happens to the premise, a reason, and the hash of exactly what is on
+  this page. Any other open finding shows the acts a person can record — dismiss it with a
+  reason, or withdraw the premise it is about. A resolved finding shows its history and the
+  one act left: reopening it, with a reason.
+
+  Nothing here is a figure. The observation is a sentence beside the calculation it came
+  from, and it enters no arithmetic on any page.
+#}
+
+{% block title %}{{ item.label }} &middot; {{ item.thesis_title }} &middot; Monitor{% endblock %}
+
+{% block content %}
+  {% call ui.page_header(
+    item.thesis_title,
+    eyebrow="A FINDING" if not item.opens_gate else "A DECISION WAITING",
+    identity=subject ~ " · raised " ~ item.raised_on,
+    breadcrumbs=[{"href": "/monitor", "label": "Monitor"}],
+  ) %}
+    <div id="finding-status">{{ ui.status(item.tone, item.label, item.detail) }}</div>
+  {% endcall %}
+
+  {% call ui.sheet("The premise", id="premise") %}
+    {% if item.has_premise %}
+      <p class="type-body-strong text-ink" data-field="premise">{{ item.premise }}</p>
+      <p class="mt-2 type-body-sm text-ink-muted">
+        <a href="/theses/{{ item.thesis_id }}" class="text-verification underline underline-offset-[3px]">Open the thesis</a>
+      </p>
+    {% else %}
+      <p class="type-body text-ink-muted">This finding is about the pass rather than a premise.</p>
+    {% endif %}
+  {% endcall %}
+
+  {% if item.observed %}
+    {% call ui.sheet("What code measured", subtitle="Deterministic, before any model was asked. The verdict on the predicate is code's, and the model's reading is bounded by it.", id="observed") %}
+      <p class="type-body text-ink" data-field="observed">{{ item.observed }}</p>
+    {% endcall %}
+  {% endif %}
+
+  {% call ui.sheet("What the monitor read into it", subtitle="An interpretation, never evidence. It names the documents it rests on and nothing else; it recommends nothing and reads no price.", id="justification") %}
+    <p class="max-w-prose type-body text-ink" data-field="justification">{{ item.justification }}</p>
+    {% if sources %}
+      <h3 class="mt-4 type-eyebrow text-ink-muted">Documents named</h3>
+      <ul class="mt-2 flex flex-col gap-1" id="sources">
+        {% for source in sources %}
+          <li class="type-body-sm text-ink" data-source="{{ source.id }}">
+            {% if source.href %}
+              <a href="{{ source.href }}" class="text-verification underline underline-offset-[3px]">{{ source.title }}</a>
+            {% else %}
+              {{ source.title }}
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endcall %}
+
+  {% if item.gate_is_decidable %}
+    <div id="thesis-gate" class="mt-6">
+      {% call ui.decision_panel("DECISION REQUIRED", gate_words.question, gate_consequence) %}
+        <form method="post" action="/monitor/findings/{{ item.id }}/decide" id="gate-form" class="flex flex-col gap-4">
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+          <input type="hidden" name="payload_hash" id="payload-hash" value="{{ payload_hash }}" />
+          <div>
+            <label for="reason" class="block type-label text-ink">Because</label>
+            <textarea
+              id="reason"
+              name="reason"
+              rows="3"
+              required
+              maxlength="4000"
+              class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink"
+              placeholder="Why you are withdrawing the premise, or why you hold it despite the filing. Recorded on the premise and in the audit trail."
+            ></textarea>
+          </div>
+          <div class="flex flex-col gap-3">
+            <button type="submit" name="decision" value="{{ decision_withdraw }}" id="withdraw"
+                    class="inline-flex min-h-11 items-center justify-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Withdraw the premise</button>
+            <button type="submit" name="decision" value="{{ decision_keep }}" id="keep"
+                    class="inline-flex min-h-11 items-center justify-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Keep the premise despite this</button>
+          </div>
+        </form>
+      {% endcall %}
+    </div>
+  {% elif item.is_open %}
+    {% if item.opens_gate %}
+      <div id="gate-orphaned" class="mt-6">
+        {{ ui.callout("info", "The pass that raised this is no longer on record", "A gate decision hangs off the pass that opened it, and that pass has been removed. Close the finding with your reason below; the premise can still be withdrawn from here.") }}
+      </div>
+    {% endif %}
+    {% call ui.sheet("What did you do about it?", subtitle="A finding is closed by an act with a reason, never by the condition going away. \"I saw this and chose to do nothing\" is a row worth having.", id="resolve") %}
+      <form method="post" action="/monitor/findings/{{ item.id }}/resolve" class="grid max-w-2xl gap-4" id="resolve-form">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        {{ ui.field("reason", "Because", required=true, rows=2, hint="What you read, and what you decided. Recorded in the audit trail.") }}
+        <div class="flex flex-wrap gap-3">
+          <button type="submit" name="action" value="{{ action_dismissed }}" id="dismiss"
+                  class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong">Read, and leaving the premise as it is</button>
+          {% if item.has_premise %}
+            <button type="submit" name="action" value="{{ action_withdrawn }}" id="withdraw-premise"
+                    class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-3 type-label text-ink hover:bg-surface-selected">Withdraw the premise</button>
+          {% endif %}
+        </div>
+      </form>
+    {% endcall %}
+  {% endif %}
+
+  {% if item.resolutions %}
+    {% call ui.sheet("What was done", id="history") %}
+      <ol class="flex flex-col" aria-label="Resolutions">
+        {% for row in item.resolutions %}
+          <li class="border-t border-line py-3" data-resolution="{{ row.action }}">
+            <p class="type-body-strong text-ink">{{ row.action | capitalize }} by {{ row.actor }} on {{ row.at }}</p>
+            <p class="mt-1 type-body text-ink" data-field="reason">{{ row.reason }}</p>
+          </li>
+        {% endfor %}
+      </ol>
+      {% if not item.is_open %}
+        <form method="post" action="/monitor/findings/{{ item.id }}/resolve" class="mt-4 flex max-w-2xl flex-wrap items-end gap-2" id="reopen-form">
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+          <input type="hidden" name="action" value="{{ action_reopened }}" />
+          <div class="min-w-0 flex-1">
+            <label for="reopen-reason" class="block type-label text-ink-muted">Reopen, because</label>
+            <input id="reopen-reason" name="reason" required class="mt-1 min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink" />
+          </div>
+          <button id="reopen" type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-3 type-label text-ink hover:bg-surface-selected">Reopen</button>
+        </form>
+      {% endif %}
+    {% endcall %}
+  {% endif %}
+{% endblock %}

@@ -95,6 +95,11 @@ CONSEQUENCES: Final[dict[GateKind, str]] = {
         "already spent what the ledger shows."
     ),
     GateKind.BUDGET: ("Approving lets this run spend past the ceiling you set for it."),
+    GateKind.THESIS: (
+        "Withdrawing the premise records that the filing defeated it, with your reason on "
+        "the premise. Keeping it records that you saw the contradiction and hold the "
+        "premise anyway, with your reason. Neither moves a position."
+    ),
 }
 
 

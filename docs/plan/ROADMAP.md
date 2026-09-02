@@ -68,16 +68,16 @@ document in which every figure carries a footnote resolving to either the formul
 produced it or the archived bytes it came from. That path has no gap in it, and the
 evaluation gate re-derives every stored calculation from its own record on every run.
 
-Two of nine tools work:
+Four of nine tools work:
 
 | Tool | State | Waiting on |
 |---|---|---|
 | **Equity Research** | Working, end to end | — |
 | **Portfolio** | Working | — |
 | Watchlist | Planned | A standing budget that is not one run's cap; the two clocks |
-| Theses | Planned | The judgement record |
+| **Theses** | Working | — |
 | Decisions | Planned | Judgements, and the reserved-field guard |
-| Monitor | Planned | Theses to monitor against |
+| **Monitor** | Working | — |
 | Risk | Planned | A book to be about, and the rate store *(the rate store now exists)* |
 | Post-trade review | Planned | Decisions and positions |
 | Decision analytics | Planned | Enough reviewed decisions to say anything at all |
@@ -419,10 +419,32 @@ one, `SourceKind` has four members — rather than remembered.
 own refusal clause: not because a section owns it, but because a view somebody holds is not a
 figure at all.
 
-**3.6 The thesis monitor** (ADRs 0078, 0079). What has happened since a thesis was written
-that bears on it. **It raises questions and answers none**, and a monitor finding is not a
-gated decision — an alert feed that decides things is the thing that record exists to
-refuse.
+**3.6 The thesis monitor** (ADRs 0078, 0079). **Done 2026-09-02** — ADR 0103. What has
+happened since a thesis was written that bears on it. **It raises questions and answers
+none**, and a monitor finding is not a gated decision — an alert feed that decides things is
+the thing that record exists to refuse.
+
+What shipped: the `thesis_monitor` role (no tools, a status from the closed enum and a
+justification naming source documents), and the rule ADR 0103 settles on top of ADR 0079 —
+**code measures the crossing before the model is asked anything.** A premise's free-text metric
+resolves to a growth, a ratio or a statement line; the threshold's unit is normalised once
+(per cent is a convention, ADR 0027) and compared through `Quantity`, which refuses a mismatch;
+and the model's status is bounded by the verdict: a defeated predicate is `contradicted`
+whatever it says. A premise nothing new bears on makes no call; a premise nothing measures is
+`unobservable` with the reason.
+
+`findings` and `finding_resolutions` are the record ADR 0078 wanted kept apart from an
+approval, with the tier pinned as a column. Only a contradicted finding opens
+`GateKind.THESIS` — decided on the finding, through the monitor service, never through a
+run's gate order — and the decision is what happens to the premise: withdrawn with the reason,
+or kept despite the filing with the reason. Every other act is an appended row with a reason.
+A pass that hits its cap stops with a `stopped` finding and a FAILED job; it never pauses.
+
+The monitor is the fourth working tool: a page, the gate, an attention provider (a
+contradicted premise is *waiting for you*; a stopped pass *needs diagnosis*; an unread finding
+or an overdue review *not started*), a worker task, and `aer monitor` for a nightly schedule.
+What it cannot measure is written on the finding: segment lines are dimensioned facts the
+analysis excludes, so "Azure revenue growth" is unobservable until a later change reads them.
 
 **3.7 Decisions and the trade journal.** The entry written *before* the outcome is known.
 

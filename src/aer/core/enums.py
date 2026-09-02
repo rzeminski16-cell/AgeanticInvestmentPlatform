@@ -24,11 +24,14 @@ __all__ = [
     "Decision",
     "ExtractionKind",
     "FactBasis",
+    "FindingAction",
+    "FindingKind",
     "GateKind",
     "Grade",
     "JobStatus",
     "JudgementKind",
     "PremiseComparator",
+    "PremiseStatus",
     "Provider",
     "RequestStatus",
     "SourceTier",
@@ -137,6 +140,11 @@ class GateKind(StrEnum):
     ``ASSUMPTIONS`` is the one gate that guards work which has *not* happened yet. Every
     other gate approves something already produced; this one approves the numbers a
     valuation is about to be built on, some of which a model proposed. See ADR 0046.
+
+    ``THESIS`` is the one gate no research run opens. The monitor opens it when a premise
+    is contradicted by a filing (ADR 0078), and what it asks is what to do about the
+    premise rather than whether a run may continue — so it is decided on a finding, through
+    the monitor service, and never through the run's own gate order (ADR 0103).
     """
 
     PLAN = "PLAN"
@@ -147,6 +155,7 @@ class GateKind(StrEnum):
     ASSUMPTIONS = "ASSUMPTIONS"
     BUDGET = "BUDGET"
     FINAL = "FINAL"
+    THESIS = "THESIS"
 
 
 class Decision(StrEnum):
@@ -443,3 +452,55 @@ class PremiseComparator(StrEnum):
     AT_MOST = "at_most"
     ABOVE = "above"
     BELOW = "below"
+
+
+class PremiseStatus(StrEnum):
+    """What one reading of a premise against new evidence found (ADR 0079).
+
+    Five, closed, and the tier each carries is decided in code at the point it is written
+    (ADR 0078): ``CONTRADICTED`` opens a gate, and the other four are findings with no
+    approval semantics. ``UNOBSERVABLE`` is here because its absence would be a lie — a
+    reading that cannot tell would otherwise have to say ``UNCHANGED``, which asserts the
+    evidence was read and the premise stood.
+    """
+
+    UNCHANGED = "unchanged"
+    WEAKENED = "weakened"
+    STRENGTHENED = "strengthened"
+    CONTRADICTED = "contradicted"
+    UNOBSERVABLE = "unobservable"
+
+    @property
+    def opens_a_gate(self) -> bool:
+        """The one status with a consequence somebody must own."""
+        return self is PremiseStatus.CONTRADICTED
+
+
+class FindingKind(StrEnum):
+    """What a monitor finding is a record of.
+
+    A ``READING`` is one premise read against new evidence, and carries a status. A
+    ``STOPPED`` finding is a pass that hit its cost ceiling and stopped rather than pausing
+    for nobody (ADR 0078); it has no premise status because no premise was read.
+    """
+
+    READING = "reading"
+    STOPPED = "stopped"
+
+
+class FindingAction(StrEnum):
+    """What a person did about a finding, as an appended record (ADR 0078).
+
+    Never a flag on the finding: a resolution the operator later regrets, a reopening and
+    a recurrence are three histories one boolean cannot tell apart, so each act is a row.
+    """
+
+    DISMISSED = "dismissed"
+    """Read, and left as it was, with a reason. "I saw this and chose to do nothing" is
+    decision data."""
+
+    WITHDRAWN = "withdrawn"
+    """The premise was withdrawn in response, with the reason on the judgement too."""
+
+    REOPENED = "reopened"
+    """A resolved finding put back in front of the operator, with the reason."""

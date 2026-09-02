@@ -157,5 +157,5 @@ async def analysed(scene: dict[str, Any]) -> Any:
         scene["session"],
         new_context(),
         company_id=scene["company"].id,
-        request=scene["request"],
+        work_order=scene["request"].work_order,
     )

@@ -1248,7 +1248,7 @@ async def _propose_assumptions(context: StepContext) -> StepResult:
         context.session,
         calculation_service.new_context(),
         company_id=_uuid(acquired["company_id"]),
-        request=request,
+        work_order=request.work_order,
         profile=profile_for(sector_key),
     )
 
@@ -1404,7 +1404,7 @@ async def _value(context: StepContext) -> StepResult:
         context.session,
         calculation_service.new_context(),
         company_id=_uuid(acquired["company_id"]),
-        request=request,
+        work_order=request.work_order,
         profile=profile_for(sector_key),
     )
 
@@ -1499,7 +1499,7 @@ async def _comps(context: StepContext) -> StepResult:
         context.session,
         calculation_service.new_context(),
         company_id=_uuid(acquired["company_id"]),
-        request=request,
+        work_order=request.work_order,
         profile=profile_for(sector_key_of(context.outputs)),
     )
 
@@ -2744,7 +2744,7 @@ async def _calculate(context: StepContext) -> StepResult:
         context.session,
         calc_context,
         company_id=company_id,
-        request=request,
+        work_order=request.work_order,
         # What this kind of business does not define, so the coverage the gate reads and
         # the ratios the report shows are both about a company of this kind (A64).
         profile=profile_for(sector_key_of(context.outputs)),

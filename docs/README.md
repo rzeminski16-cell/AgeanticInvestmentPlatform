@@ -51,6 +51,8 @@ For the operator: the person who installs it, commissions research and approves 
   ever stored as a number.
 - [`theses.md`](users/theses.md) — writing down what you believe about a company, and what
   would defeat it
+- [`monitor.md`](users/monitor.md) — what has been filed since, read against each premise;
+  a finding is a question, and the gate it can open.
 - [`troubleshooting.md`](users/troubleshooting.md) — when a run stalls, fails, or refuses.
 
 ### `developers/` — how to change it

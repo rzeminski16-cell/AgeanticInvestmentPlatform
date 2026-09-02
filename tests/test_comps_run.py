@@ -231,7 +231,10 @@ async def _build(scene: dict[str, Any], *, client: Any, context: Any = None) -> 
         capitalisation = acquired.market_capitalisation
 
     analysis = await analyse_company(
-        session, new_context(), company_id=scene["subject"].id, request=scene["request"]
+        session,
+        new_context(),
+        company_id=scene["subject"].id,
+        work_order=scene["request"].work_order,
     )
     outcome = await build_comps_table(
         session,

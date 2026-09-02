@@ -94,7 +94,11 @@ by name when it fades — and closes phase 4.
 
 **Phase 5 in the roadmap's forced order, nothing folded forward.** §3.5 landed 2026-09-02
 (ADR 0102): the judgement supertype, premises as its first subtype, theses as the container,
-and the theses tool working — the record §3.6's monitor reads and had nothing to read. §3.11
+and the theses tool working — the record §3.6's monitor reads and had nothing to read. §3.6
+landed the same day (ADR 0103): the `thesis_monitor` role, a pass that measures the crossing in
+code before the model is asked anything, `findings` kept apart from approvals with the tier as a
+column, the one gate a contradicted premise opens, and the monitor as the fourth working tool.
+§3.7 is next. §3.11
 is quietly the missing half of ADR 0091's memory: an operator-authored methodology skill is
 the only route a recorded lesson has into a future run.
 

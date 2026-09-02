@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -33,16 +34,25 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.config import Settings
-from aer.core.enums import GateKind, TransactionKind, UserRole
+from aer.core.enums import (
+    FindingKind,
+    GateKind,
+    PremiseComparator,
+    PremiseStatus,
+    TransactionKind,
+    UserRole,
+)
 from aer.db.models import (
     Calculation,
     Claim,
     Company,
+    Finding,
     Portfolio,
     Report,
     User,
 )
 from aer.services import theses as thesis_service
+from aer.services.theses import Predicate
 from tests.api_fixtures import build_app, client_for
 from tests.request_fixtures import research_request
 from tests.route_fixtures import page_routes_for
@@ -108,8 +118,52 @@ async def committed(db_engine: Any) -> Any:
         thesis = await thesis_service.write_thesis(
             session, user=user, company=contoso, title="Contoso keeps its pricing power"
         )
+        # A premise with a threshold, and the finding a pass would leave on it: the monitor's
+        # detail page is parameterised on a finding, and a contradicted one renders the gate,
+        # which is the branch with the most in it. Written as rows rather than driven through
+        # a pass, because this file is about rendering and a pass needs a model.
+        premise = await thesis_service.add_premise(
+            session,
+            thesis=thesis,
+            actor=user,
+            statement="Revenue keeps growing above 25% a year.",
+            basis="The segment disclosure.",
+            predicate=Predicate(
+                metric="revenue growth",
+                comparator=PremiseComparator.AT_LEAST,
+                threshold=Decimal(25),
+                unit="percent",
+            ),
+            review_by=None,
+        )
+        finding = Finding(
+            thesis_id=thesis.id,
+            judgement_id=premise.judgement_id,
+            kind=FindingKind.READING,
+            status=PremiseStatus.CONTRADICTED,
+            justification="Revenue grew 12% in the year to 31 December 2025, below the 25% floor.",
+            source_document_ids=[],
+            observed={
+                "metric": "revenue growth",
+                "value": "0.12",
+                "unit": "ratio",
+                "period_end": "2025-12-31",
+                "threshold": "0.25",
+                "threshold_unit": "ratio",
+                "comparator": "at least",
+                "holds": False,
+            },
+            opens_gate=True,
+        )
+        session.add(finding)
         await session.commit()
-        yield {"user": user, "request": request, "book": book, "thesis": thesis}
+        yield {
+            "user": user,
+            "request": request,
+            "book": book,
+            "thesis": thesis,
+            "finding": finding,
+        }
     await _truncate(db_engine)
 
 
@@ -179,6 +233,7 @@ async def finished_run(
         "company_id": company.id if company else uuid.uuid4(),
         "portfolio_id": committed["book"].id,
         "thesis_id": committed["thesis"].id,
+        "finding_id": committed["finding"].id,
     }
 
 

@@ -83,6 +83,7 @@ src/aer/            application package
     base.py         everything an agent must not have to remember
     untrusted.py    delimits fetched content; the delimiter cannot be escaped
     planner.py      proposes a plan; states no figure and asserts no fact
+    thesis_monitor.py  reads one premise against new facts; status bounded by code's crossing
   workflow/         the step runner and the workflows built on it
     engine.py       idempotent, resumable, budget-checked before each step
     workflows/vertical_slice_v1.py   request -> plan -> gates -> cited report
@@ -94,6 +95,8 @@ src/aer/            application package
                     calculations, approvals (gate order and payload hashes), runs
     mandate.py      the equity mandate for a run, if it has one; None is a real answer
     theses.py       the only writer of judgements: a thesis, its premises, on the audit chain
+    thesis_monitor.py  the monitor pass: code measures the crossing, the model reads the rest,
+                    a finding is closed by an act with a reason (ADRs 0078, 0079, 0103)
   runtime.py        assembles the service bundle both processes share
   queue.py          enqueueing a run, from the web process
   worker.py         the arq worker: where a research run actually executes
@@ -126,10 +129,12 @@ src/aer/            application package
       attention.py  Attention/Severity; Overview owns no query, it asks a registry
       verdict.py    what is waiting, in one sentence; composed permanently, never authored
       research.py   the research tool's answer to "is anything waiting for me"
+      monitor.py    the monitor's: a contradicted premise waits, a stopped pass needs diagnosis
       platform.py   what the platform itself has waiting, which is no tool's business
     portfolio/pages.py  the book as at a date; every figure computed on the way to it
     theses/pages.py     what you believe, as premises with what would defeat each; no figure
-    tools/registry.py   INSTALLED_TOOLS: nine rows, three states; a planned tool is a page
+    monitor/pages.py    the findings, labelled findings; the one gate a contradicted premise opens
+    tools/registry.py   INSTALLED_TOOLS: nine rows, four working; a planned tool is a page
     styles/app.css  the token system: palette, type scale, spacing, radii (ADRs 0077, 0088)
     static/fonts/   three families, eight files, all OFL 1.1 and all SHA-256 pinned
     templates/      Jinja2; the disclaimer lives in the shell, not in pages

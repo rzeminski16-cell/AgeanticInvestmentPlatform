@@ -233,14 +233,17 @@ ones — read the ADR before touching its territory:
   traceable is not thereby possible), 0068 (the ledger records derivations, not calls),
   0070 (a bank is valued on the spread over its book value), 0101 (a bank's grid varies the
   spread, and a fading driver is refused rather than shifted), 0102 (a thesis is premises,
-  and a premise is the judgement).
+  and a premise is the judgement), 0103 (the monitor measures the crossing, and the model
+  reads the rest).
 - **Agents and containment** — 0035 (a new role requires an ADR), 0036 (workers request,
   code executes), 0037–0039 (custom sections, validator advises, red team is separate),
   0040 (containment proved by a corpus), 0041 (dry runs), 0042 (the section writer holds
   no tools), 0046 (assumptions: only what no filing answers), 0059 (a model proposes peers
   and the registry resolves them), 0064 (prior research may shape the questions, never the
   answers), 0065 (themes are proposed, confirmed, and only then edges), 0067 (a proxy may be
-  proposed only if it names itself as one).
+  proposed only if it names itself as one), 0103 (the thesis monitor: code measures the
+  crossing, the model's status is bounded by it, and a finding is closed by an act with a
+  reason).
 - **Interface and presentation** — **start here before changing a screen.** 0006 (the GUI is
   server-rendered HTML, progressively enhanced with htmx), 0077 (JavaScript may own chrome
   and never a figure — and what a provenance badge is), 0056 (house style is configuration
