@@ -20,13 +20,14 @@ from typing import Any
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from aer.agents.assumptions import AssumptionProposalDraft, OpinionProposal
 from aer.calc.residual_income import CLEAN_SURPLUS_CAVEAT
 from aer.config import Settings
 from aer.core.enums import JobStatus, UserRole
 from aer.core.sectors import ValuationMandate, ValuationModel, mandate_for, profile_for
-from aer.db.models import Calculation, JobStep, User
+from aer.db.models import Calculation, JobStep, Scenario, Sensitivity, User
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
 from aer.sections.valuation_method import commentary_problems, valuation_method_block
@@ -36,9 +37,12 @@ from aer.services.assumption_gate import (
     RISK_FREE_ASSUMPTION,
 )
 from aer.services.assumptions import confirm, propose
+from aer.services.exhibits import _field_input, _scenario_input
 from aer.services.prices import BETA_ASSUMPTION
 from aer.services.residual_income_run import BankValuationOutcome, value_the_bank
+from aer.services.scenarios import create_scenario, set_override
 from aer.services.sectors import CLASSIFY_STEP
+from aer.services.valuation import SENSITIVITY_POINTS
 from aer.storage.local import LocalArtefactStore
 from aer.workflow.engine import StepContext
 from aer.workflow.workflows.vertical_slice_v1 import ASSUMPTIONS_STEP
@@ -264,17 +268,16 @@ class TestWhatItSays:
 
         assert any("opposite claims about competition" in item for item in produced["caveats"])
 
-    async def test_the_absence_of_scenarios_is_stated_rather_than_quiet(
-        self, scene: dict[str, Any]
-    ) -> None:
-        """The discounted cash flow builds scenarios and grids and this does not. A reader
-        comparing two reports has to be told that, not left to notice."""
+    async def test_a_request_with_no_authored_cases_says_so(self, scene: dict[str, Any]) -> None:
+        """Scenarios are written, not generated. A run with none has a base case and two
+        grids, and a reader comparing two reports is told which it is looking at."""
         await seed_years(scene, _YEARS)
         await _confirm_all(scene)
 
         produced = (await _value(scene)).as_dict()
 
-        assert any("No scenarios or sensitivity grids" in item for item in produced["caveats"])
+        assert produced["scenarios"] == []
+        assert any("carries no authored scenarios" in item for item in produced["caveats"])
 
     async def test_both_per_share_figures_are_reported(self, scene: dict[str, Any]) -> None:
         await seed_years(scene, _YEARS)
@@ -381,6 +384,273 @@ class TestTheGateAsksForTheRightThings:
         pauses for numbers nothing uses, then refuses for want of numbers nobody was asked
         for."""
         assert set(RESIDUAL_INCOME_NAMES) == set(_CONFIRMED)
+
+
+class TestTheGrids:
+    """§3.4: the bank model's own axes, on ADR 0028's terms and ADR 0101's."""
+
+    async def test_two_grids_are_built_and_stored(self, scene: dict[str, Any]) -> None:
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+
+        outcome = await _value(scene)
+
+        assert [
+            (grid.row_axis.field, grid.column_axis.field, grid.treatment.value)
+            for grid in outcome.grids
+        ] == [
+            ("cost_of_equity", "terminal_growth", "perpetual_growth"),
+            ("cost_of_equity", "return_on_equity", "fade_to_nothing"),
+        ]
+        assert outcome.grid_refusals == ()
+
+    async def test_each_grid_is_five_by_five_complete_valuations(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+
+        outcome = await _value(scene)
+
+        for grid in outcome.grids:
+            assert len(grid.cells) == SENSITIVITY_POINTS * SENSITIVITY_POINTS
+
+    async def test_the_stored_cells_point_at_calculations_that_exist(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """ADR 0028's ordering rule. `sensitivity_cells.calculation_id` is not nullable with
+        ON DELETE RESTRICT, so a cell written before its calculation would either fail on the
+        foreign key or point at somebody else's arithmetic."""
+        session: AsyncSession = scene["session"]
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+
+        await _value(scene)
+
+        stored = list(
+            await session.scalars(
+                select(Sensitivity)
+                .where(Sensitivity.job_id == scene["job"].id)
+                .options(selectinload(Sensitivity.cells))
+                .order_by(Sensitivity.created_at)
+            )
+        )
+        assert len(stored) == 2
+        for grid in stored:
+            assert len(grid.cells) == SENSITIVITY_POINTS * SENSITIVITY_POINTS
+            for cell in grid.cells:
+                assert await session.get(Calculation, cell.calculation_id) is not None
+
+    async def test_a_grid_cell_is_never_recorded_as_the_base_case(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Otherwise a scenario keyed `base` draws its bar from a grid corner (ADR 0101)."""
+        session: AsyncSession = scene["session"]
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+
+        await _value(scene)
+
+        rows = list(
+            await session.scalars(
+                select(Calculation).where(
+                    Calculation.job_id == scene["job"].id,
+                    Calculation.name == "residual_income_per_share",
+                )
+            )
+        )
+        base_rows = [row for row in rows if row.parameters.get("case") == "base"]
+        assert len(base_rows) == 2, "the base case is the two treatments and nothing else"
+
+    async def test_a_fading_return_on_equity_costs_its_grid_and_says_why(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The rule ADR 0101 settles: a path that moves year to year is several numbers, and
+        an axis over it would be labelled for a quantity it does not vary."""
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene, omit="return_on_equity")
+        for year, value in ((1, "0.14"), (2, "0.13"), (3, "0.12")):
+            await _confirm_one(scene, f"return_on_equity_y{year}", value)
+
+        outcome = await _value(scene)
+
+        assert [grid.column_axis.field for grid in outcome.grids] == ["terminal_growth"]
+        assert any("moves from year to year" in item for item in outcome.grid_refusals)
+
+    async def test_a_bank_below_its_cost_of_equity_loses_the_terminal_grid_whole(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """A hole in a grid is a cell a reader interprets, so the refused corner takes all
+        twenty-five. The spread grid survives: it never asks the perpetuity anything."""
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene, **{"return_on_equity": "0.04"})
+
+        outcome = await _value(scene)
+
+        assert [grid.column_axis.field for grid in outcome.grids] == ["return_on_equity"]
+        assert len(outcome.grid_refusals) == 1
+        assert "cost of equity against terminal growth" in outcome.grid_refusals[0]
+
+
+class TestTheChartsFindTheBankRows:
+    """The exhibits read per-share figures back by calculation name, and the bank's name is
+    not the discounted cash flow's. A run whose charts were silently empty would look like a
+    company with nothing to show rather than a reader looking in the wrong column."""
+
+    async def test_a_scenario_bar_is_drawn_from_the_bank_ledger(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+        await _a_case(scene, key="bear", label="Bear", name="return_on_equity", value="0.10")
+        await _value(scene)
+
+        built = await _scenario_input(scene["session"], job=scene["job"], request=scene["request"])
+
+        assert [bar.key for bar in built.cases] == ["bear"]
+        assert built.cases[0].value_per_share > 0
+
+    async def test_the_bar_takes_the_conservative_treatment(self, scene: dict[str, Any]) -> None:
+        """One bar cannot show two answers, and ADR 0070 refuses to choose between them for
+        a reader who is present. A chart drawn without one picks the claim assuming least."""
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+        await _a_case(scene, key="bear", label="Bear", name="return_on_equity", value="0.10")
+        outcome = await _value(scene)
+
+        built = await _scenario_input(scene["session"], job=scene["job"], request=scene["request"])
+
+        bar = built.cases[0].value_per_share
+        priced = outcome.scenarios[0].valued
+        assert priced.perpetual is not None
+        assert bar == priced.faded.value_per_share.value.quantize(bar)
+        assert bar != priced.perpetual.value_per_share.value.quantize(bar)
+
+    async def test_the_value_band_is_named_for_the_model_that_produced_it(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """A bank's band labelled "DCF, terminal methods" would be prose about method that no
+        calculation backs, in the place a reader's trust is set (ADR 0063)."""
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+        await _value(scene)
+
+        field = await _field_input(
+            scene["session"], job=scene["job"], request=scene["request"], licence_note=""
+        )
+
+        assert [band.label for band in field.bands] == ["Residual income, terminal treatments"]
+        assert field.bands[0].low < field.bands[0].high
+
+
+class TestTheScenarios:
+    async def test_every_authored_case_is_valued_both_ways(self, scene: dict[str, Any]) -> None:
+        """ADR 0070's reasoning does not weaken for a bear case: choosing between the
+        treatments is a judgement about banking whichever assumptions are on the table."""
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+        await _a_case(scene, key="bear", label="Bear", name="return_on_equity", value="0.10")
+
+        outcome = await _value(scene)
+
+        assert [item.key for item in outcome.scenarios] == ["bear"]
+        bear = outcome.scenarios[0]
+        assert bear.overridden == ("return_on_equity",)
+        assert bear.valued.perpetual is not None
+        assert bear.valued.faded.value_per_share.value < (
+            outcome.faded.value_per_share.value if outcome.faded else Decimal(0)
+        )
+
+    async def test_a_case_is_attributable_in_the_ledger(self, scene: dict[str, Any]) -> None:
+        """The whole reason `residual_income_value` takes a `case`. Without it a scenario
+        chart cannot be read off the calculations table."""
+        session: AsyncSession = scene["session"]
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+        await _a_case(scene, key="bear", label="Bear", name="return_on_equity", value="0.10")
+
+        await _value(scene)
+
+        rows = list(
+            await session.scalars(
+                select(Calculation).where(
+                    Calculation.job_id == scene["job"].id,
+                    Calculation.name == "residual_income_per_share",
+                )
+            )
+        )
+        assert {row.parameters.get("case") for row in rows} == {"base", "bear", "sensitivity"}
+
+    async def test_the_filed_book_value_is_not_a_scenarios_to_move(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """A case argues with a forecast, not with a balance sheet. Both models start from
+        the same filed opening book value however much else they disagree about."""
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+        await _a_case(scene, key="bull", label="Bull", name="return_on_equity", value="0.15")
+
+        outcome = await _value(scene)
+
+        assert outcome.faded is not None
+        assert (
+            outcome.scenarios[0].valued.faded.opening_book_value.value
+            == outcome.faded.opening_book_value.value
+        )
+
+    async def test_the_output_lists_what_each_case_argued_about(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await seed_years(scene, _YEARS)
+        await _confirm_all(scene)
+        await _a_case(scene, key="bear", label="Bear", name="terminal_growth", value="0.01")
+
+        produced = (await _value(scene)).as_dict()
+
+        assert produced["scenarios"] == [
+            {"key": "bear", "label": "Bear", "overridden": ["terminal_growth"]}
+        ]
+        assert not any("carries no authored scenarios" in item for item in produced["caveats"])
+
+
+async def _confirm_one(scene: dict[str, Any], name: str, value: str) -> None:
+    """One extra confirmed assumption, on top of whatever `_confirm_all` left."""
+    session: AsyncSession = scene["session"]
+    actor = await session.scalar(select(User).where(User.email == "banker@example.invalid"))
+    assert actor is not None
+    assumption = await propose(
+        session,
+        request_id=scene["request"].id,
+        name=name,
+        value=Decimal(value),
+        unit="pure",
+        justification=f"Scene value for {name}.",
+        proposed_by="test",
+    )
+    await confirm(session, assumption=assumption, actor=actor)
+
+
+async def _a_case(
+    scene: dict[str, Any], *, key: str, label: str, name: str, value: str
+) -> Scenario:
+    """One authored scenario disagreeing with the base about one assumption."""
+    session: AsyncSession = scene["session"]
+    case = await create_scenario(
+        session,
+        request_id=scene["request"].id,
+        key=key,
+        label=label,
+        description=f"{label} case: {name} at {value}.",
+    )
+    await set_override(
+        session,
+        scenario=case,
+        assumption_name=name,
+        value=Decimal(value),
+        unit="pure",
+        justification=f"The {label.lower()} case argues {name} is {value}.",
+    )
+    return case
 
 
 async def _record_step(scene: dict[str, Any], produced: dict[str, Any]) -> None:

@@ -17,7 +17,7 @@ state — and the overhaul's live status is the top section of
 | **1B** | The portfolio's third door — **done 2026-08-29**, ADR 0093 | §3.1 | — |
 | **2** | The overhaul — **done 2026-08-30**, all ten tranches | §3.12, closing §2.5 | — |
 | **3** | The document and the data fixes — **done 2026-08-30** | §2.4, §2.6, §2.7, §2.8 | Nothing — surfaces phase 2 does not touch |
-| **4** | Portfolio depth | §3.2 **done 2026-09-01**, §3.3 **done 2026-09-01**, §3.4 | — |
+| **4** | Portfolio depth — **done 2026-09-02** | §3.2, §3.3, §3.4 | — |
 | **5** | The judgement layer | §3.5–§3.11 | Strict order; §3.3 before §3.6 |
 | **6** | Before it leaves one machine | A5, A7, A8 | Intent to run anywhere else |
 
@@ -87,8 +87,10 @@ classify. §3.3 landed the same day in two halves: `services/mandate.py` first, 
 `session.get(ResearchRequest, …)` became an optional mandate read, then migration `0064`
 dropping the three pointers and the six duplicated columns. It was a prerequisite for §3.6
 rather than tidying — a monitor run has no research request, and until the reads were optional
-a monitor could not exist. §3.4 mirrors the DCF's real grid shape onto the bank model's own
-axes, with the property tests `calc/` demands.
+a monitor could not exist. §3.4 landed 2026-09-02: the DCF's real grid shape, mirrored onto
+the bank model's own axes with the property tests `calc/` demands. ADR 0101 settles the axis
+question that had kept it out — a driver path may be an axis when it is flat, and is refused
+by name when it fades — and closes phase 4.
 
 **Phase 5 in the roadmap's forced order, nothing folded forward.** §3.11 is quietly the
 missing half of ADR 0091's memory: an operator-authored methodology skill is the only route a

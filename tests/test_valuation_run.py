@@ -33,8 +33,8 @@ from aer.services.assumption_gate import (
 )
 from aer.services.assumptions import assumptions_for_request, confirm, propose
 from aer.services.prices import BETA_ASSUMPTION
+from aer.services.valuation import SENSITIVITY_POINTS
 from aer.services.valuation_run import (
-    SENSITIVITY_POINTS,
     ValuationOutcome,
     value_the_business,
 )

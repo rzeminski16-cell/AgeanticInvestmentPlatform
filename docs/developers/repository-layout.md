@@ -35,6 +35,7 @@ src/aer/            application package
     fx.py           conversion that refuses upside-down, future and stale rates
     wacc.py         the discount rate; no defaults, every input sourced
     dcf.py          driver-based FCFF, both terminal values, the sensitivity grid
+    residual_income.py  a bank's book value plus its spread; both terminal treatments
     portfolio.py    what a book holds and what it cost; no positions table (ADR 0083)
     performance.py  time- and money-weighted return, exposure, concentration
   db/               engine, session management, and ORM models
@@ -897,6 +898,16 @@ grid is the easiest figure in a valuation to fabricate and nothing in the presen
 distinguishes a computed grid from an interpolated one — see
 `docs/adr/0028-a-sensitivity-grid-is-eighty-one-valuations.md`, which also explains why
 interpolating is wrong in the direction that flatters the valuation.
+
+**The bank model has grids of its own, on its own axes** (ADR 0101). Cost of equity against
+terminal growth under the perpetuity, and against return on equity under the fade — each
+under the treatment its second axis means something in, because the fade never reads a
+terminal growth rate and a grid over it there would render identical columns. The return on
+equity is a *driver path*, and `aer/calc/dcf.py` refuses driver axes because "revenue growth"
+is five numbers; `aer/calc/residual_income.py` permits one **when the confirmed path is
+flat**, which is the case in which that objection does not hold, and refuses a fading path by
+name. A perpetuity refused in any corner takes the grid whole: a hole in a grid is a cell a
+reader interprets.
 
 ### Sector enforcement: the block, not the footnote
 

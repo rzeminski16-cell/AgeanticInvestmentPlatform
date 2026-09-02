@@ -384,11 +384,21 @@ run with no research request is an ordinary `None` rather than a missing row. AD
 what step four actually cost — the purge walk and `aer reset-research` both had to move their
 root, and the edit diff had to learn which of the two rows holds each field.
 
-**3.4 Scenarios and sensitivity for the residual-income model.** The bank model ships
-without them, and says so in its caveats rather than quietly. The discounted cash flow ships
-two 5×5 grids — WACC against terminal growth and against the exit multiple, every cell a
-complete valuation under ADR 0028, whose "eighty-one" is the nine-point axis *ceiling*
-rather than what a run builds; the bank model has none.
+**3.4 Scenarios and sensitivity for the residual-income model.** **Done 2026-09-02** —
+ADR 0101. The bank model shipped without them and said so in its caveats; it now runs every
+authored scenario on both terminal treatments and builds two 5×5 grids of its own — cost of
+equity against terminal growth under the perpetuity, and against return on equity under the
+fade. Each sits under the treatment its second axis means something in, and every cell is a
+complete valuation on ADR 0028's terms.
+
+The axis question was the real obstacle, and 0101 settles it: the return on equity is a
+driver path, and `aer.calc.dcf.VARIABLE_FIELDS` refuses driver axes because "revenue growth"
+is five numbers. An axis may vary one **when the confirmed path is flat**, which is what a
+bank's gate usually confirms; a fading path costs that grid, by name, with the reason in the
+output. A perpetuity refused in any corner takes its grid whole — a hole is a cell a reader
+interprets. `residual_income_value` gained a `case` so a bank's scenarios are attributable in
+the ledger, and the scenario bridge and football field read the bank's per-share rows rather
+than looking for a discounted cash flow's and finding nothing.
 
 **3.5 Judgements and theses** (ADRs 0074, 0079). A thesis is a view a named person held at
 a time, with the evidence it rests on and the questions that would defeat it. The record

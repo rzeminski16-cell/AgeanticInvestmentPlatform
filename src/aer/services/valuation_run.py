@@ -78,6 +78,7 @@ from aer.services.scenarios import scenarios_for_request
 from aer.services.valuation import (
     MissingAssumptionError,
     ScenarioValuation,
+    axis_around,
     inputs_from,
     run_scenarios,
     run_sensitivity,
@@ -85,7 +86,6 @@ from aer.services.valuation import (
 )
 
 __all__ = [
-    "SENSITIVITY_POINTS",
     "ValuationNotPossibleError",
     "ValuationOutcome",
     "latest_period",
@@ -96,14 +96,10 @@ __all__ = [
 
 _log = structlog.get_logger("aer.services.valuation_run")
 
-# How far either side of the base case a sensitivity axis runs, and in what steps. Five
-# points because a 5x5 grid is twenty-five complete valuations with twenty-five lineages to
-# store, and a reader takes in a square that fits on a page.
-SENSITIVITY_POINTS: Final = 5
-
 # The step between grid points, per axis. Absolute rather than proportional: a discount rate
 # moving by half a point is the comparison an analyst makes, and ±10% of 8.4% is a step
-# nobody would have chosen.
+# nobody would have chosen. How *many* points, and how they are laid out around the base
+# case, is `aer.services.valuation.axis_around`'s — both models ask the same question of it.
 _WACC_STEP: Final = Decimal("0.005")
 _GROWTH_STEP: Final = Decimal("0.0025")
 
@@ -525,7 +521,7 @@ async def _grids(
     reported per share because that is the figure a reader compares to a price.
     """
     grids: list[SensitivityGrid] = []
-    wacc_axis = GridAxis(field="wacc", values=_around(inputs.wacc, step=_WACC_STEP))
+    wacc_axis = GridAxis(field="wacc", values=axis_around(inputs.wacc, step=_WACC_STEP))
 
     for method, field, step in (
         (TerminalMethod.GORDON_GROWTH, "terminal_growth", _GROWTH_STEP),
@@ -538,7 +534,7 @@ async def _grids(
             job_id=job_id,
             inputs=inputs,
             rows=wacc_axis,
-            columns=GridAxis(field=field, values=_around(anchor, step=step)),
+            columns=GridAxis(field=field, values=axis_around(anchor, step=step)),
             method=method,
             measure=GridMeasure.VALUE_PER_SHARE,
             mandate=mandate,
@@ -547,28 +543,3 @@ async def _grids(
         grids.append(grid)
 
     return grids
-
-
-def _around(anchor: Quantity, *, step: Decimal) -> tuple[Quantity, ...]:
-    """Five points centred on the base case, evenly spaced.
-
-    Centred rather than starting at the base, so the grid reads as "what if I am wrong in
-    either direction" rather than "what if I am wrong upwards".
-
-    **Each point carries the anchor's source**, which is what a grid point honestly is: a
-    perturbation *of that input*. The alternative is a bare number, and the unit system
-    refuses one — every value entering a calculation has to trace to something, and twenty-
-    five cells of untraceable arithmetic is exactly the kind of figure this platform is
-    built not to print.
-    """
-    half = SENSITIVITY_POINTS // 2
-    return tuple(
-        # The centre is the anchor itself, not `anchor + 0`. Adding a zero re-rounds the
-        # value to the ambient decimal precision, and a middle cell that differs from the
-        # base case in its last few digits is a grid that does not quite contain the
-        # valuation it is a sensitivity of.
-        anchor
-        if offset == 0
-        else Quantity.of(anchor.value + step * Decimal(offset), anchor.unit, source=anchor.source)
-        for offset in range(-half, half + 1)
-    )
