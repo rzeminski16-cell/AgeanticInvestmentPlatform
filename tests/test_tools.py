@@ -93,7 +93,7 @@ class TestEachToolIsARowWithARecord:
             if tool.is_built:
                 assert tool.needs == "", tool.key
 
-    def test_the_platform_has_eight_working_tools_and_nothing_half_built(self) -> None:
+    def test_the_platform_has_nine_working_tools_and_nothing_half_built(self) -> None:
         """Stated rather than counted loosely: this is the claim the launcher makes.
 
         Portfolio was ``UNDER_CONSTRUCTION`` while its tables and arithmetic were being
@@ -106,8 +106,10 @@ class TestEachToolIsARowWithARecord:
         proposes, the operator confirms, and the analytics count the confirmed reviews with
         the ``n`` beside every statistic. Risk followed (§3.9): every figure a traced
         calculation over the weights the book holds now, a scenario the operator states, and
-        an analyst that reads and cannot write. Nothing occupies the middle state today,
-        which is a fact about this moment rather than a reason to remove it.
+        an analyst that reads and cannot write. The watchlist closed the set (§3.10): a
+        standing intention with one clock, a commission with the other, and a standing
+        budget the queue spends. Nothing occupies the middle state today, which is a fact
+        about this moment rather than a reason to remove it.
         """
         by_status = {tool.key: tool.status for tool in installed_tools()}
 
@@ -119,7 +121,8 @@ class TestEachToolIsARowWithARecord:
         assert by_status["review"] is ToolStatus.WORKING
         assert by_status["analytics"] is ToolStatus.WORKING
         assert by_status["risk"] is ToolStatus.WORKING
-        assert sum(1 for status in by_status.values() if status is ToolStatus.WORKING) == 8
+        assert by_status["watchlist"] is ToolStatus.WORKING
+        assert sum(1 for status in by_status.values() if status is ToolStatus.WORKING) == 9
         assert not [
             key for key, status in by_status.items() if status is ToolStatus.UNDER_CONSTRUCTION
         ]
@@ -150,17 +153,22 @@ class TestWhereEachStatePutsATool:
     def test_a_planned_tool_is_on_the_launcher_and_not_in_the_navigation(self) -> None:
         """The operator's decision, as a test.
 
-        A navigation listing seven things nobody can use is worse than a launcher that
-        shows the shape once. `UNLISTED` is where that decision is written down, so it is
-        arguable rather than accidental.
+        A navigation listing things nobody can use is worse than a launcher that shows the
+        shape once. `UNLISTED` is where that decision is written down, so it is arguable
+        rather than accidental. Every row is working since §3.10 closed the set, so the
+        rule holds vacuously today and the pattern — a planned row unlisted, served a
+        placeholder — is what the next tool starts from.
         """
         navigable = {item.href for item in flat_items()}
         planned = [tool for tool in installed_tools() if tool.status is ToolStatus.PLANNED]
 
-        assert planned, "no planned tools at all — the two checks below assert nothing"
         for tool in planned:
             assert tool.href not in navigable, tool.key
             assert tool.href in UNLISTED, tool.key
+        # And nothing working is unlisted: a working tool is reached from the navigation.
+        for tool in installed_tools():
+            if tool.is_built:
+                assert tool.href in navigable, tool.key
 
     def test_every_href_is_a_literal_route(self) -> None:
         """One route per row rather than a parameterised catch-all.
@@ -174,10 +182,11 @@ class TestWhereEachStatePutsATool:
 
         assert not missing, f"tools the application does not serve: {missing}"
 
-    def test_the_navigation_is_nine_sections_now(self) -> None:
+    def test_the_navigation_is_ten_sections_now(self) -> None:
         assert [section.key for section in NAV] == [
             "overview",
             "research",
+            "watchlist",
             "portfolio",
             "risk",
             "theses",
@@ -297,19 +306,23 @@ class TestThePlaceholderPages:
     async def test_it_says_which_state_it_is_in(self, client) -> None:
         """ "Under construction" and "Planned" are different promises.
 
-        Nothing is under construction today — portfolio was and now works — so this asserts
-        the state that has an occupant, and asserts against the registry rather than
-        against a hard-coded URL so it follows whichever tool is in which state.
+        Nothing is planned or under construction today — the watchlist was the last, and
+        now works — so the loop holds vacuously and the second assertion is the one with
+        teeth: the page that used to call itself planned no longer does.
         """
         for tool in tools_needing_a_page():
             body = (await client.get(tool.href)).text
             assert tool.status.value in body, tool.key
 
-        assert "Planned" in (await client.get("/watchlist")).text
+        assert "Planned" not in (await client.get("/watchlist")).text
 
     async def test_it_links_to_the_rest_of_the_shape(self, client) -> None:
-        body = (await client.get("/watchlist")).text
+        """A placeholder is a map of the shape it belongs to, so it links every built tool.
 
-        for tool in installed_tools():
-            if tool.key != "watchlist":
-                assert f'data-tool="{tool.key}"' in body, tool.key
+        Vacuous today, and kept so the next planned tool inherits the check.
+        """
+        for tool in tools_needing_a_page():
+            body = (await client.get(tool.href)).text
+            for other in installed_tools():
+                if other.key != tool.key:
+                    assert f'data-tool="{other.key}"' in body, f"{tool.key} misses {other.key}"

@@ -59,6 +59,8 @@ For the operator: the person who installs it, commissions research and approves 
   decision, not the result; and what the reviews have in common, with an `n` on everything.
 - [`risk.md`](users/risk.md) — what the book is exposed to and how it would have moved as it
   stands, the scenarios you state, and an analyst's reading that writes no number.
+- [`watchlist.md`](users/watchlist.md) — the companies you follow and why, the queue of
+  what to research next, and the standing budget it spends.
 - [`troubleshooting.md`](users/troubleshooting.md) — when a run stalls, fails, or refuses.
 
 ### `developers/` — how to change it

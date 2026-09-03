@@ -60,6 +60,7 @@ from aer.web.risk import pages as risk_pages
 from aer.web.templating import STATIC_DIR
 from aer.web.theses import pages as theses_pages
 from aer.web.tools import pages as tool_pages
+from aer.web.watchlist import pages as watchlist_pages
 
 __all__ = ["AppState", "bootstrap", "create_app"]
 
@@ -187,6 +188,7 @@ def create_app(settings: Settings | None = None, *, state: AppState | None = Non
     app.include_router(decision_pages.router)
     app.include_router(review_pages.router)
     app.include_router(risk_pages.router)
+    app.include_router(watchlist_pages.router)
     app.include_router(tool_pages.router)
     _register_local_media_types()
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

@@ -68,13 +68,13 @@ document in which every figure carries a footnote resolving to either the formul
 produced it or the archived bytes it came from. That path has no gap in it, and the
 evaluation gate re-derives every stored calculation from its own record on every run.
 
-Eight of nine tools work:
+Nine of nine tools work:
 
 | Tool | State | Waiting on |
 |---|---|---|
 | **Equity Research** | Working, end to end | — |
 | **Portfolio** | Working | — |
-| Watchlist | Planned | A standing budget that is not one run's cap; the two clocks |
+| **Watchlist** | Working | — |
 | **Theses** | Working | — |
 | **Decisions** | Working | — |
 | **Monitor** | Working | — |
@@ -82,8 +82,8 @@ Eight of nine tools work:
 | **Post-trade review** | Working | — |
 | **Decision analytics** | Working | — |
 
-A planned tool is a real page saying what it would be and what it needs — not a dead link
-and not a lie.
+A planned tool, while there was one, was a real page saying what it would be and what it
+needed — not a dead link and not a lie. None remains.
 
 ### What the merge established
 
@@ -496,9 +496,18 @@ refused by the numeral check and the words of a prescription — once with the p
 carried back, then recorded. A shock is a lineage node in its own relation (ADR 0076). Risk
 is the eighth working tool.
 
-**3.10 Watchlist and research queue.** Needs the standing budget and the two clocks — a
-watchlist is followed continuously and researched as at a date, and conflating those is the
-mistake ADR 0075 names.
+**3.10 Watchlist and research queue.** **Done 2026-09-03** — ADR 0107. Two clocks on two
+tables: an entry is followed *from* the instant the database stamped, a commission is
+research *as at* the date the operator chose, and nothing on the entry says *researched* —
+that is read from the commission's run and its report, so a dead run puts the entry back
+in the queue and a second commission after a report is the ordinary case. The standing
+budget (`AER_WATCHLIST_BUDGET_GBP`) bounds what the queue may *start* in a month — the
+month's spend by commissioned runs plus the caps of the ones still alive — and each run
+keeps its own cap with the month's applying on top. A commission is an ordinary research
+request at the form's defaults with the per-run cap, started and stopped at gate one. The
+queue is walked in follow order and stops at the first refusal, by name, from the page or
+from `aer queue`, which exits non-zero when it stopped short. Watchlist is the ninth
+working tool, and no planned tool remains.
 
 **3.11 The methodology library.** Three `SkillKind`s that are versioned, pinned and
 composed. Mostly does not exist yet.

@@ -3,7 +3,7 @@
 One row per tool, three states, and the state is what decides where it appears. A *working*
 tool earns a section in the navigation. One *under construction* earns a section too,
 because it is being built now and an operator should be able to watch it arrive. A
-*planned* one appears on the main menu and nowhere else — a navigation listing seven things
+*planned* one appears on the main menu and nowhere else — a navigation listing things
 nobody can use is worse than a launcher that shows the shape once and gets out of the way.
 
 **Each row occupies the URL its tool will keep.** `/portfolio` is under construction today
@@ -145,17 +145,16 @@ INSTALLED_TOOLS: Final[tuple[Tool, ...]] = (
     Tool(
         key="watchlist",
         label="Watchlist",
-        status=ToolStatus.PLANNED,
+        status=ToolStatus.WORKING,
         href="/watchlist",
         summary=(
             "Companies you are following and have not commissioned research on, with the "
-            "queue of what to research next and what it would cost."
+            "queue of what to research next, what it would cost, and the standing budget "
+            "the queue spends."
         ),
-        needs=(
-            "A standing budget that is not one run's cap, and the two clocks — a watchlist "
-            "is followed continuously and researched as at a date."
-        ),
-        adr="0075",
+        action_label="Follow a company",
+        action_href="/watchlist",
+        adr="0107",
     ),
     Tool(
         key="theses",

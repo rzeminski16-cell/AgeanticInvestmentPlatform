@@ -119,11 +119,11 @@ the tool.
 Every one of these needs a screen that says *what happened, why, and what the operator can do
 about it*. There are a lot of them. See [`04-content-and-voice.md`](04-content-and-voice.md).
 
-## The nine tools, of which two exist
+## The nine tools
 
-The platform is designed to hold several tools on one kernel. Eight work; one is planned
-and appears on the launcher as a placeholder that says what it would be and what it is
-waiting on.
+The platform is designed to hold several tools on one kernel. All nine work. While one was
+planned it appeared on the launcher as a placeholder that said what it would be and what it
+was waiting on, and that pattern stays for the next.
 
 | Tool | State |
 |---|---|
@@ -132,7 +132,7 @@ waiting on.
 | **Theses**, **Decisions**, **Monitor** | Working |
 | **Post-trade review**, **Decision analytics** | Working |
 | **Risk** | Working |
-| Watchlist | Planned |
+| **Watchlist** | Working |
 
 **A planned tool is a real page, not a dead link and not a lie.** That decision is worth
 keeping and worth designing properly: the launcher is the one place the shape of the whole

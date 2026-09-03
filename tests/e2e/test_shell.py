@@ -25,6 +25,7 @@ from aer.core.enums import JobStatus
 from aer.db.models import Job, User
 from aer.services.runs import awaiting_approval_count
 from aer.web.shell import GUIDANCE_COOKIE
+from aer.web.tools.registry import ToolStatus, installed_tools
 from tests.db_fixtures import run_async
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE, DEFAULT_PER_RUN_BUDGET_GBP
@@ -682,15 +683,16 @@ class TestTheLauncher:
         # is where a status change becomes visible is the whole point of the row being data.
         expect(page.locator('[data-tool="portfolio"][data-status="Working"]')).to_be_visible()
 
-    def test_a_planned_tool_is_reachable_and_says_what_it_waits_for(
-        self, page: Page, live_server: str
-    ) -> None:
+    def test_the_once_planned_tool_is_the_tool_now(self, page: Page, live_server: str) -> None:
+        """The watchlist was the last placeholder, and the placeholder said what it waited
+        for. The same card now opens the tool, and the page no longer explains itself."""
         page.goto(f"{live_server}")
 
         page.locator('[data-tool="watchlist"] [data-field="open"]').click()
 
         page.wait_for_url("**/watchlist")
-        expect(page.get_by_text("What it needs first")).to_be_visible()
+        expect(page.get_by_role("heading", name="Follow a company")).to_be_visible()
+        expect(page.get_by_text("What it needs first")).to_have_count(0)
 
     def test_the_common_action_is_one_click_from_the_front_door(
         self, page: Page, live_server: str
@@ -711,10 +713,13 @@ class TestTheLauncher:
         self, page: Page, live_server: str
     ) -> None:
         # A button on a tool that does not exist is a button that goes nowhere, which is
-        # the failure the placeholder pages avoid rather than relocate.
+        # the failure the placeholder pages avoid rather than relocate. Every tool works
+        # today, so the check is the converse: each card offers its action.
         page.goto(f"{live_server}")
 
-        expect(page.locator('[data-tool="watchlist"] [data-field="action"]')).to_have_count(0)
+        for tool in installed_tools():
+            actions = page.locator(f'[data-tool="{tool.key}"] [data-field="action"]')
+            expect(actions).to_have_count(1 if tool.status is ToolStatus.WORKING else 0)
 
     def test_the_working_tool_leads_to_its_own_pages(self, page: Page, live_server: str) -> None:
         # The one card that is not a placeholder. A launcher whose only working entry led

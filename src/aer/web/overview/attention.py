@@ -236,6 +236,14 @@ _PROVIDERS: Final[tuple[AttentionProvider, ...]] = (
         items_ref="aer.web.overview.risk:items",
         adr="0106",
     ),
+    # Companies followed and not yet researched, and whether the standing budget can
+    # afford the next run (ADR 0107).
+    AttentionProvider(
+        key="watchlist",
+        tool="watchlist",
+        items_ref="aer.web.overview.watchlist:items",
+        adr="0107",
+    ),
 )
 
 

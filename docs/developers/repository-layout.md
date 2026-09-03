@@ -16,7 +16,8 @@ src/aer/            application package
   logging.py        structured JSON logging with secret redaction
   config.py         typed settings; secrets never render, all problems reported at once
   cli.py            `aer serve`, `aer version`, `aer seed-user`, `aer reset-research`,
-                    `aer verify-artefacts`, `aer gc-artefacts`, `aer purge-licensed`
+                    `aer verify-artefacts`, `aer gc-artefacts`, `aer purge-licensed`,
+                    `aer queue`
   core/             correctness core: pure, side-effect free, mypy --strict
     enums.py        domain vocabulary, rendered as native PostgreSQL enums
     concepts.py     canonical financial concepts and the filer tags that mean them
@@ -103,6 +104,8 @@ src/aer/            application package
                     reviewer's proposal on its pass, the review as the operator's (ADR 0105)
     risk.py         the book's risk as at a date, ex-ante over today's weights; a scenario the
                     operator states; the analyst's reading, refused by the numeral check (ADR 0106)
+    watchlist.py    what the operator follows and why; the queue that turns the next entry into
+                    an ordinary run as at a date, within a standing budget (ADR 0107)
   runtime.py        assembles the service bundle both processes share
   queue.py          enqueueing a run, from the web process
   worker.py         the arq worker: where a research run actually executes
@@ -139,6 +142,7 @@ src/aer/            application package
       decisions.py  the journal's: a decision not carried out, a review date passed
       review.py     the review's: a proposal waiting, a stopped pass, a closed position unreviewed
       risk.py       the risk tool's: a reading that stopped, a book not read since it changed
+      watchlist.py  the queue's: a company followed and not yet researched
       platform.py   what the platform itself has waiting, which is no tool's business
     portfolio/pages.py  the book as at a date; every figure computed on the way to it
     theses/pages.py     what you believe, as premises with what would defeat each; no figure
@@ -148,7 +152,9 @@ src/aer/            application package
                         operator confirms, and the analytics with an n on every statistic
     risk/pages.py       the book's risk figures with their lineage, the scenarios the operator
                         stated, and the analyst's reading or its refusal
-    tools/registry.py   INSTALLED_TOOLS: nine rows, eight working; a planned tool is a page
+    watchlist/pages.py  the companies followed with why, the standing budget, and the queue
+                        commissioned from the row or drained in follow order
+    tools/registry.py   INSTALLED_TOOLS: nine rows, nine working; a planned tool would be a page
     styles/app.css  the token system: palette, type scale, spacing, radii (ADRs 0077, 0088)
     static/fonts/   three families, eight files, all OFL 1.1 and all SHA-256 pinned
     templates/      Jinja2; the disclaimer lives in the shell, not in pages

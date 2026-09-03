@@ -61,7 +61,7 @@ STATIC_SURFACES: Final = (
     "/skills/new",
     "/skills/examples",
     "/skills/import",
-    # One planned tool's placeholder stands for all seven: they render the same template.
+    # Once the one planned tool's placeholder; the watchlist is a working tool now.
     "/watchlist",
     "/settings",
     "/costs",

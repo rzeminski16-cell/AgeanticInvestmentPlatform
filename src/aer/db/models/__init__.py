@@ -58,6 +58,7 @@ from aer.db.models.skill import Skill, SkillVersion
 from aer.db.models.source_document import SourceDocument
 from aer.db.models.theme import Theme, ThemeMembership
 from aer.db.models.user import User
+from aer.db.models.watchlist import WatchlistCommission, WatchlistEntry
 from aer.db.models.work_order import WorkOrder
 
 __all__ = [
@@ -123,5 +124,7 @@ __all__ = [
     "Thesis",
     "Transaction",
     "User",
+    "WatchlistCommission",
+    "WatchlistEntry",
     "WorkOrder",
 ]

@@ -350,6 +350,10 @@ class Settings(BaseSettings):
     # spent.
     per_run_budget_gbp: Decimal = Field(default=Decimal("12.00"), gt=0)
     monthly_budget_gbp: Decimal = Field(default=Decimal("80.00"), gt=0)
+    # What the watchlist's queue may commit in a calendar month (ADR 0107): the standing
+    # budget that is not one run's cap. A run the queue starts keeps its own per-run cap and
+    # the month's cap applies on top; this bounds what the queue may *start* unattended.
+    watchlist_budget_gbp: Decimal = Field(default=Decimal("30.00"), gt=0)
     budget_warn_ratio: float = Field(default=0.75, gt=0, le=1)
     usd_to_gbp: Decimal = Field(default=Decimal("0.79"), gt=0)
 

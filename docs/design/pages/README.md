@@ -21,6 +21,7 @@ pasted into an AI design tool — on its own, alongside
 | [`decisions.md`](decisions.md) | The journal, one decision with the premises it was taken on and the trades that carried it out |
 | [`review-and-analytics.md`](review-and-analytics.md) | The closed positions, the reviewer's proposal beside the outcome, the confirmed review, and the analytics with an `n` on every statistic |
 | [`risk.md`](risk.md) | The book's ex-ante figures with their lineage, the scenarios the operator stated, and the analyst's reading or its refusal |
+| [`watchlist.md`](watchlist.md) | The companies followed with why, the standing budget, and the queue commissioned from the row or drained in follow order |
 
 ---
 

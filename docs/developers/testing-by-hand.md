@@ -1630,11 +1630,11 @@ failure loses nothing; and that you can now step a run and read every step befor
 - **That the vendor contract holds**, unless you ran §18.1.
 - **That the drafting failure is fixed.** Roadmap §2.1 is open and gated on a live run's
   diagnosis. A live run that drafts every section is good news, not a closure.
-- **That the platform is feature-complete.** Eight tools work — research, portfolio,
-  risk, theses, the monitor, decisions, post-trade review and decision analytics. The
-  rest — the watchlist and the methodology library — is roadmap §3.10 and §3.11 and **does
-  not exist**. The one planned tool says so on its own page, which is the design, not an
-  oversight. This guide walks the research tool; the browser suites walk the other seven.
+- **That the platform is feature-complete.** Nine tools work — research, portfolio,
+  watchlist, risk, theses, the monitor, decisions, post-trade review and decision analytics.
+  The methodology library is roadmap §3.11 and **does not exist**: the skills a run reads are
+  not yet versioned, pinned or composed. This guide walks the research tool; the browser
+  suites walk the other eight.
 - **That it is safe on a network.** A5, A7 and A8 — no authentication, no inbound rate
   limiting, no deployment story — are known, deliberate, and correct for a single-machine
   personal tool. They are also the reason not to expose it.

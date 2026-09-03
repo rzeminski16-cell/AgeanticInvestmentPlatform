@@ -24,6 +24,7 @@ from aer.web.review.nav import REVIEW
 from aer.web.risk.nav import RISK
 from aer.web.theses.nav import THESES
 from aer.web.tools.registry import PORTFOLIO
+from aer.web.watchlist.nav import WATCHLIST
 
 __all__ = ["NAV", "UNLISTED", "flat_items"]
 
@@ -66,6 +67,7 @@ PLATFORM: Final = NavSection(
 NAV: Final[tuple[NavSection, ...]] = (
     OVERVIEW,
     RESEARCH,
+    WATCHLIST,
     PORTFOLIO,
     RISK,
     THESES,
@@ -105,12 +107,10 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         # navigation and in whatever the operator bookmarked; 404ing it would be a lie
         # about a page that is right there.
         "/overview",
-        # The planned tools, reached from the launcher on the main menu and from nowhere
-        # else. They are in `web/tools/registry.py` with a `PLANNED` status, and that
-        # status is exactly this decision: a navigation listing seven things nobody can
-        # use is worse than a launcher that shows the shape once. Each becomes a nav item
-        # on the day its row turns `WORKING`.
-        "/watchlist",
+        # A planned tool, reached from the launcher on the main menu and from nowhere else,
+        # is named here with a `PLANNED` row in `web/tools/registry.py`: a navigation
+        # listing things nobody can use is worse than a launcher that shows the shape once.
+        # Every row is `WORKING` today, so nothing is listed; the next tool starts here.
         # Liveness and readiness, reached by an operator or a probe, not by a person
         # browsing. `/healthz` is in the nav; `/readyz` is its unlinked sibling.
         "/readyz",

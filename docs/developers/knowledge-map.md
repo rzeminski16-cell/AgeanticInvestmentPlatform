@@ -237,7 +237,7 @@ ones — read the ADR before touching its territory:
   reads the rest), 0104 (a decision is written before the outcome, and the trade points back
   at it), 0105 (a review is proposed by the reviewer and held by the operator), 0106 (risk
   is measured over the weights the book holds now, and a scenario is a shock the operator
-  states).
+  states), 0107 (a watchlist is followed continuously and researched as at a date).
 - **Agents and containment** — 0035 (a new role requires an ADR), 0036 (workers request,
   code executes), 0037–0039 (custom sections, validator advises, red team is separate),
   0040 (containment proved by a corpus), 0041 (dry runs), 0042 (the section writer holds

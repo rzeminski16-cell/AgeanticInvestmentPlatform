@@ -1087,6 +1087,76 @@ async def _monitor(settings: Settings, *, thesis_id: uuid.UUID | None) -> bool:
     return any_stopped
 
 
+@app.command(name="queue")
+def queue_command(
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            "--limit", help="At most this many runs. Omit for as many as the budget affords."
+        ),
+    ] = None,
+) -> None:
+    """Commission the next companies on the watchlist the standing budget affords (§3.10).
+
+    The queue in the order followed, each entry turned into an ordinary research request
+    as at today with the per-run cap, and its run started — to stop at gate one for you,
+    as every research run does. Stops at the first entry the standing budget cannot
+    afford and exits 1 if anything was left queued for that reason (ADR 0107).
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    try:
+        short = asyncio.run(_queue(settings, limit=limit))
+    except AerError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+    if short:
+        raise typer.Exit(code=1)
+
+
+async def _queue(settings: Settings, *, limit: int | None) -> bool:
+    from aer.api.deps import current_user_or_none  # noqa: PLC0415 -- one query, one place
+    from aer.queue import enqueue_run  # noqa: PLC0415
+    from aer.services import watchlist as watchlist_service  # noqa: PLC0415
+    from aer.services.configuration import effective_settings  # noqa: PLC0415
+
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    try:
+        async with factory() as session:
+            user = await current_user_or_none(session)
+            if user is None:
+                message = (
+                    "No user exists. Create one with: uv run aer seed-user --email you@example.com"
+                )
+                raise AerError(message)
+            resolved = await effective_settings(session, settings)
+            drain = await watchlist_service.commission_next(
+                session, settings=resolved, user=user, limit=limit
+            )
+            await session.commit()
+            for row, job in drain.commissioned:
+                queued = await enqueue_run(redis, job.id)
+                typer.secho(
+                    f"{row.entry.listing}: commissioned as at {row.as_of_date.isoformat()}, "
+                    f"run {job.id}"
+                    + ("" if queued is not None else " — NOT QUEUED, start it by hand"),
+                    fg=typer.colors.GREEN if queued is not None else typer.colors.YELLOW,
+                )
+            if not drain.commissioned and not drain.stopped:
+                typer.secho("Nothing queued on the watchlist.", fg=typer.colors.YELLOW)
+            if drain.stopped:
+                typer.secho(
+                    f"Stopped with {drain.left} left in the queue: {drain.stopped}",
+                    fg=typer.colors.RED,
+                )
+    finally:
+        await redis.aclose()
+        await engine.dispose()
+    return bool(drain.stopped)
+
+
 @app.command(name="diagnose")
 def diagnose_command(
     job_id: Annotated[uuid.UUID, typer.Argument(help="The run to read back.")],

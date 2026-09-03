@@ -117,8 +117,10 @@
     would be a row carrying no information, and the whole reason these are listed is that the
     shape of the product is visible on arrival rather than discovered — which is why the
     disclosure ships open. It collapses for the reader who wants it out of the way; it must
-    not hide the product's shape from the reader meeting it for the first time.
+    not hide the product's shape from the reader meeting it for the first time. Absent
+    altogether once every row works, rather than a disclosure announcing nothing.
   #}
+  {% if planned %}
   {% call ui.sheet() %}
     {% call ui.disclosure("Planned instruments ({} more)".format(planned | length), open=true) %}
       <ul class="flex flex-col">
@@ -138,6 +140,7 @@
       </ul>
     {% endcall %}
   {% endcall %}
+  {% endif %}
 
   <p class="sr-only" id="build-identity">{{ build }}</p>
 {% endblock %}
