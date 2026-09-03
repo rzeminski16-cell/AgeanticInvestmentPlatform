@@ -30,7 +30,7 @@ from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NO
 
 from aer.api.deps import CurrentUser, DbSession, SettingsDep
 from aer.core.enums import DecisionAction
-from aer.db.models import Decision, Security, Thesis, Transaction
+from aer.db.models import Decision, Portfolio, Security, Thesis, Transaction
 from aer.errors import AerError
 from aer.services import decisions as decision_service
 from aer.services import portfolio as portfolio_service
@@ -42,7 +42,7 @@ from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csr
 from aer.web.templating import render
 from aer.web.theses.pages import PremiseRow, premise_rows
 
-__all__ = ["router"]
+__all__ = ["Change", "DecisionRow", "TradeRow", "router"]
 
 router = APIRouter(include_in_schema=False)
 
@@ -130,6 +130,88 @@ def _row(decision: Decision) -> DecisionRow:
         withdrawn_reason=judgement.withdrawn_reason or "",
         trades=tuple(_trade(row) for row in decision.transactions),
     )
+
+
+@dataclass(frozen=True, slots=True)
+class Change:
+    """One field a revision changed: what the earlier entry said and what this one says."""
+
+    label: str
+    before: str
+    after: str
+
+
+_COMPARED: Final[tuple[tuple[str, str], ...]] = (
+    ("What was decided", "action"),
+    ("In a line", "statement"),
+    ("On what basis", "basis"),
+    ("Listing", "security"),
+    ("How much", "size_statement"),
+    ("Intended holding period", "horizon"),
+    ("Reversed if", "exit_plan"),
+    ("Review by", "review_by"),
+)
+
+
+def changes_between(earlier: DecisionRow, later: DecisionRow) -> tuple[Change, ...]:
+    """What the later entry says differently, field by field, in the words each page shows.
+
+    The basis is always new — a revision must give one — so it is listed when it differs,
+    which is nearly always; a reviewer wants to see both. A field left as it was is not a
+    change and is not listed.
+    """
+    return tuple(
+        Change(
+            label=label, before=getattr(earlier, field) or "—", after=getattr(later, field) or "—"
+        )
+        for label, field in _COMPARED
+        if getattr(earlier, field) != getattr(later, field)
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class Revision:
+    """The other entry in a supersession pair, and what changed between the two."""
+
+    id: uuid.UUID
+    decided_on: str
+    is_later: bool
+    changes: tuple[Change, ...]
+
+
+async def _revision(session: Any, decision: Decision) -> Revision | None:
+    """The entry this one replaced, or the one that replaced it, with the diff either way."""
+    this = _row(decision)
+    earlier = await decision_service.supersedes(session, decision)
+    if earlier is not None:
+        before = _row(earlier)
+        return Revision(
+            id=before.id,
+            decided_on=before.decided_on,
+            is_later=False,
+            changes=changes_between(before, this),
+        )
+    later = await decision_service.superseded_by(session, decision)
+    if later is not None:
+        after = _row(later)
+        return Revision(
+            id=after.id,
+            decided_on=after.decided_on,
+            is_later=True,
+            changes=changes_between(this, after),
+        )
+    return None
+
+
+def _candidate(row: Transaction) -> dict[str, str]:
+    shown = _trade(row)
+    listing = f"{row.security.ticker}.{row.security.exchange}" if row.security is not None else ""
+    label = f"{shown.kind.capitalize()} on {shown.trade_date}: {shown.quantity}"
+    if shown.price:
+        label += f" at {shown.price} {shown.currency}"
+    if listing:
+        label += f" ({listing})"
+    return {"value": str(row.attestation_id), "label": label}
 
 
 def _trade(row: Transaction) -> TradeRow:
@@ -245,6 +327,11 @@ async def decision_page(
         return _problem(request, "No such decision.")
     thesis = await thesis_service.thesis_of(session, decision.thesis_id, user_id=user.id)
     premises: list[PremiseRow] = premise_rows(thesis) if thesis is not None else []
+    candidates = await decision_service.trades_that_could_carry_out(
+        session,
+        decision=decision,
+        portfolio=await portfolio_service.default_book(session, user_id=user.id),
+    )
 
     token = new_csrf_token(settings)
     response: Response = render(
@@ -256,6 +343,8 @@ async def decision_page(
                 await thesis_service.subject_name(session, thesis) if thesis is not None else ""
             ),
             "premises": premises,
+            "revision": await _revision(session, decision),
+            "candidates": [_candidate(row) for row in candidates],
             "actions": [
                 {"value": action.value, "label": ACTION_WORDS[action].capitalize()}
                 for action in ACTION_CHOICES
@@ -290,6 +379,43 @@ async def withdraw_decision(
         await decision_service.withdraw_decision(
             session, decision=decision, actor=user, reason=submitted.get("reason", "")
         )
+        await session.commit()
+    except AerError as refused:
+        await session.rollback()
+        return _problem(request, str(refused), status=refused.http_status)
+
+    return RedirectResponse(f"/decisions/{decision.judgement_id}", status_code=HTTP_303_SEE_OTHER)
+
+
+@router.post("/decisions/{decision_id}/carry-out", summary="Attribute a trade to a decision")
+async def carry_out_decision(
+    decision_id: uuid.UUID,
+    request: Request,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """A trade already in the book, attributed to this decision after the fact.
+
+    The same rule as the trade form's *Carries out* (ADR 0104 §2): the trade points at the
+    decision, the service refuses a trade that could not have carried it out, and the picker
+    only ever offered trades the service would accept — so a refusal here means the page was
+    stale, and it says so.
+    """
+    decision = await decision_service.decision_of(session, decision_id, user_id=user.id)
+    if decision is None:
+        return _problem(request, "No such decision.")
+
+    submitted = await _submitted(request)
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _refused(request, "Nothing was attributed.")
+
+    trade = await _trade_of(session, submitted.get("transaction_id", ""), user_id=user.id)
+    if trade is None:
+        return _problem(request, "That trade is not one in your book.")
+
+    try:
+        await decision_service.carry_out(session, transaction=trade, decision=decision, actor=user)
         await session.commit()
     except AerError as refused:
         await session.rollback()
@@ -357,6 +483,20 @@ async def _fields(session: Any, submitted: dict[str, str], *, user_id: uuid.UUID
         "exit_plan": submitted.get("exit_plan", ""),
         "review_by": date.fromisoformat(review) if review else None,
     }
+
+
+async def _trade_of(session: Any, raw: str, *, user_id: uuid.UUID) -> Transaction | None:
+    """A trade in one of this person's books, by attestation id, or ``None``."""
+    try:
+        identifier = uuid.UUID(raw.strip())
+    except ValueError:
+        return None
+    found: Transaction | None = await session.scalar(
+        select(Transaction)
+        .join(Portfolio, Portfolio.id == Transaction.portfolio_id)
+        .where(Transaction.attestation_id == identifier, Portfolio.user_id == user_id)
+    )
+    return found
 
 
 async def _thesis(session: Any, raw: str, *, user_id: uuid.UUID) -> Thesis | None:

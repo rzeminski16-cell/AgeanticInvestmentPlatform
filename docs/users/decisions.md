@@ -41,13 +41,20 @@ Record the trade on the **Portfolio** form as usual, and choose the decision und
 out**. The trade then names the decision, and the decision's page lists the trade. A sale
 cannot carry out a decision to buy; the form says so rather than recording it.
 
+A trade already in the book can be attributed afterwards from the decision's page: under
+**The trades that carried it out**, a picker offers the book's trades of the right kind for
+the decision, in its listing, that no decision claims yet. Choosing one is the same act as
+naming the decision on the trade form.
+
 A decision that moves the book and has no trade behind it appears on the main menu's work
 list as *not started*, until a trade names it or you withdraw it with a reason.
 
 ## Changing your mind
 
 **Revise** a decision from its page. That writes a new entry that supersedes the old one; the
-old one stays, marked as superseded, so what you decided when is on the record.
+old one stays, marked as superseded, so what you decided when is on the record. Both entries
+then show **what changed** between them, field by field — was, now — each linking to the
+other, so a later review reads the pair rather than reconstructing it.
 
 **Withdraw** a decision with a reason. It moves to the withdrawn list and keeps everything.
 

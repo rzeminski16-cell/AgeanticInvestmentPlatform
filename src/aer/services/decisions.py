@@ -31,6 +31,7 @@ from sqlalchemy.orm import selectinload
 
 from aer.core.enums import DecisionAction, JudgementKind, TransactionKind
 from aer.db.models import (
+    Attestation,
     AuditEvent,
     Decision,
     Judgement,
@@ -53,6 +54,9 @@ __all__ = [
     "record_decision",
     "reviews_due",
     "revise_decision",
+    "superseded_by",
+    "supersedes",
+    "trades_that_could_carry_out",
     "withdraw_decision",
 ]
 
@@ -360,6 +364,7 @@ def _loaded() -> Any:
     return (
         selectinload(Decision.thesis),
         selectinload(Decision.security),
+        selectinload(Decision.portfolio),
         selectinload(Decision.transactions),
     )
 
@@ -405,6 +410,58 @@ async def decisions_of_thesis(session: AsyncSession, thesis: Thesis) -> list[Dec
         .order_by(Judgement.held_at.desc())
     )
     return list(rows)
+
+
+async def superseded_by(session: AsyncSession, decision: Decision) -> Decision | None:
+    """The later entry that replaced this one, if a revision wrote one."""
+    found: Decision | None = await session.scalar(
+        select(Decision)
+        .join(Judgement, Judgement.id == Decision.judgement_id)
+        .options(*_loaded())
+        .where(Judgement.supersedes_id == decision.judgement_id)
+    )
+    return found
+
+
+async def supersedes(session: AsyncSession, decision: Decision) -> Decision | None:
+    """The earlier entry this one replaced, if it was written as a revision."""
+    earlier = decision.judgement.supersedes_id
+    if earlier is None:
+        return None
+    found: Decision | None = await session.scalar(
+        select(Decision).options(*_loaded()).where(Decision.judgement_id == earlier)
+    )
+    return found
+
+
+async def trades_that_could_carry_out(
+    session: AsyncSession, *, decision: Decision, portfolio: Portfolio | None
+) -> list[Transaction]:
+    """The book's trades no decision claims yet, of a kind and security that could carry this
+    one out — what a picker on the decision's page may offer, newest first.
+
+    The same tests ``carry_out`` applies, asked ahead of time so the picker offers nothing it
+    would refuse. A superseded attestation is not a trade the book still says happened.
+    """
+    book = decision.portfolio if decision.portfolio is not None else portfolio
+    if book is None or decision.judgement.is_withdrawn or not decision.action.moves_the_book:
+        return []
+    superseded = select(Attestation.supersedes_id).where(Attestation.supersedes_id.is_not(None))
+    statement = (
+        select(Transaction)
+        .join(Attestation, Attestation.id == Transaction.attestation_id)
+        .options(selectinload(Transaction.security))
+        .where(
+            Transaction.portfolio_id == book.id,
+            Transaction.decision_id.is_(None),
+            Transaction.kind.in_(tuple(_CARRIED_OUT_BY[decision.action])),
+            Attestation.id.not_in(superseded),
+        )
+        .order_by(Transaction.trade_date.desc(), Attestation.effective_at.desc())
+    )
+    if decision.security_id is not None:
+        statement = statement.where(Transaction.security_id == decision.security_id)
+    return list(await session.scalars(statement))
 
 
 async def open_for_the_book(session: AsyncSession, *, user_id: uuid.UUID) -> list[Decision]:

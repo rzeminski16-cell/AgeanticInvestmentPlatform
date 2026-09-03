@@ -723,3 +723,112 @@ class TestThePages:
 
     async def test_a_decision_that_is_not_yours_answers_as_missing(self, api: Any) -> None:
         assert (await api.get(f"/decisions/{uuid.uuid4()}")).status_code == 404
+
+    async def test_a_trade_already_in_the_book_is_attributed_from_the_page(
+        self, api: Any, committed: Any
+    ) -> None:
+        """The picker offers the book's unclaimed trades that could carry the decision out —
+        the right kind, the decision's listing — and choosing one is the trade form's
+        *Carries out* made after the fact. A sale is not offered against a decision to buy."""
+        session = committed["session"]
+        buy = await _trade(session, book=committed["book"], security=committed["security"])
+        sell = await _trade(
+            session,
+            book=committed["book"],
+            security=committed["security"],
+            kind=TransactionKind.SELL,
+        )
+        await session.commit()
+        location = await _recorded(api, committed)
+
+        opened = await api.get(location)
+        assert 'id="carry-out-form"' in opened.text
+        assert f'<option value="{buy.attestation_id}"' in opened.text
+        assert f'<option value="{sell.attestation_id}"' not in opened.text
+        assert "Buy on 15 June 2026: 100 at 1250 GBX (CTSO.LSE)" in opened.text
+
+        attributed = await api.post(
+            f"{location}/carry-out",
+            data={"csrf_token": _csrf(opened.text), "transaction_id": str(buy.attestation_id)},
+        )
+        assert attributed.status_code == 303, attributed.text
+
+        after = await api.get(location)
+        assert 'data-trade="buy"' in after.text
+        assert "Not yet carried out" not in after.text
+        assert 'id="carry-out-form"' not in after.text, "nothing is left to offer"
+        listing = await api.get("/decisions")
+        assert 'data-carried-out="yes"' in listing.text
+
+    async def test_a_trade_the_service_would_refuse_is_refused_on_the_page(
+        self, api: Any, committed: Any
+    ) -> None:
+        session = committed["session"]
+        sell = await _trade(
+            session,
+            book=committed["book"],
+            security=committed["security"],
+            kind=TransactionKind.SELL,
+        )
+        await session.commit()
+        location = await _recorded(api, committed)
+        opened = await api.get(location)
+
+        refused = await api.post(
+            f"{location}/carry-out",
+            data={"csrf_token": _csrf(opened.text), "transaction_id": str(sell.attestation_id)},
+        )
+
+        assert refused.status_code == 422
+        assert "cannot carry out" in refused.text
+        assert (await api.get(location)).text.count("data-trade=") == 0
+
+    async def test_a_revision_shows_what_changed_on_both_entries(
+        self, api: Any, committed: Any
+    ) -> None:
+        location = await _recorded(api, committed)
+        page = await api.get(location)
+
+        revised = await api.post(
+            f"{location}/revise",
+            data={
+                "csrf_token": _csrf(page.text),
+                "action": "add",
+                "statement": "Add after the results.",
+                "basis": "The results confirmed the margin.",
+                "security": "CTSO.LSE",
+                "size_statement": "about 2% of the book",
+                "horizon_months": "36",
+                "exit_plan": "Sell below a 20% margin.",
+            },
+        )
+        assert revised.status_code == 303, revised.text
+        new_location = str(revised.headers["location"])
+
+        later = await api.get(new_location)
+        assert 'id="changes"' in later.text
+        assert "What changed from the earlier entry" in later.text
+        assert f'href="{location}"' in later.text
+        assert 'data-change="What was decided"' in later.text
+        assert 'data-change="In a line"' in later.text
+        assert 'data-change="Intended holding period"' in later.text
+        assert "24 months" in later.text
+        assert "36 months" in later.text
+        assert 'data-change="How much"' not in later.text, "an unchanged field is not a change"
+        assert 'data-change="Listing"' not in later.text
+
+        earlier = await api.get(location)
+        assert 'id="changes"' in earlier.text
+        assert "What the later entry changed" in earlier.text
+        assert f'href="{new_location}"' in earlier.text
+        assert 'data-change="Intended holding period"' in earlier.text
+
+    async def test_the_entry_reads_as_a_card(self, api: Any, committed: Any) -> None:
+        opened = await api.get(await _recorded(api, committed))
+
+        assert 'data-field="action">Open a position' in opened.text
+        assert 'data-field="statement">Open an initial position.' in opened.text
+        assert "On the basis that" in opened.text
+        assert 'aria-label="Commitments"' in opened.text
+        assert 'data-field="exit-plan">Sell below a 20% margin.' in opened.text
+        assert "Decided by owner@example.invalid on 01 August 2026" in opened.text

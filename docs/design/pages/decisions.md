@@ -9,7 +9,7 @@ before the outcome is known; and the trades that carried it out.
 
 | | |
 |---|---|
-| **URLs** | `/decisions` · `POST /decisions` · `/decisions/{decision_id}` · `POST …/withdraw` · `POST …/revise` |
+| **URLs** | `/decisions` · `POST /decisions` · `/decisions/{decision_id}` · `POST …/withdraw` · `POST …/revise` · `POST …/carry-out` |
 | **Who arrives** | The operator, between reading a thesis and placing a trade |
 | **From where** | The launcher, the Decisions nav item, a thesis page, a work-list row, the trade form's *Carries out* |
 | **What they came for** | *What did I decide, why, and did I do it?* |
@@ -68,8 +68,16 @@ Header: *"{Action}: {statement}"*; identity line with the thesis and the date de
 breadcrumb to the journal. A withdrawn decision leads with an info callout carrying the date
 and reason.
 
-**What was decided** — a definition list: the action, the line, the basis, the holder and
-date, and the listing, size, horizon, exit plan and review date where given.
+**What was decided** — the entry as a card: the action as its eyebrow, the statement as the
+subheading, the basis as the paragraph under *On the basis that*, then the commitments in a
+two-column grid — listing in the data face, size, holding period, review date, and the exit
+plan across both columns — and *Decided by {email} on {date}* beneath. Five kinds of text at
+five weights; every value a sentence or a date.
+
+**What changed** — on either entry of a supersession pair: the other entry linked, and the
+fields the revision moved as *was / now* rows, unchanged fields left out. The later entry
+says *What changed from the earlier entry*; the earlier one, withdrawn as superseded, says
+*What the later entry changed*.
 
 **The premises it was taken on** — the thesis's premises as they stand, each with what would
 defeat it; a withdrawn one struck through with its reason. Links to the thesis.
@@ -77,7 +85,10 @@ defeat it; a withdrawn one struck through with its reason. Links to the thesis.
 **The trades that carried it out** — each trade that named this decision on the portfolio
 form: kind, date, quantity, price. A decision that moves the book and has no trade shows
 *Not yet carried out* with a link to the trade form; a hold or a pass says nothing carries
-it out.
+it out. Beneath, when the book holds any, **a picker over the trades that could carry it
+out** — the right kind for the action, the decision's listing, no decision claiming them yet
+(`trades_that_could_carry_out`, the same tests `carry_out` applies) — and a button, *It
+carried this out*. Attributing one is the trade form's *Carries out* made after the fact.
 
 **Revise it** — the same fields, prefilled, with a fresh basis; submitting writes a new entry
 that supersedes this one. **Withdraw it** — a reason and a button. Both absent on a withdrawn
@@ -102,6 +113,7 @@ against a decision to buy is refused with the reason.
 | Horizon | a positive number of months | the service, and `decision_horizon_is_positive` |
 | Reason (withdraw) | not blank | the service |
 | Carries out (trade form) | a held decision the trade's kind and security fit | `carry_out` |
+| A trade to attribute (decision page) | one of yours, unclaimed, of the right kind and listing | the picker offers only those; `carry_out` refuses anything else with the reason |
 
 Every refusal is a sentence on the problem page with the status the error carries.
 
@@ -117,7 +129,7 @@ Every refusal is a sentence on the problem page with the status the error carrie
 | **Not yet carried out** | The meta line says so; the detail's trades sheet points at the trade form; the work list carries a *not started* row |
 | **Carried out** | The trades listed on the detail; the meta line counts them |
 | **Review due** | A *not started* row on the work list, leading here |
-| **Revised** | The old entry withdrawn as superseded; the new one linked from the journal |
+| **Revised** | The old entry withdrawn as superseded; the new one linked from the journal; each shows what changed and links to the other |
 | **Withdrawn** | The callout; no revise or withdraw forms; kept under `?withdrawn=1` |
 | **Not yours, or no such decision** | 404, the same answer for both |
 
@@ -125,28 +137,38 @@ Every refusal is a sentence on the problem page with the status the error carrie
 
 ## What is wrong today
 
-**The listing box is typed, and the dealable listings are only a datalist.** A decision about
-a company the platform has never priced leaves it empty, which is right, but the box gives no
-hint that the third door on the trade form will create the listing later.
+**A decision names one book.** The operator's first open book is assumed, for the entry and
+for the picker; a second book is not offered.
 
-**A decision names one book.** The operator's first open book is assumed; a second book is
-not offered.
+**The listing box is typed.** The dealable listings are a datalist, and the hint now says
+the trade form's third door creates a listing later and the trade can be attributed
+afterwards — but a decision about a company the platform has never priced still leaves the
+box empty, and nothing on this page can create the listing.
 
-**A trade can name a decision only as it is recorded.** A trade already in the book cannot be
-attributed to a decision afterwards from either page.
+**The diff is field by field, not word by word.** A long basis rewritten in one clause shows
+as two paragraphs, was and now; the reader finds the clause. Inline word-level marking is
+worth a mockup before it is built, because a struck-through half-sentence is easy to misread
+as a withdrawal.
 
 ---
 
 ## What to improve
 
-**1. The entry as a card.** Action, statement, basis and the four commitments are five kinds
-of text at five weights, and the detail treats them as a definition list.
+**1. The entry as a card** — done. Eyebrow, statement, basis, a grid of commitments, and the
+holder beneath.
 
-**2. Revise as a diff.** The revision form is the old entry prefilled; showing what changed
-between the two entries is what a reviewer will want.
+**2. Revise as a diff** — done. Each entry of a supersession pair shows what the revision
+changed, was and now, and links to the other.
 
-**3. Attributing an existing trade.** A picker on the decision page over the book's
-unattributed trades of the right kind and security.
+**3. Attributing an existing trade** — done. A picker on the decision's page over the book's
+unclaimed trades of the right kind and listing, through the same `carry_out` the trade form
+uses.
+
+**4. A second book.** The record form and the picker both assume the default book; a book
+control on both, remembered with the portfolio page's choice, is the next step once a second
+book exists in practice.
+
+**5. Word-level diff.** See above.
 
 ---
 
@@ -169,3 +191,7 @@ unattributed trades of the right kind and security.
 * A decision not carried out appears on the work list as *not started* and leaves it once a
   trade names it.
 * A fresh install explains that a decision acts on a thesis, and where to write one.
+* A trade recorded before the decision was written can be attributed to it from the
+  decision's page, and a sale is never offered against a decision to buy.
+* Revising a decision's holding period from 24 to 36 months shows that one row as *was 24
+  months, now 36 months* on both entries, and the size, unchanged, on neither.
