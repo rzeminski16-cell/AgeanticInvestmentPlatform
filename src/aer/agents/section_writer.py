@@ -4,10 +4,11 @@
 custom-section agent's — one structured-output call, content against the section's
 contract, claims proposing their evidence by id — with two deliberate differences:
 
-* **No operator text.** A built-in section has no skill body, so there is no
-  ``<user_skill>`` block and nothing user-authored in the composition. What steers the
-  section beyond its contract is the planner's *focus* line — text a human approved at
-  gate 1.
+* **No skill body of its own.** A built-in section is not a custom section: what steers
+  it beyond its contract is the planner's *focus* line — text a human approved at gate 1
+  — and, since ADR 0108, the operator's standing guidance pinned to the run, composed
+  last in the user turn under the same ``<user_skill>`` delimiter and rule a custom
+  section's body gets. Nothing user-authored reaches the system prompt.
 * **No tools** (the whole of ADR 0042). The evidence pack was assembled by code before
   the call; a writer that could search would be a researcher whose searches nobody gated.
 
@@ -31,6 +32,8 @@ from aer.agents.custom_section import (
     CustomSectionDraft,
 )
 from aer.agents.untrusted import UntrustedSource
+from aer.agents.user_skill import compose_guidance
+from aer.core.skill_guidance import OperatorGuidance, guidance_for_role
 
 __all__ = ["SectionDraft", "SectionWriterAgent", "SectionWriterInput"]
 
@@ -70,6 +73,10 @@ class SectionWriterInput(BaseModel):
 
     problems: list[str] = Field(default_factory=list)
     evidence_truncated: bool = False
+
+    # The operator's standing guidance pinned to this run (ADR 0108): every planned
+    # prompt-kind skill, from which the writer composes only the kinds its role reads.
+    guidance: list[OperatorGuidance] = Field(default_factory=list)
 
     # The section's word budget and the count past which the validator refuses, stated
     # with their consequence in the user message (gap A50). Zero means unbounded. In the
@@ -239,6 +246,11 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
                 "Your previous draft was refused for these reasons; fix them:\n- "
                 + "\n- ".join(payload.problems)
             )
+        # The operator's text last (ADR 0108 §2), filtered by the role table here rather
+        # than by the caller, so the table is the last word at the point of composition.
+        guidance = compose_guidance(guidance_for_role(payload.guidance, self.role))
+        if guidance:
+            parts.append(guidance)
         return "\n\n".join(parts)
 
     def untrusted_sources(self, payload: SectionWriterInput) -> list[UntrustedSource]:

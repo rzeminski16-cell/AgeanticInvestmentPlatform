@@ -137,7 +137,7 @@ carries stricter obligations.
 
 | Module | One line |
 |---|---|
-| `core` | Pure domain types and logic: enums, schemas, section-output checks, skill policy |
+| `core` | Pure domain types and logic: enums, schemas, section-output checks, skill policy, the skill-guidance role table |
 | `calc` | Every number the platform produces: units algebra, traced engine, statements, ratios, quality, WACC, DCF, comps, FX, prices, bridge |
 
 `calc` is where property-based tests (`hypothesis`) are expected and where mutation sweeps
@@ -204,7 +204,7 @@ ADR-level decision, not a code change.
 | 4 | Point-in-time is enforced at acquisition, in code | `sources/sec` selection (ADR 0010: selection, not filtering) + `tests/test_sec_pit.py` |
 | 5 | Units are carried through all arithmetic; mismatch raises | `calc/units.py` + `tests/test_units.py`, both operand orders |
 | 6 | Cost is metered and capped in code | `providers/costs.py`, `workflow/engine.py` BudgetGuard + `tests/test_budget.py` (ADRs 0051, 0052) |
-| 7 | Skill files are additive-only | `core/skill_policy.py` + the ADR 0040 corpus (`tests/skill_corpus.py`) |
+| 7 | Skill files are additive-only | `core/skill_policy.py`, the `core/skill_guidance.py` role table (ADR 0108) + the ADR 0040 corpus (`tests/skill_corpus.py`) |
 | 8 | Untrusted content is data, never instruction | `agents/untrusted` wrapping + tool authorisation in code (`tests/test_injection.py`, ADR 0036) |
 
 ## 6. Where the decisions live: the ADR index, by theme
@@ -237,7 +237,9 @@ ones — read the ADR before touching its territory:
   reads the rest), 0104 (a decision is written before the outcome, and the trade points back
   at it), 0105 (a review is proposed by the reviewer and held by the operator), 0106 (risk
   is measured over the weights the book holds now, and a scenario is a shock the operator
-  states), 0107 (a watchlist is followed continuously and researched as at a date).
+  states), 0107 (a watchlist is followed continuously and researched as at a date), 0108 (a
+  methodology skill composes into the roles that plan and write, and into no role that
+  judges).
 - **Agents and containment** — 0035 (a new role requires an ADR), 0036 (workers request,
   code executes), 0037–0039 (custom sections, validator advises, red team is separate),
   0040 (containment proved by a corpus), 0041 (dry runs), 0042 (the section writer holds

@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.config import Settings
-from aer.core.enums import JobStatus, RequestStatus
+from aer.core.enums import JobStatus, RequestStatus, SkillKind
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.core.skill_applicability import ApplicabilityDecision, market_of, skill_applies
 from aer.db.models import (
@@ -36,6 +36,7 @@ from aer.services.skills import save_skill, set_enabled
 from aer.skills.resolution import (
     compose_for_version,
     estimate_custom_section_cost,
+    guidance_from_pins,
     pinned_skills_for_job,
     pinned_skills_for_work_order,
     project_custom_section,
@@ -182,6 +183,19 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     }
 
 
+OWNER_OPERATOR = """\
+---
+aer_skill: 1
+key: owner_operator
+kind: methodology
+title: "Weight owner-operator alignment"
+version: 1
+---
+
+I weight owner-operator alignment heavily. Say so where it bears on a thesis.
+"""
+
+
 async def _skill_named(db_session: AsyncSession, key: str) -> Skill:
     return (await db_session.scalars(select(Skill).where(Skill.key == key))).one()
 
@@ -214,7 +228,7 @@ async def _resolve(db_session: AsyncSession, scene: dict[str, Any]) -> Any:
     return await resolve_skills_for_plan(
         db_session,
         request=scene["request"],
-        plan=scene["plan"],
+        work_order_id=scene["request"].id,
         settings=scene["settings"],
         router=scene["router"],
     )
@@ -431,6 +445,50 @@ class TestTheGateCoversThePins:
         assert "token_budget" in clamped_fields
         assert "allowed_tools" in clamped_fields
         assert skill["granted_tools"] == ["search_facts"]
+
+    async def test_the_payload_names_where_a_prompt_kind_pin_composes(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """ADR 0108 §3: inside the hash, because approving the plan is approving where the
+        operator's words reach. A section composes into no role but its own."""
+        await save_skill(db_session, source=OWNER_OPERATOR, actor=scene["user"])
+        await set_enabled(db_session, key="owner_operator", enabled=True, actor=scene["user"])
+        await save_skill(db_session, source=MOAT_DURABILITY, actor=scene["user"])
+        await set_enabled(db_session, key="moat_durability", enabled=True, actor=scene["user"])
+        await _resolve(db_session, scene)
+
+        pins = await pinned_skills_for_work_order(
+            db_session, work_order_id=scene["plan"].request_id
+        )
+        by_key = {row["key"]: row for row in plan_gate_payload(scene["plan"], pins)["skills"]}
+
+        assert by_key["owner_operator"]["composes_into"] == ["planner", "report_writer"]
+        assert by_key["moat_durability"]["composes_into"] == []
+
+    async def test_planned_prompt_kind_pins_reduce_to_guidance_and_nothing_else_does(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        await save_skill(db_session, source=OWNER_OPERATOR, actor=scene["user"])
+        await set_enabled(db_session, key="owner_operator", enabled=True, actor=scene["user"])
+        await save_skill(db_session, source=MOAT_DURABILITY, actor=scene["user"])
+        await set_enabled(db_session, key="moat_durability", enabled=True, actor=scene["user"])
+        # A UK-only house view against a NASDAQ request: pinned as skipped, so not guidance.
+        uk_only = OWNER_OPERATOR.replace("key: owner_operator", "key: uk_view").replace(
+            "kind: methodology", "kind: house_view\napplicability:\n  markets: [UK]"
+        )
+        await save_skill(db_session, source=uk_only, actor=scene["user"])
+        await set_enabled(db_session, key="uk_view", enabled=True, actor=scene["user"])
+        await _resolve(db_session, scene)
+
+        pins = await pinned_skills_for_work_order(
+            db_session, work_order_id=scene["plan"].request_id
+        )
+        [item] = guidance_from_pins(pins)
+
+        assert item.kind is SkillKind.METHODOLOGY
+        assert item.key == "owner_operator"
+        assert item.version == 1
+        assert "owner-operator alignment" in item.body
 
 
 @pytest.mark.integration

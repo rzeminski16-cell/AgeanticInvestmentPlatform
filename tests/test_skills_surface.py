@@ -177,6 +177,9 @@ I weight owner-operator alignment heavily.
         assert preview.valid
         assert preview.evidence_policy is None
         assert preview.clamps == []
+        # What it says instead (ADR 0108): the roles that will read the text.
+        assert preview.composes_into == ["planner", "report_writer"]
+        assert preview.as_dict()["composes_into"] == ["planner", "report_writer"]
 
 
 class TestThePreviewMatchesWhatARunComposes:
@@ -219,7 +222,11 @@ class TestThePreviewMatchesWhatARunComposes:
         await db_session.flush()
 
         resolved = await resolve_skills_for_plan(
-            db_session, request=request, plan=plan, settings=settings, router=Router(settings)
+            db_session,
+            request=request,
+            work_order_id=request.id,
+            settings=settings,
+            router=Router(settings),
         )
         [pin] = [row for row in resolved.pins if row.token_budget is not None]
         preview = validate_skill_source(GREEDY_SOURCE, settings=settings, router=Router(settings))

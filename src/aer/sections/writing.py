@@ -30,6 +30,7 @@ from aer.core.section_output import (
     without_surplus_gap_sentences,
     without_unsourced_numeral_sentences,
 )
+from aer.core.skill_guidance import OperatorGuidance
 from aer.db.models import ReportSection, ResearchRequest, SectionDefinition, SectionStatus
 from aer.errors import ValidationError
 from aer.sections.deterministic import AUGMENTERS, SectionAugmenter, model_facing_contract
@@ -280,6 +281,7 @@ async def execute_builtin_section(
     request: ResearchRequest,
     focus: str = "",
     challenges: Sequence[str] = (),
+    guidance: Sequence[OperatorGuidance] = (),
 ) -> SectionExecution:
     """Write one built-in section to a recorded outcome. Never raises for a bad draft.
 
@@ -292,6 +294,9 @@ async def execute_builtin_section(
     direction to address. Everything else — the contract, the evidence policy, the claim
     rules, validation — is exactly the first draft's, which is what stops a revision
     being a second way to publish an unsupported sentence.
+
+    ``guidance`` is the run's pinned prompt-kind skills (ADR 0108), passed whole: the
+    writer composes only the kinds its role reads, last in the user turn.
     """
     definition = section.definition
     # The model is bound by the contract minus any platform-filled fields (ADR 0063):
@@ -351,6 +356,7 @@ async def execute_builtin_section(
             untrusted_evidence=evidence.untrusted,
             focus=focus,
             challenges=list(challenges),
+            guidance=list(guidance),
             problems=problems,
             evidence_truncated=evidence.truncated,
             # The budget with its consequence, from the numbers the validator reads

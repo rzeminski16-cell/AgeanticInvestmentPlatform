@@ -107,12 +107,16 @@ review as the third judgement subtype held by the operator, and every analytics 
 carrying its `n` in the type — Post-trade review and Decision analytics as the sixth and
 seventh working tools. §3.9 landed the same day (ADR 0106): every risk figure a traced
 calculation over the weights the book holds now, a scenario as a shock the operator states,
-the `risk_analyst` reading a block it cannot write, and Risk as the eighth working tool. §3.10 landed the same day (ADR 0107): an entry
-followed on the database's clock and a commission dated as at the operator's, the state
-read from the run rather than stored, the standing budget reserving a live run's cap, the
-queue walked in follow order and stopped at the first refusal by name, and Watchlist as the
-ninth working tool — no planned tool remains. §3.11 is next, and is quietly the missing half of ADR 0091's memory: an operator-authored methodology skill is
-the only route a recorded lesson has into a future run.
+the `risk_analyst` reading a block it cannot write, and Risk as the eighth working tool.
+§3.10 landed the same day (ADR 0107): an entry followed on the database's clock and a
+commission dated as at the operator's, the state read from the run rather than stored, the
+standing budget reserving a live run's cap, the queue walked in follow order and stopped at
+the first refusal by name, and Watchlist as the ninth working tool — no planned tool
+remains. §3.11 landed the same day (ADR 0108): the three prompt kinds composed into the
+planner and the section writer from the pins gate 1 approves, into no role that judges,
+with the corpus proving it. That was quietly the missing half of ADR 0091's memory — an
+operator-authored methodology skill is the only route a recorded lesson has into a future
+run, and the route now reaches a prompt. Phase 3 and the judgement layer are closed.
 
 **Phase 6 stays unscheduled** until leaving one machine is intended, and then becomes the
 whole of the next phase — the three parts stand or fall together.

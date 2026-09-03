@@ -1283,7 +1283,11 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     job.plan_id = plan.id
 
     resolved = await resolve_skills_for_plan(
-        db_session, request=request, plan=plan, settings=settings, router=Router(settings)
+        db_session,
+        request=request,
+        work_order_id=request.id,
+        settings=settings,
+        router=Router(settings),
     )
     assert resolved.definitions, "the skill must project a section definition"
     await create_report_sections(db_session, job_id=job.id, definitions=list(resolved.definitions))

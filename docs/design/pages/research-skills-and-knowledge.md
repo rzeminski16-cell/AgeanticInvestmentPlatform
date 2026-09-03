@@ -44,7 +44,9 @@ edit an edit: the content hash is over the file as written, so a reformatted ver
 a different skill by the platform's own reckoning.
 
 Four blocks: the source, the issues, **What this composes to** — the effective policy after
-composition — and **Try it against a finished run**.
+composition for a custom section; for a methodology, house view or preference, the roles
+the text composes into and the statement that it reaches no role that judges (ADR 0108) —
+and **Try it against a finished run**.
 
 **Validate** writes nothing and re-renders with either the issues or the composed policy.
 **Dry run** executes the skill against a chosen finished run and shows what it produced —
@@ -92,7 +94,9 @@ rule met as a rejection reads as an obstacle rather than as a guarantee.
 
 **"What this composes to" is the most valuable block and the least prominent.** Skills compose
 — what actually reaches a run is the composition, not the file. That is the answer to "what
-will this do", and it is the third block.
+will this do", and it is the third block. For the three prompt kinds the block now says
+*where* the text reaches; what it composes to on the day is the last block of the planner's
+and the writer's user turn, which nothing on this page shows.
 
 **The dry run is buried at the bottom** of a long editor page, and it is the only way to find
 out whether a skill does what was intended before spending money on a real run.
@@ -127,6 +131,9 @@ JavaScript island needing its own record — the frontmatter fields could be fie
 **Validation writes nothing.**
 
 **The additive-only rule is structural.** No interface affordance may imply otherwise.
+
+**A skill never names its readers.** The role table is the platform's (ADR 0108); no field on
+the editor, and no frontmatter key, may offer a choice of roles.
 
 ---
 

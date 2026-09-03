@@ -74,7 +74,7 @@ Seven blocks:
 | The report's built-in sections | The ones that always appear |
 | **Sources it intends to use** | The list |
 | What it says it may get wrong | The risks the planner can already see |
-| Your skills on this run | Which user-authored methodology files apply |
+| Your skills on this run | Which user-authored skills apply, at which version, and — for a methodology, house view or preference — which roles it composes into (ADR 0108) |
 | Cost and time | The estimate |
 
 **The advice worth designing around:** *"Read the source list: if it does not name the filings

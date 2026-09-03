@@ -33,7 +33,7 @@ from aer.agents.custom_section import (
 from aer.agents.registry import resolve_role
 from aer.agents.section_writer import SectionDraft, SectionWriterAgent, SectionWriterInput
 from aer.config import Settings
-from aer.core.enums import AnalysisMode, FactBasis, JobStatus, Provider, SourceTier
+from aer.core.enums import AnalysisMode, FactBasis, JobStatus, Provider, SkillKind, SourceTier
 from aer.core.section_output import (
     GAP_EDIT_NOTE,
     INSUFFICIENT_EVIDENCE_CEILING,
@@ -41,6 +41,7 @@ from aer.core.section_output import (
     UNSOURCED_MATERIAL_CEILING,
     prose_word_count,
 )
+from aer.core.skill_guidance import OperatorGuidance
 from aer.db.models import (
     AgentRun,
     Artefact,
@@ -312,12 +313,19 @@ def _undeclared_field_draft() -> ScriptedResponse:
     )
 
 
-async def _run(scene: dict[str, Any], provider: FakeProvider, *, focus: str = "") -> Any:
+async def _run(
+    scene: dict[str, Any],
+    provider: FakeProvider,
+    *,
+    focus: str = "",
+    guidance: tuple[OperatorGuidance, ...] = (),
+) -> Any:
     return await execute_builtin_section(
         _context(scene, provider),
         section=scene["section"],
         request=scene["request"],
         focus=focus,
+        guidance=guidance,
     )
 
 
@@ -367,6 +375,32 @@ class TestAValidDraft:
         composed = call["system"] + "".join(m["content"] for m in call["messages"])
         assert "Concentrate on the cash conversion cycle." in composed
         assert "<user_skill>" not in composed
+
+    async def test_pinned_guidance_is_the_last_block_of_the_user_turn_and_never_the_system(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """ADR 0108 §2. The system prompt — the versioned, hashed row — is what it was
+        without the guidance; the operator's text closes the user turn under the delimiter."""
+        provider = _scripted([_good_draft(scene)])
+        guidance = (
+            OperatorGuidance(
+                kind=SkillKind.METHODOLOGY,
+                key="owner_operator",
+                title="Weight owner-operator alignment",
+                version=3,
+                body="I weight owner-operator alignment heavily.",
+            ),
+        )
+        await _run(scene, provider, focus="Concentrate on cash.", guidance=guidance)
+
+        [call] = provider.calls
+        assert "<user_skill>" not in call["system"]
+        user_turn = "".join(m["content"] for m in call["messages"])
+        assert "Methodology: Weight owner-operator alignment (owner_operator v3)" in user_turn
+        # After everything the platform says, and before the quoted documents, which are
+        # data and trail the whole composition as they always have (ADR 0037).
+        assert user_turn.index("Concentrate on cash.") < user_turn.index("<user_skill>\n")
+        assert user_turn.index("</user_skill>") < user_turn.index("<untrusted_source")
 
 
 class TestTheFailureLadder:

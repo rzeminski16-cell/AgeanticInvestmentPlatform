@@ -137,6 +137,13 @@
             <div class="flex flex-wrap items-baseline gap-2">
               <span class="type-data text-ink">{{ skill.key }}</span>
               <span class="type-body-sm text-ink-muted">v{{ skill.version }} &middot; {{ skill.kind }}</span>
+              {% if skill.composes_into %}
+                {% set role_words = {"planner": "the planner", "report_writer": "the section writer"} %}
+                <span class="type-body-sm text-ink-muted" data-composes-into="{{ skill.composes_into | join(' ') }}">
+                  &middot; composes into
+                  {%- for role in skill.composes_into %} {{ role_words.get(role, role) }}{% if not loop.last %} and{% endif %}{% endfor %}
+                </span>
+              {% endif %}
               {% if skill.status == 'planned' %}
                 {{ ui.status("success", "Planned") }}
                 {% if skill.estimated_cost_gbp != '0' and skill.estimated_cost_gbp != '0.0000' %}

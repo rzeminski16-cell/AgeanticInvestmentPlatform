@@ -64,6 +64,7 @@ from aer.db.models.section_definition import SKILL
 from aer.sections.writing import execute_builtin_section
 from aer.services.disagreements import escalations_for_job
 from aer.services.red_team import MATERIAL_SEVERITY
+from aer.skills.resolution import guidance_from_pins, pinned_skills_for_job
 
 __all__ = [
     "MAX_REVISED_SECTIONS",
@@ -181,6 +182,10 @@ async def revise_challenged_sections(
         )
     }
 
+    # The operator's standing guidance, from the run's pins (ADR 0108): the revision
+    # composes exactly what the first draft composed, so a redraft is a redraft.
+    guidance = guidance_from_pins(await pinned_skills_for_job(session, job=job))
+
     revised = 0
     for target in targets:
         section = sections.get(target.section_key)
@@ -214,6 +219,7 @@ async def revise_challenged_sections(
             request=request,
             focus=(focus_by_key or {}).get(target.section_key, ""),
             challenges=list(target.statements),
+            guidance=guidance,
         )
         revised += 1
         kept = execution.status is not SectionStatus.GENERATED and approved.was_generated

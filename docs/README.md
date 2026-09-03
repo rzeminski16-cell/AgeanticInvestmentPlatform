@@ -61,6 +61,8 @@ For the operator: the person who installs it, commissions research and approves 
   stands, the scenarios you state, and an analyst's reading that writes no number.
 - [`watchlist.md`](users/watchlist.md) — the companies you follow and why, the queue of
   what to research next, and the standing budget it spends.
+- [`skills.md`](users/skills.md) — the methodology library: your method, house view and
+  preferences, versioned, pinned at gate 1, and composed into the roles that plan and write.
 - [`troubleshooting.md`](users/troubleshooting.md) — when a run stalls, fails, or refuses.
 
 ### `developers/` — how to change it

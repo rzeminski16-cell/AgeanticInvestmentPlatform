@@ -509,8 +509,17 @@ queue is walked in follow order and stops at the first refusal, by name, from th
 from `aer queue`, which exits non-zero when it stopped short. Watchlist is the ninth
 working tool, and no planned tool remains.
 
-**3.11 The methodology library.** Three `SkillKind`s that are versioned, pinned and
-composed. Mostly does not exist yet.
+**3.11 The methodology library.** **Done 2026-09-03** — ADR 0108. The three prompt kinds
+were versioned and pinned since task 36 and composed nowhere; now a pure role table says
+which roles read which kind — methodology and house view into the planner and the
+section writer, preference into the writer, and nothing into any role that judges — and
+each reader composes the pinned text as the last block of its user turn, under the same
+delimiter and rule a custom section's body gets, with the system prompt byte-identical
+either way. The plan step pins before it plans, so the planner, gate 1 and every section
+read the same rows, and gate 1 names the roles inside its hash. A prompt-kind skill is
+refused every section-shaped field at authoring. The ADR 0040 corpus gains seven
+prompt-kind escalations and a `roles` layer, and the starter library ships one example of
+each kind.
 
 **3.12 The interface overhaul. Done 2026-08-30: specified, designed and planned 2026-08-25;
 all ten tranches built and verified green by 2026-08-30 — the record

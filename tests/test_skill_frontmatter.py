@@ -231,6 +231,31 @@ class TestKindAndShapeAgree:
         [issue] = caught.value.issues
         assert "token_budget" in issue.message
 
+    def test_a_methodology_skill_may_not_declare_tools_or_an_evidence_policy(self) -> None:
+        """ADR 0108 §4: refused at authoring, not ignored at run time. A methodology file
+        declaring tools used to parse — nothing granted them, and nobody told the author."""
+        source = (
+            "---\n"
+            "aer_skill: 1\n"
+            "key: armed_method\n"
+            "kind: methodology\n"
+            'title: "A method with a shell"\n'
+            "version: 1\n"
+            "allowed_tools: [shell]\n"
+            "evidence_policy:\n"
+            "  min_sources: 1\n"
+            "---\n"
+            "Weight balance-sheet strength above growth.\n"
+        )
+
+        with pytest.raises(SkillFileError) as caught:
+            parse_skill_file(source)
+
+        [issue] = caught.value.issues
+        assert "evidence_policy" in issue.message
+        assert "allowed_tools" in issue.message
+        assert "produces no section" in issue.message
+
     def test_a_methodology_skill_of_prose_alone_is_valid(self) -> None:
         source = (
             "---\n"

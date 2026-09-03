@@ -272,12 +272,19 @@ class SkillFrontmatter(BaseModel):
                 message = "The output contract declares no fields."
                 raise ValueError(message)
         else:
+            # Every section-shaped field, not only the three that would confuse the plan
+            # step (ADR 0108 §4). A methodology file declaring tools used to parse and be
+            # ignored — nothing granted them, and nobody told the author — and a control
+            # that works by nobody reading the field is one refactor from not working.
             declared = [
                 name
                 for name, value in (
                     ("position", self.position),
                     ("output", self.output),
                     ("token_budget", self.token_budget),
+                    ("evidence_policy", self.evidence_policy),
+                    ("allowed_tools", self.allowed_tools or None),
+                    ("charts", self.charts or None),
                 )
                 if value is not None
             ]

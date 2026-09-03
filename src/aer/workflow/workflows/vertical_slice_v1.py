@@ -50,7 +50,15 @@ from aer.calc.engine import CalculationContext
 from aer.calc.units import Quantity, SourceRef, Unit, money
 from aer.core.concepts import CANONICAL_CONCEPTS
 from aer.core.disagreement import DisagreementKind
-from aer.core.enums import Decision, FactBasis, GateKind, JobStatus, Provider, SourceTier
+from aer.core.enums import (
+    Decision,
+    FactBasis,
+    GateKind,
+    JobStatus,
+    Provider,
+    SkillKind,
+    SourceTier,
+)
 from aer.core.escalation import CostScene, FiredTrigger
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.core.schemas.facts import RawFact
@@ -63,6 +71,7 @@ from aer.core.sectors import (
     profile_for,
     unclassified_mandate,
 )
+from aer.core.skill_guidance import roles_for
 from aer.db.models import (
     Approval,
     Assumption,
@@ -156,6 +165,7 @@ from aer.skills.execution import execute_custom_section
 from aer.skills.resolution import (
     custom_definitions_for_pins,
     estimate_custom_section_cost,
+    guidance_from_pins,
     pinned_skills_for_job,
     pinned_skills_for_work_order,
     resolve_skills_for_plan,
@@ -551,6 +561,21 @@ async def _plan(context: StepContext) -> StepResult:
     # has not resolved yet — feeds forward nothing, and the prompt says nothing about it.
     priors = await _prior_digests(context.session, request=request)
 
+    # Every enabled skill, pinned to this run *before* the planner is asked (ADR 0108 §3)
+    # — planned with its composed policy, or skipped with its reason — so the planner
+    # composes its guidance from the rows gate 1 will display and the writer will read,
+    # rather than from a query of its own that a concurrent edit could answer differently.
+    # The pinned sections' budgets join the estimate the operator approves against,
+    # because a cost the gate does not show is a cost nobody agreed to.
+    resolved = await resolve_skills_for_plan(
+        context.session,
+        request=request,
+        work_order_id=request.id,
+        settings=context.service("settings"),
+        router=context.service("router"),
+    )
+    pins = await pinned_skills_for_work_order(context.session, work_order_id=request.id)
+
     try:
         draft = await agent.run(
             agent_context,
@@ -558,6 +583,7 @@ async def _plan(context: StepContext) -> StepResult:
                 request=request_service.mandate_read(request),
                 available_section_keys=[definition.key for definition in definitions],
                 prior_research=priors,
+                guidance=guidance_from_pins(pins),
             ),
         )
     except SpentButUnusableError as unusable:
@@ -631,17 +657,7 @@ async def _plan(context: StepContext) -> StepResult:
     # resolves job -> plan -> pins.
     context.job.plan_id = plan.id
 
-    # Every enabled skill, pinned to this plan — planned with its composed policy, or
-    # skipped with its reason. The pinned sections' budgets join the estimate the
-    # operator approves against, because a cost the gate does not show is a cost nobody
-    # agreed to.
-    resolved = await resolve_skills_for_plan(
-        context.session,
-        request=request,
-        plan=plan,
-        settings=context.service("settings"),
-        router=context.service("router"),
-    )
+    # The pinned sections' estimate, resolved above before the planner ran.
     plan.estimated_cost_gbp = plan.estimated_cost_gbp + resolved.estimated_cost_gbp
     await context.session.flush()
 
@@ -655,7 +671,6 @@ async def _plan(context: StepContext) -> StepResult:
     # from. Recorded on the approval, so an approval of one plan cannot be reused for a
     # different one; see `_require_approval`. The pins are inside the payload, so
     # approving one set of skills is not approving another.
-    pins = await pinned_skills_for_work_order(context.session, work_order_id=plan.request_id)
     payload_hash = sha256_hex(canonical_json(plan_gate_payload(plan, pins)))
 
     # The run's sections are the built-ins plus this plan's pinned custom sections
@@ -774,6 +789,12 @@ def plan_gate_payload(plan: ResearchPlan, pins: Sequence[PlanSkillPin] = ()) -> 
                 "granted_tools": list(pin.granted_tools or []),
                 "clamps": list(pin.clamps or []),
                 "estimated_cost_gbp": str(pin.estimated_cost_gbp),
+                # The roles a planned prompt-kind pin composes into (ADR 0108 §3): inside
+                # the hash, because approving the plan is approving where the operator's
+                # words reach. Empty for a section, which reaches no role but its own.
+                "composes_into": (
+                    list(roles_for(SkillKind(pin.skill.kind))) if pin.status == PIN_PLANNED else []
+                ),
             }
             for pin in pins
         ],
@@ -960,6 +981,7 @@ async def _revised_plan(
     the gate, which is most of the value — and a budget refusal is never absorbed.
     """
     keys = [str(entry.get("key", "")) for entry in body.get("section_listing", [])]
+    pins = await pinned_skills_for_work_order(context.session, work_order_id=plan.request_id)
     try:
         draft = await PlannerAgent().run(
             agent_context,
@@ -967,6 +989,7 @@ async def _revised_plan(
                 request=request_service.mandate_read(request),
                 available_section_keys=[key for key in keys if key],
                 prior_research=await _prior_digests(context.session, request=request),
+                guidance=guidance_from_pins(pins),
                 previous_plan={
                     "summary": body.get("summary", ""),
                     "sections": body.get("sections", []),
@@ -2936,10 +2959,10 @@ async def _draft_one(
         message = f"Section {work.section_id} vanished mid-draft."
         raise AerError(message, context={"section_id": str(work.section_id)})
 
+    job = await session.get(Job, agent_context.job_step.job_id)
+    assert job is not None
+    pins = await pinned_skills_for_job(session, job=job)
     if work.custom:
-        job = await session.get(Job, agent_context.job_step.job_id)
-        assert job is not None
-        pins = await pinned_skills_for_job(session, job=job)
         pin = next((p for p in pins if p.skill_id == section.definition.skill_id), None)
         if pin is None:  # pragma: no cover -- the partitioning refused pin-less sections
             message = "The skill pin this section was partitioned under has vanished."
@@ -2948,8 +2971,14 @@ async def _draft_one(
             agent_context, section=section, pin=pin, request=request
         )
 
+    # The operator's standing guidance, from the same pins (ADR 0108); the writer keeps
+    # the kinds its role reads.
     return await execute_builtin_section(
-        agent_context, section=section, request=request, focus=work.focus
+        agent_context,
+        section=section,
+        request=request,
+        focus=work.focus,
+        guidance=guidance_from_pins(pins),
     )
 
 

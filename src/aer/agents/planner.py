@@ -25,7 +25,9 @@ from pydantic import ValidationError as PydanticValidationError
 
 from aer.agents.base import Agent
 from aer.agents.untrusted import UntrustedSource
+from aer.agents.user_skill import compose_guidance
 from aer.core.schemas.request import ResearchRequestRead
+from aer.core.skill_guidance import OperatorGuidance, guidance_for_role
 from aer.errors import ValidationError
 
 __all__ = [
@@ -165,6 +167,11 @@ class PlannerInput(BaseModel):
     previous_plan: dict[str, Any] | None = None
     critique: list[str] = Field(default_factory=list)
 
+    # The operator's standing guidance pinned to this run (ADR 0108): every planned
+    # prompt-kind skill, from which the planner composes only the kinds its role reads,
+    # last in the user turn and never in the system prompt.
+    guidance: list[OperatorGuidance] = Field(default_factory=list)
+
 
 _SYSTEM_PROMPT = f"""\
 You are the research planner for an equity research platform. You produce a plan; you do \
@@ -294,6 +301,14 @@ class PlannerAgent(Agent[PlannerInput, ResearchPlanDraft]):
                 "the disagreement in known_risks so the person approving sees it:"
             )
             lines.extend(f"  - {challenge}" for challenge in payload.critique)
+
+        # Last, after everything the platform says (ADR 0108 §2). Filtered here by the
+        # role table rather than by the caller, so the table is the last word at the
+        # point of composition whatever a caller passed.
+        guidance = compose_guidance(guidance_for_role(payload.guidance, self.role))
+        if guidance:
+            lines.append("")
+            lines.append(guidance)
 
         return "\n".join(lines)
 

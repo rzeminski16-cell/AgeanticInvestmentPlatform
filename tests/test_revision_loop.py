@@ -220,6 +220,7 @@ def stubbed_writer(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
         request: Any,
         focus: str = "",
         challenges: Any = (),
+        guidance: Any = (),
     ) -> SectionExecution:
         calls.append(
             {"section_key": section.section_key, "focus": focus, "challenges": list(challenges)}
@@ -243,6 +244,7 @@ def refusing_writer(monkeypatch: pytest.MonkeyPatch) -> list[str]:
         request: Any,
         focus: str = "",
         challenges: Any = (),
+        guidance: Any = (),
     ) -> SectionExecution:
         refused.append(section.section_key)
         section.content = None

@@ -139,9 +139,14 @@
                 </span>
               </p>
             {% else %}
-              <p class="mt-3 max-w-prose type-body-sm text-ink-muted" id="no-policy">
-                A {{ preview.kind }} skill composes into an existing agent's prompt rather
-                than producing a section, so it carries no evidence policy of its own.
+              {% set role_words = {"planner": "the planner", "report_writer": "the section writer"} %}
+              <p class="mt-3 max-w-prose type-body-sm text-ink-muted" id="no-policy" data-composes-into="{{ preview.composes_into | join(' ') }}">
+                A {{ preview.kind }} skill produces no section of its own. It composes, as
+                the last block of the prompt, into
+                {%- for role in preview.composes_into %} {{ role_words.get(role, role) }}{% if not loop.last %} and{% endif %}{% endfor %}
+                {%- if not preview.composes_into %} no role{% endif %} &mdash; and into no
+                role that judges the result. It carries no evidence policy: there is nothing
+                to clamp because there is nothing it may declare.
               </p>
             {% endif %}
 

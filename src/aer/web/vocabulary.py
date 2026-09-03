@@ -514,10 +514,16 @@ SKILL_KINDS: Final[dict[SkillKind, HumanState]] = {
     SkillKind.METHODOLOGY: HumanState(
         "Methodology",
         Tone.INFO,
-        "Composes into an existing agent's prompt rather than producing a section.",
+        "Composes into the planner and the section writer: how to analyse, what to weigh.",
     ),
-    SkillKind.PREFERENCE: HumanState("Preference", Tone.INFO),
-    SkillKind.HOUSE_VIEW: HumanState("House view", Tone.INFO),
+    SkillKind.PREFERENCE: HumanState(
+        "Preference", Tone.INFO, "Composes into the section writer: how to present."
+    ),
+    SkillKind.HOUSE_VIEW: HumanState(
+        "House view",
+        Tone.INFO,
+        "Composes into the planner and the section writer: a standing view the run tests.",
+    ),
 }
 
 ANALYSIS_MODES: Final[dict[AnalysisMode, HumanState]] = {
