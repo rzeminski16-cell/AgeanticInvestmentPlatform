@@ -48,10 +48,11 @@ REFETCH_TIMEOUT_MS = 20_000
 class RunFixture:
     """A run in the live server's database, advanced on demand."""
 
-    def __init__(self, database_url: str) -> None:
+    def __init__(self, database_url: str, *, subscribed: bool = False) -> None:
         self._settings = load_settings()
         self._database_url = database_url
-        self._worker = Worker(database_url)
+        # See `Worker`: a run that must propose the model's peer runs subscribed.
+        self._worker = Worker(database_url, subscribed=subscribed)
         self.request_id: uuid.UUID | None = None
         self.job_id: uuid.UUID = run_async(self._create())
 

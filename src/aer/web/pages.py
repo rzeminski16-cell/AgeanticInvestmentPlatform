@@ -780,10 +780,15 @@ async def peer_review(
             if refused
             else ""
         )
+        # A run that asked no model is a third situation again (ADR 0059, second
+        # amendment), and the reason is the operator's to read: a subscription, not a fault.
+        not_asked = str(produced.get("model_skipped_because", "")).strip()
         return _problem(
             request,
             "This run proposed no comparable companies, so this gate does not apply to it. "
-            "No comparables table will be produced and the report says so." + tried,
+            "No comparables table will be produced and the report says so."
+            + tried
+            + (f" {not_asked}" if not_asked else ""),
             status=HTTP_404_NOT_FOUND,
         )
 
@@ -798,6 +803,8 @@ async def peer_review(
             "job": job,
             "payload": payload,
             "payload_hash": payload_hash_for(payload),
+            # Why the model was not asked, when it was not: context, never part of the hash.
+            "not_asked": str(produced.get("model_skipped_because", "")).strip(),
             "refused": [item for item in produced.get("refused", []) if isinstance(item, dict)],
             **frame,
             "csrf_field": CSRF_FIELD_NAME,

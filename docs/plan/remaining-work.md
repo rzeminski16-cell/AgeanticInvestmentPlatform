@@ -129,10 +129,9 @@ In leverage order. Everything else above is a session's work.
    `7b05643a-4f95-4e08-ba5c-9d14d772f7c9`, stranded at gate 2 and diagnosed all the same.
    It unblocked §2.1 and §2.2 and settled both.
 2. **Approve one confirmation run's spend** when the last §2.1 fix lands.
-3. **The peer-discovery decision** (§4.15's remnant): `propose_peers` buys a reasoned peer
-   list that can contribute no figure. Skip it when no price client is configured, or amend
-   ADR 0059 and acquire peer data so comps compute — the second multiplies the data
-   subscription across the peer set. Either is fine; it should be chosen, not inherited.
+3. ~~**The peer-discovery decision** (§4.15's remnant)~~ **Decided 2026-09-03** — skip the
+   model's slate when no price feed is configured (ADR 0059, second amendment). The step
+   proposes the free floor, spends nothing, and says why; the model returns with the feed.
 4. **Concept-map curation sittings** (§2.8) over the prepared worksheet.
 5. **Commercial checks** (roadmap list): EODHD's licence terms **in writing**; WeasyPrint's
    native dependencies on the target Windows machine, alongside §2.4. The Companies House

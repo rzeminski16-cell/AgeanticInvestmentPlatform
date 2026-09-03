@@ -31,7 +31,13 @@ from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.storage.local import LocalArtefactStore
 from tests.db_fixtures import run_async
-from tests.workflow_fixtures import StubSecClient, gate_for, make_provider, paused_at
+from tests.workflow_fixtures import (
+    StubSecClient,
+    gate_for,
+    make_provider,
+    paused_at,
+    with_price_feed,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -58,9 +64,12 @@ class Worker:
     filing client hold state a second run would inherit.
     """
 
-    def __init__(self, database_url: str) -> None:
+    def __init__(self, database_url: str, *, subscribed: bool = False) -> None:
         self._database_url = database_url
-        self._settings = load_settings()
+        # Subscribed: the peer step asks the model for a slate only when a price feed is
+        # configured (ADR 0059, second amendment); a scenario that expects the model's
+        # peer, and the gate it opens, runs as a subscribed machine would.
+        self._settings = with_price_feed(load_settings()) if subscribed else load_settings()
         self._store = LocalArtefactStore(
             self._settings.artefact_root, max_bytes=self._settings.max_artefact_bytes
         )

@@ -24,6 +24,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
+from pydantic import SecretStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -772,6 +773,16 @@ async def seed_job(session: AsyncSession, *, request: ResearchRequest) -> Job:
     session.add(job)
     await session.flush()
     return job
+
+
+def with_price_feed(settings: Settings) -> Settings:
+    """The same settings with a market-data subscription configured.
+
+    The peer step asks the model for a slate only when a peer's multiple is computable
+    (ADR 0059, second amendment), so a scenario that expects the model's peer — and the
+    peer-set gate that follows it — runs as a subscribed machine would.
+    """
+    return settings.model_copy(update={"eodhd_api_key": SecretStr("test-price-feed")})
 
 
 @pytest.fixture

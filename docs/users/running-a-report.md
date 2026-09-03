@@ -58,7 +58,10 @@ refused rather than footnoted.
 
 **Peer set.** Comparable companies are only as good as the peers, and a model proposing
 peers is proposing an opinion. It suggests; the registry resolves them to real securities;
-you confirm. No comparables table is computed until you have.
+you confirm. No comparables table is computed until you have. The model is asked only
+when a price feed is configured (`AER_EODHD_API_KEY`): without one a peer can contribute
+no multiple, so the step proposes what the platform already holds, spends nothing, and the
+gate page says so.
 
 **Theme set.** A bounded slate of research themes, proposed by a model and confirmed by
 you before any of them becomes an edge in the knowledge graph. A failed call proposes

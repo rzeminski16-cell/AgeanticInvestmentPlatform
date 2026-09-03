@@ -140,7 +140,7 @@ class TestTheRationaleGates:
     def test_the_peer_rationale_is_rendered_at_full_length(
         self, page: Page, live_server: str, database_url: str
     ) -> None:
-        run = RunFixture(database_url)
+        run = RunFixture(database_url, subscribed=True)
         assert run.advance_until(GateKind.PEER_SET) is JobStatus.AWAITING_APPROVAL
 
         page.goto(f"{live_server}/runs/{run.job_id}/peers")

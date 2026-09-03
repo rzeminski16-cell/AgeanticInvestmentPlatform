@@ -171,8 +171,7 @@ def _eodhd_client(
     with no key runs every step and reports the price-derived figures as unavailable
     rather than refusing to start.
     """
-    key = settings.eodhd_api_key
-    if key is None or not key.get_secret_value().strip():
+    if not settings.price_feed_configured:
         return None
     return EodhdClient(fetcher, store, settings=settings, budget=WeightedCallBudget(redis))
 

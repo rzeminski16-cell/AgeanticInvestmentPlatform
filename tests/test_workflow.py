@@ -60,6 +60,7 @@ from tests.workflow_fixtures import (
     seed_job,
     seed_request,
     seed_user,
+    with_price_feed,
 )
 
 pytestmark = pytest.mark.anyio
@@ -590,16 +591,17 @@ class TestTheWholeRun:
         assert schemas.count("RedTeamReport") == 1
         # The two opinions no filing answers (ADR 0046). One call, once per run.
         assert schemas.count("AssumptionProposalDraft") == 1
-        # The peer set, once (ADR 0059). The deterministic lookup underneath it proposes
-        # only companies already stored, so on a first run it proposed nobody and no run
-        # ever produced a comps table; naming comparables is the judgement this platform
-        # asks a model for, and every ticker it returns is resolved against EDGAR in code.
-        assert schemas.count("PeerSlate") == 1
+        # The peer set: no call, because this scenario configures no price feed. The
+        # model's slate is bought only when a peer's multiple is computable (ADR 0059,
+        # second amendment); the keyed scenarios in `TestThePeerSetAModelProposed` prove the
+        # one call a subscribed machine makes, and that its tickers resolve in code.
+        assert schemas.count("PeerSlate") == 0
         # The authored half of the review verdict (ADR 0087), once, over the frozen
         # draft. The cheapest call in the run, and a call all the same: it is counted
         # here so it can never quietly become two.
         assert schemas.count("AuthoredVerdict") == 1
-        assert finished["provider"].call_count == 27
+        # Twenty-seven with a price feed; one fewer here, where the peer step asks nobody.
+        assert finished["provider"].call_count == 26
 
     async def test_the_writer_receives_the_planners_approved_focus(self, finished: dict) -> None:
         """The plan's per-section brief — text a human approved at gate 1 — reaches the
@@ -656,7 +658,10 @@ class TestThePeerSetAModelProposed:
             actor=scenario["user"],
             step="critique_plan",
         )
-        await run_to_next_stop(**_args(scenario), stop_after="propose_peers")
+        await run_to_next_stop(
+            **{**_args(scenario), "settings": with_price_feed(scenario["settings"])},
+            stop_after="propose_peers",
+        )
 
         row = await session.scalar(
             select(JobStep).where(
@@ -714,7 +719,12 @@ class TestThePeerSetAModelProposed:
 
         broken = FakeProvider(fail_with=ValidationError("the provider is unavailable"))
         outcome = await run_to_next_stop(
-            **{**_args(scenario), "provider": broken}, stop_after="propose_peers"
+            **{
+                **_args(scenario),
+                "provider": broken,
+                "settings": with_price_feed(scenario["settings"]),
+            },
+            stop_after="propose_peers",
         )
 
         row = await session.scalar(
@@ -751,10 +761,48 @@ class TestThePeerSetAModelProposed:
 
         capped = FakeProvider(fail_with=BudgetExceededError("the run is at its ceiling"))
         outcome = await run_to_next_stop(
-            **{**_args(scenario), "provider": capped}, stop_after="propose_peers"
+            **{
+                **_args(scenario),
+                "provider": capped,
+                "settings": with_price_feed(scenario["settings"]),
+            },
+            stop_after="propose_peers",
         )
 
         assert outcome.status is JobStatus.BUDGET_EXCEEDED
+
+    async def test_without_a_price_feed_the_model_is_not_asked_and_the_record_says_why(
+        self, scenario: dict
+    ) -> None:
+        """ADR 0059's second amendment: a peer recorded by name contributes no multiple, so
+        a machine with no subscription proposes what the database holds and spends nothing.
+        The scripted provider would answer if asked; the assertion is that it never is."""
+        session = scenario["session"]
+        await run_to_next_stop(**_args(scenario))
+        await approve(
+            session,
+            job=scenario["job"],
+            gate=GateKind.PLAN,
+            actor=scenario["user"],
+            step="critique_plan",
+        )
+        assert not scenario["settings"].price_feed_configured
+
+        outcome = await run_to_next_stop(**_args(scenario), stop_after="propose_peers")
+
+        row = await session.scalar(
+            select(JobStep).where(
+                JobStep.job_id == scenario["job"].id, JobStep.step_key == "propose_peers"
+            )
+        )
+        assert outcome.status is not JobStatus.FAILED
+        assert row is not None
+        produced = row.output_ref or {}
+        assert produced["model_consulted"] is False
+        assert "No price feed is configured" in produced["model_skipped_because"]
+        assert produced["proposed_by"] == "sic_group_lookup"
+        assert row.cost_gbp == Decimal(0)
+        assert not any(call["schema"] == "PeerSlate" for call in scenario["provider"].calls)
 
 
 class TestEveryStepThatSpendsIsOneTheGuardCanSee:

@@ -1044,6 +1044,11 @@ belongs in the code comment; the sentence belongs to the reader.
 *"Confirming records the set; it fetches nothing. Computing a peer's multiple needs its
 filings and its prices, and this run acquires neither."*
 
+**The remnant — whether to keep buying the model's slate at all — was decided
+2026-09-03** (ADR 0059, second amendment): the model is asked only when a price feed is
+configured, because until then its slate can contribute no multiple. Without one the step
+proposes the deterministic floor, spends nothing, and the gate page says why.
+
 **What remains is a decision, not a defect.** `propose_peers` is a model step and a gate, and
 on the present design its whole output is a list of names and rationales that contribute no
 figure. That may be worth the money — a reasoned peer set is not nothing, and it is held for

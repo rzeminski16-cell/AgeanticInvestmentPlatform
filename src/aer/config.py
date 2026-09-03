@@ -264,6 +264,17 @@ class Settings(BaseSettings):
     fred_api_key: SecretStr | None = None
     companies_house_api_key: SecretStr | None = None
 
+    @property
+    def price_feed_configured(self) -> bool:
+        """Whether a market-data subscription is configured (ADR 0030 route 2).
+
+        The one definition of "is there a price feed": the client builder and the steps
+        that would spend on something only a price feed makes computable (ADR 0059's
+        second amendment) both read it, so they cannot disagree about a blank key.
+        """
+        key = self.eodhd_api_key
+        return key is not None and bool(key.get_secret_value().strip())
+
     # -- Signing ------------------------------------------------------------------------
 
     # Signs CSRF tokens, and any signed cookie added later. Left unset it is generated per

@@ -48,6 +48,7 @@ from aer.calc.basic import cagr
 from aer.calc.comps import MultipleBasis, WithheldComps
 from aer.calc.engine import CalculationContext
 from aer.calc.units import Quantity, SourceRef, Unit, money
+from aer.config import Settings
 from aer.core.concepts import CANONICAL_CONCEPTS
 from aer.core.disagreement import DisagreementKind
 from aer.core.enums import (
@@ -2316,13 +2317,24 @@ async def _propose_peers(context: StepContext) -> StepResult:
         store=context.service("store"),
         job_step=context.step,
     )
-    discovered, consulted = await _peers_from_model(
-        context,
-        agent_context,
-        request=request,
-        company=company,
-        sector_key=sector_key_of(context.outputs),
-    )
+    # The model's slate is bought only when a price feed makes a peer's multiple
+    # computable (ADR 0059, second amendment). A peer recorded by name contributes no
+    # figure, so on a machine with no subscription the step proposes what the database
+    # can support, spends nothing, and says so where the reviewer reads it.
+    settings: Settings = context.service("settings")
+    if settings.price_feed_configured:
+        discovered, consulted = await _peers_from_model(
+            context,
+            agent_context,
+            request=request,
+            company=company,
+            sector_key=sector_key_of(context.outputs),
+        )
+        skipped_because = ""
+    else:
+        discovered, consulted = DiscoveredPeers(), False
+        skipped_because = PEERS_NOT_ASKED_WITHOUT_A_PRICE_FEED
+        _log.info("peers.model_not_asked", job_id=str(context.job.id), reason=skipped_because)
 
     peers = merged_with(discovered.peers, floor)
 
@@ -2343,6 +2355,10 @@ async def _propose_peers(context: StepContext) -> StepResult:
         # a thing being approved, and putting it in the hash would make an approval depend
         # on what the model got wrong rather than on the set being confirmed.
         "refused": [item.as_dict() for item in discovered.refused],
+        # Also outside the hash: whether the model was asked and, if not, why. Context for
+        # the reviewer and the record, never part of what is being confirmed.
+        "model_consulted": consulted,
+        "model_skipped_because": skipped_because,
     }
     output["payload_hash"] = sha256_hex(canonical_json(peer_gate_payload(output)))
     return StepResult(output=output, cost_gbp=agent_context.spend_gbp)
@@ -2351,6 +2367,14 @@ async def _propose_peers(context: StepContext) -> StepResult:
 # What the deterministic proposal has always called itself in the step's output. Named here
 # so the two proposers are written down in one place rather than as a literal in each branch.
 _SIC_LOOKUP: Final = "sic_group_lookup"
+
+# Why the model was not asked, in the words the gate page shows (ADR 0059, second
+# amendment). A sentence rather than a code: the reviewer reads it, and the run record
+# should say what the operator would have been told.
+PEERS_NOT_ASKED_WITHOUT_A_PRICE_FEED: Final = (
+    "No price feed is configured, so a proposed peer could contribute no multiple; the "
+    "model was not asked, and the set is what this database already holds."
+)
 
 
 def _proposer_names(*, from_model: int, total: int, consulted: bool) -> str:
