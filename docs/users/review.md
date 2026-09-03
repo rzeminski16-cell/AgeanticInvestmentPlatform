@@ -60,7 +60,9 @@ can be changed:
 - **Lessons** — what to look at before making the same call again.
 
 **Confirm as my review** records it as a judgement you hold, with the reviewer's proposal
-kept beside it as it arrived. Whether you agreed with the reviewer is itself something the
+kept beside it as it arrived. Where you amended a verdict or the quality, the review page
+shows the two side by side — *you confirmed*, *the reviewer proposed* — rather than burying
+the difference in a line. Whether you agreed with the reviewer is itself something the
 analytics count.
 
 ## The analytics
@@ -70,7 +72,10 @@ reviewed positions it is a tally rather than a percentage — three of four is a
 not a rate.
 
 The first table is the one the tool exists for: process quality against the sign of the
-realised return. Then the qualities, the premise verdicts, how the holding period compared
+realised return, laid out two by two — quality down, gain and loss across — so the two cells
+a P&L cannot show, sound process with a loss and flawed process with a gain, are where the
+eye lands. A review whose outcome could not be computed is counted in the `n` and shown in a
+row of its own. Then the qualities, the premise verdicts, how the holding period compared
 with the intended horizon, whether a decision is on record for the position, and whether
 you confirmed the reviewer's quality or amended it.
 

@@ -98,10 +98,12 @@ is the process quality with its meaning, and beside it whether the review was co
 proposed or amended.
 
 **What you concluded** — quality, basis, lessons, holder and date; links to the thesis and
-the pass.
+the pass. Where the quality was amended, the two chips sit side by side, labelled *You
+confirmed* and *The reviewer proposed*.
 
-**Each premise, as the record found it** — position, statement, note, the verdict as a
-status, and *The reviewer proposed: …* where it differed.
+**Each premise, as the record found it** — position, statement, note, and the verdict as a
+status; where the reviewer proposed a different verdict, the two side by side under the same
+two labels, with the reviewer's note beneath its chip.
 
 **What happened** — the same four figures, linked.
 
@@ -112,11 +114,13 @@ status, and *The reviewer proposed: …* where it differed.
 **The verdict** states the sample: nothing reviewed; fewer than three, so every breakdown
 is a tally; or the count. With nothing reviewed, an empty state points at the list.
 
-Six sheets, each headed by its label and *n = …*, each a table with a **Count** column and,
-only once the sample can bear one, a **Share** column:
+Six sheets, each headed by its label and *n = …*. The first is a two-by-two; the rest are
+tables with a **Count** column and, only once the sample can bear one, a **Share** column:
 
-1. **Process against outcome** — the four cells, quality against the sign of the realised
-   return, plus *outcome not computed* where a flow could not be converted.
+1. **Process against outcome** — the four cells laid out two by two: *Sound process* and
+   *Flawed or questionable process* down, *Gain* and *Loss* across, both axes as table
+   headers, the count large in each cell with its share beside it once the sample can bear
+   one, and a row of its own for *outcome not computed* where a flow could not be converted.
 2. **Process quality** — sound, questionable, flawed.
 3. **Premise verdicts** — held, partially held, failed, untested, unobservable, over every
    verdict row.
@@ -165,24 +169,28 @@ and leaves the position unreviewed.
 waits on the response. One call on a closed position is short, but a slow model is a slow
 page with no progress shown.
 
-**The four cells are a table, not a grid.** Two-by-two is the natural shape and the page
-renders it as four rows.
-
 **A review names the outcome once.** The figures on the review are the outcome as recorded
 at review time; a trade recorded later against the same episode does not reopen it.
+
+**The basis and lessons are not compared.** An amended quality or verdict is shown side by
+side; an amended basis or lessons paragraph is shown as the operator's, with the reviewer's
+under *What the reviewer proposed* further down. A field-level was/now for prose, as the
+decisions page does for a revision, is the obvious next step.
 
 ---
 
 ## What to improve
 
-**1. The cells as a two-by-two.** Rows for the quality, columns for the sign, counts in the
-cells, with the off-diagonal ones the eye lands on.
+**1. The cells as a two-by-two** — done. Quality down, sign across, the off-diagonal cells
+where the eye lands, the remainder in its own row.
 
-**2. The proposal as a diff.** Where the operator amended a verdict or the quality, show the
-two side by side rather than as a line under the operator's.
+**2. The proposal as a diff** — done for the verdicts and the quality: side by side, each
+labelled, the reviewer's note beneath its chip. Not yet for the basis and lessons.
 
 **3. A pass progress state.** If the reviewer moves to the worker, the pass page needs the
 *running* state the monitor's has.
+
+**4. The basis and lessons as was/now.** See above.
 
 ---
 
@@ -208,3 +216,6 @@ two side by side rather than as a line under the operator's.
   operator's quality, says *amended*, and shows what the reviewer proposed.
 * The analytics page shows one review as a tally with no share column, and says why.
 * A fresh install explains that a review starts when a holding returns to nil.
+* One review confirmed as *questionable* over a gain puts a 1 in the flawed-or-questionable
+  gain cell and a 0 in the sound-gain cell, with no share column until three are reviewed.
+* A verdict amended from *held* to *partially held* shows both chips on the review, labelled.

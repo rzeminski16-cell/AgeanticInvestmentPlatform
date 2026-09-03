@@ -189,9 +189,11 @@ class TestAReviewFromTheWorkList:
         cells = page.locator('[data-statistic="process-against-outcome"]')
         expect(cells).to_have_attribute("data-count", "1")
         expect(cells).to_have_attribute("data-finding", "no")
-        expect(
-            cells.locator('[data-part="flawed-or-questionable-process-gain"] td').first
-        ).to_have_text("1")
+        # The four cells two by two: the amended quality with a gain is the off-diagonal
+        # cell the page exists to make reachable, and it is the cell that reads 1.
+        expect(cells.locator('[data-part="flawed-or-questionable-process-gain"]')).to_have_text("1")
+        expect(cells.locator('[data-part="sound-process-gain"]')).to_have_text("0")
+        expect(cells.get_by_role("columnheader", name="Loss")).to_be_visible()
 
         # The list shows it reviewed, and the work list asks nothing more.
         page.goto(f"{live_server}/review")

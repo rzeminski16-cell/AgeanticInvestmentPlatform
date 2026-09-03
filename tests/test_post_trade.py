@@ -1306,7 +1306,13 @@ class TestThePages:
         assert review.status_code == 200
         assert "Questionable" in review.text
         assert "Amended" in review.text
-        assert "The reviewer proposed: held" in review.text
+        # Amended: the reviewer's verdict beside the confirmed one, each labelled, rather
+        # than a line under it.
+        assert 'data-amended="yes"' in review.text
+        assert 'data-field="verdict-comparison"' in review.text
+        assert 'data-field="proposed-verdict"' in review.text
+        assert "The reviewer proposed" in review.text
+        assert "You confirmed" in review.text
         assert "The year was not yet filed." in review.text
 
         # The pass page now points at the review rather than offering the form again.
@@ -1346,6 +1352,15 @@ class TestThePages:
         assert 'data-statistic="process-against-outcome" data-count="1" data-finding="no"' in body
         assert "a tally, not a proportion" in body
         assert "Share" not in body
+        # The four cells two by two: quality down, the sign of the return across, each cell
+        # addressable, the remainder row absent when every outcome was computed.
+        assert ">Gain</th>" in body
+        assert ">Loss</th>" in body
+        assert ">Sound process</th>" in body
+        assert 'data-part="sound-process-gain"' in body
+        assert 'data-part="flawed-or-questionable-process-loss"' in body
+        assert 'data-part="outcome-not-computed"' not in body
+        assert "Counts only, until 3 positions have been reviewed." in body
 
     async def test_a_form_without_a_token_is_refused(self, api: Any, committed: Any) -> None:
         response = await api.post(

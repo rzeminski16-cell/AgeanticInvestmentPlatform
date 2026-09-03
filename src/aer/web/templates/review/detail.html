@@ -27,7 +27,26 @@
   {% call ui.sheet("What you concluded", id="judgement") %}
     <dl class="grid grid-cols-1 sm:grid-cols-[160px_1fr]">
       <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Process quality</dt>
-      <dd class="border-line py-3 sm:border-t" data-field="quality">{{ ui.status(item.quality_tone, item.quality) }}</dd>
+      <dd class="border-line py-3 sm:border-t" data-field="quality">
+        {% if quality_amended %}
+          {#
+            Amended: the two side by side, each labelled, rather than the reviewer's as a
+            line under yours. Whether you agreed with the reviewer is decision data.
+          #}
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2" data-field="quality-comparison">
+            <div>
+              <p class="type-label text-ink-muted">You confirmed</p>
+              <p class="mt-1">{{ ui.status(item.quality_tone, item.quality) }}</p>
+            </div>
+            <div data-field="proposed-quality-beside">
+              <p class="type-label text-ink-muted">The reviewer proposed</p>
+              <p class="mt-1">{{ ui.status(proposed_quality.tone.value, proposed_quality.label) }}</p>
+            </div>
+          </div>
+        {% else %}
+          {{ ui.status(item.quality_tone, item.quality) }}
+        {% endif %}
+      </dd>
       <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">On what basis</dt>
       <dd class="border-line py-3 type-body text-ink sm:border-t" data-field="basis">{{ item.basis }}</dd>
       <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Lessons</dt>
@@ -45,13 +64,31 @@
     {% if verdicts %}
       <ol class="flex flex-col" aria-label="Premise verdicts">
         {% for row in verdicts %}
-          <li class="grid grid-cols-1 gap-2 border-t border-line py-3 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6" data-verdict="{{ row.position }}">
+          <li class="grid grid-cols-1 gap-2 border-t border-line py-3 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6" data-verdict="{{ row.position }}" data-amended="{{ 'yes' if row.proposed else 'no' }}">
             <div class="min-w-0">
               <p class="type-body-strong text-ink">{{ row.position }}. {{ row.statement }}</p>
               {% if row.note %}<p class="mt-1 type-body-sm text-ink">{{ row.note }}</p>{% endif %}
-              {% if row.proposed %}<p class="mt-1 type-data-sm text-ink-muted">The reviewer proposed: {{ row.proposed | lower }}</p>{% endif %}
             </div>
-            <div>{{ ui.status(row.tone, row.label) }}</div>
+            {% if row.proposed %}
+              {#
+                Amended: yours and the reviewer's side by side, each labelled, with the
+                reviewer's note where it gave one. The sentence form said the same thing
+                and made the reader compare two lines a paragraph apart.
+              #}
+              <div class="grid grid-cols-2 gap-3" data-field="verdict-comparison">
+                <div>
+                  <p class="type-label text-ink-muted">You confirmed</p>
+                  <p class="mt-1">{{ ui.status(row.tone, row.label) }}</p>
+                </div>
+                <div data-field="proposed-verdict">
+                  <p class="type-label text-ink-muted">The reviewer proposed</p>
+                  <p class="mt-1">{{ ui.status(row.proposed_tone, row.proposed) }}</p>
+                  {% if row.proposed_note %}<p class="mt-1 type-body-sm text-ink-muted">{{ row.proposed_note }}</p>{% endif %}
+                </div>
+              </div>
+            {% else %}
+              <div>{{ ui.status(row.tone, row.label) }}</div>
+            {% endif %}
           </li>
         {% endfor %}
       </ol>

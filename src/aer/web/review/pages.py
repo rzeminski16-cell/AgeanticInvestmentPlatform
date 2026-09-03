@@ -48,7 +48,7 @@ from aer.web import vocabulary
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
 
-__all__ = ["router"]
+__all__ = ["Grid", "GridCell", "GridRow", "VerdictRow", "router"]
 
 router = APIRouter(include_in_schema=False)
 
@@ -122,6 +122,89 @@ class VerdictRow:
     note: str
     proposed: str
     """The reviewer's label where it differed from the operator's, else empty."""
+    proposed_tone: str = ""
+    proposed_note: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class GridCell:
+    """One of the four cells: a count, and its share once the sample can bear one."""
+
+    key: str
+    count: int
+    share: str
+
+
+@dataclass(frozen=True, slots=True)
+class GridRow:
+    label: str
+    cells: tuple[GridCell, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Grid:
+    """Process against outcome as a two-by-two: quality down, the sign of the return across.
+
+    The off-diagonal cells — sound process with a loss, flawed process with a gain — are the
+    ones the page exists to make reachable, and a two-by-two puts them where the eye lands.
+    Built from the same `Statistic`, so the `n` and the tally rule are the type's, not the
+    template's.
+    """
+
+    label: str
+    count: int
+    is_a_finding: bool
+    columns: tuple[str, ...]
+    rows: tuple[GridRow, ...]
+    remainder: GridCell | None
+    """Reviews whose outcome could not be computed: in the ``n``, in no cell."""
+
+
+_GRID_ROWS: Final[tuple[tuple[str, str], ...]] = (
+    ("Sound process", "sound process"),
+    ("Flawed or questionable process", "flawed or questionable process"),
+)
+_GRID_COLUMNS: Final[tuple[tuple[str, str], ...]] = (("Gain", "gain"), ("Loss", "loss"))
+_REMAINDER: Final = "outcome not computed"
+
+
+def _grid(row: post_trade.Statistic) -> Grid:
+    """The cells statistic laid out two by two. Every part the service counted lands in a
+    cell or the remainder; a part it did not is a template out of step with the service."""
+    counts = {part.label: part.count for part in row.parts}
+    rows = tuple(
+        GridRow(
+            label=label,
+            cells=tuple(
+                GridCell(
+                    key=f"{quality}, {sign}".replace(" ", "-").replace(",", ""),
+                    count=counts.get(f"{quality}, {sign}", 0),
+                    share=_share(counts.get(f"{quality}, {sign}", 0), row.count)
+                    if row.is_a_finding
+                    else "",
+                )
+                for _, sign in _GRID_COLUMNS
+            ),
+        )
+        for label, quality in _GRID_ROWS
+    )
+    unknown = counts.get(_REMAINDER, 0)
+    return Grid(
+        label=row.label,
+        count=row.count,
+        is_a_finding=row.is_a_finding,
+        columns=tuple(label for label, _ in _GRID_COLUMNS),
+        rows=rows,
+        remainder=(
+            GridCell(
+                key=_REMAINDER.replace(" ", "-"),
+                count=unknown,
+                share=_share(unknown, row.count) if row.is_a_finding else "",
+            )
+            if unknown
+            else None
+        ),
+    )
 
 
 def _episode_row(state: post_trade.EpisodeState) -> EpisodeRow:
@@ -487,6 +570,8 @@ async def review_detail(
         found = vocabulary.PREMISE_VERDICTS[verdict.verdict]
         draft = proposed.get(str(verdict.premise_id)) if verdict.premise_id else None
         drafted = str(draft.get("verdict") or "") if draft else ""
+        differed = bool(drafted) and drafted != verdict.verdict.value
+        drafted_words = vocabulary.PREMISE_VERDICTS[PremiseVerdict(drafted)] if differed else None
         rows.append(
             VerdictRow(
                 position=verdict.position,
@@ -494,11 +579,9 @@ async def review_detail(
                 label=found.label,
                 tone=found.tone.value,
                 note=verdict.note,
-                proposed=(
-                    vocabulary.PREMISE_VERDICTS[PremiseVerdict(drafted)].label
-                    if drafted and drafted != verdict.verdict.value
-                    else ""
-                ),
+                proposed=drafted_words.label if drafted_words is not None else "",
+                proposed_tone=drafted_words.tone.value if drafted_words is not None else "",
+                proposed_note=str(draft.get("note") or "") if differed and draft else "",
             )
         )
     response: Response = render(
@@ -528,6 +611,11 @@ async def review_detail(
             "verdicts": rows,
             "proposal": proposal,
             "proposed_quality": proposed_quality,
+            # Amended: the reviewer's quality sits beside the operator's, not under it.
+            "quality_amended": (
+                proposed_quality is not None
+                and str(proposal.get("process_quality")) != review.process_quality.value
+            ),
         },
     )
     return response
@@ -552,7 +640,6 @@ async def analytics_page(request: Request, session: DbSession, user: CurrentUser
     statistics = [
         _statistic(row)
         for row in (
-            analytics.cells,
             analytics.qualities,
             analytics.verdicts,
             analytics.horizons,
@@ -565,6 +652,7 @@ async def analytics_page(request: Request, session: DbSession, user: CurrentUser
         "review/analytics.html",
         {
             "reviewed": analytics.reviewed,
+            "grid": _grid(analytics.cells),
             "statistics": statistics,
             "minimum": post_trade.MINIMUM_SAMPLE,
         },
