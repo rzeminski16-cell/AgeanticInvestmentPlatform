@@ -1132,3 +1132,75 @@ class TestThePages:
 
     async def test_a_finding_that_is_not_yours_answers_as_missing(self, api: Any) -> None:
         assert (await api.get(f"/monitor/findings/{uuid.uuid4()}")).status_code == 404
+
+    async def test_findings_on_one_thesis_are_one_card_with_a_line_each(
+        self, api: Any, committed: dict[str, Any]
+    ) -> None:
+        """Three findings on one thesis read as one card with three lines, not three rows
+        repeating the title. Each line keeps its own id, status and link, because a line is
+        what the work list addresses."""
+        thesis = await _thesis_with(committed, threshold=Decimal(25))
+        await thesis_service.add_premise(
+            committed["session"],
+            thesis=thesis,
+            actor=await _user_of(committed),
+            statement="Revenue keeps growing above 20% a year.",
+            basis="The same disclosure, read more cautiously.",
+            predicate=Predicate(
+                metric="revenue growth",
+                comparator=PremiseComparator.AT_LEAST,
+                threshold=Decimal(20),
+                unit="percent",
+            ),
+            review_by=None,
+            held_at=HELD_BETWEEN,
+        )
+        # The loaded collection predates the second premise; expire it so the reload reads
+        # both, as a pass in its own session would.
+        committed["session"].expire(thesis, ["premises"])
+        reloaded = await thesis_service.thesis_of(
+            committed["session"], thesis.id, user_id=(await _user_of(committed)).id
+        )
+        assert reloaded is not None
+        thesis = reloaded
+        await _run(
+            committed,
+            thesis,
+            committed["tmp_path"],
+            provider=_provider(_reading(PremiseStatus.WEAKENED)),
+        )
+        await committed["session"].commit()
+
+        page = await api.get("/monitor")
+
+        assert page.status_code == 200
+        assert page.text.count(f'data-thesis="{thesis.id}"') == 1
+        # The thesis is named as a link once; the recent-passes list also names it, in words.
+        assert page.text.count(f'href="/theses/{thesis.id}"') == 1
+        assert page.text.count('data-status="weakened"') == 2
+        assert page.text.count("Say what you did") == 2
+        company = committed["company"]
+        assert f"{company.name} ({company.ticker})" in page.text, "the card names its subject"
+
+    async def test_the_measurement_is_two_figures_and_a_verdict(
+        self, api: Any, committed: dict[str, Any]
+    ) -> None:
+        """The value against the threshold with the period beneath, the verdict as a chip,
+        and the sentence still there saying the same thing in words."""
+        finding = await _committed_finding(committed, threshold=Decimal(40))
+
+        opened = await api.get(f"/monitor/findings/{finding.id}")
+
+        assert opened.status_code == 200
+        assert 'id="measured"' in opened.text
+        assert 'data-field="measured"' in opened.text
+        assert "for the period ending 2024-12-31" in opened.text
+        assert 'data-field="threshold"' in opened.text
+        observed = finding.observed
+        assert observed is not None
+        # The threshold as the pass recorded it: a per cent is a fraction by the time it is
+        # compared (ADR 0027), and the page says what was compared, not what was typed.
+        assert f"at least {observed['threshold']} {observed['threshold_unit']}" in opened.text
+        assert "The predicate does not hold" in opened.text
+        assert f'href="/calculations/{finding.observed["calculation_id"]}"' in opened.text
+        assert 'data-field="observed"' in opened.text

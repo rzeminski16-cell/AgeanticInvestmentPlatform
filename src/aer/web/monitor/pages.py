@@ -31,7 +31,7 @@ from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NO
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
 from aer.core.enums import Decision, FindingAction, FindingKind, GateKind
-from aer.db.models import Finding, SourceDocument
+from aer.db.models import Finding, SourceDocument, Thesis
 from aer.errors import AerError
 from aer.queue import enqueue_monitor
 from aer.services import theses as thesis_service
@@ -43,7 +43,7 @@ from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csr
 from aer.web.gates import CONSEQUENCES
 from aer.web.templating import render
 
-__all__ = ["router"]
+__all__ = ["FindingRow", "ObservedFigures", "ThesisGroup", "router"]
 
 router = APIRouter(include_in_schema=False)
 
@@ -88,6 +88,83 @@ class FindingRow:
     @property
     def last_resolution(self) -> ResolutionRow | None:
         return self.resolutions[-1] if self.resolutions else None
+
+
+@dataclass(frozen=True, slots=True)
+class ThesisGroup:
+    """One thesis and the open findings on it, as the list shows them together.
+
+    A thesis with three findings reads as one card with three lines rather than three rows
+    that repeat its title; the thesis is the thing the reader holds a view on, and the
+    findings are what happened to it.
+    """
+
+    thesis_id: uuid.UUID
+    thesis_title: str
+    subject: str
+    findings: tuple[FindingRow, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ObservedFigures:
+    """What code measured, as two figures a reader compares at a glance.
+
+    The value against the threshold with the period beneath, and the verdict on the predicate
+    as a chip. Every string arrives already rendered from the observation the pass recorded;
+    nothing here is computed, and the sentence beside them says the same thing in words.
+    """
+
+    metric: str
+    value: str
+    period: str
+    prior: str
+    calculation_href: str
+    threshold: str
+    verdict_label: str
+    verdict_tone: str
+
+
+async def _grouped(session: Any, findings: list[Finding]) -> list[ThesisGroup]:
+    """The findings by thesis, in the order the theses first appear, each named once."""
+    by_thesis: dict[uuid.UUID, list[FindingRow]] = {}
+    theses: dict[uuid.UUID, Thesis] = {}
+    for finding in findings:
+        by_thesis.setdefault(finding.thesis_id, []).append(_row(finding))
+        theses[finding.thesis_id] = finding.thesis
+    return [
+        ThesisGroup(
+            thesis_id=thesis_id,
+            thesis_title=theses[thesis_id].title,
+            subject=await thesis_service.subject_name(session, theses[thesis_id]),
+            findings=tuple(rows),
+        )
+        for thesis_id, rows in by_thesis.items()
+    ]
+
+
+def _observed_figures(observed: dict[str, Any] | None) -> ObservedFigures | None:
+    if not observed:
+        return None
+    unit = observed.get("unit") or "ratio"
+    threshold_unit = observed.get("threshold_unit") or unit
+    holds = bool(observed.get("holds"))
+    prior = ""
+    if observed.get("prior_value"):
+        prior = (
+            f"was {observed['prior_value']} {unit} for the period ending "
+            f"{observed.get('prior_period_end', '')}"
+        )
+    calculation_id = observed.get("calculation_id")
+    return ObservedFigures(
+        metric=str(observed.get("metric") or "the metric"),
+        value=f"{observed.get('value')} {unit}",
+        period=f"for the period ending {observed.get('period_end')}",
+        prior=prior,
+        calculation_href=f"/calculations/{calculation_id}" if calculation_id else "",
+        threshold=f"{observed.get('comparator')} {observed.get('threshold')} {threshold_unit}",
+        verdict_label="The predicate holds" if holds else "The predicate does not hold",
+        verdict_tone=vocabulary.Tone.SUCCESS.value if holds else vocabulary.Tone.WARNING.value,
+    )
 
 
 def _row(finding: Finding) -> FindingRow:
@@ -145,16 +222,16 @@ def _observed_sentence(observed: dict[str, Any] | None) -> str:
 
 
 def _monitor_verdict(
-    gated: list[FindingRow], unread: list[FindingRow], reviews: int, theses: int
+    gated: list[ThesisGroup], unread: list[ThesisGroup], reviews: int, theses: int
 ) -> verdicts.Verdict:
     clauses: list[verdicts.Count | str] = [
         verdicts.Count(
-            len(gated),
+            sum(len(group.findings) for group in gated),
             "premise was contradicted and is waiting for your decision",
             "premises were contradicted and are waiting for your decision",
         ),
         verdicts.Count(
-            len(unread),
+            sum(len(group.findings) for group in unread),
             "finding is raised and not yet acted on",
             "findings are raised and not yet acted on",
         ),
@@ -183,9 +260,8 @@ async def monitor_page(
     """Every open finding, the reviews due, the recent passes, and the button that runs one."""
     showing_resolved = request.query_params.get("resolved") == "1"
     opened, closed = await thesis_monitor.findings_partitioned(session, user_id=user.id)
-    open_rows = [_row(finding) for finding in opened]
-    gated = [row for row in open_rows if row.opens_gate]
-    unread = [row for row in open_rows if not row.opens_gate]
+    gated = await _grouped(session, [row for row in opened if row.opens_gate])
+    unread = await _grouped(session, [row for row in opened if not row.opens_gate])
     resolved = [_row(finding) for finding in closed] if showing_resolved else []
     today = datetime.now(UTC).date()
     due = await thesis_monitor.reviews_due(session, user_id=user.id, today=today)
@@ -282,6 +358,7 @@ async def finding_page(
         {
             "item": row,
             "subject": await _subject(session, finding),
+            "measured": _observed_figures(finding.observed),
             "sources": await _sources(session, finding),
             "gate_words": vocabulary.GATES[GateKind.THESIS],
             "gate_consequence": CONSEQUENCES[GateKind.THESIS],

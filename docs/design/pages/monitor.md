@@ -55,13 +55,15 @@ a queue that empties itself teaches the operator that ignoring it works.
 findings are raised and not yet acted on; one premise is due for your review."* Warning tone
 when a gate is open, info otherwise. With nothing to monitor it says so and points at Theses.
 
-**Decisions waiting** — contradicted findings, one row each: the thesis title as the link,
-the premise, the sentence code measured, *Raised {date} · a decision waiting*.
-
-**Questions raised** — every other open finding: the thesis title, the premise, the
-justification, *Raised {date} · a finding, not a decision*, and a status chip (Unchanged,
-Weakened, Strengthened, Unobservable, Stopped at its ceiling). *Show resolved findings*
-switches to `?resolved=1`, where each row carries what was done, by whom, when and why.
+**Decisions waiting** and **Questions raised** share one shape: a card per thesis, a line
+per finding. The card carries the subject as its eyebrow and the thesis title as a link to the
+thesis; each line is a bordered card of its own with the premise, the sentence code measured
+(where there is one) in the data face, the justification, *Raised {date} · a decision waiting*
+or *· a finding, not a decision* with the link to the finding — *Decide what to do* or *Say
+what you did* — and a status chip (Contradicted, Unchanged, Weakened, Strengthened,
+Unobservable, Stopped at its ceiling). A thesis with three findings is one card with three
+lines. *Show resolved findings* switches to `?resolved=1`, where each row carries what was
+done, by whom, when and why.
 
 **Reviews due** — held premises with no predicate whose `review_by` has passed, linking into
 the thesis at the premise. The monitor does not read these; a person does.
@@ -75,8 +77,11 @@ With no open thesis, an empty state pointing at Theses.
 Header: the thesis title; eyebrow *A DECISION WAITING* or *A FINDING*; identity line with the
 company and the date raised; the status chip with its sentence.
 
-**The premise** it is about, linking to the thesis. **What code measured**, as one sentence.
-**What the monitor read into it**, with the documents named. Then one of three:
+**The premise** it is about, linking to the thesis. **What code measured**: two figures side
+by side — the metric's value with the period beneath and a link to the calculation it came
+from, and the threshold the premise set — the verdict on the predicate as a chip, and the
+same thing as one sentence beneath them. **What the monitor read into it**, with the
+documents named. Then one of three:
 
 - **The gate** (contradicted, open): a decision panel with the question *What do you do about
   this premise?*, the consequence, a required reason, and two buttons — *Withdraw the premise*
@@ -117,28 +122,36 @@ Every refusal is a sentence on the problem page with the status the error carrie
 
 ## What is wrong today
 
-**The metric field on the premise form offers no list.** The resolver's vocabulary exists
-(`measurable_metrics()`); the form's help text names the shape and not the words. An
-`unobservable` finding says what it would have understood, which is late.
-
 **Segment lines are unobservable.** "Azure revenue growth" resolves to nothing because the
 analysis reads consolidated facts only. The finding says so; the operator may still want it.
 
-**A finding's sources link to `/sources/{id}`,** which is the research tool's page for a
-document and assumes the document reached a run.
+**A finding's sources are titles, not links.** No page shows one source document on its own,
+so the documents a justification names are listed by title and go nowhere. The research
+tool's sources page is per run, and a monitor pass is not a run.
+
+**The resolved list is flat.** Open findings are grouped by thesis; resolved ones are still
+one row each, because a history reads in time order. Whether that is the right call at fifty
+resolved findings is untested.
 
 ---
 
 ## What to improve
 
-**1. The finding row as a card.** Thesis, premise, measurement and interpretation are four
-kinds of text at four weights, and the list treats them as a paragraph.
+**1. The finding row as a card** — done. Premise, measurement, interpretation and status at
+four weights, each line a bordered card inside its thesis.
 
-**2. Grouping by thesis.** A thesis with three findings reads better as one card with three
-lines than as three rows that repeat its title.
+**2. Grouping by thesis** — done. One card per thesis, a line per finding, the thesis named
+once and linked to.
 
-**3. The observation as a small figure.** The sentence is honest; a value against a
-threshold with the period beneath is faster to read, and `ui.figure` exists for it.
+**3. The observation as a small figure** — done, with `ui.figure`: the value against the
+threshold, the period beneath, the calculation linked, the verdict as a chip.
+
+**4. The metric field's list** — done on the theses page: the premise form offers the names
+the monitor resolves.
+
+**5. A page for one source document.** The justification names documents it read; the reader
+should be able to open one. The research tool has the artefact and the excerpt machinery;
+what is missing is a URL that does not assume a run.
 
 ---
 
@@ -162,3 +175,7 @@ threshold with the period beneath is faster to read, and `ui.figure` exists for 
   under *resolved* with that reason.
 * A stopped pass appears as *needs diagnosis* and names the cap it hit.
 * A fresh install says there is nothing to monitor and where to go.
+* Two findings on one thesis appear as one card naming the thesis once, with a line, a chip
+  and a link for each.
+* A contradicted finding's page shows the value, the threshold and *does not hold* before the
+  sentence, and the value links to its calculation.

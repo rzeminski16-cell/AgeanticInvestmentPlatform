@@ -52,9 +52,11 @@ The list has two groups, and the difference is the whole point:
 - **Questions raised** — everything else. The monitor noticed something; nobody has yet said
   what they did about it.
 
-Each finding shows **what code measured** — the figure, the threshold, whether the predicate
-holds, beside the calculation it came from — apart from **what the monitor read into it**,
-which is an interpretation and never evidence.
+Findings are listed by thesis: one card per thesis, one line per finding on it, each line with
+its own status and its own link. Each finding shows **what code measured** — the value against
+the threshold, the period beneath, whether the predicate holds, and a link to the calculation
+it came from — apart from **what the monitor read into it**, which is an interpretation and
+never evidence.
 
 ## Closing a finding
 

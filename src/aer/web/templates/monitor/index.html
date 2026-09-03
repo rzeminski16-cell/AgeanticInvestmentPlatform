@@ -35,18 +35,46 @@
     </div>
   {% endif %}
 
+  {#
+    One card per thesis, one line per finding on it (the design page's second improvement).
+    The thesis is what the reader holds a view on; its findings are what happened to it, and
+    three findings on one thesis read as one card with three lines rather than three rows
+    repeating the title. Each line keeps its own link, id and status, because a line is what
+    the work list and the tests address.
+  #}
+  {% macro finding_groups(groups, label, meta_word, action_word) %}
+    {% call ui.record_list(label) %}
+      {% for group in groups %}
+        <li class="border-t border-line py-4" data-thesis="{{ group.thesis_id }}">
+          <p class="type-eyebrow text-ink-muted">{{ group.subject }}</p>
+          <a href="/theses/{{ group.thesis_id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ group.thesis_title }}</a>
+          <ol class="mt-3 flex flex-col gap-3" aria-label="Findings on {{ group.thesis_title }}">
+            {% for row in group.findings %}
+              <li
+                class="grid grid-cols-1 gap-2 rounded-sm border border-line bg-surface p-3 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6"
+                data-finding="{{ row.id }}" data-status="{{ 'contradicted' if row.opens_gate else row.label | lower }}"
+              >
+                <div class="min-w-0">
+                  {% if row.premise %}<p class="type-body-strong text-ink" data-field="premise">{{ row.premise }}</p>{% endif %}
+                  {% if row.observed %}<p class="mt-1 type-data-sm text-ink" data-field="observed">{{ row.observed }}</p>{% endif %}
+                  <p class="mt-1 max-w-prose type-body text-ink" data-field="justification">{{ row.justification }}</p>
+                  <p class="mt-2 type-data-sm text-ink-muted">
+                    Raised {{ row.raised_on }} &middot; {{ meta_word }} &middot;
+                    <a href="/monitor/findings/{{ row.id }}" class="text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ action_word }}</a>
+                  </p>
+                </div>
+                <div>{{ ui.status(row.tone, row.label) }}</div>
+              </li>
+            {% endfor %}
+          </ol>
+        </li>
+      {% endfor %}
+    {% endcall %}
+  {% endmacro %}
+
   {% call ui.sheet("Decisions waiting", subtitle="A filing defeated a premise's predicate. Each opened a gate: withdraw the premise or keep it, with your reason.", id="gated") %}
     {% if gated %}
-      {% call ui.record_list("Contradicted premises") %}
-        {% for row in gated %}
-          <li class="border-t border-line py-4" data-finding="{{ row.id }}" data-status="contradicted">
-            <a href="/monitor/findings/{{ row.id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ row.thesis_title }}</a>
-            <p class="mt-1 type-body-strong text-ink">{{ row.premise }}</p>
-            <p class="mt-1 max-w-prose type-body text-ink">{{ row.observed }}</p>
-            <p class="mt-1 type-data-sm text-ink-muted">Raised {{ row.raised_on }} · a decision waiting</p>
-          </li>
-        {% endfor %}
-      {% endcall %}
+      {{ finding_groups(gated, "Contradicted premises", "a decision waiting", "Decide what to do") }}
     {% else %}
       {{ ui.empty("No premise has been contradicted", "When a filing defeats a threshold you set, the finding appears here with the gate it opened.") }}
     {% endif %}
@@ -54,19 +82,7 @@
 
   {% call ui.sheet("Questions raised", subtitle="Findings, not decisions. Each stays here until you say what you did about it — even if that is nothing, with the reason.", id="unread") %}
     {% if unread %}
-      {% call ui.record_list("Open findings") %}
-        {% for row in unread %}
-          <li class="grid grid-cols-1 gap-2 border-t border-line py-4 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6" data-finding="{{ row.id }}" data-status="{{ row.label | lower }}">
-            <div class="min-w-0">
-              <a href="/monitor/findings/{{ row.id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ row.thesis_title }}</a>
-              {% if row.premise %}<p class="mt-1 type-body-strong text-ink">{{ row.premise }}</p>{% endif %}
-              <p class="mt-1 max-w-prose type-body text-ink">{{ row.justification }}</p>
-              <p class="mt-1 type-data-sm text-ink-muted">Raised {{ row.raised_on }} · a finding, not a decision</p>
-            </div>
-            <div>{{ ui.status(row.tone, row.label) }}</div>
-          </li>
-        {% endfor %}
-      {% endcall %}
+      {{ finding_groups(unread, "Open findings", "a finding, not a decision", "Say what you did") }}
     {% else %}
       {{ ui.empty("Nothing raised", "Every finding the monitor has raised has been acted on, or none has been raised yet.") }}
     {% endif %}

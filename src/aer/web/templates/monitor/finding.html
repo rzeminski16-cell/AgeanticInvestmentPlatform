@@ -39,7 +39,24 @@
 
   {% if item.observed %}
     {% call ui.sheet("What code measured", subtitle="Deterministic, before any model was asked. The verdict on the predicate is code's, and the model's reading is bounded by it.", id="observed") %}
-      <p class="type-body text-ink" data-field="observed">{{ item.observed }}</p>
+      {% if measured %}
+        {#
+          The value against the threshold, the period beneath, the verdict as a chip: faster
+          to read than the sentence, and saying exactly what it says. Each figure arrived
+          rendered from the pass's own record; the calculation link is where the value came
+          from, when it came from a calculation rather than straight from a stored fact.
+        #}
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2" id="measured">
+          <div data-field="measured">
+            {{ ui.figure(measured.metric, measured.value, note=measured.period ~ ("; " ~ measured.prior if measured.prior else ""), provenance_href=measured.calculation_href, provenance_label="The calculation") }}
+          </div>
+          <div data-field="threshold">
+            {{ ui.figure("The threshold", measured.threshold, note="What the premise says the metric must do.") }}
+          </div>
+        </div>
+        <div class="mt-4" data-field="verdict">{{ ui.status(measured.verdict_tone, measured.verdict_label) }}</div>
+      {% endif %}
+      <p class="mt-4 type-body-sm text-ink-muted" data-field="observed">{{ item.observed }}</p>
     {% endcall %}
   {% endif %}
 
