@@ -29,11 +29,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from aer.agents.user_skill import wrap_user_skill
+from pydantic import BaseModel
+
+from aer.agents.plan_critic import PlanCriticInput
+from aer.agents.red_team import RedTeamInput
+from aer.agents.user_skill import compose_guidance, wrap_user_skill
+from aer.agents.verdict import VerdictInput
 from aer.core.enums import SkillKind
 from aer.core.schemas.skill import EvidencePolicyRequest
 from aer.core.section_output import contract_violations, reserved_fields_in, unsourced_numerals
-from aer.core.skill_guidance import OperatorGuidance, guidance_for_role
+from aer.core.skill_guidance import PLANNER, SECTION_WRITER, OperatorGuidance, guidance_for_role
 from aer.core.skill_policy import BUILTIN_EVIDENCE_FLOOR, ComposedSectionPolicy, compose_policy
 from aer.eval import ConformanceObservation, ContainmentObservation
 from aer.skills.frontmatter import ParsedSkill, SkillFileError, parse_skill_file
@@ -77,12 +82,29 @@ def probe_file(source: str, *, budget_ceiling: int) -> SkillProbe:
         )
         contract = contract_schema(parsed.frontmatter.output or {})
 
+    # A prompt kind is scored on the bytes a planner or writer is actually sent — the rule,
+    # the header and the body through one neutraliser — a section on its own block.
+    if parsed.frontmatter.kind is SkillKind.CUSTOM_SECTION:
+        wrapped = wrap_user_skill(parsed.body)
+    else:
+        wrapped = compose_guidance([_guidance_of(parsed)])
+
     return SkillProbe(
         error=None,
         parsed=parsed,
         composed=composed,
-        wrapped=wrap_user_skill(parsed.body),
+        wrapped=wrapped,
         contract=contract,
+    )
+
+
+def _guidance_of(parsed: ParsedSkill) -> OperatorGuidance:
+    return OperatorGuidance(
+        kind=parsed.frontmatter.kind,
+        key=parsed.frontmatter.key,
+        title=parsed.frontmatter.title,
+        version=parsed.frontmatter.version,
+        body=parsed.body,
     )
 
 
@@ -188,31 +210,37 @@ def _v_unknown_policy_key(probe: SkillProbe, _: int) -> tuple[str | None, str]:
     )
 
 
-# The roles that judge what the guidance shaped. None of them may read it (ADR 0108 §1).
-ADVERSARIES: tuple[str, ...] = ("plan_critic", "red_team", "verdict")
+# The roles that judge what the guidance shaped, with the input each is built from. None
+# may read it (ADR 0108 §1), and the structural half of that is the input having no field
+# to put it in: a `guidance` field on any of these would be a breach the table cannot see.
+ADVERSARIES: dict[str, type[BaseModel]] = {
+    "plan_critic": PlanCriticInput,
+    "red_team": RedTeamInput,
+    "verdict": VerdictInput,
+}
 
 
 def _v_roles(probe: SkillProbe, _: int) -> tuple[str | None, str]:
     """A valid prompt-kind file whose text addresses the adversaries reaches none of them.
 
-    Observed by calling the real table with the parsed file: a verdict that consulted a
-    list of its own would be scoring its own list.
+    Observed by calling the real table with the parsed file, and by reading the real
+    input contracts: a verdict that consulted a list of its own would be scoring its own
+    list.
     """
     if probe.error is not None:
         return ("frontmatter", _issues(probe))
     assert probe.parsed is not None
-    item = OperatorGuidance(
-        kind=probe.parsed.frontmatter.kind,
-        key=probe.parsed.frontmatter.key,
-        title=probe.parsed.frontmatter.title,
-        version=probe.parsed.frontmatter.version,
-        body=probe.parsed.body,
-    )
+    item = _guidance_of(probe.parsed)
     reached = [role for role in ADVERSARIES if guidance_for_role([item], role)]
     if reached:
         return (None, f"the text composed into {reached}")
-    readers = [role for role in ("planner", "report_writer") if guidance_for_role([item], role)]
-    return ("roles", f"composed into {readers} and into no adversary")
+    with_a_field = [
+        role for role, contract in ADVERSARIES.items() if "guidance" in contract.model_fields
+    ]
+    if with_a_field:
+        return (None, f"an adversary's input carries a guidance field: {with_a_field}")
+    readers = [role for role in (PLANNER, SECTION_WRITER) if guidance_for_role([item], role)]
+    return ("roles", f"composed into {readers}, and no adversary has a field for it")
 
 
 def _v_prompt_kind_shape(probe: SkillProbe, _: int) -> tuple[str | None, str]:
@@ -230,7 +258,12 @@ def _v_boundary(probe: SkillProbe, _: int) -> tuple[str | None, str]:
     if probe.error is not None:
         return ("frontmatter", _issues(probe))
     assert probe.wrapped is not None
-    if probe.wrapped.count("<user_skill>") == 1 and probe.wrapped.count("</user_skill>") == 1:
+    # Blocks, not mentions: the guidance rule names the opening delimiter once in prose,
+    # so the count is of delimiters on a line of their own — one open, one close — with
+    # the smuggled one escaped inside.
+    opened = probe.wrapped.count("<user_skill>\n")
+    closed = probe.wrapped.count("\n</user_skill>")
+    if opened == 1 and closed == 1 and probe.wrapped.count("</user_skill>") == 1:
         return ("boundary", "the smuggled delimiter was neutralised inside the block")
     return (None, "the body closed its own quotation and continued outside it")
 

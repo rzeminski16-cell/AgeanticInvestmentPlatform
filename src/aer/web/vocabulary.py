@@ -30,7 +30,7 @@ raw enum on the one screen nobody tested, which is exactly how the nineteen got 
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final
@@ -49,6 +49,7 @@ from aer.core.enums import (
     SkillKind,
     TransactionKind,
 )
+from aer.core.skill_guidance import PLANNER, SECTION_WRITER, roles_for
 from aer.db.models.report_section import SectionStatus
 
 __all__ = [
@@ -505,6 +506,24 @@ TRANSACTION_KINDS: Final[dict[TransactionKind, HumanState]] = {
     ),
 }
 
+ROLE_WORDS: Final[dict[str, str]] = {
+    PLANNER: "the planner",
+    SECTION_WRITER: "the section writer",
+}
+"""The roles a skill composes into, as a reader names them (ADR 0108). One mapping for the
+gate page, the editor and the vocabulary, so the table in core has one spelling here."""
+
+
+def composes_into_phrase(roles: Iterable[str]) -> str:
+    """ "the planner and the section writer", from the role table's keys; empty for none."""
+    words = [ROLE_WORDS.get(role, role) for role in roles]
+    if not words:
+        return ""
+    if len(words) == 1:
+        return words[0]
+    return ", ".join(words[:-1]) + " and " + words[-1]
+
+
 SKILL_KINDS: Final[dict[SkillKind, HumanState]] = {
     SkillKind.CUSTOM_SECTION: HumanState(
         "Custom section",
@@ -514,15 +533,19 @@ SKILL_KINDS: Final[dict[SkillKind, HumanState]] = {
     SkillKind.METHODOLOGY: HumanState(
         "Methodology",
         Tone.INFO,
-        "Composes into the planner and the section writer: how to analyse, what to weigh.",
+        f"Composes into {composes_into_phrase(roles_for(SkillKind.METHODOLOGY))}: how to "
+        "analyse, what to weigh.",
     ),
     SkillKind.PREFERENCE: HumanState(
-        "Preference", Tone.INFO, "Composes into the section writer: how to present."
+        "Preference",
+        Tone.INFO,
+        f"Composes into {composes_into_phrase(roles_for(SkillKind.PREFERENCE))}: how to present.",
     ),
     SkillKind.HOUSE_VIEW: HumanState(
         "House view",
         Tone.INFO,
-        "Composes into the planner and the section writer: a standing view the run tests.",
+        f"Composes into {composes_into_phrase(roles_for(SkillKind.HOUSE_VIEW))}: a standing "
+        "view the run tests.",
     ),
 }
 

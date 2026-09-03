@@ -136,8 +136,13 @@ operator authors and enables (ADR 0091); `aer lessons` still teaches nothing.
   three kinds for the first time meets a file rather than a paragraph.
 - The gate-1 payload has one more key per pin, and every stored plan hash from before
   this record differs from what the same plan would hash now. That is the intended
-  behaviour of a hash over exactly what is displayed, and no approval is ever compared
-  across a code version.
+  behaviour of a hash over exactly what is displayed. Two consequences for a run in
+  flight across the deploy: one paused at gate 1 hashes differently from its sealed
+  payload and is refused until its `critique_plan` step is retried, which re-seals it;
+  one approved at gate 1 before the deploy with planned prompt-kind pins resumes under
+  guidance nobody saw composed, and should be re-planned if that matters.
+- A prompt-kind pin carries an estimate — its text, as input, on the planner's call and
+  on every model-written section — so the gate shows what the guidance adds.
 
 ## Alternatives considered
 

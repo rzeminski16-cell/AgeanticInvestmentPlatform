@@ -465,6 +465,27 @@ class TestTheGateCoversThePins:
         assert by_key["owner_operator"]["composes_into"] == ["planner", "report_writer"]
         assert by_key["moat_durability"]["composes_into"] == []
 
+    async def test_a_prompt_kind_pin_is_priced_for_every_call_that_reads_it(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """Its text is input on the planner's call and on every model-written section; a
+        cost the gate does not show is a cost nobody agreed to (ADR 0108)."""
+        await save_skill(db_session, source=OWNER_OPERATOR, actor=scene["user"])
+        await set_enabled(db_session, key="owner_operator", enabled=True, actor=scene["user"])
+
+        resolved = await resolve_skills_for_plan(
+            db_session,
+            request=scene["request"],
+            work_order_id=scene["request"].id,
+            settings=scene["settings"],
+            router=scene["router"],
+            writer_calls=15,
+        )
+
+        [pin] = resolved.pins
+        assert pin.estimated_cost_gbp > 0
+        assert resolved.estimated_cost_gbp == pin.estimated_cost_gbp
+
     async def test_planned_prompt_kind_pins_reduce_to_guidance_and_nothing_else_does(
         self, db_session: AsyncSession, scene: dict[str, Any]
     ) -> None:

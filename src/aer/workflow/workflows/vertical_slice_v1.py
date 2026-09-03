@@ -72,7 +72,7 @@ from aer.core.sectors import (
     profile_for,
     unclassified_mandate,
 )
-from aer.core.skill_guidance import roles_for
+from aer.core.skill_guidance import OperatorGuidance, roles_for
 from aer.db.models import (
     Approval,
     Assumption,
@@ -574,6 +574,9 @@ async def _plan(context: StepContext) -> StepResult:
         work_order_id=request.id,
         settings=context.service("settings"),
         router=context.service("router"),
+        # A prompt-kind skill is read by the planner once and by the writer on every
+        # model-written section; its estimate counts those calls (ADR 0108).
+        writer_calls=sum(1 for definition in definitions if definition.token_budget > 0),
     )
     pins = await pinned_skills_for_work_order(context.session, work_order_id=request.id)
 
@@ -2963,6 +2966,10 @@ class _SectionWork:
     section_id: uuid.UUID
     custom: bool
     focus: str = ""
+    # The operator's standing guidance for a built-in section (ADR 0108), resolved once
+    # from the run's pins by the coordinator; plain data, so it crosses the session
+    # boundary with the rest of the work item.
+    guidance: tuple[OperatorGuidance, ...] = ()
 
 
 async def _draft_one(
@@ -2983,10 +2990,11 @@ async def _draft_one(
         message = f"Section {work.section_id} vanished mid-draft."
         raise AerError(message, context={"section_id": str(work.section_id)})
 
-    job = await session.get(Job, agent_context.job_step.job_id)
-    assert job is not None
-    pins = await pinned_skills_for_job(session, job=job)
     if work.custom:
+        # The ORM pin itself, on this session: the custom section executes under it.
+        job = await session.get(Job, agent_context.job_step.job_id)
+        assert job is not None
+        pins = await pinned_skills_for_job(session, job=job)
         pin = next((p for p in pins if p.skill_id == section.definition.skill_id), None)
         if pin is None:  # pragma: no cover -- the partitioning refused pin-less sections
             message = "The skill pin this section was partitioned under has vanished."
@@ -2995,14 +3003,14 @@ async def _draft_one(
             agent_context, section=section, pin=pin, request=request
         )
 
-    # The operator's standing guidance, from the same pins (ADR 0108); the writer keeps
-    # the kinds its role reads.
+    # The operator's standing guidance, resolved once by the coordinator from the same
+    # pins (ADR 0108); the writer keeps the kinds its role reads.
     return await execute_builtin_section(
         agent_context,
         section=section,
         request=request,
         focus=work.focus,
-        guidance=guidance_from_pins(pins),
+        guidance=work.guidance,
     )
 
 
@@ -3049,6 +3057,7 @@ def _partitioned_sections(
     *,
     pin_by_skill: Mapping[Any, Any],
     focus_by_key: Mapping[str, str],
+    guidance: Sequence[OperatorGuidance] = (),
 ) -> tuple[dict[uuid.UUID, dict[str, Any]], list[_SectionWork]]:
     """Split a run's sections into refusals and drafting work, in declared order.
 
@@ -3085,6 +3094,7 @@ def _partitioned_sections(
                 section_id=section.id,
                 custom=False,
                 focus=focus_by_key.get(section.section_key, ""),
+                guidance=tuple(guidance),
             )
         )
     return refused, pending
@@ -3192,7 +3202,10 @@ async def _draft(context: StepContext) -> StepResult:
 
     sections = await sections_for_job(context.session, context.job.id)
     refused, pending = _partitioned_sections(
-        sections, pin_by_skill=pin_by_skill, focus_by_key=focus_by_key
+        sections,
+        pin_by_skill=pin_by_skill,
+        focus_by_key=focus_by_key,
+        guidance=guidance_from_pins(pins),
     )
 
     factory: async_sessionmaker[AsyncSession] | None = context.optional_service("session_factory")

@@ -26,6 +26,7 @@ from aer.web.csrf import (
     usable_csrf_token,
 )
 from aer.web.shell import GUIDANCE_COOKIE, THEME_COOKIE, shell_for
+from aer.web.vocabulary import ROLE_WORDS
 
 __all__ = ["DISCLAIMER", "STATIC_DIR", "STYLES_DIR", "TEMPLATES_DIR", "render", "templates"]
 
@@ -62,6 +63,9 @@ def percent(fraction: Any) -> str:
 templates: Final = Jinja2Templates(directory=str(TEMPLATES_DIR))
 templates.env.globals["disclaimer"] = DISCLAIMER
 templates.env.globals["app_version"] = version()
+# The roles a skill composes into, in a reader's words (ADR 0108): the gate page and the
+# skills editor read one mapping rather than each carrying a copy.
+templates.env.globals["role_words"] = ROLE_WORDS
 templates.env.filters["percent"] = percent
 # The disagreement rule (gap A68), so four surfaces read one answer rather than four
 # copies of a conditional living in Jinja.
