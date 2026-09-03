@@ -375,6 +375,26 @@ class TestTheTradePointsAtTheDecision:
                 scene["session"], transaction=trade, decision=decision, actor=scene["user"]
             )
 
+    async def test_a_trade_in_another_book_is_refused(self, scene: dict[str, Any]) -> None:
+        """The book is one of the two things a decision names; a trade in a different one
+        did not carry it out, however similar the security."""
+        decision = await _decision(
+            scene["session"],
+            scene["user"],
+            scene["thesis"],
+            security=scene["security"],
+            portfolio=scene["book"],
+        )
+        other = Portfolio(user_id=scene["user"].id, name="The other book", base_currency="GBP")
+        scene["session"].add(other)
+        await scene["session"].flush()
+        trade = await _trade(scene["session"], book=other, security=scene["security"])
+
+        with pytest.raises(ValidationError, match="different book"):
+            await decision_service.carry_out(
+                scene["session"], transaction=trade, decision=decision, actor=scene["user"]
+            )
+
     async def test_a_decision_to_hold_is_carried_out_by_nothing(
         self, scene: dict[str, Any]
     ) -> None:

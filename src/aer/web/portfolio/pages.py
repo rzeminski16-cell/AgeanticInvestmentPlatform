@@ -109,7 +109,7 @@ async def portfolio_page(
     stood on the thirtieth" is a thing an operator wants to send themselves, and a date held
     only in a form is a view that cannot be returned to.
     """
-    book = await _book_of(session, user_id=user.id)
+    book = await portfolio_service.default_book(session, user_id=user.id)
     token = new_csrf_token(settings)
 
     if book is None:
@@ -237,7 +237,7 @@ async def create_book(
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
         return _refused(request, "Nothing was created.")
 
-    existing = await _book_of(session, user_id=user.id)
+    existing = await portfolio_service.default_book(session, user_id=user.id)
     if existing is not None:
         return RedirectResponse("/portfolio", status_code=HTTP_303_SEE_OTHER)
 
@@ -268,7 +268,7 @@ async def record_transaction(  # noqa: PLR0911 -- one refusal per thing a trade 
     a contract note is the second door into this table and it is not this one — so a
     hand-entered trade is marked as what it is, and every figure above it inherits that.
     """
-    book = await _book_of(session, user_id=user.id)
+    book = await portfolio_service.default_book(session, user_id=user.id)
     if book is None:
         return _problem(request, "There is no book to record a transaction against.")
 
@@ -349,16 +349,6 @@ async def record_transaction(  # noqa: PLR0911 -- one refusal per thing a trade 
 
 
 # -- Reading -------------------------------------------------------------------------------
-
-
-async def _book_of(session: DbSession, *, user_id: uuid.UUID) -> Portfolio | None:
-    found: Portfolio | None = await session.scalar(
-        select(Portfolio)
-        .where(Portfolio.user_id == user_id, Portfolio.archived_at.is_(None))
-        .order_by(Portfolio.created_at)
-        .limit(1)
-    )
-    return found
 
 
 def _requested_date(request: Request) -> date | None:

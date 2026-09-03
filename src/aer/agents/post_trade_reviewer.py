@@ -66,6 +66,10 @@ class DecisionUnderReview(BaseModel):
     exit_plan: str = ""
     carried_out_by: int = 0
     """How many of the episode's trades named this decision."""
+    withdrawn: bool = False
+    withdrawn_reason: str = ""
+    """Revised or withdrawn while the position was open: still what the trade carried out,
+    and no longer what the holder stands by."""
 
 
 class PremiseUnderReview(BaseModel):
@@ -102,8 +106,11 @@ class OutcomeFigures(BaseModel):
     closed_on: str
     holding_days: int
     intended_horizon_months: int | None = None
-    realised_return: str
-    """As a fraction of cost, already computed and recorded. "0.20" is twenty per cent."""
+    realised_return: str | None = None
+    """As a fraction of cost, already computed and recorded. "0.20" is twenty per cent;
+    absent when the outcome could not be computed, and ``problem`` says why."""
+    problem: str = ""
+    """Why the return is absent, in the platform's words. Never a figure."""
     currency: str
     cost: str
     proceeds: str

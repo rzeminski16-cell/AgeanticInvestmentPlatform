@@ -328,6 +328,9 @@ async def carry_out(
     ):
         message = "This trade is in a different security from the one the decision names."
         raise ValidationError(message, context={"decision_id": str(decision.judgement_id)})
+    if decision.portfolio_id is not None and decision.portfolio_id != transaction.portfolio_id:
+        message = "This trade is in a different book from the one the decision names."
+        raise ValidationError(message, context={"decision_id": str(decision.judgement_id)})
 
     transaction.decision_id = decision.judgement_id
     await session.flush()

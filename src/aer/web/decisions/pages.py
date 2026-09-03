@@ -30,9 +30,10 @@ from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NO
 
 from aer.api.deps import CurrentUser, DbSession, SettingsDep
 from aer.core.enums import DecisionAction
-from aer.db.models import Decision, Portfolio, Security, Thesis, Transaction
+from aer.db.models import Decision, Security, Thesis, Transaction
 from aer.errors import AerError
 from aer.services import decisions as decision_service
+from aer.services import portfolio as portfolio_service
 from aer.services import theses as thesis_service
 from aer.services.decisions import ACTION_WORDS
 from aer.web import verdict as verdicts
@@ -350,7 +351,7 @@ async def _fields(session: Any, submitted: dict[str, str], *, user_id: uuid.UUID
         "statement": submitted.get("statement", ""),
         "basis": submitted.get("basis", ""),
         "security": await _security(session, submitted.get("security", "")),
-        "portfolio": await _book(session, user_id=user_id),
+        "portfolio": await portfolio_service.default_book(session, user_id=user_id),
         "size_statement": submitted.get("size_statement", ""),
         "horizon_months": int(horizon) if horizon else None,
         "exit_plan": submitted.get("exit_plan", ""),
@@ -390,16 +391,6 @@ async def _security(session: Any, typed: str) -> Security | None:
         message = f"{cleaned!r} is listed more than once ({choices}); say which"
         raise ValueError(message)
     return found[0]
-
-
-async def _book(session: Any, *, user_id: uuid.UUID) -> Portfolio | None:
-    found: Portfolio | None = await session.scalar(
-        select(Portfolio)
-        .where(Portfolio.user_id == user_id, Portfolio.archived_at.is_(None))
-        .order_by(Portfolio.created_at)
-        .limit(1)
-    )
-    return found
 
 
 async def _dealable(session: Any) -> list[dict[str, str]]:

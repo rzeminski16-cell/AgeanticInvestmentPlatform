@@ -68,7 +68,7 @@
         {{ ui.field("statement", "In a line", required=true, rows=2, hint="\"Open an initial position, about two per cent of the book.\"") }}
         {{ ui.field("basis", "On what basis", required=true, rows=3, hint="What you read, saw or reasoned. A decision with no grounds is the entry a review cannot score.") }}
         <div class="grid gap-4 sm:grid-cols-2">
-          {{ ui.field("security", "Listing", hint="TICKER.EXCHANGE, from the listings the platform holds. Leave empty if it has not been priced yet.") }}
+          {{ ui.field("security", "Listing", datalist="dealable-listings", hint="TICKER.EXCHANGE, from the listings the platform holds. Leave empty if it has not been priced yet.") }}
           {{ ui.field("decided_on", "Decided on", type="date", value=today, maximum=today, hint="Defaults to today. Backdate it if you are writing up a decision already taken.") }}
           {{ ui.field("size_statement", "How much, in words", hint="\"About 2% of the book\", \"half the position\". A sentence, never a number the platform could multiply.") }}
           {{ ui.field("horizon_months", "Intended holding period, in months", type="number", hint="What a later review compares the actual holding period with.") }}

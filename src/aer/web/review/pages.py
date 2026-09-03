@@ -251,9 +251,10 @@ async def review_page(
     request: Request, session: DbSession, settings: SettingsDep, user: CurrentUser
 ) -> Response:
     """Every closed position with where its review stands, and the button that runs one."""
+    books = await _books(session, user.id)
     rows = [
         _episode_row(state)
-        for book in await _books(session, user.id)
+        for book in books
         for state in await post_trade.states_for(session, portfolio=book)
     ]
     token = new_csrf_token(settings)
@@ -266,7 +267,7 @@ async def review_page(
             "unreviewed": [row for row in rows if row.state == "unreviewed"],
             "stopped": [row for row in rows if row.state == "stopped"],
             "reviewed": [row for row in rows if row.state == "reviewed"],
-            "has_books": bool(await _books(session, user.id)),
+            "has_books": bool(books),
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
@@ -386,9 +387,6 @@ async def proposal_page(
             "findings": output.get("findings") or [],
             "premises": premises,
             "draft": draft,
-            "draft_quality": (
-                vocabulary.PROCESS_QUALITIES[draft.process_quality] if draft is not None else None
-            ),
             "is_failed": proposal.failed,
             "reason": proposal.reason,
             "review_id": review.judgement_id if review is not None else None,

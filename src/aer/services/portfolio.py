@@ -31,6 +31,7 @@ than no total, because it looks like an answer.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import date
@@ -47,7 +48,7 @@ from aer.calc.engine import CalculationContext, CalculationRecord
 from aer.calc.prices import MINOR_UNITS, price_in_major_units
 from aer.calc.units import CalculationError, Quantity, SourceRef, Unit
 from aer.core.enums import Grade, TransactionKind
-from aer.db.models import Attestation, PriceBar, Security, Transaction
+from aer.db.models import Attestation, Portfolio, PriceBar, Security, Transaction
 from aer.services import fx as fx_service
 
 if TYPE_CHECKING:
@@ -211,6 +212,21 @@ class PortfolioView:
             *(row.balance for row in self.cash),
         ]
         return any(figure is not None and figure.is_attested for figure in every)
+
+
+async def default_book(session: AsyncSession, *, user_id: uuid.UUID) -> Portfolio | None:
+    """The book a page opens on when none is named: the person's first, still open.
+
+    One definition, because three pages used to carry the same query and the choice —
+    oldest first — should be one decision rather than three agreeing.
+    """
+    found: Portfolio | None = await session.scalar(
+        select(Portfolio)
+        .where(Portfolio.user_id == user_id, Portfolio.archived_at.is_(None))
+        .order_by(Portfolio.created_at)
+        .limit(1)
+    )
+    return found
 
 
 async def book_as_at(

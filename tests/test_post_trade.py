@@ -17,7 +17,7 @@ from __future__ import annotations
 import ast
 import re
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -27,10 +27,12 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import aer.calc
-from aer.agents.post_trade_reviewer import PremiseVerdictDraft, ReviewDraft
+from aer.agents.post_trade_reviewer import MAX_PREMISES, PremiseVerdictDraft, ReviewDraft
 from aer.config import Settings
 from aer.core.enums import (
+    AttestationKind,
     DecisionAction,
+    Grade,
     JobStatus,
     JudgementKind,
     PremiseVerdict,
@@ -39,9 +41,11 @@ from aer.core.enums import (
     UserRole,
 )
 from aer.db.models import (
+    Attestation,
     AuditEvent,
     Calculation,
     Company,
+    CorporateAction,
     Judgement,
     Portfolio,
     Review,
@@ -51,6 +55,7 @@ from aer.db.models import (
     User,
     WorkOrder,
 )
+from aer.db.models.security import CorporateActionKind
 from aer.errors import ConflictError, ValidationError
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
@@ -181,6 +186,42 @@ async def _round_trip(
         session, transaction=transaction, decision=decision, actor=scene["user"]
     )
     return decision
+
+
+async def _split(scene: dict[str, Any], *, on: date, ratio: str = "2") -> None:
+    """A two-for-one split derived from its corporate action, as the splits service writes it."""
+    session = scene["session"]
+    action = CorporateAction(
+        security_id=scene["barc"].id,
+        kind=CorporateActionKind.SPLIT,
+        ex_date=on,
+        split_ratio=Decimal(ratio),
+    )
+    session.add(action)
+    await session.flush()
+    attestation = Attestation(
+        kind=AttestationKind.TRANSACTION,
+        grade=Grade.ATTESTED,
+        effective_at=datetime(on.year, on.month, on.day, 8, 0, tzinfo=UTC),
+        recorded_by="book@example.invalid",
+    )
+    session.add(attestation)
+    await session.flush()
+    session.add(
+        Transaction(
+            attestation_id=attestation.id,
+            portfolio_id=scene["portfolio"].id,
+            kind=TransactionKind.SPLIT,
+            security_id=scene["barc"].id,
+            corporate_action_id=action.id,
+            trade_date=on,
+            quantity=Decimal(ratio),
+            price=None,
+            fees=Decimal(0),
+            currency="GBX",
+        )
+    )
+    await session.flush()
 
 
 async def _episode(scene: dict[str, Any]) -> post_trade.Episode:
@@ -376,6 +417,112 @@ class TestAnEpisode:
 
 
 # -- The outcome -------------------------------------------------------------------------------
+
+
+class TestTheWalkIsHonest:
+    async def test_a_split_while_flat_does_not_open_the_next_episode(
+        self, db_session: AsyncSession
+    ) -> None:
+        """A split is derived for every book that ever dealt in the security, holdings not
+        consulted. One arriving between two round trips multiplies nothing and used to
+        become the first row of the next episode, dating its opening at the ex-date."""
+        scene = await _scene(db_session)
+        await _round_trip(scene, decided=False)
+        await _split(scene, on=CLOSED_ON + timedelta(days=10))
+        reopened = CLOSED_ON + timedelta(days=30)
+        await _round_trip(
+            scene, opened_on=reopened, closed_on=reopened + timedelta(days=30), decided=False
+        )
+
+        episodes = await post_trade.closed_episodes(db_session, portfolio=scene["portfolio"])
+
+        assert [row.opened_on for row in episodes] == [reopened, OPENED_ON]
+        assert all(
+            TransactionKind.SPLIT not in {trade.kind for trade in row.trades} for row in episodes
+        )
+
+    async def test_a_sale_before_any_purchase_leaves_the_security_out(
+        self, db_session: AsyncSession
+    ) -> None:
+        """The pooled cost refuses a walk that goes short and the portfolio page reports the
+        trades as missing; an episode built from it would date the opening at the sale."""
+        scene = await _scene(db_session)
+        await trade(
+            db_session,
+            scene,
+            kind=TransactionKind.SELL,
+            security=scene["barc"],
+            quantity="-100",
+            price="300",
+            currency="GBX",
+            on=OPENED_ON,
+        )
+        await trade(
+            db_session,
+            scene,
+            kind=TransactionKind.BUY,
+            security=scene["barc"],
+            quantity="100",
+            price="250",
+            currency="GBX",
+            on=CLOSED_ON,
+        )
+
+        assert await post_trade.closed_episodes(db_session, portfolio=scene["portfolio"]) == []
+
+    async def test_a_fee_naming_the_security_is_not_part_of_the_episode(
+        self, db_session: AsyncSession
+    ) -> None:
+        """A custody charge attributed to the holding is neither bought nor sold: the outcome
+        counted it nowhere, so the episode's trade count must not count it either."""
+        scene = await _scene(db_session)
+        await _round_trip(scene, decided=False)
+        await trade(
+            db_session,
+            scene,
+            kind=TransactionKind.FEE,
+            security=scene["barc"],
+            quantity="-5",
+            price=None,
+            currency="GBX",
+            on=CLOSED_ON - timedelta(days=5),
+        )
+
+        episode = await _episode(scene)
+
+        assert [row.kind for row in episode.trades] == [TransactionKind.BUY, TransactionKind.SELL]
+
+
+class TestARevisedDecision:
+    async def test_it_is_shown_as_withdrawn_and_no_longer_sets_the_horizon(
+        self, db_session: AsyncSession
+    ) -> None:
+        """Revised while the position was open: still what the trade carried out, so it is
+        under review — marked — and its horizon is not the one the reviewer measures by."""
+        scene = await _scene(db_session)
+        decision = await _round_trip(scene)
+        await decision_service.revise_decision(
+            db_session,
+            decision=decision,
+            actor=scene["user"],
+            thesis=scene["thesis"],
+            action=DecisionAction.BUY,
+            statement="Open an initial position, sooner.",
+            basis="The FY25 guidance on returns, and the price.",
+            security=scene["barc"],
+            horizon_months=6,
+        )
+
+        episode = await _episode(scene)
+        outcome = await post_trade.outcome_for(
+            db_session, post_trade.new_context(), episode=episode
+        )
+        payload = post_trade._review_input(episode, outcome, company=None, premises=[])
+
+        assert outcome.intended_horizon_months is None
+        [under_review] = payload.decisions
+        assert under_review.withdrawn is True
+        assert "Superseded" in under_review.withdrawn_reason
 
 
 class TestTheOutcome:
@@ -623,6 +770,116 @@ class TestThePass:
 # -- Confirming ---------------------------------------------------------------------------------
 
 
+class TestAPassIsForOneBook:
+    async def test_the_latest_pass_is_the_latest_pass_over_this_book(
+        self, db_session: AsyncSession, tmp_path: Path
+    ) -> None:
+        """A work order names the security and the close date, not the book. Two books that
+        closed the same security on the same day used to share one "latest pass"."""
+        scene = await _scene(db_session)
+        await _round_trip(scene)
+        other = Portfolio(user_id=scene["user"].id, name="SIPP", base_currency="GBP")
+        db_session.add(other)
+        await db_session.flush()
+        other_scene = {**scene, "portfolio": other}
+        await _round_trip(other_scene, decided=False)
+        job = await _run(scene, tmp_path, provider=_provider(_draft(scene["premise"].judgement_id)))
+
+        [in_other] = await post_trade.closed_episodes(db_session, portfolio=other)
+        found = await post_trade.latest_pass_for(db_session, episode=await _episode(scene))
+        not_found = await post_trade.latest_pass_for(db_session, episode=in_other)
+
+        assert found is not None
+        assert found.id == job.id
+        assert not_found is None
+
+
+class TestWhatCannotBeConfirmed:
+    async def test_a_pass_that_stopped_cannot_be_confirmed(
+        self, db_session: AsyncSession, tmp_path: Path
+    ) -> None:
+        scene = await _scene(db_session)
+        await _round_trip(scene)
+        job = await _run(
+            scene,
+            tmp_path,
+            provider=_provider(_draft(scene["premise"].judgement_id)),
+            per_run_budget_gbp=Decimal("0.0001"),
+        )
+        assert job.status is JobStatus.FAILED
+        proposal = await _proposal(scene, job)
+
+        with pytest.raises(ValidationError, match="stopped before"):
+            await _confirm(scene, proposal)
+
+    async def test_a_stale_form_is_refused_rather_than_recorded_as_untested(
+        self, db_session: AsyncSession, tmp_path: Path
+    ) -> None:
+        """A premise on the pass and not on the form is a form that has gone stale; writing
+        "untested" under the operator's name for a verdict they never gave is the one thing
+        this must not do."""
+        scene = await _scene(db_session)
+        await _round_trip(scene)
+        job = await _run(scene, tmp_path, provider=_provider(_draft(scene["premise"].judgement_id)))
+        proposal = await _proposal(scene, job)
+
+        with pytest.raises(ValidationError, match="did not carry a verdict"):
+            await _confirm(scene, proposal, verdicts={})
+
+    async def test_a_book_corrected_since_the_pass_cannot_confirm_it(
+        self, db_session: AsyncSession, tmp_path: Path
+    ) -> None:
+        """A trade corrected between the pass and the confirmation: the book no longer closes
+        this position on that day, so the outcome describes an episode it no longer has."""
+        scene = await _scene(db_session)
+        await _round_trip(scene)
+        job = await _run(scene, tmp_path, provider=_provider(_draft(scene["premise"].judgement_id)))
+        proposal = await _proposal(scene, job)
+        await trade(
+            db_session,
+            scene,
+            kind=TransactionKind.BUY,
+            security=scene["barc"],
+            quantity="50",
+            price="250",
+            currency="GBX",
+            on=OPENED_ON,
+            at_hour=11,
+        )
+
+        with pytest.raises(ConflictError, match="no longer closes"):
+            await _confirm(scene, proposal)
+
+    async def test_a_thesis_beyond_the_reviewers_contract_is_refused_before_a_pass_opens(
+        self, db_session: AsyncSession, tmp_path: Path
+    ) -> None:
+        scene = await _scene(db_session)
+        await _round_trip(scene)
+        for index in range(MAX_PREMISES):
+            await thesis_service.add_premise(
+                db_session,
+                thesis=scene["thesis"],
+                actor=scene["user"],
+                statement=f"Premise {index}.",
+                basis="A basis.",
+                predicate=None,
+                review_by=date(2027, 3, 31),
+            )
+        settings = _settings(tmp_path)
+        store = LocalArtefactStore(settings.artefact_root, max_bytes=settings.max_artefact_bytes)
+
+        with pytest.raises(ValidationError, match="at most"):
+            await post_trade.run_review(
+                db_session,
+                settings=settings,
+                provider=_provider(_draft(scene["premise"].judgement_id)),
+                router=Router(settings),
+                store=store,
+                user=scene["user"],
+                episode=await _episode(scene),
+            )
+
+
 class TestConfirming:
     async def test_the_review_is_the_operators_judgement_with_the_draft_beside_it(
         self, db_session: AsyncSession, tmp_path: Path
@@ -726,6 +983,15 @@ class TestConfirming:
 
 
 class TestAStatistic:
+    def test_the_sample_is_positions_even_when_the_parts_are_finer(self) -> None:
+        """Three premise verdicts from one reviewed position are an anecdote: the floor is
+        judged on the positions behind the count, not on what the parts happen to count."""
+        finer = post_trade.Statistic("Premise verdicts", 3, (post_trade.Part("held", 3),), sample=1)
+        plain = post_trade.Statistic("Process quality", 3, (post_trade.Part("sound", 3),))
+
+        assert not finer.is_a_finding
+        assert plain.is_a_finding
+
     def test_the_parts_must_account_for_the_total(self) -> None:
         with pytest.raises(ValueError, match="do not account"):
             post_trade.Statistic("x", 3, (post_trade.Part("a", 1), post_trade.Part("b", 1)))

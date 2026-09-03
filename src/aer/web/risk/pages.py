@@ -33,6 +33,7 @@ from aer.api.deps import CurrentUser, DbSession, ProviderDep, RouterDep, Setting
 from aer.core.enums import ShockKind
 from aer.db.models import Portfolio, PriceBar, RiskScenario, Transaction
 from aer.errors import AerError
+from aer.services import portfolio as portfolio_service
 from aer.services import risk as risk_service
 from aer.services.calculations import new_context
 from aer.services.portfolio import Figure
@@ -79,7 +80,7 @@ def _figure(label: str, figure: Figure | None, *, rendered: str, note: str = "")
 async def risk_page(
     request: Request, session: DbSession, settings: SettingsDep, user: CurrentUser
 ) -> Response:
-    book = await _book_of(session, user_id=user.id)
+    book = await portfolio_service.default_book(session, user_id=user.id)
     token = new_csrf_token(settings)
     if book is None:
         empty: Response = render(
@@ -330,7 +331,7 @@ async def read_book(  # noqa: PLR0917 -- the service bundle, spelt out
     submitted = await _submitted(request)
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
         return _refused(request, "Nothing was read.")
-    book = await _book_of(session, user_id=user.id)
+    book = await portfolio_service.default_book(session, user_id=user.id)
     if book is None:
         return _problem(request, "No book to read.")
     try:
@@ -365,7 +366,7 @@ async def state_scenario(
     submitted = await _submitted(request)
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
         return _refused(request, "Nothing was stated.")
-    book = await _book_of(session, user_id=user.id)
+    book = await portfolio_service.default_book(session, user_id=user.id)
     if book is None:
         return _problem(request, "No book to state a scenario about.")
 
@@ -438,16 +439,6 @@ async def withdraw_scenario(
 
 
 # -- Reading ----------------------------------------------------------------------------------
-
-
-async def _book_of(session: Any, *, user_id: uuid.UUID) -> Portfolio | None:
-    found: Portfolio | None = await session.scalar(
-        select(Portfolio)
-        .where(Portfolio.user_id == user_id, Portfolio.archived_at.is_(None))
-        .order_by(Portfolio.created_at)
-        .limit(1)
-    )
-    return found
 
 
 def _requested_date(request: Request) -> date | None:

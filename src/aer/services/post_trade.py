@@ -34,12 +34,13 @@ from decimal import Decimal
 from typing import Any, Final
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from aer.agents.base import AgentContext
 from aer.agents.post_trade_reviewer import (
+    MAX_PREMISES,
     DecisionUnderReview,
     FindingWhileOpen,
     OutcomeFigures,
@@ -88,6 +89,7 @@ from aer.providers.router import Router
 from aer.services import theses as thesis_service
 from aer.services.calculations import new_context, persist_context
 from aer.services.decisions import ACTION_WORDS
+from aer.services.overview import MINIMUM_SAMPLE as OVERVIEW_MINIMUM_SAMPLE
 from aer.services.portfolio import (
     CASH_KINDS,
     acquisition_cost_of,
@@ -135,9 +137,9 @@ WORKFLOW_VERSION: Final = "post_trade_review_v1"
 STEP_KEY: Final = "review"
 
 # Below this many reviewed positions a proportion is a tally rather than a percentage. The
-# comps table's own floor (`services.overview.MINIMUM_SAMPLE`), for the same reason: three
-# is where quoting a ratio stops being one anecdote wearing a plural.
-MINIMUM_SAMPLE: Final = 3
+# comps table's own floor, for the same reason: three is where quoting a ratio stops being
+# one anecdote wearing a plural.
+MINIMUM_SAMPLE: Final = OVERVIEW_MINIMUM_SAMPLE
 
 
 # -- Episodes ----------------------------------------------------------------------------------
@@ -184,15 +186,36 @@ async def closed_episodes(
         current: list[Transaction] = []
         for trade in rows:
             if trade.kind in CASH_KINDS:
-                # A dividend belongs to the episode it fell in; it opens nothing.
-                if current:
+                # A dividend belongs to the episode it fell in; it opens nothing. Any other
+                # cash row that names the security — a fee attributed to the holding — is
+                # not part of what was bought and sold, and the outcome would count it
+                # nowhere, so it is not part of the episode either.
+                if current and trade.kind is TransactionKind.DIVIDEND:
                     current.append(trade)
                 continue
-            current.append(trade)
             if trade.kind is TransactionKind.SPLIT:
+                # A split is derived for every book that ever dealt in the security; one
+                # arriving while nothing is held multiplies nothing and must not become
+                # the first row of the next episode, which would date its opening.
+                if held == 0:
+                    continue
+                current.append(trade)
                 held = held * trade.quantity
             else:
+                current.append(trade)
                 held = held + trade.quantity
+            if held < 0:
+                # A sale before the purchase: the pooled cost refuses this walk and the
+                # portfolio page reports the trades as missing. An episode built from it
+                # would put the sale's date on the opening and the later buy in the
+                # proceeds, so the security is left out rather than misdescribed.
+                _log.warning(
+                    "post_trade.walk_went_short",
+                    security_id=str(security_id),
+                    on=trade.trade_date.isoformat(),
+                )
+                current = []
+                break
             if held == 0 and any(row.kind is not TransactionKind.SPLIT for row in current):
                 dealt = [row for row in current if row.kind not in CASH_KINDS]
                 episodes.append(
@@ -239,8 +262,12 @@ class Outcome:
 
     @property
     def intended_horizon_months(self) -> int | None:
-        """The longest horizon any decision under review stated, or none."""
-        stated = [row.horizon_months for row in self.decisions if row.horizon_months]
+        """The longest horizon any decision under review still stands by, or none."""
+        stated = [
+            row.horizon_months
+            for row in self.decisions
+            if row.horizon_months and not row.judgement.is_withdrawn
+        ]
         return max(stated) if stated else None
 
     def as_json(self, context: CalculationContext) -> dict[str, Any]:
@@ -309,7 +336,8 @@ async def outcome_for(
                         as_of=on,
                     )
                 )
-            elif trade.kind is TransactionKind.SELL and trade.price is not None:
+            elif trade.kind is TransactionKind.SELL:
+                assert trade.price is not None  # a dealing row always carries a price
                 effect = calc.dealt_cash_effect(
                     context,
                     quantity=movement_of(trade),
@@ -332,6 +360,16 @@ async def outcome_for(
         outcome.problem = str(problem)
         outcome.cost = outcome.proceeds = outcome.realised_return = None
     return outcome
+
+
+async def _thesis_of_episode(session: AsyncSession, episode: Episode) -> Thesis | None:
+    """The thesis the episode's carried-out decisions name, premises loaded, or none."""
+    decisions = await _decisions_of(session, episode)
+    if not decisions:
+        return None
+    return await thesis_service.thesis_of(
+        session, decisions[0].thesis_id, user_id=episode.portfolio.user_id
+    )
 
 
 async def _decisions_of(session: AsyncSession, episode: Episode) -> list[Decision]:
@@ -362,6 +400,9 @@ async def _decisions_of(session: AsyncSession, episode: Episode) -> list[Decisio
             .where(
                 Decision.thesis_id == thesis_id,
                 Decision.judgement_id.not_in(ids),
+                # A decision the operator revised while the position was open was
+                # superseded by the one that replaced it, which is the one under review.
+                Judgement.withdrawn_at.is_(None),
                 Judgement.held_at >= opened,
                 Judgement.held_at <= closed,
             )
@@ -396,8 +437,13 @@ async def _findings_while_open(
 
 
 async def latest_pass_for(session: AsyncSession, *, episode: Episode) -> Job | None:
-    """The most recent reviewer pass over this episode, if one ran."""
-    found: Job | None = await session.scalar(
+    """The most recent reviewer pass over this episode, if one ran.
+
+    A work order names the security and the close date but not the book, so two of the
+    operator's books that closed the same security on the same day share those keys; the
+    pass's own record names the book, and that is what tells them apart.
+    """
+    candidates = await session.scalars(
         select(Job)
         .join(WorkOrder, WorkOrder.id == Job.work_order_id)
         .options(selectinload(Job.steps))
@@ -409,9 +455,13 @@ async def latest_pass_for(session: AsyncSession, *, episode: Episode) -> Job | N
             WorkOrder.user_id == episode.portfolio.user_id,
         )
         .order_by(Job.started_at.desc().nullslast())
-        .limit(1)
     )
-    return found
+    for job in candidates:
+        output = next((step.output_ref for step in job.steps if step.output_ref), None) or {}
+        recorded = (output.get("episode") or {}).get("portfolio_id")
+        if recorded is None or str(recorded) == str(episode.portfolio.id):
+            return job
+    return None
 
 
 async def run_review(
@@ -441,6 +491,19 @@ async def run_review(
     if await review_for_episode(session, episode=episode) is not None:
         message = "This position was already reviewed, and the review stands."
         raise ConflictError(message, context={"security_id": str(episode.security.id)})
+    thesis = await _thesis_of_episode(session, episode)
+    if thesis is not None:
+        # Counted rather than read off the loaded collection, which may predate a premise
+        # added since the thesis was loaded.
+        held = await session.scalar(
+            select(func.count()).select_from(Premise).where(Premise.thesis_id == thesis.id)
+        )
+        if (held or 0) > MAX_PREMISES:
+            message = (
+                f"This thesis holds {held} premises and a review reads at most "
+                f"{MAX_PREMISES}. Withdraw the ones no longer held, or retire it, and run again."
+            )
+            raise ValidationError(message, context={"thesis_id": str(thesis.id)})
 
     order, job, step = await _open_pass(session, settings=settings, user=user, episode=episode)
 
@@ -618,6 +681,8 @@ def _review_input(
                 carried_out_by=sum(
                     1 for trade in episode.trades if trade.decision_id == row.judgement_id
                 ),
+                withdrawn=row.judgement.is_withdrawn,
+                withdrawn_reason=row.judgement.withdrawn_reason or "",
             )
             for row in outcome.decisions
         ],
@@ -648,7 +713,8 @@ def _review_input(
             closed_on=outcome.closed_on.isoformat(),
             holding_days=outcome.holding_days,
             intended_horizon_months=outcome.intended_horizon_months,
-            realised_return=_plain(outcome.realised_return) or outcome.problem or "not computed",
+            realised_return=_plain(outcome.realised_return) or None,
+            problem=outcome.problem,
             currency=outcome.currency,
             cost=_plain(outcome.cost),
             proceeds=_plain(outcome.proceeds),
@@ -721,12 +787,52 @@ async def confirm_review(
         raise ValidationError(message, context={"field": "basis"})
     episode = proposal.output.get("episode") or {}
     outcome = proposal.output.get("outcome") or {}
+    if proposal.failed:
+        message = (
+            "This pass stopped before it proposed anything, so there is no proposal to "
+            "confirm. Run it again."
+        )
+        raise ValidationError(message, context={"job_id": str(proposal.job.id)})
     if not episode or not outcome:
         message = "This pass recorded no outcome to review."
+        raise ValidationError(message, context={"job_id": str(proposal.job.id)})
+    unanswered = [
+        str(premise.get("statement", premise["premise_id"]))
+        for premise in proposal.output.get("premises") or []
+        if uuid.UUID(str(premise["premise_id"])) not in verdicts
+    ]
+    if unanswered:
+        # A premise on the pass and not on the form is a form that has gone stale — the
+        # thesis moved since the page was opened. Recording "untested" under the operator's
+        # name for a verdict they never gave is the one thing this must not do.
+        message = (
+            "The form did not carry a verdict for every premise the pass reviewed "
+            f"({'; '.join(unanswered)}). Reload the proposal and confirm it again."
+        )
         raise ValidationError(message, context={"job_id": str(proposal.job.id)})
     security_id = uuid.UUID(str(episode["security_id"]))
     portfolio_id = uuid.UUID(str(episode["portfolio_id"]))
     closed_on = date.fromisoformat(str(episode["closed_on"]))
+    book = await session.get(Portfolio, portfolio_id)
+    if book is None or book.user_id != user.id:
+        message = "The book this pass reviewed is not on record for you."
+        raise ConflictError(message, context={"portfolio_id": str(portfolio_id)})
+    if (
+        episode_of(
+            await closed_episodes(session, portfolio=book),
+            security_id=security_id,
+            closed_on=closed_on,
+        )
+        is None
+    ):
+        # A trade corrected since the pass ran: the book no longer closes this position
+        # on that day, so the outcome the pass computed describes an episode it no
+        # longer has. Confirming it would review a position that does not exist.
+        message = (
+            "The book no longer closes this position on the date the pass reviewed; the "
+            "trades were corrected since. Run the review again."
+        )
+        raise ConflictError(message, context={"job_id": str(proposal.job.id)})
     existing = await session.scalar(
         select(Review).where(
             Review.portfolio_id == portfolio_id,
@@ -899,6 +1005,10 @@ class Statistic:
     label: str
     count: int
     parts: tuple[Part, ...]
+    # The positions behind the count, where the parts count something finer — one review
+    # holds several premise verdicts, and three verdicts from one position are an
+    # anecdote, not a sample. ``None`` means the parts are positions.
+    sample: int | None = None
 
     def __post_init__(self) -> None:
         if sum(part.count for part in self.parts) != self.count:
@@ -907,7 +1017,7 @@ class Statistic:
 
     @property
     def is_a_finding(self) -> bool:
-        return self.count >= MINIMUM_SAMPLE
+        return (self.sample if self.sample is not None else self.count) >= MINIMUM_SAMPLE
 
 
 @dataclass(frozen=True, slots=True)
@@ -938,6 +1048,7 @@ async def analytics_for(session: AsyncSession, *, user_id: uuid.UUID) -> Analyti
             [verdict for row in reviews for verdict in row.verdicts],
             key=lambda row: row.verdict.value,
             order=[member.value for member in PremiseVerdict],
+            sample=len(reviews),
         ),
         horizons=_counted(
             "Holding period against the intended horizon",
@@ -945,8 +1056,11 @@ async def analytics_for(session: AsyncSession, *, user_id: uuid.UUID) -> Analyti
             key=_horizon_word,
             order=["no horizon stated", "closed early", "closed near the horizon", "held past it"],
         ),
+        # What this counts is a decision on record that a trade of the episode carried
+        # out. Whether it was written before the trade is a comparison of two dates the
+        # journal does not yet make; the label says what is measured.
         written_down=_counted(
-            "A decision written before the trade",
+            "A decision on record for the position",
             reviews,
             key=lambda row: "yes" if row.thesis_id is not None else "no",
             order=["yes", "no"],
@@ -992,11 +1106,15 @@ def _cells(reviews: list[Review]) -> Statistic:
     return Statistic("Process against outcome", len(reviews), tuple(parts))
 
 
-def _counted(label: str, rows: list[Any], *, key: Any, order: list[str]) -> Statistic:
+def _counted(
+    label: str, rows: list[Any], *, key: Any, order: list[str], sample: int | None = None
+) -> Statistic:
     counts = dict.fromkeys(order, 0)
     for row in rows:
         counts[key(row)] = counts.get(key(row), 0) + 1
-    return Statistic(label, len(rows), tuple(Part(name, count) for name, count in counts.items()))
+    return Statistic(
+        label, len(rows), tuple(Part(name, count) for name, count in counts.items()), sample
+    )
 
 
 def _horizon_word(row: Review) -> str:
