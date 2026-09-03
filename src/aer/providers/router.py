@@ -68,6 +68,9 @@ _KNOWN_ROLES: Final[frozenset[str]] = frozenset(
         # A closed position's decision, scored against the process (ADRs 0081, 0105). The
         # judgement class of call, once per closed position.
         "post_trade_reviewer",
+        # Commentary over a book's risk figures, per book and on the cheaper route
+        # (ADR 0080): downstream of everything, and the monthly cap notices it.
+        "risk_analyst",
         # The model that carries a web search (ADR 0092). A route, not an agent role: the
         # call runs one server-side search and code reads the listing, so the model's
         # only judgement is none at all — which is why the default is the cheapest model.

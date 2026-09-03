@@ -200,6 +200,10 @@ DEFAULT_MODEL_ROUTES: Final[dict[str, ModelRoute]] = {
     # confirms (ADRs 0081, 0105). The judgement model at high effort, like the red team: it
     # runs seldom, and what it gets wrong is the operator's reading of their own method.
     "post_trade_reviewer": ModelRoute(model="claude-opus-5", effort="high"),
+    # Naming the pattern in figures somebody else computed is downstream of everything and
+    # runs per book rather than once per report, so the mid-tier route at medium effort —
+    # the one the validator and the proposal roles take (ADR 0080).
+    "risk_analyst": ModelRoute(model="claude-sonnet-5", effort="medium"),
 }
 
 

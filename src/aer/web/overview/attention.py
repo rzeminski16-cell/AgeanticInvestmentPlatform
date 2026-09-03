@@ -229,6 +229,13 @@ _PROVIDERS: Final[tuple[AttentionProvider, ...]] = (
         items_ref="aer.web.overview.review:items",
         adr="0105",
     ),
+    # A risk reading that stopped, and a book not read since it changed (ADRs 0080, 0106).
+    AttentionProvider(
+        key="risk",
+        tool="risk",
+        items_ref="aer.web.overview.risk:items",
+        adr="0106",
+    ),
 )
 
 

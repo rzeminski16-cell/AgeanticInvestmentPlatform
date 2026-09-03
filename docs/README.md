@@ -57,6 +57,8 @@ For the operator: the person who installs it, commissions research and approves 
   before the outcome, and the trade that carries it out.
 - [`review.md`](users/review.md) — a closed position scored for the process behind the
   decision, not the result; and what the reviews have in common, with an `n` on everything.
+- [`risk.md`](users/risk.md) — what the book is exposed to and how it would have moved as it
+  stands, the scenarios you state, and an analyst's reading that writes no number.
 - [`troubleshooting.md`](users/troubleshooting.md) — when a run stalls, fails, or refuses.
 
 ### `developers/` — how to change it

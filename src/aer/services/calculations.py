@@ -44,6 +44,7 @@ from aer.db.models import (
     FinancialFact,
     FxRateRow,
     MacroObservationRow,
+    RiskScenarioShock,
     Security,
 )
 from aer.errors import ValidationError
@@ -549,6 +550,34 @@ async def _assumption_node(session: AsyncSession, stored: _StoredInput) -> Linea
     )
 
 
+async def _scenario_shock_node(session: AsyncSession, stored: _StoredInput) -> LineageNode | None:
+    """A fraction the operator stated a scenario moves a target by (ADR 0106).
+
+    An assumption's guarantee in its own relation: the node reads as an assumption, because
+    that is what a number somebody chose is, and the detail names the scenario and what the
+    shock reaches so a reader can see which statement a profit and loss rests on.
+    """
+    shock = await _load_shock(session, stored.identifier)
+    if shock is None:
+        return None
+    return LineageNode(
+        kind="assumption",
+        identifier=stored.identifier,
+        label=stored.label or f"{shock.scenario.name}: {shock.kind.value} {shock.target}".strip(),
+        value=stored.value if stored.value is not None else shock.shock,
+        unit=stored.unit or "ratio",
+        detail={
+            "table": SourceTable.RISK_SCENARIO_SHOCKS.value,
+            "scenario_id": str(shock.scenario_id),
+            "scenario": shock.scenario.name,
+            "kind": shock.kind.value,
+            "target": shock.target,
+            "stated_by": shock.scenario.stated_by,
+            "withdrawn": shock.scenario.is_withdrawn,
+        },
+    )
+
+
 _LeafLoader = Callable[[AsyncSession, "_StoredInput"], Awaitable[LineageNode | None]]
 
 # One entry per relation a leaf can live in. Adding a source table is a line here and a
@@ -565,6 +594,7 @@ _LEAF_LOADERS: Final[Mapping[SourceTable, _LeafLoader]] = {
     SourceTable.ATTESTATIONS: _attestation_node,
     SourceTable.SECURITIES: _security_node,
     SourceTable.ASSUMPTIONS: _assumption_node,
+    SourceTable.RISK_SCENARIO_SHOCKS: _scenario_shock_node,
 }
 
 _KNOWN_TABLES: Final[Mapping[str, SourceTable]] = {table.value: table for table in SourceTable}
@@ -639,6 +669,18 @@ async def _load_assumption(session: AsyncSession, identifier: str) -> Assumption
     if parsed is None:
         return None
     return await session.get(Assumption, parsed)
+
+
+async def _load_shock(session: AsyncSession, identifier: str) -> RiskScenarioShock | None:
+    parsed = _uuid_or_none(identifier)
+    if parsed is None:
+        return None
+    found: RiskScenarioShock | None = await session.scalar(
+        select(RiskScenarioShock)
+        .options(selectinload(RiskScenarioShock.scenario))
+        .where(RiskScenarioShock.id == parsed)
+    )
+    return found
 
 
 async def _load_attestation(session: AsyncSession, identifier: str) -> Attestation | None:

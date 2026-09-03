@@ -58,6 +58,7 @@ Four surfaces, from roadmap §3.12:
 | **Monitor** | Findings grouped by what they ask, one finding, the thesis gate | [`pages/monitor.md`](pages/monitor.md) |
 | **Decisions** | The journal, one decision with its premises and trades, the trade form's *Carries out* | [`pages/decisions.md`](pages/decisions.md) |
 | **Post-trade review and Decision analytics** | The closed positions, a proposal beside its outcome, the confirmed review, the analytics | [`pages/review-and-analytics.md`](pages/review-and-analytics.md) |
+| **Risk** | The book's ex-ante figures with their lineage, the stated scenarios, the analyst's reading | [`pages/risk.md`](pages/risk.md) |
 
 ## What is deliberately out of scope
 
@@ -65,13 +66,14 @@ Four surfaces, from roadmap §3.12:
   defects and their own roadmap entry ([§2.4](../plan/ROADMAP.md)). It is a document-layout
   problem, not a screen one, and mixing them would put page-break debugging in the middle of
   an interface design.
-- **The two planned tools** — Watchlist and Risk. Each is a placeholder page saying what
-  it would be and what it is waiting on, and that is all it should be until its tables
-  exist. Theses, Monitor, Decisions, Post-trade review and Decision analytics have since
-  shipped and have specifications of their own ([`pages/theses.md`](pages/theses.md),
+- **The one planned tool** — Watchlist. It is a placeholder page saying what it would be
+  and what it is waiting on, and that is all it should be until its tables exist. Theses,
+  Monitor, Decisions, Post-trade review, Decision analytics and Risk have since shipped and
+  have specifications of their own ([`pages/theses.md`](pages/theses.md),
   [`pages/monitor.md`](pages/monitor.md), [`pages/decisions.md`](pages/decisions.md),
-  [`pages/review-and-analytics.md`](pages/review-and-analytics.md)). Designing a screen for
-  a tool with no data is how a specification becomes fiction. **The placeholder pattern
+  [`pages/review-and-analytics.md`](pages/review-and-analytics.md),
+  [`pages/risk.md`](pages/risk.md)). Designing a screen for a tool with no data is how a
+  specification becomes fiction. **The placeholder pattern
   itself is in scope** — it appears in the launcher and is specified in
   [`pages/overview.md`](pages/overview.md).
 - **Settings, Costs, Health and the API docs.** They are in the menu and so appear in

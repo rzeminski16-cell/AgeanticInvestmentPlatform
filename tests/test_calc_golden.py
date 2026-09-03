@@ -48,7 +48,11 @@ GOLDEN_TOLERANCE = Decimal("0.0001")
 # carries the item's whole argument: a £100 book rises 10%, takes a £100 deposit, rises 10%
 # again, and the answer is 21% — the number every naive reading of the same rows gets
 # wrong, and the one an operator would believe.
-EXPECTED_CORPUS_SIZE = 35
+#
+# And once more for §3.9's `max_drawdown`: an index that goes 100, 50, 75, 120 drew down by
+# half, and the later recovery does not soften it — the case that fails if a drawdown is
+# ever measured from the start rather than from the peak.
+EXPECTED_CORPUS_SIZE = 36
 
 
 def _replayed(case: dict[str, Any]) -> ReplayObservation:

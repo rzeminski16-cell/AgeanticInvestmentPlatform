@@ -31,10 +31,10 @@ calculations, a drafted report you approve, and a frozen document in which every
 carries a footnote that resolves either to the formula that produced it or to the archived
 bytes it came from.
 
-Seven of nine planned tools work today — **Equity Research**, **Portfolio**, **Theses**,
-**Decisions**, **Monitor**, **Post-trade review** and **Decision analytics**. The other two,
-Watchlist and Risk, are honest placeholders that say what they would be and what they are
-waiting on.
+Eight of nine planned tools work today — **Equity Research**, **Portfolio**, **Risk**,
+**Theses**, **Decisions**, **Monitor**, **Post-trade review** and **Decision analytics**. The
+last, Watchlist, is an honest placeholder that says what it would be and what it is waiting
+on.
 
 [`docs/plan/ROADMAP.md`](docs/plan/ROADMAP.md) is the authority on scope, and is candid
 about what is missing.

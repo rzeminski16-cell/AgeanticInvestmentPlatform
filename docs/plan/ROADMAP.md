@@ -68,7 +68,7 @@ document in which every figure carries a footnote resolving to either the formul
 produced it or the archived bytes it came from. That path has no gap in it, and the
 evaluation gate re-derives every stored calculation from its own record on every run.
 
-Seven of nine tools work:
+Eight of nine tools work:
 
 | Tool | State | Waiting on |
 |---|---|---|
@@ -78,7 +78,7 @@ Seven of nine tools work:
 | **Theses** | Working | — |
 | **Decisions** | Working | — |
 | **Monitor** | Working | — |
-| Risk | Planned | A book to be about, and the rate store *(the rate store now exists)* |
+| **Risk** | Working | — |
 | **Post-trade review** | Working | — |
 | **Decision analytics** | Working | — |
 
@@ -480,8 +480,21 @@ data. `Statistic` cannot be built without its `n`, and below three reviewed posi
 breakdown is a tally. Post-trade review and Decision analytics are the sixth and seventh
 working tools; the loop ADR 0079 named stays open by design.
 
-**3.9 Portfolio risk and scenarios** (ADR 0080). Commented on rather than scored. Its rate
-prerequisite is now met.
+**3.9 Portfolio risk and scenarios** (ADR 0080). **Done 2026-09-03** — ADR 0106. Commented
+on rather than scored. Every figure ADR 0080 named is a `@traced` calculation in
+`calc/risk.py` — annualised volatility, maximum drawdown, expected shortfall, a holding's
+contribution as its weight times its beta to the book, scenario profit and loss — measured
+*ex-ante* over the weights the book holds now and a year of each holding's daily returns in
+its own currency, with the coverage stated and an unmeasured holding named rather than
+filled in. Exposure and concentration are §3.2's, shown not recomputed.
+
+A scenario is a named set of shocks the operator states (`risk_scenarios`,
+`risk_scenario_shocks`), each reaching what the exposure bands say it reaches; none is
+built in, for ADR 0080's reason reaching code. The `risk_analyst` role runs in the web
+process on its own work order over the rendered block, and its three commentaries are
+refused by the numeral check and the words of a prescription — once with the problems
+carried back, then recorded. A shock is a lineage node in its own relation (ADR 0076). Risk
+is the eighth working tool.
 
 **3.10 Watchlist and research queue.** Needs the standing budget and the two clocks — a
 watchlist is followed continuously and researched as at a date, and conflating those is the

@@ -779,6 +779,25 @@ def _valued(rows: Sequence[HoldingRow]) -> list[tuple[HoldingRow, Quantity]]:
     return [(row, row.value.quantity) for row in rows if row.value is not None]
 
 
+# The three classifications, under public names, for the risk view's scenario matching
+# (ADR 0106 §3): a shock about "United Kingdom" must reach exactly what the country band
+# calls United Kingdom, and a second copy of the rule would be a second answer.
+def sector_of(security: Security) -> str | None:
+    return _sector_of(security)
+
+
+def country_of(security: Security) -> str | None:
+    return _country_of(security)
+
+
+def currency_of(security: Security) -> str | None:
+    return _currency_of(security)
+
+
+def major_currency(code: str) -> str | None:
+    return _major_currency(code)
+
+
 def _sector_of(security: Security) -> str | None:
     company = security.company
     if company is None:

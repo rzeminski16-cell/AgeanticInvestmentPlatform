@@ -42,6 +42,7 @@ from aer.db.models.report import Report
 from aer.db.models.report_section import ReportSection, SectionStatus
 from aer.db.models.request import ResearchRequest
 from aer.db.models.revision_note import RevisionNote
+from aer.db.models.risk import RiskScenario, RiskScenarioShock
 from aer.db.models.scenario import Scenario, ScenarioOverride
 from aer.db.models.section_definition import SectionDefinition
 from aer.db.models.sector_profile import SectorProfile
@@ -103,6 +104,8 @@ __all__ = [
     "Review",
     "ReviewVerdict",
     "RevisionNote",
+    "RiskScenario",
+    "RiskScenarioShock",
     "Scenario",
     "ScenarioOverride",
     "SectionDefinition",

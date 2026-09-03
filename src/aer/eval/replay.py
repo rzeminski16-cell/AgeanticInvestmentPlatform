@@ -73,6 +73,7 @@ CALC_MODULES: Final[tuple[str, ...]] = (
     "aer.calc.quality",
     "aer.calc.ratios",
     "aer.calc.residual_income",
+    "aer.calc.risk",
     "aer.calc.statements",
     "aer.calc.wacc",
 )

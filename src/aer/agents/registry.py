@@ -417,6 +417,23 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         max_output_tokens=16_384,
         adr="0081",
     ),
+    RoleDefinition(
+        role="risk_analyst",
+        purpose=(
+            "Read a book's risk figures — exposure, concentration, volatility, drawdown, "
+            "the tail, each holding's contribution, every stated scenario — and say what the "
+            "pattern means. Commentary over figures it cannot write: no field for a number, "
+            "a size, a limit, a scenario, a ranking or a score."
+        ),
+        output_schema_ref="aer.agents.risk_analyst:RiskCommentary",
+        # No tools. The book, the figures and their provenance are assembled by code before
+        # the call; a risk role that could fetch would be choosing its own inputs.
+        allowed_tools=frozenset(),
+        # The floor every role carries: max_tokens bounds thinking and visible output
+        # together, and three short commentaries are still a reasoning task first.
+        max_output_tokens=16_384,
+        adr="0080",
+    ),
 )
 
 

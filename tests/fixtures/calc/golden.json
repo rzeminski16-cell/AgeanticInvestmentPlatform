@@ -1212,6 +1212,56 @@
         "value": "0.10",
         "unit": "pure"
       }
+    },
+    {
+      "name": "max_drawdown",
+      "inputs": [
+        {
+          "name": "levels[0]",
+          "value": "100",
+          "unit": "pure",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "levels[1]",
+          "value": "50",
+          "unit": "pure",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "levels[2]",
+          "value": "75",
+          "unit": "pure",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "levels[3]",
+          "value": "120",
+          "unit": "pure",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        }
+      ],
+      "parameters": {},
+      "expected": {
+        "value": "-0.5",
+        "unit": "pure"
+      }
     }
   ]
 }

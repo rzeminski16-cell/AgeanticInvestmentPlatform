@@ -21,6 +21,7 @@ from aer.web.monitor.nav import MONITOR
 from aer.web.nav import NavItem, NavSection
 from aer.web.overview.nav import OVERVIEW
 from aer.web.review.nav import REVIEW
+from aer.web.risk.nav import RISK
 from aer.web.theses.nav import THESES
 from aer.web.tools.registry import PORTFOLIO
 
@@ -66,6 +67,7 @@ NAV: Final[tuple[NavSection, ...]] = (
     OVERVIEW,
     RESEARCH,
     PORTFOLIO,
+    RISK,
     THESES,
     DECISIONS,
     MONITOR,
@@ -108,7 +110,6 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         # status is exactly this decision: a navigation listing seven things nobody can
         # use is worse than a launcher that shows the shape once. Each becomes a nav item
         # on the day its row turns `WORKING`.
-        "/risk",
         "/watchlist",
         # Liveness and readiness, reached by an operator or a probe, not by a person
         # browsing. `/healthz` is in the nav; `/readyz` is its unlinked sibling.

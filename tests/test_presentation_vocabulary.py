@@ -30,6 +30,7 @@ from aer.core.enums import (
     PremiseVerdict,
     ProcessQuality,
     RequestStatus,
+    ShockKind,
     SkillKind,
     TransactionKind,
 )
@@ -47,6 +48,7 @@ from aer.web.vocabulary import (
     PROCESS_QUALITIES,
     REQUEST_STATES,
     SECTION_STATES,
+    SHOCK_KINDS,
     SKILL_KINDS,
     TRANSACTION_KINDS,
     GateCertainty,
@@ -68,6 +70,7 @@ MAPPED: list[tuple[str, type[StrEnum], dict[Any, HumanState]]] = [
     ("analysis mode", AnalysisMode, ANALYSIS_MODES),
     ("premise verdict", PremiseVerdict, PREMISE_VERDICTS),
     ("process quality", ProcessQuality, PROCESS_QUALITIES),
+    ("shock kind", ShockKind, SHOCK_KINDS),
 ]
 
 

@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  The risk page: what the book as it stands would have done, what it is exposed to, what
+  each holding contributes, what every stated scenario does, and the analyst's reading.
+
+  Every figure is a recorded calculation and links to its formula (ADRs 0080, 0106). Every
+  figure is ex-ante — today's weights over a year of daily returns, in each listing's own
+  currency — and the page says so beside the numbers. Nothing here sizes, limits, ranks or
+  scores, and there is no control for any of it.
+#}
+
+{% block title %}Risk &middot; Tracework{% endblock %}
+
+{% block content %}
+  {% call ui.page_header("Risk", eyebrow="WHAT COULD GO WRONG", identity=(book.name ~ " · as at " ~ as_of.strftime("%d %B %Y")) if not no_book else "") %}
+    <p class="type-body text-ink-muted">
+      What the book is exposed to and what a stated scenario would do to it, commented on
+      rather than scored. The figures are code's; the analyst reads them and writes none.
+    </p>
+  {% endcall %}
+
+  {% if no_book %}
+    {{ ui.empty("No book to read", "Risk is measured over a book. Record what you hold first.", action_label="Open the portfolio", action_href="/portfolio") }}
+  {% else %}
+    {{ ui.verdict("AS IT STANDS", verdict.composed, detail=reading_state, tone=verdict.tone.value) }}
+
+    {% call ui.sheet("What the book would have done", subtitle="With today's weights held fixed, over the year to " ~ as_of.strftime("%d %B %Y") ~ " from " ~ window_from ~ ", in each listing's own currency. How the book as it stands would have moved — not how it did; that is the portfolio page's return.", id="movement") %}
+      {% if problem %}
+        {{ ui.callout("info", "Not everything could be measured", problem) }}
+      {% endif %}
+      {% if figures %}
+        <div class="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-4" id="figures">
+          {% for row in figures %}
+            <div data-figure="{{ row.label | lower | replace(' ', '-') }}">
+              {{ ui.figure(row.label, row.value, note=row.note, provenance_href=row.href, provenance_label="Open the calculation" if row.href else "") }}
+            </div>
+          {% endfor %}
+        </div>
+      {% elif not problem %}
+        <p class="type-body text-ink-muted">Nothing priced to measure.</p>
+      {% endif %}
+    {% endcall %}
+
+    {% call ui.sheet("Exposure", subtitle="The largest slices of each cut. The whole of each band is on the portfolio page.", id="exposure") %}
+      {% if exposure %}
+        {% if concentration %}
+          <p id="concentration" class="type-body text-ink">The largest five holdings are <span class="type-data-sm">{{ concentration.value }}</span> of the book.</p>
+        {% endif %}
+        <div class="mt-4 grid gap-6 lg:grid-cols-2">
+          {% for band in exposure %}
+            <div data-band="{{ band.kind }}">
+              <h3 class="type-body-strong text-ink">{{ band.title }}</h3>
+              <dl class="mt-2 space-y-2">
+                {% for row in band.slices %}
+                  <div class="grid grid-cols-[1fr_auto] items-baseline gap-x-3" data-slice="{{ row.label }}">
+                    <dt class="type-body-sm text-ink">{{ row.label }}</dt>
+                    <dd class="type-data-sm tabular-nums text-ink">{{ row.share }}</dd>
+                    <div class="col-span-2 h-1 rounded-full bg-surface-sunken"><div class="h-1 rounded-full bg-verification" style="width: {{ row.width }}%"></div></div>
+                  </div>
+                {% endfor %}
+              </dl>
+              {% if band.unknown %}
+                <p class="mt-2 type-body-sm text-ink-muted" data-unknown="{{ band.kind }}">{{ band.unknown.label }}: {{ band.unknown.members }} · {{ band.unknown.share }}</p>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p id="exposure-problem" class="type-body text-ink-muted">{{ exposure_problem or "No exposure to show." }}</p>
+      {% endif %}
+    {% endcall %}
+
+    {% call ui.sheet("Each holding", subtitle="How each moved on its own, and how much of the book's risk it is: its weight times its beta to the book's own series. The contributions of the measured holdings add to one.", id="holdings") %}
+      {% if holdings %}
+        {% call ui.table("Holdings", [{"label": "Listing"}, {"label": "Weight", "numeric": true}, {"label": "Volatility", "numeric": true}, {"label": "Beta to book", "numeric": true}, {"label": "Contribution", "numeric": true}, {"label": "Days", "numeric": true}]) %}
+          {% for row in holdings %}
+            <tr data-holding="{{ row.ticker }}" data-measured="{{ 'yes' if row.is_measured else 'no' }}">
+              {{ ui.cell(row.ticker ~ " · " ~ row.exchange ~ ((" — " ~ row.problem) if row.problem else ""), header=true) }}
+              {{ ui.cell(row.weight, numeric=true) }}
+              {{ ui.cell(row.volatility, numeric=true) }}
+              {{ ui.cell(row.beta, numeric=true) }}
+              {{ ui.cell(row.contribution, numeric=true) }}
+              {{ ui.cell(row.observations if row.is_measured else "", numeric=true) }}
+            </tr>
+          {% endfor %}
+        {% endcall %}
+      {% else %}
+        <p class="type-body text-ink-muted">No priced holding.</p>
+      {% endif %}
+    {% endcall %}
+
+    {% call ui.sheet("Stated scenarios", subtitle="What a scenario you wrote down would do to the book as at this date. No scenario is built in: which shocks are worth worrying about is your statement, not the platform's.", id="scenarios") %}
+      {% if scenarios %}
+        {% call ui.table("Scenarios", [{"label": "Scenario"}, {"label": "Shocks"}, {"label": "Reaches"}, {"label": "Profit and loss", "numeric": true}, {"label": "Of the book", "numeric": true}, {"label": ""}]) %}
+          {% for row in scenarios %}
+            <tr data-scenario="{{ row.id }}" data-loss="{{ 'yes' if row.is_loss else 'no' }}">
+              {{ ui.cell(row.name, header=true) }}
+              <td class="border-b border-line py-2 pr-4 type-body-sm text-ink">{% for shock in row.shocks %}{{ shock.kind }}{% if shock.target %} {{ shock.target }}{% endif %} {{ shock.shock }}{% if not loop.last %}; {% endif %}{% endfor %}</td>
+              <td class="border-b border-line py-2 pr-4 type-body-sm text-ink">{% if row.problem %}<span class="text-ink-muted">{{ row.problem }}</span>{% else %}{{ row.count }}: {{ row.reached }}{% endif %}</td>
+              <td class="border-b border-line py-2 pr-4 text-right type-data text-ink" data-field="pnl">{% if row.href %}<a href="{{ row.href }}" class="underline underline-offset-[3px]">{{ row.pnl }}</a>{% else %}{{ row.pnl }}{% endif %}</td>
+              {{ ui.cell(row.impact, numeric=true) }}
+              <td class="border-b border-line py-2 text-right">
+                <form method="post" action="/risk/scenarios/{{ row.id }}/withdraw" class="inline">
+                  <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                  <button type="submit" class="inline-flex min-h-8 items-center rounded-sm border border-control-boundary px-2 type-label text-ink hover:bg-surface-selected">Withdraw</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        {% endcall %}
+      {% else %}
+        {{ ui.empty("No scenario stated", "A scenario is a named set of shocks — the whole book down a fifth, a currency down a tenth, one holding halved — applied to the book as it stands. State one below.") }}
+      {% endif %}
+
+      <form method="post" action="/risk/scenarios" class="mt-6 grid max-w-3xl gap-4" id="state-scenario">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        {{ ui.field("name", "What it is a scenario of", required=true, hint="\"Sterling rally\", \"Banks sell off\". The name is yours; the shocks below are what it does.") }}
+        {% for index in shock_rows %}
+          <div class="grid gap-4 sm:grid-cols-3" data-shock-row="{{ index }}">
+            {{ ui.field("kind_" ~ index, "Reaches", choices=kinds) }}
+            {{ ui.field("target_" ~ index, "Named", hint="A sector, a currency code, a listing country or a ticker, as the exposure bands name it. Empty for every holding.") }}
+            {{ ui.field("shock_" ~ index, "Moves by, %", type="number", step="0.1", hint="-20 is a fall of a fifth.") }}
+          </div>
+        {% endfor %}
+        <div>
+          <button id="state" type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong">State the scenario</button>
+        </div>
+      </form>
+    {% endcall %}
+
+    {% call ui.sheet("The analyst's reading", subtitle="What the pattern means, read from the figures above and nothing else. A reading names no number the figures do not hold and prescribes nothing; one that tried was refused, and the refusal is kept.", id="reading") %}
+      {% if reading %}
+        {% if reading.failed %}
+          {{ ui.callout("refusal", "The reading stopped at its ceiling", reading.reason ~ " Nothing was read. Run it again when the cap allows.") }}
+        {% elif reading.nothing_to_read %}
+          {{ ui.callout("info", "Nothing to read", reading.nothing_to_read) }}
+        {% elif reading.commentary %}
+          <div class="grid gap-4" id="commentary">
+            <div><p class="type-eyebrow text-ink-muted">Exposure</p><p class="mt-1 max-w-prose type-body text-ink" data-commentary="exposure">{{ reading.commentary.exposure }}</p></div>
+            <div><p class="type-eyebrow text-ink-muted">Movement</p><p class="mt-1 max-w-prose type-body text-ink" data-commentary="movement">{{ reading.commentary.movement }}</p></div>
+            {% if reading.commentary.scenarios %}<div><p class="type-eyebrow text-ink-muted">Scenarios</p><p class="mt-1 max-w-prose type-body text-ink" data-commentary="scenarios">{{ reading.commentary.scenarios }}</p></div>{% endif %}
+          </div>
+        {% else %}
+          <div id="refused">
+            {{ ui.callout("refusal", "The commentary was refused", "After " ~ reading.attempts ~ " attempt" ~ ("" if reading.attempts == 1 else "s") ~ ", what the analyst wrote could not be shown:") }}
+            <ul class="mt-2 list-disc pl-5 type-body-sm text-ink">
+              {% for problem in reading.refusals %}<li>{{ problem }}</li>{% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+        <p class="mt-3 type-data-sm text-ink-muted">Read as at {{ reading.as_of }} on {{ reading.started }} · {{ reading.cost }}{% if stale %} · the book has traded since{% endif %}</p>
+      {% else %}
+        <p class="type-body text-ink-muted">Not yet read. The figures above are computed on every load; the reading is a pass that spends.</p>
+      {% endif %}
+      <form method="post" action="/risk/read" class="mt-4" id="read-book">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        <input type="hidden" name="as_of" value="{{ as_of_iso }}" />
+        <button id="read" type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong">Read the book as at {{ as_of.strftime("%d %B %Y") }}</button>
+      </form>
+    {% endcall %}
+  {% endif %}
+{% endblock %}

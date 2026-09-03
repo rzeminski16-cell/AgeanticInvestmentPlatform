@@ -105,7 +105,10 @@ their attack files, and the Decisions tool as the fifth working tool. §3.8 land
 converted at each trade's own date, the reviewer's draft as a proposal on its pass and the
 review as the third judgement subtype held by the operator, and every analytics statistic
 carrying its `n` in the type — Post-trade review and Decision analytics as the sixth and
-seventh working tools. §3.9 is next. §3.11
+seventh working tools. §3.9 landed the same day (ADR 0106): every risk figure a traced
+calculation over the weights the book holds now, a scenario as a shock the operator states,
+the `risk_analyst` reading a block it cannot write, and Risk as the eighth working tool. §3.10
+is next. §3.11
 is quietly the missing half of ADR 0091's memory: an operator-authored methodology skill is
 the only route a recorded lesson has into a future run.
 

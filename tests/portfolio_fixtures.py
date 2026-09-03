@@ -11,7 +11,7 @@ called the same thing, and a test passing against the wrong one proves nothing.
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -44,6 +44,7 @@ __all__ = [
     "AS_OF",
     "BOUGHT_ON",
     "book",
+    "daily_bars",
     "funded",
     "trade",
     "view_of",
@@ -210,3 +211,51 @@ async def view_of(session: Any, context: CalculationContext, book: dict[str, Any
     return await portfolio_service.book_as_at(
         session, context, portfolio=book["portfolio"], as_of=kwargs.get("as_of", AS_OF)
     )
+
+
+async def daily_bars(
+    session: Any,
+    security: Security,
+    *,
+    until: date,
+    days: int = 40,
+    close: str = "250",
+    swing: str = "0.02",
+) -> list[date]:
+    """A run of weekday closes ending the day before ``until``, moving in a fixed pattern.
+
+    Deterministic on purpose: the risk figures are asserted against hand arithmetic, and a
+    pattern a test can reproduce is one whose volatility it can check. The bar on ``until``
+    itself is the fixture's own, so this stops the day before and never collides with it.
+    The pattern cycles up, down, flat, down, up — a series with a variance and a drawdown
+    but no drift a reader would mistake for a trend.
+    """
+    pattern = [
+        Decimal(1) + Decimal(swing),
+        Decimal(1) - Decimal(swing),
+        Decimal(1),
+        Decimal(1) - Decimal(swing),
+        Decimal(1) + Decimal(swing),
+    ]
+    dates: list[date] = []
+    cursor = until
+    while len(dates) < days:
+        cursor = cursor - timedelta(days=1)
+        if cursor.weekday() < 5:
+            dates.append(cursor)
+    dates.reverse()
+    level = Decimal(close)
+    for index, on in enumerate(dates):
+        level = (level * pattern[index % len(pattern)]).quantize(Decimal("0.000001"))
+        session.add(
+            PriceBar(
+                security_id=security.id,
+                bar_date=on,
+                open=level,
+                high=level * Decimal("1.01"),
+                low=level * Decimal("0.99"),
+                close=level,
+            )
+        )
+    await session.flush()
+    return dates

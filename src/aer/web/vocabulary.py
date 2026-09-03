@@ -45,6 +45,7 @@ from aer.core.enums import (
     PremiseVerdict,
     ProcessQuality,
     RequestStatus,
+    ShockKind,
     SkillKind,
     TransactionKind,
 )
@@ -61,6 +62,7 @@ __all__ = [
     "PROCESS_QUALITIES",
     "REQUEST_STATES",
     "SECTION_STATES",
+    "SHOCK_KINDS",
     "SKILL_KINDS",
     "STEP_WORDS",
     "STOPPED_PASS",
@@ -362,6 +364,23 @@ PROCESS_QUALITIES: Final[dict[ProcessQuality, HumanState]] = {
         Tone.WARNING,
         "The decision was not written before the trade, or the exit ignored its own plan.",
     ),
+}
+
+
+# What a stated scenario's shock reaches (ADR 0106). Neutral, every one: a shock is the
+# operator's statement about a hypothetical, and none is a state the platform is in.
+SHOCK_KINDS: Final[dict[ShockKind, HumanState]] = {
+    ShockKind.BOOK: HumanState(
+        "Every holding", Tone.MUTED, "Every priced holding at once; cash is untouched."
+    ),
+    ShockKind.SECTOR: HumanState(
+        "A sector", Tone.MUTED, "Every holding the sector band puts under this name."
+    ),
+    ShockKind.CURRENCY: HumanState(
+        "A currency", Tone.MUTED, "Every holding quoted in it, and the cash held in it."
+    ),
+    ShockKind.COUNTRY: HumanState("A listing country", Tone.MUTED, "Every holding listed in it."),
+    ShockKind.HOLDING: HumanState("One holding", Tone.MUTED, "The one listing named, by ticker."),
 }
 
 

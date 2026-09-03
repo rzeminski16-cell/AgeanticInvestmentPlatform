@@ -561,6 +561,21 @@ class PremiseVerdict(StrEnum):
     UNOBSERVABLE = "unobservable"
 
 
+class ShockKind(StrEnum):
+    """What a stated scenario's shock reaches (ADR 0106 §3).
+
+    The targets are the exposure bands' own cuts, so a shock about "United Kingdom" reaches
+    exactly what the country band calls United Kingdom, and ``BOOK`` is every holding at
+    once. A currency shock reaches cash in that currency too, because cash is a position.
+    """
+
+    BOOK = "book"
+    SECTOR = "sector"
+    CURRENCY = "currency"
+    COUNTRY = "country"
+    HOLDING = "holding"
+
+
 class ProcessQuality(StrEnum):
     """How well the decision was made, separately from how it turned out (ADR 0081).
 

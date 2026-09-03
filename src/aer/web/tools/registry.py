@@ -200,17 +200,15 @@ INSTALLED_TOOLS: Final[tuple[Tool, ...]] = (
     Tool(
         key="risk",
         label="Risk",
-        status=ToolStatus.PLANNED,
+        status=ToolStatus.WORKING,
         href="/risk",
         summary=(
             "What the portfolio is exposed to and what a stated scenario would do to it, "
-            "commented on rather than scored."
+            "commented on rather than scored: every figure is code's, and the analyst reads."
         ),
-        needs=(
-            "A book to be about, and the rate store — every exposure crosses a currency, "
-            "and ADR 0082 makes a rate a dated observation rather than a constant."
-        ),
-        adr="0080",
+        action_label="Read the book's risk",
+        action_href="/risk",
+        adr="0106",
     ),
     Tool(
         key="review",

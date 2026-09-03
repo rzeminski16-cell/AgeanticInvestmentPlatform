@@ -219,6 +219,13 @@ class SourceTable(StrEnum):
     ASSUMPTIONS = "assumptions"
     CALCULATIONS = "calculations"
 
+    RISK_SCENARIO_SHOCKS = "risk_scenario_shocks"
+    """A fraction the operator stated a scenario moves a target by (ADR 0106).
+
+    An assumption's guarantee — a number somebody chose, neither published nor a fact
+    about the book — in its own relation, because a scenario shock is not a valuation
+    input and has no run to be confirmed against."""
+
 
 @dataclass(frozen=True, slots=True)
 class SourceRef:
@@ -347,6 +354,16 @@ class SourceRef:
             kind=SourceKind.ASSUMPTION,
             identifier=str(identifier),
             table=SourceTable.ASSUMPTIONS,
+            label=label,
+        )
+
+    @classmethod
+    def scenario_shock(cls, identifier: str | uuid.UUID, *, label: str = "") -> SourceRef:
+        """A shock the operator stated: an assumption's guarantee in the scenario's relation."""
+        return cls(
+            kind=SourceKind.ASSUMPTION,
+            identifier=str(identifier),
+            table=SourceTable.RISK_SCENARIO_SHOCKS,
             label=label,
         )
 
