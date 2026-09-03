@@ -64,6 +64,17 @@
             hint="A company the research tool has looked up. A thesis about a ticker nobody has resolved would be a view about a string.",
           )
         }}
+        {% if reports %}
+          {{
+            ui.field(
+              "report_id",
+              "Written against",
+              choices=reports,
+              blank_label="No particular report",
+              hint="The approved report you read before writing this, if there was one. It must be about the company above; the thesis keeps the link so a later reader can see what you had in front of you.",
+            )
+          }}
+        {% endif %}
         {{ ui.field("written_on", "Written on", type="date", value=today, maximum=today, hint="When you formed this view. Defaults to today; backdate it if you are writing up something you already held.") }}
         <div>
           <button

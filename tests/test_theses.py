@@ -25,13 +25,27 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aer.calc.units import SourceKind, SourceRef, SourceTable
-from aer.core.enums import JudgementKind, PremiseComparator, UserRole
+from aer.core.enums import JobStatus, JudgementKind, PremiseComparator, TransactionKind, UserRole
 from aer.db.base import Base
-from aer.db.models import AuditEvent, Company, Judgement, Premise, Thesis, User
+from aer.db.models import (
+    AuditEvent,
+    Company,
+    Job,
+    Judgement,
+    Portfolio,
+    Premise,
+    Report,
+    Security,
+    Thesis,
+    User,
+)
 from aer.errors import ConflictError, ValidationError
 from aer.services import theses as thesis_service
 from aer.services.theses import Predicate
+from aer.services.thesis_monitor import measurable_metrics
 from tests.api_fixtures import build_app, client_for
+from tests.portfolio_fixtures import trade
+from tests.request_fixtures import research_request
 
 pytestmark = pytest.mark.integration
 
@@ -449,7 +463,10 @@ class TestAJudgementIsNeverASourceReference:
 # -- The pages -----------------------------------------------------------------------------------
 
 
-_TABLES = "audit_events, users, companies, theses, judgements"
+_TABLES = (
+    "audit_events, users, companies, securities, portfolios, attestations, work_orders, "
+    "theses, judgements"
+)
 
 
 @pytest.fixture
@@ -626,6 +643,250 @@ class TestThePages:
 
         assert response.status_code == 403
         assert "Nothing was written" in response.text
+
+
+async def _approved_report(
+    session: AsyncSession, *, user: User, company: Company, as_of: date, approved: bool = True
+) -> Report:
+    """A report on the company, approved unless told otherwise. The rows a report needs
+    beneath it — a request and a job — carry nothing this page reads."""
+    request = research_request(
+        user_id=user.id,
+        company_name=company.name,
+        ticker=company.ticker,
+        exchange=company.exchange,
+        as_of_date=as_of,
+        point_in_time=True,
+        base_currency="GBP",
+        reporting_currency="GBP",
+        investment_horizon_months=12,
+        max_cost_gbp="2.50",
+    )
+    session.add(request)
+    await session.flush()
+    job = Job(
+        work_order_id=request.id,
+        workflow_version="theses_scene_v1",
+        code_version="thesescode1234",
+        status=JobStatus.SUCCEEDED,
+    )
+    session.add(job)
+    await session.flush()
+    report = Report(
+        job_id=job.id,
+        request_id=request.id,
+        company_id=company.id,
+        as_of_date=as_of,
+        content={"markdown": "approved"},
+        content_hash="a" * 64,
+        approved_at=datetime(2026, 7, 1, 9, tzinfo=UTC) if approved else None,
+        immutable=approved,
+    )
+    session.add(report)
+    await session.flush()
+    return report
+
+
+async def _book_that_dealt(
+    session: AsyncSession, scene: dict[str, Any], *, sold: bool
+) -> tuple[Portfolio, Security]:
+    """A sterling book that bought the subject's London listing, and sold it if told to."""
+    book = Portfolio(user_id=scene["user"].id, name="ISA", base_currency="GBP")
+    session.add(book)
+    await session.flush()
+    listing = Security(
+        company_id=scene["company"].id,
+        ticker="CTSO",
+        exchange="LSE",
+        provider_symbol="CTSO.LSE",
+        name="Contoso plc",
+        quote_currency="GBX",
+    )
+    session.add(listing)
+    await session.flush()
+    holder = {"portfolio": book, "document": None}
+    await trade(
+        session,
+        holder,
+        kind=TransactionKind.BUY,
+        security=listing,
+        quantity="100",
+        price="250",
+        currency="GBX",
+        on=date(2026, 1, 5),
+    )
+    if sold:
+        await trade(
+            session,
+            holder,
+            kind=TransactionKind.SELL,
+            security=listing,
+            quantity="-100",
+            price="300",
+            currency="GBX",
+            on=date(2026, 3, 16),
+            at_hour=16,
+        )
+    return book, listing
+
+
+class TestWhatSurroundsAThesis:
+    """The subject is a company; the research tool has reports about it and the book may
+    hold it. Both reach the page as queries over the subject, never as foreign keys
+    (ADR 0064) — except the one report the thesis names as what it was written against."""
+
+    async def test_the_reports_on_the_subject_are_listed_and_the_one_written_against_marked(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        async with scene["factory"]() as session:
+            read = await _approved_report(
+                session, user=scene["user"], company=scene["company"], as_of=date(2026, 6, 30)
+            )
+            older = await _approved_report(
+                session, user=scene["user"], company=scene["company"], as_of=date(2025, 6, 30)
+            )
+            draft = await _approved_report(
+                session,
+                user=scene["user"],
+                company=scene["company"],
+                as_of=date(2026, 9, 30),
+                approved=False,
+            )
+            await session.commit()
+
+        form = await api.get("/theses")
+        assert f'<option value="{read.id}"' in form.text
+        assert f'<option value="{draft.id}"' not in form.text, "a draft is not a report yet"
+
+        response = await api.post(
+            "/theses",
+            data={
+                "csrf_token": _csrf(form.text),
+                "title": "Contoso holds its pricing power",
+                "company_id": str(scene["company"].id),
+                "report_id": str(read.id),
+                "written_on": "2026-08-01",
+            },
+        )
+        assert response.status_code == 303, response.text
+        opened = await api.get(str(response.headers["location"]))
+
+        assert f'href="/reports/{read.id}"' in opened.text
+        assert f'href="/reports/{older.id}"' in opened.text
+        assert f'href="/reports/{draft.id}"' not in opened.text
+        assert "Report as of 30 June 2026" in opened.text
+        assert opened.text.count("The report this thesis was written against.") == 1
+        assert 'data-field="written-against"' in opened.text
+
+    async def test_a_report_about_another_company_is_refused(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        async with scene["factory"]() as session:
+            other = Company(
+                name="Fabrikam plc", ticker="FBRK", exchange="LSE", company_number="07654321"
+            )
+            session.add(other)
+            await session.flush()
+            elsewhere = await _approved_report(
+                session, user=scene["user"], company=other, as_of=date(2026, 6, 30)
+            )
+            await session.commit()
+
+        form = await api.get("/theses")
+        refused = await api.post(
+            "/theses",
+            data={
+                "csrf_token": _csrf(form.text),
+                "title": "Contoso holds its pricing power",
+                "company_id": str(scene["company"].id),
+                "report_id": str(elsewhere.id),
+            },
+        )
+
+        assert refused.status_code == 422
+        assert "about a different company" in refused.text
+        async with scene["factory"]() as session:
+            assert (await session.scalar(select(Thesis))) is None
+
+    async def test_with_no_report_the_page_points_at_research(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        opened = await api.get(await _written(api, scene))
+
+        assert "No report yet" in opened.text
+        assert 'href="/requests/new"' in opened.text
+
+    async def test_an_open_position_links_to_the_book(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        async with scene["factory"]() as session:
+            await _book_that_dealt(session, scene, sold=False)
+            await session.commit()
+
+        opened = await api.get(await _written(api, scene))
+
+        assert "CTSO on LSE, open in ISA" in opened.text
+        assert "Opened 05 January 2026." in opened.text
+        assert "1 trade on record" in opened.text
+        assert 'href="/portfolio"' in opened.text
+
+    async def test_a_closed_position_links_to_its_review(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        async with scene["factory"]() as session:
+            await _book_that_dealt(session, scene, sold=True)
+            await session.commit()
+
+        opened = await api.get(await _written(api, scene))
+
+        assert "CTSO on LSE, closed 16 March 2026" in opened.text
+        assert "Held from 05 January 2026 to 16 March 2026 in ISA. Not yet reviewed." in opened.text
+        assert "2 trades on record" in opened.text
+        assert 'href="/review"' in opened.text
+        assert "open in ISA" not in opened.text
+
+    async def test_a_book_that_never_dealt_in_the_subject_says_so(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        async with scene["factory"]() as session:
+            session.add(Portfolio(user_id=scene["user"].id, name="ISA", base_currency="GBP"))
+            await session.commit()
+
+        opened = await api.get(await _written(api, scene))
+
+        assert "ISA has never dealt in Contoso plc (CTSO)" in opened.text
+        assert 'href="/decisions"' in opened.text
+
+    async def test_with_no_book_the_position_says_so(self, api: Any, scene: dict[str, Any]) -> None:
+        opened = await api.get(await _written(api, scene))
+
+        assert "No book yet" in opened.text
+        assert 'href="/portfolio"' in opened.text
+
+
+class TestTheAddForm:
+    async def test_the_choice_leads_to_its_fields(self, api: Any, scene: dict[str, Any]) -> None:
+        """The script hides the branch the radio did not choose; the markup declares which
+        branch is which, and both are rendered so a browser without scripting sees the
+        form as it always was."""
+        opened = await api.get(await _written(api, scene))
+
+        assert 'data-branches="defeated_by"' in opened.text
+        assert 'id="threshold-fields" data-branch="threshold"' in opened.text
+        assert 'id="review-fields" data-branch="review"' in opened.text
+        assert "/js/branches.js" in opened.text
+
+    async def test_the_metric_offers_the_monitors_words(
+        self, api: Any, scene: dict[str, Any]
+    ) -> None:
+        """The monitor resolves a metric by name (ADR 0103); a name it does not know is read
+        as unobservable, which is late. The field offers the names, and still takes any."""
+        opened = await api.get(await _written(api, scene))
+
+        assert 'list="measurable-metrics"' in opened.text
+        assert '<datalist id="measurable-metrics">' in opened.text
+        for metric in measurable_metrics():
+            assert f'<option value="{metric}">' in opened.text
 
 
 class TestTheEmptyStates:

@@ -33,16 +33,19 @@ from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NO
 from aer.api.deps import CurrentUser, DbSession, SettingsDep
 from aer.core.enums import PremiseComparator
 from aer.core.figures import plain_decimal
-from aer.db.models import Company, Premise, Thesis
+from aer.db.models import Company, Portfolio, Premise, Report, Thesis
 from aer.errors import AerError
 from aer.services import decisions as decision_service
+from aer.services import history, post_trade
+from aer.services import portfolio as portfolio_service
 from aer.services import theses as thesis_service
+from aer.services.thesis_monitor import measurable_metrics
 from aer.web import verdict as verdicts
 from aer.web import vocabulary
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
 
-__all__ = ["PremiseRow", "premise_rows", "router"]
+__all__ = ["PositionRow", "PremiseRow", "ReportRow", "premise_rows", "router"]
 
 router = APIRouter(include_in_schema=False)
 
@@ -102,6 +105,93 @@ def premise_rows(thesis: Thesis) -> list[PremiseRow]:
     return [_row(premise) for premise in thesis.premises]
 
 
+@dataclass(frozen=True, slots=True)
+class ReportRow:
+    """One approved report on the thesis's subject, as the detail page lists it."""
+
+    report_id: uuid.UUID
+    as_of: str
+    approved_on: str
+    is_written_against: bool
+    """The report the thesis names as what it was written against — one at most."""
+
+
+@dataclass(frozen=True, slots=True)
+class PositionRow:
+    """One position the default book has held in the subject: open, or closed and dated.
+
+    Queries over the subject, never foreign keys (ADR 0064): the thesis is about a company,
+    the book deals in that company's listings, and the two meet only here on the page.
+    """
+
+    listing: str
+    book: str
+    is_open: bool
+    opened_on: str
+    closed_on: str
+    trades: int
+    href: str
+    is_reviewed: bool
+
+
+async def _reports_on(session: Any, thesis: Thesis) -> list[ReportRow]:
+    """Every approved report on the subject, newest first, with the one written against."""
+    if thesis.subject_kind != thesis_service.SUBJECT_COMPANY:  # pragma: no cover -- one kind
+        return []
+    rows = await history.approved_reports_for(session, company_id=thesis.subject_id)
+    return [
+        ReportRow(
+            report_id=report.id,
+            as_of=f"{report.as_of_date:%d %B %Y}",
+            approved_on=f"{report.approved_at:%d %B %Y}" if report.approved_at else "",
+            is_written_against=report.id == thesis.report_id,
+        )
+        for report in rows
+    ]
+
+
+async def _positions_in(
+    session: Any, thesis: Thesis, *, user_id: uuid.UUID
+) -> tuple[Portfolio | None, list[PositionRow]]:
+    """What the default book has held in the subject: the open position first, then each
+    closed one, newest close first, linking to its review where one exists."""
+    book = await portfolio_service.default_book(session, user_id=user_id)
+    if book is None:
+        return None, []
+    positions = await post_trade.positions_of(session, portfolio=book)
+    rows = [
+        PositionRow(
+            listing=f"{held.security.ticker} on {held.security.exchange}",
+            book=book.name,
+            is_open=True,
+            opened_on=f"{held.opened_on:%d %B %Y}",
+            closed_on="",
+            trades=len(held.trades),
+            href="/portfolio",
+            is_reviewed=False,
+        )
+        for held in positions.held
+        if held.security.company_id == thesis.subject_id
+    ]
+    for episode in positions.closed:
+        if episode.security.company_id != thesis.subject_id:
+            continue
+        review = await post_trade.review_for_episode(session, episode=episode)
+        rows.append(
+            PositionRow(
+                listing=f"{episode.security.ticker} on {episode.security.exchange}",
+                book=book.name,
+                is_open=False,
+                opened_on=f"{episode.opened_on:%d %B %Y}",
+                closed_on=f"{episode.closed_on:%d %B %Y}",
+                trades=len(episode.trades),
+                href=f"/review/{review.judgement_id}" if review is not None else "/review",
+                is_reviewed=review is not None,
+            )
+        )
+    return book, rows
+
+
 def _thesis_verdict(thesis: Thesis) -> verdicts.Verdict:
     """The sentence the thesis leads with, composed from what its premises actually are."""
     held = [row for row in thesis.premises if not row.judgement.is_withdrawn]
@@ -143,6 +233,7 @@ async def theses_page(
     retired = request.query_params.get("retired") == "1"
     rows = await thesis_service.theses_for(session, user_id=user.id, retired=retired)
     companies = await thesis_service.companies_to_write_about(session)
+    reports = await thesis_service.reports_to_write_against(session)
     named = [
         {
             "thesis": thesis,
@@ -161,6 +252,10 @@ async def theses_page(
             "companies": [
                 {"value": str(company.id), "label": f"{company.name} ({company.ticker})"}
                 for company in companies
+            ],
+            "reports": [
+                {"value": str(report.id), "label": _report_label(report, company)}
+                for report, company in reports
             ],
             "today": datetime.now(UTC).date().isoformat(),
             "csrf_field": CSRF_FIELD_NAME,
@@ -187,6 +282,17 @@ async def write_thesis(
             "the research tool has looked up, not about a ticker somebody typed.",
         )
 
+    report = await _report(session, submitted.get("report_id", ""))
+    if report is None and submitted.get("report_id", "").strip():
+        return _problem(request, "That report is not one the platform holds.")
+    if report is not None and report.company_id != company.id:
+        return _problem(
+            request,
+            "That report is about a different company. A thesis is written against a report "
+            "on its own subject, or against none.",
+            status=422,
+        )
+
     try:
         thesis = await thesis_service.write_thesis(
             session,
@@ -194,6 +300,7 @@ async def write_thesis(
             company=company,
             title=submitted.get("title", ""),
             written_at=_date_at(submitted.get("written_on", "")),
+            report_id=report.id if report is not None else None,
         )
         await session.commit()
     except AerError as refused:
@@ -218,6 +325,7 @@ async def thesis_page(
     if thesis is None:
         return _problem(request, "No such thesis.")
 
+    book, positions = await _positions_in(session, thesis, user_id=user.id)
     token = new_csrf_token(settings)
     response: Response = render(
         request,
@@ -226,6 +334,10 @@ async def thesis_page(
             "item": thesis,
             "subject": await thesis_service.subject_name(session, thesis),
             "premises": premise_rows(thesis),
+            "reports": await _reports_on(session, thesis),
+            "book": book,
+            "positions": positions,
+            "metrics": measurable_metrics(),
             "decisions": [
                 {
                     "id": row.judgement_id,
@@ -395,6 +507,20 @@ async def _company(session: Any, raw: str) -> Company | None:
         return None
     found: Company | None = await session.get(Company, identifier)
     return found
+
+
+def _report_label(report: Report, company: Company) -> str:
+    return f"{company.name} ({company.ticker}) as of {report.as_of_date:%d %B %Y}"
+
+
+async def _report(session: Any, raw: str) -> Report | None:
+    """The approved report the form named, or ``None`` for none named or none such."""
+    try:
+        identifier = uuid.UUID(raw.strip())
+    except ValueError:
+        return None
+    found: Report | None = await session.get(Report, identifier)
+    return found if found is not None and found.immutable else None
 
 
 async def _submitted(request: Request) -> dict[str, str]:

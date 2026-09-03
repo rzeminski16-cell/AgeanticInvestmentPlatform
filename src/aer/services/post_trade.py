@@ -109,8 +109,10 @@ __all__ = [
     "TOOL",
     "WORKFLOW_VERSION",
     "Analytics",
+    "BookPositions",
     "Episode",
     "EpisodeState",
+    "OpenPosition",
     "Outcome",
     "Part",
     "Proposal",
@@ -121,6 +123,7 @@ __all__ = [
     "episode_of",
     "latest_pass_for",
     "outcome_for",
+    "positions_of",
     "proposal_of",
     "review_for_episode",
     "review_of",
@@ -160,6 +163,26 @@ class Episode:
         return f"{self.security.id}:{self.closed_on.isoformat()}"
 
 
+@dataclass(frozen=True, slots=True)
+class OpenPosition:
+    """One position still held: a security in a book, from its first trade to the as-of date."""
+
+    portfolio: Portfolio
+    security: Security
+    opened_on: date
+    trades: tuple[Transaction, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class BookPositions:
+    """What one walk of the book's trades amounts to: the positions that closed, and those
+    still held. One walk rather than two, so a page that shows both cannot read the book at
+    two instants and have them disagree."""
+
+    closed: tuple[Episode, ...]
+    held: tuple[OpenPosition, ...]
+
+
 async def closed_episodes(
     session: AsyncSession, *, portfolio: Portfolio, as_of: date | None = None
 ) -> list[Episode]:
@@ -168,6 +191,18 @@ async def closed_episodes(
     The same walk the pooled cost makes (ADR 0085), asking only one question of it: when did
     the held quantity return to nil? A holding still open at the as-of date has no closed
     episode and is not here.
+    """
+    return list((await positions_of(session, portfolio=portfolio, as_of=as_of)).closed)
+
+
+async def positions_of(
+    session: AsyncSession, *, portfolio: Portfolio, as_of: date | None = None
+) -> BookPositions:
+    """The book's positions, closed and still held, from one walk of its trades.
+
+    No figure. Whether a position is open is a fact about the trades — the held quantity has
+    not returned to nil — and how large it is belongs to the book's own page, which records
+    the calculation. Closed positions come newest close first; held ones by ticker.
     """
     trades = await transactions_in_force(
         session, portfolio=portfolio, as_of=as_of or datetime.now(UTC).date()
@@ -180,56 +215,86 @@ async def closed_episodes(
         by_security.setdefault(trade.security.id, []).append(trade)
         securities[trade.security.id] = trade.security
 
-    episodes: list[Episode] = []
+    closed: list[Episode] = []
+    held: list[OpenPosition] = []
     for security_id, rows in by_security.items():
-        held = Decimal(0)
-        current: list[Transaction] = []
-        for trade in rows:
-            if trade.kind in CASH_KINDS:
-                # A dividend belongs to the episode it fell in; it opens nothing. Any other
-                # cash row that names the security — a fee attributed to the holding — is
-                # not part of what was bought and sold, and the outcome would count it
-                # nowhere, so it is not part of the episode either.
-                if current and trade.kind is TransactionKind.DIVIDEND:
-                    current.append(trade)
+        walked = _walk(portfolio, securities[security_id], rows)
+        closed.extend(walked.closed)
+        if walked.held is not None:
+            held.append(walked.held)
+    closed.sort(key=lambda row: (row.closed_on, row.security.ticker), reverse=True)
+    held.sort(key=lambda row: row.security.ticker)
+    return BookPositions(closed=tuple(closed), held=tuple(held))
+
+
+@dataclass(frozen=True, slots=True)
+class _Walked:
+    closed: tuple[Episode, ...]
+    held: OpenPosition | None
+
+
+def _walk(portfolio: Portfolio, security: Security, rows: list[Transaction]) -> _Walked:
+    """One security's trades, oldest first, cut into the episodes that closed and the one
+    that has not."""
+    episodes: list[Episode] = []
+    held = Decimal(0)
+    current: list[Transaction] = []
+    for trade in rows:
+        if trade.kind in CASH_KINDS:
+            # A dividend belongs to the episode it fell in; it opens nothing. Any other
+            # cash row that names the security — a fee attributed to the holding — is
+            # not part of what was bought and sold, and the outcome would count it
+            # nowhere, so it is not part of the episode either.
+            if current and trade.kind is TransactionKind.DIVIDEND:
+                current.append(trade)
+            continue
+        if trade.kind is TransactionKind.SPLIT:
+            # A split is derived for every book that ever dealt in the security; one
+            # arriving while nothing is held multiplies nothing and must not become
+            # the first row of the next episode, which would date its opening.
+            if held == 0:
                 continue
-            if trade.kind is TransactionKind.SPLIT:
-                # A split is derived for every book that ever dealt in the security; one
-                # arriving while nothing is held multiplies nothing and must not become
-                # the first row of the next episode, which would date its opening.
-                if held == 0:
-                    continue
-                current.append(trade)
-                held = held * trade.quantity
-            else:
-                current.append(trade)
-                held = held + trade.quantity
-            if held < 0:
-                # A sale before the purchase: the pooled cost refuses this walk and the
-                # portfolio page reports the trades as missing. An episode built from it
-                # would put the sale's date on the opening and the later buy in the
-                # proceeds, so the security is left out rather than misdescribed.
-                _log.warning(
-                    "post_trade.walk_went_short",
-                    security_id=str(security_id),
-                    on=trade.trade_date.isoformat(),
+            current.append(trade)
+            held = held * trade.quantity
+        else:
+            current.append(trade)
+            held = held + trade.quantity
+        if held < 0:
+            # A sale before the purchase: the pooled cost refuses this walk and the
+            # portfolio page reports the trades as missing. An episode built from it
+            # would put the sale's date on the opening and the later buy in the
+            # proceeds, so the security is left out rather than misdescribed — and so
+            # is any position the rest of the walk would have called open.
+            _log.warning(
+                "post_trade.walk_went_short",
+                security_id=str(security.id),
+                on=trade.trade_date.isoformat(),
+            )
+            return _Walked(closed=tuple(episodes), held=None)
+        if held == 0 and any(row.kind is not TransactionKind.SPLIT for row in current):
+            dealt = [row for row in current if row.kind not in CASH_KINDS]
+            episodes.append(
+                Episode(
+                    portfolio=portfolio,
+                    security=security,
+                    opened_on=dealt[0].trade_date,
+                    closed_on=trade.trade_date,
+                    trades=tuple(current),
                 )
-                current = []
-                break
-            if held == 0 and any(row.kind is not TransactionKind.SPLIT for row in current):
-                dealt = [row for row in current if row.kind not in CASH_KINDS]
-                episodes.append(
-                    Episode(
-                        portfolio=portfolio,
-                        security=securities[security_id],
-                        opened_on=dealt[0].trade_date,
-                        closed_on=trade.trade_date,
-                        trades=tuple(current),
-                    )
-                )
-                current = []
-    episodes.sort(key=lambda row: (row.closed_on, row.security.ticker), reverse=True)
-    return episodes
+            )
+            current = []
+    dealt = [row for row in current if row.kind not in CASH_KINDS]
+    still_held = (
+        OpenPosition(
+            portfolio=portfolio,
+            security=security,
+            opened_on=dealt[0].trade_date,
+            trades=tuple(current),
+        )
+        if held > 0 and dealt
+        else None
+    )
+    return _Walked(closed=tuple(episodes), held=still_held)
 
 
 def episode_of(

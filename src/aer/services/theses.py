@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from aer.core.enums import JudgementKind, PremiseComparator
-from aer.db.models import AuditEvent, Company, Judgement, Premise, Thesis, User
+from aer.db.models import AuditEvent, Company, Judgement, Premise, Report, Thesis, User
 from aer.errors import ConflictError, ValidationError
 
 __all__ = [
@@ -39,6 +39,7 @@ __all__ = [
     "add_premise",
     "companies_to_write_about",
     "premise_of",
+    "reports_to_write_against",
     "retire_thesis",
     "subject_name",
     "theses_for",
@@ -385,6 +386,22 @@ async def subject_name(session: AsyncSession, thesis: Thesis) -> str:
     if company is None:
         return "a company no longer on record"
     return f"{company.name} ({company.ticker})"
+
+
+async def reports_to_write_against(session: AsyncSession) -> list[tuple[Report, Company]]:
+    """Every approved report with the company it is about, newest first.
+
+    A thesis may name the report it was written against (``report_id``), and this is the
+    list the form offers. Approved only: a draft is still being argued with, and a thesis
+    written against it would be written against a document that may yet change.
+    """
+    rows = await session.execute(
+        select(Report, Company)
+        .join(Company, Company.id == Report.company_id)
+        .where(Report.immutable.is_(True))
+        .order_by(Report.as_of_date.desc(), Report.created_at.desc())
+    )
+    return [(report, company) for report, company in rows.all()]
 
 
 async def companies_to_write_about(session: AsyncSession) -> list[Company]:

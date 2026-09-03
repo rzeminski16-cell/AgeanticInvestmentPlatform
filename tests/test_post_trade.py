@@ -419,6 +419,91 @@ class TestAnEpisode:
 # -- The outcome -------------------------------------------------------------------------------
 
 
+class TestThePositionsOfABook:
+    """One walk answers both questions — which positions closed, and which are still held —
+    so a page showing both cannot read the book at two instants and have them disagree."""
+
+    async def test_a_holding_still_open_is_held_and_not_closed(
+        self, db_session: AsyncSession
+    ) -> None:
+        scene = await _scene(db_session)
+        await trade(
+            db_session,
+            scene,
+            kind=TransactionKind.BUY,
+            security=scene["barc"],
+            quantity="100",
+            price="250",
+            currency="GBX",
+            on=OPENED_ON,
+        )
+
+        positions = await post_trade.positions_of(db_session, portfolio=scene["portfolio"])
+
+        assert positions.closed == ()
+        [held] = positions.held
+        assert held.security.id == scene["barc"].id
+        assert held.opened_on == OPENED_ON
+        assert [row.kind for row in held.trades] == [TransactionKind.BUY]
+
+    async def test_a_round_trip_and_a_fresh_purchase_are_one_of_each(
+        self, db_session: AsyncSession
+    ) -> None:
+        scene = await _scene(db_session)
+        await _round_trip(scene, decided=False)
+        reopened = CLOSED_ON + timedelta(days=30)
+        await trade(
+            db_session,
+            scene,
+            kind=TransactionKind.BUY,
+            security=scene["barc"],
+            quantity="50",
+            price="280",
+            currency="GBX",
+            on=reopened,
+        )
+
+        positions = await post_trade.positions_of(db_session, portfolio=scene["portfolio"])
+
+        [episode] = positions.closed
+        assert (episode.opened_on, episode.closed_on) == (OPENED_ON, CLOSED_ON)
+        [held] = positions.held
+        assert held.opened_on == reopened, "the open position dates from its own first trade"
+        assert await post_trade.closed_episodes(db_session, portfolio=scene["portfolio"]) == [
+            episode
+        ]
+
+    async def test_a_walk_that_went_short_holds_nothing(self, db_session: AsyncSession) -> None:
+        """The sale-before-purchase the pooled cost refuses. The buy that follows would leave
+        the walk at nil and a naive reading would call the security flat and clean; the
+        walk that went short says nothing about it instead, closed or held."""
+        scene = await _scene(db_session)
+        await trade(
+            db_session,
+            scene,
+            kind=TransactionKind.SELL,
+            security=scene["barc"],
+            quantity="-100",
+            price="300",
+            currency="GBX",
+            on=OPENED_ON,
+        )
+        await trade(
+            db_session,
+            scene,
+            kind=TransactionKind.BUY,
+            security=scene["barc"],
+            quantity="200",
+            price="250",
+            currency="GBX",
+            on=CLOSED_ON,
+        )
+
+        positions = await post_trade.positions_of(db_session, portfolio=scene["portfolio"])
+
+        assert positions == post_trade.BookPositions(closed=(), held=())
+
+
 class TestTheWalkIsHonest:
     async def test_a_split_while_flat_does_not_open_the_next_episode(
         self, db_session: AsyncSession

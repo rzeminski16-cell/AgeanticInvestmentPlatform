@@ -64,6 +64,10 @@ REQUIRED_ATTRIBUTES: Final[dict[str, tuple[str, ...]]] = {
     ),
     "tables.js": ("data-filters", "data-search"),
     "drawer.js": ("data-drawer-title",),
+    # `data-branches` names the radio group whose choice decides; `data-branch` marks each
+    # branch with the value that shows it. Without either the script does nothing and every
+    # branch stays visible, which is the page with scripting off.
+    "branches.js": ("data-branches", "data-branch"),
 }
 
 # Ids an htmx out-of-band swap targets. A response naming one of these lands nowhere if the

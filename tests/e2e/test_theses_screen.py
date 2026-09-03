@@ -1,9 +1,9 @@
 """The theses tool, walked once: write a thesis, add a premise, withdraw it, retire the thesis.
 
 `test_theses.py` proves the record and drives the pages in-process. Nothing there proves a
-person can do it — that the radio decides which fields count, that the withdraw form on a
-premise row submits against that premise, that a retired thesis really loses its forms in a
-browser rather than in an assertion about HTML.
+person can do it — that the radio decides which fields count and leads to them, that the
+withdraw form on a premise row submits against that premise, that a retired thesis really
+loses its forms in a browser rather than in an assertion about HTML.
 
 **No worker and no model.** A thesis is a document a person writes; there is nothing to
 approve and nothing to spend.
@@ -62,11 +62,20 @@ class TestAThesisFromNothing:
         expect(page.locator("#subject")).to_have_text("Contoso plc (CTSO)")
         expect(page.get_by_text("Nothing is asserted yet")).to_be_visible()
 
-        # Add a premise a person will review. The radio decides which fields count, so the
-        # threshold fields are left empty and the review date is what is recorded.
+        # Add a premise a person will review. The radio decides which fields count, and the
+        # choice leads to its fields: the review branch is chosen by default, so the
+        # threshold fields are off the screen until the other radio is picked, and back off
+        # it when the choice returns. The record is the same either way.
         page.fill("#statement", "Management allocates capital well.")
         page.fill("#basis", "Ten years of buybacks below intrinsic value.")
+        expect(page.locator("#review-fields")).to_be_visible()
+        expect(page.locator("#threshold-fields")).to_be_hidden()
+        page.check("#defeated_by-threshold")
+        expect(page.locator("#threshold-fields")).to_be_visible()
+        expect(page.locator("#review-fields")).to_be_hidden()
         page.check("#defeated_by-review")
+        expect(page.locator("#review-fields")).to_be_visible()
+        expect(page.locator("#threshold-fields")).to_be_hidden()
         page.fill("#review_by", "2027-03-31")
         page.click("#add")
         page.wait_for_url("**/theses/*")

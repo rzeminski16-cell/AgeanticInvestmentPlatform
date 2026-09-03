@@ -185,7 +185,7 @@ Not required reading, but the best examples of each pattern:
 | A well-built form | `web/templates/requests/_form.html`, `_field.html` |
 | The drawer contract | `web/templates/_shell/drawer.html`, `static/js/drawer.js` |
 | The honest edge of what a script may do | `static/js/console.js` |
-| Progressive reveal | `static/js/tables.js` |
+| Progressive reveal | `static/js/tables.js`, `static/js/branches.js` |
 | The best-designed page in the product | `web/templates/runs/financials.html` |
 | The least-designed one | `web/templates/runs/review.html` |
 
