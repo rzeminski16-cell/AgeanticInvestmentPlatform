@@ -121,19 +121,21 @@ about it*. There are a lot of them. See [`04-content-and-voice.md`](04-content-a
 
 ## The nine tools, of which two exist
 
-The platform is designed to hold several tools on one kernel. Two work; seven are planned and
-appear on the launcher as placeholders that say what they would be and what they are waiting
-on.
+The platform is designed to hold several tools on one kernel. Seven work; two are planned
+and appear on the launcher as placeholders that say what they would be and what they are
+waiting on.
 
 | Tool | State |
 |---|---|
 | **Equity Research** | Working, end to end |
 | **Portfolio** | Working |
-| Watchlist, Theses, Decisions, Monitor, Risk, Post-trade review, Decision analytics | Planned |
+| **Theses**, **Decisions**, **Monitor** | Working |
+| **Post-trade review**, **Decision analytics** | Working |
+| Watchlist, Risk | Planned |
 
 **A planned tool is a real page, not a dead link and not a lie.** That decision is worth
 keeping and worth designing properly: the launcher is the one place the shape of the whole
-product is visible, and seven honest placeholders communicate the ambition better than hiding
+product is visible, and two honest placeholders communicate the ambition better than hiding
 them would.
 
 **Design for nine, build for two.** Whatever you do to the launcher, the work list and the

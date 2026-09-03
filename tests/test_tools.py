@@ -93,7 +93,7 @@ class TestEachToolIsARowWithARecord:
             if tool.is_built:
                 assert tool.needs == "", tool.key
 
-    def test_the_platform_has_five_working_tools_and_nothing_half_built(self) -> None:
+    def test_the_platform_has_seven_working_tools_and_nothing_half_built(self) -> None:
         """Stated rather than counted loosely: this is the claim the launcher makes.
 
         Portfolio was ``UNDER_CONSTRUCTION`` while its tables and arithmetic were being
@@ -102,8 +102,10 @@ class TestEachToolIsARowWithARecord:
         and four forms, in one change. The monitor followed (§3.6): a role, a pass, a
         findings table and the one gate no research run opens. Then decisions (§3.7): the
         journal entry written before the outcome, and the trade that points back at it.
-        Nothing occupies the middle state today, which is a fact about this moment rather
-        than a reason to remove it.
+        Post-trade review and decision analytics came together (§3.8): the reviewer
+        proposes, the operator confirms, and the analytics count the confirmed reviews with
+        the ``n`` beside every statistic. Nothing occupies the middle state today, which is
+        a fact about this moment rather than a reason to remove it.
         """
         by_status = {tool.key: tool.status for tool in installed_tools()}
 
@@ -112,7 +114,9 @@ class TestEachToolIsARowWithARecord:
         assert by_status["theses"] is ToolStatus.WORKING
         assert by_status["monitor"] is ToolStatus.WORKING
         assert by_status["decisions"] is ToolStatus.WORKING
-        assert sum(1 for status in by_status.values() if status is ToolStatus.WORKING) == 5
+        assert by_status["review"] is ToolStatus.WORKING
+        assert by_status["analytics"] is ToolStatus.WORKING
+        assert sum(1 for status in by_status.values() if status is ToolStatus.WORKING) == 7
         assert not [
             key for key, status in by_status.items() if status is ToolStatus.UNDER_CONSTRUCTION
         ]
@@ -167,7 +171,7 @@ class TestWhereEachStatePutsATool:
 
         assert not missing, f"tools the application does not serve: {missing}"
 
-    def test_the_navigation_is_seven_sections_now(self) -> None:
+    def test_the_navigation_is_eight_sections_now(self) -> None:
         assert [section.key for section in NAV] == [
             "overview",
             "research",
@@ -175,6 +179,7 @@ class TestWhereEachStatePutsATool:
             "theses",
             "decisions",
             "monitor",
+            "review",
             "platform",
         ]
 

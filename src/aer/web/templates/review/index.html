@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  The review list: every closed position, with where its review stands.
+
+  A position closes when a holding returns to nil (ADR 0105), and that is the only
+  condition under which the reviewer reads it. Four groups, and the grouping is the state:
+  a proposal waiting to be confirmed, a position nobody has reviewed, a pass that stopped at
+  its ceiling, and the reviews that stand. Nothing here is a figure the reader acts on: the
+  outcome is on the proposal, linked to its formula.
+#}
+
+{% block title %}Post-trade review &middot; Tracework{% endblock %}
+
+{% block content %}
+  {% call ui.page_header("Post-trade review", eyebrow="WHAT THE RECORD SAYS") %}
+    <p class="type-body text-ink-muted">
+      Each closed position, read for the quality of the decision behind it — against the
+      process that was supposed to be followed, deliberately not against whether it made
+      money. The reviewer proposes; you confirm, and the review is yours.
+    </p>
+  {% endcall %}
+
+  {{ ui.verdict("WHERE EACH REVIEW STANDS", verdict.composed, tone=verdict.tone.value) }}
+
+  {% call ui.sheet("Waiting for you", subtitle="The reviewer has read these and proposed a review. A proposal is nobody's judgement until you confirm it, amending anything.", id="proposed") %}
+    {% if proposed %}
+      {% call ui.record_list("Proposals waiting") %}
+        {% for row in proposed %}
+          <li class="border-t border-line py-4" data-episode="{{ row.key }}" data-state="proposed">
+            <a href="/review/passes/{{ row.pass_id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ row.ticker }} · {{ row.book }}</a>
+            <p class="mt-1 type-data-sm text-ink-muted">Held {{ row.opened_on }} to {{ row.closed_on }} · {{ row.trades }} trade{{ "" if row.trades == 1 else "s" }} · a proposal, not a judgement</p>
+          </li>
+        {% endfor %}
+      {% endcall %}
+    {% else %}
+      {{ ui.empty("No proposal is waiting", "When you run the reviewer over a closed position, its proposal appears here until you confirm it.") }}
+    {% endif %}
+  {% endcall %}
+
+  {% call ui.sheet("Not yet reviewed", subtitle="Closed positions the reviewer has not read. One pass per position, in this process, over the decisions written before the outcome, the premises as they stand, and what the monitor said while it was open.", id="unreviewed") %}
+    {% if unreviewed %}
+      {% call ui.record_list("Closed positions not reviewed") %}
+        {% for row in unreviewed %}
+          <li class="grid grid-cols-1 gap-2 border-t border-line py-4 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6" data-episode="{{ row.key }}" data-state="unreviewed">
+            <div class="min-w-0">
+              <p class="type-subheading text-ink">{{ row.ticker }} · {{ row.book }}</p>
+              <p class="mt-1 type-data-sm text-ink-muted">Held {{ row.opened_on }} to {{ row.closed_on }} · {{ row.trades }} trade{{ "" if row.trades == 1 else "s" }}</p>
+            </div>
+            <form method="post" action="/review/run" class="flex items-center">
+              <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+              <input type="hidden" name="portfolio_id" value="{{ row.portfolio_id }}" />
+              <input type="hidden" name="security_id" value="{{ row.security_id }}" />
+              <input type="hidden" name="closed_on" value="{{ row.closed_on_iso }}" />
+              <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong" data-run="{{ row.key }}">Run the reviewer</button>
+            </form>
+          </li>
+        {% endfor %}
+      {% endcall %}
+    {% elif not has_books %}
+      {{ ui.empty("No book to review", "A review reads a closed position in a book. Record what you hold first.", action_label="Open the portfolio", action_href="/portfolio") }}
+    {% else %}
+      {{ ui.empty("Nothing closed and unreviewed", "A position is reviewed once its holding returns to nil. Until then the reviewer does not read it: an outcome over an open position is a mark with an opinion attached.") }}
+    {% endif %}
+  {% endcall %}
+
+  {% if stopped %}
+    {% call ui.sheet("Stopped at a ceiling", subtitle="A pass that would have crossed a spending cap stopped before making the call. Nothing was proposed; the position can be run again.", id="stopped") %}
+      {% call ui.record_list("Stopped passes") %}
+        {% for row in stopped %}
+          <li class="grid grid-cols-1 gap-2 border-t border-line py-4 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6" data-episode="{{ row.key }}" data-state="stopped">
+            <div class="min-w-0">
+              <a href="/review/passes/{{ row.pass_id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ row.ticker }} · {{ row.book }}</a>
+              <p class="mt-1 type-body-sm text-ink-muted">{{ row.reason }}</p>
+            </div>
+            <form method="post" action="/review/run" class="flex items-center">
+              <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+              <input type="hidden" name="portfolio_id" value="{{ row.portfolio_id }}" />
+              <input type="hidden" name="security_id" value="{{ row.security_id }}" />
+              <input type="hidden" name="closed_on" value="{{ row.closed_on_iso }}" />
+              <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-3 type-label text-ink hover:bg-surface-selected">Run it again</button>
+            </form>
+          </li>
+        {% endfor %}
+      {% endcall %}
+    {% endcall %}
+  {% endif %}
+
+  {% call ui.sheet("Reviewed", subtitle="Your reviews, newest close first. Each is a judgement you hold, with the reviewer's proposal kept beside it.", id="reviewed") %}
+    {% if reviewed %}
+      {% call ui.record_list("Reviews") %}
+        {% for row in reviewed %}
+          <li class="border-t border-line py-4" data-episode="{{ row.key }}" data-state="reviewed">
+            <a href="/review/{{ row.review_id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ row.ticker }} · {{ row.book }}</a>
+            <p class="mt-1 type-data-sm text-ink-muted">Held {{ row.opened_on }} to {{ row.closed_on }}</p>
+          </li>
+        {% endfor %}
+      {% endcall %}
+    {% else %}
+      {{ ui.empty("Nothing reviewed yet", "A confirmed review appears here, and feeds the analytics once there are enough to say anything.", action_label="Read the analytics", action_href="/analytics") }}
+    {% endif %}
+  {% endcall %}
+{% endblock %}

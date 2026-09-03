@@ -431,7 +431,7 @@ class TestAJudgementStillEntersNoLineage:
             for key in table.foreign_keys
             if key.column.table.name == "judgements" and table.name != "judgements"
         )
-        assert referrers == ["decisions", "premises"]
+        assert referrers == ["decisions", "premises", "reviews"]
 
     def test_the_trade_points_at_the_decision_and_not_the_other_way_round(self) -> None:
         """ADR 0104 §2: the column is on the attestation. `decisions` references a thesis,

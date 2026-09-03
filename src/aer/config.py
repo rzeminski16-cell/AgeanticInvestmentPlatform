@@ -196,6 +196,10 @@ DEFAULT_MODEL_ROUTES: Final[dict[str, ModelRoute]] = {
     # the cost is a standing subscription rather than a report (ADR 0078) — pence per
     # premise per filing against the monthly cap.
     "thesis_monitor": ModelRoute(model="claude-sonnet-5", effort="medium"),
+    # Once per closed position, over the whole record, proposing a judgement the operator
+    # confirms (ADRs 0081, 0105). The judgement model at high effort, like the red team: it
+    # runs seldom, and what it gets wrong is the operator's reading of their own method.
+    "post_trade_reviewer": ModelRoute(model="claude-opus-5", effort="high"),
 }
 
 

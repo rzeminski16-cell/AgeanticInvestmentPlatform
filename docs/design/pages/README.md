@@ -19,6 +19,7 @@ pasted into an AI design tool — on its own, alongside
 | [`theses.md`](theses.md) | The theses list, one thesis and its premises, the four forms |
 | [`monitor.md`](monitor.md) | The findings list, one finding, the thesis gate and the acts that close a finding |
 | [`decisions.md`](decisions.md) | The journal, one decision with the premises it was taken on and the trades that carried it out |
+| [`review-and-analytics.md`](review-and-analytics.md) | The closed positions, the reviewer's proposal beside the outcome, the confirmed review, and the analytics with an `n` on every statistic |
 
 ---
 

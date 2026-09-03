@@ -63,9 +63,12 @@ __all__ = [
     "Figure",
     "HoldingRow",
     "PortfolioView",
+    "acquisition_cost_of",
     "book_as_at",
     "graded_figure",
     "in_base",
+    "movement_of",
+    "source_of",
     "transactions_in_force",
 ]
 
@@ -704,3 +707,11 @@ def graded_figure(context: CalculationContext, quantity: Quantity) -> Figure:
         )
         raise CalculationError(message, context={"value": str(quantity.value)})
     return Figure(quantity=quantity, shared=grade_of(context, record), record=record)
+
+
+# The three trade helpers the post-trade review's outcome reuses (ADR 0105), under public
+# names: a realised return computed over a different reading of the same trades would be a
+# second answer to what a purchase cost, and the reviewer would be scoring against it.
+acquisition_cost_of = _acquisition_cost
+movement_of = _movement
+source_of = _source

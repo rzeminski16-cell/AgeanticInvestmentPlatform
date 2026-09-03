@@ -23,18 +23,22 @@ exactly right, which is the one thing an absence of data cannot show.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Final
 
 from aer.calc.basic import growth_rate, ratio
 from aer.calc.engine import CalculationContext, traced
 from aer.calc.statements import StatementSet, subtotal_difference
-from aer.calc.units import Quantity
+from aer.calc.units import CalculationError, Quantity
 
 __all__ = [
     "MEASURABLE_DRIVERS",
     "UNMEASURABLE_JUDGEMENTS",
     "assumption_delta",
+    "episode_cost",
+    "episode_proceeds",
     "realised_driver",
+    "realised_return",
 ]
 
 # The six drivers a filing can answer — the same list `assumption_proposals` derives, for
@@ -80,6 +84,79 @@ def assumption_delta(
     sign's, and no reader should be handed an "error" that secretly encodes a judgement.
     """
     return actual - assumed
+
+
+@traced(
+    name="episode_cost",
+    formula="cost = sum(acquisition_cost_i)",
+    assumptions=("Every acquisition cost is in the book's currency, converted at its own date.",),
+)
+def episode_cost(_context: CalculationContext, *, costs: Sequence[Quantity]) -> Quantity:
+    """What a closed position cost in total: every purchase's consideration and dealing costs.
+
+    Raises:
+        CalculationError: If there is nothing to sum — a closed position was bought.
+        UnitMismatchError: If the costs are not all in one currency.
+    """
+    return _same_currency_sum(costs, what="acquisition costs")
+
+
+@traced(
+    name="episode_proceeds",
+    formula="proceeds = sum(sale_cash_effect_i) + sum(dividend_i)",
+    assumptions=("Every effect is in the book's currency, converted at its own date.",),
+)
+def episode_proceeds(_context: CalculationContext, *, effects: Sequence[Quantity]) -> Quantity:
+    """What a closed position returned in cash: every sale's net effect and every dividend.
+
+    Raises:
+        CalculationError: If there is nothing to sum — a closed position was sold.
+        UnitMismatchError: If the effects are not all in one currency.
+    """
+    return _same_currency_sum(effects, what="proceeds")
+
+
+def _same_currency_sum(values: Sequence[Quantity], *, what: str) -> Quantity:
+    if not values:
+        message = f"There are no {what} to sum; a closed position has at least one."
+        raise CalculationError(message, context={"what": what})
+    total = values[0]
+    for value in values[1:]:
+        total = total + value
+    return total
+
+
+@traced(
+    name="realised_return",
+    formula="realised_return = (proceeds - cost) / cost",
+    assumptions=(
+        "Proceeds and cost are in the same currency, each converted at its own trade's date.",
+        "Proceeds include every sale and every dividend inside the episode; cost includes "
+        "every purchase's consideration and dealing costs.",
+    ),
+)
+def realised_return(
+    _context: CalculationContext, *, proceeds: Quantity, cost: Quantity
+) -> Quantity:
+    """What a closed position returned on what it cost, as a fraction (ADR 0105).
+
+    The one figure the post-trade reviewer is handed about money, and the only place in the
+    platform a realised gain is computed. Deliberately a fraction of cost rather than an
+    annualised rate: annualising a four-month holding invents eight months that did not
+    happen, and the holding period is shown beside it as its own figure.
+
+    Raises:
+        UnitMismatchError: If proceeds and cost are in different currencies. Never coerced —
+            the caller converts each flow at its own date first.
+        CalculationError: If the cost is nil, which a closed position cannot have had.
+    """
+    if cost.value <= 0:
+        message = (
+            f"A realised return over a cost of {cost.value} is undefined. A position that "
+            "closed was paid for; a nil or negative cost is a walk that did not add up."
+        )
+        raise CalculationError(message, context={"cost": str(cost.value)})
+    return (proceeds - cost) / cost
 
 
 def realised_driver(

@@ -221,6 +221,14 @@ _PROVIDERS: Final[tuple[AttentionProvider, ...]] = (
         items_ref="aer.web.overview.decisions:items",
         adr="0104",
     ),
+    # A closed position nobody has reviewed, and a proposal waiting to be confirmed
+    # (ADRs 0081, 0105).
+    AttentionProvider(
+        key="review",
+        tool="review",
+        items_ref="aer.web.overview.review:items",
+        adr="0105",
+    ),
 )
 
 

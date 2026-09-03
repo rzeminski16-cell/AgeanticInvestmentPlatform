@@ -68,7 +68,7 @@ document in which every figure carries a footnote resolving to either the formul
 produced it or the archived bytes it came from. That path has no gap in it, and the
 evaluation gate re-derives every stored calculation from its own record on every run.
 
-Five of nine tools work:
+Seven of nine tools work:
 
 | Tool | State | Waiting on |
 |---|---|---|
@@ -79,8 +79,8 @@ Five of nine tools work:
 | **Decisions** | Working | — |
 | **Monitor** | Working | — |
 | Risk | Planned | A book to be about, and the rate store *(the rate store now exists)* |
-| Post-trade review | Planned | Decisions and positions |
-| Decision analytics | Planned | Enough reviewed decisions to say anything at all |
+| **Post-trade review** | Working | — |
+| **Decision analytics** | Working | — |
 
 A planned tool is a real page saying what it would be and what it needs — not a dead link
 and not a lie.
@@ -464,8 +464,21 @@ decision's action and size are the first sizing concept: the adversarial corpus 
 The Decisions tool is the fifth working tool, with an attention row for a decision never
 carried out and one past its review date.
 
-**3.8 Post-trade review and decision analytics** (ADR 0081). Scored against the process
-that was supposed to be followed, deliberately **not** against whether it made money.
+**3.8 Post-trade review and decision analytics** (ADR 0081). **Done 2026-09-03** — ADR
+0105. Scored against the process that was supposed to be followed, deliberately **not**
+against whether it made money. A closed position is an *episode*: the walk the pooled cost
+makes, asked when the holding returned to nil, so nothing is marked and an open holding is
+never reviewed. Its outcome is code's — cost, proceeds and the realised return as `@traced`
+functions in `calc/outcomes.py`, every flow converted at its own trade's date, the ledger
+persisted against the pass — beside the holding period and the horizon the decisions stated.
+
+The `post_trade_reviewer` role runs once per episode on its own work order and its draft
+lands on the pass's step as a **proposal**; the operator confirms it, amending anything, and
+*that* is the review — `reviews`, the third judgement subtype in `premises`' shape, held by
+the operator on their basis, with the proposal kept beside it so that agreement is decision
+data. `Statistic` cannot be built without its `n`, and below three reviewed positions every
+breakdown is a tally. Post-trade review and Decision analytics are the sixth and seventh
+working tools; the loop ADR 0079 named stays open by design.
 
 **3.9 Portfolio risk and scenarios** (ADR 0080). Commented on rather than scored. Its rate
 prerequisite is now met.

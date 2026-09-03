@@ -27,6 +27,8 @@ from aer.core.enums import (
     GateKind,
     Grade,
     JobStatus,
+    PremiseVerdict,
+    ProcessQuality,
     RequestStatus,
     SkillKind,
     TransactionKind,
@@ -41,6 +43,8 @@ from aer.web.vocabulary import (
     GATES,
     GRADES,
     JOB_STATES,
+    PREMISE_VERDICTS,
+    PROCESS_QUALITIES,
     REQUEST_STATES,
     SECTION_STATES,
     SKILL_KINDS,
@@ -62,6 +66,8 @@ MAPPED: list[tuple[str, type[StrEnum], dict[Any, HumanState]]] = [
     ("transaction kind", TransactionKind, TRANSACTION_KINDS),
     ("skill kind", SkillKind, SKILL_KINDS),
     ("analysis mode", AnalysisMode, ANALYSIS_MODES),
+    ("premise verdict", PremiseVerdict, PREMISE_VERDICTS),
+    ("process quality", ProcessQuality, PROCESS_QUALITIES),
 ]
 
 

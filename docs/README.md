@@ -55,6 +55,8 @@ For the operator: the person who installs it, commissions research and approves 
   a finding is a question, and the gate it can open.
 - [`decisions.md`](users/decisions.md) — what you decided to do about a thesis, written
   before the outcome, and the trade that carries it out.
+- [`review.md`](users/review.md) — a closed position scored for the process behind the
+  decision, not the result; and what the reviews have in common, with an `n` on everything.
 - [`troubleshooting.md`](users/troubleshooting.md) — when a run stalls, fails, or refuses.
 
 ### `developers/` — how to change it

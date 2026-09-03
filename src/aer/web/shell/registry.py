@@ -20,6 +20,7 @@ from aer.web.decisions.nav import DECISIONS
 from aer.web.monitor.nav import MONITOR
 from aer.web.nav import NavItem, NavSection
 from aer.web.overview.nav import OVERVIEW
+from aer.web.review.nav import REVIEW
 from aer.web.theses.nav import THESES
 from aer.web.tools.registry import PORTFOLIO
 
@@ -68,6 +69,7 @@ NAV: Final[tuple[NavSection, ...]] = (
     THESES,
     DECISIONS,
     MONITOR,
+    REVIEW,
     PLATFORM,
 )
 
@@ -106,8 +108,6 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         # status is exactly this decision: a navigation listing seven things nobody can
         # use is worse than a launcher that shows the shape once. Each becomes a nav item
         # on the day its row turns `WORKING`.
-        "/analytics",
-        "/review",
         "/risk",
         "/watchlist",
         # Liveness and readiness, reached by an operator or a probe, not by a person
@@ -132,6 +132,9 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         "/monitor/findings/{finding_id}",
         # One decision, reached from the journal, from its thesis and from the work list.
         "/decisions/{decision_id}",
+        # A reviewer's proposal and a confirmed review, each reached from the review list.
+        "/review/passes/{pass_id}",
+        "/review/{review_id}",
         # A request and everything done to one.
         "/requests/new",
         "/requests/{request_id}",

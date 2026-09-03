@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  What the reviewed positions have in common. Every statistic carries its n, in the type
+  that built it (ADR 0105 §4): below the minimum sample a breakdown is a tally rather than
+  a percentage, because three of four is an anecdote wearing a plural.
+
+  The four cells — process quality against the sign of the realised return — come first,
+  and the two off-diagonal ones are what the page exists to make reachable.
+#}
+
+{% block title %}Decision analytics &middot; Tracework{% endblock %}
+
+{% block content %}
+  {% call ui.page_header("Decision analytics", eyebrow="WHAT THE REVIEWS HAVE IN COMMON") %}
+    <p class="type-body text-ink-muted">
+      Counted from your confirmed reviews and nothing else. Where the process holds and
+      where it does not, across enough closed positions to say anything at all — and where
+      there are not enough, a tally that says so.
+    </p>
+  {% endcall %}
+
+  {% if reviewed == 0 %}
+    {{ ui.verdict("THE SAMPLE", "No position has been reviewed, so there is nothing to count.", tone="muted") }}
+  {% elif reviewed < minimum %}
+    {{ ui.verdict("THE SAMPLE", reviewed ~ " position" ~ ("" if reviewed == 1 else "s") ~ " reviewed. Below " ~ minimum ~ " every breakdown is a tally rather than a proportion.", tone="info") }}
+  {% else %}
+    {{ ui.verdict("THE SAMPLE", reviewed ~ " positions reviewed. Each breakdown below carries the number it is a proportion of.", tone="info") }}
+  {% endif %}
+
+  {% if reviewed == 0 %}
+    {% call ui.sheet(id="empty") %}
+      {{ ui.empty("Nothing reviewed yet", "Analytics are counted from confirmed reviews. Review a closed position first; the first breakdown is the four cells — sound process with a loss, flawed process with a gain — that a P&L alone cannot show.", action_label="Review a closed position", action_href="/review") }}
+    {% endcall %}
+  {% else %}
+    {% for statistic in statistics %}
+      {% call ui.sheet(statistic.label, subtitle="n = " ~ statistic.count ~ ("" if statistic.is_a_finding else " · a tally, not a proportion: fewer than " ~ minimum ~ " reviewed"), id="statistic-" ~ loop.index) %}
+        <div data-statistic="{{ statistic.label | lower | replace(' ', '-') }}" data-count="{{ statistic.count }}" data-finding="{{ 'yes' if statistic.is_a_finding else 'no' }}">
+          {% call ui.table(statistic.label, [{"label": "Cell"}, {"label": "Count", "numeric": true}] + ([{"label": "Share", "numeric": true}] if statistic.is_a_finding else [])) %}
+            {% for part in statistic.parts %}
+              <tr data-part="{{ part.label | lower | replace(' ', '-') | replace(',', '') }}">
+                {{ ui.cell(part.label, header=true) }}
+                {{ ui.cell(part.count, numeric=true) }}
+                {% if statistic.is_a_finding %}{{ ui.cell(part.share, numeric=true) }}{% endif %}
+              </tr>
+            {% endfor %}
+          {% endcall %}
+        </div>
+      {% endcall %}
+    {% endfor %}
+  {% endif %}
+{% endblock %}

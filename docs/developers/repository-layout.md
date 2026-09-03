@@ -99,6 +99,8 @@ src/aer/            application package
                     a finding is closed by an act with a reason (ADRs 0078, 0079, 0103)
     decisions.py    the only writer of decisions: written before the outcome, the trade points
                     back at it, the size is a sentence (ADR 0104)
+    post_trade.py   a closed position as an episode, its outcome as recorded calculations, the
+                    reviewer's proposal on its pass, the review as the operator's (ADR 0105)
   runtime.py        assembles the service bundle both processes share
   queue.py          enqueueing a run, from the web process
   worker.py         the arq worker: where a research run actually executes
@@ -133,12 +135,15 @@ src/aer/            application package
       research.py   the research tool's answer to "is anything waiting for me"
       monitor.py    the monitor's: a contradicted premise waits, a stopped pass needs diagnosis
       decisions.py  the journal's: a decision not carried out, a review date passed
+      review.py     the review's: a proposal waiting, a stopped pass, a closed position unreviewed
       platform.py   what the platform itself has waiting, which is no tool's business
     portfolio/pages.py  the book as at a date; every figure computed on the way to it
     theses/pages.py     what you believe, as premises with what would defeat each; no figure
     monitor/pages.py    the findings, labelled findings; the one gate a contradicted premise opens
     decisions/pages.py  the journal: what you decided, on what basis, and the trades that followed
-    tools/registry.py   INSTALLED_TOOLS: nine rows, five working; a planned tool is a page
+    review/pages.py     a closed position's outcome beside the reviewer's proposal, the review the
+                        operator confirms, and the analytics with an n on every statistic
+    tools/registry.py   INSTALLED_TOOLS: nine rows, seven working; a planned tool is a page
     styles/app.css  the token system: palette, type scale, spacing, radii (ADRs 0077, 0088)
     static/fonts/   three families, eight files, all OFL 1.1 and all SHA-256 pinned
     templates/      Jinja2; the disclaimer lives in the shell, not in pages

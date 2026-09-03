@@ -100,7 +100,12 @@ code before the model is asked anything, `findings` kept apart from approvals wi
 column, the one gate a contradicted premise opens, and the monitor as the fourth working tool.
 §3.7 landed the same day (ADR 0104): decisions as the second judgement subtype with the size
 as a sentence, the trade pointing back at its decision, the six sizing names reserved with
-their attack files, and the Decisions tool as the fifth working tool. §3.8 is next. §3.11
+their attack files, and the Decisions tool as the fifth working tool. §3.8 landed 2026-09-03
+(ADR 0105): a closed position as an episode of trades, its outcome as recorded calculations
+converted at each trade's own date, the reviewer's draft as a proposal on its pass and the
+review as the third judgement subtype held by the operator, and every analytics statistic
+carrying its `n` in the type — Post-trade review and Decision analytics as the sixth and
+seventh working tools. §3.9 is next. §3.11
 is quietly the missing half of ADR 0091's memory: an operator-authored methodology skill is
 the only route a recorded lesson has into a future run.
 

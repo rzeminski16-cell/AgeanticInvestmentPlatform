@@ -398,6 +398,25 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         max_output_tokens=4_096,
         adr="0103",
     ),
+    RoleDefinition(
+        role="post_trade_reviewer",
+        purpose=(
+            "Read a closed position's full record — the decisions as written, the premises, "
+            "what the monitor found, and the outcome code computed — and propose a verdict "
+            "per premise, a process quality free to disagree with the outcome, and lessons. "
+            "A proposal the operator confirms as their own judgement; never a figure, never "
+            "a recommendation, never a methodology change."
+        ),
+        output_schema_ref="aer.agents.post_trade_reviewer:ReviewDraft",
+        # No tools. It is handed the record and the outcome; a reviewer that could fetch
+        # would be grading a decision against evidence the decision never had.
+        allowed_tools=frozenset(),
+        # The judgement class of call — once per closed position, on the judgement model at
+        # high effort — so the floor the other judgement roles carry, for the reason they
+        # carry it: max_tokens bounds thinking and visible output together.
+        max_output_tokens=16_384,
+        adr="0081",
+    ),
 )
 
 

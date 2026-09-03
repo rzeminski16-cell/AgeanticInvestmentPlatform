@@ -31,7 +31,7 @@ from aer.db.models.fx import FxRateRow
 from aer.db.models.job import Job
 from aer.db.models.job_cancellation import JobCancellation
 from aer.db.models.job_step import JobStep
-from aer.db.models.judgement import Decision, Judgement, Premise, Thesis
+from aer.db.models.judgement import Decision, Judgement, Premise, Review, ReviewVerdict, Thesis
 from aer.db.models.macro import MacroObservationRow, MacroSeriesRow
 from aer.db.models.obsidian_export import ObsidianExport
 from aer.db.models.plan import ResearchPlan
@@ -100,6 +100,8 @@ __all__ = [
     "ReportSection",
     "ResearchPlan",
     "ResearchRequest",
+    "Review",
+    "ReviewVerdict",
     "RevisionNote",
     "Scenario",
     "ScenarioOverride",

@@ -235,7 +235,7 @@ ones — read the ADR before touching its territory:
   spread, and a fading driver is refused rather than shifted), 0102 (a thesis is premises,
   and a premise is the judgement), 0103 (the monitor measures the crossing, and the model
   reads the rest), 0104 (a decision is written before the outcome, and the trade points back
-  at it).
+  at it), 0105 (a review is proposed by the reviewer and held by the operator).
 - **Agents and containment** — 0035 (a new role requires an ADR), 0036 (workers request,
   code executes), 0037–0039 (custom sections, validator advises, red team is separate),
   0040 (containment proved by a corpus), 0041 (dry runs), 0042 (the section writer holds

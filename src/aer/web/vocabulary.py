@@ -42,6 +42,8 @@ from aer.core.enums import (
     Grade,
     JobStatus,
     PremiseStatus,
+    PremiseVerdict,
+    ProcessQuality,
     RequestStatus,
     SkillKind,
     TransactionKind,
@@ -55,6 +57,8 @@ __all__ = [
     "GRADES",
     "JOB_STATES",
     "PREMISE_STATES",
+    "PREMISE_VERDICTS",
+    "PROCESS_QUALITIES",
     "REQUEST_STATES",
     "SECTION_STATES",
     "SKILL_KINDS",
@@ -313,6 +317,52 @@ STOPPED_PASS: Final = HumanState(
     Tone.REFUSAL,
     "The pass stopped rather than spend past a cap, and left this finding instead of pausing.",
 )
+
+
+# What a review found a premise to be, after the position closed (ADR 0105). `Failed` is a
+# warning and never a fault: a premise the record contradicted is a fact about the thesis,
+# not about the platform. `Untested` and `unobservable` are muted for the same reason the
+# monitor's `unobservable` is — they say what could not be answered, not what was.
+PREMISE_VERDICTS: Final[dict[PremiseVerdict, HumanState]] = {
+    PremiseVerdict.HELD: HumanState(
+        "Held", Tone.SUCCESS, "The record bore this premise out while the position was open."
+    ),
+    PremiseVerdict.PARTIALLY_HELD: HumanState(
+        "Partially held", Tone.INFO, "Part of what the premise expected happened, and part did not."
+    ),
+    PremiseVerdict.FAILED: HumanState(
+        "Failed", Tone.WARNING, "The record contradicted this premise while the position was open."
+    ),
+    PremiseVerdict.UNTESTED: HumanState(
+        "Untested",
+        Tone.MUTED,
+        "The position closed before anything could have answered this premise.",
+    ),
+    PremiseVerdict.UNOBSERVABLE: HumanState(
+        "Unobservable", Tone.MUTED, "Nothing the platform reads could ever have answered it."
+    ),
+}
+
+# The operator's own verdict on their own process (ADR 0081), and it is scored against the
+# process rather than the outcome: a sound decision that lost money is still `Sound`. None of
+# these is a failure tone, because a flawed process is a judgement held, not a fault found.
+PROCESS_QUALITIES: Final[dict[ProcessQuality, HumanState]] = {
+    ProcessQuality.SOUND: HumanState(
+        "Sound",
+        Tone.SUCCESS,
+        "The decision was written down with a basis, sized, and carried out as it said.",
+    ),
+    ProcessQuality.QUESTIONABLE: HumanState(
+        "Questionable",
+        Tone.INFO,
+        "Part of the process was followed and part was not, or the record is thin.",
+    ),
+    ProcessQuality.FLAWED: HumanState(
+        "Flawed",
+        Tone.WARNING,
+        "The decision was not written before the trade, or the exit ignored its own plan.",
+    ),
+}
 
 
 DECISIONS: Final[dict[Decision, HumanState]] = {

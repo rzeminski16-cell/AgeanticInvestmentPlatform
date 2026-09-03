@@ -33,6 +33,8 @@ __all__ = [
     "JudgementKind",
     "PremiseComparator",
     "PremiseStatus",
+    "PremiseVerdict",
+    "ProcessQuality",
     "Provider",
     "RequestStatus",
     "SourceTier",
@@ -430,11 +432,10 @@ class SkillKind(StrEnum):
 class JudgementKind(StrEnum):
     """Which kind of view a person is recording (ADR 0074).
 
-    Two values, and a statement about what exists rather than a placeholder — the same shape
-    :class:`AttestationKind` takes. A subtype here is a value *and* a detail table:
-    ``PREMISE`` has ``premises``, ``DECISION`` has ``decisions``, and a post-trade verdict
-    will arrive with a table of its own, so adding one is visibly a schema change rather
-    than a string.
+    Three values, and a statement about what exists rather than a placeholder — the same
+    shape :class:`AttestationKind` takes. A subtype here is a value *and* a detail table:
+    ``PREMISE`` has ``premises``, ``DECISION`` has ``decisions`` and ``REVIEW`` has
+    ``reviews``, so adding one is visibly a schema change rather than a string.
     """
 
     PREMISE = "premise"
@@ -442,6 +443,10 @@ class JudgementKind(StrEnum):
 
     DECISION = "decision"
     """What a person decided to do about a thesis, written before the outcome (ADR 0104)."""
+
+    REVIEW = "review"
+    """What a person concluded about a closed position's decision, scored against the
+    process rather than the outcome (ADRs 0081, 0105)."""
 
 
 class DecisionAction(StrEnum):
@@ -537,3 +542,34 @@ class FindingAction(StrEnum):
 
     REOPENED = "reopened"
     """A resolved finding put back in front of the operator, with the reason."""
+
+
+class PremiseVerdict(StrEnum):
+    """What a closed position's record says about one premise (ADR 0081).
+
+    ``UNTESTED`` is the value that carries the record's whole argument: a position exited
+    after four months on valuation leaves a premise about FY2027 margins unanswered — not
+    held, not failed, unanswered, because the year it was about has not been filed. Without
+    it every early exit would grade its premises by what the price did. ``UNOBSERVABLE``
+    keeps ADR 0079's meaning: nothing could ever have answered it.
+    """
+
+    HELD = "held"
+    PARTIALLY_HELD = "partially_held"
+    FAILED = "failed"
+    UNTESTED = "untested"
+    UNOBSERVABLE = "unobservable"
+
+
+class ProcessQuality(StrEnum):
+    """How well the decision was made, separately from how it turned out (ADR 0081).
+
+    Three, and the middle one is real: a decision written down with a basis and a horizon
+    but no exit plan, carried out late, is neither sound nor flawed. What the enum must not
+    do is encode the outcome — a value that could only be reached by a losing position
+    would collapse the two axes the record keeps apart.
+    """
+
+    SOUND = "sound"
+    QUESTIONABLE = "questionable"
+    FLAWED = "flawed"

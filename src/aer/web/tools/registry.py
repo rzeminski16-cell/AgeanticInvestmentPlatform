@@ -215,25 +215,28 @@ INSTALLED_TOOLS: Final[tuple[Tool, ...]] = (
     Tool(
         key="review",
         label="Post-trade review",
-        status=ToolStatus.PLANNED,
+        status=ToolStatus.WORKING,
         href="/review",
         summary=(
             "How a decision was made, scored against the process it was supposed to "
-            "follow — deliberately not against whether it made money."
+            "follow — deliberately not against whether it made money. The reviewer "
+            "proposes; you confirm it as your own judgement."
         ),
-        needs="Decisions and positions: a review needs both the reasoning and the outcome.",
-        adr="0081",
+        action_label="Review a closed position",
+        action_href="/review",
+        adr="0105",
     ),
     Tool(
         key="analytics",
         label="Decision analytics",
-        status=ToolStatus.PLANNED,
+        status=ToolStatus.WORKING,
         href="/analytics",
         summary=(
-            "What your decisions have in common — where the process holds and where it "
-            "keeps bending in the same direction."
+            "What your reviewed positions have in common — where the process holds and "
+            "where it keeps bending in the same direction — every statistic with its count."
         ),
-        needs="Enough reviewed decisions to say anything at all, which is the honest bound.",
+        action_label="Read the analytics",
+        action_href="/analytics",
         adr="0081",
     ),
 )

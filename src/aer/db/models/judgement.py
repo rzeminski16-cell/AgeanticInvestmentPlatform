@@ -46,7 +46,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     CheckConstraint,
@@ -62,10 +62,16 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy import Enum as SaEnum
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from aer.core.enums import DecisionAction, JudgementKind, PremiseComparator
+from aer.core.enums import (
+    DecisionAction,
+    JudgementKind,
+    PremiseComparator,
+    PremiseVerdict,
+    ProcessQuality,
+)
 from aer.db.base import Base, created_at_column
 from aer.db.types import Timestamp, TimestampOptional, UuidFk, UuidFkOptional, UuidPk
 
@@ -75,7 +81,7 @@ if TYPE_CHECKING:
     from aer.db.models.security import Security
     from aer.db.models.user import User
 
-__all__ = ["Decision", "Judgement", "Premise", "Thesis"]
+__all__ = ["Decision", "Judgement", "Premise", "Review", "ReviewVerdict", "Thesis"]
 
 
 def _enum(kind: type, name: str) -> SaEnum:
@@ -128,6 +134,9 @@ class Judgement(Base):
         back_populates="judgement", cascade="all, delete-orphan", uselist=False
     )
     decision: Mapped[Decision | None] = relationship(
+        back_populates="judgement", cascade="all, delete-orphan", uselist=False
+    )
+    review: Mapped[Review | None] = relationship(
         back_populates="judgement", cascade="all, delete-orphan", uselist=False
     )
 
@@ -378,3 +387,103 @@ class Decision(Base):
 
     def __repr__(self) -> str:
         return f"<Decision {self.action.value} on thesis {self.thesis_id}>"
+
+
+class Review(Base):
+    """What the operator concluded about a closed position, scored against the process
+    (ADRs 0081, 0105).
+
+    **The third judgement subtype**, keyed on the judgement's own id: the holder is the
+    operator, the basis is theirs, and the reviewer's draft is kept beside what they
+    confirmed in ``proposal`` — whether they agreed with it is itself decision data.
+
+    **``outcome`` is platform-filled and the model never wrote it.** Realised return,
+    proceeds, cost, holding period, intended horizon — each a recorded calculation the JSON
+    names by id, computed by code before the reviewer was asked anything. ``process_quality``
+    is the one field that is a judgement, and it is free to disagree with the outcome; a
+    schema in which the two could not disagree would have decided they are the same thing.
+
+    **Nothing here is a source.** A review, like every judgement, may be displayed and
+    compared with outcomes and aggregated for the operator's own reading, and may never be
+    cited (ADR 0074). ``aer.calc`` has no symbol for it.
+    """
+
+    __tablename__ = "reviews"
+
+    judgement_id: Mapped[UuidFk] = mapped_column(
+        ForeignKey("judgements.id", ondelete="CASCADE"), primary_key=True
+    )
+
+    # The closed position: a security in a book, and the date its holding returned to nil.
+    # Unique together, because a position closes once and is reviewed once.
+    portfolio_id: Mapped[UuidFk] = mapped_column(
+        ForeignKey("portfolios.id", ondelete="CASCADE"), nullable=False
+    )
+    security_id: Mapped[UuidFk] = mapped_column(
+        ForeignKey("securities.id", ondelete="RESTRICT"), nullable=False
+    )
+    opened_on: Mapped[date] = mapped_column(Date, nullable=False)
+    closed_on: Mapped[date] = mapped_column(Date, nullable=False)
+
+    # The thesis the episode's decisions acted on, where one was written down. SET NULL: a
+    # review outlives what it reviewed, as every judgement does.
+    thesis_id: Mapped[UuidFkOptional] = mapped_column(ForeignKey("theses.id", ondelete="SET NULL"))
+
+    # The reviewer's pass, for the ledger the outcome's calculations were persisted in.
+    job_id: Mapped[UuidFkOptional] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
+
+    process_quality: Mapped[ProcessQuality] = mapped_column(
+        _enum(ProcessQuality, "process_quality"), nullable=False
+    )
+    lessons: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+
+    outcome: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    proposal: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+    judgement: Mapped[Judgement] = relationship(back_populates="review", lazy="joined")
+    verdicts: Mapped[list[ReviewVerdict]] = relationship(
+        back_populates="review", cascade="all, delete-orphan", order_by="ReviewVerdict.position"
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "portfolio_id", "security_id", "closed_on", name="uq_reviews_one_per_closed_position"
+        ),
+        CheckConstraint("closed_on >= opened_on", name="review_closes_after_it_opens"),
+        Index("ix_reviews_portfolio_id_closed_on", "portfolio_id", text("closed_on DESC")),
+        Index("ix_reviews_thesis_id", "thesis_id"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<Review {self.process_quality.value} of {self.security_id} closed {self.closed_on}>"
+        )
+
+
+class ReviewVerdict(Base):
+    """One premise, as the review found it. The statement is copied so the verdict survives
+    the thesis moving on; the link is kept so the premise's own page can find it."""
+
+    __tablename__ = "review_verdicts"
+
+    id: Mapped[UuidPk]
+
+    review_id: Mapped[UuidFk] = mapped_column(
+        ForeignKey("reviews.judgement_id", ondelete="CASCADE"), nullable=False
+    )
+    premise_id: Mapped[UuidFkOptional] = mapped_column(
+        ForeignKey("premises.judgement_id", ondelete="SET NULL")
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    statement: Mapped[str] = mapped_column(Text, nullable=False)
+    verdict: Mapped[PremiseVerdict] = mapped_column(
+        _enum(PremiseVerdict, "premise_verdict"), nullable=False
+    )
+    note: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+
+    review: Mapped[Review] = relationship(back_populates="verdicts")
+
+    __table_args__ = (
+        UniqueConstraint("review_id", "position", name="uq_review_verdicts_position"),
+        Index("ix_review_verdicts_premise_id", "premise_id"),
+    )

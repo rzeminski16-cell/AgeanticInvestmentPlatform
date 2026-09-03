@@ -26,13 +26,16 @@ from __future__ import annotations
 
 import re
 import uuid
+from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from aer.agents.post_trade_reviewer import ReviewDraft
 from aer.config import Settings
 from aer.core.enums import (
     DecisionAction,
@@ -40,6 +43,7 @@ from aer.core.enums import (
     GateKind,
     PremiseComparator,
     PremiseStatus,
+    ProcessQuality,
     TransactionKind,
     UserRole,
 )
@@ -50,22 +54,29 @@ from aer.db.models import (
     Finding,
     Portfolio,
     Report,
+    Security,
     User,
 )
+from aer.providers.fake import FakeProvider
+from aer.providers.router import Router
 from aer.services import decisions as decision_service
+from aer.services import post_trade
 from aer.services import theses as thesis_service
 from aer.services.theses import Predicate
+from aer.storage.local import LocalArtefactStore
 from tests.api_fixtures import build_app, client_for
+from tests.portfolio_fixtures import trade
 from tests.request_fixtures import research_request
 from tests.route_fixtures import page_routes_for
 from tests.run_fixtures import Driver, to_final_gate
+from tests.schema_guard import refuse_unanswerable_schema
 from tests.workflow_fixtures import AS_OF_DATE, DEFAULT_PER_RUN_BUDGET_GBP
 
 pytestmark = pytest.mark.integration
 
 _TABLES = (
-    "research_requests, audit_events, users, artefacts, prompts, companies, portfolios, "
-    "theses, judgements"
+    "research_requests, audit_events, users, artefacts, prompts, companies, securities, "
+    "portfolios, theses, judgements"
 )
 
 # A page may refuse. It may not raise.
@@ -84,7 +95,7 @@ async def _truncate(engine: Any) -> None:
 
 
 @pytest.fixture
-async def committed(db_engine: Any) -> Any:
+async def committed(db_engine: Any, tmp_path: Path) -> Any:
     """An operator, a request, and a book with one cash transaction in it.
 
     The portfolio is seeded here rather than driven through its form because this file is
@@ -169,6 +180,74 @@ async def committed(db_engine: Any) -> Any:
             size_statement="about 2% of the book",
             horizon_months=24,
         )
+        # A closed position, the reviewer's pass over it and the review confirmed from it:
+        # the review pages are parameterised on a pass and on a review, and a pass needs a
+        # model, so the fake answers with the draft a reviewer would have written.
+        security = Security(
+            company_id=contoso.id,
+            ticker="CTSO",
+            exchange="LSE",
+            provider_symbol="CTSO.LSE",
+            name="Contoso plc",
+            quote_currency="GBX",
+        )
+        session.add(security)
+        await session.flush()
+        holdings = {"portfolio": book, "document": None}
+        await trade(
+            session,
+            holdings,
+            kind=TransactionKind.BUY,
+            security=security,
+            quantity="100",
+            price="250",
+            currency="GBX",
+            on=date(2026, 3, 2),
+        )
+        await trade(
+            session,
+            holdings,
+            kind=TransactionKind.SELL,
+            security=security,
+            quantity="-100",
+            price="300",
+            currency="GBX",
+            on=date(2026, 6, 15),
+            at_hour=16,
+        )
+        settings = Settings(
+            http_user_agent="Test test@example.invalid", artefact_root=tmp_path / "artefacts"
+        )
+        [episode] = await post_trade.closed_episodes(session, portfolio=book)
+        pass_job = await post_trade.run_review(
+            session,
+            settings=settings,
+            provider=FakeProvider(
+                {
+                    "ReviewDraft": ReviewDraft(
+                        verdicts=[],
+                        process_quality=ProcessQuality.SOUND,
+                        basis="Written first and followed.",
+                    )
+                },
+                inspect_schema=refuse_unanswerable_schema,
+            ),
+            router=Router(settings),
+            store=LocalArtefactStore(settings.artefact_root, max_bytes=settings.max_artefact_bytes),
+            user=user,
+            episode=episode,
+        )
+        proposal = await post_trade.proposal_of(session, pass_job.id, user_id=user.id)
+        assert proposal is not None
+        review = await post_trade.confirm_review(
+            session,
+            user=user,
+            proposal=proposal,
+            process_quality=ProcessQuality.SOUND,
+            basis="Written first and followed.",
+            lessons="",
+            verdicts={},
+        )
         await session.commit()
         yield {
             "user": user,
@@ -177,6 +256,8 @@ async def committed(db_engine: Any) -> Any:
             "thesis": thesis,
             "finding": finding,
             "decision": decision,
+            "pass": pass_job,
+            "review": review,
         }
     await _truncate(db_engine)
 
@@ -249,6 +330,8 @@ async def finished_run(
         "thesis_id": committed["thesis"].id,
         "finding_id": committed["finding"].id,
         "decision_id": committed["decision"].judgement_id,
+        "pass_id": committed["pass"].id,
+        "review_id": committed["review"].judgement_id,
     }
 
 

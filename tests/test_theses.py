@@ -407,15 +407,15 @@ class TestAJudgementIsNeverASourceReference:
     def test_only_the_subtypes_reference_judgements(self) -> None:
         """The check that keeps the rule structural. A later table pointing at a judgement
         would be the first step of a judgement entering a lineage, and this names it. The
-        two subtypes are the judgement seen from its thesis and from its consequence
-        (ADRs 0102, 0104); neither is a source."""
+        three subtypes are the judgement seen from its thesis, from its consequence and
+        from its outcome (ADRs 0102, 0104, 0105); none is a source."""
         referrers = sorted(
             table.name
             for table in Base.metadata.sorted_tables
             for key in table.foreign_keys
             if key.column.table.name == "judgements" and table.name != "judgements"
         )
-        assert referrers == ["decisions", "premises"]
+        assert referrers == ["decisions", "premises", "reviews"]
 
     def test_no_column_could_hold_a_conviction(self) -> None:
         """Not a rule ADR 0074 states — it permits a stored confidence for calibration — but
