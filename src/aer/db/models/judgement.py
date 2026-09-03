@@ -195,6 +195,11 @@ class Thesis(Base):
     report_id: Mapped[UuidFkOptional] = mapped_column(ForeignKey("reports.id", ondelete="SET NULL"))
 
     created_at: Mapped[Timestamp] = created_at_column()
+    # When the operator says the view was formed, which may be before the platform heard
+    # of it: "what did I believe before the results came out" is answered by this clock,
+    # and `created_at` is only when the row appeared (ADR 0075's distinction). Null means
+    # the day it was written up.
+    written_at: Mapped[TimestampOptional] = mapped_column(DateTime(timezone=True))
 
     # Put away with a stated reason, never deleted. A retired thesis is exactly what the
     # post-trade reviewer reads (ADR 0081), and the reason is the first thing it wants.

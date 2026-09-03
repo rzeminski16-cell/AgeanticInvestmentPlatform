@@ -21,7 +21,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Final
 
 import structlog
 from sqlalchemy import func, select
@@ -65,6 +65,12 @@ COMPARATOR_WORDS: dict[PremiseComparator, str] = {
 }
 
 
+# A threshold with more than this many decimal orders of magnitude either way overflows the
+# NUMERIC(38, 12) column as a database error the form cannot explain, and no stored fact is
+# compared at that scale in any case.
+_THRESHOLD_EXPONENT_CEILING: Final = 25
+
+
 @dataclass(frozen=True, slots=True)
 class Predicate:
     """What would defeat a premise, as a test code can run: a metric against a threshold."""
@@ -78,6 +84,13 @@ class Predicate:
         if not self.metric.strip():
             message = "A predicate names the metric it tests; this one names nothing."
             raise ValidationError(message, context={"field": "metric"})
+        too_large = abs(self.threshold.adjusted()) > _THRESHOLD_EXPONENT_CEILING
+        if not self.threshold.is_finite() or too_large:
+            message = (
+                f"The threshold {self.threshold} is not a number a stored fact could be "
+                "compared with. State a finite figure of ordinary size."
+            )
+            raise ValidationError(message, context={"field": "threshold"})
         if not self.unit.strip():
             message = (
                 f"The threshold {self.threshold} has no unit. A bare number cannot be compared "
@@ -112,6 +125,7 @@ async def write_thesis(
         subject_id=company.id,
         title=title.strip(),
         report_id=report_id,
+        written_at=written_at,
     )
     session.add(thesis)
     await session.flush()

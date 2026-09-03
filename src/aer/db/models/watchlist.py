@@ -74,6 +74,16 @@ class WatchlistEntry(Base):
         ),
         CheckConstraint("ticker = upper(ticker)", name="watchlist_entry_ticker_is_upper"),
         Index("ix_watchlist_entries_user_id_followed_at", "user_id", "followed_at"),
+        # One active entry per listing: the service refuses a duplicate by a read, and the
+        # index makes a double submit a constraint rather than a race.
+        Index(
+            "uq_watchlist_entries_one_active_listing",
+            "user_id",
+            "ticker",
+            "exchange",
+            unique=True,
+            postgresql_where=text("withdrawn_at IS NULL"),
+        ),
     )
 
     @property

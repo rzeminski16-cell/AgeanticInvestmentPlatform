@@ -19,7 +19,7 @@
   {% call ui.page_header(
     item.title,
     eyebrow="THESIS",
-    identity=subject ~ " · written " ~ item.created_at.strftime("%d %B %Y"),
+    identity=subject ~ " · written " ~ (item.written_at or item.created_at).strftime("%d %B %Y"),
     breadcrumbs=[{"href": "/theses", "label": "Theses"}],
   ) %}
     <span id="subject" class="sr-only">{{ subject }}</span>

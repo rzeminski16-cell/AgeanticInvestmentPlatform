@@ -62,6 +62,7 @@ from aer.core.enums import (
     RequestStatus,
     TransactionKind,
 )
+from aer.core.figures import plain_decimal
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import (
     AuditEvent,
@@ -1012,10 +1013,7 @@ def _horizon_word(row: Review) -> str:
 
 
 def _plain(quantity: Quantity | None) -> str:
-    if quantity is None:
-        return ""
-    trimmed = quantity.value.normalize()
-    return f"{trimmed:f}" if trimmed != 0 else "0"
+    return plain_decimal(quantity.value if quantity is not None else None)
 
 
 # -- The chain ----------------------------------------------------------------------------------

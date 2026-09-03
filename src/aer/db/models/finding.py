@@ -63,11 +63,12 @@ class Finding(Base):
         ForeignKey("theses.id", ondelete="CASCADE"), nullable=False
     )
 
-    # The premise a reading is about. NULL for a stopped pass, which read nothing. SET NULL
-    # rather than CASCADE: a premise is never deleted by design, but a finding that outlived
-    # one would still be a record of what the monitor saw.
+    # The premise a reading is about. NULL for a stopped pass, which read nothing. CASCADE
+    # rather than SET NULL: the check below says a reading names its premise, and a
+    # finding about a premise that is gone names nothing — it goes with the premise, which
+    # is never deleted by design in any case.
     judgement_id: Mapped[UuidFkOptional] = mapped_column(
-        ForeignKey("premises.judgement_id", ondelete="SET NULL")
+        ForeignKey("premises.judgement_id", ondelete="CASCADE")
     )
 
     # The monitor pass that wrote it. SET NULL so a finding survives `aer reset-research`

@@ -28,6 +28,7 @@ from aer.calc.units import UnitMismatchError
 from aer.config import Settings
 from aer.core.enums import (
     Decision,
+    FactBasis,
     FindingAction,
     FindingKind,
     GateKind,
@@ -45,14 +46,16 @@ from aer.db.models import (
     AuditEvent,
     Calculation,
     Company,
+    FinancialFact,
     Finding,
     Job,
+    JobStep,
     SourceDocument,
     Thesis,
     User,
     WorkOrder,
 )
-from aer.errors import ConflictError, ValidationError
+from aer.errors import ConflictError, ExternalServiceError, ValidationError
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
 from aer.services import approvals as approval_service
@@ -64,7 +67,7 @@ from aer.storage.local import LocalArtefactStore
 from aer.web.overview import monitor as monitor_feed
 from aer.web.overview.attention import Severity
 from tests.api_fixtures import build_app, client_for
-from tests.assumption_fixtures import a_year, seed_years
+from tests.assumption_fixtures import ANNUAL, a_year, seed_years, unit_for
 from tests.request_fixtures import research_request
 from tests.schema_guard import refuse_unanswerable_schema
 
@@ -468,6 +471,111 @@ class TestAPassThatHitsItsCeiling:
         assert provider.call_count == 0
 
 
+class TestAPassThatFailsOnSomethingElse:
+    async def test_a_provider_failure_fails_the_pass_on_the_record(
+        self, scene: dict[str, Any], tmp_path: Path
+    ) -> None:
+        """Not the budget: an outage, a reply the schema refused, a broken record. The pass
+        commits after every premise, so without this the job would sit RUNNING for ever
+        with nothing to finish it and the metered spend of the failed call lost."""
+        await _two_years(scene)
+        thesis = await _thesis_with(scene)
+        broken = FakeProvider(
+            fail_with=ExternalServiceError("the provider is unavailable", provider="anthropic")
+        )
+
+        with pytest.raises(ExternalServiceError):
+            await _run(scene, thesis, tmp_path, provider=broken)
+
+        job = await scene["session"].scalar(
+            select(Job).order_by(Job.started_at.desc().nullslast()).limit(1)
+        )
+        assert job is not None
+        assert job.status is JobStatus.FAILED
+        assert job.error is not None
+        assert "unavailable" in job.error["message"]
+        steps = list(
+            await scene["session"].scalars(select(JobStep).where(JobStep.job_id == job.id))
+        )
+        assert steps
+        assert all(step.status is JobStatus.FAILED for step in steps)
+
+
+class TestTheWindowIsNews:
+    async def test_an_unobservable_reading_does_not_consume_the_window(
+        self, scene: dict[str, Any], tmp_path: Path
+    ) -> None:
+        """A growth premise read while one year was stored is unobservable. When the prior
+        year arrives it is read again, rather than waiting for the filing after next."""
+        held_before_both = datetime(2023, 12, 1, tzinfo=UTC)
+        await seed_years(scene, {FY2024: a_year(revenue="1300", gross_profit="900")})
+        thesis = await _thesis_with(scene, held_at=held_before_both)
+
+        first = await _run(scene, thesis, tmp_path, provider=_provider())
+        [unobservable] = first.findings
+        assert unobservable.status is PremiseStatus.UNOBSERVABLE
+
+        await seed_years(scene, {FY2023: a_year()})
+        second = await _run(scene, thesis, tmp_path, provider=_provider())
+
+        [reading] = second.findings
+        assert reading.status is not PremiseStatus.UNOBSERVABLE
+        assert reading.observed is not None
+        assert reading.observed["holds"] is True
+
+    async def test_facts_about_an_older_period_are_not_news(
+        self, scene: dict[str, Any], tmp_path: Path
+    ) -> None:
+        """An amended prior year filed after the last reading changes nothing the premise
+        measures: the newest period is the one already read, so no reading is re-issued —
+        and a contradicted one does not open its gate twice."""
+        await _two_years(scene)
+        thesis = await _thesis_with(scene)
+        first = await _run(scene, thesis, tmp_path, provider=_provider())
+        assert first.read == 1
+
+        scene["session"].add(
+            FinancialFact(
+                company_id=scene["company"].id,
+                source_document_id=scene["document"].id,
+                concept="revenue",
+                raw_concept="revenue",
+                taxonomy="us-gaap",
+                value=Decimal("1001"),
+                unit=unit_for("revenue"),
+                period_start=date(2023, 1, 1),
+                period_end=FY2023,
+                fiscal_year=2023,
+                fiscal_period=ANNUAL,
+                filed_date=date(2025, 6, 1),
+                form="10-K/A",
+                accession="0000000003-00-000001",
+                basis=FactBasis.AS_REPORTED,
+            )
+        )
+        await scene["session"].flush()
+
+        second = await _run(scene, thesis, tmp_path, provider=_provider())
+
+        assert second.read == 0
+        assert second.nothing_new == 1
+        assert second.findings == []
+
+
+class TestWhatGetsAPass:
+    async def test_a_thesis_with_nothing_readable_gets_no_pass(self, scene: dict[str, Any]) -> None:
+        """A thesis whose premises are all for a person to review would get a work order
+        and an empty pass; the count the button quotes is passes that can read something."""
+        unreadable = await _thesis_with(scene, predicate=False)
+        readable = await _thesis_with(scene)
+        user = await _user_of(scene)
+
+        listed = await monitor.theses_to_monitor(scene["session"], user_id=user.id)
+
+        assert [row.id for row in listed] == [readable.id]
+        assert unreadable.id not in {row.id for row in listed}
+
+
 # -- What a person does about a finding ------------------------------------------------------
 
 
@@ -628,6 +736,31 @@ class TestAFindingIsClosedByAnActWithAReason:
 
 
 class TestTheThesisGate:
+    async def test_approving_on_a_premise_already_withdrawn_keeps_the_first_reason(
+        self, scene: dict[str, Any], tmp_path: Path
+    ) -> None:
+        """Withdrawn from the thesis page since the pass ran: the finding still closes as a
+        withdrawal, because that is what happened, and the reason true at the time stands."""
+        finding = await _one_finding(scene, tmp_path, threshold=Decimal(40))
+        user = await _user_of(scene)
+        assert finding.premise is not None
+        await thesis_service.withdraw_premise(
+            scene["session"], premise=finding.premise, actor=user, reason="I changed my mind."
+        )
+
+        resolution = await monitor.decide_finding(
+            scene["session"],
+            finding=finding,
+            actor=user,
+            decision=Decision.APPROVED,
+            reason="Growth fell below the floor I set.",
+            payload_hash=payload_hash_for(monitor.finding_payload(finding)),
+        )
+
+        assert resolution.action is FindingAction.WITHDRAWN
+        assert finding.premise.judgement.withdrawn_reason == "I changed my mind."
+        assert not finding.is_open
+
     async def test_withdrawing_records_an_approval_and_withdraws_the_premise(
         self, scene: dict[str, Any], tmp_path: Path
     ) -> None:

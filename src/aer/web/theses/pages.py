@@ -32,6 +32,7 @@ from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NO
 
 from aer.api.deps import CurrentUser, DbSession, SettingsDep
 from aer.core.enums import PremiseComparator
+from aer.core.figures import plain_decimal
 from aer.db.models import Company, Premise, Thesis
 from aer.errors import AerError
 from aer.services import decisions as decision_service
@@ -41,7 +42,7 @@ from aer.web import vocabulary
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
 
-__all__ = ["COMPARATOR_LABELS", "PremiseRow", "premise_rows", "router"]
+__all__ = ["PremiseRow", "premise_rows", "router"]
 
 router = APIRouter(include_in_schema=False)
 
@@ -49,7 +50,6 @@ _log = structlog.get_logger("aer.web.theses")
 
 # What a comparator is called on the screen: the service's words, so the thesis page and
 # the predicate the monitor reads out say the same thing.
-COMPARATOR_LABELS: Final[dict[PremiseComparator, str]] = thesis_service.COMPARATOR_WORDS
 
 # How the form asks what would defeat a premise. Two answers, named for what each is.
 DEFEAT_THRESHOLD: Final = "threshold"
@@ -77,8 +77,8 @@ def _row(premise: Premise) -> PremiseRow:
     judgement = premise.judgement
     if premise.has_predicate and premise.comparator is not None:
         defeated_by = (
-            f"{premise.metric} {COMPARATOR_LABELS[premise.comparator]} "
-            f"{_plain(premise.threshold)} {premise.unit}"
+            f"{premise.metric} {thesis_service.COMPARATOR_WORDS[premise.comparator]} "
+            f"{plain_decimal(premise.threshold)} {premise.unit}"
         )
     else:
         defeated_by = f"A person reviews it by {premise.review_by:%d %B %Y}"
@@ -100,14 +100,6 @@ def _row(premise: Premise) -> PremiseRow:
 def premise_rows(thesis: Thesis) -> list[PremiseRow]:
     """The thesis's premises as a page shows them — here, and on a decision taken on them."""
     return [_row(premise) for premise in thesis.premises]
-
-
-def _plain(value: Decimal | None) -> str:
-    """A threshold as typed, with the trailing zeros a NUMERIC(38, 12) round-trip adds gone."""
-    if value is None:
-        return ""
-    trimmed = value.normalize()
-    return f"{trimmed:f}"
 
 
 def _thesis_verdict(thesis: Thesis) -> verdicts.Verdict:
@@ -248,7 +240,7 @@ async def thesis_page(
             "verdict": _thesis_verdict(thesis),
             "comparators": [
                 {"value": member.value, "label": label}
-                for member, label in COMPARATOR_LABELS.items()
+                for member, label in thesis_service.COMPARATOR_WORDS.items()
             ],
             "defeat_threshold": DEFEAT_THRESHOLD,
             "defeat_review": DEFEAT_REVIEW,

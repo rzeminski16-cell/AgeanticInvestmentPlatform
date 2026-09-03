@@ -70,6 +70,7 @@ from aer.core.enums import (
     PremiseStatus,
     RequestStatus,
 )
+from aer.core.figures import plain_decimal
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import (
     Approval,
@@ -259,12 +260,12 @@ class Measurement:
         assert premise.comparator is not None
         return Observation(
             metric=self.resolved.label,
-            value=_plain(self.quantity.value),
+            value=plain_decimal(self.quantity.value),
             unit=_unit_word(self.quantity),
             period_end=self.period_end.isoformat(),
-            prior_value=_plain(self.prior.value) if self.prior is not None else "",
+            prior_value=plain_decimal(self.prior.value) if self.prior is not None else "",
             prior_period_end=self.prior_period_end.isoformat() if self.prior_period_end else "",
-            threshold=_plain(self.threshold.value),
+            threshold=plain_decimal(self.threshold.value),
             comparator=COMPARATOR_WORDS[premise.comparator],
             holds=self.holds,
         )
@@ -275,13 +276,6 @@ class Measurement:
         observation["fact_id"] = str(self.fact_id) if self.fact_id else None
         observation["threshold_unit"] = _unit_word(self.threshold)
         return observation
-
-
-def _plain(value: Decimal) -> str:
-    """A figure as a reader would write it: no exponent, and none of the trailing zeros a
-    NUMERIC(38, 12) round-trip adds to a threshold somebody typed as 25."""
-    trimmed = value.normalize()
-    return f"{trimmed:f}" if trimmed != 0 else "0"
 
 
 def _unit_word(quantity: Quantity) -> str:
@@ -454,8 +448,21 @@ class MonitorOutcome:
 
 
 async def theses_to_monitor(session: AsyncSession, *, user_id: uuid.UUID) -> list[Thesis]:
-    """Every open thesis of this person, premises loaded. The retired are records."""
-    return await thesis_service.theses_for(session, user_id=user_id, retired=False)
+    """Every open thesis of this person with a premise the monitor can read.
+
+    The retired are records, and a thesis whose premises are all withdrawn or all without a
+    predicate would get a work order and an empty pass for nothing; "run the monitor over
+    N theses" counts the passes that can read something.
+    """
+    theses = await thesis_service.theses_for(session, user_id=user_id, retired=False)
+    return [
+        thesis
+        for thesis in theses
+        if any(
+            premise.has_predicate and not premise.judgement.is_withdrawn
+            for premise in thesis.premises
+        )
+    ]
 
 
 async def run_monitor(
@@ -531,9 +538,25 @@ async def run_monitor(
             store=store,
             job_step=await _step(session, job=job, premise=premise, sequence=sequence),
         )
-        stopped = await _read_one(
-            context, outcome=outcome, order=order, thesis=thesis, company=company, premise=premise
-        )
+        try:
+            stopped = await _read_one(
+                context,
+                outcome=outcome,
+                order=order,
+                thesis=thesis,
+                company=company,
+                premise=premise,
+            )
+        except Exception as failure:
+            # Anything but the budget refusal `_read_one` handles: a provider outage, a
+            # reply the schema refused after it was paid for, a broken record. The pass
+            # commits after every premise, so leaving here without a verdict would strand
+            # a RUNNING job nothing will finish and lose the metered spend of the call
+            # that failed. Fail the step and the pass on the record, then let it propagate.
+            await _fail_pass(session, job=job, order=order, step=context.job_step, failure=failure)
+            context.job_step.cost_gbp = context.spend_gbp
+            await session.commit()
+            raise
         await session.commit()
         if stopped:
             return outcome
@@ -628,6 +651,23 @@ async def _step(session: AsyncSession, *, job: Job, premise: Premise, sequence: 
     return step
 
 
+async def _fail_pass(
+    session: AsyncSession, *, job: Job, order: WorkOrder, step: JobStep, failure: Exception
+) -> None:
+    """The pass failed on something that was not the budget: say so where a reader looks."""
+    at = datetime.now(UTC)
+    error = {
+        "code": getattr(failure, "code", "monitor_failed"),
+        "message": str(failure) or type(failure).__name__,
+    }
+    step.status = JobStatus.FAILED
+    step.finished_at = at
+    step.error = error
+    job.error = error
+    await _finish(session, job=job, order=order, status=JobStatus.FAILED, at=at)
+    _log.warning("monitor.pass_failed", job_id=str(job.id), error=error["message"])
+
+
 async def _finish(
     session: AsyncSession, *, job: Job, order: WorkOrder, status: JobStatus, at: datetime
 ) -> None:
@@ -653,14 +693,15 @@ async def _read_premise(
         BudgetExceededError: From the base agent's refusal, for the caller to stop on.
     """
     session = context.session
-    since = await _read_since(session, premise)
+    last = await _last_reading(session, premise)
+    since = _read_since(premise, last)
     facts = await annual_facts(session, company_id=company.id, as_of=None, point_in_time=False)
     window = {
         period_end: rows
         for period_end, rows in facts.items()
         if max(row.filed_date for row in rows) > since
     }
-    if not window:
+    if not window or _nothing_newer(last, window):
         _log.info(
             "monitor.nothing_new",
             thesis_id=str(thesis.id),
@@ -733,22 +774,47 @@ async def _read_premise(
     )
 
 
-async def _read_since(session: AsyncSession, premise: Premise) -> date:
-    """The date after which a filing is news to this premise."""
+async def _last_reading(session: AsyncSession, premise: Premise) -> Finding | None:
+    """The newest reading that measured something, or none."""
     last: Finding | None = await session.scalar(
         select(Finding)
         .where(
             Finding.judgement_id == premise.judgement_id,
             Finding.kind == FindingKind.READING,
             Finding.window_to.is_not(None),
+            # An unobservable reading measured nothing, so it settles nothing: a premise
+            # read while one year was stored is read again when the prior year arrives,
+            # rather than waiting for the filing after that.
+            Finding.status != PremiseStatus.UNOBSERVABLE,
         )
         .order_by(Finding.created_at.desc())
         .limit(1)
     )
+    return last
+
+
+def _read_since(premise: Premise, last: Finding | None) -> date:
+    """The date after which a filing is news to this premise."""
     held = premise.judgement.held_at.date()
     if last is None or last.window_to is None:
         return held
     return max(held, last.window_to)
+
+
+def _nothing_newer(last: Finding | None, window: dict[date, list[Any]]) -> bool:
+    """Whether the window's newest period is one the last reading already measured.
+
+    Facts filed since the last reading can all belong to an older period — an amended or
+    late-filed prior year — and the measurement reads the newest period stored, so a
+    "new" reading would re-issue the old verdict about the old period, and a contradicted
+    one would open the gate a second time.
+    """
+    if last is None or not last.observed:
+        return False
+    observed_end = last.observed.get("period_end")
+    if not observed_end:
+        return False
+    return date.fromisoformat(str(observed_end)) >= max(window)
 
 
 def _window_facts(window: dict[date, list[Any]]) -> list[WindowFact]:
@@ -981,9 +1047,12 @@ async def decide_finding(
     action = FindingAction.WITHDRAWN if decision is Decision.APPROVED else FindingAction.DISMISSED
     if action is FindingAction.WITHDRAWN:
         assert finding.premise is not None
-        await thesis_service.withdraw_premise(
-            session, premise=finding.premise, actor=actor, reason=reason
-        )
+        # Withdrawn from the thesis page since the pass ran: the finding still closes as
+        # a withdrawal — that is what happened — but the first reason stands.
+        if not finding.premise.judgement.is_withdrawn:
+            await thesis_service.withdraw_premise(
+                session, premise=finding.premise, actor=actor, reason=reason
+            )
     resolution = await _append_resolution(
         session, finding=finding, actor=actor, action=action, reason=reason, approval=approval
     )
@@ -1050,9 +1119,10 @@ async def resolve_finding(
         if finding.premise is None:
             message = "This finding names no premise, so there is none to withdraw."
             raise ValidationError(message, context={"finding_id": str(finding.id)})
-        await thesis_service.withdraw_premise(
-            session, premise=finding.premise, actor=actor, reason=reason
-        )
+        if not finding.premise.judgement.is_withdrawn:
+            await thesis_service.withdraw_premise(
+                session, premise=finding.premise, actor=actor, reason=reason
+            )
     return await _append_resolution(
         session, finding=finding, actor=actor, action=action, reason=reason, approval=None
     )
@@ -1115,7 +1185,14 @@ async def findings_for(
     ``open_only`` filters in Python rather than SQL: "open" is a fact about the last of a
     finding's resolutions, and the rows are few.
     """
-    rows = list(
+    rows = await _all_findings(session, user_id=user_id)
+    if open_only:
+        return [row for row in rows if row.is_open]
+    return [row for row in rows if not row.is_open]
+
+
+async def _all_findings(session: AsyncSession, *, user_id: uuid.UUID) -> list[Finding]:
+    return list(
         await session.scalars(
             select(Finding)
             .join(Thesis, Thesis.id == Finding.thesis_id)
@@ -1128,9 +1205,14 @@ async def findings_for(
             .order_by(Finding.created_at.desc())
         )
     )
-    if open_only:
-        return [row for row in rows if row.is_open]
-    return [row for row in rows if not row.is_open]
+
+
+async def findings_partitioned(
+    session: AsyncSession, *, user_id: uuid.UUID
+) -> tuple[list[Finding], list[Finding]]:
+    """The open findings and the resolved ones, from one query rather than two."""
+    rows = await _all_findings(session, user_id=user_id)
+    return [row for row in rows if row.is_open], [row for row in rows if not row.is_open]
 
 
 async def finding_of(

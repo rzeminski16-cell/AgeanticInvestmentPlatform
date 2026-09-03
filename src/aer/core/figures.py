@@ -54,3 +54,12 @@ def reads_as(quoted: Decimal, stored: Decimal) -> bool:
         except InvalidOperation:  # pragma: no cover -- a figure too large to quantise
             continue
     return False
+
+
+def plain_decimal(value: Decimal | None) -> str:
+    """A figure as a reader would write it: no exponent, and none of the trailing zeros a
+    NUMERIC round-trip adds to a threshold somebody typed as 25. Empty for none."""
+    if value is None:
+        return ""
+    trimmed = value.normalize()
+    return f"{trimmed:f}" if trimmed != 0 else "0"

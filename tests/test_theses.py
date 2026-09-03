@@ -175,6 +175,18 @@ class TestAPremiseIsAJudgement:
                 review_by=None,
             )
 
+    @pytest.mark.parametrize("raw", ["NaN", "Infinity", "1e40"])
+    async def test_a_threshold_that_is_not_a_figure_is_refused(self, raw: str) -> None:
+        """NaN and infinity store and read as "unobservable" for ever; 1e40 overflows the
+        column as a database error the form cannot explain. Refused where the operator is."""
+        with pytest.raises(ValidationError, match="finite figure"):
+            Predicate(
+                metric="revenue growth",
+                comparator=PremiseComparator.AT_LEAST,
+                threshold=Decimal(raw),
+                unit="percent",
+            )
+
     async def test_a_predicate_with_no_unit_is_refused(self) -> None:
         """A bare number cannot be compared with a fact — a threshold in per cent must say so,
         or it will one day be compared against a figure in dollars."""
@@ -492,6 +504,8 @@ class TestThePages:
         assert "Contoso holds its pricing power" in opened.text
         assert "Contoso plc (CTSO)" in opened.text
         assert "Nothing is asserted yet" in opened.text
+        # The date the operator gave, not the day the row appeared (ADR 0075's two clocks).
+        assert "written 01 August 2026" in opened.text
 
     async def test_a_premise_of_each_kind_is_added_and_counted(
         self, api: Any, scene: dict[str, Any]

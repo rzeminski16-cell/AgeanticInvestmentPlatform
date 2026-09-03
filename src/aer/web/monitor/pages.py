@@ -31,9 +31,10 @@ from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NO
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
 from aer.core.enums import Decision, FindingAction, FindingKind, GateKind
-from aer.db.models import Company, Finding, SourceDocument
+from aer.db.models import Finding, SourceDocument
 from aer.errors import AerError
 from aer.queue import enqueue_monitor
+from aer.services import theses as thesis_service
 from aer.services import thesis_monitor
 from aer.services.approvals import payload_hash_for
 from aer.web import figures, vocabulary
@@ -181,22 +182,11 @@ async def monitor_page(
 ) -> Response:
     """Every open finding, the reviews due, the recent passes, and the button that runs one."""
     showing_resolved = request.query_params.get("resolved") == "1"
-    open_rows = [
-        _row(finding)
-        for finding in await thesis_monitor.findings_for(session, user_id=user.id, open_only=True)
-    ]
+    opened, closed = await thesis_monitor.findings_partitioned(session, user_id=user.id)
+    open_rows = [_row(finding) for finding in opened]
     gated = [row for row in open_rows if row.opens_gate]
     unread = [row for row in open_rows if not row.opens_gate]
-    resolved = (
-        [
-            _row(finding)
-            for finding in await thesis_monitor.findings_for(
-                session, user_id=user.id, open_only=False
-            )
-        ]
-        if showing_resolved
-        else []
-    )
+    resolved = [_row(finding) for finding in closed] if showing_resolved else []
     today = datetime.now(UTC).date()
     due = await thesis_monitor.reviews_due(session, user_id=user.id, today=today)
     theses = await thesis_monitor.theses_to_monitor(session, user_id=user.id)
@@ -386,10 +376,7 @@ async def resolve_finding(
 
 
 async def _subject(session: Any, finding: Finding) -> str:
-    company = await session.get(Company, finding.thesis.subject_id)
-    if company is None:
-        return "a company no longer on record"
-    return f"{company.name} ({company.ticker})"
+    return await thesis_service.subject_name(session, finding.thesis)
 
 
 async def _sources(session: Any, finding: Finding) -> list[dict[str, str]]:
@@ -417,7 +404,8 @@ async def _sources(session: Any, finding: Finding) -> list[dict[str, str]]:
             {
                 "id": str(ref),
                 "title": (document.title or document.url) if document is not None else str(ref),
-                "href": f"/sources/{ref}" if document is not None else "",
+                # No page shows one source document on its own; the title is the answer.
+                "href": "",
             }
         )
     return listed
