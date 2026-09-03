@@ -71,7 +71,7 @@ not a rate.
 
 The first table is the one the tool exists for: process quality against the sign of the
 realised return. Then the qualities, the premise verdicts, how the holding period compared
-with the intended horizon, whether a decision was written before the trade, and whether
+with the intended horizon, whether a decision is on record for the position, and whether
 you confirmed the reviewer's quality or amended it.
 
 ## What this tool does not do

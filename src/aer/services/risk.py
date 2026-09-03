@@ -67,7 +67,7 @@ from aer.db.models import (
     User,
     WorkOrder,
 )
-from aer.errors import BudgetExceededError, ConflictError, ValidationError
+from aer.errors import AerError, ConflictError, ValidationError
 from aer.providers.protocol import LLMProvider
 from aer.providers.router import Router
 from aer.services.calculations import new_context, persist_context
@@ -240,14 +240,17 @@ async def risk_as_at(
     ]
     returns: dict[str, tuple[tuple[date, Quantity], ...]] = {}
     problems: dict[str, str] = {}
+    # Keyed by the security's id rather than its ticker: securities are unique on
+    # (ticker, exchange), and two listings of one issuer would otherwise overwrite each
+    # other's series and weight.
     for row in priced:
         series, problem = await _daily_returns(
             session, row.security, as_of=as_of, since=window_from
         )
         if problem:
-            problems[row.security.ticker] = problem
+            problems[str(row.security.id)] = problem
         else:
-            returns[row.security.ticker] = series
+            returns[str(row.security.id)] = series
 
     holdings: list[HoldingRisk] = []
     book_series: tuple[tuple[date, Quantity], ...] = ()
@@ -258,9 +261,9 @@ async def risk_as_at(
     if returns:
         assert book.net_assets is not None
         weights = {
-            row.security.ticker: row.weight.quantity
+            str(row.security.id): row.weight.quantity
             for row in priced
-            if row.security.ticker in returns and row.weight is not None
+            if str(row.security.id) in returns and row.weight is not None
         }
         series_source = SourceRef.calculation(
             book.net_assets.record.id,
@@ -287,7 +290,7 @@ async def risk_as_at(
             measured_values = [
                 row.value.quantity
                 for row in priced
-                if row.security.ticker in returns and row.value is not None
+                if str(row.security.id) in returns and row.value is not None
             ]
             coverage = graded_figure(
                 context,
@@ -321,9 +324,9 @@ async def risk_as_at(
                 context,
                 row_weight=row.weight,
                 security=row.security,
-                series=returns.get(row.security.ticker),
+                series=returns.get(str(row.security.id)),
                 book_series=book_series,
-                problem=problems.get(row.security.ticker, ""),
+                problem=problems.get(str(row.security.id), ""),
             )
         )
 
@@ -438,6 +441,9 @@ def _holding_risk(
 
 
 # -- Scenarios -------------------------------------------------------------------------------
+
+
+_SHOCK_PLACES: Final = Decimal("0.000001")
 
 
 @dataclass(frozen=True, slots=True)
@@ -592,6 +598,16 @@ async def state_scenario(
     if not shocks:
         message = "A scenario is at least one shock; this one moves nothing."
         raise ValidationError(message, context={"field": "shocks"})
+    for shock in shocks:
+        if not shock.shock.is_finite():
+            message = f"A shock of {shock.shock} is not a number. State a fraction."
+            raise ValidationError(message, context={"field": "shocks"})
+    # The column holds six places: a shock finer than that would round to nothing on the
+    # way in and fail the row's own check as a database error, so it is settled here.
+    shocks = [
+        Shock(kind=shock.kind, target=shock.target, shock=shock.shock.quantize(_SHOCK_PLACES))
+        for shock in shocks
+    ]
     for shock in shocks:
         if shock.shock <= -1 or shock.shock == 0:
             message = (
@@ -814,7 +830,11 @@ async def run_reading(
                 attempt=attempt,
                 problems=len(problems),
             )
-    except BudgetExceededError as refused:
+    except AerError as refused:
+        # The budget refusal, and everything else a call can fail on — a provider outage,
+        # a reply billed and then refused. Failing the pass here, on the session the page
+        # commits, is what keeps the cost row of the failed call; letting it propagate to
+        # a rollback would lose it, and the caps would never see it.
         step.status = JobStatus.FAILED
         step.finished_at = datetime.now(UTC)
         step.error = {"code": refused.code, "message": refused.message, **refused.context}

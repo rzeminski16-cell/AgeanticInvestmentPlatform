@@ -1144,7 +1144,9 @@ async def _queue(settings: Settings, *, limit: int | None) -> bool:
                     + ("" if queued is not None else " — NOT QUEUED, start it by hand"),
                     fg=typer.colors.GREEN if queued is not None else typer.colors.YELLOW,
                 )
-            if not drain.commissioned and not drain.stopped:
+            for reason in drain.skipped:
+                typer.secho(f"Skipped {reason}", fg=typer.colors.YELLOW)
+            if not drain.commissioned and not drain.stopped and not drain.skipped:
                 typer.secho("Nothing queued on the watchlist.", fg=typer.colors.YELLOW)
             if drain.stopped:
                 typer.secho(

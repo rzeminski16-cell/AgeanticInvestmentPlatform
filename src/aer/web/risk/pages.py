@@ -20,7 +20,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Any, Final
 
 import structlog
@@ -36,10 +36,10 @@ from aer.errors import AerError
 from aer.services import portfolio as portfolio_service
 from aer.services import risk as risk_service
 from aer.services.calculations import new_context
-from aer.services.portfolio import Figure
 from aer.web import figures, vocabulary
 from aer.web import verdict as verdicts
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.forms import percent_to_fraction
 from aer.web.templating import render
 
 __all__ = ["router"]
@@ -64,12 +64,12 @@ class FigureRow:
     href: str = ""
 
 
-def _figure(label: str, figure: Figure | None, *, rendered: str, note: str = "") -> FigureRow:
+def _figure(label: str, *, rendered: str, note: str = "") -> FigureRow:
     return FigureRow(
         label=label,
         value=rendered,
         note=note,
-        href=f"/calculations/{figure.record.id}" if figure is not None else "",
+        href="",
     )
 
 
@@ -120,7 +120,7 @@ async def risk_page(
             "window_from": f"{view.window_from:%d %B %Y}",
             "verdict": _risk_verdict(view),
             "reading_state": _reading_state(reading, stale=stale),
-            "figures": _book_figures(view, currency),
+            "figures": _book_figures(view),
             "problem": view.problem,
             "coverage_note": block.coverage,
             "concentration": next(
@@ -175,14 +175,12 @@ def _reading_state(reading: risk_service.Reading | None, *, stale: bool) -> str:
     return f"Read by the analyst on {when}."
 
 
-def _book_figures(view: risk_service.RiskView, currency: str) -> list[FigureRow]:
-    del currency
+def _book_figures(view: risk_service.RiskView) -> list[FigureRow]:
     rows: list[FigureRow] = []
     if view.volatility is not None:
         rows.append(
             _figure(
                 "Annualised volatility",
-                view.volatility,
                 rendered=risk_service.percent(view.volatility.value).lstrip("+"),
                 note=f"Over {view.observations} daily returns, in each listing's own currency.",
             )
@@ -191,7 +189,6 @@ def _book_figures(view: risk_service.RiskView, currency: str) -> list[FigureRow]
         rows.append(
             _figure(
                 "Maximum drawdown",
-                view.drawdown,
                 rendered=risk_service.percent(view.drawdown.value),
                 note="The worst peak-to-trough fall of the book as it stands.",
             )
@@ -200,7 +197,6 @@ def _book_figures(view: risk_service.RiskView, currency: str) -> list[FigureRow]
         rows.append(
             _figure(
                 "Expected shortfall",
-                view.expected_shortfall,
                 rendered=risk_service.percent(view.expected_shortfall.value),
                 note="The average of the worst five per cent of days.",
             )
@@ -209,7 +205,6 @@ def _book_figures(view: risk_service.RiskView, currency: str) -> list[FigureRow]
         rows.append(
             _figure(
                 "Coverage",
-                view.coverage,
                 rendered=risk_service.percent(view.coverage.value).lstrip("+"),
                 note="Of net assets in measured holdings. The rest is cash or unmeasured.",
             )
@@ -265,7 +260,7 @@ def _holding_rows(view: risk_service.RiskView) -> list[dict[str, Any]]:
             "observations": row.observations,
             "problem": row.problem,
             "is_measured": row.is_measured,
-            "href": f"/calculations/{row.volatility.record.id}" if row.volatility else "",
+            "href": "",
         }
         for row in view.holdings
     ]
@@ -290,7 +285,7 @@ def _scenario_rows(view: risk_service.RiskView, currency: str) -> list[dict[str,
             "impact": risk_service.percent(row.impact.value) if row.impact else "",
             "is_loss": bool(row.pnl and row.pnl.value < 0),
             "problem": row.problem,
-            "href": f"/calculations/{row.pnl.record.id}" if row.pnl else "",
+            "href": "",
         }
         for row in view.scenarios
     ]
@@ -394,14 +389,10 @@ def _shocks_from(submitted: dict[str, str]) -> list[risk_service.Shock]:
     """
     shocks: list[risk_service.Shock] = []
     for index in range(1, SHOCK_ROWS + 1):
-        raw = submitted.get(f"shock_{index}", "").strip().rstrip("%").strip()
-        if not raw:
+        raw = submitted.get(f"shock_{index}", "")
+        fraction = percent_to_fraction(raw)
+        if fraction is None:
             continue
-        try:
-            fraction = Decimal(raw) / Decimal(100)
-        except InvalidOperation as wrong:
-            message = f"{raw!r} is not a number of per cent."
-            raise ValueError(message) from wrong
         kind = ShockKind(submitted.get(f"kind_{index}", ""))
         shocks.append(
             risk_service.Shock(

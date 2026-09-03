@@ -122,7 +122,7 @@ only once the sample can bear one, a **Share** column:
    verdict row.
 4. **Holding period against the intended horizon** — no horizon stated, closed early, near
    the horizon, held past it.
-5. **A decision written before the trade** — yes or no, by whether the review has a thesis.
+5. **A decision on record for the position** — yes or no, by whether a review has a thesis.
 6. **Confirmed as the reviewer proposed** — agreed, amended, no proposal.
 
 ---

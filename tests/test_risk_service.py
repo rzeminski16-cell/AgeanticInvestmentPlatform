@@ -39,7 +39,7 @@ from aer.db.models import (
     User,
     WorkOrder,
 )
-from aer.errors import ConflictError, ValidationError
+from aer.errors import ConflictError, ExternalServiceError, ValidationError
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
 from aer.services import calculations as calculation_service
@@ -444,6 +444,83 @@ class TestAScenario:
 # -- The deterministic edge ------------------------------------------------------------------
 
 
+class TestAShockIsANumberTheColumnCanHold:
+    async def test_a_shock_that_is_not_a_number_is_refused(
+        self, db_session: AsyncSession, book: dict[str, Any]
+    ) -> None:
+        """ "nan" parses as a Decimal and then poisons every comparison as an unhandled
+        error; refused where the operator is, with a sentence."""
+        with pytest.raises(ValidationError, match="not a number"):
+            await _state(db_session, book, "Nonsense", _shock(ShockKind.BOOK, shock="NaN"))
+
+    async def test_a_shock_finer_than_six_places_is_settled_before_it_is_judged(
+        self, db_session: AsyncSession, book: dict[str, Any]
+    ) -> None:
+        """The column holds six places: 0.0000001 would round to nothing on the way in and
+        fail the row's own check as a database error, so it is refused as moving nothing."""
+        with pytest.raises(ValidationError, match="moves nothing"):
+            await _state(db_session, book, "Too fine", _shock(ShockKind.BOOK, shock="0.0000001"))
+
+        stated = await _state(
+            db_session, book, "Fine enough", _shock(ShockKind.BOOK, shock="-0.1234567")
+        )
+
+        assert [row.shock for row in stated.shocks] == [Decimal("-0.123457")]
+
+
+class TestTwoListingsOfOneIssuer:
+    async def test_they_are_measured_apart(
+        self, db_session: AsyncSession, book: dict[str, Any], context: CalculationContext
+    ) -> None:
+        """Securities are unique on (ticker, exchange); a series keyed by ticker alone let
+        one listing overwrite the other's returns and weight."""
+        await _holding_barc(db_session, book)
+        twin = Security(
+            company_id=book["barc"].company_id,
+            ticker="BARC",
+            exchange="NYSE",
+            provider_symbol="BARC.US",
+            name="Barclays plc ADR",
+            quote_currency="USD",
+        )
+        db_session.add(twin)
+        await db_session.flush()
+        await trade(
+            db_session,
+            book,
+            kind=TransactionKind.BUY,
+            security=twin,
+            quantity="10",
+            price="8",
+            currency="USD",
+        )
+        await daily_bars(db_session, twin, until=AS_OF, days=40, close="8.5")
+
+        view = await _risk(db_session, context, book)
+
+        measured = [row for row in view.holdings if row.problem == ""]
+        assert len(measured) == 2
+        assert {row.security.exchange for row in measured} == {"LSE", "NYSE"}
+
+
+class TestAReadingThatFailsOnSomethingElse:
+    async def test_it_is_a_failed_pass_with_its_reason_and_its_spend(
+        self, db_session: AsyncSession, book: dict[str, Any], tmp_path: Path
+    ) -> None:
+        """Not the budget: an outage, a reply billed and refused. The page commits what the
+        service returns, so failing the pass here keeps the cost row; a rollback would not."""
+        await _holding_barc(db_session, book)
+        broken = FakeProvider(
+            fail_with=ExternalServiceError("the provider is unavailable", provider="anthropic")
+        )
+
+        job = await _read(db_session, book, tmp_path, provider=broken)
+
+        assert job.status is JobStatus.FAILED
+        assert job.error is not None
+        assert "unavailable" in job.error["message"]
+
+
 class TestTheCommentarysEdge:
     def _block(self) -> RiskInput:
         return RiskInput(
@@ -739,7 +816,9 @@ class TestThePages:
 
         assert 'data-figure="annualised-volatility"' in body
         assert 'data-figure="maximum-drawdown"' in body
-        assert "/calculations/" in body
+        # Computed on the way to the page and persisted nowhere, so no link is offered:
+        # a link to a calculation row that does not exist is a dead link.
+        assert "/calculations/" not in body
         assert 'data-holding="BARC" data-measured="yes"' in body
         assert "holding is measured" in body
         assert "No scenario stated" in body
@@ -799,7 +878,7 @@ class TestThePages:
         )
 
         assert response.status_code == 400
-        assert "not a number" in response.text
+        assert "must be a number" in response.text
 
     async def test_a_form_without_a_token_is_refused(self, api: Any, committed: Any) -> None:
         response = await api.post("/risk/read", data={"as_of": AS_OF.isoformat()})

@@ -35,7 +35,7 @@ from sqlalchemy.orm import selectinload
 
 from aer.config import Settings
 from aer.core.enums import AnalysisMode, JobStatus
-from aer.core.schemas.request import ResearchRequestCreate
+from aer.core.schemas.request import TICKER_PATTERN, ResearchRequestCreate
 from aer.core.universe import check_universe
 from aer.db.models import (
     AuditEvent,
@@ -84,14 +84,10 @@ _HORIZON_LABEL: Final = "Commissioned from the watchlist"
 # A run in one of these may still spend up to its cap, so the standing budget reserves the
 # rest of that cap against it (ADR 0107 §2). A finished, failed or cancelled run has spent
 # what it spent.
+_NEVER: Final = datetime.min.replace(tzinfo=UTC)
+
 LIVE_STATUSES: Final[frozenset[JobStatus]] = frozenset(
-    {
-        JobStatus.QUEUED,
-        JobStatus.RUNNING,
-        JobStatus.PAUSED,
-        JobStatus.AWAITING_APPROVAL,
-        JobStatus.BUDGET_EXCEEDED,
-    }
+    status for status in JobStatus if not status.is_terminal
 )
 
 
@@ -141,21 +137,29 @@ async def standing_budget(
             .where(
                 WatchlistEntry.user_id == user_id,
                 WatchlistCommission.commissioned_at >= start,
-                WatchlistCommission.request_id.is_not(None),
             )
         )
     )
     spent = Decimal(0)
     reserved = Decimal(0)
     for row in commissions:
-        assert row.request_id is not None
-        job = await run_service.latest_run(session, request_id=row.request_id)
-        if job is None:
+        cap = Decimal(str(row.cap_gbp))
+        if row.request_id is None:
+            # The request was deleted, and its cost rows went with the jobs. What the run
+            # spent is no longer knowable, so the month reserves what it was allowed to
+            # spend: a deletion must not refund the standing budget (ADR 0107 §2).
+            reserved += cap
             continue
-        on_this = await spend_so_far(session, job_id=job.id)
+        # Every job the request ever had, not only the latest: a run restarted after a
+        # failure is a new job on the same request, and the dead run's pounds were spent.
+        jobs = list(await session.scalars(select(Job).where(Job.work_order_id == row.request_id)))
+        on_this = Decimal(0)
+        for job in jobs:
+            on_this += await spend_so_far(session, job_id=job.id)
         spent += on_this
-        if job.status in LIVE_STATUSES:
-            reserved += max(Decimal(0), Decimal(str(row.cap_gbp)) - on_this)
+        latest = max(jobs, key=lambda job: job.started_at or _NEVER, default=None)
+        if latest is not None and latest.status in LIVE_STATUSES:
+            reserved += max(Decimal(0), cap - on_this)
     return StandingBudget(
         budget_gbp=settings.watchlist_budget_gbp,
         spent_gbp=spent,
@@ -186,10 +190,18 @@ async def follow(
     """
     name = company_name.strip()
     symbol = ticker.strip().upper()
-    venue = exchange.strip().upper()
+    venue = exchange.strip().upper().replace(" ", "_").replace("-", "_")
     if not name or not symbol or not venue:
         message = "Following a company needs its name, its ticker and its exchange."
         raise ValidationError(message, context={"field": "company_name"})
+    if not TICKER_PATTERN.match(symbol):
+        # The request the commission creates would refuse it, and an entry the queue
+        # cannot commission at its head would stop everything behind it.
+        message = (
+            f"{symbol!r} is not a ticker: uppercase letters, digits, dot and hyphen, at "
+            "most twelve (for example MSFT, BRK.B or RIO.L)."
+        )
+        raise ValidationError(message, context={"field": "ticker"})
     exclusions = check_universe(ticker=symbol, exchange=venue, company_name=name)
     if exclusions:
         message = " ".join(exclusion.message for exclusion in exclusions)
@@ -385,6 +397,11 @@ async def commission(
     if entry.is_withdrawn:
         message = f"{entry.listing} is no longer followed, so nothing is commissioned."
         raise ConflictError(message, context={"entry_id": str(entry.id)})
+    # Row-locked for the rest of the transaction: the page and `aer queue`, or two
+    # submits of one form, would otherwise both read "queued" and both start a run.
+    await session.execute(
+        select(WatchlistEntry).where(WatchlistEntry.id == entry.id).with_for_update()
+    )
     state = await state_of(session, entry)
     if state.state == "commissioned":
         message = f"{entry.listing} already has a run alive; wait for it or cancel it first."
@@ -476,6 +493,8 @@ class Drain:
     """Entries still queued when the walk stopped."""
     stopped: str
     """Why the walk stopped short of the queue's end, or empty if it did not."""
+    skipped: tuple[str, ...] = ()
+    """Entries the walk passed over with the reason each was refused, budget aside."""
 
 
 async def commission_next(
@@ -494,6 +513,7 @@ async def commission_next(
     queued = await queue_for(session, user_id=user.id)
     budget = await standing_budget(session, settings=settings, user_id=user.id)
     started: list[tuple[WatchlistCommission, Job]] = []
+    skipped: list[str] = []
     stopped = ""
     for index, state in enumerate(queued):
         if limit is not None and len(started) >= limit:
@@ -502,14 +522,30 @@ async def commission_next(
             row, job = await commission(
                 session, settings=settings, user=user, entry=state.entry, budget=budget
             )
-        except (BudgetExceededError, ValidationError, ConflictError) as refused:
+        except BudgetExceededError as refused:
             stopped = f"{state.entry.listing}: {refused}"
-            return Drain(commissioned=tuple(started), left=len(queued) - index, stopped=stopped)
+            return Drain(
+                commissioned=tuple(started),
+                left=len(queued) - index,
+                stopped=stopped,
+                skipped=tuple(skipped),
+            )
+        except (ValidationError, ConflictError) as refused:
+            # One entry the platform will not commission — a listing it cannot make a
+            # request of, a run that came alive since the queue was read — is that
+            # entry's problem, named; the ones behind it are still commissioned.
+            skipped.append(f"{state.entry.listing}: {refused}")
+            continue
         started.append((row, job))
         # The room shrinks by the cap just reserved; re-read rather than subtract, so the
         # figure the next refusal quotes is the figure the ledger holds.
         budget = await standing_budget(session, settings=settings, user_id=user.id)
-    return Drain(commissioned=tuple(started), left=len(queued) - len(started), stopped=stopped)
+    return Drain(
+        commissioned=tuple(started),
+        left=len(queued) - len(started) - len(skipped),
+        stopped=stopped,
+        skipped=tuple(skipped),
+    )
 
 
 # -- The chain ------------------------------------------------------------------------------

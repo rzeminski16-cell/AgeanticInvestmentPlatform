@@ -39,7 +39,9 @@ The queue may start research up to a pound figure a month, set by
 month's commissioned runs have spent, what the ones still alive may yet spend up to their
 caps, and the room that leaves — with how many more runs at the per-run cap it holds.
 
-A run the queue starts keeps its own per-run cap, and the month's cap applies on top. The
+A run the queue starts keeps its own per-run cap, and the month's cap applies on top. Deleting a
+commissioned request does not refund the month: with its spend no longer knowable, the
+commission reserves its cap until the month ends. The
 standing budget only bounds what the queue may *start*; it takes nothing from the two
 guards that bound what any run may spend.
 

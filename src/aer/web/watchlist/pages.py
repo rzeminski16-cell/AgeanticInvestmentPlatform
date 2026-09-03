@@ -25,7 +25,7 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
-from aer.errors import AerError, BudgetExceededError
+from aer.errors import AerError
 from aer.queue import enqueue_run
 from aer.services import overview as overview_service
 from aer.services import watchlist as watchlist_service
@@ -240,9 +240,6 @@ async def commission(  # noqa: PLR0917 -- the dependencies, spelt out
             session, settings=settings, user=user, entry=entry, as_of=as_of
         )
         await session.commit()
-    except BudgetExceededError as refused:
-        await session.rollback()
-        return _problem(request, str(refused), status=refused.http_status)
     except AerError as refused:
         await session.rollback()
         return _problem(request, str(refused), status=refused.http_status)
@@ -285,6 +282,7 @@ async def commission_next(
         queued=queued,
         left=drain.left,
         stopped=drain.stopped,
+        skipped=list(drain.skipped),
     )
     outcome = (
         str(queued) if queued == len(drain.commissioned) else f"{queued}of{len(drain.commissioned)}"

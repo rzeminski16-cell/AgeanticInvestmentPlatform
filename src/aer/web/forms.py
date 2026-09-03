@@ -128,10 +128,15 @@ def percent_to_fraction(raw: str) -> Decimal | None:
     if not text:
         return None
     try:
-        return Decimal(text) / _HUNDRED
+        fraction = Decimal(text) / _HUNDRED
     except InvalidOperation as exc:
         message = "must be a number, for example 2.5 for two and a half per cent"
         raise ValueError(message) from exc
+    if not fraction.is_finite():
+        # "nan" and "inf" parse as Decimals and then poison every comparison downstream.
+        message = "must be a number, for example 2.5 for two and a half per cent"
+        raise ValueError(message)
+    return fraction
 
 
 def fraction_to_percent(value: Decimal | None) -> str:

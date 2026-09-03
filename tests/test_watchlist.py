@@ -189,6 +189,32 @@ class TestFollowing:
 # -- The standing budget ---------------------------------------------------------------------
 
 
+class TestTheListingIsOneARequestWouldAccept:
+    async def test_a_ticker_the_request_would_refuse_is_refused_at_follow(
+        self, db_session: AsyncSession
+    ) -> None:
+        """An entry the queue cannot commission at its head would stop everything behind it."""
+        user = await _user(db_session)
+
+        with pytest.raises(ValidationError, match="not a ticker"):
+            await _follow(db_session, user, ticker="BRK B", exchange="NYSE", name="Berkshire")
+
+    async def test_the_exchange_is_normalised_as_a_request_normalises_it(
+        self, db_session: AsyncSession
+    ) -> None:
+        user = await _user(db_session)
+
+        entry = await _follow(
+            db_session, user, ticker="SNPS", exchange="nyse american", name="Somebody plc"
+        )
+
+        assert entry.exchange == "NYSE_AMERICAN"
+        with pytest.raises(ConflictError, match="already followed"):
+            await _follow(
+                db_session, user, ticker="SNPS", exchange="NYSE-American", name="Somebody plc"
+            )
+
+
 class TestTheStandingBudget:
     async def test_nothing_commissioned_leaves_the_whole_budget(
         self, db_session: AsyncSession, tmp_path: Path
@@ -257,6 +283,50 @@ class TestTheStandingBudget:
 
 
 # -- Commissioning ---------------------------------------------------------------------------
+
+
+class TestTheMonthCountsEveryRun:
+    async def test_a_restarted_runs_dead_predecessor_still_spent(
+        self, db_session: AsyncSession, tmp_path: Path
+    ) -> None:
+        """A run restarted after a failure is a new job on the same request; the pounds the
+        dead one spent were spent, and the standing budget must not forget them."""
+        settings = _settings(tmp_path)
+        user = await _user(db_session)
+        entry = await _follow(db_session, user)
+        row, first = await _commission(db_session, settings, user, entry)
+        await _spend(db_session, first, "3.00")
+        first.status = JobStatus.FAILED
+        second = Job(
+            work_order_id=row.request_id,
+            workflow_version=first.workflow_version,
+            code_version=first.code_version,
+            status=JobStatus.RUNNING,
+            started_at=datetime.now(UTC),
+        )
+        db_session.add(second)
+        await db_session.flush()
+        await _spend(db_session, second, "2.00")
+
+        budget = await _budget(db_session, settings, user)
+
+        assert budget.spent_gbp == Decimal("5.00")
+        assert budget.reserved_gbp == Decimal("12.00") - Decimal("5.00")
+
+    async def test_a_deleted_request_reserves_its_cap_rather_than_refunding_the_month(
+        self, db_session: AsyncSession, tmp_path: Path
+    ) -> None:
+        settings = _settings(tmp_path)
+        user = await _user(db_session)
+        entry = await _follow(db_session, user)
+        row, _ = await _commission(db_session, settings, user, entry)
+        row.request_id = None
+        await db_session.flush()
+
+        budget = await _budget(db_session, settings, user)
+
+        assert budget.spent_gbp == Decimal(0)
+        assert budget.reserved_gbp == Decimal("12.00")
 
 
 class TestCommissioning:
@@ -456,6 +526,33 @@ class TestTheWalk:
 
 
 # -- The work list ---------------------------------------------------------------------------
+
+
+class TestTheWalkSkipsWhatItCannotCommission:
+    async def test_a_refused_entry_is_named_and_the_ones_behind_it_still_run(
+        self, db_session: AsyncSession, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """One entry the platform will not commission is that entry's problem, named; the
+        queue does not stop at it for ever with `aer queue` exiting non-zero every morning."""
+        settings = _settings(tmp_path)
+        user = await _user(db_session)
+        first = await _follow(db_session, user)
+        second = await _follow(db_session, user, ticker="MSFT", exchange="NASDAQ", name="Microsoft")
+        genuine = watchlist_service.commission
+
+        async def refusing(session: Any, **kwargs: Any) -> Any:
+            if kwargs["entry"].id == first.id:
+                raise ValidationError("the listing cannot be requested", context={})
+            return await genuine(session, **kwargs)
+
+        monkeypatch.setattr(watchlist_service, "commission", refusing)
+
+        drain = await watchlist_service.commission_next(db_session, settings=settings, user=user)
+
+        assert [row.entry_id for row, _ in drain.commissioned] == [second.id]
+        assert drain.skipped == (f"{first.listing}: the listing cannot be requested",)
+        assert drain.stopped == ""
+        assert drain.left == 0
 
 
 class TestTheWorkList:
