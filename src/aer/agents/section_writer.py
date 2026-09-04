@@ -85,6 +85,15 @@ class SectionWriterInput(BaseModel):
     word_budget: int = 0
     word_ceiling: int = 0
 
+    platform_note: str = ""
+    """What the platform renders beside this section that the writer cannot see.
+
+    Only the augmented sections have one (ADR 0063). The valuation section's names the
+    method components the rendered block carries, because the check that refuses the
+    commentary reads exactly that list — and a rule enforced against a list the writer was
+    never shown is a rule it can only guess at.
+    """
+
 
 _SYSTEM_PROMPT: Final = """\
 You write one built-in section of an institutional equity research report. Your whole
@@ -138,7 +147,9 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
     # "2": the user message states the word budget with its consequence (gap A50).
     # "3": a citation is the extraction id alone; the source document is resolved in
     # code from the extraction's own record (gap A51b).
-    prompt_version: ClassVar[str] = "3"
+    # "4": an augmented section's user message names the components of the block rendered
+    # beside it, which is what `commentary_problems` refuses a commentary for missing.
+    prompt_version: ClassVar[str] = "4"
 
     def __init__(self, *, route_role: str | None = None) -> None:
         """A writer, optionally billed at a cheaper configured route (gap O1).
@@ -236,6 +247,10 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
                 "and never evidence, and you never mention the review itself:\n- "
                 + "\n- ".join(payload.challenges)
             )
+        if payload.platform_note:
+            # Before the challenges and the refusals: it is a fact about the section's
+            # shape, not a correction to a draft.
+            parts.append(payload.platform_note)
         if payload.evidence_truncated:
             parts.append(
                 "The evidence listing was truncated to this section's token budget; "

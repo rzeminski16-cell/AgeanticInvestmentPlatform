@@ -363,6 +363,11 @@ async def execute_builtin_section(
             # (gap A50) — and the cut budget on a truncation retry (gap A51a).
             word_budget=policy.word_budget,
             word_ceiling=word_ceiling(policy.word_budget) if policy.word_budget > 0 else 0,
+            # The other half of the augmenter's check: what the block beside this section
+            # carries, so the writer can keep to it rather than be refused for guessing.
+            platform_note=(
+                augmenter.note(block) if augmenter is not None and augmenter.note else ""
+            ),
         )
         try:
             candidate = await agent.run(context, payload)

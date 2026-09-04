@@ -36,7 +36,12 @@ from aer.core.disagreement import challenge_heading
 from aer.db.models import Disagreement, Evaluation, Job, ResearchRequest, SectionStatus
 from aer.eval import BLOCKING, RUN_TIME, THRESHOLDS, Direction, Metric
 from aer.sections.registry import sections_for_job
-from aer.sections.valuation_method import commentary_problems, method_only, valuation_method_block
+from aer.sections.valuation_method import (
+    commentary_problems,
+    component_note,
+    method_only,
+    valuation_method_block,
+)
 from aer.services.evaluations import NUMERIC_CEILING
 from aer.services.history import prior_comparison_content
 
@@ -384,16 +389,24 @@ class SectionAugmenter:
     ``standalone``, when set, is asked before the model is: given the rendered block, it
     returns the reason the block is this section's *whole* truthful content — in which
     case no writer call is made — or an empty string for the ordinary path (gap A51c).
+
+    ``note``, when set, is what the writer is told about the block it cannot see: the
+    other half of ``check``, so a rule the platform enforces is a rule the writer can
+    follow rather than guess at.
     """
 
     build: Callable[..., Awaitable[dict[str, Any]]]
     check: Callable[[dict[str, Any], dict[str, Any]], list[str]]
     standalone: Callable[[dict[str, Any]], str] | None = None
+    note: Callable[[dict[str, Any]], str] | None = None
 
 
 AUGMENTERS: dict[str, SectionAugmenter] = {
     "valuation_dcf": SectionAugmenter(
-        build=valuation_method_block, check=commentary_problems, standalone=method_only
+        build=valuation_method_block,
+        check=commentary_problems,
+        standalone=method_only,
+        note=component_note,
     ),
 }
 

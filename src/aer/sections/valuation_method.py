@@ -31,7 +31,7 @@ from sqlalchemy.orm import selectinload
 
 from aer.db.models import Assumption, Calculation, JobStep, ResearchRequest
 
-__all__ = ["commentary_problems", "method_only", "valuation_method_block"]
+__all__ = ["commentary_problems", "component_note", "method_only", "valuation_method_block"]
 
 # The workflow step whose recorded output says whether a valuation ran and what caveats it
 # carried. The literal is duplicated from ``vertical_slice_v1.VALUE_STEP`` because the
@@ -519,6 +519,30 @@ def commentary_problems(content: dict[str, Any], block: dict[str, Any]) -> list[
         if _found(commentary, pattern) and required not in labels
     )
     return problems
+
+
+def component_note(block: dict[str, Any]) -> str:
+    """What the writer may name: the components the rendered block actually carries.
+
+    :func:`commentary_problems` refuses a commentary naming a method component the block
+    does not hold, and the writer is never shown the block — so until this note it could
+    only guess, and a live run paid for two refused attempts guessing wrong (the history
+    is in :func:`method_only`, which stops the empty case one storey earlier).
+
+    **Labels travel; figures do not.** Naming a component is what the rule turns on, and a
+    figure in the ask would be a figure the numeral rule then has to cover.
+    """
+    labels = sorted({label.strip() for label in _block_labels(block) if label.strip()})
+    if not labels:
+        return (
+            "The method block rendered above your commentary carries no cost-of-capital "
+            "or forecast component. Name none of them: interpret the figures it does show."
+        )
+    return (
+        "The method block rendered above your commentary carries these components and no "
+        f"others: {', '.join(labels)}. Name only these — a component the block does not "
+        "carry is not part of this run's method, and a commentary naming one is refused."
+    )
 
 
 def _found(text: str, pattern: str) -> str:
