@@ -89,7 +89,7 @@ What to know per step, beyond the diagram:
 | `propose_assumptions` | `agents/assumptions` | yes (~£0.20) | Only the two numbers no filing answers (ADR 0046) |
 | `gate_assumptions` | `services/approvals` | no | The one gate that approves work not yet done |
 | `value` | `calc/wacc`, `calc/dcf` | no | Runs only on confirmed assumptions |
-| `draft` | `agents/section_writer`, `sections/` | **yes (~£5, the largest)** | One call per model-written section; see ADR 0052 |
+| `draft` | `agents/section_writer`, `sections/` | **yes (~£5, the largest)** | One call per model-written section; see ADR 0052. Re-entrant: each section commits its own draft, and a re-entry keeps the sections an earlier attempt generated rather than paying for them twice |
 | `validate` | `verify/`, `agents/validator` | small | Deterministic checks; the model only *advises* (ADR 0038) |
 | `red_team` | `agents/red_team` | yes (~£1) | Attacks the draft from a separate context (ADR 0039) |
 | `revise` | `services/revision` | yes (~£1.50 at the bound) | Redrafts the sections material challenges attack, once, then seals the gate-2 hash (ADR 0091). A redraft that does not pass leaves the approved draft standing (ADR 0098) |

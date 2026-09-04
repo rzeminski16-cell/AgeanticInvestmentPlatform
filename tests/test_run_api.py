@@ -1418,6 +1418,60 @@ class TestTheWebPages:
         assert "a numeric claim needs at least one proposed citation" in page.text
         assert "citation&times;2" in page.text
 
+    async def test_a_kept_section_says_it_was_written_by_an_earlier_attempt(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """A resumed draft keeps what an earlier attempt wrote, and the page says so.
+
+        The attempt that wrote a kept section is by definition one that did not finish, so
+        it recorded no tally: the row carries no evidence count and no try count. Left
+        unexplained that reads as a section written out of nothing in no attempts, which is
+        exactly the shape a starved section has — so the page names the reason instead.
+        """
+        job_id = await _to_second_gate(api, committed, driver)
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as writer:
+            section = await writer.scalar(
+                select(ReportSection)
+                .where(
+                    ReportSection.job_id == job_id,
+                    ReportSection.status == SectionStatus.GENERATED,
+                )
+                .limit(1)
+            )
+            assert section is not None
+            step = await writer.scalar(
+                select(JobStep)
+                .where(JobStep.job_id == job_id, JobStep.step_key == "draft")
+                .order_by(JobStep.attempt.desc())
+                .limit(1)
+            )
+            assert step is not None
+            step.output_ref = {
+                **(step.output_ref or {}),
+                "builtin_sections": [
+                    {
+                        "section_key": section.section_key,
+                        "status": "generated",
+                        "attempts": 0,
+                        "kept": True,
+                    }
+                ],
+            }
+            await writer.commit()
+
+        page = await api.get(f"/runs/{job_id}/review")
+
+        assert page.status_code == 200
+        assert f'data-section="{section.section_key}"' in page.text
+        assert "Written by an earlier attempt of this run and kept" in page.text
+        # Both cells the earlier attempt would have filled are empty rather than nought:
+        # what it was dealt, and how many tries it took.
+        row = page.text.split(f'data-section="{section.section_key}"', 1)[1].split("</tr>", 1)[0]
+        assert row.count("&mdash;") == 2
+        assert "Written" in row
+
     async def test_a_red_team_challenge_reads_as_a_challenge_not_a_fault(
         self, api: Any, committed: dict, driver: Driver, db_engine: Any
     ) -> None:

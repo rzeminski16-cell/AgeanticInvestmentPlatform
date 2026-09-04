@@ -165,8 +165,8 @@ and there are two ways to hold it there.
 **Set a cap the drafting step cannot fit under.** A cap of about £3 lets every earlier step
 run and then stops the run at drafting, because the guard refuses to *start* a step whose
 projected cost would break the ceiling. The run pauses rather than fails, everything it has
-done is kept, and raising the cap from the console's spend panel continues it from where it
-stopped without repeating anything you paid for.
+done is kept, and raising the cap from the console's spend panel and then continuing picks up
+from where it stopped without repeating anything you paid for.
 
 **Or walk it one step at a time.** `uv run aer step <job-id>` turns step mode on, executes
 the next incomplete step in your terminal with the production provider and fetcher, and
@@ -194,6 +194,11 @@ recent ones removed.
 
 - **Cancelling** is a decision, recorded like any other. Work already done is kept.
 - **A crash** loses nothing: steps are recorded as they complete, and the worker resumes.
+- **A stop part-way through drafting** costs only the sections that were left. Each section
+  commits its own draft as it is written, and the drafting step keeps every section an
+  earlier attempt finished rather than writing it again — so a run stopped after nine of
+  sixteen sections pays for seven when it continues, not sixteen. Sections that *failed* are
+  drafted again, which is what continuing is for.
 - **A terminal failure with no report** can be superseded, which re-runs the plan step on
   the same work order. If you fixed a skill in between, the pin set is compared against the
   enabled skills' current versions, so a re-plan picks up your fix rather than silently

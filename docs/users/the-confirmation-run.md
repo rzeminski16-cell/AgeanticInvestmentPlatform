@@ -30,8 +30,10 @@ platform will not let a single run's ceiling go above `AER_PER_RUN_BUDGET_GBP`, 
 to £12.
 
 **What a stop costs you: nothing.** A run stopped at its ceiling is paused, not failed. Its
-work is kept, and raising the ceiling continues it from where it stopped without repeating a
-step you already paid for.
+work is kept, and raising the ceiling and then continuing picks up from where it stopped
+without repeating a step you already paid for. That holds *inside* the drafting step too: sections commit one at a
+time, and a re-entry writes only the ones that are not written yet. See
+[If drafting stops part-way](#if-drafting-stops-part-way).
 
 ---
 
@@ -199,12 +201,11 @@ On the console's spend panel, raise the run's ceiling to **`12.00`** — the pla
 limit, and deliberately more than the £9.31 the rest of the run is estimated to cost.
 
 **Raise it generously, and here is why.** The ceiling is two different tools depending on
-where it bites. Before a step, it is a free checkpoint: the step never starts, nothing is
-wasted. *Inside* the drafting step it is expensive, because sections are re-drafted on a
-resume rather than skipped — each section commits its own paid draft, so the work survives,
-but the step redoes them all when it runs again. A ceiling that stops the run between steps
-costs nothing; one that stops it mid-drafting can cost the drafting twice. So use the ceiling
-to hold the run *before* drafting, and then get it out of the way.
+where it bites. Before a step it is a free checkpoint: the step never starts and nothing is
+wasted, which is exactly what Stage 3 used it for. *Inside* the drafting step it is a stop
+part-way through sixteen sections — recoverable, and no longer expensive, but a stop you have
+to notice and clear by hand. Use the ceiling to hold the run *before* drafting, and then get
+it out of the way.
 
 The raise is recorded under your name. The run continues from where it stopped and repeats
 nothing it has already completed as a step.
@@ -219,6 +220,44 @@ While it drafts, watch the console. Each section arrives with a status:
 
 A section that is mostly a notice about missing evidence is the failure the last live run
 produced. If you see one, that is the thing to report.
+
+### If drafting stops part-way
+
+**You do not pay for the same section twice.** Each section commits its own draft the moment
+it is written, and the drafting step is re-entrant: when it runs again it keeps every section
+an earlier attempt finished and writes only the ones that are not written yet. So a stop
+half-way through sixteen sections costs you the eight that are left, not sixteen.
+
+This covers every way drafting can stop — the ceiling biting mid-step, an API outage, the
+worker being killed, the container going away.
+
+**How to use it.** Nothing special: continue the run the same way you continue any stopped
+run.
+
+```bash
+uv run aer diagnose <job-id>     # what stopped it, and where
+uv run aer resume <job-id>       # continue; already-written sections are kept
+```
+
+If it stopped on the ceiling, raise the ceiling on the console *before* continuing. Raising it
+does not restart the run — that is the button beside the form, and `aer resume` is the same
+decision from the terminal — and continuing under a ceiling the step still cannot fit under
+just stops the run in the same place. If it stopped on an outage, fix the cause first; the
+sections written before it are kept either way.
+
+**What you will see afterwards.** The review page lists every section in the run. A kept one
+shows as **Written**, with no evidence count and no try count, and a line saying it was written
+by an earlier attempt. That is not a gap in the record: a step writes its record only when it
+finishes, so the attempt that wrote those sections — the one that stopped — left no tally
+behind. The words are there; only the bookkeeping about how they were produced is not.
+
+**What is *not* kept.** A section that **failed** is drafted again, and so is one that never
+started. That is what you want: resuming is for finishing the run, and a failed section has
+not been paid for in any useful sense.
+
+**One thing to check.** If you resumed mid-drafting, count the sections on the review page
+before you approve at Stage 5. Every section the run owes should be present and written; kept
+and freshly written ones are equally finished.
 
 ---
 
@@ -261,6 +300,7 @@ deliverable.
 | A step failed | `uv run aer diagnose <job-id>` reads the recorded error | £0 |
 | You want to advance one step at a time | Stop the worker, then `uv run aer step <job-id>` | That step only |
 | A run is stopped and you want it to continue | `uv run aer resume <job-id>` | Nothing repeated |
+| It stopped part-way through drafting | Same: `uv run aer resume <job-id>` | Only the sections not yet written |
 | The run is not worth continuing | Cancel it on the console | Nothing further |
 | You want me to look at it | `just diagnose-run <job-id>` writes `run-diagnosis.json` | £0 |
 

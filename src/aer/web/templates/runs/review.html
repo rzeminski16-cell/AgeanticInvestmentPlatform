@@ -484,12 +484,29 @@
                   &mdash;
                 {% endif %}
               </td>
-              <td class="py-2.5 type-data-sm text-ink-muted">{{ outcome.get("attempts", "—") }}</td>
+              <td class="py-2.5 type-data-sm text-ink-muted">
+                {# A kept section was written by an earlier attempt, which recorded no
+                   output because it did not finish. Nought tries would read as a section
+                   written without one. #}
+                {% if outcome.get("kept") %}
+                  &mdash;
+                {% else %}
+                  {{ outcome.get("attempts", "—") }}
+                {% endif %}
+              </td>
             </tr>
-            {% if section.note or outcome.get("problems") %}
+            {% if section.note or outcome.get("problems") or outcome.get("kept") %}
               <tr>
                 <td colspan="4" class="pb-3 type-body-sm text-ink">
                   {% if section.note %}<p class="max-w-prose">{{ section.note }}</p>{% endif %}
+                  {% if outcome.get("kept") %}
+                    <p class="mt-1 max-w-prose text-ink-muted">
+                      Written by an earlier attempt of this run and kept when the run
+                      resumed, so it was not drafted or paid for again. What that attempt
+                      was dealt is not recorded: a step records its output only when it
+                      finishes.
+                    </p>
+                  {% endif %}
                   {% for problem in outcome.get("problems", [])[:4] %}
                     <p class="mt-1 max-w-prose text-ink-muted">{{ problem }}</p>
                   {% endfor %}

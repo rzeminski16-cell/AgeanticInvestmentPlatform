@@ -3052,24 +3052,57 @@ async def _draft_one_apart(
         return outcome, generated, agent_context.spend_gbp
 
 
+def _kept_outcome(section: ReportSection) -> dict[str, Any]:
+    """What the step says about a section an earlier attempt already wrote.
+
+    Only what is true: the section is generated, and this attempt of the step did not
+    write it. **The earlier attempt's own tally is gone and cannot be carried forward** —
+    a step records its output when it succeeds, and the attempt that wrote these sections
+    is by definition one that did not. What the tally explains is why a section *failed*
+    (`aer.core.escalation`), and a kept section did not; the review page shows no evidence
+    count for it, which is honest about a record that was never written rather than a
+    guess at one.
+    """
+    return {
+        "section_key": section.section_key,
+        "status": section.status.value,
+        "attempts": 0,
+        "kept": True,
+    }
+
+
 def _partitioned_sections(
     sections: Sequence[ReportSection],
     *,
     pin_by_skill: Mapping[Any, Any],
     focus_by_key: Mapping[str, str],
     guidance: Sequence[OperatorGuidance] = (),
-) -> tuple[dict[uuid.UUID, dict[str, Any]], list[_SectionWork]]:
-    """Split a run's sections into refusals and drafting work, in declared order.
+) -> tuple[dict[uuid.UUID, dict[str, Any]], list[_SectionWork], dict[uuid.UUID, dict[str, Any]]]:
+    """Split a run's sections into refusals, drafting work and what is already written.
 
     The pin-less custom refusal happens here, on the caller's session: it is a recorded
     state, not a model call, and spends nothing — so it never joins the fan-out.
+
+    **A section a previous attempt generated is kept, not written again.** The engine
+    skips a step that already succeeded; this is the same rule one level down, and it is
+    the difference between a stopped draft costing what is left and costing all of it
+    again. Every section commits its own paid draft, so on re-entry the finished ones are
+    already in the database — redrafting them would pay twice for the same words and
+    overwrite the ones a person may already have read. `FAILED` and `PENDING` sections are
+    queued as ever, which is what resuming is for.
     """
     refused: dict[uuid.UUID, dict[str, Any]] = {}
     pending: list[_SectionWork] = []
+    kept: dict[uuid.UUID, dict[str, Any]] = {}
     for section in sections:
         definition = section.definition
         if definition.origin != SKILL and definition.token_budget == 0:
             # Deterministic: filled at this stage already, or by the stage that owns it.
+            continue
+        if section.status is SectionStatus.GENERATED:
+            # Before the pin check deliberately: a custom section that is already written
+            # is written, whatever the plan's pins say on this attempt.
+            kept[section.id] = _kept_outcome(section)
             continue
         if definition.origin == SKILL:
             pin = pin_by_skill.get(definition.skill_id) if definition.skill_id is not None else None
@@ -3097,7 +3130,7 @@ def _partitioned_sections(
                 guidance=tuple(guidance),
             )
         )
-    return refused, pending
+    return refused, pending, kept
 
 
 async def _drafted_in_place(
@@ -3176,6 +3209,11 @@ async def _draft(context: StepContext) -> StepResult:
     its pinned composed policy (task 38, ADR 0037). A failed custom section is a
     recorded state the run continues past, never an absent section.
 
+    **Re-entrant.** A section a previous attempt already generated is kept rather than
+    written again: each section commits its own paid draft, so on a resume the finished
+    ones are already in the database, and redrafting them would pay twice for the same
+    words and overwrite ones a person may already have read.
+
     **Sections draft concurrently where the run has a session factory** (polish P10).
     They share the research wave's shape — each depends on the evidence pack and on
     nothing another section produces — so they fan out under the same rules: a bounded
@@ -3201,7 +3239,7 @@ async def _draft(context: StepContext) -> StepResult:
     )
 
     sections = await sections_for_job(context.session, context.job.id)
-    refused, pending = _partitioned_sections(
+    refused, pending, kept = _partitioned_sections(
         sections,
         pin_by_skill=pin_by_skill,
         focus_by_key=focus_by_key,
@@ -3225,6 +3263,15 @@ async def _draft(context: StepContext) -> StepResult:
     for section in sections:
         if section.id in refused:
             custom_outcomes.append(refused[section.id])
+            continue
+        if section.id in kept:
+            # Written by an earlier attempt and not written again. It still belongs in
+            # this step's record and in the count: `sections_drafted` answers "how many
+            # sections does this run have", which does not change because a resume wrote
+            # fewer of them.
+            is_custom = section.definition.origin == SKILL
+            (custom_outcomes if is_custom else builtin_outcomes).append(kept[section.id])
+            filled += 1
             continue
         if section.id not in executed:
             continue
