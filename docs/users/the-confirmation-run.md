@@ -195,9 +195,19 @@ are the assumptions you approved at the gate.
 
 Money at risk: **£5**, and it is the step you cannot undo cheaply.
 
-On the console's spend panel, raise the run's ceiling to **`10.00`**. That covers drafting and
-everything after it by estimate, and stays under the platform's own £12 limit. The raise is
-recorded under your name. The run continues from where it stopped and repeats nothing.
+On the console's spend panel, raise the run's ceiling to **`12.00`** — the platform's own
+limit, and deliberately more than the £9.31 the rest of the run is estimated to cost.
+
+**Raise it generously, and here is why.** The ceiling is two different tools depending on
+where it bites. Before a step, it is a free checkpoint: the step never starts, nothing is
+wasted. *Inside* the drafting step it is expensive, because sections are re-drafted on a
+resume rather than skipped — each section commits its own paid draft, so the work survives,
+but the step redoes them all when it runs again. A ceiling that stops the run between steps
+costs nothing; one that stops it mid-drafting can cost the drafting twice. So use the ceiling
+to hold the run *before* drafting, and then get it out of the way.
+
+The raise is recorded under your name. The run continues from where it stopped and repeats
+nothing it has already completed as a step.
 
 While it drafts, watch the console. Each section arrives with a status:
 
