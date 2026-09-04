@@ -147,6 +147,39 @@ One consequence worth knowing: a step with no cost estimate is invisible to the 
 That is a recorded lesson rather than a theoretical risk — it is why every step now
 declares one.
 
+## Stopping before the expensive step
+
+Drafting is the largest single step in a run, and everything worth checking happens before
+it. The estimates each step declares — what the guard projects, not what the run will
+actually spend — divide roughly into thirds:
+
+| | Estimate |
+|---|---|
+| Everything before drafting: plan, critique, peers, themes, the five research steps, assumptions | £2.14 |
+| Drafting the sections | £5.00 |
+| Everything after: validation, the red team, the revision, the verdict, the challenge brief | £2.17 |
+
+So a run can be taken all the way to the edge of drafting for about a fifth of its cost,
+and there are two ways to hold it there.
+
+**Set a cap the drafting step cannot fit under.** A cap of about £3 lets every earlier step
+run and then stops the run at drafting, because the guard refuses to *start* a step whose
+projected cost would break the ceiling. The run pauses rather than fails, everything it has
+done is kept, and raising the cap from the console's spend panel continues it from where it
+stopped without repeating anything you paid for.
+
+**Or walk it one step at a time.** `uv run aer step <job-id>` turns step mode on, executes
+the next incomplete step in your terminal with the production provider and fetcher, and
+prints the step's diagnostic before anything else can spend. Stop the worker first, or it
+will race you for the same step. `uv run aer resume <job-id>` hands the run back to the
+worker when you have seen enough.
+
+Either way, what is worth reading before releasing the draft is the same: the approved plan
+at gate 1, the unmapped tags at the extraction gate, the comparables and themes the run
+settled on, the assumptions you approved, and the valuation the run reached from them. A
+draft is only as good as those, and all of them are on the run console before a section is
+written.
+
 ## Point-in-time
 
 If the request is in point-in-time mode, nothing published after the as-of date may support
