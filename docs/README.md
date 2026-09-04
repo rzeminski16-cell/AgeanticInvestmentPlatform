@@ -45,9 +45,9 @@ For the operator: the person who installs it, commissions research and approves 
 - [`getting-started.md`](users/getting-started.md) — install, configure, first run.
 - [`running-a-report.md`](users/running-a-report.md) — the run, gate by gate, and what each
   approval commits you to.
-- [`the-confirmation-run.md`](users/the-confirmation-run.md) — one live run done
-  deliberately: the ceiling that holds it before the expensive step, what to check at each
-  gate, and how to stop cheaply.
+- [`the-confirmation-run.md`](users/the-confirmation-run.md) — testing the tool step by
+  step, with the expected result beside every step: the ceiling that holds the run before
+  the expensive part, what to check at each gate, and how to stop cheaply.
 - [`reading-a-report.md`](users/reading-a-report.md) — how to read the output, walk any
   figure back to its source, and interpret a refusal.
 - [`portfolio.md`](users/portfolio.md) — recording what you hold, and why no position is
