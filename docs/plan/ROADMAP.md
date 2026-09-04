@@ -740,12 +740,31 @@ not a design task, and each should be done **before** money or a dependency is c
    per search whatever it returns, and no charge for an errored search. Recorded as
    `aer.providers.costs.WEB_SEARCH_USD_PER_CALL` and in ADR 0092.
 2. Verify the **Companies House rate limit** (600 requests / 5 minutes) against the official
-   developer documentation.
+   developer documentation. **Done, 2026-09-04**: the developer specifications' rate-limiting
+   guide (`developer-specs.company-information.service.gov.uk/guides/rateLimiting`) states
+   "You can make up to 600 requests within a five-minute period", that requests beyond it
+   receive `429 Too Many Requests` until the period ends and the limit "will reset back to
+   its maximum value of 600 requests", that Companies House "reserve the right to ban
+   without notice applications that regularly exceed or attempt to bypass the rate limits",
+   and that a higher limit is available on request. The fetch policy's bucket for the host
+   is 1.8 requests a second, under the 2 a second the limit sustains, and stays as it is.
 3. Verify **EODHD's licence terms** for internal commercial use versus redistribution, in
    writing, before building further on it.
 4. Verify **Langfuse's current self-host licence** before making it a dependency. The
    OpenTelemetry + Postgres + Grafana fallback has no licence risk, and the `costs` table is
-   needed either way.
+   needed either way. **Done, 2026-09-04**: the repository's `LICENSE` (langfuse/langfuse,
+   main, copyright 2023–2026 ClickHouse, Inc.) puts everything outside the `ee/`,
+   `web/src/ee/` and `worker/src/ee/` directories under the MIT Expat licence, and those
+   directories under `ee/LICENSE` — the Langfuse Enterprise License, which permits copying
+   and modification "for development and testing purposes" only and otherwise requires a
+   valid enterprise licence. The self-hosting documentation (`langfuse.com/docs/open-source`)
+   says the core — tracing, evaluations, prompt management, experiments, annotation, the
+   playground — is MIT-licensed without usage limits, and that the enterprise modules
+   (SCIM, audit logging, data-retention policies) need a commercial licence when
+   self-hosted. Self-hosting the MIT core for one operator's own metering carries no
+   licence risk; nothing the platform would need is behind the enterprise key. Still not a
+   dependency: the `costs` table is the record either way, and this check removes the
+   licence reason for preferring the fallback, not the reason for waiting.
 5. Validate **WeasyPrint's native dependencies** on the target Windows machine. It is the one
    tooling choice that can force late rework.
 

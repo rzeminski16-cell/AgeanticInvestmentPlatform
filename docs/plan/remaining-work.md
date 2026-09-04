@@ -134,9 +134,9 @@ In leverage order. Everything else above is a session's work.
    proposes the free floor, spends nothing, and says why; the model returns with the feed.
 4. **Concept-map curation sittings** (§2.8) over the prepared worksheet.
 5. **Commercial checks** (roadmap list): EODHD's licence terms **in writing**; WeasyPrint's
-   native dependencies on the target Windows machine, alongside §2.4. The Companies House
-   rate limit and Langfuse's self-host licence are verifiable from primary sources by a
-   session with web access — delegable on request.
+   native dependencies on the target Windows machine, alongside §2.4. ~~The Companies House
+   rate limit and Langfuse's self-host licence~~ **Done 2026-09-04** — both verified against
+   primary sources and recorded in the roadmap's list with the quotations and dates.
 6. **One Firefox run** for D7's second engine, and **tranche 9's manual pass** when it comes.
 
 Nothing here reopens the decided-against list, and nothing needs to.
