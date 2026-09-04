@@ -18,7 +18,7 @@ state — and the overhaul's live status is the top section of
 | **2** | The overhaul — **done 2026-08-30**, all ten tranches | §3.12, closing §2.5 | — |
 | **3** | The document and the data fixes — **done 2026-08-30** | §2.4, §2.6, §2.7, §2.8 | Nothing — surfaces phase 2 does not touch |
 | **4** | Portfolio depth — **done 2026-09-02** | §3.2, §3.3, §3.4 | — |
-| **5** | The judgement layer | §3.5–§3.11 | Strict order; §3.3 before §3.6 |
+| **5** | The judgement layer — **done 2026-09-03** | §3.5–§3.11 | Strict order; §3.3 before §3.6 |
 | **6** | Before it leaves one machine | A5, A7, A8 | Intent to run anywhere else |
 
 The roadmap's order is priority, not serialisation: 1A waits on the operator, so 0 and 1B run
@@ -117,6 +117,24 @@ planner and the section writer from the pins gate 1 approves, into no role that 
 with the corpus proving it. That was quietly the missing half of ADR 0091's memory — an
 operator-authored methodology skill is the only route a recorded lesson has into a future
 run, and the route now reaches a prompt. Phase 3 and the judgement layer are closed.
+
+**Two passes followed the layer, on 2026-09-03 and 2026-09-04.** A review pass read
+§3.5–§3.11 back as four commits: the theses and monitor pass (a failed pass fails on the
+record, the written-on date is kept, the reading window is news rather than the calendar),
+the decisions and post-trade pass (the episode walk, which pass answers for which book, and
+a premise verdict counted against the positions behind it), the risk and watchlist pass (the
+book's series keyed by listing, the standing budget summing every job, the queue that walks
+past what it cannot commission), and the methodology pass (guidance priced into the gate's
+estimate, carried once, and named in one place). Four things were **flagged rather than
+changed**, each for a stated reason: the judgement cascade a deleted thesis would orphan
+(latent, and a migration of its own); withdrawing a premise of a retired thesis, refused
+today only by the template, which is a rule to decide rather than a bug; the calendar rule
+that drops a day one holding did not trade, which needs an ADR line before it moves; and
+three simplifications deferred because each spans services this pass did not open — a shared
+open-and-close pass, an audit-record helper, and the form-helper trio. Then a design pass
+took the seven tool specifications in roadmap order and worked each one's *What to improve*
+list, rewriting the page to record what shipped and what is still open; the specifications
+in [`../design/pages/`](../design/pages/) are the record.
 
 **Phase 6 stays unscheduled** until leaving one machine is intended, and then becomes the
 whole of the next phase — the three parts stand or fall together.
