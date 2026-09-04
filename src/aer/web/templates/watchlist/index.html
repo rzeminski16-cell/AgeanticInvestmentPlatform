@@ -43,7 +43,6 @@
       <div data-figure="reserved">{{ ui.figure("Reserved", budget.reserved, note="What the runs still alive may yet spend.") }}</div>
       <div data-figure="room">{{ ui.figure("Room", budget.room, note="Enough for " ~ budget.fits ~ " more run" ~ ("" if budget.fits == 1 else "s") ~ " at a cap of " ~ budget.cap ~ ".") }}</div>
     </div>
-    <p class="mt-4 type-body-sm text-ink-muted" id="cost-guidance">{{ cost_guidance }}</p>
   {% endcall %}
 
   {% call ui.sheet("Followed", subtitle="In the order followed, which is the order the queue runs in. Commission any one now, as at today or a date you state; the queue commissions the next it can afford.", id="followed") %}
@@ -66,7 +65,30 @@
                   {% if row.report_href %} · <a href="{{ row.report_href }}" class="text-verification underline underline-offset-[3px]">The report</a>{% endif %}
                 </p>
               {% endif %}
-              {% if row.is_withdrawn %}<p class="mt-1 type-body-sm text-ink-muted">No longer followed: {{ row.withdrawn_reason }}</p>{% endif %}
+              {% if row.history %}
+                {#
+                  The "researched as at" history: every commission on the entry, newest
+                  first, once there is more than the one the row shows. Closed by default;
+                  the latest is the state and this is the record.
+                #}
+                <div class="mt-2" data-history="{{ row.id }}">
+                  {% call ui.disclosure("Every commission, " ~ row.history | length ~ " so far") %}
+                    <ol class="flex flex-col" aria-label="Commissions on {{ row.company_name }}">
+                      {% for past in row.history %}
+                        <li class="border-t border-line py-2 type-body-sm text-ink" data-commission-as-of="{{ past.as_of }}">
+                          Researched as at {{ past.as_of }}, commissioned {{ past.commissioned_on }}
+                          {%- if past.is_purged %} · <span class="text-ink-muted">the request was removed</span>
+                          {%- else %}
+                            {%- if past.request_href %} · <a href="{{ past.request_href }}" class="text-verification underline underline-offset-[3px]">The request</a>{% endif %}
+                            {%- if past.run_href %} · <a href="{{ past.run_href }}" class="text-verification underline underline-offset-[3px]">The run</a> ({{ past.run_state }}{% if past.cost %}, {{ past.cost }}{% endif %}){% endif %}
+                            {%- if past.report_href %} · <a href="{{ past.report_href }}" class="text-verification underline underline-offset-[3px]">The report</a>{% endif %}
+                          {%- endif %}
+                        </li>
+                      {% endfor %}
+                    </ol>
+                  {% endcall %}
+                </div>
+              {% endif %}
             </div>
             <div class="flex flex-col items-start gap-2 sm:items-end">
               {{ ui.status(row.tone, row.label) }}
@@ -103,8 +125,37 @@
         <button id="next" type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong" {% if budget.is_spent %}disabled aria-disabled="true"{% endif %}>Commission the next the budget affords</button>
         <span class="type-body-sm text-ink-muted">{% if budget.is_spent %}The standing budget is spent for the month.{% else %}Next in the queue: {{ next.company_name }}. Up to {{ budget.fits }} run{{ "" if budget.fits == 1 else "s" }} this month.{% endif %}</span>
       </form>
+      {# What the button is about to spend, beside it rather than in the budget sheet. #}
+      <p class="mt-2 type-body-sm text-ink-muted" id="cost-guidance">{{ cost_guidance }}</p>
     {% endif %}
+    <p class="mt-4 type-body-sm text-ink-muted">
+      {% if showing_withdrawn %}
+        <a href="/watchlist" class="text-verification underline underline-offset-[3px]">Hide the companies no longer followed</a>
+      {% else %}
+        <a href="/watchlist?withdrawn=1" id="show-withdrawn" class="text-verification underline underline-offset-[3px]">Show the companies no longer followed</a>
+      {% endif %}
+    </p>
   {% endcall %}
+
+  {% if showing_withdrawn %}
+    {% call ui.sheet("No longer followed", subtitle="What was once followed and why it was put away. Nothing is deleted; each keeps every commission it had.", id="withdrawn") %}
+      {% if withdrawn %}
+        {% call ui.record_list("Companies no longer followed") %}
+          {% for row in withdrawn %}
+            <li class="border-t border-line py-4" data-entry="{{ row.id }}" data-state="withdrawn">
+              <p class="type-subheading text-ink">{{ row.company_name }} <span class="type-data-sm text-ink-muted">{{ row.listing }}</span></p>
+              {% if row.why %}<p class="mt-1 max-w-prose type-body text-ink" data-field="why">{{ row.why }}</p>{% endif %}
+              <p class="mt-1 type-data-sm text-ink-muted">Followed {{ row.followed_on }} · stopped {{ row.withdrawn_on }}{% if row.commissions %} · {{ row.commissions }} commission{{ "" if row.commissions == 1 else "s" }}{% endif %}</p>
+              <p class="mt-1 type-body-sm text-ink" data-field="withdrawn-reason">{{ row.withdrawn_reason }}</p>
+              {% if row.report_href %}<p class="mt-1 type-body-sm text-ink-muted"><a href="{{ row.report_href }}" class="text-verification underline underline-offset-[3px]">The last report</a></p>{% endif %}
+            </li>
+          {% endfor %}
+        {% endcall %}
+      {% else %}
+        {{ ui.empty("Nothing put away", "A company you stop following is kept here with the reason. None has been yet.") }}
+      {% endif %}
+    {% endcall %}
+  {% endif %}
 
   {% call ui.sheet("Follow a company", subtitle="Checked against the same universe a research request is: a UK or US listing, not a fund. Following costs nothing; research is commissioned from the row.", id="following") %}
     <form method="post" action="/watchlist" class="grid max-w-2xl gap-4" id="follow-company">

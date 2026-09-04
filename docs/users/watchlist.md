@@ -25,7 +25,9 @@ exchange, and **what would make it worth researching** — a sentence, so the qu
 of reasons rather than a list of tickers. The listing is checked against the same universe
 a research request is: a UK or US listing, not a fund or an OTC quote.
 
-Each entry shows when it was followed and where it stands:
+Each entry shows when it was followed and where it stands, and once it has been
+commissioned more than once it opens to **every commission** it has had, newest first, each
+with its as-of date and links to its request, its run and its report:
 
 - **Queued** — followed and not yet researched.
 - **Commissioned** — a run is alive; it stops at gate one for you.
@@ -37,7 +39,9 @@ Each entry shows when it was followed and where it stands:
 The queue may start research up to a pound figure a month, set by
 `AER_WATCHLIST_BUDGET_GBP` (thirty pounds by default). The page shows the budget, what this
 month's commissioned runs have spent, what the ones still alive may yet spend up to their
-caps, and the room that leaves — with how many more runs at the per-run cap it holds.
+caps, and the room that leaves — with how many more runs at the per-run cap it holds. What
+a run has typically cost is said beside **Commission the next**, the button that is about
+to spend it.
 
 A run the queue starts keeps its own per-run cap, and the month's cap applies on top. Deleting a
 commissioned request does not refund the month: with its spend no longer knowable, the
@@ -64,7 +68,9 @@ wait for next month.
 ## Stopping
 
 **Stop following** takes the entry off the list with a reason. It is kept, so what you once
-followed and why you stopped is a record rather than a memory.
+followed and why you stopped is a record rather than a memory: **Show the companies no
+longer followed** lists each with its reason, when it was followed and stopped, how many
+times it was commissioned, and its last report.
 
 ## What this tool does not do
 

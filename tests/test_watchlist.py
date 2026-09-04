@@ -707,6 +707,79 @@ class TestThePages:
         assert 'id="queued-notice"' in body
         assert "1 run started from the queue" in body
 
+    async def test_a_company_no_longer_followed_is_kept_on_its_own_list(
+        self, api: Any, enqueued: _EnqueueRecorder
+    ) -> None:
+        """Stopping following takes the row off the queue and puts it, with the reason, on
+        the list of what was once followed — a page rather than a table."""
+        entry_id = await _followed_from_the_page(api)
+        body = (await api.get("/watchlist")).text
+        assert 'id="show-withdrawn"' in body
+        stopped = await api.post(
+            f"/watchlist/{entry_id}/stop",
+            data={"csrf_token": _csrf(body), "reason": "Researched by hand."},
+        )
+        assert stopped.status_code == 303
+
+        followed = (await api.get("/watchlist")).text
+        assert f'data-entry="{entry_id}"' not in followed
+        assert 'id="withdrawn"' not in followed
+
+        withdrawn = (await api.get("/watchlist?withdrawn=1")).text
+        assert f'data-entry="{entry_id}" data-state="withdrawn"' in withdrawn
+        assert 'data-field="withdrawn-reason">Researched by hand.' in withdrawn
+        assert "The FY25 margin bridge looks too good." in withdrawn
+        assert "stopped " in withdrawn
+
+    async def test_every_commission_is_kept_as_the_entry_is_researched_again(
+        self, api: Any, db_engine: Any, enqueued: _EnqueueRecorder
+    ) -> None:
+        """A second commission after the first run died is the ordinary case, and the row
+        then opens to every commission it has had, newest first, each with its as-of date."""
+        entry_id = await _followed_from_the_page(api)
+        body = (await api.get("/watchlist")).text
+        first = await api.post(
+            f"/watchlist/{entry_id}/commission",
+            data={"csrf_token": _csrf(body), "as_of": "2026-06-30"},
+        )
+        assert first.status_code == 303, first.text
+        assert "data-history=" not in (await api.get("/watchlist")).text, "one is no history"
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.scalar(select(Job))
+            assert job is not None, "the one commission started the one run"
+            job.status = JobStatus.FAILED
+            await session.commit()
+
+        body = (await api.get("/watchlist")).text
+        assert f'data-entry="{entry_id}" data-state="stopped"' in body
+        second = await api.post(
+            f"/watchlist/{entry_id}/commission",
+            data={"csrf_token": _csrf(body), "as_of": "2026-08-31"},
+        )
+        assert second.status_code == 303, second.text
+
+        body = (await api.get("/watchlist")).text
+        assert f'data-history="{entry_id}"' in body
+        assert "Every commission, 2 so far" in body
+        newest = body.index('data-commission-as-of="31 August 2026"')
+        older = body.index('data-commission-as-of="30 June 2026"')
+        assert newest < older, "newest first"
+        assert body.count("/requests/") >= 2
+
+    async def test_the_cost_guidance_sits_beside_the_button_it_is_about(
+        self, api: Any, enqueued: _EnqueueRecorder
+    ) -> None:
+        empty = (await api.get("/watchlist")).text
+        assert 'id="cost-guidance"' not in empty, "nothing to commission, nothing to spend"
+
+        await _followed_from_the_page(api)
+        body = (await api.get("/watchlist")).text
+
+        assert body.index('id="budget"') < body.index('id="followed"')
+        assert body.index('id="commission-next"') < body.index('id="cost-guidance"')
+
     async def test_outside_the_universe_is_refused_with_the_reason(self, api: Any) -> None:
         page = await api.get("/watchlist")
         response = await api.post(

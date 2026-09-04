@@ -55,6 +55,7 @@ __all__ = [
     "DEFAULT_HORIZON_MONTHS",
     "DEFAULT_MODE",
     "LIVE_STATUSES",
+    "CommissionRecord",
     "Drain",
     "EntryState",
     "StandingBudget",
@@ -308,14 +309,30 @@ async def entry_of(
 
 
 @dataclass(frozen=True, slots=True)
+class CommissionRecord:
+    """One commission on an entry and what its run came to: the research as at one date."""
+
+    commission: WatchlistCommission
+    request: ResearchRequest | None
+    job: Job | None
+    report: Report | None
+
+
+@dataclass(frozen=True, slots=True)
 class EntryState:
-    """An entry and what its latest commission's run came to."""
+    """An entry and what its latest commission's run came to, with every earlier one kept.
+
+    ``history`` is every commission newest first — the "researched as at" record an entry
+    accumulates once it has been commissioned more than once — and the first of it is the
+    commission the state is read from.
+    """
 
     entry: WatchlistEntry
     commission: WatchlistCommission | None
     request: ResearchRequest | None
     job: Job | None
     report: Report | None
+    history: tuple[CommissionRecord, ...] = ()
 
     @property
     def state(self) -> str:
@@ -341,10 +358,29 @@ class EntryState:
 
 
 async def state_of(session: AsyncSession, entry: WatchlistEntry) -> EntryState:
-    latest = max(entry.commissions, key=lambda row: row.commissioned_at, default=None)
+    history = tuple(
+        [
+            await _record_of(session, row)
+            for row in sorted(entry.commissions, key=lambda row: row.commissioned_at, reverse=True)
+        ]
+    )
+    latest = history[0] if history else None
+    return EntryState(
+        entry=entry,
+        commission=latest.commission if latest else None,
+        request=latest.request if latest else None,
+        job=latest.job if latest else None,
+        report=latest.report if latest else None,
+        history=history,
+    )
+
+
+async def _record_of(session: AsyncSession, commission: WatchlistCommission) -> CommissionRecord:
+    """What one commission's run came to. A purged request leaves the commission with its
+    date and nothing under it, which is what the row then says."""
     request = job = report = None
-    if latest is not None and latest.request_id is not None:
-        request = await session.get(ResearchRequest, latest.request_id)
+    if commission.request_id is not None:
+        request = await session.get(ResearchRequest, commission.request_id)
         if request is not None:
             job = await run_service.latest_run(session, request_id=request.id)
             report = await session.scalar(
@@ -353,11 +389,16 @@ async def state_of(session: AsyncSession, entry: WatchlistEntry) -> EntryState:
                 .order_by(Report.created_at.desc())
                 .limit(1)
             )
-    return EntryState(entry=entry, commission=latest, request=request, job=job, report=report)
+    return CommissionRecord(commission=commission, request=request, job=job, report=report)
 
 
-async def states_for(session: AsyncSession, *, user_id: uuid.UUID) -> list[EntryState]:
-    return [await state_of(session, entry) for entry in await entries_for(session, user_id=user_id)]
+async def states_for(
+    session: AsyncSession, *, user_id: uuid.UUID, withdrawn: bool = False
+) -> list[EntryState]:
+    """The followed entries' states — or, with ``withdrawn``, only the ones no longer
+    followed, each with the reason it was put away and what its runs came to."""
+    entries = await entries_for(session, user_id=user_id, include_withdrawn=withdrawn)
+    return [await state_of(session, entry) for entry in entries if entry.is_withdrawn == withdrawn]
 
 
 async def queue_for(session: AsyncSession, *, user_id: uuid.UUID) -> list[EntryState]:

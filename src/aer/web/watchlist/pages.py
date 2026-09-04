@@ -66,7 +66,13 @@ STATE_WORDS: Final[dict[str, vocabulary.HumanState]] = {
 async def watchlist_page(
     request: Request, session: DbSession, settings: SettingsDep, user: CurrentUser
 ) -> Response:
+    showing_withdrawn = request.query_params.get("withdrawn") == "1"
     states = await watchlist_service.states_for(session, user_id=user.id)
+    withdrawn = (
+        await watchlist_service.states_for(session, user_id=user.id, withdrawn=True)
+        if showing_withdrawn
+        else []
+    )
     budget = await watchlist_service.standing_budget(session, settings=settings, user_id=user.id)
     typical = await overview_service.typical_cost(
         session, user_id=user.id, mode=watchlist_service.DEFAULT_MODE
@@ -81,6 +87,8 @@ async def watchlist_page(
             "budget": _budget_context(budget),
             "cost_guidance": figures.cost_guidance(typical),
             "rows": [_row(state) for state in states],
+            "withdrawn": [_row(state) for state in withdrawn],
+            "showing_withdrawn": showing_withdrawn,
             "queued": len(queued),
             "next": _row(queued[0]) if queued else None,
             "today": datetime.now(UTC).date().isoformat(),
@@ -154,6 +162,7 @@ def _row(state: watchlist_service.EntryState) -> dict[str, Any]:
         "is_queued": state.is_queued,
         "is_withdrawn": entry.is_withdrawn,
         "withdrawn_reason": entry.withdrawn_reason,
+        "withdrawn_on": f"{entry.withdrawn_at:%d %B %Y}" if entry.withdrawn_at else "",
         "as_of": f"{state.commission.as_of_date:%d %B %Y}" if state.commission else "",
         "commissioned_on": (
             f"{state.commission.commissioned_at:%d %B %Y}" if state.commission else ""
@@ -164,6 +173,25 @@ def _row(state: watchlist_service.EntryState) -> dict[str, Any]:
         "run_state": vocabulary.JOB_STATES[job.status].label if job else "",
         "report_href": f"/reports/{state.report.id}" if state.report else "",
         "cost": figures.pounds(job.total_cost_gbp) if job else "",
+        # The "researched as at" history: every commission, newest first, once there is
+        # more than the one the row already shows.
+        "history": [_commission_row(record) for record in state.history]
+        if len(state.history) > 1
+        else [],
+    }
+
+
+def _commission_row(record: watchlist_service.CommissionRecord) -> dict[str, Any]:
+    job = record.job
+    return {
+        "as_of": f"{record.commission.as_of_date:%d %B %Y}",
+        "commissioned_on": f"{record.commission.commissioned_at:%d %B %Y}",
+        "request_href": f"/requests/{record.request.id}" if record.request else "",
+        "run_href": f"/runs/{job.id}" if job else "",
+        "run_state": vocabulary.JOB_STATES[job.status].label if job else "",
+        "report_href": f"/reports/{record.report.id}" if record.report else "",
+        "cost": figures.pounds(job.total_cost_gbp) if job else "",
+        "is_purged": record.request is None,
     }
 
 
