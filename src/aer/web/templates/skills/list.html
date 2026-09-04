@@ -62,6 +62,9 @@
               </div>
               <div class="flex flex-wrap items-center gap-3">
                 <span class="type-data-sm text-ink-muted">{{ skill.kind }}</span>
+                {% if skill.kind == "custom_section" %}
+                  <a href="/skills/{{ skill.key }}#dry-run" class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" data-try="{{ skill.key }}">Try it</a>
+                {% endif %}
                 {% if skill.version %}
                   <span class="type-data-sm text-ink-muted">v{{ skill.version }}</span>
                 {% endif %}

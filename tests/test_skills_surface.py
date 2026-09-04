@@ -32,9 +32,11 @@ from aer.db.models import (
     FinancialFact,
     Job,
     JobStep,
+    PlanSkillPin,
     ReportSection,
     ResearchPlan,
     SectionStatus,
+    Skill,
     SkillVersion,
     SourceDocument,
     User,
@@ -979,6 +981,68 @@ class TestTheSkillsPages:
         # The composed policy, rendered on the server rather than fetched by a script.
         assert 'id="composed"' in page.text
         assert 'id="token-budget"' in page.text
+
+    async def test_the_boundary_is_stated_on_every_visit_to_the_editor(self, api: Any) -> None:
+        """Before a rejection, not only after one: the same sentence the library leads with,
+        on a new file and on a saved version alike (invariant 7)."""
+        sentence = "Skills may add requirements. They cannot remove citations"
+        assert sentence in (await api.get("/skills/new")).text
+
+        await api.post("/api/skills", json={"source": SKILL_SOURCE})
+        saved = (await api.get("/skills/moat_durability")).text
+
+        assert sentence in saved
+        assert "THE BOUNDARY" in saved
+        assert "Version 1 is saved" in saved
+
+    async def test_the_editor_lists_the_runs_that_pinned_the_skill(
+        self, api: Any, db_engine: Any, committed: dict[str, Any]
+    ) -> None:
+        """A skill's effect is on its runs. The pin a plan stored — version, planned or set
+        aside, the estimate — is what the editor shows, each linking to the run."""
+        await api.post("/api/skills", json={"source": SKILL_SOURCE})
+        before = (await api.get("/skills/moat_durability")).text
+        assert 'id="used-by"' in before
+        assert 'id="not-used-yet"' in before
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.scalar(
+                select(Job).where(Job.workflow_version != DRY_RUN_WORKFLOW).limit(1)
+            )
+            skill = await session.scalar(select(Skill).where(Skill.key == "moat_durability"))
+            assert job is not None
+            assert skill is not None
+            version = await session.scalar(
+                select(SkillVersion).where(SkillVersion.skill_id == skill.id)
+            )
+            assert version is not None
+            session.add(
+                PlanSkillPin(
+                    work_order_id=job.work_order_id,
+                    skill_id=skill.id,
+                    skill_version_id=version.id,
+                    status="planned",
+                    reason="",
+                    estimated_cost_gbp=Decimal("0.12"),
+                )
+            )
+            await session.commit()
+
+        after = (await api.get("/skills/moat_durability")).text
+
+        assert 'id="not-used-yet"' not in after
+        assert f'href="/runs/{job.id}"' in after
+        assert "Pinned at version 1, and planned in." in after
+        assert "estimated £0.12" in after
+
+    async def test_the_library_offers_the_dry_run_from_the_row(self, api: Any) -> None:
+        await api.post("/api/skills", json={"source": SKILL_SOURCE})
+
+        page = (await api.get("/skills")).text
+
+        assert 'data-try="moat_durability"' in page
+        assert 'href="/skills/moat_durability#dry-run"' in page
 
     async def test_validating_through_the_form_shows_the_clamps(self, api: Any) -> None:
         page = await api.get("/skills/new")

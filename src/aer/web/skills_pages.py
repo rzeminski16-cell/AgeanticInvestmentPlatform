@@ -36,8 +36,9 @@ from aer.api.deps import (
     StoreDep,
 )
 from aer.core.enums import JobStatus
-from aer.db.models import Job, Skill, WorkOrder
+from aer.db.models import Job, PlanSkillPin, ResearchRequest, Skill, SkillVersion, WorkOrder
 from aer.errors import AerError
+from aer.services import runs as run_service
 from aer.services import skills as skill_service
 from aer.services.mandate import mandate_of
 from aer.services.skill_authoring import import_diff, validate_skill_source
@@ -207,6 +208,7 @@ async def edit_skill(
         preview=preview.as_dict(),
         version=version.version,
         runs=await _dry_run_targets(session, user=user),
+        used_by=await _runs_that_used(session, key=key, user=user),
     )
 
 
@@ -414,6 +416,7 @@ def _editor(
     runs: list[dict[str, Any]] | None = None,
     problem: str | None = None,
     dry_run: dict[str, Any] | None = None,
+    used_by: list[dict[str, Any]] | None = None,
 ) -> Response:
     token = new_csrf_token(settings)
     response: Response = render(
@@ -427,6 +430,7 @@ def _editor(
             "runs": runs or [],
             "problem": problem,
             "dry_run": dry_run,
+            "used_by": used_by or [],
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
@@ -469,6 +473,49 @@ async def _dry_run_targets(session: DbSession, *, user: CurrentUser) -> list[dic
             }
         )
     return targets
+
+
+async def _runs_that_used(
+    session: DbSession, *, key: str, user: CurrentUser
+) -> list[dict[str, Any]]:
+    """The caller's runs that pinned this skill at plan time, newest first.
+
+    What a skill did is on the runs: the pin is the snapshot the plan stored — the version,
+    whether the planner used it or set it aside and why, the policy it ran under — and the
+    run is where the section it shaped can be read. Dry runs are left out, for the reason
+    the dry-run targets leave them out: a rehearsal is not a run the skill affected.
+    """
+    rows = await session.execute(
+        select(PlanSkillPin, WorkOrder, ResearchRequest, SkillVersion)
+        .join(WorkOrder, WorkOrder.id == PlanSkillPin.work_order_id)
+        .join(ResearchRequest, ResearchRequest.id == WorkOrder.id)
+        .join(Skill, Skill.id == PlanSkillPin.skill_id)
+        .join(SkillVersion, SkillVersion.id == PlanSkillPin.skill_version_id)
+        .where(Skill.key == key, WorkOrder.user_id == user.id)
+        .order_by(PlanSkillPin.created_at.desc())
+        .limit(20)
+    )
+    used: list[dict[str, Any]] = []
+    for pin, order, research_request, version in rows.all():
+        job = await run_service.latest_run(session, request_id=order.id)
+        if job is None or job.workflow_version == DRY_RUN_WORKFLOW:
+            continue
+        used.append(
+            {
+                "job_id": str(job.id),
+                "label": (
+                    f"{research_request.company_name} ({research_request.ticker}) "
+                    f"as at {order.as_of_date.isoformat()}"
+                ),
+                "version": version.version,
+                "planned": pin.status == "planned",
+                "reason": pin.reason,
+                "estimated_cost_gbp": f"{pin.estimated_cost_gbp:.2f}",
+                "pinned_on": f"{pin.created_at:%d %B %Y}",
+                "run_state": job.status.value,
+            }
+        )
+    return used
 
 
 async def _owned_job(session: DbSession, *, job_id: str, user: CurrentUser) -> Job | None:

@@ -28,6 +28,17 @@
     in the vault.
   </p>
 
+  {% if picture.nodes and not picture.edges %}
+    {#
+      Nodes and no relation between them is a drawing of dots. Common on a young
+      installation, and worth saying rather than leaving the reader to wonder whether the
+      picture failed: the edges come from what is confirmed at the gates.
+    #}
+    <div id="graph-sparse">
+      {{ ui.callout("info", "Too sparse to read yet", (picture.nodes | length) ~ " node" ~ ("" if picture.nodes | length == 1 else "s") ~ " and no confirmed relation between them. Relations come from the comparables and themes you confirm at the gates; the drawing becomes a map as they accumulate.") }}
+    </div>
+  {% endif %}
+
   {% if picture.nodes %}
     {% call ui.sheet() %}
       <div class="overflow-x-auto">

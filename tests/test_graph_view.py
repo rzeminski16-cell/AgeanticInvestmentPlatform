@@ -260,6 +260,32 @@ class TestThePage:
         assert f"/companies/{committed['alpha'].id}" in response.text
         assert "AI capex" in response.text
 
+    async def test_nodes_with_no_relation_are_said_to_be_too_sparse(
+        self, api_settings: Settings, db_engine: Any, fake_redis: Any
+    ) -> None:
+        """A young installation draws dots. The page says so rather than leaving the reader
+        to wonder whether the picture failed, and says where the lines come from."""
+        async with db_engine.begin() as connection:
+            await connection.execute(text(f"TRUNCATE {_TABLES} RESTART IDENTITY CASCADE"))
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            user = await _user(session)
+            alone = await _company(session, "ALNE", "Alone plc")
+            await _run(session, user=user, company=alone, peers=[])
+            await session.commit()
+        try:
+            async for client in client_for(
+                build_app(api_settings, engine=db_engine, redis=fake_redis)
+            ):
+                response = await client.get("/knowledge/graph")
+                assert response.status_code == 200, response.text
+                assert 'id="graph-sparse"' in response.text
+                assert "1 node and no confirmed relation" in response.text
+                assert 'id="graph-picture"' in response.text, "the dot is still drawn"
+        finally:
+            async with db_engine.begin() as connection:
+                await connection.execute(text(f"TRUNCATE {_TABLES} RESTART IDENTITY CASCADE"))
+
     async def test_the_knowledge_page_links_to_the_drawing(self, api: Any) -> None:
         response = await api.get("/knowledge")
 

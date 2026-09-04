@@ -19,11 +19,28 @@
 {% endblock %}
 
 {% block content %}
-  {{ ui.page_header(
+  {% call ui.page_header(
     key if key else "Write a skill",
     eyebrow="SKILL",
-    identity=("Version " ~ version ~ " is saved; saving writes a new version.") if version else "Skills may add requirements. They cannot remove citations, set a rating, or relax point-in-time rules.",
+    identity=("Version " ~ version ~ " is saved; saving writes a new version.") if version else "Nothing is saved until every structural rule passes.",
     breadcrumbs=[{"href": "/skills", "label": "All skills"}],
+  ) %}
+    {% if key and runs and preview and preview.valid and preview.evidence_policy %}
+      <a href="#dry-run" id="try-it" class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong">Try it against a finished run</a>
+    {% endif %}
+  {% endcall %}
+
+  {#
+    The boundary, stated before a rejection rather than only after one (invariant 7). The
+    same sentence the library leads with, on every visit to the editor whatever the
+    version: a rule met first as a rejection reads as an obstacle, and this one is a
+    guarantee.
+  #}
+  {{ ui.verdict(
+    "THE BOUNDARY",
+    "Skills may add requirements. They cannot remove citations, set a rating, or relax point-in-time rules.",
+    detail="What this file asks for is composed against the platform floor, and the pane on the right shows exactly what that composition did.",
+    tone="info",
   ) }}
 
   {% if problem %}
@@ -227,6 +244,31 @@
       {% endif %}
     </aside>
   </div>
+
+  {% if key %}
+    {#
+      What the skill did: the runs whose plans pinned it, newest first. The pin is the
+      snapshot the plan stored — the version, whether the planner used it or set it aside
+      and why — and the run is where the section it shaped can be read. Nothing here is
+      fetched by the editor from the file; it is what the runs recorded.
+    #}
+    {% call ui.sheet("Runs that used it", subtitle="Every run of yours whose plan pinned this skill, at the version it pinned. A skill's effect is on its runs, not in its file.", id="used-by") %}
+      {% if used_by %}
+        {% call ui.record_list("Runs that pinned this skill") %}
+          {% for row in used_by %}
+            {{ ui.record(
+              row.label,
+              "/runs/" ~ row.job_id,
+              sentence=("Pinned at version " ~ row.version ~ (", and planned in." if row.planned else ", and set aside: " ~ (row.reason or "not applicable to this run."))),
+              meta=("pinned " ~ row.pinned_on ~ " · estimated £" ~ row.estimated_cost_gbp ~ " · run " ~ row.run_state)
+            ) }}
+          {% endfor %}
+        {% endcall %}
+      {% else %}
+        <p class="type-body text-ink-muted" id="not-used-yet">No run has pinned this skill yet. A run pins every enabled skill when it reaches its plan step; enable this one and the next run will show here.</p>
+      {% endif %}
+    {% endcall %}
+  {% endif %}
 
   {% if dry_run %}
     {% call ui.sheet(id="dry-run-result") %}

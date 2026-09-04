@@ -60,10 +60,16 @@ Editing a skill after approval changes nothing about the run. A run restarted af
 failure re-plans against the current versions, so a fix reaches it; a run in flight keeps
 the versions it was approved with.
 
+The editor lists **the runs that used it**: every run of yours whose plan pinned the skill,
+at the version it pinned, whether the planner used it or set it aside and why, and the
+estimate it carried — each linking to the run, which is where the section it shaped can be
+read. A skill's effect is on its runs, not in its file.
+
 ## Trying a custom section
 
 **Dry run** executes a custom section against a finished run's evidence, in a run of its
-own, and shows what it produced. It spends against the finished run's request and is the
+own, and shows what it produced. It is offered from the library row (*Try it*) and from the
+top of the editor, so it is the first thing to reach rather than the last. It spends against the finished run's request and is the
 safe way to find out before the next real run does. The three prompt kinds have no
 section to try; what they do is visible on the plan and in the sections of the next run.
 
