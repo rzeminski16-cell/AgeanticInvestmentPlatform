@@ -96,6 +96,7 @@ __all__ = [
     "RiskView",
     "ScenarioOutcome",
     "Shock",
+    "ShockedPosition",
     "block_of",
     "last_trade_recorded_at",
     "latest_reading",
@@ -153,6 +154,21 @@ class HoldingRisk:
 
 
 @dataclass(frozen=True, slots=True)
+class ShockedPosition:
+    """One position a scenario reaches: what it is worth, what it takes, what that costs.
+
+    The scenario as a diff of the book, one row at a time. ``shock`` is the combined
+    fraction after every shock that reaches the position; ``pnl`` is its own recorded
+    calculation, and the rows sum to the scenario's total.
+    """
+
+    label: str
+    value: Figure
+    shock: Decimal
+    pnl: Figure
+
+
+@dataclass(frozen=True, slots=True)
 class ScenarioOutcome:
     """What one stated scenario does to the book as at the date."""
 
@@ -161,6 +177,7 @@ class ScenarioOutcome:
     impact: Figure | None
     reached: tuple[str, ...]
     problem: str = ""
+    positions: tuple[ShockedPosition, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -520,6 +537,7 @@ def _scenario_outcome(
     values: list[Quantity] = []
     shocks: list[Quantity] = []
     reached: list[str] = []
+    positions: list[_Position] = []
     for position in _positions(book):
         applying = [
             Quantity.of(
@@ -537,6 +555,7 @@ def _scenario_outcome(
         values.append(position.value)
         shocks.append(calc.combined_shock(context, shocks=applying))
         reached.append(position.label)
+        positions.append(position)
     if not values:
         return ScenarioOutcome(
             scenario=scenario,
@@ -548,6 +567,17 @@ def _scenario_outcome(
     try:
         pnl = calc.scenario_pnl(context, values=values, shocks=shocks)
         impact = calc.scenario_impact(context, pnl=pnl, net_assets=book.net_assets.quantity)
+        shocked = tuple(
+            ShockedPosition(
+                label=position.label,
+                value=graded_figure(context, position.value),
+                shock=shock.value,
+                pnl=graded_figure(
+                    context, calc.position_pnl(context, value=position.value, shock=shock)
+                ),
+            )
+            for position, shock in zip(positions, shocks, strict=True)
+        )
     except CalculationError as refused:
         return ScenarioOutcome(
             scenario=scenario, pnl=None, impact=None, reached=tuple(reached), problem=str(refused)
@@ -557,6 +587,7 @@ def _scenario_outcome(
         pnl=graded_figure(context, pnl),
         impact=graded_figure(context, impact),
         reached=tuple(reached),
+        positions=shocked,
     )
 
 

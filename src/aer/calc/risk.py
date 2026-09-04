@@ -48,6 +48,7 @@ __all__ = [
     "cumulative_index",
     "expected_shortfall",
     "max_drawdown",
+    "position_pnl",
     "risk_contribution",
     "scenario_impact",
     "scenario_pnl",
@@ -369,6 +370,31 @@ def scenario_pnl(
             _require_dimensionless(shock, what="a shock")
             total += value.value * shock.value
     return Quantity.of(total, unit)
+
+
+@traced(
+    name="position_pnl",
+    formula="pnl_i = value_i * shock_i",
+    assumptions=(
+        "The value is the position's worth in the book's currency as at the date, and the "
+        "shock is the combined fraction the scenario moves it by.",
+    ),
+)
+def position_pnl(_context: CalculationContext, *, value: Quantity, shock: Quantity) -> Quantity:
+    """What a stated scenario does to one position, in the book's currency.
+
+    One term of :func:`scenario_pnl`, recorded on its own so a page can show the scenario
+    position by position — each row a calculation, and the rows summing to the total.
+
+    Raises:
+        UnitMismatchError: If the value is not in a currency, or the shock has a unit.
+    """
+    if not value.unit.currencies:
+        message = f"A position is valued in a currency, not in {value.unit.symbol}."
+        raise UnitMismatchError(message, context={"unit": value.unit.symbol})
+    _require_dimensionless(shock, what="a shock")
+    with localcontext(CALC_CONTEXT):
+        return Quantity.of(value.value * shock.value, value.unit)
 
 
 @traced(

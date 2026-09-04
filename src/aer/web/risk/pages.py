@@ -257,6 +257,10 @@ def _holding_rows(view: risk_service.RiskView) -> list[dict[str, Any]]:
             "contribution": (
                 risk_service.percent(row.contribution.value).lstrip("+") if row.contribution else ""
             ),
+            # The two bars a reader compares: where the contribution outruns the weight is
+            # where the risk is, and a bar shows the gap a pair of percentages hides.
+            "weight_width": _width(row.weight.value if row.weight else None),
+            "contribution_width": _width(row.contribution.value if row.contribution else None),
             "observations": row.observations,
             "problem": row.problem,
             "is_measured": row.is_measured,
@@ -264,6 +268,14 @@ def _holding_rows(view: risk_service.RiskView) -> list[dict[str, Any]]:
         }
         for row in view.holdings
     ]
+
+
+def _width(share: Decimal | None) -> int:
+    """A share as a bar width in whole per cent, clamped: a contribution above one, which a
+    short position could produce, still fits the cell."""
+    if share is None:
+        return 0
+    return int(max(Decimal(0), min(Decimal(1), share)) * 100)
 
 
 def _scenario_rows(view: risk_service.RiskView, currency: str) -> list[dict[str, Any]]:
@@ -286,6 +298,18 @@ def _scenario_rows(view: risk_service.RiskView, currency: str) -> list[dict[str,
             "is_loss": bool(row.pnl and row.pnl.value < 0),
             "problem": row.problem,
             "href": "",
+            # The scenario as a diff of the book: each reached position with what it is
+            # worth, what it takes and what that costs, each its own recorded calculation.
+            "positions": [
+                {
+                    "label": position.label,
+                    "value": risk_service.money(position.value.value, currency),
+                    "shock": risk_service.percent(position.shock),
+                    "pnl": risk_service.money(position.pnl.value, currency),
+                    "is_loss": position.pnl.value < 0,
+                }
+                for position in row.positions
+            ],
         }
         for row in view.scenarios
     ]

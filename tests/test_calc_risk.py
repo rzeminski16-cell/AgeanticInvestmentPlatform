@@ -32,6 +32,7 @@ from aer.calc.risk import (
     cumulative_index,
     expected_shortfall,
     max_drawdown,
+    position_pnl,
     risk_contribution,
     scenario_impact,
     scenario_pnl,
@@ -313,6 +314,41 @@ class TestAScenario:
             combined_shock(context, shocks=[first, second]).value
             == combined_shock(context, shocks=[second, first]).value
         )
+
+    def test_a_position_takes_its_own_share_of_the_scenario(
+        self, context: CalculationContext
+    ) -> None:
+        one = position_pnl(context, value=gbp(1000), shock=share("-0.2"))
+
+        assert one.value == Decimal("-200")
+        assert one.unit.symbol == "GBP"
+
+    @given(values=st.lists(weights_in_bp, min_size=1, max_size=8), seed=basis_points)
+    @settings(max_examples=60)
+    def test_the_positions_sum_to_the_scenario(self, values: list[int], seed: int) -> None:
+        """The scenario as a diff of the book: each row is its own calculation, and the rows
+        account for the total exactly, in every book the strategy can build."""
+        context = CalculationContext(code_version="test")
+        worth = [gbp(value) for value in values]
+        shocks = [share(Decimal(seed + index).scaleb(-4)) for index in range(len(values))]
+
+        rows = [
+            position_pnl(context, value=value, shock=shock)
+            for value, shock in zip(worth, shocks, strict=True)
+        ]
+
+        assert (
+            sum(row.value for row in rows)
+            == scenario_pnl(context, values=worth, shocks=shocks).value
+        )
+
+    def test_a_position_not_in_a_currency_is_refused(self, context: CalculationContext) -> None:
+        with pytest.raises(UnitMismatchError, match="valued in a currency"):
+            position_pnl(context, value=share(1000), shock=share("-0.2"))
+
+    def test_a_shock_with_a_unit_is_refused(self, context: CalculationContext) -> None:
+        with pytest.raises(UnitMismatchError):
+            position_pnl(context, value=gbp(1000), shock=gbp("-0.2"))
 
     def test_a_scenario_reaching_nothing_has_no_answer(self, context: CalculationContext) -> None:
         with pytest.raises(CalculationError, match="reaches no position"):

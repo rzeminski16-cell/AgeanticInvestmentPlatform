@@ -864,6 +864,62 @@ class TestThePages:
         assert withdrawn.status_code == 303
         assert "Everything down a fifth" not in (await api.get("/risk")).text
 
+    async def test_a_scenario_is_shown_position_by_position(self, api: Any, committed: Any) -> None:
+        """The scenario as a diff of the book: each reached position with what it is worth,
+        what it takes and what that costs — each its own recorded calculation, summing to
+        the total on the row above."""
+        page = await api.get(f"/risk?as_of={AS_OF.isoformat()}")
+        stated = await api.post(
+            "/risk/scenarios",
+            data={
+                "csrf_token": _csrf(page.text),
+                "name": "Everything down a fifth",
+                "kind_1": "book",
+                "target_1": "",
+                "shock_1": "-20",
+            },
+        )
+        assert stated.status_code == 303, stated.text
+
+        body = (await api.get(f"/risk?as_of={AS_OF.isoformat()}")).text
+
+        assert "What Everything down a fifth does, position by position" in body
+        assert 'data-position="BARC" data-loss="yes"' in body
+        assert "-20.0%" in body
+        assert body.count("-50.00 GBP") == 2, "the one position's loss is the scenario's total"
+
+    async def test_the_weight_and_the_contribution_are_bars_beside_their_figures(
+        self, api: Any, committed: Any
+    ) -> None:
+        body = (await api.get(f"/risk?as_of={AS_OF.isoformat()}")).text
+
+        assert 'data-bar="weight"' in body
+        assert 'data-bar="contribution"' in body
+        # One measured holding is the whole of the book's risk: the bar runs the full width.
+        full_width = (
+            'data-bar="contribution"><div class="h-1 rounded-full bg-decision" style="width: 100%"'
+        )
+        assert full_width in body
+
+    async def test_the_reading_sits_beside_the_sheet_it_reads(
+        self, api: Any, committed: Any
+    ) -> None:
+        page = await api.get(f"/risk?as_of={AS_OF.isoformat()}")
+        read = await api.post(
+            "/risk/read", data={"csrf_token": _csrf(page.text), "as_of": AS_OF.isoformat()}
+        )
+        assert read.status_code == 303, read.text
+
+        body = (await api.get(read.headers["location"])).text
+
+        # The exposure commentary is inside the exposure sheet, before the holdings sheet,
+        # and the movement commentary inside the movement sheet before the exposure sheet.
+        assert body.index('id="movement"') < body.index('data-commentary="movement"')
+        assert body.index('data-commentary="movement"') < body.index('id="exposure"')
+        assert body.index('id="exposure"') < body.index('data-commentary="exposure"')
+        assert body.index('data-commentary="exposure"') < body.index('id="holdings"')
+        assert "Each commentary sits beside the sheet it reads" in body
+
     async def test_a_shock_that_is_not_a_number_is_refused(self, api: Any, committed: Any) -> None:
         page = await api.get("/risk")
         response = await api.post(

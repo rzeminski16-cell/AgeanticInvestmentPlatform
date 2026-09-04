@@ -63,18 +63,26 @@ says what.
 currency, listing country), each showing its largest five slices with a bar and its
 unclassified group named beneath. The whole of each band is on the portfolio page.
 
-**Each holding** — a table: listing, weight, volatility, beta to the book, contribution,
+**Each holding** — a table: listing, weight and contribution each with a bar on one scale
+beneath the figure (the weight in the verification colour, the contribution in the decision
+colour, so the rows where the two differ show the gap), then volatility, beta to the book,
 days of returns. An unmeasured holding says why in its row.
 
 **Stated scenarios** — a table: name, shocks in words, what it reaches, profit and loss
-(linked), share of the book, and **Withdraw**. Beneath it the form: **What it is a scenario
-of** and three rows of **Reaches** (every holding, a sector, a currency, a listing country,
-one holding) · **Named** · **Moves by, %**.
+(linked), share of the book, and **Withdraw**. Under the table, one closed disclosure per
+scenario — *What {name} does, position by position* — opening to a table of each reached
+position: what it is worth, what it moves by once every shock reaching it is combined, and
+its own profit and loss (`position_pnl`, a recorded calculation; the rows sum to the total).
+Beneath, the form: **What it is a scenario of** and three rows of **Reaches** (every holding,
+a sector, a currency, a listing country, one holding) · **Named** · **Moves by, %**.
 
-**The analyst's reading** — the three commentaries under their eyebrows, or a refusal
-callout listing what was refused and why, or a stopped callout, or *nothing to read*; the
-date, the as-of date and the cost; and **Read the book as at {date}**, which runs the pass
-in the web process.
+**The analyst's reading**, as marginalia: each commentary sits inside the sheet it reads —
+the movement under the four figures, the exposure under the bands, the scenarios under the
+table — as an aside headed *The analyst read* (with *before the book last traded* when it
+is stale). The reading sheet at the end keeps what is about the pass: a refusal callout
+listing what was refused and why, or a stopped callout, or *nothing to read*; the date, the
+as-of date and the cost; and **Read the book as at {date}**, which runs the pass in the web
+process.
 
 ---
 
@@ -125,18 +133,27 @@ and a reader has to know which is which.
 right, but a holding quoted in dollars for a company earning in euros is dollar exposure on
 this page and euro exposure in life.
 
+**The position-by-position table shows the shocked loss, not the shocked value.** A reader
+who wants "what would BARC be worth" subtracts. The worth after the shock is one more
+calculation away and was left out to keep every figure on the page one the total is made
+of.
+
 ---
 
 ## What to improve
 
-**1. The contribution as a bar beside the weight.** The interesting rows are the ones where
-the two differ, and a table makes the reader compute the difference.
+**1. The contribution as a bar beside the weight** — done, on one scale, in two colours.
 
-**2. A scenario as a diff of the book.** The reached positions with their shocked values
-beside their current ones, rather than one total.
+**2. A scenario as a diff of the book** — done, as a closed disclosure per scenario: the
+reached positions with their worth, their combined shock and their own profit and loss.
 
-**3. The reading as marginalia.** Each commentary beside the sheet it reads, rather than in
-its own sheet at the end.
+**3. The reading as marginalia** — done. Each commentary beside the sheet it reads; the
+reading sheet keeps the pass.
+
+**4. The shocked value beside the loss.** See above: a fourth column, one traced
+calculation, if readers turn out to want it.
+
+**5. A book control**, once a second book exists in practice.
 
 ---
 
@@ -159,3 +176,8 @@ its own sheet at the end.
 * The reading shows the analyst's three commentaries, and a commentary naming a number the
   figures do not hold is shown as refused with the reason.
 * A fresh install explains that risk is measured over a book, and where to record one.
+* A scenario reaching one holding opens to one row whose profit and loss is the scenario's
+  total, and a holding that is the whole of the book's risk shows a contribution bar at
+  full width.
+* After a reading, the exposure commentary is found inside the exposure sheet and nowhere
+  else.

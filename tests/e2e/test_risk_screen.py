@@ -118,7 +118,9 @@ class TestTheRiskPage:
         page.locator('[data-tool="risk"] [data-field="action"]').click()
         page.wait_for_url("**/risk**")
         expect(page.locator('[data-figure="annualised-volatility"]')).to_be_visible()
-        expect(page.locator('[data-figure="annualised-volatility"] a')).to_have_count(1)
+        # Computed on the way to the page and persisted nowhere, so no calculation link is
+        # offered: a link to a row that does not exist is a dead link.
+        expect(page.locator('[data-figure="annualised-volatility"] a')).to_have_count(0)
         expect(page.locator('[data-holding="BARC"]')).to_have_attribute("data-measured", "yes")
         expect(page.locator('[data-commentary="exposure"]')).to_contain_text("one London bank")
         expect(page.get_by_text("No scenario stated")).to_be_visible()

@@ -36,8 +36,10 @@ Returns are measured in each listing's own currency, so a dollar holding's curre
 in the **currency** exposure band rather than folded into the volatility.
 
 **Exposure** repeats the largest slices of each band from the portfolio page. **Each
-holding** shows its own volatility, its beta to the book, and its contribution — its weight
-times that beta — which add to one over the measured holdings.
+holding** shows its weight and its contribution — its weight times its beta to the book —
+each with a bar on one scale, so the rows where the two differ stand out: where the
+contribution bar outruns the weight bar is where the risk is. The contributions add to one
+over the measured holdings; the holding's own volatility and beta sit beside them.
 
 Every figure links to its calculation, with its formula, its inputs and the price history
 each input came from.
@@ -51,9 +53,12 @@ reaches it by (as the exposure bands spell it), and the move in per cent — and
 scenario**.
 
 The page applies it to the book as it stands: each position the scenario reaches, the
-profit and loss in the book's currency, and the share of the book that is. A shock to a
-currency reaches cash held in it too, because cash is a position; the book's own currency
-never moves against itself. A scenario that reaches nothing says so.
+profit and loss in the book's currency, and the share of the book that is. Under the table,
+each scenario opens **position by position**: what each reached position is worth, what it
+moves by once every shock that reaches it is combined, and what that costs — each row its
+own calculation, and the rows summing to the scenario's total. A shock to a currency reaches
+cash held in it too, because cash is a position; the book's own currency never moves against
+itself. A scenario that reaches nothing says so.
 
 No scenario is built in. Which shocks are worth worrying about is a judgement, and it is
 yours: a default set would decide what you see and, by omission, what you never see.
@@ -64,10 +69,12 @@ once watched.
 ## The analyst's reading
 
 **Read the book** runs the analyst over the figures on the page. It spends against your
-per-run cap, and it returns three short readings — of the exposure, of the movement, and of
+per-run cap, and it returns three short readings — of the movement, of the exposure, and of
 the scenarios — that say what the table does not: that three of the largest exposures are
 one end market under two sector codes, that a scenario about one currency reaches most of
-the book through cash.
+the book through cash. Each reading sits beside the sheet it reads, under *The analyst
+read*; the reading sheet at the end keeps what is about the pass — its date, its cost, a
+refusal, and the button that runs it.
 
 Before the reading is shown, the platform checks it. A commentary that names a number the
 figures do not hold, or that says what to buy, sell, trim, cap or stop, is refused; the
