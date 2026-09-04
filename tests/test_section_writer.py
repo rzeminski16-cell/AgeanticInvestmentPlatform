@@ -294,6 +294,22 @@ def _good_draft(scene: dict[str, Any]) -> SectionDraft:
     )
 
 
+def _reader_facing(value: Any) -> Any:
+    """The same structure with every identifier field dropped.
+
+    The numeral rule is about what a reader sees. Identifiers are UUIDs, and a UUID
+    carries any given three-digit run of hex often enough that asserting a removed
+    numeral is absent from the whole serialised content fails on the identifiers rather
+    than on the prose — a flake with no bug behind it (seen in CI on
+    ``be3409c7-…`` for the token "340").
+    """
+    if isinstance(value, dict):
+        return {key: _reader_facing(item) for key, item in value.items() if not key.endswith("_id")}
+    if isinstance(value, list):
+        return [_reader_facing(item) for item in value]
+    return value
+
+
 def _undeclared_field_draft() -> ScriptedResponse:
     """A reply carrying a field the section's contract does not declare.
 
@@ -483,7 +499,7 @@ class TestTheFailureLadder:
             scene["section"].content["commentary"]
             == "Operating cash generation covered the capital programme."
         )
-        assert "340" not in str(scene["section"].content)
+        assert "340" not in str(_reader_facing(scene["section"].content))
         reason = str(scene["section"].low_confidence_reason)
         assert "removed" in reason
         # ADR 0099: the platform removed material the model could not support, which is a
@@ -532,7 +548,7 @@ class TestASectionWithAMalformedClaim:
         outcome = await _run(scene, _scripted([draft, draft]))
 
         assert outcome.status is SectionStatus.GENERATED
-        assert "340" not in str(scene["section"].content)
+        assert "340" not in str(_reader_facing(scene["section"].content))
         reason = str(scene["section"].low_confidence_reason)
         assert "set aside" in reason
         assert "removed" in reason
