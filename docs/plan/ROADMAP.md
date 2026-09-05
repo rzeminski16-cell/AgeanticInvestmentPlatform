@@ -175,6 +175,19 @@ now map to their own concepts and the combined line is derived from them, as tot
 from its maturities; and the beta the operator was asked for had its refusal only in a log
 line — `acquire_prices` now records the regression's reason beside `beta_proposed`.
 
+**The replay of that run's 37 archived replies under the fixed rules** (2026-09-05, £0):
+`business_overview` and `cash_flow_analysis` pass; `capital_allocation` is still refused on
+both attempts for the writer's own arithmetic in prose and two gap sentences, one of them
+the depreciation line the derivation now supplies. Of the 18 refusals that remain across
+the run, 11 are word-budget overruns on first attempts — the writer, told the validator's
+headroom, wrote to it and past it — so the budget is now stated as the limit and the
+headroom kept for miscounting; one was a 27-claim reply against a 24-claim bound the prompt
+never mentioned, now asked for; one was "Proposition 5 —" read as a figure, now a reference
+(ADR 0054, amended). The rest are the rules doing their job: MD&A percentages no fact row
+holds, a difference the writer computed itself, a market capitalisation mentioned on a run
+with no prices. Whether the budget change takes is a live-run question, read from the
+`draft` step's attempt counts.
+
 *What was read against the tree 2026-08-28, ahead of the data, and turned out not to be the
 cause: `validate_draft` checks only the 1.25× word ceiling with no minimum; a truncation
 retry halves the word budget; `MAX_GENERATION_ATTEMPTS = 2`. All three still hold, and none

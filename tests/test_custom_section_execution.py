@@ -23,6 +23,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.base import AgentContext
 from aer.agents.custom_section import (
+    CLAIMS_BUDGET,
+    CLAIMS_CEILING,
     CustomSectionAgent,
     CustomSectionDraft,
     CustomSectionInput,
@@ -711,6 +713,27 @@ class TestAMalformedClaimCostsTheClaim:
             kind="numeric",
             financial_fact_id=str(uuid.uuid4()),
             citations=[ProposedCitation(extraction_id=str(uuid.uuid4()))],
+        )
+
+        assert claim.malformed_reason is None
+
+    def test_the_claims_list_budget_is_asked_for_and_the_ceiling_is_clear_of_it(self) -> None:
+        """The confirmation run's `business_overview` first reply carried 27 claims against
+        a `max_length` of 24 the prompt had never mentioned: 6,027 output tokens refused
+        for a bound the writer was not told. The same lesson as the claim lengths."""
+        assert CLAIMS_CEILING >= CLAIMS_BUDGET * 2
+        assert CustomSectionDraft.model_fields["claims"].metadata[0].max_length == CLAIMS_CEILING
+        prompt = CustomSectionAgent().system_prompt(_payload())
+        assert f"at most {CLAIMS_BUDGET} claims" in prompt
+
+    @pytest.mark.parametrize("figure", ["financial_fact_id", "calculation_id"])
+    def test_a_numeric_claim_stands_on_the_figure_it_names(self, figure: str) -> None:
+        """ADR 0109. The live run's `business_overview` was refused nine claims at a time for
+        omitting a citation on figures that are fact rows, not sentences in any excerpt. The
+        figure's lineage is the platform's own record; an excerpt is owed only by a factual
+        claim, which has nothing else to stand on."""
+        claim = ProposedClaim(
+            statement="Revenue was $198,270 million.", kind="numeric", **{figure: str(uuid.uuid4())}
         )
 
         assert claim.malformed_reason is None

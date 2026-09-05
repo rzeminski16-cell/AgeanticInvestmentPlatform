@@ -359,10 +359,11 @@ async def execute_builtin_section(
             guidance=list(guidance),
             problems=problems,
             evidence_truncated=evidence.truncated,
-            # The budget with its consequence, from the numbers the validator reads
-            # (gap A50) — and the cut budget on a truncation retry (gap A51a).
+            # The budget with its consequence (gap A50) — and the cut budget on a
+            # truncation retry (gap A51a). The validator's headroom over it is not
+            # passed: the writer is told the limit it should aim at, not the one it
+            # would be refused past.
             word_budget=policy.word_budget,
-            word_ceiling=word_ceiling(policy.word_budget) if policy.word_budget > 0 else 0,
             # The other half of the augmenter's check: what the block beside this section
             # carries, so the writer can keep to it rather than be refused for guessing.
             platform_note=(

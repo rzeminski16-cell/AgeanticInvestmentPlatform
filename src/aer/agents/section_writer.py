@@ -29,6 +29,7 @@ from aer.agents.contract_schema import draft_model_for
 from aer.agents.custom_section import (
     CLAIM_BASIS_BUDGET,
     CLAIM_STATEMENT_BUDGET,
+    CLAIMS_BUDGET,
     CustomSectionDraft,
 )
 from aer.agents.untrusted import UntrustedSource
@@ -83,7 +84,6 @@ class SectionWriterInput(BaseModel):
     # user message rather than the cached policy block, because a truncation retry runs
     # at a *cut* budget (gap A51a) and the stable context must stay byte-identical.
     word_budget: int = 0
-    word_ceiling: int = 0
 
     platform_note: str = ""
     """What the platform renders beside this section that the writer cannot see.
@@ -120,10 +120,11 @@ your confidence low. An honest gap is publishable; filler is not.
 4. Forward-looking statements and opinions carry a stated basis instead of a citation,
 are written as judgements, never as facts, and appear only where this section's evidence
 policy admits them.
-5. Keep each claim within its length: a `statement` under {statement_budget} characters
-and a `basis` under {basis_budget}. These are asked for here because the schema's own
-bounds reach you as description text rather than as a rule the server applies — a reply
-that overruns them is thrown away after it has been paid for.
+5. Keep each claim within its length — a `statement` under {statement_budget} characters
+and a `basis` under {basis_budget} — and the claims list to at most {claims_budget} claims.
+These are asked for here because the schema's own bounds reach you as description text
+rather than as a rule the server applies — a reply that overruns them is thrown away after
+it has been paid for.
 6. Write for the reader of a research note, never for the platform's operator. Do not
 mention evidence budgets, token limits, truncation, retrieval, extraction, re-running,
 or what a future revision should fetch — those are the platform's internals, not
@@ -155,7 +156,9 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
     # beside it, which is what `commentary_problems` refuses a commentary for missing.
     # "5": a numeric claim stands on the figure it names and owes no excerpt (ADR 0109);
     # a quoted figure is written at a precision it rounds to, with its sign.
-    prompt_version: ClassVar[str] = "5"
+    # "6": the claims list's budget is asked for, and the word budget is stated as the
+    # limit with the validator's headroom over it no longer disclosed.
+    prompt_version: ClassVar[str] = "6"
 
     def __init__(self, *, route_role: str | None = None) -> None:
         """A writer, optionally billed at a cheaper configured route (gap O1).
@@ -182,6 +185,7 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
             contract=json.dumps(payload.output_contract, indent=2, sort_keys=False),
             statement_budget=CLAIM_STATEMENT_BUDGET,
             basis_budget=CLAIM_BASIS_BUDGET,
+            claims_budget=CLAIMS_BUDGET,
         )
 
     def stable_context(self, payload: SectionWriterInput) -> str:
@@ -230,15 +234,20 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
                 f"{payload.focus.strip()}"
             )
         if payload.word_budget > 0:
-            # The ceiling and its consequence, from the same numbers the validator reads
-            # (gap A50). The live run bought 14,475 output tokens against a 711-word
-            # budget: the budget was enforced only after it had been paid for, because
-            # the prompt asked for a target without saying what happens past it.
+            # The budget and its consequence (gap A50). The live run bought 14,475 output
+            # tokens against a 711-word budget: the budget was enforced only after it had
+            # been paid for, because the prompt asked for a target without saying what
+            # happens past it. The budget is now stated *as* the limit, and the
+            # validator's quarter of headroom over it (`word_ceiling`) goes unmentioned:
+            # told the headroom, the confirmation run's writer wrote to it and past it —
+            # eleven of its thirty-seven replies overran the stated ceiling by five to
+            # fifty per cent, each one paid for and refused. A limit the writer aims at
+            # leaves the headroom for its miscounting, which is what it was for.
             parts.append(
-                f"Write the content to about {payload.word_budget} words. This is a "
-                f"ceiling with a consequence, not a suggestion: past {payload.word_ceiling} "
-                "words the platform refuses or cuts the draft — the overrun is paid for "
-                "and then thrown away, never published."
+                f"Write the content to at most {payload.word_budget} words. This is a "
+                "ceiling with a consequence, not a suggestion: past it the platform "
+                "refuses or cuts the draft — the overrun is paid for and then thrown "
+                "away, never published."
             )
         if payload.challenges:
             # The revise pass (ADR 0091). Same register as the focus line: for the

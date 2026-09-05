@@ -34,6 +34,8 @@ from aer.agents.untrusted import UntrustedSource
 from aer.agents.user_skill import USER_SKILL_RULE, wrap_user_skill
 
 __all__ = [
+    "CLAIMS_BUDGET",
+    "CLAIMS_CEILING",
     "CustomSectionAgent",
     "CustomSectionDraft",
     "CustomSectionInput",
@@ -57,6 +59,13 @@ CLAIM_STATEMENT_CEILING: Final = 1_500
 
 CLAIM_BASIS_BUDGET: Final = 400
 CLAIM_BASIS_CEILING: Final = 1_000
+
+# The claims list, by the same lesson. The confirmation run's `business_overview` first
+# reply carried 27 claims against a `max_length` of 24 that the prompt had never mentioned
+# — 6,027 output tokens refused for a bound the writer was not told. The ceiling is set
+# clear of the budget, and the budget is asked for.
+CLAIMS_BUDGET: Final = 24
+CLAIMS_CEILING: Final = 48
 
 
 class ProposedCitation(BaseModel):
@@ -158,7 +167,7 @@ class CustomSectionDraft(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     content: dict[str, Any]
-    claims: list[ProposedClaim] = Field(default_factory=list, max_length=24)
+    claims: list[ProposedClaim] = Field(default_factory=list, max_length=CLAIMS_CEILING)
 
 
 class CustomSectionInput(BaseModel):
@@ -205,10 +214,11 @@ blocks the report.
 content and keep your confidence low. An honest gap is publishable; filler is not.
 4. Forward-looking statements and opinions carry a stated basis instead of a citation,
 and are written as judgements, never as facts.
-5. Keep each claim within its length: a `statement` under {statement_budget} characters
-and a `basis` under {basis_budget}. These are asked for here because the schema's own
-bounds reach you as description text rather than as a rule the server applies — a reply
-that overruns them is thrown away after it has been paid for.
+5. Keep each claim within its length — a `statement` under {statement_budget} characters
+and a `basis` under {basis_budget} — and the claims list to at most {claims_budget} claims.
+These are asked for here because the schema's own bounds reach you as description text
+rather than as a rule the server applies — a reply that overruns them is thrown away after
+it has been paid for.
 6. Write for the reader of a research note, never for the platform's operator. Do not
 mention evidence budgets, token limits, truncation, retrieval, extraction, re-running,
 or what a future revision should fetch — those are the platform's internals, not
@@ -239,7 +249,8 @@ class CustomSectionAgent(Agent[CustomSectionInput, CustomSectionDraft]):
     # code from the extraction's own record (gap A51b).
     # "3": a numeric claim stands on the figure it names and owes no excerpt (ADR 0109);
     # a quoted figure is written at a precision it rounds to, with its sign.
-    prompt_version: ClassVar[str] = "3"
+    # "4": the claims list's budget is asked for, as the claim lengths already were.
+    prompt_version: ClassVar[str] = "4"
 
     def response_schema(self, payload: CustomSectionInput) -> type[BaseModel]:
         """The declared envelope, with ``content`` bound to the pinned contract.
@@ -259,6 +270,7 @@ class CustomSectionAgent(Agent[CustomSectionInput, CustomSectionDraft]):
             contract=json.dumps(payload.output_contract, indent=2, sort_keys=False),
             statement_budget=CLAIM_STATEMENT_BUDGET,
             basis_budget=CLAIM_BASIS_BUDGET,
+            claims_budget=CLAIMS_BUDGET,
         )
 
     def user_message(self, payload: CustomSectionInput) -> str:

@@ -1416,8 +1416,13 @@ def _user_text(call: dict[str, Any]) -> str:
 class TestTheBudgetIsStatedWithItsConsequence:
     """Gap A50. The live run bought 14,475 output tokens against a 711-word budget —
     the prompt asked for a target without saying what happens past it, so the budget
-    was enforced only after it had been paid for. The user message now states the
-    ceiling and the consequence, from the same numbers the validator reads.
+    was enforced only after it had been paid for. The user message states the budget as
+    the limit, with the consequence.
+
+    The validator's quarter of headroom over the budget is deliberately *not* stated.
+    The confirmation run's writer, told it, wrote to it and past it: eleven of the run's
+    thirty-seven replies overran the stated ceiling by five to fifty per cent, each paid
+    for and refused. The headroom is for the writer's miscounting, not for it to aim at.
     """
 
     @staticmethod
@@ -1431,14 +1436,13 @@ class TestTheBudgetIsStatedWithItsConsequence:
             point_in_time=True,
             output_contract={},
             word_budget=word_budget,
-            word_ceiling=word_ceiling(word_budget) if word_budget else 0,
         )
 
-    def test_the_user_message_states_the_budget_the_ceiling_and_the_cost(self) -> None:
+    def test_the_user_message_states_the_budget_as_the_limit_and_the_cost(self) -> None:
         message = SectionWriterAgent().user_message(self._payload(711))
 
-        assert "about 711 words" in message
-        assert str(word_ceiling(711)) in message
+        assert "at most 711 words" in message
+        assert str(word_ceiling(711)) not in message
         assert "paid for" in message
         assert "never published" in message
 
@@ -1464,8 +1468,8 @@ class TestTheBudgetIsStatedWithItsConsequence:
         await _run(scene, provider)
 
         [call] = provider.calls
-        assert f"about {budget} words" in _user_text(call)
-        assert str(word_ceiling(budget)) in _user_text(call)
+        assert f"at most {budget} words" in _user_text(call)
+        assert str(word_ceiling(budget)) not in _user_text(call)
 
 
 class TestTruncationCutsTheAsk:
@@ -1488,8 +1492,8 @@ class TestTruncationCutsTheAsk:
 
         assert outcome.status is SectionStatus.GENERATED
         first, second = provider.calls
-        assert f"about {budget} words" in _user_text(first)
-        assert f"about {budget // 2} words" in _user_text(second)
+        assert f"at most {budget} words" in _user_text(first)
+        assert f"at most {budget // 2} words" in _user_text(second)
         assert f"is {budget // 2} words" in _user_text(second)  # the cut, stated as a problem
 
     async def test_an_ordinary_refusal_keeps_the_budget(self, scene: dict[str, Any]) -> None:
@@ -1504,8 +1508,8 @@ class TestTruncationCutsTheAsk:
         await _run(scene, provider)
 
         first, second = provider.calls
-        assert f"about {budget} words" in _user_text(first)
-        assert f"about {budget} words" in _user_text(second)
+        assert f"at most {budget} words" in _user_text(first)
+        assert f"at most {budget} words" in _user_text(second)
 
     async def test_the_cached_policy_block_does_not_move_with_the_cut(
         self, scene: dict[str, Any]
