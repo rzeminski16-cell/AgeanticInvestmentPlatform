@@ -27,7 +27,6 @@ from aer.db.models import (
     FinancialFact,
     Job,
     PriceBar,
-    ResearchRequest,
     Security,
     SourceDocument,
     User,
@@ -40,6 +39,7 @@ from aer.sources.eodhd import api
 from aer.sources.eodhd.client import ActionsResponse, PriceResponse, SharesResponse
 from aer.storage.local import LocalArtefactStore
 from aer.workflow.workflows.vertical_slice_v1 import _filed_share_count
+from tests.request_fixtures import research_request
 
 pytestmark = pytest.mark.integration
 
@@ -174,7 +174,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     db_session.add(user)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Contoso Corporation",
         ticker="CTSO",
@@ -196,7 +196,6 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     # to a run that does not exist is exactly what that constraint is there to refuse.
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version="test",
         code_version="abc",
         status=JobStatus.RUNNING,
@@ -379,6 +378,17 @@ class TestTheBeta:
             )
             is None
         )
+        # The reason travels on the step's record, in the regression's own words. The
+        # confirmation run asked the operator for a beta and said nothing about why: the
+        # reason was in a log line, and `aer diagnose acquire_prices` showed only `False`.
+        assert "observation" in outcome.beta_reason
+        assert outcome.as_dict()["beta_reason"] == outcome.beta_reason
+
+    async def test_a_regressed_beta_carries_no_reason(self, scene: dict[str, Any]) -> None:
+        outcome = await _acquire(scene, StubPriceClient(scene["store"]))
+
+        assert outcome.beta_proposed is True
+        assert outcome.beta_reason == ""
 
 
 class TestTheWindow:
@@ -409,7 +419,6 @@ async def _share_document(scene: dict[str, Any]) -> Any:
     await scene["session"].flush()
     document = SourceDocument(
         work_order_id=scene["request"].id,
-        request_id=scene["request"].id,
         artefact_id=artefact.id,
         url="https://data.sec.gov/api/xbrl/companyfacts/CIK0000000009.json",
         provider=Provider.SEC_EDGAR,

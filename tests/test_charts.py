@@ -9,6 +9,7 @@ these tests assert on geometry by reading the text the chart carries.
 from __future__ import annotations
 
 import base64
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 
@@ -261,6 +262,34 @@ class TestCitations:
         chart = sensitivity_heatmap(_heatmap_input(), hashsalt="j")
         assert len(chart.citations) == 9
         assert all(ref.kind == "calculation" for ref in chart.citations)
+
+    def test_the_heatmap_labels_each_cell_at_a_glance_and_in_ink_that_shows(self):
+        """The first live run's grid printed each stored value to twelve places, in one
+        dark ink, over a colormap whose upper third is nearly that dark. The label is a
+        reading of the cell — compact — and its ink is chosen against the shade under it;
+        the record stays the cited calculation, at full precision."""
+        cells = tuple(
+            HeatmapCell(
+                x=Decimal(f"0.0{x}"),
+                y=Decimal(f"0.0{y}"),
+                value=Decimal("412.345678901234") + Decimal(10 * x + y),
+                citation=_ref(x * 10 + y),
+            )
+            for x in (7, 8, 9)
+            for y in (1, 2, 3)
+        )
+        chart = sensitivity_heatmap(replace(_heatmap_input(), cells=cells), hashsalt="j")
+
+        assert "412.345678901234" not in chart.svg
+        assert ">483</text>" in chart.svg
+        labels = [
+            line
+            for line in chart.svg.splitlines()
+            if "<text" in line and any(f">{value}</text>" in line for value in range(483, 506))
+        ]
+        assert len(labels) == 9
+        inks = {"#ffffff" if "fill: #ffffff" in line else "dark" for line in labels}
+        assert inks == {"#ffffff", "dark"}, "the light and the dark cells share one ink"
 
 
 class TestTheDataUri:

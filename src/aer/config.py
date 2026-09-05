@@ -183,6 +183,27 @@ DEFAULT_MODEL_ROUTES: Final[dict[str, ModelRoute]] = {
     # the workhorse; the judgement sections stay on report_writer's route above.
     "section_writer_workhorse": ModelRoute(model="claude-sonnet-5", effort="medium"),
     "theme_proposal": ModelRoute(model="claude-sonnet-5", effort="medium"),
+    # The review gate's authored half (ADR 0087): one or two sentences over a digest of
+    # outcomes, once per run. The cheap end of the router by decision — "a few pence on a
+    # run that costs pounds" is the accepted cost the record names.
+    "verdict": ModelRoute(model="claude-haiku-4-5", effort="low"),
+    # Comparison of two short arguments, on the same cheap end as the verdict. It reads no
+    # evidence and writes no prose the report carries (ADR 0095).
+    "challenge_brief": ModelRoute(model="claude-haiku-4-5", effort="low"),
+    # One premise against one filing's numbers, unattended (ADRs 0079, 0103). The
+    # workhorse rather than the judgement model: the crossing is code's before the call,
+    # what the model adds is an interpretation of a handful of figures, and the shape of
+    # the cost is a standing subscription rather than a report (ADR 0078) — pence per
+    # premise per filing against the monthly cap.
+    "thesis_monitor": ModelRoute(model="claude-sonnet-5", effort="medium"),
+    # Once per closed position, over the whole record, proposing a judgement the operator
+    # confirms (ADRs 0081, 0105). The judgement model at high effort, like the red team: it
+    # runs seldom, and what it gets wrong is the operator's reading of their own method.
+    "post_trade_reviewer": ModelRoute(model="claude-opus-5", effort="high"),
+    # Naming the pattern in figures somebody else computed is downstream of everything and
+    # runs per book rather than once per report, so the mid-tier route at medium effort —
+    # the one the validator and the proposal roles take (ADR 0080).
+    "risk_analyst": ModelRoute(model="claude-sonnet-5", effort="medium"),
 }
 
 
@@ -242,6 +263,17 @@ class Settings(BaseSettings):
     eodhd_api_key: SecretStr | None = None
     fred_api_key: SecretStr | None = None
     companies_house_api_key: SecretStr | None = None
+
+    @property
+    def price_feed_configured(self) -> bool:
+        """Whether a market-data subscription is configured (ADR 0030 route 2).
+
+        The one definition of "is there a price feed": the client builder and the steps
+        that would spend on something only a price feed makes computable (ADR 0059's
+        second amendment) both read it, so they cannot disagree about a blank key.
+        """
+        key = self.eodhd_api_key
+        return key is not None and bool(key.get_secret_value().strip())
 
     # -- Signing ------------------------------------------------------------------------
 
@@ -329,6 +361,10 @@ class Settings(BaseSettings):
     # spent.
     per_run_budget_gbp: Decimal = Field(default=Decimal("12.00"), gt=0)
     monthly_budget_gbp: Decimal = Field(default=Decimal("80.00"), gt=0)
+    # What the watchlist's queue may commit in a calendar month (ADR 0107): the standing
+    # budget that is not one run's cap. A run the queue starts keeps its own per-run cap and
+    # the month's cap applies on top; this bounds what the queue may *start* unattended.
+    watchlist_budget_gbp: Decimal = Field(default=Decimal("30.00"), gt=0)
     budget_warn_ratio: float = Field(default=0.75, gt=0, le=1)
     usd_to_gbp: Decimal = Field(default=Decimal("0.79"), gt=0)
 

@@ -59,8 +59,8 @@ class EvidenceReview:
         parts: list[str] = []
         if self.unsupported:
             parts.append(
-                f"{len(self.unsupported)} claim(s) have no admissible citation — a numeric or "
-                "factual statement with nothing behind it cannot go in a report"
+                f"{len(self.unsupported)} claim(s) have no admissible citation — a factual "
+                "statement with nothing behind it cannot go in a report"
             )
         if self.unverified:
             parts.append(

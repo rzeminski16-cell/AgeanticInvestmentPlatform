@@ -104,31 +104,7 @@ def build_services(
     artefact_store = store or LocalArtefactStore(
         settings.artefact_root, max_bytes=settings.max_artefact_bytes
     )
-
-    # One limiter and one breaker, shared between both fetchers below. Retrieving
-    # robots.txt is a request against the same publisher and must count against the same
-    # rate as everything else.
-    limiter = RateLimiter(redis)
-    breaker = CircuitBreaker(redis)
-
-    # Two fetchers, and the order is forced. A robots cache needs something to retrieve
-    # robots.txt with, and that something cannot be a fetcher which consults the robots
-    # cache: you do not check robots.txt before fetching robots.txt.
-    bare = SafeFetcher(
-        settings, store=artefact_store, limiter=limiter, breaker=breaker, robots=None
-    )
-    fetcher = SafeFetcher(
-        settings,
-        store=artefact_store,
-        limiter=limiter,
-        breaker=breaker,
-        robots=RobotsCache(
-            redis,
-            _robots_fetcher(bare, artefact_store),
-            user_agent=settings.http_user_agent,
-        ),
-        credentials=_credentials(settings),
-    )
+    fetcher = build_fetcher(settings, store=artefact_store, redis=redis)
 
     return ServiceBundle(
         settings=settings,
@@ -141,6 +117,50 @@ def build_services(
     )
 
 
+def build_fetcher(settings: Settings, *, store: ArtefactStore, redis: Redis) -> SafeFetcher:
+    """The one fetcher anything outbound goes through, policy and all.
+
+    Extracted from :func:`build_services` so a caller that needs only the fetch stack — the
+    portfolio's third door verifying a ticker (ADR 0093) — does not have to construct a
+    model provider to get one.
+    """
+    # One limiter and one breaker, shared between both fetchers below. Retrieving
+    # robots.txt is a request against the same publisher and must count against the same
+    # rate as everything else.
+    limiter = RateLimiter(redis)
+    breaker = CircuitBreaker(redis)
+
+    # Two fetchers, and the order is forced. A robots cache needs something to retrieve
+    # robots.txt with, and that something cannot be a fetcher which consults the robots
+    # cache: you do not check robots.txt before fetching robots.txt.
+    bare = SafeFetcher(settings, store=store, limiter=limiter, breaker=breaker, robots=None)
+    return SafeFetcher(
+        settings,
+        store=store,
+        limiter=limiter,
+        breaker=breaker,
+        robots=RobotsCache(
+            redis,
+            _robots_fetcher(bare, store),
+            user_agent=settings.http_user_agent,
+        ),
+        credentials=_credentials(settings),
+    )
+
+
+def standalone_price_client(
+    settings: Settings, *, store: ArtefactStore, redis: Redis
+) -> EodhdClient | None:
+    """The market-data client outside the worker, or ``None`` with no subscription.
+
+    For the one interactive path that fetches: verifying a never-seen ticker at first
+    sight. Same policy stack, same budget, same store as the worker's client — the door
+    being different must not mean the rules are.
+    """
+    fetcher = build_fetcher(settings, store=store, redis=redis)
+    return _eodhd_client(settings, fetcher=fetcher, store=store, redis=redis)
+
+
 def _eodhd_client(
     settings: Settings, *, fetcher: SafeFetcher, store: ArtefactStore, redis: Redis
 ) -> EodhdClient | None:
@@ -151,8 +171,7 @@ def _eodhd_client(
     with no key runs every step and reports the price-derived figures as unavailable
     rather than refusing to start.
     """
-    key = settings.eodhd_api_key
-    if key is None or not key.get_secret_value().strip():
+    if not settings.price_feed_configured:
         return None
     return EodhdClient(fetcher, store, settings=settings, budget=WeightedCallBudget(redis))
 

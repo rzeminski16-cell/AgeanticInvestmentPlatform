@@ -4,10 +4,11 @@
 custom-section agent's — one structured-output call, content against the section's
 contract, claims proposing their evidence by id — with two deliberate differences:
 
-* **No operator text.** A built-in section has no skill body, so there is no
-  ``<user_skill>`` block and nothing user-authored in the composition. What steers the
-  section beyond its contract is the planner's *focus* line — text a human approved at
-  gate 1.
+* **No skill body of its own.** A built-in section is not a custom section: what steers
+  it beyond its contract is the planner's *focus* line — text a human approved at gate 1
+  — and, since ADR 0108, the operator's standing guidance pinned to the run, composed
+  last in the user turn under the same ``<user_skill>`` delimiter and rule a custom
+  section's body gets. Nothing user-authored reaches the system prompt.
 * **No tools** (the whole of ADR 0042). The evidence pack was assembled by code before
   the call; a writer that could search would be a researcher whose searches nobody gated.
 
@@ -28,9 +29,12 @@ from aer.agents.contract_schema import draft_model_for
 from aer.agents.custom_section import (
     CLAIM_BASIS_BUDGET,
     CLAIM_STATEMENT_BUDGET,
+    CLAIMS_BUDGET,
     CustomSectionDraft,
 )
 from aer.agents.untrusted import UntrustedSource
+from aer.agents.user_skill import compose_guidance
+from aer.core.skill_guidance import OperatorGuidance, guidance_for_role
 
 __all__ = ["SectionDraft", "SectionWriterAgent", "SectionWriterInput"]
 
@@ -71,12 +75,24 @@ class SectionWriterInput(BaseModel):
     problems: list[str] = Field(default_factory=list)
     evidence_truncated: bool = False
 
+    # The operator's standing guidance pinned to this run (ADR 0108): every planned
+    # prompt-kind skill, from which the writer composes only the kinds its role reads.
+    guidance: list[OperatorGuidance] = Field(default_factory=list)
+
     # The section's word budget and the count past which the validator refuses, stated
     # with their consequence in the user message (gap A50). Zero means unbounded. In the
     # user message rather than the cached policy block, because a truncation retry runs
     # at a *cut* budget (gap A51a) and the stable context must stay byte-identical.
     word_budget: int = 0
-    word_ceiling: int = 0
+
+    platform_note: str = ""
+    """What the platform renders beside this section that the writer cannot see.
+
+    Only the augmented sections have one (ADR 0063). The valuation section's names the
+    method components the rendered block carries, because the check that refuses the
+    commentary reads exactly that list — and a rule enforced against a list the writer was
+    never shown is a rule it can only guess at.
+    """
 
 
 _SYSTEM_PROMPT: Final = """\
@@ -90,20 +106,25 @@ a numeric claim naming the stored fact or recorded calculation it comes from, by
 Ids you were not shown do not exist. Dates and document references are not figures when
 they are written recognisably — "March 2026", "Q3 2025", "in 2024", "Item 2.02",
 "Exhibit 99.1", "CIK 0000320193" — so anchor every year to a month, a quarter or a
-temporal word; a bare unanchored year is treated as a quantity and refused.
-2. Factual and numeric claims cite evidence: the extraction id of an excerpt from the
-evidence listing. The excerpt's source document is on record, so the id alone is the
-whole citation. The platform re-reads every excerpt; a citation that does not verify
+temporal word; a bare unanchored year is treated as a quantity and refused. Quote a
+figure at a precision it rounds to — "50.9" or "51" for a stored 50.88, never "50" — and
+carry its sign: "-51.8 days" or "negative 51.8 days" for a stored -51.79.
+2. A numeric claim stands on the figure it names: the fact or calculation id is its whole
+evidence, and it needs no excerpt. A factual claim cites evidence: the extraction id of an
+excerpt from the evidence listing. The excerpt's source document is on record, so the id
+alone is the whole citation. Cite an excerpt on a numeric claim only where the excerpt
+states the figure. The platform re-reads every excerpt; a citation that does not verify
 blocks the report.
 3. Where the evidence cannot support the section, say so plainly in the content and keep
 your confidence low. An honest gap is publishable; filler is not.
 4. Forward-looking statements and opinions carry a stated basis instead of a citation,
 are written as judgements, never as facts, and appear only where this section's evidence
 policy admits them.
-5. Keep each claim within its length: a `statement` under {statement_budget} characters
-and a `basis` under {basis_budget}. These are asked for here because the schema's own
-bounds reach you as description text rather than as a rule the server applies — a reply
-that overruns them is thrown away after it has been paid for.
+5. Keep each claim within its length — a `statement` under {statement_budget} characters
+and a `basis` under {basis_budget} — and the claims list to at most {claims_budget} claims.
+These are asked for here because the schema's own bounds reach you as description text
+rather than as a rule the server applies — a reply that overruns them is thrown away after
+it has been paid for.
 6. Write for the reader of a research note, never for the platform's operator. Do not
 mention evidence budgets, token limits, truncation, retrieval, extraction, re-running,
 or what a future revision should fetch — those are the platform's internals, not
@@ -131,7 +152,13 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
     # "2": the user message states the word budget with its consequence (gap A50).
     # "3": a citation is the extraction id alone; the source document is resolved in
     # code from the extraction's own record (gap A51b).
-    prompt_version: ClassVar[str] = "3"
+    # "4": an augmented section's user message names the components of the block rendered
+    # beside it, which is what `commentary_problems` refuses a commentary for missing.
+    # "5": a numeric claim stands on the figure it names and owes no excerpt (ADR 0109);
+    # a quoted figure is written at a precision it rounds to, with its sign.
+    # "6": the claims list's budget is asked for, and the word budget is stated as the
+    # limit with the validator's headroom over it no longer disclosed.
+    prompt_version: ClassVar[str] = "6"
 
     def __init__(self, *, route_role: str | None = None) -> None:
         """A writer, optionally billed at a cheaper configured route (gap O1).
@@ -158,6 +185,7 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
             contract=json.dumps(payload.output_contract, indent=2, sort_keys=False),
             statement_budget=CLAIM_STATEMENT_BUDGET,
             basis_budget=CLAIM_BASIS_BUDGET,
+            claims_budget=CLAIMS_BUDGET,
         )
 
     def stable_context(self, payload: SectionWriterInput) -> str:
@@ -206,15 +234,20 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
                 f"{payload.focus.strip()}"
             )
         if payload.word_budget > 0:
-            # The ceiling and its consequence, from the same numbers the validator reads
-            # (gap A50). The live run bought 14,475 output tokens against a 711-word
-            # budget: the budget was enforced only after it had been paid for, because
-            # the prompt asked for a target without saying what happens past it.
+            # The budget and its consequence (gap A50). The live run bought 14,475 output
+            # tokens against a 711-word budget: the budget was enforced only after it had
+            # been paid for, because the prompt asked for a target without saying what
+            # happens past it. The budget is now stated *as* the limit, and the
+            # validator's quarter of headroom over it (`word_ceiling`) goes unmentioned:
+            # told the headroom, the confirmation run's writer wrote to it and past it —
+            # eleven of its thirty-seven replies overran the stated ceiling by five to
+            # fifty per cent, each one paid for and refused. A limit the writer aims at
+            # leaves the headroom for its miscounting, which is what it was for.
             parts.append(
-                f"Write the content to about {payload.word_budget} words. This is a "
-                f"ceiling with a consequence, not a suggestion: past {payload.word_ceiling} "
-                "words the platform refuses or cuts the draft — the overrun is paid for "
-                "and then thrown away, never published."
+                f"Write the content to at most {payload.word_budget} words. This is a "
+                "ceiling with a consequence, not a suggestion: past it the platform "
+                "refuses or cuts the draft — the overrun is paid for and then thrown "
+                "away, never published."
             )
         if payload.challenges:
             # The revise pass (ADR 0091). Same register as the focus line: for the
@@ -229,6 +262,10 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
                 "and never evidence, and you never mention the review itself:\n- "
                 + "\n- ".join(payload.challenges)
             )
+        if payload.platform_note:
+            # Before the challenges and the refusals: it is a fact about the section's
+            # shape, not a correction to a draft.
+            parts.append(payload.platform_note)
         if payload.evidence_truncated:
             parts.append(
                 "The evidence listing was truncated to this section's token budget; "
@@ -239,6 +276,11 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
                 "Your previous draft was refused for these reasons; fix them:\n- "
                 + "\n- ".join(payload.problems)
             )
+        # The operator's text last (ADR 0108 §2), filtered by the role table here rather
+        # than by the caller, so the table is the last word at the point of composition.
+        guidance = compose_guidance(guidance_for_role(payload.guidance, self.role))
+        if guidance:
+            parts.append(guidance)
         return "\n\n".join(parts)
 
     def untrusted_sources(self, payload: SectionWriterInput) -> list[UntrustedSource]:

@@ -45,6 +45,7 @@ __all__ = [
     "ResearchRequestSummary",
     "RiskTolerance",
     "check_limits",
+    "cost_above_ceiling",
 ]
 
 # Uppercase alphanumerics plus dot and hyphen: covers "MSFT", "BRK.B", "RIO.L" and
@@ -280,9 +281,14 @@ class ResearchRequestCreate(BaseModel):
 
 
 class ResearchRequestSummary(BaseModel):
-    """The list view: enough to choose one, not enough to re-read the whole request."""
+    """The list view: enough to choose one, not enough to re-read the whole request.
 
-    model_config = ConfigDict(from_attributes=True)
+    **Built explicitly, never validated off an ORM row.** A mandate lives on two tables
+    since ADR 0072 — `as_of_date`, `status` and `archived_at` are the work order's — so
+    `from_attributes` would silently see three of these fields as missing. Flattening the
+    two rows is `services.requests.mandate_summary`'s job, and having exactly one place that
+    knows which column comes from where is the point of taking `from_attributes` away.
+    """
 
     id: UUID
     company_name: str
@@ -378,19 +384,31 @@ def check_limits(payload: ResearchRequestCreate, limits: RequestLimits) -> list[
             )
         )
 
-    if payload.max_cost_gbp > limits.per_run_budget_gbp:
-        problems.append(
-            FieldProblem(
-                field="max_cost_gbp",
-                message=(
-                    f"£{payload.max_cost_gbp} exceeds the per-run budget of "
-                    f"£{limits.per_run_budget_gbp}. Raise AER_PER_RUN_BUDGET_GBP if you "
-                    "genuinely intend to spend more on a single report."
-                ),
-            )
-        )
+    above_ceiling = cost_above_ceiling(payload.max_cost_gbp, limits.per_run_budget_gbp)
+    if above_ceiling is not None:
+        problems.append(above_ceiling)
 
     return problems
+
+
+def cost_above_ceiling(cap: Decimal, ceiling: Decimal) -> FieldProblem | None:
+    """The one rule that bounds what a report may cost, or ``None`` if ``cap`` is inside it.
+
+    Named and shared because it is asked twice from different directions: when a request
+    is written, and when an operator raises the ceiling on a run that is already going
+    (:func:`aer.services.requests.raise_cap`). Two copies of a bound are two bounds, and
+    the one that drifts is always the one nobody was looking at.
+    """
+    if cap <= ceiling:
+        return None
+    return FieldProblem(
+        field="max_cost_gbp",
+        message=(
+            f"£{cap} exceeds the per-run budget of £{ceiling}. Raise "
+            "AER_PER_RUN_BUDGET_GBP if you genuinely intend to spend more on a single "
+            "report."
+        ),
+    )
 
 
 def _domain_of(raw: str) -> str | None:

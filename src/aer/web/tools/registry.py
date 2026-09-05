@@ -3,7 +3,7 @@
 One row per tool, three states, and the state is what decides where it appears. A *working*
 tool earns a section in the navigation. One *under construction* earns a section too,
 because it is being built now and an operator should be able to watch it arrive. A
-*planned* one appears on the main menu and nowhere else — a navigation listing seven things
+*planned* one appears on the main menu and nowhere else — a navigation listing things
 nobody can use is worse than a launcher that shows the shape once and gets out of the way.
 
 **Each row occupies the URL its tool will keep.** `/portfolio` is under construction today
@@ -145,100 +145,95 @@ INSTALLED_TOOLS: Final[tuple[Tool, ...]] = (
     Tool(
         key="watchlist",
         label="Watchlist",
-        status=ToolStatus.PLANNED,
+        status=ToolStatus.WORKING,
         href="/watchlist",
         summary=(
             "Companies you are following and have not commissioned research on, with the "
-            "queue of what to research next and what it would cost."
+            "queue of what to research next, what it would cost, and the standing budget "
+            "the queue spends."
         ),
-        needs=(
-            "A standing budget that is not one run's cap, and the two clocks — a watchlist "
-            "is followed continuously and researched as at a date."
-        ),
-        adr="0075",
+        action_label="Follow a company",
+        action_href="/watchlist",
+        adr="0107",
     ),
     Tool(
         key="theses",
         label="Theses",
-        status=ToolStatus.PLANNED,
+        status=ToolStatus.WORKING,
         href="/theses",
         summary=(
             "What you believe about a company and why, as a statement a person wrote, with "
             "the evidence it rests on and the questions that would defeat it."
         ),
-        needs=(
-            "The judgement table. A thesis is a view a named person held at a time, and "
-            "ADR 0074 is the record that makes it storable without becoming evidence."
-        ),
-        adr="0079",
+        action_label="Write a thesis",
+        action_href="/theses",
+        adr="0102",
     ),
     Tool(
         key="decisions",
         label="Decisions",
-        status=ToolStatus.PLANNED,
+        status=ToolStatus.WORKING,
         href="/decisions",
         summary=(
             "What you decided to do about a thesis, when, and on what basis — the journal "
-            "entry written before the outcome is known rather than after."
+            "entry written before the outcome is known rather than after, and the trades "
+            "that carried it out."
         ),
-        needs=(
-            "Judgements, and the reserved-field guard that keeps a conviction score from "
-            "becoming a number something else can multiply (ADR 0074)."
-        ),
-        adr="0074",
+        action_label="Record a decision",
+        action_href="/decisions",
+        adr="0104",
     ),
     Tool(
         key="monitor",
         label="Monitor",
-        status=ToolStatus.PLANNED,
+        status=ToolStatus.WORKING,
         href="/monitor",
         summary=(
             "What has happened since a thesis was written that bears on it — findings the "
-            "platform raises and never answers."
+            "platform raises and never answers, and the one gate a contradicted premise opens."
         ),
-        needs=(
-            "Theses and their predicates. A monitor with nothing to monitor against is an "
-            "alert feed, which is the thing ADR 0079 refuses."
-        ),
-        adr="0079",
+        action_label="Read the findings",
+        action_href="/monitor",
+        adr="0103",
     ),
     Tool(
         key="risk",
         label="Risk",
-        status=ToolStatus.PLANNED,
+        status=ToolStatus.WORKING,
         href="/risk",
         summary=(
             "What the portfolio is exposed to and what a stated scenario would do to it, "
-            "commented on rather than scored."
+            "commented on rather than scored: every figure is code's, and the analyst reads."
         ),
-        needs=(
-            "A book to be about, and the rate store — every exposure crosses a currency, "
-            "and ADR 0082 makes a rate a dated observation rather than a constant."
-        ),
-        adr="0080",
+        action_label="Read the book's risk",
+        action_href="/risk",
+        adr="0106",
     ),
     Tool(
         key="review",
         label="Post-trade review",
-        status=ToolStatus.PLANNED,
+        status=ToolStatus.WORKING,
         href="/review",
         summary=(
             "How a decision was made, scored against the process it was supposed to "
-            "follow — deliberately not against whether it made money."
+            "follow — deliberately not against whether it made money. The reviewer "
+            "proposes; you confirm it as your own judgement."
         ),
-        needs="Decisions and positions: a review needs both the reasoning and the outcome.",
-        adr="0081",
+        action_label="Review a closed position",
+        action_href="/review",
+        adr="0105",
     ),
     Tool(
         key="analytics",
         label="Decision analytics",
-        status=ToolStatus.PLANNED,
+        status=ToolStatus.WORKING,
         href="/analytics",
         summary=(
-            "What your decisions have in common — where the process holds and where it "
-            "keeps bending in the same direction."
+            "What your reviewed positions have in common — where the process holds and "
+            "where it keeps bending in the same direction — every statistic with its count."
         ),
-        needs="Enough reviewed decisions to say anything at all, which is the honest bound.",
+        action_label="Read the analytics",
+        action_href="/analytics",
         adr="0081",
     ),
 )

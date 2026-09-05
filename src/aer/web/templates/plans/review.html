@@ -1,181 +1,167 @@
-{% extends "base.html" %}
+{% extends "runs/_gate.html" %}
 
 {#
-  Gate 1. Everything below is rendered from `payload`, which is the same structure whose
-  hash sits in the hidden field. Rendering one thing and hashing another is precisely the
-  failure this gate exists to prevent, so the template reads `payload` and nothing else.
+  Gate 1. Everything below renders from `payload`, which is the same structure whose hash
+  sits in the decision form. Rendering one thing and hashing another is precisely the
+  failure this gate exists to prevent, so the evidence reads `payload` and nothing else.
+
+  The sources lead. "Read the source list: if it does not name the filings you would have
+  reached for, that is the cheapest moment to find out" is what this gate is for, and the
+  old page had it fourth of seven blocks.
 #}
 
-{% block title %}Approve the plan &middot; Tracework Invest{% endblock %}
+{% block gate_verdict %}
+  {{ ui.verdict(
+    "WHAT THIS ASKS",
+    "Nothing has been fetched and nothing has been spent beyond planning. The run does only what is described here, and continues only when you decide.",
+    detail="Read the sources first: a filing missing from that list is cheapest to catch now.",
+    tone="warning" if not decided else "muted",
+  ) }}
+{% endblock %}
 
-{% block content %}
-  <nav class="text-sm">
-    <a href="/runs/{{ job.id }}" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
-      &larr; Back to the run
-    </a>
-  </nav>
+{% block gate_evidence %}
+  {% call ui.sheet("Sources it intends to use") %}
+    <div id="planned-sources">
+      {% if payload.planned_sources %}
+        {% call ui.table("The sources this plan would fetch", [
+          {"label": "Provider"}, {"label": "Tier"}, {"label": "What"}, {"label": "Why"},
+        ]) %}
+          {% for source in payload.planned_sources %}
+            <tr>
+              {{ ui.cell(source.get('provider', '—'), header=true) }}
+              {{ ui.cell(source.get('tier', '—')) }}
+              {{ ui.cell(source.get('what', '—')) }}
+              {{ ui.cell(source.get('why', '—')) }}
+            </tr>
+          {% endfor %}
+        {% endcall %}
+      {% else %}
+        <p class="type-body text-ink-muted">The plan names no sources.</p>
+      {% endif %}
+    </div>
+  {% endcall %}
 
-  <h1 class="mt-4 text-2xl font-semibold tracking-tight">Approve the research plan</h1>
-  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-    Nothing has been fetched and nothing has been spent beyond planning. The run does not
-    continue until you decide, and it will do only what is described here.
-  </p>
+  {% call ui.sheet("What it intends to do") %}
+    <p class="whitespace-pre-line type-body text-ink" id="plan-summary">{{ payload.summary }}</p>
+    {% if payload.prior_research %}
+      {# Inside the hashed payload, so approving a plan informed by history is a distinct
+         act from approving one planned blind (ADR 0064). #}
+      <p class="mt-4 rounded-sm border border-line bg-surface-sunken p-3 type-body-sm text-ink"
+         id="prior-research-note">{{ payload.prior_research }}</p>
+    {% endif %}
+  {% endcall %}
 
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold tracking-tight">What it intends to do</h2>
-    <p class="mt-2 whitespace-pre-line text-sm text-slate-800 dark:text-slate-200" id="plan-summary">
-      {{ payload.summary }}
-    </p>
-  </section>
-
-  {% if payload.prior_research %}
-    {# Inside the hashed payload, so approving a plan informed by history is a distinct
-       act from approving one planned blind (ADR 0064). #}
-    <p class="mt-4 max-w-3xl rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-       id="prior-research-note">
-      {{ payload.prior_research }}
-    </p>
-  {% endif %}
-
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold tracking-tight">Sections it will write</h2>
+  {% call ui.sheet("Sections it will write") %}
     {% if payload.sections %}
-      <ul class="mt-2 divide-y divide-slate-200 dark:divide-slate-800" id="plan-sections">
+      <ul class="divide-y divide-line" id="plan-sections">
         {% for section in payload.sections %}
-          <li class="py-2 text-sm">
-            <span class="font-mono text-slate-900 dark:text-slate-100">{{ section.get('key', '—') }}</span>
+          <li class="py-2.5 type-body text-ink">
+            <span class="type-data-sm text-ink-muted">{{ section.get('key', '—') }}</span>
             {% if section.get('focus') %}
-              <span class="text-slate-600 dark:text-slate-400"> &mdash; {{ section.get('focus') }}</span>
+              <span class="text-ink"> &mdash; {{ section.get('focus') }}</span>
             {% endif %}
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <p class="mt-2 text-sm text-slate-400">The plan names no sections.</p>
+      <p class="type-body text-ink-muted" id="plan-sections">The plan names no sections.</p>
     {% endif %}
-  </section>
 
-  {% if payload.section_listing %}
-    <section class="mt-8">
-      <h2 class="text-lg font-semibold tracking-tight">The report's built-in sections</h2>
-      <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-        The platform's section spine, in the order the report will carry it. Sections
-        marked <em>platform-filled</em> are written by code from the run's own records and
-        spend nothing.
-      </p>
-      <div class="mt-2 overflow-x-auto">
-        <table class="w-full text-left text-sm" id="section-listing">
-          <thead class="text-xs uppercase tracking-wide text-slate-500">
-            <tr>
-              <th scope="col" class="py-2 pr-4">Section</th>
-              <th scope="col" class="py-2 pr-4">Title</th>
-              <th scope="col" class="py-2 pr-4">Token budget</th>
-              <th scope="col" class="py-2">Estimate</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
-            {% for section in payload.section_listing %}
+    {% if payload.section_listing %}
+      {% call ui.disclosure("The report's built-in sections") %}
+        <p class="type-body-sm text-ink-muted">
+          The platform's section spine, in the order the report will carry it. Sections
+          marked <em>platform-filled</em> are written by code from the run's own records
+          and spend nothing.
+        </p>
+        <div class="mt-2 overflow-x-auto">
+          <table class="w-full text-left" id="section-listing">
+            <thead>
               <tr>
-                <td class="py-2 pr-4 font-mono">{{ section.get('key', '—') }}</td>
-                <td class="py-2 pr-4 text-slate-600 dark:text-slate-400">{{ section.get('title', '—') }}</td>
-                <td class="py-2 pr-4 font-mono">
-                  {% if section.get('deterministic') %}
-                    <span class="rounded bg-slate-200 px-1.5 text-xs font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-200">platform-filled</span>
-                  {% else %}
-                    {{ section.get('token_budget', '—') }}
-                  {% endif %}
-                </td>
-                <td class="py-2 font-mono">
-                  {% if section.get('deterministic') %}
-                    £0
-                  {% elif section.get('estimated_cost_gbp') %}
-                    &le; £{{ section.get('estimated_cost_gbp') }}
-                  {% else %}
-                    —
-                  {% endif %}
-                </td>
+                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Section</th>
+                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Title</th>
+                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Token budget</th>
+                <th scope="col" class="py-2 type-eyebrow text-ink-muted">Estimate</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  {% endif %}
-
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold tracking-tight">Sources it intends to use</h2>
-    {% if payload.planned_sources %}
-      <div class="mt-2 overflow-x-auto">
-        <table class="w-full text-left text-sm" id="planned-sources">
-          <thead class="text-xs uppercase tracking-wide text-slate-500">
-            <tr>
-              <th scope="col" class="py-2 pr-4">Provider</th>
-              <th scope="col" class="py-2 pr-4">Tier</th>
-              <th scope="col" class="py-2 pr-4">What</th>
-              <th scope="col" class="py-2">Why</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
-            {% for source in payload.planned_sources %}
-              <tr>
-                <td class="py-2 pr-4 font-mono">{{ source.get('provider', '—') }}</td>
-                <td class="py-2 pr-4">{{ source.get('tier', '—') }}</td>
-                <td class="py-2 pr-4 text-slate-600 dark:text-slate-400">{{ source.get('what', '—') }}</td>
-                <td class="py-2 text-slate-600 dark:text-slate-400">{{ source.get('why', '—') }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    {% else %}
-      <p class="mt-2 text-sm text-slate-400">The plan names no sources.</p>
+            </thead>
+            <tbody class="divide-y divide-line">
+              {% for section in payload.section_listing %}
+                <tr>
+                  <td class="py-2 pr-4 type-data-sm text-ink">{{ section.get('key', '—') }}</td>
+                  <td class="py-2 pr-4 type-body-sm text-ink-muted">{{ section.get('title', '—') }}</td>
+                  <td class="py-2 pr-4 type-data-sm text-ink">
+                    {% if section.get('deterministic') %}
+                      {{ ui.status("muted", "Platform-filled") }}
+                    {% else %}
+                      {{ section.get('token_budget', '—') }}
+                    {% endif %}
+                  </td>
+                  <td class="py-2 type-data-sm text-ink">
+                    {% if section.get('deterministic') %}
+                      £0
+                    {% elif section.get('estimated_cost_gbp') %}
+                      &le; £{{ section.get('estimated_cost_gbp') }}
+                    {% else %}
+                      —
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endcall %}
     {% endif %}
-  </section>
+  {% endcall %}
 
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold tracking-tight">What it says it may get wrong</h2>
+  {% call ui.sheet("What it says it may get wrong") %}
     {% if payload.known_risks %}
-      <ul class="mt-2 list-disc space-y-1 pl-5 text-sm" id="known-risks">
+      <ul class="flex list-disc flex-col gap-1 pl-5 type-body text-ink" id="known-risks">
         {% for risk in payload.known_risks %}<li>{{ risk }}</li>{% endfor %}
       </ul>
     {% else %}
-      <p class="mt-2 text-sm text-slate-400">The plan names no risks.</p>
+      <p class="type-body text-ink-muted" id="known-risks">The plan names no risks.</p>
     {% endif %}
-  </section>
+  {% endcall %}
 
   {% if payload.skills %}
-    <section class="mt-8">
-      <h2 class="text-lg font-semibold tracking-tight">Your skills on this run</h2>
-      <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+    {% call ui.sheet("Your skills on this run") %}
+      <p class="type-body-sm text-ink-muted">
         Pinned to the exact version shown &mdash; editing a skill after approval changes
         nothing about this run. Where the effective policy differs from what you wrote,
         the difference is listed; approving the plan approves the policy as composed.
       </p>
-      <ul class="mt-3 space-y-3" id="plan-skills">
+      <ul class="mt-3 flex flex-col divide-y divide-line" id="plan-skills">
         {% for skill in payload.skills %}
-          <li class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <li class="py-3">
             <div class="flex flex-wrap items-baseline gap-2">
-              <span class="font-mono text-sm">{{ skill.key }}</span>
-              <span class="text-xs text-slate-500">v{{ skill.version }} &middot; {{ skill.kind }}</span>
+              <span class="type-data text-ink">{{ skill.key }}</span>
+              <span class="type-body-sm text-ink-muted">v{{ skill.version }} &middot; {{ skill.kind }}</span>
+              {% if skill.composes_into %}
+                <span class="type-body-sm text-ink-muted" data-composes-into="{{ skill.composes_into | join(' ') }}">
+                  &middot; composes into
+                  {%- for role in skill.composes_into %} {{ role_words.get(role, role) }}{% if not loop.last %} and{% endif %}{% endfor %}
+                </span>
+              {% endif %}
               {% if skill.status == 'planned' %}
-                <span class="rounded bg-emerald-100 px-1.5 text-xs font-semibold text-emerald-900 dark:bg-emerald-900 dark:text-emerald-100">planned</span>
+                {{ ui.status("success", "Planned") }}
                 {% if skill.estimated_cost_gbp != '0' and skill.estimated_cost_gbp != '0.0000' %}
-                  <span class="font-mono text-xs text-slate-500">&le; £{{ skill.estimated_cost_gbp }}</span>
+                  <span class="type-data-sm text-ink-muted">&le; £{{ skill.estimated_cost_gbp }}</span>
                 {% endif %}
               {% else %}
-                <span class="rounded bg-slate-200 px-1.5 text-xs font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-200">skipped &mdash; not applicable</span>
+                {{ ui.status("muted", "Skipped — not applicable") }}
               {% endif %}
             </div>
             {% if skill.reason %}
-              <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">{{ skill.reason }}</p>
+              <p class="mt-2 type-body-sm text-ink-muted">{{ skill.reason }}</p>
             {% endif %}
             {% if skill.clamps %}
-              <ul class="mt-2 space-y-1 text-xs text-amber-800 dark:text-amber-300">
+              <ul class="mt-2 flex flex-col gap-1 type-body-sm text-warning-ink">
                 {% for clamp in skill.clamps %}
                   <li>
-                    <span class="font-mono">{{ clamp.field }}</span>: you asked for
-                    <span class="font-mono">{{ clamp.requested }}</span>, the run gets
-                    <span class="font-mono">{{ clamp.effective }}</span> &mdash; {{ clamp.reason }}
+                    <span class="type-data-sm">{{ clamp.field }}</span>: you asked for
+                    <span class="type-data-sm">{{ clamp.requested }}</span>, the run gets
+                    <span class="type-data-sm">{{ clamp.effective }}</span> &mdash; {{ clamp.reason }}
                   </li>
                 {% endfor %}
               </ul>
@@ -183,96 +169,24 @@
           </li>
         {% endfor %}
       </ul>
-    </section>
+    {% endcall %}
   {% endif %}
 
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold tracking-tight">Cost and time</h2>
-    <dl class="mt-2 grid gap-4 sm:grid-cols-2">
-      {#
-        **Not "spent on planning", which is what this said and is not what it is.** The
-        figure is the planner's actual spend *plus* the forward estimate for every section
-        this plan would have written, so it read several times higher than the run
-        dashboard's spend and invited exactly the question it did. What the gate needs to
-        show is the total being agreed to; what has gone already is on the run console.
-      #}
-      <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">
-          Estimated cost of this plan
-        </dt>
-        <dd class="mt-1 font-mono text-sm" id="estimated-cost">£{{ payload.estimated_cost_gbp }}</dd>
-        <p class="mt-1 text-xs text-slate-500" id="estimated-cost-note">
-          Planning already spent, plus the estimate for every section listed above. Approving
-          agrees to this total; the run console shows what has actually gone.
+  {% call ui.sheet("Cost and time") %}
+    <div class="grid gap-6 sm:grid-cols-2">
+      <div id="estimated-cost">
+        {{ ui.figure("Estimated cost of this plan", "£" ~ payload.estimated_cost_gbp) }}
+        <p class="mt-1 type-body-sm text-ink-muted" id="estimated-cost-note">
+          {# Not "spent on planning": the figure is the planner's actual spend plus the
+             forward estimate for every section this plan would write. What the gate shows
+             is the total being agreed to; what has gone already is on the run console. #}
+          Planning already spent, plus the estimate for every section listed above.
+          Approving agrees to this total; the run console shows what has actually gone.
         </p>
       </div>
-      <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Estimated runtime</dt>
-        <dd class="mt-1 font-mono text-sm" id="estimated-runtime">
-          {{ payload.estimated_runtime_seconds }} s
-        </dd>
+      <div id="estimated-runtime">
+        {{ ui.figure("Estimated runtime", payload.estimated_runtime_seconds ~ " s") }}
       </div>
-    </dl>
-  </section>
-
-  {% if decided %}
-    <section
-      class="mt-8 rounded-md border border-slate-300 bg-slate-100 p-4 dark:border-slate-700 dark:bg-slate-800"
-      role="status"
-      id="already-decided"
-    >
-      <p class="text-sm text-slate-800 dark:text-slate-200">
-        This gate was already <strong>{{ decided | lower }}</strong>. A decision is not a state
-        to be re-asserted; changing it needs a new run.
-      </p>
-    </section>
-  {% else %}
-    <form method="post" action="/runs/{{ job.id }}/gates/{{ gate }}" class="mt-8 space-y-4" id="gate-form">
-      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-      {#
-        The hash of exactly the structure rendered above. If the plan changed between this
-        page being served and the button being pressed, the workflow refuses to continue on
-        it -- an approval of something else is not an approval of this.
-      #}
-      <input type="hidden" name="payload_hash" id="payload-hash" value="{{ payload_hash }}" />
-
-      <div>
-        <label for="notes" class="block text-sm font-medium">Notes (optional)</label>
-        <textarea
-          id="notes"
-          name="notes"
-          rows="3"
-          maxlength="4000"
-          class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-          placeholder="Why you approved or rejected this. Recorded in the audit trail."
-        ></textarea>
-      </div>
-
-      <div class="flex flex-wrap gap-3">
-        <button
-          type="submit"
-          name="decision"
-          value="APPROVED"
-          id="approve"
-          class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
-        >
-          Approve and continue
-        </button>
-        <button
-          type="submit"
-          name="decision"
-          value="REJECTED"
-          id="reject"
-          class="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-        >
-          Reject and stop
-        </button>
-      </div>
-
-      <p class="text-xs text-slate-500">
-        Approving records a hash of exactly what is shown on this page, so an approval
-        cannot be transferred to a different plan.
-      </p>
-    </form>
-  {% endif %}
+    </div>
+  {% endcall %}
 {% endblock %}

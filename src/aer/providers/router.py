@@ -50,10 +50,27 @@ _KNOWN_ROLES: Final[frozenset[str]] = frozenset(
         "report_writer",
         "peer_proposal",
         "theme_proposal",
+        # The authored half of the review verdict (ADR 0087): one sentence over a frozen
+        # subject, so the cheapest route is the right default.
+        "verdict",
         # The cheaper route a descriptive section's definition row may name (gap O1).
         # A route, not a capability: the writer keeps the report_writer role's registry
         # definition and only its bill changes.
         "section_writer_workhorse",
+        # What each side of an unsettled challenge assumes and implies (ADR 0095). Six
+        # short fields over arguments that have already stopped changing, so the cheapest
+        # route is the right default — it decides nothing and reaches no report.
+        "challenge_brief",
+        # One premise read against the facts that arrived after it was written (ADR 0079).
+        # Code has already measured the crossing; the model interprets within the bounds
+        # it is handed (ADR 0103).
+        "thesis_monitor",
+        # A closed position's decision, scored against the process (ADRs 0081, 0105). The
+        # judgement class of call, once per closed position.
+        "post_trade_reviewer",
+        # Commentary over a book's risk figures, per book and on the cheaper route
+        # (ADR 0080): downstream of everything, and the monthly cap notices it.
+        "risk_analyst",
         # The model that carries a web search (ADR 0092). A route, not an agent role: the
         # call runs one server-side search and code reads the listing, so the model's
         # only judgement is none at all — which is why the default is the cheapest model.

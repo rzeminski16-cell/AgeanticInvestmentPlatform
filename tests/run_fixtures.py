@@ -23,7 +23,9 @@ from aer.db.models import Job, JobStep, User
 from aer.providers.fake import FakeProvider
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
+from aer.services.approvals import payload_hash_for
 from aer.storage.local import LocalArtefactStore
+from aer.workflow.workflows.vertical_slice_v1 import gate_payload
 from tests.workflow_fixtures import CONDITIONAL_GATES, StubSecClient, make_provider
 
 __all__ = ["Driver", "start_run", "to_final_gate"]
@@ -65,6 +67,7 @@ class Driver:
             return outcome.status
 
     async def payload_hash_of(self, job_id: uuid.UUID, step: str) -> str:
+        """The hash the sealing step wrote, for tests that assert on the seal itself."""
         async with self._factory() as session:
             row = await session.scalar(
                 select(JobStep).where(JobStep.job_id == job_id, JobStep.step_key == step)
@@ -73,18 +76,27 @@ class Driver:
             return str((row.output_ref or {})["payload_hash"])
 
     async def approve(self, job_id: uuid.UUID, *, gate: GateKind, step: str) -> None:
+        """Approve the way an operator does: with the hash the review page computed.
+
+        See ``tests/test_workflow.py::approve`` for why this is not
+        :meth:`payload_hash_of`. Approving with the sealing step's own hash compares a
+        number against itself, and a live run found what that hides.
+        """
         async with self._factory() as session:
             job = await session.get(Job, job_id)
             user = await session.scalar(select(User))
             assert job is not None
             assert user is not None
+            assert await self.has_run(job_id, step), f"the {step} step has not run"
             await approval_service.record_decision(
                 session,
                 job=job,
                 gate=gate,
                 decision=Decision.APPROVED,
                 actor=user,
-                payload_hash=await self.payload_hash_of(job_id, step),
+                payload_hash=payload_hash_for(
+                    await gate_payload(session, job=job, gate=gate.value)
+                ),
             )
             await session.commit()
 

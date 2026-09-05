@@ -15,18 +15,23 @@
  * refresh is scheduled when the element is *parsed* and removing it afterwards does not
  * cancel it — a bare meta tag would keep reloading the page underneath the stream.
  *
+ * **The words are the server's.** A step row's visible status is the vocabulary's label,
+ * and this script never invents one: the machine status lives in each row's `data-status`
+ * attribute (which the stylesheet keys the dot on), and the label it writes comes from the
+ * `data-status-labels` map the server rendered. A class name is never composed here — a
+ * runtime-composed class is one the stylesheet scanner cannot see, and it renders with no
+ * colour at all.
+ *
  * **The elapsed clock is the answer to "has this stalled?".** A model call takes minutes and
  * changes nothing in the database while it runs, so the state frames stop and the page sits
  * still. A ticking counter, started from the server's own record of when the step began,
  * distinguishes a working run from a dead one without pretending to know which it is.
  *
  * **A status change re-fetches the page.** Most of what a status means to an operator is
- * chrome this script does not render: the approval banner and its buttons, the budget
- * notice, the report link. Reaching a gate is not terminal, so `done` never fires, and a
- * run that stopped for a decision used to sit there patched to AWAITING_APPROVAL with no
- * way to act on it until the operator refreshed by hand. Re-fetching is the honest fix —
- * the alternative is a second implementation of those banners in JavaScript, and the copy
- * that drifts is always this one.
+ * chrome this script does not render: the decision banner and its buttons, the budget
+ * notice, the report link, the recovery form. Re-fetching is the honest fix — the
+ * alternative is a second implementation of those banners in JavaScript, and the copy that
+ * drifts is always this one.
  */
 (function () {
   "use strict";
@@ -48,8 +53,6 @@
     /*
      * No stream available, and the noscript fallback did not fire because scripting is
      * on. The page still shows the state it was requested with; refreshing is manual.
-     * A scripted browser without EventSource is a museum piece, and museum pieces get
-     * the page, not a polling loop maintained for them alone.
      */
     return;
   }
@@ -59,16 +62,23 @@
     note.textContent = "Live. This page updates as the run progresses.";
   }
 
+  // The vocabulary's labels, authored by the server. An unknown status falls back to the
+  // machine word rather than to silence — honest, and exactly as rare as a new status.
+  var labels = {};
+  try {
+    labels = JSON.parse(root.dataset.statusLabels || "{}");
+  } catch (error) {
+    labels = {};
+  }
+
   // What the server rendered this markup for, and whether a re-fetch is already on its way.
-  // Several frames can arrive between asking for a reload and the page going away.
   var renderedStatus = root.dataset.status || "";
   var reloading = false;
   var lastReloadAchievedNothing = lastReloadFailed();
 
   /*
-   * Started before the stream opens, not after. Opening the connection and waiting for the
-   * first frame takes a moment, and a page whose clock only starts once the server has
-   * spoken looks frozen for exactly as long as the thing it exists to rule out.
+   * Started before the stream opens, not after: a page whose clock only starts once the
+   * server has spoken looks frozen for exactly as long as the thing it exists to rule out.
    */
   tick();
   window.setInterval(tick, 1000);
@@ -81,29 +91,17 @@
   });
 
   source.addEventListener("heartbeat", function (event) {
-    /*
-     * Says the web process is reading the database, and nothing more than that. Worded to
-     * claim exactly that much: a heartbeat proves this end is alive, not that the worker is.
-     */
+    // Says the web process is reading the database, and nothing more than that.
     seen(JSON.parse(event.data).at);
   });
 
   source.addEventListener("done", function (event) {
     source.close();
-    /*
-     * Reloaded rather than patched. A finished run reveals things this script does not
-     * render — the report link — and re-fetching the page is both simpler and guaranteed
-     * to agree with what the server thinks. The preceding `state` frame usually has this
-     * covered; this is the belt to its braces, and `refetch` makes the pair idempotent.
-     */
     refetch(JSON.parse(event.data || "{}").status);
   });
 
   source.addEventListener("error", function () {
-    /*
-     * EventSource reconnects by itself on a dropped connection, so this only reports.
-     * Replacing it with a manual retry loop would fight the browser's own backoff.
-     */
+    // EventSource reconnects by itself; this only reports.
     if (note) {
       note.textContent = "Reconnecting to the run…";
     }
@@ -114,11 +112,6 @@
     // and patching it would only make a stale banner look current.
     if (refetch(state.status)) {
       return;
-    }
-
-    var status = document.getElementById("run-status");
-    if (status && state.status) {
-      status.textContent = state.status;
     }
 
     var spend = document.getElementById("run-spend");
@@ -147,12 +140,11 @@
         return;
       }
       row.dataset.startedAt = step.started_at || "";
-      setField(row, "status", step.status);
+      row.dataset.status = step.status || "";
+      setField(row, "status", labels[step.status] || step.status);
       setField(row, "cost", "£" + step.cost_gbp);
-      paintDot(row, step.status);
       if (step.error) {
-        // The sentence, not the payload. `String(anObject)` is "[object Object]", which is
-        // the single least useful thing this line could say.
+        // The sentence, not the payload. `String(anObject)` is "[object Object]".
         setField(row, "error", step.error.message || JSON.stringify(step.error));
         setField(row, "error-code", step.error.code || "");
       }
@@ -173,7 +165,10 @@
     if (lastReloadAchievedNothing) {
       // Saying so beats looping silently, and the page below is still readable.
       if (note) {
-        note.textContent = "This run is now " + status + ". Refresh the page to act on it.";
+        note.textContent =
+          "This run is now " +
+          (labels[status] || status).toLowerCase() +
+          ". Refresh the page to act on it.";
       }
       return false;
     }
@@ -186,12 +181,9 @@
   /*
    * Whether the reload this tab asked for last time landed on a page rendered for the very
    * status it was trying to leave — a cached response, or a read that did not see the
-   * commit yet. Asking again would loop, and a reload loop hammers the server with the
-   * page unusable, so one wasted attempt is the budget.
-   *
-   * Keyed on what we reloaded *away from* rather than on the status we wanted, because a
-   * run visits RUNNING and AWAITING_APPROVAL once per gate: a per-status latch would work
-   * at the first gate and jam at the second.
+   * commit yet. Asking again would loop, so one wasted attempt is the budget. Keyed on
+   * what we reloaded *away from*, because a run visits RUNNING and AWAITING_APPROVAL once
+   * per gate: a per-status latch would work at the first gate and jam at the second.
    */
   function lastReloadFailed() {
     var prior = null;
@@ -226,7 +218,11 @@
       return;
     }
     if (state.current_step) {
-      summary.textContent = "Working on " + state.current_step + ".";
+      // The human name the server rendered on that step's own row; the key only as the
+      // fallback a brand-new step would briefly need.
+      var row = root.querySelector('[data-step="' + state.current_step + '"]');
+      var name = (row && row.dataset.label) || state.current_step;
+      summary.textContent = "Working on " + name.charAt(0).toLowerCase() + name.slice(1) + ".";
     } else if (state.status === "AWAITING_APPROVAL" || state.status === "BUDGET_EXCEEDED") {
       summary.textContent = "Stopped for you. Nothing is being spent.";
     } else {
@@ -247,8 +243,7 @@
       if (!cell) {
         continue;
       }
-      var status = row.querySelector('[data-field="status"]');
-      var running = status && status.textContent.trim() === "RUNNING";
+      var running = row.dataset.status === "RUNNING";
       cell.textContent = running ? since(row.dataset.startedAt) : "";
     }
   }
@@ -280,27 +275,6 @@
       return;
     }
     cell.textContent = "Server last checked at " + at.toLocaleTimeString() + ".";
-  }
-
-  function paintDot(row, status) {
-    var dot = row.querySelector('[data-field="dot"]');
-    if (!dot) {
-      return;
-    }
-    dot.className = "inline-block h-2 w-2 shrink-0 rounded-full " + dotColour(status);
-  }
-
-  function dotColour(status) {
-    if (status === "RUNNING") {
-      return "animate-pulse bg-sky-500";
-    }
-    if (status === "SUCCEEDED") {
-      return "bg-emerald-500";
-    }
-    if (status === "FAILED") {
-      return "bg-red-500";
-    }
-    return "bg-slate-300 dark:bg-slate-700";
   }
 
   function pad(value) {

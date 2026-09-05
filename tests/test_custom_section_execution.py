@@ -14,7 +14,7 @@ import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 from pydantic import ValidationError as PydanticValidationError
@@ -23,6 +23,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.base import AgentContext
 from aer.agents.custom_section import (
+    CLAIMS_BUDGET,
+    CLAIMS_CEILING,
     CustomSectionAgent,
     CustomSectionDraft,
     CustomSectionInput,
@@ -37,13 +39,22 @@ from aer.config import Settings
 from aer.core.concepts import CANONICAL_CONCEPTS
 from aer.core.enums import FactBasis, GateKind, JobStatus, Provider, SourceTier
 from aer.core.section_output import (
+    CLAIM_EDIT_NOTE,
+    INSUFFICIENT_EVIDENCE_CEILING,
+    LENGTH_EDIT_NOTE,
+    MAX_GAP_SENTENCES,
+    NUMERAL_EDIT_NOTE,
+    UNSOURCED_MATERIAL_CEILING,
+    confidence_ceiling,
     contract_violations,
+    gap_sentences,
     numerals_in,
     prose_word_count,
     trimmed_to_word_count,
     unsourced_numerals,
     without_document_references,
     without_product_names,
+    without_surplus_gap_sentences,
     without_unsourced_numeral_sentences,
 )
 from aer.db.models import (
@@ -58,7 +69,6 @@ from aer.db.models import (
     Report,
     ReportSection,
     ResearchPlan,
-    ResearchRequest,
     SectionStatus,
     SourceDocument,
     User,
@@ -66,7 +76,7 @@ from aer.db.models import (
 from aer.extract.html import extract_html
 from aer.providers.fake import FakeProvider, ScriptedResponse
 from aer.providers.router import Router
-from aer.sections.evidence import word_ceiling
+from aer.sections.evidence import Evidence, covered_figures, word_ceiling
 from aer.sections.registry import create_report_sections, sections_for_job
 from aer.services.extractions import record_excerpt
 from aer.services.skills import save_skill, set_enabled
@@ -74,11 +84,13 @@ from aer.skills.execution import MAX_GENERATION_ATTEMPTS, execute_custom_section
 from aer.skills.resolution import PLANNED_CUSTOM_SECTION_TOOLS, resolve_skills_for_plan
 from aer.storage.local import LocalArtefactStore
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
+from tests.request_fixtures import research_request
 from tests.test_skill_frontmatter import MOAT_DURABILITY
 from tests.test_workflow import approve, run_clearing_the_assumptions_gate, run_to_next_stop
 from tests.workflow_fixtures import (
     StubSecClient,
     assumption_proposal_draft,
+    authored_verdict,
     declared_schema_name,
     peer_slate,
     plan_critique,
@@ -431,6 +443,35 @@ class TestAReferenceIsNotAFigure:
         }
         assert unsourced_numerals(content, []) == []
 
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Proposition 5 \u2014 AI partner and capacity dependence is rising.",
+            "Pillar 3: the installed base renews.",
+            "Risk 2. Concentration in one customer.",
+            "Under Step 4) the plan reprices.",
+        ],
+    )
+    def test_the_writers_own_enumeration_is_a_reference(self, text: str) -> None:
+        """ADR 0054, amended: a heading's number is a label, and the separator after it
+        is what says so. The confirmation run lost a revise reply to "Proposition 5 \u2014"."""
+        assert unsourced_numerals({"s": text}, []) == []
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            # A decimal or a third digit is a quantity's shape, whatever label precedes it.
+            "Phase 12.5 \u2014 margin expansion.",
+            "Step 200 \u2014 units shipped.",
+            # The label excuses its own number and nothing after it.
+            "Step 2 \u2014 40 bps of margin.",
+            # An unlabelled number with a separator is still a figure.
+            "Deliver 5 \u2014 points of margin.",
+        ],
+    )
+    def test_the_enumeration_rule_excuses_no_quantity(self, text: str) -> None:
+        assert unsourced_numerals({"s": text}, []) != []
+
     def test_a_year_in_temporal_company_is_a_date(self) -> None:
         assert unsourced_numerals({"s": "Guidance was withdrawn in 2026."}, []) == []
         assert unsourced_numerals({"s": "Trading between 2019 and 2024 was flat."}, []) == []
@@ -501,6 +542,25 @@ class TestAReferenceIsNotAFigure:
         assert any("2014" in p for p in problems)
         assert any("2024" in p for p in problems)
 
+    def test_a_year_that_names_a_document_or_a_meeting_is_a_reference(self) -> None:
+        """The MSFT run (roadmap §2.1). Management & Governance was refused on two years
+        that named documents rather than quantities, and the mirror form — "the 2026
+        fiscal year" — had been excused since ADR 0054 while this one had not.
+        """
+        for text in (
+            "Set out in the company's 2025 proxy statement.",
+            "He will not stand for re-election at the 2026 annual shareholder meeting.",
+            "Revenue grew, per the 2025 Form 10-K.",
+            "Restated in the 2024 annual report and accounts.",
+        ):
+            assert unsourced_numerals({"s": text}, []) == [], text
+
+    def test_the_noun_is_the_anchor_and_a_quantity_reaches_none_of_them(self) -> None:
+        """The trade ADR 0054 made, held: the span is excused, never the value."""
+        problems = unsourced_numerals({"s": "Deferred revenue of 2025 million was booked."}, [])
+
+        assert any("2025" in problem for problem in problems)
+
 
 class TestACountIsNotAFigure:
     """ADR 0057: both sections the live run lost died over a count of their own prose —
@@ -526,6 +586,311 @@ class TestACountIsNotAFigure:
     def test_a_bare_trailing_number_is_a_figure(self) -> None:
         # Nothing follows it, so nothing marks it a count; it still needs lineage.
         assert unsourced_numerals({"s": "Total exposure stands at 42."}, []) != []
+
+
+class TestAFigureSaidDifferentlyIsStillTheFigure:
+    """Roadmap §2.1, from the MSFT run. A drafter does not write `331839000000`.
+
+    EDGAR facts are stored absolute — `scale` is 0 throughout, so Microsoft's FY2025
+    revenue is `331839000000` — and this platform's own renderer prints that as `331,839`
+    in a table of millions, while prose asked for longhand says "$331.8 billion". The
+    numeral rule compared digit strings, so every one of those spellings was an unsourced
+    numeral over a fact the section had cited, and it cost whole drafts.
+
+    The readings are `aer.core.figures`', which is where `cited_figure_agreement` has
+    always got them: the two questions are neighbours and there is now one answer.
+    """
+
+    _REVENUE = Decimal("331839000000")
+    _MARGIN = Decimal("0.4676")
+
+    def test_longhand_billions_are_the_stored_figure(self) -> None:
+        content = {"summary": "Revenue reached $331.8 billion."}
+
+        assert unsourced_numerals(content, ["Total revenue for the year."], [self._REVENUE]) == []
+
+    def test_a_table_of_millions_is_the_same_stored_figure(self) -> None:
+        """`render.display` renders money in millions, so a section may too."""
+        content = {"summary": "Revenue of 331,839 for the year."}
+
+        assert unsourced_numerals(content, ["Total revenue for the year."], [self._REVENUE]) == []
+
+    def test_a_percentage_is_the_stored_ratio(self) -> None:
+        content = {"summary": "The operating margin was 46.8%."}
+
+        assert unsourced_numerals(content, ["Operating margin."], [self._MARGIN]) == []
+
+    def test_the_precision_quoted_is_the_precision_judged(self) -> None:
+        """One decimal place and two are both true of the same ratio; 46.9 is neither.
+
+        A relative tolerance cannot draw this line — loose enough to accept a rounding of
+        a small ratio, it would accept half the errors the rule exists to catch.
+        """
+        assert unsourced_numerals({"s": "A margin of 46.76%."}, ["m"], [self._MARGIN]) == []
+        assert unsourced_numerals({"s": "A margin of 46.9%."}, ["m"], [self._MARGIN]) != []
+
+    def test_a_different_figure_is_still_refused(self) -> None:
+        """The whole point of the rule survives: only *this* figure's readings pass."""
+        problems = unsourced_numerals(
+            {"summary": "Revenue reached $412.6 billion."},
+            ["Total revenue for the year."],
+            [self._REVENUE],
+        )
+
+        assert any("412.6" in problem for problem in problems)
+
+    def test_a_claim_naming_no_figure_lends_no_reading(self) -> None:
+        """Cover comes from the figure a claim *names*, never from having claimed."""
+        content = {"summary": "Revenue reached $331.8 billion."}
+
+        assert unsourced_numerals(content, ["Total revenue for the year."], []) != []
+
+    def test_the_salvage_keeps_the_sentence_the_rule_admits(self) -> None:
+        """The eraser and the rule must agree, or the salvage returns a draft that fails
+        revalidation for the sentence it just decided to keep."""
+        content = {
+            "commentary": (
+                "The quarter was solid. Revenue reached $331.8 billion. "
+                "Margins expanded 340 points."
+            )
+        }
+
+        narrowed = without_unsourced_numeral_sentences(
+            content, ["Total revenue for the year."], [self._REVENUE]
+        )
+
+        assert narrowed == {"commentary": "The quarter was solid. Revenue reached $331.8 billion."}
+
+
+class TestAMalformedClaimCostsTheClaim:
+    """ADR 0096, from the MSFT run's record (roadmap §2.1).
+
+    Four of the eight sections that failed died here, each with zero bytes recorded. The
+    rule — a numeric claim names exactly one figure, a factual claim cites something — is a
+    relation between fields, so JSON Schema cannot state it and the server's decoder cannot
+    honour it. It was a `model_validator`, so it raised during the parse: the reply never became
+    an object, `last_candidate` was never set, and the salvage had nothing to narrow.
+    """
+
+    def test_the_reply_now_parses_so_there_is_something_to_narrow(self) -> None:
+        """The structural change. Constructing this used to raise."""
+        claim = ProposedClaim(statement="Revenue grew 12%.", kind="numeric")
+
+        assert claim.malformed_reason is not None
+        assert "not 0" in claim.malformed_reason
+
+    @pytest.mark.parametrize(
+        ("claim", "expected"),
+        [
+            (
+                ProposedClaim(statement="Revenue grew.", kind="numeric"),
+                "names exactly one figure",
+            ),
+            (
+                ProposedClaim(
+                    statement="Margins look safe.",
+                    kind="opinion",
+                    calculation_id=str(uuid.uuid4()),
+                ),
+                "must not name a figure",
+            ),
+            (
+                ProposedClaim(statement="The filing says so.", kind="factual"),
+                "needs at least one proposed citation",
+            ),
+            (ProposedClaim(statement="It may grow.", kind="forward_looking"), "stated basis"),
+        ],
+    )
+    def test_each_shape_says_what_it_owes(self, claim: ProposedClaim, expected: str) -> None:
+        reason = claim.malformed_reason
+
+        assert reason is not None
+        assert expected in reason
+
+    def test_a_sound_claim_has_no_reason(self) -> None:
+        claim = ProposedClaim(
+            statement="Revenue was $198,270 million.",
+            kind="numeric",
+            financial_fact_id=str(uuid.uuid4()),
+            citations=[ProposedCitation(extraction_id=str(uuid.uuid4()))],
+        )
+
+        assert claim.malformed_reason is None
+
+    def test_the_claims_list_budget_is_asked_for_and_the_ceiling_is_clear_of_it(self) -> None:
+        """The confirmation run's `business_overview` first reply carried 27 claims against
+        a `max_length` of 24 the prompt had never mentioned: 6,027 output tokens refused
+        for a bound the writer was not told. The same lesson as the claim lengths."""
+        assert CLAIMS_CEILING >= CLAIMS_BUDGET * 2
+        assert CustomSectionDraft.model_fields["claims"].metadata[0].max_length == CLAIMS_CEILING
+        prompt = CustomSectionAgent().system_prompt(_payload())
+        assert f"at most {CLAIMS_BUDGET} claims" in prompt
+
+    @pytest.mark.parametrize("figure", ["financial_fact_id", "calculation_id"])
+    def test_a_numeric_claim_stands_on_the_figure_it_names(self, figure: str) -> None:
+        """ADR 0109. The live run's `business_overview` was refused nine claims at a time for
+        omitting a citation on figures that are fact rows, not sentences in any excerpt. The
+        figure's lineage is the platform's own record; an excerpt is owed only by a factual
+        claim, which has nothing else to stand on."""
+        claim = ProposedClaim(
+            statement="Revenue was $198,270 million.", kind="numeric", **{figure: str(uuid.uuid4())}
+        )
+
+        assert claim.malformed_reason is None
+
+    def test_a_malformed_claim_lends_no_cover_on_its_way_out(self) -> None:
+        """It is about to be dropped, so letting it excuse a numeral would pass a figure
+        whose lineage is being thrown away in the same breath."""
+        malformed = ProposedClaim(statement="Revenue was $198,270 million.", kind="numeric")
+
+        covered, _ = covered_figures([malformed], evidence=Evidence())
+
+        assert unsourced_numerals({"s": "Revenue was $198,270 million."}, covered) != []
+
+    def test_nor_does_it_lend_the_figure_it_named(self) -> None:
+        """The reading is the sharper half of the same point: a claim that names two figures
+        is malformed however real each is, and neither stored value may cover a numeral."""
+        fact_id, calculation_id = str(uuid.uuid4()), str(uuid.uuid4())
+        malformed = ProposedClaim(
+            statement="Revenue grew.",
+            kind="numeric",
+            financial_fact_id=fact_id,
+            calculation_id=calculation_id,
+        )
+        evidence = Evidence(
+            figure_values={fact_id: Decimal("331839000000"), calculation_id: Decimal("0.18")}
+        )
+
+        covered, figures = covered_figures([malformed], evidence=evidence)
+
+        assert figures == []
+        assert unsourced_numerals({"s": "Revenue reached $331.8 billion."}, covered, figures) != []
+
+    def test_a_figure_the_pack_does_not_hold_lends_nothing(self) -> None:
+        """A sound-looking claim naming an id this run never assembled: the cover comes
+        from the stored value, so an id with no value behind it covers nothing."""
+        sound = ProposedClaim(
+            statement="Revenue reached $331.8 billion.",
+            kind="numeric",
+            financial_fact_id=str(uuid.uuid4()),
+            citations=[ProposedCitation(extraction_id=str(uuid.uuid4()))],
+        )
+
+        _, figures = covered_figures([sound], evidence=Evidence())
+
+        assert figures == []
+
+
+class TestTheGapSalvage:
+    """ADR 0100. The gap budget is right; refusing the whole draft for it was not.
+
+    Rule 6 says state the gap in one clause and move on, and a live report spent a third
+    of its prose describing absent disclosure — so the budget is enforced in code rather
+    than hoped for (R4). But the remedy threw away the other two thirds, which were about
+    the company and fully cited. Two sections of the MSFT run tripped it.
+    """
+
+    _PROSE: ClassVar[dict[str, Any]] = {
+        "commentary": (
+            "Operating cash flow rose. The proxy statement is not disclosed. "
+            "Margins widened. Executive compensation figures are not available. "
+            "Segment data is missing."
+        )
+    }
+
+    def test_the_first_remark_stays_and_the_repetition_goes(self) -> None:
+        narrowed = without_surplus_gap_sentences(self._PROSE)
+
+        assert narrowed == {
+            "commentary": (
+                "Operating cash flow rose. The proxy statement is not disclosed. Margins widened."
+            )
+        }
+
+    def test_what_remains_satisfies_the_rule_that_refused_it(self) -> None:
+        """The salvage and the rule must agree, or the repair hands back a draft the
+        revalidation refuses for the thing it just repaired."""
+        narrowed = without_surplus_gap_sentences(self._PROSE)
+
+        assert narrowed is not None
+        assert len(gap_sentences(narrowed)) <= MAX_GAP_SENTENCES
+
+    def test_the_first_is_the_first_a_reader_meets_across_fields(self) -> None:
+        """The allowance is spent by the walk, not per field: a section keeps one remark,
+        not one per string it happens to be split across."""
+        content = {
+            "summary": "Revenue grew. Segment detail is not disclosed.",
+            "detail": "Margins widened. Insider ownership is not reported. Buybacks continued.",
+        }
+
+        narrowed = without_surplus_gap_sentences(content)
+
+        assert narrowed == {
+            "summary": "Revenue grew. Segment detail is not disclosed.",
+            "detail": "Margins widened. Buybacks continued.",
+        }
+
+    def test_a_draft_within_the_budget_is_not_salvaged(self) -> None:
+        """Nothing to remove means the gap rule was not the problem, and the caller should
+        know that rather than be handed an identical draft."""
+        assert without_surplus_gap_sentences({"c": "All good. One thing is not disclosed."}) is None
+
+    def test_it_declines_rather_than_leaving_a_field_blank(self) -> None:
+        content = {
+            "summary": "Segment detail is not disclosed.",
+            "detail": "Insider ownership is not reported. Compensation is not available.",
+        }
+
+        assert without_surplus_gap_sentences(content) is None
+
+    def test_prose_that_is_not_about_the_disclosure_is_never_touched(self) -> None:
+        """The rule is not weakened: a sentence about the company survives however many
+        hedges it carries, because the phrases decide and none of them are here."""
+        content = {"c": "Growth may slow. Margins may compress. The mix may shift again."}
+
+        assert without_surplus_gap_sentences(content) is None
+
+
+class TestTheConfidenceCeiling:
+    """ADR 0099. Three facts about a section, which used to share one number.
+
+    The MSFT run's five surviving degraded sections all reported 0.30. Four of them had
+    been *shortened to fit* and nothing else; the fifth had sentences removed for
+    untraceable figures. Neither is an evidence shortfall, and a reader given one number
+    could not tell any of the three apart — which is the whole job of the number.
+    """
+
+    def test_a_clean_section_has_no_ceiling(self) -> None:
+        assert confidence_ceiling(insufficient_evidence=False) is None
+
+    def test_a_length_trim_alone_is_not_a_ceiling(self) -> None:
+        """Every sentence that survived it passed the validation the whole draft passed."""
+        assert confidence_ceiling(insufficient_evidence=False, edits=[LENGTH_EDIT_NOTE]) is None
+
+    def test_removing_unsourced_material_caps_at_its_own_ceiling(self) -> None:
+        for note in (NUMERAL_EDIT_NOTE, CLAIM_EDIT_NOTE):
+            assert (
+                confidence_ceiling(insufficient_evidence=False, edits=[note])
+                == UNSOURCED_MATERIAL_CEILING
+            )
+
+    def test_an_evidence_shortfall_keeps_the_number_2_12_chose(self) -> None:
+        assert confidence_ceiling(insufficient_evidence=True) == INSUFFICIENT_EVIDENCE_CEILING
+
+    def test_the_lowest_ceiling_wins(self) -> None:
+        """A section can be both, and the reader is owed the weaker of the two claims."""
+        assert (
+            confidence_ceiling(insufficient_evidence=True, edits=[NUMERAL_EDIT_NOTE])
+            == INSUFFICIENT_EVIDENCE_CEILING
+        )
+
+    def test_a_trim_beside_a_lineage_edit_does_not_soften_it(self) -> None:
+        assert (
+            confidence_ceiling(
+                insufficient_evidence=False, edits=[LENGTH_EDIT_NOTE, NUMERAL_EDIT_NOTE]
+            )
+            == UNSOURCED_MATERIAL_CEILING
+        )
 
 
 class TestTheSalvage:
@@ -584,10 +949,25 @@ class TestAProductNameIsNotAFigure:
             "Adoption of Windows 11 accelerated in the commercial channel.",
             "The Xbox 360 era is long past.",
             "Deliveries of the Boeing 737 resumed.",
+            # At a clause or a sentence boundary, which is where a product name in a list
+            # usually sits. The MSFT run (roadmap §2.1) lost Business Overview here: the
+            # trailing guard refused a word character *and* any stop or comma, so the same
+            # name this rule already excused mid-clause was a figure at the end of one.
+            "Business applications: Dynamics 365, ERP and CRM.",
+            "The suite includes Dynamics 365.",
+            "Sold as Dynamics 365 and Office 365.",
         ],
     )
     def test_a_number_inside_a_name_is_excused(self, text: str) -> None:
         assert unsourced_numerals({"s": text}, []) == []
+
+    @pytest.mark.parametrize(
+        "text", ["Income was 365,000.", "It reached 365.25.", "Azure 1,234 was the figure."]
+    )
+    def test_a_separator_that_really_is_one_still_blocks_the_erasure(self, text: str) -> None:
+        """The guard's actual job: a stop or comma with digits after it is part of the
+        number, and the number is a figure."""
+        assert unsourced_numerals({"s": text}, []) != []
 
     @pytest.mark.parametrize(
         "text",
@@ -779,17 +1159,27 @@ class TestARatingIsUnrepresentable:
                 {"content": {"summary": "s"}, "claims": [], "rating": "Buy"}
             )
 
-    def test_a_numeric_claim_names_exactly_one_figure(self) -> None:
-        with pytest.raises(PydanticValidationError):
-            ProposedClaim(
-                statement="Revenue was 100.",
-                kind="numeric",
-                citations=[ProposedCitation(extraction_id="b")],
-            )
+    def test_the_claim_rules_are_refused_rather_than_unrepresentable(self) -> None:
+        """ADR 0096. These two used to raise here, and raising was the defect.
 
-    def test_an_opinion_needs_a_basis_not_a_figure(self) -> None:
-        with pytest.raises(PydanticValidationError):
-            ProposedClaim(statement="The moat is durable.", kind="opinion")
+        The rule is a relation between fields, so JSON Schema cannot state it and the
+        server's decoder cannot honour it — the reply arrives breaking it whatever this
+        model says, and raising during the parse meant the whole billed draft was lost
+        rather than the one claim. It is refused in `validate_draft` and dropped by the
+        salvage now; `TestAMalformedClaimCostsTheClaim` above holds both, and the
+        `claims` table's own check constraint is still the last word on what is stored.
+        """
+        no_figure = ProposedClaim(
+            statement="Revenue was 100.",
+            kind="numeric",
+            citations=[ProposedCitation(extraction_id="b")],
+        )
+        opinion_with_a_figure = ProposedClaim(
+            statement="The moat is durable.", kind="opinion", calculation_id=str(uuid.uuid4())
+        )
+
+        assert no_figure.malformed_reason is not None
+        assert opinion_with_a_figure.malformed_reason is not None
 
 
 class TestACitationIsAnOpaqueHandle:
@@ -822,7 +1212,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     db_session.add(user)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -839,7 +1229,6 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
 
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version=WORKFLOW_VERSION,
         code_version="test",
         status=JobStatus.RUNNING,
@@ -878,7 +1267,6 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
 
     document = SourceDocument(
         work_order_id=request.id,
-        request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,
         url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",
@@ -946,7 +1334,11 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     job.plan_id = plan.id
 
     resolved = await resolve_skills_for_plan(
-        db_session, request=request, plan=plan, settings=settings, router=Router(settings)
+        db_session,
+        request=request,
+        work_order_id=request.id,
+        settings=settings,
+        router=Router(settings),
     )
     assert resolved.definitions, "the skill must project a section definition"
     await create_report_sections(db_session, job_id=job.id, definitions=list(resolved.definitions))
@@ -1313,6 +1705,7 @@ def moat_provider() -> FakeProvider:
                 challenges=[], coverage_note="Scripted fixture: no challenge raised."
             ),
             "AssumptionProposalDraft": assumption_proposal_draft,
+            "AuthoredVerdict": authored_verdict,
             "PeerSlate": peer_slate,
             "PlanCritique": plan_critique,
             "ThemeSlate": theme_slate,
@@ -1359,7 +1752,6 @@ class TestTheMoatDurabilityExampleEndToEnd:
         await db_session.flush()
         document = SourceDocument(
             work_order_id=request.id,
-            request_id=request.id,
             job_id=job.id,
             artefact_id=artefact.id,
             url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",

@@ -1,90 +1,87 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
 
-{# The settings screen. Cost and method only; credentials are shown as present-or-absent and
-   never as values, for the reason in ADR 0050. #}
+{#
+  The settings screen. Cost and method only; credentials are shown as present-or-absent and
+  never as values, for the reason in ADR 0050.
+#}
 
 {% block title %}Settings &middot; Tracework Invest{% endblock %}
 
 {% block content %}
-  <div>
-    <h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
-    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-      Changes apply to runs that <em>start</em> after them. A run reads its configuration
-      once, at the beginning, so a routing change mid-run cannot make its record describe two
-      different platforms.
-    </p>
-  </div>
+  {{ ui.page_header(
+    "Settings",
+    eyebrow="THE PLATFORM",
+    identity="Changes apply to runs that start after them. A run reads its configuration once, at the beginning, so a routing change mid-run cannot make its record describe two different platforms.",
+  ) }}
 
   {% if saved %}
-    <p class="mt-4 rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" id="saved">
-      Saved.
-    </p>
+    <div id="saved">
+      {{ ui.callout("success", "Saved", "The next run to start will read this value.") }}
+    </div>
   {% endif %}
   {% if error %}
-    <p class="mt-4 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200" id="error">
-      {{ error }}
-    </p>
+    <div id="error">
+      {{ ui.callout("refusal", "Nothing was saved", error) }}
+    </div>
   {% endif %}
 
-  <div class="mt-8 space-y-8">
-    {% for item in overridable %}
-      <form method="post" action="/settings" class="space-y-2" id="form-{{ item.key }}">
-        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-        <input type="hidden" name="key" value="{{ item.key }}" />
-        <label for="value-{{ item.key }}" class="block text-sm font-medium">{{ item.label }}</label>
-        <p class="text-xs text-slate-500">{{ item.help_text }}</p>
-        {% if item.key in ("model_routes", "house_style") %}
-          <textarea
-            id="value-{{ item.key }}"
-            name="value"
-            rows="{{ 14 if item.key == "model_routes" else 7 }}"
-            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-900"
-          >{{ values[item.key] }}</textarea>
-        {% else %}
-          <input
-            type="text"
-            id="value-{{ item.key }}"
-            name="value"
-            value="{{ values[item.key] }}"
-            class="w-48 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
-          />
-        {% endif %}
-        <div class="flex items-center gap-3">
-          <button
-            type="submit"
-            class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-slate-100 dark:text-slate-900"
-          >
-            Save
-          </button>
-          {% if item.key in overrides %}
-            <span class="text-xs text-amber-700 dark:text-amber-400">
-              Overridden here; the value in .env is not being used.
-            </span>
+  {% call ui.sheet("Cost and method") %}
+    <div class="flex flex-col divide-y divide-line">
+      {% for item in overridable %}
+        <form method="post" action="/settings" class="flex flex-col gap-2 py-5 first:pt-0 last:pb-0" id="form-{{ item.key }}">
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+          <input type="hidden" name="key" value="{{ item.key }}" />
+          <label for="value-{{ item.key }}" class="block type-label text-ink">{{ item.label }}</label>
+          <p class="max-w-prose type-body-sm text-ink-muted">{{ item.help_text }}</p>
+          {% if item.key in ("model_routes", "house_style") %}
+            <textarea
+              id="value-{{ item.key }}"
+              name="value"
+              rows="{{ 14 if item.key == "model_routes" else 7 }}"
+              class="w-full overflow-x-auto rounded-sm border border-control-boundary bg-surface p-3 type-data-sm text-ink"
+            >{{ values[item.key] }}</textarea>
           {% else %}
-            <span class="text-xs text-slate-500">Currently from .env or the default.</span>
+            <input
+              type="text"
+              id="value-{{ item.key }}"
+              name="value"
+              value="{{ values[item.key] }}"
+              class="min-h-11 w-48 rounded-sm border border-control-boundary bg-surface px-3 type-data text-ink"
+            />
           {% endif %}
-        </div>
-      </form>
-    {% endfor %}
-  </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <button
+              type="submit"
+              class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong"
+            >
+              Save {{ item.label }}
+            </button>
+            {% if item.key in overrides %}
+              <span class="type-body-sm text-warning-ink">
+                Overridden here; the value in .env is not being used.
+              </span>
+            {% else %}
+              <span class="type-body-sm text-ink-subtle">Currently from .env or the default.</span>
+            {% endif %}
+          </div>
+        </form>
+      {% endfor %}
+    </div>
+  {% endcall %}
 
-  <h2 class="mt-12 text-lg font-semibold">Credentials</h2>
-  <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-    Kept in <code class="font-mono text-xs">.env</code> and <strong>not editable here</strong>.
-    This table stores what it holds in the database, and the database goes into every backup
-    <code class="font-mono text-xs">aer backup</code> writes &mdash; a key put here would be
-    copied to wherever those go. Shown as present or absent only. See ADR 0050.
-  </p>
-  <ul class="mt-3 space-y-1 text-sm" id="secrets">
-    {% for name, present in secrets.items() %}
-      <li class="flex justify-between border-b border-slate-100 py-1 dark:border-slate-800">
-        <span class="font-mono text-xs">{{ name }}</span>
-        {% if present %}
-          <span class="text-emerald-700 dark:text-emerald-400">set</span>
-        {% else %}
-          <span class="text-slate-500">not set</span>
-        {% endif %}
-      </li>
-    {% endfor %}
-  </ul>
+  {% call ui.sheet("Credentials", subtitle="Kept in .env and not editable here. This table stores what it holds in the database, and the database goes into every backup aer backup writes — a key put here would be copied to wherever those go. Shown as present or absent only. See ADR 0050.") %}
+    <ul class="flex flex-col divide-y divide-line" id="secrets">
+      {% for name, present in secrets.items() %}
+        <li class="flex justify-between py-2">
+          <span class="type-data-sm text-ink">{{ name }}</span>
+          {% if present %}
+            {{ ui.status("success", "set") }}
+          {% else %}
+            {{ ui.status("muted", "not set") }}
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endcall %}
 {% endblock %}

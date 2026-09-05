@@ -1,13 +1,15 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
 
 {#
-  The second click. A figure on the valuation page links here; every input below links to the
-  fact, assumption or calculation underneath it. That is the two-click standard `docs/archive/PLAN.md`
-  set for evidence in Phase 2, applied to arithmetic.
+  The second click. A figure on the valuation page links here; every input below carries a
+  provenance badge that walks to the fact, assumption or calculation underneath it. That is
+  the two-click standard `docs/archive/PLAN.md` set for evidence in Phase 2, applied to
+  arithmetic.
 
   The lineage tree is flattened into rows with a depth, in `aer.services.valuation_view`,
-  rather than recursed over in Jinja. A nested macro would be harder to read and impossible to
-  test on its own.
+  and each row's value arrives as a figure the handler already built — the template formats
+  no Decimal and composes no origin link.
 
   An input that no longer resolves is shown *as unresolved* rather than hidden. A provenance
   viewer that quietly dropped a dangling reference would be claiming a chain it cannot show.
@@ -16,113 +18,80 @@
 {% block title %}{{ calculation.name }} &middot; Tracework Invest{% endblock %}
 
 {% block content %}
-  <nav class="text-sm">
-    {% if back_href %}
-      <a href="{{ back_href }}" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
-        &larr; Back to the valuation
-      </a>
-    {% endif %}
-  </nav>
+  {{ ui.page_header(
+    calculation.name,
+    eyebrow="CALCULATION",
+    breadcrumbs=([{"href": back_href, "label": "The valuation"}] if back_href else []),
+  ) }}
 
-  <h1 class="mt-4 text-2xl font-semibold tracking-tight">{{ calculation.name }}</h1>
+  {{ ui.verdict("HOW THIS NUMBER EXISTS", verdict.composed, tone=verdict.tone.value) }}
 
-  <section class="mt-4 rounded-md border border-slate-300 p-4 dark:border-slate-700">
-    <p class="text-3xl font-mono font-semibold" id="output-value">
-      {{ calculation.output_value }}
-      <span class="text-base font-normal text-slate-500">{{ calculation.output_unit }}</span>
+  {% call ui.sheet() %}
+    <p class="type-data-xl text-ink" id="output-value">
+      {{ shown_output }}
     </p>
-    <p class="mt-3 font-mono text-sm" id="formula">{{ calculation.formula }}</p>
-    <p class="mt-2 text-xs text-slate-500">
-      Computed by <span class="font-mono">{{ calculation.function_ref }}</span> at code version
-      <span class="font-mono">{{ calculation.code_version }}</span>.
+    <p class="mt-4 overflow-x-auto type-data-sm text-ink" id="formula">{{ calculation.formula }}</p>
+    <p class="mt-3 type-body-sm text-ink-muted">
+      Computed by <span class="type-data-sm">{{ calculation.function_ref }}</span> at code version
+      <span class="type-data-sm">{{ calculation.code_version }}</span>.
     </p>
-  </section>
+  {% endcall %}
 
   {% if calculation.parameters %}
-    <section class="mt-8">
-      <h2 class="text-lg font-semibold tracking-tight">Structural choices</h2>
-      <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-        Recorded, not measured. These are decisions about how the figure was computed rather
-        than evidence it rests on &mdash; which terminal method, how many periods, which
-        basis.
-      </p>
-      <dl class="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2" id="parameters">
+    {% call ui.sheet("Structural choices", subtitle="Recorded, not measured. These are decisions about how the figure was computed rather than evidence it rests on — which terminal method, how many periods, which basis.") %}
+      <dl class="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2" id="parameters">
         {% for key, value in calculation.parameters.items() %}
-          <div class="rounded border border-slate-200 p-2 dark:border-slate-800">
-            <dt class="font-mono text-xs text-slate-500">{{ key }}</dt>
-            <dd class="font-mono">{{ value }}</dd>
+          <div class="border-b border-line pb-2">
+            <dt class="type-data-sm text-ink-muted">{{ key }}</dt>
+            <dd class="mt-1 type-data text-ink">{{ value }}</dd>
           </div>
         {% endfor %}
       </dl>
-    </section>
+    {% endcall %}
   {% endif %}
 
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold tracking-tight">What it rests on</h2>
+  {% call ui.sheet("What it rests on") %}
     {% if lineage %}
-      <div class="mt-3 overflow-x-auto">
-        <table class="w-full min-w-[36rem] border-collapse text-sm" id="lineage">
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[36rem] border-collapse" id="lineage">
+          <caption class="sr-only">
+            Every input this calculation rests on, recursively, with where each came from.
+          </caption>
           <thead>
-            <tr class="border-b border-slate-300 text-left dark:border-slate-700">
-              <th scope="col" class="py-2 pr-4 font-semibold">Input</th>
-              <th scope="col" class="py-2 pr-4 font-semibold">Kind</th>
-              <th scope="col" class="py-2 pr-4 text-right font-semibold">Value</th>
-              <th scope="col" class="py-2 pr-4 font-semibold">Origin</th>
+            <tr class="border-b border-line-strong text-left">
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Input</th>
+              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Value</th>
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Origin</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="divide-y divide-line">
             {% for node in lineage %}
-              <tr class="border-b border-slate-200 dark:border-slate-800">
-                <th scope="row" class="py-2 pr-4 text-left font-normal">
-                  <span style="padding-left: {{ node.depth }}rem">{{ node.label or node.kind }}</span>
+              <tr>
+                <th scope="row" class="py-3 pr-4 text-left">
+                  <span class="type-body text-ink" style="padding-left: {{ node.depth }}rem">{{ node.label or node.kind }}</span>
                   {% if node.kind == 'assumption' and node.detail.justification %}
                     {# The justification, in place. An assumption is the judgement in a
                        chain of measurements; naming it without saying why would make the
                        one arguable input the one nobody can argue with. #}
                     <span
-                      class="mt-0.5 block text-xs text-slate-500"
+                      class="mt-1 block max-w-prose type-body-sm text-ink-muted"
                       style="padding-left: {{ node.depth }}rem"
                       data-field="justification"
                     >{{ node.detail.justification }}</span>
                   {% endif %}
                 </th>
-                <td class="py-2 pr-4">
-                  <span class="font-mono text-xs">{{ node.kind }}</span>
+                <td class="py-3 pr-4 text-right type-data text-ink">
+                  {{ node.figure.value_display }}
                 </td>
-                <td class="py-2 pr-4 text-right font-mono">
-                  {{ node.value if node.value is not none else '—' }}
-                  <span class="text-xs text-slate-500">{{ node.unit }}</span>
-                </td>
-                <td class="py-2 pr-4">
-                  {% if node.kind == 'calculation' and node.depth > 0 %}
-                    <a
-                      href="/calculations/{{ node.id }}"
-                      class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
-                    >the calculation</a>
-                  {% elif node.kind == 'assumption' and request_id %}
-                    <a
-                      href="/requests/{{ request_id }}/assumptions/{{ node.id }}"
-                      class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
-                    >the assumption</a>
-                  {% elif node.kind == 'fact' and job_id and node.detail.source_document_id %}
-                    {# The end of the walk: the document the figure was reported in, with
-                       its artefact digest. A leaf that only said "a reported figure"
-                       would stop one step short of the bytes. #}
-                    <a
-                      href="/runs/{{ job_id }}/sources#source-{{ node.detail.source_document_id }}"
-                      class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
-                      data-field="fact-source"
-                    >the document it was reported in</a>
-                  {% elif node.kind == 'fact' %}
-                    <span class="text-xs text-slate-500">
-                      a reported figure &mdash; see the sources for this run
-                    </span>
-                  {% elif not node.is_resolved %}
-                    <span class="text-xs font-semibold text-amber-700 dark:text-amber-400">
-                      this input points at something no longer here
-                    </span>
+                <td class="py-3 pr-4">
+                  {% if node.figure.provenance %}
+                    {% if node.kind == 'fact' and node.detail.source_document_id %}
+                      <span data-field="fact-source">{{ ui.provenance(node.figure.provenance) }}</span>
+                    {% else %}
+                      {{ ui.provenance(node.figure.provenance) }}
+                    {% endif %}
                   {% else %}
-                    <span class="text-xs text-slate-500">this figure</span>
+                    <span class="type-body-sm text-warning-ink">{{ node.figure.unavailable_because }}</span>
                   {% endif %}
                 </td>
               </tr>
@@ -131,18 +100,17 @@
         </table>
       </div>
     {% else %}
-      <p class="mt-2 text-sm" id="no-lineage">
+      <p class="type-body text-ink" id="no-lineage">
         This calculation records no inputs.
       </p>
     {% endif %}
-  </section>
+  {% endcall %}
 
   {% if calculation.assumptions %}
-    <section class="mt-8">
-      <h2 class="text-lg font-semibold tracking-tight">What the formula takes for granted</h2>
-      <ul class="mt-2 list-disc space-y-2 pl-5 text-sm" id="assumptions">
+    {% call ui.sheet("What the formula takes for granted") %}
+      <ul class="flex list-disc flex-col gap-2 pl-5 type-body text-ink" id="assumptions">
         {% for note in calculation.assumptions %}<li>{{ note }}</li>{% endfor %}
       </ul>
-    </section>
+    {% endcall %}
   {% endif %}
 {% endblock %}

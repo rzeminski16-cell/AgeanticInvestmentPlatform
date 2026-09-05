@@ -14,9 +14,11 @@ reconcile against.
 
 **The cost basis convention is ADR 0085's and it is not a tax computation.** A pooled
 average, per portfolio and per security, walked in trade-date order. It is the shape of a UK
-Section 104 holding without the same-day rule, the thirty-day rule or share reorganisations,
-so it answers "what did I pay for what I still hold?" and not "what is my chargeable gain?".
-Every surface showing it has to say so.
+Section 104 holding without the same-day rule or the thirty-day rule, so it answers "what
+did I pay for what I still hold?" and not "what is my chargeable gain?". Every surface
+showing it has to say so. A *split* is the one share reorganisation the walk knows
+(ADR 0094): a movement in the ``ratio`` unit multiplies the running share count and leaves
+the pool's cost untouched; rights issues and demergers stay unmodelled.
 
 **Order matters, and that is why this module walks rather than sums.** Buy at £10, sell,
 then buy at £20 leaves a different cost from the same three trades in the other order. A
@@ -49,6 +51,7 @@ from aer.calc.units import (
 )
 
 __all__ = [
+    "RATIO",
     "SHARES",
     "acquisition_cost",
     "cash_balance",
@@ -72,40 +75,70 @@ __all__ = [
 # the caller rather than a check available here.
 SHARES: Final = Unit.base("shares")
 
+# A share reorganisation's multiplier (ADR 0094). Dimensionless and deliberately its own
+# unit: a movement in `ratio` multiplies the running count instead of adding to it, and the
+# unit is what lets the walk tell the two apart without a flag the ledger cannot record.
+RATIO: Final = Unit.base("ratio")
+
 
 @traced(
     name="quantity_held",
-    formula="held = Σ movement_i",
+    formula="held = fold in trade-date order: a share movement adds; a ratio multiplies",
     assumptions=(
         "Every movement of this security up to the as-of date is present. A holding "
         "computed from a partial history is wrong, not approximate.",
         "Quantities are signed: an acquisition is positive and a disposal negative.",
+        "A movement in the `ratio` unit is a share reorganisation: the running count is "
+        "multiplied by it and nothing is added (ADR 0094).",
     ),
 )
 def quantity_held(_context: CalculationContext, *, movements: Sequence[Quantity]) -> Quantity:
     """How much of one security the book holds.
 
     Each movement is recorded as its own input, so a reader asking "why does this say 1,340
-    shares?" gets the list of trades rather than a total.
+    shares?" gets the list of trades rather than a total. The fold is in trade-date order,
+    and since ADR 0094 that order carries arithmetic: a split multiplies whatever the
+    trades before it built, so the same ratio lands differently in a different place.
 
     Raises:
-        CalculationError: If the movements are empty, or if the total is negative — a book
-            that appears to have sold what it never bought has trades missing, and a short
-            position is not modelled. Computing through it would produce a negative holding
-            whose market value is negative and whose weight is negative, none of which looks
-            wrong enough to notice.
-        UnitMismatchError: If the movements are not all in one unit.
+        CalculationError: If there are no share movements — a book whose only rows are
+            reorganisations has nothing to reorganise; if a ratio is not positive; or if
+            the total goes negative at the end — a book that appears to have sold what it
+            never bought has trades missing, and a short position is not modelled.
+        UnitMismatchError: If the share movements are not all in one unit.
     """
-    total = _summed(movements, what="movement")
-    if total.value < 0:
+    dealt = [movement for movement in movements if movement.unit != RATIO]
+    if not dealt:
         message = (
-            f"These movements net to {total.value} {total.unit.symbol}, which is less than "
+            "There are no movements to add — only reorganisations, or nothing at all. A "
+            "ratio multiplies what the trades built, and with no trades there is no "
+            "holding for it to be an answer about."
+        )
+        raise CalculationError(message, context={"movements": len(movements)})
+    unit = _one_unit(dealt)
+
+    total = Decimal(0)
+    for index, movement in enumerate(movements):
+        if movement.unit == RATIO:
+            if movement.value <= 0:
+                message = (
+                    f"Movement {index} is a reorganisation with a ratio of {movement.value}. "
+                    "A ratio that is not positive is not a reorganisation; a consolidation "
+                    "is a ratio below one, never below zero."
+                )
+                raise CalculationError(message, context={"index": index})
+            total *= movement.value
+        else:
+            total += movement.value
+    if total < 0:
+        message = (
+            f"These movements net to {total} {unit.symbol}, which is less than "
             "nothing held. Either a disposal was entered before the acquisition it disposes "
             "of, or trades are missing. Shorting is not modelled, and a negative holding "
             "would price and weight as though it were ordinary."
         )
-        raise CalculationError(message, context={"held": str(total.value)})
-    return total
+        raise CalculationError(message, context={"held": str(total)})
+    return Quantity.of(total, unit)
 
 
 @traced(
@@ -213,14 +246,18 @@ def cash_balance(_context: CalculationContext, *, effects: Sequence[Quantity]) -
     name="pooled_cost",
     formula=(
         "walk in trade-date order: an acquisition adds its cost and its units to the pool; "
-        "a disposal removes pool_cost * |units| / pool_units and those units. "
+        "a disposal removes pool_cost * |units| / pool_units and those units; "
+        "a split multiplies pool_units by its ratio and touches no cost. "
         "cost basis = the pool's remaining cost"
     ),
     assumptions=(
         "A pooled average, per portfolio and per security — the shape of a UK Section 104 "
         "holding (ADR 0085).",
-        "**Not a tax computation.** No same-day rule, no thirty-day rule, and no share "
-        "reorganisation. It answers what was paid for what is still held.",
+        "**Not a tax computation.** No same-day rule and no thirty-day rule. It answers "
+        "what was paid for what is still held.",
+        "A split multiplies the pool's units and leaves its cost untouched, so the average "
+        "per unit divides by the ratio — a UK Section 104 holding through a share "
+        "reorganisation (ADR 0094). Rights issues and demergers stay unmodelled.",
         "A disposal's own dealing costs do not touch the pool.",
         "The sequences are in trade-date order. The answer depends on that order.",
     ),
@@ -266,13 +303,38 @@ def pooled_cost(
 
     currency = _one_currency(acquisition_costs)
     # Called for its refusal rather than its answer: the output is money, but a movement
-    # list mixing shares with something else is a caller pooling two different things.
-    _one_unit(movements)
+    # list mixing shares with something else is a caller pooling two different things. A
+    # `ratio` entry is the one deliberate exception (ADR 0094) and is checked in the walk.
+    dealt = [movement for movement in movements if movement.unit != RATIO]
+    if not dealt:
+        message = (
+            "A cost basis needs at least one trade. A reorganisation multiplies what the "
+            "trades cost, and with no trades there is nothing for it to be an answer about."
+        )
+        raise CalculationError(message, context={"movements": len(movements)})
+    _one_unit(dealt)
 
     pool_units = Decimal(0)
     pool_cost = Decimal(0)
 
     for index, (movement, cost) in enumerate(zip(movements, acquisition_costs, strict=True)):
+        if movement.unit == RATIO:
+            if movement.value <= 0:
+                message = (
+                    f"Trade {index} is a reorganisation with a ratio of {movement.value}. "
+                    "A ratio that is not positive is not a reorganisation."
+                )
+                raise CalculationError(message, context={"index": index})
+            if cost.value != 0:
+                message = (
+                    f"Trade {index} is a split and carries a cost of {cost.value}. A split "
+                    "is not a purchase (ADR 0094): the pool's cost is untouched and only "
+                    "its units multiply."
+                )
+                raise CalculationError(message, context={"index": index, "cost": str(cost.value)})
+            pool_units *= movement.value
+            continue
+
         if movement.value > 0:
             pool_units += movement.value
             pool_cost += cost.value

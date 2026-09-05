@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 import structlog
 from sqlalchemy import select
@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from aer.calc.dcf import TerminalMethod
+from aer.calc.residual_income import TerminalTreatment
 from aer.calc.units import SourceKind, SourceTable
 from aer.charts import (
     Chart,
@@ -134,6 +135,17 @@ async def exportable_charts_for(
         omitted=[chart.key for chart in built if chart.placeholder],
     )
     return charts
+
+
+async def sensitivity_chart(session: AsyncSession, *, job: Job) -> Chart:
+    """The stored sensitivity grid, drawn for the valuation surface.
+
+    The same builder the report's exhibits use, salted the same way, so the page and the
+    document show one drawing — and the byte-identity the testing plan pins for the report
+    covers the page for free. A run with no stored grid gets the honest placeholder, which
+    the valuation handler declines to render rather than framing a picture of absence.
+    """
+    return sensitivity_heatmap(await _heatmap_input(session, job=job), hashsalt=str(job.id))
 
 
 async def internal_charts_for(
@@ -454,29 +466,67 @@ def _sums_from(target: Decimal, others: list[Decimal]) -> bool:
 # -- Scenarios ---------------------------------------------------------------------------------
 
 
+# The per-share calculation each valuation model records, what distinguishes two rows of the
+# same name, and which of them a single bar prefers.
+#
+# **Preferred, not merged.** The alternatives under each name are two answers rather than two
+# estimates of one, and a chart that mixed them across bars would compare cases on different
+# bases. Gordon growth leads for a discounted cash flow because it is the standard treatment;
+# fading to nothing leads for a bank because it is the conservative one, and a chart that has
+# to pick without the reader present should pick the claim that assumes least (ADR 0070).
+_PER_SHARE_ROWS: Final[dict[str, tuple[str, tuple[str, ...], str]]] = {
+    "value_per_share": (
+        "method",
+        (TerminalMethod.GORDON_GROWTH.value, TerminalMethod.EXIT_MULTIPLE.value),
+        "DCF, terminal methods",
+    ),
+    "residual_income_per_share": (
+        "treatment",
+        (TerminalTreatment.FADE_TO_NOTHING.value, TerminalTreatment.PERPETUAL_GROWTH.value),
+        "Residual income, terminal treatments",
+    ),
+}
+
+
+async def _per_share_rows(session: AsyncSession, *, job: Job) -> tuple[str, list[Calculation]]:
+    """This run's per-share calculations, and which model's name they are under.
+
+    One model runs per job (ADR 0070), so at most one of the two names has rows. Returning
+    the name beside them is what lets a caller pick the right discriminator without asking
+    the workflow what it did — and it is why a bank's charts are not silently empty.
+    """
+    rows = list(
+        await session.scalars(
+            select(Calculation)
+            .where(Calculation.job_id == job.id, Calculation.name.in_(_PER_SHARE_ROWS))
+            .order_by(Calculation.created_at, Calculation.sequence)
+        )
+    )
+    for name in _PER_SHARE_ROWS:
+        found = [row for row in rows if row.name == name]
+        if found:
+            return name, found
+    return "value_per_share", []
+
+
 async def _scenario_input(
     session: AsyncSession, *, job: Job, request: ResearchRequest
 ) -> ScenarioBridgeInput:
     """One bar per scenario whose valuation the ledger can attribute.
 
-    Attribution is the ``case`` parameter task 47 added to the DCF outcome calculations:
-    rows recorded before it exist carry no case and honestly cannot appear here.
+    Attribution is the ``case`` parameter task 47 added to the DCF outcome calculations and
+    ADR 0101 added to the bank model's: rows recorded before it exist carry no case and
+    honestly cannot appear here.
     """
     scenarios = await scenarios_for_request(session, request.id)
     if not scenarios:
         return ScenarioBridgeInput()
 
-    rows = list(
-        await session.scalars(
-            select(Calculation)
-            .where(Calculation.job_id == job.id, Calculation.name == "value_per_share")
-            .order_by(Calculation.created_at, Calculation.sequence)
-        )
-    )
+    name, rows = await _per_share_rows(session, job=job)
 
     cases: list[ScenarioBar] = []
     for scenario in scenarios:
-        row = _latest_for_case(rows, case=scenario.key)
+        row = _latest_for_case(name, rows, case=scenario.key)
         if row is None:
             continue
         cases.append(
@@ -494,21 +544,13 @@ async def _scenario_input(
     return ScenarioBridgeInput(currency=request.base_currency, cases=tuple(cases))
 
 
-def _latest_for_case(rows: list[Calculation], *, case: str) -> Calculation | None:
-    """The case's most recent per-share figure, Gordon growth preferred.
-
-    Preferred, not merged: the two terminal methods are two answers, and a chart that
-    mixed them across bars would compare cases on different bases.
-    """
-    for method in (TerminalMethod.GORDON_GROWTH, TerminalMethod.EXIT_MULTIPLE):
-        matching = [
-            row
-            for row in rows
-            if str(row.parameters.get("case", "base")) == case
-            and str(row.parameters.get("method", "")) == method.value
-        ]
-        if matching:
-            return matching[-1]
+def _latest_for_case(name: str, rows: list[Calculation], *, case: str) -> Calculation | None:
+    """The case's most recent per-share figure, in this model's preferred order."""
+    field, order, _ = _PER_SHARE_ROWS[name]
+    for value in order:
+        found = _latest_of(rows, case=case, field=field, value=value)
+        if found is not None:
+            return found
     return None
 
 
@@ -564,33 +606,25 @@ async def _field_input(
     Two bands at most: the spread between the base case's two terminal methods, and the
     spread across the scenario cases. Both ends of each band are recorded rows.
     """
-    rows = list(
-        await session.scalars(
-            select(Calculation)
-            .where(Calculation.job_id == job.id, Calculation.name == "value_per_share")
-            .order_by(Calculation.created_at, Calculation.sequence)
-        )
-    )
+    name, rows = await _per_share_rows(session, job=job)
+    field, order, label = _PER_SHARE_ROWS[name]
     bands: list[ValueBand] = []
 
-    base = [
-        _latest_for_case_and_method(rows, case="base", method=method)
-        for method in (TerminalMethod.GORDON_GROWTH, TerminalMethod.EXIT_MULTIPLE)
-    ]
+    base = [_latest_of(rows, case="base", field=field, value=value) for value in order]
     found = [row for row in base if row is not None]
     if found:
         values = [(row.output_value, row) for row in found]
         low, high = min(v for v, _ in values), max(v for v, _ in values)
         bands.append(
             ValueBand(
-                label="DCF, terminal methods",
+                label=label,
                 low=low,
                 high=high,
                 citations=tuple(
                     CitationRef(
                         kind="calculation",
                         identifier=str(row.id),
-                        label=f"Value per share ({row.parameters.get('method', '')})",
+                        label=f"Value per share ({row.parameters.get(field, '')})",
                     )
                     for row in found
                 ),
@@ -620,14 +654,13 @@ async def _field_input(
     )
 
 
-def _latest_for_case_and_method(
-    rows: list[Calculation], *, case: str, method: TerminalMethod
-) -> Calculation | None:
+def _latest_of(rows: list[Calculation], *, case: str, field: str, value: str) -> Calculation | None:
+    """The most recent row for one case under one terminal method or treatment."""
     matching = [
         row
         for row in rows
         if str(row.parameters.get("case", "base")) == case
-        and str(row.parameters.get("method", "")) == method.value
+        and str(row.parameters.get(field, "")) == value
     ]
     return matching[-1] if matching else None
 
@@ -704,8 +737,8 @@ async def _price_input(session: AsyncSession, *, request: ResearchRequest) -> Pr
     series = await adjusted_series_for(
         session,
         security,
-        as_of=request.as_of_date,
-        since=request.as_of_date - timedelta(days=_PRICE_WINDOW_DAYS),
+        as_of=request.work_order.as_of_date,
+        since=request.work_order.as_of_date - timedelta(days=_PRICE_WINDOW_DAYS),
     )
     if not series.bars:
         return PriceRelativeInput()

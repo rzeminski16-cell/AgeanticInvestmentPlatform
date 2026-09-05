@@ -32,13 +32,20 @@ from sqlalchemy import func, select
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import HTTP_303_SEE_OTHER, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
-from aer.api.deps import CurrentUser, DbSession, SettingsDep
+from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
 from aer.calc.units import CalculationError
 from aer.core.enums import AttestationKind, Grade, TransactionKind
-from aer.db.models import Attestation, Portfolio, PriceBar, Security, Transaction
+from aer.db.models import Attestation, Portfolio, PriceBar, Security, Transaction, User
 from aer.errors import AerError
+from aer.runtime import standalone_price_client
 from aer.services import calculations as calculation_service
+from aer.services import decisions as decision_service
+from aer.services import performance as performance_service
 from aer.services import portfolio as portfolio_service
+from aer.services import splits as splits_service
+from aer.services.listings import add_listing
+from aer.storage.local import LocalArtefactStore
+from aer.web import verdict as verdicts
 from aer.web import vocabulary
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
 from aer.web.templating import render
@@ -72,6 +79,19 @@ def _pounds(value: Decimal, currency: str) -> str:
     return f"{sign}{symbol}{abs(value):,.2f}"
 
 
+def _percent(value: Decimal) -> str:
+    """A rate, to one decimal place, with its sign always shown.
+
+    **The sign is never dropped**, even at zero, because the reader's question is which way
+    the book went and a bare "0.0%" answers it while "+0.0%" and "-0.0%" both say it moved
+    and rounded away. Rounding stops at one place on purpose: a return quoted to four is a
+    precision the price history does not have.
+    """
+    scaled = (value * 100).quantize(Decimal("0.1"))
+    sign = "-" if scaled < 0 else "+"
+    return f"{sign}{abs(scaled):,.1f}%"
+
+
 def _shares(value: Decimal) -> str:
     """A share count, with the trailing zeros a NUMERIC(38, 12) round-trip adds removed."""
     trimmed = value.normalize()
@@ -89,7 +109,7 @@ async def portfolio_page(
     stood on the thirtieth" is a thing an operator wants to send themselves, and a date held
     only in a form is a view that cannot be returned to.
     """
-    book = await _book_of(session, user_id=user.id)
+    book = await portfolio_service.default_book(session, user_id=user.id)
     token = new_csrf_token(settings)
 
     if book is None:
@@ -117,6 +137,14 @@ async def portfolio_page(
         )
         return broken
 
+    totals = _totals(view, book)
+    # Both are computed in the *same* ledger as the book above, which is what lets the
+    # exposure reuse it: a view from another context cites calculations this one does not
+    # hold, and grading it would be a claim about the part that happened to be readable.
+    returns = await performance_service.returns_as_at(session, context, portfolio=book, as_of=as_of)
+    exposure = await performance_service.exposure_as_at(
+        session, context, portfolio=book, as_of=as_of, view=view
+    )
     response = render(
         request,
         "portfolio/index.html",
@@ -126,10 +154,31 @@ async def portfolio_page(
             "view": view,
             "rows": [_holding_row(row, book) for row in view.holdings],
             "cash": [_cash_row(row, book) for row in view.cash],
-            "totals": _totals(view, book),
+            "totals": totals,
+            "returns": _return_rows(returns),
+            "returns_problem": returns.problem,
+            "exposure": _exposure_bands(exposure, book),
+            "concentration": _concentration(exposure),
+            "exposure_problem": exposure.problem,
+            "verdict": _book_verdict(view, totals=totals),
             "securities": await _dealable(session),
+            # The decisions a trade could carry out (ADR 0104): held, and of a kind that
+            # moves the book. Labelled by what was decided, so the operator picks the entry
+            # they wrote rather than an id.
+            "open_decisions": [
+                {
+                    "value": str(row.judgement_id),
+                    "label": (
+                        f"{decision_service.ACTION_WORDS[row.action].capitalize()} — "
+                        f"{row.thesis.title} ({row.judgement.held_at:%d %b %Y})"
+                    ),
+                }
+                for row in await decision_service.open_for_the_book(session, user_id=user.id)
+            ],
             "no_listings": NO_LISTINGS,
-            "kinds": list(TransactionKind),
+            # Every kind except SPLIT: a split is derived from the corporate action,
+            # never typed (ADR 0094), so the form does not offer it.
+            "kinds": [kind for kind in TransactionKind if kind is not TransactionKind.SPLIT],
             "cash_kinds": sorted(kind.value for kind in CASH_KINDS),
             "today": datetime.now(UTC).date().isoformat(),
             "csrf_field": CSRF_FIELD_NAME,
@@ -138,6 +187,45 @@ async def portfolio_page(
     )
     set_csrf_cookie(response, token)
     return response
+
+
+def _book_verdict(
+    view: portfolio_service.PortfolioView, *, totals: dict[str, object]
+) -> verdicts.Verdict:
+    """The sentence the book leads with, composed from what the walk actually resolved.
+
+    The book-level grade is stated here, once (the redesign's §10.1): every row's chip
+    stays for the row, and the sentence carries the weakest grade the whole book rests on.
+    An incomplete valuation refuses the success tone by construction — a partial book
+    presented as the all-clear is the exact failure the four coupled totals exist to stop.
+    """
+    if not view.holdings and not view.cash:
+        return verdicts.sentence(
+            ["nothing is recorded yet, so there is nothing to value"],
+            when_none="Nothing is recorded yet",
+            tone=vocabulary.Tone.MUTED,
+        )
+    if not totals["is_complete"]:
+        return verdicts.sentence(
+            [
+                "the four figures are withheld while a position cannot be valued",
+                "a partial sum shown as a total would overstate every weight on the page",
+            ],
+            when_none="The four figures are withheld",
+            tone=vocabulary.Tone.WARNING,
+            is_complete=False,
+            gap="the rows below name what could not be priced",
+        )
+    grade_clause = (
+        "some figures rest on typed, self-certified entries and are withheld from anything shared"
+        if view.rests_on_anything_typed
+        else "every figure rests on documented entries"
+    )
+    return verdicts.sentence(
+        [f"fully valued, net assets {totals['net_assets']}", grade_clause],
+        when_none="Fully valued",
+        tone=vocabulary.Tone.SUCCESS,
+    )
 
 
 @router.post("/portfolio", summary="Create the book")
@@ -149,7 +237,7 @@ async def create_book(
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
         return _refused(request, "Nothing was created.")
 
-    existing = await _book_of(session, user_id=user.id)
+    existing = await portfolio_service.default_book(session, user_id=user.id)
     if existing is not None:
         return RedirectResponse("/portfolio", status_code=HTTP_303_SEE_OTHER)
 
@@ -165,8 +253,12 @@ async def create_book(
 
 
 @router.post("/portfolio/transactions", summary="Record a transaction")
-async def record_transaction(
-    request: Request, session: DbSession, settings: SettingsDep, user: CurrentUser
+async def record_transaction(  # noqa: PLR0911 -- one refusal per thing a trade can get wrong
+    request: Request,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+    redis: RedisClient,
 ) -> Response:
     """Write down one thing that happened to the book.
 
@@ -176,7 +268,7 @@ async def record_transaction(
     a contract note is the second door into this table and it is not this one — so a
     hand-entered trade is marked as what it is, and every figure above it inherits that.
     """
-    book = await _book_of(session, user_id=user.id)
+    book = await portfolio_service.default_book(session, user_id=user.id)
     if book is None:
         return _problem(request, "There is no book to record a transaction against.")
 
@@ -185,6 +277,14 @@ async def record_transaction(
         return _refused(request, "Nothing was recorded.")
 
     resolved = await _resolve_security(session, submitted.get("security", ""))
+    if isinstance(resolved, _Unheld):
+        # The third door (roadmap §3.1, ADR 0093): a ticker the platform has never seen is
+        # verified with the market-data provider once, at first sight, and either becomes
+        # dealable — the trade then records against it in the same submission — or the
+        # operator gets the reason it cannot.
+        resolved = await _verified_at_first_sight(
+            session, settings=settings, redis=redis, book=book, unheld=resolved
+        )
     if isinstance(resolved, str):
         # A refusal that names what to do about it, not a validation error. The operator
         # typed a ticker; the useful answer is why this platform cannot deal it.
@@ -204,20 +304,32 @@ async def record_transaction(
     )
     session.add(attestation)
     await session.flush()
-    session.add(
-        Transaction(
-            attestation_id=attestation.id,
-            portfolio_id=book.id,
-            kind=trade.kind,
-            security_id=trade.security_id,
-            trade_date=trade.trade_date,
-            settlement_date=trade.settlement_date,
-            quantity=trade.quantity,
-            price=trade.price,
-            fees=trade.fees,
-            currency=trade.currency,
-        )
+    recorded = Transaction(
+        attestation_id=attestation.id,
+        portfolio_id=book.id,
+        kind=trade.kind,
+        security_id=trade.security_id,
+        trade_date=trade.trade_date,
+        settlement_date=trade.settlement_date,
+        quantity=trade.quantity,
+        price=trade.price,
+        fees=trade.fees,
+        currency=trade.currency,
     )
+    session.add(recorded)
+
+    refused_link = await _carried_out(
+        session, request, submitted.get("decision", ""), trade=recorded, user=user
+    )
+    if refused_link is not None:
+        return refused_link
+
+    if resolved is not None:
+        # ADR 0094: the self-healing half of the derivation. A backfilled first-ever
+        # trade in a security that has since split gets the derived rows the book had no
+        # reason to carry before this submission.
+        await session.flush()
+        await splits_service.ensure_for(session, portfolio_id=book.id, security=resolved)
 
     try:
         await session.commit()
@@ -237,16 +349,6 @@ async def record_transaction(
 
 
 # -- Reading -------------------------------------------------------------------------------
-
-
-async def _book_of(session: DbSession, *, user_id: uuid.UUID) -> Portfolio | None:
-    found: Portfolio | None = await session.scalar(
-        select(Portfolio)
-        .where(Portfolio.user_id == user_id, Portfolio.archived_at.is_(None))
-        .order_by(Portfolio.created_at)
-        .limit(1)
-    )
-    return found
 
 
 def _requested_date(request: Request) -> date | None:
@@ -295,21 +397,77 @@ async def _dealable(session: DbSession) -> list[Security]:
     return list(rows)
 
 
-# What to say when the platform holds no listing at all. Not a shrug: it names the one thing
-# that creates a `Security` row today, which is the honest and complete answer.
+# What to say when the platform holds no listing at all. Not a shrug: it names both things
+# that create a `Security` row, which is the honest and complete answer (roadmap §3.1).
 NO_LISTINGS: Final = (
-    "This platform holds no priced listing yet. A listing is created when a research run "
-    "acquires prices for a company, which needs a market-data subscription configured. "
-    "Until there is one, cash transactions — a deposit, a withdrawal, a dividend, a fee — "
-    "work exactly as they will later."
+    "This platform holds no priced listing yet. Type a ticker with its exchange — "
+    "MSFT NASDAQ, BARC LSE — and it is verified with the market-data provider at first "
+    "sight; a research run that acquires prices creates a listing too. Both need a "
+    "market-data subscription configured. Cash transactions — a deposit, a withdrawal, "
+    "a dividend, a fee — work either way."
 )
 
 
-async def _resolve_security(session: DbSession, typed: str) -> Security | str | None:
-    """One typed ticker to the listing it names, or the reason it names none.
+async def _verified_at_first_sight(
+    session: DbSession,
+    *,
+    settings: SettingsDep,
+    redis: RedisClient,
+    book: Portfolio,
+    unheld: _Unheld,
+) -> Security | str:
+    """The third door: verify a never-seen ticker once, or say exactly why not.
+
+    Committed as it lands, whatever happens to the trade being recorded around it: a
+    verification is an acquisition with an artefact and a work order behind it, and losing
+    it to a typo in the quantity field would mean fetching the same series twice. The
+    refused attempt is committed too — a `FAILED` order is the record that the question
+    was asked.
+    """
+    if unheld.exchange is None:
+        return (
+            f"This platform holds no priced listing for {unheld.ticker!r}. Name the "
+            f"exchange too — for example {unheld.ticker} NASDAQ — and it will "
+            "be verified with the market-data provider at first sight. Commissioning a "
+            "research report on it also creates the listing, with the company's full "
+            "price history behind it."
+        )
+
+    store = LocalArtefactStore(settings.artefact_root, max_bytes=settings.max_artefact_bytes)
+    added = await add_listing(
+        session,
+        store,
+        portfolio=book,
+        ticker=unheld.ticker,
+        exchange=unheld.exchange,
+        client=standalone_price_client(settings, store=store, redis=redis),
+    )
+    await session.commit()
+    if added.security is None:
+        return added.refusal
+    return added.security
+
+
+@dataclass(frozen=True, slots=True)
+class _Unheld:
+    """A ticker this platform holds no listing for, parsed for the third door.
+
+    ``exchange`` is what the operator named, or ``None`` for a bare ticker — and the third
+    door needs one: verifying against a guessed venue could resolve a different company's
+    listing somewhere else, which is worse than a refusal.
+    """
+
+    ticker: str
+    exchange: str | None
+
+
+async def _resolve_security(session: DbSession, typed: str) -> Security | str | _Unheld | None:
+    """One typed ticker to the listing it names, or what to do about it naming none.
 
     ``None`` for an empty box, which is a cash transaction and not a mistake. A string is a
-    refusal an operator can act on; a :class:`Security` is the answer.
+    refusal an operator can act on; a :class:`Security` is the answer; an :class:`_Unheld`
+    is the third door's case — nothing held matches, and the handler decides whether it can
+    be verified at first sight (roadmap §3.1, ADR 0093).
 
     Three shapes are accepted because all three are what somebody types: ``MSFT``,
     ``MSFT.US`` — the vendor's own symbol, which is what a research run stored — and
@@ -321,9 +479,6 @@ async def _resolve_security(session: DbSession, typed: str) -> Security | str | 
         return None
 
     held = list(await session.scalars(select(Security).where(Security.is_active)))
-    if not held:
-        return NO_LISTINGS
-
     exact = [
         row
         for row in held
@@ -341,12 +496,13 @@ async def _resolve_security(session: DbSession, typed: str) -> Security | str | 
             "and picking one for you is the kind of guess a book cannot be reconciled against."
         )
 
-    return (
-        f"This platform holds no priced listing for {typed.strip()!r}. A listing is created "
-        "when a research run acquires prices for a company; commissioning a report on this "
-        "ticker is what makes it dealable. Holding a security the platform cannot price "
-        "would refuse the whole net asset value rather than only that row."
-    )
+    # Nothing held matches. `TICKER EXCHANGE` or `TICKER.EXCHANGE` names a venue the third
+    # door can verify against; a bare ticker names none, and the handler says so.
+    for separator in (" ", "."):
+        ticker, found, venue = wanted.partition(separator)
+        if found and ticker and venue:
+            return _Unheld(ticker=ticker, exchange=venue)
+    return _Unheld(ticker=wanted, exchange=None)
 
 
 # -- Rendering -----------------------------------------------------------------------------
@@ -431,6 +587,84 @@ def _totals(view: portfolio_service.PortfolioView, book: Portfolio) -> dict[str,
     }
 
 
+def _return_rows(view: performance_service.ReturnView) -> list[dict[str, object]]:
+    """One row per measured interval, with both figures and whatever refused either.
+
+    **Two columns rather than one**, and they are labelled for the questions they answer.
+    A screen showing a single "return" is quietly asserting which one the reader meant,
+    and the whole point of showing both is that a well-timed top-up moves one and not the
+    other.
+    """
+    return [
+        {
+            "label": period.label,
+            "span": f"{period.begin.isoformat()} to {period.end.isoformat()}",
+            "time_weighted": (
+                _percent(period.time_weighted.value) if period.time_weighted else NO_FIGURE
+            ),
+            "money_weighted": (
+                _percent(period.money_weighted.value) if period.money_weighted else NO_FIGURE
+            ),
+            "is_down": bool(period.time_weighted and period.time_weighted.value < 0),
+            "problem": period.problem,
+            "grade": _grade_of(period.time_weighted or period.money_weighted),
+            "grade_label": _grade_label(period.time_weighted or period.money_weighted),
+        }
+        for period in view.periods
+    ]
+
+
+def _exposure_bands(
+    view: performance_service.ExposureView, book: Portfolio
+) -> list[dict[str, object]]:
+    """The four cuts, each with its unclassified group held separately.
+
+    ``unknown`` is its own key rather than a slice with a flag, so a template cannot render
+    "Sector not known" as though it were a sector the book is in. The roadmap's own words:
+    it reports what it knows and names what it does not.
+    """
+    return [
+        {
+            "kind": band.kind,
+            "title": band.title,
+            "slices": [_exposure_row(row, book) for row in band.slices],
+            "unknown": _exposure_row(band.unknown, book) if band.unknown else None,
+        }
+        for band in view.bands
+    ]
+
+
+def _exposure_row(row: performance_service.ExposureSlice, book: Portfolio) -> dict[str, object]:
+    return {
+        "label": row.label,
+        "value": _pounds(row.value.value, book.base_currency),
+        "share": _percent(row.share.value).lstrip("+"),
+        # The bar's width, as a whole number of percent. Presentation only: the figure
+        # beside it is the one a reader takes away.
+        "width": int(max(Decimal(0), min(Decimal(1), row.share.value)) * 100),
+        "members": ", ".join(row.members),
+        "count": len(row.members),
+        "grade": _grade_of(row.share),
+        "grade_label": _grade_label(row.share),
+    }
+
+
+def _concentration(view: performance_service.ExposureView) -> dict[str, object]:
+    """The top-five figure, and how many holdings it actually covers.
+
+    The count matters: a book of three names has a top five of everything it holds, and a
+    figure of 100% with no count beside it reads as dangerous concentration rather than as
+    a small book.
+    """
+    holdings = next((band for band in view.bands if band.kind == "holding"), None)
+    covered = len(holdings.slices) if holdings is not None else 0
+    return {
+        "share": _percent(view.top_holdings.value).lstrip("+") if view.top_holdings else NO_FIGURE,
+        "count": min(covered, performance_service.CONCENTRATION_COUNT),
+        "of": covered,
+    }
+
+
 # What the screen calls each grade, derived from `web/vocabulary.py` rather than written
 # here.
 #
@@ -457,6 +691,38 @@ def _grade_label(figure: portfolio_service.Figure | None) -> str:
 
 
 # -- Form handling -------------------------------------------------------------------------
+
+
+async def _carried_out(
+    session: DbSession, request: Request, raw: str, *, trade: Transaction, user: User
+) -> Response | None:
+    """Name the decision this trade carried out, or say why it cannot (ADR 0104).
+
+    Resolved against the operator's own journal and refused if the pairing cannot be what
+    it claims — a sale carrying out a buy — so the journal never holds a trade under the
+    wrong entry. ``None`` is success, including the ordinary case of no decision named.
+    """
+    decision_id = _uuid_or_none(raw)
+    if decision_id is None:
+        return None
+    decision = await decision_service.decision_of(session, decision_id, user_id=user.id)
+    if decision is None:
+        await session.rollback()
+        return _problem(request, "That decision is not one in your journal.")
+    await session.flush()
+    try:
+        await decision_service.carry_out(session, transaction=trade, decision=decision, actor=user)
+    except AerError as refused:
+        await session.rollback()
+        return _problem(request, str(refused), status=refused.http_status)
+    return None
+
+
+def _uuid_or_none(raw: str) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(raw.strip()) if raw.strip() else None
+    except ValueError:
+        return None
 
 
 async def _submitted(request: Request) -> dict[str, str]:
@@ -486,6 +752,12 @@ def _parsed(submitted: dict[str, str], *, security: Security | None = None) -> _
     sell entered as a positive number is refused by a check constraint, not by this.
     """
     kind = TransactionKind(submitted["kind"])
+    if kind is TransactionKind.SPLIT:
+        # Derived, never typed (ADR 0094). The form does not offer it, so a submission
+        # carrying it is a tampered request — and even without this refusal, the
+        # `transaction_split_derives_from_an_action` constraint would reject the row.
+        message = "A split is derived from the corporate action, never entered by hand."
+        raise ValueError(message)
     quantity = Decimal(submitted["quantity"].replace(",", "").strip())
 
     # The sign is the form's job, not the operator's. Nobody types a minus in front of a

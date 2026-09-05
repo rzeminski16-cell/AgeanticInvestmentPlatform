@@ -34,7 +34,11 @@ from aer.calc.engine import CalculationContext
 from aer.calc.residual_income import (
     CLEAN_SURPLUS_CAVEAT,
     MAX_FORECAST_YEARS,
+    SENSITIVITY_CASE,
+    VARIABLE_FIELDS,
     DriverPath,
+    GridAxis,
+    GridMeasure,
     ResidualIncomeInputs,
     TerminalTreatment,
     book_value_roll_forward,
@@ -46,6 +50,7 @@ from aer.calc.residual_income import (
     perpetual_residual_value,
     residual_income,
     residual_income_value,
+    sensitivity_grid,
     value_per_share,
 )
 from aer.calc.units import (
@@ -904,3 +909,301 @@ class TestTheStepsInIsolation:
         second = equity_discount_factor(context, cost_of_equity=rate("0.10"), year=2)
 
         assert close(second, str(first.value * first.value))
+
+
+# -- The grid --------------------------------------------------------------------------------
+
+
+def axis(field: str, *values: str) -> GridAxis:
+    return GridAxis(field=field, values=tuple(rate(value) for value in values))
+
+
+COST_AXIS = axis("cost_of_equity", "0.09", "0.10", "0.11")
+GROWTH_AXIS = axis("terminal_growth", "0.01", "0.02", "0.03")
+RETURN_AXIS = axis("return_on_equity", "0.11", "0.12", "0.13")
+
+
+class TestEveryCellIsAWholeValuation:
+    """ADR 0028's rule, on the bank model. A cell that were interpolated would be flat where
+    the surface is not: the perpetuity denominator is `cost of equity - g`, and the equity
+    charge moves the explicit years against the discounting."""
+
+    def test_a_grid_is_rows_times_columns(self, context):
+        grid = sensitivity_grid(
+            context,
+            base_inputs(),
+            rows=COST_AXIS,
+            columns=RETURN_AXIS,
+            treatment=TerminalTreatment.FADE_TO_NOTHING,
+            measure=GridMeasure.VALUE_PER_SHARE,
+            mandate=MANDATE,
+        )
+
+        assert len(grid.cells) == 9
+        assert {(cell.row_value.value, cell.column_value.value) for cell in grid.cells} == {
+            (Decimal(row), Decimal(column))
+            for row in ("0.09", "0.10", "0.11")
+            for column in ("0.11", "0.12", "0.13")
+        }
+
+    def test_every_cell_names_the_calculation_behind_it(self, context):
+        grid = sensitivity_grid(
+            context,
+            base_inputs(),
+            rows=COST_AXIS,
+            columns=RETURN_AXIS,
+            treatment=TerminalTreatment.FADE_TO_NOTHING,
+            measure=GridMeasure.VALUE_PER_SHARE,
+            mandate=MANDATE,
+        )
+
+        identifiers = {cell.calculation_id for cell in grid.cells}
+        assert len(identifiers) == len(grid.cells)
+
+    def test_the_centre_cell_is_the_base_valuation_itself(self, context):
+        """Not merely close to it. A grid whose middle cell differs from the valuation it is
+        a sensitivity of is a grid that does not contain its own base case."""
+        inputs = base_inputs()
+        base = residual_income_value(context, inputs, mandate=MANDATE)
+
+        grid = sensitivity_grid(
+            context,
+            inputs,
+            rows=axis("cost_of_equity", "0.09", "0.10", "0.11"),
+            columns=axis("return_on_equity", "0.11", "0.12", "0.13"),
+            treatment=TerminalTreatment.FADE_TO_NOTHING,
+            measure=GridMeasure.VALUE_PER_SHARE,
+            mandate=MANDATE,
+        )
+
+        centre = next(
+            cell
+            for cell in grid.cells
+            if cell.row_value.value == Decimal("0.10")
+            and cell.column_value.value == Decimal("0.12")
+        )
+        assert centre.result.value == base.value_per_share.value
+
+    def test_the_surface_is_monotonic_in_the_spread(self, context):
+        """Cheaper equity and a higher return both make a bank worth more, and every column
+        agrees. A grid that were interpolated from two corners would satisfy this too — which
+        is why it is asserted alongside the identity above rather than instead of it."""
+        grid = sensitivity_grid(
+            context,
+            base_inputs(),
+            rows=COST_AXIS,
+            columns=RETURN_AXIS,
+            treatment=TerminalTreatment.FADE_TO_NOTHING,
+            measure=GridMeasure.VALUE_PER_SHARE,
+            mandate=MANDATE,
+        )
+        by_point = {
+            (cell.row_value.value, cell.column_value.value): cell.result.value
+            for cell in grid.cells
+        }
+
+        for column in (Decimal("0.11"), Decimal("0.12"), Decimal("0.13")):
+            costs_ascending = [by_point[(Decimal(row), column)] for row in ("0.09", "0.10", "0.11")]
+            assert costs_ascending == sorted(costs_ascending, reverse=True)
+        for row in (Decimal("0.09"), Decimal("0.10"), Decimal("0.11")):
+            returns_ascending = [
+                by_point[(row, Decimal(column))] for column in ("0.11", "0.12", "0.13")
+            ]
+            assert returns_ascending == sorted(returns_ascending)
+
+    def test_a_driver_axis_moves_every_year_of_the_path(self, context):
+        """What varying a flat driver means. A cell that moved only year one would price a
+        fade nobody asked for, and would sit under an axis labelled as though it had not."""
+        inputs = base_inputs(return_on_equity=flat("return_on_equity", "0.12", years=3))
+        grid = sensitivity_grid(
+            context,
+            inputs,
+            rows=COST_AXIS,
+            columns=axis("return_on_equity", "0.11", "0.12", "0.13"),
+            treatment=TerminalTreatment.FADE_TO_NOTHING,
+            measure=GridMeasure.VALUE_PER_SHARE,
+            mandate=MANDATE,
+        )
+        moved = next(
+            cell
+            for cell in grid.cells
+            if cell.row_value.value == Decimal("0.10")
+            and cell.column_value.value == Decimal("0.13")
+        )
+
+        whole_path = residual_income_value(
+            context,
+            base_inputs(return_on_equity=flat("return_on_equity", "0.13", years=3)),
+            mandate=MANDATE,
+        )
+        assert moved.result.value == whole_path.value_per_share.value
+
+    def test_the_measure_chooses_which_figure_the_cell_reports(self, context):
+        premium = sensitivity_grid(
+            context,
+            base_inputs(),
+            rows=COST_AXIS,
+            columns=RETURN_AXIS,
+            treatment=TerminalTreatment.FADE_TO_NOTHING,
+            measure=GridMeasure.PREMIUM_TO_BOOK,
+            mandate=MANDATE,
+        )
+
+        assert premium.output_name == "premium_to_book_fade_to_nothing"
+        assert premium.output_unit == "USD"
+        centre = next(
+            cell
+            for cell in premium.cells
+            if cell.row_value.value == Decimal("0.10")
+            and cell.column_value.value == Decimal("0.12")
+        )
+        base = residual_income_value(context, base_inputs(), mandate=MANDATE)
+        assert centre.result.value == base.premium_to_book.value
+
+
+class TestTheGridIsLabelledForWhatItIs:
+    def test_a_cell_is_not_recorded_as_the_base_case(self, context):
+        """Twenty-five later rows under the base case's own label would let a scenario keyed
+        `base` draw its bar from whichever corner was written last (ADR 0101)."""
+        sensitivity_grid(
+            context,
+            base_inputs(),
+            rows=COST_AXIS,
+            columns=RETURN_AXIS,
+            treatment=TerminalTreatment.FADE_TO_NOTHING,
+            measure=GridMeasure.VALUE_PER_SHARE,
+            mandate=MANDATE,
+        )
+
+        cases = {
+            record.parameters.get("case") for record in context.named("residual_income_per_share")
+        }
+        assert cases == {SENSITIVITY_CASE}
+
+    def test_the_treatment_applies_to_every_cell_whatever_the_inputs_say(self, context):
+        """A grid says what happens beyond the forecast once. An input set arriving with the
+        other treatment on it must not produce cells that disagree about what they test."""
+        grid = sensitivity_grid(
+            context,
+            base_inputs(terminal_treatment=TerminalTreatment.FADE_TO_NOTHING),
+            rows=COST_AXIS,
+            columns=GROWTH_AXIS,
+            treatment=TerminalTreatment.PERPETUAL_GROWTH,
+            measure=GridMeasure.VALUE_PER_SHARE,
+            mandate=MANDATE,
+        )
+
+        assert grid.treatment is TerminalTreatment.PERPETUAL_GROWTH
+        treatments = {
+            record.parameters.get("treatment")
+            for record in context.named("residual_income_per_share")
+        }
+        assert treatments == {TerminalTreatment.PERPETUAL_GROWTH.value}
+
+
+class TestWhatTheGridRefuses:
+    def test_both_axes_on_one_input(self, context):
+        with pytest.raises(CalculationError, match="Only the diagonal"):
+            sensitivity_grid(
+                context,
+                base_inputs(),
+                rows=COST_AXIS,
+                columns=axis("cost_of_equity", "0.09", "0.10", "0.11"),
+                treatment=TerminalTreatment.FADE_TO_NOTHING,
+                measure=GridMeasure.VALUE_PER_SHARE,
+                mandate=MANDATE,
+            )
+
+    def test_terminal_growth_under_a_treatment_that_never_reads_it(self, context):
+        """Five identical columns would read as "the answer does not depend on this", which
+        is a finding about the bank rather than about the axis."""
+        with pytest.raises(CalculationError, match="never reads the terminal growth rate"):
+            sensitivity_grid(
+                context,
+                base_inputs(),
+                rows=COST_AXIS,
+                columns=GROWTH_AXIS,
+                treatment=TerminalTreatment.FADE_TO_NOTHING,
+                measure=GridMeasure.VALUE_PER_SHARE,
+                mandate=MANDATE,
+            )
+
+    def test_a_driver_axis_over_a_path_that_fades(self, context):
+        fading = DriverPath(
+            name="return_on_equity",
+            values=(rate("0.14"), rate("0.13"), rate("0.12")),
+        )
+
+        with pytest.raises(CalculationError, match="moves from year to year"):
+            sensitivity_grid(
+                context,
+                base_inputs(return_on_equity=fading),
+                rows=COST_AXIS,
+                columns=RETURN_AXIS,
+                treatment=TerminalTreatment.FADE_TO_NOTHING,
+                measure=GridMeasure.VALUE_PER_SHARE,
+                mandate=MANDATE,
+            )
+
+    def test_an_input_no_grid_may_vary(self):
+        with pytest.raises(CalculationError, match="is not an input a residual-income grid"):
+            GridAxis(field="opening_book_value", values=(usd("900"), usd("1000")))
+
+    def test_a_single_point_is_not_a_sensitivity(self):
+        with pytest.raises(CalculationError, match="outside 2 to 9"):
+            axis("cost_of_equity", "0.10")
+
+    def test_a_refused_corner_takes_the_grid(self, context):
+        """The perpetuity will not price a growth rate at or above the cost of equity. A hole
+        in a grid is a cell a reader interprets, so the whole grid goes (ADR 0101)."""
+        with pytest.raises(CalculationError, match="not below the cost of equity"):
+            sensitivity_grid(
+                context,
+                base_inputs(),
+                rows=axis("cost_of_equity", "0.03", "0.10", "0.11"),
+                columns=GROWTH_AXIS,
+                treatment=TerminalTreatment.PERPETUAL_GROWTH,
+                measure=GridMeasure.VALUE_PER_SHARE,
+                mandate=MANDATE,
+            )
+
+    def test_a_mandate_for_another_model_never_reaches_a_cell(self, context):
+        with pytest.raises(ModelNotPermittedError):
+            sensitivity_grid(
+                context,
+                base_inputs(),
+                rows=COST_AXIS,
+                columns=RETURN_AXIS,
+                treatment=TerminalTreatment.FADE_TO_NOTHING,
+                measure=GridMeasure.VALUE_PER_SHARE,
+                mandate=unclassified_mandate(ValuationModel.COMPS_MULTIPLES, subject="BANKCO"),
+            )
+
+
+class TestWhichInputsAGridMayVary:
+    def test_the_filed_figures_are_not_among_them(self):
+        """Varying a book value or a share count is a different company, not a sensitivity."""
+        assert "opening_book_value" not in VARIABLE_FIELDS
+        assert "shares_outstanding" not in VARIABLE_FIELDS
+
+    def test_every_named_field_exists_on_the_input_set(self):
+        for field in VARIABLE_FIELDS:
+            assert hasattr(base_inputs(), field), field
+
+
+class TestAFlatPathKnowsItIsFlat:
+    def test_a_repeated_value_reports_itself(self):
+        assert flat("return_on_equity", "0.12").flat_value == rate("0.12")
+
+    def test_a_path_that_moves_reports_nothing(self):
+        path = DriverPath(name="return_on_equity", values=(rate("0.12"), rate("0.11")))
+
+        assert path.flat_value is None
+
+    @settings(max_examples=40, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @given(value=returns, years=horizons)
+    def test_a_flat_path_of_any_length_is_flat(self, value, years):
+        built_path = DriverPath.flat("return_on_equity", rate(str(value)), years=years)
+
+        assert built_path.flat_value is not None
+        assert built_path.flat_value.value == Decimal(str(value))

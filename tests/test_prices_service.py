@@ -30,7 +30,6 @@ from aer.db.models import (
     CorporateAction,
     Job,
     PriceBar,
-    ResearchRequest,
     User,
 )
 from aer.errors import ValidationError
@@ -41,6 +40,7 @@ from aer.services.assumptions import UnconfirmedAssumptionError
 from aer.services.disagreements import disagreements_for_job
 from aer.sources.eodhd import api
 from aer.sources.eodhd.client import ActionsResponse, PriceResponse
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
 pytestmark = pytest.mark.integration
@@ -142,7 +142,7 @@ async def job(db_session: Any, security) -> Job:
     db_session.add(operator)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=operator.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -159,7 +159,6 @@ async def job(db_session: Any, security) -> Job:
 
     row_ = Job(
         work_order_id=request.id,
-        request_id=request.id,
         status=JobStatus.RUNNING,
         workflow_version="vertical_slice_v1",
         code_version="test",
@@ -686,7 +685,7 @@ class TestBetaIsProposedNotDecided:
         proposed = await service.propose_computed_beta(
             db_session,
             context,
-            request_id=job.request_id,
+            request_id=job.work_order_id,
             subject=subject,
             market=market,
             subject_source=SOURCE,
@@ -706,7 +705,7 @@ class TestBetaIsProposedNotDecided:
         proposed = await service.propose_computed_beta(
             db_session,
             context,
-            request_id=job.request_id,
+            request_id=job.work_order_id,
             subject=subject,
             market=market,
             subject_source=SOURCE,
@@ -727,7 +726,7 @@ class TestBetaIsProposedNotDecided:
         proposed = await service.propose_computed_beta(
             db_session,
             context,
-            request_id=job.request_id,
+            request_id=job.work_order_id,
             subject=subject,
             market=market,
             subject_source=SOURCE,
@@ -749,7 +748,7 @@ class TestBetaIsProposedNotDecided:
         proposed = await service.propose_computed_beta(
             db_session,
             context,
-            request_id=job.request_id,
+            request_id=job.work_order_id,
             subject=subject,
             market=market,
             subject_source=SOURCE,

@@ -1,19 +1,40 @@
 # One-off operator scripts
 
-Not part of the application. These are read-only SQL you run against your own database with
-`psql`, for questions the interface does not answer.
+Not part of the application. These are read-only SQL, for questions the interface does not
+answer. Run them through the recipes below rather than by hand — they go through the
+container, so no local `psql` is needed, and the output is written by `psql` rather than by
+the shell.
 
 ## Diagnosing a run that did not draft (roadmap §2.1)
 
-Two steps. Neither writes anything.
+Two steps. Neither writes anything to the database.
 
 ```sh
-# 1. Find the run. Twenty most recent, with how many sections did not generate.
-psql "$DATABASE_URL" -f scripts/list-runs.sql
+just runs                    # 1. Find the run. Twenty most recent, with how many
+                             #    sections did not generate.
+just diagnose-run <the-uuid> # 2. Export it, to run-diagnosis.json in this directory.
+```
 
-# 2. Export it, by the job id from step 1.
-psql "$DATABASE_URL" -v job_id=<the-uuid> -At \
-  -f scripts/export-run-diagnosis.sql > run-diagnosis.json
+**Why not a `psql` one-liner.** This file used to give one, against `$DATABASE_URL`, and it
+could not be followed on the machine that needed it. Three reasons, each of which the
+recipes avoid:
+
+- **There may be no local `psql`.** The database runs in a container (`docker-compose.yml`),
+  and installing a client to read it is a detour.
+- **`AER_DATABASE_URL` is not a `psql` connection string.** It carries the SQLAlchemy
+  dialect — `postgresql+asyncpg://…` — which `psql` does not reject: it ignores the scheme
+  and tries a local socket, so the failure reads as "is the server running?" rather than as
+  "wrong URL". And `$DATABASE_URL` is not a variable this platform sets at all.
+- **`>` does not mean the same thing in every shell.** Windows PowerShell writes UTF-16
+  through it, which corrupts the JSON. `just diagnose-run` has `psql` write the file itself.
+
+If you would rather run it by hand, this is what the recipe does:
+
+```sh
+docker compose cp scripts/export-run-diagnosis.sql postgres:/tmp/export.sql
+docker compose exec postgres psql -U aer -d aer -At \
+  -v job_id=<the-uuid> -o /tmp/run-diagnosis.json -f /tmp/export.sql
+docker compose cp postgres:/tmp/run-diagnosis.json run-diagnosis.json
 ```
 
 The export is one JSON object: the job, the mandate, every step with its `attempt` count, one

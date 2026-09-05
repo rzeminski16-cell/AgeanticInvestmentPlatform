@@ -39,6 +39,23 @@ psql:
 redis:
     docker compose exec redis redis-cli
 
+# List the twenty most recent runs, with how many sections did not generate.
+runs:
+    docker compose cp scripts/list-runs.sql postgres:/tmp/list-runs.sql
+    docker compose exec postgres psql -U aer -d aer -f /tmp/list-runs.sql
+
+# Export one run's drafting record to run-diagnosis.json, for roadmap 2.1. Reads only.
+#
+# Through the container, and the output written by psql rather than by the shell: `psql` is
+# not installed on every machine that runs this platform, and `>` writes UTF-16 in Windows
+# PowerShell, which corrupts the JSON. Both are why the shell one-liner in scripts/README.md
+# could not be followed on the machine that needed it.
+diagnose-run job_id:
+    docker compose cp scripts/export-run-diagnosis.sql postgres:/tmp/export-run-diagnosis.sql
+    docker compose exec postgres psql -U aer -d aer -At -v job_id={{job_id}} -o /tmp/run-diagnosis.json -f /tmp/export-run-diagnosis.sql
+    docker compose cp postgres:/tmp/run-diagnosis.json run-diagnosis.json
+    @echo "Wrote run-diagnosis.json. Read it before you send it."
+
 # Check that the infrastructure is actually reachable.
 health:
     docker compose exec postgres pg_isready -U aer -d aer
@@ -86,6 +103,11 @@ restore source:
 # calls no model. Exits non-zero if any leg no longer holds.
 replay-run job_id:
     uv run aer replay-run {{job_id}}
+
+# Read a run's archived section replies back under today's drafting rules. No model call,
+# nothing spent: the proof that a changed rule takes, before another live run pays to find out.
+replay-draft job_id section_key="":
+    uv run aer replay-draft {{job_id}} {{section_key}}
 
 # Walk the audit log and check every record still links to the one before it. Exits
 # non-zero on a break, so it can be a cron line beside verify-artefacts.

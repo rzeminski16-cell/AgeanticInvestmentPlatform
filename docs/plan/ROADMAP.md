@@ -21,28 +21,40 @@ the platform got here and why; this is the record of where it goes.*
 In this order. It is the operator's order rather than the author's: each one is the next
 thing that would otherwise put a wrong number, or no answer at all, in front of somebody.
 
-1. **§2.1 — five sections fail to draft.** More than a quarter of the last report was a
-   coverage notice. The diagnosis now reaches the screen (§4.6); this is the fix behind it.
-2. **§3.1 — the portfolio's third door.** Decided 2026-08-25: **a work order roots the
-   book's own acquisitions.** Until it exists, a ticker no research run has priced cannot be
-   dealt at all, so the portfolio tool is unusable on a machine whose runs were unpriced.
-3. **§2.4 — the report document's layout.** The disagreement appendix puts a two-hundred-word
-   objection in a narrow column and one row spans three pages; neither position can be read.
-4. **§3.12 — the interface overhaul.** Specified, designed, reviewed, decided and planned
-   2026-08-25; not built. Every blocking decision is cleared and three are ADRs 0087–0089.
-   Start at tranche 0 of [`interface-overhaul.md`](interface-overhaul.md), which may run
-   alongside §2.1. It is placed here rather
-   than lower because §2.5 is inside it: migrating the palette first would do the most
-   quietly-fragile item in this roadmap twice, once onto the present design and again onto
-   the new one.
-5. **§2.5 — the palette migration.** The last of the surfaces work, and the one most likely
-   to go wrong quietly, so it wants its own pass with screenshots. Sequenced *after* the
-   design it is migrating towards, not before it.
+**As at 2026-09-01, all five are closed in code.** Items 2 to 5 were already done; the
+operator's `run-diagnosis.json` landed on 2026-09-01, §2.1 was diagnosed from the record
+rather than from a hypothesis, and all five of its causes are fixed — along with §2.2,
+which the same export settled. **What remains is one operator-approved confirmation run**,
+which is the operator's move rather than a session's.
+
+1. **§2.1 — sections fail to draft. Diagnosed and fixed 2026-09-01; the confirmation run
+   is outstanding.** More than a quarter of the last report was a coverage notice. The
+   export settled it: nothing starved, and every failure was a contract refusal — six at
+   `draft` and two *destroyed by `revise`* after drafting cleanly. All five causes are
+   closed (ADRs 0096, 0097, 0098, 0100 and the two eraser gaps), and §2.2 with them
+   (ADR 0099). **What is left is one operator-approved live run.**
+2. **§3.1 — the portfolio's third door. Done 2026-08-29, under ADR 0093.** A work order
+   roots the book's own acquisitions; a typed `TICKER EXCHANGE` the platform has never seen
+   is verified with the vendor once, at first sight, and either becomes dealable or is
+   refused with the reason. Tranche 8's prerequisite is landed.
+3. **§2.4 — the report document's layout. Done 2026-08-30.** The disagreement appendix
+   reads as prose (migration 0061); the stacked pairs closed with the WeasyPrint ≥ 69 pin;
+   both are held by the geometry assertions in `tests/test_report_layout.py`.
+4. **§3.12 — the interface overhaul. Done 2026-08-30.** All ten tranches built and
+   verified green — tranche 9, the removal-and-hardening pass, closed §2.5 and §3.12
+   together; the record is the status section of
+   [`interface-overhaul.md`](interface-overhaul.md).
+5. **§2.5 — the palette migration. Done 2026-08-30, inside §3.12.** The ramp ledger fell
+   1,837 → 0 across tranches 2 and 4–9, the legacy aliases are gone from the stylesheet,
+   and the ratchet is now the hard zero §2.5 asked for
+   (`tests/test_palette_migration.py`).
 
 *Finished 2026-08-25 and now in §4: the drafted-figure check (§4.14) and the comps
 disclosure (§4.15), which were the two at the top of this list.*
 
-Everything else sits in its bucket below.
+Everything else sits in its bucket below. The running order across everything open — the
+phases, what gates each, and the moves only the operator can make — is
+[`remaining-work.md`](remaining-work.md); this list stays the authority on priority.
 
 ---
 
@@ -56,22 +68,22 @@ document in which every figure carries a footnote resolving to either the formul
 produced it or the archived bytes it came from. That path has no gap in it, and the
 evaluation gate re-derives every stored calculation from its own record on every run.
 
-Two of nine tools work:
+Nine of nine tools work:
 
 | Tool | State | Waiting on |
 |---|---|---|
 | **Equity Research** | Working, end to end | — |
 | **Portfolio** | Working | — |
-| Watchlist | Planned | A standing budget that is not one run's cap; the two clocks |
-| Theses | Planned | The judgement record |
-| Decisions | Planned | Judgements, and the reserved-field guard |
-| Monitor | Planned | Theses to monitor against |
-| Risk | Planned | A book to be about, and the rate store *(the rate store now exists)* |
-| Post-trade review | Planned | Decisions and positions |
-| Decision analytics | Planned | Enough reviewed decisions to say anything at all |
+| **Watchlist** | Working | — |
+| **Theses** | Working | — |
+| **Decisions** | Working | — |
+| **Monitor** | Working | — |
+| **Risk** | Working | — |
+| **Post-trade review** | Working | — |
+| **Decision analytics** | Working | — |
 
-A planned tool is a real page saying what it would be and what it needs — not a dead link
-and not a lie.
+A planned tool, while there was one, was a real page saying what it would be and what it
+needed — not a dead link and not a lie. None remains.
 
 ### What the merge established
 
@@ -97,17 +109,120 @@ ADR by its old number reads four low.
 Something here is wrong and should not be. Ordered by how much of a report or a screen each
 one costs, worst first. **§2.1 is next.**
 
-**2.1 A63 — five sections fail to draft.** Business Overview, Segment Analysis, Industry &
-Competitive Positioning, Earnings Quality and Capital Allocation did not generate on the
-2026-08-24 run, and three more rated themselves 0.30. One cause was identified before the
-merge — a thin evidence pack, then a retry that swings past the target — and the
-instrumentation to read it back is in place, and §4.6 put it on the screen. This is the fix
-behind it. Until it lands, more than a quarter of every report is a coverage notice.
+**2.1 A63 — sections fail to draft. Diagnosed 2026-09-01 from the operator's export;
+the fixes are landing, and the confirmation run is outstanding.** Eight of eighteen
+sections did not generate on the MSFT run of 2026-08-31, and more than a quarter of the
+report was a coverage notice.
 
-**2.2 Section confidence.** Three sections reporting 0.30 is either an honest signal about a
-starved pack (§2.1) or a floor nobody calibrated. Read it back from the same live run before
-changing anything: a confidence score that is always low is as useless as one that is always
-high.
+**The standing hypothesis is refuted.** Nothing starved. Every section was dealt 17–43
+facts, 3–9 excerpts and 11–29 calculations; the run held 780 calculations and 153 claims.
+Neither did the retry ladder mis-fire: every failed section used both of its two attempts,
+and every failure was a refusal on the *contract* — not on length, not on an empty pack.
+
+**And they did not all fail in the same step.** Six failed at `draft`. **Two drafted
+successfully and were destroyed by `revise`** — Balance Sheet & Liquidity with 24 recorded
+claims and Scenarios & Sensitivities with 21, each reduced to a four-byte null when its
+revision was refused.
+
+| Cause | Sections | State |
+|---|---|---|
+| A numeric claim naming no figure, or naming one and citing nothing | Segment Analysis, Industry & Competitive Positioning, Capital Allocation, Balance Sheet & Liquidity | **Fixed** — ADR 0096 |
+| The platform's own rendering of a figure read as an unsourced numeral | Historical Financial Analysis (`331,839`), Scenarios & Sensitivities (`$331.8 billion`), Capital Allocation | **Fixed** — ADR 0097 |
+| A product name and a year naming a document read as figures | Business Overview (`Dynamics 365`), Management & Governance (`2025 proxy statement`) | **Fixed** — the erasers, `343fc3e` |
+| **A failed revision discards the draft it was improving** | Balance Sheet & Liquidity, Scenarios & Sensitivities | **Fixed** — ADR 0098 |
+| More than one "missing evidence" sentence | Historical Financial Analysis, Management & Governance *(a second cause on each)* | **Fixed** — ADR 0100 |
+
+**The revise defect was the worst of the five and was not a validation rule at all.**
+`revise_challenged_sections` deleted the section's claims, then redrafted over
+`section.content`; a refused revision left `FAILED` with nothing. So a section that
+drafted, validated and was paid for was traded for no section at all because the red team
+had something to say about it — and ADR 0091's loop, which exists to *improve* a draft, was
+the only way to lose one that already passed. **ADR 0098 closes it**: the claim replacement
+moved to `record_draft_claims`, where it only runs for a draft that passed, the row is
+snapshotted and restored, and a fourth disposition — `revision_refused`, migration 0063 —
+puts the attempt and its refusal inside the gate-2 hash rather than leaving the spend
+invisible.
+
+**The `gaps` rule was the last of the five**: at most one sentence may describe missing
+evidence. Both sections that tripped it tripped something else too, so neither is known to
+have failed *for* it — but it refused a whole draft over a count of its own hedging and had
+no salvage, which is the trade ADR 0057 exists to refuse. **ADR 0100 gives it the fourth
+repair**: the surplus remarks go and the first one stays, which is what the rule asked the
+writer to do in the first place. The budget itself is untouched.
+
+**All five causes are closed. What remains is the confirmation run** — one live,
+operator-approved report on the same subject, which also exercises the critique-and-revise
+loop (ADR 0091) against these sections for the first time since they were fixed.
+
+**The confirmation run, 2026-09-05 (`21d5beb6`), found two more, both fixed from its
+record.** Fifteen of eighteen sections drafted; the three that did not
+(`business_overview`, `cash_flow_analysis`, `capital_allocation`) and the seven reported by
+`cited_figure_agreement` came down to:
+
+| Cause | Sections | State |
+|---|---|---|
+| A negative figure read without its sign: "-51.8 days" scanned as `51.8` and refused against a stored `-51.79` | Cash Flow Analysis, Capital Allocation, and every section the agreement metric reported | **Fixed** — ADR 0097, amended |
+| A numeric claim naming a fact row was refused for citing no prose excerpt, nine times over, on both attempts | Business Overview, and the `schema` refusals on the other two | **Fixed** — ADR 0109 |
+
+The approved report then stalled at `gate_final` because a disagreement settled on the
+page after the seal changed the payload the seal was taken over — fixed, with `aer reseal`
+to recover a run already caught (`57c8138`). `aer replay-draft <job-id> [section-key]` reads
+the run's archived section replies back under today's rules at no spend — the proof that a
+changed rule takes, before another live run pays to find out. Two smaller findings from the
+same run: the depreciation-intensity driver was asked of the operator because the subject
+files `Depreciation` and `AmortizationOfIntangibleAssets` and no combined tag — the halves
+now map to their own concepts and the combined line is derived from them, as total debt is
+from its maturities; and the beta the operator was asked for had its refusal only in a log
+line — `acquire_prices` now records the regression's reason beside `beta_proposed`.
+
+**The replay of that run's 37 archived replies under the fixed rules** (2026-09-05, £0):
+`business_overview` and `cash_flow_analysis` pass; `capital_allocation` is still refused on
+both attempts for the writer's own arithmetic in prose and two gap sentences, one of them
+the depreciation line the derivation now supplies. Of the 18 refusals that remain across
+the run, 11 are word-budget overruns on first attempts — the writer, told the validator's
+headroom, wrote to it and past it — so the budget is now stated as the limit and the
+headroom kept for miscounting; one was a 27-claim reply against a 24-claim bound the prompt
+never mentioned, now asked for; one was "Proposition 5 —" read as a figure, now a reference
+(ADR 0054, amended). The rest are the rules doing their job: MD&A percentages no fact row
+holds, a difference the writer computed itself, a market capitalisation mentioned on a run
+with no prices. Whether the budget change takes is a live-run question, read from the
+`draft` step's attempt counts.
+
+*What was read against the tree 2026-08-28, ahead of the data, and turned out not to be the
+cause: `validate_draft` checks only the 1.25× word ceiling with no minimum; a truncation
+retry halves the word budget; `MAX_GENERATION_ATTEMPTS = 2`. All three still hold, and none
+of them fired on this run.*
+
+**2.2 Section confidence. Resolved 2026-09-01, ADR 0099.** Sections reporting 0.30 were
+either an honest signal about a starved pack (§2.1) or a floor nobody calibrated. The
+export said neither: it is a *cap*, and it was firing on edits that have nothing to do with
+evidence.
+
+Half-settled from the code, 2026-08-28: **it is not a floor.** `confidence_of` takes the
+model's own declared figure — defaulting to 0.5 when it states none — and *caps* it at 0.3
+when the pack was degraded (`sections/evidence.py`).
+
+**Settled from the export, 2026-09-01, and the answer is that the cap is misfiring.** Five
+of the ten sections that survived the run report exactly 0.30, and **not one of them is a
+degraded pack**:
+
+| Section | Why it was capped |
+|---|---|
+| Executive Summary, Earnings Quality, Cash Flow Analysis, Growth Outlook | "Shortened to fit the length allotted to this section." |
+| Valuation & DCF | "One or more sentences were removed because their figures could not be traced to a recorded source." |
+
+Four of the five were capped for being **trimmed to their word budget** — the mildest edit
+the platform makes, and one that says nothing about whether the section is right. The fifth
+had sentences deleted for untraceable figures, which says a great deal. Both landed on
+0.30, a strong statement about reliability that neither of them earned: a complete, fully
+cited section that ran long read to a person exactly like one the platform had to cut for
+lineage.
+
+**ADR 0099 gives each degradation its own ceiling and takes the lowest that applies** — an
+evidence shortfall keeps §2.12's 0.3, removed unsourced material caps at the platform's own
+0.5 prior, and a length trim moves the number not at all. Nothing stops being *disclosed*:
+`low_confidence_reason` already told the three apart in the reader's words (gap R2), which
+is how the flattening was visible at all, and it still does.
 
 **2.3 A run that fails late cannot be resumed, only repeated. Resolved, 2026-08-28, ADR
 0090.** The engine skips completed steps, and does it well — that is how a run survives the
@@ -123,72 +238,96 @@ state) rather than rewriting anything. `aer resume` re-enqueues the same job;
 `aer.services.resume` refuses the states that do not admit continuing, each with its reason.
 The deliberate pause this settled alongside is §3.15's.
 
-**2.4 The report document — layout.** The rendered PDF has two defects a reader meets
-immediately. The disagreement appendix puts a two-hundred-word challenge in a narrow table
-column, so one row spans three pages and neither position can be read. The "at a glance"
-tables render label and value as separate stacked blocks, so a reader reassembles the pairing
-by counting. Rework the appendix as prose blocks per disagreement, fix the key-figure tables,
-and check every section's print layout against a real run rather than a fixture.
+**2.4 The report document — layout. Done 2026-08-30.** The rendered PDF had two defects a
+reader met immediately, and each closed differently. The disagreement appendix put a
+two-hundred-word challenge in a narrow table column — one row spanned three pages —
+and now reads as prose: `validation_disagreements` v4 (migration 0061) declares the
+appendix in the renderer's prose-block shape, and each recorded conflict becomes a short
+run of paragraphs the page can break inside. The stacked label/value pairs do not
+reproduce under the engine now pinned — WeasyPrint ≥ 69 lays the cover grid and every
+table out correctly, where pre-grid engines stacked each `dt` over its `dd` — so that
+defect closed with the version pin and is guarded so it cannot silently return.
 
-**2.5 The palette is migrated only in part. Re-measured 2026-08-25; now the first tranche of
-§3.12.** The theme *control* is done (§4.13) and this is what it left behind: a page's colours
-are correct in both schemes or they are slate grey beside navy.
+The layout check is a test rather than a pass: `tests/test_report_layout.py` renders the
+golden document *and* a document from a full fake-provider pipeline run whose red team is
+scripted to argue at the length that broke the live document, then walks WeasyPrint's own
+box tree asserting the rules the defects broke — nothing paints past the page edge, no
+table row outgrows a page, a row's cells share a line, a label shares its line with its
+value, and the challenges reach the reader as paragraphs, never inside a cell. What no
+instrument holds stays the operator's: a live-provider document on the machine the
+platform actually runs on (commercial check 5), and the typographic judgement beyond
+those rules.
+
+**2.5 The palette migration. Done 2026-08-30, as tranches 2 and 4–9 of §3.12: the ratchet
+reached zero and became a hard assertion.** The ledger fell 1,837 → 0 — tranches 6, 7, 8
+and 9 each removed exactly what the plan predicted — the compatibility aliases are gone
+from the stylesheet, and `tests/test_palette_migration.py` now asserts every template at
+zero raw ramps with the retired names pinned gone. What was true when this was written,
+kept for the record: the theme *control* was done first (§4.13)
+and this is what it left behind: a page's colours are correct in both schemes or they are
+slate grey beside navy.
 
 `web/styles/app.css` added the semantic tokens *beside*
 Tailwind's stock ramps rather than over them, deliberately, so that `text-sky-700` still
 renders sky — overriding the ramp would re-skin the templates for free and leave a
-codebase where a colour name is a lie. So it is a real rewrite, onto `canvas / surface / ink
-/ line / brand / good / warn / bad / info / mute`, ending with a test that fails when a
-template reintroduces a raw ramp.
+codebase where a colour name is a lie. So it was a real rewrite, onto the semantic
+vocabulary — those working names shipped as `canvas / surface / ink / line / verification /
+decision / success / warning / refusal / failure / info / muted`, and the working aliases
+themselves were removed in tranche 9 — ending with exactly the test asked for: one that
+fails when a template reintroduces a raw ramp.
 
-**The split is not "roughly half"; it is by age, and it is sharper than that.** Measured on
-2026-08-25 over `src/aer/web/templates`:
-
-| | Templates | Raw ramp occurrences |
-|---|---|---|
-| Token-clean | 13 of 54 | 0 |
-| Still on the stock ramps | 41 of 54 | 1,837 |
-
-1,837 occurrences of **141** distinct variant-qualified class names (114 distinct base
-utilities), over six ramps — slate 1,143, sky 265, amber 208, red 80, emerald 71, rose 70.
-The earlier figure of 1,334 occurrences was correct when it was written and the count has
-grown since; **state the method with the number**, because counting variant-qualified names
-(`hover:bg-slate-100`) and counting base utilities (`bg-slate-100`) give 141 and 114 for the
-same tree, and a bare figure invites the next reader to think it moved when it did not:
-
-```bash
-grep -ohrE '\b(text|bg|border|ring|divide|from|to|via|placeholder|decoration|outline|shadow|accent|caret|fill|stroke)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]{2,3}' \
-  src/aer/web/templates | sort | uniq -c | sort -rn
-```
-
-The clean thirteen are the shell, the main menu and what arrived with them — `base.html`,
-`_nav.html`, `_shell/*`, `_ui/*`, `overview/*`, `index.html`, `tools/index.html`,
-`portfolio/empty.html`. The forty-one are the research tool, worst first: `runs/review.html`
-(226), `runs/console.html` (119), `runs/assumptions.html` (100), `skills/edit.html` (87),
-`plans/review.html` (85). **That is the same boundary the design brief draws** (§3.12): the
-surfaces that already answer to the tokens are the reference, and the research tool is the
-work.
+The measurements live in one place — **the ramp ledger in
+[`interface-overhaul.md`](interface-overhaul.md)**, with the census command and the standing
+caveat that the method must be stated with the number. Opened at 1,837 over forty-one
+templates; closed at zero on 2026-08-30.
 
 Deliberately sequenced after everything above it. Those are a wrong number or a missing
 answer; this is a page that looks like two designs. It is also the item most likely to go
 wrong quietly, so it wants its own pass with screenshots rather than being folded into a
 functional change.
 
-**2.6 A split must arrive as a transaction.** `corporate_actions` knows about splits, but
-nothing turns one into a change in holdings, so a book spanning a split is currently wrong.
-Derive it from the corporate action and write it as a transaction — never as a quantity
-that changed with nothing behind it.
+**2.6 A split arrives as a transaction. Done 2026-08-30, under ADR 0094.** A recorded
+split becomes a derived transaction in every book that has dealt the listing, pointing at
+the corporate action behind it — never a quantity that changed with nothing behind it.
+**The quantity is the ratio, not a share delta**, so the row derives from the action alone
+and stays right when an earlier trade is backfilled: the walk multiplies at the split's
+place in trade-date order. Units multiply, the cost pool is untouched (ADR 0085 — a split
+is not a purchase), and the kind is refused on the form because a split you can type is a
+share count with nothing behind it.
 
-**2.7 R18 — the share-based-compensation risk-free rate.** A
+**2.7 R18 — the share-based-compensation risk-free rate. Done 2026-08-30.** A
 `ShareBasedCompensation…RiskFreeRate` tag must never map to `risk_free_rate`. It is an
 input to an option-pricing model in a footnote, not the discount-rate input, and mapping it
 would put a plausible wrong number in the cost of capital.
 
-**2.8 A55 — concept-map coverage.** 175 concepts and 110 segment tags the map cannot place.
-This is judgement over accounting semantics rather than a code change, which is why it has
-survived several passes: it needs somebody who knows what a tag *means* deciding what it
-maps to. The gate that names the lines a filing would lose is the mechanism; the curation is
-the work.
+Verified 2026-08-28: the mapping does not exist — **and neither does anything that would
+refuse it.** `core/concepts.py` holds alias tables and no never-map table, so an absent tag
+is indistinguishable from one nobody has looked at yet, and nothing stops the mapping
+arriving later in good faith. The fix is the mechanism: a deny table carrying the reason
+beside each entry, this family pinned in it, and the unmapped-concepts gate reading *refused*
+as distinct from *unplaced*.
+
+**Done 2026-08-30.** `NEVER_MAP` in `core/concepts.py` holds the five tags of the
+share-based-compensation assumption family, each with the reason a reader can act on, and
+`canonical_concept` returns `None` for them whatever the alias tables say — the refusal is
+in the resolver rather than only in a test, so an alias added in good faith cannot take
+effect while somebody argues about the table; a test then catches the contradiction rather
+than being what prevents it. The distinction reaches the operator: a refused tag is
+reported under its own heading with its reason, is excluded from the tags the gate asks
+about, and **does not stop a run on its own** — asking about a decision already taken is
+how a considered refusal gets approved away as noise.
+
+**2.8 A55 — concept-map coverage. The mechanism is built, 2026-08-30; the curation is
+still the work.** 175 concepts and 110 segment tags the map cannot place. This is judgement
+over accounting semantics rather than a code change, which is why it has survived several
+passes: it needs somebody who knows what a tag *means* deciding what it maps to. The gate
+that names the lines a filing would lose is one half of the mechanism; the other is now
+`aer curation-worksheet`, which reads every run's recorded extract rows, aggregates them,
+ranks them by the largest share of a mapped line any run saw, and writes a worksheet with a
+column to fill in and the canonical vocabulary listed beneath it. Refused tags (§2.7) are
+listed apart and are not up for decision. **A sitting works down from the top and stops** —
+the first rows are the ones that would most change a report — and turning what the operator
+writes into alias-table entries stays a deliberate act by a person reading it.
 
 **2.9 Report readability.** The register is clean — every sentence in a report that was
 *about the report* is gone or moved to where disclosure belongs. Keep it that way: the
@@ -203,8 +342,8 @@ Nothing here is broken; it does not exist. §3.1 is the one an operator is curre
 by. §3.5 onwards is the judgement layer, and the order there is forced by dependency —
 nothing after theses can exist before them.
 
-**3.1 The portfolio — getting a ticker in. Two doors of three, 2026-08-25.** `Security` rows
-exist only where a priced research run created one, so on a fresh database the control held
+**3.1 The portfolio — getting a ticker in. All three doors, 2026-08-29.** `Security` rows
+existed only where a priced research run created one, so on a fresh database the control held
 one option reading "cash, no security" and an operator could neither type a ticker nor find
 out why not.
 
@@ -218,100 +357,208 @@ out why not.
   creates the subject's listing, so a company you have researched with a subscription
   configured is dealable with no second step. The empty state names this as the one path
   that creates a listing today, rather than reporting an absence.
-- **A ticker the platform has never seen. Blocked on a decision, not on plumbing.**
+- **A ticker the platform has never seen. Done 2026-08-29, under ADR 0093.** A typed
+  `TICKER EXCHANGE` that resolves to nothing held is verified with the market-data vendor
+  once, at first sight: `services.listings.add_listing` fetches a short window of bars and
+  records them the way every acquisition is recorded — the series hashed and stored
+  (invariant 1), the source document rooted on the act's own work order, the security keyed
+  on the vendor's symbol — or refuses with the reason: no subscription configured, a venue
+  the vendor mapping does not document, a symbol the vendor returns nothing for. A bare
+  ticker is asked for its exchange rather than guessed at.
 
-**The blocked one, and why it is a decision.** Verifying a new ticker means fetching its
-price series, and a fetched series is an externally derived fact — invariant 1 says it was
-hashed and stored. The machinery for that is `services.acquisition.record_acquisition`,
-which requires a `ResearchRequest`: it needs the point-in-time setting, and the source
-document is scoped to a run. A portfolio has neither.
+**How the decision landed** (decided 2026-08-25, recorded as
+[ADR 0093](../adr/0093-a-work-order-roots-the-books-own-acquisitions.md)): a *portfolio data
+acquisition* is a work order whose subject is the book — one per act, `tool` and
+`subject_kind` the distinguisher with no new column, `point_in_time` off because today's
+close is the point, and a cap of zero that structurally refuses any model call under it.
+`record_acquisition` now reads the clock off the work order rather than the mandate row,
+which was the exact coupling ADR 0072 exists to remove; every attempt, refused or not,
+leaves a `COMPLETED` or `FAILED` order on the record.
 
-`price_bars.source_document_id` is nullable and writing `NULL` there would compile, but its
-nullability means something else — `ON DELETE SET NULL` for the licensed-payload purge under
-ADR 0031, so the column reads "the bytes are gone", not "there were never any". Using it to
-mean the second would quietly retire invariant 1 for every price the portfolio touches.
+**3.2 The portfolio — return and exposure. Done 2026-09-01.** Four tiles was not an
+overview; the page now answers whether the book has *done well* as well as what it is worth.
 
-**Decided 2026-08-25: a work order roots the book's own acquisitions.** Of the three
-candidates — a work order, loosening `record_acquisition` to take the point-in-time flag
-directly, or a synthetic research request per portfolio — the first is the one consistent
-with where the schema already went. ADR 0072 makes the work order the run root; a *portfolio
-data acquisition* is a work order whose subject is the portfolio rather than a company, and
-`source_documents.work_order_id` already exists and is already what §3.3 is migrating
-everything onto. The other two were smaller: loosening the signature leaves the source
-document scoped to nothing in particular, and a synthetic request puts a row in
-`research_requests` that nobody commissioned and every "how many reports have I run?" query
-then has to know to exclude.
-
-It is the largest of the three and that is the cost of the decision, not an argument against
-it. The work:
-
-1. **A work-order kind**, so a run and a book acquisition are distinguishable in the table
-   rather than by inference. Needs an ADR amending 0072 — the record says the work order is
-   the *run* root, and this widens it.
-2. **`record_acquisition` reads the point-in-time setting off the work order** instead of a
-   research request. A book acquisition is inherently not point-in-time: you want today's
-   close, and refusing it as post-dated would be enforcing a rule nobody set.
-3. **`add_listing(session, ticker, exchange, client)`** — resolve the symbol, fetch a short
-   window of bars, refuse with the reason where the vendor returns none, and record the
-   artefact, the security and the bars under the book's work order.
-4. **The form's third door**, which is then just a call: what is typed and not held gets
-   verified once, at first sight, and either becomes dealable or is refused with why.
-
-**3.2 The portfolio — return and exposure.** Four tiles is not an overview. Add:
-
-- **Return over time.** Time-weighted and money-weighted, since inception and per period,
-  over a value series walked from the transactions and the price history. Deposits and
-  withdrawals are flows, not gains, and a top-up must not read as performance.
+- **Return over time.** Time-weighted and money-weighted, since inception and per calendar
+  year, over a value series walked from the transactions and the price history. Deposits and
+  withdrawals are the only external flows — a dividend is money the holdings produced and
+  belongs inside the return — and the series is broken at every one of them, so a top-up
+  cannot read as performance. The two figures are shown side by side because they disagree
+  on purpose: the first is comparable to an index, the second credits the operator's own
+  timing. A true time-weighted return needs a valuation per flow date, which is bounded at
+  `MAX_VALUATION_POINTS` and refused *with its reason* above that rather than silently
+  approximated by a Dietz weighting answering a different question under the same label.
 - **Concentration and exposure.** Weight by holding, sector, currency and listing country,
-  with a top-five concentration figure. Sector comes from the company record behind the
-  security, which exists only for names a run has touched — so it reports what it knows and
-  names what it does not, rather than bucketing the rest as "other".
+  with a top-five figure that says how many holdings it covers. Cash is in the currency band
+  because cash is a position. Sector comes from the company record behind the security and
+  listing country from an explicit venue table, so both report what they know and **name
+  what they do not** in a group held apart from the weighted ones, members listed.
 
 Both are calculations under ADR 0083 like everything else on that screen: derived on the way
-to the page, nothing stored, every figure carrying the grade of the weakest thing beneath it.
+to the page, nothing stored, every figure carrying the grade of the weakest thing beneath it
+— including the sign flip that turns the book's side of a flow into the investor's, which is
+the one arithmetic step nobody would think to check.
 
-**3.3 Step 4 of the work-order migration.** Drop `jobs.request_id`,
-`approvals.request_id`, `source_documents.request_id` and the columns duplicated on
-`research_requests`. Deliberately staged as a later revision (ADR 0072): while those
-columns still hold the data, dropping `work_orders` discards nothing, so the downgrade is
-lossless rather than merely declared. Needs the ~20 `session.get(ResearchRequest,
-job.request_id)` lookups to become optional mandate reads first, since a monitor run will
-have none.
+**3.3 Step 4 of the work-order migration.** **Done 2026-09-01** — migration `0064`.
+`jobs.request_id`, `approvals.request_id` and `source_documents.request_id` are gone, and so
+are the six columns duplicated on `research_requests` (`user_id`, `as_of_date`,
+`point_in_time`, `max_cost_gbp`, `status`, `archived_at`) and the function that kept the two
+copies in step. `research_requests.id` is a foreign key to `work_orders.id` now, so the shared
+key is something the database keeps rather than a convention two modules remember.
 
-**3.4 Scenarios and sensitivity for the residual-income model.** The bank model ships
-without them, and says so in its caveats rather than quietly. The discounted cash flow has
-an 81-cell grid; the bank model has none.
+Staged as a later revision on purpose (ADR 0072): while the columns still held the data,
+dropping `work_orders` discarded nothing, so the downgrade was lossless rather than merely
+declared. `0064`'s own downgrade is where that stops being free, and it says so — it backfills
+every column exactly, then deletes work orders with no detail row before re-imposing `NOT
+NULL`, because downgrading past this point is downgrading past the existence of runs that are
+not about a company.
 
-**3.5 Judgements and theses** (ADRs 0074, 0079). A thesis is a view a named person held at
-a time, with the evidence it rests on and the questions that would defeat it. The record
-that makes it *storable without becoming evidence* already exists — **a judgement is never
-a source reference** — and this is where it earns its keep.
+The mandate lookups moved first: `services/mandate.py` answers "the mandate for this run, if
+it has one" and the 17 `session.get(ResearchRequest, …)` sites read through it, so a monitor
+run with no research request is an ordinary `None` rather than a missing row. ADR 0072 records
+what step four actually cost — the purge walk and `aer reset-research` both had to move their
+root, and the edit diff had to learn which of the two rows holds each field.
 
-Also here: `RESERVED_OUTPUT_FIELDS` gains `conviction`, with its attack file. A conviction
-score that something else can multiply is exactly the laundering ADR 0074 refuses.
+**3.4 Scenarios and sensitivity for the residual-income model.** **Done 2026-09-02** —
+ADR 0101. The bank model shipped without them and said so in its caveats; it now runs every
+authored scenario on both terminal treatments and builds two 5×5 grids of its own — cost of
+equity against terminal growth under the perpetuity, and against return on equity under the
+fade. Each sits under the treatment its second axis means something in, and every cell is a
+complete valuation on ADR 0028's terms.
 
-**3.6 The thesis monitor** (ADRs 0078, 0079). What has happened since a thesis was written
-that bears on it. **It raises questions and answers none**, and a monitor finding is not a
-gated decision — an alert feed that decides things is the thing that record exists to
-refuse.
+The axis question was the real obstacle, and 0101 settles it: the return on equity is a
+driver path, and `aer.calc.dcf.VARIABLE_FIELDS` refuses driver axes because "revenue growth"
+is five numbers. An axis may vary one **when the confirmed path is flat**, which is what a
+bank's gate usually confirms; a fading path costs that grid, by name, with the reason in the
+output. A perpetuity refused in any corner takes its grid whole — a hole is a cell a reader
+interprets. `residual_income_value` gained a `case` so a bank's scenarios are attributable in
+the ledger, and the scenario bridge and football field read the bank's per-share rows rather
+than looking for a discounted cash flow's and finding nothing.
 
-**3.7 Decisions and the trade journal.** The entry written *before* the outcome is known.
+**3.5 Judgements and theses** (ADRs 0074, 0079). **Done 2026-09-02** — ADR 0102. A
+thesis is a view a named person held at a time, with the evidence it rests on and the
+questions that would defeat it. The record that makes it *storable without becoming evidence*
+already existed — **a judgement is never a source reference** — and this is where it earned
+its keep: `judgements` is the supertype (holder, two clocks, basis, withdrawal with a
+reason), `premises` the first subtype keyed on the judgement's own id, and `theses` the
+container. A premise is a statement plus an optional predicate, and one with no predicate
+must name the date a person reviews it by, so nothing stored is a view the platform silently
+stops asking about. Nothing is deleted; every act is on the audit chain with the thesis as
+its subject, which is what `AuditEvent.create_linked` gained the subject correlation for.
 
-**3.8 Post-trade review and decision analytics** (ADR 0081). Scored against the process
-that was supposed to be followed, deliberately **not** against whether it made money.
+The theses tool is the third working tool: a list, a detail and four forms. The rule is proved
+off the schema — no table but `premises` references `judgements`, `claims` has no column for
+one, `SourceKind` has four members — rather than remembered.
 
-**3.9 Portfolio risk and scenarios** (ADR 0080). Commented on rather than scored. Its rate
-prerequisite is now met.
+`RESERVED_OUTPUT_FIELDS` gained `conviction` in the same change, with its attack file and its
+own refusal clause: not because a section owns it, but because a view somebody holds is not a
+figure at all.
 
-**3.10 Watchlist and research queue.** Needs the standing budget and the two clocks — a
-watchlist is followed continuously and researched as at a date, and conflating those is the
-mistake ADR 0075 names.
+**3.6 The thesis monitor** (ADRs 0078, 0079). **Done 2026-09-02** — ADR 0103. What has
+happened since a thesis was written that bears on it. **It raises questions and answers
+none**, and a monitor finding is not a gated decision — an alert feed that decides things is
+the thing that record exists to refuse.
 
-**3.11 The methodology library.** Three `SkillKind`s that are versioned, pinned and
-composed. Mostly does not exist yet.
+What shipped: the `thesis_monitor` role (no tools, a status from the closed enum and a
+justification naming source documents), and the rule ADR 0103 settles on top of ADR 0079 —
+**code measures the crossing before the model is asked anything.** A premise's free-text metric
+resolves to a growth, a ratio or a statement line; the threshold's unit is normalised once
+(per cent is a convention, ADR 0027) and compared through `Quantity`, which refuses a mismatch;
+and the model's status is bounded by the verdict: a defeated predicate is `contradicted`
+whatever it says. A premise nothing new bears on makes no call; a premise nothing measures is
+`unobservable` with the reason.
 
-**3.12 The interface overhaul. Specified, designed and planned 2026-08-25; not built.** Four
-surfaces are in scope and the rest of the product is deliberately not: **the main menu, the menu
+`findings` and `finding_resolutions` are the record ADR 0078 wanted kept apart from an
+approval, with the tier pinned as a column. Only a contradicted finding opens
+`GateKind.THESIS` — decided on the finding, through the monitor service, never through a
+run's gate order — and the decision is what happens to the premise: withdrawn with the reason,
+or kept despite the filing with the reason. Every other act is an appended row with a reason.
+A pass that hits its cap stops with a `stopped` finding and a FAILED job; it never pauses.
+
+The monitor is the fourth working tool: a page, the gate, an attention provider (a
+contradicted premise is *waiting for you*; a stopped pass *needs diagnosis*; an unread finding
+or an overdue review *not started*), a worker task, and `aer monitor` for a nightly schedule.
+What it cannot measure is written on the finding: segment lines are dimensioned facts the
+analysis excludes, so "Azure revenue growth" is unobservable until a later change reads them.
+
+**3.7 Decisions and the trade journal.** **Done 2026-09-02** — ADR 0104. The entry written
+*before* the outcome is known. `decisions` is the second judgement subtype, keyed on the
+judgement's own id in `premises`' shape: the thesis it acts on, an action from six, the
+statement and basis, and the four things a post-trade review holds the operator to — a size
+**as a sentence** (the schema has no numeric size column, on purpose: ADR 0074), a horizon in
+months, an exit plan, a review date. Revising writes a new entry that supersedes the old;
+withdrawing records the reason; nothing is edited.
+
+`transactions.decision_id` is the trade saying which decision it carried out — on the
+attestation and pointing at the judgement, never the reverse, so a judgement still enters no
+lineage and a test keeps `aer.calc` free of the word. The trade form gained *Carries out*, and
+a pairing that cannot be what it claims (a sale carrying out a buy) is refused.
+
+ADR 0080's six sizing names are reserved in this change, with their attack files, because a
+decision's action and size are the first sizing concept: the adversarial corpus is nineteen.
+The Decisions tool is the fifth working tool, with an attention row for a decision never
+carried out and one past its review date.
+
+**3.8 Post-trade review and decision analytics** (ADR 0081). **Done 2026-09-03** — ADR
+0105. Scored against the process that was supposed to be followed, deliberately **not**
+against whether it made money. A closed position is an *episode*: the walk the pooled cost
+makes, asked when the holding returned to nil, so nothing is marked and an open holding is
+never reviewed. Its outcome is code's — cost, proceeds and the realised return as `@traced`
+functions in `calc/outcomes.py`, every flow converted at its own trade's date, the ledger
+persisted against the pass — beside the holding period and the horizon the decisions stated.
+
+The `post_trade_reviewer` role runs once per episode on its own work order and its draft
+lands on the pass's step as a **proposal**; the operator confirms it, amending anything, and
+*that* is the review — `reviews`, the third judgement subtype in `premises`' shape, held by
+the operator on their basis, with the proposal kept beside it so that agreement is decision
+data. `Statistic` cannot be built without its `n`, and below three reviewed positions every
+breakdown is a tally. Post-trade review and Decision analytics are the sixth and seventh
+working tools; the loop ADR 0079 named stays open by design.
+
+**3.9 Portfolio risk and scenarios** (ADR 0080). **Done 2026-09-03** — ADR 0106. Commented
+on rather than scored. Every figure ADR 0080 named is a `@traced` calculation in
+`calc/risk.py` — annualised volatility, maximum drawdown, expected shortfall, a holding's
+contribution as its weight times its beta to the book, scenario profit and loss — measured
+*ex-ante* over the weights the book holds now and a year of each holding's daily returns in
+its own currency, with the coverage stated and an unmeasured holding named rather than
+filled in. Exposure and concentration are §3.2's, shown not recomputed.
+
+A scenario is a named set of shocks the operator states (`risk_scenarios`,
+`risk_scenario_shocks`), each reaching what the exposure bands say it reaches; none is
+built in, for ADR 0080's reason reaching code. The `risk_analyst` role runs in the web
+process on its own work order over the rendered block, and its three commentaries are
+refused by the numeral check and the words of a prescription — once with the problems
+carried back, then recorded. A shock is a lineage node in its own relation (ADR 0076). Risk
+is the eighth working tool.
+
+**3.10 Watchlist and research queue.** **Done 2026-09-03** — ADR 0107. Two clocks on two
+tables: an entry is followed *from* the instant the database stamped, a commission is
+research *as at* the date the operator chose, and nothing on the entry says *researched* —
+that is read from the commission's run and its report, so a dead run puts the entry back
+in the queue and a second commission after a report is the ordinary case. The standing
+budget (`AER_WATCHLIST_BUDGET_GBP`) bounds what the queue may *start* in a month — the
+month's spend by commissioned runs plus the caps of the ones still alive — and each run
+keeps its own cap with the month's applying on top. A commission is an ordinary research
+request at the form's defaults with the per-run cap, started and stopped at gate one. The
+queue is walked in follow order and stops at the first refusal, by name, from the page or
+from `aer queue`, which exits non-zero when it stopped short. Watchlist is the ninth
+working tool, and no planned tool remains.
+
+**3.11 The methodology library.** **Done 2026-09-03** — ADR 0108. The three prompt kinds
+were versioned and pinned since task 36 and composed nowhere; now a pure role table says
+which roles read which kind — methodology and house view into the planner and the
+section writer, preference into the writer, and nothing into any role that judges — and
+each reader composes the pinned text as the last block of its user turn, under the same
+delimiter and rule a custom section's body gets, with the system prompt byte-identical
+either way. The plan step pins before it plans, so the planner, gate 1 and every section
+read the same rows, and gate 1 names the roles inside its hash. A prompt-kind skill is
+refused every section-shaped field at authoring. The ADR 0040 corpus gains seven
+prompt-kind escalations and a `roles` layer, and the starter library ships one example of
+each kind.
+
+**3.12 The interface overhaul. Done 2026-08-30: specified, designed and planned 2026-08-25;
+all ten tranches built and verified green by 2026-08-30 — the record
+is the top section of [`interface-overhaul.md`](interface-overhaul.md).** Four
+surfaces were in scope and the rest of the product deliberately not: **the main menu, the menu
 system and shell, the Equity Research tool, and the Portfolio tool.**
 
 **Where it stands.** The requirements are in [`../design/`](../design/README.md); the design
@@ -348,8 +595,8 @@ a designer rather than for a developer, and it is the input to the work rather t
 
 **The order is: specification, then design, then §2.5, then the templates.** Migrating the
 palette before the design exists would be doing the most quietly-fragile item in the roadmap
-twice. **§2.5 is no longer a separate item**: it is tranches 2 and 4–9 of the plan, and it
-closes when the ramp ratchet reaches zero.
+twice. **§2.5 is no longer a separate item**: it was tranches 2 and 4–9 of the plan, and it
+closed with the ratchet's hard zero on 2026-08-30.
 
 **Two items in flight go first, and neither is blocked by this.** §2.1 puts a wrong number in
 front of somebody and this is a page that looks like two designs; §3.1 adds a control to a
@@ -527,12 +774,31 @@ not a design task, and each should be done **before** money or a dependency is c
    per search whatever it returns, and no charge for an errored search. Recorded as
    `aer.providers.costs.WEB_SEARCH_USD_PER_CALL` and in ADR 0092.
 2. Verify the **Companies House rate limit** (600 requests / 5 minutes) against the official
-   developer documentation.
+   developer documentation. **Done, 2026-09-04**: the developer specifications' rate-limiting
+   guide (`developer-specs.company-information.service.gov.uk/guides/rateLimiting`) states
+   "You can make up to 600 requests within a five-minute period", that requests beyond it
+   receive `429 Too Many Requests` until the period ends and the limit "will reset back to
+   its maximum value of 600 requests", that Companies House "reserve the right to ban
+   without notice applications that regularly exceed or attempt to bypass the rate limits",
+   and that a higher limit is available on request. The fetch policy's bucket for the host
+   is 1.8 requests a second, under the 2 a second the limit sustains, and stays as it is.
 3. Verify **EODHD's licence terms** for internal commercial use versus redistribution, in
    writing, before building further on it.
 4. Verify **Langfuse's current self-host licence** before making it a dependency. The
    OpenTelemetry + Postgres + Grafana fallback has no licence risk, and the `costs` table is
-   needed either way.
+   needed either way. **Done, 2026-09-04**: the repository's `LICENSE` (langfuse/langfuse,
+   main, copyright 2023–2026 ClickHouse, Inc.) puts everything outside the `ee/`,
+   `web/src/ee/` and `worker/src/ee/` directories under the MIT Expat licence, and those
+   directories under `ee/LICENSE` — the Langfuse Enterprise License, which permits copying
+   and modification "for development and testing purposes" only and otherwise requires a
+   valid enterprise licence. The self-hosting documentation (`langfuse.com/docs/open-source`)
+   says the core — tracing, evaluations, prompt management, experiments, annotation, the
+   playground — is MIT-licensed without usage limits, and that the enterprise modules
+   (SCIM, audit logging, data-retention policies) need a commercial licence when
+   self-hosted. Self-hosting the MIT core for one operator's own metering carries no
+   licence risk; nothing the platform would need is behind the enterprise key. Still not a
+   dependency: the `costs` table is the record either way, and this check removes the
+   licence reason for preferring the fallback, not the reason for waiting.
 5. Validate **WeasyPrint's native dependencies** on the target Windows machine. It is the one
    tooling choice that can force late rework.
 
@@ -830,6 +1096,11 @@ belongs in the code comment; the sentence belongs to the reader.
 **The peer gate already said it**, and that is worth recording rather than re-fixing:
 *"Confirming records the set; it fetches nothing. Computing a peer's multiple needs its
 filings and its prices, and this run acquires neither."*
+
+**The remnant — whether to keep buying the model's slate at all — was decided
+2026-09-03** (ADR 0059, second amendment): the model is asked only when a price feed is
+configured, because until then its slate can contribute no multiple. Without one the step
+proposes the deterministic floor, spends nothing, and the gate page says why.
 
 **What remains is a decision, not a defect.** `propose_peers` is a model step and a gate, and
 on the present design its whole output is a list of names and rationales that contribute no

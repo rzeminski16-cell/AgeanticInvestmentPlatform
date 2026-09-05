@@ -26,7 +26,7 @@ from starlette.status import HTTP_202_ACCEPTED, HTTP_404_NOT_FOUND
 from aer.api.deps import CurrentUser, DbSession, RedisClient, StateDep
 from aer.api.sse import SSE_MEDIA_TYPE, event_stream
 from aer.core.enums import Decision, GateKind
-from aer.db.models import Job, JobStep, ResearchRequest, User
+from aer.db.models import Job, JobStep, ResearchRequest, User, WorkOrder
 from aer.errors import AerError
 from aer.queue import enqueue_run
 from aer.services import approvals as approval_service
@@ -175,7 +175,7 @@ async def start_run(
     ``GET /api/runs/{id}/events``.
     """
     request = await session.get(ResearchRequest, payload.request_id)
-    if request is None or request.user_id != user.id:
+    if request is None or request.work_order.user_id != user.id:
         message = f"No research request {payload.request_id}."
         raise RunNotFoundError(message, context={"request_id": str(payload.request_id)})
 
@@ -415,8 +415,8 @@ async def _owned_job(session: AsyncSession, *, job_id: uuid.UUID, user: User) ->
     """
     job: Job | None = await session.scalar(
         select(Job)
-        .join(ResearchRequest, ResearchRequest.id == Job.work_order_id)
-        .where(Job.id == job_id, ResearchRequest.user_id == user.id)
+        .join(WorkOrder, WorkOrder.id == Job.work_order_id)
+        .where(Job.id == job_id, WorkOrder.user_id == user.id)
     )
     if job is None:
         message = f"No run {job_id}."

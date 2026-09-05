@@ -22,12 +22,12 @@ from aer.db.models import (
     Company,
     FinancialFact,
     Job,
-    ResearchRequest,
     SourceDocument,
     User,
 )
 from aer.services.analysis import ANNUAL, analyse_company
 from aer.services.calculations import new_context
+from tests.request_fixtures import research_request
 
 __all__ = ["a_year", "analysed", "scene", "seed_years", "unit_for"]
 
@@ -68,7 +68,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     db_session.add(user)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Contoso Corporation",
         ticker="CTSO",
@@ -91,7 +91,6 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
 
     document = SourceDocument(
         work_order_id=request.id,
-        request_id=request.id,
         artefact_id=artefact.id,
         url="https://data.sec.gov/api/xbrl/companyfacts/CIK0000000002.json",
         provider=Provider.SEC_EDGAR,
@@ -101,7 +100,6 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     )
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version="test",
         code_version="abc",
         status=JobStatus.RUNNING,
@@ -159,5 +157,5 @@ async def analysed(scene: dict[str, Any]) -> Any:
         scene["session"],
         new_context(),
         company_id=scene["company"].id,
-        request=scene["request"],
+        work_order=scene["request"].work_order,
     )

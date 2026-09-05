@@ -28,6 +28,7 @@ Run it with::
 
 from __future__ import annotations
 
+import os
 import uuid
 from typing import Any, ClassVar
 
@@ -38,15 +39,18 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.config import Settings, get_settings
 from aer.db.engine import create_engine
+from aer.db.models import Thesis, User
 from aer.errors import ValidationError
 from aer.logging import configure_logging
 from aer.runtime import build_services
 from aer.services import runs as run_service
+from aer.services import theses as thesis_service
+from aer.services import thesis_monitor
 from aer.services.configuration import effective_settings
 from aer.tracing import configure_tracing
 from aer.version import version
 
-__all__ = ["WorkerSettings", "run_research"]
+__all__ = ["WorkerSettings", "run_monitor", "run_research"]
 
 _log = structlog.get_logger("aer.worker")
 
@@ -127,6 +131,61 @@ async def run_research(ctx: dict[str, Any], job_id: str) -> dict[str, Any]:
     }
 
 
+async def run_monitor(ctx: dict[str, Any], thesis_id: str) -> dict[str, Any]:
+    """One monitor pass over one thesis (roadmap §3.6).
+
+    The pass reads every predicated premise against what has been filed since, writes
+    findings, and stops with a finding rather than pausing if a call would breach a cap
+    (ADR 0078). A thesis that has gone, or was retired since it was queued, is discarded
+    the way a vanished run is: its absence is the answer.
+    """
+    settings: Settings = ctx["settings"]
+    session_factory: async_sessionmaker[Any] = ctx["session_factory"]
+    redis: Redis = ctx["aer_redis"]
+
+    parsed = uuid.UUID(thesis_id)
+
+    async with session_factory() as session:
+        thesis = await session.get(Thesis, parsed)
+        if thesis is None or thesis.is_retired:
+            _log.warning("worker.thesis_vanished", thesis_id=thesis_id)
+            return {"thesis_id": thesis_id, "status": "discarded", "spend_gbp": "0"}
+        # Reloaded through the service so the premises and their judgements arrive by the
+        # loaders the pass reads them through, rather than as first-touch lazy loads.
+        loaded = await thesis_service.thesis_of(session, parsed, user_id=thesis.user_id)
+        user = await session.get(User, thesis.user_id)
+        if loaded is None or user is None:  # pragma: no cover -- the row was just read
+            return {"thesis_id": thesis_id, "status": "discarded", "spend_gbp": "0"}
+
+        settings = await effective_settings(session, settings)
+        services = build_services(settings, redis=redis)
+        outcome = await thesis_monitor.run_monitor(
+            session,
+            settings=settings,
+            provider=services.provider,
+            router=services.router,
+            store=services.store,
+            user=user,
+            thesis=loaded,
+        )
+        await session.commit()
+
+    _log.info(
+        "worker.monitor_finished",
+        thesis_id=thesis_id,
+        job_id=str(outcome.job.id),
+        findings=len(outcome.findings),
+        stopped=outcome.stopped,
+        spend_gbp=str(outcome.spend_gbp),
+    )
+    return {
+        "thesis_id": thesis_id,
+        "status": outcome.job.status.value,
+        "findings": len(outcome.findings),
+        "spend_gbp": str(outcome.spend_gbp),
+    }
+
+
 async def _startup(ctx: dict[str, Any]) -> None:
     """Build the engine, the session factory and a Redis client, once per worker."""
     configure_logging()
@@ -141,7 +200,17 @@ async def _startup(ctx: dict[str, Any]) -> None:
     ctx["session_factory"] = async_sessionmaker(engine, expire_on_commit=False)
     ctx["aer_redis"] = Redis.from_url(settings.redis_url, decode_responses=True)
 
-    _log.info("worker.started", database=settings.database_url.split("@")[-1])
+    # What this process can and cannot do, said once where the operator is looking. The
+    # first live run of the confirmation runbook was served by two workers — one started
+    # before the price-feed key was added to .env, one after — and nothing in either
+    # terminal said which was which; the run's record showed a step that asked the model
+    # for peers (feed present) beside a step that found no feed at all.
+    _log.info(
+        "worker.started",
+        database=settings.database_url.split("@")[-1],
+        pid=os.getpid(),
+        price_feed="configured" if settings.price_feed_configured else "absent",
+    )
 
 
 async def _shutdown(ctx: dict[str, Any]) -> None:
@@ -168,7 +237,7 @@ class WorkerSettings:
     """
 
     # Declared ClassVar rather than moved into an __init__ arq never calls.
-    functions: ClassVar[list[Any]] = [run_research]
+    functions: ClassVar[list[Any]] = [run_research, run_monitor]
     on_startup = _startup
     on_shutdown = _shutdown
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)

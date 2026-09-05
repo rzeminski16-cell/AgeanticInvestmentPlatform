@@ -193,7 +193,6 @@ class TestEachLegCanSinkIt:
         db_session.add(
             SourceDocument(
                 work_order_id=scene["request"].id,
-                request_id=scene["request"].id,
                 job_id=scene["job"].id,
                 artefact_id=artefact.id,
                 url="https://www.sec.gov/Archives/edgar/data/789019/second.htm",

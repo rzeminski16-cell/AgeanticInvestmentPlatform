@@ -1,101 +1,98 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
 
 {#
   Import, in two steps that cannot be collapsed into one. Threat T20: an imported file is a
   file somebody else wrote, so it is shown as a diff against what is stored and the confirm
-  button carries the hash of exactly that comparison. Paste and save in one click would make
-  "I read the change" indistinguishable from "I pasted something".
+  button carries the hash of exactly that comparison — recomputed and rechecked on the
+  server, so a base that moved refuses the import rather than overwriting the newer save.
+  Paste and save in one click would make "I read the change" indistinguishable from "I
+  pasted something". Nothing has been written until the confirmation.
 #}
 
 {% block title %}Import a skill &middot; Tracework Invest{% endblock %}
 
 {% block content %}
-  <nav class="text-sm">
-    <a href="/skills" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
-      &larr; All skills
-    </a>
-  </nav>
-
-  <h1 class="mt-4 text-2xl font-semibold tracking-tight">Import a skill file</h1>
-  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-    A file from somewhere else gets exactly the validation, versioning and hashing an
-    authored one does — and, because you did not write it, a diff you have to confirm.
-  </p>
+  {{ ui.page_header(
+    "Import a skill file",
+    eyebrow="SKILLS",
+    identity="A file from somewhere else gets exactly the validation, versioning and hashing an authored one does — and, because you did not write it, a diff you have to confirm.",
+    breadcrumbs=[{"href": "/skills", "label": "All skills"}],
+  ) }}
 
   {% if problem %}
-    <section
-      class="mt-4 rounded-md border border-amber-400 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
-      role="alert"
-      id="problem"
-    >
-      <p class="text-sm text-amber-900 dark:text-amber-100">{{ problem }}</p>
-    </section>
+    <div id="problem">
+      {{ ui.callout("refusal", "Nothing was imported", problem) }}
+    </div>
   {% endif %}
 
-  <form method="post" action="/skills/import" class="mt-6 space-y-4" id="import-form">
+  <form method="post" action="/skills/import" class="flex max-w-3xl flex-col gap-4" id="import-form">
     <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
 
     <div>
-      <label for="source" class="block text-sm font-medium">The file</label>
+      <label for="source" class="block type-label text-ink">The file</label>
       <textarea
         id="source"
         name="source"
         rows="18"
         spellcheck="false"
         placeholder="Paste the skill file here."
-        class="mt-1 w-full rounded-md border border-slate-300 bg-white p-3 font-mono text-xs leading-relaxed dark:border-slate-700 dark:bg-slate-900"
+        class="mt-1 w-full overflow-x-auto rounded-sm border border-control-boundary bg-surface p-3 type-data-sm text-ink"
       >{{ source }}</textarea>
     </div>
 
-    <button
-      type="submit"
-      id="show-diff"
-      class="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-    >
-      Show me what this changes
-    </button>
+    <p>
+      <button
+        type="submit"
+        id="show-diff"
+        class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-4 type-label text-ink hover:bg-surface-selected"
+      >
+        Show me what this changes
+      </button>
+    </p>
   </form>
 
   {% if diff %}
     {% if not diff.valid %}
-      <section
-        class="mt-8 rounded-lg border border-rose-400 bg-rose-50 p-4 dark:border-rose-700 dark:bg-rose-950"
-        id="import-issues"
-      >
-        <h2 class="text-lg font-semibold tracking-tight text-rose-900 dark:text-rose-200">
-          This file does not validate
-        </h2>
-        <ul class="mt-3 space-y-2">
+      <section class="rounded-md border border-failure-ink bg-failure-wash p-4" id="import-issues">
+        <h2 class="type-title-2 text-ink">This file does not validate</h2>
+        <p class="mt-1 type-body-sm text-ink">Nothing has been written.</p>
+        <ul class="mt-3 flex flex-col gap-2">
           {% for issue in diff.issues %}
-            <li class="rounded border border-rose-300 bg-white p-2 text-sm dark:border-rose-800 dark:bg-slate-900">
-              <span class="font-mono text-xs text-rose-800 dark:text-rose-300">
+            <li class="border-l-[3px] border-failure-ink pl-3">
+              <span class="type-data-sm text-failure-ink">
                 line {{ issue.line if issue.line else "?" }} &middot; {{ issue.field }}
               </span>
-              <p class="mt-1 text-slate-700 dark:text-slate-300">{{ issue.message }}</p>
+              <p class="mt-1 type-body-sm text-ink">{{ issue.message }}</p>
             </li>
           {% endfor %}
         </ul>
       </section>
     {% elif diff.is_identical %}
-      <section class="mt-8" id="import-identical">
-        <p class="text-sm text-slate-600 dark:text-slate-400">
-          This is byte-for-byte version {{ diff.current_version }} of
-          <span class="font-mono">{{ diff.key }}</span>. There is nothing to import.
-        </p>
-      </section>
+      <div id="import-identical">
+        {{ ui.callout(
+          "muted",
+          "There is nothing to import",
+          "This is byte-for-byte version " ~ diff.current_version ~ " of " ~ diff.key ~ ".",
+        ) }}
+      </div>
     {% else %}
-      <section class="mt-8" id="import-diff">
-        <h2 class="text-lg font-semibold tracking-tight">
+      {#
+        The diff is the centre of the page: added lines lead with +, removed with -, in
+        the unified form — the semantics are the marker, never colour.
+      #}
+      {% call ui.sheet(id="import-diff") %}
+        <h2 class="type-title-2 text-ink">
           {% if diff.is_new %}
-            New skill: <span class="font-mono">{{ diff.key }}</span>
+            New skill: <span class="type-data">{{ diff.key }}</span>
           {% else %}
-            Replacing <span class="font-mono">{{ diff.key }}</span> v{{ diff.current_version }}
+            Replacing <span class="type-data">{{ diff.key }}</span> v{{ diff.current_version }}
           {% endif %}
         </h2>
 
         <pre
           id="diff-body"
-          class="mt-3 max-h-[24rem] overflow-auto whitespace-pre rounded-lg border border-slate-200 bg-white p-4 font-mono text-xs leading-relaxed dark:border-slate-800 dark:bg-slate-900"
+          class="mt-3 max-h-[24rem] overflow-auto whitespace-pre rounded-sm bg-surface-sunken p-4 type-data-sm text-ink"
         >{% for line in diff.diff %}{{ line }}
 {% endfor %}</pre>
 
@@ -106,12 +103,16 @@
           <button
             type="submit"
             id="confirm-import"
-            class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
+            class="inline-flex min-h-11 items-center rounded-sm bg-decision px-4 type-label text-on-decision hover:bg-decision-strong"
           >
-            I have read this diff — import it
+            I have read this diff &mdash; import it
           </button>
         </form>
-      </section>
+        <p class="mt-2 max-w-prose type-body-sm text-ink-subtle">
+          The confirmation carries the hash of exactly this comparison. If the saved skill
+          changes before you press it, nothing is imported and a new diff is asked for.
+        </p>
+      {% endcall %}
     {% endif %}
   {% endif %}
 {% endblock %}

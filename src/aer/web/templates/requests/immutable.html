@@ -15,7 +15,7 @@
   {% call ui.page_header(
     "This request cannot be " ~ verb,
     eyebrow="RESEARCH REQUEST",
-    identity=item.company_name ~ " · " ~ item.ticker ~ " · as at " ~ item.as_of_date.isoformat(),
+    identity=item.company_name ~ " · " ~ item.ticker ~ " · as at " ~ item.work_order.as_of_date.isoformat(),
     breadcrumbs=[
       {"href": "/requests", "label": "Requests"},
       {"href": "/requests/" ~ item.id, "label": item.company_name},

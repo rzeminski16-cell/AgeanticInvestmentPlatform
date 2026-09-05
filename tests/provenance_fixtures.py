@@ -48,6 +48,7 @@ from aer.services.citations import record_citation, record_claim
 from aer.services.extractions import record_excerpt
 from aer.storage.local import LocalArtefactStore
 from aer.verify.citations import verify
+from tests.request_fixtures import research_request
 
 __all__ = [
     "FABRICATED",
@@ -121,7 +122,7 @@ async def build_evidence(
         session.add(user)
         await session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -138,7 +139,6 @@ async def build_evidence(
 
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version="vertical_slice_v1",
         code_version="test",
         status=JobStatus.RUNNING,
@@ -529,7 +529,6 @@ async def _document(
 
     document = SourceDocument(
         work_order_id=request_id,
-        request_id=request_id,
         job_id=job_id,
         artefact_id=artefact.id,
         url=url,

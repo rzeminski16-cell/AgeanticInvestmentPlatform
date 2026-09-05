@@ -20,7 +20,7 @@ from starlette.responses import Response
 from starlette.status import HTTP_404_NOT_FOUND
 
 from aer.api.deps import CurrentUser, DbSession, SettingsDep
-from aer.db.models import Artefact, Report, ResearchRequest, User
+from aer.db.models import Artefact, Report, User, WorkOrder
 from aer.errors import AerError
 from aer.storage.local import LocalArtefactStore
 
@@ -77,8 +77,8 @@ async def read_report_for_run(
 ) -> ReportRead:
     report = await session.scalar(
         select(Report)
-        .join(ResearchRequest, ResearchRequest.id == Report.request_id)
-        .where(Report.job_id == job_id, ResearchRequest.user_id == user.id)
+        .join(WorkOrder, WorkOrder.id == Report.request_id)
+        .where(Report.job_id == job_id, WorkOrder.user_id == user.id)
     )
     if report is None:
         message = f"No report for run {job_id}."
@@ -183,8 +183,8 @@ async def download_report_format(
 async def _owned(session: AsyncSession, *, report_id: uuid.UUID, user: User) -> Report:
     report: Report | None = await session.scalar(
         select(Report)
-        .join(ResearchRequest, ResearchRequest.id == Report.request_id)
-        .where(Report.id == report_id, ResearchRequest.user_id == user.id)
+        .join(WorkOrder, WorkOrder.id == Report.request_id)
+        .where(Report.id == report_id, WorkOrder.user_id == user.id)
     )
     if report is None:
         message = f"No report {report_id}."

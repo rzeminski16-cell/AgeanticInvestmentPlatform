@@ -25,7 +25,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aer.core.enums import JobStatus, RequestStatus, UserRole
-from aer.db.models import Artefact, AuditEvent, Job, JobStep, ResearchRequest, User
+from aer.db.models import Artefact, AuditEvent, Job, JobStep, User
 from aer.db.models.agent_run import AgentRun
 from aer.errors import ConflictError
 from aer.services.resume import resume_run, set_step_mode
@@ -33,6 +33,7 @@ from aer.services.runs import RunOutcome, start_run
 from aer.services.step_diagnostic import run_diagnostic
 from aer.workflow.engine import StepContext, StepPaused, StepResult, WorkflowEngine, WorkflowStep
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import seed_job, seed_request, seed_user
 
 
@@ -71,7 +72,7 @@ async def scene(clean_slate: None, db_engine: Any) -> dict[str, Any]:
         session.add(user)
         await session.flush()
 
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Contoso Corporation",
             ticker="CTSO",
@@ -88,7 +89,6 @@ async def scene(clean_slate: None, db_engine: Any) -> dict[str, Any]:
 
         job = Job(
             work_order_id=request.id,
-            request_id=request.id,
             workflow_version="step-test-1",
             code_version="a1b2c3d4",
             status=JobStatus.RUNNING,

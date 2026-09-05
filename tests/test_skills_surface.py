@@ -32,10 +32,11 @@ from aer.db.models import (
     FinancialFact,
     Job,
     JobStep,
+    PlanSkillPin,
     ReportSection,
     ResearchPlan,
-    ResearchRequest,
     SectionStatus,
+    Skill,
     SkillVersion,
     SourceDocument,
     User,
@@ -55,6 +56,7 @@ from aer.skills.resolution import (
 from aer.storage.local import LocalArtefactStore
 from aer.web.csrf import CSRF_FIELD_NAME
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 from tests.test_skill_frontmatter import MOAT_DURABILITY
 from tests.workflow_fixtures import declared_schema_name
 
@@ -177,6 +179,9 @@ I weight owner-operator alignment heavily.
         assert preview.valid
         assert preview.evidence_policy is None
         assert preview.clamps == []
+        # What it says instead (ADR 0108): the roles that will read the text.
+        assert preview.composes_into == ["planner", "report_writer"]
+        assert preview.as_dict()["composes_into"] == ["planner", "report_writer"]
 
 
 class TestThePreviewMatchesWhatARunComposes:
@@ -194,7 +199,7 @@ class TestThePreviewMatchesWhatARunComposes:
         await save_skill(db_session, source=GREEDY_SOURCE, actor=user)
         await set_enabled(db_session, key="greedy_section", enabled=True, actor=user)
 
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",
@@ -219,7 +224,11 @@ class TestThePreviewMatchesWhatARunComposes:
         await db_session.flush()
 
         resolved = await resolve_skills_for_plan(
-            db_session, request=request, plan=plan, settings=settings, router=Router(settings)
+            db_session,
+            request=request,
+            work_order_id=request.id,
+            settings=settings,
+            router=Router(settings),
         )
         [pin] = [row for row in resolved.pins if row.token_budget is not None]
         preview = validate_skill_source(GREEDY_SOURCE, settings=settings, router=Router(settings))
@@ -374,7 +383,7 @@ async def _seed_finished_run(
         session.add(user)
         await session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker=ticker,
@@ -391,7 +400,6 @@ async def _seed_finished_run(
 
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version="vertical_slice_v1",
         code_version="test",
         status=JobStatus.SUCCEEDED,
@@ -418,7 +426,6 @@ async def _seed_finished_run(
 
     document = SourceDocument(
         work_order_id=request.id,
-        request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,
         url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",
@@ -668,7 +675,7 @@ class TestTheDryRun:
         self, finished_run: dict[str, Any], section_provider: FakeProvider
     ) -> None:
         session: AsyncSession = finished_run["session"]
-        finished_run["request"].max_cost_gbp = Decimal("0.01")
+        finished_run["request"].work_order.max_cost_gbp = Decimal("0.01")
         await session.flush()
 
         with pytest.raises(DryRunRefusedError):
@@ -974,6 +981,68 @@ class TestTheSkillsPages:
         # The composed policy, rendered on the server rather than fetched by a script.
         assert 'id="composed"' in page.text
         assert 'id="token-budget"' in page.text
+
+    async def test_the_boundary_is_stated_on_every_visit_to_the_editor(self, api: Any) -> None:
+        """Before a rejection, not only after one: the same sentence the library leads with,
+        on a new file and on a saved version alike (invariant 7)."""
+        sentence = "Skills may add requirements. They cannot remove citations"
+        assert sentence in (await api.get("/skills/new")).text
+
+        await api.post("/api/skills", json={"source": SKILL_SOURCE})
+        saved = (await api.get("/skills/moat_durability")).text
+
+        assert sentence in saved
+        assert "THE BOUNDARY" in saved
+        assert "Version 1 is saved" in saved
+
+    async def test_the_editor_lists_the_runs_that_pinned_the_skill(
+        self, api: Any, db_engine: Any, committed: dict[str, Any]
+    ) -> None:
+        """A skill's effect is on its runs. The pin a plan stored — version, planned or set
+        aside, the estimate — is what the editor shows, each linking to the run."""
+        await api.post("/api/skills", json={"source": SKILL_SOURCE})
+        before = (await api.get("/skills/moat_durability")).text
+        assert 'id="used-by"' in before
+        assert 'id="not-used-yet"' in before
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.scalar(
+                select(Job).where(Job.workflow_version != DRY_RUN_WORKFLOW).limit(1)
+            )
+            skill = await session.scalar(select(Skill).where(Skill.key == "moat_durability"))
+            assert job is not None
+            assert skill is not None
+            version = await session.scalar(
+                select(SkillVersion).where(SkillVersion.skill_id == skill.id)
+            )
+            assert version is not None
+            session.add(
+                PlanSkillPin(
+                    work_order_id=job.work_order_id,
+                    skill_id=skill.id,
+                    skill_version_id=version.id,
+                    status="planned",
+                    reason="",
+                    estimated_cost_gbp=Decimal("0.12"),
+                )
+            )
+            await session.commit()
+
+        after = (await api.get("/skills/moat_durability")).text
+
+        assert 'id="not-used-yet"' not in after
+        assert f'href="/runs/{job.id}"' in after
+        assert "Pinned at version 1, and planned in." in after
+        assert "estimated £0.12" in after
+
+    async def test_the_library_offers_the_dry_run_from_the_row(self, api: Any) -> None:
+        await api.post("/api/skills", json={"source": SKILL_SOURCE})
+
+        page = (await api.get("/skills")).text
+
+        assert 'data-try="moat_durability"' in page
+        assert 'href="/skills/moat_durability#dry-run"' in page
 
     async def test_validating_through_the_form_shows_the_clamps(self, api: Any) -> None:
         page = await api.get("/skills/new")

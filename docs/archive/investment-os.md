@@ -634,8 +634,11 @@ Live status. Tick an item only when it is committed, not when it is drafted.
       backfill, so one revision holds one correspondence to check where four would hold
       four chances for it to drift while `compare_metadata` is red in between.
 
-- [ ] **Step 4 of the migration** — drop `jobs.request_id`, `approvals.request_id`,
+- [x] **Step 4 of the migration** — drop `jobs.request_id`, `approvals.request_id`,
       `source_documents.request_id` and the columns duplicated on `research_requests`.
+      Landed 2026-09-01 as migration `0064`, in two halves: `services/mandate.py` first,
+      so every `session.get(ResearchRequest, …)` became an optional mandate read, then the
+      drops. ADR 0072 records what it cost.
       **Deliberately not done in the same sitting as step 3.** ADR 0072 stages it as a
       later revision, and the staging is the whole reason the downgrade is lossless rather
       than declared: dropping `work_orders` discards nothing while those columns still

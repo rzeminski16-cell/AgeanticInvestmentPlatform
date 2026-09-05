@@ -16,9 +16,15 @@ from __future__ import annotations
 
 from typing import Final
 
+from aer.web.decisions.nav import DECISIONS
+from aer.web.monitor.nav import MONITOR
 from aer.web.nav import NavItem, NavSection
 from aer.web.overview.nav import OVERVIEW
+from aer.web.review.nav import REVIEW
+from aer.web.risk.nav import RISK
+from aer.web.theses.nav import THESES
 from aer.web.tools.registry import PORTFOLIO
+from aer.web.watchlist.nav import WATCHLIST
 
 __all__ = ["NAV", "UNLISTED", "flat_items"]
 
@@ -58,7 +64,18 @@ PLATFORM: Final = NavSection(
 
 # One import per tool, and one line here. Overview is the first section this file did
 # not declare itself, which is the whole claim the nav-as-data slice made.
-NAV: Final[tuple[NavSection, ...]] = (OVERVIEW, RESEARCH, PORTFOLIO, PLATFORM)
+NAV: Final[tuple[NavSection, ...]] = (
+    OVERVIEW,
+    RESEARCH,
+    WATCHLIST,
+    PORTFOLIO,
+    RISK,
+    THESES,
+    DECISIONS,
+    MONITOR,
+    REVIEW,
+    PLATFORM,
+)
 
 
 def flat_items() -> tuple[NavItem, ...]:
@@ -90,18 +107,10 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         # navigation and in whatever the operator bookmarked; 404ing it would be a lie
         # about a page that is right there.
         "/overview",
-        # The planned tools, reached from the launcher on the main menu and from nowhere
-        # else. They are in `web/tools/registry.py` with a `PLANNED` status, and that
-        # status is exactly this decision: a navigation listing seven things nobody can
-        # use is worse than a launcher that shows the shape once. Each becomes a nav item
-        # on the day its row turns `WORKING`.
-        "/analytics",
-        "/decisions",
-        "/monitor",
-        "/review",
-        "/risk",
-        "/theses",
-        "/watchlist",
+        # A planned tool, reached from the launcher on the main menu and from nowhere else,
+        # is named here with a `PLANNED` row in `web/tools/registry.py`: a navigation
+        # listing things nobody can use is worse than a launcher that shows the shape once.
+        # Every row is `WORKING` today, so nothing is listed; the next tool starts here.
         # Liveness and readiness, reached by an operator or a probe, not by a person
         # browsing. `/healthz` is in the nav; `/readyz` is its unlinked sibling.
         "/readyz",
@@ -118,6 +127,15 @@ UNLISTED: Final[frozenset[str]] = frozenset(
         "/knowledge/graph",
         "/reports/{report_id}",
         "/reports/{report_id}/preview",
+        # One thesis, reached from the list above it.
+        "/theses/{thesis_id}",
+        # One finding, reached from the monitor's list and from the work list.
+        "/monitor/findings/{finding_id}",
+        # One decision, reached from the journal, from its thesis and from the work list.
+        "/decisions/{decision_id}",
+        # A reviewer's proposal and a confirmed review, each reached from the review list.
+        "/review/passes/{pass_id}",
+        "/review/{review_id}",
         # A request and everything done to one.
         "/requests/new",
         "/requests/{request_id}",

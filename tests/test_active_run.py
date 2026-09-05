@@ -23,11 +23,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from aer.config import Settings
 from aer.core.enums import AnalysisMode, JobStatus, RequestStatus
 from aer.db.models.job import Job
-from aer.db.models.request import ResearchRequest
 from aer.db.models.user import User
-from aer.db.models.work_order import WorkOrder
 from aer.services.runs import current_run
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 
 
 async def _run(
@@ -37,7 +36,7 @@ async def _run(
     status: JobStatus,
     started: dt.datetime | None,
 ) -> Job:
-    request = ResearchRequest(
+    request = research_request(
         id=uuid.uuid4(),
         user_id=user.id,
         company_name="Contoso plc",
@@ -50,22 +49,13 @@ async def _run(
         point_in_time=True,
         status=RequestStatus.APPROVED,
     )
+    request.work_order.max_cost_gbp = Decimal("8.00")
     session.add(request)
-    await session.flush()
-    order = WorkOrder(
-        id=uuid.uuid4(),
-        user_id=user.id,
-        subject_id=request.id,
-        as_of_date=dt.date(2026, 8, 24),
-        max_cost_gbp=Decimal("8.00"),
-        status=RequestStatus.APPROVED,
-    )
-    session.add(order)
     await session.flush()
     job = Job(
         id=uuid.uuid4(),
-        work_order_id=order.id,
-        request_id=request.id,
+        # The run root the mandate is a detail of, not a second one beside it.
+        work_order_id=request.id,
         workflow_version="v1",
         code_version="test",
         status=status,

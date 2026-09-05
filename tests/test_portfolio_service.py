@@ -13,9 +13,8 @@ like a total — with every weight taken against it too large, in the flattering
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import date
 from decimal import Decimal
-from typing import Any
 
 import pytest
 from sqlalchemy import func, select
@@ -24,196 +23,33 @@ from aer.calc.attestation import Attested, Graded
 from aer.calc.engine import CalculationContext
 from aer.calc.units import Unit
 from aer.core.enums import (
-    AttestationKind,
     Grade,
-    Provider,
-    SourceTier,
     TransactionKind,
-    UserRole,
 )
 from aer.db.models import (
-    Artefact,
-    Attestation,
     Calculation,
-    FxRateRow,
-    Portfolio,
-    PriceBar,
     Security,
-    SourceDocument,
-    Transaction,
-    User,
-    WorkOrder,
 )
 from aer.services import portfolio as portfolio_service
-from aer.web.portfolio.pages import NO_LISTINGS, _resolve_security
+from aer.web.portfolio import pages as pages_module
+from aer.web.portfolio.pages import NO_LISTINGS, _resolve_security, _Unheld
+from aer.web.vocabulary import Tone
+from tests import portfolio_fixtures
 
 pytestmark = pytest.mark.integration
 
-AS_OF = date(2026, 6, 30)
-BOUGHT_ON = date(2026, 6, 15)
-
-
-@pytest.fixture
-async def book(db_session: Any) -> dict[str, Any]:
-    """A sterling book, a US listing, a London listing, and a rate to join them."""
-    user = User(email="book@example.invalid", display_name="B", role=UserRole.OWNER)
-    artefact = Artefact(sha256="c" * 64, size_bytes=32, media_type="text/csv", storage_key="cc/c")
-    db_session.add_all([user, artefact])
-    await db_session.flush()
-
-    portfolio = Portfolio(user_id=user.id, name="ISA", base_currency="GBP")
-    order = WorkOrder(user_id=user.id, as_of_date=AS_OF, point_in_time=False)
-    msft = Security(
-        ticker="MSFT", exchange="NASDAQ", provider_symbol="MSFT.US", quote_currency="USD"
-    )
-    # Quoted in pence, which is the per-cent trap wearing a hat: a close of 250 means £2.50.
-    barc = Security(ticker="BARC", exchange="LSE", provider_symbol="BARC.LSE", quote_currency="GBX")
-    db_session.add_all([portfolio, order, msft, barc])
-    await db_session.flush()
-
-    document = SourceDocument(
-        work_order_id=order.id,
-        artefact_id=artefact.id,
-        url="https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A",
-        provider=Provider.ECB,
-        source_tier=SourceTier.T3_OFFICIAL_STATS,
-        title="ECB euro reference rates",
-        retrieved_at=datetime.now(UTC),
-    )
-    db_session.add(document)
-    await db_session.flush()
-
-    db_session.add_all(
-        [
-            PriceBar(
-                security_id=msft.id,
-                bar_date=AS_OF,
-                open=Decimal("400"),
-                high=Decimal("420"),
-                low=Decimal("399"),
-                close=Decimal("410"),
-            ),
-            PriceBar(
-                security_id=barc.id,
-                bar_date=AS_OF,
-                open=Decimal("248"),
-                high=Decimal("252"),
-                low=Decimal("247"),
-                close=Decimal("250"),
-            ),
-            # The two ECB legs a GBP/USD cross divides. 1.0705 dollars and 0.84645 pounds
-            # per euro, so a dollar is 0.790705... pounds.
-            FxRateRow(
-                base="EUR",
-                quote="USD",
-                observed_on=AS_OF,
-                vintage=AS_OF,
-                rate=Decimal("1.0705"),
-                source_document_id=document.id,
-                artefact_sha256="c" * 64,
-            ),
-            FxRateRow(
-                base="EUR",
-                quote="GBP",
-                observed_on=AS_OF,
-                vintage=AS_OF,
-                rate=Decimal("0.84645"),
-                source_document_id=document.id,
-                artefact_sha256="c" * 64,
-            ),
-        ]
-    )
-    await db_session.flush()
-
-    return {
-        "user": user,
-        "portfolio": portfolio,
-        "msft": msft,
-        "barc": barc,
-        "document": document,
-    }
-
-
-async def trade(
-    session: Any,
-    book: dict[str, Any],
-    *,
-    kind: TransactionKind = TransactionKind.BUY,
-    security: Security | None = None,
-    quantity: str = "100",
-    price: str | None = "410",
-    fees: str = "0",
-    currency: str = "USD",
-    on: date = BOUGHT_ON,
-    at_hour: int = 10,
-    grade: Grade = Grade.ATTESTED,
-    supersedes: Attestation | None = None,
-    recorded_at: datetime | None = None,
-) -> Attestation:
-    attestation = Attestation(
-        kind=AttestationKind.TRANSACTION,
-        grade=grade,
-        effective_at=datetime(on.year, on.month, on.day, at_hour, 0, tzinfo=UTC),
-        recorded_by="book@example.invalid",
-        source_document_id=book["document"].id if grade is Grade.DOCUMENTED else None,
-        supersedes_id=supersedes.id if supersedes is not None else None,
-    )
-    session.add(attestation)
-    await session.flush()
-    if recorded_at is not None:
-        attestation.recorded_at = recorded_at
-    session.add(
-        Transaction(
-            attestation_id=attestation.id,
-            portfolio_id=book["portfolio"].id,
-            kind=kind,
-            security_id=security.id if security is not None else None,
-            trade_date=on,
-            quantity=Decimal(quantity),
-            price=Decimal(price) if price is not None else None,
-            fees=Decimal(fees),
-            currency=currency,
-        )
-    )
-    await session.flush()
-    return attestation
-
-
-async def funded(
-    session: Any,
-    book: dict[str, Any],
-    amount: str = "100000",
-    *,
-    grade: Grade = Grade.ATTESTED,
-) -> None:
-    """Money in the account before anything is bought.
-
-    Every test that buys needs this. Without it the book is a holding and the negative cash
-    that paid for it, which nets to roughly nothing — a real state, and not the one any of
-    these tests is about.
-    """
-    await trade(
-        session,
-        book,
-        kind=TransactionKind.DEPOSIT,
-        security=None,
-        price=None,
-        quantity=amount,
-        currency="GBP",
-        on=date(2026, 6, 1),
-        grade=grade,
-    )
+# The book itself, and the helpers that put trades in it, live in `portfolio_fixtures`:
+# `test_splits.py` needs the same book, and two fixtures of that name would drift.
+AS_OF = portfolio_fixtures.AS_OF
+BOUGHT_ON = portfolio_fixtures.BOUGHT_ON
+funded = portfolio_fixtures.funded
+trade = portfolio_fixtures.trade
+view_of = portfolio_fixtures.view_of
 
 
 @pytest.fixture
 def context() -> CalculationContext:
     return CalculationContext(code_version="test")
-
-
-async def view_of(session: Any, context: CalculationContext, book: dict[str, Any], **kwargs: Any):
-    return await portfolio_service.book_as_at(
-        session, context, portfolio=book["portfolio"], as_of=kwargs.get("as_of", AS_OF)
-    )
 
 
 class TestTheBookIsWhatTheTransactionsSay:
@@ -346,7 +182,7 @@ class TestACorrectionReplacesWhatItCorrects:
         mistake = await trade(db_session, book, security=book["msft"], quantity="1000")
         await trade(db_session, book, security=book["msft"], quantity="100", supersedes=mistake)
 
-        trades = await portfolio_service._current_trades(
+        trades = await portfolio_service.transactions_in_force(
             db_session, portfolio=book["portfolio"], as_of=AS_OF
         )
 
@@ -536,7 +372,10 @@ class TestEveryFigureCarriesItsWorking:
         record = view.holdings[0].quantity.record
 
         assert record.name == "quantity_held"
-        assert record.formula == "held = Σ movement_i"
+        assert (
+            record.formula
+            == "held = fold in trade-date order: a share movement adds; a ratio multiplies"
+        )
         assert [row.name for row in record.inputs] == ["movements[0]", "movements[1]"]
         assert all(row.source_grade is Grade.ATTESTED for row in record.inputs)
 
@@ -580,16 +419,22 @@ class TestNamingTheSecurityYouMean:
     ) -> None:
         assert await _resolve_security(db_session, "   ") is None
 
-    async def test_a_ticker_nobody_holds_is_refused_with_what_to_do_about_it(
-        self, db_session, book
-    ) -> None:
-        """A holding this platform cannot price refuses the *whole* net asset value, so the
-        place to stop it is here rather than at the total."""
-        refusal = await _resolve_security(db_session, "TSLA")
+    async def test_a_ticker_nobody_holds_is_the_third_doors_case(self, db_session, book) -> None:
+        """Since §3.1 an unknown ticker is not a dead end: resolution hands the handler
+        what was typed, parsed, and the handler decides whether it can be verified at
+        first sight. A bare ticker carries no venue — the door needs one."""
+        unheld = await _resolve_security(db_session, "TSLA")
 
-        assert isinstance(refusal, str)
-        assert "TSLA" in refusal
-        assert "research run acquires prices" in refusal
+        assert isinstance(unheld, _Unheld)
+        assert unheld.ticker == "TSLA"
+        assert unheld.exchange is None
+
+    async def test_a_named_exchange_travels_with_the_unheld_ticker(self, db_session, book) -> None:
+        for typed in ("TSLA NASDAQ", "tsla.nasdaq"):
+            unheld = await _resolve_security(db_session, typed)
+            assert isinstance(unheld, _Unheld)
+            assert unheld.ticker == "TSLA"
+            assert unheld.exchange == "NASDAQ"
 
     async def test_an_ambiguous_ticker_names_the_choices_rather_than_picking_one(
         self, db_session, book
@@ -612,16 +457,72 @@ class TestNamingTheSecurityYouMean:
         assert "MSFT.NASDAQ" in refusal
         assert "MSFT.LSE" in refusal
 
-    async def test_a_platform_holding_nothing_says_why_rather_than_saying_no(
+    async def test_a_platform_holding_nothing_still_offers_the_third_door(
         self, db_session, book
     ) -> None:
-        """The empty state is the one an operator actually meets first."""
+        """The empty state is the one an operator actually meets first — and since §3.1 a
+        typed ticker on an empty platform is a verification waiting to happen, not a
+        refusal. The empty-state copy names both doors."""
         for security in (book["msft"], book["barc"]):
             security.is_active = False
         await db_session.flush()
 
-        refusal = await _resolve_security(db_session, "MSFT")
+        unheld = await _resolve_security(db_session, "MSFT NASDAQ")
 
-        assert refusal == NO_LISTINGS
+        assert isinstance(unheld, _Unheld)
         assert "market-data subscription" in NO_LISTINGS
         assert "cash transactions" in NO_LISTINGS.lower()
+        assert "verified" in NO_LISTINGS
+
+
+class TestTheBookLeadsWithAVerdict:
+    """Tranche 8: the page opens with a sentence composed from what the walk resolved,
+    and an incomplete valuation structurally cannot wear the success tone."""
+
+    async def test_a_fully_valued_book_says_so_and_carries_the_grade_once(
+        self, db_session, book, context
+    ) -> None:
+        await funded(db_session, book)
+        await trade(db_session, book, security=book["msft"])
+        view = await view_of(db_session, context, book)
+
+        totals = pages_module._totals(view, book["portfolio"])
+        lead = pages_module._book_verdict(view, totals=totals)
+
+        assert lead.tone is Tone.SUCCESS
+        assert "Fully valued" in lead.composed
+        assert "typed" in lead.composed
+
+    async def test_an_incomplete_book_refuses_the_all_clear(
+        self, db_session, book, context
+    ) -> None:
+        """A GBP deposit and a franc one with no rate to join them: the four figures are
+        withheld, and the verdict says so in the warning family, never the success one."""
+        await funded(db_session, book)
+        await trade(
+            db_session,
+            book,
+            kind=TransactionKind.DEPOSIT,
+            security=None,
+            price=None,
+            quantity="1000",
+            currency="CHF",
+        )
+        view = await view_of(db_session, context, book)
+
+        totals = pages_module._totals(view, book["portfolio"])
+        lead = pages_module._book_verdict(view, totals=totals)
+
+        assert lead.tone is not Tone.SUCCESS
+        assert "withheld" in lead.composed
+
+    async def test_an_empty_book_is_muted_rather_than_reassuring(
+        self, db_session, book, context
+    ) -> None:
+        view = await view_of(db_session, context, book)
+
+        totals = pages_module._totals(view, book["portfolio"])
+        lead = pages_module._book_verdict(view, totals=totals)
+
+        assert lead.tone is Tone.MUTED
+        assert "Nothing is recorded yet" in lead.composed

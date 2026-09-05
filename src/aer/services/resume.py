@@ -140,7 +140,7 @@ async def _append_event(
             event_type=event_type,
             payload=dict(payload),
             previous=previous,
-            request_id=job.request_id,
+            request_id=job.work_order_id,
             job_id=job.id,
         )
     )

@@ -18,7 +18,6 @@ from aer.db.models import (
     Artefact,
     Job,
     ReportSection,
-    ResearchRequest,
     SectionDefinition,
     SectionStatus,
     SourceDocument,
@@ -27,6 +26,7 @@ from aer.db.models import (
 from aer.extract.html import extract_html
 from aer.services.extractions import record_excerpt
 from aer.storage.local import LocalArtefactStore
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
 __all__ = ["ANOTHER_YEAR", "CITED", "FILING", "build_scene"]
@@ -47,7 +47,7 @@ async def build_scene(db_session: AsyncSession, store: LocalArtefactStore) -> di
     db_session.add(user)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -64,7 +64,6 @@ async def build_scene(db_session: AsyncSession, store: LocalArtefactStore) -> di
 
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version="vertical_slice_v1",
         code_version="test",
         status=JobStatus.RUNNING,
@@ -99,7 +98,6 @@ async def build_scene(db_session: AsyncSession, store: LocalArtefactStore) -> di
 
     document = SourceDocument(
         work_order_id=request.id,
-        request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,
         url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",

@@ -1,54 +1,39 @@
-{% extends "base.html" %}
+{% extends "runs/_gate.html" %}
 
 {#
-  The unmapped-tags gate. Everything below is rendered from `payload`, whose hash sits in
-  the hidden field -- rendering one thing and hashing another is the failure a gate exists
-  to prevent, so this template reads `payload` and nothing else.
-#}
+  The unmapped-tags gate. Everything below renders from `payload`, whose hash sits in the
+  decision form — rendering one thing and hashing another is the failure a gate exists to
+  prevent, so the evidence reads `payload` and nothing else.
 
-{% block title %}Confirm the financials &middot; Tracework Invest{% endblock %}
+  The question is "does this gap matter?", and the page is built to answer it: each
+  unmapped row carries the largest figure it ever held in this filing and what that is as a
+  share of the biggest mapped line, sorted biggest share first — so the row that decides
+  the gate is the first row on the screen (gap R17). Largest, not latest: a tag's most
+  recent observation can be a quarter, a restatement or a zero.
+#}
 
 {% block head_extra %}
   <script src="{{ url_for('static', path='/js/tables.js') }}" defer></script>
 {% endblock %}
 
-{% block content %}
-  <nav class="text-sm">
-    <a href="/runs/{{ job.id }}" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
-      &larr; Back to the run
-    </a>
-  </nav>
+{% block gate_verdict %}
+  {{ ui.verdict(
+    "WHAT THIS ASKS",
+    "This filing used " ~ (payload.unmapped_tags | length)
+      ~ (" tag" if payload.unmapped_tags | length == 1 else " tags")
+      ~ " the concept map does not know. The facts behind them were kept, not discarded, but no statement line carries them.",
+    detail="The question is whether that matters here. One extension element carrying the company's headline profit measure matters a great deal; forty carrying segment breakdowns nobody asked for do not. Only you can tell which this is.",
+    tone="warning" if not decided else "muted",
+  ) }}
+{% endblock %}
 
-  <h1 class="mt-4 text-2xl font-semibold tracking-tight">Confirm the extracted financials</h1>
-  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-    This filing used {{ payload.unmapped_tags | length }} tag{{ '' if payload.unmapped_tags | length == 1 else 's' }}
-    the concept map does not know. The facts behind them were kept, not discarded, but no
-    statement line carries them &mdash; so any figure they represent is currently missing from
-    this run's analysis.
-  </p>
-  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-    The question is whether that matters here. One extension element carrying the company's
-    headline profit measure matters a great deal; forty carrying segment breakdowns nobody
-    asked for do not. Only you can tell which this is.
-  </p>
-
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold tracking-tight">Tags with no canonical concept</h2>
-
-    {#
-      The numbers, not the names (gap R17).
-
-      This was a single column of taxonomy element strings, which asks "does this gap
-      matter?" and supplies nothing to answer it with. Each row now carries the largest
-      figure that tag ever held in this filing and what that is as a share of the biggest
-      mapped line — so one extension carrying a headline profit measure separates itself
-      from forty carrying segment breakdowns without anybody opening the filing.
-
-      Biggest share first, so the row that decides the gate is the first row on the screen.
-    #}
+{% block gate_evidence %}
+  {% call ui.sheet("Tags with no canonical concept") %}
     {% if payload.unmapped_concepts %}
-      <div hidden id="unmapped-filter-shell" class="mt-3">
-        <label for="unmapped-filter" class="text-xs font-medium text-slate-600 dark:text-slate-400">
+      <div hidden id="unmapped-filter-shell">
+        {# Revealed by tables.js: with scripting off the complete table stands and no dead
+           search box does. #}
+        <label for="unmapped-filter" class="block type-label text-ink-muted">
           Filter by element name or label
         </label>
         <input
@@ -57,48 +42,48 @@
           autocomplete="off"
           data-filters="#unmapped-tags"
           data-count="#unmapped-filter-count"
-          class="mt-1 w-full max-w-sm rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+          class="mt-1 min-h-11 w-full max-w-sm rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink"
         />
-        <p class="mt-1 text-xs text-slate-500" id="unmapped-filter-count" aria-live="polite"></p>
+        <p class="mt-1 type-body-sm text-ink-muted" id="unmapped-filter-count" aria-live="polite"></p>
       </div>
 
       <div class="mt-3 overflow-x-auto">
-        <table class="w-full text-left text-sm" id="unmapped-tags">
-          <thead class="text-xs uppercase tracking-wide text-slate-500">
+        <table class="w-full text-left" id="unmapped-tags">
+          <caption class="sr-only">
+            Unmapped tags, largest figure first. The figure is the largest this tag held in
+            this filing, not the latest.
+          </caption>
+          <thead>
             <tr>
-              <th scope="col" class="py-2 pr-4">Taxonomy and element</th>
-              <th scope="col" class="py-2 pr-4 text-right">Largest figure</th>
-              <th scope="col" class="py-2 pr-4 text-right">Of the biggest mapped line</th>
-              <th scope="col" class="py-2 pr-4 text-right">Observations</th>
+              <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Taxonomy and element</th>
+              <th scope="col" class="py-2 pr-4 text-right type-eyebrow text-ink-muted">Largest figure</th>
+              <th scope="col" class="py-2 pr-4 text-right type-eyebrow text-ink-muted">Of the biggest mapped line</th>
+              <th scope="col" class="py-2 pr-4 text-right type-eyebrow text-ink-muted">Observations</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+          <tbody class="divide-y divide-line">
             {% for row in payload.unmapped_concepts %}
               <tr data-search="{{ row.tag }} {{ row.label }}">
-                <td class="py-2 pr-4">
-                  <span class="font-mono break-all">{{ row.tag }}</span>
+                <td class="py-2.5 pr-4">
+                  <span class="break-all type-data-sm text-ink">{{ row.tag }}</span>
                   {% if row.label %}
-                    <span class="mt-0.5 block text-xs text-slate-600 dark:text-slate-400">
-                      {{ row.label }}
-                    </span>
+                    <span class="mt-0.5 block type-body-sm text-ink-muted">{{ row.label }}</span>
                   {% endif %}
                 </td>
-                <td class="py-2 pr-4 text-right font-mono text-xs tabular-nums">
+                <td class="py-2.5 pr-4 text-right type-data-sm tabular-nums text-ink">
                   {% if row.value %}
                     {{ row.value }} {{ row.unit }}
-                    <span class="mt-0.5 block text-slate-500">at {{ row.period_end }}</span>
+                    <span class="mt-0.5 block text-ink-muted">at {{ row.period_end }}</span>
                   {% else %}
-                    {#
-                      A tag that produced no fact this run kept. Not nothing: it is why the
-                      element is on this list at all, and a blank would read as zero.
-                    #}
-                    <span class="text-slate-500">no figure in this selection</span>
+                    {# A tag that produced no fact this run kept. Not nothing: it is why
+                       the element is on this list at all, and a blank would read as zero. #}
+                    <span class="text-ink-muted">no figure in this selection</span>
                   {% endif %}
                 </td>
-                <td class="py-2 pr-4 text-right font-mono text-xs tabular-nums">
+                <td class="py-2.5 pr-4 text-right type-data-sm tabular-nums text-ink">
                   {% if row.share %}{{ row.share | percent }}{% else %}&mdash;{% endif %}
                 </td>
-                <td class="py-2 pr-4 text-right font-mono text-xs tabular-nums">
+                <td class="py-2.5 pr-4 text-right type-data-sm tabular-nums text-ink">
                   {{ row.observations }}
                 </td>
               </tr>
@@ -107,177 +92,133 @@
         </table>
       </div>
     {% else %}
-      {#
-        A run recorded before the figures were kept. The tag list is what it always showed.
-      #}
-      <div class="mt-2 overflow-x-auto">
-        <table class="w-full text-left text-sm" id="unmapped-tags">
-          <thead class="text-xs uppercase tracking-wide text-slate-500">
+      {# A run recorded before the figures were kept. The tag list is what it always showed. #}
+      <div class="overflow-x-auto">
+        <table class="w-full text-left" id="unmapped-tags">
+          <thead>
             <tr>
-              <th scope="col" class="py-2 pr-4">Taxonomy and element</th>
+              <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Taxonomy and element</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+          <tbody class="divide-y divide-line">
             {% for tag in payload.unmapped_tags %}
               <tr data-search="{{ tag }}">
-                <td class="py-2 pr-4 font-mono break-all">{{ tag }}</td>
+                <td class="break-all py-2.5 pr-4 type-data-sm text-ink">{{ tag }}</td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
     {% endif %}
-  </section>
+  {% endcall %}
+
+  {% if payload.refused_concepts %}
+    {% call ui.sheet("Tags this platform refuses to map") %}
+      {#
+        The distinction roadmap §2.7 exists to draw. These are not gaps in the map: each
+        one is a decision somebody took and wrote down, and the reason travels with it. In
+        one undifferentiated list they read as work outstanding — which is how a considered
+        refusal gets approved away, and how the mapping it was refused for arrives later in
+        good faith.
+      #}
+      <p class="max-w-prose type-body-sm text-ink-muted">
+        Nothing here is asked of you. These tags produced figures, and this platform has
+        decided each must never become a statement line — the reason is beside it.
+      </p>
+      <ul class="mt-3 flex flex-col divide-y divide-line" id="refused-tags">
+        {% for row in payload.refused_concepts %}
+          <li class="py-3">
+            <span class="break-all type-data-sm text-ink">{{ row.tag }}</span>
+            {% if row.label %}
+              <span class="mt-0.5 block type-body-sm text-ink-muted">{{ row.label }}</span>
+            {% endif %}
+            <p class="mt-1 max-w-prose type-body-sm text-ink-subtle">{{ row.refusal }}</p>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endcall %}
+  {% endif %}
 
   {% if payload.mapped_concepts %}
-    {#
-      What the run did capture, closed by default. The comparison is the point of it: a
-      missing line worth $40bn beside a revenue line of $331bn is one decision, and forty
-      segment breakdowns beside the same revenue are a different one.
-    #}
-    <details class="mt-8">
-      <summary class="cursor-pointer text-lg font-semibold tracking-tight">
-        What the run did capture
-        <span class="ml-1 text-sm font-normal text-slate-500">
-          ({{ payload.mapped_concepts | length }} mapped figures)
-        </span>
-      </summary>
+    {% call ui.sheet() %}
+      {#
+        What the run did capture, closed by default. The comparison is the point: a missing
+        line worth $40bn beside a revenue line of $331bn is one decision, and forty segment
+        breakdowns beside the same revenue are a different one.
+      #}
+      {% call ui.disclosure("What the run did capture (" ~ (payload.mapped_concepts | length) ~ " mapped figures)") %}
+        <div hidden id="mapped-filter-shell">
+          <label for="mapped-filter" class="block type-label text-ink-muted">
+            Filter by concept or period
+          </label>
+          <input
+            id="mapped-filter"
+            type="search"
+            autocomplete="off"
+            data-filters="#mapped-concepts"
+            data-count="#mapped-filter-count"
+            class="mt-1 min-h-11 w-full max-w-sm rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink"
+          />
+          <p class="mt-1 type-body-sm text-ink-muted" id="mapped-filter-count" aria-live="polite"></p>
+        </div>
 
-      <div hidden id="mapped-filter-shell" class="mt-3">
-        <label for="mapped-filter" class="text-xs font-medium text-slate-600 dark:text-slate-400">
-          Filter by concept or period
-        </label>
-        <input
-          id="mapped-filter"
-          type="search"
-          autocomplete="off"
-          data-filters="#mapped-concepts"
-          data-count="#mapped-filter-count"
-          class="mt-1 w-full max-w-sm rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
-        />
-        <p class="mt-1 text-xs text-slate-500" id="mapped-filter-count" aria-live="polite"></p>
-      </div>
-
-      <div class="mt-3 overflow-x-auto">
-        <table class="w-full text-left text-sm" id="mapped-concepts">
-          <thead class="text-xs uppercase tracking-wide text-slate-500">
-            <tr>
-              <th scope="col" class="py-2 pr-4">Concept</th>
-              <th scope="col" class="py-2 pr-4">Period</th>
-              <th scope="col" class="py-2 pr-4 text-right">Value</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
-            {% for row in payload.mapped_concepts %}
-              <tr data-search="{{ row.concept }} {{ row.period_end }}">
-                <td class="py-2 pr-4 font-mono text-xs">{{ row.concept }}</td>
-                <td class="py-2 pr-4 font-mono text-xs">
-                  {% if row.period_start %}{{ row.period_start }} &ndash; {% endif %}{{ row.period_end }}
-                </td>
-                <td class="py-2 pr-4 text-right font-mono text-xs tabular-nums">
-                  {{ row.value }} {{ row.unit }}
-                </td>
+        <div class="mt-3 overflow-x-auto">
+          <table class="w-full text-left" id="mapped-concepts">
+            <thead>
+              <tr>
+                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Concept</th>
+                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Period</th>
+                <th scope="col" class="py-2 pr-4 text-right type-eyebrow text-ink-muted">Value</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </details>
+            </thead>
+            <tbody class="divide-y divide-line">
+              {% for row in payload.mapped_concepts %}
+                <tr data-search="{{ row.concept }} {{ row.period_end }}">
+                  <td class="py-2.5 pr-4 type-data-sm text-ink">{{ row.concept }}</td>
+                  <td class="py-2.5 pr-4 type-data-sm text-ink">
+                    {% if row.period_start %}{{ row.period_start }} &ndash; {% endif %}{{ row.period_end }}
+                  </td>
+                  <td class="py-2.5 pr-4 text-right type-data-sm tabular-nums text-ink">
+                    {{ row.value }} {{ row.unit }}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endcall %}
+    {% endcall %}
   {% endif %}
 
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold tracking-tight">What did map</h2>
-    <dl class="mt-2 grid gap-4 sm:grid-cols-2">
-      <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">
-          Facts this filing carries
-        </dt>
-        <dd class="mt-1 font-mono text-sm" id="facts-available">{{ counts.available }}</dd>
-        {#
-          Two numbers, because one of them is nearly always zero and on its own reads as a
-          failed extraction. Facts are deduplicated on the observation itself, so the second
-          run of a company inserts nothing and holds everything.
-        #}
-        <p class="mt-1 text-xs text-slate-500" id="facts-written">
-          {{ payload.facts_written }} newly stored, {{ counts.already_held }} already held from
-          an earlier run.
+  {% call ui.sheet("What did map") %}
+    <div class="grid gap-6 sm:grid-cols-2">
+      <div>
+        {{ ui.figure("Facts this filing carries", counts.available) }}
+        <span id="facts-available" class="sr-only">{{ counts.available }}</span>
+        {# Two numbers, because one of them is nearly always zero and on its own reads as
+           a failed extraction. Facts are deduplicated on the observation itself. #}
+        <p class="mt-1 type-body-sm text-ink-muted" id="facts-written">
+          {{ payload.facts_written }} newly stored, {{ counts.already_held }} already held
+          from an earlier run.
         </p>
       </div>
-      <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Exchange</dt>
-        <dd class="mt-1 font-mono text-sm" id="gate-exchange">{{ payload.exchange or '—' }}</dd>
+      <div id="gate-exchange">
+        {{ ui.figure("Exchange", payload.exchange or "—") }}
       </div>
-    </dl>
+    </div>
     {% if counts.look_ahead %}
-      <p class="mt-2 text-xs text-slate-500" id="facts-look-ahead">
-        {{ counts.look_ahead }} further fact(s) were held back as published after this run's
-        as-of date.
+      <p class="mt-3 type-body-sm text-ink-muted" id="facts-look-ahead">
+        {{ counts.look_ahead }} further fact(s) were held back as published after this
+        run's as-of date.
       </p>
     {% endif %}
-  </section>
+  {% endcall %}
 
   {% if payload.load_errors %}
-    <section class="mt-8">
-      <h2 class="text-lg font-semibold tracking-tight">What the extractor complained about</h2>
-      <ul class="mt-2 list-disc space-y-1 pl-5 text-sm" id="load-errors">
+    {% call ui.sheet("What the extractor complained about") %}
+      <ul class="flex list-disc flex-col gap-1 pl-5 type-body-sm text-ink" id="load-errors">
         {% for error in payload.load_errors %}<li class="break-all">{{ error }}</li>{% endfor %}
       </ul>
-    </section>
-  {% endif %}
-
-  {% if decided %}
-    <section
-      class="mt-8 rounded-md border border-slate-300 bg-slate-100 p-4 dark:border-slate-700 dark:bg-slate-800"
-      role="status"
-      id="already-decided"
-    >
-      <p class="text-sm text-slate-800 dark:text-slate-200">
-        This gate was already <strong>{{ decided | lower }}</strong>. A decision is not a state
-        to be re-asserted; changing it needs a new run.
-      </p>
-    </section>
-  {% else %}
-    <form method="post" action="/runs/{{ job.id }}/gates/{{ gate }}" class="mt-8 space-y-4" id="gate-form">
-      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-      <input type="hidden" name="payload_hash" id="payload-hash" value="{{ payload_hash }}" />
-
-      <div>
-        <label for="notes" class="block text-sm font-medium">Notes (optional)</label>
-        <textarea
-          id="notes"
-          name="notes"
-          rows="3"
-          maxlength="4000"
-          class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-          placeholder="Which tags you checked, and what they turned out to be. Recorded in the audit trail."
-        ></textarea>
-      </div>
-
-      <div class="flex flex-wrap gap-3">
-        <button
-          type="submit"
-          name="decision"
-          value="APPROVED"
-          id="approve"
-          class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
-        >
-          Confirm and continue
-        </button>
-        <button
-          type="submit"
-          name="decision"
-          value="REJECTED"
-          id="reject"
-          class="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-        >
-          Reject and stop
-        </button>
-      </div>
-
-      <p class="text-xs text-slate-500">
-        Confirming records a hash of exactly the tags listed above, so it cannot be
-        transferred to a filing whose tagging is different.
-      </p>
-    </form>
+    {% endcall %}
   {% endif %}
 {% endblock %}

@@ -17,20 +17,60 @@ that got it wrong would silently omit an analysis nobody noticed was missing.
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from aer.db.models import ReportSection, SectionDefinition, SectionStatus
+from aer.db.models import JobStep, ReportSection, SectionDefinition, SectionStatus
 from aer.db.models.request import ResearchRequest
 
-__all__ = ["applies_to", "create_report_sections", "resolve_sections", "sections_for_job"]
+__all__ = [
+    "applies_to",
+    "create_report_sections",
+    "resolve_sections",
+    "section_outcomes",
+    "sections_for_job",
+]
+
+# The step whose output records what happened to each section.
+_DRAFT_STEP: Final = "draft"
 
 _log = structlog.get_logger("aer.sections.registry")
+
+
+async def section_outcomes(
+    session: AsyncSession, *, job_id: uuid.UUID
+) -> dict[str, dict[str, Any]]:
+    """What the draft step recorded about each section, keyed by section.
+
+    Read from the step's own frozen output rather than recomputed: ``SectionExecution``
+    already carries the evidence tally, the attempt count, the refusal causes and the
+    problems in the producers' own words, and a second derivation would be a place for
+    the readers to disagree. Two of them read it — the review page's per-section table,
+    and the §2.4 missing-section trigger, which used to report a status where the record
+    held a reason.
+
+    Empty for a run that has not drafted, which every caller treats as "nothing to say"
+    rather than as an error.
+    """
+    step = await session.scalar(
+        select(JobStep)
+        .where(JobStep.job_id == job_id, JobStep.step_key == _DRAFT_STEP)
+        .order_by(JobStep.sequence.desc())
+        .limit(1)
+    )
+    produced = (step.output_ref or {}) if step is not None else {}
+    rows: dict[str, dict[str, Any]] = {}
+    for outcome in [*produced.get("builtin_sections", []), *produced.get("custom_sections", [])]:
+        key = str(outcome.get("section_key", ""))
+        if key:
+            rows[key] = outcome
+    return rows
 
 
 @dataclass(frozen=True, slots=True)

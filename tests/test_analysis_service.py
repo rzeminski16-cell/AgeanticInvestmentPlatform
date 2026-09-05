@@ -28,12 +28,12 @@ from aer.db.models import (
     Company,
     FinancialFact,
     Job,
-    ResearchRequest,
     SourceDocument,
     User,
 )
 from aer.services.analysis import ANNUAL, FORECAST_CONCEPTS, analyse_company
 from aer.services.calculations import new_context, persist_context
+from tests.request_fixtures import research_request
 
 pytestmark = pytest.mark.integration
 
@@ -72,7 +72,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     db_session.add(user)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Contoso Corporation",
         ticker="CTSO",
@@ -95,7 +95,6 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
 
     document = SourceDocument(
         work_order_id=request.id,
-        request_id=request.id,
         artefact_id=artefact.id,
         url="https://data.sec.gov/api/xbrl/companyfacts/CIK0000000001.json",
         provider=Provider.SEC_EDGAR,
@@ -105,7 +104,6 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     )
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version="test",
         code_version="abc",
         status=JobStatus.RUNNING,
@@ -167,7 +165,10 @@ class TestTheAnalysisRuns:
         context = new_context()
 
         outcome = await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
 
         [period] = outcome.periods
@@ -184,7 +185,10 @@ class TestTheAnalysisRuns:
         context = new_context()
 
         await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
         rows = await persist_context(scene["session"], context, job_id=scene["job"].id)
 
@@ -200,7 +204,10 @@ class TestTheAnalysisRuns:
         context = new_context()
 
         await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
         rows = await persist_context(scene["session"], context, job_id=scene["job"].id)
 
@@ -217,7 +224,10 @@ class TestTheAnalysisRuns:
         context = new_context()
 
         outcome = await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
 
         assert [period.period_end.year for period in outcome.periods] == [2023, 2022, 2021]
@@ -235,7 +245,10 @@ class TestTheAnalysisRuns:
         context = new_context()
 
         outcome = await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
 
         assert outcome.latest is not None
@@ -254,7 +267,10 @@ class TestTheAnalysisRuns:
         context = new_context()
 
         outcome = await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
 
         assert any("preceding year" in note for note in outcome.skipped)
@@ -263,7 +279,10 @@ class TestTheAnalysisRuns:
         context = new_context()
 
         outcome = await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
 
         assert outcome.periods == ()
@@ -290,7 +309,10 @@ class TestTheLedgerRecordsEachDerivationOnce:
         context = new_context()
 
         await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
         rows = await persist_context(scene["session"], context, job_id=scene["job"].id)
 
@@ -327,7 +349,10 @@ class TestTheLedgerRecordsEachDerivationOnce:
         context = new_context()
 
         await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
 
         assert context.named("net_debt_to_ebitda"), (
@@ -365,7 +390,10 @@ class TestWhichObservationWins:
         context = new_context()
 
         outcome = await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
 
         [period] = outcome.periods
@@ -398,7 +426,10 @@ class TestWhichObservationWins:
         context = new_context()
 
         outcome = await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
 
         revenue = outcome.periods[0].statements.get("revenue")
@@ -419,7 +450,10 @@ class TestWhichObservationWins:
         context = new_context()
 
         outcome = await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
 
         assert outcome.periods == ()
@@ -436,7 +470,7 @@ class TestWhichObservationWins:
             scene["session"],
             context,
             company_id=scene["company"].id,
-            request=scene["request"],
+            work_order=scene["request"].work_order,
             max_periods=3,
         )
 
@@ -453,7 +487,10 @@ class TestWhichObservationWins:
         context = new_context()
 
         outcome = await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
 
         assert outcome.periods == ()
@@ -479,7 +516,10 @@ class TestAFactTheAlgebraCannotRead:
         context = new_context()
 
         outcome = await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
 
         [period] = outcome.periods
@@ -496,7 +536,10 @@ class TestWhatTheStepRecords:
         context = new_context()
 
         outcome = await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
         recorded = outcome.as_dict()
 
@@ -516,7 +559,10 @@ class TestWhatTheStepRecords:
         context = new_context()
 
         outcome = await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
 
         assert outcome.as_dict()["periods"][0]["failed_identities"]
@@ -536,7 +582,10 @@ class TestWhatTheStepRecords:
         context = new_context()
 
         outcome = await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
 
         assert "not_a_canonical_concept" in outcome.unplaced_concepts
@@ -555,7 +604,10 @@ class TestTheWorkflowActuallyCallsIt:
         context = new_context()
 
         await analyse_company(
-            scene["session"], context, company_id=scene["company"].id, request=scene["request"]
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
         )
         rows = await persist_context(scene["session"], context, job_id=scene["job"].id)
 
@@ -638,7 +690,7 @@ class TestOnlyAFullYearMakesAFiscalYear:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            request=scene["request"],
+            work_order=scene["request"].work_order,
         )
 
         assert [period.period_end for period in outcome.periods] == [
@@ -665,7 +717,7 @@ class TestOnlyAFullYearMakesAFiscalYear:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            request=scene["request"],
+            work_order=scene["request"].work_order,
         )
 
         [period] = outcome.periods
@@ -699,7 +751,7 @@ class TestOnlyAFullYearMakesAFiscalYear:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            request=scene["request"],
+            work_order=scene["request"].work_order,
         )
 
         [period] = outcome.periods
@@ -720,7 +772,7 @@ class TestOnlyAFullYearMakesAFiscalYear:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            request=scene["request"],
+            work_order=scene["request"].work_order,
         )
 
         assert [period.period_end for period in outcome.periods] == [date(2022, 12, 31)]
@@ -736,7 +788,7 @@ class TestOnlyAFullYearMakesAFiscalYear:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            request=scene["request"],
+            work_order=scene["request"].work_order,
         )
 
         assert [period.period_end for period in outcome.periods] == [date(2024, 1, 27)]
@@ -758,7 +810,7 @@ class TestTheRunMeasuresItsOwnCoverage:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            request=scene["request"],
+            work_order=scene["request"].work_order,
         )
 
         coverage = outcome.forecast_coverage
@@ -783,7 +835,7 @@ class TestTheRunMeasuresItsOwnCoverage:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            request=scene["request"],
+            work_order=scene["request"].work_order,
         )
 
         assert outcome.forecast_coverage["capital_expenditure"] == 0
@@ -798,7 +850,7 @@ class TestTheRunMeasuresItsOwnCoverage:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            request=scene["request"],
+            work_order=scene["request"].work_order,
         )
 
         assert outcome.as_dict()["forecast_coverage"]["revenue"] == 1
@@ -845,7 +897,7 @@ class TestASectorIsNotAskedForAccountsItDoesNotKeep:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            request=scene["request"],
+            work_order=scene["request"].work_order,
             profile=profile_for("banks"),
         )
 
@@ -865,7 +917,7 @@ class TestASectorIsNotAskedForAccountsItDoesNotKeep:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            request=scene["request"],
+            work_order=scene["request"].work_order,
             profile=profile_for("banks"),
         )
 
@@ -883,7 +935,7 @@ class TestASectorIsNotAskedForAccountsItDoesNotKeep:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            request=scene["request"],
+            work_order=scene["request"].work_order,
             profile=profile_for("banks"),
         )
 
@@ -902,7 +954,7 @@ class TestASectorIsNotAskedForAccountsItDoesNotKeep:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            request=scene["request"],
+            work_order=scene["request"].work_order,
             profile=profile_for("banks"),
         )
 
@@ -921,7 +973,7 @@ class TestASectorIsNotAskedForAccountsItDoesNotKeep:
             scene["session"],
             new_context(),
             company_id=scene["company"].id,
-            request=scene["request"],
+            work_order=scene["request"].work_order,
         )
 
         assert set(outcome.forecast_coverage) == set(FORECAST_CONCEPTS)
@@ -942,7 +994,13 @@ class TestTheMapCarriesTheSpellingsFilersUse:
             "capital_expenditure"
         )
 
-    def test_bare_depreciation_is_left_alone(self) -> None:
-        """It is a smaller number than the combined line, and mapping it would understate
-        the driver wherever a company reports depreciation and amortisation separately."""
-        assert canonical_concept("us-gaap", "Depreciation") is None
+    def test_bare_depreciation_is_never_the_combined_line(self) -> None:
+        """It is a smaller number than the combined line, and mapping it there would
+        understate the driver wherever a company reports the two separately. It is its own
+        concept instead, and the combined line is derived from the pair
+        (`aer.calc.statements`) — which is what the confirmation run's subject needed."""
+        assert canonical_concept("us-gaap", "Depreciation") == "depreciation"
+        assert canonical_concept("us-gaap", "AmortizationOfIntangibleAssets") == (
+            "amortisation_of_intangibles"
+        )
+        assert canonical_concept("us-gaap", "Depreciation") != "depreciation_and_amortisation"

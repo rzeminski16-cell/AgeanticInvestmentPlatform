@@ -42,7 +42,7 @@ from aer.core.schemas.extraction import Excerpt
 from aer.db.models import Company, ResearchRequest, SourceDocument
 from aer.errors import AerError
 from aer.extract import extract_text
-from aer.services.acquisition import record_acquisition
+from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.extractions import record_excerpts
 from aer.sources.base import ResolvedEntity
 from aer.sources.sec.submissions import ANNUAL_FORMS, QUARTERLY_FORMS, Filing, SubmissionsIndex
@@ -303,7 +303,7 @@ def _wanted(
     possible place, and the one where a filing that postdates the as-of date stops being a
     candidate rather than being fetched and then refused.
     """
-    as_of = request.as_of_date if request.point_in_time else None
+    as_of = request.work_order.as_of_date if request.work_order.point_in_time else None
     annual = index.latest(ANNUAL_FORMS, as_of_date=as_of)
 
     candidates = index.filed_on_or_before(as_of) if as_of else index.filings
@@ -371,7 +371,7 @@ async def _acquire_one(
     acquisition = await record_acquisition(
         session,
         store,
-        request=request,
+        work_order=await acquisition_root(session, request),
         job_id=job_id,
         company_id=company.id,
         result=result,

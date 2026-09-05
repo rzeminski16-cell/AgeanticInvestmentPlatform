@@ -64,7 +64,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aer.core.enums import JobStatus
 from aer.core.hashing import canonical_json, sha256_hex
-from aer.db.models import Cost, Job, JobCancellation, JobStep
+from aer.db.models import Cost, Job, JobCancellation, JobStep, WorkOrder
 from aer.errors import AerError, BudgetExceededError
 from aer.tracing import span
 
@@ -216,10 +216,19 @@ class BudgetGuard:
     **The refusal names which ceiling it hit**, because the remedies are different and only
     one of them is on the request: raising a request's own cap does nothing whatever to a
     monthly stop.
+
+    **``per_run_cap_gbp`` is optional, and a run's own guard leaves it out.** The cap is a
+    control the operator may raise while the run is going
+    (:func:`aer.services.requests.raise_cap`), and a guard holding the figure it was built
+    with would go on stopping the run at a ceiling that no longer exists — through the rest
+    of an execution that may be the whole run. Left out, it is read from the work order at
+    each check, which is the row the agent-level guard already reads, so the two stop
+    agreeing by mirror and start agreeing by source. A caller enforcing a ceiling of its
+    own — a skill dry run, a test — passes one and it is used unchanged.
     """
 
-    per_run_cap_gbp: Decimal
     monthly_cap_gbp: Decimal
+    per_run_cap_gbp: Decimal | None = None
     warn_ratio: float = 0.75
 
     async def check(
@@ -242,12 +251,13 @@ class BudgetGuard:
                 and lost it would be a cap people disable.
         """
         already = await spend_so_far(session, job_id=job.id)
+        per_run = await self._per_run_cap(session, job=job)
         self._refuse_if_over(
             scope="per_run",
             noun="run",
             spent=already,
             projected_gbp=projected_gbp,
-            cap=self.per_run_cap_gbp,
+            cap=per_run,
             remedy="Raise the cap on this request to continue.",
         )
 
@@ -266,8 +276,23 @@ class BudgetGuard:
             ),
         )
 
-        self._warn_if_near(job, scope="per_run", spent=already, cap=self.per_run_cap_gbp)
+        self._warn_if_near(job, scope="per_run", spent=already, cap=per_run)
         self._warn_if_near(job, scope="monthly", spent=this_month, cap=self.monthly_cap_gbp)
+
+    async def _per_run_cap(self, session: AsyncSession, *, job: Job) -> Decimal:
+        """This run's ceiling as it stands now, not as it stood when the guard was built.
+
+        A missing work order is referential breakage rather than a budget question, and a
+        guard that treated it as "no ceiling" would be a guard every orphaned job walks
+        past — so the absence falls back to whatever the caller supplied, and a caller that
+        supplied nothing gets zero, which refuses everything.
+        """
+        if self.per_run_cap_gbp is not None:
+            return self.per_run_cap_gbp
+        cap = await session.scalar(
+            select(WorkOrder.max_cost_gbp).where(WorkOrder.id == job.work_order_id)
+        )
+        return Decimal(str(cap)) if cap is not None else Decimal(0)
 
     def _refuse_if_over(
         self,

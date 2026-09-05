@@ -16,6 +16,12 @@ pasted into an AI design tool — on its own, alongside
 | [`research-reports.md`](research-reports.md) | Report history, a finished report, its HTML notation |
 | [`research-skills-and-knowledge.md`](research-skills-and-knowledge.md) | The skills library and editor; the knowledge graph and company history |
 | [`portfolio.md`](portfolio.md) | The book, its empty and broken states, the transaction form |
+| [`theses.md`](theses.md) | The theses list, one thesis and its premises, the four forms |
+| [`monitor.md`](monitor.md) | The findings list, one finding, the thesis gate and the acts that close a finding |
+| [`decisions.md`](decisions.md) | The journal, one decision with the premises it was taken on and the trades that carried it out |
+| [`review-and-analytics.md`](review-and-analytics.md) | The closed positions, the reviewer's proposal beside the outcome, the confirmed review, and the analytics with an `n` on every statistic |
+| [`risk.md`](risk.md) | The book's ex-ante figures with their lineage, the scenarios the operator stated, and the analyst's reading or its refusal |
+| [`watchlist.md`](watchlist.md) | The companies followed with why, the standing budget, and the queue commissioned from the row or drained in follow order |
 
 ---
 

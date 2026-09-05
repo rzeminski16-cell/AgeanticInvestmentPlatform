@@ -7,13 +7,13 @@
   {% call ui.page_header(
     item.company_name,
     eyebrow="RESEARCH REQUEST",
-    identity=item.ticker ~ " · " ~ (item.exchange | replace("_", " ")) ~ " · as at " ~ item.as_of_date.isoformat(),
+    identity=item.ticker ~ " · " ~ (item.exchange | replace("_", " ")) ~ " · as at " ~ item.work_order.as_of_date.isoformat(),
     breadcrumbs=[{"href": "/requests", "label": "Requests"}],
   ) %}
     <span id="company-name" class="sr-only">{{ item.company_name }}</span>
     <span id="ticker" class="sr-only">{{ item.ticker }}</span>
     <span id="exchange" class="sr-only">{{ item.exchange | replace("_", " ") }}</span>
-    <span id="as-of-date" class="sr-only">{{ item.as_of_date.isoformat() }}</span>
+    <span id="as-of-date" class="sr-only">{{ item.work_order.as_of_date.isoformat() }}</span>
     <span id="status">{{ ui.status(status_tone, status_label) }}</span>
   {% endcall %}
 
@@ -37,6 +37,12 @@
   #}
   {% call ui.sheet("This run") %}
     {% if job %}
+      {#
+        The run's own state, not the request's — a cancelled or failed run is exactly what
+        this sheet exists to report, and offering "start a new run" without saying what
+        happened to the old one reads as a page that lost track.
+      #}
+      <p class="mb-4">{{ ui.status(run_state_tone, run_state_label) }}</p>
       {{ ui.definition_list([
         {"label": "Spent", "value": run_cost, "is_data": true},
         {"label": "Last activity", "value": last_activity, "is_data": true},

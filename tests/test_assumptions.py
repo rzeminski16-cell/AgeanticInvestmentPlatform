@@ -36,6 +36,7 @@ from aer.services import assumptions as assumption_service
 from aer.services import scenarios as scenario_service
 from aer.services.assumptions import UnconfirmedAssumptionError
 from aer.services.scenarios import CellInput
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE, seed_job
 
 pytestmark = pytest.mark.integration
@@ -55,7 +56,7 @@ async def scene(db_session: Any) -> dict[str, Any]:
     db_session.add_all([analyst, reviewer])
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=analyst.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",

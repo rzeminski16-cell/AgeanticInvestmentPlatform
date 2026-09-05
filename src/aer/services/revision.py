@@ -15,12 +15,22 @@ pinned composed policy (ADR 0037), and a platform-initiated redraft would execut
 under that policy that gate 1 never displayed. The loop stands aside and writes down that
 it did.
 
-**A revised section's previous claims are replaced.** The claims model always said a
-redrafted section replaces its claims; this is the first caller that redrafts.
+**A revised section's previous claims are replaced — by the draft that replaces them.**
+The claims model always said a redrafted section replaces its claims; this is the first
+caller that redrafts, and the replacement happens inside `record_draft_claims`, which runs
+only for a draft that passed.
 
-Every decision — revised, stood aside — lands as a ``revision_notes`` row, which is the
-memory half's substrate: `aer lessons` counts recurrence over these rows, and nothing
-ever reads them back into a prompt.
+**A refused revision changes nothing** (ADR 0098). The section's content, status,
+confidence, reason and claims all stand as the draft step left them. This module used to
+delete the claims and redraft over the content before knowing whether the attempt would
+stand up, which made the loop that exists to improve a draft the only way to lose one that
+had already passed — two sections of a live run, with 24 and 21 recorded claims between
+them. The spend is not unwound with it: the attempt's calls happened and its cost rows
+stay.
+
+Every decision — revised, refused, stood aside — lands as a ``revision_notes`` row,
+which is the memory half's substrate: `aer lessons` counts recurrence over these rows, and
+nothing ever reads them back into a prompt.
 """
 
 from __future__ import annotations
@@ -36,9 +46,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from aer.agents.base import AgentContext
-from aer.db.models import Claim, Disagreement, Job, ReportSection, ResearchRequest, RevisionNote
+from aer.db.models import (
+    Disagreement,
+    Job,
+    ReportSection,
+    ResearchRequest,
+    RevisionNote,
+    SectionStatus,
+)
 from aer.db.models.revision_note import (
     DISPOSITION_REVISED,
+    DISPOSITION_REVISION_REFUSED,
     DISPOSITION_SKIPPED_CUSTOM,
     SCOPE_DRAFT,
 )
@@ -46,6 +64,7 @@ from aer.db.models.section_definition import SKILL
 from aer.sections.writing import execute_builtin_section
 from aer.services.disagreements import escalations_for_job
 from aer.services.red_team import MATERIAL_SEVERITY
+from aer.skills.resolution import guidance_from_pins, pinned_skills_for_job
 
 __all__ = [
     "MAX_REVISED_SECTIONS",
@@ -77,6 +96,43 @@ class ReviseOutcome:
             "skipped_custom": sorted(set(self.skipped_custom)),
             "over_bound": list(self.over_bound),
         }
+
+
+@dataclass(frozen=True, slots=True)
+class _Approved:
+    """The section as the draft step left it, so a refused revision can put it back.
+
+    ADR 0098. Held in Python rather than taken as a savepoint on purpose: the refused
+    attempt's ``agent_runs`` and ``costs`` rows are written on this same session, the
+    money was genuinely spent, and an audit trail that discards the calls it did not like
+    is not an audit trail. Only the four fields a redraft mutates are carried.
+    """
+
+    content: dict[str, Any] | None
+    status: SectionStatus
+    confidence: float | None
+    low_confidence_reason: str | None
+
+    @property
+    def was_generated(self) -> bool:
+        """Whether there is an approved draft to keep. A section the draft step already
+        failed has nothing to protect, and its revision's failure is the same failure."""
+        return self.status is SectionStatus.GENERATED
+
+    @classmethod
+    def of(cls, section: ReportSection) -> _Approved:
+        return cls(
+            content=section.content,
+            status=section.status,
+            confidence=section.confidence,
+            low_confidence_reason=section.low_confidence_reason,
+        )
+
+    def restore(self, section: ReportSection) -> None:
+        section.content = self.content
+        section.status = self.status
+        section.confidence = self.confidence
+        section.low_confidence_reason = self.low_confidence_reason
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,9 +169,7 @@ async def revise_challenged_sections(
     # earlier attempt's rather than piling onto it — this step is the only writer of the
     # draft-scope notes, and duplicates would double every row the gate-2 payload shows.
     await session.execute(
-        delete(RevisionNote).where(
-            RevisionNote.job_id == job.id, RevisionNote.scope == SCOPE_DRAFT
-        )
+        delete(RevisionNote).where(RevisionNote.job_id == job.id, RevisionNote.scope == SCOPE_DRAFT)
     )
     await session.flush()
 
@@ -127,6 +181,10 @@ async def revise_challenged_sections(
             .options(selectinload(ReportSection.definition))
         )
     }
+
+    # The operator's standing guidance, from the run's pins (ADR 0108): the revision
+    # composes exactly what the first draft composed, so a redraft is a redraft.
+    guidance = guidance_from_pins(await pinned_skills_for_job(session, job=job))
 
     revised = 0
     for target in targets:
@@ -151,15 +209,24 @@ async def revise_challenged_sections(
             outcome.over_bound.append(target.section_key)
             continue
 
-        await _replace_claims(session, section_id=section.id)
+        # Held before the attempt, restored if it does not stand up (ADR 0098). The
+        # section's claims are not touched here at all: `record_draft_claims` replaces
+        # them, and it runs only for a draft that passed.
+        approved = _Approved.of(section)
         execution = await execute_builtin_section(
             context,
             section=section,
             request=request,
             focus=(focus_by_key or {}).get(target.section_key, ""),
             challenges=list(target.statements),
+            guidance=guidance,
         )
         revised += 1
+        kept = execution.status is not SectionStatus.GENERATED and approved.was_generated
+        if kept:
+            approved.restore(section)
+            await session.flush()
+        disposition = DISPOSITION_REVISION_REFUSED if kept else DISPOSITION_REVISED
         outcome.revised.append(
             {
                 "section_key": target.section_key,
@@ -167,14 +234,18 @@ async def revise_challenged_sections(
                 "attempts": execution.attempts,
                 "challenges": len(target.statements),
                 "max_severity": target.severity,
+                # The draft the reader will actually see, which after a refused revision
+                # is not the one this attempt produced.
+                "kept_approved_draft": kept,
             }
         )
-        await _note_each(session, job_id=job.id, target=target, disposition=DISPOSITION_REVISED)
+        await _note_each(session, job_id=job.id, target=target, disposition=disposition)
         _log.info(
             "revision.section_revised",
             job_id=str(job.id),
             section=target.section_key,
             status=execution.status.value,
+            kept_approved_draft=kept,
             challenges=len(target.statements),
         )
 
@@ -236,12 +307,6 @@ def _targets_of(rows: Sequence[Disagreement]) -> tuple[list[_Target], int]:
     ]
     targets.sort(key=lambda target: (-target.severity, target.section_key))
     return targets, material
-
-
-async def _replace_claims(session: AsyncSession, *, section_id: uuid.UUID) -> None:
-    """Drop the section's previous claims; the citations cascade with them in the schema."""
-    await session.execute(delete(Claim).where(Claim.report_section_id == section_id))
-    await session.flush()
 
 
 async def _note_each(

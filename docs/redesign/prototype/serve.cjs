@@ -33,4 +33,3 @@ http.createServer((request, response) => {
 }).listen(port, "127.0.0.1", () => {
   process.stdout.write(`Tracework prototype: http://127.0.0.1:${port}/\n`);
 });
-

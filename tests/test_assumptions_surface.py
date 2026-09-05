@@ -25,7 +25,7 @@ from aer.core.assumption_scales import (
     unit_complaint,
 )
 from aer.core.enums import UserRole
-from aer.db.models import Assumption, ResearchRequest, User
+from aer.db.models import Assumption, User, WorkOrder
 from aer.services import assumptions as assumption_service
 from aer.services import scenarios as scenario_service
 from aer.services.assumption_gate import (
@@ -35,6 +35,7 @@ from aer.services.assumption_gate import (
 )
 from aer.web.csrf import CSRF_FIELD_NAME
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
 pytestmark = pytest.mark.integration
@@ -61,7 +62,7 @@ async def committed(db_engine: Any) -> Any:
         session.add(user)
         await session.flush()
 
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",
@@ -228,9 +229,9 @@ class TestTheJsonSurface:
             )
             session.add(stranger)
             await session.flush()
-            request = await session.get(ResearchRequest, committed["request"].id)
-            assert request is not None
-            request.user_id = stranger.id
+            order = await session.get(WorkOrder, committed["request"].id)
+            assert order is not None
+            order.user_id = stranger.id
             await session.commit()
 
         response = await api.get(f"/api/requests/{committed['request'].id}/assumptions")
@@ -249,9 +250,9 @@ class TestTheJsonSurface:
             )
             session.add(stranger)
             await session.flush()
-            request = await session.get(ResearchRequest, request_id)
-            assert request is not None
-            request.user_id = stranger.id
+            order = await session.get(WorkOrder, request_id)
+            assert order is not None
+            order.user_id = stranger.id
             await session.commit()
 
         response = await api.post(
@@ -609,7 +610,7 @@ class TestSupplyingAnAssumptionTheRunCouldNotPropose:
             stranger = User(email="stranger@example.invalid", display_name="S", role=UserRole.OWNER)
             session.add(stranger)
             await session.flush()
-            theirs = ResearchRequest(
+            theirs = research_request(
                 user_id=stranger.id,
                 company_name="Somebody Else Ltd",
                 ticker="SEL",

@@ -18,6 +18,13 @@ segment revenue produces a tag this map has never seen. Discarding it would lose
 data and leave no trace; the parser keeps the fact under its raw tag and reports the tag
 as unmapped, so a gap in this table is visible rather than silent.
 
+**Unplaced and refused are different, and :data:`NEVER_MAP` is what tells them apart.** A
+tag missing from the alias tables means nobody has decided what it means. A tag in the deny
+table means somebody decided it must *never* mean anything here, and wrote down why. Until
+the second existed the two looked identical, so a mapping refused on the merits could
+arrive later in perfect good faith — which is roadmap §2.7, and the reason the refusal
+lives in :func:`canonical_concept` rather than in a test alone.
+
 **One tag per concept per filing, and that is why some obvious aliases are absent.** A filer
 that tags ``SellingAndMarketingExpense`` and ``GeneralAndAdministrativeExpense`` separately
 has not reported SG&A; it has reported two components of it. Mapping both onto
@@ -43,12 +50,14 @@ __all__ = [
     "CANONICAL_CONCEPTS",
     "IFRS_ALIASES",
     "MAGNITUDE_CONCEPTS",
+    "NEVER_MAP",
     "REVENUE_TAG_PREFERENCE",
     "UK_FRC_ALIASES",
     "US_GAAP_ALIASES",
     "canonical_concept",
     "is_canonical_concept",
     "is_magnitude",
+    "refusal_reason",
     "revenue_tag_rank",
 ]
 
@@ -119,6 +128,11 @@ CANONICAL_CONCEPTS: Final[frozenset[str]] = frozenset(
         "investing_cash_flow",
         "financing_cash_flow",
         "depreciation_and_amortisation",
+        # The two halves of that line, for the filer who reports them apart. The
+        # combined line is derived from them when it is not stated
+        # (`aer.calc.statements`); neither half is ever mistaken for it.
+        "depreciation",
+        "amortisation_of_intangibles",
         "share_based_compensation",
         "deferred_income_tax_expense",
         "change_in_working_capital",
@@ -286,9 +300,16 @@ US_GAAP_ALIASES: Final[dict[str, str]] = {
     "DepreciationAmortizationAndAccretionNet": "depreciation_and_amortisation",
     # The plainest spelling of the same combined line, and common among large filers.
     # Only tags meaning *depreciation and amortisation together* belong here: bare
-    # `Depreciation` is a smaller number and mapping it would understate the driver
-    # wherever a company reports the two separately.
+    # `Depreciation` is a smaller number and mapping it to the combined line would
+    # understate the driver wherever a company reports the two separately.
     "DepreciationAndAmortization": "depreciation_and_amortisation",
+    # The halves, each to its own concept. A filer that reports them apart and never the
+    # sum — Microsoft files `Depreciation` and `AmortizationOfIntangibleAssets` and no
+    # combined tag — used to leave the combined line absent and the depreciation-intensity
+    # driver asked of the operator. `aer.calc.statements` adds the two when the sum is not
+    # stated, as it adds the two debt maturities, and records that it did.
+    "Depreciation": "depreciation",
+    "AmortizationOfIntangibleAssets": "amortisation_of_intangibles",
     "ShareBasedCompensation": "share_based_compensation",
     "DeferredIncomeTaxExpenseBenefit": "deferred_income_tax_expense",
     "IncreaseDecreaseInOperatingCapital": "change_in_working_capital",
@@ -440,6 +461,9 @@ IFRS_ALIASES: Final[dict[str, str]] = {
     "IncreaseDecreaseInCashAndCashEquivalents": "net_change_in_cash",
     "EffectOfExchangeRateChangesOnCashAndCashEquivalents": "effect_of_exchange_rate_on_cash",
     "DepreciationAndAmortisationExpense": "depreciation_and_amortisation",
+    # The halves, as under us-gaap: summed into the combined line where it is not stated.
+    "DepreciationPropertyPlantAndEquipment": "depreciation",
+    "AmortisationIntangibleAssetsOtherThanGoodwill": "amortisation_of_intangibles",
     (
         "DepreciationAmortisationAndImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss"
     ): "depreciation_and_amortisation",
@@ -503,6 +527,66 @@ _ALIAS_TABLES: Final[dict[str, dict[str, str]]] = {
 }
 
 
+# Tags that must never reach a canonical concept, each with the reason (roadmap §2.7).
+#
+# **A gap in the alias tables and a refusal are different things, and until this existed
+# they were indistinguishable.** An absent tag means nobody has looked at it yet; a tag in
+# here means somebody looked, decided, and wrote down why. Without the second, nothing
+# stopped the mapping arriving later in good faith — the tables hold aliases and held no
+# way to say "not this one".
+#
+# Keyed by the bare element name and applied in every taxonomy: a name that means an
+# option-pricing input in `us-gaap` does not stop meaning one somewhere else.
+# The us-gaap element names in this family run past a hundred characters, so the shared
+# stem is named once. Concatenation of literals, never a prefix match: what goes in the
+# table is the exact element name, for the reason at the top of this module.
+_SBC_ASSUMPTION: Final = (
+    "ShareBasedCompensationArrangementByShareBasedPaymentAwardFairValueAssumptions"
+)
+
+_OPTION_MODEL_INPUT: Final = (
+    "An option-pricing assumption from the share-based compensation footnote, at the tenor "
+    "of an employee option. The cost of capital's risk-free rate comes from a documented "
+    "government-yield series, not from a filing's own footnote."
+)
+
+_OPTION_MODEL_RANGE: Final = (
+    "One end of a range of option-pricing assumptions. Same refusal as the rate itself, "
+    "and a range endpoint is not a rate anything should discount at."
+)
+
+NEVER_MAP: Final[dict[str, str]] = {
+    # R18. The share-based compensation footnote states the assumptions behind an
+    # option-pricing model, and one of them is a risk-free rate. It is the rate used to
+    # value *employee options over a few years*, not the discount-rate input to a cost of
+    # capital — different tenor, different currency basis, different purpose. Mapping it
+    # would put a plausible wrong number into the WACC, where a rate is a rate and nothing
+    # downstream would look odd. The real one comes from a documented government-yield
+    # series (`aer.services.macro.risk_free_rate_as_at`), never from a filing footnote.
+    f"{_SBC_ASSUMPTION}RiskFreeInterestRate": _OPTION_MODEL_INPUT,
+    f"{_SBC_ASSUMPTION}RiskFreeInterestRateMaximum": _OPTION_MODEL_RANGE,
+    f"{_SBC_ASSUMPTION}RiskFreeInterestRateMinimum": _OPTION_MODEL_RANGE,
+    f"{_SBC_ASSUMPTION}ExpectedVolatilityRate": (
+        "The volatility assumed when valuing employee options — an input to that model "
+        "and not a measure of the share's risk that any valuation here should consume."
+    ),
+    f"{_SBC_ASSUMPTION}ExpectedDividendRate": (
+        "The dividend yield assumed when valuing employee options, which is a modelling "
+        "assumption in a footnote rather than the company's declared dividend."
+    ),
+}
+
+
+def refusal_reason(tag: str) -> str | None:
+    """Why this tag must never map, or ``None`` if nobody has refused it.
+
+    The distinction the unmapped-concepts gate reads: a tag with a reason here is
+    *refused* — a decision already taken — while a tag without one is merely *unplaced*
+    and is what the curation work in roadmap §2.8 is about.
+    """
+    return NEVER_MAP.get(tag)
+
+
 def canonical_concept(taxonomy: str, tag: str) -> str | None:
     """The canonical concept a filer's tag means, or ``None`` if it is unmapped.
 
@@ -516,7 +600,14 @@ def canonical_concept(taxonomy: str, tag: str) -> str | None:
     operator. **That is the normal case for a UK filing**, where extensions are common, and
     it is why :mod:`aer.extract.ixbrl` treats an extraction with unmapped tags as needing a
     human rather than as a failure.
+
+    **A refused tag returns ``None`` whatever the alias tables say** (:data:`NEVER_MAP`).
+    The refusal is here rather than only in a test so that an alias added in good faith
+    cannot take effect while somebody argues about the table; the test that no alias table
+    contradicts this one then catches the contradiction rather than being what prevents it.
     """
+    if tag in NEVER_MAP:
+        return None
     table = _ALIAS_TABLES.get(taxonomy.strip().lower())
     if table is None:
         return None

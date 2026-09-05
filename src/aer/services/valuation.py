@@ -37,6 +37,8 @@ from __future__ import annotations
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from decimal import Decimal
+from typing import Final
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -64,8 +66,10 @@ from aer.services.scenarios import CellInput, record_sensitivity, resolve
 
 __all__ = [
     "SCALAR_NAMES",
+    "SENSITIVITY_POINTS",
     "MissingAssumptionError",
     "ScenarioValuation",
+    "axis_around",
     "driver_values",
     "inputs_from",
     "run_scenarios",
@@ -74,6 +78,38 @@ __all__ = [
 ]
 
 _log = structlog.get_logger("aer.services.valuation")
+
+# How far either side of the base case a sensitivity axis runs. Five points because a 5x5
+# grid is twenty-five complete valuations with twenty-five lineages to store, and a reader
+# takes in a square that fits on a page. Shared by both models: how many points a grid holds
+# is a decision about grids (ADR 0028), not about what is being valued.
+SENSITIVITY_POINTS: Final = 5
+
+
+def axis_around(anchor: Quantity, *, step: Decimal) -> tuple[Quantity, ...]:
+    """Five points centred on the base case, evenly spaced.
+
+    Centred rather than starting at the base, so the grid reads as "what if I am wrong in
+    either direction" rather than "what if I am wrong upwards".
+
+    **Each point carries the anchor's source**, which is what a grid point honestly is: a
+    perturbation *of that input*. The alternative is a bare number, and the unit system
+    refuses one — every value entering a calculation has to trace to something, and twenty-
+    five cells of untraceable arithmetic is exactly the kind of figure this platform is built
+    not to print.
+    """
+    half = SENSITIVITY_POINTS // 2
+    return tuple(
+        # The centre is the anchor itself, not `anchor + 0`. Adding a zero re-rounds the
+        # value to the ambient decimal precision, and a middle cell that differs from the
+        # base case in its last few digits is a grid that does not quite contain the
+        # valuation it is a sensitivity of.
+        anchor
+        if offset == 0
+        else Quantity.of(anchor.value + step * Decimal(offset), anchor.unit, source=anchor.source)
+        for offset in range(-half, half + 1)
+    )
+
 
 SCALAR_NAMES: tuple[str, ...] = ("tax_rate", "terminal_growth", "exit_multiple")
 """The single-valued assumptions a discounted cash flow needs, alongside the driver paths.

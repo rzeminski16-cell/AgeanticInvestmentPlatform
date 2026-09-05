@@ -23,13 +23,14 @@ from __future__ import annotations
 
 import json
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from fastapi import APIRouter, Request
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.status import (
@@ -44,6 +45,7 @@ from starlette.status import (
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
 from aer.api.routes.assumptions import assumptions_payload
 from aer.calc.comps import MULTIPLE_DEFINITIONS, CompsTable
+from aer.calc.dcf import HIGH_TERMINAL_SHARE, HIGH_TERMINAL_SHARE_CAVEAT
 from aer.charts import (
     ValuationHistoryInput,
     ValuationRangePoint,
@@ -67,6 +69,8 @@ from aer.db.models import (
     ReportSection,
     ResearchPlan,
     ResearchRequest,
+    SourceDocument,
+    WorkOrder,
 )
 from aer.errors import ConflictError, ValidationError
 from aer.obsidian import ObsidianExportError, VaultWriteError, export_report
@@ -76,27 +80,33 @@ from aer.render.document import UnresolvedFootnote, assemble_document
 from aer.render.html import render_html
 from aer.render.markdown import render_markdown
 from aer.render.summary import summary_document
+from aer.sections.registry import section_outcomes
 from aer.services import approvals as approval_service
 from aer.services import calculations as calculation_service
 from aer.services import cancellation as cancellation_service
 from aer.services import catalyst_resolutions as catalyst_service
 from aer.services import configuration, provenance
+from aer.services import gates as gates_service
 from aer.services import history as history_service
+from aer.services import requests as requests_service
+from aer.services import resume as resume_service
 from aer.services import runs as run_service
 from aer.services.approvals import payload_hash_for
 from aer.services.assumptions import assumptions_for_request
+from aer.services.challenge_briefs import briefs_from_output
 from aer.services.comps import (
     PEER_SET_STEP,
     peer_set_payload,
     peer_set_required,
 )
-from aer.services.comps_run import grouped_exclusions
+from aer.services.comps_run import comps_table_from_record, grouped_exclusions
 from aer.services.disagreements import disagreements_for_job, settle_by_hand
 from aer.services.escalation import cost_scene_for_job
 from aer.services.evaluations import evaluations_for_job, section_coverage_for_job
-from aer.services.exhibits import exportable_charts_for, internal_charts_for
+from aer.services.exhibits import exportable_charts_for, internal_charts_for, sensitivity_chart
 from aer.services.graph_view import graph_picture
 from aer.services.knowledge import knowledge_stats
+from aer.services.mandate import mandate_of
 from aer.services.run_replay import replay_run
 from aer.services.sectors import (
     CLASSIFY_STEP,
@@ -104,14 +114,19 @@ from aer.services.sectors import (
     sector_gate_required,
 )
 from aer.services.spend import recent_runs, spend_by_role, spend_summary
+from aer.services.subject import subject_name
 from aer.services.themes import THEME_STEP, theme_set_payload, theme_set_required
-from aer.services.valuation_view import lineage_rows, valuation_view
+from aer.services.valuation_view import GridView, lineage_rows, valuation_view
 from aer.storage.local import LocalArtefactStore
+from aer.web import figures, vocabulary
+from aer.web import verdict as verdicts
 from aer.web.csrf import CSRF_FIELD_NAME, csrf_is_valid, new_csrf_token, set_csrf_cookie
+from aer.web.gates import frame_for, journey
 from aer.web.templating import render
 from aer.workflow.registry import WorkflowRegistryError, resolve_workflow
 from aer.workflow.workflows.vertical_slice_v1 import (
     ASSUMPTIONS_STEP,
+    COMPS_STEP,
     assumptions_gate_required,
     comps_note_for,
     sector_note_for,
@@ -158,7 +173,7 @@ async def start_run_page(
         return _problem(request, "That is not a research request.", status=HTTP_404_NOT_FOUND)
 
     found = await session.get(ResearchRequest, request_id)
-    if found is None or found.user_id != user.id:
+    if found is None or found.work_order.user_id != user.id:
         return _problem(request, f"No research request {request_id}.", status=HTTP_404_NOT_FOUND)
 
     job = await run_service.start_run(session, request=found)
@@ -207,10 +222,12 @@ async def run_console(
         return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     state = await run_service.run_state(session, job_id=job_id)
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
     report = await session.scalar(select(Report).where(Report.job_id == job_id))
     pending = await approval_service.pending_gate(session, job)
+    approvals = await approval_service.approvals_for_job(session, job_id)
     cancellation = await cancellation_service.cancellation_for(session, job_id=job_id)
+    state_dict = state.as_dict()
 
     token = new_csrf_token(settings)
     response: Response = render(
@@ -221,22 +238,309 @@ async def run_console(
             "research_request": research_request,
             "cancellation": cancellation,
             "can_cancel": job.status not in cancellation_service.TERMINAL_STATUSES,
-            "state": state.as_dict(),
-            "steps": state.steps,
+            "state": state_dict,
             "spend_gbp": state.spend_gbp,
             "is_terminal": state.is_terminal,
             "awaiting": job.status is JobStatus.AWAITING_APPROVAL,
             "budget_exceeded": job.status is JobStatus.BUDGET_EXCEEDED,
             "budget_scope": state.budget_scope,
             "pending_gate": pending.value if pending else None,
+            "pending_words": vocabulary.GATES[pending] if pending else None,
             "report_id": str(report.id) if report else None,
             "poll_seconds": POLL_SECONDS,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
+            "cap": _cap_offer(
+                request_row=research_request,
+                spend_gbp=state.spend_gbp,
+                is_terminal=state.is_terminal,
+                stopped_on_run_budget=(
+                    job.status is JobStatus.BUDGET_EXCEEDED and state.budget_scope != "monthly"
+                ),
+                settings=settings,
+            ),
+            **await _console_view(
+                session,
+                job=job,
+                request_row=research_request,
+                state_dict=state_dict,
+                spend_gbp=state.spend_gbp,
+                pending=pending,
+                approvals=approvals,
+            ),
         },
     )
     set_csrf_cookie(response, token)
     return response
+
+
+@dataclass(frozen=True, slots=True)
+class CapOffer:
+    """Whether to offer a raise on the console, and what the form needs to render one."""
+
+    offered: bool
+    cap_display: str
+    cap_value: str
+    ceiling_display: str
+    ceiling_value: str
+    at_ceiling: bool
+
+
+def _cap_offer(
+    *,
+    request_row: ResearchRequest | None,
+    spend_gbp: Decimal,
+    is_terminal: bool,
+    stopped_on_run_budget: bool,
+    settings: Settings,
+) -> CapOffer:
+    """Offer the raise where the operator meets the problem, at the ratio that warns.
+
+    ``budget_warn_ratio`` rather than a constant of this module's own: the engine already
+    logs that a run is approaching its ceiling at exactly that fraction, and an offer
+    appearing at some other one would be a second opinion about when a run is in trouble.
+
+    **A run stopped on its ceiling is offered it whatever it has spent.** The guard refuses
+    a step whose *projection* would cross the line, so a run with an expensive step ahead
+    of it can stop having spent a tenth of its cap — the case that needs the offer most,
+    and the one a threshold on spend alone would not show it to.
+
+    A finished run is not offered a raise, having nothing left to spend it on; a run
+    stopped on the *monthly* ceiling is not either, because its own cap is not what
+    stopped it and the block above it says so. A request already at the platform's own
+    per-run budget is shown where that ceiling lifts instead of a form that would be
+    refused.
+    """
+    if request_row is None:
+        return CapOffer(False, "", "", "", "", at_ceiling=False)
+
+    cap = Decimal(str(request_row.work_order.max_cost_gbp))
+    ceiling = Decimal(str(settings.per_run_budget_gbp))
+    near = cap > 0 and spend_gbp >= cap * Decimal(str(settings.budget_warn_ratio))
+    return CapOffer(
+        offered=(near or stopped_on_run_budget) and not is_terminal,
+        cap_display=figures.pounds(cap),
+        cap_value=f"{cap:.2f}",
+        ceiling_display=figures.pounds(ceiling),
+        ceiling_value=f"{ceiling:.2f}",
+        at_ceiling=cap >= ceiling,
+    )
+
+
+async def _console_view(
+    session: AsyncSession,
+    *,
+    job: Job,
+    request_row: ResearchRequest | None,
+    state_dict: dict[str, Any],
+    spend_gbp: Decimal,
+    pending: GateKind | None,
+    approvals: list[Any],
+) -> dict[str, Any]:
+    """What the console says, decided here rather than in Jinja.
+
+    Every value is a finished string or a typed shape from the vocabulary. The step keys
+    stay on the page as secondary text — the worker terminal speaks in them — but the
+    primary answer to "is it alive, does it want me, what has it cost" is composed here,
+    in the operator's language.
+    """
+    run_words = vocabulary.job_state(job.status)
+    steps = [
+        {
+            **entry,
+            "label": vocabulary.step_label(str(entry.get("key", ""))),
+            "status_words": vocabulary.job_state(JobStatus(str(entry.get("status")))),
+        }
+        for entry in state_dict["steps"]
+    ]
+
+    current = state_dict.get("current_step")
+    current_label = vocabulary.step_label(str(current)) if current else None
+    if current_label:
+        plain_status = f"Working: {current_label.lower()[:1]}{current_label[1:]}."
+    elif job.status is JobStatus.AWAITING_APPROVAL and pending is not None:
+        asks = vocabulary.GATES[pending].asks
+        plain_status = f"The run stopped so you could {asks}. {run_words.detail}"
+    elif job.status is JobStatus.SUCCEEDED:
+        plain_status = "The report is approved and frozen. Read it, or inspect its evidence."
+    elif job.status is JobStatus.QUEUED:
+        plain_status = "Queued. A worker normally begins within a few seconds."
+    elif run_words.detail:
+        plain_status = f"{run_words.label}. {run_words.detail}"
+    else:
+        plain_status = f"{run_words.label}."
+
+    # Only while the run is *still* failed. A resume re-queues the job and leaves the step
+    # row failed until it is re-executed, so an unconditional read put a red "this failed"
+    # alert on a run that was queued and waiting for a worker — which is how an operator
+    # comes to believe a fixed failure recurred when nothing has run since.
+    failed = (
+        next((row for row in steps if row.get("status") == JobStatus.FAILED.value), None)
+        if job.status is JobStatus.FAILED
+        else None
+    )
+
+    # Honest counts for the evidence links: what the run has actually gathered, so an
+    # operator is never sent to an empty page without being told it is empty.
+    source_count = (
+        await session.scalar(
+            select(func.count()).select_from(SourceDocument).where(SourceDocument.job_id == job.id)
+        )
+        or 0
+    )
+    claim_count = (
+        await session.scalar(
+            select(func.count())
+            .select_from(Claim)
+            .join(ReportSection, Claim.report_section_id == ReportSection.id)
+            .where(ReportSection.job_id == job.id)
+        )
+        or 0
+    )
+    valuation_ready = any(
+        row.get("key") == "value" and row.get("status") == JobStatus.SUCCEEDED.value
+        for row in steps
+    )
+
+    return {
+        "run_words": run_words,
+        "plain_status": plain_status,
+        "steps_display": steps,
+        "current_label": current_label,
+        "failed_step": failed,
+        # FAILED, PAUSED and BUDGET_EXCEEDED continue as themselves (ADR 0090); the
+        # service refuses the states that do not admit it, so this only decides whether
+        # the form renders.
+        "can_resume": job.status not in resume_service.UNRESUMABLE_STATUSES
+        and job.status is not JobStatus.QUEUED
+        and job.status is not JobStatus.AWAITING_APPROVAL,
+        "journey": journey(
+            state_dict["steps"],
+            decisions={row.gate: row.decision for row in approvals},
+            pending=pending,
+        ),
+        "cost": figures.cost_context(
+            spent=spend_gbp,
+            ceiling=(request_row.work_order.max_cost_gbp if request_row is not None else None),
+        ),
+        "evidence_counts": {
+            "sources": source_count,
+            "claims": claim_count,
+            "valuation_ready": valuation_ready,
+        },
+        # The vocabulary's labels, for the one script that keeps rows current between
+        # server renders. Authored here so the words stay the server's (ADR 0077: chrome
+        # may be the client's, a label is not invented there).
+        "status_labels_json": json.dumps(
+            {status.value: words.label for status, words in vocabulary.JOB_STATES.items()}
+        ),
+    }
+
+
+@router.post("/runs/{job_id}/resume", summary="Continue a stopped run as itself")
+async def resume_run_page(
+    request: Request,
+    job_id: uuid.UUID,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    redis: RedisClient,
+    user: CurrentUser,
+) -> Response:
+    """Record the decision to continue, re-enqueue the same job, return to the console.
+
+    ADR 0090: resuming appends to the audit chain and re-enqueues the *same* job — the
+    engine skips the completed steps, so a failure one step from the end costs the failed
+    step onward rather than the whole run again. The service refuses the states that do
+    not admit continuing, each with its reason, and the page shows that reason.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
+
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was resumed.",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        await resume_service.resume_run(
+            session, job=job, actor=user, reason=(submitted.get("reason") or None)
+        )
+    except ConflictError as exc:
+        return _problem(request, exc.message, status=HTTP_409_CONFLICT)
+
+    await session.commit()
+    await enqueue_run(redis, job.id)
+    return RedirectResponse(f"/runs/{job_id}", status_code=HTTP_303_SEE_OTHER)
+
+
+@router.post("/runs/{job_id}/cap", summary="Raise what this run may spend")
+async def raise_run_cap(
+    request: Request,
+    job_id: uuid.UUID,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Raise this run's ceiling from the console, and return to it.
+
+    On the console rather than on the request page because this is a decision about a run
+    in front of the operator watching it — and because the request page refuses an edit
+    while a run is live, correctly. :func:`aer.services.requests.raise_cap` is the narrow
+    exception and says why the cap is the one field that can move under a worker.
+
+    The run is not restarted here. A run still going picks the new ceiling up at its next
+    step; one already stopped on the old one continues through the button beside this
+    form, which is the same recorded decision continuing has always been.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {key: str(value) for key, value in form.multi_items() if isinstance(value, str)}
+
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was changed.",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    research_request = await mandate_of(session, job)
+    if research_request is None:  # pragma: no cover -- a job cannot outlive its request
+        return _problem(request, f"No request for run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    raw = (submitted.get("max_cost_gbp") or "").strip()
+    try:
+        asked = Decimal(raw)
+    except InvalidOperation:
+        return _problem(
+            request,
+            f"{raw!r} is not an amount. Give the new ceiling in pounds, as a number.",
+            status=HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+
+    try:
+        await requests_service.raise_cap(
+            session,
+            request=research_request,
+            actor=user,
+            to=asked,
+            ceiling_gbp=settings.per_run_budget_gbp,
+        )
+    except ValidationError as exc:
+        return _problem(request, exc.message, status=HTTP_422_UNPROCESSABLE_CONTENT)
+
+    await session.commit()
+    return RedirectResponse(f"/runs/{job_id}", status_code=HTTP_303_SEE_OTHER)
 
 
 @router.post("/runs/{job_id}/cancel", summary="Ask a run to stop")
@@ -295,7 +599,7 @@ async def plan_review(
 
     plan = await session.scalar(
         select(ResearchPlan)
-        .where(ResearchPlan.request_id == job.request_id)
+        .where(ResearchPlan.request_id == job.work_order_id)
         .order_by(ResearchPlan.created_at.desc())
     )
     if plan is None:
@@ -308,7 +612,7 @@ async def plan_review(
     # The pins reach the page inside the payload now — the builder reads them itself, so
     # fetching them here as well would be a second answer to the question the gate hashes.
     payload = await _payload_for(session, job=job, gate=GateKind.PLAN)
-    decided = await _decision_for(session, job_id=job_id, gate=GateKind.PLAN)
+    frame = await frame_for(session, job=job, gate=GateKind.PLAN)
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -321,8 +625,7 @@ async def plan_review(
             # The hash of exactly the structure rendered below. Carried back by the form,
             # so approving a plan that has since changed is refused rather than recorded.
             "payload_hash": payload_hash_for(payload),
-            "decided": decided,
-            "gate": GateKind.PLAN.value,
+            **frame,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
@@ -365,7 +668,7 @@ async def financials_review(
         )
 
     payload = await _payload_for(session, job=job, gate=GateKind.UNMAPPED_CONCEPTS)
-    decided = await _decision_for(session, job_id=job_id, gate=GateKind.UNMAPPED_CONCEPTS)
+    frame = await frame_for(session, job=job, gate=GateKind.UNMAPPED_CONCEPTS)
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -376,8 +679,7 @@ async def financials_review(
             "payload": payload,
             "counts": _extraction_counts(produced),
             "payload_hash": payload_hash_for(payload),
-            "decided": decided,
-            "gate": GateKind.UNMAPPED_CONCEPTS.value,
+            **frame,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
@@ -421,7 +723,7 @@ async def sector_review(
         )
 
     payload = classification_payload(produced)
-    decided = await _decision_for(session, job_id=job_id, gate=GateKind.SECTOR_SPECIALIST)
+    frame = await frame_for(session, job=job, gate=GateKind.SECTOR_SPECIALIST)
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -431,8 +733,7 @@ async def sector_review(
             "job": job,
             "payload": payload,
             "payload_hash": payload_hash_for(payload),
-            "decided": decided,
-            "gate": GateKind.SECTOR_SPECIALIST.value,
+            **frame,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
@@ -483,15 +784,20 @@ async def peer_review(
             if refused
             else ""
         )
+        # A run that asked no model is a third situation again (ADR 0059, second
+        # amendment), and the reason is the operator's to read: a subscription, not a fault.
+        not_asked = str(produced.get("model_skipped_because", "")).strip()
         return _problem(
             request,
             "This run proposed no comparable companies, so this gate does not apply to it. "
-            "No comparables table will be produced and the report says so." + tried,
+            "No comparables table will be produced and the report says so."
+            + tried
+            + (f" {not_asked}" if not_asked else ""),
             status=HTTP_404_NOT_FOUND,
         )
 
     payload = peer_set_payload(produced)
-    decided = await _decision_for(session, job_id=job_id, gate=GateKind.PEER_SET)
+    frame = await frame_for(session, job=job, gate=GateKind.PEER_SET)
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -501,9 +807,10 @@ async def peer_review(
             "job": job,
             "payload": payload,
             "payload_hash": payload_hash_for(payload),
+            # Why the model was not asked, when it was not: context, never part of the hash.
+            "not_asked": str(produced.get("model_skipped_because", "")).strip(),
             "refused": [item for item in produced.get("refused", []) if isinstance(item, dict)],
-            "decided": decided,
-            "gate": GateKind.PEER_SET.value,
+            **frame,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
@@ -550,7 +857,7 @@ async def theme_review(
     # hash covers what is being approved, and the name is presentation.
     payload_for_page = dict(payload)
     payload_for_page["subject_name"] = str(produced.get("subject_name", ""))
-    decided = await _decision_for(session, job_id=job_id, gate=GateKind.THEME_SET)
+    frame = await frame_for(session, job=job, gate=GateKind.THEME_SET)
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -560,8 +867,7 @@ async def theme_review(
             "job": job,
             "payload": payload_for_page,
             "payload_hash": payload_hash_for(payload),
-            "decided": decided,
-            "gate": GateKind.THEME_SET.value,
+            **frame,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
@@ -622,7 +928,7 @@ async def assumptions_review(
 
     rows = await assumptions_for_request(session, job.work_order_id)
     payload = await _payload_for(session, job=job, gate=GateKind.ASSUMPTIONS)
-    decided = await _decision_for(session, job_id=job_id, gate=GateKind.ASSUMPTIONS)
+    frame = await frame_for(session, job=job, gate=GateKind.ASSUMPTIONS)
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -643,10 +949,9 @@ async def assumptions_review(
             # Every save posts to the per-request routes and returns here, so the operator
             # never leaves the decision they are making.
             "return_to": f"/runs/{job.id}/assumptions",
-            "decided": decided,
-            "gate": GateKind.ASSUMPTIONS.value,
+            **frame,
             # Where the full history lives; editing no longer requires leaving this page.
-            "request_id": str(job.request_id),
+            "request_id": str(job.work_order_id),
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
@@ -679,7 +984,7 @@ async def draft_review(
             status=HTTP_404_NOT_FOUND,
         )
 
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
     if research_request is None:  # pragma: no cover -- a job cannot exist without its request
         return _problem(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
 
@@ -726,9 +1031,18 @@ async def draft_review(
         )
     ]
     cost = await cost_scene_for_job(session, job=job, request=research_request)
-    outcomes = await _section_outcomes(session, job_id=job.id)
+    outcomes = await section_outcomes(session, job_id=job.id)
 
-    decided = await _decision_for(session, job_id=job_id, gate=GateKind.FINAL)
+    frame = await frame_for(session, job=job, gate=GateKind.FINAL)
+    review = _review_verdict(
+        payload=payload,
+        evaluations=evaluations,
+        recorded=recorded,
+        cost_scene=cost,
+        cost_alert_gbp=cost.cap_gbp * COST_ALERT_RATIO,
+        cost_summary=frame["gate_cost"].summary,
+        authored_output=await _step_output(session, job_id=job_id, step_key="verdict"),
+    )
     token = new_csrf_token(settings)
 
     response: Response = render(
@@ -748,6 +1062,12 @@ async def draft_review(
                 if row["kind"] != DisagreementKind.THESIS_CONFLICT.value
             ],
             "challenges": [row for row in recorded if row.kind is DisagreementKind.THESIS_CONFLICT],
+            # Keyed by disagreement id, so a challenge with no brief renders exactly as it
+            # did before ADR 0095 — which is the fallback for a run that predates the step,
+            # one whose briefing failed, and one whose adversary raised more than a sitting.
+            "briefs": briefs_from_output(
+                await _step_output(session, job_id=job_id, step_key="brief_challenges")
+            ),
             "triggers": payload["triggers"],
             "evaluations": evaluations,
             "coverage": coverage,
@@ -766,14 +1086,134 @@ async def draft_review(
             "markdown": preview.markdown,
             "footnote_count": preview.footnote_count,
             "payload_hash": payload_hash_for(payload),
-            "decided": decided,
-            "gate": GateKind.FINAL.value,
+            "review_verdict": review["verdict"],
+            "attention_index": review["attention"],
+            **frame,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
         },
     )
     set_csrf_cookie(response, token)
     return response
+
+
+def _review_verdict(
+    *,
+    payload: dict[str, Any],
+    evaluations: Sequence[Any],
+    recorded: Sequence[Any],
+    cost_scene: Any,
+    cost_alert_gbp: Decimal,
+    cost_summary: str,
+    authored_output: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """The review's two-half verdict and its attention index (ADR 0087).
+
+    The composed half counts what actually needs the operator — open conflicts, failed
+    checks, missing sections, spend — and the attention index links each count to the
+    real heading beneath it, so the page is triageable in thirty seconds without a block
+    being removed. The red team's challenges ride in both as value received, never as
+    faults, and never move the tone on their own: a run where the adversary found nothing
+    would be the one worth worrying about.
+    """
+    challenges = [row for row in recorded if row.kind is DisagreementKind.THESIS_CONFLICT]
+    conflicts = [row for row in recorded if row.kind is not DisagreementKind.THESIS_CONFLICT]
+    open_conflicts = [row for row in conflicts if row.resolution is ResolutionOutcome.ESCALATED]
+    failed_checks = [row for row in evaluations if row.passed is False]
+    not_generated = [row for row in payload["sections"] if not row["content"]]
+    triggers = payload["triggers"]
+    over_alert = cost_scene.actual_gbp >= cost_alert_gbp or (
+        cost_scene.estimated_gbp is not None and cost_scene.estimated_gbp >= cost_alert_gbp
+    )
+
+    attention: list[dict[str, str]] = []
+    if triggers:
+        attention.append(
+            {
+                "label": f"{len(triggers)} escalation trigger"
+                + ("" if len(triggers) == 1 else "s")
+                + " fired",
+                "target": "#triggers",
+                "tone": "failure",
+            }
+        )
+    if failed_checks:
+        attention.append(
+            {
+                "label": f"{len(failed_checks)} check"
+                + (" failed" if len(failed_checks) == 1 else "s failed"),
+                "target": "#validations",
+                "tone": "failure",
+            }
+        )
+    if open_conflicts:
+        attention.append(
+            {
+                "label": f"{len(open_conflicts)} source conflict"
+                + ("" if len(open_conflicts) == 1 else "s")
+                + " unsettled",
+                "target": "#escalations",
+                "tone": "warning",
+            }
+        )
+    if not_generated:
+        attention.append(
+            {
+                "label": f"{len(not_generated)} section"
+                + ("" if len(not_generated) == 1 else "s")
+                + " not generated",
+                "target": "#draft-sections",
+                "tone": "warning",
+            }
+        )
+    if over_alert:
+        attention.append(
+            {"label": "Spend is near the ceiling", "target": "#cost", "tone": "warning"}
+        )
+    if challenges:
+        attention.append(
+            {
+                "label": f"{len(challenges)} challenge"
+                + ("" if len(challenges) == 1 else "s")
+                + " to read — the review the run paid for",
+                "target": "#red-team",
+                "tone": "info",
+            }
+        )
+
+    authored = None
+    if authored_output and authored_output.get("written"):
+        authored = verdicts.Authored(
+            str(authored_output.get("sentence", "")),
+            vocabulary.Tone(str(authored_output.get("tone", "info"))),
+        )
+
+    demands_attention = bool(triggers or failed_checks or open_conflicts or not_generated)
+    verdict = verdicts.sentence(
+        [
+            verdicts.Count(
+                len(open_conflicts),
+                "source conflict needs settling",
+                "source conflicts need settling",
+            ),
+            verdicts.Count(len(failed_checks), "check failed", "checks failed"),
+            verdicts.Count(
+                len(not_generated),
+                "section was not generated",
+                "sections were not generated",
+            ),
+            verdicts.Count(
+                len(challenges),
+                "red-team challenge is there to read",
+                "red-team challenges are there to read",
+            ),
+            f"{cost_summary} spent",
+        ],
+        when_none=f"Nothing needs your attention before the decision; {cost_summary} spent",
+        tone=vocabulary.Tone.WARNING if demands_attention else vocabulary.Tone.SUCCESS,
+        authored=authored,
+    )
+    return {"verdict": verdict, "attention": attention}
 
 
 @router.get(
@@ -798,7 +1238,7 @@ async def run_preview(
     if job is None:
         return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
     if research_request is None:  # pragma: no cover -- a job cannot exist without its request
         return _problem(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
 
@@ -838,7 +1278,7 @@ async def run_summary(
     if job is None:
         return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
     if research_request is None:  # pragma: no cover -- a job cannot exist without its request
         return _problem(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
 
@@ -922,7 +1362,77 @@ async def replay_run_page(
     report = await replay_run(session, store, job_id=job_id, settings=settings)
     await session.commit()
 
-    page: Response = render(request, "runs/replay.html", {"job": job, "report": report})
+    if not report.reproduces:
+        lead = verdicts.sentence(
+            [
+                verdicts.Count(
+                    len(report.calculations_diverged),
+                    "calculation re-derives outside tolerance",
+                    "calculations re-derive outside tolerance",
+                ),
+                verdicts.Count(
+                    len(report.citations_failed),
+                    "citation could not be re-verified",
+                    "citations could not be re-verified",
+                ),
+                verdicts.Count(
+                    len(report.artefacts_unreadable),
+                    "archived artefact cannot be read back",
+                    "archived artefacts cannot be read back",
+                ),
+                verdicts.Count(
+                    len(report.model_calls_unarchived),
+                    "model call has no archived exchange",
+                    "model calls have no archived exchange",
+                ),
+            ],
+            when_none="This run no longer reproduces",
+            tone=vocabulary.Tone.FAILURE,
+        )
+    elif report.checked:
+        lead = verdicts.sentence(
+            [
+                verdicts.Count(
+                    report.checked,
+                    "recorded derivation or citation still holds",
+                    "recorded derivations and citations still hold",
+                )
+            ],
+            when_none="Reproduces",
+            tone=vocabulary.Tone.SUCCESS,
+        )
+    else:
+        # Zero checks is not a pass: nothing failed because nothing was checkable, and the
+        # tone must not read as the all-clear (the verdict module refuses SUCCESS here).
+        lead = verdicts.sentence(
+            ["nothing in this run's record was checkable, which is not a pass"],
+            when_none="Nothing in this run's record was checkable, which is not a pass",
+            tone=vocabulary.Tone.MUTED,
+        )
+
+    page: Response = render(
+        request,
+        "runs/replay.html",
+        {
+            "job": job,
+            "report": report,
+            "verdict": lead,
+            "replayed_at_display": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
+            "findings": [
+                group
+                for group in (
+                    {
+                        "title": "Re-derivation outside tolerance",
+                        "items": report.calculations_diverged,
+                    },
+                    {"title": "Citation verification", "items": report.citations_failed},
+                    {"title": "Archived bytes", "items": report.artefacts_unreadable},
+                    {"title": "Model call archive", "items": report.model_calls_unarchived},
+                )
+                if group["items"]
+            ],
+        },
+    )
     return page
 
 
@@ -981,12 +1491,23 @@ async def settle_disagreement_page(
         )
 
     try:
+        # Order matters, and it is the order the first live run got wrong: a conflict is
+        # settled *before* the gate is decided, and the seal follows the settle. Settling
+        # after a decision is refused, because the decision was taken over the conflict as
+        # an open one and a second decision is refused by design.
+        await gates_service.refuse_settling_after_decision(session, job=job)
         await settle_by_hand(
             session,
             disagreement=found,
             outcome=outcome,
             actor=user,
             rationale=submitted.get("rationale", ""),
+        )
+        await gates_service.reseal_final_gate(
+            session,
+            job=job,
+            actor=user,
+            reason=f"disagreement {found.id} settled by hand",
         )
     except ValidationError as problem:
         # The service's messages name the rule they enforce — "a human resolution needs a
@@ -1035,6 +1556,21 @@ async def decide_gate_page(
         else Decision.REJECTED
     )
 
+    # A stale page is refused before anything is recorded. The workflow's own
+    # `_require_approval` is the deep guarantee — an approval carrying the wrong hash
+    # never unlocks the gate however it got recorded — but an operator who pressed the
+    # button on a page that has moved deserves the reason now, not a run that quietly
+    # stays paused. Verified against the same builder the page rendered from; a workflow
+    # this build cannot read returns an empty payload, and the deep check still holds.
+    current = await _payload_for(session, job=job, gate=gate)
+    if current and submitted.get("payload_hash", "") != payload_hash_for(current):
+        return _problem(
+            request,
+            "The proposal changed after this page was opened. Nothing was approved. "
+            "Review the current version and decide again.",
+            status=HTTP_409_CONFLICT,
+        )
+
     try:
         await approval_service.record_decision(
             session,
@@ -1078,8 +1614,15 @@ async def run_sources(
         return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     sources = await provenance.sources_for_run(session, job_id)
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
 
+    # The breakdown is by what happened to each document, so it always sums: a quarantined
+    # source a person overrode counts as admissible, exactly as the verifier now treats it.
+    admissible = sum(1 for source in sources if source.is_admissible)
+    quarantined_out = sum(
+        1 for source in sources if source.quarantined and not source.is_admissible
+    )
+    other_out = len(sources) - admissible - quarantined_out
     page: Response = render(
         request,
         "runs/sources.html",
@@ -1090,6 +1633,24 @@ async def run_sources(
             "quarantined": sum(1 for source in sources if source.quarantined),
             "inadmissible": sum(1 for source in sources if not source.is_admissible),
             "flagged": sum(1 for source in sources if source.injection_flagged),
+            "verdict": verdicts.tally(
+                verdicts.Count(len(sources), "source acquired", "sources acquired"),
+                [
+                    verdicts.Part(admissible, "admissible"),
+                    verdicts.Part(quarantined_out, "quarantined"),
+                    verdicts.Part(other_out, "inadmissible for other reasons"),
+                ],
+                when_none="Acquisition has not completed, so no source record exists yet.",
+                tone=(
+                    vocabulary.Tone.MUTED
+                    if not sources
+                    else (
+                        vocabulary.Tone.SUCCESS
+                        if admissible == len(sources)
+                        else vocabulary.Tone.INFO
+                    )
+                ),
+            ),
         },
     )
     return page
@@ -1112,8 +1673,9 @@ async def run_claims(
         return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
     claims = await provenance.claims_for_run(session, job_id)
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
 
+    unsupported = sum(1 for claim in claims if not claim.is_supported)
     page: Response = render(
         request,
         "runs/claims.html",
@@ -1121,7 +1683,20 @@ async def run_claims(
             "job": job,
             "research_request": research_request,
             "claims": claims,
-            "unsupported": sum(1 for claim in claims if not claim.is_supported),
+            "unsupported": unsupported,
+            "verdict": verdicts.tally(
+                verdicts.Count(len(claims), "claim recorded", "claims recorded"),
+                [
+                    verdicts.Part(len(claims) - unsupported, "supported"),
+                    verdicts.Part(unsupported, "unsupported"),
+                ],
+                when_none="No claims have been recorded yet; drafting has not produced assertions.",
+                tone=(
+                    vocabulary.Tone.MUTED
+                    if not claims
+                    else (vocabulary.Tone.WARNING if unsupported else vocabulary.Tone.SUCCESS)
+                ),
+            ),
         },
     )
     return page
@@ -1147,7 +1722,41 @@ async def claim_detail(
     if view is None:  # pragma: no cover -- visibility already proved it exists
         return _problem(request, f"No claim {claim_id}.", status=HTTP_404_NOT_FOUND)
 
-    page: Response = render(request, "claims/detail.html", {"claim": view})
+    states = [citation.state for citation in view.citations]
+    verified = states.count("verified")
+    overridden = states.count("overridden")
+    unverified = len(states) - verified - overridden
+    page: Response = render(
+        request,
+        "claims/detail.html",
+        {
+            "claim": view,
+            "verdict": verdicts.tally(
+                verdicts.Count(
+                    len(states), "citation stands behind it", "citations stand behind it"
+                ),
+                [
+                    verdicts.Part(verified, "verified against the archived bytes"),
+                    verdicts.Part(overridden, "accepted by a person after verification failed"),
+                    verdicts.Part(unverified, "not confirmed"),
+                ],
+                when_none=(
+                    "This claim cites nothing. Its kind carries a stated basis instead."
+                    if view.is_supported
+                    else "This claim cites nothing, and its kind requires that it does."
+                ),
+                tone=(
+                    vocabulary.Tone.SUCCESS
+                    if states and unverified == 0 and overridden == 0
+                    else (
+                        vocabulary.Tone.WARNING
+                        if overridden or unverified or not view.is_supported
+                        else vocabulary.Tone.MUTED
+                    )
+                ),
+            ),
+        },
+    )
     return page
 
 
@@ -1174,7 +1783,7 @@ async def footnote_drilldown(
     job = await _owned_job(session, job_id=job_id, user=user)
     if job is None:
         return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
     if research_request is None:  # pragma: no cover -- a job cannot exist without its request
         return _problem(request, "This run has no research request.", status=HTTP_404_NOT_FOUND)
 
@@ -1242,6 +1851,18 @@ async def _footnote_answer(
             "source": source,
             "rows": rows,
             "unresolved": None,
+            "verdict": verdicts.sentence(
+                [
+                    f"resolved to {source.title or source.url}",
+                    verdicts.Count(
+                        len(rows),
+                        "claim in this run was checked against it",
+                        "claims in this run were checked against it",
+                    ),
+                ],
+                when_none="This marker resolved to a source",
+                tone=vocabulary.Tone.SUCCESS,
+            ),
         },
     )
     return page
@@ -1299,8 +1920,24 @@ async def valuation_page(
     if job is None:
         return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
-    view = await valuation_view(session, job)
-    research_request = await session.get(ResearchRequest, job.request_id)
+    research_request = await mandate_of(session, job)
+
+    # The table the comps step built, read back from its record. The page took a `comps`
+    # argument from the day it was written and nothing ever passed one, so the section
+    # was empty on every run — price feed or not — and the operator with a feed read a
+    # built table's absence as a fault (first live run of the confirmation runbook).
+    comps_produced = await _step_output(session, job_id=job.id, step_key=COMPS_STEP)
+    comps = (
+        comps_table_from_record(
+            comps_produced,
+            subject_identifier=research_request.ticker,
+            subject_name=await subject_name(session, research_request),
+            source_label=f"{COMPS_STEP}:{job.id}",
+        )
+        if comps_produced and research_request is not None
+        else None
+    )
+    view = await valuation_view(session, job, comps=comps)
 
     # The comps table is rendered at INTERNAL because this page is not exported. The Markdown
     # report is the shareable artefact and takes a `WithheldComps` instead -- ADR 0034.
@@ -1316,6 +1953,72 @@ async def valuation_page(
         else ()
     )
 
+    # The stored grid, drawn by the same builder the report's exhibits use — deterministic,
+    # byte-identical for identical rows, every cell a recorded calculation. The full table
+    # renders beside it; the figure is a reading aid, never the record.
+    heatmap = await sensitivity_chart(session, job=job) if view.grids else None
+
+    peers_produced = await _step_output(session, job_id=job.id, step_key=PEER_SET_STEP)
+    comps_not_asked = (
+        str(peers_produced.get("model_skipped_because", "")).strip()
+        if peers_produced and table is None
+        else ""
+    )
+
+    style = HouseStyle()
+    if view.sector and view.sector.blocks_the_dcf:
+        lead = verdicts.sentence(
+            ["no discounted cash flow is shown, because none was run for this sector"],
+            when_none="No discounted cash flow is shown, because none was run for this sector",
+            tone=vocabulary.Tone.REFUSAL,
+        )
+    elif not view.has_valuation:
+        lead = verdicts.sentence(
+            ["this run recorded no valuation, and nothing is computed here to fill the gap"],
+            when_none="This run recorded no valuation",
+            tone=vocabulary.Tone.MUTED,
+        )
+    else:
+        per_share = []
+        for outcome in (view.gordon, view.exit_multiple):
+            if outcome.value_per_share is None:
+                continue
+            shown = display.scalar(
+                outcome.value_per_share.value,
+                style=style,
+                unit=outcome.value_per_share.unit,
+                label="value per share",
+            )
+            per_share.append(f"{shown} per share by {outcome.label}")
+        lead = verdicts.sentence(
+            per_share,
+            when_none="This run recorded a valuation",
+            tone=vocabulary.Tone.INFO,
+        )
+
+    # Every figure in the house style, the ledger's exact value one click and one hover
+    # away. The page showed the ledger's own twelve-place decimals — "0.730000000000" for a
+    # terminal share, "412.340000000000 USD/shares" — and the operator read the numbers as
+    # unformatted (first live run of the runbook). The label is the reading: a terminal
+    # value share is a percentage, a value per share is money to the cent, a WACC on a
+    # grid's axis is a percentage and an exit multiple is times.
+    figure_rows = (
+        ("enterprise_value", "Enterprise value"),
+        ("equity_value", "Equity value"),
+        ("terminal_share", "Terminal value share"),
+        ("value_per_share", "Value per share"),
+    )
+    figures_shown = {
+        outcome.method.value: {
+            key: display.scalar(
+                figure.value, style=style, unit=figure.unit, label=label, in_table=True
+            )
+            for key, label in figure_rows
+            if (figure := getattr(outcome, key)) is not None
+        }
+        for outcome in (view.gordon, view.exit_multiple)
+    }
+
     page: Response = render(
         request,
         "runs/valuation.html",
@@ -1324,13 +2027,14 @@ async def valuation_page(
             "research_request": research_request,
             "view": view,
             "outcomes": (view.gordon, view.exit_multiple),
-            "rows": (
-                ("enterprise_value", "Enterprise value"),
-                ("equity_value", "Equity value"),
-                ("terminal_share", "Terminal value share"),
-                ("value_per_share", "Value per share"),
-            ),
+            "rows": figure_rows,
+            "shown": figures_shown,
+            "grids": [_grid_for_display(grid, style=style) for grid in view.grids],
             "comps_rows": rows,
+            # Why there is no table, when the peer step recorded a reason — a machine with
+            # no price feed asks the model for nobody, and the page that shows the empty
+            # table is where that has to be said.
+            "comps_not_asked": comps_not_asked,
             # Grouped rather than listed per peer: eight companies excluded for the same
             # one reason must not read as eight repeated paragraphs (polish P4).
             "comps_excluded": grouped_exclusions(table.excluded) if table is not None else (),
@@ -1342,9 +2046,70 @@ async def valuation_page(
                 for chart in internal_charts
                 if not chart.placeholder
             ],
+            "verdict": lead,
+            # The threshold in the label and the calculation's own caveat beneath the
+            # table: "most of the answer" named the consequence and not the fact, and a
+            # reader meeting it cold asked what it meant.
+            "high_terminal_label": f"over {HIGH_TERMINAL_SHARE * 100:.0f}% terminal value",
+            "high_terminal_caveat": (
+                HIGH_TERMINAL_SHARE_CAVEAT
+                if any(
+                    outcome is not None and outcome.terminal_share_is_high
+                    for outcome in (view.gordon, view.exit_multiple)
+                )
+                else ""
+            ),
+            "heatmap": (
+                {
+                    "uri": svg_data_uri(heatmap.svg),
+                    "title": heatmap.title,
+                    "caption": heatmap.caption,
+                }
+                if heatmap is not None and not heatmap.placeholder
+                else None
+            ),
+            "disagreement_display": (
+                f"{view.methods_disagree * Decimal('100'):.1f}"
+                if view.methods_disagree is not None
+                else None
+            ),
         },
     )
     return page
+
+
+def _grid_for_display(grid: GridView, *, style: HouseStyle) -> dict[str, Any]:
+    """A stored grid with every axis value and cell in the house style, beside the exact one.
+
+    The axis reads by the assumption it varies — a WACC or a growth rate as a percentage,
+    an exit multiple as times — and a cell by the grid's own output unit, so a value per
+    share is money to the cent and an enterprise value is millions.
+    """
+
+    def axis(value: Decimal, assumption: str) -> str:
+        return display.scalar(value, style=style, unit="pure", label=assumption)
+
+    def cell(value: Decimal) -> str:
+        return display.scalar(
+            value, style=style, unit=grid.output_unit, label=grid.output_name, in_table=True
+        )
+
+    return {
+        "label": grid.label,
+        "x_assumption": grid.x_assumption,
+        "y_assumption": grid.y_assumption,
+        "output_name": grid.output_name,
+        "output_unit": grid.output_unit,
+        "x_values": [(x, axis(x, grid.x_assumption)) for x in grid.x_values],
+        "rows": [
+            (
+                y,
+                axis(y, grid.y_assumption),
+                [(x, output, cell(output), calculation_id) for x, output, calculation_id in cells],
+            )
+            for y, cells in grid.rows
+        ],
+    }
 
 
 @router.get(
@@ -1374,15 +2139,46 @@ async def calculation_detail(
 
     tree = await calculation_service.lineage(session, calculation_id)
 
+    # The tranche-1 gap, closed where the plan said it would be: the handler builds a
+    # figure from each lineage node, so the template formats no Decimal and composes no
+    # origin link — the value arrives in house style with its drill-down attached.
+    style = HouseStyle()
+    rows = [
+        {
+            **row,
+            "figure": figures.lineage_figure(
+                row, request_id=job.work_order_id, job_id=job.id, style=style
+            ),
+        }
+        for row in lineage_rows(tree)
+    ]
     page: Response = render(
         request,
         "calculations/detail.html",
         {
             "calculation": calculation,
-            "lineage": lineage_rows(tree),
-            "request_id": job.request_id,
+            "lineage": rows,
+            "request_id": job.work_order_id,
             "job_id": job.id,
             "back_href": f"/runs/{job.id}/valuation",
+            "shown_output": display.scalar(
+                calculation.output_value,
+                style=style,
+                unit=calculation.output_unit,
+                label=calculation.name,
+            ),
+            "verdict": verdicts.sentence(
+                [
+                    "calculated by code, with the formula and every input recorded",
+                    verdicts.Count(
+                        len(calculation.inputs or []),
+                        "recorded input directly beneath it",
+                        "recorded inputs directly beneath it",
+                    ),
+                ],
+                when_none="Calculated by code, with the formula recorded",
+                tone=vocabulary.Tone.INFO,
+            ),
         },
     )
     return page
@@ -1522,7 +2318,8 @@ async def reports_index(
     fetched = await session.execute(
         select(Report, ResearchRequest)
         .join(ResearchRequest, ResearchRequest.id == Report.request_id)
-        .where(ResearchRequest.user_id == user.id)
+        .join(WorkOrder, WorkOrder.id == Report.request_id)
+        .where(WorkOrder.user_id == user.id)
         .order_by(Report.as_of_date.desc(), Report.created_at.desc())
     )
     rows: list[tuple[Report, ResearchRequest]] = [(report, req) for report, req in fetched.tuples()]
@@ -1534,13 +2331,37 @@ async def reports_index(
             if needle in req.ticker.lower() or needle in req.company_name.lower()
         ]
 
+    # What each report's run cost, in one grouped query — the history row answers "was
+    # this conclusion worth what it cost?" without a click per report.
+    job_ids = [report.job_id for report, _ in rows if report.job_id is not None]
+    spend_by_job: dict[uuid.UUID, Decimal] = {}
+    if job_ids:
+        totals = await session.execute(
+            select(JobStep.job_id, func.sum(JobStep.cost_gbp))
+            .where(JobStep.job_id.in_(job_ids))
+            .group_by(JobStep.job_id)
+        )
+        spend_by_job = {
+            job_id: Decimal(total) for job_id, total in totals.tuples() if total is not None
+        }
+
     groups: dict[str, dict[str, Any]] = {}
     for report, req in rows:
         label = f"{req.company_name} ({req.ticker})"
         group = groups.setdefault(label, {"label": label, "company_id": None, "reports": []})
         if report.company_id is not None:
             group["company_id"] = report.company_id
-        group["reports"].append({"report": report, "request": req})
+        group["reports"].append(
+            {
+                "report": report,
+                "request": req,
+                "spend_display": (
+                    figures.pounds(spend_by_job[report.job_id])
+                    if report.job_id in spend_by_job
+                    else None
+                ),
+            }
+        )
 
     page: Response = render(
         request,
@@ -1568,7 +2389,44 @@ async def knowledge_page(
     connectivity that does not exist.
     """
     stats = await knowledge_stats(session, settings=settings)
-    page: Response = render(request, "knowledge/index.html", {"stats": stats})
+
+    stale = len(stats.freshness.stale)
+    windows = len(stats.freshness.closed_windows)
+    if not stats.size.approved_reports:
+        lead = verdicts.sentence(
+            [
+                "knowledge is empty; approved research reports create companies, claims, "
+                "themes and relations here"
+            ],
+            when_none="Knowledge is empty",
+            tone=vocabulary.Tone.MUTED,
+        )
+    elif stale or windows:
+        lead = verdicts.sentence(
+            [
+                verdicts.Count(
+                    stale, "company has stale research", "companies have stale research"
+                ),
+                verdicts.Count(
+                    windows,
+                    "closed catalyst window needs its outcome recorded",
+                    "closed catalyst windows need their outcomes recorded",
+                ),
+            ],
+            when_none="Useful and current",
+            tone=vocabulary.Tone.WARNING,
+        )
+    else:
+        lead = verdicts.sentence(
+            [
+                "current enough to use: no catalyst window awaits an outcome and nothing "
+                "covered has gone stale"
+            ],
+            when_none="Current enough to use",
+            tone=vocabulary.Tone.SUCCESS,
+        )
+
+    page: Response = render(request, "knowledge/index.html", {"stats": stats, "verdict": lead})
     return page
 
 
@@ -1652,13 +2510,43 @@ async def company_page(
             if outcome.status != "pending" and outcome.label not in resolutions
         }
     )
+    timeline = list(reversed(views))
+    # The wording avoids "as of": that phrase is the timeline link's, and a page test pins
+    # it appearing exactly once per approved report.
+    if not timeline:
+        lead = verdicts.sentence(
+            [
+                "no approved view exists for this company yet; drafts and rejected runs do "
+                "not appear here"
+            ],
+            when_none="No approved view exists yet",
+            tone=vocabulary.Tone.MUTED,
+        )
+    else:
+        newest = timeline[0]
+        clauses: list[verdicts.Count | str] = [
+            f"the last approved view is {newest.rating or 'no view reached'}, "
+            f"{newest.valuation_range}, dated {newest.as_of_date.isoformat()}",
+            verdicts.Count(
+                len(unresolved),
+                "catalyst window has since closed and needs its outcome recorded",
+                "catalyst windows have since closed and need their outcomes recorded",
+            ),
+        ]
+        lead = verdicts.sentence(
+            clauses,
+            when_none="One approved view exists",
+            tone=vocabulary.Tone.WARNING if unresolved else vocabulary.Tone.INFO,
+        )
+
     token = new_csrf_token(settings)
     page: Response = render(
         request,
         "companies/detail.html",
         {
             "company": company,
-            "timeline": list(reversed(views)),
+            "verdict": lead,
+            "timeline": timeline,
             "chart_uri": svg_data_uri(chart.svg),
             "chart_caption": chart.caption,
             "chart_is_placeholder": chart.placeholder,
@@ -1742,8 +2630,8 @@ async def report_detail(
     """The report as approved, with its hash and a link to the archived bytes."""
     report = await session.scalar(
         select(Report)
-        .join(ResearchRequest, ResearchRequest.id == Report.request_id)
-        .where(Report.id == report_id, ResearchRequest.user_id == user.id)
+        .join(WorkOrder, WorkOrder.id == Report.request_id)
+        .where(Report.id == report_id, WorkOrder.user_id == user.id)
     )
     if report is None:
         return _problem(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
@@ -1793,8 +2681,8 @@ async def export_obsidian_page(
     """
     report = await session.scalar(
         select(Report)
-        .join(ResearchRequest, ResearchRequest.id == Report.request_id)
-        .where(Report.id == report_id, ResearchRequest.user_id == user.id)
+        .join(WorkOrder, WorkOrder.id == Report.request_id)
+        .where(Report.id == report_id, WorkOrder.user_id == user.id)
     )
     if report is None:
         return _problem(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
@@ -1838,8 +2726,8 @@ async def report_preview(
     """
     report = await session.scalar(
         select(Report)
-        .join(ResearchRequest, ResearchRequest.id == Report.request_id)
-        .where(Report.id == report_id, ResearchRequest.user_id == user.id)
+        .join(WorkOrder, WorkOrder.id == Report.request_id)
+        .where(Report.id == report_id, WorkOrder.user_id == user.id)
     )
     if report is None:
         return _problem(request, f"No report {report_id}.", status=HTTP_404_NOT_FOUND)
@@ -1877,26 +2765,6 @@ async def report_preview(
 # -- Internals ---------------------------------------------------------------------------
 
 
-async def _section_outcomes(session: DbSession, *, job_id: uuid.UUID) -> dict[str, dict[str, Any]]:
-    """What the draft step recorded about each section, keyed by section.
-
-    Read from the step's own frozen output rather than recomputed: `SectionExecution`
-    already carries the evidence tally, the attempt count, the refusal causes and the
-    problems in the producers' own words, and a second derivation here would be a place for
-    the page and the record to disagree.
-
-    Empty for a run that has not drafted, which the template treats as "nothing to say"
-    rather than as an error.
-    """
-    produced = await _step_output(session, job_id=job_id, step_key="draft") or {}
-    rows: dict[str, dict[str, Any]] = {}
-    for outcome in [*produced.get("builtin_sections", []), *produced.get("custom_sections", [])]:
-        key = str(outcome.get("section_key", ""))
-        if key:
-            rows[key] = outcome
-    return rows
-
-
 async def _owned_job(session: AsyncSession, *, job_id: uuid.UUID, user: Any) -> Job | None:
     """The run, if it belongs to this user.
 
@@ -1906,8 +2774,8 @@ async def _owned_job(session: AsyncSession, *, job_id: uuid.UUID, user: Any) -> 
     """
     job: Job | None = await session.scalar(
         select(Job)
-        .join(ResearchRequest, ResearchRequest.id == Job.work_order_id)
-        .where(Job.id == job_id, ResearchRequest.user_id == user.id)
+        .join(WorkOrder, WorkOrder.id == Job.work_order_id)
+        .where(Job.id == job_id, WorkOrder.user_id == user.id)
     )
     return job
 
@@ -1922,8 +2790,8 @@ async def _claim_is_visible(
     *who* may see a claim, which is why both are one query against the same join.
     """
     owner = await session.scalar(
-        select(ResearchRequest.user_id)
-        .join(Job, Job.work_order_id == ResearchRequest.id)
+        select(WorkOrder.user_id)
+        .join(Job, Job.work_order_id == WorkOrder.id)
         .join(ReportSection, ReportSection.job_id == Job.id)
         .join(Claim, Claim.report_section_id == ReportSection.id)
         .where(Claim.id == claim_id)
@@ -1985,20 +2853,6 @@ async def _payload_for(session: AsyncSession, *, job: Job, gate: GateKind) -> di
     except WorkflowRegistryError:
         return {}
     return dict(await builder(session, job=job, gate=gate.value))
-
-
-async def _decision_for(session: AsyncSession, *, job_id: uuid.UUID, gate: GateKind) -> str | None:
-    """What was already decided at this gate, if anything.
-
-    Drives the page's read-only state. A gate that has been decided shows the decision
-    rather than a live form, because the service will refuse a second one and offering a
-    button that cannot work is worse than offering none.
-    """
-    decisions = await approval_service.approvals_for_job(session, job_id)
-    for approval in decisions:
-        if approval.gate is gate:
-            return approval.decision.value
-    return None
 
 
 def _problem(request: Request, message: str, *, status: int) -> Response:

@@ -16,7 +16,8 @@ src/aer/            application package
   logging.py        structured JSON logging with secret redaction
   config.py         typed settings; secrets never render, all problems reported at once
   cli.py            `aer serve`, `aer version`, `aer seed-user`, `aer reset-research`,
-                    `aer verify-artefacts`, `aer gc-artefacts`, `aer purge-licensed`
+                    `aer verify-artefacts`, `aer gc-artefacts`, `aer purge-licensed`,
+                    `aer queue`
   core/             correctness core: pure, side-effect free, mypy --strict
     enums.py        domain vocabulary, rendered as native PostgreSQL enums
     concepts.py     canonical financial concepts and the filer tags that mean them
@@ -35,6 +36,9 @@ src/aer/            application package
     fx.py           conversion that refuses upside-down, future and stale rates
     wacc.py         the discount rate; no defaults, every input sourced
     dcf.py          driver-based FCFF, both terminal values, the sensitivity grid
+    residual_income.py  a bank's book value plus its spread; both terminal treatments
+    portfolio.py    what a book holds and what it cost; no positions table (ADR 0083)
+    performance.py  time- and money-weighted return, exposure, concentration
   db/               engine, session management, and ORM models
   storage/          content-addressed artefact store; the evidence substrate
     protocol.py     the ArtefactStore interface: no delete, no update, no move
@@ -80,6 +84,7 @@ src/aer/            application package
     base.py         everything an agent must not have to remember
     untrusted.py    delimits fetched content; the delimiter cannot be escaped
     planner.py      proposes a plan; states no figure and asserts no fact
+    thesis_monitor.py  reads one premise against new facts; status bounded by code's crossing
   workflow/         the step runner and the workflows built on it
     engine.py       idempotent, resumable, budget-checked before each step
     workflows/vertical_slice_v1.py   request -> plan -> gates -> cited report
@@ -89,6 +94,18 @@ src/aer/            application package
   render/markdown.py  the document: header, sections, footnotes, sources, disclaimer
   services/         business operations: requests, artefacts, provenance, facts,
                     calculations, approvals (gate order and payload hashes), runs
+    mandate.py      the equity mandate for a run, if it has one; None is a real answer
+    theses.py       the only writer of judgements: a thesis, its premises, on the audit chain
+    thesis_monitor.py  the monitor pass: code measures the crossing, the model reads the rest,
+                    a finding is closed by an act with a reason (ADRs 0078, 0079, 0103)
+    decisions.py    the only writer of decisions: written before the outcome, the trade points
+                    back at it, the size is a sentence (ADR 0104)
+    post_trade.py   a closed position as an episode, its outcome as recorded calculations, the
+                    reviewer's proposal on its pass, the review as the operator's (ADR 0105)
+    risk.py         the book's risk as at a date, ex-ante over today's weights; a scenario the
+                    operator states; the analyst's reading, refused by the numeral check (ADR 0106)
+    watchlist.py    what the operator follows and why; the queue that turns the next entry into
+                    an ordinary run as at a date, within a standing budget (ADR 0107)
   runtime.py        assembles the service bundle both processes share
   queue.py          enqueueing a run, from the web process
   worker.py         the arq worker: where a research run actually executes
@@ -121,9 +138,23 @@ src/aer/            application package
       attention.py  Attention/Severity; Overview owns no query, it asks a registry
       verdict.py    what is waiting, in one sentence; composed permanently, never authored
       research.py   the research tool's answer to "is anything waiting for me"
+      monitor.py    the monitor's: a contradicted premise waits, a stopped pass needs diagnosis
+      decisions.py  the journal's: a decision not carried out, a review date passed
+      review.py     the review's: a proposal waiting, a stopped pass, a closed position unreviewed
+      risk.py       the risk tool's: a reading that stopped, a book not read since it changed
+      watchlist.py  the queue's: a company followed and not yet researched
       platform.py   what the platform itself has waiting, which is no tool's business
     portfolio/pages.py  the book as at a date; every figure computed on the way to it
-    tools/registry.py   INSTALLED_TOOLS: nine rows, three states; a planned tool is a page
+    theses/pages.py     what you believe, as premises with what would defeat each; no figure
+    monitor/pages.py    the findings, labelled findings; the one gate a contradicted premise opens
+    decisions/pages.py  the journal: what you decided, on what basis, and the trades that followed
+    review/pages.py     a closed position's outcome beside the reviewer's proposal, the review the
+                        operator confirms, and the analytics with an n on every statistic
+    risk/pages.py       the book's risk figures with their lineage, the scenarios the operator
+                        stated, and the analyst's reading or its refusal
+    watchlist/pages.py  the companies followed with why, the standing budget, and the queue
+                        commissioned from the row or drained in follow order
+    tools/registry.py   INSTALLED_TOOLS: nine rows, nine working; a planned tool would be a page
     styles/app.css  the token system: palette, type scale, spacing, radii (ADRs 0077, 0088)
     static/fonts/   three families, eight files, all OFL 1.1 and all SHA-256 pinned
     templates/      Jinja2; the disclaimer lives in the shell, not in pages
@@ -654,10 +685,10 @@ inventory line, and every ratio depending on it will be correspondingly absent w
 reason. Defaulting to zero produces a current ratio that is arithmetically fine, factually
 invented, and indistinguishable downstream from a real one.
 
-**A derived line says it was derived.** Gross profit, pre-tax income and total debt are
-worked out when the filer stated the components but not the subtotal — each through
-`@traced`, so the derived line's provenance points at a calculation whose inputs point at
-facts. A stated subtotal is never overwritten by a derived one; a disagreement between them
+**A derived line says it was derived.** Gross profit, pre-tax income, total debt, and
+depreciation and amortisation from its two halves are worked out when the filer stated the
+components but not the subtotal — each through `@traced`, so the derived line's provenance
+points at a calculation whose inputs point at facts. A stated subtotal is never overwritten by a derived one; a disagreement between them
 is what an identity check reports.
 
 **The identities are output, not assertions.** Seven checks — the balance sheet balancing,
@@ -894,6 +925,16 @@ grid is the easiest figure in a valuation to fabricate and nothing in the presen
 distinguishes a computed grid from an interpolated one — see
 `docs/adr/0028-a-sensitivity-grid-is-eighty-one-valuations.md`, which also explains why
 interpolating is wrong in the direction that flatters the valuation.
+
+**The bank model has grids of its own, on its own axes** (ADR 0101). Cost of equity against
+terminal growth under the perpetuity, and against return on equity under the fade — each
+under the treatment its second axis means something in, because the fade never reads a
+terminal growth rate and a grid over it there would render identical columns. The return on
+equity is a *driver path*, and `aer/calc/dcf.py` refuses driver axes because "revenue growth"
+is five numbers; `aer/calc/residual_income.py` permits one **when the confirmed path is
+flat**, which is the case in which that objection does not hold, and refuses a fading path by
+name. A perpetuity refused in any corner takes the grid whole: a hole in a grid is a cell a
+reader interprets.
 
 ### Sector enforcement: the block, not the footnote
 

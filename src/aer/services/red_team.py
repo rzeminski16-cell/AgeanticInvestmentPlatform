@@ -74,6 +74,31 @@ _log = structlog.get_logger("aer.services.red_team")
 # escalated, recorded and published; it just does not claim the thesis is in danger.
 MATERIAL_SEVERITY: Final = 4
 
+# How much of a challenge's statement its topic carries. The topic names the row -- in a
+# log line, in the gate-2 payload, in the fingerprint that stops a retried step recording
+# the same challenge twice -- and the whole argument lives in `detail` beside it. No
+# surface prints this above the statement any more; `core.disagreement.challenge_heading`
+# says why one did, and what it prints instead.
+_TOPIC_CHARS: Final = 120
+
+
+def _shortened(statement: str) -> str:
+    """``statement`` short enough to name a row, cut between words rather than through one.
+
+    A slice at a fixed width lands mid-word about six times in seven, and the result reads
+    as a sentence that broke rather than one deliberately abbreviated. Backing up to the
+    last space and marking the elision costs nothing and is honest about what it is. A
+    single word longer than the bound has no space to back up to, so it is cut where it
+    falls -- an ellipsis after a severed word still says "there is more".
+    """
+    statement = " ".join(statement.split())
+    if len(statement) <= _TOPIC_CHARS:
+        return statement
+    head = statement[:_TOPIC_CHARS].rstrip()
+    spaced, _, _ = head.rpartition(" ")
+    return f"{(spaced or head).rstrip(',;:')}\N{HORIZONTAL ELLIPSIS}"
+
+
 # Rows per evidence category in the index. The same bound the other evidence-assembling
 # services use: enough to argue from, small enough to stay inside the role's input cap.
 EVIDENCE_ITEM_CAP: Final = 40
@@ -161,7 +186,7 @@ async def run_red_team(
             # The filer's own name, not the one typed into the form (gap A67).
             company_name=await subject_name(session, request),
             ticker=request.ticker,
-            as_of_date=request.as_of_date.isoformat(),
+            as_of_date=request.work_order.as_of_date.isoformat(),
             claims=claims,
             facts=index.facts,
             calculations=index.calculations,
@@ -363,7 +388,7 @@ async def _record_challenge(
         value=Decimal(0),
         unit=THESIS_UNIT,
         tier=_best_tier(challenge, index, fallback=base.tier),
-        filed_date=request.as_of_date,
+        filed_date=request.work_order.as_of_date,
         basis=FactBasis.AS_REPORTED,
     )
 
@@ -408,7 +433,7 @@ async def _record_challenge(
     row = await record_resolution(
         session,
         job_id=job_id,
-        topic=f"Red team ({challenge.dimension.value}): {challenge.statement[:120]}",
+        topic=f"Red team ({challenge.dimension.value}): {_shortened(challenge.statement)}",
         kind=DisagreementKind.THESIS_CONFLICT,
         resolution=resolution,
         detail=detail,
@@ -438,7 +463,7 @@ def _base_position(
         value=Decimal(0),
         unit=THESIS_UNIT,
         tier=best,
-        filed_date=request.as_of_date,
+        filed_date=request.work_order.as_of_date,
         basis=FactBasis.AS_REPORTED,
     )
 

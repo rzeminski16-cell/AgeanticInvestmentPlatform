@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  One reviewer pass: what code computed about the closed position, what the reviewer read,
+  what it proposed, and the form that makes the proposal the operator's own review.
+
+  The outcome figures are recorded calculations and link to their formula; the reviewer
+  quoted them and could not write them (ADR 0105 §2). The proposal is prefilled into the
+  form and every field can be amended: confirming it is the judgement, not receiving it.
+#}
+
+{% block title %}Proposal &middot; {{ subject }} &middot; Post-trade review{% endblock %}
+
+{% block content %}
+  {% call ui.page_header(
+    "The reviewer's proposal",
+    eyebrow="A REVIEWER PASS",
+    identity=subject ~ (" · read " ~ started if started else ""),
+    breadcrumbs=[{"href": "/review", "label": "Post-trade review"}],
+  ) %}
+    <span id="subject" class="sr-only">{{ subject }}</span>
+  {% endcall %}
+
+  {% if review_id %}
+    <div id="confirmed-notice">
+      {{ ui.callout("success", "This position has been reviewed", "The proposal below was confirmed as your review, and the review stands.", action_label="Open the review", action_href="/review/" ~ review_id) }}
+    </div>
+  {% elif is_failed %}
+    <div id="stopped-notice">
+      {{ ui.callout("refusal", "The pass stopped at its ceiling", reason ~ " Nothing was proposed. The position is still unreviewed and can be run again from the list.", action_label="Back to the list", action_href="/review") }}
+    </div>
+  {% endif %}
+
+  {% call ui.sheet("What happened", subtitle="Computed by code before the reviewer was asked anything. Every figure is a recorded calculation; open one to read its formula and its inputs.", id="outcome") %}
+    {% if episode %}
+      <p class="type-body text-ink">
+        <span data-field="ticker">{{ episode.ticker }}</span>{% if episode.exchange %} on {{ episode.exchange }}{% endif %},
+        held from {{ episode.opened_on }} to {{ episode.closed_on }}.
+      </p>
+    {% endif %}
+    {% if problem %}
+      <div class="mt-3">{{ ui.callout("warning", "The outcome could not be computed", problem ~ " No return is shown rather than one over part of the trades.") }}</div>
+    {% endif %}
+    {% if figures %}
+      <div class="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-4" id="figures">
+        {% for row in figures %}
+          <div data-figure="{{ row.label | lower | replace(' ', '-') }}">
+            {{ ui.figure(row.label, row.value, note=row.note, provenance_href=row.href, provenance_label="Open the calculation" if row.href else "") }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endcall %}
+
+  {% call ui.sheet("What the reviewer read", subtitle="The decisions as they were written before the outcome, the premises as they stand, and what the monitor found while the position was open.", id="record") %}
+    <h3 class="type-eyebrow text-ink-muted">Decisions</h3>
+    {% if decisions %}
+      <ol class="mt-2 flex flex-col" aria-label="Decisions under review">
+        {% for row in decisions %}
+          <li class="border-t border-line py-3" data-decision="{{ row.decision_id }}">
+            <p class="type-body-strong text-ink"><a href="/decisions/{{ row.decision_id }}" class="text-verification underline underline-offset-[3px]">{{ row.action | capitalize }}: {{ row.statement }}</a></p>
+            <p class="mt-1 type-body-sm text-ink">{{ row.basis }}</p>
+            <p class="mt-1 type-data-sm text-ink-muted">Decided {{ row.decided_on }}{% if row.size_statement %} · {{ row.size_statement }}{% endif %}{% if row.horizon_months %} · {{ row.horizon_months }} months intended{% endif %} · carried out by {{ row.carried_out_by }} trade{{ "" if row.carried_out_by == 1 else "s" }}</p>
+            {% if row.exit_plan %}<p class="mt-1 type-body-sm text-ink-muted">Reversed if: {{ row.exit_plan }}</p>{% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p class="mt-2 type-body text-ink-muted">No decision was written for these trades. That is itself what the reviewer scores.</p>
+    {% endif %}
+
+    <h3 class="mt-6 type-eyebrow text-ink-muted">What the monitor found while it was open</h3>
+    {% if findings %}
+      <ol class="mt-2 flex flex-col" aria-label="Findings while open">
+        {% for row in findings %}
+          <li class="border-t border-line py-3 type-body-sm text-ink">
+            <span class="type-label text-ink-muted">{{ row.raised_on }} · {{ row.status | replace("_", " ") }}</span>
+            <p class="mt-1">{{ row.justification }}</p>
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p class="mt-2 type-body text-ink-muted">The monitor raised nothing while the position was open.</p>
+    {% endif %}
+  {% endcall %}
+
+  {% if draft and not review_id %}
+    {% call ui.sheet("Confirm the review", subtitle="Prefilled with what the reviewer proposed. Amend anything. What you confirm is your judgement, held by you on this basis; the proposal is kept beside it as what was proposed.", id="confirmation") %}
+      <form method="post" action="/review/passes/{{ pass_id }}/confirm" class="grid max-w-3xl gap-6" id="confirm-review">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+
+        <div>
+          <h3 class="type-eyebrow text-ink-muted">Each premise, as the record found it</h3>
+          {% if premises %}
+            <ol class="mt-2 flex flex-col" aria-label="Premise verdicts">
+              {% for row in premises %}
+                <li class="grid gap-3 border-t border-line py-4 sm:grid-cols-[1fr_auto]" data-premise="{{ row.premise_id }}">
+                  <div class="min-w-0">
+                    <p class="type-body-strong text-ink {% if row.withdrawn %}line-through text-ink-muted{% endif %}">{{ loop.index }}. {{ row.statement }}</p>
+                    <div class="mt-2">{{ ui.field(note_field ~ row.premise_id, "Note", value=row.note, rows=2) }}</div>
+                  </div>
+                  <div>{{ ui.field(verdict_field ~ row.premise_id, "Verdict", required=true, choices=verdict_choices, value=row.verdict) }}</div>
+                </li>
+              {% endfor %}
+            </ol>
+          {% else %}
+            <p class="mt-2 type-body text-ink-muted">The thesis had no premises to grade.</p>
+          {% endif %}
+        </div>
+
+        {{ ui.field("process_quality", "Process quality", required=true, choices=qualities, value=draft.process_quality.value, hint="How the decision was made, not how it turned out. A sound process can lose money; a trade with no decision behind it is flawed however it ended.") }}
+        {{ ui.field("basis", "On what basis", required=true, rows=4, value=draft.basis, hint="Which decisions, premises and findings the quality rests on. The reviewer's words if you agree with them; yours if you do not.") }}
+        {{ ui.field("lessons", "Lessons", rows=4, value=draft.lessons, hint="What to look at before making the same call again. Observations, not instructions: a methodology change is a skill edit, and that is yours to make elsewhere.") }}
+
+        <div>
+          <button id="confirm" type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-decision px-4 py-2 type-label text-on-decision hover:bg-decision-strong">Confirm as my review</button>
+        </div>
+      </form>
+    {% endcall %}
+  {% endif %}
+{% endblock %}

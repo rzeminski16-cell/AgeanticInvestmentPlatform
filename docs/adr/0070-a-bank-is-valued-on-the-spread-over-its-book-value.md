@@ -142,3 +142,9 @@ omits the value of profits already written into policies in force.
   has both. The two terminal treatments already bracket the answer more widely than a grid
   over the discount rate would, but nothing yet varies the return on equity a step at a time.
   Stated in the module and carried in every result's caveats rather than left quiet.
+
+  **Superseded by ADR 0101**, which builds both. The reasoning above holds for the *terminal*
+  question and not for the spread: the two treatments say nothing about what the answer is
+  worth if the bank earns fifty basis points less, which is what a bank's reader actually
+  asks. What genuinely stood in the way was that the return on equity is a driver path, and
+  0101 settles when an axis may vary one.

@@ -1,40 +1,43 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
 
-{# The starter library. Examples to read and import, not skills that are already installed —
-   see ADR 0051 and threat T20. #}
+{#
+  The starter library. Examples to read and import, not skills that are already installed —
+  see ADR 0051 and threat T20. Nothing here is ever labelled installed until it has passed
+  the ordinary import path, diff and confirmation included.
+#}
 
 {% block title %}Starter library &middot; Tracework Invest{% endblock %}
 
 {% block content %}
-  <div>
-    <h1 class="text-2xl font-semibold tracking-tight">Starter library</h1>
-    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-      Worked examples of custom sections. Nothing here is installed: choosing one takes you to
-      the ordinary import screen, which shows a diff and asks you to confirm it &mdash; the
-      same path a file from anyone else takes.
-    </p>
-  </div>
+  {{ ui.page_header(
+    "Starter library",
+    eyebrow="SKILLS",
+    identity="Worked examples of custom sections. Nothing here is installed: choosing one takes you to the ordinary import screen, which shows a diff and asks you to confirm it — the same path a file from anyone else takes.",
+    breadcrumbs=[{"href": "/skills", "label": "All skills"}],
+  ) }}
 
-  <div class="mt-8 space-y-6">
-    {% for example in examples %}
-      <div class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-        <h2 class="text-base font-semibold">{{ example.title }}</h2>
-        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">{{ example.summary }}</p>
-        <details class="mt-3">
-          <summary class="cursor-pointer text-xs text-slate-500">Show the file</summary>
-          <pre class="mt-2 overflow-x-auto rounded-md bg-slate-50 p-3 text-xs dark:bg-slate-900"><code>{{ example.source }}</code></pre>
-        </details>
-        <form method="post" action="/skills/import" class="mt-3">
-          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-          <input type="hidden" name="source" value="{{ example.source }}" />
-          <button
-            type="submit"
-            class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
-          >
-            Review and import
-          </button>
-        </form>
-      </div>
-    {% endfor %}
-  </div>
+  {% call ui.sheet() %}
+    <ul class="flex flex-col divide-y divide-line">
+      {% for example in examples %}
+        <li class="py-5 first:pt-0 last:pb-0">
+          <h2 class="type-title-2 text-ink">{{ example.title }}</h2>
+          <p class="mt-1 max-w-prose type-body-sm text-ink-muted">{{ example.summary }}</p>
+          {% call ui.disclosure("Show the file") %}
+            <pre class="overflow-x-auto rounded-sm bg-surface-sunken p-3 type-data-sm text-ink"><code>{{ example.source }}</code></pre>
+          {% endcall %}
+          <form method="post" action="/skills/import" class="mt-3">
+            <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+            <input type="hidden" name="source" value="{{ example.source }}" />
+            <button
+              type="submit"
+              class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected"
+            >
+              Review and import {{ example.title }}
+            </button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endcall %}
 {% endblock %}

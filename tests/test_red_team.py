@@ -34,7 +34,12 @@ from aer.agents.red_team import (
 )
 from aer.agents.registry import resolve_role
 from aer.config import Settings
-from aer.core.disagreement import DisagreementKind, ResolutionOutcome, ResolutionRule
+from aer.core.disagreement import (
+    DisagreementKind,
+    ResolutionOutcome,
+    ResolutionRule,
+    challenge_heading,
+)
 from aer.core.enums import ClaimKind, FactBasis, GateKind, JobStatus, Provider, SourceTier
 from aer.db.models import (
     Artefact,
@@ -43,7 +48,6 @@ from aer.db.models import (
     FinancialFact,
     Job,
     JobStep,
-    ResearchRequest,
     SectionDefinition,
     SectionStatus,
     SourceDocument,
@@ -59,9 +63,10 @@ from aer.services.disagreements import (
     settle_by_hand,
 )
 from aer.services.escalation import triggers_for_job
-from aer.services.red_team import MATERIAL_SEVERITY, run_red_team
+from aer.services.red_team import MATERIAL_SEVERITY, _shortened, run_red_team
 from aer.storage.local import LocalArtefactStore
 from tests.ledger_fixtures import record_valuation_ledger
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
 pytestmark = pytest.mark.anyio
@@ -208,6 +213,58 @@ class TestTheLengthsAreAskedForNotJustEnforced:
             RedTeamReport(coverage_note="c" * (COVERAGE_NOTE_CEILING + 1))
 
 
+class TestAChallengeAnnouncesItselfWithoutRepeatingItself:
+    """What the operator saw on a live review page, and why the topic is not a heading.
+
+    A red-team row's topic is a shortened copy of its statement: enough to name the row in
+    a log line and in the fingerprint that stops a retried step recording it twice. The
+    review page printed it as the heading, directly above the statement in full — so every
+    challenge arrived as the same sentence twice, the first one cut through a word.
+    """
+
+    def test_the_heading_is_the_dimension_and_the_severity(self) -> None:
+        heading = challenge_heading(
+            {"dimension": "competitive_position", "severity": 4}, fallback="unused"
+        )
+
+        assert heading == "Red team \N{EM DASH} competitive position, severity 4/5"
+
+    def test_a_conflict_that_is_not_a_challenge_keeps_its_own_topic(self) -> None:
+        """A source conflict's topic is a real short label, not a shortening of anything."""
+        assert challenge_heading({}, fallback="Revenue FY2021") == "Revenue FY2021"
+        assert challenge_heading(None, fallback="Revenue FY2021") == "Revenue FY2021"
+
+    def test_a_challenge_recorded_before_severity_existed_still_reads(self) -> None:
+        """These are JSONB from earlier builds; a heading that raised would take the page."""
+        assert challenge_heading({"dimension": "growth"}, fallback="x") == "Red team — growth"
+
+    def test_a_shortened_topic_breaks_between_words(self) -> None:
+        statement = (
+            "The discounted cash flow leans on a terminal growth rate of three per cent, "
+            "which exceeds the long-run nominal growth of the economy it operates in."
+        )
+
+        shortened = _shortened(statement)
+
+        assert shortened.endswith("\N{HORIZONTAL ELLIPSIS}")
+        assert statement.startswith(shortened.rstrip("\N{HORIZONTAL ELLIPSIS}"))
+        # The whole point: the last thing before the ellipsis is a word, not part of one.
+        assert shortened.rstrip("\N{HORIZONTAL ELLIPSIS}").split()[-1] in statement.split()
+
+    def test_a_statement_short_enough_is_left_alone(self) -> None:
+        assert _shortened("The margin path is asserted.") == "The margin path is asserted."
+
+    def test_one_unbroken_word_has_nowhere_to_break(self) -> None:
+        """No space to back up to. Cut it, and still say there is more."""
+        shortened = _shortened("x" * 300)
+
+        assert shortened == "x" * 120 + "\N{HORIZONTAL ELLIPSIS}"
+
+    def test_the_whole_argument_is_never_what_was_shortened(self) -> None:
+        """The statement lives in `detail`, whole, which is what the surfaces print."""
+        assert len(_shortened("word " * 100)) < CHALLENGE_STATEMENT_CEILING
+
+
 class TestTheRoleIsRegistered:
     def test_the_role_names_its_adr_and_holds_no_tools(self) -> None:
         definition = resolve_role("red_team")
@@ -231,7 +288,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     db_session.add(user)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -248,7 +305,6 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
 
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version="vertical_slice_v1",
         code_version="test",
         status=JobStatus.RUNNING,
@@ -288,7 +344,6 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
 
     document = SourceDocument(
         work_order_id=request.id,
-        request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,
         url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",

@@ -182,7 +182,51 @@ Four steps, and only the first three are in this revision.
    that is `NOT NULL`. A nullable pointer to a mandate that genuinely does not exist is the
    opposite case.
 4. **A later revision** drops those three `request_id` columns, their foreign keys, and the
-   duplicated columns from `research_requests`, once no code reads them.
+   duplicated columns from `research_requests`, once no code reads them. Shipped as
+   migration `0064`; what it actually did is recorded below.
+
+### Step four, as it shipped (migration `0064`)
+
+Three pointers went — `jobs.request_id`, `approvals.request_id`, `source_documents.request_id`
+— with their foreign keys and `ix_jobs_request_id`. Six columns went from `research_requests`:
+`user_id`, `as_of_date`, `point_in_time`, `max_cost_gbp`, `status` and `archived_at`. The
+mirroring function that kept the two copies in step, `services.requests._mirror_to_work_order`,
+went with them, and so did the `conftest.py` listener that mirrored on behalf of hand-built
+fixture rows.
+
+**`research_requests.id` became a foreign key to `work_orders.id`.** It has held that value
+since 0054's backfill wrote it; the constraint is what turns the shared key from a convention
+two modules remember into something the database keeps. `ResearchRequest.work_order` is
+`lazy="joined"` and that is deliberate rather than lazy thinking: the session is async, so an
+unloaded relationship does not read slowly, it *raises*, and some forty call sites read a
+run-root field off a mandate. One join on a primary key, always, beats a class of failure that
+appears only where somebody forgot a `selectinload`.
+
+**Three consequences worth naming, because each was a real defect found by the suite.**
+
+* **The purge walk had to move its root.** `services.requests._owned_scopes` walked ownership
+  outward from `research_requests`; `jobs`, `approvals` and `source_documents` no longer reach
+  it, so the walk found none of them and `removal_preview` raised. It is seeded at
+  `work_orders` now. Neither end of the run root is *owned* by the run — the confirmation page
+  reads an empty result as "nothing has been researched against this request", which a count
+  of the request itself would falsify.
+* **`aer reset-research` had the same root and the same hole.** Its reachability walk reached
+  `jobs` transitively through `research_plans`, so the omission was partial and quiet:
+  `approvals` and `plan_skill_pins` reach a run *only* through `work_orders`, and a "clean"
+  database would have kept every approval anybody had ever given.
+* **The edit diff had to learn where each field lives.** `_snapshot` read all eighteen
+  editable fields off the mandate with `getattr`. Three of them are the run root's, so
+  `_RUN_ROOT_FIELDS` names them and `_holder_of` picks the row. `tests/test_smoke.py`'s guard
+  changed shape with it: it used to police *who may write* the duplicated columns, and now
+  asserts there is nothing on the mandate to write.
+
+**What did not move, and why.** `research_plans`, `assumptions`, `reports`, `scenarios` and
+`sensitivities` keep a `request_id` pointing at `research_requests`. Each is genuinely about
+an equity mandate rather than about a run, and the ids are equal, so the call sites that treat
+one as a work order id are reading the same row either way. The one place that distinction
+bites is `skill_dry_run`, which gives a rehearsal a work order of its own with no mandate
+under it: its plan names the mandate it is a rehearsal *of*, and everything the rehearsal owns
+— job, step, pin, section — hangs off its own work order.
 
 **The two unique constraints on `source_documents` move at step 3, not step 4, and the
 reason is a Postgres detail worth writing down.** `uq_source_acquisition` and
@@ -206,10 +250,17 @@ cannot half-land.
 
 `test_every_revision_has_a_downgrade` reads the source and fails a downgrade whose body
 opens with `pass`, and `TestRoundTrip` downgrades to base and upgrades again on a throwaway
-database. A backfill's downgrade is the honest hard case, and here it is genuinely lossless:
-dropping `work_orders` discards nothing that `research_requests` does not still hold —
-which is true precisely because step 4 has not run. The staging is what makes the reversal
-real rather than declared.
+database. A backfill's downgrade is the honest hard case, and through steps 1–3 it is
+genuinely lossless: dropping `work_orders` discards nothing that `research_requests` does not
+still hold. The staging is what makes the reversal real rather than declared.
+
+Step four is where that stops being free, and `0064`'s downgrade says so rather than
+discovering it. It puts the six columns back and backfills every one of them from the work
+order, which is exact — the values came from there. What it cannot restore is a research
+request for a run that never had one, so it deletes work orders with no detail row before
+re-imposing `NOT NULL`. That is a real deletion of real rows: downgrading past `0064` is
+downgrading past the existence of runs that are not about a company, which is the whole
+capability this record exists to add.
 
 **`subject_id` is nullable, and means what `company_id` already means.** It backfills from
 `research_requests.company_id`, which is NULL until `acquire` resolves the ticker. Migration

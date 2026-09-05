@@ -1,83 +1,120 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
 
-{# The knowledge graph drawn (docs/archive/knowledge-graph.md, K4b). Every coordinate was
-   computed server-side from confirmed rows; the SVG is static and monochrome —
-   currentColor follows the page's own text colour, so the picture needs no stylesheet
-   of its own and no script. #}
+{#
+  The knowledge graph drawn (docs/archive/knowledge-graph.md, K4b). Every coordinate was
+  computed server-side from confirmed rows; the SVG is static and monochrome —
+  currentColor follows the page's own text colour, so the picture needs no stylesheet of
+  its own and no script. No pan, no zoom, no drag: the design review declined the
+  JavaScript island, and the relation list beneath the drawing is what makes the topology
+  readable without perceiving it.
+#}
 
 {% block title %}Knowledge graph{% endblock %}
 
 {% block content %}
-  <h1 class="text-2xl font-semibold tracking-tight">Knowledge graph</h1>
-  <p class="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-    The confirmed relations, drawn. A filled circle is a researched company, a hollow one
-    a stub named as a comparable and never researched itself, a diamond a confirmed
-    theme. Solid lines are confirmed comparable relations; dashed lines are theme
-    memberships. Only confirmed state is drawn &mdash; a proposal nobody approved is not
-    an edge here, exactly as it is not one in the vault.
+  {{ ui.page_header(
+    "Knowledge graph",
+    eyebrow="PLATFORM KNOWLEDGE",
+    identity=(picture.nodes | length) ~ " nodes and " ~ (picture.edges | length) ~ " confirmed relations, from every approved report in this database.",
+    breadcrumbs=[{"href": "/knowledge", "label": "Knowledge"}],
+  ) }}
+
+  <p class="max-w-prose type-body-sm text-ink-muted">
+    A filled circle is a researched company, a hollow one a stub named as a comparable and
+    never researched itself, a diamond a confirmed theme. Solid lines are confirmed
+    comparable relations; dashed lines are theme memberships. Only confirmed state is
+    drawn &mdash; a proposal nobody approved is not an edge here, exactly as it is not one
+    in the vault.
   </p>
 
-  {% if picture.nodes %}
-    <div class="mt-6 overflow-x-auto rounded-md border border-slate-200 p-4 dark:border-slate-800">
-      <svg
-        id="graph-picture"
-        viewBox="0 0 {{ picture.width }} {{ picture.height }}"
-        width="{{ picture.width }}"
-        height="{{ picture.height }}"
-        role="img"
-        aria-label="The knowledge graph: companies and themes joined by confirmed relations"
-        class="text-slate-800 dark:text-slate-200"
-      >
-        {% for edge in picture.edges %}
-          <line
-            x1="{{ edge.x1 }}" y1="{{ edge.y1 }}" x2="{{ edge.x2 }}" y2="{{ edge.y2 }}"
-            stroke="currentColor" stroke-width="1.5"
-            {% if edge.kind == "membership" %}
-              stroke-opacity="0.35" stroke-dasharray="5 4" class="edge-membership"
-            {% else %}
-              stroke-opacity="0.55" class="edge-comparable"
-            {% endif %}
-          />
-        {% endfor %}
-        {% for placed in picture.nodes %}
-          {% if placed.node.kind == "company" %}
-            <a href="{{ placed.node.href }}" class="node-company">
-              <title>{{ placed.node.title }}</title>
-              {% if placed.node.researched %}
-                <circle cx="{{ placed.x }}" cy="{{ placed.y }}" r="9" fill="currentColor" />
-              {% else %}
-                <circle cx="{{ placed.x }}" cy="{{ placed.y }}" r="8" fill="none"
-                        stroke="currentColor" stroke-width="2" />
-              {% endif %}
-              <text x="{{ placed.x }}" y="{{ placed.y + 25 }}" text-anchor="middle"
-                    font-size="11" font-family="ui-monospace, monospace"
-                    fill="currentColor">{{ placed.node.label }}</text>
-            </a>
-          {% else %}
-            <g class="node-theme">
-              <title>{{ placed.node.title }}</title>
-              <rect x="{{ placed.x - 8 }}" y="{{ placed.y - 8 }}" width="16" height="16"
-                    transform="rotate(45 {{ placed.x }} {{ placed.y }})" fill="none"
-                    stroke="currentColor" stroke-width="2" />
-              <text x="{{ placed.x }}" y="{{ placed.y + 27 }}" text-anchor="middle"
-                    font-size="11" fill="currentColor">{{ placed.node.label }}</text>
-            </g>
-          {% endif %}
-        {% endfor %}
-      </svg>
+  {% if picture.nodes and not picture.edges %}
+    {#
+      Nodes and no relation between them is a drawing of dots. Common on a young
+      installation, and worth saying rather than leaving the reader to wonder whether the
+      picture failed: the edges come from what is confirmed at the gates.
+    #}
+    <div id="graph-sparse">
+      {{ ui.callout("info", "Too sparse to read yet", (picture.nodes | length) ~ " node" ~ ("" if picture.nodes | length == 1 else "s") ~ " and no confirmed relation between them. Relations come from the comparables and themes you confirm at the gates; the drawing becomes a map as they accumulate.") }}
     </div>
-  {% else %}
-    <p class="mt-6 max-w-3xl text-sm text-slate-600 dark:text-slate-400" id="graph-empty">
-      Nothing to draw yet. The graph grows one approved report at a time &mdash; once a
-      run is approved, its company, its confirmed comparables and its confirmed themes
-      appear here.
-    </p>
   {% endif %}
 
-  <p class="mt-8 text-xs text-slate-500 dark:text-slate-500">
+  {% if picture.nodes %}
+    {% call ui.sheet() %}
+      <div class="overflow-x-auto">
+        <svg
+          id="graph-picture"
+          viewBox="0 0 {{ picture.width }} {{ picture.height }}"
+          width="{{ picture.width }}"
+          height="{{ picture.height }}"
+          role="img"
+          aria-label="The knowledge graph: companies and themes joined by confirmed relations"
+          class="text-ink"
+        >
+          {% for edge in picture.edges %}
+            <line
+              x1="{{ edge.x1 }}" y1="{{ edge.y1 }}" x2="{{ edge.x2 }}" y2="{{ edge.y2 }}"
+              stroke="currentColor" stroke-width="1.5"
+              {% if edge.kind == "membership" %}
+                stroke-opacity="0.35" stroke-dasharray="5 4" class="edge-membership"
+              {% else %}
+                stroke-opacity="0.55" class="edge-comparable"
+              {% endif %}
+            ><title>{{ edge.a_label }} &mdash; {{ "member of" if edge.kind == "membership" else "comparable to" }} &mdash; {{ edge.b_label }}</title></line>
+          {% endfor %}
+          {% for placed in picture.nodes %}
+            {% if placed.node.kind == "company" %}
+              <a href="{{ placed.node.href }}" class="node-company">
+                <title>{{ placed.node.title }}</title>
+                {% if placed.node.researched %}
+                  <circle cx="{{ placed.x }}" cy="{{ placed.y }}" r="9" fill="currentColor" />
+                {% else %}
+                  <circle cx="{{ placed.x }}" cy="{{ placed.y }}" r="8" fill="none"
+                          stroke="currentColor" stroke-width="2" />
+                {% endif %}
+                <text x="{{ placed.x }}" y="{{ placed.y + 25 }}" text-anchor="middle"
+                      font-size="11" font-family="ui-monospace, monospace"
+                      fill="currentColor">{{ placed.node.label }}</text>
+              </a>
+            {% else %}
+              <g class="node-theme">
+                <title>{{ placed.node.title }}</title>
+                <rect x="{{ placed.x - 8 }}" y="{{ placed.y - 8 }}" width="16" height="16"
+                      transform="rotate(45 {{ placed.x }} {{ placed.y }})" fill="none"
+                      stroke="currentColor" stroke-width="2" />
+                <text x="{{ placed.x }}" y="{{ placed.y + 27 }}" text-anchor="middle"
+                      font-size="11" fill="currentColor">{{ placed.node.label }}</text>
+              </g>
+            {% endif %}
+          {% endfor %}
+        </svg>
+      </div>
+    {% endcall %}
+
+    {% call ui.sheet("Every relation, in words", subtitle="The same confirmed edges the drawing shows, for a reader who cannot perceive the topology — and for anybody who wants to check a line.") %}
+      <ul class="flex flex-col gap-1" id="relation-list">
+        {% for edge in picture.edges %}
+          <li class="type-body-sm text-ink">
+            <span class="type-data-sm">{{ edge.a_label }}</span>
+            <span class="text-ink-muted">{{ "is a member of" if edge.kind == "membership" else "is comparable to" }}</span>
+            <span class="type-data-sm">{{ edge.b_label }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endcall %}
+  {% else %}
+    <div id="graph-empty">
+      {{ ui.empty(
+        "Nothing to draw yet",
+        "The graph grows one approved report at a time — once a run is approved, its company, its confirmed comparables and its confirmed themes appear here.",
+      ) }}
+    </div>
+  {% endif %}
+
+  <p class="type-body-sm text-ink-subtle">
     The measurements behind this picture are on the
-    <a href="/knowledge" class="text-sky-700 dark:text-sky-400">knowledge page</a>. For a
-    richer, explorable view, the Obsidian vault's native graph remains the better
+    <a href="/knowledge" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">knowledge page</a>.
+    For a richer, explorable view, the Obsidian vault's native graph remains the better
     instrument &mdash; this page is the map at a glance.
   </p>
 {% endblock %}

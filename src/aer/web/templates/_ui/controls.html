@@ -51,7 +51,7 @@
 
 {% macro field(name, label, value="", type="text", hint="", error="", required=false,
                autocomplete="", placeholder="", rows=0, choices=none, blank_label=none,
-               minimum="", maximum="", step="") %}
+               minimum="", maximum="", step="", datalist="") %}
 {#
   A native control with a real label, a persistent hint and an error that is associated
   programmatically rather than merely adjacent.
@@ -121,6 +121,7 @@
     {% if minimum != "" %}min="{{ minimum }}"{% endif %}
     {% if maximum != "" %}max="{{ maximum }}"{% endif %}
     {% if step %}step="{{ step }}"{% endif %}
+    {% if datalist %}list="{{ datalist }}"{% endif %}
     {% if described %}aria-describedby="{{ described | join(' ') }}"{% endif %}
     {% if error %}aria-invalid="true"{% endif %}
     class="min-h-11 rounded-sm bg-surface px-3 type-body text-ink {{ boundary }}"

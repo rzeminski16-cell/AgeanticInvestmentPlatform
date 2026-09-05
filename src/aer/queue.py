@@ -19,13 +19,20 @@ from typing import Any
 import structlog
 from arq.connections import RedisSettings
 
-__all__ = ["RUN_RESEARCH_TASK", "enqueue_run", "redis_settings_from"]
+__all__ = [
+    "RUN_MONITOR_TASK",
+    "RUN_RESEARCH_TASK",
+    "enqueue_monitor",
+    "enqueue_run",
+    "redis_settings_from",
+]
 
 _log = structlog.get_logger("aer.queue")
 
 # The registered task name. Shared rather than repeated: a producer and a consumer that
 # disagree about it produce a queue that accepts work nothing ever runs.
 RUN_RESEARCH_TASK = "run_research"
+RUN_MONITOR_TASK = "run_monitor"
 
 
 async def enqueue_run(redis: Any, job_id: uuid.UUID) -> str | None:
@@ -36,14 +43,27 @@ async def enqueue_run(redis: Any, job_id: uuid.UUID) -> str | None:
     down would be an unhelpful error for an operator who has just approved a plan; the run
     is recorded and can be started again.
     """
+    return await _enqueue(redis, RUN_RESEARCH_TASK, job_id)
+
+
+async def enqueue_monitor(redis: Any, thesis_id: uuid.UUID) -> str | None:
+    """Queue one monitor pass over one thesis, from the web process (roadmap §3.6).
+
+    The same shape as a run, keyed on the thesis rather than a job: the pass makes its own
+    work order and job when it starts, so there is nothing to name before then.
+    """
+    return await _enqueue(redis, RUN_MONITOR_TASK, thesis_id)
+
+
+async def _enqueue(redis: Any, task_name: str, identifier: uuid.UUID) -> str | None:
     from arq import create_pool  # noqa: PLC0415 -- only needed when actually enqueueing
 
     pool = None
     try:
         pool = await create_pool(redis_settings_from(redis))
-        task = await pool.enqueue_job(RUN_RESEARCH_TASK, str(job_id))
+        task = await pool.enqueue_job(task_name, str(identifier))
     except Exception as exc:
-        _log.warning("queue.enqueue_failed", job_id=str(job_id), error=str(exc))
+        _log.warning("queue.enqueue_failed", task=task_name, id=str(identifier), error=str(exc))
         return None
     finally:
         # Closed every time. `create_pool` opens its own connection pool, and a web

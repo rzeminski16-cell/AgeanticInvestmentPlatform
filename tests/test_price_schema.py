@@ -33,6 +33,7 @@ from aer.db.models import (
     SourceDocument,
     User,
 )
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
 pytestmark = pytest.mark.integration
@@ -62,7 +63,7 @@ async def scene(db_session: Any, security: Security) -> ResearchRequest:
     db_session.add(operator)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=operator.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -93,7 +94,6 @@ async def provenance(session: Any, request: ResearchRequest) -> SourceDocument:
     document = SourceDocument(
         artefact_id=artefact.id,
         work_order_id=request.id,
-        request_id=request.id,
         provider=Provider.EODHD,
         source_tier=SourceTier.T4_LICENSED_MARKET,
         url="https://eodhd.invalid/api/eod/MSFT.US",

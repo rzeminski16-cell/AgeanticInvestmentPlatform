@@ -58,7 +58,10 @@ refused rather than footnoted.
 
 **Peer set.** Comparable companies are only as good as the peers, and a model proposing
 peers is proposing an opinion. It suggests; the registry resolves them to real securities;
-you confirm. No comparables table is computed until you have.
+you confirm. No comparables table is computed until you have. The model is asked only
+when a price feed is configured (`AER_EODHD_API_KEY`): without one a peer can contribute
+no multiple, so the step proposes what the platform already holds, spends nothing, and the
+gate page says so.
 
 **Theme set.** A bounded slate of research themes, proposed by a model and confirmed by
 you before any of them becomes an edge in the knowledge graph. A failed call proposes
@@ -96,6 +99,12 @@ resumable.
   against a threshold. The model's own validator *advises* and cannot overrule them.
 - **The red team's bear case.** A separate pass, working from its own context rather than
   the drafter's, attacking the thesis it was handed.
+- **A brief of each choice you are being asked to make.** For every challenge nobody has
+  settled: what keeping the draft's position assumes and what the report then says, the
+  same for accepting the challenge, and which way it leans with one sentence of why. It is
+  a model's reading of two arguments — advice beside your decision, never the decision. It
+  settles nothing, it is not in the approval hash, and it is not in the report. The reason
+  you record is still yours to write.
 - **Every claim**, at `/runs/{id}/claims`, with whether its evidence verified.
 - **Every source**, at `/runs/{id}/sources`, including the ones the run refused and why.
 
@@ -123,9 +132,53 @@ projected cost would break either. A cap that only warned would not be a cap.
 Actual spend is metered per call into a `costs` table and never recomputed from estimates.
 `/costs` shows it per role, with the prompt-cache hit rate.
 
+**The run's own cap can be raised while the run is going**, from the console's spend panel,
+which offers it from three-quarters of the way through the ceiling and on any run stopped
+against it. Only upwards, never past the platform's own per-run budget, and recorded under
+your name in the audit chain. A run still going takes the new ceiling at its next step; one
+already stopped continues from where it stopped, without repeating a step you paid for.
+
+That is the only field on a request that changes while a run is under way. Everything else
+is frozen for the run's lifetime, because moving an as-of date or a ticker would falsify
+evidence the run has already gathered — and the monthly ceiling is not on the request at
+all, so no figure here releases a run stopped by it.
+
 One consequence worth knowing: a step with no cost estimate is invisible to the guard.
 That is a recorded lesson rather than a theoretical risk — it is why every step now
 declares one.
+
+## Stopping before the expensive step
+
+Drafting is the largest single step in a run, and everything worth checking happens before
+it. The estimates each step declares — what the guard projects, not what the run will
+actually spend — divide roughly into thirds:
+
+| | Estimate |
+|---|---|
+| Everything before drafting: plan, critique, peers, themes, the five research steps, assumptions | £2.14 |
+| Drafting the sections | £5.00 |
+| Everything after: validation, the red team, the revision, the verdict, the challenge brief | £2.17 |
+
+So a run can be taken all the way to the edge of drafting for about a fifth of its cost,
+and there are two ways to hold it there.
+
+**Set a cap the drafting step cannot fit under.** A cap of about £3 lets every earlier step
+run and then stops the run at drafting, because the guard refuses to *start* a step whose
+projected cost would break the ceiling. The run pauses rather than fails, everything it has
+done is kept, and raising the cap from the console's spend panel and then continuing picks up
+from where it stopped without repeating anything you paid for.
+
+**Or walk it one step at a time.** `uv run aer step <job-id>` turns step mode on, executes
+the next incomplete step in your terminal with the production provider and fetcher, and
+prints the step's diagnostic before anything else can spend. Stop the worker first, or it
+will race you for the same step. `uv run aer resume <job-id>` hands the run back to the
+worker when you have seen enough.
+
+Either way, what is worth reading before releasing the draft is the same: the approved plan
+at gate 1, the unmapped tags at the extraction gate, the comparables and themes the run
+settled on, the assumptions you approved, and the valuation the run reached from them. A
+draft is only as good as those, and all of them are on the run console before a section is
+written.
 
 ## Point-in-time
 
@@ -141,6 +194,11 @@ recent ones removed.
 
 - **Cancelling** is a decision, recorded like any other. Work already done is kept.
 - **A crash** loses nothing: steps are recorded as they complete, and the worker resumes.
+- **A stop part-way through drafting** costs only the sections that were left. Each section
+  commits its own draft as it is written, and the drafting step keeps every section an
+  earlier attempt finished rather than writing it again — so a run stopped after nine of
+  sixteen sections pays for seven when it continues, not sixteen. Sections that *failed* are
+  drafted again, which is what continuing is for.
 - **A terminal failure with no report** can be superseded, which re-runs the plan step on
   the same work order. If you fixed a skill in between, the pin set is compared against the
   enabled skills' current versions, so a re-plan picks up your fix rather than silently

@@ -29,7 +29,6 @@ from aer.db.models import (
     AuditEvent,
     Job,
     JobStep,
-    ResearchRequest,
     SourceDocument,
     User,
 )
@@ -39,6 +38,7 @@ from aer.services import retention as retention_service
 from aer.services.retention import PermanentArtefactError
 from aer.storage.protocol import ArtefactStore
 from aer.storage.retention import PurgeableStore
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
 pytestmark = pytest.mark.integration
@@ -57,7 +57,7 @@ async def scene(db_session: Any, artefact_store: Any) -> dict[str, Any]:
     db_session.add(operator)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=operator.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -98,7 +98,6 @@ async def store_document(
     document = SourceDocument(
         artefact_id=artefact.id,
         work_order_id=scene["request"].id,
-        request_id=scene["request"].id,
         provider=provider,
         source_tier=tier,
         url="https://example.invalid/data",
@@ -548,7 +547,6 @@ async def store_orphan(session: Any, scene: dict[str, Any], payload: bytes) -> A
 async def a_job_step(session: Any, scene: dict[str, Any]) -> JobStep:
     job = Job(
         work_order_id=scene["request"].id,
-        request_id=scene["request"].id,
         workflow_version="test",
         code_version="abc",
         status=JobStatus.RUNNING,

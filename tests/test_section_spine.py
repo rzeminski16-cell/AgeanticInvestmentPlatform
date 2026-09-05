@@ -696,9 +696,13 @@ class TestTheDeterministicSections:
             resolved_by=ResolvedBy.RULE,
             resolution_rationale="Tier 1 beats tier 3.",
         )
-        shown = deterministic_sections._disagreement_row(row)
-        assert shown["resolution"] == "resolved by rule 'lower_tier_wins': position A selected"
-        assert shown["rationale"] == "Tier 1 beats tier 3."
+        blocks = deterministic_sections._disagreement_blocks(row)
+        assert blocks[0]["lead_in"] == "Revenue FY2021 (source conflict)"
+        assert blocks[0]["text"] == "Tier 1 beats tier 3."
+        assert blocks[-1] == {
+            "lead_in": "Resolution",
+            "text": "Resolved by rule 'lower_tier_wins': position A selected.",
+        }
 
     def test_an_escalated_disagreement_is_described_in_terms_that_cannot_go_stale(self) -> None:
         """ "Escalated for human decision at approval" states what the run did — still true
@@ -713,8 +717,8 @@ class TestTheDeterministicSections:
             resolved_by=ResolvedBy.HUMAN,
             resolution_rationale="Same tier, same date, different value.",
         )
-        shown = deterministic_sections._disagreement_row(row)
-        assert shown["resolution"] == "escalated for human decision at approval"
+        blocks = deterministic_sections._disagreement_blocks(row)
+        assert blocks[-1]["text"] == "Escalated for human decision at approval."
 
     def test_a_red_team_challenge_is_laid_out_once_with_footnotes_never_uuids(self) -> None:
         """Gap R5: the statement appears once, the evidence ids become citation keys the
@@ -744,27 +748,32 @@ class TestTheDeterministicSections:
             },
         )
 
-        shown = deterministic_sections._disagreement_row(row)
+        blocks = deterministic_sections._disagreement_blocks(row)
 
-        assert shown["topic"] == "Red team \N{EM DASH} competitive position"
-        assert shown["severity"] == "4/5"
-        assert shown["challenge"] == statement
-        assert shown["basis"].startswith("Depreciation outruns")
-        assert shown["resolution"] == "escalated for human decision at approval"
+        assert blocks[0]["lead_in"] == "Red team \N{EM DASH} competitive position, severity 4/5"
+        assert blocks[0]["text"] == statement
+        assert blocks[1] == {"lead_in": "Basis", "text": row.detail["basis"]}
+        assert blocks[-1]["text"] == "Escalated for human decision at approval."
         # The evidence rides the citation key the renderer turns into a footnote; no id
-        # appears in any field a reader sees as text, and the blob fields are gone.
-        assert shown["source_document_id"] == source_id
-        readable = {key: value for key, value in shown.items() if key != "source_document_id"}
-        assert all(fact_id not in value and source_id not in value for value in readable.values())
-        assert "rationale" not in shown
-        assert "kind" not in shown
-        assert sum(value.count(statement) for value in readable.values()) == 1
+        # appears in any text a reader sees, and the blob fields are gone.
+        assert blocks[0]["source_document_id"] == source_id
+        readable = [
+            value for block in blocks for key, value in block.items() if key in ("lead_in", "text")
+        ]
+        assert all(fact_id not in value and source_id not in value for value in readable)
+        assert row.resolution_rationale not in readable
+        assert sum(value.count(statement) for value in readable) == 1
 
-    async def test_the_appendix_lays_challenges_out_as_a_table_with_footnotes(
+    async def test_the_appendix_lays_challenges_out_as_prose_with_footnotes(
         self, db_session: AsyncSession
     ) -> None:
-        """Migration 0036's v2 contract and the row shape meet in the renderer: the
-        contract orders the columns, and the evidence id becomes a footnote marker."""
+        """Migration 0061's v4 contract and the block shape meet in the renderer: each
+        challenge is a run of paragraphs, and the evidence id becomes a footnote marker.
+
+        The v2 table put a two-hundred-word challenge in a narrow column, and one row of
+        a live document spanned three pages with neither position readable (roadmap
+        §2.4). An argument is prose; the page can break inside a paragraph.
+        """
         definition = await db_session.scalar(
             select(SectionDefinition)
             .where(SectionDefinition.key == "validation_disagreements")
@@ -772,7 +781,7 @@ class TestTheDeterministicSections:
             .limit(1)
         )
         assert definition is not None
-        assert definition.version >= 2
+        assert definition.version >= 4
 
         source_id = str(uuid.uuid4())
         row = Disagreement(
@@ -794,7 +803,7 @@ class TestTheDeterministicSections:
         )
         content = {
             "summary": "One disagreement was recorded.",
-            "disagreements": [deterministic_sections._disagreement_row(row)],
+            "disagreements": deterministic_sections._disagreement_blocks(row),
         }
 
         rendered = render_section(
@@ -804,8 +813,14 @@ class TestTheDeterministicSections:
             content=content,
         )
 
-        assert "| Topic | Severity | Challenge | Basis | Resolution |" in rendered.markdown
+        assert (
+            "**Red team \N{EM DASH} growth, severity 4/5:** "
+            "The trajectory is asserted, not evidenced." in rendered.markdown
+        )
+        assert "**Basis:** No disclosed period supports the slope." in rendered.markdown
+        assert "**Resolution:** Escalated for human decision at approval." in rendered.markdown
         assert "[^1]" in rendered.markdown
+        assert "| Topic |" not in rendered.markdown, "the appendix went back to columns"
         assert source_id not in rendered.markdown
         assert [str(ref) for ref in rendered.citations] == [f"source_document:{source_id}"]
 

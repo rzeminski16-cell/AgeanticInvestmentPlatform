@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  The journal: every held decision, and the form to write the next one.
+
+  A decision is a document a person wrote before the outcome was known (ADR 0104), so this
+  is a work queue of entries rather than a table of figures. Nothing here is a number
+  anything rests on: the size is a sentence, the horizon a number of months a reviewer
+  compares with a date.
+#}
+
+{% block title %}Decisions &middot; Tracework{% endblock %}
+
+{% block content %}
+  {% call ui.page_header("Decisions", eyebrow="WHAT YOU DECIDED") %}
+    <p class="type-body text-ink-muted">
+      What you decided to do about a thesis, when, and on what basis — written before the
+      outcome is known, so a later review can score the decision rather than the result.
+    </p>
+  {% endcall %}
+
+  {{ ui.verdict("THE JOURNAL", verdict.composed, tone=verdict.tone.value) }}
+
+  {% call ui.sheet("Withdrawn" if showing_withdrawn else "Held", id="decisions-list") %}
+    {% if rows %}
+      {% call ui.record_list("Decisions") %}
+        {% for row in rows %}
+          <li
+            class="grid grid-cols-1 gap-2 border-t border-line py-4 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6"
+            data-decision="{{ row.id }}"
+            data-action="{{ row.action_value }}"
+            data-carried-out="{{ 'yes' if row.carried_out else 'no' }}"
+          >
+            <div class="min-w-0">
+              <a href="/decisions/{{ row.id }}" class="type-subheading text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">{{ row.action | capitalize }}: {{ row.statement }}</a>
+              <p class="mt-1 type-body text-ink">{{ row.thesis_title }}{% if row.security %} · {{ row.security }}{% endif %}</p>
+              <p class="mt-1 type-data-sm text-ink-muted">
+                Decided {{ row.decided_on }}
+                {%- if row.moves_the_book %} · {% if row.carried_out %}{{ row.trades | length }} trade{{ "" if row.trades | length == 1 else "s" }} carried it out{% else %}not yet carried out{% endif %}{% endif %}
+                {%- if row.review_by %} · review by {{ row.review_by }}{% endif %}
+                {%- if row.is_withdrawn %} · withdrawn {{ row.withdrawn_on }}: {{ row.withdrawn_reason }}{% endif %}
+              </p>
+            </div>
+          </li>
+        {% endfor %}
+      {% endcall %}
+    {% elif showing_withdrawn %}
+      {{ ui.empty("Nothing withdrawn", "A withdrawn decision is kept with the reason it was given up. None has been yet.") }}
+    {% else %}
+      {{ ui.empty("Nothing decided yet", "A decision is what you do about a thesis — open a position, add, trim, close, keep holding, or pass — written down before the outcome is known. Record the first below.") }}
+    {% endif %}
+    <p class="mt-4 type-body-sm text-ink-muted">
+      {% if showing_withdrawn %}
+        <a href="/decisions" class="text-verification underline underline-offset-[3px]">Back to held decisions</a>
+      {% else %}
+        <a href="/decisions?withdrawn=1" id="show-withdrawn" class="text-verification underline underline-offset-[3px]">Show withdrawn decisions</a>
+      {% endif %}
+    </p>
+  {% endcall %}
+
+  {% call ui.sheet("Record a decision", subtitle="What you are going to do about a thesis, and why, before you do it. The trade that carries it out points back here from the portfolio form.") %}
+    {% if theses %}
+      <form method="post" action="/decisions" class="grid max-w-2xl gap-4" id="record-decision">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        {{ ui.field("thesis_id", "About the thesis", required=true, choices=theses, hint="The thesis this decision acts on. A decision with no thesis is a trade with no reason.") }}
+        {{ ui.field("action", "What you decided", required=true, choices=actions, hint="Four move the book. Keeping holding and passing are decisions too, and the ones a review most wants.") }}
+        {{ ui.field("statement", "In a line", required=true, rows=2, hint="\"Open an initial position, about two per cent of the book.\"") }}
+        {{ ui.field("basis", "On what basis", required=true, rows=3, hint="What you read, saw or reasoned. A decision with no grounds is the entry a review cannot score.") }}
+        <div class="grid gap-4 sm:grid-cols-2">
+          {{ ui.field("security", "Listing", datalist="dealable-listings", hint="TICKER.EXCHANGE, from the listings the platform holds. Leave empty if it has not been priced yet: the trade form's third door creates the listing when the trade is recorded, and the trade can be attributed to this decision afterwards from its page.") }}
+          {{ ui.field("decided_on", "Decided on", type="date", value=today, maximum=today, hint="Defaults to today. Backdate it if you are writing up a decision already taken.") }}
+          {{ ui.field("size_statement", "How much, in words", hint="\"About 2% of the book\", \"half the position\". A sentence, never a number the platform could multiply.") }}
+          {{ ui.field("horizon_months", "Intended holding period, in months", type="number", hint="What a later review compares the actual holding period with.") }}
+        </div>
+        {{ ui.field("exit_plan", "What would make you reverse it", rows=2, hint="Beyond the thesis's own premises: a price you would take profit at, a date, a signal.") }}
+        {{ ui.field("review_by", "Review by", type="date", minimum=today, hint="A date you will look at this decision again by, if it needs one.") }}
+        <datalist id="dealable-listings">
+          {% for security in securities %}
+            <option value="{{ security.value }}">{{ security.label }}</option>
+          {% endfor %}
+        </datalist>
+        <div>
+          <button
+            id="record"
+            type="submit"
+            class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong"
+          >
+            Record it
+          </button>
+        </div>
+      </form>
+    {% else %}
+      {{
+        ui.empty(
+          "Nothing to decide about yet",
+          "A decision acts on a thesis, and none is open. Write one first: what you believe, the basis for it, and what would defeat it.",
+          action_label="Write a thesis",
+          action_href="/theses",
+        )
+      }}
+    {% endif %}
+  {% endcall %}
+{% endblock %}

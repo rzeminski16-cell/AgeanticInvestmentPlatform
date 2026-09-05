@@ -40,6 +40,9 @@ from aer.services.backup import (
     restore_backup,
     verify_backup,
 )
+from aer.services.curation import Worksheet, curation_worksheet, render_worksheet
+from aer.services.draft_replay import DraftReplay, ReplayedReply, ReplyVerdict, replay_drafts
+from aer.services.gates import Reseal
 from aer.services.knowledge import KnowledgeStats, knowledge_stats
 from aer.services.lessons import LessonCandidate, recurring_lessons
 from aer.services.retention import (
@@ -428,11 +431,16 @@ async def _discard_queued(settings: Settings) -> int:
 
 
 def _research_tables() -> tuple[str, ...]:
-    """Every table holding part of a research request, in the order it must be emptied.
+    """Every table holding part of a run, in the order it must be emptied.
 
-    Walked from ``research_requests`` through the foreign keys rather than listed by hand,
-    so a table added next month is included without anyone remembering to add it here — and
-    a hand-written list that has gone stale is how a "clean" database keeps one run's rows.
+    Walked from ``work_orders`` through the foreign keys rather than listed by hand, so a
+    table added next month is included without anyone remembering to add it here — and a
+    hand-written list that has gone stale is how a "clean" database keeps one run's rows.
+
+    **From the run root, not from the mandate.** Since ADR 0072's fourth step, ``approvals``
+    and ``plan_skill_pins`` reach a run only through ``work_orders``; a walk that still
+    started at ``research_requests`` would leave both behind, and a "clean" database would
+    still hold every approval anybody had ever given.
 
     **Deepest first, and that is not tidiness.** Several of these references are
     ``RESTRICT`` on purpose — a citation pins the extraction it quotes, a claim pins the
@@ -447,7 +455,7 @@ def _research_tables() -> tuple[str, ...]:
         for name, table in Base.metadata.tables.items()
     }
 
-    reached = {"research_requests"}
+    reached = {"work_orders"}
     while True:
         grown = {name for name, refs in parents.items() if refs & reached} | reached
         if grown == reached:
@@ -942,6 +950,217 @@ async def _lessons(settings: Settings, *, minimum_jobs: int) -> list[LessonCandi
         await engine.dispose()
 
 
+@app.command(name="curation-worksheet")
+def curation_worksheet_command(
+    out: Annotated[
+        Path | None,
+        typer.Option("--out", help="Write the worksheet here instead of to the terminal."),
+    ] = None,
+    top: Annotated[
+        int | None,
+        typer.Option("--top", help="Only the highest-ranked rows. A sitting, not the list."),
+    ] = None,
+) -> None:
+    """Prepare the concept-map curation worksheet (roadmap §2.8).
+
+    A55 is 175 concepts and 110 segment tags the map cannot place, and it has survived
+    several passes because it is judgement over accounting semantics rather than a code
+    change. What this does is prepare the sitting: read what every run's extract step
+    already recorded, aggregate it, rank it by the largest share of a mapped line any run
+    saw, and write a worksheet with a column to fill in.
+
+    **It decides nothing.** The output is a document you edit; turning what you write into
+    alias-table entries is a separate, deliberate act. Tags already refused (§2.7) are
+    listed apart and are not up for decision.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    worksheet = asyncio.run(_curation_worksheet(settings, limit=top))
+
+    if not worksheet.rows:
+        typer.echo(
+            f"No unplaced tags in {worksheet.runs_read} recorded run(s). Either every tag "
+            "mapped, or no run has reached the extract step yet."
+        )
+        return
+
+    document = render_worksheet(worksheet)
+    if out is None:
+        typer.echo(document)
+        return
+    out.write_text(document, encoding="utf-8")
+    typer.secho(
+        f"{len(worksheet.rows)} tag(s) to decide about, from {worksheet.runs_read} run(s) → {out}",
+        fg=typer.colors.GREEN,
+    )
+
+
+async def _curation_worksheet(settings: Settings, *, limit: int | None) -> Worksheet:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            return await curation_worksheet(session, limit=limit)
+    finally:
+        await engine.dispose()
+
+
+@app.command(name="monitor")
+def monitor_command(
+    thesis_id: Annotated[
+        uuid.UUID | None,
+        typer.Option("--thesis", help="One thesis to read. Omit for every open thesis."),
+    ] = None,
+) -> None:
+    """Run the thesis monitor in this process: one pass per open thesis (roadmap §3.6).
+
+    The same pass the worker runs — same routing, same budget, same services — for a
+    scheduler that has a terminal and no queue. Each pass reads the premises that carry a
+    threshold against what has been filed since their last reading, spends against the
+    per-run cap and the month's, and stops with a finding rather than pausing if a call
+    would breach either (ADR 0078). Exits 1 if any pass stopped.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    try:
+        stopped = asyncio.run(_monitor(settings, thesis_id=thesis_id))
+    except AerError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+    if stopped:
+        raise typer.Exit(code=1)
+
+
+async def _monitor(settings: Settings, *, thesis_id: uuid.UUID | None) -> bool:
+    from aer.api.deps import current_user_or_none  # noqa: PLC0415 -- one query, one place
+    from aer.runtime import build_services  # noqa: PLC0415 -- constructs the provider
+    from aer.services import theses as thesis_service  # noqa: PLC0415
+    from aer.services import thesis_monitor  # noqa: PLC0415
+    from aer.services.configuration import effective_settings  # noqa: PLC0415
+
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    any_stopped = False
+    try:
+        async with factory() as session:
+            user = await current_user_or_none(session)
+            if user is None:
+                message = (
+                    "No user exists. Create one with: uv run aer seed-user --email you@example.com"
+                )
+                raise AerError(message)
+            if thesis_id is None:
+                theses = await thesis_monitor.theses_to_monitor(session, user_id=user.id)
+            else:
+                one = await thesis_service.thesis_of(session, thesis_id, user_id=user.id)
+                if one is None:
+                    message = f"No thesis {thesis_id}."
+                    raise AerError(message, context={"thesis_id": str(thesis_id)})
+                theses = [one]
+            if not theses:
+                typer.secho("No open thesis to monitor.", fg=typer.colors.YELLOW)
+                return False
+
+            resolved = await effective_settings(session, settings)
+            services = build_services(resolved, redis=redis)
+            for thesis in theses:
+                outcome = await thesis_monitor.run_monitor(
+                    session,
+                    settings=resolved,
+                    provider=services.provider,
+                    router=services.router,
+                    store=services.store,
+                    user=user,
+                    thesis=thesis,
+                )
+                any_stopped = any_stopped or outcome.stopped
+                colour = typer.colors.RED if outcome.stopped else typer.colors.GREEN
+                typer.secho(
+                    f"{thesis.title}: {outcome.read} read, {outcome.nothing_new} nothing new, "
+                    f"{outcome.unobservable} unobservable, {len(outcome.findings)} "
+                    f"finding(s), £{outcome.spend_gbp:.4f}"
+                    + (" — STOPPED at a cost ceiling" if outcome.stopped else ""),
+                    fg=colour,
+                )
+    finally:
+        await redis.aclose()
+        await engine.dispose()
+    return any_stopped
+
+
+@app.command(name="queue")
+def queue_command(
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            "--limit", help="At most this many runs. Omit for as many as the budget affords."
+        ),
+    ] = None,
+) -> None:
+    """Commission the next companies on the watchlist the standing budget affords (§3.10).
+
+    The queue in the order followed, each entry turned into an ordinary research request
+    as at today with the per-run cap, and its run started — to stop at gate one for you,
+    as every research run does. Stops at the first entry the standing budget cannot
+    afford and exits 1 if anything was left queued for that reason (ADR 0107).
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    try:
+        short = asyncio.run(_queue(settings, limit=limit))
+    except AerError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+    if short:
+        raise typer.Exit(code=1)
+
+
+async def _queue(settings: Settings, *, limit: int | None) -> bool:
+    from aer.api.deps import current_user_or_none  # noqa: PLC0415 -- one query, one place
+    from aer.queue import enqueue_run  # noqa: PLC0415
+    from aer.services import watchlist as watchlist_service  # noqa: PLC0415
+    from aer.services.configuration import effective_settings  # noqa: PLC0415
+
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    try:
+        async with factory() as session:
+            user = await current_user_or_none(session)
+            if user is None:
+                message = (
+                    "No user exists. Create one with: uv run aer seed-user --email you@example.com"
+                )
+                raise AerError(message)
+            resolved = await effective_settings(session, settings)
+            drain = await watchlist_service.commission_next(
+                session, settings=resolved, user=user, limit=limit
+            )
+            await session.commit()
+            for row, job in drain.commissioned:
+                queued = await enqueue_run(redis, job.id)
+                typer.secho(
+                    f"{row.entry.listing}: commissioned as at {row.as_of_date.isoformat()}, "
+                    f"run {job.id}"
+                    + ("" if queued is not None else " — NOT QUEUED, start it by hand"),
+                    fg=typer.colors.GREEN if queued is not None else typer.colors.YELLOW,
+                )
+            for reason in drain.skipped:
+                typer.secho(f"Skipped {reason}", fg=typer.colors.YELLOW)
+            if not drain.commissioned and not drain.stopped and not drain.skipped:
+                typer.secho("Nothing queued on the watchlist.", fg=typer.colors.YELLOW)
+            if drain.stopped:
+                typer.secho(
+                    f"Stopped with {drain.left} left in the queue: {drain.stopped}",
+                    fg=typer.colors.RED,
+                )
+    finally:
+        await redis.aclose()
+        await engine.dispose()
+    return bool(drain.stopped)
+
+
 @app.command(name="diagnose")
 def diagnose_command(
     job_id: Annotated[uuid.UUID, typer.Argument(help="The run to read back.")],
@@ -1003,6 +1222,90 @@ def step_command(
     except AerError as error:
         typer.secho(str(error), fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1) from error
+
+
+@app.command(name="reseal")
+def reseal_command(
+    job_id: Annotated[uuid.UUID, typer.Argument(help="The run whose final gate to re-seal.")],
+    reason: Annotated[
+        str, typer.Option(help="Why the seal is being moved; recorded in the audit chain.")
+    ] = "re-sealed from the terminal",
+) -> None:
+    """Re-derive the final gate's seal from the run's own record.
+
+    For a run stopped with "what this run sealed and what the review page shows have
+    drifted apart". The seal moves to the payload as the record now stands — it adds
+    nothing — and the audit chain records the move. Whether the recorded approval then
+    matches is printed, not assumed: if it does, `aer resume` continues the run; if it does
+    not, the approval was of older content and a second decision is refused by design.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    try:
+        outcome = asyncio.run(_reseal(settings, job_id=job_id, reason=reason))
+    except AerError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+
+    if not outcome.changed:
+        typer.echo(
+            f"The {outcome.gate.value} seal already matches the record "
+            f"({outcome.current_hash[:12]}); nothing moved."
+        )
+    else:
+        typer.secho(
+            f"Re-sealed {outcome.gate.value}: {outcome.previous_hash[:12]} -> "
+            f"{outcome.current_hash[:12]}.",
+            fg=typer.colors.GREEN,
+        )
+    if outcome.approval_matches is None:
+        typer.echo("No decision has been recorded at this gate yet.")
+    elif outcome.approval_matches:
+        typer.secho(
+            f"The recorded approval matches the seal. Continue with: uv run aer resume {job_id}",
+            fg=typer.colors.GREEN,
+        )
+    else:
+        typer.secho(
+            "The recorded approval does not match the seal: it was taken over older content. "
+            "A second decision is refused by design, so this run cannot be released; start "
+            "the request again.",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command(name="replay-draft")
+def replay_draft_command(
+    job_id: Annotated[uuid.UUID, typer.Argument(help="The run whose archived replies to read.")],
+    section_key: Annotated[
+        str | None, typer.Argument(help="One section's replies. Omit for every section.")
+    ] = None,
+) -> None:
+    """Read a run's archived section replies back under today's drafting rules.
+
+    Nothing is fetched, no model is called and nothing is billed: each reply the writer
+    gave is archived beside its call, and the rules that refuse a draft are code over the
+    run's own rows. So a rule changed after a run — a numeral's sign (ADR 0097), a numeric
+    claim's citation (ADR 0109) — is checked against the replies that were refused, before
+    another live run is paid for to find out. The cited-figure agreement metric is measured
+    beside the rules, because it fails a section one step later.
+
+    Exits 1 when the run has archived no section replies.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    try:
+        replay = asyncio.run(_replay_drafts(settings, job_id=job_id, section_key=section_key))
+    except AerError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+
+    if not replay.replies:
+        scope = f"section {section_key!r}" if section_key else "any section"
+        typer.secho(f"Run {job_id} has archived no writer reply for {scope}.", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    _print_draft_replay(replay)
 
 
 @app.command(name="resume")
@@ -1128,6 +1431,31 @@ async def _step_once(settings: Settings, *, job_id: uuid.UUID) -> None:
         await engine.dispose()
 
 
+async def _reseal(settings: Settings, *, job_id: uuid.UUID, reason: str) -> Reseal:
+    from aer.api.deps import current_user_or_none  # noqa: PLC0415 -- one query, one place
+    from aer.services.gates import reseal_final_gate  # noqa: PLC0415
+
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            if job is None:
+                message = f"No run {job_id}."
+                raise AerError(message, context={"job_id": str(job_id)})
+            actor = await current_user_or_none(session)
+            if actor is None:
+                message = (
+                    "No user exists. Create one with: uv run aer seed-user --email you@example.com"
+                )
+                raise AerError(message)
+            outcome = await reseal_final_gate(session, job=job, actor=actor, reason=reason)
+            await session.commit()
+            return outcome
+    finally:
+        await engine.dispose()
+
+
 async def _resume(
     settings: Settings, *, job_id: uuid.UUID, reason: str | None, keep_step_mode: bool
 ) -> bool:
@@ -1176,6 +1504,61 @@ _STATUS_COLOURS = {
 
 def _status_colour(status: JobStatus) -> str:
     return _STATUS_COLOURS.get(status, typer.colors.YELLOW)
+
+
+def _print_draft_replay(replay: DraftReplay) -> None:
+    scope = f" — {replay.section_key}" if replay.section_key else ""
+    typer.secho(
+        f"Run {replay.job_id}{scope} — {len(replay.replies)} archived section reply(ies) read "
+        "back under today's rules; nothing spent",
+        fg=typer.colors.CYAN,
+        bold=True,
+    )
+    for reply in replay.replies:
+        _print_replayed_reply(reply)
+    typer.secho(
+        f"Summary: {replay.clean} of {len(replay.replies)} clean; "
+        f"{replay.reported} reported by cited_figure_agreement; "
+        f"{replay.counted(ReplyVerdict.REFUSED)} refused; "
+        f"{replay.counted(ReplyVerdict.UNREADABLE)} unreadable; "
+        f"{replay.counted(ReplyVerdict.UNIDENTIFIED) + replay.counted(ReplyVerdict.UNARCHIVED)} "
+        "unaccounted for.",
+        fg=typer.colors.GREEN if replay.clean == len(replay.replies) else typer.colors.YELLOW,
+        bold=True,
+    )
+
+
+def _print_replayed_reply(reply: ReplayedReply) -> None:
+    section = reply.section_key or "(section unknown)"
+    tokens = f"{reply.output_tokens:,} output tokens" if reply.output_tokens is not None else "—"
+    recorded = reply.recorded_stop_reason or "—"
+    typer.secho(
+        f"  {section} — {reply.step_key}, reply {reply.ordinal} of {reply.of} — {reply.model} — "
+        f"{tokens} — recorded then: {recorded}",
+        fg=typer.colors.WHITE,
+        bold=True,
+    )
+    if reply.verdict is ReplyVerdict.PASSES:
+        typer.secho(
+            f"    PASSES under today's rules: {reply.claims} claim(s), no numeral unaccounted for.",
+            fg=typer.colors.GREEN,
+        )
+    else:
+        typer.secho(
+            f"    {reply.verdict.value.upper()} — {len(reply.problems)} problem(s):",
+            fg=typer.colors.RED,
+        )
+        for problem in reply.problems:
+            typer.echo(f"      - {problem}")
+    if reply.disagreements:
+        typer.secho(
+            f"    cited_figure_agreement would report {len(reply.disagreements)} disagreement(s):",
+            fg=typer.colors.YELLOW,
+        )
+        for disagreement in reply.disagreements:
+            typer.echo(f"      - {disagreement}")
+    elif reply.verdict is ReplyVerdict.PASSES and reply.claims:
+        typer.secho("    cited figures agree.", fg=typer.colors.GREEN)
 
 
 def _print_run_diagnostic(readout: RunDiagnostic) -> None:
@@ -1291,6 +1674,20 @@ async def _schema_revision(settings: Settings) -> str:
         async with factory() as session:
             revision = await session.scalar(text("SELECT version_num FROM alembic_version"))
             return str(revision) if revision else "unknown"
+    finally:
+        await engine.dispose()
+
+
+async def _replay_drafts(
+    settings: Settings, *, job_id: uuid.UUID, section_key: str | None
+) -> DraftReplay:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            return await replay_drafts(
+                session, _store_for(settings), settings, job_id=job_id, section_key=section_key
+            )
     finally:
         await engine.dispose()
 

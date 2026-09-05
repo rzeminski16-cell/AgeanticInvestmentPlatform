@@ -44,7 +44,9 @@ edit an edit: the content hash is over the file as written, so a reformatted ver
 a different skill by the platform's own reckoning.
 
 Four blocks: the source, the issues, **What this composes to** — the effective policy after
-composition — and **Try it against a finished run**.
+composition for a custom section; for a methodology, house view or preference, the roles
+the text composes into and the statement that it reaches no role that judges (ADR 0108) —
+and **Try it against a finished run**.
 
 **Validate** writes nothing and re-renders with either the issues or the composed policy.
 **Dry run** executes the skill against a chosen finished run and shows what it produced —
@@ -86,35 +88,35 @@ whose base version moved · a dry run's output · a dry run with nothing to run 
 validation only on submit. No syntax cue, no structure, no indication of which fields are
 required until it is rejected.
 
-**The containment rule is invisible until it fires.** Nothing on the editor says what a skill
-may and may not do. The first time most operators meet the boundary will be a rejection, and a
-rule met as a rejection reads as an obstacle rather than as a guarantee.
+**"What this composes to" says where the text reaches, not what it becomes on the day.**
+For the three prompt kinds the right-hand pane names the roles; what the text composes to
+on the day is the last block of the planner's and the writer's user turn, which nothing on
+this page shows.
 
-**"What this composes to" is the most valuable block and the least prominent.** Skills compose
-— what actually reaches a run is the composition, not the file. That is the answer to "what
-will this do", and it is the third block.
-
-**The dry run is buried at the bottom** of a long editor page, and it is the only way to find
-out whether a skill does what was intended before spending money on a real run.
-
-**Nothing connects a skill to the runs it affected.**
+**A run that used a skill says so on the editor, not on the run.** The editor lists the runs
+that pinned the skill; the run console does not yet point back at the skills its plan
+pinned, beyond gate 1's list.
 
 ## What to improve
 
-**1. State the boundary on the editor, always.** "A skill may add requirements. It cannot
-remove citations, set a rating, or relax point-in-time rules." Present before a rejection,
-not only after.
+**1. State the boundary on the editor, always** — done. The same sentence the library leads
+with, as the editor's own verdict, on a new file and on a saved version alike.
 
-**2. Promote the composed policy.** Two panes — what you wrote, what it becomes — would say
-more than the current stack.
+**2. Promote the composed policy** — done earlier: two panes, what you wrote on the left and
+what runs receive on the right, sticky at width.
 
-**3. Make the dry run a first-class action.** It is the safe way to find out, it costs
-nothing against a finished run, and it is at the bottom of the page.
+**3. Make the dry run a first-class action** — done. *Try it* on the library row for a
+custom section, and a link at the top of the editor to the dry-run block.
 
 **4. Give the source field structure.** Even without a code editor — which would be a
 JavaScript island needing its own record — the frontmatter fields could be fields.
 
-**5. Show a skill's effect.** Which runs used it; what changed.
+**5. Show a skill's effect** — done for the runs: every run whose plan pinned the skill, at
+the version it pinned, planned in or set aside with the reason, each linking to the run.
+What changed in the section is the run's to show.
+
+**6. The composed text for prompt kinds.** See above: the last block of the user turn, as
+the planner and the writer would receive it.
 
 ## What must not change
 
@@ -127,6 +129,9 @@ JavaScript island needing its own record — the frontmatter fields could be fie
 **Validation writes nothing.**
 
 **The additive-only rule is structural.** No interface affordance may imply otherwise.
+
+**A skill never names its readers.** The role table is the platform's (ADR 0108); no field on
+the editor, and no frontmatter key, may offer a choice of roles.
 
 ---
 
@@ -193,39 +198,37 @@ a company with several.
 
 ## What is wrong today
 
-**Six blocks of measurements with no lead.** Size, shape, coverage, accuracy, freshness, vault
-— all interesting, none answering "so is this any good?". A reader has to synthesise the
-verdict themselves.
+**The graph is a picture with one way in.** Nodes are links and the relations are listed
+in words beneath, but a graph of any size still cannot be focused: no filter, no way to
+see one company's neighbourhood alone.
 
-**The freshness block is the actionable one and is fifth.** "Not revisited recently" and
-"catalyst windows that have closed" are both *things to do*, sitting in the middle of a page
-of statistics.
-
-**The graph is a picture with no way in.** Correct, deterministic, and not interrogable —
-nodes are not links, there is no legend beyond the drawing, and a graph of any size becomes
-unreadable with no way to focus.
-
-**The empty state is not designed.** A new installation has an empty graph and a page of zeros.
-
-**Catalyst resolution is a form at the bottom of a company page**, and it is one of the few
-places the platform asks the operator to *teach it something*, which is worth more prominence
-than it has.
+**The company page's verdict is the latest report's.** It says what was last thought and
+when; whether anything has happened since — a filing, a finding on a thesis about the
+company — is on other pages.
 
 ## What to improve
 
-**1. Lead the knowledge page with what to do**, then the measurements. The freshness block is
-a work list wearing a statistics block's clothes.
+**1. Lead the knowledge page with what to do** — done: the verdict answers whether the
+knowledge is still useful, and *Close the loop* — companies not revisited, catalyst windows
+that have closed — is the first sheet, each row a link to the company.
 
-**2. Make graph nodes links.** That is a viewBox and an anchor, and it costs no architecture.
+**2. Make graph nodes links** — done; a company node is an anchor to its history page.
 
-**3. Design the empty and near-empty states.** A new installation and a graph too sparse to
-mean anything are both common and neither is handled.
+**3. Design the empty and near-empty states** — done: an empty graph says what would fill
+it, and nodes with no relation between them are said to be too sparse to read, with where
+the lines come from.
 
-**4. Give the company page a verdict line.** What we last thought, when, and whether anything
-has happened since.
+**4. Give the company page a verdict line** — done, as *The standing view*: what we last
+thought and when.
 
-**5. Raise catalyst resolution.** It is the operator closing a loop, and closing loops is how
-the assumption-accuracy figure on the knowledge page becomes worth anything.
+**5. Raise catalyst resolution** — done: *Record what happened* is the first sheet on the
+company page whenever a window has closed and nothing is recorded.
+
+**6. Focus in the graph.** One company's neighbourhood alone, which is a server-drawn
+picture with a filter in the URL before it is an island.
+
+**7. "Since then" on the company verdict.** Filings and findings since the last approved
+report, once the monitor's findings are keyed by company.
 
 ## What must not change
 

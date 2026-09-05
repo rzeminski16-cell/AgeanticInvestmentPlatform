@@ -1,7 +1,7 @@
 # Knowledge map
 
-*The orientation layer. Read this first, before `docs/archive/PLAN.md` (the authority on scope),
-before the ADRs (the record of decisions), and before the code. It is written for a capable
+*The orientation layer. Read this first, before `docs/plan/ROADMAP.md` (the authority on
+scope), before the ADRs (the record of decisions), and before the code. It is written for a capable
 Python developer who has never seen this repository and needs to make a safe change in their
 first week.*
 
@@ -36,7 +36,14 @@ reviewing a change, ask which column each new behaviour belongs to.
 ## 2. The anatomy of one run
 
 A **run** is the system's unit of work: one research request in, one cited report out. The
-production workflow is `vertical_slice_v1` (`src/aer/workflow/workflows/vertical_slice_v1.py`,
+row it hangs off is a `work_orders` row, not a `research_requests` one (ADR 0072): who asked,
+what the run may spend, what date its evidence is judged against and whether it is archived
+are properties of a *run*, and since migration `0064` they live on that table alone. The
+equity mandate is a detail row sharing the work order's primary key, reached through
+`services/mandate.py` — which answers `None` for a run that is not about one listed company,
+and that `None` is a real answer rather than a missing row.
+
+The production workflow is `vertical_slice_v1` (`src/aer/workflow/workflows/vertical_slice_v1.py`,
 `build_steps()`); the engine that executes it is `src/aer/workflow/engine.py`. Steps are
 recorded, resumable, and independently budgeted; **gates** pause the run for a human.
 Resuming is a first-class act (ADR 0090): `aer resume` re-enqueues the *same* job after a
@@ -59,7 +66,8 @@ flowchart TD
     research --> propose_assumptions --> gate_assumptions{{gate_assumptions}}
     gate_assumptions --> value --> draft
     comps --> draft
-    draft --> validate --> red_team --> revise --> gate_final{{gate_final}} --> render
+    draft --> validate --> red_team --> revise --> verdict --> brief_challenges
+    brief_challenges --> gate_final{{gate_final}} --> render
 ```
 
 What to know per step, beyond the diagram:
@@ -81,10 +89,12 @@ What to know per step, beyond the diagram:
 | `propose_assumptions` | `agents/assumptions` | yes (~£0.20) | Only the two numbers no filing answers (ADR 0046) |
 | `gate_assumptions` | `services/approvals` | no | The one gate that approves work not yet done |
 | `value` | `calc/wacc`, `calc/dcf` | no | Runs only on confirmed assumptions |
-| `draft` | `agents/section_writer`, `sections/` | **yes (~£5, the largest)** | One call per model-written section; see ADR 0052 |
+| `draft` | `agents/section_writer`, `sections/` | **yes (~£5, the largest)** | One call per model-written section; see ADR 0052. Re-entrant: each section commits its own draft, and a re-entry keeps the sections an earlier attempt generated rather than paying for them twice |
 | `validate` | `verify/`, `agents/validator` | small | Deterministic checks; the model only *advises* (ADR 0038) |
 | `red_team` | `agents/red_team` | yes (~£1) | Attacks the draft from a separate context (ADR 0039) |
-| `revise` | `services/revision` | yes (~£1.50 at the bound) | Redrafts the sections material challenges attack, once, then seals the gate-2 hash (ADR 0091) |
+| `revise` | `services/revision` | yes (~£1.50 at the bound) | Redrafts the sections material challenges attack, once, then seals the gate-2 hash (ADR 0091). A redraft that does not pass leaves the approved draft standing (ADR 0098) |
+| `verdict` | `agents/verdict` | yes (~£0.01) | One sentence of interpretation over the frozen draft (ADR 0087); no payload, no hash, never evidence |
+| `brief_challenges` | `agents/challenge_brief` | yes (~£0.02) | What each side of an unsettled challenge assumes and implies, and which way it leans (ADR 0095); advisory, and reaches no report |
 | `gate_final` | `services/approvals` | no | Second universal gate; shows scores, not promises |
 | `render` | `render/`, `charts/` | no | Stored sections → document; a chart is a figure (ADR 0043) |
 
@@ -127,7 +137,7 @@ carries stricter obligations.
 
 | Module | One line |
 |---|---|
-| `core` | Pure domain types and logic: enums, schemas, section-output checks, skill policy |
+| `core` | Pure domain types and logic: enums, schemas, section-output checks, skill policy, the skill-guidance role table |
 | `calc` | Every number the platform produces: units algebra, traced engine, statements, ratios, quality, WACC, DCF, comps, FX, prices, bridge |
 
 `calc` is where property-based tests (`hypothesis`) are expected and where mutation sweeps
@@ -171,7 +181,7 @@ raises, never coerces (`tests/test_units.py`).
 | `api` | Application factory, dependencies, error handling, routers |
 | `web` | Server-rendered Jinja2 + HTMX GUI (ADR 0006) |
 | `db` | Engine, sessions, ORM models, Alembic migrations |
-| `cli` | Typer entry points: serve, backup/restore, verify-artefacts, replay-run, purge-licensed … |
+| `cli` | Typer entry points: serve, backup/restore, verify-artefacts, replay-run, replay-draft, purge-licensed … |
 | `worker` | The arq background worker where a run actually executes |
 | `queue` | Enqueueing a run from the web process (deliberately separate from the worker) |
 | `runtime` | Assembles the service bundle both processes share |
@@ -194,7 +204,7 @@ ADR-level decision, not a code change.
 | 4 | Point-in-time is enforced at acquisition, in code | `sources/sec` selection (ADR 0010: selection, not filtering) + `tests/test_sec_pit.py` |
 | 5 | Units are carried through all arithmetic; mismatch raises | `calc/units.py` + `tests/test_units.py`, both operand orders |
 | 6 | Cost is metered and capped in code | `providers/costs.py`, `workflow/engine.py` BudgetGuard + `tests/test_budget.py` (ADRs 0051, 0052) |
-| 7 | Skill files are additive-only | `core/skill_policy.py` + the ADR 0040 corpus (`tests/skill_corpus.py`) |
+| 7 | Skill files are additive-only | `core/skill_policy.py`, the `core/skill_guidance.py` role table (ADR 0108) + the ADR 0040 corpus (`tests/skill_corpus.py`) |
 | 8 | Untrusted content is data, never instruction | `agents/untrusted` wrapping + tool authorisation in code (`tests/test_injection.py`, ADR 0036) |
 
 ## 6. Where the decisions live: the ADR index, by theme
@@ -221,14 +231,24 @@ ones — read the ADR before touching its territory:
   valuations), 0029 (the sector block is a type), 0032 (the adjusted close is not a
   column), 0034 (a withheld figure is a type with no field for it), 0066 (a figure that is
   traceable is not thereby possible), 0068 (the ledger records derivations, not calls),
-  0070 (a bank is valued on the spread over its book value).
+  0070 (a bank is valued on the spread over its book value), 0101 (a bank's grid varies the
+  spread, and a fading driver is refused rather than shifted), 0102 (a thesis is premises,
+  and a premise is the judgement), 0103 (the monitor measures the crossing, and the model
+  reads the rest), 0104 (a decision is written before the outcome, and the trade points back
+  at it), 0105 (a review is proposed by the reviewer and held by the operator), 0106 (risk
+  is measured over the weights the book holds now, and a scenario is a shock the operator
+  states), 0107 (a watchlist is followed continuously and researched as at a date), 0108 (a
+  methodology skill composes into the roles that plan and write, and into no role that
+  judges).
 - **Agents and containment** — 0035 (a new role requires an ADR), 0036 (workers request,
   code executes), 0037–0039 (custom sections, validator advises, red team is separate),
   0040 (containment proved by a corpus), 0041 (dry runs), 0042 (the section writer holds
   no tools), 0046 (assumptions: only what no filing answers), 0059 (a model proposes peers
   and the registry resolves them), 0064 (prior research may shape the questions, never the
   answers), 0065 (themes are proposed, confirmed, and only then edges), 0067 (a proxy may be
-  proposed only if it names itself as one).
+  proposed only if it names itself as one), 0103 (the thesis monitor: code measures the
+  crossing, the model's status is bounded by it, and a finding is closed by an act with a
+  reason).
 - **Interface and presentation** — **start here before changing a screen.** 0006 (the GUI is
   server-rendered HTML, progressively enhanced with htmx), 0077 (JavaScript may own chrome
   and never a figure — and what a provenance badge is), 0056 (house style is configuration
@@ -236,7 +256,12 @@ ones — read the ADR before touching its territory:
   ladder decides, or says it cannot), 0024 (the evidence chain is a surface, not a schema),
   0043 (a chart is a figure), 0054 (a reference numeral is provenance, not a figure), 0057
   (a count is not a figure and a clause is not a section), 0060 (a number inside a name is
-  not a figure), 0087 (a verdict has two halves: one composed, one authored), 0088 (a
+  not a figure), 0096 (a malformed claim costs the claim, not the section), 0097 (a numeral
+  is checked against the figure, not against its spelling), 0098 (a refused revision leaves
+  the approved draft standing), 0099 (three degradations are three numbers, not one),
+  0100 (a repeated gap remark costs the remark, not the section),
+  0087 (a verdict has two halves:
+  one composed, one authored), 0088 (a
   fixed-scheme region carries its own measured palette), 0089 (the run you are watching has an
   address).
   **Read 0006 and 0077 together before designing anything.** 0006 decides that the server is
@@ -322,7 +347,10 @@ been re-litigated at least once already, which is why it is recorded here.
   only token-shaped bound left is the routed model's context window (ADR 0053).
 - **The numeral rule stays strict** (gap A32, open). Dates, CIKs and exhibit numbers in
   prose trip it and are recovered by retry. Relaxing it moves invariant 3's boundary and
-  needs an ADR and an operator decision.
+  needs an ADR and an operator decision. What it does *not* do is compare spellings: a
+  numeral is checked against the **value** of the figure its claim names, under the readings
+  in `core/figures.py` — the same ones `cited_figure_agreement` uses (ADR 0097). "$331.8
+  billion" over a stored `331839000000` is that figure; "$412.6 billion" is not.
 - **The FakeProvider is an alternative implementation, not a fake transport.** Nothing
   offline sees the wire; `just test-live` exists because of what that blindness cost
   (gap A30). Do not mistake a green offline suite for a proven vendor contract.

@@ -32,16 +32,24 @@ import re
 from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from typing import Any, Final
 
 from aer.core.concepts import CANONICAL_CONCEPTS
+from aer.core.figures import numeral_matches, numeral_tokens, reads_as
 from aer.core.schemas.skill import RESERVED_OUTPUT_FIELDS
 
 __all__ = [
+    "CLAIM_EDIT_NOTE",
+    "EDIT_NOTES",
+    "GAP_EDIT_NOTE",
+    "INSUFFICIENT_EVIDENCE_CEILING",
     "LENGTH_EDIT_NOTE",
     "MAX_GAP_SENTENCES",
     "NUMERAL_EDIT_NOTE",
     "NUMERAL_EXEMPT_KEYS",
+    "UNSOURCED_MATERIAL_CEILING",
+    "confidence_ceiling",
     "contract_violations",
     "editorial_notes_in",
     "gap_sentences",
@@ -55,6 +63,7 @@ __all__ = [
     "without_document_references",
     "without_plain_counts",
     "without_product_names",
+    "without_surplus_gap_sentences",
     "without_unsourced_numeral_sentences",
 ]
 
@@ -70,6 +79,59 @@ NUMERAL_EDIT_NOTE: Final = (
     "One or more sentences were removed because their figures could not be traced to a "
     "recorded source."
 )
+CLAIM_EDIT_NOTE: Final = (
+    "One or more statements were set aside because what they rested on was not recorded with them."
+)
+GAP_EDIT_NOTE: Final = (
+    "Repeated remarks about what the evidence does not cover were reduced to one."
+)
+
+# Every note that describes an *edit* rather than a condition of the analysis. Named once
+# because two readers walk it — the classifier that sends edits to the appendix, and the
+# one that keeps them out from under a section heading — and a note added to one list and
+# not the other would surface to a reader as an evidence shortfall it is not.
+EDIT_NOTES: Final[tuple[str, ...]] = (
+    NUMERAL_EDIT_NOTE,
+    LENGTH_EDIT_NOTE,
+    CLAIM_EDIT_NOTE,
+    GAP_EDIT_NOTE,
+)
+
+# What each kind of degradation says about whether a section can be relied on (ADR 0099).
+# These were one boolean, and a live run showed what that costs: five surviving sections
+# all reported 0.30, four of them for nothing worse than running long.
+#
+# §2.12's own number, unchanged: findings under an insufficiency banner are low-confidence
+# whatever the model thought of them. It is a statement about the evidence.
+INSUFFICIENT_EVIDENCE_CEILING: Final = 0.3
+# The platform had to remove material the model could not support. The section that
+# remains passed the *full* revalidation (ADR 0057), so it is sound — but the drafting
+# produced figures with no lineage, and that is a fact about this section's drafting. The
+# ceiling is the neutral prior: no better than a section that declared nothing.
+UNSOURCED_MATERIAL_CEILING: Final = 0.5
+
+# The edits that say something about reliability. A length trim is not one of them: every
+# sentence that survived it passed exactly the validation the whole draft passed, and the
+# cut is disclosed to the reader in its own words. Capping for it says "trust this less"
+# about prose there is no reason to trust less.
+_UNSOURCED_MATERIAL_EDITS: Final[frozenset[str]] = frozenset({NUMERAL_EDIT_NOTE, CLAIM_EDIT_NOTE})
+
+
+def confidence_ceiling(*, insufficient_evidence: bool, edits: Iterable[str] = ()) -> float | None:
+    """The lowest ceiling this section's degradations impose, or ``None`` for none.
+
+    Three different facts about a section, which used to share one number and therefore
+    communicated the weakest of them about all three. A section shortened to fit is not a
+    section whose evidence fell short, and a reader given one number cannot tell them
+    apart — which is the whole job of the number.
+    """
+    ceilings: list[float] = []
+    if insufficient_evidence:
+        ceilings.append(INSUFFICIENT_EVIDENCE_CEILING)
+    if any(note in _UNSOURCED_MATERIAL_EDITS for note in edits):
+        ceilings.append(UNSOURCED_MATERIAL_CEILING)
+    return min(ceilings) if ceilings else None
+
 
 # The sentences earlier builds stored for the same two edits, normalised on read so a
 # report re-rendered from old rows comes out in the current register. Matched whole,
@@ -103,7 +165,7 @@ def editorial_notes_in(reason: str | None) -> tuple[str, ...]:
     if not reason:
         return ()
     normalised = _normalised_degradation(reason)
-    return tuple(note for note in (NUMERAL_EDIT_NOTE, LENGTH_EDIT_NOTE) if note in normalised)
+    return tuple(note for note in EDIT_NOTES if note in normalised)
 
 
 def reader_warning(reason: str | None) -> str | None:
@@ -117,7 +179,7 @@ def reader_warning(reason: str | None) -> str | None:
     if not reason:
         return None
     remaining = _normalised_degradation(reason)
-    for note in (NUMERAL_EDIT_NOTE, LENGTH_EDIT_NOTE):
+    for note in EDIT_NOTES:
         remaining = remaining.replace(note, "")
     # A note that was only edits leaves a bare label behind — "Insufficient evidence:"
     # with nothing after it says the opposite of what happened, so it goes too.
@@ -135,13 +197,6 @@ def reader_warning(reason: str | None) -> str | None:
 NUMERAL_EXEMPT_KEYS: Final[frozenset[str]] = frozenset(
     {"confidence", "calculation_id", "source_document_id", "extraction_id", "financial_fact_id"}
 )
-
-# A numeral as a reader meets one: digits, optional thousands separators and decimals,
-# an optional trailing per-cent sign. Word-bounded so "10-K" and "FY22Q4" do not shed
-# fragments, but "grew 34%" and "$198,270 million" both surface their figures. The
-# trailing guard refuses only a *mid-decimal* stop (".<digit>"), so a numeral ending a
-# sentence — "in 2022." — still counts.
-_NUMERAL: Final[re.Pattern[str]] = re.compile(r"(?<![\w.])(\d[\d,]*(?:\.\d+)?)%?(?!\w)(?!\.\d)")
 
 _MONTHS: Final = (
     "January|February|March|April|May|June|July|August|September|October|November|December"
@@ -187,10 +242,31 @@ _REFERENCE: Final[re.Pattern[str]] = re.compile(
             r"\b(?:19|20)\d{2}(?:\s*(?:,|and|or|to)\s*(?:19|20)\d{2})+\b",
             # A year the sentence itself marks as one: "the 2026 fiscal year".
             r"\b(?:19|20)\d{2}\s+(?:fiscal|financial|calendar)\b",
+            # A year naming the document or the meeting it belongs to: "the 2025 proxy
+            # statement", "the 2026 annual general meeting", "the 2025 Form 10-K". The
+            # mirror of the line above, and the one a live run died on twice: the noun is
+            # the anchor, so "revenue of 2,026 million" reaches none of these and still
+            # needs lineage. The form labels repeat here rather than lean on the filing
+            # alternative below, because that one anchors on the label and leaves the year
+            # in front of it uncovered — which is exactly how "the 2025 Form 10-K" failed.
+            r"\b(?:19|20)\d{2}\s+(?:proxy|annual|interim|quarterly|half-year|"
+            r"registration|shelf|prospectus|circular|Form|Report|Accounts|"
+            r"10-K|10-Q|8-K|20-F|40-F|6-K)\b",
             # Filing references, where the label is the anchor and an enumeration keeps
             # its cover: "Item 2.02", "Items 2.02 and 9.01", "Exhibit 99.1", "Form 4".
             r"\b(?:Item|Exhibit|Note|Form|Rule|Section)s?\s+\d+(?:\.\d+)?[A-Za-z]?"
             r"(?:\s*(?:,|and|&|through|to)\s*\d+(?:\.\d+)?[A-Za-z]?)*",
+            # The writer's own enumeration of its argument, where the label is the anchor
+            # and the separator after the number is what makes it a heading rather than
+            # a count: "Proposition 5 \u2014", "Pillar 3:", "Risk 2." The confirmation run
+            # lost a revise reply to the "5" of "Proposition 5 \u2014 AI partner and capacity
+            # dependence" (ADR 0054, amended 2026-09-05). Two digits at most and no
+            # decimal or separator continuing them, so "Phase 12.5 \u2014" and "Step 200 \u2014"
+            # keep their figures; and the label excuses its own number only, so "Step 2
+            # \u2014 40 bps" excuses the 2 and keeps the 40.
+            r"\b(?:Pillar|Proposition|Scenario|Step|Point|Risk|Catalyst|Phase|Part|"
+            r"Driver|Thesis|Factor|Priority|Lever|Premise|Leg|Plank)s?\s+\d{1,2}"
+            r"(?![.,]?\d)(?=\s*[\u2014\u2013:\-.)])",
             # The bare form types themselves — "the 10-K", "a 10-Q", "an 8-K" — which is
             # how a writer names a filing far more often than "Form 10-K". The letter is
             # the anchor, and the closed list keeps "2-for-1" and its kin out of scope.
@@ -265,9 +341,14 @@ _FINANCIAL_WORDS: Final[frozenset[str]] = _CONCEPT_WORDS | _PROSE_FINANCE_WORDS
 # A number that is part of a name: "Microsoft 365", "Windows 11", "Boeing 737". Matched as
 # the pair, so the guards below can read the word that owns the number — a bare regex
 # cannot tell "Microsoft 365" from "Revenue 365", and only one of those is a product.
+# The trailing guard refuses a word character, and a stop or comma **only when digits
+# follow it**. Written `(?![\w.,])` it also refused the punctuation that ends a clause, so
+# "Dynamics 365 and ERP" was recognised as a product and "Dynamics 365, ERP" was not — and
+# a name at the end of a sentence or a list item is where a product name usually sits. A
+# live run refused Business Overview on exactly that comma.
 _NAMED_NUMBER: Final[re.Pattern[str]] = re.compile(
     rf"(?<![\w.,$£€])([A-Za-z][A-Za-z'\u2019&.\-]*)(\s)(\d{{1,4}})(?!\s*%)"
-    rf"(?!\s+(?:{_MEASURE_WORDS})\b)(?![\w.,])"
+    rf"(?!\s+(?:{_MEASURE_WORDS})\b)(?!\w)(?![.,]\d)"
 )
 
 _JSON_SCALARS: Final[dict[str, type | tuple[type, ...]]] = {
@@ -333,8 +414,32 @@ def reserved_fields_in(contract: dict[str, Any]) -> frozenset[str]:
 
 
 def numerals_in(text: str) -> frozenset[str]:
-    """Every numeral token in a piece of text, normalised (separators stripped)."""
-    return frozenset(_canonical_numeral(match.replace(",", "")) for match in _NUMERAL.findall(text))
+    """Every numeral token in a piece of text, normalised: sign kept, separators gone.
+
+    The scanner is :func:`aer.core.figures.numeral_tokens`, shared with the agreement
+    metric, so "-139,500" is ``-139500`` to both and neither can read a sign the other
+    does not.
+    """
+    return frozenset(_canonical_numeral(token) for token in numeral_tokens(text))
+
+
+def _reads_as_named(token: str, figures: tuple[Decimal, ...]) -> bool:
+    """Whether this numeral is one of the named figures, said at the precision it chose.
+
+    Read through :func:`aer.core.figures.reads_as`, which is the same reading the
+    ``cited_figure_agreement`` metric applies — one definition of "the same figure said
+    differently", so the rule that refuses a numeral and the check that measures one
+    cannot come to different answers about the same sentence.
+    """
+    if not figures:
+        return False
+    try:
+        quoted = Decimal(token)
+    except InvalidOperation:  # pragma: no cover -- the scanner only yields decimal text
+        return False
+    # The lineage question: a numeral written without a sign is the magnitude of the
+    # figure the claim names, however the sentence around it carries the sign.
+    return any(reads_as(quoted, stored, sign_matters=False) for stored in figures)
 
 
 def _canonical_numeral(token: str) -> str:
@@ -434,15 +539,25 @@ def without_plain_counts(text: str) -> str:
     return _PLAIN_COUNT.sub(" ", text)
 
 
-def unsourced_numerals(content: dict[str, Any], covered_by: Iterable[str]) -> list[str]:
+def unsourced_numerals(
+    content: dict[str, Any],
+    covered_by: Iterable[str],
+    figures: Iterable[Decimal] = (),
+) -> list[str]:
     """Numerals in the content that nothing accounts for, with where they sit.
 
     Numerals inside recognised date and document-reference spans are not figures and are
     not scanned — see :func:`without_document_references` and ADR 0054. For the rest, a
-    numeral has lineage two ways, and either satisfies the rule:
+    numeral has lineage three ways, and any of them satisfies the rule:
 
-    * it appears in a numeric claim's statement (``covered_by``) — each of which, by
-      schema, names exactly one stored fact or recorded calculation; or
+    * it appears in a numeric claim's statement (``covered_by``) — each of which names
+      exactly one stored fact or recorded calculation; or
+    * it **reads as** one of the figures those claims name (``figures``), under the
+      scalings this platform's own renderer produces — see :mod:`aer.core.figures`. A
+      drafter writing about a company does not write ``331839000000``; it writes "$331.8
+      billion", and refusing that as unsourced cost a live run two sections (roadmap
+      §2.1). The values are the *stored* ones, so the arithmetic is Python's; nothing here
+      trusts a rescaling the model performed; or
     * it sits inside an object that itself names its figure by ``calculation_id`` or
       ``financial_fact_id`` — the figure-row convention every built-in section has used
       since Phase 1, and the one the renderer turns into a footnote. **The named id is
@@ -455,10 +570,13 @@ def unsourced_numerals(content: dict[str, Any], covered_by: Iterable[str]) -> li
     covered: set[str] = set()
     for statement in covered_by:
         covered.update(numerals_in(statement))
+    named = tuple(figures)
 
     problems: list[str] = []
     for found in sorted(_numerals_by_path(content, path="content"), key=lambda item: item.path):
-        uncovered = sorted(found.numerals - covered)
+        uncovered = sorted(
+            token for token in found.numerals - covered if not _reads_as_named(token, named)
+        )
         if not uncovered:
             continue
         listed = ", ".join(uncovered)
@@ -496,8 +614,8 @@ def numeral_context(scanned: str, numeral: str) -> str:
     ADR 0054's decision is untouched by this. Nothing here excuses a numeral; it only
     reports where the numeral was.
     """
-    for match in _NUMERAL.finditer(scanned):
-        if _canonical_numeral(match.group().replace(",", "")) != numeral:
+    for match, token in numeral_matches(scanned):
+        if _canonical_numeral(token) != numeral:
             continue
         start = max(0, match.start() - _CONTEXT_RADIUS)
         end = min(len(scanned), match.end() + _CONTEXT_RADIUS)
@@ -747,8 +865,7 @@ def gap_sentences(content: dict[str, Any]) -> list[str]:
     def walk(value: Any) -> None:
         if isinstance(value, str):
             for sentence in _SENTENCES.split(value):
-                lowered = sentence.lower()
-                if any(phrase in lowered for phrase in _GAP_PHRASES):
+                if _is_gap_sentence(sentence):
                     found.append(sentence.strip())
         elif isinstance(value, dict):
             for item in value.values():
@@ -762,7 +879,7 @@ def gap_sentences(content: dict[str, Any]) -> list[str]:
 
 
 def without_unsourced_numeral_sentences(
-    content: dict[str, Any], covered_by: Iterable[str]
+    content: dict[str, Any], covered_by: Iterable[str], figures: Iterable[Decimal] = ()
 ) -> dict[str, Any] | None:
     """The content with every sentence carrying an unsourced numeral removed, or ``None``.
 
@@ -783,10 +900,19 @@ def without_unsourced_numeral_sentences(
     covered: set[str] = set()
     for statement in covered_by:
         covered.update(numerals_in(statement))
+    named = tuple(figures)
+
+    def accounted(sentence: str) -> bool:
+        """Every numeral in this sentence has lineage — the same three ways the scan
+        admits, so the remover and the rule cannot disagree about one sentence."""
+        return all(
+            token in covered or _reads_as_named(token, named)
+            for token in numerals_in(_erased(sentence))
+        )
 
     def scrub_text(value: str) -> str:
         sentences = _SENTENCES.split(value)
-        kept = [sentence for sentence in sentences if numerals_in(_erased(sentence)) <= covered]
+        kept = [sentence for sentence in sentences if accounted(sentence)]
         if len(kept) == len(sentences):
             return value
         narrowed = " ".join(kept).strip()
@@ -817,6 +943,85 @@ def without_unsourced_numeral_sentences(
     if narrowed_content == content:
         return None
     return narrowed_content
+
+
+def without_surplus_gap_sentences(content: dict[str, Any]) -> dict[str, Any] | None:
+    """The content with every gap sentence past the first removed, or ``None``.
+
+    The fourth repair under ADR 0057, and ADR 0100's whole mechanism. The gap budget
+    (R4) is right — a live report spent a third of its prose describing absent
+    disclosure — but refusing the draft for it threw away the *other* two thirds, which
+    were about the company and fully cited. Two sections of the MSFT run tripped it.
+
+    **The first one is kept**, in document order, which is exactly what the rule asks
+    for: state the gap in one clause and spend the rest of the section on what the
+    evidence does support. What goes is the repetition.
+
+    ``None`` — declined — when there is nothing surplus to remove, or when removing it
+    would empty a string: a field built wholly of gap sentences should fail loudly rather
+    than render blank. That is the same line :func:`without_unsourced_numeral_sentences`
+    draws, deliberately, including where it costs something — a surplus gap sentence
+    standing alone as one item of a list of strings empties that item, so the salvage
+    declines rather than dropping the item. Dropping it would be defensible and might be
+    better; what is not defensible is two erasers with two decline policies, and moving
+    both is a decision of its own rather than a detail of this one.
+
+    The result must be revalidated in full by the caller. Removal narrows the gap count
+    and the word count, and can break neither, but a shorter text can still fall foul of
+    its contract's other rules.
+    """
+    if len(gap_sentences(content)) <= MAX_GAP_SENTENCES:
+        return None
+
+    # Consumed as the walk goes, so "the first" means the first a reader meets rather
+    # than the first in whichever field the walk happens to reach first.
+    allowance = MAX_GAP_SENTENCES
+
+    def scrub_text(value: str) -> str:
+        nonlocal allowance
+        sentences = _SENTENCES.split(value)
+        kept: list[str] = []
+        for sentence in sentences:
+            if not _is_gap_sentence(sentence):
+                kept.append(sentence)
+                continue
+            if allowance > 0:
+                allowance -= 1
+                kept.append(sentence)
+        if len(kept) == len(sentences):
+            return value
+        narrowed = " ".join(kept).strip()
+        if not narrowed:
+            raise _SalvageDeclinedError
+        return narrowed
+
+    def scrub(value: Any) -> Any:
+        if isinstance(value, str):
+            return scrub_text(value)
+        if isinstance(value, dict):
+            return {key: scrub(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [scrub(item) for item in value]
+        return value
+
+    try:
+        narrowed_content = {key: scrub(item) for key, item in content.items()}
+    except _SalvageDeclinedError:
+        return None
+    if narrowed_content == content:
+        return None
+    return narrowed_content
+
+
+def _is_gap_sentence(sentence: str) -> bool:
+    """Whether this sentence's subject is the missing disclosure rather than the company.
+
+    The one predicate :func:`gap_sentences` and the eraser above both read, for the same
+    reason the numeral rule and its eraser share `covered_figures`: a rule that counts one
+    set and a salvage that removes another leaves a draft the revalidation still refuses.
+    """
+    lowered = sentence.lower()
+    return any(phrase in lowered for phrase in _GAP_PHRASES)
 
 
 class _SalvageDeclinedError(Exception):

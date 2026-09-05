@@ -43,6 +43,11 @@ class TestMoney:
         """Pretending $250,000 is "$0m" is not presentation."""
         assert display.money(Decimal("250000"), "USD", style=STYLE) == "$250,000"
 
+    def test_below_a_million_reads_to_the_cent_at_most(self) -> None:
+        """The ledger stores twelve decimal places; the valuation page showed them."""
+        assert display.money(Decimal("1234.500000000000"), "USD", style=STYLE) == "$1,234.50"
+        assert display.money(Decimal("1234.567"), "USD", style=STYLE) == "$1,234.57"
+
     def test_sterling_and_an_unmapped_currency(self) -> None:
         assert display.money(Decimal("2000000000"), "GBP", style=STYLE) == "£2.0bn"
         assert display.money(Decimal("1234500000"), "SEK", style=STYLE) == "SEK 1.2bn"
@@ -55,6 +60,21 @@ class TestScalar:
     def test_a_margin_label_reads_as_a_percentage(self) -> None:
         assert display.scalar("0.462", style=STYLE, unit="pure", label="Operating margin") == (
             "46.2%"
+        )
+
+    def test_a_terminal_value_share_reads_as_a_percentage(self) -> None:
+        """The share of a valuation beyond the forecast is a percentage of it, and the
+        page showed "0.730000000000" (first live run of the runbook)."""
+        formatted = display.scalar(
+            "0.730000000000", style=STYLE, unit="pure", label="Terminal value share"
+        )
+        assert formatted == "73%"
+
+    def test_a_grid_axis_reads_by_the_assumption_it_varies(self) -> None:
+        assert display.scalar("0.090000000000", style=STYLE, unit="pure", label="wacc") == "9%"
+        assert display.scalar("0.02", style=STYLE, unit="pure", label="terminal_growth") == "2%"
+        assert display.scalar("10", style=STYLE, unit="pure", label="exit_multiple") == (
+            f"10{TIMES}"
         )
 
     def test_a_ratio_label_reads_as_times(self) -> None:

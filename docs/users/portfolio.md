@@ -37,6 +37,11 @@ and a wrong kind is worse than an absent one.
 | `deposit` | Cash paid into the account |
 | `withdrawal` | Cash taken out |
 
+**A trade can name the decision it carries out.** If you wrote the decision down first in
+[Decisions](decisions.md), choose it under **Carries out** when you record the trade; the
+decision's page then lists the trade. The form refuses a pairing that cannot be what it says,
+such as a sale against a decision to buy.
+
 **Exchanging currency is not on that list**, on purpose. It is one event touching two
 currencies, and a transaction row holds one — so it would need either a second currency
 column nothing else uses, or a pair of rows whose "these two are one event" invariant no
@@ -44,11 +49,16 @@ database constraint can see. Getting that wrong double-counts a cash balance sil
 the direction that flatters. Until it has a shape of its own, record an exchange as a
 withdrawal and a deposit. What is lost is the rate, which was never this table's to assert.
 
-**A share split is not handled yet.** `corporate_actions` knows about splits — they
-restate the price series — but nothing yet turns one into a change in what you hold, so a
-book spanning a split will be wrong until you correct it by hand. The decided fix is that a
-split *arrives as a written transaction* derived from the corporate action, never as a
-quantity that changed with nothing behind it.
+**A share split arrives on its own, and you do not enter it.** When the platform acquires
+a price series it records the splits with it, and each one becomes a written transaction
+in every book that has dealt that listing — never a quantity that changed with nothing
+behind it. The row carries the *ratio*, not a number of shares, so it stays right if you
+later record a trade dated before the split: the multiplication lands at its place in the
+history rather than being frozen at the moment the row was written. Your share count
+multiplies; what you paid does not change, so the average cost per share divides by the
+ratio. There is no Split option on the form, on purpose — a split you can type is a share
+count with nothing behind it. If a split you know about has not appeared, acquire the
+listing's price series; that is what records the corporate action.
 
 ## Two grades of evidence
 

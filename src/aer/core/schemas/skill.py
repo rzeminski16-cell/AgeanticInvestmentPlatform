@@ -64,6 +64,12 @@ MAX_OUTPUT_FIELDS: Final = 16
 # The fields a custom-section output contract may not declare, under any spelling the
 # report model owns. Declaring one is refused at validation — there is deliberately no
 # runtime check downstream, because after this there is nothing for one to catch.
+#
+# `conviction` is the seventh and is reserved for a different reason (ADR 0074): not
+# because a built-in section owns it, but because a view somebody holds is not a figure at
+# all. A contract declaring it would put a model's own view straight into a rendered
+# section under a name a reader takes for a number — no holder, no time, no stated basis,
+# and nothing to check, because there is no citation and no calculation behind it.
 RESERVED_OUTPUT_FIELDS: Final[frozenset[str]] = frozenset(
     {
         "rating",
@@ -72,7 +78,23 @@ RESERVED_OUTPUT_FIELDS: Final[frozenset[str]] = frozenset(
         "price_target",
         "valuation_range",
         "fair_value",
+        "conviction",
+        # The six sizing names, reserved in the change that first introduced a sizing
+        # concept — a decision's action and its size (ADR 0080, ADR 0104) — and never in a
+        # follow-up. A skill that can declare `recommended_weight` sets position sizes.
+        "position_size",
+        "weight",
+        "recommended_weight",
+        "action",
+        "order_quantity",
+        "stop_loss",
     }
+)
+
+# The reserved names whose refusal is not about ownership, and say so.
+_NOT_A_FIGURE: Final[frozenset[str]] = frozenset({"conviction"})
+_NOT_THE_MODELS_TO_SIZE: Final[frozenset[str]] = frozenset(
+    {"position_size", "weight", "recommended_weight", "action", "order_quantity", "stop_loss"}
 )
 
 _IDENTIFIER: Final = re.compile(r"\A[a-z][a-z0-9_]{0,63}\Z")
@@ -194,6 +216,24 @@ class SkillFrontmatter(BaseModel):
             if not _IDENTIFIER.match(name):
                 message = f"{name!r} is not a valid output field name."
                 raise ValueError(message)
+            if name in _NOT_A_FIGURE:
+                message = (
+                    f"The output field {name!r} is reserved. A conviction is a view somebody "
+                    "holds, not a figure: it has no holder, no time and no stated basis in a "
+                    "section's output, and nothing to check it against (ADR 0074). Write the "
+                    "view as prose; a number under that name is a judgement wearing a figure's "
+                    "clothes."
+                )
+                raise ValueError(message)
+            if name in _NOT_THE_MODELS_TO_SIZE:
+                message = (
+                    f"The output field {name!r} is reserved. What to do about a position, "
+                    "and how much, is the operator's decision, written in the journal "
+                    "before the outcome (ADR 0104); a section has no writable path to a "
+                    "size, an action or a stop, and that starts with not being able to "
+                    "declare the field (ADR 0080)."
+                )
+                raise ValueError(message)
             if name in RESERVED_OUTPUT_FIELDS:
                 message = (
                     f"The output field {name!r} is reserved. Ratings, recommendations and "
@@ -232,12 +272,19 @@ class SkillFrontmatter(BaseModel):
                 message = "The output contract declares no fields."
                 raise ValueError(message)
         else:
+            # Every section-shaped field, not only the three that would confuse the plan
+            # step (ADR 0108 §4). A methodology file declaring tools used to parse and be
+            # ignored — nothing granted them, and nobody told the author — and a control
+            # that works by nobody reading the field is one refactor from not working.
             declared = [
                 name
                 for name, value in (
                     ("position", self.position),
                     ("output", self.output),
                     ("token_budget", self.token_budget),
+                    ("evidence_policy", self.evidence_policy),
+                    ("allowed_tools", self.allowed_tools or None),
+                    ("charts", self.charts or None),
                 )
                 if value is not None
             ]

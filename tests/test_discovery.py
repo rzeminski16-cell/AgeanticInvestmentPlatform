@@ -30,7 +30,7 @@ from aer.fetch.client import SafeFetcher
 from aer.fetch.errors import RobotsDisallowedError, UrlNotAllowedError
 from aer.fetch.policy import host_matches, policy_for
 from aer.fetch.robots import RobotsCache
-from aer.services.acquisition import record_acquisition
+from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.sources import PUBLISHED_AFTER_AS_OF
 from aer.sources.issuer import PROVIDER, SOURCE_TIER, Rejection, discover_documents
 from aer.sources.sec.client import SecEdgarClient
@@ -42,6 +42,7 @@ from aer.sources.sec.fulltext import (
 from aer.sources.tiering import DocumentKind
 from tests.fetch_fixtures import public_resolver
 from tests.issuer_fixtures import IR_HOST, IR_PAGE, IR_PAGE_URL, IR_WITH_HOSTILE_BASE
+from tests.request_fixtures import research_request
 from tests.sec_fixtures import MSFT_CIK, fixture_bytes
 
 pytestmark = pytest.mark.usefixtures("no_real_sockets")
@@ -498,13 +499,13 @@ class TestTheFetchLayerIsTheControl:
 
 
 @pytest.fixture
-async def research_request(db_session) -> ResearchRequest:
+async def mandate_row(db_session) -> ResearchRequest:
     """A point-in-time request, as-of the date the fixtures are built around."""
     user = User(email="discovery@example.invalid", display_name="Discovery", role=UserRole.OWNER)
     db_session.add(user)
     await db_session.flush()
 
-    row = ResearchRequest(
+    row = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -535,7 +536,7 @@ class TestARunAcquiresMoreThanOneDocument:
         db_session,
         fetcher: SafeFetcher,
         artefact_store,
-        research_request: ResearchRequest,
+        mandate_row: ResearchRequest,
     ) -> None:
         filing_url = (
             "https://www.sec.gov/Archives/edgar/data/789019/000078901922000010/"
@@ -582,7 +583,7 @@ class TestARunAcquiresMoreThanOneDocument:
                     await record_acquisition(
                         db_session,
                         artefact_store,
-                        request=research_request,
+                        work_order=await acquisition_root(db_session, mandate_row),
                         result=result,
                         provider=provider,
                         source_tier=tier,
@@ -610,7 +611,7 @@ class TestARunAcquiresMoreThanOneDocument:
         db_session,
         fetcher: SafeFetcher,
         artefact_store,
-        research_request: ResearchRequest,
+        mandate_row: ResearchRequest,
     ) -> None:
         """ "Replayable offline" stated as the property it is: the bytes come back from the
         store by hash, with no network, and the store verifies the digest as it reads."""
@@ -628,7 +629,7 @@ class TestARunAcquiresMoreThanOneDocument:
         acquisition = await record_acquisition(
             db_session,
             artefact_store,
-            request=research_request,
+            work_order=await acquisition_root(db_session, mandate_row),
             result=result,
             provider=Provider.ISSUER_IR,
             source_tier=SourceTier.T2_ISSUER,
@@ -645,7 +646,7 @@ class TestARunAcquiresMoreThanOneDocument:
         db_session,
         fetcher: SafeFetcher,
         artefact_store,
-        research_request: ResearchRequest,
+        mandate_row: ResearchRequest,
     ) -> None:
         """The hit EDGAR returned that the point-in-time rule refuses.
 
@@ -670,7 +671,7 @@ class TestARunAcquiresMoreThanOneDocument:
         acquisition = await record_acquisition(
             db_session,
             artefact_store,
-            request=research_request,
+            work_order=await acquisition_root(db_session, mandate_row),
             result=result,
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,

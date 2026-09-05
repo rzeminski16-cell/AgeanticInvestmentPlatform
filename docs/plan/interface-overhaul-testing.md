@@ -3,6 +3,12 @@
 *What each tranche of [`interface-overhaul.md`](interface-overhaul.md) must prove, the machinery
 that does not exist yet, and the two rules that stop this suite lying to you.*
 
+> **The overhaul closed on 2026-08-30 and the machinery is built**: the ramp ratchet ran its
+> course and is now a hard zero, axe-core is vendored and harnessed, contrast and component
+> states are measured in the browser, and the §8.3 pass has an instrument in
+> `tests/e2e/sweep.py`. This plan stays as the argument for why each piece has the shape it
+> has; the two rules below still hold on every run.
+
 **Read [`../developers/testing.md`](../developers/testing.md) §The interface first.** It names
 the four things the current suite structurally cannot say about a screen. This plan builds the
 machinery that closes them, and the handoff's own checklist

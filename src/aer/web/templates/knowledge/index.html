@@ -1,70 +1,90 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
 
-{# The knowledge graph's own measurements (docs/archive/knowledge-graph.md, K5). Every figure is
-   a read of the database; the vault section is the one place a filename on disk is
-   consulted, and only to report that the projection and the record disagree. #}
+{#
+  The knowledge graph's own measurements (docs/archive/knowledge-graph.md, K5). Every
+  figure is a read of the database; the vault section is the one place a filename on disk
+  is consulted, and only to report that the projection and the record disagree.
+
+  Actions precede measurements: the work list — stale companies, closed catalyst windows —
+  leads, because "what needs revisiting now?" is the question this page exists to answer,
+  and six equal statistic blocks answer none.
+#}
 
 {% block title %}Knowledge{% endblock %}
 
 {% block content %}
-  <h1 class="text-2xl font-semibold tracking-tight">Knowledge</h1>
-  <p class="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-    What this installation knows, measured from approved research. A company named as a
-    comparable but never researched is a <em>stub</em> &mdash; a real node in the map, and
-    the ratio of stubs to researched companies is the plainest measure of how much of the
-    neighbourhood has actually been looked at.
-  </p>
-  <p class="mt-2 text-sm">
-    <a href="/knowledge/graph" id="knowledge-graph-link" class="text-sky-700 dark:text-sky-400">
+  {{ ui.page_header(
+    "Knowledge",
+    eyebrow="PLATFORM KNOWLEDGE",
+    identity="All approved reports in this database — deliberately unscoped, because a per-user view of a shared graph would report a connectivity that does not exist.",
+  ) }}
+
+  {{ ui.verdict("IS IT STILL USEFUL?", verdict.composed, tone=verdict.tone.value) }}
+
+  <p class="type-body-sm">
+    <a href="/knowledge/graph" id="knowledge-graph-link" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">
       See the graph drawn &rarr;
     </a>
   </p>
 
-  <section class="mt-8" id="knowledge-size">
-    <h2 class="text-lg font-semibold tracking-tight">Size</h2>
-    <dl class="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
-      {% for label, value, element in [
-        ("Companies", stats.size.companies, "companies"),
-        ("Researched", stats.size.researched, "researched"),
-        ("Stubs", stats.size.stubs, "stubs"),
-        ("Approved reports", stats.size.approved_reports, "reports"),
-        ("Industries", stats.size.industries, "industries"),
-        ("Themes", stats.size.theme_nodes, "themes"),
-        ("Catalysts", stats.size.catalyst_nodes, "catalysts"),
-        ("Sources", stats.size.sources, "sources"),
-      ] %}
-        <div class="rounded-md border border-slate-200 p-3 dark:border-slate-800">
-          <dt class="text-xs text-slate-600 dark:text-slate-400">{{ label }}</dt>
-          <dd class="mt-1 text-xl font-semibold" id="stat-{{ element }}">{{ value }}</dd>
-        </div>
-      {% endfor %}
-    </dl>
-  </section>
+  {% if stats.freshness.stale or stats.freshness.closed_windows %}
+    {% call ui.sheet("Close the loop", subtitle="What accumulated knowledge is waiting on. Each item is a link to the company it belongs to.", id="knowledge-freshness") %}
+      {% if stats.freshness.stale %}
+        <h3 class="type-subheading text-ink">Not revisited recently</h3>
+        <table class="mt-2 w-full text-left" id="stale-companies">
+          <caption class="sr-only">Companies whose newest research has gone stale.</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="py-1 type-label text-ink-muted">Company</th>
+              <th scope="col" class="py-1 type-label text-ink-muted">Newest research</th>
+              <th scope="col" class="py-1 type-label text-ink-muted">Days</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in stats.freshness.stale %}
+              <tr class="border-t border-line">
+                <th scope="row" class="py-2 text-left">
+                  <a href="/companies/{{ row.company_id }}" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong">{{ row.ticker }}</a>
+                  <span class="type-body-sm text-ink-muted">{{ row.name }}</span>
+                </th>
+                <td class="py-2 type-data-sm text-ink">{{ row.newest_as_of }}</td>
+                <td class="py-2 type-data-sm text-ink">{{ row.days_since }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
 
-  <section class="mt-8" id="knowledge-shape">
-    <h2 class="text-lg font-semibold tracking-tight">Shape</h2>
-    <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
-      The comparable relation is symmetric, so an edge is counted once rather than twice.
+      {% if stats.freshness.closed_windows %}
+        <h3 class="mt-6 type-subheading text-ink">Catalyst windows that have closed</h3>
+        <p class="mt-1 max-w-prose type-body-sm text-ink-muted">
+          The calendar says the window has passed. Whether the event happened is not
+          something the platform can know from its own rows &mdash; record what happened on
+          the company page to complete the research loop.
+        </p>
+        <ul class="mt-2 flex list-disc flex-col gap-1 pl-5 type-body-sm text-ink" id="passed-catalysts">
+          {% for catalyst in stats.freshness.closed_windows %}
+            <li>
+              <a href="/companies/{{ catalyst.company_id }}" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong">{{ catalyst.ticker }}</a>
+              &mdash; {{ catalyst.label }}
+              <span class="text-ink-muted">(expected {{ catalyst.expected_timing }})</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endcall %}
+  {% else %}
+    <div id="knowledge-freshness"></div>
+  {% endif %}
+
+  {% call ui.sheet("Quality", subtitle="Coverage, how confirmed assumptions held up, and how far the research spans.", id="knowledge-coverage") %}
+    <p class="max-w-prose type-body-sm text-ink-muted">
+      A company named as a comparable but never researched is a <em>stub</em> &mdash; a
+      real node in the map, and the ratio of stubs to researched companies is the plainest
+      measure of how much of the neighbourhood has actually been looked at.
     </p>
-    <dl class="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-5">
-      {% for label, value, element in [
-        ("Edges", stats.shape.edges, "edges"),
-        ("Components", stats.shape.components, "components"),
-        ("Largest", stats.shape.largest_component, "largest"),
-        ("Isolated", stats.shape.isolated, "isolated"),
-        ("Mean degree", stats.shape.mean_degree, "mean-degree"),
-      ] %}
-        <div class="rounded-md border border-slate-200 p-3 dark:border-slate-800">
-          <dt class="text-xs text-slate-600 dark:text-slate-400">{{ label }}</dt>
-          <dd class="mt-1 text-xl font-semibold" id="stat-{{ element }}">{{ value }}</dd>
-        </div>
-      {% endfor %}
-    </dl>
-  </section>
-
-  <section class="mt-8" id="knowledge-coverage">
-    <h2 class="text-lg font-semibold tracking-tight">Coverage</h2>
-    <ul class="mt-3 list-disc space-y-1 pl-5 text-sm">
+    <ul class="mt-3 flex list-disc flex-col gap-1 pl-5 type-body-sm text-ink">
       <li id="coverage-ratio">
         <strong>{{ stats.coverage.researched_ratio }}</strong> of the companies in the map
         carry research of their own.
@@ -77,93 +97,86 @@
         {{ stats.coverage.single_member_industries }} industr(ies) hold a single company
         &mdash; a classification with nothing to compare against.
       </li>
+      <li>
+        Research spans
+        <span class="type-data-sm">{{ stats.freshness.oldest or "&mdash;" }}</span> to
+        <span class="type-data-sm">{{ stats.freshness.newest or "&mdash;" }}</span>.
+      </li>
     </ul>
-  </section>
 
-  {% if stats.accuracy.drivers %}
-    <section class="mt-8" id="knowledge-accuracy">
-      <h2 class="text-lg font-semibold tracking-tight">Assumption accuracy</h2>
-      <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-        How confirmed forecast drivers held up against the first fiscal year each prior
-        run forecast. Deltas, not verdicts &mdash; and per driver, never one score, because
-        a single number over incommensurable assumptions invites false confidence.
-      </p>
-      <table class="mt-3 w-full text-left text-sm" id="driver-accuracy">
-        <thead class="text-slate-600 dark:text-slate-400">
-          <tr>
-            <th class="py-1">Driver</th>
-            <th class="py-1">Measured</th>
-            <th class="py-1">Mean absolute delta</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in stats.accuracy.drivers %}
-            <tr class="border-t border-slate-200 dark:border-slate-800">
-              <td class="py-1">{{ row.name.replace('_', ' ') }}</td>
-              <td class="py-1">{{ row.measured }}</td>
-              <td class="py-1 font-mono">{{ row.mean_absolute_delta }}</td>
+    {% if stats.accuracy.drivers %}
+      <div id="knowledge-accuracy">
+        <h3 class="mt-6 type-subheading text-ink">Assumption accuracy</h3>
+        <p class="mt-1 max-w-prose type-body-sm text-ink-muted">
+          How confirmed forecast drivers held up against the first fiscal year each prior
+          run forecast. Deltas, not verdicts &mdash; and per driver, never one score,
+          because a single number over incommensurable assumptions invites false confidence.
+        </p>
+        <table class="mt-2 w-full text-left" id="driver-accuracy">
+          <caption class="sr-only">Mean absolute delta per confirmed forecast driver.</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="py-1 type-label text-ink-muted">Driver</th>
+              <th scope="col" class="py-1 type-label text-ink-muted">Measured</th>
+              <th scope="col" class="py-1 type-label text-ink-muted">Mean absolute delta</th>
             </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </section>
-  {% endif %}
-
-  <section class="mt-8" id="knowledge-freshness">
-    <h2 class="text-lg font-semibold tracking-tight">Freshness</h2>
-    <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
-      Research spans
-      <span class="font-mono">{{ stats.freshness.oldest or "&mdash;" }}</span> to
-      <span class="font-mono">{{ stats.freshness.newest or "&mdash;" }}</span>.
-    </p>
-
-    {% if stats.freshness.stale %}
-      <h3 class="mt-4 text-sm font-semibold">Not revisited recently</h3>
-      <table class="mt-2 w-full text-left text-sm" id="stale-companies">
-        <thead class="text-slate-600 dark:text-slate-400">
-          <tr><th class="py-1">Company</th><th class="py-1">Newest research</th><th class="py-1">Days</th></tr>
-        </thead>
-        <tbody>
-          {% for row in stats.freshness.stale %}
-            <tr class="border-t border-slate-200 dark:border-slate-800">
-              <td class="py-1">
-                <a href="/companies/{{ row.company_id }}" class="font-mono text-sky-700 dark:text-sky-400">{{ row.ticker }}</a>
-                <span class="text-slate-600 dark:text-slate-400">{{ row.name }}</span>
-              </td>
-              <td class="py-1 font-mono">{{ row.newest_as_of }}</td>
-              <td class="py-1">{{ row.days_since }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {% for row in stats.accuracy.drivers %}
+              <tr class="border-t border-line">
+                <td class="py-1 type-body-sm text-ink">{{ row.name.replace('_', ' ') }}</td>
+                <td class="py-1 type-body-sm text-ink">{{ row.measured }}</td>
+                <td class="py-1 type-data-sm text-ink">{{ row.mean_absolute_delta }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     {% endif %}
+  {% endcall %}
 
-    {% if stats.freshness.closed_windows %}
-      <h3 class="mt-4 text-sm font-semibold">Catalyst windows that have closed</h3>
-      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-        The calendar says the window has passed. Whether the event happened is not
-        something the platform can know from its own rows, so nothing here claims it did.
-      </p>
-      <ul class="mt-2 list-disc space-y-1 pl-5 text-sm" id="passed-catalysts">
-        {% for catalyst in stats.freshness.closed_windows %}
-          <li>
-            <span class="font-mono">{{ catalyst.ticker }}</span> &mdash; {{ catalyst.label }}
-            <span class="text-slate-600 dark:text-slate-400">(expected {{ catalyst.expected_timing }})</span>
-          </li>
-        {% endfor %}
-      </ul>
-    {% endif %}
-  </section>
+  {% call ui.sheet("Shape", subtitle="What the map holds and how connected it is. The comparable relation is symmetric, so an edge is counted once rather than twice.", id="knowledge-size") %}
+    <dl class="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-4">
+      {% for label, value, element in [
+        ("Companies", stats.size.companies, "companies"),
+        ("Researched", stats.size.researched, "researched"),
+        ("Stubs", stats.size.stubs, "stubs"),
+        ("Approved reports", stats.size.approved_reports, "reports"),
+        ("Industries", stats.size.industries, "industries"),
+        ("Themes", stats.size.theme_nodes, "themes"),
+        ("Catalysts", stats.size.catalyst_nodes, "catalysts"),
+        ("Sources", stats.size.sources, "sources"),
+      ] %}
+        <div>
+          <dt class="type-eyebrow text-ink-muted">{{ label }}</dt>
+          <dd class="mt-1 type-data text-ink" id="stat-{{ element }}">{{ value }}</dd>
+        </div>
+      {% endfor %}
+    </dl>
+    <dl class="mt-6 grid grid-cols-2 gap-x-8 gap-y-4 border-t border-line pt-4 sm:grid-cols-5" id="knowledge-shape">
+      {% for label, value, element in [
+        ("Edges", stats.shape.edges, "edges"),
+        ("Components", stats.shape.components, "components"),
+        ("Largest", stats.shape.largest_component, "largest"),
+        ("Isolated", stats.shape.isolated, "isolated"),
+        ("Mean degree", stats.shape.mean_degree, "mean-degree"),
+      ] %}
+        <div>
+          <dt class="type-eyebrow text-ink-muted">{{ label }}</dt>
+          <dd class="mt-1 type-data text-ink" id="stat-{{ element }}">{{ value }}</dd>
+        </div>
+      {% endfor %}
+    </dl>
+  {% endcall %}
 
-  <section class="mt-8" id="knowledge-vault">
-    <h2 class="text-lg font-semibold tracking-tight">Vault</h2>
+  {% call ui.sheet("Vault", id="knowledge-vault") %}
     {% if not stats.vault.configured %}
-      <p class="mt-2 text-sm text-slate-600 dark:text-slate-400" id="vault-unconfigured">
+      <p class="max-w-prose type-body-sm text-ink-muted" id="vault-unconfigured">
         No vault is configured, so approved research is not projected to notes. The
         measurements above are unaffected &mdash; they are read from the database.
       </p>
     {% endif %}
-    <ul class="mt-3 list-disc space-y-1 pl-5 text-sm">
+    <ul class="mt-3 flex list-disc flex-col gap-1 pl-5 type-body-sm text-ink">
       <li id="vault-exported">
         {{ stats.vault.exported_reports }} report(s) exported,
         {{ stats.vault.recorded_files }} file(s) recorded.
@@ -172,27 +185,27 @@
         {% endif %}
       </li>
       {% if stats.vault.unexported %}
-        <li id="vault-unexported" class="text-amber-800 dark:text-amber-300">
+        <li id="vault-unexported" class="text-warning-ink">
           {{ stats.vault.unexported | length }} approved report(s) have never been
           exported &mdash; knowledge the map does not have. Export is manual, so nothing
           else would say so.
         </li>
       {% endif %}
       {% if stats.vault.drifted %}
-        <li id="vault-drift" class="text-amber-800 dark:text-amber-300">
+        <li id="vault-drift" class="text-warning-ink">
           {{ stats.vault.drifted | length }} file(s) under the vault root that no export
           recorded writing:
-          <ul class="mt-1 list-disc space-y-0.5 pl-5 font-mono text-xs">
+          <ul class="mt-1 flex list-disc flex-col gap-0.5 pl-5 type-data-sm">
             {% for relative in stats.vault.drifted %}<li>{{ relative }}</li>{% endfor %}
           </ul>
         </li>
       {% endif %}
     </ul>
-  </section>
+  {% endcall %}
 
-  <p class="mt-8 text-xs text-slate-500 dark:text-slate-500">
+  <p class="type-body-sm text-ink-subtle">
     Measured {{ stats.measured_at }}. The same figures are available as JSON at
-    <a href="/api/knowledge" class="text-sky-700 dark:text-sky-400">/api/knowledge</a>
-    and from <span class="font-mono">aer knowledge</span>.
+    <a href="/api/knowledge" class="text-verification underline underline-offset-[3px] hover:text-verification-strong">/api/knowledge</a>
+    and from <span class="type-data-sm">aer knowledge</span>.
   </p>
 {% endblock %}

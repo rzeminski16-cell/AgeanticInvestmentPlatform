@@ -23,6 +23,7 @@ from aer.db.types import Timestamp, UuidFk, UuidPk
 
 __all__ = [
     "DISPOSITION_REVISED",
+    "DISPOSITION_REVISION_REFUSED",
     "DISPOSITION_SKIPPED_CUSTOM",
     "DISPOSITION_STOOD",
     "SCOPE_DRAFT",
@@ -36,11 +37,15 @@ __all__ = [
 SCOPE_PLAN: Final = "plan"
 SCOPE_DRAFT: Final = "draft"
 
-# What the loop did. `revised`: a redraft happened. `stood`: the challenge was recorded
-# and shown but fell below the revision threshold. `skipped_custom`: the challenge named a
-# user-authored section, which the loop never redrafts (ADR 0037 — a platform-initiated
-# redraft would execute under a pinned policy content gate 1 never displayed).
+# What the loop did. `revised`: a redraft happened and stood up. `revision_refused`: a
+# redraft was attempted and did not pass, so the approved draft was kept (ADR 0098) — the
+# spend is real and the challenge is unanswered, and both are facts a reader of gate 2 is
+# owed. `stood`: the challenge was recorded and shown but fell below the revision
+# threshold. `skipped_custom`: the challenge named a user-authored section, which the loop
+# never redrafts (ADR 0037 — a platform-initiated redraft would execute under a pinned
+# policy content gate 1 never displayed).
 DISPOSITION_REVISED: Final = "revised"
+DISPOSITION_REVISION_REFUSED: Final = "revision_refused"
 DISPOSITION_STOOD: Final = "stood"
 DISPOSITION_SKIPPED_CUSTOM: Final = "skipped_custom"
 
@@ -77,7 +82,8 @@ class RevisionNote(Base):
         CheckConstraint(f"scope IN ('{SCOPE_PLAN}', '{SCOPE_DRAFT}')", name="scope_is_known"),
         CheckConstraint(
             "disposition IN "
-            f"('{DISPOSITION_REVISED}', '{DISPOSITION_STOOD}', '{DISPOSITION_SKIPPED_CUSTOM}')",
+            f"('{DISPOSITION_REVISED}', '{DISPOSITION_REVISION_REFUSED}', "
+            f"'{DISPOSITION_STOOD}', '{DISPOSITION_SKIPPED_CUSTOM}')",
             name="disposition_is_known",
         ),
         CheckConstraint("severity BETWEEN 1 AND 5", name="severity_is_scored"),

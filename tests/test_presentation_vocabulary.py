@@ -27,7 +27,10 @@ from aer.core.enums import (
     GateKind,
     Grade,
     JobStatus,
+    PremiseVerdict,
+    ProcessQuality,
     RequestStatus,
+    ShockKind,
     SkillKind,
     TransactionKind,
 )
@@ -41,14 +44,18 @@ from aer.web.vocabulary import (
     GATES,
     GRADES,
     JOB_STATES,
+    PREMISE_VERDICTS,
+    PROCESS_QUALITIES,
     REQUEST_STATES,
     SECTION_STATES,
+    SHOCK_KINDS,
     SKILL_KINDS,
     TRANSACTION_KINDS,
     GateCertainty,
     HumanState,
     Tone,
 )
+from aer.workflow.workflows.vertical_slice_v1 import build_steps
 
 # Every enum that reaches a screen, beside the mapping that names it. A new one is added here
 # in the same commit that maps it; an enum with no row is an enum nobody decided about.
@@ -61,6 +68,9 @@ MAPPED: list[tuple[str, type[StrEnum], dict[Any, HumanState]]] = [
     ("transaction kind", TransactionKind, TRANSACTION_KINDS),
     ("skill kind", SkillKind, SKILL_KINDS),
     ("analysis mode", AnalysisMode, ANALYSIS_MODES),
+    ("premise verdict", PremiseVerdict, PREMISE_VERDICTS),
+    ("process quality", ProcessQuality, PROCESS_QUALITIES),
+    ("shock kind", ShockKind, SHOCK_KINDS),
 ]
 
 
@@ -89,6 +99,26 @@ class TestNothingIsMissing:
         until you decide" — true of every gate, and useless about this one."""
         missing = sorted(gate.value for gate in GateKind if gate not in GATES)
         assert not missing, f"gates with no vocabulary: {missing}"
+
+    def test_every_declared_step_has_a_human_name(self) -> None:
+        """The console leads with the step's name in the operator's language.
+
+        A step without one falls back to its technical key — honest, and exactly the state
+        this vocabulary exists to end: nineteen technical tokens were the main content of
+        the main page of the main tool.
+        """
+        declared = {step.key for step in build_steps()}
+        missing = sorted(declared - set(vocabulary.STEP_WORDS))
+        assert not missing, (
+            f"These workflow steps have no entry in STEP_WORDS: {missing}. Each renders as "
+            "its own key on the console, which is the state the vocabulary exists to end."
+        )
+
+    def test_no_step_name_is_its_key(self) -> None:
+        retyped = sorted(
+            key for key, label in vocabulary.STEP_WORDS.items() if label == key or "_" in label
+        )
+        assert not retyped, f"these step names are still keys: {retyped}"
 
 
 class TestTheWordsAreUsable:
@@ -217,6 +247,12 @@ class TestTheGateSequenceIsHonest:
         """It exists only where a cap would be crossed. A journey listing it as "to come"
         would promise a stop most runs never make."""
         assert GATES[GateKind.BUDGET].certainty is GateCertainty.ON_REFUSAL
+
+    def test_the_thesis_gate_is_opened_by_a_finding_and_never_by_a_run(self) -> None:
+        """The one gate no research run opens (ADRs 0078, 0103). It has words in this table
+        because every gate must be nameable in one vocabulary, and a certainty of its own so
+        that no run console can list it as a stop on the way to a report."""
+        assert GATES[GateKind.THESIS].certainty is GateCertainty.ON_FINDING
 
     def test_the_rest_are_conditional(self) -> None:
         sometimes = {

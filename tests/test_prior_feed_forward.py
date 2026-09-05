@@ -39,6 +39,7 @@ from aer.db.models import (
 )
 from aer.services import runs as run_service
 from aer.services.history import PriorDigest, prior_digest_for
+from aer.services.requests import mandate_read
 from aer.workflow.workflows.vertical_slice_v1 import _prior_research_note, plan_gate_payload
 from tests.workflow_fixtures import AS_OF_DATE, seed_job, seed_request, seed_user
 
@@ -235,8 +236,10 @@ class TestThePlannerComposition:
 
     @pytest.fixture
     async def request_read(self, db_session: AsyncSession, owner: User) -> ResearchRequestRead:
-        request = await seed_request(db_session, user=owner)
-        return ResearchRequestRead.model_validate(request, from_attributes=True)
+        # Through the service rather than `model_validate(..., from_attributes=True)`: the
+        # wire shape is flat and its source is not, so flattening the two rows a mandate
+        # lives on is `mandate_read`'s job and nobody else's (ADR 0072).
+        return mandate_read(await seed_request(db_session, user=owner))
 
     async def test_a_first_run_says_nothing_about_history(
         self, request_read: ResearchRequestRead

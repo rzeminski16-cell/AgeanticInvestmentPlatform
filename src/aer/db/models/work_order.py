@@ -30,11 +30,12 @@ migration 0051's backfill wrote. So `work_order_id=request.id` at a call site is
 coincidence being exploited; it is the contract. The alternative — a separate id and a
 lookup — buys nothing and adds a join to every path that has a request and wants its cap.
 
-**Some columns are duplicated on `research_requests` for exactly one revision.** `as_of_date`,
-`point_in_time`, `max_cost_gbp`, `status` and `archived_at` live on both tables until the
-follow-up revision drops them there. That is ugly on purpose: `tests/test_migrations.py`
-compares the migrated schema against the models with `compare_type` on, so a column dropped
-in a migration while still declared on a model is a red build in the same commit. The only
+**This is now the only place those columns live.** `user_id`, `as_of_date`, `point_in_time`,
+`max_cost_gbp`, `status` and `archived_at` were duplicated onto `research_requests` for
+exactly one revision, kept in step by a single mirroring function, and migration `0064`
+dropped the copies. The duplication was ugly on purpose: `tests/test_migrations.py` compares
+the migrated schema against the models with `compare_type` on, so a column dropped in a
+migration while still declared on a model is a red build in the same commit — and the only
 way to drop a column *later* is for the model to keep it *now*.
 """
 
@@ -68,6 +69,7 @@ from aer.db.types import Timestamp, UuidFk, UuidPk
 if TYPE_CHECKING:
     from aer.db.models.approval import Approval
     from aer.db.models.job import Job
+    from aer.db.models.request import ResearchRequest
     from aer.db.models.source_document import SourceDocument
     from aer.db.models.user import User
 
@@ -135,7 +137,7 @@ class WorkOrder(Base):
 
     # -- Relationships -------------------------------------------------------------------
 
-    user: Mapped[User] = relationship()
+    user: Mapped[User] = relationship(back_populates="work_orders")
     jobs: Mapped[list[Job]] = relationship(
         back_populates="work_order", cascade="all, delete-orphan"
     )
@@ -144,10 +146,21 @@ class WorkOrder(Base):
     )
     sources: Mapped[list[SourceDocument]] = relationship(back_populates="work_order")
 
+    # The equity mandate, when this run is about one listed company. ``None`` for every
+    # other kind of run, which is the whole reason this table exists (ADR 0072) — and the
+    # reason it is `uselist=False` rather than a list: a run has one subject, and the
+    # detail row shares this row's key.
+    request: Mapped[ResearchRequest | None] = relationship(
+        back_populates="work_order", uselist=False, cascade="all, delete-orphan"
+    )
+
     __table_args__: Any = (
         # A cap of zero is not a cheap run; it is a run that cannot make a single call, and
         # the guard would refuse every step. `research_requests` carries the same check.
-        CheckConstraint("max_cost_gbp > 0", name="ck_work_orders_cost_is_positive"),
+        # `>= 0` since ADR 0093: a portfolio data acquisition is budgeted at zero model
+        # spend by design, and a zero cap is the enforcement — the budget guard refuses
+        # every call under it. The name survives the widening so no rename ripples.
+        CheckConstraint("max_cost_gbp >= 0", name="ck_work_orders_cost_is_positive"),
         Index("ix_work_orders_user_id", "user_id"),
         Index("ix_work_orders_subject", "subject_kind", "subject_id"),
         # The live-work list, which is what every landing page asks for.

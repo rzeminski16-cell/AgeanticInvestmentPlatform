@@ -39,7 +39,6 @@ from aer.db.models import (
     JobCancellation,
     JobStep,
     Prompt,
-    ResearchRequest,
     User,
 )
 from aer.eval.replay import replay_observations_for_job
@@ -56,6 +55,7 @@ from aer.workflow.engine import (
     WorkflowStep,
 )
 from tests.agent_probes import ProbeAnswer
+from tests.request_fixtures import research_request
 
 # A duration long enough that two nodes started together are reliably in flight at once,
 # short enough that a suite full of them stays quick.
@@ -218,7 +218,7 @@ async def scene(clean_slate: None, db_engine: Any) -> dict[str, Any]:
         session.add(user)
         await session.flush()
 
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Contoso Corporation",
             ticker="CTSO",
@@ -235,7 +235,6 @@ async def scene(clean_slate: None, db_engine: Any) -> dict[str, Any]:
 
         job = Job(
             work_order_id=request.id,
-            request_id=request.id,
             workflow_version="dag-test-1",
             code_version="a1b2c3d4",
             status=JobStatus.RUNNING,

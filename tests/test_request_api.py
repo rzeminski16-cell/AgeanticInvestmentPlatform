@@ -21,6 +21,7 @@ from aer.core.enums import JobStatus, Provider, RequestStatus, SourceTier, UserR
 from aer.db.models import Artefact, AuditEvent, Job, ResearchRequest, SourceDocument, User
 from aer.services import runs as run_service
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 
 pytestmark = pytest.mark.integration
 
@@ -125,7 +126,7 @@ async def _finish_the_run(engine, request_id: str) -> None:
     factory = async_sessionmaker(bind=engine, expire_on_commit=False)
     async with factory() as session:
         job = await session.scalar(
-            select(Job).where(Job.request_id == uuid.UUID(request_id)).order_by(Job.id.desc())
+            select(Job).where(Job.work_order_id == uuid.UUID(request_id)).order_by(Job.id.desc())
         )
         assert job is not None
         job.status = JobStatus.SUCCEEDED
@@ -143,7 +144,7 @@ async def _leave_evidence(engine, request_id: str) -> None:
     factory = async_sessionmaker(bind=engine, expire_on_commit=False)
     async with factory() as session:
         job = await session.scalar(
-            select(Job).where(Job.request_id == uuid.UUID(request_id)).order_by(Job.id.desc())
+            select(Job).where(Job.work_order_id == uuid.UUID(request_id)).order_by(Job.id.desc())
         )
         artefact = Artefact(
             sha256="e" * 64, media_type="text/html", size_bytes=11, storage_key="ee/e"
@@ -153,7 +154,6 @@ async def _leave_evidence(engine, request_id: str) -> None:
         session.add(
             SourceDocument(
                 work_order_id=uuid.UUID(request_id),
-                request_id=uuid.UUID(request_id),
                 job_id=job.id if job is not None else None,
                 artefact_id=artefact.id,
                 url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",
@@ -491,7 +491,7 @@ class TestRead:
             )
             session.add(other)
             await session.flush()
-            theirs = ResearchRequest(
+            theirs = research_request(
                 user_id=other.id,
                 company_name="Private Co",
                 ticker="PRIV",
