@@ -47,10 +47,14 @@ from aer.db.models import Calculation, Job, JobStep, User
 from aer.services import approvals as approval_service
 from aer.services import valuation as valuation_service
 from aer.services.comps import PEER_SET_STEP
+from aer.services.comps_run import CompsOutcome, comps_table_from_record
 from aer.services.sectors import CLASSIFY_STEP, classification_payload
 from aer.services.valuation_view import valuation_view
 from aer.web.templating import DISCLAIMER
-from aer.workflow.workflows.vertical_slice_v1 import PEERS_NOT_ASKED_WITHOUT_A_PRICE_FEED
+from aer.workflow.workflows.vertical_slice_v1 import (
+    COMPS_STEP,
+    PEERS_NOT_ASKED_WITHOUT_A_PRICE_FEED,
+)
 from tests.api_fixtures import build_app, client_for
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE, seed_job
@@ -435,6 +439,61 @@ class TestTheComps:
         assert view.comps is None
 
 
+class TestTheRecordReadsBackAsTheTable:
+    """`comps_table_from_record` is the inverse of `CompsOutcome.as_dict`, and a record
+    written before the subject and licence were stored still reads back with the subject
+    the caller supplies."""
+
+    def test_a_current_record_round_trips(self):
+        table = comps_table()
+        record = CompsOutcome(built=True, table=table).as_dict()
+
+        read = comps_table_from_record(
+            record, subject_identifier="IGNORED", subject_name="ignored", source_label="comps"
+        )
+
+        assert read is not None
+        assert read.subject.identifier == table.subject.identifier
+        assert read.subject.name == table.subject.name
+        assert [peer.identifier for peer in read.peers] == [peer.identifier for peer in table.peers]
+        assert read.median_of("ev_ebitda") == table.median_of("ev_ebitda")
+        assert read.peers[1].multiple("ev_ebitda").absent_because == "EBITDA was negative"
+        assert [row.reason for row in read.excluded] == [row.reason for row in table.excluded]
+        assert read.basis is table.basis
+        assert read.as_of == table.as_of
+        assert read.licence_note == table.licence_note
+        assert read.derived_figures_publishable is table.derived_figures_publishable
+
+    def test_an_older_record_takes_the_subject_from_the_caller(self):
+        record = CompsOutcome(built=True, table=comps_table()).as_dict()
+        for key in ("subject", "licence_note", "derived_figures_publishable", "exclusions"):
+            del record[key]
+
+        read = comps_table_from_record(
+            record, subject_identifier="TEST", subject_name="Testco plc", source_label="comps"
+        )
+
+        assert read is not None
+        assert read.subject.identifier == "TEST"
+        assert read.subject.period_end == read.as_of
+        assert read.derived_figures_publishable is False
+        # The grouped rows are what an older record holds, and they still say who and why.
+        assert [row.reason for row in read.excluded] == [
+            "reports to 2024-03-31, 91 days from the subject's"
+        ]
+
+    def test_no_table_reads_back_as_none(self):
+        assert (
+            comps_table_from_record(
+                {"comps": False, "reason": "no annual period"},
+                subject_identifier="TEST",
+                subject_name="Testco plc",
+                source_label="comps",
+            )
+            is None
+        )
+
+
 # -- The page ----------------------------------------------------------------------------------
 
 
@@ -554,6 +613,41 @@ class TestTheValuationPage:
         assert 'id="comps-not-asked"' in html
         assert "No price feed is configured" in html
         assert "AER_EODHD_API_KEY" in html
+
+    async def test_the_table_the_comps_step_built_is_shown(self, served, db_engine: Any) -> None:
+        """The page took a `comps` argument from the day it was written and nothing ever
+        passed one, so the section was empty on every run, price feed or not. It now reads
+        the step's own record back — the subject, the peers, every multiple, the exclusions
+        — and recomputes nothing."""
+        client, built = served
+        table = comps_table()
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            session.add(
+                JobStep(
+                    job_id=built["job"].id,
+                    step_key=COMPS_STEP,
+                    sequence=8,
+                    status=JobStatus.SUCCEEDED,
+                    idempotency_key=f"{built['job'].id}:{COMPS_STEP}",
+                    input_hash="0" * 64,
+                    output_ref=CompsOutcome(built=True, table=table).as_dict(),
+                )
+            )
+            await session.commit()
+
+        html = (await client.get(f"/runs/{built['job'].id}/valuation")).text
+
+        assert 'id="comps-table"' in html
+        assert 'id="no-comps"' not in html
+        assert "Peer One plc" in html
+        assert "Loss-making plc" in html
+        assert "10.0x" in html
+        assert "12.0x" in html
+        # The subject is marked as such, from the record rather than from a guess.
+        assert "Testco plc" in html
+        assert 'id="comps-excluded"' in html
+        assert "reports to 2024-03-31" in html
 
     async def test_every_figure_is_a_link_to_its_calculation(self, served):
         client, built = served

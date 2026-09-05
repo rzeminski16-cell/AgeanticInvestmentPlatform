@@ -98,7 +98,7 @@ from aer.services.comps import (
     peer_set_payload,
     peer_set_required,
 )
-from aer.services.comps_run import grouped_exclusions
+from aer.services.comps_run import comps_table_from_record, grouped_exclusions
 from aer.services.disagreements import disagreements_for_job, settle_by_hand
 from aer.services.escalation import cost_scene_for_job
 from aer.services.evaluations import evaluations_for_job, section_coverage_for_job
@@ -113,6 +113,7 @@ from aer.services.sectors import (
     sector_gate_required,
 )
 from aer.services.spend import recent_runs, spend_by_role, spend_summary
+from aer.services.subject import subject_name
 from aer.services.themes import THEME_STEP, theme_set_payload, theme_set_required
 from aer.services.valuation_view import lineage_rows, valuation_view
 from aer.storage.local import LocalArtefactStore
@@ -124,6 +125,7 @@ from aer.web.templating import render
 from aer.workflow.registry import WorkflowRegistryError, resolve_workflow
 from aer.workflow.workflows.vertical_slice_v1 import (
     ASSUMPTIONS_STEP,
+    COMPS_STEP,
     assumptions_gate_required,
     comps_note_for,
     sector_note_for,
@@ -1906,8 +1908,24 @@ async def valuation_page(
     if job is None:
         return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
 
-    view = await valuation_view(session, job)
     research_request = await mandate_of(session, job)
+
+    # The table the comps step built, read back from its record. The page took a `comps`
+    # argument from the day it was written and nothing ever passed one, so the section
+    # was empty on every run — price feed or not — and the operator with a feed read a
+    # built table's absence as a fault (first live run of the confirmation runbook).
+    comps_produced = await _step_output(session, job_id=job.id, step_key=COMPS_STEP)
+    comps = (
+        comps_table_from_record(
+            comps_produced,
+            subject_identifier=research_request.ticker,
+            subject_name=await subject_name(session, research_request),
+            source_label=f"{COMPS_STEP}:{job.id}",
+        )
+        if comps_produced and research_request is not None
+        else None
+    )
+    view = await valuation_view(session, job, comps=comps)
 
     # The comps table is rendered at INTERNAL because this page is not exported. The Markdown
     # report is the shareable artefact and takes a `WithheldComps` instead -- ADR 0034.

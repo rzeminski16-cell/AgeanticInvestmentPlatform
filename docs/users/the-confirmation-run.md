@@ -407,13 +407,15 @@ different ones.
   than from the forecast years you can check — the valuation is a statement about that one
   assumption. The sentence under the table says the same in full. It is common for a
   long-duration growth business and is a fact about the model, not a fault.
-- **An empty comparables section.** Read the sentence beneath it. If it says no price feed
-  is configured, that is expected without `AER_EODHD_API_KEY` (see 1.5): a peer contributes
-  nothing without a multiple, so none is proposed. If you *have* the key and the peer gate
-  stopped for you, the table should be there — check what the run recorded with
-  `uv run aer diagnose <job-id> comps` (`comps: True` and a `peers` count means it was
-  built) and `uv run aer diagnose <job-id> acquire_prices` (`prices: True` means the feed
-  answered). A built table that the page does not show is a page fault, and worth reporting.
+- **The comparables table.** With `AER_EODHD_API_KEY` set and the peer gate passed, expect
+  the subject and each confirmed peer as a row, one column per multiple, the peer median
+  beneath, and the excluded peers named with their reasons. Without the key the section is
+  empty and the sentence beneath it says so — a peer contributes nothing without a multiple,
+  so none is proposed (see 1.5). If the section is empty and the sentence does *not* say
+  that, check what the run recorded: `uv run aer diagnose <job-id> comps` (`comps: True`
+  and a `peers` count means a table was built) and `uv run aer diagnose <job-id>
+  acquire_prices` (`prices: True` means the feed answered). A built table the page does
+  not show is a page fault, and worth reporting.
 - **The sensitivity heatmap.** Each cell is a recorded calculation, labelled at a glance's
   precision; the full-precision figures are in the table beside it, each a link. The picture
   is a reading aid, never the record.
