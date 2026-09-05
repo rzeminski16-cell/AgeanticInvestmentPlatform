@@ -119,3 +119,33 @@ layer, so a section is drafted in whatever scale the model chooses and re-render
 platform's. This record makes that mismatch harmless rather than fatal. Closing it — telling
 the writer the scale the report will print in — is a separate change and wants the live
 contract suite, because it moves a cached prompt block.
+
+## Amended 2026-09-05 — the sign is part of the figure
+
+The first live run of the confirmation runbook lost `cash_flow_analysis` and
+`capital_allocation` to numerals right in every digit and refused for their sign. The
+scanner captured digits alone, so "-139,500" became `139500`; the comparison, correctly
+signed, then found no positive figure beside the stored `-139,500,000,000`. The agreement
+metric read the same way, and reported "51.8 days" of a negative cycle and "0.065" of a
+negative accruals ratio as disagreements it could not tell from wrong numbers.
+
+**Decided.** One scanner, in `aer.core.figures`, read by the numeral rule and the agreement
+metric alike. It carries a sign written as a mark glued to the digits — the hyphen, the
+minus sign (U+2212), the en dash (U+2013) — or as the word "negative" or "minus" before
+them. It does not read a dash between two figures as a sign, nor accounting parentheses,
+because "(67.9 percent)" in prose is a parenthesis and refusing it would cost more sections
+than it would catch tables. It also reads a unit glued to the digits — "0.09x", "3.5×",
+"$331,839m", "12bn" — from a closed set, so the word-boundary guard that keeps "FY22Q4" from
+shedding a "22" still means what it says.
+
+**The two questions differ in one stated way.** The numeral rule asks whether a numeral has
+*lineage*; an unsigned numeral reads as the magnitude of a negative figure the claims name,
+because "a negative cycle of 51.8 days" over a stored `-51.79` is that figure said as people
+say it. The agreement metric asks whether the sentence quotes the *right number*; there the
+sign counts, and "0.065" over a stored `-0.0649` is a dropped sign, reported. `reads_as`
+carries the switch, so the difference is one parameter rather than two definitions.
+
+**What this changes for a figure the old numeral scanner never saw.** "0.09x" and
+"$331,839m" were invisible to the numeral rule — the trailing letter failed its word guard —
+and so passed it unexamined, while the metric read them. They are now visible to both, and
+a multiple or a sum written with its unit needs the same lineage as one written without.

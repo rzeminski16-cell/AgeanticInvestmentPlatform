@@ -29,7 +29,7 @@ from decimal import Decimal
 from typing import Final
 
 from aer.calc.plausibility import FigureScene, impossible_relations
-from aer.core.figures import reads_as
+from aer.core.figures import numeral_tokens, reads_as
 from aer.core.section_output import gap_sentences
 from aer.eval.metrics import (
     THRESHOLDS,
@@ -347,15 +347,6 @@ def presentation_integrity(markdown: str, html: str, *, sections: int) -> Metric
     )
 
 
-# Every figure in a sentence: an optional sign, digits with optional thousands separators,
-# an optional decimal part. The surrounding symbols — a currency mark, a percent sign, a
-# multiplication sign, "billion" — are deliberately not captured: what the scalings below
-# do is ask whether the *number* is this calculation's under any reading the platform
-# produces, and a sentence that says "46.8%" over a stored 0.4676 is right in a way no
-# amount of symbol-matching would confirm.
-_FIGURE: Final[re.Pattern[str]] = re.compile(r"-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?")
-
-
 def cited_figure_agreement(observations: Sequence[CitedFigureObservation]) -> MetricResult:
     """Claims that quote a figure their cited calculation does not hold — threshold zero.
 
@@ -383,7 +374,13 @@ def cited_figure_agreement(observations: Sequence[CitedFigureObservation]) -> Me
 
     failures: list[str] = []
     for row in observations:
-        quoted = [Decimal(found.replace(",", "")) for found in _FIGURE.findall(row.text)]
+        # The same scanner the numeral rule reads with (`aer.core.figures`): the sign
+        # travels with the digits, so "-51.8 days" and "negative 51.8 days" both quote a
+        # stored -51.79 — and "51.8" over it is a dropped sign, which this metric
+        # reports. The surrounding symbols — a currency mark, a per-cent sign, "billion"
+        # — are not captured: the readings ask whether the *number* is this
+        # calculation's under a presentation the platform produces.
+        quoted = [Decimal(token) for token in numeral_tokens(row.text)]
         if not quoted:
             continue
         if any(reads_as(figure, row.value) for figure in quoted):

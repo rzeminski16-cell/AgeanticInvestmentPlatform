@@ -36,7 +36,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Final
 
 from aer.core.concepts import CANONICAL_CONCEPTS
-from aer.core.figures import reads_as
+from aer.core.figures import numeral_matches, numeral_tokens, reads_as
 from aer.core.schemas.skill import RESERVED_OUTPUT_FIELDS
 
 __all__ = [
@@ -197,13 +197,6 @@ def reader_warning(reason: str | None) -> str | None:
 NUMERAL_EXEMPT_KEYS: Final[frozenset[str]] = frozenset(
     {"confidence", "calculation_id", "source_document_id", "extraction_id", "financial_fact_id"}
 )
-
-# A numeral as a reader meets one: digits, optional thousands separators and decimals,
-# an optional trailing per-cent sign. Word-bounded so "10-K" and "FY22Q4" do not shed
-# fragments, but "grew 34%" and "$198,270 million" both surface their figures. The
-# trailing guard refuses only a *mid-decimal* stop (".<digit>"), so a numeral ending a
-# sentence — "in 2022." — still counts.
-_NUMERAL: Final[re.Pattern[str]] = re.compile(r"(?<![\w.])(\d[\d,]*(?:\.\d+)?)%?(?!\w)(?!\.\d)")
 
 _MONTHS: Final = (
     "January|February|March|April|May|June|July|August|September|October|November|December"
@@ -410,8 +403,13 @@ def reserved_fields_in(contract: dict[str, Any]) -> frozenset[str]:
 
 
 def numerals_in(text: str) -> frozenset[str]:
-    """Every numeral token in a piece of text, normalised (separators stripped)."""
-    return frozenset(_canonical_numeral(match.replace(",", "")) for match in _NUMERAL.findall(text))
+    """Every numeral token in a piece of text, normalised: sign kept, separators gone.
+
+    The scanner is :func:`aer.core.figures.numeral_tokens`, shared with the agreement
+    metric, so "-139,500" is ``-139500`` to both and neither can read a sign the other
+    does not.
+    """
+    return frozenset(_canonical_numeral(token) for token in numeral_tokens(text))
 
 
 def _reads_as_named(token: str, figures: tuple[Decimal, ...]) -> bool:
@@ -426,9 +424,11 @@ def _reads_as_named(token: str, figures: tuple[Decimal, ...]) -> bool:
         return False
     try:
         quoted = Decimal(token)
-    except InvalidOperation:  # pragma: no cover -- `_NUMERAL` only matches decimal text
+    except InvalidOperation:  # pragma: no cover -- the scanner only yields decimal text
         return False
-    return any(reads_as(quoted, stored) for stored in figures)
+    # The lineage question: a numeral written without a sign is the magnitude of the
+    # figure the claim names, however the sentence around it carries the sign.
+    return any(reads_as(quoted, stored, sign_matters=False) for stored in figures)
 
 
 def _canonical_numeral(token: str) -> str:
@@ -603,8 +603,8 @@ def numeral_context(scanned: str, numeral: str) -> str:
     ADR 0054's decision is untouched by this. Nothing here excuses a numeral; it only
     reports where the numeral was.
     """
-    for match in _NUMERAL.finditer(scanned):
-        if _canonical_numeral(match.group().replace(",", "")) != numeral:
+    for match, token in numeral_matches(scanned):
+        if _canonical_numeral(token) != numeral:
             continue
         start = max(0, match.start() - _CONTEXT_RADIUS)
         end = min(len(scanned), match.end() + _CONTEXT_RADIUS)
