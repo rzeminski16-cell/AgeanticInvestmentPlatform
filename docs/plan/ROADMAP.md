@@ -168,7 +168,12 @@ The approved report then stalled at `gate_final` because a disagreement settled 
 page after the seal changed the payload the seal was taken over — fixed, with `aer reseal`
 to recover a run already caught (`57c8138`). `aer replay-draft <job-id> [section-key]` reads
 the run's archived section replies back under today's rules at no spend — the proof that a
-changed rule takes, before another live run pays to find out.
+changed rule takes, before another live run pays to find out. Two smaller findings from the
+same run: the depreciation-intensity driver was asked of the operator because the subject
+files `Depreciation` and `AmortizationOfIntangibleAssets` and no combined tag — the halves
+now map to their own concepts and the combined line is derived from them, as total debt is
+from its maturities; and the beta the operator was asked for had its refusal only in a log
+line — `acquire_prices` now records the regression's reason beside `beta_proposed`.
 
 *What was read against the tree 2026-08-28, ahead of the data, and turned out not to be the
 cause: `validate_draft` checks only the 1.25× word ceiling with no minimum; a truncation

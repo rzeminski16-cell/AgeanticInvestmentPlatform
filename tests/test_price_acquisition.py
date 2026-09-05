@@ -378,6 +378,17 @@ class TestTheBeta:
             )
             is None
         )
+        # The reason travels on the step's record, in the regression's own words. The
+        # confirmation run asked the operator for a beta and said nothing about why: the
+        # reason was in a log line, and `aer diagnose acquire_prices` showed only `False`.
+        assert "observation" in outcome.beta_reason
+        assert outcome.as_dict()["beta_reason"] == outcome.beta_reason
+
+    async def test_a_regressed_beta_carries_no_reason(self, scene: dict[str, Any]) -> None:
+        outcome = await _acquire(scene, StubPriceClient(scene["store"]))
+
+        assert outcome.beta_proposed is True
+        assert outcome.beta_reason == ""
 
 
 class TestTheWindow:

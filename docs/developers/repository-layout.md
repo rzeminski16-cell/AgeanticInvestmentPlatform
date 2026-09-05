@@ -685,10 +685,10 @@ inventory line, and every ratio depending on it will be correspondingly absent w
 reason. Defaulting to zero produces a current ratio that is arithmetically fine, factually
 invented, and indistinguishable downstream from a real one.
 
-**A derived line says it was derived.** Gross profit, pre-tax income and total debt are
-worked out when the filer stated the components but not the subtotal — each through
-`@traced`, so the derived line's provenance points at a calculation whose inputs point at
-facts. A stated subtotal is never overwritten by a derived one; a disagreement between them
+**A derived line says it was derived.** Gross profit, pre-tax income, total debt, and
+depreciation and amortisation from its two halves are worked out when the filer stated the
+components but not the subtotal — each through `@traced`, so the derived line's provenance
+points at a calculation whose inputs point at facts. A stated subtotal is never overwritten by a derived one; a disagreement between them
 is what an identity check reports.
 
 **The identities are output, not assertions.** Seven checks — the balance sheet balancing,

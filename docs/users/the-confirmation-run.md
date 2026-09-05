@@ -268,7 +268,7 @@ These appear **only if the company makes them necessary**. Each stops the run an
 | Sector specialist | `/runs/{id}/sector` | The accounting differs enough that the standard model would be wrong | For Microsoft, this should **not** appear. If it does, read why before approving |
 | Peer set | `/runs/{id}/peers` | Comparables were proposed. It passes straight through when nothing comparable is in the database | The peers are real comparables. Without a price feed (`AER_EODHD_API_KEY`) the step proposes only what the platform already holds, spends nothing, and the page says so |
 | Theme set | `/runs/{id}/themes` | Themes were proposed. It passes straight through when none were | The themes are the ones you would research |
-| Unmapped concepts | `/runs/{id}/financials` | A filing used tags the concept map does not know | Which statement lines would be lost. This is a silent gap becoming a decision |
+| Unmapped concepts | `/runs/{id}/financials` | A filing used tags the concept map does not know | Which statement lines would be lost. This is a silent gap becoming a decision. A filer's `Depreciation` and `AmortizationOfIntangibleAssets` are known tags: each maps to its own line, and the combined depreciation-and-amortisation line is derived from the pair when the filing states no sum |
 | Assumptions | `/runs/{id}/assumptions` | A valuation model applies | **The most important one — see 4.2** |
 
 **Expect** — for a US large-cap that files clean iXBRL, several of these pass straight
@@ -291,8 +291,8 @@ always answer "what was this resting on?" — but only you can answer "were they
 | Kind | Inputs | Why |
 |---|---|---|
 | **Yours by design** | risk-free rate, equity risk premium, terminal growth, exit multiple | No series answers them. They are judgements, and the platform asks you to state and source them rather than propose a number nobody inspected |
-| **Derived from the filings** | revenue growth, EBIT margin, capex intensity, depreciation intensity, working-capital intensity, tax rate | Trailing averages of filed lines. Asked of you only when the filings do not carry the line — a company that files depreciation and amortisation separately, say — or when a period is negative |
-| **Proposed from prices** | beta | Regressed from five years of monthly returns against the market proxy. Asked of you when there is no price feed, or when the regression could not run; `aer diagnose <job-id> acquire_prices` says which |
+| **Derived from the filings** | revenue growth, EBIT margin, capex intensity, depreciation intensity, working-capital intensity, tax rate | Trailing averages of filed lines. Asked of you only when the filings do not carry the line under a tag the concept map knows, or when a period is negative. A filer that reports depreciation and amortisation as two lines and never the sum is not such a case: the sum is derived from the pair |
+| **Proposed from prices** | beta | Regressed from five years of monthly returns against the market proxy. Asked of you when there is no price feed, or when the regression could not run; `aer diagnose <job-id> acquire_prices` says which, and its `beta_reason` carries the regression's own words when it refused |
 
 A derived input that is asked of you is worth a note: it usually means a line the concept
 map does not yet carry for this filer, and that is a gap to report rather than a number to

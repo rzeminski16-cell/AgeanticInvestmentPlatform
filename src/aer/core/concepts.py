@@ -128,6 +128,11 @@ CANONICAL_CONCEPTS: Final[frozenset[str]] = frozenset(
         "investing_cash_flow",
         "financing_cash_flow",
         "depreciation_and_amortisation",
+        # The two halves of that line, for the filer who reports them apart. The
+        # combined line is derived from them when it is not stated
+        # (`aer.calc.statements`); neither half is ever mistaken for it.
+        "depreciation",
+        "amortisation_of_intangibles",
         "share_based_compensation",
         "deferred_income_tax_expense",
         "change_in_working_capital",
@@ -295,9 +300,16 @@ US_GAAP_ALIASES: Final[dict[str, str]] = {
     "DepreciationAmortizationAndAccretionNet": "depreciation_and_amortisation",
     # The plainest spelling of the same combined line, and common among large filers.
     # Only tags meaning *depreciation and amortisation together* belong here: bare
-    # `Depreciation` is a smaller number and mapping it would understate the driver
-    # wherever a company reports the two separately.
+    # `Depreciation` is a smaller number and mapping it to the combined line would
+    # understate the driver wherever a company reports the two separately.
     "DepreciationAndAmortization": "depreciation_and_amortisation",
+    # The halves, each to its own concept. A filer that reports them apart and never the
+    # sum — Microsoft files `Depreciation` and `AmortizationOfIntangibleAssets` and no
+    # combined tag — used to leave the combined line absent and the depreciation-intensity
+    # driver asked of the operator. `aer.calc.statements` adds the two when the sum is not
+    # stated, as it adds the two debt maturities, and records that it did.
+    "Depreciation": "depreciation",
+    "AmortizationOfIntangibleAssets": "amortisation_of_intangibles",
     "ShareBasedCompensation": "share_based_compensation",
     "DeferredIncomeTaxExpenseBenefit": "deferred_income_tax_expense",
     "IncreaseDecreaseInOperatingCapital": "change_in_working_capital",
@@ -449,6 +461,9 @@ IFRS_ALIASES: Final[dict[str, str]] = {
     "IncreaseDecreaseInCashAndCashEquivalents": "net_change_in_cash",
     "EffectOfExchangeRateChangesOnCashAndCashEquivalents": "effect_of_exchange_rate_on_cash",
     "DepreciationAndAmortisationExpense": "depreciation_and_amortisation",
+    # The halves, as under us-gaap: summed into the combined line where it is not stated.
+    "DepreciationPropertyPlantAndEquipment": "depreciation",
+    "AmortisationIntangibleAssetsOtherThanGoodwill": "amortisation_of_intangibles",
     (
         "DepreciationAmortisationAndImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss"
     ): "depreciation_and_amortisation",

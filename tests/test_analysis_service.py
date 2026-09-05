@@ -994,7 +994,13 @@ class TestTheMapCarriesTheSpellingsFilersUse:
             "capital_expenditure"
         )
 
-    def test_bare_depreciation_is_left_alone(self) -> None:
-        """It is a smaller number than the combined line, and mapping it would understate
-        the driver wherever a company reports depreciation and amortisation separately."""
-        assert canonical_concept("us-gaap", "Depreciation") is None
+    def test_bare_depreciation_is_never_the_combined_line(self) -> None:
+        """It is a smaller number than the combined line, and mapping it there would
+        understate the driver wherever a company reports the two separately. It is its own
+        concept instead, and the combined line is derived from the pair
+        (`aer.calc.statements`) — which is what the confirmation run's subject needed."""
+        assert canonical_concept("us-gaap", "Depreciation") == "depreciation"
+        assert canonical_concept("us-gaap", "AmortizationOfIntangibleAssets") == (
+            "amortisation_of_intangibles"
+        )
+        assert canonical_concept("us-gaap", "Depreciation") != "depreciation_and_amortisation"

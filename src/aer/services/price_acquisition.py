@@ -117,6 +117,11 @@ class PriceAcquisition:
     actions: int = 0
     market_capitalisation: Quantity | None = None
     beta_proposed: bool = False
+    # Why no beta was put forward, in the regression's own words, when none was. The
+    # confirmation run asked the operator for a beta and recorded nothing about why: the
+    # reason was in a log line the operator never sees, and `aer diagnose acquire_prices`
+    # showed `beta_proposed: False` and no more. Empty when a beta was proposed.
+    beta_reason: str = ""
     proxy: MarketProxy | None = None
 
     def as_dict(self) -> dict[str, Any]:
@@ -135,6 +140,7 @@ class PriceAcquisition:
                 else None
             ),
             "beta_proposed": self.beta_proposed,
+            "beta_reason": self.beta_reason,
             "market_proxy": self.proxy.label if self.proxy is not None else "",
         }
 
@@ -235,7 +241,7 @@ async def acquire_prices(
         filed_shares=shares_outstanding,
     )
 
-    beta_proposed = await _propose_beta(
+    beta_proposed, beta_reason = await _propose_beta(
         session,
         context,
         request=request,
@@ -255,6 +261,7 @@ async def acquire_prices(
         actions=subject.actions,
         proxy=proxy.symbol,
         beta_proposed=beta_proposed,
+        beta_reason=beta_reason,
     )
     return PriceAcquisition(
         acquired=True,
@@ -263,6 +270,7 @@ async def acquire_prices(
         actions=subject.actions,
         market_capitalisation=capitalisation,
         beta_proposed=beta_proposed,
+        beta_reason=beta_reason,
         proxy=proxy,
     )
 
@@ -526,12 +534,14 @@ async def _propose_beta(
     proxy: MarketProxy,
     as_of: date,
     since: date,
-) -> bool:
-    """Regress the beta and put it forward, or say nothing.
+) -> tuple[bool, str]:
+    """Regress the beta and put it forward, or say why not.
 
-    Returns ``False`` rather than raising when the series do not overlap enough to regress:
-    a newly listed company has no five-year beta, which is a fact about the company and not
-    a failure of the run. The operator enters one by hand, as they would have had to anyway.
+    Returns ``(False, reason)`` rather than raising when the series do not overlap enough
+    to regress: a newly listed company has no five-year beta, which is a fact about the
+    company and not a failure of the run. The operator enters one by hand, as they would
+    have had to anyway — and the reason goes on the step's record, where they can read it,
+    rather than only into the worker's log.
     """
     subject_series = await adjusted_series_for(session, subject, as_of=as_of, since=since)
     market_series = await adjusted_series_for(session, market, as_of=as_of, since=since)
@@ -555,5 +565,5 @@ async def _propose_beta(
             proxy=proxy.symbol,
             reason=str(refused),
         )
-        return False
-    return True
+        return False, str(refused)
+    return True, ""
