@@ -46,9 +46,11 @@ from aer.core.sectors import ValuationModel, profile_for, unclassified_mandate
 from aer.db.models import Calculation, Job, JobStep, User
 from aer.services import approvals as approval_service
 from aer.services import valuation as valuation_service
+from aer.services.comps import PEER_SET_STEP
 from aer.services.sectors import CLASSIFY_STEP, classification_payload
 from aer.services.valuation_view import valuation_view
 from aer.web.templating import DISCLAIMER
+from aer.workflow.workflows.vertical_slice_v1 import PEERS_NOT_ASKED_WITHOUT_A_PRICE_FEED
 from tests.api_fixtures import build_app, client_for
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE, seed_job
@@ -503,6 +505,55 @@ class TestTheValuationPage:
         assert "Terminal value share" in html
         assert 'id="figure-gordon_growth-terminal_share"' in html
         assert 'id="figure-gordon_growth-value_per_share"' in html
+
+    async def test_the_terminal_tag_says_how_much_and_the_note_says_what_it_means(self, served):
+        """ "Most of the answer" named a consequence without the fact; a reader meeting it
+        cold asked what it meant (first live run of the runbook). The chip now carries the
+        threshold, and the calculation's own caveat sits under the table — both or neither,
+        because a note explaining a chip that is not there would explain nothing."""
+        client, built = served
+
+        html = (await client.get(f"/runs/{built['job'].id}/valuation")).text
+
+        assert "most of the answer" not in html
+        tagged = 'id="high-terminal-' in html
+        assert ('id="high-terminal-note"' in html) == tagged
+        if tagged:
+            assert "over 75% terminal value" in html
+            assert "More than three quarters of the enterprise value" in html
+
+    async def test_a_table_absent_for_want_of_a_price_feed_says_so(
+        self, served, db_engine: Any
+    ) -> None:
+        """The peer step records why it asked the model for nobody; the page that shows the
+        empty table is where an operator reads it, or they read a configuration state as a
+        fault — which is what happened."""
+        client, built = served
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            session.add(
+                JobStep(
+                    job_id=built["job"].id,
+                    step_key=PEER_SET_STEP,
+                    sequence=7,
+                    status=JobStatus.SUCCEEDED,
+                    idempotency_key=f"{built['job'].id}:{PEER_SET_STEP}",
+                    input_hash="0" * 64,
+                    output_ref={
+                        "proposed": [],
+                        "refused": [],
+                        "model_skipped_because": PEERS_NOT_ASKED_WITHOUT_A_PRICE_FEED,
+                    },
+                )
+            )
+            await session.commit()
+
+        html = (await client.get(f"/runs/{built['job'].id}/valuation")).text
+
+        assert 'id="no-comps"' in html
+        assert 'id="comps-not-asked"' in html
+        assert "No price feed is configured" in html
+        assert "AER_EODHD_API_KEY" in html
 
     async def test_every_figure_is_a_link_to_its_calculation(self, served):
         client, built = served

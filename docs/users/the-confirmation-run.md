@@ -104,6 +104,7 @@ just config
 | `per_run_budget_gbp` | `12.00` (or whatever you intend as the platform ceiling) |
 | `monthly_budget_gbp` | `80.00`, and not already spent — check `/costs` once the app is up |
 | `http_user_agent` | your real contact details, not the placeholder |
+| `eodhd_api_key` | *optional.* Without it no peers are proposed and the comparables table is empty — expected, and the valuation page says so. With it, peers are proposed, priced and tabled |
 
 **If not** — a missing API key stops the run at the first model call; a user agent that does
 not identify you is how a fetcher gets blocked by a filing site.
@@ -326,10 +327,17 @@ then one line per step:
   …
 ```
 
-**Every step should read `SUCCEEDED`, with `attempt 1`**, up to the one refused for the budget.
+**Every step should read `SUCCEEDED`**, up to the one refused for the budget.
 
-**If not** — any step with `attempt 2` or higher, or one that succeeded with an error recorded,
-is worth reading in full:
+**Gate steps read `attempt 2`, and that is correct.** A gate runs once to stop the run and
+wait for you, and once more after you approve, to confirm the decision and continue — two
+executions of one step, recorded on one row. So `gate_plan`, `gate_peer_set`,
+`gate_theme_set`, `gate_unmapped_concepts` and `gate_assumptions` will each show `attempt 2`
+when you passed through them, and a gate the run passed straight through shows `attempt 1`.
+Every *other* step should show `attempt 1`.
+
+**If not** — a non-gate step with `attempt 2` or higher, or any step that succeeded with an
+error recorded, is worth reading in full:
 
 ```bash
 uv run aer diagnose <job-id> <step-key>
@@ -350,15 +358,36 @@ Open `/runs/{id}/sources`.
   for.
 - Refused sources are listed too, with the reason. Refusals are a good sign, not a bad one.
 
+**Expect the list to be filings, and little else — that is the design, not a gap.** A
+*source* here is a document the platform fetched, hashed and archived, so that a sentence in
+the report can point at an exact excerpt. Regulatory filings and issuer material qualify. News
+and market commentary reach the research workers a different way: each worker may run a
+handful of web searches, but what comes back is a **listing** — titles and URLs, labelled
+unverified — used for leads, never for citations. A page found by search becomes a source only
+if it is fetched through the same gate every other document passes. So there is no "Yahoo
+Finance" row and no sentiment score, and there will not be one: a claim that could not be
+traced to a hashed excerpt would break the platform's first invariant.
+
+You can see whether the workers searched at all: `/costs` lists each search as its own row
+under `web_search`.
+
 ### 5.3 The figures
 
-Open `/runs/{id}/claims`, or the calculations on the console.
+**There are no claims yet, and that is correct.** A *claim* is a sentence the section writer
+proposes with its citation, and no section has been written. `/runs/{id}/claims` is empty
+until after Stage 6, and it is where you check citations at Stage 7. What exists now, and
+what to check, is the **calculations**.
 
-**Pick three numbers that matter and follow each one down**: the figure → its formula → its
-inputs → the filing the input came from.
+Open `/runs/{id}/valuation`. Every figure in the terminal-methods table is a link.
 
-**Expect** — every one resolves to a stored fact with a source, or to a recorded calculation
-whose own inputs resolve.
+**Pick three numbers that matter and follow each one down**: the figure → its calculation
+page → the **Lineage** table on it → the fact or calculation each input came from → the
+filing.
+
+**Expect** — each calculation page shows the formula, the parameters, and a lineage row per
+input naming where that input came from. Every one resolves to a stored fact with a source,
+or to a recorded calculation whose own inputs resolve. A page saying *no lineage* for an
+input that plainly came from a filing is the thing to stop for.
 
 **If a figure will not resolve to a source — stop.** That is precisely the failure this whole
 platform exists to prevent, and finding it is worth more than the run.
@@ -370,6 +399,24 @@ Open `/runs/{id}/valuation`.
 **Expect** — the method fits the company (a discounted cash flow for Microsoft, not a bank's
 residual-income model), and its inputs are the assumptions **you approved** at the gate, not
 different ones.
+
+**Three things you will meet on this page, and what they mean:**
+
+- **A tag reading "over 75% terminal value"** beside the terminal-value share. It means that
+  more than three quarters of the enterprise value comes from the terminal assumption rather
+  than from the forecast years you can check — the valuation is a statement about that one
+  assumption. The sentence under the table says the same in full. It is common for a
+  long-duration growth business and is a fact about the model, not a fault.
+- **An empty comparables section.** Read the sentence beneath it. If it says no price feed
+  is configured, that is expected without `AER_EODHD_API_KEY` (see 1.5): a peer contributes
+  nothing without a multiple, so none is proposed. If you *have* the key and the peer gate
+  stopped for you, the table should be there — check what the run recorded with
+  `uv run aer diagnose <job-id> comps` (`comps: True` and a `peers` count means it was
+  built) and `uv run aer diagnose <job-id> acquire_prices` (`prices: True` means the feed
+  answered). A built table that the page does not show is a page fault, and worth reporting.
+- **The sensitivity heatmap.** Each cell is a recorded calculation, labelled at a glance's
+  precision; the full-precision figures are in the table beside it, each a link. The picture
+  is a reading aid, never the record.
 
 ### 5.5 The front page
 

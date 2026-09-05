@@ -94,7 +94,7 @@
                       <span class="type-data-sm text-ink-muted">{{ figure.unit }}</span>
                       {% if row_key == 'terminal_share' and outcome.terminal_share_is_high %}
                         <span class="ml-1" id="high-terminal-{{ outcome.method.value }}">
-                          {{ ui.status("warning", "most of the answer") }}
+                          {{ ui.status("warning", high_terminal_label) }}
                         </span>
                       {% endif %}
                     {% else %}
@@ -107,6 +107,18 @@
           </tbody>
         </table>
       </div>
+
+      {% if high_terminal_caveat %}
+        {#
+          The chip says how much; this says what it means. A reader who has not met the
+          idea that a discounted cash flow can be mostly its own terminal assumption
+          cannot be expected to decode a three-word label, and the caveat is the
+          calculation's own words (ADR 0038), not a gloss written here.
+        #}
+        <p class="mt-4 max-w-prose type-body-sm text-ink-muted" id="high-terminal-note">
+          {{ high_terminal_caveat }}
+        </p>
+      {% endif %}
 
       {% if disagreement_display %}
         <p class="mt-4 type-body text-ink" id="method-disagreement">
@@ -261,6 +273,18 @@
         peer set was never confirmed &mdash; and an unconfirmed comparison is one nobody can
         defend, so none is shown.
       </p>
+      {% if comps_not_asked %}
+        {#
+          The cause, where the absence is read. The peer step recorded why it asked nobody;
+          without it this page said only that the table was empty, and an operator on a
+          machine with no subscription read a configuration state as a fault (first live
+          run of the confirmation runbook).
+        #}
+        <p class="mt-2 max-w-prose type-body-sm text-ink-muted" id="comps-not-asked">
+          {{ comps_not_asked }} Set <code>AER_EODHD_API_KEY</code> and run the request again
+          for peers to be proposed, priced and tabled.
+        </p>
+      {% endif %}
     {% endif %}
   {% endcall %}
 

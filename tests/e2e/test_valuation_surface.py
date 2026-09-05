@@ -205,6 +205,12 @@ class TestWhatTheReaderIsTold:
 
         expect(page.locator("#figure-gordon_growth-terminal_share")).to_be_visible()
         expect(page.locator("#high-terminal-gordon_growth")).to_be_visible()
+        # The threshold on the chip and the meaning under the table: "most of the answer"
+        # on its own was a label a reader had to ask about.
+        expect(page.locator("#high-terminal-gordon_growth")).to_contain_text(
+            "over 75% terminal value"
+        )
+        expect(page.locator("#high-terminal-note")).to_be_visible()
 
     def test_the_two_methods_disagreeing_is_stated(
         self, page: Page, live_server: str, valuation: ValuationFixture

@@ -45,6 +45,7 @@ from starlette.status import (
 from aer.api.deps import CurrentUser, DbSession, RedisClient, SettingsDep
 from aer.api.routes.assumptions import assumptions_payload
 from aer.calc.comps import MULTIPLE_DEFINITIONS, CompsTable
+from aer.calc.dcf import HIGH_TERMINAL_SHARE, HIGH_TERMINAL_SHARE_CAVEAT
 from aer.charts import (
     ValuationHistoryInput,
     ValuationRangePoint,
@@ -1927,6 +1928,13 @@ async def valuation_page(
     # renders beside it; the figure is a reading aid, never the record.
     heatmap = await sensitivity_chart(session, job=job) if view.grids else None
 
+    peers_produced = await _step_output(session, job_id=job.id, step_key=PEER_SET_STEP)
+    comps_not_asked = (
+        str(peers_produced.get("model_skipped_because", "")).strip()
+        if peers_produced and table is None
+        else ""
+    )
+
     style = HouseStyle()
     if view.sector and view.sector.blocks_the_dcf:
         lead = verdicts.sentence(
@@ -1973,6 +1981,10 @@ async def valuation_page(
                 ("value_per_share", "Value per share"),
             ),
             "comps_rows": rows,
+            # Why there is no table, when the peer step recorded a reason — a machine with
+            # no price feed asks the model for nobody, and the page that shows the empty
+            # table is where that has to be said.
+            "comps_not_asked": comps_not_asked,
             # Grouped rather than listed per peer: eight companies excluded for the same
             # one reason must not read as eight repeated paragraphs (polish P4).
             "comps_excluded": grouped_exclusions(table.excluded) if table is not None else (),
@@ -1985,6 +1997,18 @@ async def valuation_page(
                 if not chart.placeholder
             ],
             "verdict": lead,
+            # The threshold in the label and the calculation's own caveat beneath the
+            # table: "most of the answer" named the consequence and not the fact, and a
+            # reader meeting it cold asked what it meant.
+            "high_terminal_label": f"over {HIGH_TERMINAL_SHARE * 100:.0f}% terminal value",
+            "high_terminal_caveat": (
+                HIGH_TERMINAL_SHARE_CAVEAT
+                if any(
+                    outcome is not None and outcome.terminal_share_is_high
+                    for outcome in (view.gordon, view.exit_multiple)
+                )
+                else ""
+            ),
             "heatmap": (
                 {
                     "uri": svg_data_uri(heatmap.svg),
