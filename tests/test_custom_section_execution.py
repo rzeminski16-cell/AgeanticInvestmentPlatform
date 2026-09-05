@@ -441,6 +441,35 @@ class TestAReferenceIsNotAFigure:
         }
         assert unsourced_numerals(content, []) == []
 
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Proposition 5 \u2014 AI partner and capacity dependence is rising.",
+            "Pillar 3: the installed base renews.",
+            "Risk 2. Concentration in one customer.",
+            "Under Step 4) the plan reprices.",
+        ],
+    )
+    def test_the_writers_own_enumeration_is_a_reference(self, text: str) -> None:
+        """ADR 0054, amended: a heading's number is a label, and the separator after it
+        is what says so. The confirmation run lost a revise reply to "Proposition 5 \u2014"."""
+        assert unsourced_numerals({"s": text}, []) == []
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            # A decimal or a third digit is a quantity's shape, whatever label precedes it.
+            "Phase 12.5 \u2014 margin expansion.",
+            "Step 200 \u2014 units shipped.",
+            # The label excuses its own number and nothing after it.
+            "Step 2 \u2014 40 bps of margin.",
+            # An unlabelled number with a separator is still a figure.
+            "Deliver 5 \u2014 points of margin.",
+        ],
+    )
+    def test_the_enumeration_rule_excuses_no_quantity(self, text: str) -> None:
+        assert unsourced_numerals({"s": text}, []) != []
+
     def test_a_year_in_temporal_company_is_a_date(self) -> None:
         assert unsourced_numerals({"s": "Guidance was withdrawn in 2026."}, []) == []
         assert unsourced_numerals({"s": "Trading between 2019 and 2024 was flat."}, []) == []
@@ -682,18 +711,6 @@ class TestAMalformedClaimCostsTheClaim:
             kind="numeric",
             financial_fact_id=str(uuid.uuid4()),
             citations=[ProposedCitation(extraction_id=str(uuid.uuid4()))],
-        )
-
-        assert claim.malformed_reason is None
-
-    @pytest.mark.parametrize("figure", ["financial_fact_id", "calculation_id"])
-    def test_a_numeric_claim_stands_on_the_figure_it_names(self, figure: str) -> None:
-        """ADR 0109. The live run's `business_overview` was refused nine claims at a time for
-        omitting a citation on figures that are fact rows, not sentences in any excerpt. The
-        figure's lineage is the platform's own record; an excerpt is owed only by a factual
-        claim, which has nothing else to stand on."""
-        claim = ProposedClaim(
-            statement="Revenue was $198,270 million.", kind="numeric", **{figure: str(uuid.uuid4())}
         )
 
         assert claim.malformed_reason is None

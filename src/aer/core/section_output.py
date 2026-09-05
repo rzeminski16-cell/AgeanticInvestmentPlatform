@@ -256,6 +256,17 @@ _REFERENCE: Final[re.Pattern[str]] = re.compile(
             # its cover: "Item 2.02", "Items 2.02 and 9.01", "Exhibit 99.1", "Form 4".
             r"\b(?:Item|Exhibit|Note|Form|Rule|Section)s?\s+\d+(?:\.\d+)?[A-Za-z]?"
             r"(?:\s*(?:,|and|&|through|to)\s*\d+(?:\.\d+)?[A-Za-z]?)*",
+            # The writer's own enumeration of its argument, where the label is the anchor
+            # and the separator after the number is what makes it a heading rather than
+            # a count: "Proposition 5 \u2014", "Pillar 3:", "Risk 2." The confirmation run
+            # lost a revise reply to the "5" of "Proposition 5 \u2014 AI partner and capacity
+            # dependence" (ADR 0054, amended 2026-09-05). Two digits at most and no
+            # decimal or separator continuing them, so "Phase 12.5 \u2014" and "Step 200 \u2014"
+            # keep their figures; and the label excuses its own number only, so "Step 2
+            # \u2014 40 bps" excuses the 2 and keeps the 40.
+            r"\b(?:Pillar|Proposition|Scenario|Step|Point|Risk|Catalyst|Phase|Part|"
+            r"Driver|Thesis|Factor|Priority|Lever|Premise|Leg|Plank)s?\s+\d{1,2}"
+            r"(?![.,]?\d)(?=\s*[\u2014\u2013:\-.)])",
             # The bare form types themselves — "the 10-K", "a 10-Q", "an 8-K" — which is
             # how a writer names a filing far more often than "Form 10-K". The letter is
             # the anchor, and the closed list keeps "2-for-1" and its kin out of scope.
