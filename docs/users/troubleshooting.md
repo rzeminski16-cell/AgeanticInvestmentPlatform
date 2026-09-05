@@ -230,6 +230,7 @@ archives are unaffected.
 just verify-artefacts   # re-read every archived artefact; does it still hash to its name?
 just verify-audit       # does every audit record still link to the one before it?
 just replay-run <id>    # re-derive a run from its own record
+just replay-draft <id>  # read a run's archived section replies back under today's rules
 just verify-backup <d>  # re-hash a backup against its manifest; needs no database
 ```
 

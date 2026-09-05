@@ -166,8 +166,9 @@ record.** Fifteen of eighteen sections drafted; the three that did not
 
 The approved report then stalled at `gate_final` because a disagreement settled on the
 page after the seal changed the payload the seal was taken over — fixed, with `aer reseal`
-to recover a run already caught (`57c8138`). The replay tool that proves the three sections
-pass under today's rules at no spend is the next item.
+to recover a run already caught (`57c8138`). `aer replay-draft <job-id> [section-key]` reads
+the run's archived section replies back under today's rules at no spend — the proof that a
+changed rule takes, before another live run pays to find out.
 
 *What was read against the tree 2026-08-28, ahead of the data, and turned out not to be the
 cause: `validate_draft` checks only the 1.25× word ceiling with no minimum; a truncation

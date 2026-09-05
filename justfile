@@ -104,6 +104,11 @@ restore source:
 replay-run job_id:
     uv run aer replay-run {{job_id}}
 
+# Read a run's archived section replies back under today's drafting rules. No model call,
+# nothing spent: the proof that a changed rule takes, before another live run pays to find out.
+replay-draft job_id section_key="":
+    uv run aer replay-draft {{job_id}} {{section_key}}
+
 # Walk the audit log and check every record still links to the one before it. Exits
 # non-zero on a break, so it can be a cron line beside verify-artefacts.
 verify-audit:

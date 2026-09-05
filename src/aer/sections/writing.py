@@ -53,14 +53,14 @@ from aer.sections.evidence import (
 )
 from aer.services.subject import subject_name
 
-__all__ = ["execute_builtin_section", "policy_of_definition"]
+__all__ = ["ALL_CATEGORIES", "execute_builtin_section", "policy_of_definition"]
 
 _log = structlog.get_logger("aer.sections.writing")
 
 # Every built-in section is assembled the full pack; its budget, not a grant, is what
 # bounds it. The writer role itself holds no tools (ADR 0042) — these are evidence
 # categories code assembles, not capabilities the model can exercise.
-_ALL_CATEGORIES = frozenset({"search_facts", "search_sources"})
+ALL_CATEGORIES = frozenset({"search_facts", "search_sources"})
 
 # The output ceiling a retry runs at after the first attempt was truncated at the role's
 # registered one (polish P6). Double the writer's 16,384, because `max_tokens` bounds
@@ -323,7 +323,7 @@ async def execute_builtin_section(
         request=request,
         evidence_job_id=context.job_step.job_id,
         policy=policy,
-        categories=_ALL_CATEGORIES,
+        categories=ALL_CATEGORIES,
     )
 
     agent = _routed_writer(definition, section=section, router=context.router)

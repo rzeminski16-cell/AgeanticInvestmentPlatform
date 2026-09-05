@@ -654,6 +654,7 @@ At any point, without executing anything:
 ```powershell
 uv run aer diagnose <job-id>              # the whole run
 uv run aer diagnose <job-id> extract      # one step, in full
+uv run aer replay-draft <job-id>          # every archived section reply, under today's rules
 ```
 
 **Expect** on a step the run has not got to yet: `has no record of 'extract' (not reached
@@ -1566,6 +1567,7 @@ Machine-readable artefacts worth attaching:
 ```powershell
 uv run aer acceptance <job-id>     # the deterministic readout for a finished run
 uv run aer diagnose <job-id>       # every step, its cost, its errors — no model call
+uv run aer replay-draft <job-id>   # what today's rules make of each archived section reply
 just config                        # the effective configuration, secrets masked
 ```
 

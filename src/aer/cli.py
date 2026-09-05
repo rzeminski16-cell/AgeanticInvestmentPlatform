@@ -41,6 +41,7 @@ from aer.services.backup import (
     verify_backup,
 )
 from aer.services.curation import Worksheet, curation_worksheet, render_worksheet
+from aer.services.draft_replay import DraftReplay, ReplayedReply, ReplyVerdict, replay_drafts
 from aer.services.gates import Reseal
 from aer.services.knowledge import KnowledgeStats, knowledge_stats
 from aer.services.lessons import LessonCandidate, recurring_lessons
@@ -1274,6 +1275,39 @@ def reseal_command(
         raise typer.Exit(code=1)
 
 
+@app.command(name="replay-draft")
+def replay_draft_command(
+    job_id: Annotated[uuid.UUID, typer.Argument(help="The run whose archived replies to read.")],
+    section_key: Annotated[
+        str | None, typer.Argument(help="One section's replies. Omit for every section.")
+    ] = None,
+) -> None:
+    """Read a run's archived section replies back under today's drafting rules.
+
+    Nothing is fetched, no model is called and nothing is billed: each reply the writer
+    gave is archived beside its call, and the rules that refuse a draft are code over the
+    run's own rows. So a rule changed after a run — a numeral's sign (ADR 0097), a numeric
+    claim's citation (ADR 0109) — is checked against the replies that were refused, before
+    another live run is paid for to find out. The cited-figure agreement metric is measured
+    beside the rules, because it fails a section one step later.
+
+    Exits 1 when the run has archived no section replies.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    try:
+        replay = asyncio.run(_replay_drafts(settings, job_id=job_id, section_key=section_key))
+    except AerError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+
+    if not replay.replies:
+        scope = f"section {section_key!r}" if section_key else "any section"
+        typer.secho(f"Run {job_id} has archived no writer reply for {scope}.", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    _print_draft_replay(replay)
+
+
 @app.command(name="resume")
 def resume_command(
     job_id: Annotated[uuid.UUID, typer.Argument(help="The run to hand back to the worker.")],
@@ -1472,6 +1506,61 @@ def _status_colour(status: JobStatus) -> str:
     return _STATUS_COLOURS.get(status, typer.colors.YELLOW)
 
 
+def _print_draft_replay(replay: DraftReplay) -> None:
+    scope = f" — {replay.section_key}" if replay.section_key else ""
+    typer.secho(
+        f"Run {replay.job_id}{scope} — {len(replay.replies)} archived section reply(ies) read "
+        "back under today's rules; nothing spent",
+        fg=typer.colors.CYAN,
+        bold=True,
+    )
+    for reply in replay.replies:
+        _print_replayed_reply(reply)
+    typer.secho(
+        f"Summary: {replay.clean} of {len(replay.replies)} clean; "
+        f"{replay.reported} reported by cited_figure_agreement; "
+        f"{replay.counted(ReplyVerdict.REFUSED)} refused; "
+        f"{replay.counted(ReplyVerdict.UNREADABLE)} unreadable; "
+        f"{replay.counted(ReplyVerdict.UNIDENTIFIED) + replay.counted(ReplyVerdict.UNARCHIVED)} "
+        "unaccounted for.",
+        fg=typer.colors.GREEN if replay.clean == len(replay.replies) else typer.colors.YELLOW,
+        bold=True,
+    )
+
+
+def _print_replayed_reply(reply: ReplayedReply) -> None:
+    section = reply.section_key or "(section unknown)"
+    tokens = f"{reply.output_tokens:,} output tokens" if reply.output_tokens is not None else "—"
+    recorded = reply.recorded_stop_reason or "—"
+    typer.secho(
+        f"  {section} — {reply.step_key}, reply {reply.ordinal} of {reply.of} — {reply.model} — "
+        f"{tokens} — recorded then: {recorded}",
+        fg=typer.colors.WHITE,
+        bold=True,
+    )
+    if reply.verdict is ReplyVerdict.PASSES:
+        typer.secho(
+            f"    PASSES under today's rules: {reply.claims} claim(s), no numeral unaccounted for.",
+            fg=typer.colors.GREEN,
+        )
+    else:
+        typer.secho(
+            f"    {reply.verdict.value.upper()} — {len(reply.problems)} problem(s):",
+            fg=typer.colors.RED,
+        )
+        for problem in reply.problems:
+            typer.echo(f"      - {problem}")
+    if reply.disagreements:
+        typer.secho(
+            f"    cited_figure_agreement would report {len(reply.disagreements)} disagreement(s):",
+            fg=typer.colors.YELLOW,
+        )
+        for disagreement in reply.disagreements:
+            typer.echo(f"      - {disagreement}")
+    elif reply.verdict is ReplyVerdict.PASSES and reply.claims:
+        typer.secho("    cited figures agree.", fg=typer.colors.GREEN)
+
+
 def _print_run_diagnostic(readout: RunDiagnostic) -> None:
     step_mode = "on" if readout.step_mode else "off"
     typer.secho(
@@ -1585,6 +1674,20 @@ async def _schema_revision(settings: Settings) -> str:
         async with factory() as session:
             revision = await session.scalar(text("SELECT version_num FROM alembic_version"))
             return str(revision) if revision else "unknown"
+    finally:
+        await engine.dispose()
+
+
+async def _replay_drafts(
+    settings: Settings, *, job_id: uuid.UUID, section_key: str | None
+) -> DraftReplay:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            return await replay_drafts(
+                session, _store_for(settings), settings, job_id=job_id, section_key=section_key
+            )
     finally:
         await engine.dispose()
 

@@ -95,6 +95,11 @@ SECTION_KEY = "cash_flow_analysis"
 @pytest.fixture
 async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     """A run holding one filed excerpt, one fact, one calculation and the seeded spine."""
+    return await build_writer_scene(db_session, tmp_path)
+
+
+async def build_writer_scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
+    """The writer's scene, as a plain builder so another suite can stage the same run."""
     user = User(email="writer-exec@example.invalid", display_name="Writer")
     db_session.add(user)
     await db_session.flush()

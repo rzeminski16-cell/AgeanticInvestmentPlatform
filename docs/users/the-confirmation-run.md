@@ -492,6 +492,24 @@ Sections draft four at a time, each committing as it finishes. Expect this to ta
 **The failure to watch for**: a section that is mostly a notice about missing evidence. That is
 what the previous live run produced. If you see one, that is the thing to report.
 
+**A failed section is not lost.** Every reply the writer gave is archived beside the call that
+produced it, so once a fix for the refusal has landed you do not need another run to know
+whether it takes:
+
+```powershell
+uv run aer replay-draft <job-id>                     # every archived section reply
+uv run aer replay-draft <job-id> business_overview   # one section's
+```
+
+**Expect** — one block per archived reply, headed by the section, the step, `reply 1 of 2`,
+the model, the output tokens and what the run recorded at the time (`schema_rejected` for a
+reply refused unread, the model's own stop reason otherwise); then either `PASSES under
+today's rules` with the claim count, or `REFUSED` with the reasons as the writer would be
+told them; then whether the cited-figure agreement metric would report it. A summary line
+counts the clean replies. Nothing is fetched, no model is called and nothing is spent. A
+reply that was refused then and passes now is the fix, proven; one that is still refused
+names exactly what to fix next.
+
 ### 6.4 If drafting stops part-way
 
 **You do not pay for the same section twice.** Each section commits its own draft the moment it
@@ -641,6 +659,7 @@ footnotes resolve. The layout is part of the deliverable.
 | A run is stopped and you want it to continue | Console **Continue this run**, or `uv run aer resume <job-id>` | Nothing repeated |
 | It stopped part-way through drafting | The same. Already-written sections are kept | Only the sections not yet written |
 | After approving, it says the seal and the page "drifted apart" | `uv run aer reseal <job-id>`, then `uv run aer resume <job-id>` | £0 |
+| A section failed and a fix has since landed | `uv run aer replay-draft <job-id> [section-key]` reads its archived replies back under the new rules | £0 |
 | Nothing is moving at all | Check the worker terminal | £0 |
 | The run is not worth continuing | **Cancel** on the console | Nothing further |
 | You want me to look at it | `just diagnose-run <job-id>` writes `run-diagnosis.json` | £0 |

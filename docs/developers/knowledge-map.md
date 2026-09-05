@@ -181,7 +181,7 @@ raises, never coerces (`tests/test_units.py`).
 | `api` | Application factory, dependencies, error handling, routers |
 | `web` | Server-rendered Jinja2 + HTMX GUI (ADR 0006) |
 | `db` | Engine, sessions, ORM models, Alembic migrations |
-| `cli` | Typer entry points: serve, backup/restore, verify-artefacts, replay-run, purge-licensed … |
+| `cli` | Typer entry points: serve, backup/restore, verify-artefacts, replay-run, replay-draft, purge-licensed … |
 | `worker` | The arq background worker where a run actually executes |
 | `queue` | Enqueueing a run from the web process (deliberately separate from the worker) |
 | `runtime` | Assembles the service bundle both processes share |

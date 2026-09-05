@@ -62,8 +62,8 @@ Concretely:
 ## Consequences
 
 - The three sections the live run lost to this rule draft under it. The proof is a
-  zero-spend replay of the archived replies against today's rules (`aer replay-draft`,
-  the roadmap's next item), not another live run.
+  zero-spend replay of the archived replies against today's rules (`aer replay-draft`),
+  not another live run.
 - `source_coverage` still reaches a fact-backed claim's source: the metric already added
   the fact's own document to the claim's sources beside any cited excerpt.
 - A numeric claim in the report renders as it always did. Footnotes come from the content's
