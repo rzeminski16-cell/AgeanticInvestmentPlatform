@@ -320,11 +320,11 @@ class ClaimKind(StrEnum):
     OPINION = "opinion"
 
 
-# The kinds that cannot stand on a basis alone. Named here rather than written out at each
-# call site, so "which claims need a citation?" has one answer.
-CITATION_REQUIRING_CLAIMS: Final[frozenset[ClaimKind]] = frozenset(
-    {ClaimKind.NUMERIC, ClaimKind.FACTUAL}
-)
+# The kinds that have nothing but an excerpt to stand on. Named here rather than written
+# out at each call site, so "which claims need a citation?" has one answer. A numeric
+# claim is not among them (ADR 0109): it stands on the figure it names, whose lineage the
+# platform recorded itself, and a citation it carries is verified but not owed.
+CITATION_REQUIRING_CLAIMS: Final[frozenset[ClaimKind]] = frozenset({ClaimKind.FACTUAL})
 
 
 class Grade(StrEnum):

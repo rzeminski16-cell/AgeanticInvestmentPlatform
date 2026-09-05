@@ -41,6 +41,7 @@ from aer.services.backup import (
     verify_backup,
 )
 from aer.services.curation import Worksheet, curation_worksheet, render_worksheet
+from aer.services.gates import Reseal
 from aer.services.knowledge import KnowledgeStats, knowledge_stats
 from aer.services.lessons import LessonCandidate, recurring_lessons
 from aer.services.retention import (
@@ -54,7 +55,6 @@ from aer.services.retention import (
     verify_store,
 )
 from aer.services.run_replay import RunReplay, replay_run
-from aer.services.gates import Reseal
 from aer.services.step_diagnostic import RunDiagnostic, StepDiagnostic, run_diagnostic
 from aer.storage.local import LocalArtefactStore
 from aer.version import build_identity, git_sha, version

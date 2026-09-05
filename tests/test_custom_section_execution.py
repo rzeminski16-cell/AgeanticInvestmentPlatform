@@ -635,9 +635,9 @@ class TestAMalformedClaimCostsTheClaim:
     """ADR 0096, from the MSFT run's record (roadmap §2.1).
 
     Four of the eight sections that failed died here, each with zero bytes recorded. The
-    rule — a numeric claim names exactly one figure and cites something — is a relation
-    between fields, so JSON Schema cannot state it and the server's decoder cannot honour
-    it. It was a `model_validator`, so it raised during the parse: the reply never became
+    rule — a numeric claim names exactly one figure, a factual claim cites something — is a
+    relation between fields, so JSON Schema cannot state it and the server's decoder cannot
+    honour it. It was a `model_validator`, so it raised during the parse: the reply never became
     an object, `last_candidate` was never set, and the salvage had nothing to narrow.
     """
 
@@ -654,12 +654,6 @@ class TestAMalformedClaimCostsTheClaim:
             (
                 ProposedClaim(statement="Revenue grew.", kind="numeric"),
                 "names exactly one figure",
-            ),
-            (
-                ProposedClaim(
-                    statement="Revenue grew.", kind="numeric", calculation_id=str(uuid.uuid4())
-                ),
-                "needs at least one proposed citation",
             ),
             (
                 ProposedClaim(
@@ -692,6 +686,18 @@ class TestAMalformedClaimCostsTheClaim:
 
         assert claim.malformed_reason is None
 
+    @pytest.mark.parametrize("figure", ["financial_fact_id", "calculation_id"])
+    def test_a_numeric_claim_stands_on_the_figure_it_names(self, figure: str) -> None:
+        """ADR 0109. The live run's `business_overview` was refused nine claims at a time for
+        omitting a citation on figures that are fact rows, not sentences in any excerpt. The
+        figure's lineage is the platform's own record; an excerpt is owed only by a factual
+        claim, which has nothing else to stand on."""
+        claim = ProposedClaim(
+            statement="Revenue was $198,270 million.", kind="numeric", **{figure: str(uuid.uuid4())}
+        )
+
+        assert claim.malformed_reason is None
+
     def test_a_malformed_claim_lends_no_cover_on_its_way_out(self) -> None:
         """It is about to be dropped, so letting it excuse a numeral would pass a figure
         whose lineage is being thrown away in the same breath."""
@@ -702,13 +708,18 @@ class TestAMalformedClaimCostsTheClaim:
         assert unsourced_numerals({"s": "Revenue was $198,270 million."}, covered) != []
 
     def test_nor_does_it_lend_the_figure_it_named(self) -> None:
-        """The reading is the sharper half of the same point: a claim that names a figure
-        but cites nothing is malformed, and its stored value must not cover a numeral."""
-        fact_id = str(uuid.uuid4())
+        """The reading is the sharper half of the same point: a claim that names two figures
+        is malformed however real each is, and neither stored value may cover a numeral."""
+        fact_id, calculation_id = str(uuid.uuid4()), str(uuid.uuid4())
         malformed = ProposedClaim(
-            statement="Revenue grew.", kind="numeric", financial_fact_id=fact_id
+            statement="Revenue grew.",
+            kind="numeric",
+            financial_fact_id=fact_id,
+            calculation_id=calculation_id,
         )
-        evidence = Evidence(figure_values={fact_id: Decimal("331839000000")})
+        evidence = Evidence(
+            figure_values={fact_id: Decimal("331839000000"), calculation_id: Decimal("0.18")}
+        )
 
         covered, figures = covered_figures([malformed], evidence=evidence)
 

@@ -80,8 +80,9 @@ class ProposedClaim(BaseModel):
 
     The shape mirrors the ``claims`` table's own rules so a violation fails in the
     response schema rather than surviving until the insert: a numeric claim names exactly
-    one figure, a non-numeric claim names none, and the kinds that cannot stand on a
-    stated basis carry at least one proposed citation.
+    one figure and stands on it (ADR 0109), a non-numeric claim names none, a factual
+    claim carries at least one proposed citation, and a forward-looking statement or an
+    opinion carries a stated basis.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -128,14 +129,21 @@ class ProposedClaim(BaseModel):
         return None
 
     def _numeric_reason(self, named: int) -> str | None:
-        """What a numeric claim owes: exactly one figure, and something to read it in."""
+        """What a numeric claim owes: exactly one figure, and nothing else (ADR 0109).
+
+        The figure is the evidence. A stored fact carries the document it was extracted
+        from, by code; a recorded calculation carries its inputs, each with a source. The
+        rule that also demanded a prose excerpt refused a section about a company's own
+        filings nine claims at a time, because the statement lines are fact rows and not
+        sentences in any excerpt — and an excerpt attached to satisfy it would have been
+        verified for being in the document, never for holding the figure. A citation is
+        still admitted, and verified, where one states the figure.
+        """
         if named != 1:
             return (
                 "A numeric claim names exactly one figure — a financial fact id or a "
                 f"calculation id, not {named}."
             )
-        if not self.citations:
-            return "A numeric claim needs at least one proposed citation."
         return None
 
 
@@ -184,10 +192,14 @@ a numeric claim naming the stored fact or recorded calculation it comes from, by
 Ids you were not shown do not exist. Dates and document references are not figures when
 they are written recognisably — "March 2026", "Q3 2025", "in 2024", "Item 2.02",
 "Exhibit 99.1", "CIK 0000320193" — so anchor every year to a month, a quarter or a
-temporal word; a bare unanchored year is treated as a quantity and refused.
-2. Factual and numeric claims cite evidence: the extraction id of an excerpt from the
-evidence listing. The excerpt's source document is on record, so the id alone is the
-whole citation. The platform re-reads every excerpt; a citation that does not verify
+temporal word; a bare unanchored year is treated as a quantity and refused. Quote a
+figure at a precision it rounds to — "50.9" or "51" for a stored 50.88, never "50" — and
+carry its sign: "-51.8 days" or "negative 51.8 days" for a stored -51.79.
+2. A numeric claim stands on the figure it names: the fact or calculation id is its whole
+evidence, and it needs no excerpt. A factual claim cites evidence: the extraction id of an
+excerpt from the evidence listing. The excerpt's source document is on record, so the id
+alone is the whole citation. Cite an excerpt on a numeric claim only where the excerpt
+states the figure. The platform re-reads every excerpt; a citation that does not verify
 blocks the report.
 3. Where the evidence cannot support what the operator asked for, say so plainly in the
 content and keep your confidence low. An honest gap is publishable; filler is not.
@@ -225,7 +237,9 @@ class CustomSectionAgent(Agent[CustomSectionInput, CustomSectionDraft]):
     output_schema: ClassVar[type[BaseModel]] = CustomSectionDraft
     # "2": a citation is the extraction id alone; the source document is resolved in
     # code from the extraction's own record (gap A51b).
-    prompt_version: ClassVar[str] = "2"
+    # "3": a numeric claim stands on the figure it names and owes no excerpt (ADR 0109);
+    # a quoted figure is written at a precision it rounds to, with its sign.
+    prompt_version: ClassVar[str] = "3"
 
     def response_schema(self, payload: CustomSectionInput) -> type[BaseModel]:
         """The declared envelope, with ``content`` bound to the pinned contract.

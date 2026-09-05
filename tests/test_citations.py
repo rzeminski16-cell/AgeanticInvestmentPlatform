@@ -33,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.config import Settings
 from aer.core.enums import ClaimKind
 from aer.db.models import (
+    Calculation,
     Citation,
     Claim,
 )
@@ -125,6 +126,22 @@ def store(settings: Settings) -> LocalArtefactStore:
 async def scene(db_session: AsyncSession, store: LocalArtefactStore) -> dict[str, Any]:
     """A run with one drafted section, one archived filing, and one extracted excerpt."""
     return await build_scene(db_session, store)
+
+
+async def _recorded_calculation(session: AsyncSession, scene: dict[str, Any]) -> Calculation:
+    calculation = Calculation(
+        job_id=scene["job"].id,
+        name="revenue_cagr",
+        formula="cagr = (end / start) ** (1 / years) - 1",
+        function_ref="aer.calc.basic:cagr",
+        code_version="test",
+        inputs=[],
+        output_value=Decimal("0.18"),
+        output_unit="ratio",
+    )
+    session.add(calculation)
+    await session.flush()
+    return calculation
 
 
 async def _cited_claim(
@@ -401,6 +418,50 @@ class TestReviewingTheEvidence:
         review = await review_evidence(db_session, job_id=scene["job"].id)
 
         assert len(review.unsupported) == 1
+
+    async def test_a_numeric_claim_is_supported_by_the_figure_it_names(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """ADR 0109. The calculation carries its formula, inputs and code version, recorded
+        by the platform itself; demanding a prose excerpt beside it re-blocked the live run's
+        approved report at the final gate for want of a citation nothing owed."""
+        await record_claim(
+            db_session,
+            section=scene["section"],
+            kind=ClaimKind.NUMERIC,
+            text="Revenue compounded at 18% a year.",
+            calculation_id=(await _recorded_calculation(db_session, scene)).id,
+        )
+
+        review = await review_evidence(db_session, job_id=scene["job"].id)
+
+        assert review.is_admissible
+        assert review.unsupported == ()
+
+    async def test_a_citation_a_numeric_claim_does_carry_is_still_checked(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """Not owed is not unchecked: an excerpt the writer attaches to a figure is verified
+        like any other, and blocks the gate until it verifies or is overridden."""
+        claim = await record_claim(
+            db_session,
+            section=scene["section"],
+            kind=ClaimKind.NUMERIC,
+            text="Revenue compounded at 18% a year.",
+            calculation_id=(await _recorded_calculation(db_session, scene)).id,
+        )
+        await record_citation(
+            db_session,
+            claim=claim,
+            source_document_id=scene["document"].id,
+            extraction_id=scene["extraction"].id,
+        )
+
+        review = await review_evidence(db_session, job_id=scene["job"].id)
+
+        assert not review.is_admissible
+        assert review.unsupported == ()
+        assert len(review.unverified) == 1
 
     async def test_an_opinion_needs_no_citation(
         self, db_session: AsyncSession, scene: dict[str, Any]

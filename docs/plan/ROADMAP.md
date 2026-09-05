@@ -154,6 +154,21 @@ writer to do in the first place. The budget itself is untouched.
 operator-approved report on the same subject, which also exercises the critique-and-revise
 loop (ADR 0091) against these sections for the first time since they were fixed.
 
+**The confirmation run, 2026-09-05 (`21d5beb6`), found two more, both fixed from its
+record.** Fifteen of eighteen sections drafted; the three that did not
+(`business_overview`, `cash_flow_analysis`, `capital_allocation`) and the seven reported by
+`cited_figure_agreement` came down to:
+
+| Cause | Sections | State |
+|---|---|---|
+| A negative figure read without its sign: "-51.8 days" scanned as `51.8` and refused against a stored `-51.79` | Cash Flow Analysis, Capital Allocation, and every section the agreement metric reported | **Fixed** — ADR 0097, amended |
+| A numeric claim naming a fact row was refused for citing no prose excerpt, nine times over, on both attempts | Business Overview, and the `schema` refusals on the other two | **Fixed** — ADR 0109 |
+
+The approved report then stalled at `gate_final` because a disagreement settled on the
+page after the seal changed the payload the seal was taken over — fixed, with `aer reseal`
+to recover a run already caught (`57c8138`). The replay tool that proves the three sections
+pass under today's rules at no spend is the next item.
+
 *What was read against the tree 2026-08-28, ahead of the data, and turned out not to be the
 cause: `validate_draft` checks only the 1.25× word ceiling with no minimum; a truncation
 retry halves the word budget; `MAX_GENERATION_ATTEMPTS = 2`. All three still hold, and none

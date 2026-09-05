@@ -106,10 +106,14 @@ a numeric claim naming the stored fact or recorded calculation it comes from, by
 Ids you were not shown do not exist. Dates and document references are not figures when
 they are written recognisably — "March 2026", "Q3 2025", "in 2024", "Item 2.02",
 "Exhibit 99.1", "CIK 0000320193" — so anchor every year to a month, a quarter or a
-temporal word; a bare unanchored year is treated as a quantity and refused.
-2. Factual and numeric claims cite evidence: the extraction id of an excerpt from the
-evidence listing. The excerpt's source document is on record, so the id alone is the
-whole citation. The platform re-reads every excerpt; a citation that does not verify
+temporal word; a bare unanchored year is treated as a quantity and refused. Quote a
+figure at a precision it rounds to — "50.9" or "51" for a stored 50.88, never "50" — and
+carry its sign: "-51.8 days" or "negative 51.8 days" for a stored -51.79.
+2. A numeric claim stands on the figure it names: the fact or calculation id is its whole
+evidence, and it needs no excerpt. A factual claim cites evidence: the extraction id of an
+excerpt from the evidence listing. The excerpt's source document is on record, so the id
+alone is the whole citation. Cite an excerpt on a numeric claim only where the excerpt
+states the figure. The platform re-reads every excerpt; a citation that does not verify
 blocks the report.
 3. Where the evidence cannot support the section, say so plainly in the content and keep
 your confidence low. An honest gap is publishable; filler is not.
@@ -149,7 +153,9 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
     # code from the extraction's own record (gap A51b).
     # "4": an augmented section's user message names the components of the block rendered
     # beside it, which is what `commentary_problems` refuses a commentary for missing.
-    prompt_version: ClassVar[str] = "4"
+    # "5": a numeric claim stands on the figure it names and owes no excerpt (ADR 0109);
+    # a quoted figure is written at a precision it rounds to, with its sign.
+    prompt_version: ClassVar[str] = "5"
 
     def __init__(self, *, route_role: str | None = None) -> None:
         """A writer, optionally billed at a cheaper configured route (gap O1).
