@@ -54,6 +54,7 @@ from aer.services.retention import (
     verify_store,
 )
 from aer.services.run_replay import RunReplay, replay_run
+from aer.services.gates import Reseal
 from aer.services.step_diagnostic import RunDiagnostic, StepDiagnostic, run_diagnostic
 from aer.storage.local import LocalArtefactStore
 from aer.version import build_identity, git_sha, version
@@ -1222,6 +1223,57 @@ def step_command(
         raise typer.Exit(code=1) from error
 
 
+@app.command(name="reseal")
+def reseal_command(
+    job_id: Annotated[uuid.UUID, typer.Argument(help="The run whose final gate to re-seal.")],
+    reason: Annotated[
+        str, typer.Option(help="Why the seal is being moved; recorded in the audit chain.")
+    ] = "re-sealed from the terminal",
+) -> None:
+    """Re-derive the final gate's seal from the run's own record.
+
+    For a run stopped with "what this run sealed and what the review page shows have
+    drifted apart". The seal moves to the payload as the record now stands — it adds
+    nothing — and the audit chain records the move. Whether the recorded approval then
+    matches is printed, not assumed: if it does, `aer resume` continues the run; if it does
+    not, the approval was of older content and a second decision is refused by design.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    try:
+        outcome = asyncio.run(_reseal(settings, job_id=job_id, reason=reason))
+    except AerError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+
+    if not outcome.changed:
+        typer.echo(
+            f"The {outcome.gate.value} seal already matches the record "
+            f"({outcome.current_hash[:12]}); nothing moved."
+        )
+    else:
+        typer.secho(
+            f"Re-sealed {outcome.gate.value}: {outcome.previous_hash[:12]} -> "
+            f"{outcome.current_hash[:12]}.",
+            fg=typer.colors.GREEN,
+        )
+    if outcome.approval_matches is None:
+        typer.echo("No decision has been recorded at this gate yet.")
+    elif outcome.approval_matches:
+        typer.secho(
+            f"The recorded approval matches the seal. Continue with: uv run aer resume {job_id}",
+            fg=typer.colors.GREEN,
+        )
+    else:
+        typer.secho(
+            "The recorded approval does not match the seal: it was taken over older content. "
+            "A second decision is refused by design, so this run cannot be released; start "
+            "the request again.",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+
+
 @app.command(name="resume")
 def resume_command(
     job_id: Annotated[uuid.UUID, typer.Argument(help="The run to hand back to the worker.")],
@@ -1342,6 +1394,31 @@ async def _step_once(settings: Settings, *, job_id: uuid.UUID) -> None:
             raise typer.Exit(code=1)
     finally:
         await redis.aclose()
+        await engine.dispose()
+
+
+async def _reseal(settings: Settings, *, job_id: uuid.UUID, reason: str) -> Reseal:
+    from aer.api.deps import current_user_or_none  # noqa: PLC0415 -- one query, one place
+    from aer.services.gates import reseal_final_gate  # noqa: PLC0415
+
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            if job is None:
+                message = f"No run {job_id}."
+                raise AerError(message, context={"job_id": str(job_id)})
+            actor = await current_user_or_none(session)
+            if actor is None:
+                message = (
+                    "No user exists. Create one with: uv run aer seed-user --email you@example.com"
+                )
+                raise AerError(message)
+            outcome = await reseal_final_gate(session, job=job, actor=actor, reason=reason)
+            await session.commit()
+            return outcome
+    finally:
         await engine.dispose()
 
 

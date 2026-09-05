@@ -141,6 +141,14 @@ then sits idle.
 **If not** — **the worker matters.** The web process only enqueues; nothing happens without it.
 A run that sits at "queued" for ever is almost always a worker that is not running.
 
+**Both processes read `.env` once, at start-up.** If you add or change a key — the price
+feed, say — stop and restart both, or the running worker carries on without it and the run's
+record will say so. Confirm what a fresh process sees with:
+
+```bash
+uv run python -c "from aer.config import load_settings; print(load_settings().price_feed_configured)"
+```
+
 ---
 
 ## Stage 2 — Commission the run
@@ -278,8 +286,17 @@ business here.
 **Check each one.** Everything downstream carries these as recorded inputs, so the report can
 always answer "what was this resting on?" — but only you can answer "were they sensible?"
 
-**If a required input is missing** — a beta, a risk-free rate — the gate stops and asks you to
-supply it. Do so, then continue.
+**Which inputs are yours, and why.** The gate sorts its inputs into three kinds:
+
+| Kind | Inputs | Why |
+|---|---|---|
+| **Yours by design** | risk-free rate, equity risk premium, terminal growth, exit multiple | No series answers them. They are judgements, and the platform asks you to state and source them rather than propose a number nobody inspected |
+| **Derived from the filings** | revenue growth, EBIT margin, capex intensity, depreciation intensity, working-capital intensity, tax rate | Trailing averages of filed lines. Asked of you only when the filings do not carry the line — a company that files depreciation and amortisation separately, say — or when a period is negative |
+| **Proposed from prices** | beta | Regressed from five years of monthly returns against the market proxy. Asked of you when there is no price feed, or when the regression could not run; `aer diagnose <job-id> acquire_prices` says which |
+
+A derived input that is asked of you is worth a note: it usually means a line the concept
+map does not yet carry for this filer, and that is a gap to report rather than a number to
+guess.
 
 ### 4.3 Let it run to the ceiling
 
@@ -531,9 +548,26 @@ Open `/runs/{id}/review`.
 | **The spend** | In the region of £9.31 |
 | **Every claim** (`/runs/{id}/claims`) | Evidence verified |
 
+**Settle first, then approve.** If you choose a side on a disagreement or a red-team
+challenge, do it *before* pressing Approve: settling changes what the gate approves, and the
+platform re-seals the gate to match. Once you have approved, settling is refused — the
+decision was taken over the conflict as an open one, and a decision is not re-asserted.
+
 **Then approve.** Write your reason in Notes and press **Approve and continue**.
 
 **Expect** — the console shows a **Read the report** button.
+
+**What happens after you press Approve.** The run does not render on the click. It re-enters
+the gate, re-verifies every citation against its archived document, checks that what you
+approved is exactly what it sealed, and only then renders. Two things can stop it there, and
+both are on the console and in `uv run aer diagnose <job-id> gate_final`:
+
+- *"claim(s) have no admissible citation"* or *"citation(s) did not verify"* — the evidence
+  check. Each unverified citation can be overridden on the claims page with a written reason;
+  a claim with nothing behind it cannot.
+- *"what this run sealed and what the review page shows have drifted apart"* — the seal
+  check. Run `uv run aer reseal <job-id>`; it says whether your approval now matches, and if
+  so `uv run aer resume <job-id>` renders.
 
 **Reject instead** if the draft is not sound. Nothing is rendered, and nothing is lost.
 
@@ -606,6 +640,7 @@ footnotes resolve. The layout is part of the deliverable.
 | You want to advance one step at a time | Stop the worker, then `uv run aer step <job-id>` | That step only |
 | A run is stopped and you want it to continue | Console **Continue this run**, or `uv run aer resume <job-id>` | Nothing repeated |
 | It stopped part-way through drafting | The same. Already-written sections are kept | Only the sections not yet written |
+| After approving, it says the seal and the page "drifted apart" | `uv run aer reseal <job-id>`, then `uv run aer resume <job-id>` | £0 |
 | Nothing is moving at all | Check the worker terminal | £0 |
 | The run is not worth continuing | **Cancel** on the console | Nothing further |
 | You want me to look at it | `just diagnose-run <job-id>` writes `run-diagnosis.json` | £0 |

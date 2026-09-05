@@ -2083,7 +2083,9 @@ async def _require_approval(
             detail = (
                 "What this run sealed and what the review page shows have drifted apart, "
                 "so no approval taken from that page can match. Nothing you decide will "
-                "release it: this is a defect in the run rather than a decision to retake."
+                "release it. The seal is re-derived from the run's own record by "
+                "`aer reseal <job-id>`; when the recorded approval matches what the page "
+                "shows, continuing the run then proceeds on it."
             )
         else:
             detail = (
@@ -3310,6 +3312,16 @@ async def step_output(session: AsyncSession, *, job_id: uuid.UUID, step_key: str
         .limit(1)
     )
     return (step.output_ref or {}) if step is not None else {}
+
+
+def seal_step_for(gate: str) -> str:
+    """The step whose frozen output carries the hash this gate approves.
+
+    Public for the one service that must move a seal after the step has run
+    (:mod:`aer.services.gates`): settling a disagreement changes gate 2's payload, and the
+    seal has to follow it or no later approval can ever match.
+    """
+    return _GATE_STEPS[gate]
 
 
 # Which step's frozen output each gate approves. Five of the seven gates read nothing else,

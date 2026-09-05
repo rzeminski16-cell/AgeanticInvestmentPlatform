@@ -86,6 +86,7 @@ from aer.services import calculations as calculation_service
 from aer.services import cancellation as cancellation_service
 from aer.services import catalyst_resolutions as catalyst_service
 from aer.services import configuration, provenance
+from aer.services import gates as gates_service
 from aer.services import history as history_service
 from aer.services import requests as requests_service
 from aer.services import resume as resume_service
@@ -1490,12 +1491,23 @@ async def settle_disagreement_page(
         )
 
     try:
+        # Order matters, and it is the order the first live run got wrong: a conflict is
+        # settled *before* the gate is decided, and the seal follows the settle. Settling
+        # after a decision is refused, because the decision was taken over the conflict as
+        # an open one and a second decision is refused by design.
+        await gates_service.refuse_settling_after_decision(session, job=job)
         await settle_by_hand(
             session,
             disagreement=found,
             outcome=outcome,
             actor=user,
             rationale=submitted.get("rationale", ""),
+        )
+        await gates_service.reseal_final_gate(
+            session,
+            job=job,
+            actor=user,
+            reason=f"disagreement {found.id} settled by hand",
         )
     except ValidationError as problem:
         # The service's messages name the rule they enforce — "a human resolution needs a

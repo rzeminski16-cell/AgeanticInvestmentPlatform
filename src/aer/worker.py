@@ -28,6 +28,7 @@ Run it with::
 
 from __future__ import annotations
 
+import os
 import uuid
 from typing import Any, ClassVar
 
@@ -199,7 +200,17 @@ async def _startup(ctx: dict[str, Any]) -> None:
     ctx["session_factory"] = async_sessionmaker(engine, expire_on_commit=False)
     ctx["aer_redis"] = Redis.from_url(settings.redis_url, decode_responses=True)
 
-    _log.info("worker.started", database=settings.database_url.split("@")[-1])
+    # What this process can and cannot do, said once where the operator is looking. The
+    # first live run of the confirmation runbook was served by two workers — one started
+    # before the price-feed key was added to .env, one after — and nothing in either
+    # terminal said which was which; the run's record showed a step that asked the model
+    # for peers (feed present) beside a step that found no feed at all.
+    _log.info(
+        "worker.started",
+        database=settings.database_url.split("@")[-1],
+        pid=os.getpid(),
+        price_feed="configured" if settings.price_feed_configured else "absent",
+    )
 
 
 async def _shutdown(ctx: dict[str, Any]) -> None:
