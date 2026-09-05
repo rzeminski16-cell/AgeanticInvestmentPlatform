@@ -86,12 +86,17 @@
                   {% set figure = outcome[row_key] %}
                   <td class="py-3 pr-4">
                     {% if figure %}
+                      {#
+                        The house style on the page, the ledger's exact value on the
+                        hover and behind the link: the page showed twelve-place decimals
+                        and read as unformatted (first live run of the runbook).
+                      #}
                       <a
                         href="{{ figure.href }}"
                         class="type-data text-verification underline underline-offset-[3px] hover:text-verification-strong"
                         id="figure-{{ outcome.method.value }}-{{ row_key }}"
-                      >{{ figure.value }}</a>
-                      <span class="type-data-sm text-ink-muted">{{ figure.unit }}</span>
+                        title="{{ figure.value }} {{ figure.unit }}"
+                      >{{ shown[outcome.method.value][row_key] }}</a>
                       {% if row_key == 'terminal_share' and outcome.terminal_share_is_high %}
                         <span class="ml-1" id="high-terminal-{{ outcome.method.value }}">
                           {{ ui.status("warning", high_terminal_label) }}
@@ -151,7 +156,7 @@
           </figcaption>
         </figure>
       {% endif %}
-      {% for grid in view.grids %}
+      {% for grid in grids %}
         <h3 class="mt-6 type-subheading text-ink">{{ grid.label }}</h3>
         <p class="mt-1 type-body-sm text-ink-muted">
           {{ grid.output_name }} ({{ grid.output_unit }}),
@@ -167,21 +172,22 @@
                 <th scope="col" class="py-2 pr-4 type-label text-ink-muted">
                   {{ grid.y_assumption }} \ {{ grid.x_assumption }}
                 </th>
-                {% for x in grid.x_values %}
-                  <th scope="col" class="py-2 pr-4 text-right type-data-sm text-ink">{{ x }}</th>
+                {% for x, x_shown in grid.x_values %}
+                  <th scope="col" class="py-2 pr-4 text-right type-data-sm text-ink" title="{{ x }}">{{ x_shown }}</th>
                 {% endfor %}
               </tr>
             </thead>
             <tbody class="divide-y divide-line">
-              {% for y, cells in grid.rows %}
+              {% for y, y_shown, cells in grid.rows %}
                 <tr>
-                  <th scope="row" class="py-2 pr-4 text-left type-data-sm text-ink">{{ y }}</th>
-                  {% for x, output, calculation_id in cells %}
+                  <th scope="row" class="py-2 pr-4 text-left type-data-sm text-ink" title="{{ y }}">{{ y_shown }}</th>
+                  {% for x, output, output_shown, calculation_id in cells %}
                     <td class="py-2 pr-4 text-right">
                       <a
                         href="/calculations/{{ calculation_id }}"
                         class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong"
-                      >{{ output }}</a>
+                        title="{{ output }} {{ grid.output_unit }}"
+                      >{{ output_shown }}</a>
                     </td>
                   {% endfor %}
                 </tr>

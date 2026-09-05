@@ -116,7 +116,7 @@ from aer.services.sectors import (
 from aer.services.spend import recent_runs, spend_by_role, spend_summary
 from aer.services.subject import subject_name
 from aer.services.themes import THEME_STEP, theme_set_payload, theme_set_required
-from aer.services.valuation_view import lineage_rows, valuation_view
+from aer.services.valuation_view import GridView, lineage_rows, valuation_view
 from aer.storage.local import LocalArtefactStore
 from aer.web import figures, vocabulary
 from aer.web import verdict as verdicts
@@ -1996,6 +1996,29 @@ async def valuation_page(
             tone=vocabulary.Tone.INFO,
         )
 
+    # Every figure in the house style, the ledger's exact value one click and one hover
+    # away. The page showed the ledger's own twelve-place decimals — "0.730000000000" for a
+    # terminal share, "412.340000000000 USD/shares" — and the operator read the numbers as
+    # unformatted (first live run of the runbook). The label is the reading: a terminal
+    # value share is a percentage, a value per share is money to the cent, a WACC on a
+    # grid's axis is a percentage and an exit multiple is times.
+    figure_rows = (
+        ("enterprise_value", "Enterprise value"),
+        ("equity_value", "Equity value"),
+        ("terminal_share", "Terminal value share"),
+        ("value_per_share", "Value per share"),
+    )
+    figures_shown = {
+        outcome.method.value: {
+            key: display.scalar(
+                figure.value, style=style, unit=figure.unit, label=label, in_table=True
+            )
+            for key, label in figure_rows
+            if (figure := getattr(outcome, key)) is not None
+        }
+        for outcome in (view.gordon, view.exit_multiple)
+    }
+
     page: Response = render(
         request,
         "runs/valuation.html",
@@ -2004,12 +2027,9 @@ async def valuation_page(
             "research_request": research_request,
             "view": view,
             "outcomes": (view.gordon, view.exit_multiple),
-            "rows": (
-                ("enterprise_value", "Enterprise value"),
-                ("equity_value", "Equity value"),
-                ("terminal_share", "Terminal value share"),
-                ("value_per_share", "Value per share"),
-            ),
+            "rows": figure_rows,
+            "shown": figures_shown,
+            "grids": [_grid_for_display(grid, style=style) for grid in view.grids],
             "comps_rows": rows,
             # Why there is no table, when the peer step recorded a reason — a machine with
             # no price feed asks the model for nobody, and the page that shows the empty
@@ -2056,6 +2076,40 @@ async def valuation_page(
         },
     )
     return page
+
+
+def _grid_for_display(grid: GridView, *, style: HouseStyle) -> dict[str, Any]:
+    """A stored grid with every axis value and cell in the house style, beside the exact one.
+
+    The axis reads by the assumption it varies — a WACC or a growth rate as a percentage,
+    an exit multiple as times — and a cell by the grid's own output unit, so a value per
+    share is money to the cent and an enterprise value is millions.
+    """
+
+    def axis(value: Decimal, assumption: str) -> str:
+        return display.scalar(value, style=style, unit="pure", label=assumption)
+
+    def cell(value: Decimal) -> str:
+        return display.scalar(
+            value, style=style, unit=grid.output_unit, label=grid.output_name, in_table=True
+        )
+
+    return {
+        "label": grid.label,
+        "x_assumption": grid.x_assumption,
+        "y_assumption": grid.y_assumption,
+        "output_name": grid.output_name,
+        "output_unit": grid.output_unit,
+        "x_values": [(x, axis(x, grid.x_assumption)) for x in grid.x_values],
+        "rows": [
+            (
+                y,
+                axis(y, grid.y_assumption),
+                [(x, output, cell(output), calculation_id) for x, output, calculation_id in cells],
+            )
+            for y, cells in grid.rows
+        ],
+    }
 
 
 @router.get(

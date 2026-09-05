@@ -415,7 +415,12 @@ Open `/runs/{id}/valuation`.
 
 **Expect** — the method fits the company (a discounted cash flow for Microsoft, not a bank's
 residual-income model), and its inputs are the assumptions **you approved** at the gate, not
-different ones.
+different ones. Every figure is in the house style: a value per share as money to the cent
+(`$412.34`), an enterprise value in millions, the terminal-value share as a percentage
+(`73%`), a grid axis as the rate it varies (`9%`, `10%`, `11%`) and a grid cell as the
+figure it holds. The ledger's exact value — twelve decimal places and its unit — is on the
+hover of every figure and behind its link; the page never rounds the record, only the
+reading of it.
 
 **Three things you will meet on this page, and what they mean:**
 
@@ -434,8 +439,9 @@ different ones.
   acquire_prices` (`prices: True` means the feed answered). A built table the page does
   not show is a page fault, and worth reporting.
 - **The sensitivity heatmap.** Each cell is a recorded calculation, labelled at a glance's
-  precision; the full-precision figures are in the table beside it, each a link. The picture
-  is a reading aid, never the record.
+  precision; the same figures are in the table beside it in the house style, each a link
+  carrying the full-precision value on its hover. The picture is a reading aid, never the
+  record.
 
 ### 5.5 The front page
 

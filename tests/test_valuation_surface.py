@@ -565,6 +565,36 @@ class TestTheValuationPage:
         assert 'id="figure-gordon_growth-terminal_share"' in html
         assert 'id="figure-gordon_growth-value_per_share"' in html
 
+    async def test_every_figure_is_in_the_house_style_with_the_ledger_value_on_hover(self, served):
+        """The page showed the ledger's twelve-place decimals and read as unformatted (first
+        live run of the runbook). A value per share is money to the cent, a terminal value
+        share a percentage, a grid axis a percentage of the rate it varies — and the exact
+        stored value stays on the link's title."""
+        client, built = served
+
+        html = (await client.get(f"/runs/{built['job'].id}/valuation")).text
+
+        per_share = re.search(
+            r'id="figure-gordon_growth-value_per_share"\s*title="(?P<exact>[^"]+)"\s*>'
+            r"(?P<shown>[^<]+)</a>",
+            html,
+        )
+        assert per_share is not None
+        assert re.fullmatch(r"\$[\d,]+\.\d{2}", per_share.group("shown")), per_share.group("shown")
+        assert "USD/shares" in per_share.group("exact")
+        assert "000000" not in per_share.group("shown")
+
+        share = re.search(
+            r'id="figure-gordon_growth-terminal_share"\s*title="[^"]+"\s*>(?P<shown>[^<]+)</a>',
+            html,
+        )
+        assert share is not None
+        assert share.group("shown").endswith("%")
+
+        assert 'title="0.090000000000">9%</th>' in html
+        assert 'title="0.010000000000">1%</th>' in html
+        assert "0.090000000000</th>" not in html
+
     async def test_the_terminal_tag_says_how_much_and_the_note_says_what_it_means(self, served):
         """ "Most of the answer" named a consequence without the fact; a reader meeting it
         cold asked what it meant (first live run of the runbook). The chip now carries the
