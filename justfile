@@ -74,6 +74,12 @@ dev:
 worker:
     uv run arq aer.worker.WorkerSettings
 
+# Everything a paid run depends on, checked in one readout at no cost: the model key, the
+# database and its schema, a user, the caps against the last run and the month, Redis, a
+# live worker, the price feed. Exits 1 when the run could not survive what is missing.
+preflight:
+    uv run aer preflight
+
 # Is a worker alive? Reads the record the worker writes to Redis every thirty seconds and
 # exits 1 when there is none. The console and `aer diagnose` read the same record, so a run
 # that says "no worker has reported" and this agree.

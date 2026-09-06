@@ -37,6 +37,15 @@ already paid for — including part-way through drafting.
 **Write these down as you go:** the run id, the spend at each gate, and anything that surprised
 you.
 
+**Start with one command.** Stage 1 below is seven checks in seven commands, and the first
+confirmation run lost a night to the one that is easiest to skip. `just preflight` asks every
+question the platform can answer for itself — the model key, PostgreSQL and its schema, a user,
+the per-run ceiling against what the last run cost, the month's remaining room, Redis, a worker
+listening to the queue, the price feed — and prints one line per answer, at no cost. `FAIL` is
+something the run cannot survive; `WARN` is something it survives and you should weigh; `SKIP`
+names a check an earlier failure made impossible, or the one only a paid call can make
+(`just test-live`, stage 1.6). Read stage 1 the first time; run `just preflight` every time.
+
 ---
 
 ## Stage 1 — Prepare
@@ -689,6 +698,7 @@ footnotes resolve. The layout is part of the deliverable.
 | After approving, it says the seal and the page "drifted apart" | `uv run aer reseal <job-id>`, then `uv run aer resume <job-id>` | £0 |
 | A section failed and a fix has since landed | `uv run aer replay-draft <job-id> [section-key]` reads its archived replies back under the new rules, and says whether the section would now draft, draft after repair, or still be lost | £0 |
 | Nothing is moving at all | `uv run aer diagnose <job-id>` — its last line says whether a worker has reported; `just worker-check` asks Redis directly | £0 |
+| Not sure the platform is ready for a run at all | `just preflight` — every dependency, the caps and the worker, in one readout | £0 |
 | The run is not worth continuing | **Cancel** on the console | Nothing further |
 | You want me to look at it | `just diagnose-run <job-id>` writes `run-diagnosis.json` | £0 |
 

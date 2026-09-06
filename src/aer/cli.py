@@ -17,7 +17,7 @@ import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Final
 
 import typer
 import uvicorn
@@ -58,6 +58,7 @@ from aer.services.draft_replay import (
 from aer.services.gates import Reseal
 from aer.services.knowledge import KnowledgeStats, knowledge_stats
 from aer.services.lessons import LessonCandidate, recurring_lessons
+from aer.services.preflight import Check, CheckStatus, Preflight, run_preflight
 from aer.services.retention import (
     GarbageCollected,
     IntegrityReport,
@@ -1214,6 +1215,78 @@ def diagnose_command(
         _print_worker_line(settings, status=readout.status)
     if readout.status is JobStatus.FAILED:
         raise typer.Exit(code=1)
+
+
+@app.command(name="preflight")
+def preflight_command() -> None:
+    """Check everything a paid run depends on, in one readout, at no cost.
+
+    The runbook's stage 1 as one command: the model key, PostgreSQL, the schema against
+    the models, a user to approve the gates, the per-run ceiling against what the last run
+    cost, the month's remaining room, Redis, a worker listening to the queue, and the price
+    feed. Nothing is fetched and no model is called. Exits 1 when anything the run cannot
+    survive is missing; warnings are printed and left to you.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    readout = asyncio.run(_preflight(settings))
+    _print_preflight(readout)
+    if not readout.ok:
+        raise typer.Exit(code=1)
+
+
+async def _preflight(settings: Settings) -> Preflight:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    try:
+        return await run_preflight(settings, session_factory=factory, redis=redis)
+    finally:
+        await redis.aclose()
+        await engine.dispose()
+
+
+_CHECK_COLOURS: Final[dict[CheckStatus, str]] = {
+    CheckStatus.PASS: typer.colors.GREEN,
+    CheckStatus.WARN: typer.colors.YELLOW,
+    CheckStatus.FAIL: typer.colors.RED,
+    CheckStatus.SKIP: typer.colors.WHITE,
+}
+
+
+def _print_preflight(readout: Preflight) -> None:
+    typer.secho(
+        f"Preflight at {readout.at:%Y-%m-%d %H:%M}Z — aer {version()} @ "
+        f"{(git_sha() or 'unknown')[:12]} — nothing fetched, nothing spent",
+        fg=typer.colors.CYAN,
+        bold=True,
+    )
+    for check in readout.checks:
+        _print_check(check)
+    failed = readout.counted(CheckStatus.FAIL)
+    warned = readout.counted(CheckStatus.WARN)
+    if readout.ok:
+        summary = (
+            "Ready to run." if not warned else f"Ready to run, with {warned} warning(s) to weigh."
+        )
+        typer.secho(
+            summary, fg=typer.colors.GREEN if not warned else typer.colors.YELLOW, bold=True
+        )
+    else:
+        typer.secho(
+            f"Not ready: {failed} check(s) failed. Fix them before commissioning a run.",
+            fg=typer.colors.RED,
+            bold=True,
+        )
+
+
+def _print_check(check: Check) -> None:
+    typer.secho(
+        f"  [{check.status.value.upper():4}] {check.name} — ",
+        nl=False,
+        fg=_CHECK_COLOURS[check.status],
+    )
+    typer.echo(check.detail)
 
 
 @app.command(name="step")

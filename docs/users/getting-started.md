@@ -127,6 +127,7 @@ just worker 2>&1 | Tee-Object -FilePath var\worker.log   # PowerShell
 just up            # start Postgres and Redis
 just health        # pg_isready + redis ping
 just worker-check  # is a worker listening to the queue? exits 1 when none has reported
+just preflight     # everything a paid run depends on, in one readout; exits 1 if it could not survive
 just psql      # a psql shell on the dev database
 just down      # stop, keeping data
 just down-hard # stop and DELETE all data
@@ -143,6 +144,7 @@ you are on — a hotel or coffee-shop wifi included. Do not remove the loopback 
 | `just serve` / `just dev` | Web server, without / with auto-reload |
 | `just worker` | The background worker that executes runs |
 | `just worker-check` | Whether a worker is alive, from the health record it writes every thirty seconds |
+| `just preflight` | Every dependency, the caps and the worker checked before a paid run, at no cost |
 | `just seed-user you@example.com` | Create the local user (idempotent) |
 | `just reset-research` | Delete every research request and everything derived from one |
 | `just backup var/backups/today` | Database and artefact store into one verified directory |

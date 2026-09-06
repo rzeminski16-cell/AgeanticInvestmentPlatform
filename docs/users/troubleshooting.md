@@ -14,6 +14,10 @@ uv run aer serve                        # or: just dev
 uv run arq aer.worker.WorkerSettings    # or: just worker
 ```
 
+Before commissioning a run, `just preflight` checks all of this — the services, the schema, a
+user, the model key, the caps against the last run and the month, and a live worker — in one
+readout at no cost, and exits 1 when the run could not survive what is missing.
+
 The console will sit at "queued" indefinitely with no worker attached. It is not broken and
 nothing is lost — start the worker and it picks the job up. It also says so: the worker
 records its health to Redis every thirty seconds, and a queued run's status line reads
