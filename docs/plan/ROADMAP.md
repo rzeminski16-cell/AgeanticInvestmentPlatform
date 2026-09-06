@@ -192,6 +192,11 @@ holds, a difference the writer computed itself, a market capitalisation mentione
 with no prices. Whether the budget change takes is a live-run question, read from the
 `draft` step's attempt counts.
 
+**The resealed run then sat queued for a night because no worker was running**, while the
+console said it would begin within a few seconds. The worker now records its health to
+Redis every thirty seconds, and the console, `aer diagnose` and `just worker-check` read
+the record: a queued run with nobody listening says so, and says what to start.
+
 *What was read against the tree 2026-08-28, ahead of the data, and turned out not to be the
 cause: `validate_draft` checks only the 1.25× word ceiling with no minimum; a truncation
 retry halves the word budget; `MAX_GENERATION_ATTEMPTS = 2`. All three still hold, and none

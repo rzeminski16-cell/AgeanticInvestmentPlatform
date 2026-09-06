@@ -15,7 +15,11 @@ uv run arq aer.worker.WorkerSettings    # or: just worker
 ```
 
 The console will sit at "queued" indefinitely with no worker attached. It is not broken and
-nothing is lost — start the worker and it picks the job up.
+nothing is lost — start the worker and it picks the job up. It also says so: the worker
+records its health to Redis every thirty seconds, and a queued run's status line reads
+`Queued, but no worker has reported in the last 31 seconds` until one does. `uv run aer
+diagnose <id>` ends with the same `worker:` line, and `just worker-check` asks Redis directly
+and exits 1 when no worker has reported.
 
 ## The console has not changed in five minutes
 

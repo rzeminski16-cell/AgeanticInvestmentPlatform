@@ -9,22 +9,39 @@ coupling.
 
 So the queue's name and the enqueue call live here, the worker imports them, and nothing
 imports the worker except the worker.
+
+**Whether a worker is alive is read from here too.** The confirmation run of 2026-09-05
+sat queued overnight because no worker was running, and nothing on the console or in
+``aer diagnose`` said so: the web process only enqueues, and a queue with nothing reading
+it looks exactly like a queue about to be read. arq's worker writes a health record to
+Redis every ``health_check_interval`` seconds with a lifetime one second longer, so the
+record's presence *is* the liveness signal — no process registry, no heartbeat of our own.
+The interval is set short here and honoured by the worker, and :func:`worker_health` reads
+the record back for every surface that can say "queued" — so that none of them says it
+without being able to add "and nobody is listening".
 """
 
 from __future__ import annotations
 
+import re
 import uuid
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Final
 
 import structlog
 from arq.connections import RedisSettings
+from arq.constants import default_queue_name, health_check_key_suffix
 
 __all__ = [
+    "HEALTH_CHECK_INTERVAL_SECONDS",
+    "HEALTH_CHECK_KEY",
     "RUN_MONITOR_TASK",
     "RUN_RESEARCH_TASK",
+    "WorkerHealth",
     "enqueue_monitor",
     "enqueue_run",
     "redis_settings_from",
+    "worker_health",
 ]
 
 _log = structlog.get_logger("aer.queue")
@@ -33,6 +50,63 @@ _log = structlog.get_logger("aer.queue")
 # disagree about it produce a queue that accepts work nothing ever runs.
 RUN_RESEARCH_TASK = "run_research"
 RUN_MONITOR_TASK = "run_monitor"
+
+# How often the worker records that it is alive, and the key arq records it under. Thirty
+# seconds rather than arq's hour-long default, because the record's lifetime is the
+# interval plus one second and its absence is what every "no worker is listening" message
+# rests on: an hour-old record would have said a dead worker was alive for an hour. Short
+# enough that a run cannot sit queued for long before the console says why; long enough
+# that the write is nothing against a run's own traffic.
+HEALTH_CHECK_INTERVAL_SECONDS: Final = 30
+HEALTH_CHECK_KEY: Final = f"{default_queue_name}{health_check_key_suffix}"
+
+# What arq writes: "Sep-06 10:41:03 j_complete=1 j_failed=0 j_retried=0 j_ongoing=1
+# queued=0". Only the counters are read; the timestamp is the worker's local clock with
+# no year, and the record's remaining lifetime says how old it is more reliably.
+_HEALTH_COUNTER: Final[re.Pattern[str]] = re.compile(r"\b(?P<name>[a-z_]+)=(?P<value>\d+)")
+
+
+@dataclass(frozen=True, slots=True)
+class WorkerHealth:
+    """What a worker last recorded about itself, and how long ago.
+
+    ``ongoing`` is what it is doing now — with one job at a time, a queued run behind an
+    ongoing one is waiting its turn, not stuck — and ``queued`` is how many the queue held
+    when it looked. ``reported_seconds_ago`` is read from the record's remaining lifetime,
+    so it is a floor of zero rather than a negative when a worker on a longer interval
+    than this build's wrote it.
+    """
+
+    reported_seconds_ago: int
+    ongoing: int
+    queued: int
+    completed: int
+    failed: int
+
+
+async def worker_health(redis: Any) -> WorkerHealth | None:
+    """The health record a live worker keeps in Redis, or ``None`` when no worker has.
+
+    ``None`` means no worker has recorded itself within the interval — a run put on the
+    queue now will not start. Redis being unreachable is a different fact and is left to
+    raise: the caller decides whether that is "unknown" on a readout or a page that must
+    still render.
+    """
+    raw = await redis.get(HEALTH_CHECK_KEY)
+    if not raw:
+        return None
+    remaining_ms = await redis.pttl(HEALTH_CHECK_KEY)
+    text = raw.decode() if isinstance(raw, bytes) else str(raw)
+    counters = {m.group("name"): int(m.group("value")) for m in _HEALTH_COUNTER.finditer(text)}
+    lifetime_ms = (HEALTH_CHECK_INTERVAL_SECONDS + 1) * 1000
+    age_ms = lifetime_ms - remaining_ms if remaining_ms and remaining_ms > 0 else 0
+    return WorkerHealth(
+        reported_seconds_ago=max(0, age_ms // 1000),
+        ongoing=counters.get("j_ongoing", 0),
+        queued=counters.get("queued", 0),
+        completed=counters.get("j_complete", 0),
+        failed=counters.get("j_failed", 0),
+    )
 
 
 async def enqueue_run(redis: Any, job_id: uuid.UUID) -> str | None:

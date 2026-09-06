@@ -74,6 +74,12 @@ dev:
 worker:
     uv run arq aer.worker.WorkerSettings
 
+# Is a worker alive? Reads the record the worker writes to Redis every thirty seconds and
+# exits 1 when there is none. The console and `aer diagnose` read the same record, so a run
+# that says "no worker has reported" and this agree.
+worker-check:
+    uv run arq --check aer.worker.WorkerSettings
+
 # Create the single local user. Idempotent.
 seed-user email:
     uv run aer seed-user --email "{{email}}"

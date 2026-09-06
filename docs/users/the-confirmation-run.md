@@ -139,7 +139,19 @@ just worker     # terminal 2 — the background worker
 then sits idle.
 
 **If not** — **the worker matters.** The web process only enqueues; nothing happens without it.
-A run that sits at "queued" for ever is almost always a worker that is not running.
+A run that sits at "queued" for ever is almost always a worker that is not running — which is
+how the first confirmation run lost a night. The worker now writes a health record to Redis
+every thirty seconds, and everything that can say "queued" reads it:
+
+```bash
+just worker-check      # "Health check successful: … j_ongoing=0 queued=0", or exits 1
+```
+
+**Expect** — the console's status line for a queued run says when the worker last reported,
+or `Queued, but no worker has reported in the last 31 seconds` when none has; `uv run aer
+diagnose <job-id>` ends with a `worker:` line saying the same. If either says no worker has
+reported and you believe one is running, it is reading a different Redis from the one the
+worker writes to — check `AER_REDIS_URL` in both terminals.
 
 **Both processes read `.env` once, at start-up.** If you add or change a key — the price
 feed, say — stop and restart both, or the running worker carries on without it and the run's
@@ -675,8 +687,8 @@ footnotes resolve. The layout is part of the deliverable.
 | A run is stopped and you want it to continue | Console **Continue this run**, or `uv run aer resume <job-id>` | Nothing repeated |
 | It stopped part-way through drafting | The same. Already-written sections are kept | Only the sections not yet written |
 | After approving, it says the seal and the page "drifted apart" | `uv run aer reseal <job-id>`, then `uv run aer resume <job-id>` | £0 |
-| Nothing is moving at all | Check the worker terminal | £0 |
 | A section failed and a fix has since landed | `uv run aer replay-draft <job-id> [section-key]` reads its archived replies back under the new rules, and says whether the section would now draft, draft after repair, or still be lost | £0 |
+| Nothing is moving at all | `uv run aer diagnose <job-id>` — its last line says whether a worker has reported; `just worker-check` asks Redis directly | £0 |
 | The run is not worth continuing | **Cancel** on the console | Nothing further |
 | You want me to look at it | `just diagnose-run <job-id>` writes `run-diagnosis.json` | £0 |
 

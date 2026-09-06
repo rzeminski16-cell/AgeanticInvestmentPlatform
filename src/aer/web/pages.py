@@ -30,6 +30,8 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from fastapi import APIRouter, Request
+from redis.asyncio import Redis
+from redis.exceptions import RedisError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import HTMLResponse, RedirectResponse, Response
@@ -74,7 +76,7 @@ from aer.db.models import (
 )
 from aer.errors import ConflictError, ValidationError
 from aer.obsidian import ObsidianExportError, VaultWriteError, export_report
-from aer.queue import enqueue_run
+from aer.queue import HEALTH_CHECK_INTERVAL_SECONDS, enqueue_run, worker_health
 from aer.render import display
 from aer.render.document import UnresolvedFootnote, assemble_document
 from aer.render.html import render_html
@@ -207,8 +209,10 @@ async def active_run(session: DbSession, user: CurrentUser) -> Response:
 async def run_console(
     request: Request,
     job_id: uuid.UUID,
+    *,
     session: DbSession,
     settings: SettingsDep,
+    redis: RedisClient,
     user: CurrentUser,
 ) -> Response:
     """Watch a run.
@@ -267,6 +271,9 @@ async def run_console(
                 spend_gbp=state.spend_gbp,
                 pending=pending,
                 approvals=approvals,
+                queued_words=(
+                    await _queued_words(redis) if job.status is JobStatus.QUEUED else None
+                ),
             ),
         },
     )
@@ -327,6 +334,35 @@ def _cap_offer(
     )
 
 
+async def _queued_words(redis: Redis) -> str | None:
+    """What "queued" means right now, from the worker's health record — or nothing.
+
+    The confirmation run sat queued overnight with no worker running and the console
+    saying it would begin within a few seconds. The record arq's worker keeps in Redis
+    (see `aer.queue`) is what tells the two apart. Redis being unreachable is not this
+    page's to fail on: the run's rows are what it shows, and the generic line stands.
+    """
+    try:
+        health = await worker_health(redis)
+    except (RedisError, OSError):
+        return None
+    window = HEALTH_CHECK_INTERVAL_SECONDS + 1
+    if health is None:
+        return (
+            f"Queued, but no worker has reported in the last {window} seconds. Nothing "
+            "runs until one is started: `just worker`."
+        )
+    if health.ongoing:
+        return (
+            f"Queued behind {health.ongoing} other job(s). The worker takes one at a time "
+            f"and reported {health.reported_seconds_ago} seconds ago."
+        )
+    return (
+        f"Queued. The worker reported {health.reported_seconds_ago} seconds ago and "
+        "normally begins within a few seconds."
+    )
+
+
 async def _console_view(
     session: AsyncSession,
     *,
@@ -336,6 +372,7 @@ async def _console_view(
     spend_gbp: Decimal,
     pending: GateKind | None,
     approvals: list[Any],
+    queued_words: str | None = None,
 ) -> dict[str, Any]:
     """What the console says, decided here rather than in Jinja.
 
@@ -364,7 +401,7 @@ async def _console_view(
     elif job.status is JobStatus.SUCCEEDED:
         plain_status = "The report is approved and frozen. Read it, or inspect its evidence."
     elif job.status is JobStatus.QUEUED:
-        plain_status = "Queued. A worker normally begins within a few seconds."
+        plain_status = queued_words or "Queued. A worker normally begins within a few seconds."
     elif run_words.detail:
         plain_status = f"{run_words.label}. {run_words.detail}"
     else:

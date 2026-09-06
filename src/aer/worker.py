@@ -42,6 +42,7 @@ from aer.db.engine import create_engine
 from aer.db.models import Thesis, User
 from aer.errors import ValidationError
 from aer.logging import configure_logging
+from aer.queue import HEALTH_CHECK_INTERVAL_SECONDS
 from aer.runtime import build_services
 from aer.services import runs as run_service
 from aer.services import theses as thesis_service
@@ -248,3 +249,7 @@ class WorkerSettings:
     # provider and make the shared token bucket the only thing standing between this
     # platform and an IP ban.
     max_jobs = 1
+
+    # Recorded to Redis this often, with a lifetime one second longer, so the console and
+    # `aer diagnose` can say whether anyone is listening to the queue (see `aer.queue`).
+    health_check_interval = HEALTH_CHECK_INTERVAL_SECONDS

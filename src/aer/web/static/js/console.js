@@ -225,6 +225,11 @@
       summary.textContent = "Working on " + name.charAt(0).toLowerCase() + name.slice(1) + ".";
     } else if (state.status === "AWAITING_APPROVAL" || state.status === "BUDGET_EXCEEDED") {
       summary.textContent = "Stopped for you. Nothing is being spent.";
+    } else if (state.status === "QUEUED" && /^Queued/.test(summary.textContent)) {
+      // The server wrote this line against the worker's health record — whether anyone is
+      // listening to the queue — and a frame carries no such thing. Any change of status
+      // reloads the page above, so the line is never stale for longer than a queue is.
+      return;
     } else {
       summary.textContent = "Queued. The worker picks this up within a second or two.";
     }

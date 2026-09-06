@@ -22,6 +22,7 @@ from typing import Annotated
 import typer
 import uvicorn
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 from sqlalchemy import select, text
 from sqlalchemy.engine import make_url
 
@@ -32,7 +33,12 @@ from aer.db.models import AuditEvent, Job, User
 from aer.errors import AerError
 from aer.logging import configure_logging, get_logger
 from aer.obsidian import ObsidianExportError, export_report
-from aer.queue import discard_queued_runs
+from aer.queue import (
+    HEALTH_CHECK_INTERVAL_SECONDS,
+    WorkerHealth,
+    discard_queued_runs,
+    worker_health,
+)
 from aer.services.acceptance import AcceptanceReadout, acceptance_readout
 from aer.services.audit_verify import ChainReport, verify_audit_chain
 from aer.services.backup import (
@@ -1179,8 +1185,10 @@ def diagnose_command(
 
     Roadmap §3.15's readout, ADR 0090. Status, attempts, timing, cost, the recorded error,
     the step's stored output and every model call's tokens and archived payload hashes —
-    all reads, no fetch, no model call, no spend. Exits 1 when the run has failed, so a
-    script can tell a broken run from a waiting one.
+    all reads, no fetch, no model call, no spend. A run that is queued or running is also
+    read against the worker's health record in Redis, so a run nobody is listening for
+    says so here rather than sitting queued for a night. Exits 1 when the run has failed,
+    so a script can tell a broken run from a waiting one.
     """
     settings = _settings_or_exit()
     configure_logging(level=settings.log_level, json_output=settings.log_json)
@@ -1202,6 +1210,8 @@ def diagnose_command(
         return
 
     _print_run_diagnostic(readout)
+    if readout.status in {JobStatus.QUEUED, JobStatus.RUNNING}:
+        _print_worker_line(settings, status=readout.status)
     if readout.status is JobStatus.FAILED:
         raise typer.Exit(code=1)
 
@@ -1638,6 +1648,65 @@ def _print_run_diagnostic(readout: RunDiagnostic) -> None:
         typer.secho(f"  [NOT REACHED] {key}", fg=typer.colors.WHITE)
     if readout.next_step is not None:
         typer.echo(f"  next: {readout.next_step}")
+
+
+def _print_worker_line(settings: Settings, *, status: JobStatus) -> None:
+    """Whether anyone is listening to the queue, beside a run that needs someone to be."""
+    try:
+        health = asyncio.run(_worker_health(settings))
+    except (RedisError, OSError) as unreachable:
+        typer.secho(
+            f"  worker: unknown — Redis could not be reached ({type(unreachable).__name__}), "
+            "so nothing can be queued or run. Start it: just up",
+            fg=typer.colors.RED,
+        )
+        return
+    line, colour = worker_words(health, status=status)
+    typer.secho(line, fg=colour)
+
+
+def worker_words(health: WorkerHealth | None, *, status: JobStatus) -> tuple[str, str]:
+    """The worker line of the readout and its colour, from the health record alone.
+
+    Pure so the wording is testable without Redis: the record is the whole input.
+    """
+    window = HEALTH_CHECK_INTERVAL_SECONDS + 1
+    if health is None:
+        if status is JobStatus.QUEUED:
+            return (
+                f"  worker: NONE — no worker has reported in the last {window} s. The run sits "
+                "queued until one is started: just worker",
+                typer.colors.RED,
+            )
+        return (
+            f"  worker: NONE — no worker has reported in the last {window} s, yet the run is "
+            "marked running. The process running it is gone; check the worker terminal.",
+            typer.colors.RED,
+        )
+    ago = f"reported {health.reported_seconds_ago} s ago"
+    if status is JobStatus.QUEUED and health.ongoing:
+        return (
+            f"  worker: alive — {ago}, busy with {health.ongoing} job(s); it takes one at a "
+            "time, so this run waits its turn",
+            typer.colors.YELLOW,
+        )
+    if status is JobStatus.QUEUED:
+        return (
+            f"  worker: alive — {ago}, idle; it picks a queued run up within a few seconds",
+            typer.colors.GREEN,
+        )
+    return (
+        f"  worker: alive — {ago}, {health.ongoing} job(s) ongoing",
+        typer.colors.GREEN,
+    )
+
+
+async def _worker_health(settings: Settings) -> WorkerHealth | None:
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    try:
+        return await worker_health(redis)
+    finally:
+        await redis.aclose()
 
 
 def _print_step_detail(step: StepDiagnostic) -> None:
