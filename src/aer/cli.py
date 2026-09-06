@@ -29,7 +29,7 @@ from sqlalchemy.engine import make_url
 from aer.config import Settings, load_settings
 from aer.core.enums import JobStatus, Provider, UserRole
 from aer.db.engine import create_engine, create_session_factory
-from aer.db.models import AuditEvent, Job, User
+from aer.db.models import AuditEvent, Job, SectionStatus, User
 from aer.errors import AerError
 from aer.logging import configure_logging, get_logger
 from aer.obsidian import ObsidianExportError, export_report
@@ -70,6 +70,7 @@ from aer.services.retention import (
     verify_store,
 )
 from aer.services.run_replay import RunReplay, replay_run
+from aer.services.section_rehearsal import RehearsalOutcome, rehearse_section
 from aer.services.step_diagnostic import RunDiagnostic, StepDiagnostic, run_diagnostic
 from aer.storage.local import LocalArtefactStore
 from aer.version import build_identity, git_sha, version
@@ -1399,6 +1400,125 @@ def replay_draft_command(
         typer.secho(f"Run {job_id} has archived no writer reply for {scope}.", fg=typer.colors.RED)
         raise typer.Exit(code=1)
     _print_draft_replay(replay)
+
+
+@app.command(name="rehearse-section")
+def rehearse_section_command(
+    job_id: Annotated[
+        uuid.UUID, typer.Argument(help="A finished run whose stored evidence the section may cite.")
+    ],
+    section_key: Annotated[str, typer.Argument(help="The built-in section to draft, by key.")],
+) -> None:
+    """Draft one built-in section against a finished run's evidence, under today's prompts.
+
+    The built-in twin of the skill editor's dry run. The real writer, validator, salvage
+    and claim services run on the rehearsal's own job, reading the source run's facts,
+    calculations and platform-filled blocks and writing nothing into it. Prints the
+    numbers a rehearsal is for — attempts, refusals by cause, words against the budget,
+    claims, edits, cost — and the rendered section, then the replay command that reads
+    the archived replies back under later rules.
+
+    **This spends real money**: about thirty pence a section, metered against the source
+    request's cap and the month's. Exits 1 when the section fails.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    try:
+        outcome = asyncio.run(_rehearse(settings, job_id=job_id, section_key=section_key))
+    except AerError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+    _print_rehearsal(outcome)
+    if outcome.status is not SectionStatus.GENERATED:
+        raise typer.Exit(code=1)
+
+
+async def _rehearse(settings: Settings, *, job_id: uuid.UUID, section_key: str) -> RehearsalOutcome:
+    from aer.runtime import build_services  # noqa: PLC0415 -- constructs the provider
+    from aer.services.configuration import effective_settings  # noqa: PLC0415
+
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    try:
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            if job is None:
+                message = f"No run {job_id}."
+                raise AerError(message, context={"job_id": str(job_id)})
+            # The same read the worker makes, so the rehearsal is the run's own path:
+            # same routing, same budget, same services (ADR 0050).
+            resolved = await effective_settings(session, settings)
+            services = build_services(resolved, redis=redis)
+            outcome = await rehearse_section(
+                session,
+                section_key=section_key,
+                source_job=job,
+                settings=resolved,
+                provider=services.provider,
+                router=services.router,
+                store=services.store,
+            )
+            await session.commit()
+            return outcome
+    finally:
+        await redis.aclose()
+        await engine.dispose()
+
+
+def _print_rehearsal(outcome: RehearsalOutcome) -> None:
+    generated = outcome.status is SectionStatus.GENERATED
+    typer.secho(
+        f"Rehearsal {outcome.job_id} — {outcome.section_key} ({outcome.title}) against run "
+        f"{outcome.source_job_id} — £{outcome.cost_gbp:.4f} spent against an estimate of "
+        f"£{outcome.estimated_cost_gbp:.2f}",
+        fg=typer.colors.CYAN,
+        bold=True,
+    )
+    typer.secho(
+        f"  {outcome.status.value} after {outcome.attempts} attempt(s); "
+        f"{outcome.claims_recorded} claim(s) recorded",
+        fg=typer.colors.GREEN if generated else typer.colors.RED,
+        bold=True,
+    )
+    if outcome.word_budget > 0:
+        typer.echo(
+            f"  {outcome.words} words against a budget of {outcome.word_budget} "
+            f"(refused past {outcome.word_ceiling})"
+        )
+    else:
+        typer.echo(f"  {outcome.words} words; this section has no word budget")
+    if outcome.evidence_dealt is not None:
+        dealt = outcome.evidence_dealt
+        typer.echo(
+            f"  evidence dealt: {dealt.get('facts', 0)} fact(s), "
+            f"{dealt.get('calculations', 0)} calculation(s), {dealt.get('excerpts', 0)} excerpt(s)"
+            + (" — truncated to the token budget" if outcome.evidence_truncated else "")
+        )
+    if outcome.refusal_causes:
+        causes = ", ".join(
+            f"{cause} x{count}" for cause, count in sorted(outcome.refusal_causes.items())
+        )
+        typer.secho(f"  refusals across the attempts: {causes}", fg=typer.colors.YELLOW)
+    for problem in outcome.problems:
+        typer.echo(f"    - {problem}")
+    if outcome.edits:
+        typer.secho(f"  edits recorded on the section: {outcome.edits}", fg=typer.colors.YELLOW)
+    if outcome.confidence is not None:
+        typer.echo(f"  confidence {outcome.confidence:.2f}")
+    if generated:
+        typer.secho(
+            "--- the section, as the report would carry it ---", fg=typer.colors.WHITE, bold=True
+        )
+        typer.echo(outcome.markdown.rstrip())
+        typer.secho(
+            f"--- {outcome.footnote_count} footnote(s) ---", fg=typer.colors.WHITE, bold=True
+        )
+    typer.secho(
+        "Read its archived replies back under later rules: "
+        f"uv run aer replay-draft {outcome.job_id}",
+        fg=typer.colors.WHITE,
+    )
 
 
 @app.command(name="resume")

@@ -199,6 +199,10 @@ the record: a queued run with nobody listening says so, and says what to start. 
 preflight` then folds the runbook's stage 1 into one readout at no cost — the model key,
 the database and its schema, a user, the per-run ceiling against the last run's cost, the
 month's room, Redis, the worker, the price feed — so the next run starts on a known footing.
+And `aer rehearse-section <job-id> <section-key>` is the built-in twin of the skill dry run:
+one section drafted again against a finished run's evidence under today's prompts, on a job
+of its own, for about thirty pence — the way to find out whether the budget change takes
+before a full run pays to, and the way to re-test a failed section after any fix.
 
 *What was read against the tree 2026-08-28, ahead of the data, and turned out not to be the
 cause: `validate_draft` checks only the 1.25× word ceiling with no minimum; a truncation

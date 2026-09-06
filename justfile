@@ -116,6 +116,12 @@ restore source:
 replay-run job_id:
     uv run aer replay-run {{job_id}}
 
+# Draft one built-in section against a finished run's evidence under today's prompts — the
+# real writer, validator and salvage on a job of its own, about thirty pence. The cheap way
+# to find out whether a prompt change takes before a full run pays to.
+rehearse job_id section_key:
+    uv run aer rehearse-section {{job_id}} {{section_key}}
+
 # Read a run's archived section replies back under today's drafting rules. No model call,
 # nothing spent: the proof that a changed rule takes, before another live run pays to find out.
 replay-draft job_id section_key="":

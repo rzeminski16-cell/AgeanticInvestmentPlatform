@@ -46,6 +46,24 @@ something the run cannot survive; `WARN` is something it survives and you should
 names a check an earlier failure made impossible, or the one only a paid call can make
 (`just test-live`, stage 1.6). Read stage 1 the first time; run `just preflight` every time.
 
+**Rehearse before you spend.** Once a run exists — this one, or the last one — any built-in
+section can be drafted again on its own, against that run's stored evidence, under the prompts
+as they stand now:
+
+```bash
+just rehearse <job-id> capital_allocation
+```
+
+**Expect** — the real writer, validator and salvage on a job of their own, about thirty pence,
+metered against the request's cap. The readout says how many attempts it took, what each was
+refused for, the word count against the budget and the ceiling it is refused past, the claims
+recorded, any edit the salvage made, the cost, and then the section as the report would carry
+it. A section that failed in the last run is the one to rehearse first; a prompt change is
+proven here for pence rather than in the next run for pounds. The rehearsal's replies are
+archived like a run's, so `uv run aer replay-draft <rehearsal-job-id>` reads them back under
+any rule that changes later. Rehearsing every section costs about half a run; rehearse the
+ones that failed and two or three of the long ones.
+
 ---
 
 ## Stage 1 — Prepare
@@ -699,6 +717,7 @@ footnotes resolve. The layout is part of the deliverable.
 | A section failed and a fix has since landed | `uv run aer replay-draft <job-id> [section-key]` reads its archived replies back under the new rules, and says whether the section would now draft, draft after repair, or still be lost | £0 |
 | Nothing is moving at all | `uv run aer diagnose <job-id>` — its last line says whether a worker has reported; `just worker-check` asks Redis directly | £0 |
 | Not sure the platform is ready for a run at all | `just preflight` — every dependency, the caps and the worker, in one readout | £0 |
+| A section failed and you want to know whether it would now | `just rehearse <job-id> <section-key>` drafts it again against the run's evidence under today's prompts | about 30p |
 | The run is not worth continuing | **Cancel** on the console | Nothing further |
 | You want me to look at it | `just diagnose-run <job-id>` writes `run-diagnosis.json` | £0 |
 

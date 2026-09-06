@@ -11,6 +11,7 @@ as the only steer beyond the contract.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Any, Final
@@ -288,6 +289,7 @@ async def execute_builtin_section(
     focus: str = "",
     challenges: Sequence[str] = (),
     guidance: Sequence[OperatorGuidance] = (),
+    evidence_job_id: uuid.UUID | None = None,
 ) -> SectionExecution:
     """Write one built-in section to a recorded outcome. Never raises for a bad draft.
 
@@ -303,6 +305,11 @@ async def execute_builtin_section(
 
     ``guidance`` is the run's pinned prompt-kind skills (ADR 0108), passed whole: the
     writer composes only the kinds its role reads, last in the user turn.
+
+    ``evidence_job_id`` is whose recorded calculations and platform-filled blocks count
+    as this section's evidence — the step's own job unless a rehearsal says otherwise
+    (:mod:`aer.services.section_rehearsal`), exactly as the custom path takes it. Facts
+    and sources belong to the request and are visible either way.
     """
     definition = section.definition
     # The model is bound by the contract minus any platform-filled fields (ADR 0063):
@@ -310,7 +317,10 @@ async def execute_builtin_section(
     # into the content after the draft passes, at the positions the stored contract
     # declares. The model cannot write them — its schema forbids unknown fields.
     contract = model_facing_contract(definition.output_contract or {})
-    augmenter, block, standalone = await _augmentation(context, section=section, request=request)
+    evidence_job = evidence_job_id or context.job_step.job_id
+    augmenter, block, standalone = await _augmentation(
+        context, section=section, request=request, evidence_job_id=evidence_job
+    )
     if standalone:
         # The augmenter answered before the model was asked (gap A51c): the rendered
         # record is the section's whole truthful content, so the platform stores it and
@@ -327,7 +337,7 @@ async def execute_builtin_section(
     evidence = await gather_evidence(
         context.session,
         request=request,
-        evidence_job_id=context.job_step.job_id,
+        evidence_job_id=evidence_job,
         policy=policy,
         categories=ALL_CATEGORIES,
     )
@@ -593,6 +603,7 @@ async def _augmentation(
     *,
     section: ReportSection,
     request: ResearchRequest,
+    evidence_job_id: uuid.UUID,
 ) -> tuple[SectionAugmenter | None, dict[str, Any], str]:
     """This section's platform-filled fields, rendered before the model is called.
 
@@ -609,7 +620,7 @@ async def _augmentation(
     augmenter = AUGMENTERS.get(section.section_key)
     if augmenter is None:
         return None, {}, ""
-    block = await augmenter.build(context.session, job_id=context.job_step.job_id, request=request)
+    block = await augmenter.build(context.session, job_id=evidence_job_id, request=request)
     standalone = augmenter.standalone(block) if augmenter.standalone is not None else ""
     return augmenter, block, standalone
 

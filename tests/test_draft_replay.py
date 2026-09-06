@@ -286,10 +286,10 @@ class TestAReplyTheRunMade:
         standing = await draft_replay._standing_rules(
             scene["session"],
             scene["settings"],
-            job=scene["job"],
             request=scene["request"],
             section=scene["section"],
             pins=[],
+            evidence_job_id=scene["job"].id,
         )
         as_custom = replace(
             standing,

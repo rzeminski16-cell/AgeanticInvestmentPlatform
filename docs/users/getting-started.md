@@ -145,6 +145,8 @@ you are on — a hotel or coffee-shop wifi included. Do not remove the loopback 
 | `just worker` | The background worker that executes runs |
 | `just worker-check` | Whether a worker is alive, from the health record it writes every thirty seconds |
 | `just preflight` | Every dependency, the caps and the worker checked before a paid run, at no cost |
+| `just rehearse <job-id> <section-key>` | One built-in section drafted again against a run's evidence under today's prompts; about 30p |
+| `just replay-draft <job-id>` | A run's archived section replies read back under today's rules, at no cost |
 | `just seed-user you@example.com` | Create the local user (idempotent) |
 | `just reset-research` | Delete every research request and everything derived from one |
 | `just backup var/backups/today` | Database and artefact store into one verified directory |

@@ -331,7 +331,13 @@ async def _stage(
     plan = ResearchPlan(
         request_id=request.id,
         workflow_version=DRY_RUN_WORKFLOW,
-        plan={"summary": f"Dry run of {skill.key} against run {source_job.id}", "sections": []},
+        plan={
+            "summary": f"Dry run of {skill.key} against run {source_job.id}",
+            "sections": [],
+            # Machine-readable as well as in the summary, so `aer replay-draft` can hold
+            # the dry run's reply to the evidence it was written against.
+            "evidence_job_id": str(source_job.id),
+        },
         planned_sources=[],
         known_risks=[],
         estimated_cost_gbp=estimate,

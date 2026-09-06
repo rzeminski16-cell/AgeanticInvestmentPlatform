@@ -67,6 +67,7 @@ from aer.db.models import (
     JobStep,
     PlanSkillPin,
     ReportSection,
+    ResearchPlan,
     ResearchRequest,
 )
 from aer.db.models.section_definition import SKILL
@@ -300,9 +301,9 @@ async def replay_drafts(
     if job is None:
         message = f"No run {job_id}."
         raise AerError(message, context={"job_id": str(job_id)})
-    request = await session.get(ResearchRequest, job.work_order_id)
-    if request is None:  # pragma: no cover -- a job's work order is not nullable
-        message = f"Run {job_id} has no request."
+    request = await _request_of(session, job)
+    if request is None:
+        message = f"Run {job_id} has no research request to replay under."
         raise AerError(message, context={"job_id": str(job_id)})
 
     sections = {row.section_key: row for row in await sections_for_job(session, job.id)}
@@ -315,9 +316,12 @@ async def replay_drafts(
         for exchange in await _writer_exchanges(session, store, job_id=job.id)
         if section_key is None or exchange.section_key == section_key
     ]
+    evidence_job_id = await _evidence_job_of(session, job)
     calculations = {
         str(row.id): row
-        for row in await session.scalars(select(Calculation).where(Calculation.job_id == job.id))
+        for row in await session.scalars(
+            select(Calculation).where(Calculation.job_id == evidence_job_id)
+        )
     }
     pins = await pinned_skills_for_job(session, job=job)
 
@@ -339,7 +343,12 @@ async def replay_drafts(
             if section.section_key not in rules:
                 try:
                     rules[section.section_key] = await _standing_rules(
-                        session, settings, job=job, request=request, section=section, pins=pins
+                        session,
+                        settings,
+                        request=request,
+                        section=section,
+                        pins=pins,
+                        evidence_job_id=evidence_job_id,
                     )
                 except AerError as unbuildable:
                     rules[section.section_key] = unbuildable
@@ -362,6 +371,38 @@ async def replay_drafts(
         clean=sum(1 for reply in replies if reply.clean),
     )
     return DraftReplay(job_id=job_id, section_key=section_key, replies=tuple(replies))
+
+
+async def _request_of(session: AsyncSession, job: Job) -> ResearchRequest | None:
+    """The mandate a run's replies were written for.
+
+    A run's own work order carries it. A rehearsal's does not — a section rehearsal or a
+    skill dry run gets a work order of its own with no mandate under it, and its plan's
+    ``request_id`` names what it was a rehearsal *of* — so the plan is read second, which
+    is what lets ``aer replay-draft <rehearsal job>`` read a rehearsal's replies back.
+    """
+    request = await session.get(ResearchRequest, job.work_order_id)
+    if request is not None or job.plan_id is None:
+        return request
+    plan = await session.get(ResearchPlan, job.plan_id)
+    return await session.get(ResearchRequest, plan.request_id) if plan is not None else None
+
+
+async def _evidence_job_of(session: AsyncSession, job: Job) -> uuid.UUID:
+    """Whose calculations and platform-filled blocks the replies were held to.
+
+    A run's own. A rehearsal's plan records the run it borrowed its evidence from, and
+    its replies must be held to that evidence again or every figure they cite reads as
+    one the section "does not hold".
+    """
+    if job.plan_id is None:
+        return job.id
+    plan = await session.get(ResearchPlan, job.plan_id)
+    recorded = (plan.plan or {}).get("evidence_job_id") if plan is not None else None
+    try:
+        return uuid.UUID(str(recorded)) if recorded else job.id
+    except ValueError:
+        return job.id
 
 
 # -- Reading the archive ---------------------------------------------------------------------
@@ -479,10 +520,10 @@ async def _standing_rules(
     session: AsyncSession,
     settings: Settings,
     *,
-    job: Job,
     request: ResearchRequest,
     section: ReportSection,
     pins: Sequence[PlanSkillPin],
+    evidence_job_id: uuid.UUID,
 ) -> _StandingRules:
     """What this section is held to now, built the way its draft step builds it.
 
@@ -513,10 +554,14 @@ async def _standing_rules(
         augmenter = AUGMENTERS.get(section.section_key)
 
     evidence = await gather_evidence(
-        session, request=request, evidence_job_id=job.id, policy=policy, categories=categories
+        session,
+        request=request,
+        evidence_job_id=evidence_job_id,
+        policy=policy,
+        categories=categories,
     )
     block = (
-        await augmenter.build(session, job_id=job.id, request=request)
+        await augmenter.build(session, job_id=evidence_job_id, request=request)
         if augmenter is not None
         else {}
     )
