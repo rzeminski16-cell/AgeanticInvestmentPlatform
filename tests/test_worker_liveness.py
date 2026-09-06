@@ -9,6 +9,7 @@ same record: no record, no worker, and the surface says so.
 
 from __future__ import annotations
 
+import re
 import uuid
 from typing import Any
 
@@ -58,7 +59,9 @@ class TestTheHealthRecord:
         assert health.queued == 2
         assert health.completed == 3
         assert health.failed == 1
-        assert health.reported_seconds_ago == 4
+        # The fake's clock is the real one, so the second can tick over between the write
+        # and the read on a loaded machine: four, or the four plus what the machine took.
+        assert 4 <= health.reported_seconds_ago <= 6
 
     async def test_a_record_from_a_longer_interval_is_alive_and_never_negative(
         self, fake_redis: Any
@@ -207,7 +210,10 @@ class TestTheConsoleWhileQueued:
 
         html = (await client.get(f"/runs/{job_id}")).text
 
-        assert "The worker reported 3 seconds ago" in html
+        # The seconds are read from the record's remaining lifetime against a real clock,
+        # and rendering the page on a loaded runner took the age from 3 to 4 once in CI.
+        assert re.search(r"The worker reported [3-9] seconds ago", html)
+        assert "normally begins within a few seconds" in html
         assert "no worker has reported" not in html
 
     async def test_behind_a_busy_worker_it_says_the_run_is_waiting_its_turn(
