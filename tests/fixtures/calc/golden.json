@@ -1262,6 +1262,106 @@
         "value": "-0.5",
         "unit": "pure"
       }
+    },
+    {
+      "name": "shareholder_distributions",
+      "inputs": [
+        {
+          "name": "share_repurchases",
+          "value": "18400",
+          "unit": "USD",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "dividends_paid",
+          "value": "24100",
+          "unit": "USD",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        }
+      ],
+      "parameters": {},
+      "expected": {
+        "value": "42500",
+        "unit": "USD"
+      }
+    },
+    {
+      "name": "distributions_to_operating_cash_flow",
+      "inputs": [
+        {
+          "name": "share_repurchases",
+          "value": "18400",
+          "unit": "USD",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "dividends_paid",
+          "value": "24100",
+          "unit": "USD",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "operating_cash_flow",
+          "value": "125000",
+          "unit": "USD",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        }
+      ],
+      "parameters": {},
+      "expected": {
+        "value": "0.34",
+        "unit": "pure"
+      }
+    },
+    {
+      "name": "dividends_paid_change",
+      "inputs": [
+        {
+          "name": "opening",
+          "value": "21700",
+          "unit": "USD",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        },
+        {
+          "name": "closing",
+          "value": "24100",
+          "unit": "USD",
+          "source": {
+            "kind": "fact",
+            "id": "golden",
+            "label": "hand-computed"
+          }
+        }
+      ],
+      "parameters": {},
+      "expected": {
+        "value": "2400",
+        "unit": "USD"
+      }
     }
   ]
 }

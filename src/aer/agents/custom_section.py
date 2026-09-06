@@ -196,7 +196,10 @@ the section's content, and a claims list carrying every factual and numeric stat
 the content makes.
 
 Rules that are enforced outside this conversation, stated so you can work with them:
-1. You never produce a figure of your own. Every numeral in your content must appear in
+1. You never produce a figure of your own — no sum, difference, growth rate or share
+worked out from the figures you were shown, however simple the arithmetic; where the
+figure you want is not in the listing, describe the direction in words and give no
+number. Every numeral in your content must appear in
 a numeric claim naming the stored fact or recorded calculation it comes from, by id.
 Ids you were not shown do not exist. Dates and document references are not figures when
 they are written recognisably — "March 2026", "Q3 2025", "in 2024", "Item 2.02",
@@ -250,7 +253,7 @@ class CustomSectionAgent(Agent[CustomSectionInput, CustomSectionDraft]):
     # "3": a numeric claim stands on the figure it names and owes no excerpt (ADR 0109);
     # a quoted figure is written at a precision it rounds to, with its sign.
     # "4": the claims list's budget is asked for, as the claim lengths already were.
-    prompt_version: ClassVar[str] = "4"
+    prompt_version: ClassVar[str] = "5"
 
     def response_schema(self, payload: CustomSectionInput) -> type[BaseModel]:
         """The declared envelope, with ``content`` bound to the pinned contract.

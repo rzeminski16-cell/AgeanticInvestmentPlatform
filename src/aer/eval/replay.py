@@ -63,6 +63,7 @@ __all__ = [
 CALC_MODULES: Final[tuple[str, ...]] = (
     "aer.calc.basic",
     "aer.calc.bridge",
+    "aer.calc.cash_uses",
     "aer.calc.comps",
     "aer.calc.dcf",
     "aer.calc.fx",

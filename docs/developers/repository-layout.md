@@ -32,6 +32,7 @@ src/aer/            application package
     statements.py   income, balance sheet and cash flow, and whether they close
     ratios.py       seventeen ratios, and the ones a filing cannot support
     quality.py      accruals, cash conversion and the other earnings-quality signals
+    cash_uses.py  distributions, their share of cash flow, and what changed year on year
     bridge.py       margin movement decomposed, with the residual as a line
     fx.py           conversion that refuses upside-down, future and stale rates
     wacc.py         the discount rate; no defaults, every input sourced
@@ -771,6 +772,14 @@ charged to profit — which is where capitalised interest shows up. Each declare
 direction is concerning and a threshold, both named constants with the reasoning beside
 them, because judgement in a constant can be argued with and judgement in an `if` cannot.
 A flag means "look at this", never "this is wrong".
+
+`aer/calc/cash_uses.py` strikes what the company did with its cash: buybacks and
+dividends together, their share of the year's operating cash flow, and the year-on-year
+change in dividends paid, share repurchases, debt repayments and capital expenditure. The
+figures exist because the Capital Allocation writer kept doing exactly that arithmetic in
+prose and being refused for it (roadmap §2.1): a difference done in a sentence is a number
+nobody can trace, so the difference is recorded here, with its formula, and the writer names
+it. No thresholds — these are figures, not signals.
 
 Three things `docs/archive/PLAN.md` asks for are **not derivable** from a 62-concept vocabulary:
 development-cost capitalisation cannot be separated from an acquisition, and useful lives and

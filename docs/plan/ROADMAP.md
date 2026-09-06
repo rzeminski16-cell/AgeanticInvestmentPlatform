@@ -204,6 +204,18 @@ one section drafted again against a finished run's evidence under today's prompt
 of its own, for about thirty pence — the way to find out whether the budget change takes
 before a full run pays to, and the way to re-test a failed section after any fix.
 
+**What the Capital Allocation refusals were, read from the replay** (2026-09-06): four
+sentences of the writer's own arithmetic over figures the pack held — dividends paid *rose
+by* £2.4 billion, repurchases *rose by* £3.9 billion, debt repayments *fell by* £6.0 billion,
+buybacks and dividends *together* £48.7 billion — each refused as a numeral no figure stood
+behind. The rule was right and the section could not do its job. `aer/calc/cash_uses.py`
+now strikes those figures in the analysis pass — shareholder distributions, their share of
+operating cash flow, and the year-on-year change in dividends paid, share repurchases, debt
+repayments and capital expenditure — so the writer names a recorded change rather than
+computing one; and the writer's first rule now says in so many words that a sum or a
+difference worked out from the listing is a figure of its own. Both are measured by
+rehearsing the section, not by the next full run.
+
 *What was read against the tree 2026-08-28, ahead of the data, and turned out not to be the
 cause: `validate_draft` checks only the 1.25× word ceiling with no minimum; a truncation
 retry halves the word budget; `MAX_GENERATION_ATTEMPTS = 2`. All three still hold, and none

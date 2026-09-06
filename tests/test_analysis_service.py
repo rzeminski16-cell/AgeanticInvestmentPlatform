@@ -1004,3 +1004,118 @@ class TestTheMapCarriesTheSpellingsFilersUse:
             "amortisation_of_intangibles"
         )
         assert canonical_concept("us-gaap", "Depreciation") != "depreciation_and_amortisation"
+
+
+# A year with the financing lines the capital-allocation figures need, beside `_YEAR`.
+_WITH_CASH_LINES: dict[str, str] = {
+    **_YEAR,
+    "share_repurchases": "40",
+    "dividends_paid": "25",
+    "repayments_of_debt": "30",
+}
+
+
+class TestWhatTheCompanyDidWithItsCash:
+    """Roadmap §2.1: the Capital Allocation writer computed the year-on-year change in the
+    financing lines and the sum of buybacks and dividends for itself, and was refused for
+    every one. The analysis pass strikes them now, so the writer has figures to name."""
+
+    async def test_the_figures_are_struck_per_period_and_the_changes_need_a_prior(
+        self, scene: dict[str, Any]
+    ) -> None:
+        earlier = {**_WITH_CASH_LINES, "dividends_paid": "20", "share_repurchases": "44"}
+        await _seed(
+            scene,
+            _facts(scene, period_end=date(2022, 12, 31), filed=date(2023, 2, 1), values=earlier),
+        )
+        await _seed(
+            scene,
+            _facts(
+                scene,
+                period_end=date(2023, 12, 31),
+                filed=date(2024, 2, 1),
+                values=_WITH_CASH_LINES,
+            ),
+        )
+        context = new_context()
+
+        outcome = await analyse_company(
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
+        )
+
+        assert outcome.latest is not None
+        latest = {figure.key: figure for figure in outcome.latest.cash_uses}
+        assert latest["shareholder_distributions"].value == Decimal("65")
+        assert latest["distributions_to_operating_cash_flow"].value == Decimal("0.25")
+        assert latest["dividends_paid_change"].value == Decimal("5")
+        assert latest["share_repurchases_change"].value == Decimal("-4")
+        assert latest["repayments_of_debt_change"].value == Decimal("0")
+        assert latest["capital_expenditure_change"].value == Decimal("0")
+        earliest = {figure.key: figure for figure in outcome.periods[-1].cash_uses}
+        assert earliest["shareholder_distributions"].value == Decimal("64")
+        assert not earliest["dividends_paid_change"].present
+        assert "only one period" in earliest["dividends_paid_change"].absent_because
+
+    async def test_the_changes_persist_under_their_own_names_and_the_closing_year(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """What the writer's evidence pack lists is the row's name and period: a change
+        named for its line, stamped with the year it closes."""
+        earlier = {**_WITH_CASH_LINES, "dividends_paid": "20"}
+        await _seed(
+            scene,
+            _facts(scene, period_end=date(2022, 12, 31), filed=date(2023, 2, 1), values=earlier),
+        )
+        await _seed(
+            scene,
+            _facts(
+                scene,
+                period_end=date(2023, 12, 31),
+                filed=date(2024, 2, 1),
+                values=_WITH_CASH_LINES,
+            ),
+        )
+        context = new_context()
+        await analyse_company(
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
+        )
+
+        rows = await persist_context(scene["session"], context, job_id=scene["job"].id)
+
+        change = [row for row in rows if row.name == "dividends_paid_change"]
+        assert len(change) == 1
+        assert change[0].output_value == Decimal("5")
+        assert change[0].output_unit == "USD"
+        assert change[0].period_label == "FY2023"
+        assert "dividends paid (prior)" in change[0].formula
+        struck = {row.name for row in rows}
+        assert {"shareholder_distributions", "distributions_to_operating_cash_flow"} <= struck
+
+    async def test_a_filing_without_the_lines_says_which_it_lacks(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await _seed(scene, _facts(scene, period_end=date(2023, 12, 31), filed=date(2024, 2, 1)))
+        context = new_context()
+
+        outcome = await analyse_company(
+            scene["session"],
+            context,
+            company_id=scene["company"].id,
+            work_order=scene["request"].work_order,
+        )
+
+        assert outcome.latest is not None
+        figures = {figure.key: figure for figure in outcome.latest.cash_uses}
+        assert not figures["shareholder_distributions"].present
+        assert "share_repurchases" in figures["shareholder_distributions"].absent_because
+        assert set(figures["shareholder_distributions"].missing) == {
+            "share_repurchases",
+            "dividends_paid",
+        }
+        assert len(figures) == 6

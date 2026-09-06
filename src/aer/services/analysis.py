@@ -33,6 +33,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.calc.cash_uses import CashUseFigure, assess_cash_uses
 from aer.calc.engine import CalculationContext, PeriodStamp
 from aer.calc.quality import QualitySignal, assess_quality
 from aer.calc.ratios import RatioResult, compute_ratios
@@ -94,13 +95,17 @@ FORECAST_CONCEPTS: Final[tuple[str, ...]] = (
 
 @dataclass(frozen=True, slots=True)
 class PeriodAnalysis:
-    """One period: its statements, its ratios, and its quality signals."""
+    """One period: its statements, its ratios, its quality signals, and what it did with
+    its cash."""
 
     period_end: date
     fiscal_year: int | None
     statements: StatementSet
     ratios: tuple[RatioResult, ...]
     quality: tuple[QualitySignal, ...]
+    # The capital-allocation figures (roadmap §2.1): what the Capital Allocation writer
+    # kept computing for itself, struck here instead so it has figures to name.
+    cash_uses: tuple[CashUseFigure, ...] = ()
 
     @property
     def computed_ratios(self) -> tuple[RatioResult, ...]:
@@ -177,6 +182,9 @@ class AnalysisOutcome:
                     "ratios": len(period.computed_ratios),
                     "quality_signals": sum(
                         1 for signal in period.quality if signal.quantity is not None
+                    ),
+                    "cash_uses": sum(
+                        1 for figure in period.cash_uses if figure.quantity is not None
                     ),
                     "failed_identities": [
                         check.name for check in period.statements.failed_identities
@@ -280,6 +288,7 @@ async def analyse_company(
                     quality=assess_quality(
                         context, statements, prior=previous, prior_period=previous_stamp
                     ),
+                    cash_uses=assess_cash_uses(context, statements, prior=previous),
                 )
             )
         previous = statements

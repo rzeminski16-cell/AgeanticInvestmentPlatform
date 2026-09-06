@@ -52,7 +52,11 @@ GOLDEN_TOLERANCE = Decimal("0.0001")
 # And once more for §3.9's `max_drawdown`: an index that goes 100, 50, 75, 120 drew down by
 # half, and the later recovery does not soften it — the case that fails if a drawdown is
 # ever measured from the start rather than from the peak.
-EXPECTED_CORPUS_SIZE = 36
+#
+# Then three for the capital-allocation figures (roadmap §2.1): the sum the writer kept
+# doing in prose, its share of operating cash flow, and one year-on-year change — 24,100
+# against 21,700 is a rise of 2,400, and the sign is the whole point of recording it.
+EXPECTED_CORPUS_SIZE = 39
 
 
 def _replayed(case: dict[str, Any]) -> ReplayObservation:

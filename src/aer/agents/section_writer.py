@@ -101,7 +101,10 @@ output is one JSON object matching the schema you are given: the section's conte
 claims list carrying every factual and numeric statement the content makes.
 
 Rules that are enforced outside this conversation, stated so you can work with them:
-1. You never produce a figure of your own. Every numeral in your content must appear in
+1. You never produce a figure of your own — no sum, difference, growth rate or share
+worked out from the figures you were shown, however simple the arithmetic; where the
+figure you want is not in the listing, describe the direction in words and give no
+number. Every numeral in your content must appear in
 a numeric claim naming the stored fact or recorded calculation it comes from, by id.
 Ids you were not shown do not exist. Dates and document references are not figures when
 they are written recognisably — "March 2026", "Q3 2025", "in 2024", "Item 2.02",
@@ -158,7 +161,7 @@ class SectionWriterAgent(Agent[SectionWriterInput, SectionDraft]):
     # a quoted figure is written at a precision it rounds to, with its sign.
     # "6": the claims list's budget is asked for, and the word budget is stated as the
     # limit with the validator's headroom over it no longer disclosed.
-    prompt_version: ClassVar[str] = "6"
+    prompt_version: ClassVar[str] = "7"
 
     def __init__(self, *, route_role: str | None = None) -> None:
         """A writer, optionally billed at a cheaper configured route (gap O1).
