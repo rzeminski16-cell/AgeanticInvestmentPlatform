@@ -37,32 +37,49 @@ already paid for — including part-way through drafting.
 **Write these down as you go:** the run id, the spend at each gate, and anything that surprised
 you.
 
-**Start with one command.** Stage 1 below is seven checks in seven commands, and the first
-confirmation run lost a night to the one that is easiest to skip. `just preflight` asks every
-question the platform can answer for itself — the model key, PostgreSQL and its schema, a user,
-the per-run ceiling against what the last run cost, the month's remaining room, Redis, a worker
-listening to the queue, the price feed — and prints one line per answer, at no cost. `FAIL` is
-something the run cannot survive; `WARN` is something it survives and you should weigh; `SKIP`
-names a check an earlier failure made impossible, or the one only a paid call can make
-(`just test-live`, stage 1.6). Read stage 1 the first time; run `just preflight` every time.
+## The sequence, every time
 
-**Rehearse before you spend.** Once a run exists — this one, or the last one — any built-in
-section can be drafted again on its own, against that run's stored evidence, under the prompts
-as they stand now:
+Three moves before any money is spent, in this order. The first two are what the earlier
+confirmation runs paid to learn; each is one command.
+
+**1. Preflight.** Stage 1 below is seven checks in seven commands, and the first confirmation
+run lost a night to the one that is easiest to skip. `just preflight` asks every question the
+platform can answer for itself — the model key, PostgreSQL and its schema, a user, the per-run
+ceiling against what the last run cost, the month's remaining room, Redis, a worker listening
+to the queue, the price feed — and prints one line per answer, at no cost.
 
 ```bash
-just rehearse <job-id> capital_allocation
+just preflight
+```
+
+**Expect** — `Ready to run.` `FAIL` is something the run cannot survive: fix it. `WARN` is
+something the run survives and you should weigh: a cap within a retry's worth of the last
+run's cost, no price feed, a month with less room than a run. `SKIP` names a check an earlier
+failure made impossible, or the one only a paid call can make — `just test-live`, stage 1.6,
+which you run yourself. Read stage 1 the first time; run `just preflight` every time.
+
+**2. Rehearse.** Once a run exists — this one, or the last one — any built-in section can be
+drafted again on its own, against that run's stored evidence, under the prompts as they
+stand now. A section that failed last time is the one to rehearse first, and any prompt or
+rule change is proven here for pence rather than in the next run for pounds.
+
+```bash
+just rehearse <last-job-id> capital_allocation
 ```
 
 **Expect** — the real writer, validator and salvage on a job of their own, about thirty pence,
 metered against the request's cap. The readout says how many attempts it took, what each was
 refused for, the word count against the budget and the ceiling it is refused past, the claims
 recorded, any edit the salvage made, the cost, and then the section as the report would carry
-it. A section that failed in the last run is the one to rehearse first; a prompt change is
-proven here for pence rather than in the next run for pounds. The rehearsal's replies are
-archived like a run's, so `uv run aer replay-draft <rehearsal-job-id>` reads them back under
-any rule that changes later. Rehearsing every section costs about half a run; rehearse the
-ones that failed and two or three of the long ones.
+it. Read the section as a reader would; the numbers say whether it drafts, the prose says
+whether it is any good. The rehearsal's replies are archived like a run's, so `uv run aer
+replay-draft <rehearsal-job-id>` reads them back under any rule that changes later.
+Rehearsing every section costs about half a run; rehearse the ones that failed and two or
+three of the long ones. A rehearsal that fails is a reason to fix and rehearse again, not to
+commission.
+
+**3. Commission.** Stage 2. Set the request's cap to what preflight's `run_cap` row led you to
+expect, and start the worker before you start the run.
 
 ---
 
@@ -70,6 +87,11 @@ ones that failed and two or three of the long ones.
 
 **Money at risk: £0**, except step 1.6 which costs a fraction of a penny. Do not skip these;
 each one has cost a live run before.
+
+**What `just preflight` covers.** Its rows are these steps: `database`, `redis` and `schema`
+are 1.2 and 1.3; `user` is 1.4; `provider_key`, `run_cap`, `monthly_room` and `price_feed` are
+1.5; `worker` is 1.7. It does not run 1.1 or 1.6, which are yours. Read the steps the first
+time, and come back to a step when its row fails.
 
 ### 1.1 Be running the code you think you are
 
