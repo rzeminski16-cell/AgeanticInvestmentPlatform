@@ -41,7 +41,14 @@ from aer.services.backup import (
     verify_backup,
 )
 from aer.services.curation import Worksheet, curation_worksheet, render_worksheet
-from aer.services.draft_replay import DraftReplay, ReplayedReply, ReplyVerdict, replay_drafts
+from aer.services.draft_replay import (
+    DraftReplay,
+    ReplayedReply,
+    ReplayedSection,
+    ReplyVerdict,
+    SectionOutcome,
+    replay_drafts,
+)
 from aer.services.gates import Reseal
 from aer.services.knowledge import KnowledgeStats, knowledge_stats
 from aer.services.lessons import LessonCandidate, recurring_lessons
@@ -1288,8 +1295,11 @@ def replay_draft_command(
     gave is archived beside its call, and the rules that refuse a draft are code over the
     run's own rows. So a rule changed after a run — a numeral's sign (ADR 0097), a numeric
     claim's citation (ADR 0109) — is checked against the replies that were refused, before
-    another live run is paid for to find out. The cited-figure agreement metric is measured
-    beside the rules, because it fails a section one step later.
+    another live run is paid for to find out. The salvage pass runs on each refused reply,
+    so the readout says whether the refusal would have cost the section or an edit, and
+    the sections are rolled up the way the draft step reads its attempts. The cited-figure
+    agreement metric is measured beside the rules, because it fails a section one step
+    later.
 
     Exits 1 when the run has archived no section replies.
     """
@@ -1516,16 +1526,50 @@ def _print_draft_replay(replay: DraftReplay) -> None:
     )
     for reply in replay.replies:
         _print_replayed_reply(reply)
+    sections = replay.sections
+    if sections:
+        typer.secho(
+            f"Sections with an archived draft-step reply, read as the draft step reads its "
+            f"attempts ({len(sections)}):",
+            fg=typer.colors.CYAN,
+            bold=True,
+        )
+        for section in sections:
+            _print_replayed_section(section)
+    lost = replay.sections_counted(SectionOutcome.LOST)
     typer.secho(
-        f"Summary: {replay.clean} of {len(replay.replies)} clean; "
+        f"Summary: {replay.clean} of {len(replay.replies)} replies clean; "
+        f"{replay.counted(ReplyVerdict.REPAIRED)} repaired by the salvage; "
         f"{replay.reported} reported by cited_figure_agreement; "
-        f"{replay.counted(ReplyVerdict.REFUSED)} refused; "
+        f"{replay.counted(ReplyVerdict.REFUSED)} refused beyond repair; "
         f"{replay.counted(ReplyVerdict.UNREADABLE)} unreadable; "
         f"{replay.counted(ReplyVerdict.UNIDENTIFIED) + replay.counted(ReplyVerdict.UNARCHIVED)} "
-        "unaccounted for.",
+        f"unaccounted for. Sections: {len(sections) - lost} of {len(sections)} would draft "
+        f"({replay.sections_counted(SectionOutcome.DRAFTS)} as written, "
+        f"{replay.sections_counted(SectionOutcome.REPAIRED)} after repair); {lost} lost.",
         fg=typer.colors.GREEN if replay.clean == len(replay.replies) else typer.colors.YELLOW,
         bold=True,
     )
+
+
+def _print_replayed_section(section: ReplayedSection) -> None:
+    where = f"reply {section.at_reply} of {section.of}"
+    if section.outcome is SectionOutcome.DRAFTS:
+        typer.secho(f"  {section.section_key} — drafts at {where}", fg=typer.colors.GREEN)
+    elif section.outcome is SectionOutcome.REPAIRED:
+        typer.secho(
+            f"  {section.section_key} — drafts after repair at {where}, "
+            f"{len(section.repairs)} edit(s):",
+            fg=typer.colors.YELLOW,
+        )
+        for repair in section.repairs:
+            typer.echo(f"      + {repair}")
+    else:
+        typer.secho(
+            f"  {section.section_key} — LOST: {where} is refused and the salvage declines; "
+            f"{len(section.problems)} problem(s), listed above",
+            fg=typer.colors.RED,
+        )
 
 
 def _print_replayed_reply(reply: ReplayedReply) -> None:
@@ -1543,6 +1587,16 @@ def _print_replayed_reply(reply: ReplayedReply) -> None:
             f"    PASSES under today's rules: {reply.claims} claim(s), no numeral unaccounted for.",
             fg=typer.colors.GREEN,
         )
+    elif reply.verdict is ReplyVerdict.REPAIRED:
+        typer.secho(
+            f"    REPAIRED — refused for {len(reply.problems)} problem(s), then kept by the "
+            f"salvage with {len(reply.repairs)} edit(s) and {reply.claims} claim(s):",
+            fg=typer.colors.YELLOW,
+        )
+        for problem in reply.problems:
+            typer.echo(f"      - {problem}")
+        for repair in reply.repairs:
+            typer.echo(f"      + {repair}")
     else:
         typer.secho(
             f"    {reply.verdict.value.upper()} — {len(reply.problems)} problem(s):",
@@ -1557,7 +1611,7 @@ def _print_replayed_reply(reply: ReplayedReply) -> None:
         )
         for disagreement in reply.disagreements:
             typer.echo(f"      - {disagreement}")
-    elif reply.verdict is ReplyVerdict.PASSES and reply.claims:
+    elif reply.kept and reply.claims:
         typer.secho("    cited figures agree.", fg=typer.colors.GREEN)
 
 

@@ -53,7 +53,13 @@ from aer.sections.evidence import (
 )
 from aer.services.subject import subject_name
 
-__all__ = ["ALL_CATEGORIES", "execute_builtin_section", "policy_of_definition"]
+__all__ = [
+    "ALL_CATEGORIES",
+    "Salvage",
+    "execute_builtin_section",
+    "policy_of_definition",
+    "salvaged",
+]
 
 _log = structlog.get_logger("aer.sections.writing")
 
@@ -251,7 +257,7 @@ def _with_salvage(
     if draft is not None or last_candidate is None:
         return draft, ()
 
-    salvage = _salvaged(
+    salvage = salvaged(
         last_candidate,
         contract=contract,
         evidence=evidence,
@@ -564,7 +570,7 @@ def _failed(
 
 
 @dataclass(frozen=True, slots=True)
-class _Salvage:
+class Salvage:
     """A repaired draft and the edits that repaired it, for the record."""
 
     draft: SectionDraft
@@ -608,7 +614,7 @@ async def _augmentation(
     return augmenter, block, standalone
 
 
-def _salvaged(
+def salvaged(
     candidate: SectionDraft,
     *,
     contract: dict[str, Any],
@@ -616,12 +622,15 @@ def _salvaged(
     policy: SectionPolicy,
     augmenter: SectionAugmenter | None = None,
     block: dict[str, Any] | None = None,
-) -> _Salvage | None:
+) -> Salvage | None:
     """The candidate narrowed until it conforms, if narrowing is the repair.
 
     The section-writer's version of the plan salvage (gap A42): code narrowing model
-    output from the billed reply, never adding to it. Two repairs, applied in order and
-    either sufficient on its own:
+    output from the billed reply, never adding to it. Public because `aer replay-draft`
+    runs the same pass over an archived reply: a refusal the salvage repairs costs a
+    section an edit, one it cannot costs the section, and a readout that showed only the
+    refusal would overstate the second. Two repairs, applied in order and either
+    sufficient on its own:
 
     * **Malformed claims dropped.** A claim that does not stand on what its kind requires
       — a numeric one naming no figure, or naming one and citing nothing — is set aside.
@@ -690,4 +699,4 @@ def _salvaged(
         # Full revalidation includes the augmenter's edge (ADR 0063): a trim that happened
         # to keep an offending method claim must not smuggle it through.
         return None
-    return _Salvage(draft=repaired, notes=tuple(notes))
+    return Salvage(draft=repaired, notes=tuple(notes))

@@ -4,28 +4,42 @@ The confirmation run lost three sections to two rules that were then changed (AD
 amendment, ADR 0109), and the only proof on offer was another £10 run. These tests hold the
 replay to the record: an archived reply is identified by the section it was asked for,
 parsed the way the provider parsed it, and held to `validate_draft` and the agreement metric
-as they stand — and a reply the run refused then is shown passing now, or not.
+as they stand — and a reply the run refused then is shown passing now, or not. A refused
+reply is then handed to the salvage the draft step would hand its last attempt to, so the
+readout tells a refusal that costs an edit from one that costs the section, and the sections
+are rolled up the way the attempt loop reads them.
 """
 
 from __future__ import annotations
 
 import json
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.agents.custom_section import ProposedClaim
+from aer.agents.contract_schema import draft_model_for
+from aer.agents.custom_section import CustomSectionDraft, ProposedClaim
 from aer.agents.section_writer import SectionDraft
 from aer.cli import _print_draft_replay
-from aer.db.models import AgentRun
+from aer.core.enums import JobStatus
+from aer.db.models import AgentRun, JobStep
 from aer.errors import AerError
 from aer.sections.registry import sections_for_job
 from aer.sections.writing import execute_builtin_section
+from aer.services import draft_replay
 from aer.services.artefacts import store_artefact
-from aer.services.draft_replay import DraftReplay, ReplayedReply, ReplyVerdict, replay_drafts
+from aer.services.draft_replay import (
+    DraftReplay,
+    ReplayedReply,
+    ReplayedSection,
+    ReplyVerdict,
+    SectionOutcome,
+    replay_drafts,
+)
 from tests.test_section_writer import (
     SECTION_KEY,
     _context,
@@ -70,12 +84,14 @@ async def _archived(
     recorded: str = "end_turn",
     retry: bool = False,
     at: datetime = ONE_TRANSACTION,
+    step: JobStep | None = None,
 ) -> AgentRun:
     """One writer call as the live provider archives it: the wire request, the SDK's dump.
 
     ``retry`` writes the refusal a second attempt is sent, which is how the replay tells the
     two attempts of one section apart: both are written in one transaction and carry its
-    timestamp, which ``at`` pins here rather than leaving to the database's clock.
+    timestamp, which ``at`` pins here rather than leaving to the database's clock. ``step``
+    is the run's `draft` step unless a test archives under another.
     """
     turn = [{"type": "text", "text": "Evidence listing.", "cache_control": {"type": "ephemeral"}}]
     if section_key is not None:
@@ -94,7 +110,7 @@ async def _archived(
         session, scene["store"], data=json.dumps(response).encode(), media_type="application/json"
     )
     run = AgentRun(
-        job_step_id=scene["step"].id,
+        job_step_id=(step or scene["step"]).id,
         agent_role="report_writer",
         provider="anthropic",
         model="claude-opus-5",
@@ -134,6 +150,44 @@ def _draft_on_the_fact(scene: dict[str, Any]) -> SectionDraft:
             )
         ],
     )
+
+
+def _with_a_stray_numeral(scene: dict[str, Any]) -> SectionDraft:
+    """A sound draft carrying one sentence the numeral rule refuses: the salvage's case.
+
+    The shape both sections of the first live report were lost over (ADR 0057) — a whole
+    billed draft, and one clause the rule had a quarrel with.
+    """
+    draft = _good_draft(scene)
+    draft.content["commentary"] = (
+        "Operating cash generation covered the capital programme. "
+        "Margins expanded 340 basis points."
+    )
+    return draft
+
+
+def _beyond_repair() -> SectionDraft:
+    """A draft that is nothing but the refused sentence: removing it leaves no section."""
+    return SectionDraft(
+        content={"commentary": "Margins expanded by 340 basis points.", "figures": []},
+        claims=[],
+    )
+
+
+async def _another_step(scene: dict[str, Any], key: str) -> JobStep:
+    step = JobStep(
+        job_id=scene["job"].id,
+        step_key=key,
+        sequence=1,
+        status=JobStatus.RUNNING,
+        attempt=0,
+        idempotency_key=f"{scene['job'].id}:{key}",
+        input_hash="1" * 64,
+        started_at=datetime.now(UTC),
+    )
+    scene["session"].add(step)
+    await scene["session"].flush()
+    return step
 
 
 async def _replayed(scene: dict[str, Any], section_key: str | None = None) -> DraftReplay:
@@ -193,16 +247,65 @@ class TestAReplyTheRunMade:
     async def test_a_reply_breaking_a_standing_rule_is_refused_with_the_reasons(
         self, scene: dict[str, Any]
     ) -> None:
-        unsourced = SectionDraft(
-            content={"commentary": "Margins expanded by 340 basis points.", "figures": []},
-            claims=[],
-        )
-        await _archived(scene, response=_reply(unsourced))
+        """Refused as written, and the salvage declines — removing the one sentence would
+        leave the section blank — so this is the refusal that costs the section."""
+        await _archived(scene, response=_reply(_beyond_repair()))
 
         reply = (await _replayed(scene)).replies[0]
 
         assert reply.verdict is ReplyVerdict.REFUSED
         assert any("340" in problem for problem in reply.problems)
+        assert reply.repairs == ()
+        assert not reply.kept
+
+    async def test_a_refusal_the_salvage_repairs_is_an_edit_not_a_lost_section(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The draft step's last resort, run on the archived reply: the refused sentence
+        goes, the rest conforms, and the readout says so instead of counting a section
+        lost that the run would have kept."""
+        await _archived(scene, response=_reply(_with_a_stray_numeral(scene)))
+
+        reply = (await _replayed(scene)).replies[0]
+
+        assert reply.verdict is ReplyVerdict.REPAIRED
+        assert any("340" in problem for problem in reply.problems)
+        assert len(reply.repairs) == 1
+        assert "removed" in reply.repairs[0]
+        assert reply.claims == 1
+        assert reply.kept
+        assert not reply.clean
+
+    async def test_a_custom_sections_reply_is_not_salvaged_because_its_path_does_not(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """`execute_custom_section` has no salvage pass, so a skill-origin section's refused
+        reply is a lost section — and the replay answers for the path rather than flattering
+        it with a repair the run would never make."""
+        await _archived(scene, response=_reply(_with_a_stray_numeral(scene)))
+        standing = await draft_replay._standing_rules(
+            scene["session"],
+            scene["settings"],
+            job=scene["job"],
+            request=scene["request"],
+            section=scene["section"],
+            pins=[],
+        )
+        as_custom = replace(
+            standing,
+            declared=CustomSectionDraft,
+            narrowed=draft_model_for(CustomSectionDraft, standing.contract, name=SECTION_KEY),
+        )
+        [exchange] = await draft_replay._writer_exchanges(
+            scene["session"], scene["store"], job_id=scene["job"].id
+        )
+
+        reply = draft_replay._replayed(
+            exchange, ordinal=1, of=1, standing=as_custom, calculations={}
+        )
+
+        assert reply.verdict is ReplyVerdict.REFUSED
+        assert reply.repairs == ()
 
     async def test_a_cited_figure_the_sentence_misstates_is_reported(
         self, scene: dict[str, Any]
@@ -347,6 +450,100 @@ class TestWhichRepliesAreRead:
         assert (await _replayed(scene)).replies == ()
 
 
+# -- How the sections come out ----------------------------------------------------------------
+
+
+class TestHowTheSectionsComeOut:
+    """The attempt loop's reading, from the verdicts: the first reply that passes, else the
+    last readable one if the salvage repairs it, else lost."""
+
+    async def test_the_first_passing_reply_drafts_the_section(self, scene: dict[str, Any]) -> None:
+        await _archived(scene, response=_reply(_beyond_repair()))
+        await _archived(scene, response=_reply(_draft_on_the_fact(scene)), retry=True)
+
+        [section] = (await _replayed(scene)).sections
+
+        assert section == ReplayedSection(SECTION_KEY, SectionOutcome.DRAFTS, at_reply=2, of=2)
+
+    async def test_a_section_no_reply_passes_stands_on_the_last_readable_one_repaired(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await _archived(scene, response=_reply(_beyond_repair()))
+        await _archived(scene, response=_reply(_with_a_stray_numeral(scene)), retry=True)
+
+        replay = await _replayed(scene)
+        [section] = replay.sections
+
+        assert section.outcome is SectionOutcome.REPAIRED
+        assert (section.at_reply, section.of) == (2, 2)
+        assert "removed" in section.repairs[0]
+        assert replay.sections_counted(SectionOutcome.REPAIRED) == 1
+        assert replay.sections_counted(SectionOutcome.LOST) == 0
+
+    async def test_a_section_the_salvage_cannot_keep_is_lost_with_its_last_reasons(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await _archived(scene, response=_reply(_with_a_stray_numeral(scene)))
+        await _archived(scene, response=_reply(_beyond_repair()), retry=True)
+
+        [section] = (await _replayed(scene)).sections
+
+        assert section.outcome is SectionOutcome.LOST
+        assert (section.at_reply, section.of) == (2, 2)
+        assert any("340" in problem for problem in section.problems)
+
+    async def test_the_last_candidate_is_the_last_reply_that_parsed(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """A retry that ran out of room leaves no candidate; the loop salvages the attempt
+        before it, exactly as `execute_builtin_section` keeps `last_candidate`."""
+        await _archived(scene, response=_reply(_with_a_stray_numeral(scene)))
+        await _archived(
+            scene,
+            response={"stop_reason": "max_tokens", "content": []},
+            recorded="schema_rejected",
+            retry=True,
+        )
+
+        [section] = (await _replayed(scene)).sections
+
+        assert section.outcome is SectionOutcome.REPAIRED
+        assert (section.at_reply, section.of) == (1, 2)
+
+    async def test_a_section_with_no_readable_reply_is_lost(self, scene: dict[str, Any]) -> None:
+        await _archived(
+            scene, response={"stop_reason": "max_tokens", "content": []}, recorded="schema_rejected"
+        )
+
+        [section] = (await _replayed(scene)).sections
+
+        assert section.outcome is SectionOutcome.LOST
+        assert "ran out of room" in section.problems[0]
+
+    async def test_a_revisions_reply_never_decides_a_section(self, scene: dict[str, Any]) -> None:
+        """A refused revision leaves the approved draft standing (ADR 0098): the reply is
+        read and shown, and counts for nothing in the roll-up."""
+        revise = await _another_step(scene, "revise")
+        await _archived(scene, response=_reply(_draft_on_the_fact(scene)))
+        await _archived(
+            scene,
+            response=_reply(_beyond_repair()),
+            at=ONE_TRANSACTION + timedelta(minutes=20),
+            step=revise,
+        )
+
+        replay = await _replayed(scene)
+
+        assert [r.step_key for r in replay.replies] == ["draft", "revise"]
+        assert [r.verdict for r in replay.replies] == [ReplyVerdict.PASSES, ReplyVerdict.REFUSED]
+        assert [s.outcome for s in replay.sections] == [SectionOutcome.DRAFTS]
+
+    async def test_a_reply_naming_no_section_is_in_no_roll_up(self, scene: dict[str, Any]) -> None:
+        await _archived(scene, response=_reply(_draft_on_the_fact(scene)), section_key=None)
+
+        assert (await _replayed(scene)).sections == ()
+
+
 # -- The readout -------------------------------------------------------------------------------
 
 
@@ -379,17 +576,65 @@ def test_the_readout_says_what_each_reply_met(capsys: pytest.CaptureFixture[str]
                 problems=("Claim 3: A numeric claim names exactly one figure.",),
                 disagreements=("business_overview/quick_ratio#1 cites ... and states 0.93",),
             ),
+            ReplayedReply(
+                section_key="capital_allocation",
+                step_key="draft",
+                ordinal=1,
+                of=1,
+                model="claude-opus-5",
+                output_tokens=3_300,
+                recorded_stop_reason="end_turn",
+                verdict=ReplyVerdict.REPAIRED,
+                problems=("The content carries numeral(s) 2.4 which no numeric claim ...",),
+                repairs=("One or more sentences were removed because ...",),
+                claims=9,
+            ),
         ),
     )
 
     _print_draft_replay(replay)
     out = capsys.readouterr().out
 
-    assert "2 archived section reply(ies)" in out
+    assert "3 archived section reply(ies)" in out
     assert "reply 1 of 2" in out
     assert "recorded then: schema_rejected" in out
     assert "PASSES under today's rules: 14 claim(s)" in out
     assert "REFUSED — 1 problem(s):" in out
     assert "- Claim 3: A numeric claim names exactly one figure." in out
     assert "would report 1 disagreement(s)" in out
-    assert "Summary: 1 of 2 clean; 0 reported by cited_figure_agreement; 1 refused" in out
+    assert "REPAIRED — refused for 1 problem(s), then kept by the salvage with 1 edit(s)" in out
+    assert "+ One or more sentences were removed because ..." in out
+    assert "business_overview — drafts at reply 1 of 2" in out
+    assert "capital_allocation — drafts after repair at reply 1 of 1, 1 edit(s):" in out
+    assert (
+        "Summary: 1 of 3 replies clean; 1 repaired by the salvage; "
+        "0 reported by cited_figure_agreement; 1 refused beyond repair"
+    ) in out
+    assert "Sections: 2 of 2 would draft (1 as written, 1 after repair); 0 lost." in out
+
+
+def test_the_readout_names_a_lost_section(capsys: pytest.CaptureFixture[str]) -> None:
+    replay = DraftReplay(
+        job_id=uuid.uuid4(),
+        section_key="capital_allocation",
+        replies=(
+            ReplayedReply(
+                section_key="capital_allocation",
+                step_key="draft",
+                ordinal=1,
+                of=1,
+                model="claude-opus-5",
+                output_tokens=3_300,
+                recorded_stop_reason="end_turn",
+                verdict=ReplyVerdict.REFUSED,
+                problems=("The content carries numeral(s) 2.4 ...", "At most 1 is allowed ..."),
+            ),
+        ),
+    )
+
+    _print_draft_replay(replay)
+    out = capsys.readouterr().out
+
+    assert "capital_allocation — LOST: reply 1 of 1 is refused and the salvage declines" in out
+    assert "2 problem(s), listed above" in out
+    assert "Sections: 0 of 1 would draft (0 as written, 0 after repair); 1 lost." in out

@@ -509,12 +509,22 @@ uv run aer replay-draft <job-id> business_overview   # one section's
 
 **Expect** — one block per archived reply, headed by the section, the step, `reply 1 of 2`,
 the model, the output tokens and what the run recorded at the time (`schema_rejected` for a
-reply refused unread, the model's own stop reason otherwise); then either `PASSES under
-today's rules` with the claim count, or `REFUSED` with the reasons as the writer would be
-told them; then whether the cited-figure agreement metric would report it. A summary line
-counts the clean replies. Nothing is fetched, no model is called and nothing is spent. A
-reply that was refused then and passes now is the fix, proven; one that is still refused
-names exactly what to fix next.
+reply refused unread, the model's own stop reason otherwise); then one of `PASSES under
+today's rules` with the claim count, `REPAIRED` with the reasons it was refused for and the
+edits the salvage would make to keep it, or `REFUSED` with the reasons as the writer would be
+told them and no repair on offer; then whether the cited-figure agreement metric would
+report it. After the replies, one line per section, read the way the draft step reads its
+attempts — `drafts at reply 2 of 2`, `drafts after repair`, or `LOST` — and a summary line
+that counts both the replies and the sections. Nothing is fetched, no model is called and
+nothing is spent.
+
+**How to read it** — a reply that was refused then and passes now is the fix, proven. A
+`REPAIRED` reply would have cost the section an edit, not the section: the salvage is what
+the draft step runs on its last attempt, and the readout runs it on every reply so you can
+see which refusals matter. Only a section marked `LOST` is one the run would still fail
+under today's rules, and its last reply's reasons name exactly what to fix next. The
+sections line is an estimate from the record, not a prediction of the next run — a retry
+was written against the refusal it was sent at the time, not today's.
 
 ### 6.4 If drafting stops part-way
 
@@ -665,8 +675,8 @@ footnotes resolve. The layout is part of the deliverable.
 | A run is stopped and you want it to continue | Console **Continue this run**, or `uv run aer resume <job-id>` | Nothing repeated |
 | It stopped part-way through drafting | The same. Already-written sections are kept | Only the sections not yet written |
 | After approving, it says the seal and the page "drifted apart" | `uv run aer reseal <job-id>`, then `uv run aer resume <job-id>` | £0 |
-| A section failed and a fix has since landed | `uv run aer replay-draft <job-id> [section-key]` reads its archived replies back under the new rules | £0 |
 | Nothing is moving at all | Check the worker terminal | £0 |
+| A section failed and a fix has since landed | `uv run aer replay-draft <job-id> [section-key]` reads its archived replies back under the new rules, and says whether the section would now draft, draft after repair, or still be lost | £0 |
 | The run is not worth continuing | **Cancel** on the console | Nothing further |
 | You want me to look at it | `just diagnose-run <job-id>` writes `run-diagnosis.json` | £0 |
 

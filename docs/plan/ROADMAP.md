@@ -168,7 +168,11 @@ The approved report then stalled at `gate_final` because a disagreement settled 
 page after the seal changed the payload the seal was taken over — fixed, with `aer reseal`
 to recover a run already caught (`57c8138`). `aer replay-draft <job-id> [section-key]` reads
 the run's archived section replies back under today's rules at no spend — the proof that a
-changed rule takes, before another live run pays to find out. Two smaller findings from the
+changed rule takes, before another live run pays to find out. It runs the salvage pass on
+every refused reply and rolls the sections up as the draft step reads its attempts, so a
+refusal that costs an edit is told from one that costs the section: the first readout
+showed eighteen refusals and could not say how many of them were lost sections, which was
+the only number that mattered. Two smaller findings from the
 same run: the depreciation-intensity driver was asked of the operator because the subject
 files `Depreciation` and `AmortizationOfIntangibleAssets` and no combined tag — the halves
 now map to their own concepts and the combined line is derived from them, as total debt is

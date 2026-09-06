@@ -25,6 +25,18 @@ failed at ``validate``, not ``draft``: ``cited_figure_agreement`` reads the draf
 against the calculation it names, and a refusal there costs the run after the section was
 paid for. It is measured here over the replayed claims, so a reply that drafts but would be
 reported is shown as both.
+
+**The salvage runs too.** A refusal is not a lost section: the draft step's last resort
+narrows the last reply it could read — malformed claims dropped, unsourced-numeral sentences
+removed, surplus gap remarks reduced to one, length trimmed — and keeps it when what remains
+conforms (ADR 0057). The same pass runs here on every readable reply, so ``refused`` splits
+into *repaired* and *lost*, and the sections are rolled up the way the attempt loop reads
+them: the first reply that passes, else the last readable one if the salvage repairs it,
+else lost. A readout that stopped at the refusal overstated the loss: the confirmation run's
+replay showed eighteen refusals, and what the operator needed to know was how many of them
+would have cost a section. The roll-up is what the record can say for nothing, not a
+prediction of the next run — a retry was written against the refusal it was sent, not
+today's.
 """
 
 from __future__ import annotations
@@ -64,12 +76,19 @@ from aer.eval.runtime import cited_figure_agreement
 from aer.sections.deterministic import AUGMENTERS, SectionAugmenter, model_facing_contract
 from aer.sections.evidence import Evidence, SectionPolicy, gather_evidence, validate_draft
 from aer.sections.registry import sections_for_job
-from aer.sections.writing import ALL_CATEGORIES, policy_of_definition
+from aer.sections.writing import ALL_CATEGORIES, policy_of_definition, salvaged
 from aer.skills.execution import policy_of_pin
 from aer.skills.resolution import pinned_skills_for_job
 from aer.storage.protocol import ArtefactStore
 
-__all__ = ["DraftReplay", "ReplayedReply", "ReplyVerdict", "replay_drafts"]
+__all__ = [
+    "DraftReplay",
+    "ReplayedReply",
+    "ReplayedSection",
+    "ReplyVerdict",
+    "SectionOutcome",
+    "replay_drafts",
+]
 
 _log = structlog.get_logger("aer.services.draft_replay")
 
@@ -94,11 +113,17 @@ _RETRY_MARKER: Final = "Your previous draft was refused for these reasons; fix t
 
 _FIELD_PROBLEMS_SHOWN: Final = 5
 
+# The step whose replies decide whether a section exists. A revision's reply (ADR 0091) is
+# read and shown like any other, but a refused revision leaves the approved draft standing
+# (ADR 0098), so it never costs a section and never counts in the roll-up.
+DRAFT_STEP: Final = "draft"
+
 
 class ReplyVerdict(StrEnum):
     """What today's rules make of one archived reply."""
 
     PASSES = "passes"
+    REPAIRED = "repaired"
     REFUSED = "refused"
     UNREADABLE = "unreadable"
     UNIDENTIFIED = "unidentified"
@@ -114,6 +139,12 @@ class ReplayedReply:
     carried so the readout can say "refused then, passes now", which is the whole point of
     the exercise. ``disagreements`` are the agreement metric's, kept apart from
     ``problems`` because they fail a different step of the run.
+
+    ``REPAIRED`` is a reply the rules refuse as written and the salvage pass narrows to a
+    conforming draft — the draft step's last resort, run here on every readable reply so
+    that a refusal it repairs is told apart from one that costs the section. ``problems``
+    are then what it was refused for and ``repairs`` the edits that kept it, in the words
+    the section row would record; ``claims`` counts what the kept draft carries.
     """
 
     section_key: str | None
@@ -127,11 +158,42 @@ class ReplayedReply:
     problems: tuple[str, ...] = ()
     disagreements: tuple[str, ...] = ()
     claims: int = 0
+    repairs: tuple[str, ...] = ()
 
     @property
     def clean(self) -> bool:
-        """Drafts under today's rules, and every cited figure agrees."""
+        """Drafts under today's rules as written, and every cited figure agrees."""
         return self.verdict is ReplyVerdict.PASSES and not self.disagreements
+
+    @property
+    def kept(self) -> bool:
+        """Yields a section under today's rules: as written, or after the salvage's edits."""
+        return self.verdict in {ReplyVerdict.PASSES, ReplyVerdict.REPAIRED}
+
+
+class SectionOutcome(StrEnum):
+    """What one section's draft-step replies come to under today's rules."""
+
+    DRAFTS = "drafts"
+    REPAIRED = "repaired"
+    LOST = "lost"
+
+
+@dataclass(frozen=True, slots=True)
+class ReplayedSection:
+    """One section's draft-step replies, read the way the attempt loop reads them.
+
+    The loop keeps the first reply that passes; failing that, it salvages the last reply it
+    could read; failing that, the section is lost. ``at_reply`` is the ordinal of the reply
+    the outcome rests on, and ``problems`` and ``repairs`` are that reply's.
+    """
+
+    section_key: str
+    outcome: SectionOutcome
+    at_reply: int
+    of: int
+    problems: tuple[str, ...] = ()
+    repairs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +219,45 @@ class DraftReplay:
             for reply in self.replies
             if reply.verdict is ReplyVerdict.PASSES and reply.disagreements
         )
+
+    @property
+    def sections(self) -> tuple[ReplayedSection, ...]:
+        """Every section with a draft-step reply, in the order the run first wrote to it."""
+        by_section: dict[str, list[ReplayedReply]] = {}
+        for reply in self.replies:
+            if reply.section_key is not None and reply.step_key == DRAFT_STEP:
+                by_section.setdefault(reply.section_key, []).append(reply)
+        return tuple(_section_outcome(key, replies) for key, replies in by_section.items())
+
+    def sections_counted(self, outcome: SectionOutcome) -> int:
+        return sum(1 for section in self.sections if section.outcome is outcome)
+
+
+def _section_outcome(section_key: str, replies: Sequence[ReplayedReply]) -> ReplayedSection:
+    """The attempt loop's reading of one section's replies, from their verdicts alone.
+
+    Mirrors :func:`aer.sections.writing.execute_builtin_section`: the first passing draft
+    ends the loop, and only when none passes is the last candidate — the last reply that
+    parsed, whatever came after it — handed to the salvage.
+    """
+    passing = next((r for r in replies if r.verdict is ReplyVerdict.PASSES), None)
+    if passing is not None:
+        return ReplayedSection(
+            section_key, SectionOutcome.DRAFTS, at_reply=passing.ordinal, of=passing.of
+        )
+    readable = {ReplyVerdict.REPAIRED, ReplyVerdict.REFUSED}
+    last = next((r for r in reversed(replies) if r.verdict in readable), replies[-1])
+    outcome = (
+        SectionOutcome.REPAIRED if last.verdict is ReplyVerdict.REPAIRED else SectionOutcome.LOST
+    )
+    return ReplayedSection(
+        section_key,
+        outcome,
+        at_reply=last.ordinal,
+        of=last.of,
+        problems=last.problems,
+        repairs=last.repairs,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -445,6 +546,7 @@ def _replayed(
         problems: Sequence[str] = (),
         disagreements: Sequence[str] = (),
         claims: int = 0,
+        repairs: Sequence[str] = (),
     ) -> ReplayedReply:
         return ReplayedReply(
             section_key=exchange.section_key,
@@ -458,6 +560,7 @@ def _replayed(
             problems=tuple(problems),
             disagreements=tuple(disagreements),
             claims=claims,
+            repairs=tuple(repairs),
         )
 
     if exchange.request is None or exchange.response is None:
@@ -488,21 +591,49 @@ def _replayed(
     draft = standing.declared.model_validate(
         narrowed.model_dump(mode="json", by_alias=True, exclude_none=True)
     )
+    verdict, problems, kept, repairs = _held_to_the_rules(draft, standing)
+    return reply(
+        verdict,
+        problems,
+        _disagreements(kept, section_key=str(exchange.section_key), calculations=calculations),
+        claims=len(kept.claims),
+        repairs=repairs,
+    )
 
+
+def _held_to_the_rules(
+    draft: CustomSectionDraft, standing: _StandingRules
+) -> tuple[ReplyVerdict, list[str], CustomSectionDraft, tuple[str, ...]]:
+    """The verdict on a parsed draft, with the draft that verdict keeps and how.
+
+    Refused as written, the draft is handed to the salvage — the draft step's last resort,
+    run on every readable reply rather than only the last attempt's, because what the
+    readout owes the operator is whether *this* refusal would have cost the section or an
+    edit. Built-in sections only: that is the one path that salvages
+    (`execute_custom_section` does not), and the replay answers for the path.
+    """
     problems = validate_draft(
         draft, contract=standing.contract, evidence=standing.evidence, policy=standing.policy
     )
     if standing.augmenter is not None:
         problems.extend(standing.augmenter.check(draft.content, standing.block))
-    disagreements = _disagreements(
-        draft, section_key=str(exchange.section_key), calculations=calculations
+    if not problems:
+        return ReplyVerdict.PASSES, problems, draft, ()
+    repair = (
+        salvaged(
+            draft,
+            contract=standing.contract,
+            evidence=standing.evidence,
+            policy=standing.policy,
+            augmenter=standing.augmenter,
+            block=standing.block,
+        )
+        if isinstance(draft, SectionDraft)
+        else None
     )
-    return reply(
-        ReplyVerdict.REFUSED if problems else ReplyVerdict.PASSES,
-        problems,
-        disagreements,
-        claims=len(draft.claims),
-    )
+    if repair is None:
+        return ReplyVerdict.REFUSED, problems, draft, ()
+    return ReplyVerdict.REPAIRED, problems, repair.draft, repair.notes
 
 
 def _unreadable(text: str | None, stop_reason: str | None) -> str | None:
