@@ -1,79 +1,87 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
 
-{# The "reproduce this run" answer. Not a progress page: the replay has already finished by
-   the time this renders, because it fetches nothing and calls no model. #}
+{#
+  The "reproduce this run" answer. Not a progress page: the replay has already finished by
+  the time this renders, because it fetches nothing and calls no model. Reached only by
+  POST — re-verifying a citation writes its verdict back onto the row, so arriving here
+  changed stored state, and a link that did that would be a link nobody should follow.
+#}
 
 {% block title %}Replay &middot; Tracework Invest{% endblock %}
 
 {% block content %}
-  <div>
-    <h1 class="text-2xl font-semibold tracking-tight">Reproduce this run</h1>
-    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-      Re-derived from what the run wrote down. Nothing was fetched and no model was called,
-      so this is a question about the record rather than about the world &mdash; it will give
-      the same answer in a year.
-    </p>
-  </div>
+  {{ ui.page_header(
+    "Reproduce this run",
+    eyebrow="THE RECORD, RE-DERIVED",
+    identity="Replayed " ~ replayed_at_display ~ ". Nothing was fetched and no model was called, so this is a question about the record rather than about the world — it will give the same answer in a year.",
+    breadcrumbs=[{"href": "/runs/" ~ job.id, "label": "Run console"}],
+  ) }}
 
   {% if report.reproduces %}
-    <p
-      class="mt-6 rounded-md border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
-      id="reproduces"
-    >
-      <strong>This run reproduces.</strong> {{ report.checked }} checked thing(s) still hold.
-    </p>
+    <div id="reproduces">
+      {{ ui.verdict("REPRODUCES", verdict.composed, tone=verdict.tone.value) }}
+    </div>
   {% else %}
-    <div
-      class="mt-6 rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200"
-      id="does-not-reproduce"
-    >
-      <strong>This run no longer reproduces.</strong>
-      <ul class="mt-2 list-disc space-y-1 pl-5">
-        {% for problem in report.problems() %}
-          <li>{{ problem }}</li>
-        {% endfor %}
-      </ul>
+    <div id="does-not-reproduce">
+      {{ ui.verdict("HAS FINDINGS", verdict.composed, tone=verdict.tone.value) }}
     </div>
   {% endif %}
 
-  <dl class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-    <div class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-      <dt class="text-xs uppercase tracking-wide text-slate-500">Calculations</dt>
-      <dd class="mt-1 text-2xl font-semibold tabular-nums" id="calculations">
+  <dl class="grid grid-cols-2 gap-x-10 gap-y-4 sm:grid-cols-4">
+    <div>
+      <dt class="type-eyebrow text-ink-muted">Calculations</dt>
+      <dd class="mt-1 type-data-xl text-ink" id="calculations">
         {{ report.calculations_checked }}
       </dd>
-      <dd class="text-xs text-slate-500">
+      <dd class="type-body-sm text-ink-muted">
         {{ report.calculations_diverged|length }} diverged
       </dd>
     </div>
-    <div class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-      <dt class="text-xs uppercase tracking-wide text-slate-500">Citations</dt>
-      <dd class="mt-1 text-2xl font-semibold tabular-nums" id="citations">
+    <div>
+      <dt class="type-eyebrow text-ink-muted">Citations</dt>
+      <dd class="mt-1 type-data-xl text-ink" id="citations">
         {{ report.citations_checked }}
       </dd>
-      <dd class="text-xs text-slate-500">{{ report.citations_failed|length }} failed</dd>
+      <dd class="type-body-sm text-ink-muted">{{ report.citations_failed|length }} failed</dd>
     </div>
-    <div class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-      <dt class="text-xs uppercase tracking-wide text-slate-500">Artefacts</dt>
-      <dd class="mt-1 text-2xl font-semibold tabular-nums" id="artefacts">
+    <div>
+      <dt class="type-eyebrow text-ink-muted">Artefacts</dt>
+      <dd class="mt-1 type-data-xl text-ink" id="artefacts">
         {{ report.artefacts_checked }}
       </dd>
-      <dd class="text-xs text-slate-500">
+      <dd class="type-body-sm text-ink-muted">
         {{ report.artefacts_unreadable|length }} unreadable
       </dd>
     </div>
-    <div class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-      <dt class="text-xs uppercase tracking-wide text-slate-500">Model calls</dt>
-      <dd class="mt-1 text-2xl font-semibold tabular-nums" id="model-calls">
+    <div>
+      <dt class="type-eyebrow text-ink-muted">Model calls</dt>
+      <dd class="mt-1 type-data-xl text-ink" id="model-calls">
         {{ report.model_calls_checked }}
       </dd>
-      <dd class="text-xs text-slate-500">
+      <dd class="type-body-sm text-ink-muted">
         {{ report.model_calls_unarchived|length }} unarchived
       </dd>
     </div>
   </dl>
 
-  <p class="mt-8 text-sm">
-    <a href="/runs/{{ job.id }}" class="text-sky-700 dark:text-sky-400">&larr; Back to the run</a>
-  </p>
+  {% if findings %}
+    {% call ui.sheet("Every finding, by what it is", id="findings") %}
+      {#
+        Grouped by kind rather than pooled: a calculation that re-derives differently and
+        a citation the verifier cannot find again are different problems with different
+        remedies, and one list would make the reader sort them by hand.
+      #}
+      <div class="flex flex-col gap-6">
+        {% for group in findings %}
+          <section>
+            <h3 class="type-subheading text-ink">{{ group.title }}</h3>
+            <ul class="mt-2 flex list-disc flex-col gap-1 pl-5 type-body-sm text-ink">
+              {% for item in group["items"] %}<li>{{ item }}</li>{% endfor %}
+            </ul>
+          </section>
+        {% endfor %}
+      </div>
+    {% endcall %}
+  {% endif %}
 {% endblock %}

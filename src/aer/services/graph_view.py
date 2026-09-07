@@ -90,6 +90,12 @@ class PlacedEdge:
     y2: float
     kind: EdgeKind
 
+    # The endpoints by name, so the page can list every relation in words beside the
+    # drawing — the graph has to be usable by a reader who cannot perceive the topology,
+    # and a list derived here cannot disagree with the lines it sits next to.
+    a_label: str = ""
+    b_label: str = ""
+
 
 @dataclass(frozen=True, slots=True)
 class GraphPicture:
@@ -171,7 +177,17 @@ def place(nodes: list[GraphNode], edges: list[GraphEdge]) -> GraphPicture:
             continue
         drawn.add(key)
         (x1, y1), (x2, y2) = positions[first], positions[second]
-        lines.append(PlacedEdge(x1=x1, y1=y1, x2=x2, y2=y2, kind=edge.kind))
+        lines.append(
+            PlacedEdge(
+                x1=x1,
+                y1=y1,
+                x2=x2,
+                y2=y2,
+                kind=edge.kind,
+                a_label=by_id[first].label,
+                b_label=by_id[second].label,
+            )
+        )
 
     return GraphPicture(
         width=round(width, 1),

@@ -74,7 +74,7 @@ Seven blocks:
 | The report's built-in sections | The ones that always appear |
 | **Sources it intends to use** | The list |
 | What it says it may get wrong | The risks the planner can already see |
-| Your skills on this run | Which user-authored methodology files apply |
+| Your skills on this run | Which user-authored skills apply, at which version, and — for a methodology, house view or preference — which roles it composes into (ADR 0108) |
 | Cost and time | The estimate |
 
 **The advice worth designing around:** *"Read the source list: if it does not name the filings
@@ -88,12 +88,17 @@ what this gate is for, and the source list is currently the fourth of seven bloc
 **The question is: does this gap matter?** Some tags in the filing could not be mapped to a
 canonical concept. Should the run proceed without them?
 
-Three tables:
+Three tables and one list:
 
 - **Tags with no canonical concept.** Each carries its label, **the largest figure it held in
   this filing**, the period that figure belongs to, and what it is **as a share of the biggest
   mapped line**. Sorted biggest share first, so the row that decides the gate is the first on
   the screen.
+- **Tags this platform refuses to map**, each with the reason (roadmap §2.7) — *not* a
+  question, and said so on the page. A refusal is a decision already taken; shown in the
+  same list as the gaps it reads as work outstanding, which is how a considered refusal
+  gets approved away and how the mapping it was refused for arrives later in good faith.
+  A filing whose only unmapped tags are refused ones does not stop the run at all.
 - **What did map** — closed by default. Because the question is a comparison, and an operator
   asked it over element names alone was being asked to hold the statements in their head.
 - **What the extractor complained about.**
@@ -212,7 +217,7 @@ exists. Nine blocks:
 | **Validation results** | Every evaluation metric and its verdict |
 | **Source coverage** | Per section. *Not generated* across the row for a section that never ran, rather than zero coverage for an absence |
 | **Disagreements** | Source conflicts — two documents saying different numbers |
-| **The red team's challenges** | Its own section: severity, the objection **at reading width**, its basis, its cited evidence |
+| **The red team's challenges** | Its own section: dimension and severity, the objection **at reading width**, its basis, its cited evidence, and — while it is unsettled — a brief of what either answer commits the report to (ADR 0095) |
 | **Cost** | Against the cap, with an alert threshold |
 | **Sections in this draft** | Per section: outcome, evidence tally by kind, attempt count, the refusal in the producer's own words, and the causes counted |
 | **Calculations** | Name, formula, period, the value in house style, input count. **Closed by default**, with a filter over name, period and formula |
@@ -235,6 +240,18 @@ overwritten. The labels follow the kind — "keep the draft's position" and "acc
 challenge" for a red-team row, because asking somebody to choose between A and B on a thesis
 is asking an unanswerable question. **A disagreement nobody settles keeps publishing both
 sides**, which is the default and the honest outcome for most of them.
+
+**An unsettled challenge carries a brief of the choice** (ADR 0095). The objection says what
+is wrong with the draft; the brief says what each answer *commits the report to* — what
+keeping the draft's position assumes and means, what accepting the challenge assumes and
+means — and leans one way with a sentence of why. It was built because the page asked for a
+decision between two paragraphs of argument and gave the reader nothing to compare them by.
+
+It is advice beside the decision and never the decision: it settles nothing, prefills no
+rationale, changes no row, is inside no approval hash, and appears in no rendered report.
+The controls beneath it are unchanged. A challenge with no brief — a run from before the
+step, one whose briefing failed, one past the eight a sitting briefs — renders exactly as
+it did before, which is the fallback the feature is designed around rather than a gap.
 
 ### Two adjacent surfaces
 

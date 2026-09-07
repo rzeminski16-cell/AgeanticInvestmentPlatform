@@ -17,7 +17,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, Final
 
 import structlog
 from fastapi import APIRouter, Request
@@ -257,6 +257,17 @@ async def list_requests_page(
     return response
 
 
+# The blank form holds the defaults its own hints promise. The schema defaults the base
+# currency to GBP, but a select with no blank option cannot submit "nothing" — left
+# unseeded, the browser picks the first option alphabetically and the default silently
+# became AUD. And a required horizon with no value, sitting behind the closed disclosure,
+# blocked every submission on a field the reader was never shown — the browser refuses to
+# submit and cannot focus the invalid control to say why. Both found by the tranche 9
+# keyboard sweep. Seeding them keeps the disclosure's contract: everything inside it is
+# optional or already holds its default.
+_BLANK_REQUEST: Final = {"base_currency": "GBP", "investment_horizon_months": "12"}
+
+
 @router.get("/requests/new", response_class=HTMLResponse, summary="New research request")
 async def new_request_form(request: Request, session: DbSession, settings: SettingsDep) -> Response:
     token = new_csrf_token(settings)
@@ -266,6 +277,7 @@ async def new_request_form(request: Request, session: DbSession, settings: Setti
         _form_context(
             _NEW_PAGE,
             csrf_token=token,
+            values=dict(_BLANK_REQUEST),
             cost_hint=await _cost_hint(session),
         ),
     )
@@ -603,9 +615,14 @@ def _detail_view(item: ResearchRequest, *, job: Job | None) -> dict[str, Any]:
     module exists is that the console, the gates and this page render one number one way.
     """
     now = datetime.now(UTC)
-    state = vocabulary.request_state(item.status)
+    state = vocabulary.request_state(item.work_order.status)
+    # The run's own state, which is not the request's. Nothing moves a request to
+    # CANCELLED when its run is cancelled — the job row is where that truth lives — so a
+    # page that showed only the request's state would offer "start a new run" without ever
+    # saying what happened to the old one.
+    run = vocabulary.job_state(job.status) if job is not None else None
     cost = figures.cost_context(
-        spent=job.total_cost_gbp if job else Decimal(0), ceiling=item.max_cost_gbp
+        spent=job.total_cost_gbp if job else Decimal(0), ceiling=item.work_order.max_cost_gbp
     )
     since = (job.finished_at or job.started_at) if job else None
 
@@ -617,6 +634,8 @@ def _detail_view(item: ResearchRequest, *, job: Job | None) -> dict[str, Any]:
     return {
         "status_label": state.label,
         "status_tone": state.tone.value,
+        "run_state_label": run.label if run else "",
+        "run_state_tone": run.tone.value if run else "",
         "verdict_statement": statement,
         "verdict_detail": state.detail,
         "run_cost": cost.summary,
@@ -638,7 +657,7 @@ def _detail_view(item: ResearchRequest, *, job: Job | None) -> dict[str, Any]:
                 "label": "Point-in-time",
                 "value": (
                     "On — no source published after the as-of date may be used"
-                    if item.point_in_time
+                    if item.work_order.point_in_time
                     else "Off — look-ahead bias is possible"
                 ),
             },
@@ -650,7 +669,7 @@ def _detail_view(item: ResearchRequest, *, job: Job | None) -> dict[str, Any]:
             },
             {
                 "label": "Most it may cost",
-                "value": figures.pounds(item.max_cost_gbp),
+                "value": figures.pounds(item.work_order.max_cost_gbp),
                 "is_data": True,
             },
             {

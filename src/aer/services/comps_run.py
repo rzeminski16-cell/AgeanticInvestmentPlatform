@@ -25,7 +25,7 @@ determination off the fetch policy; nothing here decides it.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -95,6 +95,27 @@ class CompsOutcome:
             "excluded": grouped_exclusions(self.table.excluded),
             "basis": self.table.basis.value,
             "as_of": self.table.as_of.isoformat(),
+            # The subject row and the licence facts, so the table can be read back whole.
+            # The valuation page rebuilds it from this record — never recomputes it — and
+            # until these were recorded it could not, and showed no table on any run.
+            "subject": {
+                "identifier": self.table.subject.identifier,
+                "name": self.table.subject.name,
+                "period_end": self.table.subject.period_end.isoformat(),
+            },
+            "licence_note": self.table.licence_note,
+            "derived_figures_publishable": self.table.derived_figures_publishable,
+            # Every exclusion on its own, beside the grouped rows the surfaces print: a
+            # grouped row joins names into one string and cannot be split back.
+            "exclusions": [
+                {
+                    "identifier": row.identifier,
+                    "name": row.name,
+                    "reason": row.reason,
+                    "period_end": row.period_end.isoformat() if row.period_end else None,
+                }
+                for row in self.table.excluded
+            ],
             "subject_multiples": [
                 {
                     "key": row.key,
@@ -123,6 +144,103 @@ class CompsOutcome:
             ],
             "comps_band": self.band,
         }
+
+
+def comps_table_from_record(
+    record: Mapping[str, Any],
+    *,
+    subject_identifier: str,
+    subject_name: str,
+    source_label: str,
+) -> calc.CompsTable | None:
+    """The table the comps step built, read back from what it recorded.
+
+    The inverse of :meth:`CompsOutcome.as_dict`, for the surface that shows the table
+    (ADR 0034: the valuation page, at ``INTERNAL``). Read back rather than rebuilt, because
+    the page's rule is the run's own ledger and never today's answer beside yesterday's.
+
+    **Tolerant of the record's age.** A record written before the subject row and the
+    licence facts were stored carries the multiples and the peers but not the subject's
+    identity, so the caller supplies it from the request; the licence then defaults the way
+    :class:`~aer.calc.comps.CompsTable` defaults — withholding — which for the internal
+    page changes nothing. Exclusions come from the full rows where recorded, and from the
+    grouped rows otherwise, where a joined name is still the truthful list of who was left
+    out and why.
+
+    Each multiple's quantity is sourced to the step's own record: the ledger holds the
+    calculation behind it, and the record does not carry that id, so the reference names
+    the record rather than inventing one.
+    """
+    if not record.get("comps"):
+        return None
+    basis = calc.MultipleBasis(str(record.get("basis", calc.MultipleBasis.LAST_FISCAL_YEAR)))
+    as_of = date.fromisoformat(str(record["as_of"]))
+    source = SourceRef.calculation(source_label, label=source_label)
+
+    def multiples(rows: Any, *, period_end: date) -> tuple[calc.MultipleResult, ...]:
+        return tuple(
+            calc.MultipleResult(
+                key=str(row["key"]),
+                label=str(row.get("label", row["key"])),
+                quantity=(
+                    Quantity.of(str(row["value"]), source=source)
+                    if row.get("value") is not None
+                    else None
+                ),
+                basis=basis,
+                period_end=period_end,
+                absent_because=str(row.get("absent_because", "")),
+            )
+            for row in rows or ()
+        )
+
+    recorded_subject = record.get("subject") or {}
+    subject_period = (
+        date.fromisoformat(str(recorded_subject["period_end"]))
+        if recorded_subject.get("period_end")
+        else as_of
+    )
+    subject = calc.PeerRow(
+        identifier=str(recorded_subject.get("identifier") or subject_identifier),
+        name=str(recorded_subject.get("name") or subject_name),
+        period_end=subject_period,
+        multiples=multiples(record.get("subject_multiples"), period_end=subject_period),
+    )
+    peers = tuple(
+        calc.PeerRow(
+            identifier=str(peer["identifier"]),
+            name=str(peer.get("name", peer["identifier"])),
+            period_end=date.fromisoformat(str(peer["period_end"])),
+            multiples=multiples(
+                peer.get("multiples"), period_end=date.fromisoformat(str(peer["period_end"]))
+            ),
+        )
+        for peer in record.get("peer_multiples") or ()
+    )
+    exclusion_rows = record.get("exclusions")
+    if exclusion_rows is None:
+        exclusion_rows = record.get("excluded") or ()
+    excluded = tuple(
+        calc.PeerExclusion(
+            identifier=str(row.get("identifier", "")),
+            name=str(row.get("name", "")),
+            reason=str(row.get("reason", "")),
+            period_end=(
+                date.fromisoformat(str(row["period_end"])) if row.get("period_end") else None
+            ),
+        )
+        for row in exclusion_rows
+    )
+    return calc.CompsTable(
+        subject=subject,
+        peers=peers,
+        excluded=excluded,
+        basis=basis,
+        as_of=as_of,
+        peer_set_confirmed=True,
+        licence_note=str(record.get("licence_note", "")),
+        derived_figures_publishable=bool(record.get("derived_figures_publishable", False)),
+    )
 
 
 def grouped_exclusions(excluded: Sequence[calc.PeerExclusion]) -> list[dict[str, str]]:
@@ -392,7 +510,7 @@ async def _one_peer(
         return None
 
     peer_analysis = await analyse_company(
-        session, new_context(), company_id=company.id, request=request
+        session, new_context(), company_id=company.id, work_order=request.work_order
     )
     latest = peer_analysis.periods[0] if peer_analysis.periods else None
     if latest is None:

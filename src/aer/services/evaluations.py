@@ -342,25 +342,25 @@ def _source_comparable(rows: _RunRows, source_id: uuid.UUID, *, request: Researc
     source = next((row for row in rows.sources if row.id == source_id), None)
     if source is None or not source.is_admissible:
         return False
-    if not request.point_in_time:
+    if not request.work_order.point_in_time:
         return True
     latest = source.publication_date_latest or source.publication_date
-    return latest is None or latest <= request.as_of_date
+    return latest is None or latest <= request.work_order.as_of_date
 
 
 def _source_rows(rows: _RunRows, *, request: ResearchRequest) -> list[SourceObservation]:
     # The run's own mode travels with each observation: the hallucination metric already
-    # respects request.point_in_time, and the temporal metric judging the same run by a
+    # respects request.work_order.point_in_time, and the temporal metric judging the same run by a
     # stricter rule than it ran under is how a point-in-time-off report came to wear a
     # temporal-compliance failure on its front page.
     return [
         SourceObservation(
             name=row.title or row.url,
             published=row.publication_date_latest or row.publication_date,
-            as_of=request.as_of_date,
+            as_of=request.work_order.as_of_date,
             admitted=row.is_admissible,
             established=row.publication_date,
-            point_in_time=request.point_in_time,
+            point_in_time=request.work_order.point_in_time,
         )
         for row in rows.sources
     ]

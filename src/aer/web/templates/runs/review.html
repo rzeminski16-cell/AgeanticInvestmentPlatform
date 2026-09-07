@@ -1,12 +1,14 @@
-{% extends "base.html" %}
+{% extends "runs/_gate.html" %}
 
 {#
-  Gate 2. The preview below is rendered from the same `report_sections` rows the payload
-  hash was computed over, so the operator decides on the document itself rather than on a
-  summary of it. An approval of a summary is not an approval of a report.
-#}
+  Gate 2 — the largest page in the product, and the last decision before a report exists.
+  The document below is rendered from the same `report_sections` rows the payload hash was
+  computed over, so the operator decides on the document itself rather than on a summary of
+  it. An approval of a summary is not an approval of a report.
 
-{% block title %}Approve the draft &middot; Tracework Invest{% endblock %}
+  The verdict and the attention index make the page triageable in thirty seconds; nothing
+  is removed to buy that — every block keeps its place and the index links into it.
+#}
 
 {#
   Settling one disagreement.
@@ -19,20 +21,21 @@
   sources reporting different revenue; for the red team they mean "keep the draft" and
   "accept the challenge", and a form asking an operator to choose between A and B on a
   thesis is a form nobody can answer.
+
+  A sibling form, never nested in the gate form: settling a conflict and deciding the gate
+  are two acts, and the second is refused as stale after the first — correctly, because
+  the evidence changed.
 #}
 {% macro settle(job, row, a_label, b_label) %}
-  <details class="mt-3">
-    <summary class="cursor-pointer text-xs font-semibold text-sky-700 dark:text-sky-400">
-      Settle this
-    </summary>
+  {% call ui.disclosure("Settle this") %}
     <form
       method="post"
       action="/runs/{{ job.id }}/disagreements/{{ row.id }}/settle"
-      class="mt-2 space-y-2"
+      class="flex flex-col gap-2"
       id="settle-{{ row.id }}"
     >
       <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-      <label for="rationale-{{ row.id }}" class="block text-xs font-medium">
+      <label for="rationale-{{ row.id }}" class="block type-label text-ink">
         Why. Recorded beside the rule that escalated it, under your name.
       </label>
       <textarea
@@ -41,235 +44,239 @@
         rows="2"
         maxlength="2000"
         required
-        class="w-full rounded-md border border-slate-300 bg-white p-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+        class="w-full rounded-sm border border-control-boundary bg-surface p-3 type-body-sm text-ink"
       ></textarea>
       <div class="flex flex-wrap gap-2">
         <button
           type="submit"
           name="outcome"
           value="chose_a"
-          class="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
-        >
-          {{ a_label }}
-        </button>
+          class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected"
+        >{{ a_label }}</button>
         <button
           type="submit"
           name="outcome"
           value="chose_b"
-          class="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
-        >
-          {{ b_label }}
-        </button>
+          class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected"
+        >{{ b_label }}</button>
       </div>
     </form>
-  </details>
+  {% endcall %}
 {% endmacro %}
 
 {% block head_extra %}
   <script src="{{ url_for('static', path='/js/tables.js') }}" defer></script>
 {% endblock %}
 
-{% block content %}
-  <nav class="text-sm">
-    <a href="/runs/{{ job.id }}" class="text-sky-700 underline underline-offset-2 dark:text-sky-400">
-      &larr; Back to the run
-    </a>
-  </nav>
+{% block gate_verdict %}
+  {{ ui.verdict(
+    "THE REVIEW",
+    review_verdict.composed,
+    detail=review_verdict.authored.sentence if review_verdict.authored else "",
+    tone=review_verdict.tone.value,
+  ) }}
+  {% if review_verdict.authored %}
+    <p class="type-body-sm text-ink-subtle">
+      The second line is a model&rsquo;s one-sentence reading of the finished draft. It is
+      interpretation, never evidence, and the counts above it are computed from the record.
+    </p>
+  {% endif %}
 
-  <h1 class="mt-4 text-2xl font-semibold tracking-tight">Approve the draft report</h1>
-  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-    This is the document as it will be stored, footnotes and all. Approving freezes it: the
-    Markdown is archived and the report becomes immutable, with your approval recorded
-    against a hash of exactly what is below.
-  </p>
+  {% if attention_index %}
+    <nav aria-label="What needs attention" id="attention">
+      <ul class="flex flex-wrap gap-x-5 gap-y-2">
+        {% for item in attention_index %}
+          <li>
+            <a href="{{ item.target }}"
+               class="type-label underline underline-offset-[3px] hover:decoration-2 {{ 'text-failure-ink' if item.tone == 'failure' else ('text-warning-ink' if item.tone == 'warning' else 'text-verification') }}">{{ item.label }}</a>
+          </li>
+        {% endfor %}
+      </ul>
+    </nav>
+  {% endif %}
+{% endblock %}
 
-  <dl class="mt-6 grid gap-4 sm:grid-cols-3">
-    <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-      <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Sections</dt>
-      <dd class="mt-1 font-mono text-sm" id="section-count">{{ sections | length }}</dd>
+{% block gate_evidence %}
+  {% call ui.sheet("This draft") %}
+    <div class="grid gap-6 sm:grid-cols-3">
+      <div id="section-count">{{ ui.figure("Sections", sections | length) }}</div>
+      <div id="footnote-count">{{ ui.figure("Footnotes", footnote_count) }}</div>
+      {# `break-all` cascades into the figure's value: sixteen mono characters outgrow a
+         one-third column at tablet widths, and a fingerprint has no word boundaries to
+         wrap at. #}
+      <div id="content-hash" class="break-all" title="{{ payload_hash }}">
+        {{ ui.figure("Content hash", payload_hash[:16] ~ "…", note="The full fingerprint is in the decision panel.") }}
+      </div>
     </div>
-    <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-      <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Footnotes</dt>
-      <dd class="mt-1 font-mono text-sm" id="footnote-count">{{ footnote_count }}</dd>
-    </div>
-    <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-      <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Content hash</dt>
-      <dd class="mt-1 truncate font-mono text-xs" id="content-hash" title="{{ payload_hash }}">
-        {{ payload_hash[:16] }}…
-      </dd>
-    </div>
-  </dl>
+  {% endcall %}
 
   {#
-    The §2.4 trigger banner. Any one of these fired means the run paused here with a
-    warning attached, and the triggers are inside the payload hash below — an approval
-    made with the banner showing is verifiably an approval made knowing it.
+    The trigger banner means one thing: something is wrong. Any one of these fired means
+    the run paused here with a warning attached, and the triggers are inside the payload
+    hash — an approval made with the banner showing is verifiably an approval made knowing
+    it. The red team is never in here: its challenges have their own section below.
   #}
   {% if triggers %}
-    <section
-      class="mt-8 rounded-lg border border-rose-400 bg-rose-50 p-4 dark:border-rose-700 dark:bg-rose-950"
-      id="triggers"
-    >
-      <h2 class="text-lg font-semibold tracking-tight text-rose-900 dark:text-rose-200">
-        {{ triggers | length }} escalation
-        {{ "trigger" if triggers | length == 1 else "triggers" }} fired
-      </h2>
-      <p class="mt-1 text-sm text-rose-900 dark:text-rose-200">
-        The run paused here because the conditions below held. Approving with the banner
-        showing is a recorded decision; the detail tables further down carry the evidence.
-      </p>
-      <ul class="mt-4 space-y-3">
+    {% call ui.sheet(id="triggers") %}
+      {{ ui.callout(
+        "failure",
+        (triggers | length) ~ (" escalation trigger" if triggers | length == 1 else " escalation triggers") ~ " fired",
+        "The run paused here because the conditions below held. Approving with the banner showing is a recorded decision; the detail tables further down carry the evidence.",
+      ) }}
+      <ul class="mt-4 flex flex-col divide-y divide-line">
         {% for trigger in triggers %}
-          <li class="rounded border border-rose-300 bg-white p-3 text-sm dark:border-rose-800 dark:bg-slate-900">
-            <p class="font-medium">
-              <span class="mr-2 rounded-full bg-rose-200 px-2 py-0.5 font-mono text-xs font-semibold uppercase tracking-wide text-rose-900 dark:bg-rose-900 dark:text-rose-100">
-                {{ trigger.kind }}
-              </span>
-              {{ trigger.message }}
+          <li class="py-3">
+            <p class="type-body text-ink">
+              {{ ui.status("failure", trigger.kind) }}
+              <span class="ml-2">{{ trigger.message }}</span>
             </p>
             {% if trigger.evidence %}
-              <ul class="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-700 dark:text-slate-300">
-                {% for line in trigger.evidence %}
-                  <li>{{ line }}</li>
-                {% endfor %}
+              <ul class="mt-2 flex list-disc flex-col gap-1 pl-5 type-body-sm text-ink-muted">
+                {% for line in trigger.evidence %}<li>{{ line }}</li>{% endfor %}
               </ul>
             {% endif %}
           </li>
         {% endfor %}
       </ul>
-    </section>
+    {% endcall %}
   {% endif %}
 
-  {#
-    What the red team found.
-
-    Its own section rather than a red trigger, because a red team that found nothing would
-    be the thing worth worrying about. Until 2026-08-25 a material challenge fired
-    `THESIS_DISAGREEMENT` and sat in the fault banner beside "five sections are missing",
-    which taught an operator to read the red panel as noise — the only way a warning can
-    fail.
-
-    Every one of these is published either way, here and in the report's appendix. What is
-    offered is the chance to say, on the record, that you considered one and did not agree.
-  #}
-  {% if challenges %}
-    <section
-      class="mt-8 rounded-lg border border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900"
-      id="red-team"
-    >
-      <h2 class="text-lg font-semibold tracking-tight">
-        The red team raised {{ challenges | length }}
-        {{ "challenge" if challenges | length == 1 else "challenges" }}
-      </h2>
-      <p class="mt-1 max-w-prose text-sm text-slate-600 dark:text-slate-400">
-        An adversarial pass over the draft, run against the same recorded facts and
-        calculations. These are objections, not faults: each cites evidence from this run,
-        and each is published in the report whether or not you agree with it.
+  {% call ui.sheet("Validation results", id="validations") %}
+    {% if evaluations %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead>
+            <tr>
+              <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Metric</th>
+              <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Score</th>
+              <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Threshold</th>
+              <th scope="col" class="py-2 type-eyebrow text-ink-muted">Verdict</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-line">
+            {% for row in evaluations %}
+              <tr>
+                <td class="py-2.5 pr-4 type-data-sm text-ink">{{ row.metric }}</td>
+                <td class="py-2.5 pr-4 type-data-sm tabular-nums text-ink">
+                  {{ row.value if row.value is not none else "—" }}
+                </td>
+                <td class="py-2.5 pr-4 type-data-sm tabular-nums text-ink">
+                  {{ "≥" if row.details.get("direction") == "at_least" else "≤" }}
+                  {{ row.threshold }}
+                </td>
+                <td class="py-2.5">
+                  {% if row.passed is none %}
+                    {{ ui.status("muted", "Not exercised") }}
+                  {% elif row.passed %}
+                    {{ ui.status("success", "Pass") }}
+                  {% else %}
+                    {{ ui.status("failure", "Fail") }}
+                  {% endif %}
+                  {% if row.details.get("advisories") %}
+                    <span class="ml-1 type-body-sm text-ink-muted">
+                      {{ row.details["advisories"] | length }} advisory
+                    </span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% if row.passed is false and row.details.get("failures") %}
+                <tr>
+                  <td colspan="4" class="pb-2 type-body-sm text-failure-ink">
+                    {% for failure in row.details["failures"][:4] %}<p>{{ failure }}</p>{% endfor %}
+                  </td>
+                </tr>
+              {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="type-body text-ink-muted">
+        This run has not been validated. The validate step writes one row per metric.
       </p>
+    {% endif %}
+  {% endcall %}
 
-      <ul class="mt-4 space-y-4">
-        {% for row in challenges %}
-          <li
-            class="rounded border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-950"
-            data-challenge="{{ row.id }}"
-          >
-            <p class="font-medium">
-              {{ row.topic }}
-              {% if row.material %}
-                <span class="ml-2 rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-900 dark:bg-amber-800 dark:text-amber-100">
-                  Material
-                </span>
+  {% call ui.sheet("Source coverage", id="coverage") %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr>
+            <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Section</th>
+            <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Sources</th>
+            <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Floor</th>
+            <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Primary</th>
+            <th scope="col" class="py-2 type-eyebrow text-ink-muted">Verdict</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line">
+          {% for row in coverage %}
+            <tr>
+              <td class="py-2.5 pr-4 type-data-sm text-ink">{{ row.name }}</td>
+              {% if not row.generated %}
+                {# A section that never ran has no coverage to report (gap R16): the row
+                   says what actually happened rather than arithmetic over an absence. #}
+                <td class="py-2.5 pr-4 type-body-sm text-ink-muted" colspan="4">
+                  Not generated — nothing was written, so there is nothing to have sourced.
+                  The reason is under &ldquo;Sections in this draft&rdquo; below.
+                </td>
+              {% else %}
+                <td class="py-2.5 pr-4 type-data-sm tabular-nums text-ink">{{ row.distinct_sources }}</td>
+                <td class="py-2.5 pr-4 type-data-sm tabular-nums text-ink">{{ row.min_sources }}</td>
+                <td class="py-2.5 pr-4 type-body-sm">
+                  {% if not row.requires_primary %}
+                    <span class="text-ink-muted">not required</span>
+                  {% elif row.has_primary %}
+                    <span class="text-ink">yes</span>
+                  {% else %}
+                    <span class="text-failure-ink">none</span>
+                  {% endif %}
+                </td>
+                <td class="py-2.5 type-body-sm">
+                  {% if row.covered %}
+                    <span class="text-success-ink">covered</span>
+                  {% else %}
+                    <span class="text-failure-ink">{{ row.shortfall }}</span>
+                  {% endif %}
+                </td>
               {% endif %}
-              {% if row.detail and row.detail.get("severity") %}
-                <span class="ml-2 font-mono text-xs text-slate-500">
-                  severity {{ row.detail["severity"] }}
-                </span>
-              {% endif %}
-            </p>
-
-            {% if row.detail and row.detail.get("challenge") %}
-              {#
-                Prose, at reading width, rather than a table cell. The report's appendix
-                put a two-hundred-word objection in a narrow column and one row spanned
-                three pages; the same content is unreadable here for the same reason.
-              #}
-              <p class="mt-2 max-w-prose text-sm text-slate-800 dark:text-slate-200">
-                {{ row.detail["challenge"] }}
-              </p>
-            {% endif %}
-            {% if row.detail and row.detail.get("basis") %}
-              <p class="mt-2 max-w-prose text-xs text-slate-600 dark:text-slate-400">
-                <span class="font-semibold">On the basis of:</span> {{ row.detail["basis"] }}
-              </p>
-            {% endif %}
-            {% if row.detail and row.detail.get("evidence") %}
-              <p class="mt-1 font-mono text-xs text-slate-500">
-                {{ row.detail["evidence"].get("facts", []) | length }} fact(s) ·
-                {{ row.detail["evidence"].get("calculations", []) | length }} calculation(s) ·
-                {{ row.detail["evidence"].get("sources", []) | length }} source(s)
-              </p>
-            {% endif %}
-
-            {% if row.resolution == open_outcome %}
-              {{ settle(job, row, "Keep the draft's position", "Accept the challenge") }}
-            {% else %}
-              <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">
-                {{ row.resolution_rationale }}
-              </p>
-            {% endif %}
-          </li>
-        {% endfor %}
-      </ul>
-    </section>
-  {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endcall %}
 
   {#
-    The escalation banner. These are conflicts the deterministic ladder refused to settle,
-    and they are inside the payload hash below — so approving with them outstanding is a
-    decision that is on the record, not one made by not scrolling.
+    Conflicts the deterministic ladder refused to settle, inside the payload hash — so
+    approving with them outstanding is a decision on the record, not one made by not
+    scrolling.
   #}
   {% if escalations %}
-    <section
-      class="mt-8 rounded-lg border border-amber-400 bg-amber-50 p-4 dark:border-amber-600 dark:bg-amber-950"
-      id="escalations"
-    >
-      <h2 class="text-lg font-semibold tracking-tight text-amber-900 dark:text-amber-200">
-        {{ escalations | length }} unresolved
-        {{ "disagreement" if escalations | length == 1 else "disagreements" }}
-      </h2>
-      <p class="mt-1 max-w-prose text-sm text-amber-900 dark:text-amber-200">
-        Two sources conflict and no rule decides between them. Both positions are kept and
-        both appear in the report&rsquo;s disagreement appendix whatever you do here &mdash;
-        settling one records which you preferred and why, beside the rule that escalated it.
-        The red team&rsquo;s challenges are not counted here; they have their own section.
-      </p>
-      <ul class="mt-4 space-y-3">
+    {% call ui.sheet(id="escalations") %}
+      {{ ui.callout(
+        "warning",
+        (escalations | length) ~ (" unresolved disagreement" if escalations | length == 1 else " unresolved disagreements"),
+        "Two sources conflict and no rule decides between them. Both positions are kept and both appear in the report's disagreement appendix whatever you do here — settling one records which you preferred and why, beside the rule that escalated it. The red team's challenges are not counted here; they have their own section.",
+      ) }}
+      <ul class="mt-4 flex flex-col divide-y divide-line">
         {% for escalation in escalations %}
-          <li class="rounded border border-amber-300 bg-white p-3 text-sm dark:border-amber-700 dark:bg-slate-900">
-            <p class="font-medium">
+          <li class="py-4">
+            <p class="type-body text-ink">
               {{ escalation.topic }}
-              {% if escalation.material %}
-                <span class="ml-2 rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-900 dark:bg-amber-800 dark:text-amber-100">
-                  Material
-                </span>
-              {% endif %}
+              {% if escalation.material %}{{ ui.status("warning", "Material") }}{% endif %}
             </p>
-            <p class="mt-1 text-slate-700 dark:text-slate-300">{{ escalation.rationale }}</p>
-            <p class="mt-2 font-mono text-xs text-slate-500">
+            <p class="mt-1 max-w-prose type-body-sm text-ink">{{ escalation.rationale }}</p>
+            <p class="mt-2 type-data-sm text-ink-muted">
               {# A thesis position's numeric fields are placeholders the ladder never
-                 compares (gap A68): "0 thesis (T1_REGULATORY)" is definitionally true of
-                 both sides and tells an operator nothing, on the page doing the most
-                 important work. The filter owns the rule; this template prints it. #}
+                 compares (gap A68); the filter owns the rule, this template prints it. #}
               {{ escalation.position_a.label }}: {{ escalation.position_a | position_figure }}
               &middot;
               {{ escalation.position_b.label }}: {{ escalation.position_b | position_figure }}
               &middot; rule: {{ escalation.rule }}
             </p>
-            {#
-              `escalation` is a payload dict rather than a row, so the macro is given the
-              two fields it needs. Everything in this list is escalated by construction —
-              that is what the query selected — so there is no open/settled branch here.
-            #}
+            {# `escalation` is a payload dict rather than a row, so the macro is given the
+               two fields it needs. Everything in this list is escalated by construction. #}
             {{
               settle(
                 job,
@@ -281,191 +288,46 @@
           </li>
         {% endfor %}
       </ul>
-    </section>
+    {% endcall %}
   {% endif %}
 
-  {#
-    The dashboard proper: validations, coverage, disagreements, calculations and cost,
-    all rendered on the server from the run's recorded rows. Gate 2 is where §2.4 says
-    the operator sees "draft, validations, coverage, disagreements, cost, logs" — and a
-    table that needs a script to appear is a table an approval can be made without.
-  #}
-  <section class="mt-8" id="validations">
-    <h2 class="text-lg font-semibold tracking-tight">Validation results</h2>
-    {% if evaluations %}
-      <div class="mt-3 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
-        <table class="w-full bg-white text-sm dark:bg-slate-900">
-          <thead class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800">
-            <tr>
-              <th class="px-3 py-2">Metric</th>
-              <th class="px-3 py-2">Score</th>
-              <th class="px-3 py-2">Threshold</th>
-              <th class="px-3 py-2">Verdict</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-            {% for row in evaluations %}
-              <tr>
-                <td class="px-3 py-2 font-mono text-xs">{{ row.metric }}</td>
-                <td class="px-3 py-2 font-mono text-xs">
-                  {{ row.value if row.value is not none else "—" }}
-                </td>
-                <td class="px-3 py-2 font-mono text-xs">
-                  {{ "≥" if row.details.get("direction") == "at_least" else "≤" }}
-                  {{ row.threshold }}
-                </td>
-                <td class="px-3 py-2">
-                  {% if row.passed is none %}
-                    <span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-                      Not exercised
-                    </span>
-                  {% elif row.passed %}
-                    <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
-                      Pass
-                    </span>
-                  {% else %}
-                    <span class="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800 dark:bg-rose-900 dark:text-rose-200">
-                      Fail
-                    </span>
-                  {% endif %}
-                  {% if row.details.get("advisories") %}
-                    <span class="ml-1 text-xs text-slate-500">
-                      {{ row.details["advisories"] | length }} advisory
-                    </span>
-                  {% endif %}
-                </td>
-              </tr>
-              {% if row.passed is false and row.details.get("failures") %}
-                <tr>
-                  <td colspan="4" class="px-3 pb-2 text-xs text-rose-700 dark:text-rose-300">
-                    {% for failure in row.details["failures"][:4] %}
-                      <p>{{ failure }}</p>
-                    {% endfor %}
-                  </td>
-                </tr>
-              {% endif %}
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    {% else %}
-      <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
-        This run has not been validated. The validate step writes one row per metric.
-      </p>
-    {% endif %}
-  </section>
-
-  <section class="mt-8" id="coverage">
-    <h2 class="text-lg font-semibold tracking-tight">Source coverage</h2>
-    <div class="mt-3 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
-      <table class="w-full bg-white text-sm dark:bg-slate-900">
-        <thead class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800">
-          <tr>
-            <th class="px-3 py-2">Section</th>
-            <th class="px-3 py-2">Sources</th>
-            <th class="px-3 py-2">Floor</th>
-            <th class="px-3 py-2">Primary</th>
-            <th class="px-3 py-2">Verdict</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-          {% for row in coverage %}
-            <tr>
-              <td class="px-3 py-2 font-mono text-xs">{{ row.name }}</td>
-              {% if not row.generated %}
-                {#
-                  A section that never ran has no coverage to report, and reporting one
-                  anyway is how five drafting failures came to read as five coverage
-                  failures (gap R16). "0 sources, floor 1, primary: none" is arithmetic
-                  over an absence; the row says what actually happened instead.
-                #}
-                <td class="px-3 py-2 text-xs text-slate-500" colspan="4">
-                  Not generated — nothing was written, so there is nothing to have sourced.
-                  The reason is under &ldquo;Sections in this draft&rdquo; below.
-                </td>
-              {% else %}
-                <td class="px-3 py-2 font-mono text-xs">{{ row.distinct_sources }}</td>
-                <td class="px-3 py-2 font-mono text-xs">{{ row.min_sources }}</td>
-                <td class="px-3 py-2 text-xs">
-                  {% if not row.requires_primary %}
-                    not required
-                  {% elif row.has_primary %}
-                    yes
-                  {% else %}
-                    <span class="font-semibold text-rose-700 dark:text-rose-300">none</span>
-                  {% endif %}
-                </td>
-                <td class="px-3 py-2 text-xs">
-                  {% if row.covered %}
-                    <span class="font-semibold text-emerald-700 dark:text-emerald-300">covered</span>
-                  {% else %}
-                    <span class="font-semibold text-rose-700 dark:text-rose-300">{{ row.shortfall }}</span>
-                  {% endif %}
-                </td>
-              {% endif %}
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
-
   {% if disagreements %}
-    <section class="mt-8" id="disagreements">
-      <h2 class="text-lg font-semibold tracking-tight">Disagreements</h2>
-      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-        Every conflict this run recorded — settled by rule, settled by hand, or still open.
-        Both positions are kept whatever the outcome.
-      </p>
-      <ul class="mt-3 space-y-3">
+    {% call ui.sheet("Disagreements", subtitle="Every conflict this run recorded — settled by rule, settled by hand, or still open. Both positions are kept whatever the outcome.", id="disagreements") %}
+      <ul class="flex flex-col divide-y divide-line">
         {% for row in disagreements %}
-          <li class="rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-800 dark:bg-slate-900">
-            <p class="font-medium">
+          <li class="py-4">
+            <p class="type-body text-ink">
               {{ row.topic }}
-              {% if row.material %}
-                <span class="ml-2 rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-900 dark:bg-amber-800 dark:text-amber-100">
-                  Material
-                </span>
-              {% endif %}
-              <span class="ml-2 font-mono text-xs text-slate-500">
+              {% if row.material %}{{ ui.status("warning", "Material") }}{% endif %}
+              <span class="ml-2 type-data-sm text-ink-muted">
                 {{ row.kind.value }} &middot; {{ row.rule.value }} &middot; {{ row.resolution.value }}
               </span>
             </p>
             <div class="mt-2 grid gap-3 sm:grid-cols-2">
-              {# A thesis position's numeric fields are placeholders the ladder never
-                 compares, and "0 thesis (T1_REGULATORY)" told the operator nothing
-                 (gaps R12 and A68): a thesis row shows each side's tier alone, and the
-                 challenge's cited evidence is summarised below. #}
-              <div class="rounded border border-slate-200 p-2 font-mono text-xs dark:border-slate-700">
-                <p class="font-semibold">A: {{ row.position_a.label }}</p>
-                <p class="mt-1 text-slate-600 dark:text-slate-400">
-                  {{ row.position_a | position_figure }}
-                </p>
+              <div class="rounded-sm border border-line p-3 type-data-sm text-ink">
+                <p>A: {{ row.position_a.label }}</p>
+                <p class="mt-1 text-ink-muted">{{ row.position_a | position_figure }}</p>
               </div>
-              <div class="rounded border border-slate-200 p-2 font-mono text-xs dark:border-slate-700">
-                <p class="font-semibold">B: {{ row.position_b.label }}</p>
-                <p class="mt-1 text-slate-600 dark:text-slate-400">
-                  {{ row.position_b | position_figure }}
-                </p>
+              <div class="rounded-sm border border-line p-3 type-data-sm text-ink">
+                <p>B: {{ row.position_b.label }}</p>
+                <p class="mt-1 text-ink-muted">{{ row.position_b | position_figure }}</p>
               </div>
             </div>
             {% if row.detail %}
-              <p class="mt-2 text-xs text-slate-700 dark:text-slate-300">
-                <span class="font-semibold">Challenge:</span> {{ row.detail.challenge }}
+              <p class="mt-2 max-w-prose type-body-sm text-ink">
+                <span class="type-label">Challenge:</span> {{ row.detail.challenge }}
               </p>
-              <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
-                <span class="font-semibold">Basis:</span> {{ row.detail.basis }}
+              <p class="mt-1 max-w-prose type-body-sm text-ink-muted">
+                <span class="type-label">Basis:</span> {{ row.detail.basis }}
               </p>
               {% if row.detail.evidence %}
-                <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
-                  <span class="font-semibold">Cited evidence:</span>
+                <p class="mt-1 type-body-sm text-ink-muted">
+                  <span class="type-label">Cited evidence:</span>
                   {{ row.detail.evidence.facts | length }} fact(s), {{ row.detail.evidence.calculations | length }} calculation(s), {{ row.detail.evidence.sources | length }} source(s) &mdash; best tier {{ row.position_b.tier }}.
                 </p>
               {% endif %}
             {% endif %}
-            <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">
-              {{ row.resolution_rationale }}
-            </p>
+            <p class="mt-2 max-w-prose type-body-sm text-ink-muted">{{ row.resolution_rationale }}</p>
             {% if row.resolution == open_outcome %}
               {{
                 settle(
@@ -479,140 +341,141 @@
           </li>
         {% endfor %}
       </ul>
-    </section>
+    {% endcall %}
   {% endif %}
-
-  {% if calculations %}
-    {#
-      Closed by default. A real run records a thousand of these, and an operator scrolling
-      past a thousand rows to reach the approve button is an operator who has stopped
-      reading the page — which costs the escalation banner above it as much as it costs
-      this table. `<details>` closes it with no script at all.
-
-      The filter above it *is* scripted, and is added by `console.js` rather than written
-      here: a search box that does nothing without JavaScript is worse than no search box.
-    #}
-    <details class="mt-8" id="calculations">
-      <summary class="cursor-pointer text-lg font-semibold tracking-tight">
-        Calculations
-        <span class="ml-1 text-sm font-normal text-slate-500">
-          ({{ calculations | length }} recorded &mdash; every figure in the draft resolves
-          into this table)
-        </span>
-      </summary>
-
-      <div hidden id="calculation-filter-shell" class="mt-3">
-        <label for="calculation-filter" class="text-xs font-medium text-slate-600 dark:text-slate-400">
-          Filter by name, period or formula
-        </label>
-        <input
-          id="calculation-filter"
-          type="search"
-          autocomplete="off"
-          data-filters="#calculation-table"
-          data-count="#calculation-filter-count"
-          class="mt-1 w-full max-w-sm rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
-        />
-        <p class="mt-1 text-xs text-slate-500" id="calculation-filter-count" aria-live="polite"></p>
-      </div>
-
-      <div class="mt-3 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
-        <table class="w-full bg-white text-sm dark:bg-slate-900" id="calculation-table">
-          <thead class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800">
-            <tr>
-              <th class="px-3 py-2">Name</th>
-              <th class="px-3 py-2">Period</th>
-              <th class="px-3 py-2">Formula</th>
-              <th class="px-3 py-2">Result</th>
-              <th class="px-3 py-2">Inputs</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-            {% for row in calculations %}
-              <tr data-search="{{ row.name }} {{ row.period }} {{ row.formula }}">
-                <td class="px-3 py-2 font-mono text-xs">{{ row.name }}</td>
-                {# Which year the figure belongs to (gap R11): depreciation_rate appeared
-                   six times with nothing dating them, and the red team had to rebuild
-                   the vintages the operator could not see. #}
-                <td class="px-3 py-2 font-mono text-xs">{{ row.period }}</td>
-                <td class="px-3 py-2 font-mono text-xs">{{ row.formula }}</td>
-                <td class="px-3 py-2 text-xs tabular-nums">{{ row.shown }}</td>
-                <td class="px-3 py-2 font-mono text-xs">{{ row.input_count }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </details>
-  {% endif %}
-
-  <section class="mt-8" id="cost">
-    <h2 class="text-lg font-semibold tracking-tight">Cost</h2>
-    <dl class="mt-3 grid gap-4 sm:grid-cols-3">
-      <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Actual spend</dt>
-        <dd class="mt-1 font-mono text-sm">&pound;{{ cost.actual_gbp }}</dd>
-      </div>
-      <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Estimated</dt>
-        <dd class="mt-1 font-mono text-sm">
-          {% if cost.estimated_gbp is not none %}&pound;{{ cost.estimated_gbp }}{% else %}—{% endif %}
-        </dd>
-      </div>
-      <div class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Per-run cap</dt>
-        <dd class="mt-1 font-mono text-sm">&pound;{{ cost.cap_gbp }}</dd>
-      </div>
-    </dl>
-    <p class="mt-2 text-xs text-slate-500">
-      The banner above fires when either figure passes &pound;{{ cost_alert_gbp }} (80% of the
-      cap). The hard cap itself is enforced in code before every model step.
-    </p>
-  </section>
 
   {#
-    Every section, and what happened to it.
-
-    It was a row of chips carrying section keys and nothing else. A run where five sections
-    failed therefore showed five chips indistinguishable from the twelve that worked, and
-    the reason each one refused — recorded on the row by `sections.writing._failed`, and in
-    the step's own output with the evidence it was dealt — reached no screen at all (gap
-    A63). Diagnosing a failed section meant reading a worker log.
+    What the red team found. Its own sheet rather than a trigger, because a red team that
+    found nothing would be the thing worth worrying about: these are objections, not
+    faults — the review the run paid for. Each is published in the report's appendix
+    whether or not you agree with it; what is offered here is the chance to say, on the
+    record, that you considered one and did not agree.
   #}
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold tracking-tight">Sections in this draft</h2>
-    <div class="mt-3 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
-      <table class="w-full bg-white text-sm dark:bg-slate-900" id="draft-sections">
-        <thead class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800">
+  {% if challenges %}
+    {% call ui.sheet("The red team raised " ~ (challenges | length) ~ (" challenge" if challenges | length == 1 else " challenges"), subtitle="An adversarial pass over the draft, run against the same recorded facts and calculations.", id="red-team") %}
+      <ul class="flex flex-col divide-y divide-line">
+        {% for row in challenges %}
+          <li class="py-4" data-challenge="{{ row.id }}">
+            {#
+              The dimension and the severity, not the topic. A red-team topic is a
+              shortened copy of the statement -- it fingerprints the row -- and printing
+              it here put the same sentence on the page twice: cut short, then whole,
+              immediately below. Same wording as the report's appendix, from one function.
+            #}
+            <p class="type-label text-ink">
+              {{ row.detail | challenge_heading(fallback=row.topic) }}
+              {% if row.material %}{{ ui.status("warning", "Material") }}{% endif %}
+            </p>
+
+            {% if row.detail and row.detail.get("challenge") %}
+              {# Prose at reading width, never a table cell: the appendix once put a
+                 two-hundred-word objection in a narrow column and one row spanned three
+                 pages. #}
+              <p class="mt-2 max-w-prose type-body text-ink">{{ row.detail["challenge"] }}</p>
+            {% endif %}
+            {% if row.detail and row.detail.get("basis") %}
+              <p class="mt-2 max-w-prose type-body-sm text-ink-muted">
+                <span class="type-label">On the basis of:</span> {{ row.detail["basis"] }}
+              </p>
+            {% endif %}
+            {% if row.detail and row.detail.get("evidence") %}
+              <p class="mt-1 type-data-sm text-ink-muted">
+                {{ row.detail["evidence"].get("facts", []) | length }} fact(s) ·
+                {{ row.detail["evidence"].get("calculations", []) | length }} calculation(s) ·
+                {{ row.detail["evidence"].get("sources", []) | length }} source(s)
+              </p>
+            {% endif %}
+
+            {% set brief = briefs.get(row.id | string) %}
+            {% if brief and row.resolution == open_outcome %}
+              {#
+                What the choice actually is, ADR 0095. The objection above says what is
+                wrong with the draft; this says what either answer commits the report to.
+                It settles nothing — the controls below are unchanged, and the reason for
+                the choice is still the operator's to write.
+              #}
+              <div class="mt-3 rounded-md border border-line bg-surface-sunken p-4"
+                   data-brief="{{ row.id }}">
+                <div class="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <p class="type-label text-ink">Keeping the draft&rsquo;s position</p>
+                    <p class="mt-1 max-w-prose type-body-sm text-ink-muted">
+                      <span class="type-label text-ink-subtle">Assumes</span>
+                      {{ brief["keeping_assumes"] }}
+                    </p>
+                    <p class="mt-1 max-w-prose type-body-sm text-ink-muted">
+                      <span class="type-label text-ink-subtle">Means</span>
+                      {{ brief["keeping_means"] }}
+                    </p>
+                  </div>
+                  <div>
+                    <p class="type-label text-ink">Accepting the challenge</p>
+                    <p class="mt-1 max-w-prose type-body-sm text-ink-muted">
+                      <span class="type-label text-ink-subtle">Assumes</span>
+                      {{ brief["accepting_assumes"] }}
+                    </p>
+                    <p class="mt-1 max-w-prose type-body-sm text-ink-muted">
+                      <span class="type-label text-ink-subtle">Means</span>
+                      {{ brief["accepting_means"] }}
+                    </p>
+                  </div>
+                </div>
+                <p class="mt-3 max-w-prose type-body-sm text-ink" data-lean="{{ brief["leans"] }}">
+                  <span class="type-label text-ink-subtle">Leans towards</span>
+                  {% if brief["leans"] == "challenge" %}accepting the challenge{% else %}keeping the draft&rsquo;s position{% endif %}
+                  &mdash; {{ brief["because"] }}
+                </p>
+                <p class="mt-2 type-body-sm text-ink-subtle">
+                  A model&rsquo;s reading of the two arguments, not a decision and not
+                  evidence. It settles nothing, and it is not in the report.
+                </p>
+              </div>
+            {% endif %}
+
+            {% if row.resolution == open_outcome %}
+              {{ settle(job, row, "Keep the draft's position", "Accept the challenge") }}
+            {% else %}
+              <p class="mt-2 max-w-prose type-body-sm text-ink-muted">{{ row.resolution_rationale }}</p>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endcall %}
+  {% endif %}
+
+  {#
+    Every section, and what happened to it (gap A63): outcome, the evidence it was dealt,
+    how many tries it took, and the refusal in the producer's own words.
+  #}
+  {% call ui.sheet("Sections in this draft") %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-left" id="draft-sections">
+        <thead>
           <tr>
-            <th class="px-3 py-2">Section</th>
-            <th class="px-3 py-2">Outcome</th>
-            <th class="px-3 py-2">Dealt</th>
-            <th class="px-3 py-2">Tries</th>
+            <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Section</th>
+            <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Outcome</th>
+            <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Dealt</th>
+            <th scope="col" class="py-2 type-eyebrow text-ink-muted">Tries</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+        <tbody class="divide-y divide-line">
           {% for section in sections %}
             {% set outcome = outcomes[loop.index0] %}
             <tr data-section="{{ section.key }}">
-              <td class="px-3 py-2 font-mono text-xs">{{ section.key }}</td>
-              <td class="px-3 py-2 text-xs">
+              <td class="py-2.5 pr-4 type-data-sm text-ink">{{ section.key }}</td>
+              <td class="py-2.5 pr-4">
                 {% if section.status == "generated" %}
-                  <span class="font-semibold text-emerald-700 dark:text-emerald-300">written</span>
+                  {{ ui.status("success", "Written") }}
                 {% elif section.status == "failed" %}
-                  <span class="font-semibold text-rose-700 dark:text-rose-300">failed</span>
+                  {{ ui.status("failure", "Failed") }}
                 {% else %}
-                  <span class="text-slate-500">{{ section.status.replace("_", " ") }}</span>
+                  {{ ui.status("muted", section.status.replace("_", " ") | capitalize) }}
                 {% endif %}
               </td>
-              <td class="px-3 py-2 font-mono text-xs text-slate-600 dark:text-slate-400">
-                {#
-                  The counts, not a total. A section with facts and no excerpts cannot
-                  support a narrative claim; one with excerpts and no calculations cannot
-                  put a ratio in a sentence, and a single number would hide both. A pack
-                  can be untruncated and still hold nothing citable, which is precisely
-                  the case that killed five sections.
-                #}
+              <td class="py-2.5 pr-4 type-data-sm text-ink-muted">
+                {# The counts, not a total: a pack can be untruncated and still hold
+                   nothing citable, which is precisely the case that killed five
+                   sections. #}
                 {% if outcome.get("evidence_dealt") %}
                   {{ outcome["evidence_dealt"].get("facts", 0) }}f ·
                   {{ outcome["evidence_dealt"].get("calculations", 0) }}c ·
@@ -621,23 +484,34 @@
                   &mdash;
                 {% endif %}
               </td>
-              <td class="px-3 py-2 font-mono text-xs text-slate-600 dark:text-slate-400">
-                {{ outcome.get("attempts", "—") }}
+              <td class="py-2.5 type-data-sm text-ink-muted">
+                {# A kept section was written by an earlier attempt, which recorded no
+                   output because it did not finish. Nought tries would read as a section
+                   written without one. #}
+                {% if outcome.get("kept") %}
+                  &mdash;
+                {% else %}
+                  {{ outcome.get("attempts", "—") }}
+                {% endif %}
               </td>
             </tr>
-            {% if section.note or outcome.get("problems") %}
+            {% if section.note or outcome.get("problems") or outcome.get("kept") %}
               <tr>
-                <td colspan="4" class="px-3 pb-3 text-xs text-slate-700 dark:text-slate-300">
-                  {% if section.note %}
-                    <p class="max-w-prose">{{ section.note }}</p>
+                <td colspan="4" class="pb-3 type-body-sm text-ink">
+                  {% if section.note %}<p class="max-w-prose">{{ section.note }}</p>{% endif %}
+                  {% if outcome.get("kept") %}
+                    <p class="mt-1 max-w-prose text-ink-muted">
+                      Written by an earlier attempt of this run and kept when the run
+                      resumed, so it was not drafted or paid for again. What that attempt
+                      was dealt is not recorded: a step records its output only when it
+                      finishes.
+                    </p>
                   {% endif %}
                   {% for problem in outcome.get("problems", [])[:4] %}
-                    <p class="mt-1 max-w-prose text-slate-600 dark:text-slate-400">
-                      {{ problem }}
-                    </p>
+                    <p class="mt-1 max-w-prose text-ink-muted">{{ problem }}</p>
                   {% endfor %}
                   {% if outcome.get("refusal_causes") %}
-                    <p class="mt-1 font-mono text-slate-500">
+                    <p class="mt-1 type-data-sm text-ink-muted">
                       refused for:
                       {% for cause, times in outcome["refusal_causes"].items() %}
                         {{ cause }}&times;{{ times }}{{ ", " if not loop.last }}
@@ -651,18 +525,79 @@
         </tbody>
       </table>
     </div>
-  </section>
+  {% endcall %}
 
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold tracking-tight">The document</h2>
-    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+  {% if calculations %}
+    {% call ui.sheet(id="calculations") %}
+      {#
+        Closed by default: a real run records a thousand of these, and an operator
+        scrolling past a thousand rows has stopped reading the page. The filter is
+        revealed by script; with scripting off the complete table stands.
+      #}
+      {% call ui.disclosure("Calculations (" ~ (calculations | length) ~ " recorded — every figure in the draft resolves into this table)") %}
+        <div hidden id="calculation-filter-shell">
+          <label for="calculation-filter" class="block type-label text-ink-muted">
+            Filter by name, period or formula
+          </label>
+          <input
+            id="calculation-filter"
+            type="search"
+            autocomplete="off"
+            data-filters="#calculation-table"
+            data-count="#calculation-filter-count"
+            class="mt-1 min-h-11 w-full max-w-sm rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink"
+          />
+          <p class="mt-1 type-body-sm text-ink-muted" id="calculation-filter-count" aria-live="polite"></p>
+        </div>
+
+        <div class="mt-3 overflow-x-auto">
+          <table class="w-full text-left" id="calculation-table">
+            <thead>
+              <tr>
+                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Name</th>
+                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Period</th>
+                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Formula</th>
+                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Result</th>
+                <th scope="col" class="py-2 type-eyebrow text-ink-muted">Inputs</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-line">
+              {% for row in calculations %}
+                <tr data-search="{{ row.name }} {{ row.period }} {{ row.formula }}">
+                  <td class="py-2 pr-4 type-data-sm text-ink">{{ row.name }}</td>
+                  {# Which year the figure belongs to (gap R11). #}
+                  <td class="py-2 pr-4 type-data-sm text-ink">{{ row.period }}</td>
+                  <td class="py-2 pr-4 type-data-sm text-ink-muted">{{ row.formula }}</td>
+                  <td class="py-2 pr-4 type-body-sm tabular-nums text-ink">{{ row.shown }}</td>
+                  <td class="py-2 type-data-sm text-ink-muted">{{ row.input_count }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endcall %}
+    {% endcall %}
+  {% endif %}
+
+  {% call ui.sheet("Cost", id="cost") %}
+    <div class="grid gap-6 sm:grid-cols-3">
+      {{ ui.figure("Actual spend", "£" ~ cost.actual_gbp) }}
+      {{ ui.figure("Estimated", ("£" ~ cost.estimated_gbp) if cost.estimated_gbp is not none else "—") }}
+      {{ ui.figure("Per-run cap", "£" ~ cost.cap_gbp) }}
+    </div>
+    <p class="mt-3 type-body-sm text-ink-muted">
+      The attention line fires when either figure passes &pound;{{ cost_alert_gbp }} (80% of
+      the cap). The hard cap itself is enforced in code before every model step.
+    </p>
+  {% endcall %}
+
+  {% call ui.sheet("The document") %}
+    <p class="type-body text-ink-muted">
       <a
         href="/runs/{{ job.id }}/preview"
-        class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
+        class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2"
         id="document-preview"
-      >
-        Open the document preview
-      </a>
+      >Open the document preview</a>
       — the report as a formatted page, assembled from exactly the rows shown below.
     </p>
     {#
@@ -672,62 +607,7 @@
     #}
     <pre
       id="draft-markdown"
-      class="mt-3 max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-4 font-mono text-xs leading-relaxed dark:border-slate-800 dark:bg-slate-900"
+      class="mt-3 max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-sm border border-line bg-surface-sunken p-4 type-data-sm leading-relaxed text-ink"
     >{{ markdown }}</pre>
-  </section>
-
-  {% if decided %}
-    <section
-      class="mt-8 rounded-md border border-slate-300 bg-slate-100 p-4 dark:border-slate-700 dark:bg-slate-800"
-      role="status"
-      id="already-decided"
-    >
-      <p class="text-sm text-slate-800 dark:text-slate-200">
-        This gate was already <strong>{{ decided | lower }}</strong>. A decision is not a state
-        to be re-asserted; changing it needs a new run.
-      </p>
-    </section>
-  {% else %}
-    <form method="post" action="/runs/{{ job.id }}/gates/{{ gate }}" class="mt-8 space-y-4" id="gate-form">
-      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-      <input type="hidden" name="payload_hash" id="payload-hash" value="{{ payload_hash }}" />
-
-      <div>
-        <label for="notes" class="block text-sm font-medium">Notes (optional)</label>
-        <textarea
-          id="notes"
-          name="notes"
-          rows="3"
-          maxlength="4000"
-          class="mt-1 w-full rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-          placeholder="Recorded in the audit trail alongside your decision."
-        ></textarea>
-      </div>
-
-      <div class="flex flex-wrap gap-3">
-        <button
-          type="submit"
-          name="decision"
-          value="APPROVED"
-          id="approve"
-          class="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-800"
-        >
-          Approve and publish
-        </button>
-        <button
-          type="submit"
-          name="decision"
-          value="REJECTED"
-          id="reject"
-          class="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-        >
-          Reject and stop
-        </button>
-      </div>
-
-      <p class="text-xs text-slate-500">
-        {{ disclaimer }}
-      </p>
-    </form>
-  {% endif %}
+  {% endcall %}
 {% endblock %}

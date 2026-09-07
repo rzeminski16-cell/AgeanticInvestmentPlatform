@@ -35,7 +35,7 @@ from aer.config import Settings
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.core.sectors import profile_for
-from aer.db.models import Approval, Assumption, Job, JobStep, ResearchRequest, User
+from aer.db.models import Approval, Assumption, Job, JobStep, User
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
 from aer.services import approvals as approval_service
@@ -73,6 +73,7 @@ from aer.workflow.workflows.vertical_slice_v1 import (
 from tests.api_fixtures import build_app, client_for
 from tests.assumption_fixtures import a_year, analysed, seed_years
 from tests.db_cleanup import delete_all
+from tests.request_fixtures import research_request
 from tests.run_fixtures import Driver, start_run
 from tests.workflow_fixtures import AS_OF_DATE, CONDITIONAL_GATES, seed_job
 
@@ -946,7 +947,7 @@ async def _seed_paused_run(engine: Any, *, dcf_permitted_: bool = True) -> dict[
         session.add(user)
         await session.flush()
 
-        research_request = ResearchRequest(
+        mandate = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",
@@ -958,10 +959,10 @@ async def _seed_paused_run(engine: Any, *, dcf_permitted_: bool = True) -> dict[
             investment_horizon_months=12,
             max_cost_gbp="2.50",
         )
-        session.add(research_request)
+        session.add(mandate)
         await session.flush()
 
-        job = await seed_job(session, request=research_request)
+        job = await seed_job(session, request=mandate)
         job.status = JobStatus.AWAITING_APPROVAL
         # Gates are passed in order, so this one needs the plan gate behind it. Without it
         # the approval service refuses out of order and the page's form would look broken
@@ -991,7 +992,7 @@ async def _seed_paused_run(engine: Any, *, dcf_permitted_: bool = True) -> dict[
         # so a step output with no row behind it would show an empty gate.
         session.add(
             Assumption(
-                request_id=research_request.id,
+                request_id=mandate.id,
                 job_id=job.id,
                 name="terminal_growth",
                 value=Decimal("0.025"),
@@ -1032,7 +1033,7 @@ async def _seed_paused_run(engine: Any, *, dcf_permitted_: bool = True) -> dict[
         else:
             job.status = JobStatus.RUNNING
         await session.commit()
-        return {"job": job, "request": research_request, "user": user, "produced": produced}
+        return {"job": job, "request": mandate, "user": user, "produced": produced}
 
 
 @pytest.fixture
@@ -1220,7 +1221,7 @@ async def _fresh_request(engine: Any) -> dict[str, Any]:
         user = User(email="owner@example.invalid", display_name="Owner", role=UserRole.OWNER)
         session.add(user)
         await session.flush()
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",

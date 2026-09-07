@@ -21,7 +21,7 @@
   {% if action_label and action_href %}
   <a
     href="{{ action_href }}"
-    class="mt-4 inline-flex items-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-on-verification hover:bg-brand-strong"
+    class="mt-4 inline-flex items-center rounded-lg bg-verification px-4 py-2 text-sm font-semibold text-on-verification hover:bg-verification-strong"
     >{{ action_label }}</a
   >
   {% endif %}
@@ -39,7 +39,7 @@
   says so.
 #}
 <span
-  class="aer-guide ml-2 items-center gap-1 rounded-full bg-brand-wash px-2 py-0.5 text-xs font-semibold text-brand"
+  class="aer-guide ml-2 items-center gap-1 rounded-full bg-verification-wash px-2 py-0.5 text-xs font-semibold text-verification"
   title="{{ explanation }}"
 >
   <span aria-hidden="true">{{ number }}</span>

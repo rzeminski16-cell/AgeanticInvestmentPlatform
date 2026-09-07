@@ -35,14 +35,15 @@ from aer.db.models import (
     Job,
     JobStep,
     ReportSection,
-    ResearchRequest,
     SectionDefinition,
     SectionStatus,
     User,
 )
 from aer.providers.fake import FakeProvider
+from aer.services.resume import resume_run
 from aer.workflow.workflows.vertical_slice_v1 import DRAFT_FAN_OUT
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 from tests.run_fixtures import Driver, start_run, to_final_gate
 from tests.schema_guard import refuse_unanswerable_schema
 from tests.workflow_fixtures import (
@@ -82,6 +83,10 @@ class MeteredSectionProvider(FakeProvider):
         self.section_calls = 0
         self._delay_for = delay_for or (lambda _index: 0.05)
         self._fail_on_call = fail_on_call
+
+    def stop_failing(self) -> None:
+        """Disarm the wired outage, for a test that resumes past it."""
+        self._fail_on_call = None
 
     async def complete_structured(self, schema: type[Any], **kwargs: Any) -> Any:
         if declared_schema_name(schema) in {"SectionDraft", "CustomSectionDraft"}:
@@ -149,7 +154,7 @@ async def committed(clean_slate: None, db_engine: Any) -> dict[str, Any]:
         user = User(email="fanout@example.invalid", display_name="P10", role=UserRole.OWNER)
         session.add(user)
         await session.flush()
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",
@@ -194,6 +199,23 @@ async def _draft_output(engine: Any, job_id: uuid.UUID) -> dict[str, Any]:
         )
         assert row is not None, "the draft step has not run"
         return dict(row.output_ref or {})
+
+
+async def _generated_count(engine: Any, job_id: uuid.UUID) -> int:
+    """Model-written sections that have generated, on a fresh session."""
+    factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+    async with factory() as session:
+        found = await session.scalar(
+            select(func.count(ReportSection.id))
+            .join(SectionDefinition, SectionDefinition.id == ReportSection.section_definition_id)
+            .where(
+                ReportSection.job_id == job_id,
+                ReportSection.status == SectionStatus.GENERATED,
+                SectionDefinition.origin == "builtin",
+                SectionDefinition.token_budget > 0,
+            )
+        )
+        return int(found or 0)
 
 
 async def _model_written_keys(engine: Any, job_id: uuid.UUID) -> list[str]:
@@ -335,3 +357,93 @@ class TestDrainNeverAbandon:
         # is filled from the record when no valuation exists (gap A51c).
         assert generated == (driver.provider.section_calls - 1) + 1
         assert (generated or 0) > 0
+
+
+class TestAResumedDraftKeepsWhatWasPaidFor:
+    """The engine skips a step that already succeeded; the draft step skips a section that
+    already generated. Without it a run stopped part-way through drafting — by an outage,
+    a crash, or its own cost ceiling — pays for every finished section a second time, and
+    overwrites words a person may already have read."""
+
+    async def test_a_section_an_earlier_attempt_wrote_is_not_written_again(
+        self, api: Any, db_engine: Any, api_settings: Settings, committed: dict[str, Any]
+    ) -> None:
+        driver = metered_driver(db_engine, api_settings, parallel=True, fail_on_call=2)
+
+        body = await start_run(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+        await driver.advance(job_id)
+        await driver.approve(job_id, gate=GateKind.PLAN, step="critique_plan")
+        with pytest.raises(RuntimeError, match="scripted outage"):
+            await _drive_through_gates(driver, job_id)
+
+        written_first = await _generated_count(db_engine, job_id)
+        calls_first = driver.provider.section_calls
+        assert written_first > 0, "the wave committed nothing to keep"
+
+        # Resume the way an operator does: the decision is recorded, then the engine
+        # re-enters and skips what succeeded.
+        driver.provider.stop_failing()
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            user = await session.scalar(select(User))
+            assert job is not None
+            assert user is not None
+            await resume_run(session, job=job, actor=user, reason="the outage is over")
+            await session.commit()
+        await driver.advance(job_id)
+
+        # Only the sections that were not already written were written on the re-entry.
+        total = len(await _model_written_keys(db_engine, job_id))
+        assert driver.provider.section_calls - calls_first == total - written_first
+        assert await _generated_count(db_engine, job_id) == total
+
+    async def test_the_kept_sections_stay_in_the_step_s_own_record(
+        self, api: Any, db_engine: Any, api_settings: Settings, committed: dict[str, Any]
+    ) -> None:
+        """The draft step's output is the only place the per-section record lives, and the
+        escalation trigger and the review page both read it. A kept section that vanished
+        from it would read as a section the run never had.
+
+        What a kept row can say is bounded by what survives: a step writes its output only
+        when it succeeds, so the attempt that wrote these sections — the one that failed —
+        left no tally to carry forward. The row therefore says the section is generated and
+        that this attempt did not write it, and no evidence count, which is honest about a
+        record that was never written rather than a guess at one."""
+        driver = metered_driver(db_engine, api_settings, parallel=True, fail_on_call=2)
+
+        body = await start_run(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+        await driver.advance(job_id)
+        await driver.approve(job_id, gate=GateKind.PLAN, step="critique_plan")
+        with pytest.raises(RuntimeError, match="scripted outage"):
+            await _drive_through_gates(driver, job_id)
+
+        driver.provider.stop_failing()
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            user = await session.scalar(select(User))
+            assert job is not None
+            assert user is not None
+            await resume_run(session, job=job, actor=user, reason="the outage is over")
+            await session.commit()
+        await driver.advance(job_id)
+
+        output = await _draft_output(db_engine, job_id)
+        recorded = [*output.get("builtin_sections", []), *output.get("custom_sections", [])]
+        kept = [row for row in recorded if row.get("kept")]
+
+        assert kept, "the re-entry kept nothing, so nothing was carried"
+        assert output["sections_drafted"] == len(await _model_written_keys(db_engine, job_id))
+        # Every section the run has is still in the record, kept or freshly written.
+        assert {row["section_key"] for row in recorded} >= set(
+            await _model_written_keys(db_engine, job_id)
+        )
+        # A kept row is marked as kept and claims no work of its own, so nothing downstream
+        # reads it as an attempt that dealt no evidence.
+        for row in kept:
+            assert row["status"] == SectionStatus.GENERATED.value
+            assert row["attempts"] == 0
+            assert "evidence_dealt" not in row

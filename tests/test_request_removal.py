@@ -46,6 +46,7 @@ from aer.db.models import (
 from aer.errors import ConflictError
 from aer.services import requests as request_service
 from aer.storage.local import LocalArtefactStore
+from tests.request_fixtures import research_request
 from tests.scene_fixtures import build_scene
 
 pytestmark = pytest.mark.integration
@@ -131,7 +132,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
 
 
 async def another_request(session: AsyncSession, owner: User, *, ticker: str) -> ResearchRequest:
-    other = ResearchRequest(
+    other = research_request(
         user_id=owner.id,
         company_name=f"{ticker} Corporation",
         ticker=ticker,
@@ -157,7 +158,6 @@ async def a_later_run_citing(session: AsyncSession, scene: dict[str, Any]) -> Re
     later = await another_request(session, scene["user"], ticker="MSFT2")
     job = Job(
         work_order_id=later.id,
-        request_id=later.id,
         workflow_version="vertical_slice_v1",
         code_version="test",
         status=JobStatus.SUCCEEDED,
@@ -221,8 +221,8 @@ class TestArchiving:
             db_session, request=scene["request"], actor=scene["user"]
         )
 
-        assert archived.is_archived is True
-        assert archived.archived_at is not None
+        assert archived.work_order.is_archived is True
+        assert archived.work_order.archived_at is not None
 
     async def test_nothing_is_removed(self, db_session, scene):
         await request_service.archive_request(
@@ -237,13 +237,13 @@ class TestArchiving:
     async def test_the_status_is_left_alone(self, db_session, scene):
         """Archiving is orthogonal to where a request sits in the research lifecycle, so
         restoring does not have to guess what the status used to be."""
-        before = scene["request"].status
+        before = scene["request"].work_order.status
 
         await request_service.archive_request(
             db_session, request=scene["request"], actor=scene["user"]
         )
 
-        assert scene["request"].status is before
+        assert scene["request"].work_order.status is before
 
     async def test_restoring_puts_it_back(self, db_session, scene):
         await request_service.archive_request(
@@ -253,7 +253,7 @@ class TestArchiving:
             db_session, request=scene["request"], actor=scene["user"]
         )
 
-        assert restored.archived_at is None
+        assert restored.work_order.archived_at is None
 
     async def test_archiving_twice_is_refused(self, db_session, scene):
         """A second archive is not a second event, and recording it as one would put a
@@ -438,7 +438,6 @@ class TestWhatAPurgeKeeps:
         kept = await another_request(db_session, scene["user"], ticker="AAPL")
         kept_job = Job(
             work_order_id=kept.id,
-            request_id=kept.id,
             workflow_version="vertical_slice_v1",
             code_version="test",
             status=JobStatus.SUCCEEDED,

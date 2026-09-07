@@ -25,9 +25,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.status import HTTP_201_CREATED, HTTP_404_NOT_FOUND
 
 from aer.api.deps import CurrentUser, DbSession, ProviderDep, RouterDep, SettingsDep, StoreDep
-from aer.db.models import Job, ResearchRequest, Skill
+from aer.db.models import Job, Skill
 from aer.errors import AerError, ValidationError
 from aer.services import skills as skill_service
+from aer.services.mandate import mandate_of
 from aer.services.skill_authoring import import_diff, import_payload_hash, validate_skill_source
 from aer.services.skill_dry_run import dry_run_skill
 from aer.skills.frontmatter import SkillFileError, parse_skill_file
@@ -246,8 +247,8 @@ async def dry_run(
 
 
 async def _owns(session: DbSession, *, job: Job, user: CurrentUser) -> bool:
-    request = await session.get(ResearchRequest, job.request_id)
-    return request is not None and request.user_id == user.id
+    request = await mandate_of(session, job)
+    return request is not None and request.work_order.user_id == user.id
 
 
 async def _read(session: DbSession, skill: Skill) -> SkillRead:

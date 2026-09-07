@@ -1,89 +1,91 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
 
-{# The report history: every report this account produced, grouped by company. Drafts are
-   badged rather than hidden — this is the work list; the *history* surfaces show only
-   approved reports. #}
+{#
+  The report history: every report this account produced, grouped by company, findable by
+  what it concluded. Drafts are badged rather than hidden — this is the work list; the
+  *history* surfaces show only approved reports, and the two must not read as one record.
+#}
 
 {% block title %}Reports &middot; Tracework Invest{% endblock %}
 
 {% block content %}
-  <div class="flex flex-wrap items-end justify-between gap-4">
-    <div>
-      <h1 class="text-2xl font-semibold tracking-tight">Reports</h1>
-      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-        {{ total }} report{{ "" if total == 1 else "s" }}, grouped by company.
-      </p>
-    </div>
-    <form method="get" action="/reports" class="flex items-center gap-2" id="company-filter">
-      <label for="company" class="text-sm text-slate-600 dark:text-slate-400">Filter</label>
+  {% call ui.page_header(
+    "Reports",
+    eyebrow="THE RECORD",
+    identity=total ~ (" report" if total == 1 else " reports") ~ ", grouped by company, newest first.",
+  ) %}
+    <form method="get" action="/reports" class="flex flex-wrap items-center gap-2" id="company-filter">
+      <label for="company" class="type-label text-ink-muted">Filter</label>
       <input
         type="text"
         id="company"
         name="company"
         value="{{ company_filter }}"
         placeholder="Ticker or name"
-        class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
+        class="min-h-11 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink"
       />
       <button
         type="submit"
-        class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-slate-100 dark:text-slate-900"
+        class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong"
       >
         Apply
       </button>
     </form>
-  </div>
+  {% endcall %}
 
   {% if not groups %}
-    <p class="mt-8 text-sm text-slate-600 dark:text-slate-400" id="no-reports">
-      No reports{{ " match that filter" if company_filter else " yet" }}.
-    </p>
+    <div id="no-reports">
+      {{ ui.empty(
+        "No reports" ~ (" match that filter" if company_filter else " yet"),
+        ("Loosen the filter to see the whole record." if company_filter else "Commission research, run it, and approve the draft to create the first report."),
+      ) }}
+    </div>
   {% endif %}
 
   {% for group in groups %}
-    <section class="mt-8" id="company-group-{{ loop.index }}">
-      <div class="flex items-baseline justify-between gap-4">
-        <h2 class="text-lg font-semibold tracking-tight">{{ group.label }}</h2>
+    <section id="company-group-{{ loop.index }}">
+      <div class="flex flex-wrap items-baseline justify-between gap-4">
+        <h2 class="type-title-2 text-ink">{{ group.label }}</h2>
         {% if group.company_id %}
           <a
             href="/companies/{{ group.company_id }}"
-            class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400"
+            class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong"
           >
             Company history
           </a>
         {% endif %}
       </div>
-      <div class="mt-3 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
-        <table class="w-full bg-white text-sm dark:bg-slate-900">
-          <thead
-            class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800"
-          >
+      <div class="mt-3 overflow-x-auto rounded-md border border-line bg-surface">
+        <table class="w-full min-w-[46rem]">
+          <caption class="sr-only">
+            Every report for {{ group.label }}: what it concluded, its dates, its status and
+            what the run cost.
+          </caption>
+          <thead class="border-b border-line-strong text-left">
             <tr>
-              <th class="px-3 py-2">As of</th>
-              <th class="px-3 py-2">Status</th>
-              <th class="px-3 py-2">View</th>
-              <th class="px-3 py-2">Valuation range</th>
-              <th class="px-3 py-2"></th>
+              <th scope="col" class="px-4 py-3 type-label text-ink-muted">Conclusion</th>
+              <th scope="col" class="px-4 py-3 type-label text-ink-muted">Valuation range</th>
+              <th scope="col" class="px-4 py-3 type-label text-ink-muted">As of</th>
+              <th scope="col" class="px-4 py-3 type-label text-ink-muted">Produced</th>
+              <th scope="col" class="px-4 py-3 type-label text-ink-muted">Status</th>
+              <th scope="col" class="px-4 py-3 type-label text-ink-muted">Spend</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+          <tbody class="divide-y divide-line">
             {% for row in group.reports %}
               <tr>
-                <td class="px-3 py-2 font-mono text-xs">{{ row.report.as_of_date.isoformat() }}</td>
-                <td class="px-3 py-2">
-                  {% if row.report.immutable %}
-                    <span
-                      class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
-                      >Approved</span
-                    >
-                  {% else %}
-                    <span
-                      class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-950 dark:text-amber-200"
-                      >Draft</span
-                    >
-                  {% endif %}
-                </td>
-                <td class="px-3 py-2">{{ row.report.rating or "no view reached" }}</td>
-                <td class="px-3 py-2 font-mono text-xs">
+                {#
+                  The conclusion is the link: a reader finds a report by what it said, and
+                  a row that led with a date would make them open three to find one.
+                #}
+                <th scope="row" class="px-4 py-3 text-left">
+                  <a
+                    href="/reports/{{ row.report.id }}"
+                    class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong"
+                  >{{ row.report.rating or "No conclusion produced" }}</a>
+                </th>
+                <td class="px-4 py-3 type-data-sm text-ink">
                   {% if row.report.valuation_low is not none and row.report.valuation_high is not none %}
                     {{ row.report.valuation_low }}&ndash;{{ row.report.valuation_high }}
                     {{ row.report.valuation_currency or "" }}
@@ -91,13 +93,17 @@
                     &mdash;
                   {% endif %}
                 </td>
-                <td class="px-3 py-2">
-                  <a
-                    href="/reports/{{ row.report.id }}"
-                    class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
-                  >
-                    Open
-                  </a>
+                <td class="px-4 py-3 type-data-sm text-ink">{{ row.report.as_of_date.isoformat() }}</td>
+                <td class="px-4 py-3 type-data-sm text-ink">{{ row.report.created_at.date().isoformat() }}</td>
+                <td class="px-4 py-3">
+                  {% if row.report.immutable %}
+                    {{ ui.status("success", "Approved") }}
+                  {% else %}
+                    {{ ui.status("muted", "Draft") }}
+                  {% endif %}
+                </td>
+                <td class="px-4 py-3 type-data-sm text-ink">
+                  {{ row.spend_display or "—" }}
                 </td>
               </tr>
             {% endfor %}

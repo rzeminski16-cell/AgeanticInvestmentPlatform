@@ -61,9 +61,7 @@ def upgrade() -> None:
         sa.CheckConstraint("char_length(btrim(dimension)) > 0", name="dimension_is_recorded"),
     )
     op.create_index("ix_revision_notes_job_id", "revision_notes", ["job_id"])
-    op.create_index(
-        "ix_revision_notes_scope_dimension", "revision_notes", ["scope", "dimension"]
-    )
+    op.create_index("ix_revision_notes_scope_dimension", "revision_notes", ["scope", "dimension"])
 
 
 def downgrade() -> None:

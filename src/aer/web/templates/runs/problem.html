@@ -1,20 +1,24 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  The runs family's refusal page: a gate that does not apply, a run that is not there, a
+  token that expired. The message is the handler's, already in the reader's language.
+#}
 
 {% block title %}Not available &middot; Tracework Invest{% endblock %}
 
 {% block content %}
-  <section
-    class="rounded-md border border-amber-400 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
-    role="alert"
-    id="problem"
-  >
-    <h1 class="text-lg font-semibold text-amber-900 dark:text-amber-200">Not available</h1>
-    <p class="mt-2 text-sm text-amber-900/90 dark:text-amber-100/90">{{ message }}</p>
+  <section role="alert" id="problem">
+    <h1 class="type-title-1 text-ink">Not available</h1>
+    <div class="mt-4">
+      {{ ui.callout("warning", "Nothing was changed", message) }}
+    </div>
   </section>
 
-  <div class="mt-6">
-    <a href="/requests" class="text-sm text-sky-700 underline underline-offset-2 dark:text-sky-400">
+  <p class="mt-6">
+    <a href="/requests" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">
       All requests
     </a>
-  </div>
+  </p>
 {% endblock %}

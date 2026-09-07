@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  The shared frame of the seven gates. Every gate is the same transaction — here is what I
+  propose; approving costs money and commits you; rejecting stops the run — and the frame
+  is what makes learning one gate teach the rest: the question as the heading, the verdict,
+  the journey, the evidence, and then the decision, in that order on every gate.
+
+  **The evidence comes before the decision in DOM and focus order.** At 1280px and wider
+  the decision column sits sticky beside the evidence; the grid places it there, the markup
+  never does. A keyboard user reaches the submit button after everything it commits.
+
+  **A decided gate renders no form.** A decision is not a state to re-assert, and a button
+  the service would refuse is worse than none.
+
+  The context is `web/gates.frame_for`'s, identical on all seven: `gate_words`,
+  `gate_consequence`, `journey`, `gate_cost`, `decided`, `decided_note`, `run_identity` —
+  plus each page's own `payload_hash`, CSRF pair and evidence. A gate template extends this
+  and fills `gate_verdict` (the one-line reading of its evidence) and `gate_evidence`.
+#}
+
+{% block title %}{{ gate_words.question }} &middot; Tracework Invest{% endblock %}
+
+{% block content %}
+  <div class="flex flex-col gap-6">
+  {% call ui.page_header(
+    gate_words.question,
+    eyebrow="RESEARCH RUN — A DECISION",
+    identity=run_identity,
+    breadcrumbs=[{"href": "/runs/" ~ job.id, "label": "The run"}],
+  ) %}{% endcall %}
+
+  {% block gate_verdict %}{% endblock %}
+
+  {#
+    Where this decision sits. Never a seven-step wizard: a conditional gate whose moment
+    has not come is a possibility, and the range below says so.
+  #}
+  <nav aria-label="Where this decision sits in the run">
+    <ol class="flex flex-wrap gap-x-5 gap-y-2">
+      {% for entry in journey.entries %}
+        <li class="flex items-baseline gap-2" data-journey-gate="{{ entry.gate.value }}" data-journey-state="{{ entry.state.value }}">
+          <span class="type-label {{ 'text-warning-ink' if entry.state.value == 'current' else ('text-ink' if entry.state.value == 'decided' else 'text-ink-muted') }}">{{ entry.name }}</span>
+          <span class="type-body-sm {{ 'text-warning-ink' if entry.state.value == 'current' else 'text-ink-subtle' }}">
+            {%- if entry.state.value == 'decided' %}{{ entry.decision_label | lower }}
+            {%- elif entry.state.value == 'current' %}now
+            {%- elif entry.state.value == 'not_needed' %}not needed
+            {%- elif entry.state.value == 'upcoming' %}to come
+            {%- else %}if needed{% endif -%}
+          </span>
+        </li>
+      {% endfor %}
+    </ol>
+    <p class="mt-2 type-body-sm text-ink-muted">{{ journey.remaining_display }}</p>
+  </nav>
+
+  {% if not decided %}
+    {# The narrow-width shortcut. The form itself still follows all the evidence. #}
+    <p class="min-[80rem]:hidden">
+      <a href="#decision" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Jump to the decision</a>
+    </p>
+  {% endif %}
+
+  <div class="min-[80rem]:grid min-[80rem]:grid-cols-[minmax(0,1fr)_19rem] min-[80rem]:items-start min-[80rem]:gap-8">
+    <div class="flex min-w-0 flex-col gap-6">
+      {% block gate_evidence %}{% endblock %}
+    </div>
+
+    <aside id="decision" class="mt-6 min-[80rem]:sticky min-[80rem]:top-6 min-[80rem]:mt-0">
+      {% if decided %}
+        <section class="rounded-md border border-line bg-surface-sunken p-5" role="status" id="already-decided">
+          <p class="type-eyebrow text-ink-muted">DECIDED</p>
+          <p class="mt-2 type-body text-ink">{{ decided_note }}</p>
+          <p class="mt-4">
+            <a href="/runs/{{ job.id }}" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Back to the run</a>
+          </p>
+        </section>
+      {% else %}
+        {% call ui.decision_panel("DECISION REQUIRED", gate_words.name, gate_consequence) %}
+          <form
+            method="post"
+            action="/runs/{{ job.id }}/gates/{{ gate }}"
+            id="gate-form"
+            class="flex flex-col gap-4"
+          >
+            <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+            {#
+              The fingerprint of exactly the structure rendered on this page. If the
+              proposal changed between the page being served and the button being pressed,
+              the workflow refuses to continue on it — an approval of something else is
+              not an approval of this.
+            #}
+            <input type="hidden" name="payload_hash" id="payload-hash" value="{{ payload_hash }}" />
+
+            <p class="type-body-sm text-ink-muted">
+              <span class="type-data text-ink">{{ gate_cost.summary }}</span> spent so far.
+            </p>
+
+            <div>
+              <label for="notes" class="block type-label text-ink">Notes (optional)</label>
+              <textarea
+                id="notes"
+                name="notes"
+                rows="3"
+                maxlength="4000"
+                class="mt-1 w-full rounded-sm border border-control-boundary bg-surface p-3 type-body text-ink"
+                placeholder="Why you approved or rejected this. Recorded in the audit trail."
+              ></textarea>
+            </div>
+
+            {#
+              Weighted by consequence, not symmetry: approving continues work already paid
+              for; rejecting stops it. The rejection stays easy to find — its weight comes
+              from fill and placement, never from size or contrast (§10.3: an
+              approve/reject pair is never teal-and-red, because that biases a judgement).
+            #}
+            <div class="flex flex-col gap-3">
+              <button type="submit" name="decision" value="APPROVED" id="approve"
+                      class="inline-flex min-h-11 items-center justify-center rounded-sm bg-decision px-3 type-label text-on-decision hover:bg-decision-strong">Approve and continue</button>
+              <button type="submit" name="decision" value="REJECTED" id="reject"
+                      class="inline-flex min-h-11 items-center justify-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected">Reject and stop this run</button>
+            </div>
+
+            {#
+              The guarantee as a reassurance rather than a footnote, with the full
+              fingerprint kept copyable behind the summary.
+            #}
+            {% call ui.disclosure("What this decision proves") %}
+              <p class="type-body-sm text-ink-muted">
+                Your approval records the exact content of this page, by its fingerprint,
+                so it can never be transferred to a different proposal. If the proposal
+                changes before the server records your choice, the approval is refused and
+                you decide again over the current version.
+              </p>
+              <p class="mt-2 break-all type-data-sm text-ink-muted">{{ payload_hash }}</p>
+            {% endcall %}
+
+            <p>
+              <a href="/runs/{{ job.id }}" class="type-label text-verification underline underline-offset-[3px] hover:text-verification-strong hover:decoration-2">Back to the run</a>
+            </p>
+          </form>
+        {% endcall %}
+      {% endif %}
+    </aside>
+  </div>
+  </div>
+{% endblock %}

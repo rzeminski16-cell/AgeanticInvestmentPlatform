@@ -11,8 +11,9 @@ alternative -- defaulting to zero -- produces a current ratio that is arithmetic
 factually invented, and nothing downstream can tell it from a real one.
 
 **A derived line says it was derived.** Where a subtotal is absent but its components are
-present, it is computed -- and :attr:`Line.derived` records that it was, because a reported
-gross profit and one this module worked out are different evidence. The computation goes
+present, it is computed -- gross profit, pre-tax income, total debt, and depreciation and
+amortisation from its two halves -- and :attr:`Line.derived` records that it was, because a
+reported gross profit and one this module worked out are different evidence. The computation goes
 through ``@traced`` like everything else, so the derived line's provenance points at a
 calculation whose inputs point at the facts.
 
@@ -128,6 +129,8 @@ BALANCE_SHEET_LINES: Final[tuple[str, ...]] = (
 CASH_FLOW_LINES: Final[tuple[str, ...]] = (
     "operating_cash_flow",
     "depreciation_and_amortisation",
+    "depreciation",
+    "amortisation_of_intangibles",
     "share_based_compensation",
     "deferred_income_tax_expense",
     "change_in_working_capital",
@@ -348,9 +351,14 @@ _DERIVED_DIFFERENCES: Final[tuple[tuple[str, str, str], ...]] = (
 # charge under the sign convention in `aer.core.concepts`; adding it back is what un-taxes
 # the figure. Writing it as a subtraction of a negated term would be the same arithmetic
 # dressed up to look more like the accounting.
+# `depreciation_and_amortisation` from its halves for the filer who reports them apart and
+# never the sum (Microsoft, for one). The sum is what every consumer of the line wants -- the
+# depreciation-intensity driver, the reinvestment ratios, the cash-flow bridge -- and a half
+# on its own is never mistaken for it, because each half is its own concept.
 _DERIVED_SUMS: Final[tuple[tuple[str, str, str], ...]] = (
     ("pre_tax_income", "net_income", "income_tax_expense"),
     ("total_debt", "short_term_debt", "long_term_debt"),
+    ("depreciation_and_amortisation", "depreciation", "amortisation_of_intangibles"),
 )
 
 

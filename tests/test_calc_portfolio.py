@@ -25,6 +25,7 @@ from hypothesis import strategies as st
 
 from aer.calc.engine import CalculationContext
 from aer.calc.portfolio import (
+    RATIO,
     SHARES,
     acquisition_cost,
     cash_balance,
@@ -64,6 +65,11 @@ def price(value: str, currency: str = "GBP") -> Quantity:
 
 def cash(value: str, currency: str = "GBP") -> Quantity:
     return money(Decimal(value), currency, source=SOURCE)
+
+
+def ratio(value: str) -> Quantity:
+    """A share reorganisation's multiplier (ADR 0094)."""
+    return Quantity.of(Decimal(value), RATIO, source=SOURCE)
 
 
 NIL = cash("0")
@@ -202,8 +208,9 @@ class TestTheConventionIsPooledAndNotFirstIn:
     def test_the_formula_records_that_it_is_not_a_tax_computation(self, context) -> None:
         """The claim a surface inherits, asserted where it is written down.
 
-        A pooled average without the same-day rule, the thirty-day rule or share
-        reorganisations answers "what did I pay for what I hold" and not "what do I owe".
+        A pooled average without the same-day rule or the thirty-day rule answers "what
+        did I pay for what I hold" and not "what do I owe". A split is the one share
+        reorganisation the walk knows (ADR 0094), and the assumptions say which.
         """
         pooled_cost(
             context,
@@ -215,6 +222,93 @@ class TestTheConventionIsPooledAndNotFirstIn:
 
         assert "Not a tax computation" in assumptions
         assert "thirty-day rule" in assumptions
+        assert "Rights issues and demergers stay unmodelled" in assumptions
+
+
+class TestASplitMultipliesAndCostsNothing:
+    """ADR 0094's arithmetic, where a wrong answer looks entirely ordinary.
+
+    A two-for-one that adds units instead of multiplying gives the right answer for a
+    book that bought once and the wrong one for every book that bought twice — and both
+    render as a plausible share count beside a plausible cost.
+    """
+
+    def test_the_share_count_multiplies(self, context) -> None:
+        held = quantity_held(context, movements=[shares("100"), ratio("2")])
+
+        assert held.value == Decimal("200")
+        assert held.unit == SHARES
+
+    def test_a_consolidation_is_a_ratio_below_one(self, context) -> None:
+        held = quantity_held(context, movements=[shares("500"), ratio("0.1")])
+
+        assert held.value == Decimal("50")
+
+    def test_it_multiplies_only_what_preceded_it(self, context) -> None:
+        """The reason the ratio is stored and the delta is not (ADR 0094).
+
+        A hundred bought before the split and a hundred after is 300 held, not 400: the
+        multiplication lands at its place in the walk. A stored delta would have frozen
+        the answer for whatever the book held when the row was written.
+        """
+        held = quantity_held(context, movements=[shares("100"), ratio("2"), shares("100")])
+
+        assert held.value == Decimal("300")
+
+    def test_a_backfilled_earlier_trade_is_multiplied_too(self, context) -> None:
+        """What self-healing means, arithmetically: the same rows in trade-date order."""
+        held = quantity_held(context, movements=[shares("50"), shares("100"), ratio("2")])
+
+        assert held.value == Decimal("300")
+
+    def test_a_ratio_that_is_not_positive_is_refused(self, context) -> None:
+        with pytest.raises(CalculationError, match="not a reorganisation"):
+            quantity_held(context, movements=[shares("100"), ratio("0")])
+
+    def test_reorganisations_alone_are_not_a_holding(self, context) -> None:
+        """A book whose only rows are splits has nothing to multiply, and zero would be a
+        figure somebody could act on standing in for an answer nobody has."""
+        with pytest.raises(CalculationError, match="only reorganisations"):
+            quantity_held(context, movements=[ratio("2")])
+
+    def test_the_pool_keeps_its_cost_and_halves_its_average(self, context) -> None:
+        """A split is not a purchase (ADR 0085's reorganisation line, ADR 0094's rule).
+
+        £1,000 for 100 shares is £10 each; after a two-for-one it is 200 shares that cost
+        the same £1,000, so £5 each. A split that added units at a cost of zero would give
+        the same total and the same average — and then a *disposal* after it would remove
+        the wrong share of the pool.
+        """
+        remaining = pooled_cost(
+            context,
+            movements=[shares("100"), ratio("2")],
+            acquisition_costs=[cash("1000"), NIL],
+        )
+
+        assert remaining.value == Decimal("1000")
+
+    def test_a_disposal_after_a_split_removes_the_post_split_share(self, context) -> None:
+        """Where the multiplication earns its place: selling half of 200 post-split shares
+        leaves half the cost, because the pool's units multiplied with the count."""
+        remaining = pooled_cost(
+            context,
+            movements=[shares("100"), ratio("2"), shares("-100")],
+            acquisition_costs=[cash("1000"), NIL, NIL],
+        )
+
+        assert remaining.value == Decimal("500")
+
+    def test_a_split_carrying_a_cost_is_refused(self, context) -> None:
+        with pytest.raises(CalculationError, match="not a purchase"):
+            pooled_cost(
+                context,
+                movements=[shares("100"), ratio("2")],
+                acquisition_costs=[cash("1000"), cash("50")],
+            )
+
+    def test_a_pool_of_reorganisations_alone_is_refused(self, context) -> None:
+        with pytest.raises(CalculationError, match="at least one trade"):
+            pooled_cost(context, movements=[ratio("2")], acquisition_costs=[NIL])
 
 
 class TestWhatCashDid:

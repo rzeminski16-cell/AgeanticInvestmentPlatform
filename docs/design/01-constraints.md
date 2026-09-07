@@ -90,7 +90,7 @@ at the moment it matters most.
 rule, plausibility checking — runs on the server over recorded rows. **A figure computed in
 the browser is a figure no guard has ever seen.**
 
-### What the four existing scripts do
+### What the existing scripts do
 
 Useful as a calibration of how much client behaviour is normal here.
 
@@ -100,6 +100,7 @@ Useful as a calibration of how much client behaviour is normal here.
 | `console.js` | 316 | The run console's live updates: a dot colour, an elapsed clock; reloads rather than inventing a step row |
 | `drawer.js` | 185 | The drawer: focus trap, Escape, scroll lock. Written once, never per page |
 | `tables.js` | 68 | Filtering rows already on the page. Fetches nothing, computes nothing |
+| `branches.js` | 60 | A form whose radio choice leads to the fields it needs: hides the branch not chosen, shows every branch with scripting off |
 
 `console.js` marks the honest edge. It takes exactly one liberty — prepending a "£" glyph to
 digits the server produced — and that is the outer limit, not a licence.

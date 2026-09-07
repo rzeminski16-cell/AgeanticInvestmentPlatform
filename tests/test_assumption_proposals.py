@@ -165,6 +165,29 @@ class TestARefusalSaysWhy:
         assert outcome.derived == ()
         assert any("at least two" in reason for reason in outcome.skipped)
 
+    async def test_depreciation_intensity_is_derived_from_the_two_halves(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The confirmation run's subject files depreciation and the amortisation of
+        intangibles as two lines and never their sum, and the driver was asked of the
+        operator for want of a line the filing carried in halves. The statements derive
+        the sum (`aer.calc.statements`), and the driver reads the derived line."""
+        in_halves = a_year(depreciation="55", amortisation_of_intangibles="15")
+        del in_halves["depreciation_and_amortisation"]
+        await seed_years(
+            scene,
+            {
+                date(2022, 12, 31): in_halves,
+                date(2023, 12, 31): in_halves,
+            },
+        )
+
+        outcome = derive_assumptions(await analysed(scene))
+
+        intensity = named(outcome, "depreciation_intensity")
+        assert intensity is not None
+        assert intensity.value == Decimal("0.070000")
+
     async def test_a_missing_line_is_named_rather_than_silently_absent(
         self, scene: dict[str, Any]
     ) -> None:

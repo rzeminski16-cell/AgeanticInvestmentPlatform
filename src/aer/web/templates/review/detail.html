@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  One review in full: the operator's judgement — the quality, its basis, the lessons, each
+  premise as the record found it — beside the outcome code computed and the reviewer's
+  proposal as it arrived.
+
+  Whether the operator agreed with the reviewer is decision data (ADR 0105 §3), which is why
+  the proposal is shown rather than replaced. Nothing here is edited: a review stands.
+#}
+
+{% block title %}Review &middot; {{ item.ticker }} &middot; Post-trade review{% endblock %}
+
+{% block content %}
+  {% call ui.page_header(
+    "Review of " ~ item.ticker,
+    eyebrow="A REVIEW",
+    identity=item.book ~ " · held " ~ item.opened_on ~ " to " ~ item.closed_on,
+    breadcrumbs=[{"href": "/review", "label": "Post-trade review"}],
+  ) %}
+    <span id="subject" class="sr-only">{{ item.ticker }}</span>
+  {% endcall %}
+
+  {{ ui.verdict("PROCESS QUALITY", item.quality ~ ". " ~ item.quality_detail, detail=item.agreement, tone=item.quality_tone) }}
+
+  {% call ui.sheet("What you concluded", id="judgement") %}
+    <dl class="grid grid-cols-1 sm:grid-cols-[160px_1fr]">
+      <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Process quality</dt>
+      <dd class="border-line py-3 sm:border-t" data-field="quality">
+        {% if quality_amended %}
+          {#
+            Amended: the two side by side, each labelled, rather than the reviewer's as a
+            line under yours. Whether you agreed with the reviewer is decision data.
+          #}
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2" data-field="quality-comparison">
+            <div>
+              <p class="type-label text-ink-muted">You confirmed</p>
+              <p class="mt-1">{{ ui.status(item.quality_tone, item.quality) }}</p>
+            </div>
+            <div data-field="proposed-quality-beside">
+              <p class="type-label text-ink-muted">The reviewer proposed</p>
+              <p class="mt-1">{{ ui.status(proposed_quality.tone.value, proposed_quality.label) }}</p>
+            </div>
+          </div>
+        {% else %}
+          {{ ui.status(item.quality_tone, item.quality) }}
+        {% endif %}
+      </dd>
+      <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">On what basis</dt>
+      <dd class="border-line py-3 type-body text-ink sm:border-t" data-field="basis">{{ item.basis }}</dd>
+      <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Lessons</dt>
+      <dd class="border-line py-3 type-body text-ink sm:border-t" data-field="lessons">{% if item.lessons %}{{ item.lessons }}{% else %}<span class="text-ink-muted">None recorded.</span>{% endif %}</dd>
+      <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Held by</dt>
+      <dd class="border-line py-3 type-body text-ink sm:border-t">{{ item.held_by }} on {{ item.held_on }}</dd>
+    </dl>
+    <p class="mt-3 type-body-sm text-ink-muted">
+      {% if item.thesis_id %}<a href="/theses/{{ item.thesis_id }}" class="text-verification underline underline-offset-[3px]">Open the thesis</a>{% endif %}
+      {% if item.pass_id %}{% if item.thesis_id %} · {% endif %}<a href="/review/passes/{{ item.pass_id }}" class="text-verification underline underline-offset-[3px]">Open the pass</a>{% endif %}
+    </p>
+  {% endcall %}
+
+  {% call ui.sheet("Each premise, as the record found it", subtitle="Graded by what happened while the position was open, never by what the price did. Where the reviewer proposed something else, it says so.", id="verdicts") %}
+    {% if verdicts %}
+      <ol class="flex flex-col" aria-label="Premise verdicts">
+        {% for row in verdicts %}
+          <li class="grid grid-cols-1 gap-2 border-t border-line py-3 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6" data-verdict="{{ row.position }}" data-amended="{{ 'yes' if row.proposed else 'no' }}">
+            <div class="min-w-0">
+              <p class="type-body-strong text-ink">{{ row.position }}. {{ row.statement }}</p>
+              {% if row.note %}<p class="mt-1 type-body-sm text-ink">{{ row.note }}</p>{% endif %}
+            </div>
+            {% if row.proposed %}
+              {#
+                Amended: yours and the reviewer's side by side, each labelled, with the
+                reviewer's note where it gave one. The sentence form said the same thing
+                and made the reader compare two lines a paragraph apart.
+              #}
+              <div class="grid grid-cols-2 gap-3" data-field="verdict-comparison">
+                <div>
+                  <p class="type-label text-ink-muted">You confirmed</p>
+                  <p class="mt-1">{{ ui.status(row.tone, row.label) }}</p>
+                </div>
+                <div data-field="proposed-verdict">
+                  <p class="type-label text-ink-muted">The reviewer proposed</p>
+                  <p class="mt-1">{{ ui.status(row.proposed_tone, row.proposed) }}</p>
+                  {% if row.proposed_note %}<p class="mt-1 type-body-sm text-ink-muted">{{ row.proposed_note }}</p>{% endif %}
+                </div>
+              </div>
+            {% else %}
+              <div>{{ ui.status(row.tone, row.label) }}</div>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p class="type-body text-ink-muted">The thesis had no premises to grade.</p>
+    {% endif %}
+  {% endcall %}
+
+  {% call ui.sheet("What happened", subtitle="Computed by code before the reviewer was asked anything. Every figure links to its formula.", id="outcome") %}
+    {% if problem %}
+      {{ ui.callout("warning", "The outcome could not be computed", problem ~ " No return is shown rather than one over part of the trades.") }}
+    {% endif %}
+    {% if figures %}
+      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4" id="figures">
+        {% for row in figures %}
+          <div data-figure="{{ row.label | lower | replace(' ', '-') }}">
+            {{ ui.figure(row.label, row.value, note=row.note, provenance_href=row.href, provenance_label="Open the calculation" if row.href else "") }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endcall %}
+
+  {% call ui.sheet("What the reviewer proposed", subtitle="As it arrived, kept beside what you confirmed. A proposal is not a judgement; this is the record of whether you agreed with it.", id="proposal") %}
+    {% if proposal %}
+      <dl class="grid grid-cols-1 sm:grid-cols-[160px_1fr]">
+        <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Proposed quality</dt>
+        <dd class="border-line py-3 sm:border-t" data-field="proposed-quality">{% if proposed_quality %}{{ ui.status(proposed_quality.tone.value, proposed_quality.label) }}{% endif %}</dd>
+        <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Proposed basis</dt>
+        <dd class="border-line py-3 type-body text-ink sm:border-t">{{ proposal.basis }}</dd>
+        <dt class="border-t border-line py-3 type-label text-ink-muted sm:pr-4">Proposed lessons</dt>
+        <dd class="border-line py-3 type-body text-ink sm:border-t">{% if proposal.lessons %}{{ proposal.lessons }}{% else %}<span class="text-ink-muted">None.</span>{% endif %}</dd>
+      </dl>
+    {% else %}
+      <p class="type-body text-ink-muted">No proposal: the pass stopped before making the call, and this review was written without one.</p>
+    {% endif %}
+  {% endcall %}
+{% endblock %}

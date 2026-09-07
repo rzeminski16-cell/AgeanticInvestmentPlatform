@@ -56,9 +56,13 @@ from aer.config import Settings
 from aer.core.enums import RequestStatus
 from aer.core.schemas.request import (
     FieldProblem,
+    PortfolioContext,
     RequestLimits,
     ResearchRequestCreate,
+    ResearchRequestRead,
+    ResearchRequestSummary,
     check_limits,
+    cost_above_ceiling,
 )
 from aer.core.universe import Exclusion, ExclusionRule, check_universe
 from aer.db.base import Base
@@ -105,6 +109,9 @@ _OWNING_EDGE: Final = "CASCADE"
 # behind would simply make the purge fail. Named as a constant so the exception is visible
 # and so a test can assert it is still the only one.
 FACTS_FOLLOW_THEIR_DOCUMENT: Final = "financial_facts"
+
+# The run root and the mandate that shares its key: what a purge removes, not what it owns.
+_THE_RUN_ITSELF: Final = frozenset({"work_orders", "research_requests"})
 
 # Which input an exclusion is the operator's fault for, so a form can highlight the field
 # they can actually change. Getting an "this is a fund" message next to the exchange box
@@ -162,6 +169,11 @@ _EDITABLE_FIELDS: tuple[str, ...] = (
     "max_cost_gbp",
 )
 
+# The three of them the *run* owns rather than the equity mandate: what date the evidence is
+# judged against, whether look-ahead is refused, and what the run may spend. Editable by the
+# operator like the rest, stored on `work_orders` since ADR 0072.
+_RUN_ROOT_FIELDS: Final = frozenset({"as_of_date", "point_in_time", "max_cost_gbp"})
+
 
 def _as_problem(exclusion: Exclusion) -> FieldProblem:
     return FieldProblem(
@@ -216,23 +228,28 @@ def _refuse_if_invalid(payload: ResearchRequestCreate, limits: RequestLimits) ->
 
 
 def _apply(request: ResearchRequest, payload: ResearchRequestCreate) -> None:
-    """Write a validated payload onto a request row.
+    """Write a validated payload across the two rows a mandate lives on.
 
     Every field the operator controls, assigned in one place. Creation and editing share it
     so that a field added to the schema cannot end up settable at creation and silently
     ignored on edit — which would look exactly like an edit that did not save.
+
+    **Three of them land on the work order** (ADR 0072): the as-of date, the point-in-time
+    flag and the cap are properties of a *run*, and the spend guard and the look-ahead
+    refusal have read them from there since 0054. Writing them here rather than to a second
+    copy is what removes the mirror this function used to need beside it.
     """
     request.company_name = payload.company_name
     request.ticker = payload.ticker
     request.exchange = payload.exchange
     request.isin = payload.isin
-    request.as_of_date = payload.as_of_date
+    request.work_order.as_of_date = payload.as_of_date
     request.base_currency = payload.base_currency
     request.reporting_currency = payload.reporting_currency
     request.investment_horizon_months = payload.investment_horizon_months
     request.horizon_label = payload.horizon_label
     request.analysis_mode = payload.analysis_mode
-    request.point_in_time = payload.point_in_time
+    request.work_order.point_in_time = payload.point_in_time
     # mode="json" so Decimal weights land as JSON strings the database can read back
     # without a float ever being involved. The CHECK constraints on this column cast
     # the text to numeric, which a float's repr would eventually break.
@@ -242,30 +259,50 @@ def _apply(request: ResearchRequest, payload: ResearchRequestCreate) -> None:
     request.esg_sensitivity = payload.esg_sensitivity.value if payload.esg_sensitivity else None
     request.focus_questions = payload.focus_questions
     request.excluded_sources = payload.excluded_sources
-    request.max_cost_gbp = payload.max_cost_gbp
+    request.work_order.max_cost_gbp = payload.max_cost_gbp
 
 
-async def _mirror_to_work_order(session: AsyncSession, request: ResearchRequest) -> None:
-    """Copy the run-root columns from a mandate onto its work order.
+def mandate_summary(row: ResearchRequest) -> ResearchRequestSummary:
+    """The list shape, flattened from the two rows a mandate now lives on.
 
-    ADR 0072 duplicates `as_of_date`, `point_in_time`, `max_cost_gbp`, `status` and
-    `archived_at` for exactly one revision, because a column cannot be dropped from a
-    migration while a model still declares it. Duplicated columns diverge unless something
-    stops them, and two of these are read from the work order already: the spend guard
-    takes its cap from there, and the look-ahead refusal takes its date and its
-    point-in-time flag from there. An edit that moved an as-of date on the mandate alone
-    would leave the guard checking the old one — a silent widening of what a run may cite.
-
-    The follow-up revision deletes this function along with the columns.
+    **The wire shape does not change.** ADR 0072 split the storage — who asked, what the
+    run may spend, what date its evidence is judged against and whether it is archived are
+    the run root's — and which table a field comes from is this boundary's business and no
+    client's. Flattening it here rather than putting read-only properties back on the model
+    keeps one answer to "where does the as-of date live": on the work order.
     """
-    work_order = await session.get(WorkOrder, request.id)
-    if work_order is None:  # pragma: no cover -- every request is created with one
-        return
-    work_order.as_of_date = request.as_of_date
-    work_order.point_in_time = request.point_in_time
-    work_order.max_cost_gbp = request.max_cost_gbp
-    work_order.status = request.status
-    work_order.archived_at = request.archived_at
+    return ResearchRequestSummary(
+        id=row.id,
+        company_name=row.company_name,
+        ticker=row.ticker,
+        exchange=row.exchange,
+        as_of_date=row.work_order.as_of_date,
+        analysis_mode=row.analysis_mode,
+        status=row.work_order.status,
+        created_at=row.created_at,
+        archived_at=row.work_order.archived_at,
+    )
+
+
+def mandate_read(row: ResearchRequest) -> ResearchRequestRead:
+    """The detail shape, flattened the same way."""
+    return ResearchRequestRead(
+        **mandate_summary(row).model_dump(),
+        isin=row.isin,
+        base_currency=row.base_currency,
+        reporting_currency=row.reporting_currency,
+        investment_horizon_months=row.investment_horizon_months,
+        horizon_label=row.horizon_label,
+        point_in_time=row.work_order.point_in_time,
+        portfolio_context=PortfolioContext.model_validate(row.portfolio_context),
+        risk_tolerance=row.risk_tolerance,
+        liquidity_constraint_gbp=row.liquidity_constraint_gbp,
+        esg_sensitivity=row.esg_sensitivity,
+        focus_questions=row.focus_questions or [],
+        excluded_sources=row.excluded_sources or [],
+        max_cost_gbp=row.work_order.max_cost_gbp,
+        resolved=row.resolved,
+    )
 
 
 async def create_request(
@@ -285,31 +322,29 @@ async def create_request(
     """
     _refuse_if_invalid(payload, limits)
 
-    request = ResearchRequest(
-        user_id=user.id,
-        status=RequestStatus.DRAFT,
-        # Nothing external has been consulted, so the identity is unverified by
-        # construction. Task 8 sets this.
-        resolved=False,
-    )
-    _apply(request, payload)
-
-    # The run root, created first because it is the root: the request is its 1:1 detail row
-    # and takes its id (ADR 0072). Everything that needs a cap — every model call in the
-    # platform — walks to this row rather than to the mandate.
+    # The run root, created first because it is the root: the request is its 1:1 detail
+    # row and takes its id (ADR 0072). Everything that needs a cap — every model call in
+    # the platform — walks to this row rather than to the mandate.
     work_order = WorkOrder(
         user_id=user.id,
         tool="research",
         subject_kind="company",
-        as_of_date=request.as_of_date,
-        point_in_time=request.point_in_time,
-        max_cost_gbp=request.max_cost_gbp,
+        as_of_date=payload.as_of_date,
+        point_in_time=payload.point_in_time,
+        max_cost_gbp=payload.max_cost_gbp,
         status=RequestStatus.DRAFT,
     )
     session.add(work_order)
     await session.flush()
 
-    request.id = work_order.id
+    request = ResearchRequest(
+        id=work_order.id,
+        work_order=work_order,
+        # Nothing external has been consulted, so the identity is unverified by
+        # construction. Task 8 sets this.
+        resolved=False,
+    )
+    _apply(request, payload)
     session.add(request)
     await session.flush()
 
@@ -322,10 +357,10 @@ async def create_request(
             "request_id": str(request.id),
             "ticker": request.ticker,
             "exchange": request.exchange,
-            "as_of_date": request.as_of_date.isoformat(),
+            "as_of_date": request.work_order.as_of_date.isoformat(),
             "analysis_mode": request.analysis_mode.value,
-            "point_in_time": request.point_in_time,
-            "max_cost_gbp": str(request.max_cost_gbp),
+            "point_in_time": request.work_order.point_in_time,
+            "max_cost_gbp": str(request.work_order.max_cost_gbp),
         },
     )
 
@@ -429,9 +464,12 @@ def _not_a_draft(request: ResearchRequest) -> str | None:
     against a future change silently re-opening editing rather than a condition currently
     reachable.
     """
-    if request.status is RequestStatus.DRAFT:
+    if request.work_order.status is RequestStatus.DRAFT:
         return None
-    return f"This request is {request.status.value}, not a draft, so it can no longer be changed."
+    return (
+        f"This request is {request.work_order.status.value}, not a draft, so it can no "
+        "longer be changed."
+    )
 
 
 async def _exists(session: AsyncSession, statement: Select[tuple[uuid.UUID]]) -> bool:
@@ -446,7 +484,7 @@ async def _refuse_if_immutable(
         return
     raise ConflictError(
         f"This request cannot be {verb}. {reason}",
-        context={"request_id": str(request.id), "status": request.status.value},
+        context={"request_id": str(request.id), "status": request.work_order.status.value},
     )
 
 
@@ -485,7 +523,6 @@ async def update_request(
         # Leaving `resolved` true here would be a claim about a security nobody looked up.
         request.resolved = False
 
-    await _mirror_to_work_order(session, request)
     await session.flush()
 
     await _record(
@@ -508,6 +545,88 @@ async def update_request(
         changed_fields=sorted(changes),
     )
     return request
+
+
+async def raise_cap(
+    session: AsyncSession,
+    *,
+    request: ResearchRequest,
+    actor: User,
+    to: Decimal,
+    ceiling_gbp: Decimal,
+) -> ResearchRequest:
+    """Raise this request's cost ceiling, including while a run against it is going.
+
+    **The one field an operator may change with a worker reading the row**, and the
+    exception is narrow deliberately. :func:`immutable_reason` freezes a request the moment
+    a run is live because an edit would falsify what the run has already done: move the
+    as-of date and evidence that was admissible is not, change the ticker and the filings
+    belong to another company. A ceiling falsifies nothing behind it. It governs what
+    happens next, both spend guards re-read it before every step and every model call, and
+    gate 2 records the money it sealed with, so a raise cannot invalidate a draft nobody
+    rewrote.
+
+    Without this the platform asked for something it forbade. Both guards' refusals say
+    "raise the cap on this request to continue", and the console repeated it — while the
+    only route to the cap was an edit that a live run refused. A run stopped at its ceiling
+    had no way forward but to be abandoned.
+
+    **Upwards only.** Lowering a ceiling under a run that has already spent past it would
+    stop that run against a limit it never ran under, retroactively; cancelling is how an
+    operator stops a run, and it is on the same page.
+
+    Raises:
+        ValidationError: If ``to`` does not raise anything, or goes above the platform's
+            own per-run budget — the ceiling on the ceiling, which lives in settings.
+    """
+    current = Decimal(str(request.work_order.max_cost_gbp))
+    if to <= current:
+        message = (
+            f"£{to} does not raise this run's ceiling of £{current}. A cap can only go up "
+            "while a run is under way — to stop a run, cancel it."
+        )
+        raise ValidationError(
+            message,
+            context={"request_id": str(request.id), "cap_gbp": str(current), "asked": str(to)},
+        )
+
+    above = cost_above_ceiling(to, ceiling_gbp)
+    if above is not None:
+        raise ValidationError(above.message, context={"request_id": str(request.id)})
+
+    request.work_order.max_cost_gbp = to
+    await session.flush()
+
+    await _record(
+        session,
+        actor=str(actor.id),
+        event_type="request.cap_raised",
+        request_id=request.id,
+        payload={"request_id": str(request.id), "from_gbp": str(current), "to_gbp": str(to)},
+    )
+    _log.info(
+        "request.cap_raised", request_id=str(request.id), from_gbp=str(current), to_gbp=str(to)
+    )
+    return request
+
+
+async def _delete_the_run(session: AsyncSession, request: ResearchRequest) -> None:
+    """Remove a mandate and the run root it is a detail of, in that order.
+
+    **Both, always.** The work order is where the run lives since ADR 0072's fourth step, and
+    `jobs`, `approvals` and `source_documents` cascade from *it* — so deleting the mandate
+    alone would leave the run standing, its jobs intact and its spend still pointing at them.
+
+    The work order goes by a Core delete rather than the ORM's. `session.delete` would have
+    to load every collection it cascades over in order to walk them, and in an async session
+    an unloaded relationship raises rather than reading slowly; the database's own
+    `ON DELETE CASCADE` does the same work without the round trips.
+    """
+    request_id = request.id
+    await session.delete(request)
+    await session.flush()
+    await session.execute(delete(WorkOrder).where(WorkOrder.id == request_id))
+    await session.flush()
 
 
 async def delete_request(
@@ -549,16 +668,15 @@ async def delete_request(
             "ticker": request.ticker,
             "exchange": request.exchange,
             "company_name": request.company_name,
-            "as_of_date": request.as_of_date.isoformat(),
-            "status": request.status.value,
+            "as_of_date": request.work_order.as_of_date.isoformat(),
+            "status": request.work_order.status.value,
             # The cost rows outlive this deletion but lose their job reference. Without
             # this line the money would still be counted and no longer explicable.
             "spend_gbp": str(spent),
         },
     )
 
-    await session.delete(request)
-    await session.flush()
+    await _delete_the_run(session, request)
 
     _log.info(
         "request.deleted", request_id=str(request_id), actor=str(actor.id), spend_gbp=str(spent)
@@ -593,19 +711,19 @@ async def archive_request(
         ConflictError: If it is already archived. A second archive is not a second event,
             and recording it as one would put a false date on the first.
     """
-    if request.archived_at is not None:
+    archived = request.work_order.archived_at
+    if archived is not None:
         # `.day` rather than a `%-d` format: the no-leading-zero codes are a glibc
         # extension, and on Windows strftime raises for them — which turned this refusal
         # into a 500 on the first machine that was not Linux.
         message = (
             f"This request was archived on "
-            f"{request.archived_at.day} {request.archived_at:%B %Y}. Restore it "
+            f"{archived.day} {archived:%B %Y}. Restore it "
             "first if you meant to change that."
         )
         raise ConflictError(message, context={"request_id": str(request.id)})
 
-    request.archived_at = datetime.now(UTC)
-    await _mirror_to_work_order(session, request)
+    request.work_order.archived_at = datetime.now(UTC)
     await _record(
         session,
         actor=str(actor.id),
@@ -630,12 +748,11 @@ async def restore_request(
     Raises:
         ConflictError: If it was not archived.
     """
-    if request.archived_at is None:
+    if request.work_order.archived_at is None:
         message = "This request is not archived, so there is nothing to restore."
         raise ConflictError(message, context={"request_id": str(request.id)})
 
-    request.archived_at = None
-    await _mirror_to_work_order(session, request)
+    request.work_order.archived_at = None
     await _record(
         session,
         actor=str(actor.id),
@@ -722,8 +839,8 @@ async def purge_request(
             "ticker": request.ticker,
             "exchange": request.exchange,
             "company_name": request.company_name,
-            "as_of_date": request.as_of_date.isoformat(),
-            "status": request.status.value,
+            "as_of_date": request.work_order.as_of_date.isoformat(),
+            "status": request.work_order.status.value,
             # The cost rows outlive this and lose their job reference. Without this line
             # the money would still be counted and no longer explicable.
             "spend_gbp": str(spent),
@@ -737,8 +854,7 @@ async def purge_request(
         table = Base.metadata.tables[name]
         await session.execute(delete(table).where(table.c.id.in_(scope)))
 
-    await session.delete(request)
-    await session.flush()
+    await _delete_the_run(session, request)
 
     _log.warning(
         "request.purged",
@@ -834,8 +950,11 @@ def _owned_scopes(request_id: uuid.UUID) -> tuple[tuple[str, Select[Any]], ...]:
     # One forward pass over the dependency sort, which puts every parent before its
     # children — so by the time a table is reached, the scope of everything it references
     # has already been built and can simply be nested as a subquery.
+    # Seeded at the *run root*, because that is what a purge destroys: `jobs`, `approvals`
+    # and `source_documents` reach a run through `work_order_id` since ADR 0072's step four,
+    # and a walk that still started at `research_requests` would find none of them.
     scopes: dict[str, Select[Any]] = {
-        "research_requests": select(ResearchRequest.id).where(ResearchRequest.id == request_id)
+        "work_orders": select(WorkOrder.id).where(WorkOrder.id == request_id)
     }
     for table in Base.metadata.sorted_tables:
         if table.name in scopes:
@@ -850,10 +969,14 @@ def _owned_scopes(request_id: uuid.UUID) -> tuple[tuple[str, Select[Any]], ...]:
         if owning:
             scopes[table.name] = select(table.c.id).where(or_(*owning))
 
+    # Neither end of the run root is *owned* by it. The work order and its mandate are the
+    # thing being removed rather than something it produced, and the confirmation page reads
+    # an empty result as "nothing has been researched against this request" — which a count
+    # of the request itself would falsify.
     return tuple(
         (table.name, scopes[table.name])
         for table in reversed(Base.metadata.sorted_tables)
-        if table.name in scopes and table.name != "research_requests"
+        if table.name in scopes and table.name not in _THE_RUN_ITSELF
     )
 
 
@@ -890,10 +1013,11 @@ async def get_request(
     then — so the filter goes in now, while there is no way for it to be wrong.
     """
     found: ResearchRequest | None = await session.scalar(
-        select(ResearchRequest).where(
-            ResearchRequest.id == request_id,
-            ResearchRequest.user_id == user_id,
-        )
+        # Owner is a property of the run root since ADR 0072, and the detail row shares its
+        # key — so the scope is a join on the primary key rather than a column here.
+        select(ResearchRequest)
+        .join(WorkOrder, WorkOrder.id == ResearchRequest.id)
+        .where(ResearchRequest.id == request_id, WorkOrder.user_id == user_id)
     )
     return found
 
@@ -914,7 +1038,8 @@ async def list_requests(
     """
     result = await session.scalars(
         select(ResearchRequest)
-        .where(ResearchRequest.user_id == user_id, _archived_filter(archived))
+        .join(WorkOrder, WorkOrder.id == ResearchRequest.id)
+        .where(WorkOrder.user_id == user_id, _archived_filter(archived))
         .order_by(ResearchRequest.created_at.desc(), ResearchRequest.id.desc())
         .limit(limit)
         .offset(offset)
@@ -928,13 +1053,15 @@ async def count_requests(
     total = await session.scalar(
         select(func.count())
         .select_from(ResearchRequest)
-        .where(ResearchRequest.user_id == user_id, _archived_filter(archived))
+        .join(WorkOrder, WorkOrder.id == ResearchRequest.id)
+        .where(WorkOrder.user_id == user_id, _archived_filter(archived))
     )
     return int(total or 0)
 
 
 def _archived_filter(archived: bool) -> ColumnElement[bool]:
-    column = ResearchRequest.archived_at
+    """Live or archived, asked of the run root. Every caller of this joins to it."""
+    column = WorkOrder.archived_at
     return column.is_not(None) if archived else column.is_(None)
 
 
@@ -987,9 +1114,18 @@ def _jsonable(value: Any) -> Any:
     return value
 
 
+def _holder_of(request: ResearchRequest, name: str) -> ResearchRequest | WorkOrder:
+    """Which of the two rows a mandate lives on holds this field.
+
+    Three of the eighteen are the run root's (ADR 0072), and the edit diff has to read them
+    from where they are rather than from where they used to be copied to.
+    """
+    return request.work_order if name in _RUN_ROOT_FIELDS else request
+
+
 def _snapshot(request: ResearchRequest) -> dict[str, Any]:
     """The operator-controlled fields, in a form the audit payload can hold."""
-    return {name: _jsonable(getattr(request, name)) for name in _EDITABLE_FIELDS}
+    return {name: _jsonable(getattr(_holder_of(request, name), name)) for name in _EDITABLE_FIELDS}
 
 
 async def spend_for(session: AsyncSession, *, rows: Sequence[ResearchRequest]) -> list[Decimal]:
@@ -1005,11 +1141,13 @@ async def spend_for(session: AsyncSession, *, rows: Sequence[ResearchRequest]) -
     if not rows:
         return []
     found = await session.execute(
-        select(Job.request_id, func.coalesce(func.sum(Job.total_cost_gbp), 0))
-        .where(Job.request_id.in_([item.id for item in rows]))
-        .group_by(Job.request_id)
+        # Grouped by the run root, which is the mandate's own id: a job's spend belongs to
+        # the run, and a request is one run's subject.
+        select(Job.work_order_id, func.coalesce(func.sum(Job.total_cost_gbp), 0))
+        .where(Job.work_order_id.in_([item.id for item in rows]))
+        .group_by(Job.work_order_id)
     )
     totals: dict[uuid.UUID, Decimal] = {
-        request_id: total for request_id, total in found.all() if request_id is not None
+        work_order_id: total for work_order_id, total in found.all() if work_order_id is not None
     }
     return [totals.get(item.id, Decimal(0)) for item in rows]

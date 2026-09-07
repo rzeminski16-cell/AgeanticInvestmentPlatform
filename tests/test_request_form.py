@@ -225,7 +225,7 @@ class TestSuccessfulSubmission:
         factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
         async with factory() as session:
             row = await session.scalar(select(ResearchRequest))
-        assert row.point_in_time is False
+        assert row.work_order.point_in_time is False
 
     async def test_the_new_request_appears_in_the_list(self, web):
         token = await fresh_token(web)

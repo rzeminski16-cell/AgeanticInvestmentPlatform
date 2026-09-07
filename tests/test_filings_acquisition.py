@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.config import Settings
 from aer.core.enums import Provider, SourceTier, UserRole
 from aer.core.schemas.extraction import ExtractedText, Locator
-from aer.db.models import Company, Extraction, ResearchRequest, SourceDocument, User
+from aer.db.models import Company, Extraction, SourceDocument, User
 from aer.errors import ExternalServiceError
 from aer.extract import extract_text
 from aer.services.filings import (
@@ -35,6 +35,7 @@ from aer.sources.base import ResolvedEntity
 from aer.sources.sec.companyfacts import parse_company_facts
 from aer.sources.sec.submissions import Filing, SubmissionsIndex, parse_submissions
 from aer.storage.local import LocalArtefactStore
+from tests.request_fixtures import research_request
 from tests.sec_fixtures import MSFT_CIK, fixture_bytes
 from tests.workflow_fixtures import (
     COMPANY_FACTS_FIXTURE,
@@ -59,7 +60,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     db_session.add(user)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -123,7 +124,7 @@ class TestTheRunReadsMoreThanOneDocument:
         rows = list(
             await scene["session"].scalars(
                 select(SourceDocument).where(
-                    SourceDocument.request_id == scene["request"].id,
+                    SourceDocument.work_order_id == scene["request"].id,
                     SourceDocument.source_tier == SourceTier.T1_REGULATORY,
                 )
             )
@@ -227,7 +228,7 @@ class TestQuarterlyReports:
     async def test_the_point_in_time_window_applies_to_quarterlies_too(
         self, scene: dict[str, Any]
     ) -> None:
-        scene["request"].as_of_date = date(2023, 2, 1)
+        scene["request"].work_order.as_of_date = date(2023, 2, 1)
         await scene["session"].flush()
         client = _IndexClient(scene["store"], _index_with(self.ANNUAL, *self.QUARTERS))
 
@@ -268,7 +269,7 @@ class TestPointInTime:
         """Refused on the index, before anything is requested — the cheapest place, and the
         one where a post-dated filing stops being a candidate rather than being fetched and
         then thrown away."""
-        scene["request"].as_of_date = date(2021, 1, 1)
+        scene["request"].work_order.as_of_date = date(2021, 1, 1)
         await scene["session"].flush()
 
         outcome = await _acquire(scene)
@@ -277,7 +278,7 @@ class TestPointInTime:
         assert not any("2022" in url for url in scene["client"].document_calls)
 
     async def test_a_window_with_nothing_in_it_says_so(self, scene: dict[str, Any]) -> None:
-        scene["request"].as_of_date = date(1999, 1, 1)
+        scene["request"].work_order.as_of_date = date(1999, 1, 1)
         await scene["session"].flush()
 
         outcome = await _acquire(scene)
@@ -404,7 +405,9 @@ class TestTheAggregateIsDated:
 
         urls = list(
             await scene["session"].scalars(
-                select(SourceDocument.url).where(SourceDocument.request_id == scene["request"].id)
+                select(SourceDocument.url).where(
+                    SourceDocument.work_order_id == scene["request"].id
+                )
             )
         )
         assert urls

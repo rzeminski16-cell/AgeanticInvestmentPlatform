@@ -3,14 +3,19 @@
 default_language_version:
   python: python3.12
 
-# Generated stylesheets, vendored libraries and recorded fixtures are excluded from the
-# whitespace hooks. All three are committed *output*: rewriting them means the file no
-# longer matches what produced it. For a vendored library it also breaks the SHA-256
-# recorded alongside it -- the only thing making its provenance checkable -- and for a
-# fixture it changes the bytes a golden test compares against, so the hook and the suite
-# disagree about what the right answer is. `tests/fixtures/fx_report/golden.html` is the
-# one that actually bit: end-of-file-fixer appends a newline the renderer never wrote.
-exclude: ^(src/aer/web/static/(css|vendor)/|tests/fixtures/)
+# Generated stylesheets, vendored libraries, vendored typefaces and recorded fixtures are
+# excluded from the whitespace hooks. All are committed *output* or someone else's bytes:
+# rewriting them means the file no longer matches what produced it. For a vendored library
+# it also breaks the SHA-256 recorded alongside it -- the only thing making its provenance
+# checkable -- and for a fixture it changes the bytes a golden test compares against, so the
+# hook and the suite disagree about what the right answer is.
+#
+# `fonts/` is here for a different reason and it is not fussiness: those directories hold
+# the SIL OFL notices the licences require us to ship *with* the fonts. A licence is a
+# document we were given, not one we maintain, and trailing-whitespace was quietly editing
+# the IBM Plex notice on every run. `just vendor-fonts` copies them back verbatim, so the
+# hook and the vendoring recipe would have fought over that line for ever.
+exclude: ^(src/aer/web/static/(css|vendor|fonts)/|tests/fixtures/)
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks

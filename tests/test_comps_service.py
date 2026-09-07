@@ -33,7 +33,6 @@ from aer.db.models import (
     Company,
     FinancialFact,
     JobStep,
-    ResearchRequest,
     SourceDocument,
     User,
 )
@@ -43,6 +42,7 @@ from aer.render.markdown import _comps_block, render_markdown
 from aer.services import approvals as approval_service
 from aer.services import comps as service
 from aer.workflow.workflows.vertical_slice_v1 import COMPS_STEP, comps_note_for
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE, seed_job
 
 pytestmark = pytest.mark.integration
@@ -86,7 +86,7 @@ async def scene(db_session: Any) -> dict[str, Any]:
     db_session.add(analyst)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=analyst.id,
         company_name="Subject plc",
         ticker="SUBJ",
@@ -204,7 +204,6 @@ async def seed_two_companies(
         document = SourceDocument(
             artefact_id=artefact.id,
             work_order_id=scene["request"].id,
-            request_id=scene["request"].id,
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
             url="https://sec.gov/peer",

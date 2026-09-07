@@ -433,21 +433,10 @@
   --color-nav-accent: var(--aer-nav-accent);
   --color-nav-selected: var(--aer-nav-selected);
 
-  /* The names the twelve already-clean templates were written against, kept resolving so
-     they keep rendering. They are aliases rather than values: a second definition is a
-     second answer to what "good" means, and the two would drift the first time one moved. */
-  --color-good-ink: var(--aer-success-ink);
-  --color-good-wash: var(--aer-success-wash);
-  --color-warn-ink: var(--aer-warning-ink);
-  --color-warn-wash: var(--aer-warning-wash);
-  --color-bad-ink: var(--aer-failure-ink);
-  --color-bad-wash: var(--aer-failure-wash);
-  --color-mute-ink: var(--aer-muted-ink);
-  --color-mute-wash: var(--aer-muted-wash);
-  --color-brand: var(--aer-verification);
-  --color-brand-strong: var(--aer-verification-strong);
-  --color-brand-wash: var(--aer-verification-wash);
-  --color-navy: var(--aer-ink);
+  /* The legacy aliases — good/warn/bad/mute, brand, navy — lived here until tranche 9
+     removed the last template that spoke them. Gone rather than kept "just in case": a
+     name that resolves is a name somebody will write, and two vocabularies for one palette
+     is the drift §2.5 existed to end. */
 }
 
 /* Layout constants, so a sidebar width lives in one place rather than in every template
@@ -814,6 +803,47 @@ input[type="radio"] {
 
 body[data-guidance="on"] .aer-guide {
   display: inline-flex;
+}
+
+/* ---------------------------------------------------------------------------------------
+   The console's step dots. Colour keyed on the row's recorded status attribute, so the
+   script that keeps a row current sets data and never composes a class name — a
+   runtime-composed class is one the scanner cannot see, and it renders with no colour at
+   all. The pulse is a liveness cue and nothing more; reduced motion (below) removes it and
+   the word "Working" carries the meaning. */
+
+.aer-step-dot {
+  background-color: var(--aer-line-strong);
+}
+
+[data-status="RUNNING"] .aer-step-dot {
+  background-color: var(--aer-verification);
+  animation: aer-step-pulse 2s ease-in-out infinite;
+}
+
+[data-status="SUCCEEDED"] .aer-step-dot {
+  background-color: var(--aer-success-ink);
+}
+
+[data-status="FAILED"] .aer-step-dot {
+  background-color: var(--aer-failure-ink);
+}
+
+[data-status="AWAITING_APPROVAL"] .aer-step-dot,
+[data-status="PAUSED"] .aer-step-dot,
+[data-status="BUDGET_EXCEEDED"] .aer-step-dot {
+  background-color: var(--aer-warning-ink);
+}
+
+@keyframes aer-step-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

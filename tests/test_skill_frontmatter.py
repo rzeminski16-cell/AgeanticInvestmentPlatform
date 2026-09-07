@@ -152,9 +152,38 @@ class TestTheReservedOutputFields:
     def test_the_reserved_set_itself_holds_the_report_owned_names(self) -> None:
         # The parametrised test below iterates the constant, so an emptied constant would
         # silently remove the tests that check it. This pin is what makes that loud.
-        assert {"rating", "recommendation", "target_price", "valuation_range"} <= (
+        assert {"rating", "recommendation", "target_price", "valuation_range", "conviction"} <= (
             RESERVED_OUTPUT_FIELDS
         )
+        # ADR 0080's six, reserved with the first sizing concept (ADR 0104).
+        assert {
+            "position_size",
+            "weight",
+            "recommended_weight",
+            "action",
+            "order_quantity",
+            "stop_loss",
+        } <= RESERVED_OUTPUT_FIELDS
+
+    def test_a_size_is_refused_as_the_operators_decision(self) -> None:
+        """ADR 0080: the reason is not ownership of a report figure, and the message says so."""
+        broken = MOAT_DURABILITY.replace("  summary: string", "  recommended_weight: number")
+
+        with pytest.raises(SkillFileError) as caught:
+            parse_skill_file(broken)
+
+        [issue] = caught.value.issues
+        assert "operator's decision" in issue.message
+
+    def test_a_conviction_is_refused_as_a_view_rather_than_as_an_owned_figure(self) -> None:
+        """ADR 0074: the reason is not ownership, and the message says which reason it is."""
+        broken = MOAT_DURABILITY.replace("  summary: string", "  conviction: number")
+
+        with pytest.raises(SkillFileError) as caught:
+            parse_skill_file(broken)
+
+        [issue] = caught.value.issues
+        assert "not a figure" in issue.message
 
     @pytest.mark.parametrize("reserved", sorted(RESERVED_OUTPUT_FIELDS))
     def test_an_output_contract_cannot_declare_one(self, reserved: str) -> None:
@@ -201,6 +230,31 @@ class TestKindAndShapeAgree:
 
         [issue] = caught.value.issues
         assert "token_budget" in issue.message
+
+    def test_a_methodology_skill_may_not_declare_tools_or_an_evidence_policy(self) -> None:
+        """ADR 0108 §4: refused at authoring, not ignored at run time. A methodology file
+        declaring tools used to parse — nothing granted them, and nobody told the author."""
+        source = (
+            "---\n"
+            "aer_skill: 1\n"
+            "key: armed_method\n"
+            "kind: methodology\n"
+            'title: "A method with a shell"\n'
+            "version: 1\n"
+            "allowed_tools: [shell]\n"
+            "evidence_policy:\n"
+            "  min_sources: 1\n"
+            "---\n"
+            "Weight balance-sheet strength above growth.\n"
+        )
+
+        with pytest.raises(SkillFileError) as caught:
+            parse_skill_file(source)
+
+        [issue] = caught.value.issues
+        assert "evidence_policy" in issue.message
+        assert "allowed_tools" in issue.message
+        assert "produces no section" in issue.message
 
     def test_a_methodology_skill_of_prose_alone_is_valid(self) -> None:
         source = (

@@ -22,7 +22,8 @@ from aer.db.types import Timestamp, UuidPk
 
 if TYPE_CHECKING:
     from aer.db.models.approval import Approval
-    from aer.db.models.request import ResearchRequest
+    from aer.db.models.judgement import Thesis
+    from aer.db.models.work_order import WorkOrder
 
 __all__ = ["User"]
 
@@ -47,10 +48,14 @@ class User(Base):
 
     created_at: Mapped[Timestamp] = created_at_column()
 
-    requests: Mapped[list[ResearchRequest]] = relationship(
+    # **Work orders, not requests.** Who asked is a property of the run root since
+    # ADR 0072: a monitor run belongs to somebody too, and a collection that could only
+    # hold equity mandates would have been the wrong answer the moment one existed.
+    work_orders: Mapped[list[WorkOrder]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )
     approvals: Mapped[list[Approval]] = relationship(back_populates="actor")
+    theses: Mapped[list[Thesis]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
     __table_args__ = (Index("ix_users_created_at", "created_at"),)

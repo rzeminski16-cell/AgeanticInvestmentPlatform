@@ -331,30 +331,31 @@ class TestRoundTrip:
                             )
                         )
                     ).scalar_one()
+                    # The run root first: the mandate is its detail row and takes its key,
+                    # so who asked and what date this run is read at live here alone.
                     request = (
                         await conn.execute(
                             text(
-                                "INSERT INTO research_requests (user_id, company_name, "
-                                "ticker, exchange, as_of_date, base_currency, "
-                                "investment_horizon_months) VALUES (:user, 'Guard plc', "
-                                "'GRD', 'LSE', DATE '2026-01-01', 'GBP', 12) RETURNING id"
+                                "INSERT INTO work_orders (user_id, as_of_date) "
+                                "VALUES (:user, DATE '2026-01-01') RETURNING id"
                             ),
                             {"user": user},
                         )
                     ).scalar_one()
                     await conn.execute(
                         text(
-                            "INSERT INTO work_orders (id, user_id, as_of_date) "
-                            "VALUES (:id, :user, DATE '2026-01-01')"
+                            "INSERT INTO research_requests (id, company_name, ticker, "
+                            "exchange, base_currency, investment_horizon_months) "
+                            "VALUES (:id, 'Guard plc', 'GRD', 'LSE', 'GBP', 12)"
                         ),
-                        {"id": request, "user": user},
+                        {"id": request},
                     )
                     job = (
                         await conn.execute(
                             text(
-                                "INSERT INTO jobs (work_order_id, request_id, "
-                                "workflow_version, code_version) "
-                                "VALUES (:id, :id, 'vertical_slice_v1', 'test') RETURNING id"
+                                "INSERT INTO jobs (work_order_id, workflow_version, "
+                                "code_version) "
+                                "VALUES (:id, 'vertical_slice_v1', 'test') RETURNING id"
                             ),
                             {"id": request},
                         )

@@ -10,6 +10,7 @@ a method input the record does not hold.
 
 from __future__ import annotations
 
+import re
 from decimal import Decimal
 from typing import Any
 
@@ -20,16 +21,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.calc.dcf import METHOD_DISAGREEMENT_CAVEAT
 from aer.calc.wacc import CapitalStructure, EquityBasis, cost_of_capital
 from aer.core.enums import JobStatus, UserRole
-from aer.db.models import JobStep, ResearchRequest, User
+from aer.db.models import JobStep, User
 from aer.sections.deterministic import AUGMENTERS, model_facing_contract
 from aer.sections.valuation_method import (
     commentary_problems,
+    component_note,
     method_only,
     valuation_method_block,
 )
 from aer.services import assumptions as assumption_service
 from aer.services import valuation as valuation_service
 from aer.services.calculations import new_context, persist_context
+from tests.request_fixtures import research_request
 from tests.test_valuation_surface import AS_OF_DATE, MANDATE, base_inputs, rate, usd
 from tests.workflow_fixtures import seed_job
 
@@ -52,7 +55,7 @@ async def seed_method_scene(session: AsyncSession) -> dict[str, Any]:
     )
     session.add(analyst)
     await session.flush()
-    request = ResearchRequest(
+    request = research_request(
         user_id=analyst.id,
         company_name="Testco plc",
         ticker="TEST",
@@ -355,6 +358,51 @@ class TestTheCommentaryEdge:
 
     async def test_an_empty_commentary_is_not_this_check_s_problem(self) -> None:
         assert commentary_problems({}, {}) == []
+
+
+class TestTheWriterIsToldWhatItMayName:
+    """The other half of the check: the writer cannot see the block, so it is told which
+    components the block carries. A rule enforced against a list nobody was shown is a
+    rule that can only be guessed at, and a live run paid for two attempts guessing."""
+
+    async def test_the_note_names_the_blocks_components_and_nothing_else(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        block = await block_for(db_session, scene)
+
+        note = component_note(block)
+
+        assert "wacc" in note.lower()
+        # All equity in this scene, so there is no cost of debt to name — and the check
+        # would refuse a commentary that named one.
+        assert "cost of debt" not in note.lower()
+        assert commentary_problems({"commentary": "The cost of debt is high."}, block)
+
+    async def test_every_component_the_note_names_is_one_the_check_admits(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """The note and the refusal are the same list read from the same block, so a
+        commentary naming everything the note offers is refused for nothing."""
+        block = await block_for(db_session, scene)
+        note = component_note(block)
+        named = note.split(": ", 1)[1].rsplit(".", 1)[0]
+
+        assert commentary_problems({"commentary": f"The answer turns on {named}."}, block) == []
+
+    async def test_a_block_with_no_components_says_to_name_none(self) -> None:
+        note = component_note({})
+
+        assert "no cost-of-capital" in note
+        assert "Name none of them" in note
+
+    async def test_the_note_carries_no_figure(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """Labels travel; figures do not. A figure in the ask is a figure the numeral rule
+        would then have to cover, on a section whose numbers are the platform's own."""
+        note = component_note(await block_for(db_session, scene))
+
+        assert not re.search(r"\d", note), note
 
 
 class TestTheModelFacingContract:

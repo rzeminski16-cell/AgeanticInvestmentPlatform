@@ -26,10 +26,12 @@ from aer.db.models.disagreement import Disagreement
 from aer.db.models.evaluation import Evaluation
 from aer.db.models.extraction import Extraction
 from aer.db.models.financial_fact import FinancialFact
+from aer.db.models.finding import Finding, FindingResolution
 from aer.db.models.fx import FxRateRow
 from aer.db.models.job import Job
 from aer.db.models.job_cancellation import JobCancellation
 from aer.db.models.job_step import JobStep
+from aer.db.models.judgement import Decision, Judgement, Premise, Review, ReviewVerdict, Thesis
 from aer.db.models.macro import MacroObservationRow, MacroSeriesRow
 from aer.db.models.obsidian_export import ObsidianExport
 from aer.db.models.plan import ResearchPlan
@@ -40,6 +42,7 @@ from aer.db.models.report import Report
 from aer.db.models.report_section import ReportSection, SectionStatus
 from aer.db.models.request import ResearchRequest
 from aer.db.models.revision_note import RevisionNote
+from aer.db.models.risk import RiskScenario, RiskScenarioShock
 from aer.db.models.scenario import Scenario, ScenarioOverride
 from aer.db.models.section_definition import SectionDefinition
 from aer.db.models.sector_profile import SectorProfile
@@ -55,6 +58,7 @@ from aer.db.models.skill import Skill, SkillVersion
 from aer.db.models.source_document import SourceDocument
 from aer.db.models.theme import Theme, ThemeMembership
 from aer.db.models.user import User
+from aer.db.models.watchlist import WatchlistCommission, WatchlistEntry
 from aer.db.models.work_order import WorkOrder
 
 __all__ = [
@@ -74,26 +78,35 @@ __all__ = [
     "CorporateAction",
     "CorporateActionKind",
     "Cost",
+    "Decision",
     "Disagreement",
     "Evaluation",
     "Extraction",
     "FinancialFact",
+    "Finding",
+    "FindingResolution",
     "FxRateRow",
     "Job",
     "JobCancellation",
     "JobStep",
+    "Judgement",
     "MacroObservationRow",
     "MacroSeriesRow",
     "ObsidianExport",
     "PlanSkillPin",
     "Portfolio",
+    "Premise",
     "PriceBar",
     "Prompt",
     "Report",
     "ReportSection",
     "ResearchPlan",
     "ResearchRequest",
+    "Review",
+    "ReviewVerdict",
     "RevisionNote",
+    "RiskScenario",
+    "RiskScenarioShock",
     "Scenario",
     "ScenarioOverride",
     "SectionDefinition",
@@ -108,7 +121,10 @@ __all__ = [
     "SourceDocument",
     "Theme",
     "ThemeMembership",
+    "Thesis",
     "Transaction",
     "User",
+    "WatchlistCommission",
+    "WatchlistEntry",
     "WorkOrder",
 ]

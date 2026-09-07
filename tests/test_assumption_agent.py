@@ -386,7 +386,6 @@ class TestTheAgentRunsThroughTheBase:
         request = await seed_request(db_session, user=user)
         job = Job(
             work_order_id=request.id,
-            request_id=request.id,
             workflow_version=WORKFLOW_VERSION,
             code_version="test",
             status=JobStatus.RUNNING,

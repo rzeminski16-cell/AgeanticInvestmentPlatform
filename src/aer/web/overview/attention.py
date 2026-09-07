@@ -205,6 +205,45 @@ _PROVIDERS: Final[tuple[AttentionProvider, ...]] = (
         items_ref="aer.web.overview.platform:items",
         adr="0071",
     ),
+    # The monitor's findings and the reviews a person promised (ADR 0078: the attention
+    # queue is the cross-tool surface, and a finding is labelled a finding on it).
+    AttentionProvider(
+        key="monitor",
+        tool="monitor",
+        items_ref="aer.web.overview.monitor:items",
+        adr="0103",
+    ),
+    # A decision never carried out, and a decision past the date its holder said they
+    # would look at it again (ADR 0104).
+    AttentionProvider(
+        key="decisions",
+        tool="decisions",
+        items_ref="aer.web.overview.decisions:items",
+        adr="0104",
+    ),
+    # A closed position nobody has reviewed, and a proposal waiting to be confirmed
+    # (ADRs 0081, 0105).
+    AttentionProvider(
+        key="review",
+        tool="review",
+        items_ref="aer.web.overview.review:items",
+        adr="0105",
+    ),
+    # A risk reading that stopped, and a book not read since it changed (ADRs 0080, 0106).
+    AttentionProvider(
+        key="risk",
+        tool="risk",
+        items_ref="aer.web.overview.risk:items",
+        adr="0106",
+    ),
+    # Companies followed and not yet researched, and whether the standing budget can
+    # afford the next run (ADR 0107).
+    AttentionProvider(
+        key="watchlist",
+        tool="watchlist",
+        items_ref="aer.web.overview.watchlist:items",
+        adr="0107",
+    ),
 )
 
 

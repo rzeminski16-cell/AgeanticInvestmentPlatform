@@ -1,97 +1,99 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
 
 {#
   The skills library. Enabling is a form post rather than a link, because it changes what
   future runs will do and a GET that changes state is a GET a browser may make twice.
+
+  The boundary statement leads and stays open at every width: the one rule that makes an
+  operator-authored instruction safe to run is the one thing this page must say before it
+  offers to run one (invariant 7).
 #}
 
 {% block title %}Skills &middot; Tracework Invest{% endblock %}
 
 {% block content %}
-  <p class="mb-4 text-sm">
-    New to custom sections?
-    <a href="/skills/examples" class="text-sky-700 dark:text-sky-400">Start from an example</a>
-    &mdash; three worked skills to read, import and edit.
-  </p>
-  <div class="flex flex-wrap items-baseline justify-between gap-3">
-    <h1 class="text-2xl font-semibold tracking-tight">Skills</h1>
-    <div class="flex gap-3 text-sm">
-      <a href="/skills/import" class="text-sky-700 underline underline-offset-2 dark:text-sky-400" id="import-link">
-        Import a file
-      </a>
-      <a
-        href="/skills/new"
-        class="rounded-md bg-sky-700 px-3 py-1.5 font-semibold text-white shadow-sm hover:bg-sky-800"
-        id="new-skill"
-      >
-        Write a skill
-      </a>
-    </div>
-  </div>
+  {% call ui.page_header("Skills", eyebrow="YOUR METHODS") %}
+    <a href="/skills/import" class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" id="import-link">
+      Import a file
+    </a>
+    <a href="/skills/examples" class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong">
+      Start from an example
+    </a>
+    <a
+      href="/skills/new"
+      class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 type-label text-on-verification hover:bg-verification-strong"
+      id="new-skill"
+    >
+      Write a skill
+    </a>
+  {% endcall %}
 
-  <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-    A skill file adds a section to the report, or adds methodology to an existing one. It
-    may add requirements and never remove them: what a file asks for is composed against
-    the platform floor, and the editor shows you exactly what that composition did.
-  </p>
+  {{ ui.verdict(
+    "THE BOUNDARY",
+    "Skills may add requirements. They cannot remove citations, set a rating, or relax point-in-time rules.",
+    detail="A skill file adds a section to the report, or adds methodology to an existing one. What a file asks for is composed against the platform floor, and the editor shows you exactly what that composition did.",
+    tone="info",
+  ) }}
 
   {% if not skills %}
-    <p class="mt-8 text-sm text-slate-400" id="no-skills">
-      No skills yet. Writing one takes a paragraph of prose and a dozen lines of frontmatter.
-    </p>
+    <div id="no-skills">
+      {{ ui.empty(
+        "No skills yet",
+        "Writing one takes a paragraph of prose and a dozen lines of frontmatter. Start from a worked example, or write a method from scratch — every import is reviewed before it is saved.",
+        action_label="Start from an example",
+        action_href="/skills/examples",
+      ) }}
+    </div>
   {% else %}
-    <ul class="mt-8 space-y-3" id="skills">
-      {% for skill in skills %}
-        <li
-          class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
-          id="skill-{{ skill.key }}"
-        >
-          <div class="flex flex-wrap items-baseline justify-between gap-2">
-            <div>
-              <a
-                href="/skills/{{ skill.key }}"
-                class="font-mono text-sm font-semibold text-sky-700 underline underline-offset-2 dark:text-sky-400"
-              >
-                {{ skill.key }}
-              </a>
-              <span class="ml-2 text-sm text-slate-600 dark:text-slate-400">{{ skill.title }}</span>
-            </div>
-            <div class="flex items-center gap-3">
-              <span class="rounded-full bg-slate-200 px-2 py-0.5 font-mono text-xs text-slate-800 dark:bg-slate-800 dark:text-slate-200">
-                {{ skill.kind }}
-              </span>
-              {% if skill.version %}
-                <span class="font-mono text-xs text-slate-500">v{{ skill.version }}</span>
-              {% endif %}
-              {% if skill.enabled %}
-                <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-900 dark:bg-emerald-900/50 dark:text-emerald-100">
-                  enabled
-                </span>
-              {% else %}
-                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                  disabled
-                </span>
-              {% endif %}
-              <form method="post" action="/skills/{{ skill.key }}/enable">
-                <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-                <input type="hidden" name="enabled" value="{{ 'false' if skill.enabled else 'true' }}" />
-                <button
-                  type="submit"
-                  id="toggle-{{ skill.key }}"
-                  class="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+    {% call ui.sheet() %}
+      <ul class="flex flex-col divide-y divide-line" id="skills">
+        {% for skill in skills %}
+          <li class="py-4 first:pt-0 last:pb-0" id="skill-{{ skill.key }}">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              <div>
+                <a
+                  href="/skills/{{ skill.key }}"
+                  class="type-data text-verification underline underline-offset-[3px] hover:text-verification-strong"
                 >
-                  {{ "Disable" if skill.enabled else "Enable" }}
-                </button>
-              </form>
+                  {{ skill.key }}
+                </a>
+                <span class="ml-2 type-body text-ink">{{ skill.title }}</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-3">
+                <span class="type-data-sm text-ink-muted">{{ skill.kind }}</span>
+                {% if skill.kind == "custom_section" %}
+                  <a href="/skills/{{ skill.key }}#dry-run" class="type-body-sm text-verification underline underline-offset-[3px] hover:text-verification-strong" data-try="{{ skill.key }}">Try it</a>
+                {% endif %}
+                {% if skill.version %}
+                  <span class="type-data-sm text-ink-muted">v{{ skill.version }}</span>
+                {% endif %}
+                {% if skill.enabled %}
+                  {{ ui.status("success", "enabled") }}
+                {% else %}
+                  {{ ui.status("muted", "disabled") }}
+                {% endif %}
+                <form method="post" action="/skills/{{ skill.key }}/enable">
+                  <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                  <input type="hidden" name="enabled" value="{{ 'false' if skill.enabled else 'true' }}" />
+                  <button
+                    type="submit"
+                    id="toggle-{{ skill.key }}"
+                    class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected"
+                  >
+                    {{ "Disable" if skill.enabled else "Enable" }} {{ skill.key }}
+                  </button>
+                </form>
+              </div>
             </div>
-          </div>
-          {% if skill.content_hash %}
-            <p class="mt-2 truncate font-mono text-xs text-slate-400" title="{{ skill.content_hash }}">
-              {{ skill.content_hash[:16] }}…
-            </p>
-          {% endif %}
-        </li>
-      {% endfor %}
-    </ul>
+            {% if skill.content_hash %}
+              <p class="mt-2 truncate type-data-sm text-ink-subtle" title="{{ skill.content_hash }}">
+                {{ skill.content_hash[:16] }}…
+              </p>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endcall %}
   {% endif %}
 {% endblock %}

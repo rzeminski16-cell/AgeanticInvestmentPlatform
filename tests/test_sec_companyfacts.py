@@ -117,6 +117,43 @@ class TestUnmappedConcepts:
         # Still reported, even when not returned as facts.
         assert len(excluded.unmapped) == len(unmapped_facts.unmapped)
 
+    def test_an_ordinary_gap_carries_no_refusal(self, unmapped_facts):
+        """Roadmap §2.7's distinction from the other side: an unplaced tag is one nobody
+        has decided about, and it must not read as though somebody had."""
+        entry = next(
+            u for u in unmapped_facts.unmapped if u.tag == "AllocatedShareBasedCompensationExpense"
+        )
+
+        assert entry.refusal == ""
+        assert entry.is_refused is False
+
+
+class TestARefusedTagIsNotAGapInTheMap:
+    """Roadmap §2.7. A tag nobody has looked at and a tag somebody has refused were one
+    undifferentiated list, and the second kind read as work outstanding — which is how a
+    considered refusal gets approved away, and how the mapping it was refused for arrives
+    later in good faith."""
+
+    _REFUSED = (
+        "ShareBasedCompensationArrangementByShareBasedPaymentAward"
+        "FairValueAssumptionsRiskFreeInterestRate"
+    )
+
+    @pytest.fixture
+    def parsed(self):
+        return parse_company_facts(
+            _bank_payload({"Revenues": [_FY | {"val": 1000}], self._REFUSED: [_FY | {"val": 4}]})
+        )
+
+    def test_it_is_reported_with_the_reason_it_was_refused(self, parsed):
+        entry = next(u for u in parsed.unmapped if u.tag == self._REFUSED)
+
+        assert entry.is_refused
+        assert "government-yield series" in entry.refusal
+
+    def test_it_still_reaches_no_canonical_concept(self, parsed):
+        assert "risk_free_rate" not in parsed.concepts
+
 
 class TestObservations:
     def test_every_observation_of_a_period_is_kept(self, facts):

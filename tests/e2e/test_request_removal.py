@@ -60,7 +60,9 @@ class TestTheListHasControls:
 
         page.click("#show-archived")
 
-        expect(page.get_by_role("link", name="Microsoft Corporation")).to_be_visible()
+        # `exact`, here and below: every row also carries a "Remove Microsoft Corporation"
+        # control, and a substring match resolves to both links.
+        expect(page.get_by_role("link", name="Microsoft Corporation", exact=True)).to_be_visible()
         expect(page.locator(".restore-request")).to_have_count(1)
 
     def test_restoring_puts_it_back(self, page: Page, live_server: str):
@@ -74,7 +76,7 @@ class TestTheListHasControls:
 
         page.wait_for_url(re.compile(r"/requests\?archived=1$"))
         page.goto(f"{live_server}/requests")
-        expect(page.get_by_role("link", name="Microsoft Corporation")).to_be_visible()
+        expect(page.get_by_role("link", name="Microsoft Corporation", exact=True)).to_be_visible()
 
     def test_the_archive_link_is_hidden_when_there_is_nothing_in_it(
         self, page: Page, live_server: str
@@ -97,7 +99,7 @@ class TestRemovingAsksFirst:
         page.locator(".remove-request").first.click()
 
         page.wait_for_url(re.compile(r"/remove$"))
-        expect(page.get_by_role("heading", name=re.compile("Remove Microsoft"))).to_be_visible()
+        expect(page.get_by_role("heading", name=re.compile("Remove the Microsoft"))).to_be_visible()
         expect(page.locator("#confirm-remove")).to_be_visible()
 
     def test_it_says_what_survives(self, page: Page, live_server: str):
@@ -108,9 +110,11 @@ class TestRemovingAsksFirst:
         page.locator(".remove-request").first.click()
         page.wait_for_url(re.compile(r"/remove$"))
 
-        expect(page.get_by_text("The audit trail.")).to_be_visible()
-        expect(page.get_by_text("The spend.")).to_be_visible()
-        expect(page.get_by_text("The archived documents.")).to_be_visible()
+        # The labels of the "what will remain" list, exactly — a substring would also
+        # match the sentences beside them.
+        expect(page.get_by_text("The audit trail", exact=True)).to_be_visible()
+        expect(page.get_by_text("The spend", exact=True)).to_be_visible()
+        expect(page.get_by_text("The archived documents", exact=True)).to_be_visible()
 
     def test_it_offers_the_reversible_option_alongside(self, page: Page, live_server: str):
         a_request(page, live_server)
@@ -128,8 +132,10 @@ class TestRemovingAsksFirst:
 
         page.click("#cancel-remove")
 
-        page.wait_for_url(re.compile(r"/requests$"))
-        expect(page.get_by_role("link", name="Microsoft Corporation")).to_be_visible()
+        # "Keep this request" returns to the request itself, not the list — the reader
+        # changed their mind about removal, not about looking at the request.
+        page.wait_for_url(DETAIL_URL)
+        expect(page.locator("#company-name")).to_have_text("Microsoft Corporation")
 
     def test_confirming_removes_it(self, page: Page, live_server: str):
         a_request(page, live_server)
@@ -140,7 +146,7 @@ class TestRemovingAsksFirst:
         page.click("#confirm-remove")
 
         page.wait_for_url(re.compile(r"/requests$"))
-        expect(page.get_by_text("No requests yet")).to_be_visible()
+        expect(page.get_by_text("No active requests")).to_be_visible()
 
     def test_archiving_from_the_confirmation_page_works_too(self, page: Page, live_server: str):
         """Somebody who reaches this page and changes their mind should not have to go
@@ -154,4 +160,4 @@ class TestRemovingAsksFirst:
 
         page.wait_for_url(re.compile(r"/requests$"))
         page.goto(f"{live_server}/requests?archived=1")
-        expect(page.get_by_role("link", name="Microsoft Corporation")).to_be_visible()
+        expect(page.get_by_role("link", name="Microsoft Corporation", exact=True)).to_be_visible()

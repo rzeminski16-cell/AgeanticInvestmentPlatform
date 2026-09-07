@@ -557,7 +557,7 @@ async def assemble_document(
         sections=sections,
         definitions=definitions,
         glance_withheld=glance.refused,
-        point_in_time_off=not request.point_in_time,
+        point_in_time_off=not request.work_order.point_in_time,
     )
 
     # The C3 marker, derived from stored rows: any section citing a source whose
@@ -575,9 +575,9 @@ async def assemble_document(
             company_name=company.name if company is not None else request.company_name,
             ticker=request.ticker,
             exchange=request.exchange,
-            as_of=request.as_of_date,
+            as_of=request.work_order.as_of_date,
             base_currency=request.base_currency,
-            point_in_time=request.point_in_time,
+            point_in_time=request.work_order.point_in_time,
             generated_at=generated_at or datetime.now(UTC),
             rating=rating,
             confidence=confidence,

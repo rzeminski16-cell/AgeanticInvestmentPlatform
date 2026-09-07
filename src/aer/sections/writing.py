@@ -11,6 +11,7 @@ as the only steer beyond the contract.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Any, Final
@@ -21,11 +22,16 @@ from aer.agents.base import AgentContext, TokenCapExceededError, schema_problems
 from aer.agents.section_writer import SectionDraft, SectionWriterAgent, SectionWriterInput
 from aer.core.enums import SourceTier
 from aer.core.section_output import (
+    CLAIM_EDIT_NOTE,
+    GAP_EDIT_NOTE,
     LENGTH_EDIT_NOTE,
     NUMERAL_EDIT_NOTE,
+    confidence_ceiling,
     trimmed_to_word_count,
+    without_surplus_gap_sentences,
     without_unsourced_numeral_sentences,
 )
+from aer.core.skill_guidance import OperatorGuidance
 from aer.db.models import ReportSection, ResearchRequest, SectionDefinition, SectionStatus
 from aer.errors import ValidationError
 from aer.sections.deterministic import AUGMENTERS, SectionAugmenter, model_facing_contract
@@ -38,6 +44,7 @@ from aer.sections.evidence import (
     classify_refusals,
     confidence_of,
     content_source_ids,
+    covered_figures,
     degradation_note,
     gather_evidence,
     policy_shortfalls,
@@ -47,14 +54,20 @@ from aer.sections.evidence import (
 )
 from aer.services.subject import subject_name
 
-__all__ = ["execute_builtin_section", "policy_of_definition"]
+__all__ = [
+    "ALL_CATEGORIES",
+    "Salvage",
+    "execute_builtin_section",
+    "policy_of_definition",
+    "salvaged",
+]
 
 _log = structlog.get_logger("aer.sections.writing")
 
 # Every built-in section is assembled the full pack; its budget, not a grant, is what
 # bounds it. The writer role itself holds no tools (ADR 0042) — these are evidence
 # categories code assembles, not capabilities the model can exercise.
-_ALL_CATEGORIES = frozenset({"search_facts", "search_sources"})
+ALL_CATEGORIES = frozenset({"search_facts", "search_sources"})
 
 # The output ceiling a retry runs at after the first attempt was truncated at the role's
 # registered one (polish P6). Double the writer's 16,384, because `max_tokens` bounds
@@ -245,7 +258,7 @@ def _with_salvage(
     if draft is not None or last_candidate is None:
         return draft, ()
 
-    salvage = _salvaged(
+    salvage = salvaged(
         last_candidate,
         contract=contract,
         evidence=evidence,
@@ -275,6 +288,8 @@ async def execute_builtin_section(
     request: ResearchRequest,
     focus: str = "",
     challenges: Sequence[str] = (),
+    guidance: Sequence[OperatorGuidance] = (),
+    evidence_job_id: uuid.UUID | None = None,
 ) -> SectionExecution:
     """Write one built-in section to a recorded outcome. Never raises for a bad draft.
 
@@ -287,6 +302,14 @@ async def execute_builtin_section(
     direction to address. Everything else — the contract, the evidence policy, the claim
     rules, validation — is exactly the first draft's, which is what stops a revision
     being a second way to publish an unsupported sentence.
+
+    ``guidance`` is the run's pinned prompt-kind skills (ADR 0108), passed whole: the
+    writer composes only the kinds its role reads, last in the user turn.
+
+    ``evidence_job_id`` is whose recorded calculations and platform-filled blocks count
+    as this section's evidence — the step's own job unless a rehearsal says otherwise
+    (:mod:`aer.services.section_rehearsal`), exactly as the custom path takes it. Facts
+    and sources belong to the request and are visible either way.
     """
     definition = section.definition
     # The model is bound by the contract minus any platform-filled fields (ADR 0063):
@@ -294,7 +317,10 @@ async def execute_builtin_section(
     # into the content after the draft passes, at the positions the stored contract
     # declares. The model cannot write them — its schema forbids unknown fields.
     contract = model_facing_contract(definition.output_contract or {})
-    augmenter, block, standalone = await _augmentation(context, section=section, request=request)
+    evidence_job = evidence_job_id or context.job_step.job_id
+    augmenter, block, standalone = await _augmentation(
+        context, section=section, request=request, evidence_job_id=evidence_job
+    )
     if standalone:
         # The augmenter answered before the model was asked (gap A51c): the rendered
         # record is the section's whole truthful content, so the platform stores it and
@@ -311,9 +337,9 @@ async def execute_builtin_section(
     evidence = await gather_evidence(
         context.session,
         request=request,
-        evidence_job_id=context.job_step.job_id,
+        evidence_job_id=evidence_job,
         policy=policy,
-        categories=_ALL_CATEGORIES,
+        categories=ALL_CATEGORIES,
     )
 
     agent = _routed_writer(definition, section=section, router=context.router)
@@ -338,20 +364,27 @@ async def execute_builtin_section(
             title=definition.title,
             company_name=subject,
             ticker=request.ticker,
-            as_of_date=request.as_of_date.isoformat(),
-            point_in_time=request.point_in_time,
+            as_of_date=request.work_order.as_of_date.isoformat(),
+            point_in_time=request.work_order.point_in_time,
             output_contract=contract,
             evidence_policy=stated_policy,
             internal_evidence=evidence.internal,
             untrusted_evidence=evidence.untrusted,
             focus=focus,
             challenges=list(challenges),
+            guidance=list(guidance),
             problems=problems,
             evidence_truncated=evidence.truncated,
-            # The budget with its consequence, from the numbers the validator reads
-            # (gap A50) — and the cut budget on a truncation retry (gap A51a).
+            # The budget with its consequence (gap A50) — and the cut budget on a
+            # truncation retry (gap A51a). The validator's headroom over it is not
+            # passed: the writer is told the limit it should aim at, not the one it
+            # would be refused past.
             word_budget=policy.word_budget,
-            word_ceiling=word_ceiling(policy.word_budget) if policy.word_budget > 0 else 0,
+            # The other half of the augmenter's check: what the block beside this section
+            # carries, so the writer can keep to it rather than be refused for guessing.
+            platform_note=(
+                augmenter.note(block) if augmenter is not None and augmenter.note else ""
+            ),
         )
         try:
             candidate = await agent.run(context, payload)
@@ -436,8 +469,11 @@ async def execute_builtin_section(
     # keys, so nothing of the draft is overwritten.
     section.content = {**draft.content, **block} if block else draft.content
     section.status = SectionStatus.GENERATED
+    # Three degradations, three ceilings (ADR 0099). A section shortened to fit is not a
+    # section whose evidence fell short, and the number a reader sees has to say which.
     section.confidence = confidence_of(
-        draft.content, degraded=bool(shortfalls) or bool(salvage_notes)
+        draft.content,
+        ceiling=confidence_ceiling(insufficient_evidence=bool(shortfalls), edits=salvage_notes),
     )
     section.low_confidence_reason = " ".join(notes) or None
     await context.session.flush()
@@ -544,7 +580,7 @@ def _failed(
 
 
 @dataclass(frozen=True, slots=True)
-class _Salvage:
+class Salvage:
     """A repaired draft and the edits that repaired it, for the record."""
 
     draft: SectionDraft
@@ -557,6 +593,8 @@ class _Salvage:
 # the mechanism (ADR 0057's trim-not-discard trade) stays in the ADR and the structured
 # log, never in a rendered document.
 _NUMERAL_NOTE: Final = NUMERAL_EDIT_NOTE
+_CLAIM_NOTE: Final = CLAIM_EDIT_NOTE
+_GAP_NOTE: Final = GAP_EDIT_NOTE
 _LENGTH_NOTE: Final = LENGTH_EDIT_NOTE
 
 
@@ -565,6 +603,7 @@ async def _augmentation(
     *,
     section: ReportSection,
     request: ResearchRequest,
+    evidence_job_id: uuid.UUID,
 ) -> tuple[SectionAugmenter | None, dict[str, Any], str]:
     """This section's platform-filled fields, rendered before the model is called.
 
@@ -581,12 +620,12 @@ async def _augmentation(
     augmenter = AUGMENTERS.get(section.section_key)
     if augmenter is None:
         return None, {}, ""
-    block = await augmenter.build(context.session, job_id=context.job_step.job_id, request=request)
+    block = await augmenter.build(context.session, job_id=evidence_job_id, request=request)
     standalone = augmenter.standalone(block) if augmenter.standalone is not None else ""
     return augmenter, block, standalone
 
 
-def _salvaged(
+def salvaged(
     candidate: SectionDraft,
     *,
     contract: dict[str, Any],
@@ -594,22 +633,43 @@ def _salvaged(
     policy: SectionPolicy,
     augmenter: SectionAugmenter | None = None,
     block: dict[str, Any] | None = None,
-) -> _Salvage | None:
+) -> Salvage | None:
     """The candidate narrowed until it conforms, if narrowing is the repair.
 
     The section-writer's version of the plan salvage (gap A42): code narrowing model
-    output from the billed reply, never adding to it. Two repairs, applied in order and
-    either sufficient on its own:
+    output from the billed reply, never adding to it. Public because `aer replay-draft`
+    runs the same pass over an archived reply: a refusal the salvage repairs costs a
+    section an edit, one it cannot costs the section, and a readout that showed only the
+    refusal would overstate the second. Two repairs, applied in order and either
+    sufficient on its own:
 
+    * **Malformed claims dropped.** A claim that does not stand on what its kind requires
+      — a numeric one naming no figure, or naming one and citing nothing — is set aside.
+      Four of the eight sections the MSFT run lost died on this (roadmap §2.1), each
+      taking a dozen sound claims and a finished draft with it.
     * **Unsourced-numeral sentences removed.** Both sections the first live report lost
       died over a single flagged token each — a whole paid-for draft discarded for one
       clause the rule had a quarrel with.
+    * **Repeated remarks about missing evidence reduced to one.** The gap budget is right
+      — a live report spent a third of its prose describing absent disclosure — but
+      refusing the draft for it threw away the other two thirds, which were about the
+      company and fully cited. The first remark stays, which is what the rule asks for.
     * **Length trimmed to the ceiling.** Nine of the next report's sixteen sections
       overran their budget, several for *nothing else*: complete, fully cited drafts
       thrown away for being long, which is the worst trade in the pipeline.
 
-    Order matters and is deliberate: removing unsourced sentences also removes words, so
-    the numeral repair runs first and the trim only takes what is still over.
+    Order matters and is deliberate. Dropping a claim removes the cover its statement and
+    its named figure gave a numeral, so the claim repair runs before the numeral one and
+    the sentences that rested on a dropped claim go with it — the section keeps nothing it
+    can no longer support. The gap repair runs after the numeral one, which may already
+    have removed a gap sentence that carried an unsourced figure and so cost nothing.
+    Removing sentences also removes words, so the trim runs last and takes only what is
+    still over.
+
+    What counts as covered comes from :func:`aer.sections.evidence.covered_figures`, the
+    same call the validator makes: the salvage that removes a sentence and the rule that
+    refuses it must agree exactly about which numerals are accounted for, or the salvage
+    hands back a draft the revalidation below rejects for the sentence it just kept.
 
     The salvage declines unless the narrowed draft passes **full** revalidation, so it can
     only ever turn a refused draft into a conforming one, and a draft failing for any
@@ -618,11 +678,21 @@ def _salvaged(
     content = candidate.content
     notes: list[str] = []
 
-    covered = [claim.statement for claim in candidate.claims if claim.kind == "numeric"]
-    narrowed = without_unsourced_numeral_sentences(content, covered)
+    claims = [claim for claim in candidate.claims if claim.malformed_reason is None]
+    if len(claims) != len(candidate.claims):
+        candidate = candidate.model_copy(update={"claims": claims})
+        notes.append(_CLAIM_NOTE)
+
+    covered, figures = covered_figures(candidate.claims, evidence=evidence)
+    narrowed = without_unsourced_numeral_sentences(content, covered, figures)
     if narrowed is not None:
         content = narrowed
         notes.append(_NUMERAL_NOTE)
+
+    reduced = without_surplus_gap_sentences(content)
+    if reduced is not None:
+        content = reduced
+        notes.append(_GAP_NOTE)
 
     if policy.word_budget > 0:
         shortened = trimmed_to_word_count(content, word_ceiling(policy.word_budget))
@@ -640,4 +710,4 @@ def _salvaged(
         # Full revalidation includes the augmenter's edge (ADR 0063): a trim that happened
         # to keep an offending method claim must not smuggle it through.
         return None
-    return _Salvage(draft=repaired, notes=tuple(notes))
+    return Salvage(draft=repaired, notes=tuple(notes))

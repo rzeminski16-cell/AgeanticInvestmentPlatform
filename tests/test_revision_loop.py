@@ -21,6 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.agents.base import AgentContext
+from aer.agents.custom_section import CustomSectionDraft, ProposedClaim
 from aer.agents.plan_critic import PlanChallenge, PlanChallengeAspect, PlanCritique
 from aer.core.disagreement import DisagreementKind, ResolutionOutcome, ResolutionRule, ResolvedBy
 from aer.core.enums import ClaimKind, Decision, GateKind, JobStatus
@@ -38,7 +39,7 @@ from aer.db.models import (
 from aer.db.models.revision_note import SCOPE_DRAFT, SCOPE_PLAN
 from aer.db.models.skill import Skill
 from aer.providers.fake import FakeProvider
-from aer.sections.evidence import SectionExecution
+from aer.sections.evidence import Evidence, SectionExecution, record_draft_claims
 from aer.services import revision as revision_service
 from aer.services import runs as run_service
 from aer.services.approvals import record_decision
@@ -219,6 +220,7 @@ def stubbed_writer(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
         request: Any,
         focus: str = "",
         challenges: Any = (),
+        guidance: Any = (),
     ) -> SectionExecution:
         calls.append(
             {"section_key": section.section_key, "focus": focus, "challenges": list(challenges)}
@@ -227,6 +229,37 @@ def stubbed_writer(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
 
     monkeypatch.setattr(revision_service, "execute_builtin_section", fake_execute)
     return calls
+
+
+@pytest.fixture
+def refusing_writer(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """A writer whose revision does not stand up, mutating the row the way the real one
+    does: `_failed` clears the content and the confidence before returning."""
+    refused: list[str] = []
+
+    async def fake_execute(
+        context: AgentContext,
+        *,
+        section: ReportSection,
+        request: Any,
+        focus: str = "",
+        challenges: Any = (),
+        guidance: Any = (),
+    ) -> SectionExecution:
+        refused.append(section.section_key)
+        section.content = None
+        section.status = SectionStatus.FAILED
+        section.confidence = None
+        section.low_confidence_reason = "the revision did not pass"
+        return SectionExecution(
+            section=section,
+            status=SectionStatus.FAILED,
+            attempts=2,
+            problems=["the revision did not pass"],
+        )
+
+    monkeypatch.setattr(revision_service, "execute_builtin_section", fake_execute)
+    return refused
 
 
 def _agent_context(scene: dict[str, Any]) -> AgentContext:
@@ -257,14 +290,17 @@ class TestTheRevisePass:
             "The growth claim contradicts the recorded fact."
         ]
         assert outcome.revised[0]["section_key"] == key
+        assert outcome.revised[0]["kept_approved_draft"] is False
 
-        # The previous claims were replaced, as the claims model always promised.
+        # The service itself deletes nothing (ADR 0098). The replacement belongs to
+        # `record_draft_claims`, which the stub stands in for and does not perform, so
+        # the drafted claim is still here — and would be whatever the attempt did.
         remaining = list(
             await session.scalars(
                 select(Claim).where(Claim.report_section_id == drafted["sections"][key].id)
             )
         )
-        assert remaining == []
+        assert [row.text for row in remaining] == [drafted["claim"].text]
 
         notes = list(
             await session.scalars(
@@ -370,6 +406,124 @@ class TestTheRevisePass:
         assert recorded == [
             {"section_key": key, "dimension": "growth", "severity": 4, "disposition": "revised"}
         ]
+
+
+class TestARefusedRevisionKeepsTheApprovedDraft:
+    """ADR 0098. The loop that exists to improve a draft was the only way to lose one.
+
+    Two sections of the MSFT run of 2026-08-31 drafted, validated and recorded their
+    claims — 24 and 21 of them — and are four-byte nulls in the finished run, because the
+    revision each was given was refused and the pass had already deleted their claims and
+    redrafted over their content.
+    """
+
+    async def test_the_section_is_exactly_as_the_draft_step_left_it(
+        self, drafted: dict[str, Any], refusing_writer: list[str]
+    ) -> None:
+        session = drafted["session"]
+        key = drafted["builtin_keys"][0]
+        section = drafted["sections"][key]
+        section.confidence = 0.5
+        section.low_confidence_reason = None
+        session.add(_challenge_row(drafted["job"].id, severity=5, sections=[key]))
+        await session.flush()
+
+        outcome = await revise_challenged_sections(
+            _agent_context(drafted), session, job=drafted["job"], request=drafted["request"]
+        )
+
+        assert refusing_writer == [key], "the attempt is still made and still billed"
+        assert section.status is SectionStatus.GENERATED
+        assert section.content == {"body": "drafted"}
+        assert section.confidence == 0.5
+        assert section.low_confidence_reason is None
+        assert outcome.revised[0]["kept_approved_draft"] is True
+
+    async def test_its_claims_are_untouched(
+        self, drafted: dict[str, Any], refusing_writer: list[str]
+    ) -> None:
+        session = drafted["session"]
+        key = drafted["builtin_keys"][0]
+        session.add(_challenge_row(drafted["job"].id, severity=5, sections=[key]))
+        await session.flush()
+
+        await revise_challenged_sections(
+            _agent_context(drafted), session, job=drafted["job"], request=drafted["request"]
+        )
+
+        remaining = list(
+            await session.scalars(
+                select(Claim).where(Claim.report_section_id == drafted["sections"][key].id)
+            )
+        )
+        assert [row.text for row in remaining] == [drafted["claim"].text]
+
+    async def test_the_record_says_the_attempt_happened_and_was_refused(
+        self, drafted: dict[str, Any], refusing_writer: list[str]
+    ) -> None:
+        """Inside the gate-2 hash, so the operator approves knowing the challenge was
+        answered by an attempt that did not stand up rather than silently."""
+        session = drafted["session"]
+        key = drafted["builtin_keys"][0]
+        session.add(_challenge_row(drafted["job"].id, severity=4, sections=[key]))
+        await session.flush()
+
+        await revise_challenged_sections(
+            _agent_context(drafted), session, job=drafted["job"], request=drafted["request"]
+        )
+
+        assert await revisions_for_job(session, drafted["job"].id) == [
+            {
+                "section_key": key,
+                "dimension": "growth",
+                "severity": 4,
+                "disposition": "revision_refused",
+            }
+        ]
+
+    async def test_the_replacement_happens_when_the_new_claims_are_recorded(
+        self, drafted: dict[str, Any]
+    ) -> None:
+        """The other half of the mechanism. Nothing deletes a section's claims
+        speculatively; `record_draft_claims` replaces them at the moment there is
+        something to replace them with."""
+        session = drafted["session"]
+        section = drafted["sections"][drafted["builtin_keys"][0]]
+        replacement = CustomSectionDraft(
+            content={"body": "revised"},
+            claims=[ProposedClaim(statement="The trajectory is now less certain.", kind="opinion")],
+        )
+
+        recorded, _ = await record_draft_claims(
+            session, section=section, draft=replacement, evidence=Evidence()
+        )
+
+        assert recorded == 1
+        remaining = list(
+            await session.scalars(select(Claim).where(Claim.report_section_id == section.id))
+        )
+        assert [row.text for row in remaining] == ["The trajectory is now less certain."]
+
+    async def test_a_section_that_already_failed_has_nothing_to_keep(
+        self, drafted: dict[str, Any], refusing_writer: list[str]
+    ) -> None:
+        """Restoring here would put a failure back and call it a kept draft. The refusal
+        is the same refusal, and the record says `revised` — nothing was preserved."""
+        session = drafted["session"]
+        key = drafted["builtin_keys"][0]
+        section = drafted["sections"][key]
+        section.status = SectionStatus.FAILED
+        section.content = None
+        session.add(_challenge_row(drafted["job"].id, severity=5, sections=[key]))
+        await session.flush()
+
+        outcome = await revise_challenged_sections(
+            _agent_context(drafted), session, job=drafted["job"], request=drafted["request"]
+        )
+
+        assert section.status is SectionStatus.FAILED
+        assert outcome.revised[0]["kept_approved_draft"] is False
+        assert outcome.revised[0]["status"] == "failed"
 
 
 # ==========================================================================================

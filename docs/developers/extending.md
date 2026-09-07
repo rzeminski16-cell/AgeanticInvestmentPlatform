@@ -112,6 +112,33 @@ If what you are building fits one of the five recipes, it is not a tool.
 
 ---
 
+## 7. Map a filer's tag onto a canonical concept
+
+**Judgement, not typing** (roadmap §2.8, A55). A tag maps onto one canonical concept or
+onto nothing, and nothing is ever guessed from a tag's spelling — two elements differing by
+one word can differ by whether sales tax is in the number.
+
+```bash
+uv run aer curation-worksheet --out worksheet.md   # or --top 20 for one sitting
+```
+
+That reads every run's recorded extract rows, aggregates them, and ranks by the largest
+share of a mapped line any run saw, so a sitting works down from the top and stops. Fill in
+`Maps to` and `Why`; then, deliberately and by hand:
+
+- an entry in the taxonomy's alias table in `core/concepts.py`, pointing at an existing
+  canonical concept;
+- **or** nothing, when the honest answer is that the tag should stay unmapped — a
+  components split, a footnote disclosure, a measure with no concept here;
+- **or**, when a tag must *never* map, an entry in `NEVER_MAP` with the reason (§2.7).
+  That is a refusal, not a gap, and the difference is what stops the mapping arriving later
+  in good faith.
+
+Adding a *concept* rather than an alias is a larger decision: every adapter has to be able
+to reach it, and `tests/test_facts_schema.py` fails a concept no tag can populate.
+
+---
+
 ## The definition of done
 
 A change is finished when all of these are true:

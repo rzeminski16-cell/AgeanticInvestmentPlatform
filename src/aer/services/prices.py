@@ -48,6 +48,7 @@ from aer.db.models import (
 )
 from aer.errors import ValidationError
 from aer.services import assumptions
+from aer.services import splits as splits_service
 from aer.services.disagreements import resolve_and_record
 from aer.sources.eodhd.client import ActionsResponse, PriceResponse
 
@@ -255,20 +256,21 @@ async def record_actions(
     splits = 0
     dividends = 0
     already = 0
+    new_splits: list[CorporateAction] = []
 
     for split in response.splits:
         if split.ex_date in split_dates:
             already += 1
             continue
-        session.add(
-            CorporateAction(
-                security_id=security.id,
-                kind=CorporateActionKind.SPLIT,
-                ex_date=split.ex_date,
-                split_ratio=split.ratio,
-                source_document_id=source_document_id,
-            )
+        action = CorporateAction(
+            security_id=security.id,
+            kind=CorporateActionKind.SPLIT,
+            ex_date=split.ex_date,
+            split_ratio=split.ratio,
+            source_document_id=source_document_id,
         )
+        session.add(action)
+        new_splits.append(action)
         split_dates.add(split.ex_date)
         splits += 1
 
@@ -292,6 +294,12 @@ async def record_actions(
         dividends += 1
 
     await session.flush()
+
+    # A newly recorded split implies a derived transaction in every book that has dealt
+    # this security (ADR 0094). Here, at the moment the action arrives, because a book
+    # whose operator records nothing further would otherwise never learn of it.
+    for action in new_splits:
+        await splits_service.derive_for_action(session, action=action)
 
     _log.info(
         "prices.actions_recorded",

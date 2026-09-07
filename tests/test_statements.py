@@ -289,6 +289,37 @@ class TestDerivedSubtotals:
         assert line.value == Decimal(1000)
         assert line.derived is True
 
+    def test_depreciation_and_amortisation_is_the_sum_of_its_halves(self, context):
+        """The confirmation run's subject files `Depreciation` and
+        `AmortizationOfIntangibleAssets` and no combined tag, and the depreciation-intensity
+        driver was asked of the operator for want of a line the filing carried in two
+        halves."""
+        statements = assemble(
+            context, {"depreciation": usd("34"), "amortisation_of_intangibles": usd("5")}
+        )
+        line = next(
+            line
+            for line in statements.cash_flow.lines
+            if line.concept == "depreciation_and_amortisation"
+        )
+        assert line.value == Decimal(39)
+        assert line.derived is True
+
+    def test_a_stated_combined_line_wins_over_its_halves(self, context):
+        facts = {
+            "depreciation_and_amortisation": usd("40"),
+            "depreciation": usd("34"),
+            "amortisation_of_intangibles": usd("5"),
+        }
+        statements = assemble(context, facts)
+        line = next(
+            line
+            for line in statements.cash_flow.lines
+            if line.concept == "depreciation_and_amortisation"
+        )
+        assert line.value == Decimal(40)
+        assert line.derived is False
+
     def test_a_derivation_needs_both_components(self, context):
         statements = assemble(context, {"revenue": usd("1000")})
         line = next(line for line in statements.income.lines if line.concept == "gross_profit")

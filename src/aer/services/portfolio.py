@@ -31,6 +31,7 @@ than no total, because it looks like an answer.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import date
@@ -47,7 +48,7 @@ from aer.calc.engine import CalculationContext, CalculationRecord
 from aer.calc.prices import MINOR_UNITS, price_in_major_units
 from aer.calc.units import CalculationError, Quantity, SourceRef, Unit
 from aer.core.enums import Grade, TransactionKind
-from aer.db.models import Attestation, PriceBar, Security, Transaction
+from aer.db.models import Attestation, Portfolio, PriceBar, Security, Transaction
 from aer.services import fx as fx_service
 
 if TYPE_CHECKING:
@@ -63,7 +64,13 @@ __all__ = [
     "Figure",
     "HoldingRow",
     "PortfolioView",
+    "acquisition_cost_of",
     "book_as_at",
+    "graded_figure",
+    "in_base",
+    "movement_of",
+    "source_of",
+    "transactions_in_force",
 ]
 
 _log = structlog.get_logger("aer.services.portfolio")
@@ -207,6 +214,21 @@ class PortfolioView:
         return any(figure is not None and figure.is_attested for figure in every)
 
 
+async def default_book(session: AsyncSession, *, user_id: uuid.UUID) -> Portfolio | None:
+    """The book a page opens on when none is named: the person's first, still open.
+
+    One definition, because three pages used to carry the same query and the choice —
+    oldest first — should be one decision rather than three agreeing.
+    """
+    found: Portfolio | None = await session.scalar(
+        select(Portfolio)
+        .where(Portfolio.user_id == user_id, Portfolio.archived_at.is_(None))
+        .order_by(Portfolio.created_at)
+        .limit(1)
+    )
+    return found
+
+
 async def book_as_at(
     session: AsyncSession,
     context: CalculationContext,
@@ -228,7 +250,7 @@ async def book_as_at(
             the last close on or before it, and rates likewise (ADR 0083).
     """
     base = Unit.currency(portfolio.base_currency)
-    trades = await _current_trades(session, portfolio=portfolio, as_of=as_of)
+    trades = await transactions_in_force(session, portfolio=portfolio, as_of=as_of)
 
     holdings = [
         await _holding(session, context, security=security, trades=dealt, as_of=as_of, base=base)
@@ -300,7 +322,7 @@ def _totalled(
         )
 
     total = calc.net_assets(context, holdings=values, cash=balances)
-    net = _figure(context, total)
+    net = graded_figure(context, total)
 
     if total.value <= 0:
         # A book that nets to nothing or less has no denominator to take a fraction of, and
@@ -334,23 +356,27 @@ def _weighted(context: CalculationContext, row: HoldingRow, *, total: Quantity) 
     if row.value is None:
         return row
     share = calc.weight(context, value=row.value.quantity, net_assets=total)
-    return replace(row, weight=_figure(context, share))
+    return replace(row, weight=graded_figure(context, share))
 
 
 def _weighted_cash(context: CalculationContext, row: CashRow, *, total: Quantity) -> CashRow:
     if row.in_base is None:
         return row
     share = calc.weight(context, value=row.in_base.quantity, net_assets=total)
-    return replace(row, weight=_figure(context, share))
+    return replace(row, weight=graded_figure(context, share))
 
 
 # -- Reading the book ------------------------------------------------------------------------
 
 
-async def _current_trades(
+async def transactions_in_force(
     session: AsyncSession, *, portfolio: Portfolio, as_of: date
 ) -> list[Transaction]:
-    """Every trade in force at the as-of date, oldest first.
+    """Every transaction in force at the as-of date, oldest first.
+
+    Public because "in force at a date" has to have one definition: the return series in
+    :mod:`aer.services.performance` reads the same rows this does, and a second query with
+    its own idea of supersession would let the two screens disagree about the book.
 
     Two filters and they answer different questions. ``trade_date <= as_of`` is about the
     world: a trade dealt after the date had not happened. The supersession filter is about
@@ -413,6 +439,12 @@ def _cash_effects(
     """
     effects: dict[str, list[Quantity]] = {}
     for trade in trades:
+        if trade.kind is TransactionKind.SPLIT:
+            # A split touches no money (ADR 0094). Skipped before the no-price branch
+            # below, which would otherwise pour a share multiplier into a cash balance —
+            # the exact silent double-count the currency-exchange refusal was written
+            # against.
+            continue
         money = Unit.currency(trade.currency)
         fees = Quantity.of(trade.fees, money, source=_source(trade, "fees"))
         if trade.kind in CASH_KINDS or trade.price is None:
@@ -461,7 +493,7 @@ async def _holding(
             problem=str(problem),
         )
 
-    quantity = _figure(context, held)
+    quantity = graded_figure(context, held)
 
     if held.value == 0:
         # Sold out. Marked closed rather than shown as a nil row: a position that no longer
@@ -469,7 +501,7 @@ async def _holding(
         return HoldingRow(
             security=security,
             quantity=quantity,
-            cost=_figure(context, native_cost),
+            cost=graded_figure(context, native_cost),
             value=None,
             unrealised=None,
             weight=None,
@@ -479,13 +511,13 @@ async def _holding(
     try:
         mark = await _mark(session, context, security=security, as_of=as_of)
         native_value = calc.holding_value(context, quantity=held, price=mark)
-        value = await _in_base(session, context, amount=native_value, base=base, as_of=as_of)
-        cost = await _in_base(session, context, amount=native_cost, base=base, as_of=as_of)
+        value = await in_base(session, context, amount=native_value, base=base, as_of=as_of)
+        cost = await in_base(session, context, amount=native_cost, base=base, as_of=as_of)
     except CalculationError as problem:
         return HoldingRow(
             security=security,
             quantity=quantity,
-            cost=_figure(context, native_cost),
+            cost=graded_figure(context, native_cost),
             value=None,
             unrealised=None,
             weight=None,
@@ -495,9 +527,9 @@ async def _holding(
     return HoldingRow(
         security=security,
         quantity=quantity,
-        cost=_figure(context, cost),
-        value=_figure(context, value),
-        unrealised=_figure(context, calc.unrealised(context, value=value, cost=cost)),
+        cost=graded_figure(context, cost),
+        value=graded_figure(context, value),
+        unrealised=graded_figure(context, calc.unrealised(context, value=value, cost=cost)),
         weight=None,
     )
 
@@ -514,24 +546,24 @@ async def _cash(
     """One currency's balance, and what it is worth in the book's reporting currency."""
     balance = calc.cash_balance(context, effects=list(effects))
     try:
-        converted = await _in_base(session, context, amount=balance, base=base, as_of=as_of)
+        converted = await in_base(session, context, amount=balance, base=base, as_of=as_of)
     except CalculationError as problem:
         return CashRow(
             currency=currency,
-            balance=_figure(context, balance),
+            balance=graded_figure(context, balance),
             in_base=None,
             weight=None,
             problem=str(problem),
         )
     return CashRow(
         currency=currency,
-        balance=_figure(context, balance),
-        in_base=_figure(context, converted),
+        balance=graded_figure(context, balance),
+        in_base=graded_figure(context, converted),
         weight=None,
     )
 
 
-async def _in_base(
+async def in_base(
     session: AsyncSession,
     context: CalculationContext,
     *,
@@ -540,6 +572,9 @@ async def _in_base(
     as_of: date,
 ) -> Quantity:
     """The amount in the book's reporting currency, through a dated rate.
+
+    ``as_of`` is the date the rate is taken at, which is the *flow's* date when a caller is
+    converting a movement rather than a balance.
 
     A figure already in that currency is returned untouched rather than converted at one —
     a rate of exactly one is a number nobody published, and recording a conversion that did
@@ -576,6 +611,10 @@ def _movement(trade: Transaction) -> Quantity:
         unit = Unit.currency(trade.currency)
     elif trade.kind in (TransactionKind.BUY, TransactionKind.SELL):
         unit = calc.SHARES
+    elif trade.kind is TransactionKind.SPLIT:
+        # The third answer (ADR 0094): neither money nor units but the ratio the walk
+        # multiplies the share count by.
+        unit = calc.RATIO
     else:  # pragma: no cover -- unreachable until TransactionKind grows a value
         message = (
             f"{trade.kind.value!r} has no cash treatment. A transaction kind reaches the "
@@ -594,6 +633,10 @@ def _acquisition_cost(context: CalculationContext, trade: Transaction) -> Quanti
     for, because an unsourced one would be refused by the engine and rightly.
     """
     money = Unit.currency(trade.currency)
+    if trade.kind is TransactionKind.SPLIT:
+        # A split is not a purchase (ADR 0094): the pool's cost is untouched, and the
+        # paired entry is a sourced nil exactly as a disposal's is.
+        return Quantity.of(Decimal(0), money, source=_source(trade, "reorganisation"))
     if trade.quantity <= 0 or trade.price is None:
         return Quantity.of(Decimal(0), money, source=_source(trade, "disposal"))
     return calc.acquisition_cost(
@@ -659,8 +702,13 @@ async def _mark(
     return quoted
 
 
-def _figure(context: CalculationContext, quantity: Quantity) -> Figure:
+def graded_figure(context: CalculationContext, quantity: Quantity) -> Figure:
     """Wrap a computed quantity with the grade of everything beneath it.
+
+    Public alongside :func:`in_base` and :func:`transactions_in_force` because
+    :mod:`aer.services.performance` computes over the same book: a return that graded its
+    figures differently from the holdings table beside it would be two answers to one
+    question about the same rows.
 
     The quantity must be the output of a traced calculation in this context, which every
     caller here guarantees by having just computed it: the source reference *is* the
@@ -675,3 +723,11 @@ def _figure(context: CalculationContext, quantity: Quantity) -> Figure:
         )
         raise CalculationError(message, context={"value": str(quantity.value)})
     return Figure(quantity=quantity, shared=grade_of(context, record), record=record)
+
+
+# The three trade helpers the post-trade review's outcome reuses (ADR 0105), under public
+# names: a realised return computed over a different reading of the same trades would be a
+# second answer to what a purchase cost, and the reviewer would be scoring against it.
+acquisition_cost_of = _acquisition_cost
+movement_of = _movement
+source_of = _source

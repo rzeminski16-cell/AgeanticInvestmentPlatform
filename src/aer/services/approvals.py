@@ -120,13 +120,21 @@ async def record_decision(
             "of a plan that has since changed is indistinguishable from one that has not."
         )
         raise ValidationError(message, context={"gate": gate.value})
+    if gate not in GATE_ORDER:
+        # The thesis gate (ADR 0103). It is decided on a finding rather than on a run step,
+        # a monitor pass may open it more than once, and the order below is a research
+        # run's — so the monitor service writes its own row, and this refuses to.
+        message = (
+            f"The {gate.value} gate is not part of a run's gate order. It is decided on a "
+            "monitor finding, through the monitor service, and never here."
+        )
+        raise ValidationError(message, context={"gate": gate.value})
 
     await _refuse_if_already_decided(session, job=job, gate=gate)
     await _refuse_if_out_of_order(session, job=job, gate=gate)
 
     approval = Approval(
         work_order_id=job.work_order_id,
-        request_id=job.request_id,
         job_id=job.id,
         gate=gate,
         decision=decision,
@@ -148,7 +156,7 @@ async def record_decision(
             "approval_id": str(approval.id),
         },
         previous=previous,
-        request_id=job.request_id,
+        request_id=job.work_order_id,
         job_id=job.id,
     )
     session.add(event)
@@ -192,9 +200,6 @@ async def _refuse_if_out_of_order(session: AsyncSession, *, job: Job, gate: Gate
     Conditional gates that never fired are skipped rather than treated as blocking — a run
     that needed no peer-set decision should not be unable to reach its final gate.
     """
-    if gate not in GATE_ORDER:  # pragma: no cover -- GateKind is closed
-        return
-
     decided = {
         row.gate: row
         for row in await session.scalars(select(Approval).where(Approval.job_id == job.id))

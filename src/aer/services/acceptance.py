@@ -41,6 +41,7 @@ from aer.db.models import (
 )
 from aer.errors import ValidationError
 from aer.render.glance import glance_content
+from aer.services.mandate import mandate_of
 from aer.services.subject import subject_name
 
 __all__ = ["AcceptanceCheck", "AcceptanceReadout", "acceptance_readout"]
@@ -85,7 +86,7 @@ async def acceptance_readout(session: AsyncSession, *, job_id: uuid.UUID) -> Acc
     if job is None:
         message = f"No run {job_id} exists to measure."
         raise ValidationError(message, context={"job_id": str(job_id)})
-    request = await session.get(ResearchRequest, job.request_id)
+    request = await mandate_of(session, job)
     if request is None:  # pragma: no cover -- FK-guaranteed
         message = f"Run {job_id} has no research request."
         raise ValidationError(message, context={"job_id": str(job_id)})

@@ -14,6 +14,118 @@ because the exit criteria below are stated in terms of it.
 
 ---
 
+## Where this stands — 2026-08-30: done
+
+**All ten tranches are built, verified and closed; roadmap §2.5 and §3.12 are closed with
+them.** 2026-08-29 landed tranches 6, 7 and 8 in sequence — the `verdict` role and step
+under ADR 0087; the tranche-1 gap closed (a handler builds a `RenderedFigure` from every
+lineage node) with the stored sensitivity grid drawn by the report's own byte-stable
+builder; the portfolio, skills and knowledge families on the component set, with roadmap
+§3.1 landed between 7 and 8 so the portfolio form was rebuilt with all three of its doors.
+2026-08-30 landed tranche 9: settings and costs onto the system, the legacy aliases removed
+and the ratchet made a hard zero, every vendored hash verified, the §8.3 hardening pass
+driven (and recorded below with its findings), and the documentation brought to describe
+what shipped. Each tranche was seen green in both suites before its closing commit — the
+rule tranche 5 paid for. This section is the record and the one place it is kept; the
+roadmap and the running order point here rather than repeating it. (It absorbs the separate
+handover document that briefly existed on 2026-08-28.)
+
+| Tranche | State | Last full verification |
+|---|---|---|
+| **0 — Hold** | Done | Both suites baselined; ceiling, axe, swap ids, fifty routes |
+| **1 — Vocabulary** | Done | 5,783 in-process · 127 browser |
+| **2 — Tokens** | Done | 5,823 · 137 |
+| **3 — Macros** | Done | 5,888 · 161 |
+| **4 — Shell** | Done | 5,888 · 161 |
+| **5 — Overview and requests** | Done | 5,945 · 163, 2026-08-28, after the red merge below |
+| **6 — Console and gates** | Done | 5,968 · 172, 2026-08-29, green before the commit |
+| **7 — Evidence and reports** | Done | 5,977 · 173, 2026-08-29, green before the commit |
+| **8 — Portfolio, skills, knowledge** | Done | 5,990 · 175, 2026-08-29, green before the commit |
+| **9 — Removal and hardening** | Done | **5,931 · 175**, 2026-08-30, green before this closing commit. The fall from 5,990 is the ratchet itself: 122 per-template ceiling tests became 67 hard-zero ones when the mapping gave way to discovery — coverage widened, the count fell |
+
+**What the thirty-three were.** Reproduced on a clean run as thirty-two (the thirty-third was
+already cured by the first fix below landing mid-run), and six causes covered them all. Most
+were the suite not knowing what tranche 5 shipped: the refinement disclosure that a
+form-filling helper must open before `fill` can reach the fields inside it; role-name
+matching being substring by default, so "Microsoft Corporation" resolves to the company link
+*and* the row's new "Remove Microsoft Corporation" control; reworded empty states; the
+vocabulary's "Draft" where the enum's "DRAFT" had been asserted; point-in-time as two named
+radios; the `confirm()` dialogue deliberately replaced by a confirmation page. **Two were
+product gaps, not stale tests, and both are fixed:** the seven planned tools shipped behind a
+*closed* disclosure on the front door, against that page's stated job — it now ships open —
+and the full in-process run surfaced that nothing moves a request to CANCELLED when its run
+is cancelled, so the rewritten detail page never said what happened to the old run while
+offering to start a new one; the "This run" sheet now leads with the run's own state.
+
+**How it happened is the useful part.** Tranche 5 was verified against targeted subsets — the
+request suites, the component tests, the palette ratchet — and every one passed. Subsets
+cannot catch a page whose *words* changed; those tests live in the browser suite. So the
+standing rule: **a tranche that touches templates is finished when the browser suite has been
+seen green, before the commit.** That time is part of the work.
+
+**The ramp ledger is closed.** Opened at **1,837** raw Tailwind classes on 2026-08-25;
+**zero** on 2026-08-30. Tranches 6, 7, 8 and 9 each removed exactly what the plan predicted
+— 806, 410, 311 and 67. The ratchet in `tests/test_palette_migration.py` became what it was
+always going to become: a hard assertion that every template the scan finds holds zero raw
+ramps, with the retired compatibility aliases and the `faint` token pinned gone beside it.
+
+**State the method with the number** whenever this is re-measured: counting variant-qualified
+names (`hover:bg-slate-100`) and counting base utilities (`bg-slate-100`) give different
+totals over the same tree, and a bare figure invites the next reader to think the debt moved
+when it did not. The census command:
+
+```bash
+grep -ohrE '\b(text|bg|border|ring|divide|from|to|via|placeholder|decoration|outline|shadow|accent|caret|fill|stroke)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]{2,3}' \
+  src/aer/web/templates | sort | uniq -c | sort -rn
+```
+
+**Tranche 9, closed 2026-08-30.** Settings and costs were rebuilt on the component set (the
+last 67 ramps); the seven templates still speaking the compatibility aliases were moved to
+the tokens themselves and the alias block deleted from the stylesheet, which was recompiled
+and committed; and every vendored hash was verified — the eight font pins in
+`tests/test_fonts.py`, the axe-core pin in `tests/a11y.py`, and `vendor/htmx.min.js`
+byte-identical (SHA-256 `71ea6718…c0de`) to the lockfile-pinned `htmx.org@2.0.10`, whose
+registry integrity hash sits in `package-lock.json`. (The vendoring commit's recorded hash
+is unreachable — the history squash folded it into the root commit — so the lockfile chain
+is the provenance check.)
+
+**The §8.3 manual pass, 2026-08-30.** Method: driven through headless Chromium by
+`tests/e2e/sweep.py` — the four §8.3 passes plus scripting-off, over the fourteen static
+surfaces, the run console and the three widest gates (plan, assumptions, review), the plan
+gate visited while genuinely waiting so its live form is what was measured. The keyboard
+journey fills and submits the request form and changes the theme with Tab, letters and
+Enter alone; every stop must be visible, ringed and in reading order behind a skip link
+that comes first; 320px, 768px and the 720px viewport that 200% zoom produces must not
+scroll the page sideways; both schemes must answer, from the system preference and from
+the explicit stamp; every surface must stand with scripting off, the waiting console with
+its meta-refresh fallback. **It found three real defects, fixed the same day:** the
+reports filter form did not wrap at 320px; the review gate's content-hash figure outgrew a
+one-third column at tablet widths; and the blank request form did not hold the defaults
+its own hints promise — the base currency silently submitted as AUD, the first option
+alphabetically, instead of the promised GBP, and the required horizon, empty behind the
+closed refine-mandate disclosure, blocked every submission on a field the reader was never
+shown. **Residuals, named rather than waved at:** no real assistive technology was driven
+— the sweep checks focus order and visibility, not what a screen reader announces; only
+Chromium's engine was available, so the Firefox half of D7 stays open below; 200% zoom is
+approximated by the halved viewport, which is what browser zoom does to CSS layout but is
+not the browser's own control; and whether a page that technically reflows still *reads*
+is a judgement no instrument holds. Those parts belong to the operator's own pass,
+[`testing-by-hand.md`](../developers/testing-by-hand.md) §8.3. The drawer's focus trap and
+Escape-return were already browser-proved in `test_evidence_surfaces.py` and were not
+repeated.
+
+**Open beyond the overhaul:** roadmap §2.1, waiting on the operator's `run-diagnosis.json`
+export — the running order is [`remaining-work.md`](remaining-work.md) · the Firefox half
+of D7 — only Chromium was available anywhere this was built; the mitigation is structural
+(the shell ships `<details open>` and closes it with script, so it never depends on
+revealing a *closed* `<details>` from author CSS, the behaviour that differs per engine),
+the risk is low and unverified, and one run on a machine with Firefox closes it · two
+order-dependent test failures, recorded in [the testing plan](interface-overhaul-testing.md),
+both predating this work · the parts of §8.3 no instrument holds, listed in the residuals
+above.
+
+---
+
 ## The shape of the work
 
 **Forty-two templates carry 1,837 raw ramp classes. Twelve carry none.** The clean twelve are
@@ -148,8 +260,8 @@ exit criteria pass, not when its templates look right.**
 **Do first, and do not skip.** Nothing visual moves here.
 
 1. Run both suites and record the baseline: `pytest --ignore=tests/e2e`, then `pytest tests/e2e`.
-2. Record the ramp census per template — the command is in roadmap §2.5 — and commit it as the
-   ratchet's opening ceiling.
+2. Record the ramp census per template — the command is in the ledger above — and commit it as
+   the ratchet's opening ceiling.
 3. Build fixtures for every state the design names and the suite does not yet have: database
    down, first run, stale approval, budget refusal at both scopes, failed run, unverified
    claim, incomplete portfolio, a section that did not generate.
@@ -406,9 +518,9 @@ triages without scrolling; both validation rounds read as one problem list.
 **Code complete 2026-08-28, and the suite is red.** The work landed — the front door leads with
 what is waiting, the requests family is on the component set at zero ramps, the `confirm()`
 dialogue is gone, and the ratchet fell by exactly the 243 predicted. **Thirty-three browser
-tests fail**, because ten rewritten templates moved text those tests assert on. See
-[the handover](interface-overhaul-handover.md), which also records how the verification missed
-it: subsets passed, and the suite that reads words takes twenty minutes and was not waited for.
+tests fail**, because ten rewritten templates moved text those tests assert on. The status
+section at the top carries the detail, and how the verification missed it: subsets passed, and
+the suite that reads words takes twenty minutes and was not waited for.
 
 ### Tranche 6 — Run console and the seven gates
 
@@ -439,6 +551,15 @@ stays hash-bound, non-optimistic and refused when stale; the assumptions gate st
 from current rows; **the authored verdict is never citable and its absence never reads as a
 defect.**
 
+**Done 2026-08-29, both suites seen green before the closing commit.** The console reads its
+state from data attributes the script never composes; the seven gates share one frame
+(`runs/_gate.html`) with the decision panel after the evidence in DOM order; a stale payload
+hash is now refused at POST time on every gate, exercised from a real browser; the `verdict`
+step joined the workflow between `revise` and the final gate without moving the gate's hash
+seal, and a run it fails on still renders a complete composed verdict. The per-request
+assumptions surfaces moved onto the component set with the same rows and acts as the gate,
+minus the gate. Exactly the predicted 806 ramps came out.
+
 ### Tranche 7 — Evidence and reports
 
 9 templates, 410 ramps.
@@ -455,6 +576,20 @@ defect.**
 **Exit:** the two-click proof path is visually continuous; a report is findable by what it
 concluded; the grid produces identical bytes for identical rows.
 
+**Done 2026-08-29, both suites seen green before the closing commit.** Every evidence
+surface now leads with a verdict the verdict module composed — acquired against admissible,
+verified against overridden, findings counted by kind — and the excerpt is the largest
+reading block on the claim page, verbatim as ever. The calculation walk closes the
+tranche-1 gap: the handler builds a `RenderedFigure` from every lineage node, so no
+template formats a Decimal or composes an origin link, and the provenance badge *is* the
+origin column. The valuation page embeds the stored grid as the byte-stable drawing the
+report's exhibits already used (no second chart module; a briefly-committed duplicate was
+reverted), with the full table beside it. Replay's findings are typed and grouped; a replay
+that checked nothing refuses the success tone. The report history leads each row with the
+conclusion as the link and carries both dates and the run's spend. Exactly the predicted
+410 ramps came out. Base-cell anchoring on the heatmap awaits recorded base coordinates —
+the grid rows do not carry them yet, and the figure does not guess.
+
 ### Tranche 8 — Portfolio, Skills, Knowledge
 
 10 templates, 311 ramps.
@@ -469,6 +604,18 @@ concluded; the grid produces identical bytes for identical rows.
 
 **Exit:** each side-tool has a clear hierarchy; no new client state; portfolio totals are all
 present or all withheld.
+
+**Done 2026-08-29, both suites seen green before the closing commit.** The book opens with
+a composed verdict that carries the book-level grade once and structurally cannot wear the
+success tone while a position is unpriced; the deal-only fields sit behind a native
+disclosure; the four exact-value figures stay coupled. The skills editor became the paired
+working paper — source left, composed policy sticky beside it, issues above the composition
+when invalid — with source bytes still round-tripping untouched and the import diff still
+two uncollapsible steps. Knowledge leads with its close-the-loop work list, every item a
+company link; the graph keeps its deterministic server-laid SVG and gains a relation list
+in words built from the same placed edges; the company page promotes the catalyst form to a
+primary surface. Exactly the predicted 311 ramps came out. Return and exposure stayed
+reserved for §3.2, unsimulated.
 
 ### Tranche 9 — Removal and hardening
 

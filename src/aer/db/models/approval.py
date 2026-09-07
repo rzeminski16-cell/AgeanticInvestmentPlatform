@@ -21,10 +21,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from aer.core.enums import Decision, GateKind
 from aer.db.base import Base, created_at_column
-from aer.db.types import Sha256, Timestamp, UuidFk, UuidFkOptional, UuidPk
+from aer.db.types import Sha256, Timestamp, UuidFk, UuidPk
 
 if TYPE_CHECKING:
-    from aer.db.models.request import ResearchRequest
     from aer.db.models.user import User
     from aer.db.models.work_order import WorkOrder
 
@@ -42,11 +41,6 @@ class Approval(Base):
     # the one outcome the schema forbade recording.
     work_order_id: Mapped[UuidFk] = mapped_column(
         ForeignKey("work_orders.id", ondelete="CASCADE"), nullable=False
-    )
-
-    # Kept for the transition and dropped by the follow-up revision, once nothing reads it.
-    request_id: Mapped[UuidFkOptional] = mapped_column(
-        ForeignKey("research_requests.id", ondelete="CASCADE")
     )
 
     # Nullable and deliberately not a foreign key: the plan gate is decided before any job
@@ -72,7 +66,6 @@ class Approval(Base):
     decided_at: Mapped[Timestamp] = created_at_column()
 
     work_order: Mapped[WorkOrder] = relationship(back_populates="approvals")
-    request: Mapped[ResearchRequest | None] = relationship(back_populates="approvals")
     actor: Mapped[User] = relationship(back_populates="approvals")
 
     __table_args__ = (

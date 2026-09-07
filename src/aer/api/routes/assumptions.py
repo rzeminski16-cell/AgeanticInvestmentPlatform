@@ -314,7 +314,7 @@ async def _owned_request(
     session: AsyncSession, *, request_id: uuid.UUID, user: User
 ) -> ResearchRequest:
     request = await session.get(ResearchRequest, request_id)
-    if request is None or request.user_id != user.id:
+    if request is None or request.work_order.user_id != user.id:
         message = f"No research request {request_id}."
         raise AssumptionNotFoundError(message, context={"request_id": str(request_id)})
     return request

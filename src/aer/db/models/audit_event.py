@@ -89,8 +89,15 @@ class AuditEvent(Base):
         previous: AuditEvent | None,
         job_id: uuid.UUID | None = None,
         request_id: uuid.UUID | None = None,
+        subject_kind: str | None = None,
+        subject_id: uuid.UUID | None = None,
     ) -> AuditEvent:
         """Build an event linked to ``previous``.
+
+        ``subject_kind`` and ``subject_id`` are the correlation ADR 0072 added for records
+        that are not research records — a thesis edit, a trade entry. They sit outside the
+        digest, as ``job_id`` and ``request_id`` do, so a chain written before they were
+        filled verifies unchanged.
 
         Always use this rather than constructing directly: it is what guarantees
         ``this_hash`` is computed over the same canonical form the verifier will later
@@ -104,6 +111,8 @@ class AuditEvent(Base):
             payload=payload,
             job_id=job_id,
             request_id=request_id,
+            subject_kind=subject_kind,
+            subject_id=subject_id,
             prev_hash=prev_hash,
             this_hash=chain_hash(prev_hash, payload),
         )

@@ -169,6 +169,12 @@ takes weeks. Assert a per-template ceiling that only ever falls, and a hard zero
 thirteen templates that are already clean, so the shell cannot regress while the research
 tool is being rewritten.
 
+That is how it was run, and it ended as designed: the ratchet reached zero on 2026-08-30
+(tranche 9 of the overhaul) and `tests/test_palette_migration.py` is now the plain
+assertion §2.5 asked for — every template the scan finds at zero raw ramps, with the
+retired aliases and the `faint` token pinned gone alongside. The paragraph above stays as
+the method for the next migration of this shape.
+
 ### Two failure modes to design the tests against
 
 **A test that asserts a class string proves nothing about a colour.** It is the mistake that

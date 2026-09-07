@@ -45,11 +45,20 @@ from aer.sections.render import (
 
 __all__ = ["render_html"]
 
+# `keep_trailing_newline` is on, and it is load-bearing rather than cosmetic. Jinja strips a
+# template's final newline by default, so this renderer used to emit a document ending
+# `</html>` with nothing after it — the one text file in the repository that must *not* end
+# in a newline. Every editor, formatter and end-of-file fixer adds one back, `.gitattributes`
+# and the pre-commit exclusion both had to grow rules about it, and when something slipped
+# through, the golden test failed with an eighteen-thousand-character diff over one
+# invisible character. A document that ends the way text files end is a document nothing
+# fights over.
 _ENV = Environment(
     loader=PackageLoader("aer.render", "templates"),
     autoescape=select_autoescape(default=True, default_for_string=True),
     trim_blocks=True,
     lstrip_blocks=True,
+    keep_trailing_newline=True,
 )
 
 

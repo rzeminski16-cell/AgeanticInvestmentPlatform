@@ -17,12 +17,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
 import pytest
+from pydantic import SecretStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,6 +44,7 @@ from aer.sources.sec.submissions import parse_submissions
 from aer.storage.local import LocalArtefactStore
 from aer.version import git_sha
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
+from tests.request_fixtures import research_request
 from tests.schema_guard import refuse_unanswerable_schema
 from tests.sec_fixtures import MSFT_CIK, fixture_bytes
 
@@ -307,6 +310,13 @@ class ScriptedSectionBrain:
             # so one builder answers both.
             assert self.provider is not None, "bind the provider before the first call"
             return custom_section_draft_for(self.provider.calls[-1])
+        if name == "ChallengeBriefs":
+            # One brief per challenge it was shown, keyed by the ids in the prompt. A
+            # static answer could not key them, and a briefing keyed to nothing is exactly
+            # what the service drops -- so the fake would silently exercise the drop path
+            # on every run that has a challenge.
+            assert self.provider is not None, "bind the provider before the first call"
+            return challenge_briefs_for(self.provider.calls[-1])
         answer = _STATIC_ANSWERS.get(name)
         if answer is not None:
             return answer()
@@ -423,8 +433,59 @@ def theme_slate() -> Any:
     )
 
 
+def authored_verdict() -> Any:
+    """A scripted authored half (ADR 0087): a plain sentence in the info tone.
+
+    Deliberately unremarkable — the composed half is the one under test everywhere the
+    verdict renders, and the authored sentence's job in the suite is to exist, carry a
+    valid tone, and never be citable.
+    """
+    from aer.agents.verdict import AuthoredTone, AuthoredVerdict  # noqa: PLC0415
+
+    return AuthoredVerdict(
+        sentence="Scripted verdict; the record reads complete and unchallenged.",
+        tone=AuthoredTone.INFO,
+    )
+
+
+def challenge_briefs_for(call: dict[str, Any]) -> Any:
+    """A brief for each disagreement id in the prompt, read back off the call itself.
+
+    Unremarkable prose and a lean towards the draft. What the suite needs from a brief is
+    that it exists, keys to a real challenge, and never becomes a decision -- the wording
+    is under test nowhere, and a scripted lean towards the challenge would make every
+    fixture read as though the adversary had won.
+    """
+    from aer.agents.challenge_brief import (  # noqa: PLC0415 -- keeps import light
+        ChallengeBrief,
+        ChallengeBriefs,
+        ChallengeSide,
+    )
+
+    text = " ".join(
+        f"{message.get('cache_prefix') or ''} {message.get('content') or ''}"
+        for message in call["messages"]
+    )
+    ids = re.findall(r"'disagreement_id':\s*'([0-9a-f-]{36})'", text)
+    return ChallengeBriefs(
+        briefs=[
+            ChallengeBrief(
+                disagreement_id=identifier,
+                keeping_assumes="Scripted: the draft's reading of the record holds.",
+                keeping_means="Scripted: the report keeps its position and notes the objection.",
+                accepting_assumes="Scripted: the objection describes the record better.",
+                accepting_means="Scripted: the report gives up the position it argued for.",
+                leans=ChallengeSide.DRAFT,
+                because="Scripted: the objection restates a risk the draft already carries.",
+            )
+            for identifier in ids
+        ]
+    )
+
+
 _STATIC_ANSWERS: dict[str, Any] = {
     "AssumptionProposalDraft": assumption_proposal_draft,
+    "AuthoredVerdict": authored_verdict,
     "PeerSlate": peer_slate,
     "PlanCritique": plan_critique,
     "RedTeamReport": red_team_report,
@@ -684,7 +745,7 @@ async def seed_request(
     max_cost_gbp: Decimal = DEFAULT_PER_RUN_BUDGET_GBP,
     as_of_date: date = AS_OF_DATE,
 ) -> ResearchRequest:
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -704,7 +765,6 @@ async def seed_request(
 async def seed_job(session: AsyncSession, *, request: ResearchRequest) -> Job:
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version=WORKFLOW_VERSION,
         code_version=git_sha() or "test",
         status=JobStatus.QUEUED,
@@ -713,6 +773,16 @@ async def seed_job(session: AsyncSession, *, request: ResearchRequest) -> Job:
     session.add(job)
     await session.flush()
     return job
+
+
+def with_price_feed(settings: Settings) -> Settings:
+    """The same settings with a market-data subscription configured.
+
+    The peer step asks the model for a slate only when a peer's multiple is computable
+    (ADR 0059, second amendment), so a scenario that expects the model's peer — and the
+    peer-set gate that follows it — runs as a subscribed machine would.
+    """
+    return settings.model_copy(update={"eodhd_api_key": SecretStr("test-price-feed")})
 
 
 @pytest.fixture

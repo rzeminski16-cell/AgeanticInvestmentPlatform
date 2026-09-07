@@ -72,3 +72,8 @@ node_modules/
 # Redis' on-disk snapshot, written into the working directory by a locally started
 # redis-server. Never part of the project.
 dump.rdb
+
+# One run's exported drafting record (`just diagnose-run`). It lands in the working
+# directory by design — the operator reads it before deciding to send it anywhere — and
+# it is one run's own data, never the project's.
+run-diagnosis.json

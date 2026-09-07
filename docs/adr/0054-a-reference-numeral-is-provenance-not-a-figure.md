@@ -109,3 +109,19 @@ Five span classes join the eraser, each anchored by context a company figure can
 
 The discipline is unchanged: exemption by span, never by value; content only, never
 claims; each class carries a nearest-quantity counter-test proving it does not leak.
+
+## Amended 2026-09-05 — the writer's own enumeration
+
+The confirmation run (`docs/users/the-confirmation-run.md`) lost a revise reply of the
+investment thesis to the "5" of a pillar it had headed "Proposition 5 — AI partner and
+capacity dependence". A heading's number is a label of the same kind as an Item or an
+Exhibit number: it names a place in the argument, and no stored fact could ever cover it.
+
+The span: a label word from a closed list (pillar, proposition, scenario, step, point,
+risk, catalyst, phase, part, driver, thesis, factor, priority, lever, premise, leg, plank)
+followed by one or two digits **and then a separator** — a dash, a colon, a stop or a
+closing bracket. The separator is the anchor, and the two-digit bound with no decimal or
+separator continuing it keeps a quantity's shape out: "Phase 12.5 —" and "Step 200 —" keep
+their figures, and "Step 2 — 40 bps" excuses the 2 and keeps the 40. The counter-tests hold
+all three.
+

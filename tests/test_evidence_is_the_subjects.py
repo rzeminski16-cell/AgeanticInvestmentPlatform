@@ -51,6 +51,7 @@ from aer.db.models import (
 )
 from aer.render.glance import glance_content
 from aer.sections.evidence import SectionPolicy, gather_evidence
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import WORKFLOW_VERSION
 
 pytestmark = pytest.mark.integration
@@ -104,7 +105,6 @@ async def _document(
     await session.flush()
     document = SourceDocument(
         work_order_id=request.id,
-        request_id=request.id,
         job_id=job.id,
         company_id=company.id if company is not None else None,
         artefact_id=artefact.id,
@@ -162,7 +162,7 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
     subject = await _company(db_session, name="SUBJECT INC", cik="0000000001", ticker="SUBJ")
     peer = await _company(db_session, name="PEER PLC", cik="0000000002", ticker="PEER")
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Subject Inc",
         ticker="SUBJ",
@@ -179,7 +179,6 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
 
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version=WORKFLOW_VERSION,
         code_version="test",
         status=JobStatus.RUNNING,
@@ -376,8 +375,8 @@ class TestASecondRunStillSeesTheFirstRunsFacts:
         subject's own facts in it.
         """
         session = scene["session"]
-        second = ResearchRequest(
-            user_id=scene["request"].user_id,
+        second = research_request(
+            user_id=scene["request"].work_order.user_id,
             company_name="Subject Inc",
             ticker="SUBJ",
             exchange="NASDAQ",
@@ -392,7 +391,6 @@ class TestASecondRunStillSeesTheFirstRunsFacts:
         await session.flush()
         job = Job(
             work_order_id=second.id,
-            request_id=second.id,
             workflow_version=WORKFLOW_VERSION,
             code_version="test",
             status=JobStatus.RUNNING,

@@ -292,14 +292,14 @@ async def _export_run(
         company=company_name,
         ticker=run.request.ticker,
         exchange=run.request.exchange,
-        as_of_date=run.request.as_of_date,
+        as_of_date=run.request.work_order.as_of_date,
         base_currency=run.request.base_currency,
-        point_in_time=run.request.point_in_time,
+        point_in_time=run.request.work_order.point_in_time,
         rating=run.report.rating,
         confidence=run.report.confidence,
         valuation=_valuation_dict(run.report),
         horizon_months=run.request.investment_horizon_months,
-        aliases=[f"{run.request.ticker} {run.request.as_of_date.isoformat()} research"],
+        aliases=[f"{run.request.ticker} {run.request.work_order.as_of_date.isoformat()} research"],
         company_note=f"[[{company_title}]]",
         industry_note=(
             f"[[{_industry_note_title(run.industry)}]]" if run.industry is not None else None
@@ -376,7 +376,7 @@ def _run_body(
     sources: list[SourceDocument],
 ) -> str:
     lines = [
-        f"# {request.company_name} — {request.as_of_date.isoformat()}",
+        f"# {request.company_name} — {request.work_order.as_of_date.isoformat()}",
         "",
         "The report of record is the archived, hash-addressed document; this note is a "
         "projection of it for the research journal.",
@@ -882,7 +882,7 @@ def _safe(text: str) -> str:
 
 
 def _run_note_title(request: ResearchRequest) -> str:
-    return f"{request.as_of_date.isoformat()} {_safe(request.ticker)}"
+    return f"{request.work_order.as_of_date.isoformat()} {_safe(request.ticker)}"
 
 
 def _company_note_title(request: ResearchRequest, company_name: str) -> str:

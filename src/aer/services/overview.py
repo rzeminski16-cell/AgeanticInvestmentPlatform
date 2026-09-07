@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any, Final
 from sqlalchemy import Select, func, select
 
 from aer.core.enums import AnalysisMode, JobStatus, RequestStatus
-from aer.db.models import Cost, Job, ResearchRequest
+from aer.db.models import Cost, Job, ResearchRequest, WorkOrder
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -123,11 +123,17 @@ async def unstarted_requests(
     arrive several times and the bound would count duplicates as different work.
     """
     has_a_run = select(Job.id).where(Job.work_order_id == ResearchRequest.id).exists()
-    base = select(ResearchRequest).where(
-        ResearchRequest.user_id == user_id,
-        ResearchRequest.status == RequestStatus.DRAFT,
-        ResearchRequest.archived_at.is_(None),
-        ~has_a_run,
+    base = (
+        select(ResearchRequest)
+        # Owner, status and archived are the run root's since ADR 0072; only the ticker
+        # and the horizon are the mandate's.
+        .join(WorkOrder, WorkOrder.id == ResearchRequest.id)
+        .where(
+            WorkOrder.user_id == user_id,
+            WorkOrder.status == RequestStatus.DRAFT,
+            WorkOrder.archived_at.is_(None),
+            ~has_a_run,
+        )
     )
     total = await _count(session, base)
     rows = list(
@@ -149,7 +155,10 @@ async def has_ever_commissioned(session: AsyncSession, *, user_id: uuid.UUID) ->
     who has saved a draft and not started it is not a new operator; they are one row of work.
     """
     written = await session.scalar(
-        select(ResearchRequest.id).where(ResearchRequest.user_id == user_id).limit(1)
+        select(ResearchRequest.id)
+        .join(WorkOrder, WorkOrder.id == ResearchRequest.id)
+        .where(WorkOrder.user_id == user_id)
+        .limit(1)
     )
     return written is not None
 
@@ -160,7 +169,8 @@ async def _runs_with_status(
     base = (
         select(Job, ResearchRequest)
         .join(ResearchRequest, ResearchRequest.id == Job.work_order_id)
-        .where(Job.status == status, ResearchRequest.user_id == user_id)
+        .join(WorkOrder, WorkOrder.id == Job.work_order_id)
+        .where(Job.status == status, WorkOrder.user_id == user_id)
     )
     total = await _count(session, base)
     fetched: Sequence[tuple[Job, ResearchRequest]] = (
@@ -224,9 +234,10 @@ async def typical_cost(
     """
     finished = (
         select(Job.total_cost_gbp)
-        .join(ResearchRequest, ResearchRequest.id == Job.request_id)
+        .join(ResearchRequest, ResearchRequest.id == Job.work_order_id)
+        .join(WorkOrder, WorkOrder.id == Job.work_order_id)
         .where(
-            ResearchRequest.user_id == user_id,
+            WorkOrder.user_id == user_id,
             ResearchRequest.analysis_mode == mode,
             Job.status == JobStatus.SUCCEEDED,
             Job.total_cost_gbp > 0,

@@ -26,31 +26,58 @@ from __future__ import annotations
 
 import re
 import uuid
+from datetime import date
+from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from aer.agents.post_trade_reviewer import ReviewDraft
 from aer.config import Settings
-from aer.core.enums import GateKind, TransactionKind, UserRole
+from aer.core.enums import (
+    DecisionAction,
+    FindingKind,
+    GateKind,
+    PremiseComparator,
+    PremiseStatus,
+    ProcessQuality,
+    TransactionKind,
+    UserRole,
+)
 from aer.db.models import (
     Calculation,
     Claim,
     Company,
+    Finding,
     Portfolio,
     Report,
-    ResearchRequest,
+    Security,
     User,
 )
+from aer.providers.fake import FakeProvider
+from aer.providers.router import Router
+from aer.services import decisions as decision_service
+from aer.services import post_trade
+from aer.services import theses as thesis_service
+from aer.services.theses import Predicate
+from aer.storage.local import LocalArtefactStore
 from tests.api_fixtures import build_app, client_for
+from tests.portfolio_fixtures import trade
+from tests.request_fixtures import research_request
 from tests.route_fixtures import page_routes_for
 from tests.run_fixtures import Driver, to_final_gate
+from tests.schema_guard import refuse_unanswerable_schema
 from tests.workflow_fixtures import AS_OF_DATE, DEFAULT_PER_RUN_BUDGET_GBP
 
 pytestmark = pytest.mark.integration
 
-_TABLES = "research_requests, audit_events, users, artefacts, prompts, companies, portfolios"
+_TABLES = (
+    "research_requests, audit_events, users, artefacts, prompts, companies, securities, "
+    "portfolios, theses, judgements"
+)
 
 # A page may refuse. It may not raise.
 #
@@ -68,7 +95,7 @@ async def _truncate(engine: Any) -> None:
 
 
 @pytest.fixture
-async def committed(db_engine: Any) -> Any:
+async def committed(db_engine: Any, tmp_path: Path) -> Any:
     """An operator, a request, and a book with one cash transaction in it.
 
     The portfolio is seeded here rather than driven through its form because this file is
@@ -81,7 +108,7 @@ async def committed(db_engine: Any) -> Any:
         user = User(email="owner@example.invalid", display_name="Owner", role=UserRole.OWNER)
         session.add(user)
         await session.flush()
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",
@@ -94,9 +121,144 @@ async def committed(db_engine: Any) -> Any:
             max_cost_gbp=DEFAULT_PER_RUN_BUDGET_GBP,
         )
         book = Portfolio(user_id=user.id, name="My portfolio", base_currency="GBP")
-        session.add_all([request, book])
+        # A company the run will *not* resolve — the drive below upserts MSFT, and a second
+        # row on the same listing would collide — so the thesis has a subject of its own.
+        contoso = Company(
+            name="Contoso plc", ticker="CTSO", exchange="LSE", company_number="01234567"
+        )
+        session.add_all([request, book, contoso])
+        await session.flush()
+        thesis = await thesis_service.write_thesis(
+            session, user=user, company=contoso, title="Contoso keeps its pricing power"
+        )
+        # A premise with a threshold, and the finding a pass would leave on it: the monitor's
+        # detail page is parameterised on a finding, and a contradicted one renders the gate,
+        # which is the branch with the most in it. Written as rows rather than driven through
+        # a pass, because this file is about rendering and a pass needs a model.
+        premise = await thesis_service.add_premise(
+            session,
+            thesis=thesis,
+            actor=user,
+            statement="Revenue keeps growing above 25% a year.",
+            basis="The segment disclosure.",
+            predicate=Predicate(
+                metric="revenue growth",
+                comparator=PremiseComparator.AT_LEAST,
+                threshold=Decimal(25),
+                unit="percent",
+            ),
+            review_by=None,
+        )
+        finding = Finding(
+            thesis_id=thesis.id,
+            judgement_id=premise.judgement_id,
+            kind=FindingKind.READING,
+            status=PremiseStatus.CONTRADICTED,
+            justification="Revenue grew 12% in the year to 31 December 2025, below the 25% floor.",
+            source_document_ids=[],
+            observed={
+                "metric": "revenue growth",
+                "value": "0.12",
+                "unit": "ratio",
+                "period_end": "2025-12-31",
+                "threshold": "0.25",
+                "threshold_unit": "ratio",
+                "comparator": "at least",
+                "holds": False,
+            },
+            opens_gate=True,
+        )
+        session.add(finding)
+        # A decision on the thesis, so the journal's detail page has a row to render.
+        decision = await decision_service.record_decision(
+            session,
+            actor=user,
+            thesis=thesis,
+            action=DecisionAction.BUY,
+            statement="Open an initial position.",
+            basis="The FY25 report.",
+            size_statement="about 2% of the book",
+            horizon_months=24,
+        )
+        # A closed position, the reviewer's pass over it and the review confirmed from it:
+        # the review pages are parameterised on a pass and on a review, and a pass needs a
+        # model, so the fake answers with the draft a reviewer would have written.
+        security = Security(
+            company_id=contoso.id,
+            ticker="CTSO",
+            exchange="LSE",
+            provider_symbol="CTSO.LSE",
+            name="Contoso plc",
+            quote_currency="GBX",
+        )
+        session.add(security)
+        await session.flush()
+        holdings = {"portfolio": book, "document": None}
+        await trade(
+            session,
+            holdings,
+            kind=TransactionKind.BUY,
+            security=security,
+            quantity="100",
+            price="250",
+            currency="GBX",
+            on=date(2026, 3, 2),
+        )
+        await trade(
+            session,
+            holdings,
+            kind=TransactionKind.SELL,
+            security=security,
+            quantity="-100",
+            price="300",
+            currency="GBX",
+            on=date(2026, 6, 15),
+            at_hour=16,
+        )
+        settings = Settings(
+            http_user_agent="Test test@example.invalid", artefact_root=tmp_path / "artefacts"
+        )
+        [episode] = await post_trade.closed_episodes(session, portfolio=book)
+        pass_job = await post_trade.run_review(
+            session,
+            settings=settings,
+            provider=FakeProvider(
+                {
+                    "ReviewDraft": ReviewDraft(
+                        verdicts=[],
+                        process_quality=ProcessQuality.SOUND,
+                        basis="Written first and followed.",
+                    )
+                },
+                inspect_schema=refuse_unanswerable_schema,
+            ),
+            router=Router(settings),
+            store=LocalArtefactStore(settings.artefact_root, max_bytes=settings.max_artefact_bytes),
+            user=user,
+            episode=episode,
+        )
+        proposal = await post_trade.proposal_of(session, pass_job.id, user_id=user.id)
+        assert proposal is not None
+        review = await post_trade.confirm_review(
+            session,
+            user=user,
+            proposal=proposal,
+            process_quality=ProcessQuality.SOUND,
+            basis="Written first and followed.",
+            lessons="",
+            verdicts={},
+        )
         await session.commit()
-        yield {"user": user, "request": request, "book": book}
+        yield {
+            "user": user,
+            "request": request,
+            "book": book,
+            "thesis": thesis,
+            "finding": finding,
+            "decision": decision,
+            "pass": pass_job,
+            "review": review,
+        }
     await _truncate(db_engine)
 
 
@@ -165,6 +327,11 @@ async def finished_run(
         "calculation_id": calculation.id if calculation else uuid.uuid4(),
         "company_id": company.id if company else uuid.uuid4(),
         "portfolio_id": committed["book"].id,
+        "thesis_id": committed["thesis"].id,
+        "finding_id": committed["finding"].id,
+        "decision_id": committed["decision"].judgement_id,
+        "pass_id": committed["pass"].id,
+        "review_id": committed["review"].judgement_id,
     }
 
 

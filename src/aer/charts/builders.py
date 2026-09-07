@@ -14,7 +14,7 @@ can act on remain the recorded ``Decimal`` rows the citations point at.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
@@ -228,14 +228,21 @@ def sensitivity_heatmap(data: HeatmapInput, *, hashsalt: str) -> Chart:
             for column_index, x in enumerate(x_values):
                 cell = by_point.get((x, y))
                 if cell is not None:
+                    # The label is a reading of the cell, never the record: the record is
+                    # the calculation the cell cites, at full precision. A stored value
+                    # printed to twelve places overran its neighbours and was unreadable
+                    # on the first live run; the label is compact, and its ink is chosen
+                    # against the shade it sits on rather than fixed to a colour that
+                    # vanishes on the darker half of the scale.
+                    shade = mesh.cmap(_position(float(cell.value), *mesh.get_clim()))
                     axis.text(
                         column_index,
                         row_index,
-                        _trim(cell.value),
+                        _compact(cell.value),
                         ha="center",
                         va="center",
-                        fontsize=7,
-                        color=INK,
+                        fontsize=8,
+                        color=_ink_on(shade),
                     )
         figure.colorbar(mesh, ax=axis, shrink=0.85)
         axis.set_title(data.label or title)
@@ -495,3 +502,39 @@ def _money_scale(largest: Decimal) -> tuple[Decimal, str]:
 def _trim(value: Decimal) -> str:
     text = f"{value:f}"
     return text.rstrip("0").rstrip(".") if "." in text else text
+
+
+def _compact(value: Decimal) -> str:
+    """A figure at the precision a glance can take in, scaled to its magnitude.
+
+    Hundreds and above to the unit, tens to a tenth, units to a hundredth, and anything
+    smaller to a thousandth — a value per share reads ``412``, a ratio ``0.073``. Decimal
+    throughout: the label is derived from the stored figure, never from a float of it.
+    """
+    magnitude = abs(value)
+    places = next(
+        (places for floor, places in _LABEL_PLACES if magnitude >= floor), _SMALLEST_LABEL_PLACES
+    )
+    return f"{value:,.{places}f}"
+
+
+# Decimal places by the magnitude a label's value reaches, largest floor first.
+_LABEL_PLACES: Final = ((Decimal(100), 0), (Decimal(10), 1), (Decimal(1), 2))
+_SMALLEST_LABEL_PLACES: Final = 3
+
+# Relative luminance below which a cell is dark enough to need white ink. Mid-scale rather
+# than at the halfway point of the colormap: the "Blues" ramp darkens late, and dark ink on
+# its upper third was what made the first live run's grid unreadable.
+_DARK_SHADE: Final = 0.55
+
+
+def _position(value: float, low: float, high: float) -> float:
+    """Where a value sits on the colour scale, as the fraction the colormap is indexed by."""
+    return 0.5 if high == low else (value - low) / (high - low)
+
+
+def _ink_on(shade: tuple[float, float, float, float]) -> str:
+    """Ink that stays legible on a colormap cell: dark on the light half, white on the dark."""
+    red, green, blue, _alpha = shade
+    luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+    return "white" if luminance < _DARK_SHADE else INK

@@ -30,15 +30,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from aer.core.enums import SkillKind
 from aer.core.schemas.skill import EvidencePolicyRequest
 from aer.core.sectors import suggested_profiles
 from aer.core.skill_applicability import market_of, skill_applies
+from aer.core.skill_guidance import PLANNER, SECTION_WRITER, OperatorGuidance, roles_for
 from aer.core.skill_policy import ComposedSectionPolicy, compose_policy
 from aer.db.models import (
     Company,
     Job,
     PlanSkillPin,
-    ResearchPlan,
     ResearchRequest,
     Skill,
     SkillVersion,
@@ -58,6 +59,8 @@ __all__ = [
     "contract_schema",
     "custom_definitions_for_pins",
     "estimate_custom_section_cost",
+    "estimate_guidance_cost",
+    "guidance_from_pins",
     "pinned_skills_for_job",
     "pinned_skills_for_work_order",
     "project_custom_section",
@@ -78,6 +81,32 @@ PLANNED_CUSTOM_SECTION_TOOLS: Final[frozenset[str]] = frozenset(
 # §1.8's cost table: a custom section is budgeted at up to 12k in and ~3k out. The output
 # side of the estimate, since the input side is the composed token budget.
 CUSTOM_SECTION_OUTPUT_TOKENS: Final = 3_000
+
+
+# Four characters to the token: the rough coin every estimate here is paid in.
+_CHARACTERS_PER_TOKEN: Final = 4
+
+
+def estimate_guidance_cost(
+    *,
+    body: str,
+    planner_model: str | None,
+    writer_model: str | None,
+    writer_calls: int,
+    usd_to_gbp: Decimal,
+) -> Decimal:
+    """What one prompt-kind skill adds to a run's bill: its text, as input, on every call
+    that reads it (ADR 0108). Output tokens are the section's own and counted there."""
+    tokens = Decimal(max(1, len(body) // _CHARACTERS_PER_TOKEN))
+    million = Decimal(1_000_000)
+    usd = Decimal(0)
+    if planner_model is not None:
+        prices = DEFAULT_PRICES.get(planner_model) or unknown_model_prices(planner_model)
+        usd += prices.input_usd * tokens / million
+    if writer_model is not None and writer_calls > 0:
+        prices = DEFAULT_PRICES.get(writer_model) or unknown_model_prices(writer_model)
+        usd += prices.input_usd * tokens * Decimal(writer_calls) / million
+    return (usd * usd_to_gbp).quantize(Decimal("0.0001"))
 
 
 def estimate_custom_section_cost(*, model: str, token_budget: int, usd_to_gbp: Decimal) -> Decimal:
@@ -116,14 +145,20 @@ async def resolve_skills_for_plan(
     session: AsyncSession,
     *,
     request: ResearchRequest,
-    plan: ResearchPlan,
+    work_order_id: Any,
     settings: Settings,
     router: Router,
+    writer_calls: int = 0,
 ) -> ResolvedSkills:
-    """Pin every enabled skill to this plan — as planned, or as skipped with its reason."""
+    """Pin every enabled skill to this run — as planned, or as skipped with its reason.
+
+    Keyed on the work order rather than the plan row (ADR 0108 §3): the plan step pins
+    *before* it plans, so the planner composes its guidance from the same rows gate 1
+    displays and the writer reads, and a plan row does not yet exist when this runs.
+    """
     skills = list(await session.scalars(select(Skill).where(Skill.enabled).order_by(Skill.key)))
 
-    existing = await pinned_skills_for_work_order(session, work_order_id=plan.request_id)
+    existing = await pinned_skills_for_work_order(session, work_order_id=work_order_id)
     if existing and await _pins_are_current(session, existing, skills=skills):
         # A retried plan step that already flushed its pins, and nothing has moved under it.
         # Re-deciding here could disagree with what a gate page has already displayed.
@@ -172,7 +207,7 @@ async def resolve_skills_for_plan(
         if not decision.applicable:
             pins.append(
                 PlanSkillPin(
-                    work_order_id=plan.request_id,
+                    work_order_id=work_order_id,
                     skill_id=skill.id,
                     skill_version_id=version.id,
                     status=SKIPPED_NOT_APPLICABLE,
@@ -183,7 +218,7 @@ async def resolve_skills_for_plan(
             continue
 
         pin = PlanSkillPin(
-            work_order_id=plan.request_id,
+            work_order_id=work_order_id,
             skill_id=skill.id,
             skill_version_id=version.id,
             status=PLANNED,
@@ -217,6 +252,20 @@ async def resolve_skills_for_plan(
                     session, skill=skill, version=version, composed=composed
                 )
             )
+        else:
+            # A prompt kind produces no section, but its text is read: by the planner
+            # once, by the writer on every model-written section (ADR 0108). A cost the
+            # gate does not show is a cost nobody agreed to.
+            roles = roles_for(SkillKind(skill.kind))
+            pin.estimated_cost_gbp = estimate_guidance_cost(
+                body=version.body,
+                planner_model=router.resolve(PLANNER).model if PLANNER in roles else None,
+                writer_model=router.resolve(SECTION_WRITER).model
+                if SECTION_WRITER in roles
+                else None,
+                writer_calls=writer_calls,
+                usd_to_gbp=settings.usd_to_gbp,
+            )
         pins.append(pin)
 
     session.add_all(pins)
@@ -225,7 +274,7 @@ async def resolve_skills_for_plan(
     by_id = {skill.id: skill.key for skill in skills}
     _log.info(
         "skills.resolved",
-        plan_id=str(plan.id),
+        work_order_id=str(work_order_id),
         planned=[by_id[p.skill_id] for p in pins if p.status == PLANNED],
         skipped={by_id[p.skill_id]: p.reason for p in pins if p.status == SKIPPED_NOT_APPLICABLE},
     )
@@ -464,6 +513,26 @@ async def custom_definitions_for_pins(
         if found is not None:
             definitions.append(found)
     return definitions
+
+
+def guidance_from_pins(pins: Sequence[PlanSkillPin]) -> list[OperatorGuidance]:
+    """The planned prompt-kind pins, reduced to what a prompt quotes (ADR 0108).
+
+    Every kind, unfiltered: each role keeps only what the role table grants it, at the
+    point of composition. A pin's version is immutable, so the body read here is the body
+    gate 1 approved, however long ago that was.
+    """
+    return [
+        OperatorGuidance(
+            kind=SkillKind(pin.skill.kind),
+            key=pin.skill.key,
+            title=pin.skill_version.title,
+            version=pin.skill_version.version,
+            body=pin.skill_version.body,
+        )
+        for pin in pins
+        if pin.status == PLANNED and pin.skill.kind != SkillKind.CUSTOM_SECTION.value
+    ]
 
 
 async def pinned_skills_for_job(session: AsyncSession, *, job: Job) -> list[PlanSkillPin]:

@@ -33,8 +33,15 @@ from aer.agents.custom_section import (
 from aer.agents.registry import resolve_role
 from aer.agents.section_writer import SectionDraft, SectionWriterAgent, SectionWriterInput
 from aer.config import Settings
-from aer.core.enums import AnalysisMode, FactBasis, JobStatus, Provider, SourceTier
-from aer.core.section_output import LENGTH_EDIT_NOTE, prose_word_count
+from aer.core.enums import AnalysisMode, FactBasis, JobStatus, Provider, SkillKind, SourceTier
+from aer.core.section_output import (
+    GAP_EDIT_NOTE,
+    INSUFFICIENT_EVIDENCE_CEILING,
+    LENGTH_EDIT_NOTE,
+    UNSOURCED_MATERIAL_CEILING,
+    prose_word_count,
+)
+from aer.core.skill_guidance import OperatorGuidance
 from aer.db.models import (
     AgentRun,
     Artefact,
@@ -45,7 +52,6 @@ from aer.db.models import (
     FinancialFact,
     Job,
     JobStep,
-    ResearchRequest,
     SectionDefinition,
     SectionStatus,
     SourceDocument,
@@ -69,6 +75,7 @@ from aer.services.extractions import record_excerpt
 from aer.storage.local import LocalArtefactStore
 from aer.verify.citations import verify_job_citations
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
 pytestmark = pytest.mark.anyio
@@ -88,11 +95,16 @@ SECTION_KEY = "cash_flow_analysis"
 @pytest.fixture
 async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     """A run holding one filed excerpt, one fact, one calculation and the seeded spine."""
+    return await build_writer_scene(db_session, tmp_path)
+
+
+async def build_writer_scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
+    """The writer's scene, as a plain builder so another suite can stage the same run."""
     user = User(email="writer-exec@example.invalid", display_name="Writer")
     db_session.add(user)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -109,7 +121,6 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
 
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version=WORKFLOW_VERSION,
         code_version="test",
         status=JobStatus.RUNNING,
@@ -148,7 +159,6 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
 
     document = SourceDocument(
         work_order_id=request.id,
-        request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,
         url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",
@@ -289,6 +299,22 @@ def _good_draft(scene: dict[str, Any]) -> SectionDraft:
     )
 
 
+def _reader_facing(value: Any) -> Any:
+    """The same structure with every identifier field dropped.
+
+    The numeral rule is about what a reader sees. Identifiers are UUIDs, and a UUID
+    carries any given three-digit run of hex often enough that asserting a removed
+    numeral is absent from the whole serialised content fails on the identifiers rather
+    than on the prose — a flake with no bug behind it (seen in CI on
+    ``be3409c7-…`` for the token "340").
+    """
+    if isinstance(value, dict):
+        return {key: _reader_facing(item) for key, item in value.items() if not key.endswith("_id")}
+    if isinstance(value, list):
+        return [_reader_facing(item) for item in value]
+    return value
+
+
 def _undeclared_field_draft() -> ScriptedResponse:
     """A reply carrying a field the section's contract does not declare.
 
@@ -308,12 +334,19 @@ def _undeclared_field_draft() -> ScriptedResponse:
     )
 
 
-async def _run(scene: dict[str, Any], provider: FakeProvider, *, focus: str = "") -> Any:
+async def _run(
+    scene: dict[str, Any],
+    provider: FakeProvider,
+    *,
+    focus: str = "",
+    guidance: tuple[OperatorGuidance, ...] = (),
+) -> Any:
     return await execute_builtin_section(
         _context(scene, provider),
         section=scene["section"],
         request=scene["request"],
         focus=focus,
+        guidance=guidance,
     )
 
 
@@ -363,6 +396,32 @@ class TestAValidDraft:
         composed = call["system"] + "".join(m["content"] for m in call["messages"])
         assert "Concentrate on the cash conversion cycle." in composed
         assert "<user_skill>" not in composed
+
+    async def test_pinned_guidance_is_the_last_block_of_the_user_turn_and_never_the_system(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """ADR 0108 §2. The system prompt — the versioned, hashed row — is what it was
+        without the guidance; the operator's text closes the user turn under the delimiter."""
+        provider = _scripted([_good_draft(scene)])
+        guidance = (
+            OperatorGuidance(
+                kind=SkillKind.METHODOLOGY,
+                key="owner_operator",
+                title="Weight owner-operator alignment",
+                version=3,
+                body="I weight owner-operator alignment heavily.",
+            ),
+        )
+        await _run(scene, provider, focus="Concentrate on cash.", guidance=guidance)
+
+        [call] = provider.calls
+        assert "<user_skill>" not in call["system"]
+        user_turn = "".join(m["content"] for m in call["messages"])
+        assert "Methodology: Weight owner-operator alignment (owner_operator v3)" in user_turn
+        # After everything the platform says, and before the quoted documents, which are
+        # data and trail the whole composition as they always have (ADR 0037).
+        assert user_turn.index("Concentrate on cash.") < user_turn.index("<user_skill>\n")
+        assert user_turn.index("</user_skill>") < user_turn.index("<untrusted_source")
 
 
 class TestTheFailureLadder:
@@ -445,10 +504,142 @@ class TestTheFailureLadder:
             scene["section"].content["commentary"]
             == "Operating cash generation covered the capital programme."
         )
-        assert "340" not in str(scene["section"].content)
+        assert "340" not in str(_reader_facing(scene["section"].content))
         reason = str(scene["section"].low_confidence_reason)
         assert "removed" in reason
-        assert scene["section"].confidence is not None
+        # ADR 0099: the platform removed material the model could not support, which is a
+        # fact about this drafting — so a ceiling, but not the evidence shortfall's. The
+        # section's evidence was never in question.
+        assert scene["section"].confidence == UNSOURCED_MATERIAL_CEILING
+        assert UNSOURCED_MATERIAL_CEILING > INSUFFICIENT_EVIDENCE_CEILING
+
+
+class TestASectionWithAMalformedClaim:
+    """ADR 0096, from the MSFT run's record (roadmap §2.1).
+
+    Four of the eight sections that failed died on a claim marked numeric that named no
+    figure. It raised in the response schema, so the reply never became an object, so
+    nothing could be narrowed and the section was stored with no content at all — a dozen
+    sound claims and a finished draft lost to one malformed sibling.
+    """
+
+    async def test_the_bad_claim_goes_and_the_section_stands(self, scene: dict[str, Any]) -> None:
+        draft = _good_draft(scene)
+        # Marked numeric, naming nothing: the shape the decoder is free to produce, since
+        # the rule is a relation between fields and JSON Schema cannot state it.
+        draft.claims.append(
+            ProposedClaim(statement="The cloud market is growing quickly.", kind="numeric")
+        )
+
+        outcome = await _run(scene, _scripted([draft, draft]))
+
+        assert outcome.status is SectionStatus.GENERATED
+        assert "set aside" in str(scene["section"].low_confidence_reason)
+        assert scene["section"].content["commentary"]
+
+    async def test_what_rested_on_it_goes_with_it(self, scene: dict[str, Any]) -> None:
+        """The order the salvage applies its repairs in, end to end: a dropped claim
+        stops covering its numeral, so the sentence resting on it fails the numeral rule
+        and the repair that already exists removes it."""
+        draft = _good_draft(scene)
+        draft.content["commentary"] = (
+            "Operating cash generation covered the capital programme. "
+            "The market grew 340 basis points."
+        )
+        draft.claims.append(
+            ProposedClaim(statement="The market grew 340 basis points.", kind="numeric")
+        )
+
+        outcome = await _run(scene, _scripted([draft, draft]))
+
+        assert outcome.status is SectionStatus.GENERATED
+        assert "340" not in str(_reader_facing(scene["section"].content))
+        reason = str(scene["section"].low_confidence_reason)
+        assert "set aside" in reason
+        assert "removed" in reason
+
+    async def test_nothing_malformed_is_ever_recorded(self, scene: dict[str, Any]) -> None:
+        """The rule is not weakened: the claims table's own constraint is the last word,
+        and a claim that would break it never reaches the insert."""
+        draft = _good_draft(scene)
+        draft.claims.append(
+            ProposedClaim(statement="The cloud market is growing quickly.", kind="numeric")
+        )
+
+        await _run(scene, _scripted([draft, draft]))
+
+        recorded = await scene["session"].scalars(
+            select(Claim).where(Claim.report_section_id == scene["section"].id)
+        )
+        statements = [row.text for row in recorded]
+        assert "The cloud market is growing quickly." not in statements
+        assert statements
+
+
+class TestASectionRefusedOnlyForItsGapRemarks:
+    """ADR 0100, from the MSFT run's record (roadmap §2.1).
+
+    Two of the eight sections that failed tripped the gap budget, and it had no salvage:
+    a draft that said "not disclosed" twice was refused whole, twice, and the section was
+    stored with no content — losing everything it *did* say about the company.
+    """
+
+    @staticmethod
+    def _repetitive(scene: dict[str, Any]) -> SectionDraft:
+        draft = _good_draft(scene)
+        draft.content["commentary"] = (
+            "Operating cash generation covered the capital programme. "
+            "The compensation policy is not disclosed. "
+            "Working capital absorbed less cash. "
+            "Insider ownership levels are not available."
+        )
+        return draft
+
+    async def test_the_section_is_published_rather_than_discarded(
+        self, scene: dict[str, Any]
+    ) -> None:
+        draft = self._repetitive(scene)
+
+        outcome = await _run(scene, _scripted([draft, draft]))
+
+        assert outcome.status is SectionStatus.GENERATED
+        assert scene["section"].content["commentary"]
+
+    async def test_it_keeps_the_first_remark_and_what_the_section_said(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The rule's own instruction, carried out: state the gap in one clause and spend
+        the rest of the section on what the evidence does support."""
+        draft = self._repetitive(scene)
+
+        await _run(scene, _scripted([draft, draft]))
+
+        commentary = scene["section"].content["commentary"]
+        assert "The compensation policy is not disclosed." in commentary
+        assert "Insider ownership levels are not available." not in commentary
+        assert "Operating cash generation covered the capital programme." in commentary
+        assert "Working capital absorbed less cash." in commentary
+
+    async def test_the_edit_is_on_the_record_in_the_readers_own_register(
+        self, scene: dict[str, Any]
+    ) -> None:
+        draft = self._repetitive(scene)
+
+        await _run(scene, _scripted([draft, draft]))
+
+        reason = str(scene["section"].low_confidence_reason)
+        assert GAP_EDIT_NOTE in reason
+        assert "Insufficient evidence" not in reason
+        assert "ADR" not in reason
+
+    async def test_the_reduction_does_not_move_the_confidence(self, scene: dict[str, Any]) -> None:
+        """ADR 0099's line applied to this edit: the removed sentences were true and the
+        remaining prose passed everything. What went was repetition, not reliability."""
+        draft = self._repetitive(scene)
+
+        await _run(scene, _scripted([draft, draft]))
+
+        assert scene["section"].confidence == 0.5
 
 
 class TestASectionRefusedOnlyForLength:
@@ -514,7 +705,7 @@ class TestASectionRefusedOnlyForLength:
         assert commentary.startswith("Operating cash generation covered the capital programme.")
         assert "recurring revenue" not in commentary
 
-    async def test_the_cut_is_on_the_record_and_the_section_reads_as_degraded(
+    async def test_the_cut_is_on_the_record_in_the_readers_own_register(
         self, budgeted: dict[str, Any]
     ) -> None:
         """The platform edited a person's report; that is not something to do quietly —
@@ -529,8 +720,22 @@ class TestASectionRefusedOnlyForLength:
         assert "Insufficient evidence" not in reason
         assert "word budget" not in reason
         assert "ADR" not in reason
-        assert budgeted["section"].confidence is not None
-        assert budgeted["section"].confidence <= 0.3, "an edited section reads as degraded"
+
+    async def test_the_cut_does_not_move_the_confidence(self, budgeted: dict[str, Any]) -> None:
+        """ADR 0099. Every sentence that survived the trim passed exactly the validation
+        the whole draft passed, so there is nothing here to trust less — and capping for
+        it made a shortened section read like one whose evidence fell short. Four of the
+        five sections a live run capped at 0.30 were capped for nothing worse than this.
+
+        0.5 is the platform's prior for a draft that declares no confidence of its own,
+        which this one does not: the trimmed section lands exactly where an untouched one
+        would.
+        """
+        draft = self._long_draft(budgeted)
+
+        await _run(budgeted, _scripted([draft, draft]))
+
+        assert budgeted["section"].confidence == 0.5
 
     async def test_a_draft_that_cannot_fit_by_trimming_still_fails(
         self, budgeted: dict[str, Any]
@@ -729,7 +934,7 @@ class TestTheDegradationLadder:
         assert "distinct source(s)" in reason
         assert "primary source" in reason
         assert scene["section"].confidence is not None
-        assert scene["section"].confidence <= 0.3
+        assert scene["section"].confidence <= INSUFFICIENT_EVIDENCE_CEILING
 
     async def test_the_policy_comes_from_the_definition_row(self, scene: dict[str, Any]) -> None:
         policy = policy_of_definition(scene["section"].definition)
@@ -1211,8 +1416,13 @@ def _user_text(call: dict[str, Any]) -> str:
 class TestTheBudgetIsStatedWithItsConsequence:
     """Gap A50. The live run bought 14,475 output tokens against a 711-word budget —
     the prompt asked for a target without saying what happens past it, so the budget
-    was enforced only after it had been paid for. The user message now states the
-    ceiling and the consequence, from the same numbers the validator reads.
+    was enforced only after it had been paid for. The user message states the budget as
+    the limit, with the consequence.
+
+    The validator's quarter of headroom over the budget is deliberately *not* stated.
+    The confirmation run's writer, told it, wrote to it and past it: eleven of the run's
+    thirty-seven replies overran the stated ceiling by five to fifty per cent, each paid
+    for and refused. The headroom is for the writer's miscounting, not for it to aim at.
     """
 
     @staticmethod
@@ -1226,14 +1436,13 @@ class TestTheBudgetIsStatedWithItsConsequence:
             point_in_time=True,
             output_contract={},
             word_budget=word_budget,
-            word_ceiling=word_ceiling(word_budget) if word_budget else 0,
         )
 
-    def test_the_user_message_states_the_budget_the_ceiling_and_the_cost(self) -> None:
+    def test_the_user_message_states_the_budget_as_the_limit_and_the_cost(self) -> None:
         message = SectionWriterAgent().user_message(self._payload(711))
 
-        assert "about 711 words" in message
-        assert str(word_ceiling(711)) in message
+        assert "at most 711 words" in message
+        assert str(word_ceiling(711)) not in message
         assert "paid for" in message
         assert "never published" in message
 
@@ -1259,8 +1468,8 @@ class TestTheBudgetIsStatedWithItsConsequence:
         await _run(scene, provider)
 
         [call] = provider.calls
-        assert f"about {budget} words" in _user_text(call)
-        assert str(word_ceiling(budget)) in _user_text(call)
+        assert f"at most {budget} words" in _user_text(call)
+        assert str(word_ceiling(budget)) not in _user_text(call)
 
 
 class TestTruncationCutsTheAsk:
@@ -1283,8 +1492,8 @@ class TestTruncationCutsTheAsk:
 
         assert outcome.status is SectionStatus.GENERATED
         first, second = provider.calls
-        assert f"about {budget} words" in _user_text(first)
-        assert f"about {budget // 2} words" in _user_text(second)
+        assert f"at most {budget} words" in _user_text(first)
+        assert f"at most {budget // 2} words" in _user_text(second)
         assert f"is {budget // 2} words" in _user_text(second)  # the cut, stated as a problem
 
     async def test_an_ordinary_refusal_keeps_the_budget(self, scene: dict[str, Any]) -> None:
@@ -1299,8 +1508,8 @@ class TestTruncationCutsTheAsk:
         await _run(scene, provider)
 
         first, second = provider.calls
-        assert f"about {budget} words" in _user_text(first)
-        assert f"about {budget} words" in _user_text(second)
+        assert f"at most {budget} words" in _user_text(first)
+        assert f"at most {budget} words" in _user_text(second)
 
     async def test_the_cached_policy_block_does_not_move_with_the_cut(
         self, scene: dict[str, Any]

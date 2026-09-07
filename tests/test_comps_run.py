@@ -37,6 +37,7 @@ from aer.services.calculations import new_context
 from aer.services.comps_run import CompsOutcome, build_comps_table, grouped_exclusions
 from aer.services.price_acquisition import acquire_prices
 from aer.storage.local import LocalArtefactStore
+from tests.request_fixtures import research_request
 from tests.test_price_acquisition import StubPriceClient
 from tests.workflow_fixtures import seed_job
 
@@ -79,7 +80,7 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     db_session.add(user)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Contoso Corporation",
         ticker="CTSO",
@@ -138,7 +139,6 @@ async def _file_figures(
     document = SourceDocument(
         artefact_id=artefact.id,
         work_order_id=request.id,
-        request_id=request.id,
         provider=Provider.SEC_EDGAR,
         source_tier=SourceTier.T1_REGULATORY,
         url=f"https://sec.gov/{company.ticker}",
@@ -231,7 +231,10 @@ async def _build(scene: dict[str, Any], *, client: Any, context: Any = None) -> 
         capitalisation = acquired.market_capitalisation
 
     analysis = await analyse_company(
-        session, new_context(), company_id=scene["subject"].id, request=scene["request"]
+        session,
+        new_context(),
+        company_id=scene["subject"].id,
+        work_order=scene["request"].work_order,
     )
     outcome = await build_comps_table(
         session,

@@ -344,6 +344,96 @@ _DEFINITIONS: Final[tuple[RoleDefinition, ...]] = (
         max_output_tokens=16_384,
         adr="0039",
     ),
+    RoleDefinition(
+        role="verdict",
+        purpose=(
+            "Interpret a frozen record for a reader about to decide: one or two sentences "
+            "and a tone from a closed vocabulary, over the shape of the finished draft — "
+            "never a figure, never a fact, never a recommendation, and never evidence."
+        ),
+        output_schema_ref="aer.agents.verdict:AuthoredVerdict",
+        # No tools. It is handed what it interprets, as the section writer is (ADR 0042),
+        # and what it is handed is a digest of outcomes rather than the draft itself.
+        allowed_tools=frozenset(),
+        # A sentence and a tone key. The smallest output cap in the registry, because this
+        # is deliberately the cheapest call in the run (ADR 0087's accepted cost).
+        max_output_tokens=4_096,
+        adr="0087",
+    ),
+    RoleDefinition(
+        role="challenge_brief",
+        purpose=(
+            "Read an unsettled red-team challenge as the choice it puts to the operator: "
+            "what each side assumes, what the report becomes either way, and which side it "
+            "leans to and why. Advisory — it settles nothing, states no figure, asserts no "
+            "fact, is never evidence, and reaches no rendered report."
+        ),
+        output_schema_ref="aer.agents.challenge_brief:ChallengeBriefs",
+        # No tools, and not even the evidence. It is handed two arguments and compares
+        # them; a briefer that could read the facts behind them would be a second
+        # validator whose output starts to look like a finding (ADR 0095).
+        allowed_tools=frozenset(),
+        # Six short fields per challenge, up to eight challenges. Larger than the
+        # verdict's, which is one sentence, and far short of a writer's.
+        max_output_tokens=8_192,
+        adr="0095",
+    ),
+    RoleDefinition(
+        role="thesis_monitor",
+        purpose=(
+            "Read one premise of a thesis against the facts filed after it was written and "
+            "return a status from a closed enum with a justification naming source "
+            "documents. Code has already measured the crossing; the model interprets "
+            "within its bounds. Raises a question and answers none: no rating, no action, "
+            "no target, no conviction, and never a price."
+        ),
+        output_schema_ref="aer.agents.thesis_monitor:PremiseReading",
+        # No tools — the whole of ADR 0079's "why no tools". Code enumerates the window, so
+        # what the monitor sees never depends on it thinking to ask; a monitor that could
+        # search would be gathering evidence aimed at a prior conclusion it has already
+        # read, which is the confirmation-shaped failure the design exists to refuse.
+        allowed_tools=frozenset(),
+        # A status, a paragraph and a handful of ids. Small on purpose: this is the call
+        # that runs unattended, per premise, per filing, against the monthly cap.
+        max_output_tokens=4_096,
+        adr="0103",
+    ),
+    RoleDefinition(
+        role="post_trade_reviewer",
+        purpose=(
+            "Read a closed position's full record — the decisions as written, the premises, "
+            "what the monitor found, and the outcome code computed — and propose a verdict "
+            "per premise, a process quality free to disagree with the outcome, and lessons. "
+            "A proposal the operator confirms as their own judgement; never a figure, never "
+            "a recommendation, never a methodology change."
+        ),
+        output_schema_ref="aer.agents.post_trade_reviewer:ReviewDraft",
+        # No tools. It is handed the record and the outcome; a reviewer that could fetch
+        # would be grading a decision against evidence the decision never had.
+        allowed_tools=frozenset(),
+        # The judgement class of call — once per closed position, on the judgement model at
+        # high effort — so the floor the other judgement roles carry, for the reason they
+        # carry it: max_tokens bounds thinking and visible output together.
+        max_output_tokens=16_384,
+        adr="0081",
+    ),
+    RoleDefinition(
+        role="risk_analyst",
+        purpose=(
+            "Read a book's risk figures — exposure, concentration, volatility, drawdown, "
+            "the tail, each holding's contribution, every stated scenario — and say what the "
+            "pattern means. Commentary over figures it cannot write: no field for a number, "
+            "a size, a limit, a scenario, a ranking or a score."
+        ),
+        output_schema_ref="aer.agents.risk_analyst:RiskCommentary",
+        # No tools. The book, the figures and their provenance are assembled by code before
+        # the call; a risk role that could fetch would be choosing its own inputs.
+        allowed_tools=frozenset(),
+        # The floor every role carries: max_tokens bounds thinking and visible output
+        # together, and three short commentaries are still a reasoning task first.
+        max_output_tokens=16_384,
+        adr="0080",
+    ),
 )
 
 

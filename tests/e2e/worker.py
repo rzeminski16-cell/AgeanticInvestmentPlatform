@@ -25,13 +25,19 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from aer.config import load_settings
-from aer.core.enums import Decision, JobStatus
+from aer.core.enums import Decision, GateKind, JobStatus
 from aer.db.models import Job, JobStep, User
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
 from aer.storage.local import LocalArtefactStore
 from tests.db_fixtures import run_async
-from tests.workflow_fixtures import StubSecClient, gate_for, make_provider, paused_at
+from tests.workflow_fixtures import (
+    StubSecClient,
+    gate_for,
+    make_provider,
+    paused_at,
+    with_price_feed,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -42,6 +48,14 @@ __all__ = ["Worker"]
 # surface rather than to orbit.
 _MAX_INTERIM_GATES: Final = 4
 
+# The always-gates, in the shape `CONDITIONAL_GATES` uses: the gate and the step whose
+# output carries the hash its approval must echo. `gate_plan` is not in that mapping
+# because the journey tests approve it through the browser; `advance_until` needs to clear
+# it programmatically on the way to a later gate.
+_ALWAYS_GATES: Final[dict[str, tuple[GateKind, str]]] = {
+    "gate_plan": (GateKind.PLAN, "critique_plan"),
+}
+
 
 class Worker:
     """Advances one run, with a fake provider and no network.
@@ -50,9 +64,12 @@ class Worker:
     filing client hold state a second run would inherit.
     """
 
-    def __init__(self, database_url: str) -> None:
+    def __init__(self, database_url: str, *, subscribed: bool = False) -> None:
         self._database_url = database_url
-        self._settings = load_settings()
+        # Subscribed: the peer step asks the model for a slate only when a price feed is
+        # configured (ADR 0059, second amendment); a scenario that expects the model's
+        # peer, and the gate it opens, runs as a subscribed machine would.
+        self._settings = with_price_feed(load_settings()) if subscribed else load_settings()
         self._store = LocalArtefactStore(
             self._settings.artefact_root, max_bytes=self._settings.max_artefact_bytes
         )
@@ -62,6 +79,14 @@ class Worker:
     def advance(self, job_id: uuid.UUID) -> JobStatus:
         """Run from the first incomplete step until it stops."""
         return run_async(self._advance(job_id))  # type: ignore[no-any-return]
+
+    def advance_until(self, job_id: uuid.UUID, gate: GateKind) -> JobStatus:
+        """Run until the named gate is the pending one, approving every gate before it.
+
+        What the gate tests need: a run genuinely stopped at the assumptions or the peer
+        gate, with everything earlier cleared the way an operator would have cleared it.
+        """
+        return run_async(self._advance_until(job_id, gate))
 
     def advance_to_the_final_gate(self, job_id: uuid.UUID) -> JobStatus:
         """Run until the final gate pauses, clearing the interim gates on the way.
@@ -110,6 +135,30 @@ class Worker:
             return outcome.status  # type: ignore[no-any-return]
         raise AssertionError("unreachable")
 
+    async def _advance_until(self, job_id: uuid.UUID, target: GateKind) -> JobStatus:
+        async for session in self._session():
+            for _ in range(_MAX_INTERIM_GATES + 2):
+                job = await session.get(Job, job_id)
+                assert job is not None
+                outcome = await run_service.execute(
+                    session,
+                    job=job,
+                    settings=self._settings,
+                    provider=self._provider,
+                    store=self._store,
+                    sec_client=self._sec_client,
+                )
+                await session.commit()
+                if outcome.status is not JobStatus.AWAITING_APPROVAL:
+                    return outcome.status  # type: ignore[no-any-return]
+                pending = await approval_service.pending_gate(session, job)
+                if pending is target:
+                    return outcome.status  # type: ignore[no-any-return]
+                await self._approve_the_interim_gate(session, job)
+            message = f"the run never stopped at {target}"
+            raise AssertionError(message)
+        raise AssertionError("unreachable")
+
     async def _advance_to_the_final_gate(self, job_id: uuid.UUID) -> JobStatus:
         async for session in self._session():
             for _ in range(_MAX_INTERIM_GATES):
@@ -139,7 +188,7 @@ class Worker:
         """Approve whichever conditional gate this run stopped at, as an operator would."""
         paused = await paused_at(session, job.id)
         assert paused is not None, "the run pauses awaiting approval with no recorded gate step"
-        clearing = gate_for(paused)
+        clearing = gate_for(paused) or _ALWAYS_GATES.get(paused)
         assert clearing is not None, (
             f"the run paused at {paused!r}; a gate this helper does not know how to clear "
             "now fires for this scene. Add it to CONDITIONAL_GATES if an operator would "

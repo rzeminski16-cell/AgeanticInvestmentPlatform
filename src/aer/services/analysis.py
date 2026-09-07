@@ -33,13 +33,14 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aer.calc.cash_uses import CashUseFigure, assess_cash_uses
 from aer.calc.engine import CalculationContext, PeriodStamp
 from aer.calc.quality import QualitySignal, assess_quality
 from aer.calc.ratios import RatioResult, compute_ratios
 from aer.calc.statements import StatementSet, assemble
 from aer.calc.units import CalculationError, Quantity, SourceRef, Unit
 from aer.core.sectors import SectorProfile
-from aer.db.models import FinancialFact, ResearchRequest
+from aer.db.models import FinancialFact, WorkOrder
 
 __all__ = [
     "FORECAST_CONCEPTS",
@@ -94,13 +95,17 @@ FORECAST_CONCEPTS: Final[tuple[str, ...]] = (
 
 @dataclass(frozen=True, slots=True)
 class PeriodAnalysis:
-    """One period: its statements, its ratios, and its quality signals."""
+    """One period: its statements, its ratios, its quality signals, and what it did with
+    its cash."""
 
     period_end: date
     fiscal_year: int | None
     statements: StatementSet
     ratios: tuple[RatioResult, ...]
     quality: tuple[QualitySignal, ...]
+    # The capital-allocation figures (roadmap §2.1): what the Capital Allocation writer
+    # kept computing for itself, struck here instead so it has figures to name.
+    cash_uses: tuple[CashUseFigure, ...] = ()
 
     @property
     def computed_ratios(self) -> tuple[RatioResult, ...]:
@@ -178,6 +183,9 @@ class AnalysisOutcome:
                     "quality_signals": sum(
                         1 for signal in period.quality if signal.quantity is not None
                     ),
+                    "cash_uses": sum(
+                        1 for figure in period.cash_uses if figure.quantity is not None
+                    ),
                     "failed_identities": [
                         check.name for check in period.statements.failed_identities
                     ],
@@ -201,7 +209,7 @@ async def analyse_company(
     context: CalculationContext,
     *,
     company_id: uuid.UUID,
-    request: ResearchRequest,
+    work_order: WorkOrder,
     max_periods: int = MAX_PERIODS,
     profile: SectorProfile | None = None,
 ) -> AnalysisOutcome:
@@ -212,6 +220,10 @@ async def analyse_company(
             a caller can put this and its other calculations in one transaction — a run
             whose statements persisted and whose ratios did not would be a run with a
             traceable half of an answer.
+        work_order: The run root, for its clock and nothing else: the as-of date and
+            whether point-in-time is on decide which facts are admissible. The run root
+            rather than the mandate, because a monitor pass has no mandate and reads a
+            company on the same terms a research run does (ADR 0072, ADR 0103).
         profile: The confirmed sector, where a person has confirmed one (gap A64). It
             decides two things and nothing else here: which forecast concepts are measured
             for coverage, and which ratios are refused as meaningless rather than
@@ -234,8 +246,8 @@ async def analyse_company(
     facts = await annual_facts(
         session,
         company_id=company_id,
-        as_of=request.as_of_date,
-        point_in_time=request.point_in_time,
+        as_of=work_order.as_of_date,
+        point_in_time=work_order.point_in_time,
     )
     if not facts:
         return AnalysisOutcome(
@@ -276,6 +288,7 @@ async def analyse_company(
                     quality=assess_quality(
                         context, statements, prior=previous, prior_period=previous_stamp
                     ),
+                    cash_uses=assess_cash_uses(context, statements, prior=previous),
                 )
             )
         previous = statements

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
 
 {#
   One assumption's history. The proposals nobody took are the point of this page: a reader
@@ -8,59 +9,51 @@
 {% block title %}{{ assumption.name }} &middot; Tracework Invest{% endblock %}
 
 {% block content %}
-  <nav class="text-sm">
-    <a
-      href="/requests/{{ research_request.id }}/assumptions"
-      class="text-sky-700 underline underline-offset-2 dark:text-sky-400"
-    >
-      &larr; Back to the assumptions
-    </a>
-  </nav>
+  {{ ui.page_header(
+    assumption.name,
+    eyebrow="ASSUMPTION",
+    breadcrumbs=[
+      {"href": "/requests", "label": "Requests"},
+      {"href": "/requests/" ~ research_request.id, "label": research_request.company_name},
+      {"href": "/requests/" ~ research_request.id ~ "/assumptions", "label": "Assumptions"},
+    ],
+  ) }}
 
-  <h1 class="mt-4 font-mono text-2xl font-semibold tracking-tight">{{ assumption.name }}</h1>
-
-  <div class="mt-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Current value</p>
-    <p class="mt-1 font-mono text-2xl" id="current-value">
+  {% call ui.sheet("Current value") %}
+    <p class="type-data-xl text-ink" id="current-value">
       {{ assumption.value }} {{ assumption.unit }}
     </p>
-    <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">{{ assumption.justification }}</p>
-    <p class="mt-2 text-xs text-slate-500" id="current-state">
+    <p class="mt-2 max-w-prose type-body text-ink">{{ assumption.justification }}</p>
+    <p class="mt-3" id="current-state">
       {% if assumption.approved %}
-        Confirmed by {{ assumption.approved_by }}.
+        {{ ui.status("success", "Confirmed", detail="by " ~ assumption.approved_by) }}
       {% else %}
-        Not confirmed. A valuation may not use this until somebody agrees to it.
+        {{ ui.status("warning", "Not confirmed", detail="A valuation may not use this until somebody agrees to it.") }}
       {% endif %}
     </p>
-  </div>
+  {% endcall %}
 
-  <section class="mt-8">
-    <h2 class="text-lg font-semibold tracking-tight">Every value put forward</h2>
-    <p class="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-      Oldest first. Nothing here is ever edited: an amendment adds a row, so a figure that was
-      proposed and not taken stays on the record with the reasoning behind it.
-    </p>
-
-    <ol class="mt-4 space-y-4" id="proposals">
+  {% call ui.sheet("Every value put forward", subtitle="Oldest first. Nothing here is ever edited: an amendment adds a row, so a figure that was proposed and not taken stays on the record with the reasoning behind it.") %}
+    <ol class="flex flex-col divide-y divide-line" id="proposals">
       {% for proposal in proposals %}
-        <li class="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <li class="py-4">
           <div class="flex flex-wrap items-baseline justify-between gap-2">
-            <p class="font-mono text-lg">{{ proposal.value }} {{ proposal.unit }}</p>
-            <span class="text-xs text-slate-500">
+            <p class="type-data text-ink">{{ proposal.value }} {{ proposal.unit }}</p>
+            <p class="type-body-sm text-ink-muted">
               #{{ proposal.sequence }} &middot;
               {% if proposal.by_human %}a person{% else %}a model{% endif %} &middot;
-              {{ proposal.proposed_by }}
-            </span>
+              <span class="type-data-sm">{{ proposal.proposed_by }}</span>
+            </p>
           </div>
-          <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">{{ proposal.justification }}</p>
+          <p class="mt-2 max-w-prose type-body text-ink">{{ proposal.justification }}</p>
           {% if proposal.confidence is not none %}
-            <p class="mt-1 text-xs text-slate-500">Confidence {{ proposal.confidence }}.</p>
+            <p class="mt-1 type-body-sm text-ink-muted">Confidence {{ proposal.confidence }}.</p>
           {% endif %}
           {% if not loop.last %}
-            <p class="mt-2 text-xs text-slate-500">Superseded by the next entry.</p>
+            <p class="mt-2 type-body-sm text-ink-muted">Superseded by the next entry.</p>
           {% endif %}
         </li>
       {% endfor %}
     </ol>
-  </section>
+  {% endcall %}
 {% endblock %}

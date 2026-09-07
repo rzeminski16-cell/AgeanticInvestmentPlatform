@@ -1,40 +1,41 @@
 {% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
 
-{# The costs page. Two questions it exists to answer: what has this platform spent, and is
-   the prompt cache actually working. The second is not rhetorical — asking for a cache and
-   getting one are different things, and every way of failing is silent. #}
+{#
+  The costs page. Two questions it exists to answer: what has this platform spent, and is
+  the prompt cache actually working. The second is not rhetorical — asking for a cache and
+  getting one are different things, and every way of failing is silent.
+#}
 
 {% block title %}Costs &middot; Tracework Invest{% endblock %}
 
 {% block content %}
-  <div>
-    <h1 class="text-2xl font-semibold tracking-tight">Costs</h1>
-    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-      Metered at the time of each call, in the currency it was billed and converted once.
-      Nothing here is re-priced, so a change to the price table does not rewrite history.
-    </p>
-  </div>
+  {{ ui.page_header(
+    "Costs",
+    eyebrow="THE PLATFORM",
+    identity="Metered at the time of each call, in the currency it was billed and converted once. Nothing here is re-priced, so a change to the price table does not rewrite history.",
+  ) }}
 
-  <dl class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-    <div class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-      <dt class="text-xs uppercase tracking-wide text-slate-500">Total</dt>
-      <dd class="mt-1 text-2xl font-semibold tabular-nums" id="total-gbp">
+  <dl class="grid grid-cols-2 gap-x-10 gap-y-4 sm:grid-cols-4">
+    <div>
+      <dt class="type-eyebrow text-ink-muted">Total</dt>
+      <dd class="mt-1 type-data-xl text-ink tabular-nums" id="total-gbp">
         &pound;{{ "%.4f"|format(summary.total_gbp) }}
       </dd>
     </div>
-    <div class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-      <dt class="text-xs uppercase tracking-wide text-slate-500">Model calls</dt>
-      <dd class="mt-1 text-2xl font-semibold tabular-nums" id="calls">{{ summary.calls }}</dd>
+    <div>
+      <dt class="type-eyebrow text-ink-muted">Model calls</dt>
+      <dd class="mt-1 type-data-xl text-ink tabular-nums" id="calls">{{ summary.calls }}</dd>
     </div>
-    <div class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-      <dt class="text-xs uppercase tracking-wide text-slate-500">Prompt tokens</dt>
-      <dd class="mt-1 text-2xl font-semibold tabular-nums" id="prompt-tokens">
+    <div>
+      <dt class="type-eyebrow text-ink-muted">Prompt tokens</dt>
+      <dd class="mt-1 type-data-xl text-ink tabular-nums" id="prompt-tokens">
         {{ "{:,}".format(summary.cache.prompt_tokens) }}
       </dd>
     </div>
-    <div class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-      <dt class="text-xs uppercase tracking-wide text-slate-500">Served from cache</dt>
-      <dd class="mt-1 text-2xl font-semibold tabular-nums" id="hit-rate">
+    <div>
+      <dt class="type-eyebrow text-ink-muted">Served from cache</dt>
+      <dd class="mt-1 type-data-xl text-ink tabular-nums" id="hit-rate">
         {% if summary.hit_rate is none %}&mdash;{% else %}{{ "%.1f"|format(summary.hit_rate * 100) }}%{% endif %}
       </dd>
     </div>
@@ -43,81 +44,85 @@
   {% if summary.hit_rate is not none and summary.hit_rate == 0 and summary.calls > 1 %}
     {# Worth saying out loud. A zero rate across several calls is not "caching is off", it is
        "caching was asked for and refused", and the causes are all invisible from here. #}
-    <p
-      class="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
-      id="no-hits"
-    >
-      Nothing has been served from cache across {{ summary.calls }} calls. Either every prompt
-      is shorter than the model's minimum cacheable prefix, or something varies inside a block
-      that is supposed to repeat. See ADR 0048.
-    </p>
-  {% endif %}
-
-  <h2 class="mt-10 text-lg font-semibold">Where the tokens went</h2>
-  {% if not roles %}
-    <p class="mt-2 text-sm text-slate-600 dark:text-slate-400" id="no-roles">
-      No model calls recorded yet.
-    </p>
-  {% else %}
-    <div class="mt-3 overflow-x-auto">
-      <table class="w-full text-sm" id="by-role">
-        <thead class="text-left text-xs uppercase tracking-wide text-slate-500">
-          <tr>
-            <th class="py-2 pr-4">Role</th>
-            <th class="py-2 pr-4">Model</th>
-            <th class="py-2 pr-4 text-right">Calls</th>
-            <th class="py-2 pr-4 text-right">Fresh</th>
-            <th class="py-2 pr-4 text-right">Cache read</th>
-            <th class="py-2 pr-4 text-right">Cache write</th>
-            <th class="py-2 pr-4 text-right">Output</th>
-            <th class="py-2 text-right">Hit rate</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
-          {% for row in roles %}
-            <tr>
-              <td class="py-2 pr-4 font-medium">{{ row.role }}</td>
-              <td class="py-2 pr-4 font-mono text-xs">{{ row.model }}</td>
-              <td class="py-2 pr-4 text-right tabular-nums">{{ row.calls }}</td>
-              <td class="py-2 pr-4 text-right tabular-nums">{{ "{:,}".format(row.cache.fresh_tokens) }}</td>
-              <td class="py-2 pr-4 text-right tabular-nums">{{ "{:,}".format(row.cache.read_tokens) }}</td>
-              <td class="py-2 pr-4 text-right tabular-nums">{{ "{:,}".format(row.cache.written_tokens) }}</td>
-              <td class="py-2 pr-4 text-right tabular-nums">{{ "{:,}".format(row.output_tokens) }}</td>
-              <td class="py-2 text-right tabular-nums">
-                {% if row.cache.hit_rate is none %}&mdash;{% else %}{{ "%.1f"|format(row.cache.hit_rate * 100) }}%{% endif %}
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div id="no-hits">
+      {{ ui.callout(
+        "warning",
+        "Nothing has been served from cache across " ~ summary.calls ~ " calls",
+        "Either every prompt is shorter than the model's minimum cacheable prefix, or something varies inside a block that is supposed to repeat. See ADR 0048.",
+      ) }}
     </div>
   {% endif %}
 
-  {% if summary.by_kind %}
-    <h2 class="mt-10 text-lg font-semibold">By category</h2>
-    <ul class="mt-3 space-y-1 text-sm" id="by-kind">
-      {% for kind, amount in summary.by_kind %}
-        <li class="flex justify-between border-b border-slate-100 py-1 dark:border-slate-800">
-          <span class="font-mono text-xs">{{ kind }}</span>
-          <span class="tabular-nums">&pound;{{ "%.4f"|format(amount) }}</span>
-        </li>
-      {% endfor %}
-    </ul>
-  {% endif %}
+  {% call ui.sheet("Where the tokens went") %}
+    {% if not roles %}
+      <p class="type-body text-ink-muted" id="no-roles">
+        No model calls recorded yet.
+      </p>
+    {% else %}
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[52rem]" id="by-role">
+          <caption class="sr-only">
+            Token spend per agent role: fresh, cache read, cache write, output and hit rate.
+          </caption>
+          <thead class="border-b border-line-strong text-left">
+            <tr>
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Role</th>
+              <th scope="col" class="py-2 pr-4 type-label text-ink-muted">Model</th>
+              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Calls</th>
+              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Fresh</th>
+              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Cache read</th>
+              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Cache write</th>
+              <th scope="col" class="py-2 pr-4 text-right type-label text-ink-muted">Output</th>
+              <th scope="col" class="py-2 text-right type-label text-ink-muted">Hit rate</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-line tabular-nums">
+            {% for row in roles %}
+              <tr>
+                <th scope="row" class="py-2 pr-4 text-left type-body text-ink">{{ row.role }}</th>
+                <td class="py-2 pr-4 type-data-sm text-ink-muted">{{ row.model }}</td>
+                <td class="py-2 pr-4 text-right type-data-sm text-ink">{{ row.calls }}</td>
+                <td class="py-2 pr-4 text-right type-data-sm text-ink">{{ "{:,}".format(row.cache.fresh_tokens) }}</td>
+                <td class="py-2 pr-4 text-right type-data-sm text-ink">{{ "{:,}".format(row.cache.read_tokens) }}</td>
+                <td class="py-2 pr-4 text-right type-data-sm text-ink">{{ "{:,}".format(row.cache.written_tokens) }}</td>
+                <td class="py-2 pr-4 text-right type-data-sm text-ink">{{ "{:,}".format(row.output_tokens) }}</td>
+                <td class="py-2 text-right type-data-sm text-ink">
+                  {% if row.cache.hit_rate is none %}&mdash;{% else %}{{ "%.1f"|format(row.cache.hit_rate * 100) }}%{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
 
-  <h2 class="mt-10 text-lg font-semibold">Recent runs</h2>
-  {% if not runs %}
-    <p class="mt-2 text-sm text-slate-600 dark:text-slate-400" id="no-runs">No runs yet.</p>
-  {% else %}
-    <ul class="mt-3 space-y-1 text-sm" id="recent-runs">
-      {% for job, amount in runs %}
-        <li class="flex justify-between border-b border-slate-100 py-1 dark:border-slate-800">
-          <a href="/runs/{{ job.id }}" class="font-mono text-xs text-sky-700 dark:text-sky-400">
-            {{ job.id }}
-          </a>
-          <span class="tabular-nums">&pound;{{ "%.4f"|format(amount) }}</span>
-        </li>
-      {% endfor %}
-    </ul>
-  {% endif %}
+    {% if summary.by_kind %}
+      <h3 class="mt-6 type-subheading text-ink">By category</h3>
+      <ul class="mt-2 flex flex-col divide-y divide-line" id="by-kind">
+        {% for kind, amount in summary.by_kind %}
+          <li class="flex justify-between py-1.5">
+            <span class="type-data-sm text-ink">{{ kind }}</span>
+            <span class="type-data-sm text-ink tabular-nums">&pound;{{ "%.4f"|format(amount) }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endcall %}
+
+  {% call ui.sheet("Recent runs") %}
+    {% if not runs %}
+      <p class="type-body text-ink-muted" id="no-runs">No runs yet.</p>
+    {% else %}
+      <ul class="flex flex-col divide-y divide-line" id="recent-runs">
+        {% for job, amount in runs %}
+          <li class="flex justify-between py-1.5">
+            <a href="/runs/{{ job.id }}" class="type-data-sm text-verification underline underline-offset-[3px] hover:text-verification-strong">
+              {{ job.id }}
+            </a>
+            <span class="type-data-sm text-ink tabular-nums">&pound;{{ "%.4f"|format(amount) }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endcall %}
 {% endblock %}

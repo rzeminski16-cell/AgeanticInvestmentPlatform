@@ -35,7 +35,7 @@ looks wrong.
 from __future__ import annotations
 
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
 import anyio
@@ -238,12 +238,8 @@ class AnthropicProvider:
             async with self._client.messages.stream(output_format=wire_format, **request) as stream:
                 response = await stream.get_final_message()
         except Exception as exc:
-            message = f"The Anthropic API call failed ({type(exc).__name__}: {exc})."
-            raise ExternalServiceError(
-                message,
-                provider=PROVIDER_NAME,
-                retryable=_is_retryable(exc),
-                context={"model": model},
+            raise _api_failure(
+                exc, "The Anthropic API call failed", context={"model": model}
             ) from exc
         elapsed_ms = (time.perf_counter() - started) * 1000
 
@@ -372,11 +368,9 @@ class AnthropicProvider:
         except ExternalServiceError:
             raise
         except Exception as exc:
-            message = f"The Anthropic batch call failed ({type(exc).__name__}: {exc})."
-            raise ExternalServiceError(
-                message,
-                provider=PROVIDER_NAME,
-                retryable=_is_retryable(exc),
+            raise _api_failure(
+                exc,
+                "The Anthropic batch call failed",
                 context={"model": model, "items": len(requests)},
             ) from exc
         elapsed_ms = (time.perf_counter() - started) * 1000
@@ -484,13 +478,7 @@ class AnthropicProvider:
                 messages=cast("Any", [_message_payload(m) for m in messages]),
             )
         except Exception as exc:
-            message = f"Counting tokens failed ({type(exc).__name__}: {exc})."
-            raise ExternalServiceError(
-                message,
-                provider=PROVIDER_NAME,
-                retryable=_is_retryable(exc),
-                context={"model": model},
-            ) from exc
+            raise _api_failure(exc, "Counting tokens failed", context={"model": model}) from exc
 
         return int(counted.input_tokens)
 
@@ -545,13 +533,7 @@ class AnthropicProvider:
                 response = await self._client.messages.create(**request)
                 usages.append(_usage_from(response, model=model))
         except Exception as exc:
-            message = f"The web search call failed ({type(exc).__name__}: {exc})."
-            raise ExternalServiceError(
-                message,
-                provider=PROVIDER_NAME,
-                retryable=_is_retryable(exc),
-                context={"model": model},
-            ) from exc
+            raise _api_failure(exc, "The web search call failed", context={"model": model}) from exc
 
         hits, searches, error = _search_results(response, limit=max_results)
         if error is not None:
@@ -1040,3 +1022,123 @@ def _is_retryable(exc: Exception) -> bool:
         too_many_requests = 429
         return status >= server_error or status == too_many_requests
     return "timeout" in type(exc).__name__.lower() or "connection" in type(exc).__name__.lower()
+
+
+# What the operator must change, for the three refusals only they can clear. Each names the
+# variable and the page, because "external_service_error" names neither.
+_NO_CREDIT_REMEDY: Final = (
+    "The Anthropic account the API key belongs to is out of credit, so no model call can "
+    "be made — not even the free token count this failed on. Top it up at "
+    "https://platform.claude.com/settings/billing, then check the balance landed in the "
+    "same organisation and workspace as the key in AER_ANTHROPIC_API_KEY: credit added to "
+    "a different one leaves this failing in exactly the same way."
+)
+_BAD_KEY_REMEDY: Final = (
+    "The Anthropic API key was rejected. Check AER_ANTHROPIC_API_KEY against "
+    "https://platform.claude.com/settings/keys — a revoked, rotated or mistyped key fails "
+    "like this on every call, immediately, whatever the run was doing."
+)
+_NO_ACCESS_REMEDY: Final = (
+    "The Anthropic API key may not use the model this step is routed to. Route the role to "
+    "a model the key's workspace is allowed, in settings, or use a key that may reach it."
+)
+_USAGE_LIMIT_REMEDY: Final = (
+    "That is a spending limit set on the Anthropic account itself, not one of this "
+    "platform's caps — none of ours stopped this, and raising one will not release it. "
+    "Raise or clear the limit at https://platform.claude.com/settings/limits, on the "
+    "organisation and on the workspace the key belongs to, or wait for the reset above: "
+    "these limits are monthly budgets and turn over at the start of the UTC month, which "
+    "is why a prepaid balance still has a date attached."
+)
+
+
+def _operator_remedy(exc: Exception) -> str | None:
+    """The remedy, when the provider's refusal is the operator's to clear rather than ours.
+
+    Four refusals mean this platform is unfunded, capped or misconfigured rather than that
+    a request was malformed or a service was unwell: no credit, a spending limit set at the
+    provider, no valid key, no access to the routed model. They are worth separating
+    because the console's standing offer — continue, and the run picks up where it stopped
+    — is *wrong* for all four. Continuing buys the identical refusal, at the same step, for
+    as long as the operator has not acted; and an operator told only ``BadRequestError:
+    400`` has no way to know that.
+
+    The provider's own spending limit is worth naming loudest, because it is the one that
+    reads like one of ours and is not. This platform's caps refuse a step *before* the call
+    and say which cap and which scope (``BudgetExceededError``); this arrives from the
+    other side of the wire, after the request, and no setting here releases it.
+
+    The first two are matched on the vendor's wording because the vendor offers nothing
+    else to match on: both arrive as a 400 ``invalid_request_error``, the same status and
+    the same type a genuinely malformed request has. That is fragile by construction, and
+    fails safe — reworded, they degrade to an ordinary non-retryable external error, which
+    is precisely what they are treated as today.
+    """
+    said = str(exc).lower()
+    if "credit balance is too low" in said:
+        return _NO_CREDIT_REMEDY
+    if "usage limit" in said:
+        return _USAGE_LIMIT_REMEDY
+
+    status = getattr(exc, "status_code", None)
+    unauthorised, forbidden = 401, 403
+    if status == unauthorised:
+        return _BAD_KEY_REMEDY
+    if status == forbidden:
+        return _NO_ACCESS_REMEDY
+    return None
+
+
+def _vendor_sentence(exc: Exception) -> str | None:
+    """The provider's own words for a person, dug out of the decoded error body.
+
+    ``str`` of an SDK status error is ``Error code: 400 - {…dict repr…}``, which buries the
+    one readable sentence inside a printed dictionary. That sentence sometimes carries the
+    only fact the operator needs and this code cannot know — the moment a spending limit
+    resets, say — so it is worth reaching for the field the vendor writes for a reader.
+    """
+    body = getattr(exc, "body", None)
+    if isinstance(body, Mapping):
+        error = body.get("error")
+        if isinstance(error, Mapping):
+            said = error.get("message")
+            if isinstance(said, str) and said.strip():
+                return said.strip()
+    return None
+
+
+def _api_failure(exc: Exception, doing: str, *, context: dict[str, Any]) -> ExternalServiceError:
+    """The vendor's exception as this platform's error, with the remedy when there is one.
+
+    Without a remedy the vendor's repr *is* the most useful thing there is to say. With
+    one, the repr is noise in front of the sentence that matters, so what survives into the
+    message is the vendor's readable sentence and then the remedy; the repr moves into the
+    context, where ``aer diagnose`` and the logs still hold it whole.
+    """
+    remedy = _operator_remedy(exc)
+    if remedy is None:
+        return ExternalServiceError(
+            f"{doing} ({type(exc).__name__}: {exc}).",
+            provider=PROVIDER_NAME,
+            retryable=_is_retryable(exc),
+            context=context,
+        )
+
+    said = _vendor_sentence(exc)
+    detail: dict[str, Any] = {
+        **context,
+        "remedy": remedy,
+        "provider_error": f"{type(exc).__name__}: {exc}",
+    }
+    # The vendor's own handle on the refusal. Quoting it is what turns "it keeps failing"
+    # into something their support can look up.
+    request_id = getattr(exc, "request_id", None)
+    if isinstance(request_id, str) and request_id:
+        detail["provider_request_id"] = request_id
+
+    return ExternalServiceError(
+        f"{doing}. {said} {remedy}" if said else f"{doing}. {remedy}",
+        provider=PROVIDER_NAME,
+        retryable=False,
+        context=detail,
+    )

@@ -42,7 +42,7 @@ from aer.errors import AerError
 from aer.extract import extract_text
 from aer.extract.dates import extract_publication_date
 from aer.providers.costs import price_usage, price_web_search
-from aer.services.acquisition import record_acquisition
+from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.facts import visible_facts
 from aer.services.scope import scope_for_request, with_subject
 from aer.services.sources import visible_sources
@@ -257,7 +257,9 @@ def build_executors(
             found = await sec_client.search_full_text(
                 tool_request.query.strip(),
                 cik=cik,
-                as_of_date=request.as_of_date if request.point_in_time else None,
+                as_of_date=request.work_order.as_of_date
+                if request.work_order.point_in_time
+                else None,
                 size=MAX_HITS,
             )
         except AerError as refused:
@@ -269,7 +271,7 @@ def build_executors(
             )
 
         usable, excluded = found.data.admissible(
-            request.as_of_date if request.point_in_time else None
+            request.work_order.as_of_date if request.work_order.point_in_time else None
         )
         # Newest first (gap O9): a live run spent two of its twelve fetches on
         # decade-old 10-Ks because the listing arrived in index order. Nothing is
@@ -363,7 +365,10 @@ async def _web_search(
     fee and the carrying call's tokens — land as ``costs`` rows against this step before
     the results are returned.
     """
-    if request.point_in_time and request.as_of_date < datetime.now(UTC).date():
+    if (
+        request.work_order.point_in_time
+        and request.work_order.as_of_date < datetime.now(UTC).date()
+    ):
         return ExecutedTool(
             tool=tool_request.tool,
             query=tool_request.query,
@@ -647,7 +652,7 @@ async def _fetch_known_url(
         acquisition = await record_acquisition(
             session,
             store,
-            request=request,
+            work_order=await acquisition_root(session, request),
             job_id=job_id,
             # The full-text search is scoped to the subject's CIK, so a filing the
             # index named to this worker is the subject's own (ADR 0061).
@@ -664,7 +669,7 @@ async def _fetch_known_url(
         acquisition = await record_acquisition(
             session,
             store,
-            request=request,
+            work_order=await acquisition_root(session, request),
             job_id=job_id,
             result=result,
             provider=provider,
@@ -938,7 +943,7 @@ async def run_worker(
         # The filer's own name, not the one typed into the form (gap A67).
         company_name=await subject_name(session, request),
         ticker=request.ticker,
-        as_of_date=request.as_of_date.isoformat(),
+        as_of_date=request.work_order.as_of_date.isoformat(),
         executors=executors if executors is not None else build_executors(session, request=request),
         validate=validator,
     )

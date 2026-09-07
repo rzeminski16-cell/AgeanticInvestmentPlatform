@@ -23,13 +23,30 @@ pytestmark = [pytest.mark.e2e, pytest.mark.integration]
 DETAIL_URL = re.compile(r"/requests/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
 
+def open_refinement(page: Page) -> None:
+    """Open the optional-refinement disclosure so the fields inside it can be filled.
+
+    The form leads with four decisions and keeps everything that refines a mandate behind
+    a native disclosure that ships closed. A closed ``<details>`` opens on a summary click
+    with scripting on or off — that is what native buys — so this works on the no-JS page
+    too. Guarded on the ``open`` attribute rather than clicking blind, because a click on
+    an already-open disclosure would close it.
+    """
+    details = page.locator("details", has_text="Refine this mandate")
+    if details.get_attribute("open") is None:
+        details.locator("summary").click()
+
+
 def fill_valid(page: Page, **overrides: str) -> None:
     """Fill the whole form with a valid submission, minus any overrides.
 
     ``exchange`` and ``base_currency`` are handled separately because they are
     ``<select>`` elements: Playwright's ``fill`` refuses them, which is a better outcome
-    than silently doing nothing.
+    than silently doing nothing. Half of what this fills sits behind the refinement
+    disclosure, which is opened first — ``fill`` waits for visibility, and a field inside
+    a closed ``<details>`` is attached and invisible for ever.
     """
+    open_refinement(page)
     typed = {
         "company_name": "Microsoft Corporation",
         "ticker": "msft",
@@ -66,7 +83,9 @@ class TestHappyPath:
         expect(page.locator("#ticker")).to_have_text("MSFT")
         expect(page.locator("#exchange")).to_have_text("NASDAQ")
         expect(page.locator("#as-of-date")).to_have_text("2026-07-01")
-        expect(page.locator("#status")).to_have_text("DRAFT")
+        # The human label from the vocabulary, not the enum: raw domain values stopped
+        # reaching templates in tranche 1 of the overhaul.
+        expect(page.locator("#status")).to_contain_text("Draft")
 
     def test_the_values_it_shows_are_the_ones_submitted(self, page: Page, live_server: str):
         page.goto(f"{live_server}/requests/new")
@@ -87,7 +106,9 @@ class TestHappyPath:
         page.wait_for_url(DETAIL_URL)
 
         page.goto(f"{live_server}/requests")
-        expect(page.get_by_role("link", name="Microsoft Corporation")).to_be_visible()
+        # `exact`, because every row now carries a "Remove Microsoft Corporation" link
+        # beside the company link, and a substring match resolves to both.
+        expect(page.get_by_role("link", name="Microsoft Corporation", exact=True)).to_be_visible()
 
     def test_reaching_the_form_from_the_landing_page(self, page: Page, live_server: str):
         page.goto(live_server)
@@ -112,7 +133,7 @@ class TestRejection:
         expect(page).to_have_url(f"{live_server}/requests/new")
 
         page.goto(f"{live_server}/requests")
-        expect(page.get_by_text("No requests yet")).to_be_visible()
+        expect(page.get_by_text("No active requests")).to_be_visible()
 
     def test_an_etf_is_refused_with_an_explanation(self, page: Page, live_server: str):
         page.goto(f"{live_server}/requests/new")
@@ -188,7 +209,7 @@ class TestWithoutJavaScript:
 
         expect(no_js_page.locator("#error-summary")).to_be_visible()
         no_js_page.goto(f"{live_server}/requests")
-        expect(no_js_page.get_by_text("No requests yet")).to_be_visible()
+        expect(no_js_page.get_by_text("No active requests")).to_be_visible()
 
 
 class TestDisclaimer:
@@ -245,7 +266,9 @@ class TestEditingADraft:
         # The percentage as typed, not the fraction as stored. Getting this wrong divides
         # the weight by a hundred every time the form is saved, and nothing errors.
         expect(page.locator("#current_weight_percent")).to_have_value("2.5")
-        expect(page.locator("#point_in_time")).to_be_checked()
+        # Two radios rather than a checkbox since tranche 5, so each state has a name;
+        # the id carries the value it selects.
+        expect(page.locator("#point_in_time-true")).to_be_checked()
 
     def test_changing_a_value_and_saving_updates_the_request(self, page: Page, live_server: str):
         self.create(page, live_server)
@@ -263,6 +286,7 @@ class TestEditingADraft:
 
         tomorrow = (datetime.now(UTC).date() + timedelta(days=1)).isoformat()
         page.fill("#as_of_date", tomorrow)
+        open_refinement(page)
         page.fill("#horizon_label", "Kept, please")
         page.click("#submit")
 
@@ -285,29 +309,37 @@ class TestEditingADraft:
 
 
 class TestDeletingADraft:
-    def test_confirming_the_dialogue_deletes_it(self, page: Page, live_server: str):
+    """The `confirm()` dialogue went in tranche 5, deliberately.
+
+    The control on the detail page is now a link to a confirmation *page* that states what
+    will be destroyed and what survives — a browser dialogue holds one sentence, cannot be
+    reached with scripting off, and is dismissed by reflex. These tests walk that page from
+    the detail page's own control; `test_request_removal.py` walks it from the list.
+    """
+
+    def test_confirming_on_the_page_deletes_it(self, page: Page, live_server: str):
         page.goto(f"{live_server}/requests/new")
         fill_valid(page, company_name="Deletable Holdings plc")
         page.click("#submit")
         page.wait_for_url(DETAIL_URL)
 
-        page.on("dialog", lambda dialog: dialog.accept())
         page.click("#delete-request")
+        page.wait_for_url(re.compile(r"/remove$"))
+        page.click("#confirm-remove")
 
         page.wait_for_url(f"{live_server}/requests")
         expect(page.get_by_role("link", name="Deletable Holdings plc")).to_have_count(0)
 
-    def test_dismissing_the_dialogue_deletes_nothing(self, page: Page, live_server: str):
-        # The confirmation is an enhancement, not the guard — but it must at least work in
-        # the direction that keeps data.
+    def test_keeping_it_from_the_page_deletes_nothing(self, page: Page, live_server: str):
         page.goto(f"{live_server}/requests/new")
         fill_valid(page, company_name="Kept Holdings plc")
         page.click("#submit")
         page.wait_for_url(DETAIL_URL)
         detail = page.url
 
-        page.on("dialog", lambda dialog: dialog.dismiss())
         page.click("#delete-request")
+        page.wait_for_url(re.compile(r"/remove$"))
+        page.click("#cancel-remove")
 
-        page.goto(detail)
+        page.wait_for_url(detail)
         expect(page.locator("#company-name")).to_have_text("Kept Holdings plc")

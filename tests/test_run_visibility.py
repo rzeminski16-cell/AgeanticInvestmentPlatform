@@ -50,6 +50,7 @@ from tests.workflow_fixtures import (
     seed_job,
     seed_request,
     seed_user,
+    with_price_feed,
 )
 
 pytestmark = pytest.mark.integration
@@ -311,7 +312,8 @@ class TestACrashDoesNotUnspendCompletedWork:
         """
         job_id = seeded["job"].id
         observer = Observer(db_engine)
-        worker = Worker(db_engine, workflow_settings)
+        # Subscribed, so the peer set is proposed and its gate pauses (ADR 0059, amended).
+        worker = Worker(db_engine, with_price_feed(workflow_settings))
 
         await worker.run(job_id)
         await worker.approve(job_id, gate=GateKind.PLAN, step=_PLAN_SEAL)
@@ -346,7 +348,8 @@ class TestACrashDoesNotUnspendCompletedWork:
         SEC fetches — which is the same work billed twice.
         """
         job_id = seeded["job"].id
-        worker = Worker(db_engine, workflow_settings)
+        # Subscribed, so the peer set is proposed and its gate pauses (ADR 0059, amended).
+        worker = Worker(db_engine, with_price_feed(workflow_settings))
 
         await worker.run(job_id)
         await worker.approve(job_id, gate=GateKind.PLAN, step=_PLAN_SEAL)

@@ -32,6 +32,7 @@ from aer.db.models import Job, JobStep, Report, ResearchRequest, WorkOrder
 from aer.errors import ValidationError
 from aer.providers.protocol import LLMProvider
 from aer.providers.router import Router
+from aer.services.mandate import mandate_of
 from aer.storage.protocol import ArtefactStore
 from aer.version import git_sha
 from aer.workflow.engine import BudgetGuard, WorkflowEngine, spend_so_far
@@ -94,7 +95,6 @@ async def start_run(session: AsyncSession, *, request: ResearchRequest) -> Job:
 
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version=DEFAULT_WORKFLOW_VERSION,
         code_version=git_sha() or "unknown",
         status=JobStatus.QUEUED,
@@ -193,7 +193,7 @@ async def execute(
     recovery after the worker died. A step that already succeeded returns its stored output
     and does not execute.
     """
-    request = await session.get(ResearchRequest, job.request_id)
+    request = await mandate_of(session, job)
     if request is None:
         message = f"Job {job.id} has no research request."
         raise ValidationError(message, context={"job_id": str(job.id)})
@@ -208,9 +208,11 @@ async def execute(
     engine = WorkflowEngine(
         resolve_workflow(job.workflow_version).build_steps(),
         budget=BudgetGuard(
-            # The request's own ceiling, not the global default: an operator who set £0.50
-            # on this request meant £0.50 on this request.
-            per_run_cap_gbp=request.max_cost_gbp,
+            # No per-run cap passed, and that is the point: the guard reads this request's
+            # own ceiling from the work order at every check, so a cap the operator raises
+            # mid-run takes effect at the next step rather than at the next execution. An
+            # operator who set £0.50 on this request still means £0.50 until they say
+            # otherwise; the global default is never substituted for it.
             monthly_cap_gbp=settings.monthly_budget_gbp,
             warn_ratio=settings.budget_warn_ratio,
         ),
@@ -446,7 +448,7 @@ async def awaiting_approval_count(session: AsyncSession, *, user_id: uuid.UUID) 
     total = await session.scalar(
         select(func.count())
         .select_from(Job)
-        .join(ResearchRequest, ResearchRequest.id == Job.work_order_id)
-        .where(Job.status == JobStatus.AWAITING_APPROVAL, ResearchRequest.user_id == user_id)
+        .join(WorkOrder, WorkOrder.id == Job.work_order_id)
+        .where(Job.status == JobStatus.AWAITING_APPROVAL, WorkOrder.user_id == user_id)
     )
     return int(total or 0)

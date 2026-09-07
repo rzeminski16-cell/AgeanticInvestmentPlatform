@@ -646,7 +646,7 @@ async def _propose_opinions(
             # The filer's own name, not the one typed into the form (gap A67).
             company_name=await subject_name(session, request),
             ticker=request.ticker,
-            as_of_date=request.as_of_date.isoformat(),
+            as_of_date=request.work_order.as_of_date.isoformat(),
             base_currency=request.base_currency,
             discount_rate=None,
             derived=tuple(

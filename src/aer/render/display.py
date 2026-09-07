@@ -46,6 +46,7 @@ _PERCENT_WORDS: Final[tuple[str, ...]] = (
     "yield",
     "return",
     "share of",
+    "value share",
     "percentage",
     "wacc",
     "cagr",
@@ -77,7 +78,11 @@ def money(value: Decimal, currency: str, *, style: HouseStyle, in_table: bool = 
     magnitude = abs(value)
 
     if magnitude < _MILLION:
-        return f"{symbol}{_grouped(value)}"
+        # To the cent at most. The ledger stores twelve decimal places, and the valuation
+        # page showed them — "$1,234.500000000000" (first live run of the runbook) — which
+        # is precision the figure does not have and a reader cannot use.
+        cents = value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return f"{symbol}{_grouped(cents)}"
 
     if not in_table and style.prose_money == "auto" and magnitude >= style.billions_from:
         scaled = (value / _BILLION).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)

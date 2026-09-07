@@ -297,7 +297,7 @@ class TestARealRunFillsTheTable:
 
         orphans = await db_session.scalars(
             select(SourceDocument).where(
-                SourceDocument.request_id == evidence["request"].id,
+                SourceDocument.work_order_id == evidence["request"].id,
                 SourceDocument.job_id.is_(None),
             )
         )

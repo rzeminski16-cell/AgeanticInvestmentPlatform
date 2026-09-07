@@ -2,7 +2,8 @@
 
 Date: 2026-08-18
 Status: accepted, amended 2026-08-19 — a peer is recorded by name and nothing is fetched
-for it (see the amendment at the end)
+for it — and again 2026-09-03 — the model is asked only when a price feed is configured
+(see the amendments at the end)
 
 ## Context
 
@@ -137,3 +138,29 @@ nothing is fetched to be found unusable.
 The consequences above that describe peer artefacts on the sources surface and the up to
 eight companyfacts fetches no longer apply. The step's cost estimate is untouched — it
 always covered the model call, which is the only thing the step spends money on.
+
+## Second amendment, 2026-09-03 — the model is asked only when a price feed is configured
+
+**The model's slate is bought only on a machine with a market-data subscription.** The
+first amendment left `propose_peers` spending one model call per run on a reasoned peer
+list that, without a price feed, can contribute no multiple: a peer recorded by name
+reaches the comps build and is excluded there with `UNACQUIRED_PEER_REASON`, every time.
+The roadmap's §4.15 remnant asked for that to be chosen rather than inherited, and the
+operator chose: the call is skipped until the feed exists, rather than the feed being
+bought to justify the call.
+
+Concretely, `Settings.price_feed_configured` is the one definition of "is there a price
+feed" — the same predicate the client builder reads — and the peer step consults the
+model only when it is true. Otherwise the step proposes the deterministic floor alone,
+records `model_consulted: false` and a sentence saying why (`model_skipped_because`),
+both outside the gate's hash as `refused` is, and spends nothing. The gate page and its
+"does not apply" refusal show the sentence, so an operator reading "no peers" learns it is
+a subscription rather than a fault. The step's estimate stays at the model call's cost:
+an estimate is a ceiling the budget guard reads, and a ceiling that is never reached is
+not wrong.
+
+The return condition is unchanged: when the feed exists, the model is asked again and the
+first amendment's path — resolved, recorded, nothing fetched — is exactly as it was. What
+would change *that* is peer acquisition coming back behind ADR 0061's scoping, which is
+the first amendment's own return condition and remains a decision for the day the feed is
+subscribed.

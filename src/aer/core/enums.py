@@ -22,11 +22,19 @@ __all__ = [
     "AttestationKind",
     "ClaimKind",
     "Decision",
+    "DecisionAction",
     "ExtractionKind",
     "FactBasis",
+    "FindingAction",
+    "FindingKind",
     "GateKind",
     "Grade",
     "JobStatus",
+    "JudgementKind",
+    "PremiseComparator",
+    "PremiseStatus",
+    "PremiseVerdict",
+    "ProcessQuality",
     "Provider",
     "RequestStatus",
     "SourceTier",
@@ -135,6 +143,11 @@ class GateKind(StrEnum):
     ``ASSUMPTIONS`` is the one gate that guards work which has *not* happened yet. Every
     other gate approves something already produced; this one approves the numbers a
     valuation is about to be built on, some of which a model proposed. See ADR 0046.
+
+    ``THESIS`` is the one gate no research run opens. The monitor opens it when a premise
+    is contradicted by a filing (ADR 0078), and what it asks is what to do about the
+    premise rather than whether a run may continue — so it is decided on a finding, through
+    the monitor service, and never through the run's own gate order (ADR 0103).
     """
 
     PLAN = "PLAN"
@@ -145,6 +158,7 @@ class GateKind(StrEnum):
     ASSUMPTIONS = "ASSUMPTIONS"
     BUDGET = "BUDGET"
     FINAL = "FINAL"
+    THESIS = "THESIS"
 
 
 class Decision(StrEnum):
@@ -306,11 +320,11 @@ class ClaimKind(StrEnum):
     OPINION = "opinion"
 
 
-# The kinds that cannot stand on a basis alone. Named here rather than written out at each
-# call site, so "which claims need a citation?" has one answer.
-CITATION_REQUIRING_CLAIMS: Final[frozenset[ClaimKind]] = frozenset(
-    {ClaimKind.NUMERIC, ClaimKind.FACTUAL}
-)
+# The kinds that have nothing but an excerpt to stand on. Named here rather than written
+# out at each call site, so "which claims need a citation?" has one answer. A numeric
+# claim is not among them (ADR 0109): it stands on the figure it names, whose lineage the
+# platform recorded itself, and a citation it carries is verified but not owed.
+CITATION_REQUIRING_CLAIMS: Final[frozenset[ClaimKind]] = frozenset({ClaimKind.FACTUAL})
 
 
 class Grade(StrEnum):
@@ -356,7 +370,7 @@ class AttestationKind(StrEnum):
 class TransactionKind(StrEnum):
     """What happened to the book.
 
-    Six, and the list is deliberately short for the reason
+    Seven, and the list is deliberately short for the reason
     :class:`~aer.db.models.security.CorporateActionKind` gives: each needs its own
     arithmetic, and a wrong one is worse than an absent one.
 
@@ -387,6 +401,12 @@ class TransactionKind(StrEnum):
     WITHDRAWAL = "withdrawal"
     """Cash taken out. Quantity is negative."""
 
+    SPLIT = "split"
+    """A share reorganisation. Quantity is the *ratio* the share count is multiplied by —
+    2 for a two-for-one, 0.1 for a one-for-ten consolidation — so the row derives from the
+    corporate action alone and never goes stale when history is backfilled. Derived, never
+    typed: every split row points at the ``corporate_actions`` row behind it (ADR 0094)."""
+
 
 class SkillKind(StrEnum):
     """What a user-authored skill file adds to the platform (`docs/archive/PLAN.md` §2.12).
@@ -407,3 +427,164 @@ class SkillKind(StrEnum):
     METHODOLOGY = "methodology"
     PREFERENCE = "preference"
     HOUSE_VIEW = "house_view"
+
+
+class JudgementKind(StrEnum):
+    """Which kind of view a person is recording (ADR 0074).
+
+    Three values, and a statement about what exists rather than a placeholder — the same
+    shape :class:`AttestationKind` takes. A subtype here is a value *and* a detail table:
+    ``PREMISE`` has ``premises``, ``DECISION`` has ``decisions`` and ``REVIEW`` has
+    ``reviews``, so adding one is visibly a schema change rather than a string.
+    """
+
+    PREMISE = "premise"
+    """One thing a thesis asserts, with what would defeat it (ADR 0079)."""
+
+    DECISION = "decision"
+    """What a person decided to do about a thesis, written before the outcome (ADR 0104)."""
+
+    REVIEW = "review"
+    """What a person concluded about a closed position's decision, scored against the
+    process rather than the outcome (ADRs 0081, 0105)."""
+
+
+class DecisionAction(StrEnum):
+    """What a decision commits the operator to, from a closed list of six (ADR 0104).
+
+    Four move the book and two do not. ``HOLD`` is a decision to keep a position that a
+    finding or a review put in question; ``PASS`` is a decision not to act on a thesis at
+    all. Both are decisions — "I saw this and chose to do nothing" is the row ADR 0078 calls
+    decision data — and a journal that only held the trades would lose exactly the entries
+    the post-trade reviewer most wants.
+    """
+
+    BUY = "buy"
+    ADD = "add"
+    TRIM = "trim"
+    SELL = "sell"
+    HOLD = "hold"
+    PASS = "pass"  # noqa: S105 -- a decision not to act, not a credential
+
+    @property
+    def moves_the_book(self) -> bool:
+        """Whether a transaction can carry this decision out."""
+        return self in {
+            DecisionAction.BUY,
+            DecisionAction.ADD,
+            DecisionAction.TRIM,
+            DecisionAction.SELL,
+        }
+
+
+class PremiseComparator(StrEnum):
+    """How a premise's threshold is read against the metric it names.
+
+    Four, and named in words rather than symbols because a premise is a sentence: "revenue
+    growth at least 25 percent" is what the operator wrote, and what the monitor will one
+    day test against a stored fact — through :class:`~aer.calc.units.Quantity`'s own
+    comparisons, which refuse a unit mismatch rather than coercing one (ADR 0079).
+    """
+
+    AT_LEAST = "at_least"
+    AT_MOST = "at_most"
+    ABOVE = "above"
+    BELOW = "below"
+
+
+class PremiseStatus(StrEnum):
+    """What one reading of a premise against new evidence found (ADR 0079).
+
+    Five, closed, and the tier each carries is decided in code at the point it is written
+    (ADR 0078): ``CONTRADICTED`` opens a gate, and the other four are findings with no
+    approval semantics. ``UNOBSERVABLE`` is here because its absence would be a lie — a
+    reading that cannot tell would otherwise have to say ``UNCHANGED``, which asserts the
+    evidence was read and the premise stood.
+    """
+
+    UNCHANGED = "unchanged"
+    WEAKENED = "weakened"
+    STRENGTHENED = "strengthened"
+    CONTRADICTED = "contradicted"
+    UNOBSERVABLE = "unobservable"
+
+    @property
+    def opens_a_gate(self) -> bool:
+        """The one status with a consequence somebody must own."""
+        return self is PremiseStatus.CONTRADICTED
+
+
+class FindingKind(StrEnum):
+    """What a monitor finding is a record of.
+
+    A ``READING`` is one premise read against new evidence, and carries a status. A
+    ``STOPPED`` finding is a pass that hit its cost ceiling and stopped rather than pausing
+    for nobody (ADR 0078); it has no premise status because no premise was read.
+    """
+
+    READING = "reading"
+    STOPPED = "stopped"
+
+
+class FindingAction(StrEnum):
+    """What a person did about a finding, as an appended record (ADR 0078).
+
+    Never a flag on the finding: a resolution the operator later regrets, a reopening and
+    a recurrence are three histories one boolean cannot tell apart, so each act is a row.
+    """
+
+    DISMISSED = "dismissed"
+    """Read, and left as it was, with a reason. "I saw this and chose to do nothing" is
+    decision data."""
+
+    WITHDRAWN = "withdrawn"
+    """The premise was withdrawn in response, with the reason on the judgement too."""
+
+    REOPENED = "reopened"
+    """A resolved finding put back in front of the operator, with the reason."""
+
+
+class PremiseVerdict(StrEnum):
+    """What a closed position's record says about one premise (ADR 0081).
+
+    ``UNTESTED`` is the value that carries the record's whole argument: a position exited
+    after four months on valuation leaves a premise about FY2027 margins unanswered — not
+    held, not failed, unanswered, because the year it was about has not been filed. Without
+    it every early exit would grade its premises by what the price did. ``UNOBSERVABLE``
+    keeps ADR 0079's meaning: nothing could ever have answered it.
+    """
+
+    HELD = "held"
+    PARTIALLY_HELD = "partially_held"
+    FAILED = "failed"
+    UNTESTED = "untested"
+    UNOBSERVABLE = "unobservable"
+
+
+class ShockKind(StrEnum):
+    """What a stated scenario's shock reaches (ADR 0106 §3).
+
+    The targets are the exposure bands' own cuts, so a shock about "United Kingdom" reaches
+    exactly what the country band calls United Kingdom, and ``BOOK`` is every holding at
+    once. A currency shock reaches cash in that currency too, because cash is a position.
+    """
+
+    BOOK = "book"
+    SECTOR = "sector"
+    CURRENCY = "currency"
+    COUNTRY = "country"
+    HOLDING = "holding"
+
+
+class ProcessQuality(StrEnum):
+    """How well the decision was made, separately from how it turned out (ADR 0081).
+
+    Three, and the middle one is real: a decision written down with a basis and a horizon
+    but no exit plan, carried out late, is neither sound nor flawed. What the enum must not
+    do is encode the outcome — a value that could only be reached by a losing position
+    would collapse the two axes the record keeps apart.
+    """
+
+    SOUND = "sound"
+    QUESTIONABLE = "questionable"
+    FLAWED = "flawed"

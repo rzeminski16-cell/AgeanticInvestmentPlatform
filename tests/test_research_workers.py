@@ -71,6 +71,7 @@ from aer.sources.sec.fulltext import FullTextHit, SearchResults
 from aer.storage.local import LocalArtefactStore
 from aer.workflow.engine import StepContext
 from aer.workflow.workflows.vertical_slice_v1 import _findings_for, _research
+from tests.request_fixtures import research_request
 
 pytestmark = pytest.mark.integration
 
@@ -294,7 +295,7 @@ async def loop_scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     user = User(email="worker-loop@example.invalid", display_name="Loop", role=UserRole.OWNER)
     db_session.add(user)
     await db_session.flush()
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Contoso Corporation",
         ticker="CTSO",
@@ -309,7 +310,6 @@ async def loop_scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
     await db_session.flush()
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version="test",
         code_version="abc",
         status=JobStatus.RUNNING,
@@ -666,7 +666,7 @@ async def fetch_scene(db_session: AsyncSession, tmp_path: Any, settings_env: Any
     db_session.add(user)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Contoso Corporation",
         ticker="CTSO",
@@ -690,7 +690,6 @@ async def fetch_scene(db_session: AsyncSession, tmp_path: Any, settings_env: Any
     db_session.add(
         SourceDocument(
             work_order_id=request.id,
-            request_id=request.id,
             artefact_id=artefact.id,
             url="https://www.sec.gov/Archives/edgar/contoso-10k.htm",
             title="Contoso 10-K",
@@ -771,7 +770,7 @@ class TestFetchingAKnownUrl:
             SourceDocument, uuid.UUID(record["source_document_id"])
         )
         assert stored is not None
-        assert stored.request_id == fetch_scene["request"].id
+        assert stored.work_order_id == fetch_scene["request"].id
 
     async def test_the_host_is_passed_to_the_fetch_layer_to_be_checked_again(
         self, fetch_scene: dict[str, Any]
@@ -923,7 +922,6 @@ class TestFetchingAKnownUrl:
         await fetch_scene["session"].flush()
         held = SourceDocument(
             work_order_id=fetch_scene["request"].id,
-            request_id=fetch_scene["request"].id,
             artefact_id=held_artefact.id,
             url="https://www.sec.gov/Archives/edgar/contoso-10k-annual.htm",
             title="Contoso 10-K",
@@ -938,7 +936,7 @@ class TestFetchingAKnownUrl:
             list(
                 await fetch_scene["session"].scalars(
                     select(SourceDocument).where(
-                        SourceDocument.request_id == fetch_scene["request"].id
+                        SourceDocument.work_order_id == fetch_scene["request"].id
                     )
                 )
             )
@@ -958,7 +956,7 @@ class TestFetchingAKnownUrl:
             list(
                 await fetch_scene["session"].scalars(
                     select(SourceDocument).where(
-                        SourceDocument.request_id == fetch_scene["request"].id
+                        SourceDocument.work_order_id == fetch_scene["request"].id
                     )
                 )
             )
@@ -1715,7 +1713,7 @@ async def evidence_scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, A
     db_session.add(user)
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Contoso Corporation",
         ticker="CTSO",
@@ -1726,7 +1724,7 @@ async def evidence_scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, A
         max_cost_gbp="2.50",
         portfolio_context={},
     )
-    other_request = ResearchRequest(
+    other_request = research_request(
         user_id=user.id,
         company_name="Fabrikam Inc",
         ticker="FBRK",
@@ -1752,7 +1750,6 @@ async def evidence_scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, A
     def _document(req: ResearchRequest, title: str) -> SourceDocument:
         return SourceDocument(
             work_order_id=req.id,
-            request_id=req.id,
             artefact_id=artefact.id,
             url=f"https://example.invalid/{title}",
             title=title,
@@ -1802,7 +1799,7 @@ async def rerun_scene(db_session: AsyncSession) -> dict[str, Any]:
     await db_session.flush()
 
     def _request(ticker: str, exchange: str) -> ResearchRequest:
-        return ResearchRequest(
+        return research_request(
             user_id=user.id,
             company_name=f"{ticker} Corporation",
             ticker=ticker,
@@ -1835,7 +1832,6 @@ async def rerun_scene(db_session: AsyncSession) -> dict[str, Any]:
     def _document(req: ResearchRequest) -> SourceDocument:
         return SourceDocument(
             work_order_id=req.id,
-            request_id=req.id,
             artefact_id=artefact.id,
             url="https://data.sec.gov/api/xbrl/companyfacts/CIK0002222222.json",
             title="Contoso company facts",
@@ -2193,7 +2189,7 @@ class TestSearchingTheFilingsFullText:
         [call] = index.calls
         assert call["phrase"] == "segment reporting"
         assert call["cik"] == "0001111111", "the search must be scoped to this run's filer"
-        assert call["as_of_date"] == evidence_scene["request"].as_of_date
+        assert call["as_of_date"] == evidence_scene["request"].work_order.as_of_date
 
     async def test_a_hit_is_a_listing_and_not_a_reading(
         self, evidence_scene: dict[str, Any]
@@ -2220,7 +2216,9 @@ class TestSearchingTheFilingsFullText:
         )
 
         stored = await evidence_scene["session"].scalars(
-            select(SourceDocument).where(SourceDocument.request_id == evidence_scene["request"].id)
+            select(SourceDocument).where(
+                SourceDocument.work_order_id == evidence_scene["request"].id
+            )
         )
         assert len(list(stored)) == 1, "a search must not acquire anything"
 
@@ -2300,7 +2298,7 @@ class TestSearchingTheFilingsFullText:
     ) -> None:
         """The bound comes from the mode, not from the date. A run the operator turned
         point-in-time off for asked for today's filings and should get them."""
-        evidence_scene["request"].point_in_time = False
+        evidence_scene["request"].work_order.point_in_time = False
         await evidence_scene["session"].flush()
         later = _hit(filed=date(2024, 7, 30), accession="0001111111-24-000001")
         index = _RecordingSearch(hits=(later,))
@@ -2423,7 +2421,6 @@ class TestAUrlTheRunAlreadyHoldsIsNotRefetched:
         scene["session"].add(
             SourceDocument(
                 work_order_id=scene["request"].id,
-                request_id=scene["request"].id,
                 artefact_id=artefact.id,
                 url=url,
                 title="Contoso 10-K part 2",

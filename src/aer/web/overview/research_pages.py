@@ -24,7 +24,7 @@ from starlette.responses import HTMLResponse, Response
 from starlette.status import HTTP_404_NOT_FOUND
 
 from aer.api.deps import CurrentUser, DbSession
-from aer.db.models import Job, ResearchRequest
+from aer.db.models import Job, ResearchRequest, WorkOrder
 from aer.services.approvals import pending_gate
 from aer.web.overview.research import GATE_ASKS
 from aer.web.templating import render
@@ -51,7 +51,8 @@ async def run_preview(
         await session.execute(
             select(Job, ResearchRequest)
             .join(ResearchRequest, ResearchRequest.id == Job.work_order_id)
-            .where(Job.id == job_id, ResearchRequest.user_id == user.id)
+            .join(WorkOrder, WorkOrder.id == Job.work_order_id)
+            .where(Job.id == job_id, WorkOrder.user_id == user.id)
         )
     ).first()
     if found is None:

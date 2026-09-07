@@ -78,7 +78,7 @@ def seeded_run(live_server: str, database_url: str, tmp_path: Any) -> str:
                 scene = await _seed_finished_run(session, store=store, email=user.email)
                 # The seeder makes its own author; the run must belong to the browser's
                 # user, who is the only one the pages authenticate as.
-                scene["request"].user_id = user.id
+                scene["request"].work_order.user_id = user.id
                 await session.commit()
         finally:
             await engine.dispose()

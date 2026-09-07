@@ -23,7 +23,7 @@ from sqlalchemy import select
 from starlette.status import HTTP_404_NOT_FOUND
 
 from aer.api.deps import CurrentUser, DbSession
-from aer.db.models import Claim, Job, ReportSection, ResearchRequest
+from aer.db.models import Claim, Job, ReportSection, WorkOrder
 from aer.errors import AerError
 from aer.services import provenance
 
@@ -80,8 +80,8 @@ async def read_claim(claim_id: uuid.UUID, session: DbSession, user: CurrentUser)
 async def _is_visible(session: DbSession, *, claim_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     """Whether this claim belongs to a run of the asking user's own request."""
     owner = await session.scalar(
-        select(ResearchRequest.user_id)
-        .join(Job, Job.work_order_id == ResearchRequest.id)
+        select(WorkOrder.user_id)
+        .join(Job, Job.work_order_id == WorkOrder.id)
         .join(ReportSection, ReportSection.job_id == Job.id)
         .join(Claim, Claim.report_section_id == ReportSection.id)
         .where(Claim.id == claim_id)

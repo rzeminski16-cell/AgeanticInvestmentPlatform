@@ -25,10 +25,12 @@ from sqlalchemy.pool import NullPool
 
 from aer.config import load_settings
 from aer.core.enums import GateKind, JobStatus
-from aer.db.models import Job, JobStep, Report, ResearchRequest, User
+from aer.db.models import Job, JobStep, Report, User
 from aer.services import runs as run_service
+from aer.web.vocabulary import JOB_STATES
 from tests.db_fixtures import run_async
 from tests.e2e.worker import Worker
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import (
     AS_OF_DATE,
     DEFAULT_PER_RUN_BUDGET_GBP,
@@ -46,10 +48,11 @@ REFETCH_TIMEOUT_MS = 20_000
 class RunFixture:
     """A run in the live server's database, advanced on demand."""
 
-    def __init__(self, database_url: str) -> None:
+    def __init__(self, database_url: str, *, subscribed: bool = False) -> None:
         self._settings = load_settings()
         self._database_url = database_url
-        self._worker = Worker(database_url)
+        # See `Worker`: a run that must propose the model's peer runs subscribed.
+        self._worker = Worker(database_url, subscribed=subscribed)
         self.request_id: uuid.UUID | None = None
         self.job_id: uuid.UUID = run_async(self._create())
 
@@ -75,7 +78,7 @@ class RunFixture:
                 user = await session.scalar(select(User))
                 assert user is not None, "the live_server fixture seeds one"
 
-                request = ResearchRequest(
+                request = research_request(
                     user_id=user.id,
                     company_name="Microsoft Corporation",
                     ticker="MSFT",
@@ -111,6 +114,9 @@ class RunFixture:
 
     def advance_to_the_final_gate(self) -> JobStatus:
         return self._worker.advance_to_the_final_gate(self.job_id)
+
+    def advance_until(self, gate: GateKind) -> JobStatus:
+        return self._worker.advance_until(self.job_id, gate)
 
     def hold_step(self, step_key: str, *, started_seconds_ago: int) -> None:
         """Put a step back into ``RUNNING``, as if the worker were still inside it.
@@ -190,7 +196,9 @@ class TestTheConsole:
     ) -> None:
         page.goto(f"{live_server}/runs/{waiting_run.job_id}")
 
-        expect(page.locator("#run-status")).to_have_text(JobStatus.AWAITING_APPROVAL.value)
+        expect(page.locator("#run-status")).to_have_text(
+            JOB_STATES[JobStatus.AWAITING_APPROVAL].label
+        )
         expect(page.locator('[data-step="plan"]')).to_be_visible()
         expect(page.locator("#awaiting-approval")).to_be_visible()
 
@@ -202,7 +210,7 @@ class TestTheConsole:
 
         expect(page.locator('[data-step="render"]')).to_be_visible()
         expect(page.locator('[data-step="render"] [data-field="status"]')).to_have_text(
-            JobStatus.QUEUED.value
+            JOB_STATES[JobStatus.QUEUED].label
         )
 
     def test_a_long_step_shows_a_clock_that_moves(
@@ -231,7 +239,8 @@ class TestTheConsole:
         waiting_run.hold_step("plan", started_seconds_ago=5)
         page.goto(f"{live_server}/runs/{waiting_run.job_id}")
 
-        expect(page.locator("#run-progress")).to_contain_text("Working on plan")
+        # The step's human name, not its key: the vocabulary reached the liveness line.
+        expect(page.locator("#run-progress")).to_contain_text("Working on planning the research")
         expect(page.locator("#run-progress")).to_contain_text("just worker")
 
     def test_reaching_a_gate_reveals_the_banner_without_a_manual_refresh(
@@ -266,7 +275,9 @@ class TestTheConsole:
         # By its text, not by an href prefix: "/requests/" also prefixes the nav link,
         # which would leave the browser on the list page and the failure would read as a
         # missing button rather than a mis-aimed click.
-        page.get_by_role("link", name="Microsoft Corporation").click()
+        # `exact`, because the row also carries a "Remove Microsoft Corporation" link and
+        # a substring match resolves to both.
+        page.get_by_role("link", name="Microsoft Corporation", exact=True).click()
         page.click("#open-run")
 
         page.wait_for_url(CONSOLE_URL)
@@ -381,7 +392,9 @@ class TestWithoutJavaScript:
         page.goto(f"{live_server}/runs/{waiting_run.job_id}")
 
         expect(page.locator('[data-step="plan"]')).to_be_visible()
-        expect(page.locator("#run-status")).to_have_text(JobStatus.AWAITING_APPROVAL.value)
+        expect(page.locator("#run-status")).to_have_text(
+            JOB_STATES[JobStatus.AWAITING_APPROVAL].label
+        )
 
     def test_the_polling_fallback_is_present_before_any_script_runs(
         self, no_script: Any, live_server: str, waiting_run: RunFixture
@@ -464,7 +477,7 @@ class TestCancelling:
         # cancelled run whose page still offers a cancel button is the thing that would
         # go unnoticed.
         expect(page.locator("#run-status")).to_have_text(
-            JobStatus.CANCELLED.value, timeout=REFETCH_TIMEOUT_MS
+            JOB_STATES[JobStatus.CANCELLED].label, timeout=REFETCH_TIMEOUT_MS
         )
         expect(page.locator("#cancel-run")).to_have_count(0)
 

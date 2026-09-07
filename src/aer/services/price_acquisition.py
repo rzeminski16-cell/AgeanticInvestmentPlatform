@@ -40,7 +40,7 @@ from aer.calc.units import Quantity, SourceRef, Unit
 from aer.core.enums import Provider, SourceTier
 from aer.db.models import Company, ResearchRequest, Security
 from aer.errors import AerError
-from aer.services.acquisition import record_acquisition
+from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.prices import (
     adjusted_series_for,
     market_capitalisation_for,
@@ -117,6 +117,11 @@ class PriceAcquisition:
     actions: int = 0
     market_capitalisation: Quantity | None = None
     beta_proposed: bool = False
+    # Why no beta was put forward, in the regression's own words, when none was. The
+    # confirmation run asked the operator for a beta and recorded nothing about why: the
+    # reason was in a log line the operator never sees, and `aer diagnose acquire_prices`
+    # showed `beta_proposed: False` and no more. Empty when a beta was proposed.
+    beta_reason: str = ""
     proxy: MarketProxy | None = None
 
     def as_dict(self) -> dict[str, Any]:
@@ -135,6 +140,7 @@ class PriceAcquisition:
                 else None
             ),
             "beta_proposed": self.beta_proposed,
+            "beta_reason": self.beta_reason,
             "market_proxy": self.proxy.label if self.proxy is not None else "",
         }
 
@@ -184,7 +190,7 @@ async def acquire_prices(
         return PriceAcquisition(acquired=False, reason=str(refused))
 
     symbol = vendor_symbol(request.ticker, exchange=request.exchange)
-    since = _window_start(request.as_of_date)
+    since = _window_start(request.work_order.as_of_date)
 
     subject = await _record_listing(
         session,
@@ -204,7 +210,7 @@ async def acquire_prices(
             acquired=False,
             reason=(
                 f"The market-data provider returned no prices for {symbol} on or before "
-                f"{request.as_of_date.isoformat()}, so nothing price-derived could be "
+                f"{request.work_order.as_of_date.isoformat()}, so nothing price-derived could be "
                 "computed."
             ),
         )
@@ -231,11 +237,11 @@ async def acquire_prices(
         context,
         security=subject.security,
         symbol=symbol,
-        as_of=request.as_of_date,
+        as_of=request.work_order.as_of_date,
         filed_shares=shares_outstanding,
     )
 
-    beta_proposed = await _propose_beta(
+    beta_proposed, beta_reason = await _propose_beta(
         session,
         context,
         request=request,
@@ -243,7 +249,7 @@ async def acquire_prices(
         subject=subject.security,
         market=market.security,
         proxy=proxy,
-        as_of=request.as_of_date,
+        as_of=request.work_order.as_of_date,
         since=since,
     )
 
@@ -255,6 +261,7 @@ async def acquire_prices(
         actions=subject.actions,
         proxy=proxy.symbol,
         beta_proposed=beta_proposed,
+        beta_reason=beta_reason,
     )
     return PriceAcquisition(
         acquired=True,
@@ -263,6 +270,7 @@ async def acquire_prices(
         actions=subject.actions,
         market_capitalisation=capitalisation,
         beta_proposed=beta_proposed,
+        beta_reason=beta_reason,
         proxy=proxy,
     )
 
@@ -308,7 +316,7 @@ async def acquire_peer_prices(
     except AerError as refused:
         return PeerPrices(reason=str(refused))
 
-    since = request.as_of_date - timedelta(days=PEER_WINDOW_DAYS)
+    since = request.work_order.as_of_date - timedelta(days=PEER_WINDOW_DAYS)
     try:
         listing = await _record_listing(
             session,
@@ -330,11 +338,13 @@ async def acquire_peer_prices(
         return PeerPrices(
             reason=(
                 f"The market-data provider returned no prices for {symbol} on or before "
-                f"{request.as_of_date.isoformat()}."
+                f"{request.work_order.as_of_date.isoformat()}."
             )
         )
 
-    series = await adjusted_series_for(session, listing.security, as_of=request.as_of_date)
+    series = await adjusted_series_for(
+        session, listing.security, as_of=request.work_order.as_of_date
+    )
     if not series.bars:
         return PeerPrices(reason=f"No usable bar for {symbol} inside the window.")
 
@@ -351,7 +361,7 @@ async def acquire_peer_prices(
         context,
         security=listing.security,
         symbol=symbol,
-        as_of=request.as_of_date,
+        as_of=request.work_order.as_of_date,
         filed_shares=filed_shares,
     )
     return PeerPrices(price_per_share=price, market_capitalisation=capitalisation)
@@ -410,12 +420,12 @@ async def _record_listing(
     company ever listed — a peer's bars recorded that way would sit under the subject's
     ticker, which is a provenance error nobody would see until two series disagreed.
     """
-    response = await client.fetch_bars(symbol, as_of=request.as_of_date, since=since)
+    response = await client.fetch_bars(symbol, as_of=request.work_order.as_of_date, since=since)
 
     acquisition = await record_acquisition(
         session,
         store,
-        request=request,
+        work_order=await acquisition_root(session, request),
         job_id=job_id,
         # Whose series this is (ADR 0061). The subject's listing passes its company; the
         # market proxy passes ``None``, which is the honest answer — an index is not an
@@ -425,7 +435,7 @@ async def _record_listing(
         result=response.fetch,
         provider=Provider.EODHD,
         source_tier=SourceTier.T4_LICENSED_MARKET,
-        title=f"{name} daily prices to {request.as_of_date.isoformat()}",
+        title=f"{name} daily prices to {request.work_order.as_of_date.isoformat()}",
         publisher="EOD Historical Data",
         # The last bar's date. A price series has no publication date of its own, and the
         # newest observation is the day it could first have existed — the same reasoning
@@ -453,7 +463,9 @@ async def _record_listing(
 
     recorded_actions = 0
     if with_actions:
-        actions = await client.fetch_actions(symbol, as_of=request.as_of_date, since=since)
+        actions = await client.fetch_actions(
+            symbol, as_of=request.work_order.as_of_date, since=since
+        )
         stored_actions = await record_actions(
             session,
             security=security,
@@ -522,12 +534,14 @@ async def _propose_beta(
     proxy: MarketProxy,
     as_of: date,
     since: date,
-) -> bool:
-    """Regress the beta and put it forward, or say nothing.
+) -> tuple[bool, str]:
+    """Regress the beta and put it forward, or say why not.
 
-    Returns ``False`` rather than raising when the series do not overlap enough to regress:
-    a newly listed company has no five-year beta, which is a fact about the company and not
-    a failure of the run. The operator enters one by hand, as they would have had to anyway.
+    Returns ``(False, reason)`` rather than raising when the series do not overlap enough
+    to regress: a newly listed company has no five-year beta, which is a fact about the
+    company and not a failure of the run. The operator enters one by hand, as they would
+    have had to anyway — and the reason goes on the step's record, where they can read it,
+    rather than only into the worker's log.
     """
     subject_series = await adjusted_series_for(session, subject, as_of=as_of, since=since)
     market_series = await adjusted_series_for(session, market, as_of=as_of, since=since)
@@ -551,5 +565,5 @@ async def _propose_beta(
             proxy=proxy.symbol,
             reason=str(refused),
         )
-        return False
-    return True
+        return False, str(refused)
+    return True, ""

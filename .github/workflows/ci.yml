@@ -25,8 +25,11 @@ env:
   AER_HTTP_USER_AGENT: "Ageiantic Research CI ci@example.invalid"
   AER_SECRET_KEY: "ci-signing-key-not-a-real-one"  # pragma: allowlist secret
   # The throwaway service container below, with the same non-secret password the local
-  # compose file uses. Nothing outside this runner can reach it.
-  AER_TEST_DATABASE_URL: "postgresql+asyncpg://aer:aer_local_dev@127.0.0.1:5432/postgres"  # pragma: allowlist secret
+  # compose file uses. Nothing outside this runner can reach it. A database of its own,
+  # never the maintenance database: the fixture drops and recreates the one the URL names
+  # from a connection to `postgres`, and Postgres refuses to drop the database it is
+  # connected to.
+  AER_TEST_DATABASE_URL: "postgresql+asyncpg://aer:aer_local_dev@127.0.0.1:5432/aer_test"  # pragma: allowlist secret
 
 jobs:
   static:
@@ -55,7 +58,7 @@ jobs:
           POSTGRES_DB: postgres
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U aer"
+          --health-cmd "pg_isready -U aer -d postgres"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -103,7 +106,7 @@ jobs:
           POSTGRES_DB: postgres
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U aer"
+          --health-cmd "pg_isready -U aer -d postgres"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10

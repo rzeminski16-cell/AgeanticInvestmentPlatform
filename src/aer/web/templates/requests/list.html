@@ -48,7 +48,7 @@
               <span class="mt-0.5 block type-data-sm text-ink-muted">{{ item.ticker }} · {{ item.exchange | replace("_", " ") }}</span>
             </th>
             <td class="border-b border-line py-3 pr-4 type-body-sm text-ink">
-              {{ item.as_of_date.isoformat() }}
+              {{ item.work_order.as_of_date.isoformat() }}
               <span class="mt-0.5 block type-data-sm text-ink-muted">{{ item.analysis_mode.value | capitalize }}</span>
             </td>
             <td class="border-b border-line py-3 pr-4">
@@ -57,7 +57,7 @@
                 for your plan decision" is what the row is for. The raw value stays reachable
                 in the request's own technical record.
               #}
-              {{ ui.status(request_tones[item.status], request_labels[item.status]) }}
+              {{ ui.status(request_tones[item.work_order.status], request_labels[item.work_order.status]) }}
             </td>
             {{ ui.cell(spend_by_request.get(item.id, "—"), numeric=true) }}
             <td class="border-b border-line py-3 whitespace-nowrap">

@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from aer.core.enums import Provider, SourceTier, UserRole
 from aer.db.models import Artefact, ResearchRequest, SourceDocument, User
 from tests.db_cleanup import delete_all, deletion_order
+from tests.request_fixtures import research_request
 
 pytestmark = pytest.mark.integration
 
@@ -133,7 +134,7 @@ async def _seed(session: AsyncSession) -> None:
     session.add_all([user, artefact])
     await session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Contoso Corporation",
         ticker="CTSO",
@@ -151,7 +152,6 @@ async def _seed(session: AsyncSession) -> None:
     session.add(
         SourceDocument(
             work_order_id=request.id,
-            request_id=request.id,
             artefact_id=artefact.id,
             url="https://example.invalid/doc",
             provider=Provider.SEC_EDGAR,

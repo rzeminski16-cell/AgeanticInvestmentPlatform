@@ -28,6 +28,7 @@ from aer.core.enums import Provider, RequestStatus, SourceTier, UserRole
 from aer.core.schemas.injection import Finding, InjectionSignal
 from aer.db.models import Artefact, AuditEvent, ResearchRequest, SourceDocument, User
 from aer.errors import IntegrityError, ValidationError
+from aer.services.acquisition import acquisition_root
 from aer.services.artefacts import store_artefact, store_artefact_stream, verify_artefact
 from aer.services.injection import record_findings
 from aer.services.sources import (
@@ -38,6 +39,7 @@ from aer.services.sources import (
     record_source_document,
 )
 from aer.storage.local import LocalArtefactStore
+from tests.request_fixtures import research_request
 
 pytestmark = pytest.mark.integration
 
@@ -56,7 +58,7 @@ async def request_row(db_session) -> ResearchRequest:
     db_session.add(user)
     await db_session.flush()
 
-    row = ResearchRequest(
+    row = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -393,7 +395,7 @@ class TestRecordingSources:
     async def test_it_records_the_full_provenance(self, db_session, request_row, artefact):
         document = await record_source_document(
             db_session,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             artefact=artefact,
             url="https://www.sec.gov/Archives/edgar/data/789019/000156459026000123/msft-10k.htm",
             canonical_url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",
@@ -415,7 +417,7 @@ class TestRecordingSources:
         assert document.provider is Provider.SEC_EDGAR
         assert document.source_tier is SourceTier.T1_REGULATORY
         assert document.artefact_id == artefact.id
-        assert document.request_id == request_row.id
+        assert document.work_order_id == request_row.id
         assert document.quarantined is False
         assert document.robots_allowed is True
         assert document.licence_note
@@ -430,7 +432,7 @@ class TestRecordingSources:
         means the row exists — so the answer is that row, not an error and not a twin."""
         first = await record_source_document(
             db_session,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             artefact=artefact,
             url="https://www.sec.gov/Archives/edgar/data/789019/msft-10q.htm",
             provider=Provider.SEC_EDGAR,
@@ -441,7 +443,7 @@ class TestRecordingSources:
         # worker fetching a URL variant of what the acquire step already recorded.
         second = await record_source_document(
             db_session,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             artefact=artefact,
             url="https://www.sec.gov/Archives/edgar/data/789019/msft-10q.htm?variant=1",
             provider=Provider.SEC_EDGAR,
@@ -453,18 +455,18 @@ class TestRecordingSources:
         assert second.source_tier is SourceTier.T1_REGULATORY
         held = await db_session.scalars(
             select(SourceDocument).where(
-                SourceDocument.request_id == request_row.id,
+                SourceDocument.work_order_id == request_row.id,
                 SourceDocument.artefact_id == artefact.id,
             )
         )
         assert len(list(held)) == 1
 
     async def test_an_undated_source_is_auto_quarantined(self, db_session, request_row, artefact):
-        assert request_row.point_in_time is True
+        assert request_row.work_order.point_in_time is True
 
         document = await record_source_document(
             db_session,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             artefact=artefact,
             url="https://example.invalid/undated-note",
             provider=Provider.WEB_SEARCH,
@@ -480,7 +482,7 @@ class TestRecordingSources:
     ):
         await record_source_document(
             db_session,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             artefact=artefact,
             url="https://example.invalid/undated-note",
             provider=Provider.WEB_SEARCH,
@@ -503,7 +505,7 @@ class TestRecordingSources:
     ):
         await record_source_document(
             db_session,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             artefact=artefact,
             url="https://www.sec.gov/filing.htm",
             provider=Provider.SEC_EDGAR,
@@ -525,7 +527,7 @@ class TestRecordingSources:
         # refused to use it" is a more useful trail than silence.
         await record_source_document(
             db_session,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             artefact=artefact,
             url="https://example.invalid/undated",
             provider=Provider.WEB_SEARCH,
@@ -538,7 +540,7 @@ class TestRecordingSources:
     async def test_quarantined_sources_can_be_listed(self, db_session, request_row, artefact):
         await record_source_document(
             db_session,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             artefact=artefact,
             url="https://example.invalid/a",
             provider=Provider.WEB_SEARCH,
@@ -546,7 +548,7 @@ class TestRecordingSources:
         )
         await record_source_document(
             db_session,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             artefact=artefact,
             url="https://www.sec.gov/b",
             provider=Provider.SEC_EDGAR,
@@ -564,7 +566,7 @@ class TestRecordingSources:
         with pytest.raises(ValidationError, match="timezone-aware"):
             await record_source_document(
                 db_session,
-                request=request_row,
+                work_order=await acquisition_root(db_session, request_row),
                 artefact=artefact,
                 url="https://example.invalid/naive",
                 provider=Provider.SEC_EDGAR,
@@ -588,7 +590,7 @@ class TestRecordingSources:
         ):
             await record_source_document(
                 db_session,
-                request=request_row,
+                work_order=await acquisition_root(db_session, request_row),
                 artefact=art,
                 url="https://www.sec.gov/same.htm",
                 provider=Provider.SEC_EDGAR,
@@ -612,7 +614,7 @@ class TestRecordingSources:
         async def record() -> SourceDocument:
             return await record_source_document(
                 db_session,
-                request=request_row,
+                work_order=await acquisition_root(db_session, request_row),
                 artefact=artefact,
                 url="https://www.sec.gov/same.htm",
                 provider=Provider.SEC_EDGAR,
@@ -638,7 +640,6 @@ class TestSourceDocumentConstraints:
         db_session.add(
             SourceDocument(
                 work_order_id=request_row.id,
-                request_id=request_row.id,
                 artefact_id=artefact.id,
                 url="https://example.invalid/x",
                 provider=Provider.WEB_SEARCH,
@@ -658,7 +659,6 @@ class TestSourceDocumentConstraints:
         db_session.add(
             SourceDocument(
                 work_order_id=request_row.id,
-                request_id=request_row.id,
                 artefact_id=artefact.id,
                 url="https://example.invalid/y",
                 provider=Provider.WEB_SEARCH,
@@ -678,7 +678,6 @@ class TestSourceDocumentConstraints:
         db_session.add(
             SourceDocument(
                 work_order_id=request_row.id,
-                request_id=request_row.id,
                 artefact_id=artefact.id,
                 url="https://example.invalid/z",
                 provider=Provider.SEC_EDGAR,
@@ -699,7 +698,7 @@ class TestSourceDocumentConstraints:
         # a provenance record points at would leave that record describing nothing.
         await record_source_document(
             db_session,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             artefact=artefact,
             url="https://www.sec.gov/cited.htm",
             provider=Provider.SEC_EDGAR,
@@ -749,7 +748,7 @@ class TestInformationalFindingsDoNotFlag:
     async def _document(db_session, request_row, artefact):
         return await record_source_document(
             db_session,
-            request=request_row,
+            work_order=await acquisition_root(db_session, request_row),
             artefact=artefact,
             url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",
             provider=Provider.SEC_EDGAR,

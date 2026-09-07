@@ -37,7 +37,6 @@ from aer.db.models import (
     Job,
     Portfolio,
     ReportSection,
-    ResearchRequest,
     SectionDefinition,
     SectionStatus,
     Security,
@@ -47,6 +46,7 @@ from aer.db.models import (
 from aer.errors import ValidationError
 from aer.services import provenance as provenance_service
 from aer.services.citations import record_claim
+from tests.request_fixtures import research_request
 
 pytestmark = pytest.mark.integration
 
@@ -63,7 +63,7 @@ async def scene(db_session: Any) -> dict[str, Any]:
     db_session.add_all([user, security])
     await db_session.flush()
 
-    request = ResearchRequest(
+    request = research_request(
         user_id=user.id,
         company_name="Microsoft Corporation",
         ticker="MSFT",
@@ -82,7 +82,6 @@ async def scene(db_session: Any) -> dict[str, Any]:
 
     job = Job(
         work_order_id=request.id,
-        request_id=request.id,
         workflow_version="test",
         code_version="test",
         status=JobStatus.RUNNING,

@@ -25,9 +25,10 @@ from aer.calc.units import Quantity, SourceRef, money
 from aer.config import load_settings
 from aer.core.enums import JobStatus
 from aer.core.sectors import ValuationModel, unclassified_mandate
-from aer.db.models import ResearchRequest, User
+from aer.db.models import User
 from aer.services import valuation as valuation_service
 from tests.db_fixtures import run_async
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE, DEFAULT_PER_RUN_BUDGET_GBP, seed_job
 
 pytestmark = [pytest.mark.e2e, pytest.mark.integration]
@@ -101,7 +102,7 @@ class ValuationFixture:
         analyst = await session.scalar(select(User).order_by(User.created_at))
         assert analyst is not None, "the live_server fixture seeds one"
 
-        research_request = ResearchRequest(
+        mandate = research_request(
             user_id=analyst.id,
             company_name="Testco plc",
             ticker="TEST",
@@ -114,10 +115,10 @@ class ValuationFixture:
             # The platform default, read rather than restated (A33).
             max_cost_gbp=DEFAULT_PER_RUN_BUDGET_GBP,
         )
-        session.add(research_request)
+        session.add(mandate)
         await session.flush()
 
-        job = await seed_job(session, request=research_request)
+        job = await seed_job(session, request=mandate)
         job.status = JobStatus.SUCCEEDED
         await session.flush()
 
@@ -126,7 +127,7 @@ class ValuationFixture:
         )
         await valuation_service.run_sensitivity(
             session,
-            request_id=research_request.id,
+            request_id=mandate.id,
             job_id=job.id,
             inputs=inputs(),
             rows=GridAxis(field="wacc", values=(rate("0.09"), rate("0.10"), rate("0.11"))),
@@ -204,6 +205,12 @@ class TestWhatTheReaderIsTold:
 
         expect(page.locator("#figure-gordon_growth-terminal_share")).to_be_visible()
         expect(page.locator("#high-terminal-gordon_growth")).to_be_visible()
+        # The threshold on the chip and the meaning under the table: "most of the answer"
+        # on its own was a label a reader had to ask about.
+        expect(page.locator("#high-terminal-gordon_growth")).to_contain_text(
+            "over 75% terminal value"
+        )
+        expect(page.locator("#high-terminal-note")).to_be_visible()
 
     def test_the_two_methods_disagreeing_is_stated(
         self, page: Page, live_server: str, valuation: ValuationFixture
@@ -218,6 +225,16 @@ class TestWhatTheReaderIsTold:
         page.goto(f"{live_server}/runs/{valuation.job_id}/valuation")
 
         expect(page.locator("#no-comps")).to_contain_text("nobody can defend")
+
+    def test_the_grid_is_drawn_as_well_as_tabled(
+        self, page: Page, live_server: str, valuation: ValuationFixture
+    ) -> None:
+        """Tranche 7: the stored grid is also a server-drawn figure. The table keeps every
+        ledger value beside it, so the drawing adds shape, never data."""
+        page.goto(f"{live_server}/runs/{valuation.job_id}/valuation")
+
+        expect(page.locator("#sensitivity-heatmap img")).to_be_visible()
+        expect(page.locator("#grid-0")).to_be_visible()
 
 
 class TestWithScriptingOff:

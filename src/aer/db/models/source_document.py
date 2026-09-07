@@ -43,7 +43,6 @@ from aer.db.types import Timestamp, UuidFk, UuidFkOptional, UuidPk
 if TYPE_CHECKING:
     from aer.db.models.artefact import Artefact
     from aer.db.models.extraction import Extraction
-    from aer.db.models.request import ResearchRequest
     from aer.db.models.work_order import WorkOrder
 
 __all__ = ["SourceDocument"]
@@ -69,11 +68,6 @@ class SourceDocument(Base):
     # is scoped by subject alone.
     work_order_id: Mapped[UuidFk] = mapped_column(
         ForeignKey("work_orders.id", ondelete="CASCADE"), nullable=False
-    )
-
-    # Kept for the transition and dropped by the follow-up revision, once nothing reads it.
-    request_id: Mapped[UuidFkOptional] = mapped_column(
-        ForeignKey("research_requests.id", ondelete="CASCADE")
     )
 
     # Nullable because acquisition can happen outside a job -- a source supplied by hand,
@@ -210,7 +204,6 @@ class SourceDocument(Base):
 
     artefact: Mapped[Artefact] = relationship(back_populates="sources")
     work_order: Mapped[WorkOrder] = relationship(back_populates="sources")
-    request: Mapped[ResearchRequest | None] = relationship(back_populates="sources")
 
     # CASCADE, because an extraction is derived and regenerable from bytes that are never
     # deleted. What is cited is protected one level further out; see the model's docstring.

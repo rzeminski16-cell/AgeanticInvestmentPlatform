@@ -105,17 +105,18 @@ columns it would have filled. A blank cell reads as nil, which is a claim. A clo
 says *Closed*.
 
 ### The transaction form
-Below the table, on the same page. Eight controls:
+Below the table, on the same page. Nine controls:
 
 | Control | Type | Notes |
 |---|---|---|
-| **What happened** | select | Buy · Sell · Dividend · Fee · Deposit · Withdrawal |
+| **What happened** | select | Buy · Sell · Dividend · Fee · Deposit · Withdrawal. **Not Split**: a split is derived from the corporate action (ADR 0094), and one that could be typed would be a share count with nothing behind it |
 | **Security** | `<input list>` over a `<datalist>` | Typeable. **Empty means cash** |
 | **Trade date** | date, defaults today, capped today | |
 | **Quantity or amount** | decimal | *"Shares for a deal, money for anything else"* |
 | **Price per share** | decimal | Buys and sells only. **In the dealing currency — pence for a London listing, if that is what the contract note says** |
 | **Currency** | text, 3 chars, defaults to base | |
 | **Dealing costs** | decimal | *"On a purchase they join the cost; on a sale they only take cash"* |
+| **Carries out** | select, optional | The held decision this trade carries out (ADR 0104), from the operator's journal. A sale offered against a decision to buy is refused with the reason |
 | **Note** | text | |
 
 **Every amount is typed positive. The sign is the form's job.** Nobody types a minus in front
@@ -155,12 +156,11 @@ handler that could make it otherwise — typing into a form produces no artefact
 
 ## What is wrong today
 
-**Four tiles is not an overview.** No return over time, no exposure, no concentration. What
-the book is *worth* is answered; whether it has *done well* is not, and that is what a
-portfolio screen is for. Both are on the roadmap as planned work with their arithmetic
-already decided — time-weighted and money-weighted return, weight by holding, sector, currency
-and listing country, and a top-five concentration figure. **Design for them now**, because
-retrofitting them into four tiles and a table will mean redesigning this page twice.
+~~**Four tiles is not an overview.**~~ **Landed 2026-09-01 (§3.2).** Return and exposure are
+two sheets below the tiles: a two-column return table — time-weighted and money-weighted,
+since inception and per calendar year — and four exposure bands with a top-five figure that
+says how many holdings it covers. Both were designed here first, which is why they fitted
+without redrawing the page.
 
 **A holding does not show its transactions.** Every figure is computed from the trades beneath
 it and there is no way to see them from the row. Reconciling a discrepancy against a statement
@@ -194,12 +194,12 @@ determines what every figure on the page means.
 
 ## What to improve
 
-**1. Design for return and exposure now.** Time-weighted and money-weighted return, since
-inception and per period; weight by holding, sector, currency and country; top-five
-concentration. **Deposits and withdrawals are flows, not gains** — a top-up must not read as
-performance, and the design should make that distinction visible rather than rely on the
-arithmetic being right. Sector is known only for names a run has touched, so it reports what
-it knows and **names what it does not, rather than bucketing the rest as "other"**.
+**1. ~~Design for return and exposure now.~~ Built 2026-09-01.** The two returns sit in one
+table with a column each, because a screen showing a single "return" asserts which question
+the reader meant. **Deposits and withdrawals are flows, not gains**, and the sheet says so in
+its own subtitle rather than relying on the arithmetic being right unread. The unclassified
+group is rendered from its own template branch, held out of the weighted list, so it cannot
+be styled into looking like a sector the book is in.
 
 **2. Make a holding openable.** Its transactions, its pooled cost, its price history. The
 drawer is built and would suit this exactly.

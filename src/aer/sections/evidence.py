@@ -24,11 +24,12 @@ Three properties the sharing preserves:
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field, replace
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Final
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from aer.core.concepts import is_canonical_concept
 from aer.core.enums import AnalysisMode, ClaimKind, SourceTier
@@ -42,6 +43,7 @@ from aer.core.section_output import (
 )
 from aer.db.models import (
     Calculation,
+    Claim,
     Extraction,
     FinancialFact,
     ReportSection,
@@ -57,7 +59,7 @@ from aer.services.sources import visible_sources
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from aer.agents.custom_section import CustomSectionDraft
+    from aer.agents.custom_section import CustomSectionDraft, ProposedClaim
 
 __all__ = [
     "EVIDENCE_ITEM_CAP",
@@ -70,6 +72,7 @@ __all__ = [
     "classify_refusals",
     "confidence_of",
     "content_source_ids",
+    "covered_figures",
     "degradation_note",
     "gather_evidence",
     "policy_shortfalls",
@@ -377,6 +380,7 @@ class EvidenceUnit:
     internal: dict[str, Any]
     untrusted: dict[str, str] | None = None
     fact_source: tuple[str, str] | None = None
+    figure_value: tuple[str, Decimal] | None = None
     calculation_id: str | None = None
     source_tier: tuple[str, SourceTier] | None = None
     extraction_source: tuple[str, str] | None = None
@@ -423,6 +427,16 @@ class Evidence:
     source_tiers: dict[str, SourceTier] = field(default_factory=dict)
     extraction_sources: dict[str, str] = field(default_factory=dict)
 
+    # The stored value behind every figure this pack shows, by id. Carried so a numeral in
+    # the content can be checked against the figure a claim *names* rather than against
+    # the model's spelling of it: "$331.8 billion" over a stored 331839000000 is the same
+    # figure said the way a report says it, and refusing it cost a live run two sections
+    # (ADR 0097, roadmap §2.1). The arithmetic is Python's — see `aer.core.figures`.
+    #
+    # No rescaling happens here and none should: `financial_facts.value` is absolute and
+    # `scale` is the source's presentation, provenance only. The readings do the rest.
+    figure_values: dict[str, Decimal] = field(default_factory=dict)
+
     @property
     def dealt(self) -> EvidenceDealt:
         """What this pack came to, counted by kind — the A63 measurement."""
@@ -440,6 +454,8 @@ class Evidence:
             self.fact_sources[unit.fact_source[0]] = unit.fact_source[1]
         if unit.calculation_id is not None:
             self.calculation_ids.add(unit.calculation_id)
+        if unit.figure_value is not None:
+            self.figure_values[unit.figure_value[0]] = unit.figure_value[1]
         if unit.source_tier is not None:
             self.source_tiers[unit.source_tier[0]] = unit.source_tier[1]
         if unit.extraction_source is not None:
@@ -528,6 +544,7 @@ async def gather_evidence(
                     "source_document_id": source_id,
                 },
                 fact_source=(identifier, source_id),
+                figure_value=(identifier, row.value),
             )
             if spent_on_listings + unit.cost > fact_budget:
                 break
@@ -582,6 +599,7 @@ async def gather_evidence(
                     "period": calc.period_label,
                 },
                 calculation_id=identifier,
+                figure_value=(identifier, calc.output_value),
             )
             if spent_on_listings + unit.cost > listing_budget:
                 break
@@ -771,6 +789,30 @@ def word_ceiling(budget: int) -> int:
     return int(budget * _WORD_CEILING_FACTOR)
 
 
+def covered_figures(
+    claims: Sequence[ProposedClaim], *, evidence: Evidence
+) -> tuple[list[str], list[Decimal]]:
+    """What the claims account for: their statements, and the figures they name.
+
+    **One function because two would drift**, which is the lesson `_erased` records for
+    the erasers: the rule that refuses a numeral and the salvage that removes the sentence
+    carrying it must agree exactly about what is covered, and they stopped agreeing the
+    moment there were two constructions of it.
+
+    Only claims that stand up (ADR 0096) — a malformed one is dropped before anything is
+    recorded, so letting it lend cover would pass a figure whose lineage is on its way
+    out. Only figures the pack actually holds, so a fabricated id lends nothing.
+    """
+    sound = [
+        claim for claim in claims if claim.kind == "numeric" and claim.malformed_reason is None
+    ]
+    named = [claim.financial_fact_id or claim.calculation_id for claim in sound]
+    return (
+        [claim.statement for claim in sound],
+        [evidence.figure_values[key] for key in named if key in evidence.figure_values],
+    )
+
+
 def validate_draft(
     draft: CustomSectionDraft,
     *,
@@ -782,6 +824,13 @@ def validate_draft(
     problems = contract_violations(draft.content, contract)
 
     for index, claim in enumerate(draft.claims, start=1):
+        # The rule the wire format cannot carry (see `ProposedClaim.malformed_reason`):
+        # a relation between fields, so the server's decoder cannot be made to honour it
+        # and a reply that breaks it is only refusable after it has been paid for. Here
+        # rather than in the schema so it costs the claim rather than the whole reply.
+        malformed = claim.malformed_reason
+        if malformed is not None:
+            problems.append(f"Claim {index}: {malformed}")
         if claim.financial_fact_id is not None and claim.financial_fact_id not in (
             evidence.fact_sources
         ):
@@ -817,8 +866,8 @@ def validate_draft(
     # refused here or "names its figure" would cover fabrications.
     problems.extend(_content_id_violations(draft.content, evidence=evidence))
 
-    covered = [claim.statement for claim in draft.claims if claim.kind == "numeric"]
-    problems.extend(unsourced_numerals(draft.content, covered))
+    covered, figures = covered_figures(draft.claims, evidence=evidence)
+    problems.extend(unsourced_numerals(draft.content, covered, figures))
 
     # The gap budget (R4). A live report spent a third of its prose describing absent
     # disclosure — honestly, and uselessly: rule 6 said "one clause and move on", nothing
@@ -923,7 +972,16 @@ async def record_draft_claims(
     Runs only after :func:`validate_draft` came back empty, so every id here resolves;
     the cited-source set feeds the policy-shortfall check, with a fact's own source
     counting for the claim that names the fact.
+
+    **A recorded draft replaces the section's claims, and only a recorded one does**
+    (ADR 0098). The replacement lives here because here is where there is something to
+    replace them with: the revise pass used to delete them before its attempt, so a
+    refused revision left a validated section with no claims and no content. On a first
+    draft the delete matches nothing and costs a statement.
     """
+    await session.execute(delete(Claim).where(Claim.report_section_id == section.id))
+    await session.flush()
+
     recorded = 0
     cited_source_ids: set[str] = set()
     for proposal in draft.claims:
@@ -978,7 +1036,14 @@ def policy_shortfalls(
     return shortfalls
 
 
-def confidence_of(content: dict[str, Any], *, degraded: bool) -> float:
+def confidence_of(content: dict[str, Any], *, ceiling: float | None) -> float:
+    """The model's declared confidence, held under whatever ceiling its degradation sets.
+
+    ``ceiling`` comes from :func:`aer.core.section_output.confidence_ceiling`, which is
+    where the three kinds of degradation are told apart (ADR 0099). ``None`` means the
+    section's confidence is the model's own: a draft that passed every rule, or one the
+    platform only shortened.
+    """
     declared = content.get("confidence")
     chosen = (
         float(declared)
@@ -987,9 +1052,7 @@ def confidence_of(content: dict[str, Any], *, degraded: bool) -> float:
         and 0 <= float(declared) <= 1
         else 0.5
     )
-    # §2.12: findings under an insufficiency banner are marked low-confidence, whatever
-    # the model thought of them.
-    return min(chosen, 0.3) if degraded else chosen
+    return min(chosen, ceiling) if ceiling is not None else chosen
 
 
 def degradation_note(shortfalls: list[str]) -> str | None:

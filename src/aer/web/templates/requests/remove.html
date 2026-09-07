@@ -13,7 +13,7 @@
   {% call ui.page_header(
     "Remove the " ~ item.company_name ~ " request?",
     eyebrow="RESEARCH REQUEST",
-    identity=item.ticker ~ " · as at " ~ item.as_of_date.isoformat(),
+    identity=item.ticker ~ " · as at " ~ item.work_order.as_of_date.isoformat(),
     breadcrumbs=[
       {"href": "/requests", "label": "Requests"},
       {"href": "/requests/" ~ item.id, "label": item.company_name},
@@ -69,7 +69,7 @@
         >Keep this request</a
       >
 
-      {% if not item.is_archived %}
+      {% if not item.work_order.is_archived %}
         <form method="post" action="/requests/{{ item.id }}/archive">
           <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
           <button

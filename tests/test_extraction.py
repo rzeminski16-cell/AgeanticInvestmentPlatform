@@ -39,7 +39,7 @@ from aer.core.schemas.extraction import (
     Locator,
     normalise_whitespace,
 )
-from aer.db.models import Artefact, Extraction, ResearchRequest, SourceDocument, User
+from aer.db.models import Artefact, Extraction, SourceDocument, User
 from aer.extract import extract_bytes, extract_text
 from aer.extract.errors import (
     DocumentTooLargeError,
@@ -54,6 +54,7 @@ from aer.extract.sniff import DetectedType, sniff
 from aer.extract.xml import hardened_parser, parse_xml
 from aer.services.extractions import locator_hash, record_excerpt, record_excerpts
 from aer.storage.local import LocalArtefactStore
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
 FILING = b"""<!DOCTYPE html>
@@ -596,7 +597,7 @@ class TestRecordingExcerpts:
         db_session.add(user)
         await db_session.flush()
 
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",
@@ -624,7 +625,6 @@ class TestRecordingExcerpts:
 
         document = SourceDocument(
             work_order_id=request.id,
-            request_id=request.id,
             artefact_id=artefact.id,
             url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",
             provider=Provider.SEC_EDGAR,

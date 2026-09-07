@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% import "_ui/index.html" as ui with context %}
+
+{#
+  The watchlist: what you follow, where each stands, the standing budget the queue spends,
+  and the forms that follow, commission and stop following.
+
+  Two clocks, said plainly (ADR 0107): an entry shows when it was followed, a commission
+  shows the date its run is dated as at. A state is read from the run, never stored on the
+  entry. The budget is money and is shown as money; nothing here is a figure a report
+  rests on.
+#}
+
+{% block title %}Watchlist &middot; Tracework{% endblock %}
+
+{% block content %}
+  {% call ui.page_header("Watchlist", eyebrow="WHAT TO RESEARCH NEXT") %}
+    <p class="type-body text-ink-muted">
+      Companies you follow and have not commissioned research on, the queue of what to
+      research next and what it would cost, and the standing budget the queue spends.
+      Every run the queue starts stops at gate one for you, like any other.
+    </p>
+  {% endcall %}
+
+  {{ ui.verdict("THE QUEUE", verdict.composed, tone=verdict.tone.value) }}
+
+  {% if queued_notice %}
+    <div id="queued-notice" class="mt-4">
+      {% if queued_notice == "0" %}
+        {{ ui.callout("warning", "Nothing was queued", "The request and its run were recorded, but the queue could not be reached, so nothing is running. Check that Redis and the worker are running, then start the run from its page.") }}
+      {% elif "of" in queued_notice %}
+        {{ ui.callout("warning", "Only some runs were queued", queued_notice.replace("of", " of ") ~ " runs reached the queue; the rest are recorded and can be started from their pages.") }}
+      {% else %}
+        {{ ui.callout("info", "Runs queued", queued_notice ~ " run" ~ ("" if queued_notice == "1" else "s") ~ " started from the queue. Each stops at gate one for you; the work list will say when.") }}
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% call ui.sheet("The standing budget", subtitle="What the queue may start in " ~ budget.month ~ ": the budget, less what this month's commissioned runs have spent, less what the ones still alive may yet spend up to their caps. A run the queue starts keeps its own cap, and the month's cap applies on top.", id="budget") %}
+    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4" id="budget-figures">
+      <div data-figure="budget">{{ ui.figure("Standing budget", budget.budget, note="Per calendar month. AER_WATCHLIST_BUDGET_GBP sets it.") }}</div>
+      <div data-figure="spent">{{ ui.figure("Spent", budget.spent, note="By runs the queue commissioned this month.") }}</div>
+      <div data-figure="reserved">{{ ui.figure("Reserved", budget.reserved, note="What the runs still alive may yet spend.") }}</div>
+      <div data-figure="room">{{ ui.figure("Room", budget.room, note="Enough for " ~ budget.fits ~ " more run" ~ ("" if budget.fits == 1 else "s") ~ " at a cap of " ~ budget.cap ~ ".") }}</div>
+    </div>
+  {% endcall %}
+
+  {% call ui.sheet("Followed", subtitle="In the order followed, which is the order the queue runs in. Commission any one now, as at today or a date you state; the queue commissions the next it can afford.", id="followed") %}
+    {% if rows %}
+      {% call ui.record_list("Followed companies") %}
+        {% for row in rows %}
+          <li class="grid grid-cols-1 gap-3 border-t border-line py-4 sm:grid-cols-[1fr_auto] sm:items-start sm:gap-6" data-entry="{{ row.id }}" data-state="{{ row.state }}">
+            <div class="min-w-0">
+              <p class="type-subheading text-ink">{{ row.company_name }} <span class="type-data-sm text-ink-muted">{{ row.listing }}</span></p>
+              {% if row.why %}<p class="mt-1 max-w-prose type-body text-ink" data-field="why">{{ row.why }}</p>{% endif %}
+              <p class="mt-1 type-data-sm text-ink-muted">
+                Followed {{ row.followed_on }}
+                {%- if row.as_of %} · researched as at {{ row.as_of }}, commissioned {{ row.commissioned_on }}{% endif %}
+                {%- if row.commissions > 1 %} · {{ row.commissions }} commissions{% endif %}
+              </p>
+              {% if row.request_href %}
+                <p class="mt-1 type-body-sm text-ink-muted">
+                  <a href="{{ row.request_href }}" class="text-verification underline underline-offset-[3px]">The request</a>
+                  {% if row.run_href %} · <a href="{{ row.run_href }}" class="text-verification underline underline-offset-[3px]">The run</a> ({{ row.run_state }}{% if row.cost %}, {{ row.cost }}{% endif %}){% endif %}
+                  {% if row.report_href %} · <a href="{{ row.report_href }}" class="text-verification underline underline-offset-[3px]">The report</a>{% endif %}
+                </p>
+              {% endif %}
+              {% if row.history %}
+                {#
+                  The "researched as at" history: every commission on the entry, newest
+                  first, once there is more than the one the row shows. Closed by default;
+                  the latest is the state and this is the record.
+                #}
+                <div class="mt-2" data-history="{{ row.id }}">
+                  {% call ui.disclosure("Every commission, " ~ row.history | length ~ " so far") %}
+                    <ol class="flex flex-col" aria-label="Commissions on {{ row.company_name }}">
+                      {% for past in row.history %}
+                        <li class="border-t border-line py-2 type-body-sm text-ink" data-commission-as-of="{{ past.as_of }}">
+                          Researched as at {{ past.as_of }}, commissioned {{ past.commissioned_on }}
+                          {%- if past.is_purged %} · <span class="text-ink-muted">the request was removed</span>
+                          {%- else %}
+                            {%- if past.request_href %} · <a href="{{ past.request_href }}" class="text-verification underline underline-offset-[3px]">The request</a>{% endif %}
+                            {%- if past.run_href %} · <a href="{{ past.run_href }}" class="text-verification underline underline-offset-[3px]">The run</a> ({{ past.run_state }}{% if past.cost %}, {{ past.cost }}{% endif %}){% endif %}
+                            {%- if past.report_href %} · <a href="{{ past.report_href }}" class="text-verification underline underline-offset-[3px]">The report</a>{% endif %}
+                          {%- endif %}
+                        </li>
+                      {% endfor %}
+                    </ol>
+                  {% endcall %}
+                </div>
+              {% endif %}
+            </div>
+            <div class="flex flex-col items-start gap-2 sm:items-end">
+              {{ ui.status(row.tone, row.label) }}
+              {% if not row.is_withdrawn %}
+                {% if row.state != "commissioned" %}
+                  <form method="post" action="/watchlist/{{ row.id }}/commission" class="flex flex-wrap items-end gap-2" data-commission="{{ row.id }}">
+                    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                    <div>
+                      <label for="as_of-{{ row.id }}" class="block type-label text-ink-muted">As at</label>
+                      <input id="as_of-{{ row.id }}" name="as_of" type="date" value="{{ today }}" max="{{ today }}" class="mt-1 min-h-11 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink" />
+                    </div>
+                    <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 py-2 type-label text-on-verification hover:bg-verification-strong">Commission</button>
+                  </form>
+                {% endif %}
+                <form method="post" action="/watchlist/{{ row.id }}/stop" class="flex flex-wrap items-end gap-2" data-stop="{{ row.id }}">
+                  <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                  <div>
+                    <label for="reason-{{ row.id }}" class="block type-label text-ink-muted">Stop following because</label>
+                    <input id="reason-{{ row.id }}" name="reason" required class="mt-1 min-h-11 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink" />
+                  </div>
+                  <button type="submit" class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary px-3 type-label text-ink hover:bg-surface-selected">Stop</button>
+                </form>
+              {% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      {% endcall %}
+    {% else %}
+      {{ ui.empty("Nothing followed", "Follow a company below: its name, its listing, and a sentence saying what would make it worth researching. The queue is what you follow, in the order you followed it.") }}
+    {% endif %}
+    {% if next %}
+      <form method="post" action="/watchlist/commission-next" class="mt-6 flex flex-wrap items-center gap-3" id="commission-next">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        <button id="next" type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong" {% if budget.is_spent %}disabled aria-disabled="true"{% endif %}>Commission the next the budget affords</button>
+        <span class="type-body-sm text-ink-muted">{% if budget.is_spent %}The standing budget is spent for the month.{% else %}Next in the queue: {{ next.company_name }}. Up to {{ budget.fits }} run{{ "" if budget.fits == 1 else "s" }} this month.{% endif %}</span>
+      </form>
+      {# What the button is about to spend, beside it rather than in the budget sheet. #}
+      <p class="mt-2 type-body-sm text-ink-muted" id="cost-guidance">{{ cost_guidance }}</p>
+    {% endif %}
+    <p class="mt-4 type-body-sm text-ink-muted">
+      {% if showing_withdrawn %}
+        <a href="/watchlist" class="text-verification underline underline-offset-[3px]">Hide the companies no longer followed</a>
+      {% else %}
+        <a href="/watchlist?withdrawn=1" id="show-withdrawn" class="text-verification underline underline-offset-[3px]">Show the companies no longer followed</a>
+      {% endif %}
+    </p>
+  {% endcall %}
+
+  {% if showing_withdrawn %}
+    {% call ui.sheet("No longer followed", subtitle="What was once followed and why it was put away. Nothing is deleted; each keeps every commission it had.", id="withdrawn") %}
+      {% if withdrawn %}
+        {% call ui.record_list("Companies no longer followed") %}
+          {% for row in withdrawn %}
+            <li class="border-t border-line py-4" data-entry="{{ row.id }}" data-state="withdrawn">
+              <p class="type-subheading text-ink">{{ row.company_name }} <span class="type-data-sm text-ink-muted">{{ row.listing }}</span></p>
+              {% if row.why %}<p class="mt-1 max-w-prose type-body text-ink" data-field="why">{{ row.why }}</p>{% endif %}
+              <p class="mt-1 type-data-sm text-ink-muted">Followed {{ row.followed_on }} · stopped {{ row.withdrawn_on }}{% if row.commissions %} · {{ row.commissions }} commission{{ "" if row.commissions == 1 else "s" }}{% endif %}</p>
+              <p class="mt-1 type-body-sm text-ink" data-field="withdrawn-reason">{{ row.withdrawn_reason }}</p>
+              {% if row.report_href %}<p class="mt-1 type-body-sm text-ink-muted"><a href="{{ row.report_href }}" class="text-verification underline underline-offset-[3px]">The last report</a></p>{% endif %}
+            </li>
+          {% endfor %}
+        {% endcall %}
+      {% else %}
+        {{ ui.empty("Nothing put away", "A company you stop following is kept here with the reason. None has been yet.") }}
+      {% endif %}
+    {% endcall %}
+  {% endif %}
+
+  {% call ui.sheet("Follow a company", subtitle="Checked against the same universe a research request is: a UK or US listing, not a fund. Following costs nothing; research is commissioned from the row.", id="following") %}
+    <form method="post" action="/watchlist" class="grid max-w-2xl gap-4" id="follow-company">
+      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+      {{ ui.field("company_name", "Company", required=true, hint="As it is named on its filings.") }}
+      <div class="grid gap-4 sm:grid-cols-2">
+        {{ ui.field("ticker", "Ticker", required=true, hint="\"BARC\", \"MSFT\".") }}
+        {{ ui.field("exchange", "Exchange", required=true, hint="LSE, NASDAQ, NYSE or NYSE American.") }}
+      </div>
+      {{ ui.field("why", "What would make it worth researching", rows=2, hint="A sentence. The reason the queue is a list of reasons rather than a list of tickers.") }}
+      <div>
+        <button id="follow" type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong">Follow</button>
+      </div>
+    </form>
+  {% endcall %}
+{% endblock %}

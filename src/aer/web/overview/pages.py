@@ -124,11 +124,16 @@ async def main_menu(request: Request, session: DbSession, redis: RedisClient) ->
             # Composed from the feed directly above it, and told whether that feed is a
             # count at all — the case where "nothing is waiting for you" is both the obvious
             # sentence and completely wrong.
-            "verdict": overview_verdict(attention, gathered=gathered, first_run=not commissioned),
+            "verdict": overview_verdict(
+                attention, gathered=gathered, first_run=not commissioned and not attention
+            ),
             # An empty work list means two opposite things. To somebody who has been using the
             # platform it means caught up; to somebody who has just installed it, it means
-            # nothing here works yet — and only the second reader needs an instruction.
-            "first_run": gathered and not commissioned,
+            # nothing here works yet — and only the second reader needs an instruction. An
+            # operator with something waiting is neither: a thesis the monitor has read is
+            # work under way whether or not a report was ever commissioned, and the
+            # instruction must never cover the row that needs them.
+            "first_run": gathered and not commissioned and not attention,
             "spend": spend,
             # The context strip, assembled here rather than in the template: a list is data
             # and Jinja has no comprehension, so a template that built one would be doing it

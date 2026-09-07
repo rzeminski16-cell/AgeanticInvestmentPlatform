@@ -82,6 +82,7 @@ __all__ = [
     "ResolvedBy",
     "UnresolvableDisagreementError",
     "canonical_unit",
+    "challenge_heading",
     "position_figure",
     "relative_difference",
     "resolve",
@@ -218,6 +219,30 @@ def position_figure(position: Mapping[str, Any]) -> str:
     if unit == THESIS_UNIT:
         return f"tier {tier}"
     return f"{position.get('value', '')} {unit} ({tier})".strip()
+
+
+def challenge_heading(detail: Mapping[str, Any] | None, *, fallback: str) -> str:
+    """How one recorded conflict announces itself above its own argument.
+
+    A red-team row's ``topic`` is a shortened copy of its statement — enough to fingerprint
+    the row and to name it in a log line, and no more. Printed as the heading *above* that
+    statement, which is what the review page did, it read as the same sentence twice: once
+    cut short, then whole. So a challenge names what it is — the dimension it attacks and
+    how hard — and leaves the argument below it to be the argument.
+
+    ``fallback`` is the topic, for a conflict that is not a red-team challenge: a source
+    conflict's topic is a real short label ("revenue FY2024"), not a shortening of anything.
+
+    Takes the stored record rather than a row, for the reason :func:`position_figure` does:
+    the surfaces hold JSONB, and this module knows nothing about tables.
+    """
+    detail = detail or {}
+    dimension = str(detail.get("dimension") or "").replace("_", " ").strip()
+    if not dimension:
+        return fallback
+    heading = f"Red team \N{EM DASH} {dimension}"
+    severity = detail.get("severity")
+    return f"{heading}, severity {severity}/5" if severity else heading
 
 
 @dataclass(frozen=True, slots=True)

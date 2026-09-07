@@ -42,17 +42,27 @@ from aer.agents.plan_critic import PlanCriticAgent, PlanCriticInput, PlanCritiqu
 from aer.agents.planner import PlannerAgent, PlannerInput, PriorResearch, salvaged_plan
 from aer.agents.themes import PROPOSED_BY as THEMES_PROPOSED_BY
 from aer.agents.themes import ThemeProposalAgent, ThemeProposalInput, ThemeSlate
+from aer.agents.verdict import VerdictAgent, VerdictInput
 from aer.agents.worker import ResearchTopic, WorkerExhaustedError, degraded_report
 from aer.calc.basic import cagr
 from aer.calc.comps import MultipleBasis, WithheldComps
 from aer.calc.engine import CalculationContext
 from aer.calc.units import Quantity, SourceRef, Unit, money
+from aer.config import Settings
 from aer.core.concepts import CANONICAL_CONCEPTS
-from aer.core.enums import Decision, FactBasis, GateKind, JobStatus, Provider, SourceTier
-from aer.core.escalation import FiredTrigger
+from aer.core.disagreement import DisagreementKind
+from aer.core.enums import (
+    Decision,
+    FactBasis,
+    GateKind,
+    JobStatus,
+    Provider,
+    SkillKind,
+    SourceTier,
+)
+from aer.core.escalation import CostScene, FiredTrigger
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.core.schemas.facts import RawFact
-from aer.core.schemas.request import ResearchRequestRead
 from aer.core.sectors import (
     ModelNotPermittedError,
     ValuationMandate,
@@ -62,6 +72,7 @@ from aer.core.sectors import (
     profile_for,
     unclassified_mandate,
 )
+from aer.core.skill_guidance import OperatorGuidance, roles_for
 from aer.db.models import (
     Approval,
     Assumption,
@@ -97,7 +108,8 @@ from aer.sections.evidence import SectionExecution
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
 from aer.sections.writing import execute_builtin_section
 from aer.services import calculations as calculation_service
-from aer.services.acquisition import record_acquisition
+from aer.services import requests as request_service
+from aer.services.acquisition import acquisition_root, record_acquisition
 from aer.services.analysis import analyse_company
 from aer.services.artefacts import store_artefact
 from aer.services.assumption_gate import assemble as assemble_assumptions
@@ -105,6 +117,7 @@ from aer.services.assumption_gate import gate_payload as gate_payload_for_assump
 from aer.services.assumption_gate import gate_required, refreshed_payload
 from aer.services.assumption_gate import valuation_model as assumptions_valuation_model
 from aer.services.assumptions import assumptions_for_request
+from aer.services.challenge_briefs import brief_unsettled_challenges
 from aer.services.citations import review_evidence
 from aer.services.comps import (
     PEER_SET_STEP,
@@ -116,13 +129,14 @@ from aer.services.comps import (
 from aer.services.comps_run import build_comps_table
 from aer.services.consistency import check_report_consistency
 from aer.services.disagreements import escalations_for_job
-from aer.services.escalation import triggers_for_job
+from aer.services.escalation import cost_scene_for_job, triggers_for_job
 from aer.services.evaluations import evaluate_run
 from aer.services.exhibits import exportable_charts_for
 from aer.services.extractions import record_excerpts
 from aer.services.facts import persist_facts, upsert_company
 from aer.services.filings import acquire_filings
 from aer.services.history import prior_digest_for
+from aer.services.mandate import mandate_of
 from aer.services.peer_discovery import DiscoveredPeers, discover_peers, merged_with
 from aer.services.price_acquisition import acquire_prices
 from aer.services.red_team import run_red_team
@@ -152,6 +166,7 @@ from aer.skills.execution import execute_custom_section
 from aer.skills.resolution import (
     custom_definitions_for_pins,
     estimate_custom_section_cost,
+    guidance_from_pins,
     pinned_skills_for_job,
     pinned_skills_for_work_order,
     resolve_skills_for_plan,
@@ -241,6 +256,16 @@ CRITIQUE_PLAN_ESTIMATE_GBP: Final = Decimal("0.30")
 # the draft step's measurement — £4.84 across sixteen sections is roughly £0.30 each, and
 # the margin covers the challenged sections skewing dear (they are the ones with claims).
 REVISE_ESTIMATE_GBP: Final = Decimal("1.50")
+
+# The review gate's authored half (ADR 0087): one sentence over a digest of outcomes, on
+# the cheapest route the platform has. The margin over the expected fraction of a penny is
+# the guard's, not the step's — a step with no estimate is a step the cap cannot pause.
+VERDICT_ESTIMATE_GBP: Final = Decimal("0.10")
+
+# The briefing of unsettled challenges (ADR 0095): six short fields per challenge, up to
+# eight of them, on the same cheap route as the verdict. Larger than the verdict's estimate
+# because the output is, and still a rounding error against the draft's.
+CHALLENGE_BRIEF_ESTIMATE_GBP: Final = Decimal("0.20")
 
 # The severity at which a plan challenge sends the plan back for a revision. Deliberately
 # below the draft's material line (severity 4): a plan revision costs one planner call
@@ -480,6 +505,19 @@ def build_steps() -> list[WorkflowStep]:
         # person ever sees the draft. Seals the gate-2 hash, as the new last step that
         # can change what the operator is shown.
         WorkflowStep(key="revise", run=_revise, estimated_cost_gbp=REVISE_ESTIMATE_GBP),
+        # The review gate's authored half (ADR 0087), written once the draft has frozen.
+        # After revise deliberately: the subject must have stopped changing. It writes no
+        # section, joins no payload and seals no hash — the gate-2 hash stays with revise,
+        # because interpretation is never part of what the operator approves.
+        WorkflowStep(key="verdict", run=_verdict, estimated_cost_gbp=VERDICT_ESTIMATE_GBP),
+        # What each side of an unsettled challenge assumes and implies (ADR 0095). After
+        # revise for the same reason the verdict is: the arguments have stopped changing.
+        # Advisory throughout — it joins no payload, settles no row, and reaches no report.
+        WorkflowStep(
+            key="brief_challenges",
+            run=_brief_challenges,
+            estimated_cost_gbp=CHALLENGE_BRIEF_ESTIMATE_GBP,
+        ),
         WorkflowStep(key="gate_final", run=_gate_final, gate=GateKind.FINAL.value),
         WorkflowStep(key="render", run=_render),
     ]
@@ -524,13 +562,32 @@ async def _plan(context: StepContext) -> StepResult:
     # has not resolved yet — feeds forward nothing, and the prompt says nothing about it.
     priors = await _prior_digests(context.session, request=request)
 
+    # Every enabled skill, pinned to this run *before* the planner is asked (ADR 0108 §3)
+    # — planned with its composed policy, or skipped with its reason — so the planner
+    # composes its guidance from the rows gate 1 will display and the writer will read,
+    # rather than from a query of its own that a concurrent edit could answer differently.
+    # The pinned sections' budgets join the estimate the operator approves against,
+    # because a cost the gate does not show is a cost nobody agreed to.
+    resolved = await resolve_skills_for_plan(
+        context.session,
+        request=request,
+        work_order_id=request.id,
+        settings=context.service("settings"),
+        router=context.service("router"),
+        # A prompt-kind skill is read by the planner once and by the writer on every
+        # model-written section; its estimate counts those calls (ADR 0108).
+        writer_calls=sum(1 for definition in definitions if definition.token_budget > 0),
+    )
+    pins = await pinned_skills_for_work_order(context.session, work_order_id=request.id)
+
     try:
         draft = await agent.run(
             agent_context,
             PlannerInput(
-                request=ResearchRequestRead.model_validate(request, from_attributes=True),
+                request=request_service.mandate_read(request),
                 available_section_keys=[definition.key for definition in definitions],
                 prior_research=priors,
+                guidance=guidance_from_pins(pins),
             ),
         )
     except SpentButUnusableError as unusable:
@@ -604,17 +661,7 @@ async def _plan(context: StepContext) -> StepResult:
     # resolves job -> plan -> pins.
     context.job.plan_id = plan.id
 
-    # Every enabled skill, pinned to this plan — planned with its composed policy, or
-    # skipped with its reason. The pinned sections' budgets join the estimate the
-    # operator approves against, because a cost the gate does not show is a cost nobody
-    # agreed to.
-    resolved = await resolve_skills_for_plan(
-        context.session,
-        request=request,
-        plan=plan,
-        settings=context.service("settings"),
-        router=context.service("router"),
-    )
+    # The pinned sections' estimate, resolved above before the planner ran.
     plan.estimated_cost_gbp = plan.estimated_cost_gbp + resolved.estimated_cost_gbp
     await context.session.flush()
 
@@ -628,7 +675,6 @@ async def _plan(context: StepContext) -> StepResult:
     # from. Recorded on the approval, so an approval of one plan cannot be reused for a
     # different one; see `_require_approval`. The pins are inside the payload, so
     # approving one set of skills is not approving another.
-    pins = await pinned_skills_for_work_order(context.session, work_order_id=plan.request_id)
     payload_hash = sha256_hex(canonical_json(plan_gate_payload(plan, pins)))
 
     # The run's sections are the built-ins plus this plan's pinned custom sections
@@ -684,7 +730,7 @@ async def _prior_digests(session: AsyncSession, *, request: ResearchRequest) -> 
             catalyst_lines=list(digest.catalyst_lines),
         )
         for digest in await prior_digest_for(
-            session, company_id=company.id, before=request.as_of_date
+            session, company_id=company.id, before=request.work_order.as_of_date
         )
     ]
 
@@ -747,6 +793,12 @@ def plan_gate_payload(plan: ResearchPlan, pins: Sequence[PlanSkillPin] = ()) -> 
                 "granted_tools": list(pin.granted_tools or []),
                 "clamps": list(pin.clamps or []),
                 "estimated_cost_gbp": str(pin.estimated_cost_gbp),
+                # The roles a planned prompt-kind pin composes into (ADR 0108 §3): inside
+                # the hash, because approving the plan is approving where the operator's
+                # words reach. Empty for a section, which reaches no role but its own.
+                "composes_into": (
+                    list(roles_for(SkillKind(pin.skill.kind))) if pin.status == PIN_PLANNED else []
+                ),
             }
             for pin in pins
         ],
@@ -890,8 +942,8 @@ async def _critique_from_model(
                 company_name=request.company_name,
                 ticker=request.ticker,
                 exchange=request.exchange,
-                as_of_date=request.as_of_date.isoformat(),
-                point_in_time=request.point_in_time,
+                as_of_date=request.work_order.as_of_date.isoformat(),
+                point_in_time=request.work_order.point_in_time,
                 analysis_mode=request.analysis_mode.value,
                 investment_horizon_months=request.investment_horizon_months,
                 focus_questions=list(request.focus_questions or []),
@@ -933,13 +985,15 @@ async def _revised_plan(
     the gate, which is most of the value — and a budget refusal is never absorbed.
     """
     keys = [str(entry.get("key", "")) for entry in body.get("section_listing", [])]
+    pins = await pinned_skills_for_work_order(context.session, work_order_id=plan.request_id)
     try:
         draft = await PlannerAgent().run(
             agent_context,
             PlannerInput(
-                request=ResearchRequestRead.model_validate(request, from_attributes=True),
+                request=request_service.mandate_read(request),
                 available_section_keys=[key for key in keys if key],
                 prior_research=await _prior_digests(context.session, request=request),
+                guidance=guidance_from_pins(pins),
                 previous_plan={
                     "summary": body.get("summary", ""),
                     "sections": body.get("sections", []),
@@ -1033,6 +1087,9 @@ def _unmapped_rows(
                 # mapped to scale it against, which is a state worth showing rather than
                 # papering over with a zero.
                 "share": f"{share:.6f}" if share is not None else "",
+                # Why this tag must never map, or empty when it is merely unplaced
+                # (§2.7). The gate reads the two as different questions.
+                "refusal": concept.refusal,
             }
         )
 
@@ -1091,6 +1148,11 @@ def unmapped_gate_payload(produced: Mapping[str, Any]) -> dict[str, Any]:
         # Empty for a run recorded before 2026-08-25. The gate falls back to the tag list,
         # which is what it always showed, rather than rendering an absence as a hole.
         "unmapped_concepts": list(produced.get("unmapped_concepts", [])),
+        # Tags this platform has decided must never map, each with its reason (§2.7).
+        # Reported, never asked about: the decision is already taken. Empty for a run
+        # recorded before 2026-08-30, and for one whose filing used none of them.
+        "refused_tags": list(produced.get("refused_tags", [])),
+        "refused_concepts": list(produced.get("refused_concepts", [])),
         "mapped_concepts": list(produced.get("mapped_concepts", [])),
         "facts_written": produced.get("facts_written", 0),
         "load_errors": list(produced.get("load_errors", [])),
@@ -1104,6 +1166,11 @@ def unmapped_gate_required(produced: Mapping[str, Any]) -> bool:
     company's headline profit measure matters and forty carrying segment breakdowns nobody
     asked for do not, and only a person can tell which — see
     :attr:`aer.extract.ixbrl.IxbrlExtraction.needs_confirmation`, which this mirrors.
+
+    **A refused tag does not count** (§2.7). ``unmapped_tags`` no longer carries them: they
+    are reported under ``refused_tags`` with the reason each was refused, because stopping
+    a run to ask about a decision already taken is how a considered refusal gets approved
+    away as noise.
     """
     return bool(produced.get("unmapped_tags"))
 
@@ -1208,7 +1275,7 @@ async def _propose_assumptions(context: StepContext) -> StepResult:
         context.session,
         calculation_service.new_context(),
         company_id=_uuid(acquired["company_id"]),
-        request=request,
+        work_order=request.work_order,
         profile=profile_for(sector_key),
     )
 
@@ -1364,7 +1431,7 @@ async def _value(context: StepContext) -> StepResult:
         context.session,
         calculation_service.new_context(),
         company_id=_uuid(acquired["company_id"]),
-        request=request,
+        work_order=request.work_order,
         profile=profile_for(sector_key),
     )
 
@@ -1459,7 +1526,7 @@ async def _comps(context: StepContext) -> StepResult:
         context.session,
         calculation_service.new_context(),
         company_id=_uuid(acquired["company_id"]),
-        request=request,
+        work_order=request.work_order,
         profile=profile_for(sector_key_of(context.outputs)),
     )
 
@@ -1474,7 +1541,7 @@ async def _comps(context: StepContext) -> StepResult:
         ticker=request.ticker,
         analysis=analysis,
         market_capitalisation=_market_capitalisation_from(prices, currency=request.base_currency),
-        as_of=request.as_of_date,
+        as_of=request.work_order.as_of_date,
         client=context.optional_service("eodhd_client"),
         store=context.service("store"),
     )
@@ -1592,6 +1659,70 @@ async def _red_team(context: StepContext) -> StepResult:
     return StepResult(output=outcome.as_dict(), cost_gbp=agent_context.spend_gbp)
 
 
+# The last step that can change what gate 2 approves (ADR 0091). Named because the seal is
+# also what fixes the payload's money figures — see `sealed_cost_scene`.
+_SEAL_STEP: Final = "revise"
+
+# Where the sealing step records the cap, the estimate and the spend it sealed with.
+_COST_SCENE: Final = "cost_scene"
+
+
+def _cost_record(scene: CostScene) -> dict[str, str | None]:
+    """The sealed money figures, as strings, because JSON has no decimal."""
+    return {
+        "cap_gbp": str(scene.cap_gbp),
+        "estimated_gbp": None if scene.estimated_gbp is None else str(scene.estimated_gbp),
+        "actual_gbp": str(scene.actual_gbp),
+    }
+
+
+def _cost_scene_from(record: object) -> CostScene | None:
+    """A sealed record back into a scene, or ``None`` if this run has no such record."""
+    if not isinstance(record, Mapping):
+        return None
+    try:
+        estimated = record["estimated_gbp"]
+        return CostScene(
+            cap_gbp=Decimal(str(record["cap_gbp"])),
+            estimated_gbp=None if estimated is None else Decimal(str(estimated)),
+            actual_gbp=Decimal(str(record["actual_gbp"])),
+        )
+    except (KeyError, TypeError, ArithmeticError):  # pragma: no cover -- a record we wrote
+        return None
+
+
+async def sealed_cost_scene(
+    session: AsyncSession, *, job: Job, request: ResearchRequest
+) -> CostScene:
+    """The cap, the estimate and the spend that gate 2's payload was sealed with.
+
+    **Money is the only input to the §2.4 triggers that is not frozen at the seal, and it
+    broke the gate.** The cost trigger's evidence carries the running total, the verdict
+    step runs after the seal and pays for itself, and the cap is a number the operator may
+    change at any time. So on a run above 80% of its cap, the figure the review page
+    hashed was never the figure the seal held — and the gate refused every approval of a
+    payload nobody could ever match. It was right to refuse. The payload should not have
+    moved.
+
+    The sealing step records what it sealed with, so this is a read rather than a
+    recomputation — the same standard the other five gates already meet. Two consequences
+    worth stating: raising the cap mid-run cannot invalidate a draft nobody rewrote, and a
+    banner that says "close to its £12 cap" keeps saying so afterwards, because that is
+    what was true when the draft was approved.
+
+    A run sealed before that record existed falls back to deriving the same figure from
+    the same rows: the spend across the steps at or before the seal, with the cap as it
+    stands. That is also the path the sealing step itself takes, since it is writing the
+    record it would otherwise read.
+    """
+    sealed = _cost_scene_from(
+        (await step_output(session, job_id=job.id, step_key=_SEAL_STEP)).get(_COST_SCENE)
+    )
+    if sealed is not None:
+        return sealed
+    return await cost_scene_for_job(session, job=job, request=request, through_step=_SEAL_STEP)
+
+
 async def _revise(context: StepContext) -> StepResult:
     """Give the writer its second attempt, then seal what gate 2 approves.
 
@@ -1601,6 +1732,10 @@ async def _revise(context: StepContext) -> StepResult:
     own disagreement row is never auto-resolved: the revision happens beside it, both
     reach the gate, and the payload's ``revisions`` block puts what happened inside the
     hash the approval records.
+
+    **A revision that does not pass leaves the approved draft standing** (ADR 0098), and
+    says so in that same block — so a redraft can only ever improve what the operator is
+    shown, never cost them the section it was aimed at.
     """
     request = await _request_for(context)
     agent_context = AgentContext(
@@ -1628,15 +1763,149 @@ async def _revise(context: StepContext) -> StepResult:
             context.session, job=context.job, request=request, stage=SectionStage.VALIDATE
         )
 
-    payload = await final_gate_payload(context.session, job_id=context.job.id)
+    # Recorded before the payload is built, and read back by everything that builds it
+    # afterwards, so the money in the hash is a record rather than a moving read.
+    cost = await sealed_cost_scene(context.session, job=context.job, request=request)
+    payload = await final_gate_payload(context.session, job_id=context.job.id, cost=cost)
     return StepResult(
         output={
             **outcome.as_dict(),
+            _COST_SCENE: _cost_record(cost),
             # Gate 2 approves exactly this. The hash is what the approval records, so an
             # approval of an earlier payload cannot be reused for a later one.
             "payload_hash": sha256_hex(canonical_json(payload)),
         },
         cost_gbp=agent_context.spend_gbp,
+    )
+
+
+async def _verdict(context: StepContext) -> StepResult:
+    """Write the review gate's authored half, once, over the frozen draft (ADR 0087).
+
+    The subject stopped changing when the revise step sealed the gate-2 hash; this step
+    interprets it and stores the sentence as its own output, where the review page reads
+    it back. **It joins no payload and moves no hash**: interpretation is never part of
+    what the operator approves, no claim may name it, and a run that fails here still
+    renders a complete composed verdict — which is why every failure short of a budget
+    refusal degrades to ``written: False`` rather than costing the run its gate.
+    """
+    request = await _request_for(context)
+    agent_context = AgentContext(
+        session=context.session,
+        provider=context.service("provider"),
+        router=context.service("router"),
+        settings=context.service("settings"),
+        store=context.service("store"),
+        job_step=context.step,
+    )
+
+    payload = await final_gate_payload(context.session, job_id=context.job.id)
+    try:
+        authored = await VerdictAgent().run(
+            agent_context, _verdict_subject(request, payload=payload)
+        )
+    except BudgetExceededError:
+        raise
+    except (AerError, ValueError) as exc:
+        _log.warning(
+            "verdict.model_unavailable",
+            job_id=str(context.job.id),
+            error_code=getattr(exc, "code", ""),
+        )
+        return StepResult(output={"written": False}, cost_gbp=agent_context.spend_gbp)
+
+    return StepResult(
+        output={
+            "written": True,
+            "sentence": authored.sentence,
+            "tone": authored.tone.value,
+        },
+        cost_gbp=agent_context.spend_gbp,
+    )
+
+
+async def _brief_challenges(context: StepContext) -> StepResult:
+    """Brief the operator on each challenge no rule could settle (ADR 0095).
+
+    **The same frozen test the verdict passes, and the same standing beside the record.**
+    The arguments stopped changing when the revise step sealed the gate-2 payload; this
+    reads them and stores the briefs as its own output, where the review page picks them up
+    per challenge. It joins no payload and moves no hash, because a model's reading of a
+    conflict is never part of what the operator approves — and it settles nothing, because
+    the operator's reason for choosing a side is theirs to write.
+
+    A run that fails here loses its briefs and nothing else: the page falls back to the
+    statement, the basis and the two controls, which is what it showed before this step
+    existed. Only a budget refusal is allowed to stop the run, for the reason every
+    advisory step gives — a cap that a nice-to-have could spend past is not a cap.
+    """
+    request = await _request_for(context)
+    agent_context = AgentContext(
+        session=context.session,
+        provider=context.service("provider"),
+        router=context.service("router"),
+        settings=context.service("settings"),
+        store=context.service("store"),
+        job_step=context.step,
+    )
+
+    try:
+        outcome = await brief_unsettled_challenges(
+            agent_context, context.session, job_id=context.job.id, request=request
+        )
+    except BudgetExceededError:
+        raise
+    except (AerError, ValueError) as exc:
+        _log.warning(
+            "challenge_briefs.unavailable",
+            job_id=str(context.job.id),
+            error_code=getattr(exc, "code", ""),
+        )
+        return StepResult(output={"written": False}, cost_gbp=agent_context.spend_gbp)
+
+    return StepResult(output=outcome.as_dict(), cost_gbp=agent_context.spend_gbp)
+
+
+def _verdict_subject(request: ResearchRequest, *, payload: Mapping[str, Any]) -> VerdictInput:
+    """The frozen record's shape, and deliberately not its prose.
+
+    The one excerpt is the opening section's first lines, for register alone. Everything
+    else is outcomes, challenges and flags — the digest a one-sentence interpretation
+    actually rests on, at a fraction of the input cost of handing over the draft.
+    """
+    sections = [row for row in payload.get("sections", []) if isinstance(row, dict)]
+    escalations = [row for row in payload.get("escalations", []) if isinstance(row, dict)]
+    challenges = [
+        row for row in escalations if row.get("kind") == DisagreementKind.THESIS_CONFLICT.value
+    ]
+    conflicts = len(escalations) - len(challenges)
+    opening = next((str(row.get("content") or "") for row in sections if row.get("content")), "")
+
+    return VerdictInput(
+        company_name=request.company_name,
+        ticker=request.ticker,
+        sections=[
+            {
+                "key": str(row.get("key", "")),
+                "status": str(row.get("status", "")),
+                "words": len(str(row.get("content") or "").split()),
+            }
+            for row in sections
+        ],
+        not_generated=[str(row.get("key", "")) for row in sections if not row.get("content")],
+        challenges=[
+            {
+                "material": bool(row.get("material")),
+                "topic": str(row.get("topic") or "")[:200],
+                "challenge": str(row.get("position_b") or "")[:400],
+            }
+            for row in challenges
+        ],
+        open_conflicts=conflicts,
+        triggers=[
+            str(row.get("kind", "")) for row in payload.get("triggers", []) if isinstance(row, dict)
+        ],
+        opening_excerpt=opening[:600],
     )
 
 
@@ -1669,7 +1938,7 @@ async def _gate_final(context: StepContext) -> StepResult:
     """
     await _refuse_unsupported_evidence(context)
     await _pause_naming_triggers(context)
-    return await _require_approval(context, gate=GateKind.FINAL, of_step="revise")
+    return await _require_approval(context, gate=GateKind.FINAL, of_step=_SEAL_STEP)
 
 
 async def _pause_naming_triggers(context: StepContext) -> None:
@@ -1696,7 +1965,12 @@ async def _pause_naming_triggers(context: StepContext) -> None:
         return
 
     request = await _request_for(context)
-    fired = await triggers_for_job(context.session, job=context.job, request=request)
+    fired = await triggers_for_job(
+        context.session,
+        job=context.job,
+        request=request,
+        cost=await sealed_cost_scene(context.session, job=context.job, request=request),
+    )
     if not fired:
         return
 
@@ -1796,15 +2070,41 @@ async def _require_approval(
         raise StepPaused(message, gate=gate.value, context={"decision": approval.decision.value})
 
     if expected_hash and approval.payload_hash != expected_hash:
+        # Three hashes, and which two agree is the whole diagnosis. The operator's
+        # approval carries the hash the review page computed; `expected_hash` is what the
+        # run sealed. When the page agrees with the approval, the seal is the odd one out
+        # and no approval taken from that page can ever match — which is a defect in the
+        # run, and telling somebody to "decide again" would be sending them round a loop.
+        # A live run went round it four times before anybody could say which case it was.
+        live = sha256_hex(
+            canonical_json(await gate_payload(context.session, job=context.job, gate=gate.value))
+        )
+        if live == approval.payload_hash:
+            detail = (
+                "What this run sealed and what the review page shows have drifted apart, "
+                "so no approval taken from that page can match. Nothing you decide will "
+                "release it. The seal is re-derived from the run's own record by "
+                "`aer reseal <job-id>`; when the recorded approval matches what the page "
+                "shows, continuing the run then proceeds on it."
+            )
+        else:
+            detail = (
+                "The page it was taken from has moved since. Open the review page again "
+                "and decide on what it shows now."
+            )
         message = (
             f"The {gate.value} approval was recorded against different content from what "
             "this run produced. An approval of something else is not an approval of this, "
-            "so the run stops rather than proceeding on it."
+            f"so the run stops rather than proceeding on it. {detail}"
         )
         raise StepPaused(
             message,
             gate=gate.value,
-            context={"approved_hash": approval.payload_hash, "actual_hash": expected_hash},
+            context={
+                "approved_hash": approval.payload_hash,
+                "actual_hash": expected_hash,
+                "live_hash": live,
+            },
         )
 
     return StepResult(output={"approval_id": str(approval.id), "gate": gate.value})
@@ -1858,7 +2158,7 @@ async def _acquire(context: StepContext) -> StepResult:
     acquisition = await record_acquisition(
         context.session,
         store,
-        request=request,
+        work_order=await acquisition_root(context.session, request),
         company_id=company.id,
         # Which run fetched it. Optional on the service because a document can be supplied
         # by hand or gathered while planning — but a run that omits it produces provenance
@@ -2010,7 +2310,9 @@ async def _propose_peers(context: StepContext) -> StepResult:
         raise StepPaused(message, gate=None)
 
     request = await _request_for(context)
-    floor = await propose_peers_from_sic(context.session, subject=company, as_of=request.as_of_date)
+    floor = await propose_peers_from_sic(
+        context.session, subject=company, as_of=request.work_order.as_of_date
+    )
 
     agent_context = AgentContext(
         session=context.session,
@@ -2020,20 +2322,31 @@ async def _propose_peers(context: StepContext) -> StepResult:
         store=context.service("store"),
         job_step=context.step,
     )
-    discovered, consulted = await _peers_from_model(
-        context,
-        agent_context,
-        request=request,
-        company=company,
-        sector_key=sector_key_of(context.outputs),
-    )
+    # The model's slate is bought only when a price feed makes a peer's multiple
+    # computable (ADR 0059, second amendment). A peer recorded by name contributes no
+    # figure, so on a machine with no subscription the step proposes what the database
+    # can support, spends nothing, and says so where the reviewer reads it.
+    settings: Settings = context.service("settings")
+    if settings.price_feed_configured:
+        discovered, consulted = await _peers_from_model(
+            context,
+            agent_context,
+            request=request,
+            company=company,
+            sector_key=sector_key_of(context.outputs),
+        )
+        skipped_because = ""
+    else:
+        discovered, consulted = DiscoveredPeers(), False
+        skipped_because = PEERS_NOT_ASKED_WITHOUT_A_PRICE_FEED
+        _log.info("peers.model_not_asked", job_id=str(context.job.id), reason=skipped_because)
 
     peers = merged_with(discovered.peers, floor)
 
     output: dict[str, Any] = {
         "subject": str(company.id),
         "subject_name": company.name,
-        "subject_period_end": request.as_of_date.isoformat(),
+        "subject_period_end": request.work_order.as_of_date.isoformat(),
         "basis": MultipleBasis.TRAILING_TWELVE_MONTHS.value,
         # Who actually contributed, rather than who was asked. A run whose model call
         # failed, or whose every suggestion was refused, is one whose peers came from the
@@ -2047,6 +2360,10 @@ async def _propose_peers(context: StepContext) -> StepResult:
         # a thing being approved, and putting it in the hash would make an approval depend
         # on what the model got wrong rather than on the set being confirmed.
         "refused": [item.as_dict() for item in discovered.refused],
+        # Also outside the hash: whether the model was asked and, if not, why. Context for
+        # the reviewer and the record, never part of what is being confirmed.
+        "model_consulted": consulted,
+        "model_skipped_because": skipped_because,
     }
     output["payload_hash"] = sha256_hex(canonical_json(peer_gate_payload(output)))
     return StepResult(output=output, cost_gbp=agent_context.spend_gbp)
@@ -2055,6 +2372,14 @@ async def _propose_peers(context: StepContext) -> StepResult:
 # What the deterministic proposal has always called itself in the step's output. Named here
 # so the two proposers are written down in one place rather than as a literal in each branch.
 _SIC_LOOKUP: Final = "sic_group_lookup"
+
+# Why the model was not asked, in the words the gate page shows (ADR 0059, second
+# amendment). A sentence rather than a code: the reviewer reads it, and the run record
+# should say what the operator would have been told.
+PEERS_NOT_ASKED_WITHOUT_A_PRICE_FEED: Final = (
+    "No price feed is configured, so a proposed peer could contribute no multiple; the "
+    "model was not asked, and the set is what this database already holds."
+)
 
 
 def _proposer_names(*, from_model: int, total: int, consulted: bool) -> str:
@@ -2093,7 +2418,7 @@ async def _peers_from_model(
                 company_name=company.name,
                 ticker=request.ticker,
                 exchange=request.exchange,
-                as_of_date=request.as_of_date.isoformat(),
+                as_of_date=request.work_order.as_of_date.isoformat(),
                 sic=company.sic or "",
                 sic_description=company.sic_description or "",
                 sector=sector_key,
@@ -2213,7 +2538,7 @@ async def _themes_from_model(
                 company_name=company.name,
                 ticker=request.ticker,
                 exchange=request.exchange,
-                as_of_date=request.as_of_date.isoformat(),
+                as_of_date=request.work_order.as_of_date.isoformat(),
                 sic=company.sic or "",
                 sic_description=company.sic_description or "",
                 sector=sector_key,
@@ -2331,8 +2656,8 @@ async def _filed_share_count(
         .order_by(FinancialFact.period_end.desc(), FinancialFact.filed_date.desc())
         .limit(1)
     )
-    if request.point_in_time:
-        statement = statement.where(FinancialFact.filed_date <= request.as_of_date)
+    if request.work_order.point_in_time:
+        statement = statement.where(FinancialFact.filed_date <= request.work_order.as_of_date)
 
     fact = await context.session.scalar(statement)
     if fact is None:
@@ -2358,7 +2683,7 @@ async def _extract(context: StepContext) -> StepResult:
     payload = await store.read(acquired["artefact_sha256"])
     parsed = parse_company_facts(payload)
 
-    selection = select_point_in_time(parsed.facts, as_of_date=request.as_of_date)
+    selection = select_point_in_time(parsed.facts, as_of_date=request.work_order.as_of_date)
 
     company = await context.session.get(Company, _uuid(acquired["company_id"]))
     document = await context.session.get(SourceDocument, _uuid(acquired["source_document_id"]))
@@ -2395,11 +2720,21 @@ async def _extract(context: StepContext) -> StepResult:
     # concept map is deliberately the top sixty rather than the whole taxonomy, so a filing
     # falling outside it is expected — and a run that silently ignored the overflow would be
     # a run whose statements are missing lines nobody was told about.
-    unmapped = tuple(sorted({f"{c.taxonomy}:{c.tag}" for c in parsed.unmapped}))
+    unmapped = tuple(sorted({f"{c.taxonomy}:{c.tag}" for c in parsed.unmapped if not c.is_refused}))
+    # Kept apart from `unmapped_tags`, which drives the gate: a refused tag is a decision
+    # already taken (§2.7), so it is reported rather than asked about.
+    refused = tuple(sorted({f"{c.taxonomy}:{c.tag}" for c in parsed.unmapped if c.is_refused}))
     # The same tags with the numbers behind them (gap R17). A list of taxonomy element
     # names asks "does this gap matter?" and gives the operator nothing to answer it with;
     # what settles the question is how big the missing line is against a line that mapped.
-    unmapped_detail = _unmapped_rows(parsed.unmapped, chosen=selection.chosen)
+    unmapped_detail = _unmapped_rows(
+        [concept for concept in parsed.unmapped if not concept.is_refused],
+        chosen=selection.chosen,
+    )
+    refused_detail = _unmapped_rows(
+        [concept for concept in parsed.unmapped if concept.is_refused],
+        chosen=selection.chosen,
+    )
 
     # The aggregate holds only consolidated figures, so the segment breakdown comes from
     # the annual report itself — inline XBRL, already fetched and hashed by the acquire
@@ -2422,6 +2757,8 @@ async def _extract(context: StepContext) -> StepResult:
         "exchange": request.exchange,
         "unmapped_tags": list(unmapped),
         "unmapped_concepts": unmapped_detail,
+        "refused_tags": list(refused),
+        "refused_concepts": refused_detail,
         "mapped_concepts": _mapped_rows(selection.chosen),
         "load_errors": [],
         **segments.as_dict(),
@@ -2459,7 +2796,7 @@ async def _calculate(context: StepContext) -> StepResult:
         context.session,
         calc_context,
         company_id=company_id,
-        request=request,
+        work_order=request.work_order,
         # What this kind of business does not define, so the coverage the gate reads and
         # the ratios the report shows are both about a company of this kind (A64).
         profile=profile_for(sector_key_of(context.outputs)),
@@ -2631,6 +2968,10 @@ class _SectionWork:
     section_id: uuid.UUID
     custom: bool
     focus: str = ""
+    # The operator's standing guidance for a built-in section (ADR 0108), resolved once
+    # from the run's pins by the coordinator; plain data, so it crosses the session
+    # boundary with the rest of the work item.
+    guidance: tuple[OperatorGuidance, ...] = ()
 
 
 async def _draft_one(
@@ -2652,6 +2993,7 @@ async def _draft_one(
         raise AerError(message, context={"section_id": str(work.section_id)})
 
     if work.custom:
+        # The ORM pin itself, on this session: the custom section executes under it.
         job = await session.get(Job, agent_context.job_step.job_id)
         assert job is not None
         pins = await pinned_skills_for_job(session, job=job)
@@ -2663,8 +3005,14 @@ async def _draft_one(
             agent_context, section=section, pin=pin, request=request
         )
 
+    # The operator's standing guidance, resolved once by the coordinator from the same
+    # pins (ADR 0108); the writer keeps the kinds its role reads.
     return await execute_builtin_section(
-        agent_context, section=section, request=request, focus=work.focus
+        agent_context,
+        section=section,
+        request=request,
+        focus=work.focus,
+        guidance=work.guidance,
     )
 
 
@@ -2706,23 +3054,57 @@ async def _draft_one_apart(
         return outcome, generated, agent_context.spend_gbp
 
 
+def _kept_outcome(section: ReportSection) -> dict[str, Any]:
+    """What the step says about a section an earlier attempt already wrote.
+
+    Only what is true: the section is generated, and this attempt of the step did not
+    write it. **The earlier attempt's own tally is gone and cannot be carried forward** —
+    a step records its output when it succeeds, and the attempt that wrote these sections
+    is by definition one that did not. What the tally explains is why a section *failed*
+    (`aer.core.escalation`), and a kept section did not; the review page shows no evidence
+    count for it, which is honest about a record that was never written rather than a
+    guess at one.
+    """
+    return {
+        "section_key": section.section_key,
+        "status": section.status.value,
+        "attempts": 0,
+        "kept": True,
+    }
+
+
 def _partitioned_sections(
     sections: Sequence[ReportSection],
     *,
     pin_by_skill: Mapping[Any, Any],
     focus_by_key: Mapping[str, str],
-) -> tuple[dict[uuid.UUID, dict[str, Any]], list[_SectionWork]]:
-    """Split a run's sections into refusals and drafting work, in declared order.
+    guidance: Sequence[OperatorGuidance] = (),
+) -> tuple[dict[uuid.UUID, dict[str, Any]], list[_SectionWork], dict[uuid.UUID, dict[str, Any]]]:
+    """Split a run's sections into refusals, drafting work and what is already written.
 
     The pin-less custom refusal happens here, on the caller's session: it is a recorded
     state, not a model call, and spends nothing — so it never joins the fan-out.
+
+    **A section a previous attempt generated is kept, not written again.** The engine
+    skips a step that already succeeded; this is the same rule one level down, and it is
+    the difference between a stopped draft costing what is left and costing all of it
+    again. Every section commits its own paid draft, so on re-entry the finished ones are
+    already in the database — redrafting them would pay twice for the same words and
+    overwrite the ones a person may already have read. `FAILED` and `PENDING` sections are
+    queued as ever, which is what resuming is for.
     """
     refused: dict[uuid.UUID, dict[str, Any]] = {}
     pending: list[_SectionWork] = []
+    kept: dict[uuid.UUID, dict[str, Any]] = {}
     for section in sections:
         definition = section.definition
         if definition.origin != SKILL and definition.token_budget == 0:
             # Deterministic: filled at this stage already, or by the stage that owns it.
+            continue
+        if section.status is SectionStatus.GENERATED:
+            # Before the pin check deliberately: a custom section that is already written
+            # is written, whatever the plan's pins say on this attempt.
+            kept[section.id] = _kept_outcome(section)
             continue
         if definition.origin == SKILL:
             pin = pin_by_skill.get(definition.skill_id) if definition.skill_id is not None else None
@@ -2747,9 +3129,10 @@ def _partitioned_sections(
                 section_id=section.id,
                 custom=False,
                 focus=focus_by_key.get(section.section_key, ""),
+                guidance=tuple(guidance),
             )
         )
-    return refused, pending
+    return refused, pending, kept
 
 
 async def _drafted_in_place(
@@ -2828,6 +3211,11 @@ async def _draft(context: StepContext) -> StepResult:
     its pinned composed policy (task 38, ADR 0037). A failed custom section is a
     recorded state the run continues past, never an absent section.
 
+    **Re-entrant.** A section a previous attempt already generated is kept rather than
+    written again: each section commits its own paid draft, so on a resume the finished
+    ones are already in the database, and redrafting them would pay twice for the same
+    words and overwrite ones a person may already have read.
+
     **Sections draft concurrently where the run has a session factory** (polish P10).
     They share the research wave's shape — each depends on the evidence pack and on
     nothing another section produces — so they fan out under the same rules: a bounded
@@ -2853,8 +3241,11 @@ async def _draft(context: StepContext) -> StepResult:
     )
 
     sections = await sections_for_job(context.session, context.job.id)
-    refused, pending = _partitioned_sections(
-        sections, pin_by_skill=pin_by_skill, focus_by_key=focus_by_key
+    refused, pending, kept = _partitioned_sections(
+        sections,
+        pin_by_skill=pin_by_skill,
+        focus_by_key=focus_by_key,
+        guidance=guidance_from_pins(pins),
     )
 
     factory: async_sessionmaker[AsyncSession] | None = context.optional_service("session_factory")
@@ -2874,6 +3265,15 @@ async def _draft(context: StepContext) -> StepResult:
     for section in sections:
         if section.id in refused:
             custom_outcomes.append(refused[section.id])
+            continue
+        if section.id in kept:
+            # Written by an earlier attempt and not written again. It still belongs in
+            # this step's record and in the count: `sections_drafted` answers "how many
+            # sections does this run have", which does not change because a resume wrote
+            # fewer of them.
+            is_custom = section.definition.origin == SKILL
+            (custom_outcomes if is_custom else builtin_outcomes).append(kept[section.id])
+            filled += 1
             continue
         if section.id not in executed:
             continue
@@ -2914,6 +3314,16 @@ async def step_output(session: AsyncSession, *, job_id: uuid.UUID, step_key: str
     return (step.output_ref or {}) if step is not None else {}
 
 
+def seal_step_for(gate: str) -> str:
+    """The step whose frozen output carries the hash this gate approves.
+
+    Public for the one service that must move a seal after the step has run
+    (:mod:`aer.services.gates`): settling a disagreement changes gate 2's payload, and the
+    seal has to follow it or no later approval can ever match.
+    """
+    return _GATE_STEPS[gate]
+
+
 # Which step's frozen output each gate approves. Five of the seven gates read nothing else,
 # which is why they can share one entry point at all.
 _GATE_STEPS: Final[Mapping[str, str]] = {
@@ -2926,7 +3336,7 @@ _GATE_STEPS: Final[Mapping[str, str]] = {
     GateKind.UNMAPPED_CONCEPTS.value: "extract",
     GateKind.ASSUMPTIONS.value: ASSUMPTIONS_STEP,
     # The revise step, not the red team (ADR 0091), on the same principle.
-    GateKind.FINAL.value: "revise",
+    GateKind.FINAL.value: _SEAL_STEP,
 }
 
 
@@ -2984,7 +3394,9 @@ _STEP_OUTPUT_GATES: Final[Mapping[str, Callable[[Mapping[str, Any]], dict[str, A
 }
 
 
-async def final_gate_payload(session: AsyncSession, *, job_id: uuid.UUID) -> dict[str, Any]:
+async def final_gate_payload(
+    session: AsyncSession, *, job_id: uuid.UUID, cost: CostScene | None = None
+) -> dict[str, Any]:
     """Exactly what gate 2 approves, as one structure.
 
     Built here and used both by the draft step and by the review page, so "what the run
@@ -3009,9 +3421,16 @@ async def final_gate_payload(session: AsyncSession, *, job_id: uuid.UUID) -> dic
     triggers: tuple[FiredTrigger, ...] = ()
     job = await session.get(Job, job_id)
     if job is not None:
-        request = await session.get(ResearchRequest, job.request_id)
+        request = await mandate_of(session, job)
         if request is not None:
-            triggers = await triggers_for_job(session, job=job, request=request)
+            # From the seal, so this payload is the same object whether the revise step
+            # is building it or the review page is rendering it an hour later.
+            triggers = await triggers_for_job(
+                session,
+                job=job,
+                request=request,
+                cost=cost or await sealed_cost_scene(session, job=job, request=request),
+            )
     return {
         # Status and the degradation note ride inside the hash: a failed custom section
         # and an insufficiency banner are part of what the operator approves, and a
@@ -3119,7 +3538,7 @@ async def comps_note_for(
         # Outcomes recorded before the step stored its exclusion count fall back to the
         # identity `build` maintains: every confirmed peer is in the table or excluded.
         excluded_count=int(outcome.get("excluded_count", len(confirmed) - peers)),
-        as_of=date.fromisoformat(as_of_text) if as_of_text else request.as_of_date,
+        as_of=date.fromisoformat(as_of_text) if as_of_text else request.work_order.as_of_date,
         licence_note=DEFAULT_POLICIES[Provider.EODHD].licence_note,
         # The reasons the step already grouped, so the report says why rather than "for
         # want of usable data" (gap R20). Deduplicated again here because the grouping is
@@ -3203,7 +3622,7 @@ async def _render(context: StepContext) -> StepResult:
         job_id=context.job.id,
         request_id=request.id,
         company_id=company.id if company is not None else None,
-        as_of_date=request.as_of_date,
+        as_of_date=request.work_order.as_of_date,
         rating=None,
         confidence=None,
         content={"markdown": markdown, "sections": document.section_keys},
@@ -3268,7 +3687,7 @@ async def _render(context: StepContext) -> StepResult:
 
 
 async def _request_for(context: StepContext) -> ResearchRequest:
-    request = await context.session.get(ResearchRequest, context.job.request_id)
+    request = await context.session.get(ResearchRequest, context.job.work_order_id)
     if request is None:  # pragma: no cover -- a job cannot exist without its request
         message = "The job's research request is missing."
         raise StepPaused(message, gate=None)

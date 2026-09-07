@@ -38,6 +38,7 @@ from aer.services.history import (
     prior_risks_for,
     timing_deadline,
 )
+from tests.request_fixtures import research_request
 from tests.workflow_fixtures import AS_OF_DATE
 
 pytestmark = pytest.mark.anyio
@@ -48,7 +49,7 @@ APPROVED_AT = datetime(2022, 1, 15, 10, 0, tzinfo=UTC)
 async def _request(
     session: AsyncSession, *, user_id: uuid.UUID, as_of: date, ticker: str = "MSFT"
 ) -> ResearchRequest:
-    request = ResearchRequest(
+    request = research_request(
         user_id=user_id,
         company_name="Microsoft Corporation",
         ticker=ticker,
@@ -68,7 +69,6 @@ async def _request(
 async def _job(session: AsyncSession, *, request_id: uuid.UUID) -> Job:
     job = Job(
         work_order_id=request_id,
-        request_id=request_id,
         workflow_version="history_scene_v1",
         code_version="historycode1234",
         status=JobStatus.SUCCEEDED,

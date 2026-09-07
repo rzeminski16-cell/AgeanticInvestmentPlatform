@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import SkillKind
 from aer.core.hashing import canonical_json, sha256_hex
+from aer.core.skill_guidance import roles_for
 from aer.db.models import SkillVersion
 from aer.services.skills import current_version
 from aer.skills.frontmatter import ParsedSkill, SkillFileError, parse_skill_file
@@ -79,6 +80,10 @@ class SkillPreview:
     body: str = ""
     content_hash: str = ""
 
+    # Prompt kinds only (ADR 0108): the roles the skill composes into, from the table
+    # that is the last word at composition time. Empty for a custom section.
+    composes_into: list[str] = field(default_factory=list)
+
     # Custom sections only: the composed policy, the receipts, the projected contract and
     # what the section is estimated to cost at its composed budget.
     evidence_policy: dict[str, Any] | None = None
@@ -96,6 +101,7 @@ class SkillPreview:
             "kind": self.kind,
             "title": self.title,
             "content_hash": self.content_hash,
+            "composes_into": list(self.composes_into),
             "evidence_policy": self.evidence_policy,
             "granted_tools": list(self.granted_tools),
             "token_budget": self.token_budget,
@@ -124,6 +130,10 @@ def validate_skill_source(
             ],
         )
 
+    # Methodology, preference and house-view skills compose into an existing agent's
+    # prompt and carry no policy of their own — there is nothing to clamp and nothing to
+    # estimate, and inventing a policy panel for them would imply otherwise. What the
+    # editor can say instead is which roles will read the text (ADR 0108).
     preview = SkillPreview(
         valid=True,
         key=parsed.frontmatter.key,
@@ -131,11 +141,9 @@ def validate_skill_source(
         title=parsed.frontmatter.title,
         body=parsed.body,
         content_hash=parsed.content_hash,
+        composes_into=list(roles_for(parsed.frontmatter.kind)),
     )
     if parsed.frontmatter.kind is not SkillKind.CUSTOM_SECTION:
-        # Methodology, preference and house-view skills compose into an existing agent's
-        # prompt and carry no policy of their own — there is nothing to clamp and nothing
-        # to estimate, and inventing a policy panel for them would imply otherwise.
         return preview
 
     composed = compose_for_version(_unsaved_version(parsed), settings=settings)

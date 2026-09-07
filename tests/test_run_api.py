@@ -59,9 +59,11 @@ from aer.db.models import (
 )
 from aer.db.models.report_section import SectionStatus
 from aer.services import runs as run_service
+from aer.services.red_team import _shortened
 from aer.web.csrf import CSRF_FIELD_NAME
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 from tests.run_fixtures import Driver, start_run, to_final_gate
 from tests.workflow_fixtures import (
     AS_OF_DATE,
@@ -121,7 +123,7 @@ async def committed(clean_slate: None, db_engine: Any) -> dict[str, Any]:
         session.add(user)
         await session.flush()
 
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",
@@ -319,7 +321,6 @@ class TestTheTimelineWhenTheWorkflowIsUnknown:
     def _state(version: str) -> run_service.RunState:
         job = Job(
             work_order_id=uuid.uuid4(),
-            request_id=uuid.uuid4(),
             workflow_version=version,
             code_version="test",
             status=JobStatus.RUNNING,
@@ -570,7 +571,7 @@ async def someone_elses_run(committed: dict, db_engine: Any) -> uuid.UUID:
         session.add(other)
         await session.flush()
 
-        request = ResearchRequest(
+        request = research_request(
             user_id=other.id,
             company_name="Rio Tinto plc",
             ticker="RIO",
@@ -610,6 +611,39 @@ class TestReproducingARun:
 
         assert replayed.status_code == 200
         assert 'id="reproduces"' in replayed.text
+
+    async def test_findings_are_grouped_by_what_they_are(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """The tranche 7 exit criterion: typed findings, never one pooled list.
+
+        A calculation that re-derives differently and a citation the verifier cannot find
+        again are different problems with different remedies, so the answer names the kind.
+        The tampering is the cheapest honest divergence: edit a stored output and the
+        record genuinely no longer reproduces.
+        """
+        job_id = await _to_second_gate(api, committed, driver)
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            row = await session.scalar(
+                select(Calculation).where(Calculation.job_id == job_id).limit(1)
+            )
+            assert row is not None, "the driven run recorded no calculation to tamper with"
+            row.output_value = (row.output_value or Decimal(0)) + Decimal(1)
+            await session.commit()
+
+        console = await api.get(f"/runs/{job_id}")
+        replayed = await api.post(
+            f"/runs/{job_id}/replay",
+            data={CSRF_FIELD_NAME: _hidden_value(console.text, CSRF_FIELD_NAME)},
+        )
+
+        assert replayed.status_code == 200
+        assert 'id="does-not-reproduce"' in replayed.text
+        assert 'id="findings"' in replayed.text
+        assert "Re-derivation outside tolerance" in replayed.text
+        assert 'id="reproduces"' not in replayed.text
 
     async def test_a_post_without_a_token_replays_nothing(self, api: Any, committed: dict) -> None:
         """A POST because re-verifying a citation writes its verdict back onto the row.
@@ -1024,7 +1058,10 @@ class TestTheWebPages:
 
         await driver.advance(job_id)
         page = await api.get(f"/runs/{job_id}")
-        started = re.search(r'data-step="plan"\s+data-started-at="([^"]+)"', page.text)
+        # The row carries other data attributes between the two — the status the dot keys
+        # on, the human label the liveness line reads — so anything up to the tag's close
+        # may separate them.
+        started = re.search(r'data-step="plan"[^>]*data-started-at="([^"]+)"', page.text)
         assert started is not None
         assert datetime.fromisoformat(started.group(1)).tzinfo is not None
 
@@ -1080,6 +1117,82 @@ class TestTheWebPages:
         The whole error dictionary -- code, context, message -- rendered as one
         unpunctuated line, with the only readable part buried in the middle of it.
         """
+        job_id = await self._failed_at_plan(
+            api,
+            committed,
+            driver,
+            db_engine,
+            error={
+                "code": "external_service_error",
+                "message": "The Anthropic API call failed (APIConnectionError).",
+                "context": {"provider": "anthropic", "retryable": True},
+            },
+        )
+
+        page = await api.get(f"/runs/{job_id}")
+        assert "The Anthropic API call failed (APIConnectionError)." in page.text
+        assert "external_service_error" in page.text
+        assert "&#39;retryable&#39;" not in page.text
+        assert "Continuing repeats nothing" in page.text
+
+    async def test_a_resumed_run_stops_showing_the_failure_it_was_resumed_from(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """The step row stays failed until it re-executes; the run does not.
+
+        This is how an operator comes to believe a fixed failure recurred. They correct
+        what caused it, press continue, and the same red alert is still on the page --
+        because it is the record of the attempt before, and nothing has run since.
+        """
+        job_id = await self._failed_at_plan(
+            api,
+            committed,
+            driver,
+            db_engine,
+            error={"code": "external_service_error", "message": "It fell over."},
+        )
+        assert 'id="run-failed"' in (await api.get(f"/runs/{job_id}")).text
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            assert job is not None
+            job.status = JobStatus.QUEUED  # what a resume leaves behind
+            await session.commit()
+
+        page = await api.get(f"/runs/{job_id}")
+        assert 'id="run-failed"' not in page.text
+        # The step list keeps it, and should: that row *is* the record of the last
+        # attempt. What goes is the alert claiming the run is failed right now.
+        assert 'data-field="error-code"' in page.text
+
+    async def test_a_refusal_the_operator_must_clear_does_not_offer_to_continue(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """An empty credit balance is not cleared by pressing continue, so do not say so."""
+        remedy = "The Anthropic account the API key belongs to is out of credit."
+        job_id = await self._failed_at_plan(
+            api,
+            committed,
+            driver,
+            db_engine,
+            error={
+                "code": "external_service_error",
+                "message": f"Counting tokens failed. {remedy}",
+                "context": {"provider": "anthropic", "retryable": False, "remedy": remedy},
+            },
+        )
+
+        page = await api.get(f"/runs/{job_id}")
+        assert remedy in page.text
+        assert "Continuing repeats nothing" not in page.text
+        assert "asks the same question" in page.text
+
+    @staticmethod
+    async def _failed_at_plan(
+        api: Any, committed: dict, driver: Driver, db_engine: Any, *, error: dict
+    ) -> uuid.UUID:
+        """A run stopped at `plan` with `error` on the row, and the job failed with it."""
         body = await start_run(api, committed["request"].id)
         job_id = uuid.UUID(body["job_id"])
         await driver.advance(job_id)
@@ -1091,17 +1204,13 @@ class TestTheWebPages:
             )
             assert row is not None
             row.status = JobStatus.FAILED
-            row.error = {
-                "code": "external_service_error",
-                "message": "The Anthropic API call failed (APIConnectionError).",
-                "context": {"provider": "anthropic", "retryable": True},
-            }
+            row.error = error
+            job = await session.get(Job, job_id)
+            assert job is not None
+            job.status = JobStatus.FAILED
             await session.commit()
 
-        page = await api.get(f"/runs/{job_id}")
-        assert "The Anthropic API call failed (APIConnectionError)." in page.text
-        assert "external_service_error" in page.text
-        assert "&#39;retryable&#39;" not in page.text
+        return job_id
 
     async def test_the_console_falls_back_to_polling(
         self, api: Any, committed: dict, driver: Driver
@@ -1309,6 +1418,60 @@ class TestTheWebPages:
         assert "a numeric claim needs at least one proposed citation" in page.text
         assert "citation&times;2" in page.text
 
+    async def test_a_kept_section_says_it_was_written_by_an_earlier_attempt(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """A resumed draft keeps what an earlier attempt wrote, and the page says so.
+
+        The attempt that wrote a kept section is by definition one that did not finish, so
+        it recorded no tally: the row carries no evidence count and no try count. Left
+        unexplained that reads as a section written out of nothing in no attempts, which is
+        exactly the shape a starved section has — so the page names the reason instead.
+        """
+        job_id = await _to_second_gate(api, committed, driver)
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as writer:
+            section = await writer.scalar(
+                select(ReportSection)
+                .where(
+                    ReportSection.job_id == job_id,
+                    ReportSection.status == SectionStatus.GENERATED,
+                )
+                .limit(1)
+            )
+            assert section is not None
+            step = await writer.scalar(
+                select(JobStep)
+                .where(JobStep.job_id == job_id, JobStep.step_key == "draft")
+                .order_by(JobStep.attempt.desc())
+                .limit(1)
+            )
+            assert step is not None
+            step.output_ref = {
+                **(step.output_ref or {}),
+                "builtin_sections": [
+                    {
+                        "section_key": section.section_key,
+                        "status": "generated",
+                        "attempts": 0,
+                        "kept": True,
+                    }
+                ],
+            }
+            await writer.commit()
+
+        page = await api.get(f"/runs/{job_id}/review")
+
+        assert page.status_code == 200
+        assert f'data-section="{section.section_key}"' in page.text
+        assert "Written by an earlier attempt of this run and kept" in page.text
+        # Both cells the earlier attempt would have filled are empty rather than nought:
+        # what it was dealt, and how many tries it took.
+        row = page.text.split(f'data-section="{section.section_key}"', 1)[1].split("</tr>", 1)[0]
+        assert row.count("&mdash;") == 2
+        assert "Written" in row
+
     async def test_a_red_team_challenge_reads_as_a_challenge_not_a_fault(
         self, api: Any, committed: dict, driver: Driver, db_engine: Any
     ) -> None:
@@ -1344,6 +1507,97 @@ class TestTheWebPages:
         # And the fault banner does not claim it. This is the run's only disagreement, so
         # an amber "1 unresolved disagreement" here would be the whole regression.
         assert 'id="escalations"' not in page.text
+
+    async def test_a_challenge_is_not_announced_by_a_severed_copy_of_itself(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """What the operator reported after a live run: sentences cut off.
+
+        The heading was the row's ``topic``, which `services.red_team` builds by
+        shortening the statement to name the row — and the statement in full sat in the
+        paragraph directly beneath it. So every challenge read as the same sentence twice,
+        the first one cut through a word.
+        """
+        job_id = await _to_second_gate(api, committed, driver)
+        statement = (
+            "The discounted cash flow leans on a terminal growth rate of three per cent, "
+            "which exceeds the long-run nominal growth of the economy it operates in and "
+            "therefore cannot hold beyond the explicit forecast."
+        )
+        row = _planted_challenge(job_id)
+        # Exactly as the service records one: the topic is the shortened statement.
+        row.topic = f"Red team (valuation): {_shortened(statement)}"
+        row.detail = {**(row.detail or {}), "challenge": statement}
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as writer:
+            writer.add(row)
+            await writer.commit()
+
+        page = await api.get(f"/runs/{job_id}/review")
+
+        assert statement in page.text
+        assert _shortened(statement) not in page.text
+        assert "Red team \N{EM DASH} valuation, severity 4/5" in page.text
+
+    async def test_an_open_challenge_carries_the_brief_of_the_choice(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """ADR 0095: what each side assumes and means, and which way it leans."""
+        job_id = await _to_second_gate(api, committed, driver)
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as writer:
+            row = _planted_challenge(job_id)
+            writer.add(row)
+            await writer.flush()
+            # The step has already run — the challenge is planted after the gate, so it
+            # briefed nothing. Its own row is where the briefs live, so that is what a
+            # briefed run looks like.
+            step = await writer.scalar(
+                select(JobStep).where(
+                    JobStep.job_id == job_id, JobStep.step_key == "brief_challenges"
+                )
+            )
+            assert step is not None, "the briefing step runs on every slice run"
+            step.output_ref = {
+                "written": True,
+                "briefs": {
+                    str(row.id): {
+                        "keeping_assumes": "The fade holds at the peer median.",
+                        "keeping_means": "The report keeps its base case.",
+                        "accepting_assumes": "The fade is slower than peers.",
+                        "accepting_means": "The report gives up its terminal value.",
+                        "leans": "challenge",
+                        "because": "The peer medians are the stronger record.",
+                    }
+                },
+            }
+            await writer.commit()
+
+        page = await api.get(f"/runs/{job_id}/review")
+
+        assert "The fade holds at the peer median." in page.text
+        assert "The report gives up its terminal value." in page.text
+        assert "accepting the challenge" in page.text
+        assert "The peer medians are the stronger record." in page.text
+        # Advice beside the decision, and labelled as such -- the controls are unchanged.
+        assert "not a decision and not" in page.text
+        assert f'id="settle-{row.id}"' in page.text
+
+    async def test_a_run_with_no_briefing_reads_as_it_did_before(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """A run from before ADR 0095, or one whose briefing failed. No empty box."""
+        job_id = await _to_second_gate(api, committed, driver)
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as writer:
+            writer.add(_planted_challenge(job_id))
+            await writer.commit()
+
+        page = await api.get(f"/runs/{job_id}/review")
+
+        assert 'id="red-team"' in page.text
+        assert "data-brief=" not in page.text
+        assert "Leans towards" not in page.text
 
     async def test_a_challenge_can_be_settled_on_the_record(
         self, api: Any, committed: dict, driver: Driver, db_engine: Any
@@ -1554,7 +1808,6 @@ class TestTheWebPages:
         async with factory() as session:
             job = Job(
                 work_order_id=committed["request"].id,
-                request_id=committed["request"].id,
                 workflow_version="vertical_slice_v1",
                 code_version="unapproved123456",
                 status=JobStatus.SUCCEEDED,
@@ -1564,7 +1817,7 @@ class TestTheWebPages:
             report = Report(
                 job_id=job.id,
                 request_id=committed["request"].id,
-                as_of_date=committed["request"].as_of_date,
+                as_of_date=committed["request"].work_order.as_of_date,
                 content={"markdown": "draft"},
                 content_hash="0" * 64,
                 immutable=False,
@@ -1705,14 +1958,12 @@ class TestTheHistorySurfaces:
 
             approved_job = Job(
                 work_order_id=committed["request"].id,
-                request_id=committed["request"].id,
                 workflow_version="vertical_slice_v1",
                 code_version="historyseed12345",
                 status=JobStatus.SUCCEEDED,
             )
             draft_job = Job(
                 work_order_id=committed["request"].id,
-                request_id=committed["request"].id,
                 workflow_version="vertical_slice_v1",
                 code_version="historyseed12345",
                 status=JobStatus.SUCCEEDED,
@@ -1724,7 +1975,7 @@ class TestTheHistorySurfaces:
                 job_id=approved_job.id,
                 request_id=committed["request"].id,
                 company_id=company.id,
-                as_of_date=committed["request"].as_of_date,
+                as_of_date=committed["request"].work_order.as_of_date,
                 valuation_low=Decimal("180"),
                 valuation_high=Decimal("220"),
                 valuation_currency="USD",
@@ -1737,7 +1988,7 @@ class TestTheHistorySurfaces:
                 job_id=draft_job.id,
                 request_id=committed["request"].id,
                 company_id=company.id,
-                as_of_date=committed["request"].as_of_date,
+                as_of_date=committed["request"].work_order.as_of_date,
                 content={"markdown": "draft"},
                 content_hash="d" * 64,
                 immutable=False,
@@ -1829,6 +2080,171 @@ def _hidden_value(html: str, name: str) -> str:
     )
     assert match is not None, f"no hidden input named {name!r} in the page"
     return match.group(1)
+
+
+class TestTheBudgetBanner:
+    """The two ceilings, worded apart — because the remedies differ (tranche 6).
+
+    A per-run stop is released by raising the request's own cap; a monthly stop is not,
+    and a banner that reported one as the other would send the operator to change the
+    wrong number.
+    """
+
+    async def _stopped_on_budget(
+        self,
+        api: Any,
+        committed: dict,
+        db_engine: Any,
+        *,
+        scope: str,
+        cap: str = "4.00",
+    ) -> uuid.UUID:
+        body = await start_run(api, committed["request"].id)
+        job_id = uuid.UUID(body["job_id"])
+
+        # Painted directly, the way the engine records it: the job refused, and the step
+        # that met the ceiling carrying the scope in its recorded error. No step has run
+        # yet on a job the worker never touched, so the refused row is written whole.
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            assert job is not None
+            job.status = JobStatus.BUDGET_EXCEEDED
+            # Below the platform's own per-run budget, which is where a request that can
+            # still be raised sits. The seed puts them equal, and equal is the one case
+            # with nowhere to go.
+            research = await session.get(ResearchRequest, job.work_order_id)
+            assert research is not None
+            research.work_order.max_cost_gbp = Decimal(cap)
+            session.add(
+                JobStep(
+                    job_id=job_id,
+                    step_key="draft",
+                    sequence=1,
+                    status=JobStatus.BUDGET_EXCEEDED,
+                    idempotency_key=f"budget-test-{scope}",
+                    input_hash="0" * 64,
+                    error={"code": "budget_exceeded", "context": {"scope": scope}},
+                )
+            )
+            await session.commit()
+        return job_id
+
+    async def test_a_per_run_stop_offers_the_raise_that_releases_it(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        """The remedy the banner names is on the same page, not on one that refuses it."""
+        job_id = await self._stopped_on_budget(api, committed, db_engine, scope="per_run")
+
+        page = await api.get(f"/runs/{job_id}")
+
+        assert 'id="budget-exceeded"' in page.text
+        assert 'id="raise-cap-form"' in page.text
+        assert "monthly budget" not in page.text
+
+    async def test_a_monthly_stop_says_the_requests_cap_will_not_release_it(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        job_id = await self._stopped_on_budget(api, committed, db_engine, scope="monthly")
+
+        page = await api.get(f"/runs/{job_id}")
+
+        assert 'id="budget-exceeded"' in page.text
+        assert "raising this" in page.text
+        assert "will not release it" in page.text
+
+    async def test_a_request_already_at_the_platform_ceiling_is_sent_to_settings(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        """No form, because there is no legal figure to put in it."""
+        job_id = await self._stopped_on_budget(
+            api, committed, db_engine, scope="per_run", cap="12.00"
+        )
+
+        page = await api.get(f"/runs/{job_id}")
+
+        assert 'id="cap-at-ceiling"' in page.text
+        assert 'id="raise-cap-form"' not in page.text
+
+    async def test_posting_the_form_releases_the_run(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        """End to end, on the console, without touching the request page that refuses it."""
+        job_id = await self._stopped_on_budget(api, committed, db_engine, scope="per_run")
+        page = await api.get(f"/runs/{job_id}")
+        assert 'id="raise-cap-form"' in page.text
+
+        token = api.cookies.get("aer_csrf")
+        assert token
+        posted = await api.post(
+            f"/runs/{job_id}/cap",
+            data={CSRF_FIELD_NAME: token, "max_cost_gbp": "9.00"},
+            follow_redirects=False,
+        )
+
+        assert posted.status_code == 303
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            assert job is not None
+            research = await session.get(ResearchRequest, job.work_order_id)
+            assert research is not None
+            assert Decimal(str(research.work_order.max_cost_gbp)) == Decimal("9.00")
+
+    async def test_a_figure_that_is_not_a_number_is_refused_by_name(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        """The browser's `type="number"` is a convenience; the server is the rule."""
+        job_id = await self._stopped_on_budget(api, committed, db_engine, scope="per_run")
+        await api.get(f"/runs/{job_id}")
+        token = api.cookies.get("aer_csrf")
+
+        posted = await api.post(
+            f"/runs/{job_id}/cap", data={CSRF_FIELD_NAME: token, "max_cost_gbp": "lots"}
+        )
+
+        assert posted.status_code == 422
+        assert "is not an amount" in posted.text
+
+    async def test_a_lowering_is_refused_at_the_route_too(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        job_id = await self._stopped_on_budget(api, committed, db_engine, scope="per_run")
+        await api.get(f"/runs/{job_id}")
+        token = api.cookies.get("aer_csrf")
+
+        posted = await api.post(
+            f"/runs/{job_id}/cap", data={CSRF_FIELD_NAME: token, "max_cost_gbp": "1.00"}
+        )
+
+        assert posted.status_code == 422
+        assert "cancel it" in posted.text
+
+    async def test_without_a_token_nothing_moves(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        job_id = await self._stopped_on_budget(api, committed, db_engine, scope="per_run")
+
+        posted = await api.post(f"/runs/{job_id}/cap", data={"max_cost_gbp": "9.00"})
+
+        assert posted.status_code == 403
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            job = await session.get(Job, job_id)
+            assert job is not None
+            research = await session.get(ResearchRequest, job.work_order_id)
+            assert research is not None
+            assert Decimal(str(research.work_order.max_cost_gbp)) == Decimal("4.00")
+
+    async def test_a_monthly_stop_is_not_offered_a_raise_that_would_do_nothing(
+        self, api: Any, committed: dict, db_engine: Any
+    ) -> None:
+        """This run's own cap is not what stopped it, and a form saying otherwise lies."""
+        job_id = await self._stopped_on_budget(api, committed, db_engine, scope="monthly")
+
+        page = await api.get(f"/runs/{job_id}")
+
+        assert 'id="raise-cap-form"' not in page.text
 
 
 class TestStartingAgainAfterACancelledRun:

@@ -8,6 +8,7 @@ payload hash must cover the triggers.
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -29,6 +30,7 @@ from aer.core.escalation import (
     COST_ALERT_RATIO,
     ConflictScene,
     CostScene,
+    EvidenceTally,
     MetricScore,
     PolicyClamp,
     SectionScene,
@@ -51,7 +53,11 @@ from aer.db.models import (
 from aer.db.models.plan_skill_pin import PLANNED
 from aer.db.models.report_section import ReportSection
 from aer.eval.metrics import Metric
-from aer.services.disagreements import record_resolution, settle_by_hand
+from aer.sections.registry import sections_for_job
+from aer.services.disagreements import (
+    record_resolution,
+    settle_by_hand,
+)
 from aer.services.escalation import cost_scene_for_job, triggers_for_job
 from aer.services.skills import save_skill
 from aer.storage.local import LocalArtefactStore
@@ -298,6 +304,7 @@ class TestEachTriggerFiresAloneAndNamesItself:
         assert "candidate excerpt" in fired.evidence[0]
 
     def test_a_required_section_that_was_not_generated(self) -> None:
+        """With nothing recorded about why, the status is all there is to say."""
         scene = _clean_scene(
             sections=(
                 SectionScene(
@@ -311,6 +318,88 @@ class TestEachTriggerFiresAloneAndNamesItself:
         assert fired.kind is TriggerKind.MATERIAL_MISSING_SECTION
         assert "not generated" in fired.evidence[0]
         assert "failed" in fired.evidence[0]
+        assert "recorded no reason" in fired.evidence[0]
+
+    def test_a_starved_section_says_it_was_dealt_nothing(self) -> None:
+        """The operator's question. "Status: failed" four times over does not answer it.
+
+        A section dealt nothing citable is an evidence problem, and no amount of
+        redrafting touches it — which is a different remedy from a section that refused
+        drafts it could have written, and the banner has to tell them apart.
+        """
+        scene = _clean_scene(
+            sections=(
+                SectionScene(
+                    key="business_overview",
+                    status=SectionStatus.FAILED.value,
+                    required=True,
+                    dealt=EvidenceTally(),
+                    attempts=3,
+                ),
+            )
+        )
+        [fired] = fire_triggers(**scene)
+
+        assert "dealt nothing it could cite" in fired.evidence[0]
+
+    def test_a_refused_section_names_the_kinds_of_refusal(self) -> None:
+        scene = _clean_scene(
+            sections=(
+                SectionScene(
+                    key="segment_analysis",
+                    status=SectionStatus.FAILED.value,
+                    required=True,
+                    dealt=EvidenceTally(facts=10, calculations=2, excerpts=4),
+                    attempts=3,
+                    refusal_causes=("citation", "numeral"),
+                ),
+            )
+        )
+        [fired] = fire_triggers(**scene)
+
+        assert "refused in 3 tries for: citation, numeral" in fired.evidence[0]
+        # Not starved: it had evidence and would not use it acceptably.
+        assert "dealt nothing" not in fired.evidence[0]
+
+    def test_a_section_dealt_figures_and_no_prose_says_so(self) -> None:
+        """The shape a narrative section starves in on a run rich in numbers.
+
+        A total would report this one as well supplied: forty pieces of evidence, none of
+        them a passage the section could quote. It is the operator's own question — why is
+        business_overview missing when the run gathered thousands of facts — answered.
+        """
+        scene = _clean_scene(
+            sections=(
+                SectionScene(
+                    key="business_overview",
+                    status=SectionStatus.FAILED.value,
+                    required=True,
+                    dealt=EvidenceTally(facts=38, calculations=2, excerpts=0),
+                    attempts=3,
+                    refusal_causes=("gaps",),
+                ),
+            )
+        )
+        [fired] = fire_triggers(**scene)
+
+        assert "dealt 40 figures and no passage to cite" in fired.evidence[0]
+
+    def test_a_section_that_never_reached_the_writer_is_not_called_starved(self) -> None:
+        """No tally recorded is not a tally of nothing, and the remedies differ."""
+        scene = _clean_scene(
+            sections=(
+                SectionScene(
+                    key="catalysts",
+                    status=SectionStatus.PENDING.value,
+                    required=True,
+                    dealt=None,
+                ),
+            )
+        )
+        [fired] = fire_triggers(**scene)
+
+        assert "recorded no reason" in fired.evidence[0]
+        assert "dealt nothing" not in fired.evidence[0]
 
     def test_a_custom_section_below_its_floor(self) -> None:
         scene = _clean_scene(
@@ -595,7 +684,6 @@ async def _seed_source(
         extras = {"injection_flagged": True, "injection_findings": injection_findings}
     document = SourceDocument(
         work_order_id=scene["request"].id,
-        request_id=scene["request"].id,
         job_id=scene["job"].id,
         artefact_id=artefact.id,
         url=f"https://example.invalid/{artefact.sha256[:12]}.html",
@@ -682,7 +770,7 @@ class TestTheServiceReadsTheRecordedRows:
 
     async def test_cost_rows_near_the_cap_escalate(self, scene: dict[str, Any]) -> None:
         session: AsyncSession = scene["session"]
-        cap = Decimal(str(scene["request"].max_cost_gbp))
+        cap = Decimal(str(scene["request"].work_order.max_cost_gbp))
         session.add(
             Cost(
                 job_id=scene["job"].id,
@@ -791,6 +879,62 @@ class TestTheServiceReadsTheRecordedRows:
         # the missing-section trigger names the floor. Both belong on the banner.
         assert TriggerKind.LOW_SOURCE_COVERAGE.value in fired
         assert TriggerKind.MATERIAL_MISSING_SECTION.value in fired
+
+    async def test_a_failed_section_carries_the_reason_the_draft_step_recorded(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The wiring, not the wording: the banner reads the record rather than a status.
+
+        This is the half that could silently do nothing — the engine can distinguish
+        starved from refused all it likes if the scene arrives with neither field set.
+        """
+        session: AsyncSession = scene["session"]
+        definition = await session.scalar(
+            select(SectionDefinition)
+            .where(SectionDefinition.required.is_(True))
+            .order_by(SectionDefinition.position, SectionDefinition.key)
+            .limit(1)
+        )
+        assert definition is not None
+        session.add(
+            ReportSection(
+                job_id=scene["job"].id,
+                section_definition_id=definition.id,
+                section_key=definition.key,
+                position=definition.position,
+                status=SectionStatus.FAILED,
+                content=None,
+            )
+        )
+        session.add(
+            JobStep(
+                job_id=scene["job"].id,
+                step_key="draft",
+                sequence=1,
+                status=JobStatus.SUCCEEDED,
+                idempotency_key=f"draft-{uuid.uuid4()}",
+                input_hash="0" * 64,
+                output_ref={
+                    "builtin_sections": [
+                        {
+                            "section_key": definition.key,
+                            "status": "failed",
+                            "attempts": 3,
+                            "evidence_dealt": {"facts": 0, "calculations": 0, "excerpts": 0},
+                            "refusal_causes": {"citation": 3},
+                            "problems": ["cites extraction 1 which this run does not hold"],
+                        }
+                    ]
+                },
+            )
+        )
+        await session.flush()
+
+        fired = await triggers_for_job(session, job=scene["job"], request=scene["request"])
+        missing = next(row for row in fired if row.kind is TriggerKind.MATERIAL_MISSING_SECTION)
+
+        # Dealt nothing, so it is the evidence that failed and no redraft would have helped.
+        assert any("dealt nothing it could cite" in line for line in missing.evidence)
 
     async def test_a_pinned_clamp_escalates(self, scene: dict[str, Any]) -> None:
         session: AsyncSession = scene["session"]
@@ -939,3 +1083,205 @@ class TestTheGatePausesNamingTheTriggers:
         )
         outcome = await run_to_next_stop(**driven["args"])
         assert outcome.status is JobStatus.SUCCEEDED
+
+
+# ==========================================================================================
+# The seal holds while the run keeps spending
+# ==========================================================================================
+
+
+async def _revise_row(driven: dict[str, Any]) -> JobStep:
+    row = await driven["session"].scalar(
+        select(JobStep).where(JobStep.job_id == driven["job"].id, JobStep.step_key == "revise")
+    )
+    assert row is not None, "the revise step seals the gate-2 payload"
+    return row
+
+
+async def _seal_a_cap_the_run_is_over(driven: dict[str, Any]) -> Decimal:
+    """Rewrite the seal's own record as a run that sealed above 80% of its cap.
+
+    The condition has to hold **at the seal**, not afterwards, which is the whole point:
+    a cap lowered later changes nothing, and that is now tested too. Editing the record
+    the sealing step wrote is the honest way to stand a fixture in that run's shoes
+    without tuning a fake provider's spend against a budget guard.
+    """
+    row = await _revise_row(driven)
+    output = dict(row.output_ref or {})
+    scene = dict(output["cost_scene"])
+    spent = Decimal(str(scene["actual_gbp"]))
+    cap = (spent / Decimal("0.9")).quantize(Decimal("0.0001"))
+    scene["cap_gbp"] = str(cap)
+    output["cost_scene"] = scene
+    row.output_ref = output
+    await driven["session"].flush()
+    assert spent > cap * COST_ALERT_RATIO
+    return cap
+
+
+class TestTheSealHoldsWhileTheRunKeepsSpending:
+    """The gate-2 payload must not move after the revise step seals it.
+
+    **A live run reached gate 2 at £11.51 and could not be approved.** Every attempt came
+    back "the FINAL approval was recorded against different content from what this run
+    produced", which was true and unhelpful: the operator approved four times.
+
+    Money was the one input to the §2.4 triggers that was not frozen at the seal. The cost
+    trigger's evidence carries the running total -- `actual spend £11.5006 exceeds ...` --
+    and the verdict step runs *after* the revise step and pays for itself. So on a run
+    above 80% of its cap, the figure the review page hashed was never the figure the seal
+    held, and never could be.
+
+    No test saw it because the drivers approved with the hash the sealing step wrote,
+    while an operator approves with the hash the page computed. Both routes now go through
+    the page's, which is the operator's.
+    """
+
+    async def test_the_spend_the_seal_records_stops_at_the_seal(
+        self, driven: dict[str, Any]
+    ) -> None:
+        """The verdict step's own spend is outside what the draft was sealed with."""
+        session: AsyncSession = driven["session"]
+        sealed = Decimal(str((await _revise_row(driven)).output_ref["cost_scene"]["actual_gbp"]))
+        live = await cost_scene_for_job(session, job=driven["job"], request=driven["request"])
+
+        rows = await session.scalars(
+            select(Cost.amount_gbp)
+            .join(JobStep, Cost.job_step_id == JobStep.id)
+            .where(JobStep.job_id == driven["job"].id, JobStep.step_key == "verdict")
+        )
+        verdict = sum((Decimal(str(row)) for row in rows), Decimal("0"))
+        assert verdict > 0, "the step that spends after the seal"
+        assert sealed == live.actual_gbp - verdict
+
+    async def test_the_derivation_agrees_with_the_record(self, driven: dict[str, Any]) -> None:
+        """The fallback for a run sealed before the record existed, held to the same figure."""
+        derived = await cost_scene_for_job(
+            driven["session"],
+            job=driven["job"],
+            request=driven["request"],
+            through_step="revise",
+        )
+        sealed = Decimal(str((await _revise_row(driven)).output_ref["cost_scene"]["actual_gbp"]))
+
+        assert derived.actual_gbp == sealed
+
+    async def test_a_step_that_has_not_run_leaves_the_sum_live(
+        self, driven: dict[str, Any]
+    ) -> None:
+        """Bounding by a step that never happened must not read as "nothing spent"."""
+        live = await cost_scene_for_job(
+            driven["session"], job=driven["job"], request=driven["request"]
+        )
+        bounded = await cost_scene_for_job(
+            driven["session"],
+            job=driven["job"],
+            request=driven["request"],
+            through_step="a_step_this_workflow_does_not_have",
+        )
+
+        assert bounded.actual_gbp == live.actual_gbp
+        assert bounded.actual_gbp > 0
+
+    async def test_the_cost_trigger_fires_from_what_the_seal_recorded(
+        self, driven: dict[str, Any]
+    ) -> None:
+        """The precondition, asserted alone so the two below cannot pass vacuously."""
+        cap = await _seal_a_cap_the_run_is_over(driven)
+        payload = await final_gate_payload(driven["session"], job_id=driven["job"].id)
+
+        cost = next(
+            row
+            for row in payload["triggers"]
+            if row["kind"] == TriggerKind.COST_ABOVE_THRESHOLD.value
+        )
+        assert f"£{cap}" in cost["message"]
+        assert any("actual spend" in line for line in cost["evidence"])
+
+    async def test_spending_after_the_seal_does_not_move_the_payload(
+        self, driven: dict[str, Any]
+    ) -> None:
+        """What the verdict step does, done again: one more cost row after the seal."""
+        await _seal_a_cap_the_run_is_over(driven)
+        before = await final_gate_payload(driven["session"], job_id=driven["job"].id)
+
+        verdict = await driven["session"].scalar(
+            select(JobStep).where(JobStep.job_id == driven["job"].id, JobStep.step_key == "verdict")
+        )
+        assert verdict is not None
+        driven["session"].add(
+            Cost(
+                job_id=driven["job"].id,
+                job_step_id=verdict.id,
+                category="model",
+                provider="anthropic",
+                model="a-model",
+                units=Decimal("1"),
+                unit_type="call",
+                amount_usd=Decimal("0.0150"),
+                amount_gbp=Decimal("0.0115"),
+                fx_rate=Decimal("0.79"),
+            )
+        )
+        await driven["session"].flush()
+
+        after = await final_gate_payload(driven["session"], job_id=driven["job"].id)
+        assert canonical_json(before) == canonical_json(after)
+
+    async def test_raising_the_cap_after_the_seal_does_not_brick_the_gate(
+        self, driven: dict[str, Any]
+    ) -> None:
+        """The cap is a live control, and the draft it seals is not about the cap.
+
+        Raising it is the operator's move when a run is running out of room, so it must
+        not invalidate a draft nobody rewrote. The banner keeps saying what was true when
+        the draft was sealed, which is what "approved with this banner showing" means.
+        """
+        await _seal_a_cap_the_run_is_over(driven)
+        before = await final_gate_payload(driven["session"], job_id=driven["job"].id)
+
+        order = driven["request"].work_order
+        order.max_cost_gbp = Decimal(str(order.max_cost_gbp)) * 10
+        await driven["session"].flush()
+
+        after = await final_gate_payload(driven["session"], job_id=driven["job"].id)
+        assert canonical_json(before) == canonical_json(after)
+
+    async def test_a_rewritten_section_still_invalidates_the_approval(
+        self, driven: dict[str, Any]
+    ) -> None:
+        """The other half. The payload must stop moving on its own, not stop moving.
+
+        Content the operator did not approve over is exactly what the hash exists to
+        catch. The gate refusing here is the guard working -- and it is the same guard
+        that was refusing the live run, for a difference nobody had made.
+        """
+        session: AsyncSession = driven["session"]
+        sections = await sections_for_job(session, driven["job"].id)
+        assert sections, "the draft the gate approves"
+        sections[0].content = {
+            **(sections[0].content or {}),
+            "summary": "rewritten after the draft was sealed",
+        }
+        await session.flush()
+
+        await approve(
+            session, job=driven["job"], gate=GateKind.FINAL, actor=driven["user"], step="revise"
+        )
+        outcome = await run_to_next_stop(**driven["args"])
+
+        assert outcome.status is JobStatus.AWAITING_APPROVAL
+        step = await session.scalar(
+            select(JobStep).where(
+                JobStep.job_id == driven["job"].id, JobStep.step_key == "gate_final"
+            )
+        )
+        assert step is not None
+        error = step.error or {}
+        assert "different content" in str(error.get("message", ""))
+        # The page and the approval agree with each other and not with the seal, so no
+        # decision taken from that page can open the gate. Saying "approve again" would
+        # have sent the live run round the loop a fifth time.
+        assert "drifted apart" in str(error.get("message", ""))
+        assert error["context"]["live_hash"] == error["context"]["approved_hash"]
+        assert error["context"]["actual_hash"] != error["context"]["approved_hash"]

@@ -44,13 +44,14 @@ Pure and ``mypy --strict``: quantities in, quantities out, every step recorded.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from enum import StrEnum
-from typing import Final
+from typing import Any, Final
 
-from aer.calc.dcf import present_value
+from aer.calc.dcf import MAX_AXIS_POINTS, MIN_AXIS_POINTS, present_value
 from aer.calc.engine import CalculationContext, traced
 from aer.calc.units import CalculationError, Quantity, Unit
 from aer.calc.wacc import MAX_RATE, MIN_RATE
@@ -60,9 +61,15 @@ __all__ = [
     "CLEAN_SURPLUS_CAVEAT",
     "DRIVER_NAMES",
     "MAX_FORECAST_YEARS",
+    "SENSITIVITY_CASE",
+    "VARIABLE_FIELDS",
+    "GridAxis",
+    "GridCell",
+    "GridMeasure",
     "ResidualIncomeInputs",
     "ResidualIncomeResult",
     "ResidualIncomeYear",
+    "SensitivityGrid",
     "TerminalTreatment",
     "book_value_roll_forward",
     "equity_charge",
@@ -74,6 +81,7 @@ __all__ = [
     "premium_to_book",
     "residual_income",
     "residual_income_value",
+    "sensitivity_grid",
     "value_per_share",
 ]
 
@@ -170,6 +178,25 @@ class DriverPath:
     @property
     def years(self) -> int:
         return len(self.values)
+
+    @property
+    def flat_value(self) -> Quantity | None:
+        """The one value this path repeats, or ``None`` when it moves year to year.
+
+        What decides whether a sensitivity axis may vary this driver (ADR 0101). A flat path
+        *is* one number with an ordering, so an axis over it means what its label says; a
+        fading path is several, and an axis labelled with one of them would be a label for
+        something else — which is the objection :data:`aer.calc.dcf.VARIABLE_FIELDS` raises
+        against driver axes in general, and it only holds against the fading case.
+
+        Compared on value and unit rather than on the whole quantity: two years of a flat
+        path carry the same source, but a caller that built one by hand may not have, and
+        the source is not what makes a path flat.
+        """
+        first = self.values[0]
+        if any(value.value != first.value or value.unit != first.unit for value in self.values):
+            return None
+        return first
 
     def at(self, year: int) -> Quantity:
         return self.values[year - 1]
@@ -486,6 +513,7 @@ def equity_value(
     explicit_value: Quantity,
     discounted_terminal_value: Quantity | None,
     treatment: TerminalTreatment,
+    case: str = "base",
 ) -> Quantity:
     """Book value plus everything the excess return is worth.
 
@@ -494,8 +522,15 @@ def equity_value(
     with nothing saying which claim about competition produced it. ``None`` for the terminal
     value is the fade treatment saying there is nothing beyond the forecast — recorded as an
     absence rather than as a nil that looks like a computed figure.
+
+    ``case`` is the same argument one level up, and it is recorded for the reason
+    :func:`aer.calc.dcf.enterprise_value` records it: a run that values its scenarios executes
+    this once per case, and without the label a scenario chart cannot be read off the ledger.
+    A grid cell carries :data:`SENSITIVITY_CASE` rather than a scenario's key, so twenty-five
+    perturbations can never be mistaken for the valuation they perturb (ADR 0101).
     """
     _require_treatment(treatment)
+    _require_case(case)
     _require_money(opening_book_value, name="opening_book_value")
     _require_money(explicit_value, name="explicit_value")
 
@@ -521,14 +556,17 @@ def premium_to_book(
     equity_value: Quantity,
     opening_book_value: Quantity,
     treatment: TerminalTreatment,
+    case: str = "base",
 ) -> Quantity:
     """How much of the answer is the excess return rather than the balance sheet.
 
-    ``treatment`` does not enter the arithmetic. It is recorded for the reason
-    :func:`equity_value` records it: this runs once per treatment, and two rows of the same
-    name with different answers and nothing saying why is a ledger a reader cannot use.
+    ``treatment`` and ``case`` do not enter the arithmetic. They are recorded for the reason
+    :func:`equity_value` records them: this runs once per treatment and once per case, and
+    rows of the same name with different answers and nothing saying why is a ledger a reader
+    cannot use.
     """
     _require_treatment(treatment)
+    _require_case(case)
     _require_money(equity_value, name="equity_value")
     _require_money(opening_book_value, name="opening_book_value")
     return equity_value - opening_book_value
@@ -548,6 +586,7 @@ def value_per_share(
     equity_value: Quantity,
     shares: Quantity,
     treatment: TerminalTreatment,
+    case: str = "base",
 ) -> Quantity:
     """The equity value spread over the shares in issue.
 
@@ -558,14 +597,15 @@ def value_per_share(
     this model and one from a discounted cash flow are different claims, and a report showing
     both should not have to guess which row is which.
 
-    ``treatment`` is recorded and never computed with, for the same reason as above. This
-    is the figure a reader quotes, so it is the row that most needs to say which claim about
-    competition produced it.
+    ``treatment`` and ``case`` are recorded and never computed with, for the same reason as
+    above. This is the figure a reader quotes, so it is the row that most needs to say which
+    claim about competition produced it and which set of assumptions it was priced on.
 
     Raises:
         CalculationError: If the share count is not positive.
     """
     _require_treatment(treatment)
+    _require_case(case)
     _require_money(equity_value, name="equity_value")
     if shares.unit != _SHARES:
         message = (
@@ -586,7 +626,11 @@ def value_per_share(
 
 
 def residual_income_value(
-    context: CalculationContext, inputs: ResidualIncomeInputs, *, mandate: ValuationMandate
+    context: CalculationContext,
+    inputs: ResidualIncomeInputs,
+    *,
+    mandate: ValuationMandate,
+    case: str = "base",
 ) -> ResidualIncomeResult:
     """Value a bank's equity as its book value plus the excess return it earns on it.
 
@@ -597,6 +641,10 @@ def residual_income_value(
     ``mandate`` is the sector block, and it is a required argument rather than a check
     somewhere upstream, for the reason :mod:`aer.calc.dcf` gives.
 
+    ``case`` labels which set of assumptions this valuation priced. It reaches the three
+    outcome calculations and nothing else, because those are the rows a reader quotes and a
+    chart reads (ADR 0101).
+
     Raises:
         ModelNotPermittedError: If the mandate is for a different model.
         CalculationError: From :meth:`ResidualIncomeInputs.validate` and from the steps —
@@ -604,6 +652,7 @@ def residual_income_value(
             share count of nil.
     """
     _require_residual_income_mandate(mandate)
+    _require_case(case)
     inputs.validate()
 
     book = inputs.opening_book_value
@@ -676,18 +725,21 @@ def residual_income_value(
         explicit_value=explicit,
         discounted_terminal_value=terminal_pv,
         treatment=inputs.terminal_treatment,
+        case=case,
     )
     premium = premium_to_book(
         context,
         equity_value=value,
         opening_book_value=inputs.opening_book_value,
         treatment=inputs.terminal_treatment,
+        case=case,
     )
     per_share = value_per_share(
         context,
         equity_value=value,
         shares=inputs.shares_outstanding,
         treatment=inputs.terminal_treatment,
+        case=case,
     )
 
     return ResidualIncomeResult(
@@ -701,6 +753,267 @@ def residual_income_value(
         value_per_share=per_share,
         caveats=tuple(caveats),
     )
+
+
+# -- Sensitivity -----------------------------------------------------------------------------
+
+
+SENSITIVITY_CASE: Final = "sensitivity"
+"""The case label every grid cell carries.
+
+Not ``"base"``, which is what :mod:`aer.calc.dcf`'s grid cells inherit. A grid writes one
+complete valuation per cell, and a scenario chart reads the *most recent* row for a case
+(:func:`aer.services.exhibits._latest_for_case`) — so cells labelled ``base`` are twenty-five
+later rows under the base case's own label, and a scenario keyed ``base`` would draw its bar
+from whichever corner happened to be written last. ADR 0101 makes that unrepresentable here.
+"""
+
+
+class GridMeasure(StrEnum):
+    """Which figure a grid reports in each cell.
+
+    Three, where the discounted cash flow has three of its own, and the third is the one this
+    model adds: a premium to book says how much of the answer is the excess return rather than
+    the balance sheet, which is the question a bank's grid is drawn to answer.
+    """
+
+    VALUE_PER_SHARE = "residual_income_per_share"
+    EQUITY_VALUE = "residual_income_equity_value"
+    PREMIUM_TO_BOOK = "premium_to_book"
+
+
+VARIABLE_FIELDS: Final[frozenset[str]] = frozenset(
+    {"cost_of_equity", "terminal_growth", "return_on_equity", "payout_ratio"}
+)
+"""Which inputs a grid may vary.
+
+Two scalars and two drivers, where :data:`aer.calc.dcf.VARIABLE_FIELDS` admits scalars alone.
+The difference is not a relaxation: a driver axis is permitted here only when the confirmed
+path is *flat*, checked in :func:`sensitivity_grid` against the inputs it is given, because
+that is the case in which the cash-flow model's objection does not hold. A flat return on
+equity is one number with an ordering, and an axis over it means exactly what its label says.
+
+The opening book value and the share count are absent and stay absent. Both are filed
+figures; varying them would be varying the filing, which is not a sensitivity but a different
+company.
+"""
+
+_DRIVER_FIELDS: Final[frozenset[str]] = frozenset(DRIVER_NAMES)
+
+_TERMINAL_GROWTH_FIELD: Final = "terminal_growth"
+
+
+@dataclass(frozen=True, slots=True)
+class GridAxis:
+    """One axis of a sensitivity grid: which input varies, and over what values."""
+
+    field: str
+    values: tuple[Quantity, ...]
+
+    def __post_init__(self) -> None:
+        if self.field not in VARIABLE_FIELDS:
+            message = (
+                f"{self.field!r} is not an input a residual-income grid may vary. Available: "
+                f"{', '.join(sorted(VARIABLE_FIELDS))}. The opening book value and the share "
+                "count are filed figures, and a grid over one of those is a different company "
+                "rather than a sensitivity."
+            )
+            raise CalculationError(message, context={"field": self.field})
+
+        if not MIN_AXIS_POINTS <= len(self.values) <= MAX_AXIS_POINTS:
+            message = (
+                f"A grid axis over {self.field} has {len(self.values)} values, outside "
+                f"{MIN_AXIS_POINTS} to {MAX_AXIS_POINTS}. One value is not a sensitivity; "
+                "beyond the ceiling each extra column is a complete valuation with a complete "
+                "lineage to store."
+            )
+            raise CalculationError(
+                message, context={"field": self.field, "values": str(len(self.values))}
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class GridCell:
+    """One point of a grid, and the calculation that produced it."""
+
+    row_value: Quantity
+    column_value: Quantity
+    result: Quantity
+
+    @property
+    def calculation_id(self) -> uuid.UUID:
+        """The calculation this cell's figure came from.
+
+        Read off the quantity rather than tracked beside it, exactly as
+        :class:`aer.calc.dcf.GridCell` reads it: the result is a traced calculation's output,
+        so a cell cannot exist without the arithmetic that produced it.
+        """
+        if self.result.source is None:  # pragma: no cover - traced output always has one
+            message = "A grid cell's result carries no source, so it cannot be recorded."
+            raise CalculationError(message, context={"value": str(self.result.value)})
+        return uuid.UUID(self.result.source.identifier)
+
+
+@dataclass(frozen=True, slots=True)
+class SensitivityGrid:
+    """A rectangular grid of complete residual-income valuations."""
+
+    row_axis: GridAxis
+    column_axis: GridAxis
+    treatment: TerminalTreatment
+    measure: GridMeasure
+    cells: tuple[GridCell, ...]
+
+    @property
+    def output_name(self) -> str:
+        return f"{self.measure.value}_{self.treatment.value}"
+
+    @property
+    def output_unit(self) -> str:
+        return self.cells[0].result.unit.symbol
+
+
+def sensitivity_grid(
+    context: CalculationContext,
+    inputs: ResidualIncomeInputs,
+    *,
+    rows: GridAxis,
+    columns: GridAxis,
+    treatment: TerminalTreatment,
+    measure: GridMeasure,
+    mandate: ValuationMandate,
+) -> SensitivityGrid:
+    """Run a complete valuation at every point of a two-dimensional grid.
+
+    **Every cell is a whole residual-income valuation** on ADR 0028's terms — not an
+    interpolation between the corners, not a first-order approximation around the base case.
+    The surface is no flatter here than it is for a discounted cash flow: the perpetuity
+    denominator is ``cost of equity - g``, and the equity charge moves the explicit years in
+    the opposite direction from the discounting, so a linear reading of it would understate
+    exactly the corner the grid was drawn for.
+
+    ``treatment`` applies to every cell, and it is a required argument rather than read off
+    ``inputs``: a grid says what happens beyond the forecast once, for all twenty-five
+    valuations, and letting it come in through the input set would allow a grid whose cells
+    disagreed about the claim they were testing.
+
+    Raises:
+        CalculationError: If both axes vary the same input; if terminal growth is an axis
+            under the fade treatment, which does not read it; or if a driver axis names a
+            path that is not flat. Also from the valuation itself — a perpetuity refused in
+            any corner takes the grid, because a hole in a grid is a cell a reader
+            interprets (ADR 0101).
+    """
+    _require_distinct(rows, columns)
+    _require_treatment(treatment)
+    for axis in (rows, columns):
+        _require_axis_is_read(axis, treatment)
+        _require_flat_driver(axis, inputs)
+
+    cells: list[GridCell] = []
+    for row_value in rows.values:
+        for column_value in columns.values:
+            varied = _varied(inputs, {rows.field: row_value, columns.field: column_value})
+            result = residual_income_value(
+                context,
+                replace(varied, terminal_treatment=treatment),
+                mandate=mandate,
+                case=SENSITIVITY_CASE,
+            )
+            cells.append(
+                GridCell(
+                    row_value=row_value,
+                    column_value=column_value,
+                    result=_measure_of(result, measure),
+                )
+            )
+
+    return SensitivityGrid(
+        row_axis=rows,
+        column_axis=columns,
+        treatment=treatment,
+        measure=measure,
+        cells=tuple(cells),
+    )
+
+
+def _varied(inputs: ResidualIncomeInputs, overrides: dict[str, Quantity]) -> ResidualIncomeInputs:
+    """One perturbed input set.
+
+    A driver's axis value becomes a whole flat path of that length, which is what varying a
+    flat driver means: every year moves together, because every year was the same number to
+    begin with.
+    """
+    # Typed loosely because the field name is data. `replace` still refuses a name
+    # `ResidualIncomeInputs` does not have, so a typo is an error rather than a silently
+    # ignored axis.
+    applied: dict[str, Any] = {}
+    for field, value in overrides.items():
+        if field in _DRIVER_FIELDS:
+            existing: DriverPath = getattr(inputs, field)
+            applied[field] = DriverPath.flat(field, value, years=existing.years)
+        else:
+            applied[field] = value
+    return replace(inputs, **applied)
+
+
+def _measure_of(result: ResidualIncomeResult, measure: GridMeasure) -> Quantity:
+    if measure is GridMeasure.VALUE_PER_SHARE:
+        return result.value_per_share
+    if measure is GridMeasure.EQUITY_VALUE:
+        return result.equity_value
+    return result.premium_to_book
+
+
+def _require_distinct(rows: GridAxis, columns: GridAxis) -> None:
+    if rows.field != columns.field:
+        return
+    message = (
+        f"Both axes vary {rows.field}. Only the diagonal of such a grid would mean anything, "
+        "and every other cell would contradict it."
+    )
+    raise CalculationError(message, context={"field": rows.field})
+
+
+def _require_axis_is_read(axis: GridAxis, treatment: TerminalTreatment) -> None:
+    """Refuse an axis over an input this treatment never reads.
+
+    Only one such pairing exists: the terminal growth rate is read by the perpetuity and by
+    nothing else, so a grid over it under the fade treatment renders identical columns. That
+    is worse than no grid, because a flat surface labelled as a sensitivity reads as a finding
+    — "the answer does not depend on this" — when what it means is that the grid asked a
+    question this valuation was not answering.
+    """
+    if axis.field != _TERMINAL_GROWTH_FIELD or treatment is TerminalTreatment.PERPETUAL_GROWTH:
+        return
+    message = (
+        "The fade-to-nothing treatment places no value beyond the forecast, so it never reads "
+        "the terminal growth rate. A grid over it would render identical columns and read as "
+        "a finding about the bank rather than about the axis."
+    )
+    raise CalculationError(message, context={"field": axis.field, "treatment": treatment.value})
+
+
+def _require_flat_driver(axis: GridAxis, inputs: ResidualIncomeInputs) -> None:
+    """Refuse a driver axis whose confirmed path moves year to year.
+
+    ADR 0101's rule, and the sentence names what to do about it. A fading return on equity is
+    several numbers, and an axis labelled with one of them would be a label for something
+    else; shifting the whole path instead would put the *shift* on the axis, where a reader
+    scanning a bank's grid takes ``-0.5%`` for a return on equity of minus a half per cent.
+    """
+    if axis.field not in _DRIVER_FIELDS:
+        return
+    path: DriverPath = getattr(inputs, axis.field)
+    if path.flat_value is not None:
+        return
+    message = (
+        f"The confirmed {axis.field} moves from year to year, so it is several numbers rather "
+        "than one and cannot be an axis. Confirm a single flat "
+        f"{axis.field} if you want this grid; a grid over one year of a fade would be "
+        "labelled for a quantity it does not vary."
+    )
+    raise CalculationError(message, context={"field": axis.field, "years": str(path.years)})
 
 
 def _require_residual_income_mandate(mandate: ValuationMandate) -> None:
@@ -735,6 +1048,22 @@ def _require_money(value: Quantity, *, name: str) -> None:
         "without a currency is a number somebody will add to a different one."
     )
     raise CalculationError(message, context={"name": name, "unit": value.unit.symbol})
+
+
+def _require_case(case: str) -> None:
+    """Refuse a blank case label.
+
+    A blank case is a row nobody can attribute to a scenario, which is the exact gap the
+    parameter exists to close. Validated rather than defaulted here: the default lives on the
+    signature, so an explicit empty string is a caller error and not a base case.
+    """
+    if case.strip():
+        return
+    message = (
+        "The case label is blank; the ledger could not say which set of assumptions this "
+        "valuation prices."
+    )
+    raise CalculationError(message, context={"case": case})
 
 
 def _require_treatment(value: object) -> None:

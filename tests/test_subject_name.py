@@ -20,8 +20,9 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import UserRole
-from aer.db.models import Company, ResearchRequest, User
+from aer.db.models import Company, User
 from aer.services.subject import name_of, subject_name
+from tests.request_fixtures import research_request
 
 pytestmark = pytest.mark.integration
 
@@ -30,7 +31,7 @@ FILED = "M&T BANK CORP"
 
 
 async def _request(session: AsyncSession, *, user_id: uuid.UUID, ticker: str = "MTB"):
-    request = ResearchRequest(
+    request = research_request(
         user_id=user_id,
         company_name=TYPED,
         ticker=ticker,
@@ -58,18 +59,18 @@ async def scene(db_session: AsyncSession) -> dict[str, Any]:
 
 class TestTheRuleItself:
     def test_the_filed_name_wins(self, scene: dict[str, Any]) -> None:
-        request = ResearchRequest(company_name=TYPED, ticker="MTB", exchange="NYSE")
+        request = research_request(company_name=TYPED, ticker="MTB", exchange="NYSE")
 
         assert name_of(request, scene["company"]) == FILED
 
     def test_no_company_keeps_what_was_typed(self) -> None:
-        request = ResearchRequest(company_name=TYPED, ticker="MTB", exchange="NYSE")
+        request = research_request(company_name=TYPED, ticker="MTB", exchange="NYSE")
 
         assert name_of(request, None) == TYPED
 
     def test_a_blank_filed_name_falls_back_rather_than_rendering_nothing(self) -> None:
         """An empty heading is worse than an unverified one."""
-        request = ResearchRequest(company_name=TYPED, ticker="MTB", exchange="NYSE")
+        request = research_request(company_name=TYPED, ticker="MTB", exchange="NYSE")
         blank = Company(name="   ", cik="0", ticker="MTB", exchange="NYSE")
 
         assert name_of(request, blank) == TYPED

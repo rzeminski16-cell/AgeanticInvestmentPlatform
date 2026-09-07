@@ -40,7 +40,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import Provider, SourceTier
 from aer.core.scope import EvidenceScope
-from aer.db.models import Artefact, AuditEvent, ResearchRequest, SourceDocument, User
+from aer.db.models import Artefact, AuditEvent, SourceDocument, User, WorkOrder
 from aer.db.models.source_document import NO_PUBLICATION_DATE
 from aer.errors import ConflictError, ValidationError
 from aer.extract.dates import PublicationDate
@@ -149,7 +149,7 @@ def decide_quarantine(
 async def record_source_document(
     session: AsyncSession,
     *,
-    request: ResearchRequest,
+    work_order: WorkOrder,
     artefact: Artefact,
     url: str,
     provider: Provider,
@@ -172,6 +172,12 @@ async def record_source_document(
     ``retrieved_at`` defaults to now. It is a parameter rather than always the clock so
     that a replayed or backfilled acquisition can record when it actually happened rather
     than when it was written down.
+
+    ``work_order`` is the acquisition root (ADR 0093): it supplies the as-of date and the
+    point-in-time flag the admissibility decision reads, whatever tool the acquisition
+    belongs to. A research run's root shares its id with the mandate row (ADR 0072); a
+    portfolio data acquisition has no mandate row at all, which is why the clock cannot
+    live there.
 
     Args:
         published: The whole result from :func:`aer.extract.dates.extract_publication_date`,
@@ -209,14 +215,13 @@ async def record_source_document(
 
     decision = decide_quarantine(
         publication_date=latest,
-        point_in_time=request.point_in_time,
+        point_in_time=work_order.point_in_time,
         source_tier=source_tier,
-        as_of_date=request.as_of_date,
+        as_of_date=work_order.as_of_date,
     )
 
     document = SourceDocument(
-        work_order_id=request.id,
-        request_id=request.id,
+        work_order_id=work_order.id,
         job_id=job_id,
         company_id=company_id,
         artefact_id=artefact.id,
@@ -263,7 +268,7 @@ async def record_source_document(
         # failure has no such row and propagates unchanged.
         held = await session.scalar(
             select(SourceDocument).where(
-                SourceDocument.work_order_id == request.id,
+                SourceDocument.work_order_id == work_order.id,
                 SourceDocument.artefact_id == artefact.id,
             )
         )
@@ -294,7 +299,11 @@ async def record_source_document(
                     "reason": decision.reason,
                 },
                 previous=previous,
-                request_id=request.id,
+                # The run root's id. `audit_events.request_id` is an unconstrained
+                # correlation column, and it correlates a record to the run rather than to
+                # a mandate — so a book's acquisition, which has no mandate, is reachable by
+                # the same query instead of chaining against NULL.
+                request_id=work_order.id,
                 job_id=job_id,
             )
         )
@@ -357,7 +366,7 @@ async def override_admissibility(
                 "reason": source.admissibility_override_reason,
             },
             previous=previous,
-            request_id=source.request_id,
+            request_id=source.work_order_id,
             job_id=source.job_id,
         )
     )

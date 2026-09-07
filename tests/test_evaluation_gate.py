@@ -428,7 +428,6 @@ async def _document_for(
 
     document = SourceDocument(
         work_order_id=request.id,
-        request_id=request.id,
         job_id=job.id,
         artefact_id=artefact.id,
         url=url,
@@ -599,10 +598,15 @@ class TestTheCorporaAreWorthScoring:
         assert any(row.rests_on_assumptions for row in completeness)
         assert any(not row.rests_on_assumptions for row in completeness)
 
-    def test_the_adversarial_corpus_is_the_twelve_the_plan_asks_for(
+    def test_the_adversarial_corpus_is_the_twenty_six_the_plan_asks_for(
         self, containments: list[ContainmentObservation]
     ) -> None:
-        assert len(containments) == 12
+        # Twelve from task 42; `declare_conviction` from ADR 0074, reserved with that record
+        # rather than with any sizing work; the six sizing names ADR 0080 reserved "in
+        # the commit that introduces any sizing concept", which was ADR 0104's decision
+        # journal — an action and a size are exactly that concept; and the seven ADR 0108
+        # added when prompt-kind skills first reached a prompt.
+        assert len(containments) == 26
 
     def test_every_named_escalation_family_is_represented(self) -> None:
         # The families task 42 names, each with at least one file attempting it. A family
@@ -612,10 +616,12 @@ class TestTheCorporaAreWorthScoring:
             "weaken_evidence",
             "widen_tools",
             "set_rating",
+            "set_sizing",
             "exceed_budget",
             "disable_citations",
             "override_point_in_time",
             "escape_boundary",
+            "reach_the_adversary",
         }
 
     def test_each_escalation_fails_at_the_layer_that_owns_it(
@@ -643,6 +649,7 @@ class TestTheCorporaAreWorthScoring:
             "composer",
             "contract",
             "boundary",
+            "roles",
         }
 
     def test_frontmatter_refusals_name_the_attacked_field(self, settings: Settings) -> None:

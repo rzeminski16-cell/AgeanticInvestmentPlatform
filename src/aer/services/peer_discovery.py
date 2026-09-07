@@ -247,7 +247,7 @@ async def _one_peer(
     period_end = await session.scalar(
         select(func.max(FinancialFact.period_end)).where(
             FinancialFact.company_id == company.id,
-            FinancialFact.period_end <= request.as_of_date,
+            FinancialFact.period_end <= request.work_order.as_of_date,
         )
     )
     return PeerProposal(

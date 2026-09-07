@@ -128,10 +128,15 @@ def percent_to_fraction(raw: str) -> Decimal | None:
     if not text:
         return None
     try:
-        return Decimal(text) / _HUNDRED
+        fraction = Decimal(text) / _HUNDRED
     except InvalidOperation as exc:
         message = "must be a number, for example 2.5 for two and a half per cent"
         raise ValueError(message) from exc
+    if not fraction.is_finite():
+        # "nan" and "inf" parse as Decimals and then poison every comparison downstream.
+        message = "must be a number, for example 2.5 for two and a half per cent"
+        raise ValueError(message)
+    return fraction
 
 
 def fraction_to_percent(value: Decimal | None) -> str:
@@ -236,7 +241,7 @@ def form_values_from(request: ResearchRequest) -> dict[str, str]:
         "ticker": request.ticker,
         "exchange": request.exchange,
         "isin": request.isin or "",
-        "as_of_date": request.as_of_date.isoformat(),
+        "as_of_date": request.work_order.as_of_date.isoformat(),
         "base_currency": request.base_currency,
         "reporting_currency": request.reporting_currency or "",
         "investment_horizon_months": str(request.investment_horizon_months),
@@ -244,7 +249,7 @@ def form_values_from(request: ResearchRequest) -> dict[str, str]:
         "analysis_mode": request.analysis_mode.value,
         # An unchecked checkbox submits nothing at all, so "" is the only honest
         # representation of false here -- the parser reads presence, not a value.
-        "point_in_time": "true" if request.point_in_time else "",
+        "point_in_time": "true" if request.work_order.point_in_time else "",
         "current_weight_percent": fraction_to_percent(_weight(portfolio.get("current_weight"))),
         "maximum_weight_percent": fraction_to_percent(_weight(portfolio.get("maximum_weight"))),
         "benchmark": str(portfolio.get("benchmark") or ""),
@@ -253,7 +258,7 @@ def form_values_from(request: ResearchRequest) -> dict[str, str]:
         "esg_sensitivity": request.esg_sensitivity or "",
         "focus_questions": "\n".join(request.focus_questions or ()),
         "excluded_sources": "\n".join(request.excluded_sources or ()),
-        "max_cost_gbp": _plain(request.max_cost_gbp),
+        "max_cost_gbp": _plain(request.work_order.max_cost_gbp),
     }
 
 

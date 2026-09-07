@@ -43,7 +43,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Final
 
-from aer.core.concepts import canonical_concept
+from aer.core.concepts import canonical_concept, refusal_reason
 from aer.extract.errors import ParseFailedError, UnextractableError
 
 __all__ = [
@@ -119,6 +119,11 @@ class IxbrlFact:
     def is_mapped(self) -> bool:
         return self.concept is not None
 
+    @property
+    def refusal(self) -> str:
+        """Why this tag must never map, or empty when nobody has refused it (§2.7)."""
+        return refusal_reason(self.tag) or ""
+
 
 @dataclass(frozen=True, slots=True)
 class IxbrlExtraction:
@@ -141,6 +146,19 @@ class IxbrlExtraction:
         return tuple(fact for fact in self.facts if fact.is_mapped)
 
     @property
+    def refused_tags(self) -> tuple[str, ...]:
+        """Unmapped tags somebody has already decided must never map (§2.7)."""
+        return tuple(
+            sorted({fact.qname for fact in self.facts if not fact.is_mapped and fact.refusal})
+        )
+
+    @property
+    def unplaced_tags(self) -> tuple[str, ...]:
+        """Unmapped tags nobody has decided about — the ones a person is being asked about."""
+        refused = set(self.refused_tags)
+        return tuple(tag for tag in self.unmapped_tags if tag not in refused)
+
+    @property
     def needs_confirmation(self) -> bool:
         """Whether a person must look at this before its facts become evidence.
 
@@ -149,8 +167,13 @@ class IxbrlExtraction:
         ratio: one extension element carrying the company's headline profit measure matters,
         and forty carrying segment breakdowns nobody asked for do not. Only a person can tell
         which, and the platform's job is to make sure they are asked rather than to guess.
+
+        **On *unplaced* tags, not on refused ones** (§2.7). A refused tag is a decision
+        already taken, with the reason recorded beside it; stopping a run to ask about one
+        is asking a question this platform has already answered — and asking it repeatedly
+        is how a considered refusal gets approved away as noise.
         """
-        return bool(self.unmapped_tags)
+        return bool(self.unplaced_tags)
 
     @property
     def is_empty(self) -> bool:

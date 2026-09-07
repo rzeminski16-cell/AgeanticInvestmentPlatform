@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from aer.config import Settings
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
-from aer.db.models import Approval, Job, JobStep, ResearchRequest, User
+from aer.db.models import Approval, Job, JobStep, User, WorkOrder
 from aer.providers.fake import FakeProvider
 from aer.services import approvals as approval_service
 from aer.services import runs as run_service
@@ -33,6 +33,7 @@ from aer.workflow.workflows.vertical_slice_v1 import (
     unmapped_gate_required,
 )
 from tests.api_fixtures import build_app, client_for
+from tests.request_fixtures import research_request
 from tests.sec_fixtures import fixture_bytes
 from tests.workflow_fixtures import (
     DEFAULT_PER_RUN_BUDGET_GBP,
@@ -80,7 +81,7 @@ async def committed(clean_slate: None, db_engine: Any) -> dict[str, Any]:
         session.add(user)
         await session.flush()
 
-        request = ResearchRequest(
+        request = research_request(
             user_id=user.id,
             company_name="Microsoft Corporation",
             ticker="MSFT",
@@ -413,9 +414,9 @@ class TestThePageShowsWhatItHashes:
             )
             session.add(stranger)
             await session.flush()
-            request = await session.get(ResearchRequest, committed["request"].id)
-            assert request is not None
-            request.user_id = stranger.id
+            order = await session.get(WorkOrder, committed["request"].id)
+            assert order is not None
+            order.user_id = stranger.id
             await session.commit()
 
         assert (await api.get(f"/api/runs/{job_id}/financials")).status_code == 404
@@ -444,6 +445,8 @@ class TestThePayloadItself:
         assert set(payload) == {
             "unmapped_tags",
             "unmapped_concepts",
+            "refused_tags",
+            "refused_concepts",
             "mapped_concepts",
             "facts_written",
             "exchange",
@@ -462,3 +465,39 @@ class TestThePayloadItself:
         assert payload["unmapped_concepts"] == []
         assert payload["mapped_concepts"] == []
         assert payload["unmapped_tags"] == ["us-gaap:Whatever"]
+        # The refusals arrived on 2026-08-30 and older outputs do not carry them either.
+        assert payload["refused_tags"] == []
+        assert payload["refused_concepts"] == []
+
+
+class TestARefusedTagAsksNothing:
+    """Roadmap §2.7. A refusal is a decision already taken, so it is reported rather than
+    put to the operator — and a run that stopped to ask about one would be asking a
+    question this platform has already answered, repeatedly, until somebody stopped
+    reading the list."""
+
+    def test_a_refusal_alone_does_not_stop_a_run(self) -> None:
+        produced = {
+            "unmapped_tags": [],
+            "refused_tags": ["us-gaap:ShareBasedCompensation…RiskFreeInterestRate"],
+        }
+
+        assert unmapped_gate_required(produced) is False
+
+    def test_an_unplaced_tag_beside_a_refusal_still_stops_it(self) -> None:
+        produced = {
+            "unmapped_tags": ["us-gaap:Whatever"],
+            "refused_tags": ["us-gaap:ShareBasedCompensation…RiskFreeInterestRate"],
+        }
+
+        assert unmapped_gate_required(produced) is True
+
+    def test_the_reason_travels_with_the_refusal_into_the_payload(self) -> None:
+        """What makes the row reviewable rather than another line of taxonomy noise."""
+        row = {
+            "tag": "us-gaap:ShareBasedCompensation…RiskFreeInterestRate",
+            "refusal": "An option-pricing assumption from the footnote.",
+        }
+        payload = unmapped_gate_payload({"unmapped_tags": [], "refused_concepts": [row]})
+
+        assert payload["refused_concepts"] == [row]

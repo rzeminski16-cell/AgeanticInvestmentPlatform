@@ -52,7 +52,7 @@ async def scene(
     user = await seed_user(db_session)
     request = await seed_request(db_session, user=user)
     # The live case: researching the present, where a search cannot leak the future.
-    request.point_in_time = False
+    request.work_order.point_in_time = False
     job = await seed_job(db_session, request=request)
     step = JobStep(
         job_id=job.id,
@@ -149,7 +149,7 @@ class TestTheExecutor:
     async def test_a_point_in_time_run_with_a_past_as_of_date_never_searches(
         self, scene: dict[str, Any]
     ) -> None:
-        scene["request"].point_in_time = True
+        scene["request"].work_order.point_in_time = True
         # seed_request's as-of date is 2022-06-30 — deep in the past.
         refused = await _executors(scene)["web_search"](_tool_request())
 
@@ -161,8 +161,8 @@ class TestTheExecutor:
     async def test_a_point_in_time_run_researching_the_present_may_search(
         self, scene: dict[str, Any]
     ) -> None:
-        scene["request"].point_in_time = True
-        scene["request"].as_of_date = (datetime.now(UTC) + timedelta(days=1)).date()
+        scene["request"].work_order.point_in_time = True
+        scene["request"].work_order.as_of_date = (datetime.now(UTC) + timedelta(days=1)).date()
 
         outcome = await _executors(scene)["web_search"](_tool_request())
 

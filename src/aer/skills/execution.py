@@ -30,7 +30,8 @@ import structlog
 
 from aer.agents.base import AgentContext, TokenCapExceededError, schema_problems
 from aer.agents.custom_section import CustomSectionAgent, CustomSectionDraft, CustomSectionInput
-from aer.core.section_output import reserved_fields_in
+from aer.config import Settings
+from aer.core.section_output import confidence_ceiling, reserved_fields_in
 from aer.db.models import PlanSkillPin, ReportSection, ResearchRequest, SectionStatus
 from aer.errors import ValidationError
 from aer.sections.evidence import (
@@ -55,6 +56,7 @@ __all__ = [
     "MAX_GENERATION_ATTEMPTS",
     "SectionExecution",
     "execute_custom_section",
+    "policy_of_pin",
 ]
 
 _log = structlog.get_logger("aer.skills.execution")
@@ -98,7 +100,7 @@ async def execute_custom_section(
         )
         return _failed(section, attempts=0, problems=[message])
 
-    policy = _policy_of(pin, context)
+    policy = policy_of_pin(pin, settings=context.settings)
     evidence = await gather_evidence(
         context.session,
         request=request,
@@ -129,7 +131,7 @@ async def execute_custom_section(
             title=section.definition.title,
             company_name=subject,
             ticker=request.ticker,
-            as_of_date=request.as_of_date.isoformat(),
+            as_of_date=request.work_order.as_of_date.isoformat(),
             output_contract=contract,
             evidence_policy=policy.as_prompt_payload(),
             internal_evidence=evidence.internal,
@@ -192,7 +194,9 @@ async def execute_custom_section(
 
     section.content = draft.content
     section.status = SectionStatus.GENERATED
-    section.confidence = confidence_of(draft.content, degraded=bool(shortfalls))
+    section.confidence = confidence_of(
+        draft.content, ceiling=confidence_ceiling(insufficient_evidence=bool(shortfalls))
+    )
     section.low_confidence_reason = degradation_note(shortfalls)
     await context.session.flush()
 
@@ -263,8 +267,12 @@ def _failed(
     )
 
 
-def _policy_of(pin: PlanSkillPin, context: AgentContext) -> SectionPolicy:
-    """The pin's snapshot as one policy — what gate 1 approved, not a recomposition."""
+def policy_of_pin(pin: PlanSkillPin, *, settings: Settings) -> SectionPolicy:
+    """The pin's snapshot as one policy — what gate 1 approved, not a recomposition.
+
+    Public so a replay (:mod:`aer.services.draft_replay`) holds an archived reply to the
+    policy its section was drafted under, built the one way it is ever built.
+    """
     return SectionPolicy(
         min_sources=pin.min_sources if pin.min_sources is not None else 1,
         requires_primary=bool(pin.requires_primary),
@@ -275,6 +283,6 @@ def _policy_of(pin: PlanSkillPin, context: AgentContext) -> SectionPolicy:
         token_budget=(
             pin.token_budget
             if pin.token_budget is not None
-            else context.settings.custom_section_token_ceiling
+            else settings.custom_section_token_ceiling
         ),
     )

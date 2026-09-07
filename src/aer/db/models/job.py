@@ -26,7 +26,6 @@ from aer.db.types import TimestampOptional, UuidFk, UuidFkOptional, UuidPk
 if TYPE_CHECKING:
     from aer.db.models.job_step import JobStep
     from aer.db.models.plan import ResearchPlan
-    from aer.db.models.request import ResearchRequest
     from aer.db.models.work_order import WorkOrder
 
 __all__ = ["Job"]
@@ -41,13 +40,6 @@ class Job(Base):
     # cap and invariant 6 does not admit a run without one (ADR 0072).
     work_order_id: Mapped[UuidFk] = mapped_column(
         ForeignKey("work_orders.id", ondelete="CASCADE"), nullable=False
-    )
-
-    # The equity mandate, when there is one. Nullable since ADR 0072 moved the run root:
-    # a monitor run has no research request, and this column is kept only until the
-    # follow-up revision drops it, once nothing reads it.
-    request_id: Mapped[UuidFkOptional] = mapped_column(
-        ForeignKey("research_requests.id", ondelete="CASCADE")
     )
 
     # Nullable, and RESTRICT rather than CASCADE: a plan that a job ran against must not
@@ -82,7 +74,6 @@ class Job(Base):
     error: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work_order: Mapped[WorkOrder] = relationship(back_populates="jobs")
-    request: Mapped[ResearchRequest | None] = relationship(back_populates="jobs")
     plan: Mapped[ResearchPlan | None] = relationship(back_populates="jobs")
     steps: Mapped[list[JobStep]] = relationship(
         back_populates="job",
@@ -101,6 +92,5 @@ class Job(Base):
             name="finished_after_started",
         ),
         Index("ix_jobs_work_order_id", "work_order_id"),
-        Index("ix_jobs_request_id", "request_id"),
         Index("ix_jobs_status", "status"),
     )

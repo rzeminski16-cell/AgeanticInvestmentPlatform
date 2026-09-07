@@ -47,15 +47,36 @@ nothing further is spent, until you approve or reject it."* Carries a button to 
 is actually pending, plus "Review the plan" and "Review the draft" always.
 
 **Stopped on budget** — two distinguishable scopes, and the distinction matters because the
-remedies differ. A *per-run* cap: raise the cap on the request. A *monthly* cap: raising this
-request's cap will not release it; change the monthly budget in settings, or wait for the
-month to turn. The framing is deliberate and worth keeping: *"the next step would take this
-run past a spending cap, so it stopped before making the call rather than after paying for
-it."*
+remedies differ. A *per-run* cap: raise this run's ceiling, on this page, in the spend panel
+below. A *monthly* cap: raising this request's cap will not release it; change the monthly
+budget in settings, or wait for the month to turn. The framing is deliberate and worth
+keeping: *"the next step would take this run past a spending cap, so it stopped before making
+the call rather than after paying for it."*
 
 **Stopping / Cancelled** — with the timestamp and, if given, the reason. While still running
 it explains that the run stops at the *end* of the current step: a filing already being
 fetched, or a model call already made, is not abandoned halfway.
+
+### Spend against ceiling, and the raise
+
+Spend and ceiling as one figure, then the sentence that the run stops *before* a step that
+would cross the line rather than after paying for it.
+
+**The raise lives here**, appearing from `budget_warn_ratio` of the ceiling — the same
+fraction the engine already warns at, so the offer and the warning are one opinion — and on
+any run stopped against its own cap whatever it has spent, because a run stopped by a
+*projection* can be a long way short of its ceiling and is the case that needs it most.
+
+It is here rather than on the request because the request page refuses every edit while a
+run is live, correctly: a moved as-of date would falsify evidence already gathered. The cap
+is the one field that does not, so it is the one field with its own operation. Before it
+existed, both spend guards named a remedy — "raise the cap on this request" — that nothing
+in the interface allowed.
+
+Only upwards, never above the platform's own per-run budget, and never shown to a run
+stopped on the monthly ceiling or to one that has finished. A request already at the
+platform's budget is told where that lifts instead of being shown a form that would be
+refused.
 
 ### The evidence links
 Three links in a row: *Sources and provenance* · *Claims and their evidence* · *Valuation and

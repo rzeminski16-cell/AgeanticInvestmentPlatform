@@ -17,11 +17,13 @@ from aer.core.concepts import (
     CANONICAL_CONCEPTS,
     IFRS_ALIASES,
     MAGNITUDE_CONCEPTS,
+    NEVER_MAP,
     UK_FRC_ALIASES,
     US_GAAP_ALIASES,
     canonical_concept,
     is_canonical_concept,
     is_magnitude,
+    refusal_reason,
 )
 from aer.core.schemas.facts import RawFact, format_accession
 from tests.sec_fixtures import make_fact
@@ -94,6 +96,52 @@ class TestTheConceptVocabulary:
         )
 
         assert targets <= CANONICAL_CONCEPTS
+
+    def test_a_refused_tag_never_maps_however_the_tables_are_edited(self):
+        """Roadmap §2.7's mechanism. Before it, an absent mapping and a refused one were
+        indistinguishable, so nothing stopped the mapping arriving later in good faith.
+
+        The refusal is in `canonical_concept` rather than only in the test below, so an
+        alias added while somebody argues about the table cannot take effect meanwhile.
+        """
+        for tag in NEVER_MAP:
+            assert canonical_concept("us-gaap", tag) is None
+            assert refusal_reason(tag)
+
+    def test_no_alias_table_contradicts_the_refusals(self):
+        """The tidiness half: a table that names a refused tag is two decisions in
+        disagreement, and the reader would believe the wrong one."""
+        for table in (US_GAAP_ALIASES, IFRS_ALIASES, UK_FRC_ALIASES):
+            contradictions = sorted(set(table) & set(NEVER_MAP))
+
+            assert not contradictions, (
+                f"These tags are both aliased and refused: {contradictions}. The refusal "
+                "wins at run time, so the alias is a line that does nothing except mislead "
+                "the next reader — remove one or the other deliberately."
+            )
+
+    def test_every_refusal_says_why(self):
+        """A deny list without reasons is a list nobody can review, and the entry somebody
+        cannot justify is the entry that gets deleted the first time it is inconvenient."""
+        for tag, reason in NEVER_MAP.items():
+            assert len(reason) > 40, f"{tag} is refused without saying why"
+            assert reason.strip().endswith("."), f"{tag}'s reason is not a sentence"
+
+    def test_the_share_based_compensation_rate_is_pinned(self):
+        """R18 by name: the tag this table exists for.
+
+        An option-pricing input at the tenor of an employee option, in a footnote. Mapped
+        onto the cost of capital's risk-free rate it would be a plausible wrong number in
+        the discount rate, and nothing downstream would look odd.
+        """
+        tag = (
+            "ShareBasedCompensationArrangementByShareBasedPaymentAward"
+            "FairValueAssumptionsRiskFreeInterestRate"
+        )
+
+        assert tag in NEVER_MAP
+        assert canonical_concept("us-gaap", tag) is None
+        assert "government-yield series" in NEVER_MAP[tag]
 
     def test_the_concepts_with_no_ifrs_tag_are_a_recorded_decision(self):
         """Seven concepts have a us-gaap tag and no IFRS one, and that is deliberate.

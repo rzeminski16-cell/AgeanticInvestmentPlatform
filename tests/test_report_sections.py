@@ -42,6 +42,7 @@ from tests.workflow_fixtures import (
     seed_job,
     seed_request,
     seed_user,
+    with_price_feed,
 )
 
 pytestmark = pytest.mark.anyio
@@ -491,7 +492,10 @@ class TestTheGoldenFullRun:
     """
 
     async def test_the_rendered_run_matches_the_recorded_golden(self, run_context: dict) -> None:
-        report = await run_to_report(**_run_args(run_context))
+        # Subscribed: the golden was recorded with the model's peer proposed and excluded,
+        # and the comps disclosure it pins is only written when a peer was proposed.
+        subscribed = {**run_context, "settings": with_price_feed(run_context["settings"])}
+        report = await run_to_report(**_run_args(subscribed))
         markdown = _normalised(report.content["markdown"])
 
         if os.environ.get("UPDATE_GOLDEN"):

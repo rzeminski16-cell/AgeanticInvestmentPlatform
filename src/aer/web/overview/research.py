@@ -155,7 +155,9 @@ def _cost(job: Job, request: ResearchRequest) -> str:
     number the same way — and so a missing ceiling says so rather than becoming a percentage
     of nothing.
     """
-    return figures.cost_context(spent=job.total_cost_gbp, ceiling=request.max_cost_gbp).summary
+    return figures.cost_context(
+        spent=job.total_cost_gbp, ceiling=request.work_order.max_cost_gbp
+    ).summary
 
 
 def _named(request: ResearchRequest) -> str:

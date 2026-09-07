@@ -8,8 +8,8 @@ on Windows every report crashed — and crashed at the *end*, in the evaluation 
 the drafting had been paid for. A live run lost £5.91 to it.
 
 It had bitten once before, in :func:`aer.services.requests.archive`, and was fixed there by
-writing ``request.archived_at.day`` instead of asking for ``%-d``. That was the right local
-fix and the wrong general one: the lesson stayed in that function while the *default house
+writing the day out instead of asking for ``%-d``. That was the right local fix and the
+wrong general one: the lesson stayed in that function while the *default house
 style* went on carrying the directive that caused it.
 
 So the expansion happens here, in code, before the C library ever sees the pattern. A
