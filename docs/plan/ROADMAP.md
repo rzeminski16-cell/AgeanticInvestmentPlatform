@@ -216,6 +216,18 @@ computing one; and the writer's first rule now says in so many words that a sum 
 difference worked out from the listing is a figure of its own. Both are measured by
 rehearsing the section, not by the next full run.
 
+**The price feed never reached a run** (2026-09-07, found by stepping the first run on a
+clean slate): `acquire_prices` reported "no market-data subscription is configured" with
+`AER_EODHD_API_KEY` set and preflight saying so. The client was built on every machine with
+a key and asked for by the step as an optional service, but `runs.execute` never put it in
+the engine's services and neither the worker nor `aer step` passed it — so every run to date
+held no prices, no regressed beta, no market capitalisation and no priced multiple, however
+the key was set, while the peer step (which reads the setting rather than the client) still
+paid a model to propose peers nothing could price. `execute` now takes the client, and the
+service bundle has one `for_execution()` both callers spread into the call, so the two
+cannot forward different subsets again. A run that already recorded the step's "no
+subscription" output keeps it; prices arrive on the next run.
+
 *What was read against the tree 2026-08-28, ahead of the data, and turned out not to be the
 cause: `validate_draft` checks only the 1.25× word ceiling with no minimum; a truncation
 retry halves the word budget; `MAX_GENERATION_ATTEMPTS = 2`. All three still hold, and none

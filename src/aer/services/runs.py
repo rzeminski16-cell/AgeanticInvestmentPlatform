@@ -184,6 +184,7 @@ async def execute(
     store: ArtefactStore,
     sec_client: Any,
     fetcher: Any = None,
+    eodhd_client: Any = None,
     stop_after: str | None = None,
     session_factory: Any = None,
 ) -> RunOutcome:
@@ -231,6 +232,11 @@ async def execute(
             # in tests that want no network. A research worker offered no fetcher simply
             # does not see `fetch_known_url` on its menu.
             "fetcher": fetcher,
+            # The market-data client, or ``None`` when no subscription is configured — the
+            # ordinary state on a machine without one, and the state every run was in
+            # until 2026-09-07 because nothing put the client here. `acquire_prices` asks
+            # for it as an optional service and says in its output when it is absent.
+            "eodhd_client": eodhd_client,
             # Present only where the caller runs with real sessions (the ARQ worker).
             # Without it the engine runs its waves one node at a time on this session,
             # which is what the savepoint-fixtured tests need.
