@@ -128,6 +128,7 @@ just up            # start Postgres and Redis
 just health        # pg_isready + redis ping
 just worker-check  # is a worker listening to the queue? exits 1 when none has reported
 just preflight     # everything a paid run depends on, in one readout; exits 1 if it could not survive
+just runs          # the twenty most recent runs: id, ticker, status, cost, sections not generated
 just psql      # a psql shell on the dev database
 just down      # stop, keeping data
 just down-hard # stop and DELETE all data
@@ -145,10 +146,10 @@ you are on — a hotel or coffee-shop wifi included. Do not remove the loopback 
 | `just worker` | The background worker that executes runs |
 | `just worker-check` | Whether a worker is alive, from the health record it writes every thirty seconds |
 | `just preflight` | Every dependency, the caps and the worker checked before a paid run, at no cost |
-| `just rehearse <job-id> <section-key>` | One built-in section drafted again against a run's evidence under today's prompts; about 30p |
+| `just rehearse <job-id> <section-key>` | One built-in section drafted again against a run's evidence under today's prompts; 10p to 30p |
 | `just replay-draft <job-id>` | A run's archived section replies read back under today's rules, at no cost |
 | `just seed-user you@example.com` | Create the local user (idempotent) |
-| `just reset-research` | Delete every research request and everything derived from one |
+| `just reset-research` | Delete every research request and everything derived from one; keeps your user, skills and settings |
 | `just backup var/backups/today` | Database and artefact store into one verified directory |
 | `just verify-backup <dir>` | Re-hash a backup against its manifest; needs no database |
 | `just restore <dir>` | Put a backup back (destructive; verifies first, then asks) |
@@ -164,6 +165,10 @@ you are on — a hotel or coffee-shop wifi included. Do not remove the loopback 
 
 `/costs` in the web interface shows what the platform has spent, per role, with the
 prompt-cache hit rate.
+
+To start again from nothing — database, queue and artefact store — follow [starting from a
+clean slate](the-confirmation-run.md#starting-from-a-clean-slate) in the runbook; `just
+down-hard` alone leaves the artefact store behind and the schema unbuilt.
 
 ## Your first run
 

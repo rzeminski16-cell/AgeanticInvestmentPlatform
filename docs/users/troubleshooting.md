@@ -61,6 +61,22 @@ Deliberate errors return their message, because "run `aer seed-user`" is the ent
 of that error. Unexpected ones return a generic message and the request id, never an
 internal message or a stack trace — the full traceback goes to the log.
 
+## `No run <id>.`
+
+The id is not in this database. Every command that takes a run id — `diagnose`, `rehearse`,
+`replay-draft`, `acceptance` — says this and stops, having spent nothing. An id copied from a
+diagnosis export, from another machine, or from before a reset will do it. `just runs` lists
+the twenty most recent runs in this database with their ids, and `just preflight` names the
+last one that spent.
+
+## I want to start from a clean slate
+
+Two levels. `just reset-research` deletes every research request and everything derived from
+one, shows the counts and asks first, and keeps your user, skills, settings and audit log.
+`just down-hard` throws the database and queue volumes away and keeps nothing; the sequence
+to rebuild afterwards, and what you then have to put back by hand, is in
+[the runbook](the-confirmation-run.md#starting-from-a-clean-slate).
+
 ## The application will not start
 
 **`AER_HTTP_USER_AGENT` is not set.** It is the only required setting and it has no
@@ -163,7 +179,8 @@ Two ceilings it will not move:
 - **The monthly one.** A run stopped on the month's total says so, and no per-request
   figure releases it — change the monthly budget in settings, or wait for the month.
 - **The platform's own per-run budget.** No request may exceed it, so a request already at
-  it is sent to settings rather than shown a form that would be refused.
+  it is sent to settings rather than shown a form that would be refused. The field there is
+  **Budget per run (£)**; a change applies to runs started afterwards and needs no restart.
 
 The cap is the only field on a request that can change while a run is under way. Everything
 else is frozen for the run's lifetime, because moving an as-of date or a ticker would

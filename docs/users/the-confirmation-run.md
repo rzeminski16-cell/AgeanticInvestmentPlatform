@@ -28,7 +28,10 @@ promise of what the run will cost.
 
 Two ceilings apply at once: this run's, which you set on the form and can raise while it runs,
 and the month's (`AER_MONTHLY_BUDGET_GBP`, default £80). No single run's ceiling may go above
-`AER_PER_RUN_BUDGET_GBP`, default £12.
+`AER_PER_RUN_BUDGET_GBP`, default £12. That platform ceiling is a setting rather than a
+constant: change it under **Settings → Budget per run (£)** in the interface and it applies
+to every run started afterwards, with no restart, because the worker reads the settings when
+a run begins. `.env` is only the default it starts from.
 
 **A stop costs you nothing.** A run stopped at its ceiling is *paused*, not failed. Everything
 it has done is kept, and continuing picks up where it stopped without repeating a step you
@@ -64,22 +67,86 @@ stand now. A section that failed last time is the one to rehearse first, and any
 rule change is proven here for pence rather than in the next run for pounds.
 
 ```bash
-just rehearse <last-job-id> capital_allocation
+just rehearse <job-id> capital_allocation
 ```
 
-**Expect** — the real writer, validator and salvage on a job of their own, about thirty pence,
-metered against the request's cap. The readout says how many attempts it took, what each was
-refused for, the word count against the budget and the ceiling it is refused past, the claims
-recorded, any edit the salvage made, the cost, and then the section as the report would carry
-it. Read the section as a reader would; the numbers say whether it drafts, the prose says
-whether it is any good. The rehearsal's replies are archived like a run's, so `uv run aer
-replay-draft <rehearsal-job-id>` reads them back under any rule that changes later.
-Rehearsing every section costs about half a run; rehearse the ones that failed and two or
-three of the long ones. A rehearsal that fails is a reason to fix and rehearse again, not to
-commission.
+**The job id must be a run in this database.** Preflight's `run_cap` row names the last run
+that spent, which is usually the one you want; `just runs` lists the twenty most recent with
+their status and cost; the console's address is `/runs/<job-id>`. `No run <job-id>.` means
+the id is not in this database — one copied from a diagnosis export or from an earlier
+installation, say — and nothing was spent.
+
+**Expect** — the real writer, validator and salvage on a job of their own, between about
+ten and thirty pence, metered against the request's cap as a job of its own: what the source
+run already spent does not count against it. The readout says how many attempts it took, what
+each was refused for, the word count against the budget and the ceiling it is refused past,
+the claims recorded, any edit the salvage made, the cost, and then the section as the report
+would carry it. On 2026-09-07 the capital-allocation rehearsal against the previous run read
+`generated after 1 attempt(s); 15 claim(s) recorded`, `500 words against a budget of 609`
+and `£0.0783 spent` — one attempt, inside the budget, where the run before had needed two
+attempts and overrun every budget. That is the shape a rehearsal should have.
+
+Read the section as a reader would; the numbers say whether it drafts, the prose says whether
+it is any good. The same rehearsal reasoned, in words, that capital expenditure and
+shareholder returns together outpaced operating cash flow, when the figures it had just cited
+said otherwise. No rule catches a wrong inference that names no number: that is what the
+challenge step and your own gate read are for. The rehearsal's replies are archived like a
+run's, so `uv run aer replay-draft <rehearsal-job-id>` reads them back under any rule that
+changes later. Rehearsing every section costs a few pounds; rehearse the ones that failed and
+two or three of the long ones. A rehearsal that fails is a reason to fix and rehearse again,
+not to commission.
 
 **3. Commission.** Stage 2. Set the request's cap to what preflight's `run_cap` row led you to
 expect, and start the worker before you start the run.
+
+---
+
+## Starting from a clean slate
+
+Optional, and worth doing once between rounds of testing so the next run's record is not
+entangled with the last one's. Two levels, and the difference matters.
+
+**`just reset-research` removes the runs and keeps the rest.** Every research request and
+everything derived from one goes — runs, evidence, facts, calculations, sections, reports,
+approvals, the cached filings — and the queue is emptied of anything that pointed at them.
+Your user, the authored skills, the section and sector definitions, the settings you changed
+in the interface, the audit log (which records the reset) and the archived artefacts stay. It
+shows the row counts and asks before deleting. This is the right level when you want another
+run on the same installation.
+
+**The clean slate throws the database and the queue away.** Nothing in either survives: the
+user, the skills you authored, the raised per-run ceiling and every other setting changed in
+the interface, the portfolio, the theses, the watchlist, the audit log. `.env` and the code
+are files and are untouched. Stop the web app and the worker (Ctrl+C in each terminal),
+then:
+
+```powershell
+just backup var\backups\before-reset          # optional: keep what you are about to lose
+just down-hard                                # stops Postgres and Redis and DELETES their volumes
+Remove-Item -Recurse -Force .\var\artefacts   # the archived artefacts on disk
+just up
+just health
+just migrate
+just migrate-status
+just seed-user your.email@example.com
+just preflight
+```
+
+On macOS or Linux the one line that differs is `rm -rf var/artefacts`. If `.env` names a
+different `AER_ARTEFACT_ROOT`, delete that directory instead. Obsidian export roots, if you
+set any, are your notes and are left alone.
+
+**Expect** — `down-hard` ends with both volumes removed; `migrate` ends at `0071 (head)` and
+`migrate-status` prints that revision twice; `seed-user` says `Created user … (owner).`; and
+`preflight` reads `Ready to run` apart from `worker`, which fails until you start one in
+stage 1.7. Its `run_cap` row says `No earlier run has spent anything to compare it with` and
+`monthly_room` reads `£0.00 of the month's £80.00`. The month's spend restarts from zero
+because it is counted from the database you just emptied; the money is not refunded, so keep
+your own note of what the month has really cost.
+
+**What you put back by hand.** The user, above. Any skill you authored, from the file you
+kept or from `src/aer/skills/examples/`, which are examples and are never loaded
+automatically. The per-run ceiling under Settings, if you had raised it there.
 
 ---
 
@@ -150,7 +217,7 @@ just config
 | Setting | Should be |
 |---|---|
 | `anthropic_api_key` | `"**********"` — masked, never your actual key |
-| `per_run_budget_gbp` | `12.00` (or whatever you intend as the platform ceiling) |
+| `per_run_budget_gbp` | `12.00` (or whatever you intend as the platform ceiling). When preflight's `run_cap` row warns that the last run came within a retry of it, raise it under **Settings → Budget per run (£)** before commissioning; no restart is needed |
 | `monthly_budget_gbp` | `80.00`, and not already spent — check `/costs` once the app is up |
 | `http_user_agent` | your real contact details, not the placeholder |
 | `eodhd_api_key` | *optional.* Without it no peers are proposed and the comparables table is empty — expected, and the valuation page says so. With it, peers are proposed, priced and tabled |
@@ -263,7 +330,8 @@ as-of date cannot be in the future.
 Press **Start the run**.
 
 **Expect** — you are taken to the run console at `/runs/{job-id}`. **Copy that job id now** —
-every command below takes it.
+every command below takes it. If you lose it, `just runs` lists the twenty most recent runs
+with their ids, status and cost.
 
 ---
 
@@ -537,6 +605,12 @@ part-way through sixteen sections: recoverable and no longer expensive, but a st
 notice and clear by hand. £12.00 is the platform's own per-run ceiling and deliberately more
 than the £9.31 the rest of the run should cost.
 
+If the console refuses the figure because it is above the platform's ceiling, raise that first
+under **Settings → Budget per run (£)** and come back. A run whose predecessor cost £11.51
+against a £12.00 ceiling is exactly the case preflight's `run_cap` row warns about: every
+refused section costs another attempt, and a run with a few more pauses at the cap for a
+decision.
+
 ### 6.2 Continue the run
 
 Press **Continue this run**.
@@ -739,7 +813,10 @@ footnotes resolve. The layout is part of the deliverable.
 | A section failed and a fix has since landed | `uv run aer replay-draft <job-id> [section-key]` reads its archived replies back under the new rules, and says whether the section would now draft, draft after repair, or still be lost | £0 |
 | Nothing is moving at all | `uv run aer diagnose <job-id>` — its last line says whether a worker has reported; `just worker-check` asks Redis directly | £0 |
 | Not sure the platform is ready for a run at all | `just preflight` — every dependency, the caps and the worker, in one readout | £0 |
-| A section failed and you want to know whether it would now | `just rehearse <job-id> <section-key>` drafts it again against the run's evidence under today's prompts | about 30p |
+| A section failed and you want to know whether it would now | `just rehearse <job-id> <section-key>` drafts it again against the run's evidence under today's prompts | 10p to 30p |
+| You did not write the run id down | `just runs` lists the twenty most recent, newest first | £0 |
+| `No run <id>.` | The id is not in this database; `just runs` shows what is | £0 |
+| You want the next run on an installation with no history in it | *Starting from a clean slate*, above: `just reset-research` keeps your user and settings, `just down-hard` keeps nothing | £0 |
 | The run is not worth continuing | **Cancel** on the console | Nothing further |
 | You want me to look at it | `just diagnose-run <job-id>` writes `run-diagnosis.json` | £0 |
 

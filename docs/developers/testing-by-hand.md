@@ -273,7 +273,7 @@ just migrate
 just migrate-status
 ```
 
-**Expect:** `0062 (head)` for both the current revision and the available heads — **one
+**Expect:** `0071 (head)` for both the current revision and the available heads — **one
 head, not two**.
 
 **Wrong:** any output naming two heads, or a `Multiple head revisions are present` error.
@@ -310,7 +310,7 @@ would rather start completely clean, `just down-hard` then `just up` and `just m
 the same job by throwing the volume away.
 
 **Expect:** every revision rolls back in order, then reapplies in order, ending at
-`0062 (head)`.
+`0071 (head)`.
 
 **Worth doing once, deliberately:** run `just migrate-base` *without* clearing first, on a
 database that has produced a report.
