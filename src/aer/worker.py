@@ -107,10 +107,7 @@ async def run_research(ctx: dict[str, Any], job_id: str) -> dict[str, Any]:
             session_factory=session_factory,
             job=state.job,
             settings=settings,
-            provider=services.provider,
-            store=services.store,
-            sec_client=services.sec_client,
-            fetcher=services.fetcher,
+            **services.for_execution(),
         )
         # The engine and `execute` commit at every state they reach, so by here there is
         # normally nothing pending. Kept because this function owns the session: anything a

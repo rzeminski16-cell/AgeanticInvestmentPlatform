@@ -61,12 +61,17 @@ class ServiceBundle:
     # that decision to a failure several layers down.
     eodhd_client: EodhdClient | None = None
 
-    def as_mapping(self) -> dict[str, Any]:
-        """The form the workflow engine passes to steps."""
+    def for_execution(self) -> dict[str, Any]:
+        """Everything :func:`aer.services.runs.execute` takes from this bundle, by name.
+
+        The one list. The worker and ``aer step`` both spread it into the call, so the two
+        cannot forward different subsets of the bundle — which is how the price client went
+        missing: built here on every machine with a key, named by ``acquire_prices`` as an
+        optional service, and never handed to the executor by either caller, so every run
+        reported "no market-data subscription" whatever ``.env`` said.
+        """
         return {
-            "settings": self.settings,
             "provider": self.provider,
-            "router": self.router,
             "store": self.store,
             "sec_client": self.sec_client,
             "fetcher": self.fetcher,

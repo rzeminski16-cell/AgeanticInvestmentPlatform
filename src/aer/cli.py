@@ -1624,11 +1624,8 @@ async def _step_once(settings: Settings, *, job_id: uuid.UUID) -> None:
                     session,
                     job=job,
                     settings=resolved,
-                    provider=services.provider,
-                    store=services.store,
-                    sec_client=services.sec_client,
-                    fetcher=services.fetcher,
                     session_factory=factory,
+                    **services.for_execution(),
                 )
             except Exception as failure:
                 error_message = str(failure)
