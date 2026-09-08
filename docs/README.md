@@ -128,6 +128,10 @@ page specifications, a production handoff and a twelve-screen prototype.
 - [`interface-overhaul-testing.md`](plan/interface-overhaul-testing.md) — what each tranche
   had to prove, and the test machinery that was built to prove it — the ratchet, the axe
   harness, the measured contrast and the §8.3 sweep instrument.
+- [`acceptance-2026-09-08.md`](plan/acceptance-2026-09-08.md) — the first full acceptance pass
+  on the operator's own machine, including a live run: the two blocking rows, the five defects
+  root-caused, and the order the work falls into. A findings document; what survives review
+  moves into the roadmap.
 
 ---
 
