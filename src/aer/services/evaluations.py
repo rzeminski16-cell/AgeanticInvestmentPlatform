@@ -80,6 +80,7 @@ from aer.render.document import assemble_document
 from aer.render.html import render_html
 from aer.render.markdown import serialise_markdown
 from aer.sections.registry import sections_for_job
+from aer.services.calculations import lineage
 from aer.services.facts import visible_facts
 from aer.services.scope import scope_for_request
 from aer.verify.citations import verify_job_citations
@@ -124,6 +125,10 @@ class _RunRows:
     source_tiers: dict[uuid.UUID, int] = field(default_factory=dict)
     fact_sources: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
     citation_sources: dict[uuid.UUID, set[uuid.UUID]] = field(default_factory=dict)
+    # Every source document a named calculation's lineage reaches. A figure that was
+    # computed rests on the evidence under it, and until this existed the sourcing
+    # measure could not see any of it — see `_calculation_sources`.
+    calculation_sources: dict[uuid.UUID, set[uuid.UUID]] = field(default_factory=dict)
 
 
 async def evaluate_run(
@@ -296,9 +301,67 @@ async def _load(session: AsyncSession, *, job: Job, request: ResearchRequest) ->
         )
         rows.fact_sources = {fact.id: fact.source_document_id for fact in facts}
 
+    named_calculations = {c.calculation_id for c in rows.claims if c.calculation_id is not None}
+    rows.calculation_sources = await _calculation_sources(session, named_calculations)
+
+    await _tier_every_referenced_document(session, rows)
+
     for citation, _ in rows.citations:
         rows.citation_sources.setdefault(citation.claim_id, set()).add(citation.source_document_id)
     return rows
+
+
+async def _calculation_sources(
+    session: AsyncSession, calculation_ids: set[uuid.UUID]
+) -> dict[uuid.UUID, set[uuid.UUID]]:
+    """The source documents each named calculation's lineage reaches.
+
+    **The same walk the provenance surface uses**, not a second one. `lineage` already
+    resolves a calculation's inputs to their leaves and records each leaf's
+    ``source_document_id`` in its detail; asking it here is what keeps "what does this
+    figure rest on?" one answer rather than two that drift.
+
+    A calculation resting only on assumptions reaches no document and contributes no
+    tier, which is correct: an assumption is a number somebody chose, and choosing it
+    well does not make it published.
+    """
+    resolved: dict[uuid.UUID, set[uuid.UUID]] = {}
+    for identifier in calculation_ids:
+        documents: set[uuid.UUID] = set()
+        try:
+            tree = await lineage(session, identifier)
+        except AerError:
+            # A claim naming a calculation the run no longer holds is a problem the
+            # closed-world check reports; here it is simply a claim with no lineage.
+            resolved[identifier] = documents
+            continue
+        for node in tree.leaves:
+            raw = str(node.detail.get("source_document_id") or "")
+            if not raw:
+                continue
+            with contextlib.suppress(ValueError):
+                documents.add(uuid.UUID(raw))
+        resolved[identifier] = documents
+    return resolved
+
+
+async def _tier_every_referenced_document(session: AsyncSession, rows: _RunRows) -> None:
+    """Tier the documents the claims actually reach, not only the ones this run acquired.
+
+    ``rows.sources`` is scoped to the work order, which is right for coverage. Sourcing is
+    a different question: a fact this run cites may have been acquired by an earlier run
+    for the same company, and its document is no less a filing for that. Without this the
+    claim would score as though nothing were behind it.
+    """
+    referenced = set(rows.fact_sources.values())
+    for documents in rows.calculation_sources.values():
+        referenced |= documents
+    unknown = referenced - set(rows.source_tiers)
+    if not unknown:
+        return
+    extra = await session.scalars(select(SourceDocument).where(SourceDocument.id.in_(unknown)))
+    for row in extra:
+        rows.source_tiers[row.id] = row.source_tier.rank
 
 
 # ==========================================================================================
@@ -453,6 +516,24 @@ def _walk_for_sources(value: Any, found: set[uuid.UUID]) -> None:
 
 
 def _sourcing_rows(rows: _RunRows) -> list[SourcedClaim]:
+    """Every numeric claim beside the best tier of evidence underneath it.
+
+    **A numeric claim names exactly one figure** — a fact, a calculation or an attestation
+    (`services.citations.record_claim`). Reaching a tier only through citations and
+    ``financial_fact_id`` therefore scored *every calculated figure* as though nothing
+    were behind it: a discounted cash flow over filed cash flows, a margin over filed
+    revenue, a growth rate over two filed periods. In a valuation report those are about
+    half the numbers, and no document contains the sentence "the quick ratio is 0.93" for
+    the writer to cite instead.
+
+    That is what the first acceptance pass measured as 0.5147 against a 0.6 floor while
+    every one of the run's 74 citations verified. The two readings could not both be
+    true, and the metric was the one that was wrong.
+
+    A calculation now contributes the documents its lineage reaches, and the best tier
+    among everything a claim reaches wins — the same rule already applied to a claim with
+    several citations.
+    """
     built: list[SourcedClaim] = []
     for claim in rows.claims:
         if claim.kind is not ClaimKind.NUMERIC:
@@ -460,6 +541,8 @@ def _sourcing_rows(rows: _RunRows) -> list[SourcedClaim]:
         sources = set(rows.citation_sources.get(claim.id, set()))
         if claim.financial_fact_id in rows.fact_sources:
             sources.add(rows.fact_sources[claim.financial_fact_id])
+        if claim.calculation_id is not None:
+            sources |= rows.calculation_sources.get(claim.calculation_id, set())
         ranks = [rows.source_tiers[s] for s in sources if s in rows.source_tiers]
         built.append(
             SourcedClaim(

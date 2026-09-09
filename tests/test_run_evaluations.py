@@ -9,6 +9,7 @@ slice, whose validate step must leave all eight rows behind.
 from __future__ import annotations
 
 import hashlib
+import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
@@ -1123,3 +1124,121 @@ class TestTheFigureScenesAreAssembledHonestly:
 
         assert not result.passed
         assert any("818000000" in line for line in result.failures)
+
+
+class TestAComputedFigureRestsOnWhatIsUnderIt:
+    """The first acceptance pass measured 0.5147 against a 0.6 floor while every one of
+    the run's 74 citations verified. Both readings could not be true.
+
+    A numeric claim names exactly one figure — a fact, a calculation or an attestation —
+    so a claim naming a *calculation* has no ``financial_fact_id``, and a calculated
+    figure has nothing to cite: no document contains the sentence "the quick ratio is
+    0.93". The sourcing measure reached a tier only through citations and
+    ``financial_fact_id``, so every DCF output, ratio and growth rate in the report
+    scored as though nothing were behind it.
+    """
+
+    @staticmethod
+    def _calculation(
+        scene: dict[str, Any], *, inputs: list[dict[str, Any]], name: str
+    ) -> Calculation:
+        return Calculation(
+            job_id=scene["job"].id,
+            name=name,
+            formula="a / b",
+            function_ref="tests:example",
+            code_version="test",
+            inputs=inputs,
+            output_value=Decimal("0.93"),
+            output_unit="ratio",
+        )
+
+    @staticmethod
+    def _fact_input(scene: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "name": "revenue",
+            "value": "198270000000",
+            "unit": "USD",
+            "source": {
+                "kind": "fact",
+                "id": str(scene["fact"].id),
+                "table": "financial_facts",
+                "label": "revenue",
+            },
+        }
+
+    async def test_a_claim_naming_a_calculation_over_a_filing_is_primary_sourced(
+        self, scene: dict[str, Any]
+    ) -> None:
+        session = scene["session"]
+        calculation = self._calculation(
+            scene, inputs=[self._fact_input(scene)], name="operating_margin"
+        )
+        session.add(calculation)
+        await session.flush()
+
+        # No citation, because there is nothing to cite: the figure was computed.
+        await record_claim(
+            session,
+            section=scene["section"],
+            kind=ClaimKind.NUMERIC,
+            text="The operating margin was 0.93.",
+            calculation_id=calculation.id,
+        )
+
+        await evaluate_run(
+            _context(scene, FakeProvider()), job=scene["job"], request=scene["request"]
+        )
+        rows = await _rows_by_metric(session, scene["job"].id)
+
+        ratio = rows["primary_source_ratio"]
+        assert ratio.passed is True
+        # Both claims sourced: the one naming the fact, and the one naming a calculation
+        # whose lineage reaches the same tier-1 filing.
+        assert ratio.value == Decimal(1)
+        assert ratio.details is None or "operating margin" not in str(ratio.details)
+
+    async def test_a_calculation_resting_on_nothing_published_is_not_primary_sourced(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The half that must keep failing. An assumption is a number somebody chose,
+        and choosing it well does not make it published — so a figure computed only from
+        assumptions reaches no document and scores exactly as it did before."""
+        session = scene["session"]
+        calculation = self._calculation(
+            scene,
+            inputs=[
+                {
+                    "name": "growth",
+                    "value": "0.03",
+                    "unit": "ratio",
+                    "source": {
+                        "kind": "assumption",
+                        "id": str(uuid.uuid4()),
+                        "table": "assumptions",
+                        "label": "terminal growth",
+                    },
+                }
+            ],
+            name="terminal_value",
+        )
+        session.add(calculation)
+        await session.flush()
+
+        await record_claim(
+            session,
+            section=scene["section"],
+            kind=ClaimKind.NUMERIC,
+            text="The terminal value multiple was 0.93.",
+            calculation_id=calculation.id,
+        )
+
+        await evaluate_run(
+            _context(scene, FakeProvider()), job=scene["job"], request=scene["request"]
+        )
+        rows = await _rows_by_metric(session, scene["job"].id)
+
+        # One of two claims sourced, so the run now fails the floor — which is the metric
+        # reporting thin sourcing rather than miscounting it.
+        assert rows["primary_source_ratio"].value == Decimal("0.5")
+        assert rows["primary_source_ratio"].passed is False
