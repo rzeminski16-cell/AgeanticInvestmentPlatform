@@ -40,16 +40,48 @@
 {% block gate_evidence %}
   {% if payload.assumptions %}
     {% call ui.sheet("Proposed assumptions") %}
+      {#
+        One decision over the set, not a shortcut past it. It carries the same list hash a
+        single confirmation does and is refused by the same check, so it agrees to exactly
+        the values on screen; and it confirms only what is already valued, because a figure
+        the run does not have is not a figure anybody can agree to. The real work at this
+        gate is reading the list, and the confirming was a click for each row after the
+        operator had already done it.
+      #}
+      {% if not decided and unconfirmed %}
+        <form
+          method="post"
+          action="/requests/{{ request_id }}/assumptions/confirm-all"
+          class="mb-4 flex flex-wrap items-center gap-3 border-b border-line pb-4"
+        >
+          <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+          <input type="hidden" name="payload_hash" value="{{ list_hash }}" />
+          <input type="hidden" name="return_to" value="{{ return_to }}" />
+          <button
+            type="submit"
+            id="confirm-all"
+            class="inline-flex min-h-11 items-center rounded-sm bg-verification px-4 py-2 type-label text-on-verification hover:bg-verification-strong"
+          >Confirm all {{ unconfirmed }} remaining {{ "value" if unconfirmed == 1 else "values" }}</button>
+          <p class="type-body-sm text-ink-muted">
+            Agrees to every value below as it now stands. Read them first: this is the one
+            gate that approves work which has not happened yet.
+          </p>
+        </form>
+      {% endif %}
       <ul class="flex flex-col divide-y divide-line" id="proposed-assumptions">
         {% for row in payload.assumptions %}
           {% set stored = rows.get(row.name) %}
           <li class="py-4">
             <div class="flex flex-wrap items-baseline justify-between gap-2">
+              {% set figure = row.name | assumption_figure(row.value, row.unit) %}
               <p class="type-body text-ink">
-                <span class="type-data text-ink">{{ row.name }}</span>
+                <span class="type-body text-ink">{{ row.name | concept_name }}</span>
+                <span class="type-data-sm text-ink-muted">{{ row.name }}</span>
                 &mdash;
-                <span class="type-data text-ink">{{ row.value }}</span>
-                {% if row.unit %}<span class="type-body-sm text-ink-muted">{{ row.unit }}</span>{% endif %}
+                <span class="type-data text-ink tabular-nums">{{ figure.shown }}</span>
+                {% if figure.stored %}
+                  <span class="type-body-sm text-ink-muted">(stored as {{ figure.stored }})</span>
+                {% endif %}
               </p>
               {% if stored and stored.approved %}
                 {{ ui.status("success", "Confirmed", detail="by " ~ stored.approved_by) }}
@@ -59,7 +91,7 @@
             </div>
             <p class="mt-1 type-body-sm text-ink-muted">
               Proposed by <span class="type-data-sm">{{ row.proposed_by }}</span>{% if row.confidence is not none %},
-              confidence {{ row.confidence }}{% endif %}.
+              confidence {{ row.confidence | percent }}{% endif %}.
             </p>
             {% if row.justification %}
               <p class="mt-2 max-w-prose type-body text-ink">{{ row.justification }}</p>

@@ -37,10 +37,12 @@ from aer.web.vocabulary import Tone
 
 __all__ = [
     "NOT_AVAILABLE",
+    "AssumptionFigure",
     "CapturedConcept",
     "CapturedPeriod",
     "CostContext",
     "RenderedFigure",
+    "assumption_figure",
     "captured_concepts",
     "concept_name",
     "cost_context",
@@ -470,3 +472,61 @@ def captured_concepts(rows: list[dict[str, Any]], *, style: HouseStyle) -> list[
         )
     captured.sort(key=lambda item: item.label)
     return captured
+
+
+# The assumptions stored as a fraction, where "0.025" means 2.5%. Named rather than
+# inferred, because the ones that are *not* fractions are the ones that matter: an exit
+# multiple of 12 means twelve times, and a beta of 1.15 is a coefficient. Rendering either
+# as a percentage would be the platform telling the operator something untrue about the
+# number it is asking them to agree to.
+_RATE_ASSUMPTIONS: Final[frozenset[str]] = frozenset(
+    {
+        "revenue_growth",
+        "ebit_margin",
+        "capex_intensity",
+        "depreciation_intensity",
+        "working_capital_intensity",
+        "tax_rate",
+        "terminal_growth",
+        "risk_free_rate",
+        "equity_risk_premium",
+        "cost_of_debt",
+        "target_debt_weight",
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class AssumptionFigure:
+    """One assumption's value, as the gate shows it.
+
+    `shown` leads and `stored` sits under it, muted, where the two differ — the operator is
+    agreeing to a rate, and "2.5%" is the rate, but the record holds `0.025` and a page that
+    showed only the friendly form would be hiding what is actually stored.
+    """
+
+    shown: str
+    stored: str
+
+
+def assumption_figure(name: str, value: object, unit: str) -> AssumptionFigure:
+    """An assumption's value in the terms the operator thinks in.
+
+    The gate showed `0.025` beside the word `pure`, which is the unit algebra's answer to a
+    question nobody asked. Every assumption a forecast needs is dimensionless, so the unit
+    carries no information and the scale carries all of it.
+    """
+    text = str(value)
+    if value is None or text == "":
+        return AssumptionFigure(shown=NOT_AVAILABLE, stored="")
+    try:
+        quantity = Decimal(text)
+    except (ArithmeticError, ValueError):
+        return AssumptionFigure(shown=text, stored="")
+
+    if name in _RATE_ASSUMPTIONS:
+        percentage = (quantity * 100).normalize()
+        return AssumptionFigure(shown=f"{percentage:f}%", stored=text)
+    if unit and unit != "pure":
+        return AssumptionFigure(shown=f"{quantity:f} {unit}", stored="")
+    return AssumptionFigure(shown=f"{quantity:f}", stored="")
