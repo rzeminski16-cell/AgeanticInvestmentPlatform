@@ -99,9 +99,11 @@ from aer.services.assumptions import assumptions_for_request
 from aer.services.challenge_briefs import briefs_from_output
 from aer.services.comps import (
     PEER_SET_STEP,
-    peer_set_payload,
+    add_operator_peer,
+    addable_companies,
     peer_set_required,
 )
+from aer.services.comps import payload_for_job as peer_payload_for_job
 from aer.services.comps_run import comps_table_from_record, grouped_exclusions
 from aer.services.disagreements import disagreements_for_job, settle_by_hand
 from aer.services.escalation import cost_scene_for_job
@@ -851,7 +853,9 @@ async def peer_review(
             status=HTTP_404_NOT_FOUND,
         )
 
-    payload = peer_set_payload(produced)
+    # The whole set — what the step proposed and what the operator has added — because
+    # that is what the page shows and therefore what the hash must cover.
+    payload = await peer_payload_for_job(session, job_id)
     frame = await frame_for(session, job=job, gate=GateKind.PEER_SET)
     token = new_csrf_token(settings)
 
@@ -865,6 +869,10 @@ async def peer_review(
             # Why the model was not asked, when it was not: context, never part of the hash.
             "not_asked": str(produced.get("model_skipped_because", "")).strip(),
             "refused": [item for item in produced.get("refused", []) if isinstance(item, dict)],
+            # The companies this run could still add: held, with facts on or before the
+            # subject's own period end, and not already on the set. A picker rather than a
+            # text box, because that pool is exactly what a comps table can use.
+            "addable": await addable_companies(session, job_id=job_id),
             **frame,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
@@ -1661,6 +1669,64 @@ async def add_theme(
 
     await session.commit()
     return RedirectResponse(f"/runs/{job_id}/themes", status_code=HTTP_303_SEE_OTHER)
+
+
+@router.post(
+    "/runs/{job_id}/peers/add",
+    summary="Put a company of your own on this run's peer set",
+)
+async def add_peer(
+    request: Request,
+    job_id: uuid.UUID,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Add one company to the peer set this gate is about to hash.
+
+    **A company this platform already holds, not a ticker to go and resolve.** The web
+    process has no source client and should not have one — only `aer.fetch` reaches the
+    network, and acquisition is the worker's. The deterministic floor draws from exactly
+    this pool, and a company with no stored facts could not be aligned against the subject
+    in any case.
+
+    An addition, not a confirmation: it joins the set, and approving the set is still what
+    admits it to a comps table.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {k: str(v) for k, v in form.multi_items() if isinstance(v, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was added.",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        company_id = uuid.UUID(submitted.get("company_id", ""))
+    except ValueError:
+        return _problem(
+            request, "That is not a company on this platform.", status=HTTP_404_NOT_FOUND
+        )
+
+    try:
+        await add_operator_peer(
+            session,
+            job=job,
+            company_id=company_id,
+            rationale=submitted.get("rationale", ""),
+            actor=user,
+        )
+    except ValidationError as refused:
+        return _problem(request, str(refused), status=HTTP_422_UNPROCESSABLE_CONTENT)
+
+    await session.commit()
+    return RedirectResponse(f"/runs/{job_id}/peers", status_code=HTTP_303_SEE_OTHER)
 
 
 @router.post("/runs/{job_id}/gates/{gate}", summary="Record a gate decision")

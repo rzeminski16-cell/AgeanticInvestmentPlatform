@@ -78,6 +78,59 @@
         will be produced.
       </p>
     {% endif %}
+
+    {#
+      One of your own. A picker rather than a text box: the pool is the companies this
+      platform already holds financial facts for, which is exactly what a comparables
+      table can use — the deterministic floor draws from the same pool, and a company with
+      no stored facts could not be aligned against the subject in any case.
+
+      An addition, not a confirmation. It joins the set this gate is about to hash, and
+      approving is still what admits it to the table. Adding one after approving changes
+      the payload and invalidates that approval.
+    #}
+    {% if not decided and addable %}
+      <form
+        method="post"
+        action="/runs/{{ job.id }}/peers/add"
+        class="mt-4 flex flex-col gap-2 border-t border-line pt-4"
+        id="add-peer"
+      >
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        <p class="type-label text-ink">Add a comparable of your own</p>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-start">
+          <label for="peer-company" class="sr-only">Company</label>
+          <select
+            id="peer-company"
+            name="company_id"
+            required
+            class="min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink sm:max-w-xs"
+          >
+            {% for company_id, name in addable %}
+              <option value="{{ company_id }}">{{ name }}</option>
+            {% endfor %}
+          </select>
+          <label for="peer-rationale" class="sr-only">Why it is comparable</label>
+          <input
+            id="peer-rationale"
+            name="rationale"
+            required
+            maxlength="600"
+            placeholder="Why it is comparable to the subject"
+            class="min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink"
+          />
+          <button
+            type="submit"
+            class="inline-flex min-h-11 shrink-0 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected"
+          >Add</button>
+        </div>
+        <p class="max-w-prose type-body-sm text-ink-muted">
+          Only companies this platform has already researched appear here, because those
+          are the only ones it holds figures for. The reason is required and is read at
+          the same length as the proposed ones.
+        </p>
+      </form>
+    {% endif %}
   {% endcall %}
 
   {% if refused %}

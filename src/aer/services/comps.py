@@ -31,7 +31,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any, Final
 
@@ -44,20 +44,33 @@ from aer.calc.engine import CalculationContext
 from aer.calc.units import Quantity
 from aer.core.enums import Decision, GateKind, Provider
 from aer.core.hashing import canonical_json, sha256_hex
-from aer.db.models import Approval, Company, FinancialFact, Job, JobStep, User
-from aer.errors import AerError
+from aer.db.models import (
+    Approval,
+    Company,
+    FinancialFact,
+    Job,
+    JobStep,
+    OperatorPeer,
+    User,
+)
+from aer.errors import AerError, ValidationError
 from aer.fetch.policy import DEFAULT_POLICIES
 
 __all__ = [
+    "ADDABLE_LIMIT",
     "MAX_PROPOSED_PEERS",
     "PEER_SET_STEP",
     "SIC_PREFIX",
     "PeerProposal",
     "PeerSetNotConfirmedError",
+    "add_operator_peer",
+    "addable_companies",
     "band_for",
     "build",
     "confirmed_peer_set",
     "gate_payload_for_job",
+    "operator_peers_for_job",
+    "payload_for_job",
     "peer_set_payload",
     "peer_set_required",
     "propose_peers_from_sic",
@@ -173,6 +186,10 @@ SIC_PREFIX: Final = 2
 # exists to prevent.
 MAX_PROPOSED_PEERS: Final = 8
 
+# How many companies the add-a-peer picker offers. A list nobody scrolls is a list
+# nobody reads, and the pool grows with every run.
+ADDABLE_LIMIT: Final = 200
+
 
 async def propose_peers_from_sic(
     session: AsyncSession,
@@ -250,14 +267,10 @@ async def confirmed_peer_set(session: AsyncSession, job: Job) -> tuple[PeerPropo
             refusals rather than empty results, because an empty comps table and a withheld
             one read identically and mean opposite things.
     """
-    step = await session.scalar(
-        select(JobStep)
-        .where(JobStep.job_id == job.id, JobStep.step_key == PEER_SET_STEP)
-        .order_by(JobStep.sequence.desc())
-        .limit(1)
-    )
-    produced = (step.output_ref or {}) if step is not None else {}
-    payload = peer_set_payload(produced)
+    # The whole set, additions included: the operator approved what the page showed, and
+    # the page shows both halves. Verifying against the proposal alone would accept an
+    # approval of a set nobody was ever offered.
+    payload = await payload_for_job(session, job.id)
 
     if not payload["peers"]:
         return ()
@@ -316,15 +329,187 @@ async def gate_payload_for_job(session: AsyncSession, job_id: uuid.UUID) -> dict
     Returns an empty payload for a run that has not proposed yet, so a page can render
     "nothing to review" rather than an error.
     """
-    step = await session.scalar(
+    step = await _proposal_step(session, job_id)
+    if step is None or not step.output_ref:
+        return {}
+    return await payload_for_job(session, job_id)
+
+
+async def _proposal_step(session: AsyncSession, job_id: uuid.UUID) -> JobStep | None:
+    step: JobStep | None = await session.scalar(
         select(JobStep)
         .where(JobStep.job_id == job_id, JobStep.step_key == PEER_SET_STEP)
         .order_by(JobStep.sequence.desc())
         .limit(1)
     )
-    if step is None or not step.output_ref:
-        return {}
-    return peer_set_payload(step.output_ref)
+    return step
+
+
+async def operator_peers_for_job(
+    session: AsyncSession, job_id: uuid.UUID, *, as_of: date
+) -> list[PeerProposal]:
+    """The companies the operator put on this run's peer set.
+
+    Built exactly as the deterministic floor builds its own — an identifier, the
+    registry's name rather than anything typed, and the latest period this platform holds
+    for the company. A row whose company has no facts on or before the as-of date yields
+    no period end and is dropped here for the reason the floor drops one: a peer with no
+    period end cannot be aligned against the subject and would be excluded a step later.
+    """
+    rows = await session.scalars(
+        select(OperatorPeer)
+        .where(OperatorPeer.job_id == job_id)
+        .order_by(OperatorPeer.created_at, OperatorPeer.id)
+    )
+    proposals: list[PeerProposal] = []
+    for row in rows:
+        company = await session.get(Company, row.company_id)
+        if company is None:  # pragma: no cover -- CASCADE prevents this
+            continue
+        period_end = await session.scalar(
+            select(func.max(FinancialFact.period_end)).where(
+                FinancialFact.company_id == company.id,
+                FinancialFact.period_end <= as_of,
+            )
+        )
+        if period_end is None:
+            continue
+        proposals.append(
+            PeerProposal(
+                identifier=str(company.id),
+                name=company.name,
+                rationale=row.rationale,
+                period_end=period_end,
+            )
+        )
+    return proposals
+
+
+async def payload_for_job(session: AsyncSession, job_id: uuid.UUID) -> dict[str, Any]:
+    """The gate's payload over the whole set — the step's proposal and the operator's.
+
+    **One funnel**, for the reason the theme gate has one: the page renders this, the
+    approval hashes this, and `confirmed_peer_set` verifies against this, so the three
+    cannot disagree about what was agreed to. Adding a peer after approving changes the
+    payload and invalidates the approval, which is the stale-approval rule working.
+    """
+    step = await _proposal_step(session, job_id)
+    produced = (step.output_ref or {}) if step is not None else {}
+    payload = peer_set_payload(produced)
+    as_of = _as_of_from(payload)
+    added = await operator_peers_for_job(session, job_id, as_of=as_of)
+    if not added:
+        return payload
+    known = {peer["identifier"] for peer in payload["peers"]}
+    payload["peers"] = payload["peers"] + [
+        peer.as_dict() for peer in added if peer.identifier not in known
+    ]
+    return payload
+
+
+def _as_of_from(payload: Mapping[str, Any]) -> date:
+    """The subject's period end, which bounds a peer's own — or today if it is missing.
+
+    The floor bounds its candidates by the run's as-of date; this bounds them by what the
+    payload already carries, so a peer added to a run about a past period is aligned the
+    same way the proposed ones were.
+    """
+    raw = str(payload.get("subject_period_end", ""))
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return datetime.now(UTC).date()
+
+
+async def add_operator_peer(
+    session: AsyncSession, *, job: Job, company_id: uuid.UUID, rationale: str, actor: User
+) -> OperatorPeer:
+    """Put one company of the operator's own on this run's peer set.
+
+    **A company this platform already holds, not a ticker to go and resolve.** The web
+    process has no source client and should not have one: only `aer.fetch` reaches the
+    network and acquisition is the worker's. That is not a restriction invented here —
+    the deterministic floor draws from exactly this pool, and a company with no stored
+    facts could not be aligned against the subject in any case.
+
+    An addition, not a confirmation: it joins the set the gate is about to hash, and the
+    gate's approval is still what admits it to a comps table.
+
+    Raises:
+        ValidationError: If the rationale is blank, if there is no such company, if it is
+            the subject itself, or if this run's set already carries it.
+    """
+    if not rationale.strip():
+        message = (
+            "A peer needs a reason. A badly chosen one moves a median more than most "
+            "modelling choices do and does it invisibly, which is what this gate exists "
+            "to catch."
+        )
+        raise ValidationError(message, context={"job_id": str(job.id)})
+
+    company = await session.get(Company, company_id)
+    if company is None:
+        message = f"No company {company_id} in this platform's registry."
+        raise ValidationError(message, context={"company_id": str(company_id)})
+
+    payload = await payload_for_job(session, job.id)
+    if str(company_id) == str(payload.get("subject", "")):
+        message = (
+            f"{company.name} is the subject of this run. A company is not comparable "
+            "with itself, and the comps table shows it on its own row already."
+        )
+        raise ValidationError(message, context={"company_id": str(company_id)})
+    if any(peer["identifier"] == str(company_id) for peer in payload["peers"]):
+        message = (
+            f"This run's peer set already carries {company.name}. If the reason on it is "
+            "wrong, that is the proposal to argue with rather than a second row."
+        )
+        raise ValidationError(
+            message, context={"company_id": str(company_id), "job_id": str(job.id)}
+        )
+
+    row = OperatorPeer(
+        job_id=job.id,
+        company_id=company_id,
+        rationale=rationale.strip(),
+        added_by=actor.email,
+    )
+    session.add(row)
+    await session.flush()
+
+    _log.info(
+        "peer.added_by_operator",
+        job_id=str(job.id),
+        company_id=str(company_id),
+        actor=actor.email,
+    )
+    return row
+
+
+async def addable_companies(
+    session: AsyncSession, *, job_id: uuid.UUID, limit: int = ADDABLE_LIMIT
+) -> list[tuple[uuid.UUID, str]]:
+    """Companies this run could add as peers: held, with facts, not already on the set.
+
+    A picker rather than a text box, because the pool is exactly the companies a comps
+    table can use and offering any other would be offering the operator a refusal.
+    """
+    payload = await payload_for_job(session, job_id)
+    as_of = _as_of_from(payload)
+    taken = {peer["identifier"] for peer in payload["peers"]}
+    taken.add(str(payload.get("subject", "")))
+
+    rows = await session.scalars(
+        select(Company)
+        .where(
+            Company.id.in_(
+                select(FinancialFact.company_id).where(FinancialFact.period_end <= as_of)
+            )
+        )
+        .order_by(Company.name)
+        .limit(limit)
+    )
+    return [(row.id, row.name) for row in rows if str(row.id) not in taken]
 
 
 async def build(
