@@ -26,42 +26,58 @@
   are two acts, and the second is refused as stale after the first — correctly, because
   the evidence changed.
 #}
-{% macro settle(job, row, a_label, b_label) %}
-  {% call ui.disclosure("Settle this") %}
-    <form
-      method="post"
-      action="/runs/{{ job.id }}/disagreements/{{ row.id }}/settle"
-      class="flex flex-col gap-2"
-      id="settle-{{ row.id }}"
-    >
-      <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-      <label for="rationale-{{ row.id }}" class="block type-label text-ink">
-        Why. Recorded beside the rule that escalated it, under your name.
-      </label>
-      <textarea
-        id="rationale-{{ row.id }}"
-        name="rationale"
-        rows="2"
-        maxlength="2000"
-        required
-        class="w-full rounded-sm border border-control-boundary bg-surface p-3 type-body-sm text-ink"
-      ></textarea>
-      <div class="flex flex-wrap gap-2">
-        <button
-          type="submit"
-          name="outcome"
-          value="chose_a"
-          class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected"
-        >{{ a_label }}</button>
-        <button
-          type="submit"
-          name="outcome"
-          value="chose_b"
-          class="inline-flex min-h-11 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected"
-        >{{ b_label }}</button>
-      </div>
-    </form>
-  {% endcall %}
+{% macro settle(job, row, a_label, b_label, leans="") %}
+{#
+  The choice, in reach rather than behind a disclosure. The operator settles one of these
+  per unresolved challenge at the end of every run, and "Settle this" was a click that
+  revealed a form and told them nothing.
+
+  **The reason is optional to type and never optional to record.**
+  `resolution_rationale` is `NOT NULL` with a `char_length > 0` constraint and is rendered
+  into the report's own disagreement appendix, so a blank reaching the database would put
+  an em dash in a published report where a reason belongs. The handler supplies
+  "Settled without further comment." instead, which is true and reads as prose.
+
+  `leans` marks the side the challenge brief argued for (ADR 0095). **It marks; it does not
+  choose.** The model has read two arguments and said which it finds stronger, a person
+  presses the button, and `resolved_by` says HUMAN because a human is what settled it.
+#}
+  <form
+    method="post"
+    action="/runs/{{ job.id }}/disagreements/{{ row.id }}/settle"
+    class="mt-3 flex flex-col gap-2"
+    id="settle-{{ row.id }}"
+  >
+    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+    <div class="flex flex-wrap gap-2">
+      <button
+        type="submit"
+        name="outcome"
+        value="chose_a"
+        data-suggested="{{ "true" if leans == "draft" else "false" }}"
+        class="inline-flex min-h-11 items-center rounded-sm border px-3 type-label hover:bg-surface-selected {{ "border-verification bg-surface text-verification" if leans == "draft" else "border-control-boundary bg-surface text-ink" }}"
+      >{{ a_label }}{% if leans == "draft" %} &middot; suggested{% endif %}</button>
+      <button
+        type="submit"
+        name="outcome"
+        value="chose_b"
+        data-suggested="{{ "true" if leans == "challenge" else "false" }}"
+        class="inline-flex min-h-11 items-center rounded-sm border px-3 type-label hover:bg-surface-selected {{ "border-verification bg-surface text-verification" if leans == "challenge" else "border-control-boundary bg-surface text-ink" }}"
+      >{{ b_label }}{% if leans == "challenge" %} &middot; suggested{% endif %}</button>
+    </div>
+    <label for="rationale-{{ row.id }}" class="block type-body-sm text-ink-muted">
+      Why, if you want to say. Recorded beside the rule that escalated it, under your name,
+      and printed in the report&rsquo;s disagreement appendix. Left blank it reads
+      &ldquo;settled without further comment&rdquo;.
+    </label>
+    <textarea
+      id="rationale-{{ row.id }}"
+      name="rationale"
+      rows="2"
+      maxlength="2000"
+      class="w-full rounded-sm border border-control-boundary bg-surface p-3 type-body-sm text-ink"
+    ></textarea>
+  </form>
 {% endmacro %}
 
 {% block head_extra %}
@@ -155,14 +171,19 @@
           </thead>
           <tbody class="divide-y divide-line">
             {% for row in evaluations %}
+              {% set words = row.metric | metric_words %}
               <tr>
-                <td class="py-2.5 pr-4 type-data-sm text-ink">{{ row.metric }}</td>
+                <td class="py-2.5 pr-4 text-ink">
+                  <span class="type-body-sm">{{ words.label }}</span>
+                  <span class="block max-w-prose type-body-sm text-ink-muted">{{ words.detail }}</span>
+                  <span class="block type-data-sm text-ink-subtle">{{ row.metric }}</span>
+                </td>
                 <td class="py-2.5 pr-4 type-data-sm tabular-nums text-ink">
-                  {{ row.value if row.value is not none else "—" }}
+                  {{ row.value | trimmed }}
                 </td>
                 <td class="py-2.5 pr-4 type-data-sm tabular-nums text-ink">
                   {{ "≥" if row.details.get("direction") == "at_least" else "≤" }}
-                  {{ row.threshold }}
+                  {{ row.threshold | trimmed }}
                 </td>
                 <td class="py-2.5">
                   {% if row.passed is none %}
@@ -433,7 +454,7 @@
             {% endif %}
 
             {% if row.resolution == open_outcome %}
-              {{ settle(job, row, "Keep the draft's position", "Accept the challenge") }}
+              {{ settle(job, row, "Keep the draft's position", "Accept the challenge", leans=(brief["leans"] if brief else "")) }}
             {% else %}
               <p class="mt-2 max-w-prose type-body-sm text-ink-muted">{{ row.resolution_rationale }}</p>
             {% endif %}

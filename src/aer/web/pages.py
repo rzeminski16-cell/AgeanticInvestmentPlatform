@@ -27,7 +27,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, Final
 
 from fastapi import APIRouter, Request
 from redis.asyncio import Redis
@@ -1572,7 +1572,7 @@ async def settle_disagreement_page(
             disagreement=found,
             outcome=outcome,
             actor=user,
-            rationale=submitted.get("rationale", ""),
+            rationale=_rationale_or_default(submitted.get("rationale", "")),
         )
         await gates_service.reseal_final_gate(
             session,
@@ -1588,6 +1588,25 @@ async def settle_disagreement_page(
 
     await session.commit()
     return RedirectResponse(f"/runs/{job_id}/review#disagreements", status_code=HTTP_303_SEE_OTHER)
+
+
+# What the record says when the operator settles a challenge and writes nothing.
+#
+# **The service still refuses a blank**, and should: `resolution_rationale` is `NOT NULL`
+# with a `char_length > 0` constraint, and `sections/deterministic.py` renders it into the
+# report's own disagreement appendix. Making the box optional in the *form* while letting a
+# blank reach the database would put an em dash in a published report where a reason
+# belongs.
+#
+# So the sentence is supplied here instead. It is true — the operator did choose a side and
+# did decline to say more — and it reads as prose in the appendix, which is what that
+# section is. The operator asked for the box to be optional; what they were asking not to
+# do was type "agreed" eleven times.
+SETTLED_WITHOUT_COMMENT: Final = "Settled without further comment."
+
+
+def _rationale_or_default(written: str) -> str:
+    return written.strip() or SETTLED_WITHOUT_COMMENT
 
 
 @router.post("/runs/{job_id}/gates/{gate}", summary="Record a gate decision")

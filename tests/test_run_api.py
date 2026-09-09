@@ -59,9 +59,12 @@ from aer.db.models import (
     User,
 )
 from aer.db.models.report_section import SectionStatus
+from aer.errors import ValidationError
 from aer.services import runs as run_service
+from aer.services.disagreements import settle_by_hand
 from aer.services.red_team import _shortened
 from aer.web.csrf import CSRF_FIELD_NAME
+from aer.web.pages import SETTLED_WITHOUT_COMMENT
 from aer.web.vocabulary import TRIGGER_KINDS
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
 from tests.api_fixtures import build_app, client_for
@@ -1640,11 +1643,17 @@ class TestTheWebPages:
         # Settled, so the form is gone from that row and the reason stands in its place.
         assert f'id="settle-{challenge_id.group(1)}"' not in after.text
 
-    async def test_settling_without_a_reason_is_refused(
+    async def test_settling_without_a_reason_still_records_one(
         self, api: Any, committed: dict, driver: Driver, db_engine: Any
     ) -> None:
-        """A decision that overrides a rule without saying why is the least reviewable row
-        in the table, and the service says so. This is the surface honouring it."""
+        """The operator settles one of these per unresolved challenge at the end of every
+        run, and typing "agreed" eleven times is not review.
+
+        So the box is optional and the *record* is not. `resolution_rationale` is `NOT
+        NULL` with a `char_length > 0` constraint and is printed in the report's own
+        disagreement appendix; a blank reaching the database would put an em dash there
+        where a reason belongs. The handler supplies the sentence instead.
+        """
         job_id = await _to_second_gate(api, committed, driver)
         factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
         async with factory() as writer:
@@ -1655,17 +1664,49 @@ class TestTheWebPages:
         challenge_id = re.search(r'data-challenge="([^"]+)"', page.text)
         assert challenge_id
 
-        refused = await api.post(
+        settled = await api.post(
             f"/runs/{job_id}/disagreements/{challenge_id.group(1)}/settle",
             data={
                 CSRF_FIELD_NAME: _hidden_value(page.text, CSRF_FIELD_NAME),
                 "outcome": "chose_a",
                 "rationale": "   ",
             },
+            follow_redirects=False,
         )
+        assert settled.status_code == 303, settled.text
 
-        assert refused.status_code == 400
-        assert "needs a reason" in refused.text
+        async with factory() as reader:
+            row = await reader.get(Disagreement, uuid.UUID(challenge_id.group(1)))
+        assert row is not None
+        assert row.resolution is ResolutionOutcome.CHOSE_A
+        assert SETTLED_WITHOUT_COMMENT in row.resolution_rationale
+        assert row.resolution_rationale.strip()
+
+    async def test_the_service_still_refuses_a_blank_reason(
+        self, api: Any, committed: dict, driver: Driver, db_engine: Any
+    ) -> None:
+        """Where the rule lives, it is unchanged. The surface supplies a sentence; it does
+        not give the service permission to store nothing."""
+        job_id = await _to_second_gate(api, committed, driver)
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as writer:
+            planted = _planted_challenge(job_id)
+            writer.add(planted)
+            await writer.commit()
+
+        async with factory() as session:
+            row = await session.get(Disagreement, planted.id)
+            assert row is not None
+            actor = await session.scalar(select(User).limit(1))
+            assert actor is not None
+            with pytest.raises(ValidationError, match="needs a reason"):
+                await settle_by_hand(
+                    session,
+                    disagreement=row,
+                    outcome=ResolutionOutcome.CHOSE_A,
+                    actor=actor,
+                    rationale="   ",
+                )
 
     async def test_the_report_page_links_to_the_archived_download(
         self, api: Any, committed: dict, driver: Driver, db_session: Any

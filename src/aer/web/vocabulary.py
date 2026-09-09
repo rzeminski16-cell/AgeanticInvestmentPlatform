@@ -59,6 +59,7 @@ __all__ = [
     "GATES",
     "GRADES",
     "JOB_STATES",
+    "METRIC_WORDS",
     "PREMISE_STATES",
     "PREMISE_VERDICTS",
     "PROCESS_QUALITIES",
@@ -77,6 +78,7 @@ __all__ = [
     "gate_words",
     "in_words",
     "job_state",
+    "metric_words",
     "request_state",
     "section_state",
     "step_label",
@@ -610,6 +612,104 @@ def request_state(status: RequestStatus) -> HumanState:
 
 def section_state(status: SectionStatus) -> HumanState:
     return _looked_up(SECTION_STATES, status, "section")
+
+
+# What each evaluation metric is called on the page a person reads, and the sentence saying
+# what it measures. The draft review's own table printed `primary_source_ratio` and
+# `cited_figure_agreement` as themselves, beside a score of `0.51470000` — the operator was
+# being asked to approve a report against a row they had to decode first.
+#
+# Keyed by the metric's string value rather than the enum, because `aer.eval` is a package
+# the interface reads from and must not import back into. `tests/test_presentation_vocabulary`
+# walks `Metric` and fails when one has no words here.
+METRIC_WORDS: Final[dict[str, HumanState]] = {
+    "citation_accuracy": HumanState(
+        "Citations that check out",
+        Tone.INFO,
+        "Every citation re-read against the archived bytes it points at.",
+    ),
+    "hallucinated_citation_rate": HumanState(
+        "Citations pointing at nothing",
+        Tone.INFO,
+        "A claim citing an excerpt that is not in the document it names.",
+    ),
+    "temporal_compliance": HumanState(
+        "Sources within the evidence date",
+        Tone.INFO,
+        "Nothing published after the run's as-of date supporting a claim.",
+    ),
+    "look_ahead_recall": HumanState(
+        "Hindsight caught",
+        Tone.INFO,
+        "Of the post-dated sources planted or found, how many the guard stopped.",
+    ),
+    "injection_resistance": HumanState(
+        "Instructions in fetched text, refused",
+        Tone.INFO,
+        "Untrusted content is data; an attempt to make it an instruction fails.",
+    ),
+    "unit_integrity": HumanState(
+        "Units carried through",
+        Tone.INFO,
+        "Arithmetic that mixed units raised rather than coercing.",
+    ),
+    "numerical_consistency": HumanState(
+        "Figures that re-derive",
+        Tone.INFO,
+        "Every stored calculation replayed from its own record, and the drift between.",
+    ),
+    "assumption_completeness": HumanState(
+        "Assumptions confirmed",
+        Tone.INFO,
+        "Every input a valuation rested on, agreed by a person before it ran.",
+    ),
+    "source_coverage": HumanState(
+        "Sections meeting their evidence floor",
+        Tone.INFO,
+        "Each section against the number of sources its own policy demands.",
+    ),
+    "primary_source_ratio": HumanState(
+        "Figures resting on primary evidence",
+        Tone.INFO,
+        "Numeric claims reaching a filing, an issuer document, an official statistic or a "
+        "market feed — directly, or through the calculation that produced them.",
+    ),
+    "custom_section_contract_conformance": HumanState(
+        "Custom sections matching their contract",
+        Tone.INFO,
+        "A section an operator's own skill wrote, validated against the shape it declared.",
+    ),
+    "skill_privilege_containment": HumanState(
+        "Skill files kept additive",
+        Tone.INFO,
+        "An authored instruction may add a requirement and never relax one.",
+    ),
+    "presentation_integrity": HumanState(
+        "Defects in the rendered draft",
+        Tone.INFO,
+        "The draft assembled exactly as the preview renders it, scanned for what a live "
+        "note once shipped.",
+    ),
+    "figure_plausibility": HumanState(
+        "Figures outside a sane range",
+        Tone.INFO,
+        "A margin over one hundred per cent is arithmetic that went wrong somewhere.",
+    ),
+    "cited_figure_agreement": HumanState(
+        "Sentences agreeing with the figure they cite",
+        Tone.INFO,
+        "A claim naming a calculation, read against the number that calculation holds.",
+    ),
+}
+
+
+def metric_words(metric: str) -> HumanState:
+    """What an evaluation metric is called, or its own key where nothing maps it.
+
+    Falling back rather than raising, for the reason `trigger_words` does: a run recorded
+    under a build that measured something this one does not must still render.
+    """
+    return METRIC_WORDS.get(metric, HumanState(metric, Tone.INFO))
 
 
 # Every mapping whose members a template may meet as a bare value, in the order a lookup

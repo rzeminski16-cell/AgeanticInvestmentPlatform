@@ -25,9 +25,9 @@ from aer.web.csrf import (
     set_csrf_cookie,
     usable_csrf_token,
 )
-from aer.web.figures import assumption_figure, concept_name
+from aer.web.figures import assumption_figure, concept_name, trimmed
 from aer.web.shell import GUIDANCE_COOKIE, THEME_COOKIE, shell_for
-from aer.web.vocabulary import ROLE_WORDS, in_words
+from aer.web.vocabulary import ROLE_WORDS, in_words, metric_words
 
 __all__ = ["DISCLAIMER", "STATIC_DIR", "STYLES_DIR", "TEMPLATES_DIR", "render", "templates"]
 
@@ -76,6 +76,10 @@ templates.env.filters["in_words"] = in_words
 # answer to a question nobody asked. A rate is a rate.
 templates.env.filters["assumption_figure"] = assumption_figure
 templates.env.filters["concept_name"] = concept_name
+# The draft review printed `primary_source_ratio` beside a score of `0.51470000`, on the
+# screen where a report is approved.
+templates.env.filters["metric_words"] = metric_words
+templates.env.filters["trimmed"] = trimmed
 # The disagreement rule (gap A68), so four surfaces read one answer rather than four
 # copies of a conditional living in Jinja.
 templates.env.filters["position_figure"] = position_figure

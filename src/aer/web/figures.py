@@ -49,6 +49,7 @@ __all__ = [
     "cost_guidance",
     "lineage_figure",
     "pounds",
+    "trimmed",
     "waited_for",
 ]
 
@@ -530,3 +531,24 @@ def assumption_figure(name: str, value: object, unit: str) -> AssumptionFigure:
     if unit and unit != "pure":
         return AssumptionFigure(shown=f"{quantity:f} {unit}", stored="")
     return AssumptionFigure(shown=f"{quantity:f}", stored="")
+
+
+def trimmed(value: object) -> str:
+    """A stored decimal without the column's trailing zeros.
+
+    `evaluations.value` is `NUMERIC(20, 8)`, so a primary-source ratio of 0.5147 reaches
+    the draft review as `0.51470000` and its 0.6 floor as `0.60000000`. Eight decimal
+    places is the right precision to *store* a replay delta at and the wrong number of
+    digits to ask a person to compare two of.
+
+    Normalised through `:f` rather than printed from `normalize()` directly, because
+    `Decimal("100").normalize()` is `1E+2` — which is the same number and not a number
+    anybody wants to read in a table.
+    """
+    if value is None:
+        return NOT_AVAILABLE
+    try:
+        quantity = Decimal(str(value))
+    except (ArithmeticError, ValueError):
+        return str(value)
+    return f"{quantity.normalize():f}"

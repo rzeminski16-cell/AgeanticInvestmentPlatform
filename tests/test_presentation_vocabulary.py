@@ -36,6 +36,7 @@ from aer.core.enums import (
 )
 from aer.core.escalation import TriggerKind
 from aer.db.models.report_section import SectionStatus
+from aer.eval.metrics import Metric
 from aer.web import vocabulary
 from aer.web.overview.research import GATE_ASKS
 from aer.web.portfolio.pages import GRADE_LABELS
@@ -45,6 +46,7 @@ from aer.web.vocabulary import (
     GATES,
     GRADES,
     JOB_STATES,
+    METRIC_WORDS,
     PREMISE_VERDICTS,
     PROCESS_QUALITIES,
     REQUEST_STATES,
@@ -56,6 +58,7 @@ from aer.web.vocabulary import (
     GateCertainty,
     HumanState,
     Tone,
+    metric_words,
 )
 from aer.workflow.workflows.vertical_slice_v1 import build_steps
 
@@ -299,3 +302,43 @@ class TestALookupRefusesRatherThanGuessing:
         finally:
             GATES.clear()
             GATES.update(original)
+
+
+class TestEveryMetricHasWords:
+    """The draft review's own table printed `primary_source_ratio` and
+    `cited_figure_agreement` as themselves, beside a score of `0.51470000`.
+
+    Not in `MAPPED` because `METRIC_WORDS` is keyed by the metric's string value rather
+    than by the enum: `aer.eval` is a package the interface reads from and must not import
+    back into. The completeness obligation is the same.
+    """
+
+    def test_every_metric_has_a_label(self) -> None:
+        missing = sorted(metric.value for metric in Metric if metric.value not in METRIC_WORDS)
+        assert not missing, (
+            f"These metrics have no words: {missing}. Add them to `METRIC_WORDS` — a metric "
+            "with no label renders as its own key on the screen where a report is approved."
+        )
+
+    def test_no_entry_names_a_metric_that_is_gone(self) -> None:
+        known = {metric.value for metric in Metric}
+        stale = sorted(key for key in METRIC_WORDS if key not in known)
+        assert not stale, f"these METRIC_WORDS entries name no metric: {stale}"
+
+    def test_no_label_is_a_raw_key(self) -> None:
+        shouting = sorted(
+            state.label
+            for state in METRIC_WORDS.values()
+            if "_" in state.label or state.label.isupper()
+        )
+        assert not shouting, f"these metric labels are still keys: {shouting}"
+
+    def test_every_metric_says_what_it_measures(self) -> None:
+        """A score with a threshold and no sentence is a number the operator cannot weigh."""
+        silent = sorted(key for key, state in METRIC_WORDS.items() if not state.detail.strip())
+        assert not silent, f"these metrics have a label and no explanation: {silent}"
+
+    def test_the_lookup_falls_back_rather_than_raising(self) -> None:
+        """A run recorded under a build that measured something this one does not must
+        still render its history."""
+        assert metric_words("a_metric_no_build_has").label == "a_metric_no_build_has"
