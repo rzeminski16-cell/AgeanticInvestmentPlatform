@@ -254,8 +254,13 @@ _REFERENCE: Final[re.Pattern[str]] = re.compile(
             r"10-K|10-Q|8-K|20-F|40-F|6-K)\b",
             # Filing references, where the label is the anchor and an enumeration keeps
             # its cover: "Item 2.02", "Items 2.02 and 9.01", "Exhibit 99.1", "Form 4".
+            # **"or" is a separator here exactly as "and" is**, and its absence cost the
+            # first acceptance pass a draft: "No Forms 3, 4 or 144 were available" erased
+            # to "No   or 144 were available", and the 144 — a form number like the two
+            # in front of it — was refused as a figure. A negative list of filings is
+            # written with "or" far more naturally than with "and".
             r"\b(?:Item|Exhibit|Note|Form|Rule|Section)s?\s+\d+(?:\.\d+)?[A-Za-z]?"
-            r"(?:\s*(?:,|and|&|through|to)\s*\d+(?:\.\d+)?[A-Za-z]?)*",
+            r"(?:\s*(?:,|and|or|&|through|to)\s*\d+(?:\.\d+)?[A-Za-z]?)*",
             # The writer's own enumeration of its argument, where the label is the anchor
             # and the separator after the number is what makes it a heading rather than
             # a count: "Proposition 5 \u2014", "Pillar 3:", "Risk 2." The confirmation run
@@ -493,20 +498,31 @@ def without_product_names(text: str) -> str:
 
     **The word that owns the number decides.** A regex alone cannot separate "Microsoft
     365" from "Revenue 365", so the pair is matched and the head word is read against
-    three tests, all of which it must pass:
+    two tests, both of which it must pass:
 
-    * **It is capitalised mid-sentence.** That is the proper-noun signal. Capitalisation
-      at the *start* of a sentence says nothing — every sentence has it — and trusting
-      it excused "Shipped 240 units", which an existing test caught. The cost is that a
-      product name opening a sentence keeps its figure; the alternative was a rule that
-      lets a real quantity through whenever a sentence begins with a verb.
+    * **It is capitalised mid-sentence — or the text shows elsewhere that it is a
+      name.** A capital mid-sentence is the proper-noun signal; a capital at the *start*
+      of a sentence says nothing, because every sentence has one.
+
+      That used to end the matter, and the cost was taken knowingly: a product name
+      opening a sentence kept its figure. The first acceptance pass showed the price. A
+      live `growth_outlook` was refused on the 365 of "…qualitatively. Microsoft 365
+      Consumer growth is described as…", spent its second attempt on something else, and
+      was **lost** — a whole section of the report, over a product name sitting where
+      product names most often sit.
+
+      So a sentence-initial head is now read as a name when the *same text* uses that
+      word capitalised mid-sentence somewhere else. Prose about Microsoft says
+      "Microsoft" mid-sentence many times over; prose that opens a sentence with
+      "Shipped", "Together", "Step" or "Deliver" does not, because those are sentence
+      openers rather than names. The text demonstrates the claim instead of the rule
+      assuming it, which is why this costs none of the guarantees the strict rule bought
+      — "Shipped 240 units." is still a figure — while answering the case that cost a
+      section. ADR 0060, amended 2026-09-09, records it.
     * **It is not a word the platform knows as a line item.** That denylist is *derived*
       from :data:`~aer.core.concepts.CANONICAL_CONCEPTS`, so it grows with the vocabulary
       rather than drifting behind it: "Revenue 365", "Cash 500" and "Goodwill 365" stay
       figures, as does "EBITDA 1234" through the prose terms no filer tags.
-    * **It carries a capital at all**, which the mid-sentence test implies but which is
-      checked plainly because it is the cheapest way to say what a name looks like.
-
     The number itself is bounded to four bare digits with no separator, no decimal and no
     per-cent sign, and must not be followed by a measure word: "Azure 12 million" is a
     measurement whatever precedes it. A product name carries none of those.
@@ -515,19 +531,66 @@ def without_product_names(text: str) -> str:
     scan, never to the claims that provide cover, so it can only narrow what gets flagged.
     """
 
+    demonstrated = _names_used_mid_sentence(text)
+
     def erase(match: re.Match[str]) -> str:
         name = match.group(1)
         if not any(character.isupper() for character in name):
             return match.group(0)
-        if name.strip(".'\u2019&-").lower() in _FINANCIAL_WORDS:
+        if _name_key(name) in _FINANCIAL_WORDS:
             return match.group(0)
         preceding = text[: match.start(1)].rstrip()
         if not preceding or preceding[-1] in ".!?":
-            # Sentence-initial: the capital is grammar rather than a name.
-            return match.group(0)
+            attested = _name_key(name) in demonstrated or _continues_a_name(text, match.end())
+            if not attested:
+                # Sentence-initial and unattested: the capital is grammar, not a name.
+                return match.group(0)
         return f"{name}{match.group(2)}"
 
     return _NAMED_NUMBER.sub(erase, text)
+
+
+def _name_key(word: str) -> str:
+    """One spelling per head word, so "Microsoft" and "Microsoft's" are the same name."""
+    return word.strip(".'\u2019&-").lower()
+
+
+def _continues_a_name(text: str, after: int) -> bool:
+    """Whether a capitalised word follows the number, continuing a title-cased phrase.
+
+    The second attestation a sentence-initial head can offer, and the one the live
+    refusal turned on: "Microsoft 365 Consumer" carries its evidence in the word after
+    the number rather than in a second mention elsewhere. A quantity does not read that
+    way \u2014 "Shipped 240 units", "Together 365 stores", "Step 200 \u2014 units" all continue in
+    lower case or in punctuation, which is what keeps those figures flagged.
+    """
+    tail = text[after:]
+    if not tail[:1].isspace():
+        return False
+    following = tail.split()
+    return bool(following) and following[0][:1].isupper()
+
+
+def _names_used_mid_sentence(text: str) -> frozenset[str]:
+    """The capitalised words this text uses somewhere other than at a sentence start.
+
+    The evidence a sentence-initial head is judged against. Deliberately drawn from the
+    text under scan rather than from a list: a list of product names is a list somebody
+    maintains for ever and which is wrong the first time a company launches something,
+    and the passage that mentions a product at the start of one sentence has almost
+    always mentioned it in the middle of another.
+
+    Only the *word* is collected, not the pair, so "Microsoft reported" attests
+    "Microsoft 365". That is the intended breadth: the question this answers is whether
+    the word is a name at all, and the number beside it is guarded separately.
+    """
+    demonstrated: set[str] = set()
+    for sentence in _SENTENCES.split(text):
+        words = sentence.split()
+        for word in words[1:]:
+            if word[:1].isupper():
+                demonstrated.add(_name_key(word))
+    return frozenset(demonstrated)
 
 
 def without_plain_counts(text: str) -> str:

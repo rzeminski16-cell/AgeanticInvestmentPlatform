@@ -77,3 +77,70 @@ passed before still passes.
 - **A single bare year is still a figure**, unchanged from ADR 0054. The live run also
   refused a bare "2026" in the governance section, and excusing it is a separate decision
   about the year rules rather than about names; it is not taken here.
+
+## Amended 2026-09-09 — a sentence-initial name, where the text attests it
+
+The accepted trade above was billed on the first full acceptance pass, and it cost more
+than a sentence.
+
+A live MSFT run drafted `growth_outlook` twice and **lost it**. The first attempt was
+refused on the 365 of
+
+> …growth drivers qualitatively. Microsoft 365 Consumer growth is described as depende…
+
+which is this rule declining to read a product name because a full stop stood in front of
+it. ADR 0057's salvage repaired that attempt; the second attempt failed on other grounds,
+the salvage declined, and the section — with every other guard satisfied, and paid for at
+Opus prices — did not reach the report. More than a sentence: `material_missing_section`
+fired at gate 2 and the operator was told a section they had commissioned was missing.
+
+A sentence is where a product name most often sits. "Microsoft 365 Consumer growth is
+described as dependent on subscriptions" is a normal opening, and refusing every one of
+them was never the conservative choice — it was conservative about one failure mode and
+careless about the other.
+
+### What changes
+
+A sentence-initial head word is read as a name when **the text itself attests it**, by
+either of two signals:
+
+* the same word appears **capitalised mid-sentence** elsewhere in the text under scan —
+  prose about Microsoft says "Microsoft" mid-sentence many times over; or
+* a **capital continues the phrase after the number** — "Microsoft 365 Consumer" carries
+  its evidence in the word after the digits.
+
+Nothing else moves. The head must still carry a capital and must still not be a word the
+concept map knows as a line item; the number must still be four bare digits or fewer, with
+no separator, no decimal and no per-cent sign, and must not be followed by a measure word.
+The erasure is still one-way.
+
+**The attestation is drawn from the text, not from a list.** A list of product names is a
+list somebody maintains for ever, wrong the first time a company launches something and
+wrong in the other direction the first time a real quantity shares a name with one.
+
+### What this deliberately does not give away
+
+Every case the strict rule bought is still bought. "Shipped 240 units.", "Together 365
+stores opened.", "Step 200 — units shipped." and "Microsoft 365 seats grew." — the last
+standing alone, with nothing attesting it — are all still figures needing lineage. Those
+are the suite's own cases and they are asserted as such.
+
+### The residual, stated plainly
+
+One shape is given away: a capitalised verb opening a sentence, a real quantity, and a
+capitalised word after it. "Shipped 240 Units." now passes. It reads as a title-cased
+name to a rule that cannot know better, it is rarer than what it buys, and the guards on
+the number itself are untouched — "Shipped 240 million Units." and "Shipped 2,400 Units."
+are figures again. That row of the ledger is accepted for the reason the row above it was:
+the alternative is billed, fully cited sections dying over their own subject's product
+names.
+
+### And "or" is a separator
+
+Found in the same pass, and part of the same defect rather than a second one. ADR 0054's
+filing-reference enumeration — `Item`, `Exhibit`, `Note`, `Form`, `Rule`, `Section` and
+their plurals — continued across `,`, `and`, `&`, `through` and `to`, but not across
+**`or`**. So "No Forms 3, 4 or 144 were available" erased to "No   or 144 were available"
+and the 144, a form number exactly like the two in front of it, was refused as a figure.
+A negative list of filings is written with "or" far more often than with "and". The
+separator is added; nothing else about the alternative changes.

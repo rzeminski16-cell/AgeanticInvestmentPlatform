@@ -984,8 +984,8 @@ class TestAProductNameIsNotAFigure:
             "Azure 365% was the growth.",
             # No capital in the head: ordinary prose, so the number is doing ordinary work.
             "the segment reached 365 during the period.",
-            # Sentence-initial capitalisation is grammar, not a name — and trusting it
-            # excused a real quantity, which the count suite above caught.
+            # Sentence-initial capitalisation is grammar, and nothing in these texts
+            # attests a name (ADR 0060, amended 2026-09-09).
             "Shipped 240 units.",
             "Together 365 stores opened.",
         ],
@@ -993,16 +993,61 @@ class TestAProductNameIsNotAFigure:
     def test_a_number_that_is_a_figure_still_needs_lineage(self, text: str) -> None:
         assert unsourced_numerals({"s": text}, []) != []
 
-    def test_a_name_opening_a_sentence_keeps_its_figure(self) -> None:
-        """The accepted cost of the mid-sentence rule, pinned so it stays deliberate.
+    def test_a_name_opening_a_sentence_is_a_name_where_the_text_shows_it_is(self) -> None:
+        """ADR 0060, amended 2026-09-09, and the live refusal that forced it.
 
-        Every sentence capitalises its first word, so that capital says nothing about
-        whether "Microsoft" is a name or "Shipped" is a verb. The conservative reading is
-        the only safe one, and ADR 0057's salvage means the cost is a sentence rather than
-        the section.
+        The rule used to end at "capitalised mid-sentence", because every sentence
+        capitalises its first word. The first acceptance pass showed the price: a live
+        `growth_outlook` was refused on the 365 of "…qualitatively. Microsoft 365
+        Consumer growth is described as…" and was **lost**, and a sentence is where a
+        product name most often sits.
+
+        A sentence-initial head is now a name where the text attests it — either the same
+        word used capitalised mid-sentence elsewhere, or a capital continuing the phrase
+        after the number.
+        """
+        # The live refusal, attested by "Consumer" continuing the name.
+        assert (
+            unsourced_numerals(
+                {
+                    "s": "The company describes growth drivers qualitatively. "
+                    "Microsoft 365 Consumer growth is described as dependent on subscriptions."
+                },
+                [],
+            )
+            == []
+        )
+        # Attested by an earlier mid-sentence mention.
+        assert (
+            unsourced_numerals({"s": "Growth in Microsoft 365 was strong. Microsoft 365 rose."}, [])
+            == []
+        )
+        assert unsourced_numerals({"s": "Seats on Microsoft 365 grew."}, []) == []
+
+    def test_an_unattested_sentence_opener_is_still_a_figure(self) -> None:
+        """What the amendment deliberately did not give away.
+
+        A capitalised word opening a sentence in front of a quantity, with nothing in the
+        text saying it is a name, keeps its figure exactly as before — which is what makes
+        this an amendment rather than a repeal. The four here are the suite's own cases.
         """
         assert unsourced_numerals({"s": "Microsoft 365 seats grew."}, []) != []
-        assert unsourced_numerals({"s": "Seats on Microsoft 365 grew."}, []) == []
+        assert unsourced_numerals({"s": "Shipped 240 units."}, []) != []
+        assert unsourced_numerals({"s": "Together 365 stores opened."}, []) != []
+        assert unsourced_numerals({"s": "Step 200 — units shipped."}, []) != []
+
+    def test_the_residual_cost_of_the_amendment(self) -> None:
+        """The one shape the amendment does give away, pinned so it stays deliberate.
+
+        A capitalised verb, a real quantity, and a capitalised word after it reads as a
+        title-cased name to a rule that cannot know better. Rarer than what it buys — a
+        section — and the guards on the number itself are untouched.
+        """
+        assert unsourced_numerals({"s": "Shipped 240 Units."}, []) == []
+        # The number's own guards still catch every ordinary way a quantity is written.
+        assert unsourced_numerals({"s": "Shipped 240 million Units."}, []) != []
+        assert unsourced_numerals({"s": "Shipped 2,400 Units."}, []) != []
+        assert unsourced_numerals({"s": "The plant shipped 240 units."}, []) != []
 
     def test_the_denylist_comes_from_the_concept_map(self) -> None:
         """Derived rather than listed, so it grows with the vocabulary.

@@ -350,7 +350,11 @@ been re-litigated at least once already, which is why it is recorded here.
   only token-shaped bound left is the routed model's context window (ADR 0053).
 - **The numeral rule stays strict** (gap A32, open). Dates, CIKs and exhibit numbers in
   prose trip it and are recovered by retry. Relaxing it moves invariant 3's boundary and
-  needs an ADR and an operator decision. What it does *not* do is compare spellings: a
+  needs an ADR and an operator decision — which is what happened on 2026-09-09, once, when
+  a sentence-initial product name cost a live section: ADR 0060 was amended so that a name
+  opening a sentence is read as one **where the text attests it**, and nothing else moved.
+  Its residual is written down there rather than left to be rediscovered. What the rule
+  does *not* do is compare spellings: a
   numeral is checked against the **value** of the figure its claim names, under the readings
   in `core/figures.py` — the same ones `cited_figure_agreement` uses (ADR 0097). "$331.8
   billion" over a stored `331839000000` is that figure; "$412.6 billion" is not.
