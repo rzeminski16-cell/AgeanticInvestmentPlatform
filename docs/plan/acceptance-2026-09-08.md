@@ -439,6 +439,47 @@ own rather than being carried along.
 
 ---
 
+### The shape of the two changes, as far as reading the code settles it
+
+Written down here rather than as two ADRs, because an ADR in this repository records a
+decision the code already carries and one written ahead of the code would be a claim about
+a state that does not exist. They become **ADR 0110** and **ADR 0111** when the code lands.
+
+**ADR 0110 — every run is as at today.** The as-of date stops being an operator input and
+becomes a stamp: `work_orders.as_of_date` is set to the commissioning date and the field
+comes off the request form. Nothing downstream changes, because "the latest filing on or
+before today" is "the latest filing", and every guard keeps working on a date it can still
+read. What has to be decided rather than derived:
+
+* The **watchlist** commissions "researched as at a date" (ADR 0107). If every run is as at
+  today, that phrase means the day the queue reached it, which is what it already does —
+  but the wording on the page and in the ADR needs saying again.
+* The **portfolio clock is not the research clock** (ADR 0075), and §12.7 of the acceptance
+  pass makes the portfolio's own as-of date a link you can send yourself. That is a
+  different date about a different thing and should not be swept up in this.
+* **Reproducing an old run** keeps working, because the run's own stamp is what a replay
+  reads. Commissioning a *new* run about a past quarter stops being possible, which is the
+  capability being given up and should be named in the ADR rather than discovered.
+
+**ADR 0111 — a source with no discoverable publication date.** This is the one that
+actually changes what the reports contain. `decide_quarantine` refuses an undated source
+whenever point-in-time is on, before it ever reaches the look-ahead test:
+
+```python
+if point_in_time and publication_date is None:
+    return QuarantineDecision(quarantined=True, reason=NO_PUBLICATION_DATE)
+```
+
+Two rules wear one flag. Separating them means the look-ahead check keeps its flag and the
+datability rule gets its own, and then the question is what an undated page may be — which
+is a question about *tiering*, not about dates. The honest answer looks like: admissible,
+never as the sole support for a number (which `T5_SECONDARY` already says), and marked as
+undated wherever it is cited, so a reader can see what it is. The alternative — leaving it
+inadmissible — is the status quo and the reason no news source appeared in the plan.
+
+**Sequencing.** 0111 before 0110. It is smaller, it is the one the operator noticed, and
+it is independent: the datability rule is wrong whether or not the date is chooseable.
+
 ## 6. Windows
 
 Two things, one of which is a real fix.
