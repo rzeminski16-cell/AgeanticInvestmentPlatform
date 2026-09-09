@@ -665,6 +665,44 @@ pass cannot trust, and `_TABLES` in that file truncates `research_requests` with
 `work_orders`, which is the first place to look. Not fixed here because it is nobody's
 finding yet and the fix wants its own reading.
 
+### The side menu, measured
+
+*"The side menu should be improved to be more user friendly."* Read against the code, the
+complaint is specific and the number is the whole of it:
+
+| Heading | Items under it |
+|---|---|
+| Overview | 1 — Overview |
+| Research | 5 — Requests, Active run, Reports, Skills, Knowledge |
+| Watchlist | 1 — Watchlist |
+| Portfolio | 1 — Portfolio |
+| Risk | 1 — Risk |
+| Theses | 1 — Theses |
+| Decisions | 1 — Decisions |
+| Monitor | 1 — Monitor |
+| Review | 2 — Post-trade review, Decision analytics |
+| Platform | 4 — Settings, Costs, Health, API |
+
+**Ten headings over fifteen destinations, and seven of the ten head a single link.** A
+section header above one item is not navigation, it is the word said twice, and seven of
+them in a column is why the menu reads as longer than the product.
+
+The cause is structural rather than careless: a section is contributed *per tool*
+(`shell/registry.py`, "one import per tool, and one line here"), a tool is a registered
+capability (ADR 0071), and nine tools therefore produce nine sections. That was the right
+call when the second tool arrived and it stops being right at the ninth.
+
+The fix is a presentation-level grouping over the sections rather than a change to how
+tools register — the registry keeps its one-line contract, and the shell decides how the
+contributions are drawn. Something like: **Research** (as it is), **your book** (Portfolio,
+Risk, Decisions, Post-trade review, Decision analytics), **what you believe** (Theses,
+Monitor, Watchlist), **Platform**. Five headings, and each groups by what the operator is
+doing rather than by which tool implements it.
+
+**The words are the operator's to choose**, which is why this is written down rather than
+built: "your book" and "what you believe" are a guess at how they think about the split,
+and a menu grouped by somebody else's mental model is the problem restated.
+
 ### Still open
 
 The draft review's figure formatting beyond what the vocabulary work reached; the side
