@@ -150,7 +150,7 @@
       <ol class="flex flex-col" aria-label="Recent passes" id="passes">
         {% for row in passes %}
           <li class="border-t border-line py-3 type-body-sm text-ink" data-pass="{{ row.job_id }}">
-            {{ row.thesis_title }} · {{ row.status }} · started {{ row.started }} · {{ row.findings }} finding{{ "" if row.findings == 1 else "s" }} · {{ row.cost }}
+            {{ row.thesis_title }} · {{ row.status | in_words }} · started {{ row.started }} · {{ row.findings }} finding{{ "" if row.findings == 1 else "s" }} · {{ row.cost }}
           </li>
         {% endfor %}
       </ol>

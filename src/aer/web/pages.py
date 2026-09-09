@@ -71,6 +71,7 @@ from aer.db.models import (
     ReportSection,
     ResearchPlan,
     ResearchRequest,
+    SectionDefinition,
     SourceDocument,
     WorkOrder,
 )
@@ -1069,6 +1070,10 @@ async def draft_review(
     ]
     cost = await cost_scene_for_job(session, job=job, request=research_request)
     outcomes = await section_outcomes(session, job_id=job.id)
+    section_titles: dict[str, str] = {
+        row.key: row.title
+        for row in await session.execute(select(SectionDefinition.key, SectionDefinition.title))
+    }
 
     frame = await frame_for(session, job=job, gate=GateKind.FINAL)
     review = _review_verdict(
@@ -1087,7 +1092,15 @@ async def draft_review(
         "runs/review.html",
         {
             "job": job,
-            "sections": payload["sections"],
+            # The section's own title beside its key. The key is what a log line and the
+            # worker terminal say, so it stays reachable; it is no longer the label. The
+            # operator's first acceptance pass read this table as `growth_outlook` /
+            # `valuation_dcf` / `scenarios_sensitivities`, and `section_definitions.title`
+            # has held the readable name since the migration seeded it.
+            "sections": [
+                {**row, "title": section_titles.get(str(row.get("key", "")), str(row.get("key")))}
+                for row in payload["sections"]
+            ],
             # Split by what the two things *are*, rather than shown as one list of
             # "disagreements" (gap R15). A source conflict is a fault: two documents say
             # different numbers and somebody has to decide. A red-team challenge is the
@@ -1105,7 +1118,12 @@ async def draft_review(
             "briefs": briefs_from_output(
                 await _step_output(session, job_id=job_id, step_key="brief_challenges")
             ),
-            "triggers": payload["triggers"],
+            # `TriggerKind` was rendering as itself: the two headings over the operator's
+            # own review were `material_missing_section` and `low_source_coverage`.
+            "triggers": [
+                {**row, "words": vocabulary.trigger_words(str(row.get("kind", "")))}
+                for row in payload["triggers"]
+            ],
             "evaluations": evaluations,
             "coverage": coverage,
             "disagreements": [

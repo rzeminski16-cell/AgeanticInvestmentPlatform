@@ -57,7 +57,7 @@
         <div>
           <dt class="type-eyebrow text-ink-muted">Lineage</dt>
           <dd class="mt-1 type-data-sm text-ink" data-field="figure-kind">
-            {{ claim.figure.kind }}
+            {{ claim.figure.kind | in_words }}
             {% if claim.figure.kind == "calculation" %}
               &middot;
               <a

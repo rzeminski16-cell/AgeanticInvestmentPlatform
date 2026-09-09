@@ -49,6 +49,7 @@ from aer.core.enums import (
     SkillKind,
     TransactionKind,
 )
+from aer.core.escalation import TriggerKind
 from aer.core.skill_guidance import PLANNER, SECTION_WRITER, roles_for
 from aer.db.models.report_section import SectionStatus
 
@@ -68,15 +69,18 @@ __all__ = [
     "STEP_WORDS",
     "STOPPED_PASS",
     "TRANSACTION_KINDS",
+    "TRIGGER_KINDS",
     "GateCertainty",
     "GateWords",
     "HumanState",
     "Tone",
     "gate_words",
+    "in_words",
     "job_state",
     "request_state",
     "section_state",
     "step_label",
+    "trigger_words",
 ]
 
 
@@ -392,6 +396,26 @@ DECISIONS: Final[dict[Decision, HumanState]] = {
 }
 
 
+# What each escalation trigger is called on the review page. The trigger carries its own
+# sentence — `TriggerKind` was rendering as itself beside it, so the operator's first
+# acceptance pass read `material_missing_section` and `low_source_coverage` as the headings
+# of the two things that had gone wrong with the report they were about to approve.
+#
+# No `detail` on any of them, deliberately: the trigger's `message` is already the sentence,
+# and a second one under the chip would be the same thing said twice.
+TRIGGER_KINDS: Final[dict[TriggerKind, HumanState]] = {
+    TriggerKind.LOW_SOURCE_COVERAGE: HumanState("Thinly sourced", Tone.FAILURE),
+    TriggerKind.CREDIBLE_SOURCE_CONFLICT: HumanState("Sources disagree", Tone.FAILURE),
+    TriggerKind.POTENTIAL_LOOK_AHEAD: HumanState("Possible hindsight", Tone.FAILURE),
+    TriggerKind.HIGH_MODEL_UNCERTAINTY: HumanState("Low confidence", Tone.FAILURE),
+    TriggerKind.MATERIAL_MISSING_SECTION: HumanState("A section is missing", Tone.FAILURE),
+    TriggerKind.SKILL_POLICY_CLAMP: HumanState("A method was overruled", Tone.FAILURE),
+    TriggerKind.COST_ABOVE_THRESHOLD: HumanState("Near the spending cap", Tone.FAILURE),
+    TriggerKind.VALIDATION_FAILURE: HumanState("A check did not pass", Tone.FAILURE),
+    TriggerKind.SUSPICIOUS_SOURCE: HumanState("A source needs a look", Tone.FAILURE),
+}
+
+
 # -- Gates ---------------------------------------------------------------------------------
 
 # `asks` is the phrase `web/overview/research.py` has always used, moved here rather than
@@ -586,6 +610,60 @@ def request_state(status: RequestStatus) -> HumanState:
 
 def section_state(status: SectionStatus) -> HumanState:
     return _looked_up(SECTION_STATES, status, "section")
+
+
+# Every mapping whose members a template may meet as a bare value, in the order a lookup
+# tries them. Keyed by the enum's own values, because a payload stores `kind` as a string
+# and a Jinja expression has no enum to hand.
+_BY_VALUE: Final[dict[str, str]] = {
+    member.value: state.label
+    for mapping in (
+        SKILL_KINDS,
+        SHOCK_KINDS,
+        TRANSACTION_KINDS,
+        GRADES,
+        DECISIONS,
+        ANALYSIS_MODES,
+        PREMISE_VERDICTS,
+        PROCESS_QUALITIES,
+        TRIGGER_KINDS,
+        SECTION_STATES,
+        JOB_STATES,
+        REQUEST_STATES,
+        PREMISE_STATES,
+    )
+    for member, state in mapping.items()
+}
+
+
+def in_words(value: object) -> str:
+    """One enum value, as a person reads it — or unchanged where nothing maps it.
+
+    The template-side half of this module, registered as the `in_words` filter. The
+    mappings above are complete and were still being gone round: a handler that forgot to
+    resolve a state left the template printing the value, and `custom_section` and
+    `house_view` were on the plan gate the operator approves at.
+
+    Falling back to the value rather than raising is deliberate. A label is presentation,
+    and a page that will not render because one chip has no word is a worse failure than a
+    chip reading as its own key — which is what every one of these did already.
+    """
+    text = str(value)
+    return _BY_VALUE.get(text, text)
+
+
+def trigger_words(kind: TriggerKind | str) -> HumanState:
+    """What an escalation trigger is called on the page a person reads.
+
+    Accepts the raw string as well as the enum, because the gate-2 payload stores
+    `kind` as its value and a run recorded under a build that fired a trigger this one no
+    longer declares must still render — as its own key, which is what it did everywhere
+    before this mapping existed.
+    """
+    try:
+        return TRIGGER_KINDS[TriggerKind(kind)]
+    except (KeyError, ValueError):
+        return HumanState(str(kind), Tone.FAILURE)
 
 
 def gate_words(gate: GateKind) -> GateWords:

@@ -127,7 +127,7 @@
         {% for trigger in triggers %}
           <li class="py-3">
             <p class="type-body text-ink">
-              {{ ui.status("failure", trigger.kind) }}
+              {{ ui.status("failure", trigger.words.label) }}
               <span class="ml-2">{{ trigger.message }}</span>
             </p>
             {% if trigger.evidence %}
@@ -462,7 +462,10 @@
           {% for section in sections %}
             {% set outcome = outcomes[loop.index0] %}
             <tr data-section="{{ section.key }}">
-              <td class="py-2.5 pr-4 type-data-sm text-ink">{{ section.key }}</td>
+              <td class="py-2.5 pr-4 text-ink">
+                <span class="type-body-sm">{{ section.title }}</span>
+                <span class="block type-data-sm text-ink-muted">{{ section.key }}</span>
+              </td>
               <td class="py-2.5 pr-4">
                 {% if section.status == "generated" %}
                   {{ ui.status("success", "Written") }}

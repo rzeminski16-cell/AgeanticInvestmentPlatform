@@ -34,6 +34,7 @@ from aer.core.enums import (
     SkillKind,
     TransactionKind,
 )
+from aer.core.escalation import TriggerKind
 from aer.db.models.report_section import SectionStatus
 from aer.web import vocabulary
 from aer.web.overview.research import GATE_ASKS
@@ -51,6 +52,7 @@ from aer.web.vocabulary import (
     SHOCK_KINDS,
     SKILL_KINDS,
     TRANSACTION_KINDS,
+    TRIGGER_KINDS,
     GateCertainty,
     HumanState,
     Tone,
@@ -71,6 +73,7 @@ MAPPED: list[tuple[str, type[StrEnum], dict[Any, HumanState]]] = [
     ("premise verdict", PremiseVerdict, PREMISE_VERDICTS),
     ("process quality", ProcessQuality, PROCESS_QUALITIES),
     ("shock kind", ShockKind, SHOCK_KINDS),
+    ("escalation trigger", TriggerKind, TRIGGER_KINDS),
 ]
 
 
