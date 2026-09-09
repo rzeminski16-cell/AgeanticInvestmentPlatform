@@ -29,7 +29,15 @@ __all__ = ["research_request"]
 
 # What belongs to the run rather than to the equity report.
 _RUN_ROOT_FIELDS = frozenset(
-    {"user_id", "as_of_date", "point_in_time", "max_cost_gbp", "status", "archived_at"}
+    {
+        "user_id",
+        "as_of_date",
+        "point_in_time",
+        "undated_sources_admissible",
+        "max_cost_gbp",
+        "status",
+        "archived_at",
+    }
 )
 
 

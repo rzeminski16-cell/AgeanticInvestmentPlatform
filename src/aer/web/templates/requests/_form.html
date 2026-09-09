@@ -59,11 +59,18 @@
     </div>
   {% endcall %}
 
-  {% call ui.sheet("Date and hindsight", subtitle="What the research is allowed to have known.") %}
+  {% call ui.sheet("Hindsight", subtitle="What the research is allowed to have known.") %}
     <div class="flex flex-col gap-5">
-      {{ ui.field("as_of_date", "As-of date", value=values.get("as_of_date", ""), type="date",
-                  required=true, error=errors.get("as_of_date", [""])[0], maximum=today,
-                  hint="Cannot be in the future.") }}
+      {#
+        The as-of date is stated, not asked for (ADR 0110). A report is written about a
+        company as it stands, and the date it stands at is the day the run is commissioned
+        — so the platform stamps it and shows it here rather than offering a field whose
+        only correct answer it already knows.
+      #}
+      <p class="type-body text-ink" id="as-of-statement">
+        Dated <span class="type-data">{{ today }}</span>, the day you commission it.
+        Every source is judged against that date, and the run's own record carries it.
+      </p>
       {#
         Two radios rather than one checkbox, and the difference is not cosmetic. A checkbox has
         one label, so the state it is *not* in goes unnamed: the reader sees "point-in-time
@@ -75,11 +82,11 @@
         "Which sources may this run use?",
         [
           {"value": "true",
-           "label": "Use only information available by this date — recommended",
-           "consequence": "Anything published later is refused at acquisition, in code, so the run can be read as a clean historical replay."},
+           "label": "Refuse anything published after today — recommended",
+           "consequence": "Enforced at acquisition, in code. With the run dated to today this mostly catches a document whose own evidence puts it in the future, which is a document that has been mis-dated or made up."},
           {"value": "false",
-           "label": "Allow later-published sources",
-           "consequence": "This run can no longer be treated as a clean historical replay. Later knowledge can reach a conclusion about an earlier date, which is the bias backward-looking analysis exists to avoid."},
+           "label": "Admit a source that says it was published later",
+           "consequence": "Only for a source you know is dated wrongly and would otherwise have to override one document at a time. It switches the look-ahead check off for the whole run."},
         ],
         chosen=(values.get("point_in_time") or "true"),
       ) }}

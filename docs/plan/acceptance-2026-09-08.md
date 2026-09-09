@@ -443,7 +443,9 @@ own rather than being carried along.
 
 Written down here rather than as two ADRs, because an ADR in this repository records a
 decision the code already carries and one written ahead of the code would be a claim about
-a state that does not exist. They become **ADR 0110** and **ADR 0111** when the code lands.
+a state that does not exist. They became **ADR 0110** and **ADR 0111** when the code landed;
+what follows is the shape as read, and "The as-of split, as built" below records the three
+places where reading the code disagreed with it.
 
 **ADR 0110 — every run is as at today.** The as-of date stops being an operator input and
 becomes a stamp: `work_orders.as_of_date` is set to the commissioning date and the field
@@ -750,10 +752,64 @@ doing rather than by which tool implements it.
 built: "your book" and "what you believe" are a guess at how they think about the split,
 and a menu grouped by somebody else's mental model is the problem restated.
 
+### The as-of split, as built
+
+Both halves landed, in the order §5 argued for. What follows is what reading the code
+settled that the plan could not, because in three places the code disagreed with it.
+
+**ADR 0111 — an undated source is admitted, and never primary.** The datability rule got its
+own policy on the work order, defaulting to admitting, and the look-ahead branch kept
+`point_in_time`. What makes admitting safe is a cap rather than a second refusal:
+`SourceTier.as_evidence` reads an undated document as tier 5 whoever published it, so it may
+corroborate and may never be the primary source a section's policy requires. The recorded
+tier is kept beside the cap and both are shown, because what the provider is, is a fact about
+the document and the cap is a verdict about it.
+
+Three things the plan got wrong, found by reading:
+
+* **"Never the sole support for a number" was already true.** §5 proposed building it. Since
+  ADR 0109 a numeric claim names a fact, a calculation or an attestation — `record_claim`
+  refuses one that does not — so no number has ever rested on a citation. What the cap
+  actually decides is the *primary*-source floor, which is a smaller and more honest claim.
+* **A section's tier ceiling must keep reading the recorded tier.** Filtering the evidence
+  listing on the cap put this ADR's own blanket refusal back through a different door: a
+  section with a ceiling of 4 stopped seeing an undated filing at all, rather than seeing it
+  and being told it had no primary source. Six custom-section tests found it, and
+  `test_a_tier_ceiling_still_shows_it` is now the boundary.
+* **The renderer already marked undated sources.** `render.document` has carried the C3
+  marker and its legend since before any of this; it now derives it from the same rule.
+
+**ADR 0110 — a run is dated by the platform.** `work_orders.as_of_date` is a stamp written
+from `RequestLimits.today` at commissioning: one clock, read once, validating and dating the
+same request. The field is off the form (the sheet states the date above the point-in-time
+choice it governs), off `ResearchRequestCreate` — `extra="forbid"`, so an API client is told
+rather than silently ignored — off `_EDITABLE_FIELDS`, and off the watchlist's commission
+form. Nothing downstream changed, exactly as §5 predicted: "the latest filing on or before
+today" is "the latest filing".
+
+The point-in-time choice stays. With the date fixed it decides whether to admit a document
+whose own evidence puts it in the future — mis-dated or made up — which is narrow, real, and
+still the operator's call. The form's copy says the new thing rather than the old one.
+
+### Two defects found on the way
+
+Both in the code this work was already in, both fixed here.
+
+**The web form could not turn point-in-time off.** The control became a pair of radios — so
+that the state it is *not* in gets named — and the parser stayed the checkbox's
+`values["point_in_time"] != ""`. The string `"false"` is not empty, so choosing "allow
+later-published sources" produced a point-in-time run and said nothing. Reproduced before
+fixing: `parse_request_form` returned `True` for both radio values.
+
+**Three templates printed `no_publication_date` at a reader.** The raw-identifier ratchet
+exempts `reason` on the argument that a refusal's reason is a sentence the platform wrote —
+true everywhere except the quarantine reasons, which are module constants. They resolve
+through `vocabulary.QUARANTINE_REASONS` now, with a completeness test walking the constants
+where they are declared.
+
 ### Still open
 
-The side menu — measured above, and waiting on the operator's own words for the grouping —
-and the as-of split as ADRs 0110 and 0111.
+The side menu — measured above, and waiting on the operator's own words for the grouping.
 
 **The suite stands at 6,832 passed**, against 6,778 at `7c1a733`: fifty-four tests added
 across the defects, the screens and the two slates, and none removed.

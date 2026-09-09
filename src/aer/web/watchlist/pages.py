@@ -3,20 +3,22 @@
 One screen and four forms. The screen is every followed listing with where it stands —
 queued, commissioned, researched, stopped — beside the standing budget's room this month
 and what a run typically costs. The forms follow a company, stop following one with a
-reason, commission one entry as at a date, and commission the next the budget affords.
+reason, commission one entry now, and commission the next the budget affords.
 
 **Nothing on this page is a figure a report rests on.** The budget is money, shown as
 money; the states are read from runs; the research a commission starts is the research
 tool's, with its gates and its report, reached from here by link.
 
 **Two clocks, said plainly** (ADR 0107): an entry shows when it was followed; each
-commission shows the date its run is dated as at. Neither is the other.
+commission shows the date its run is dated as at, which since ADR 0110 is the day the
+commission happened. Neither is the other, and a listing followed in March and researched
+in September says both.
 """
 
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import structlog
@@ -255,17 +257,16 @@ async def commission(  # noqa: PLR0917 -- the dependencies, spelt out
     user: CurrentUser,
     redis: RedisClient,
 ) -> Response:
-    """One entry into one run, as at today or the date stated, inside the standing budget."""
+    """One entry into one run, as at today, inside the standing budget."""
     submitted = await _submitted(request)
     if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
         return _refused(request, "Nothing was commissioned.")
     entry = await watchlist_service.entry_of(session, entry_id, user_id=user.id)
     if entry is None:
         return _problem(request, "No such watchlist entry.")
-    as_of = _date_or_none(submitted.get("as_of", ""))
     try:
         _, job = await watchlist_service.commission(
-            session, settings=settings, user=user, entry=entry, as_of=as_of
+            session, settings=settings, user=user, entry=entry
         )
         await session.commit()
     except AerError as refused:
@@ -319,13 +320,6 @@ async def commission_next(
 
 
 # -- Reading ------------------------------------------------------------------------------
-
-
-def _date_or_none(raw: str) -> date | None:
-    try:
-        return date.fromisoformat(raw) if raw.strip() else None
-    except ValueError:
-        return None
 
 
 def _int_or_none(raw: str) -> int | None:

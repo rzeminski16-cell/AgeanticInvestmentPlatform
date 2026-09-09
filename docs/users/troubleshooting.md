@@ -183,8 +183,9 @@ Two ceilings it will not move:
   **Budget per run (£)**; a change applies to runs started afterwards and needs no restart.
 
 The cap is the only field on a request that can change while a run is under way. Everything
-else is frozen for the run's lifetime, because moving an as-of date or a ticker would
-falsify evidence already gathered.
+else is frozen for the run's lifetime, because changing a ticker would falsify evidence
+already gathered. The as-of date is not editable at all, in or out of a run: it is stamped
+when the run is commissioned (ADR 0110).
 
 ## The final gate refuses my approval
 

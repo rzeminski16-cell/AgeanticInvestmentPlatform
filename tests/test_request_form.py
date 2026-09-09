@@ -40,7 +40,6 @@ def valid_form(**overrides) -> dict[str, str]:
         "ticker": "msft",
         "exchange": "NASDAQ",
         "isin": "",
-        "as_of_date": "2026-07-01",
         "base_currency": "USD",
         "reporting_currency": "",
         "investment_horizon_months": "36",
@@ -111,11 +110,16 @@ class TestFormRenders:
         header = (await web.get(NEW)).headers["set-cookie"]
         assert "samesite=strict" in header.lower()
 
-    async def test_the_as_of_input_cannot_be_set_past_today(self, web):
-        # A browser-side convenience, not the rule. The rule is server-side and tested
-        # separately; this stops the operator picking a date that will be rejected.
+    async def test_the_form_states_the_date_rather_than_asking_for_it(self, web):
+        # ADR 0110. There is no input, because there is no choice: the run is dated the
+        # day it is commissioned. Stating it is not decoration — an operator who cannot
+        # see the date cannot tell what the point-in-time choice below it will apply to.
+        page = (await web.get(NEW)).text
         today = datetime.now(UTC).date().isoformat()
-        assert f'max="{today}"' in (await web.get(NEW)).text
+
+        assert 'name="as_of_date"' not in page
+        assert 'id="as-of-statement"' in page
+        assert today in page
 
     async def test_only_supported_exchanges_are_offered(self, web):
         body = (await web.get(NEW)).text
@@ -267,15 +271,23 @@ class TestSuccessfulSubmission:
 
 
 class TestRejectedSubmission:
-    async def test_a_future_as_of_date_is_rejected_and_nothing_is_created(self, web, db_engine):
+    async def test_a_submitted_as_of_date_changes_nothing(self, web, db_engine):
+        """ADR 0110. The field is gone from the form, so a posted one is not read.
+
+        Not a 422: `parse_request_form` builds the payload from the fields the form
+        renders, and a stray key in the body is a key nobody asked for. What matters is
+        that it cannot become the run's date — the stamp is the clock, whatever arrives.
+        """
         tomorrow = (datetime.now(UTC).date() + timedelta(days=1)).isoformat()
         token = await fresh_token(web)
 
         response = await web.post(NEW, data=valid_form(csrf_token=token, as_of_date=tomorrow))
 
-        assert response.status_code == 422
-        assert "in the future" in response.text
-        assert await count_requests(db_engine) == 0
+        assert response.status_code == 303
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            row = await session.scalar(select(ResearchRequest))
+        assert row.work_order.as_of_date == datetime.now(UTC).date()
 
     async def test_an_etf_is_rejected_with_the_reason(self, web, db_engine):
         token = await fresh_token(web)

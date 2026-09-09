@@ -366,17 +366,29 @@ class TestCommissioning:
         assert event is not None
         assert event.payload["job_id"] == str(job.id)
 
-    async def test_as_at_a_stated_date(self, db_session: AsyncSession, tmp_path: Path) -> None:
+    async def test_the_date_is_the_days_and_not_the_callers(
+        self, db_session: AsyncSession, tmp_path: Path
+    ) -> None:
+        """ADR 0110. "Researched as at a date" (ADR 0107) is the day the queue reached it.
+
+        Commissioning as at a stated date used to be a parameter, and this is where it was
+        exercised. The run's stamp and the commission's own record are the same date and
+        are the clock's; asking for another one is a `TypeError` rather than a silent
+        difference between what a caller meant and what the run will be judged against.
+        """
         settings = _settings(tmp_path)
         user = await _user(db_session)
         entry = await _follow(db_session, user)
 
-        row, _ = await _commission(db_session, settings, user, entry, as_of=date(2026, 6, 30))
+        with pytest.raises(TypeError):
+            await _commission(db_session, settings, user, entry, as_of=date(2026, 6, 30))
+
+        row, _ = await _commission(db_session, settings, user, entry)
 
         request = await db_session.get(ResearchRequest, row.request_id)
         assert request is not None
-        assert request.work_order.as_of_date == date(2026, 6, 30)
-        assert row.as_of_date == date(2026, 6, 30)
+        assert request.work_order.as_of_date == TODAY
+        assert row.as_of_date == TODAY
 
     async def test_a_live_run_is_not_commissioned_twice(
         self, db_session: AsyncSession, tmp_path: Path
@@ -739,8 +751,7 @@ class TestThePages:
         entry_id = await _followed_from_the_page(api)
         body = (await api.get("/watchlist")).text
         first = await api.post(
-            f"/watchlist/{entry_id}/commission",
-            data={"csrf_token": _csrf(body), "as_of": "2026-06-30"},
+            f"/watchlist/{entry_id}/commission", data={"csrf_token": _csrf(body)}
         )
         assert first.status_code == 303, first.text
         assert "data-history=" not in (await api.get("/watchlist")).text, "one is no history"
@@ -750,20 +761,24 @@ class TestThePages:
             job = await session.scalar(select(Job))
             assert job is not None, "the one commission started the one run"
             job.status = JobStatus.FAILED
+            # Backdated in the record, not at the call: a commission made in June is dated
+            # June because June is when it happened (ADR 0110), and an entry researched
+            # twice in one day would otherwise leave the ordering below untestable.
+            row = await session.scalar(select(WatchlistCommission))
+            row.as_of_date = date(2026, 6, 30)
             await session.commit()
 
         body = (await api.get("/watchlist")).text
         assert f'data-entry="{entry_id}" data-state="stopped"' in body
         second = await api.post(
-            f"/watchlist/{entry_id}/commission",
-            data={"csrf_token": _csrf(body), "as_of": "2026-08-31"},
+            f"/watchlist/{entry_id}/commission", data={"csrf_token": _csrf(body)}
         )
         assert second.status_code == 303, second.text
 
         body = (await api.get("/watchlist")).text
         assert f'data-history="{entry_id}"' in body
         assert "Every commission, 2 so far" in body
-        newest = body.index('data-commission-as-of="31 August 2026"')
+        newest = body.index(f'data-commission-as-of="{TODAY:%d %B %Y}"')
         older = body.index('data-commission-as-of="30 June 2026"')
         assert newest < older, "newest first"
         assert body.count("/requests/") >= 2
