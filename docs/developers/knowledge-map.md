@@ -58,11 +58,13 @@ flowchart TD
     classify --> gate_sector_specialist{{gate_sector_specialist}}
     gate_sector_specialist --> propose_peers --> gate_peer_set{{gate_peer_set}}
     gate_peer_set --> propose_themes --> gate_theme_set{{gate_theme_set}}
-    gate_theme_set --> acquire_prices --> extract
+    gate_theme_set --> extract
     extract --> gate_unmapped_concepts{{gate_unmapped_concepts}}
+    gate_unmapped_concepts --> acquire_prices
     gate_unmapped_concepts --> calculate
     calculate --> research["research_company / research_industry / research_macro / research_recent_developments / research_technical_context (parallel)"]
     calculate --> comps
+    acquire_prices --> comps
     research --> propose_assumptions --> gate_assumptions{{gate_assumptions}}
     gate_assumptions --> value --> draft
     comps --> draft
@@ -79,7 +81,8 @@ What to know per step, beyond the diagram:
 | `gate_plan` | `services/approvals` | no | First of the two gates every run passes |
 | `acquire` | `services` + `sources/sec` or `sources/uk` | no | Filings fetched, hashed, stored |
 | `classify` | `services` | no | Filing types; may trigger the sector gate |
-| `propose_peers`, `acquire_prices` | `sources/eodhd` | no (API quota, not model spend) | Conditional on the EODHD subscription |
+| `propose_peers` | `sources/eodhd` | no (API quota, not model spend) | Conditional on the EODHD subscription |
+| `acquire_prices` | `sources/eodhd` | no (API quota, not model spend) | Conditional on the subscription, and **after `extract`**: it prefers the filed share count to the vendor's, and `extract` is the step that writes the facts it reads |
 | `propose_themes` | `agents/themes` | yes (~£0.02) | K1, ADR 0065: a bounded slate; a failed call proposes nothing |
 | `gate_theme_set` | `services/approvals` | no | Conditional; skipped on an empty slate |
 | `extract` | `extract/` | no | Bytes → text with locators; iXBRL/PDF/HTML |

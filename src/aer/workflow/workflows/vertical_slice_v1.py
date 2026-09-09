@@ -385,11 +385,6 @@ def build_steps() -> list[WorkflowStep]:
             run=_gate_theme_set,
             gate=GateKind.THEME_SET.value,
         ),
-        # Prices (gap B3). After the peer gate because the comps table needs both, and
-        # before the assumptions are proposed because the beta this regresses is one of
-        # them — without it the operator types a beta by hand and the valuation waits.
-        # Conditional on a subscription: no key, no prices, and the step says so.
-        WorkflowStep(key=PRICES_STEP, run=_acquire_prices),
         WorkflowStep(key="extract", run=_extract),
         # Conditional: it passes straight through unless the extraction left tags the concept
         # map does not know. Declared unconditionally because a gate that only exists on the
@@ -399,11 +394,25 @@ def build_steps() -> list[WorkflowStep]:
             run=_gate_unmapped_concepts,
             gate=GateKind.UNMAPPED_CONCEPTS.value,
         ),
-        # The first real fan-out (task 37): the calculation and the five research workers
-        # are independent of each other and all of the financials gate, so they form one
-        # wave — six nodes, inside the §2.5 bound of seven. Where the run has no session
+        # The first real fan-out (task 37): prices, the calculation and the five research
+        # workers are independent of each other and all of the financials gate, so they form
+        # one wave — seven nodes, at the §2.5 bound of seven. Where the run has no session
         # factory (every savepoint-fixtured test) the engine takes them one at a time on
         # the caller's session, in this declared order.
+        #
+        # Prices (gap B3). **After the extraction, not before it**, which is the correction
+        # the first acceptance pass forced. The step prefers the *filed* share count to the
+        # vendor's — a fact with a hashed filing behind it beats a number in a JSON document
+        # — and reads it out of `financial_facts`, which `extract` is the step that writes.
+        # Declared ahead of extraction, `_filed_share_count` could only answer `None` unless
+        # an earlier run had left rows for the same company behind, and every first run fell
+        # through to a vendor endpoint the subscription does not include: no market
+        # capitalisation, no enterprise-value multiple, and a comps table with nothing in it.
+        # Still before the assumptions are proposed, because the beta this regresses is one
+        # of them. Conditional on a subscription: no key, no prices, and the step says so.
+        WorkflowStep(
+            key=PRICES_STEP, run=_acquire_prices, needs=frozenset({"gate_unmapped_concepts"})
+        ),
         WorkflowStep(key="calculate", run=_calculate, needs=frozenset({"gate_unmapped_concepts"})),
         WorkflowStep(
             key="research_company",

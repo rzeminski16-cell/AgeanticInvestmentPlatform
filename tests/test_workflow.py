@@ -376,18 +376,22 @@ class TestTheWholeRun:
             # scripted brain proposes one theme, so the gate genuinely fires on this run.
             "propose_themes",
             "gate_theme_set",
-            # Prices (gap B3). Skipped-but-recorded here: this harness configures no
-            # market-data subscription, so the step reports that the beta and the market
-            # capitalisation could not be computed rather than failing.
-            "acquire_prices",
             "extract",
             # A step even on the runs it does not apply to. It succeeds without stopping
             # when every tag mapped, which is what this fixture's filing does.
             "gate_unmapped_concepts",
-            # The task 37 wave: the calculation and the five research workers share their
-            # dependency on the financials gate. Without a session factory in services —
-            # this test's shape — the engine takes them one at a time, in declared order,
+            # The task 37 wave: prices, the calculation and the five research workers share
+            # their dependency on the financials gate. Without a session factory in services
+            # — this test's shape — the engine takes them one at a time, in declared order,
             # which is what makes this list deterministic.
+            #
+            # Prices (gap B3). **After the extraction**, because the step prefers the filed
+            # share count and `extract` is what writes the facts it reads; declared ahead of
+            # extraction it could only ever answer `None` and fall through to a vendor feed.
+            # Skipped-but-recorded here: this harness configures no market-data
+            # subscription, so the step reports that the beta and the market capitalisation
+            # could not be computed rather than failing.
+            "acquire_prices",
             "calculate",
             "research_company",
             "research_industry",
