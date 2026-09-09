@@ -9,6 +9,7 @@ slice, whose validate step must leave all eight rows behind.
 from __future__ import annotations
 
 import hashlib
+import json
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -63,6 +64,7 @@ from aer.services.citations import record_citation, record_claim
 from aer.services.escalation import triggers_for_job
 from aer.services.evaluations import _figure_scenes, evaluate_run, evaluations_for_job
 from aer.services.extractions import record_excerpt
+from aer.services.run_export import EXPORT_SCHEMA, export_run
 from aer.storage.local import LocalArtefactStore
 from tests.ledger_fixtures import record_valuation_ledger
 from tests.request_fixtures import research_request
@@ -1242,3 +1244,65 @@ class TestAComputedFigureRestsOnWhatIsUnderIt:
         # reporting thin sourcing rather than miscounting it.
         assert rows["primary_source_ratio"].value == Decimal("0.5")
         assert rows["primary_source_ratio"].passed is False
+
+
+class TestTheRunExportIsWholeAndSafe:
+    """`aer export-run`. The operator asked for "a highly detailed and comprehensive log
+    ... so that I can then take that log and give it to Claude".
+
+    `aer diagnose` prints what a person needs to *see*; this is what a reader who was not
+    there needs to answer *why*.
+    """
+
+    async def test_a_missing_run_says_so_rather_than_writing_an_empty_document(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """An empty document would read as a run that did nothing."""
+        with pytest.raises(ValueError, match="No run"):
+            await export_run(scene["session"], job_id=uuid.uuid4())
+
+    async def test_it_carries_the_record_a_reader_needs(self, scene: dict[str, Any]) -> None:
+        document = (await export_run(scene["session"], job_id=scene["job"].id)).document
+
+        assert document["schema"] == EXPORT_SCHEMA
+        # Each of these answered a question the first acceptance pass had to ask by hand.
+        for key in (
+            "run",
+            "subject",
+            "steps",
+            "model_calls",
+            "sections",
+            "evaluations",
+            "approvals",
+            "disagreements",
+            "calculations",
+            "counts",
+            "omitted",
+        ):
+            assert key in document, f"the export has no {key!r}"
+        assert document["run"]["job_id"] == str(scene["job"].id)
+        assert document["subject"]["ticker"] == "MSFT"
+
+    async def test_it_serialises_without_the_application(self, scene: dict[str, Any]) -> None:
+        """A document that needs this codebase to read it is not one anybody can paste."""
+        export = await export_run(scene["session"], job_id=scene["job"].id)
+        text = json.dumps(export.document, indent=2, default=str)
+
+        assert json.loads(text)["run"]["job_id"] == str(scene["job"].id)
+        assert str(scene["job"].id) in export.summary
+
+    async def test_it_says_what_it_leaves_out(self, scene: dict[str, Any]) -> None:
+        """The exclusions are part of the document, so a reader knows what silence means."""
+        omitted = (await export_run(scene["session"], job_id=scene["job"].id)).document["omitted"]
+
+        assert "credentials" in omitted
+        assert "licensed_series" in omitted
+
+    async def test_nothing_in_it_is_named_like_a_secret(self, scene: dict[str, Any]) -> None:
+        """Not a redaction — nothing here reads settings — but the assertion is cheap and
+        what it would catch is expensive."""
+        export = await export_run(scene["session"], job_id=scene["job"].id)
+        text = json.dumps(export.document, default=str).lower()
+
+        for forbidden in ("api_key", "secret_key", "sk-ant", "password", "authorization"):
+            assert forbidden not in text, f"the export mentions {forbidden!r}"

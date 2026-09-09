@@ -1,4 +1,5 @@
 """No command pays for a renderer it will not use."""
+
 from __future__ import annotations
 
 import subprocess
