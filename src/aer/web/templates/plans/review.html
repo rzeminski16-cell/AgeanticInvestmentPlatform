@@ -55,10 +55,12 @@
     {% if payload.sections %}
       <ul class="divide-y divide-line" id="plan-sections">
         {% for section in payload.sections %}
+          {% set key = section.get('key', '') %}
           <li class="py-2.5 type-body text-ink">
-            <span class="type-data-sm text-ink-muted">{{ section.get('key', '—') }}</span>
+            <span class="text-ink">{{ section_titles.get(key) or key | concept_name }}</span>
+            <span class="type-data-sm text-ink-muted">{{ key or '—' }}</span>
             {% if section.get('focus') %}
-              <span class="text-ink"> &mdash; {{ section.get('focus') }}</span>
+              <span class="block max-w-prose type-body-sm text-ink-muted">{{ section.get('focus') }}</span>
             {% endif %}
           </li>
         {% endfor %}
@@ -79,7 +81,6 @@
             <thead>
               <tr>
                 <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Section</th>
-                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Title</th>
                 <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Token budget</th>
                 <th scope="col" class="py-2 type-eyebrow text-ink-muted">Estimate</th>
               </tr>
@@ -87,8 +88,10 @@
             <tbody class="divide-y divide-line">
               {% for section in payload.section_listing %}
                 <tr>
-                  <td class="py-2 pr-4 type-data-sm text-ink">{{ section.get('key', '—') }}</td>
-                  <td class="py-2 pr-4 type-body-sm text-ink-muted">{{ section.get('title', '—') }}</td>
+                  <td class="py-2 pr-4 text-ink">
+                    <span class="type-body-sm">{{ section.get('title', '—') }}</span>
+                    <span class="block type-data-sm text-ink-muted">{{ section.get('key', '—') }}</span>
+                  </td>
                   <td class="py-2 pr-4 type-data-sm text-ink">
                     {% if section.get('deterministic') %}
                       {{ ui.status("muted", "Platform-filled") }}

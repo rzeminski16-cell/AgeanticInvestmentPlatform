@@ -660,6 +660,14 @@ async def plan_review(
             "job": job,
             "plan": plan,
             "payload": payload,
+            # The readable name for each section the plan names. The list read
+            # `growth_outlook` and `valuation_dcf` on the screen where a run is approved,
+            # while the spine table under it carried the title all along.
+            "section_titles": {
+                str(row.get("key", "")): str(row.get("title", ""))
+                for row in payload.get("section_listing", [])
+                if row.get("title")
+            },
             # The hash of exactly the structure rendered below. Carried back by the form,
             # so approving a plan that has since changed is refused rather than recorded.
             "payload_hash": payload_hash_for(payload),

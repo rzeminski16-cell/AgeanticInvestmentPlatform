@@ -15,8 +15,13 @@
 
   Actions come after the heading in DOM order and are the caller's block, so keyboard order
   is title, identity, then what you can do about it.
+
+  The bottom margin is the header's own, because `main` stacks its children with no gap:
+  every page's first action sat hard against the sheet below it, and "New request" touching
+  the table under it was what the first acceptance pass noticed. One margin here rather than
+  forty-five copies of one, and there was no gap to double.
 #}
-<header class="flex flex-col gap-3">
+<header class="mb-6 flex flex-col gap-3">
   {%- if breadcrumbs %}
   <nav aria-label="Breadcrumb">
     <ol class="flex flex-wrap items-center gap-2 type-body-sm text-ink-muted">
