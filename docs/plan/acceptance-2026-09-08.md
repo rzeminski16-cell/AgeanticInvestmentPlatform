@@ -812,4 +812,8 @@ where they are declared.
 The side menu — measured above, and waiting on the operator's own words for the grouping.
 
 **The suite stands at 6,856 passed**, against 6,778 at `7c1a733`: seventy-eight tests added
-across the defects, the screens, the two slates and the as-of split, and none removed.
+across the defects, the screens, the two slates and the as-of split, and none removed. The
+browser process is green too — **183 passed** — and it is worth running: two of its
+assertions pinned behaviour this work changed, and neither had a counterpart in the first
+process. A round that stops at `pytest --ignore=tests/e2e` has checked most of the platform
+and none of the screens as a person meets them.
