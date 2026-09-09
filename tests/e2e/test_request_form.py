@@ -81,7 +81,10 @@ class TestHappyPath:
         expect(page.locator("#company-name")).to_have_text("Microsoft Corporation")
         expect(page.locator("#ticker")).to_have_text("MSFT")
         expect(page.locator("#exchange")).to_have_text("NASDAQ")
-        expect(page.locator("#as-of-date")).to_have_text("2026-07-01")
+        # The stamp, which is today (ADR 0110). Nothing on the form set it, and the
+        # detail page carries it because a reader of the report needs to know what the
+        # evidence was judged against.
+        expect(page.locator("#as-of-date")).to_have_text(datetime.now(UTC).date().isoformat())
         # The human label from the vocabulary, not the enum: raw domain values stopped
         # reaching templates in tranche 1 of the overhaul.
         expect(page.locator("#status")).to_contain_text("Draft")
