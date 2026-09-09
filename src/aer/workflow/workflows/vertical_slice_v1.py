@@ -1941,7 +1941,18 @@ async def _brief_challenges(context: StepContext) -> StepResult:
             job_id=str(context.job.id),
             error_code=getattr(exc, "code", ""),
         )
-        return StepResult(output={"written": False}, cost_gbp=agent_context.spend_gbp)
+        # The reason travels in the step's own output, not only in a log line. A step that
+        # spent money and produced nothing recorded `written: False` and no more, which
+        # reads on the console and in `aer diagnose` as a step that simply had nothing to
+        # do — and the first acceptance pass paid £0.0715 for one of those.
+        return StepResult(
+            output={
+                "written": False,
+                "reason": f"The briefer failed: {exc}",
+                "spent": str(agent_context.spend_gbp),
+            },
+            cost_gbp=agent_context.spend_gbp,
+        )
 
     return StepResult(output=outcome.as_dict(), cost_gbp=agent_context.spend_gbp)
 

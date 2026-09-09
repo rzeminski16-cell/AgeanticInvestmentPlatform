@@ -19,22 +19,29 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Final
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from aer.agents.base import AgentContext
+from aer.agents.base import AgentContext, schema_problems
 from aer.agents.challenge_brief import (
     MAX_BRIEFS,
     ChallengeBriefAgent,
     ChallengeBriefInput,
+    ChallengeBriefs,
     UnsettledChallenge,
 )
 from aer.core.disagreement import DisagreementKind, ResolutionOutcome, ResolvedBy
 from aer.db.models import Claim, Disagreement, ReportSection, ResearchRequest
+from aer.errors import BudgetExceededError, ValidationError
 from aer.services.disagreements import disagreements_for_job
+
+# How many times the briefer's reply may fail its schema before the step gives up. One
+# retry, told what was wrong — the same ladder the section writer runs, and for the same
+# reason: the reply is billed whether or not it validates.
+MAX_BRIEF_ATTEMPTS: Final = 2
 
 __all__ = ["BriefOutcome", "brief_unsettled_challenges", "briefs_from_output"]
 
@@ -53,6 +60,13 @@ class BriefOutcome:
     briefs: dict[str, dict[str, Any]] = field(default_factory=dict)
     considered: int = 0
     dropped: int = 0
+    reason: str = ""
+    """Why nothing was written, when nothing was.
+
+    A step that spent money and produced no briefs used to record `written: False` and
+    stop there, which reads on the console and in `aer diagnose` as a step that had
+    nothing to do. The first acceptance pass paid £0.0715 for one of those and the reason
+    — a schema rejection — was only in a log line the operator never sees."""
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -60,6 +74,7 @@ class BriefOutcome:
             "briefs": self.briefs,
             "considered": self.considered,
             "dropped": self.dropped,
+            "reason": self.reason,
         }
 
 
@@ -96,14 +111,19 @@ async def brief_unsettled_challenges(
         return BriefOutcome(written=False)
 
     known = {row.disagreement_id for row in challenges}
-    replies = await ChallengeBriefAgent().run(
-        agent_context,
-        ChallengeBriefInput(
-            company_name=request.company_name,
-            ticker=request.ticker,
-            challenges=challenges,
-        ),
+    replies = await _briefs_with_a_retry(
+        agent_context, request=request, challenges=challenges, job_id=job_id
     )
+    if replies is None:
+        return BriefOutcome(
+            written=False,
+            considered=len(challenges),
+            reason=(
+                "The briefer's reply did not match its schema, twice. The challenges are "
+                "unaffected: the page shows each one's statement, its basis and the two "
+                "controls, as it did before briefs existed."
+            ),
+        )
 
     briefs: dict[str, dict[str, Any]] = {}
     dropped = 0
@@ -123,6 +143,52 @@ async def brief_unsettled_challenges(
     return BriefOutcome(
         written=bool(briefs), briefs=briefs, considered=len(challenges), dropped=dropped
     )
+
+
+async def _briefs_with_a_retry(
+    agent_context: AgentContext,
+    *,
+    request: ResearchRequest,
+    challenges: list[UnsettledChallenge],
+    job_id: uuid.UUID,
+) -> ChallengeBriefs | None:
+    """The briefs, or ``None`` when two attempts both failed their schema.
+
+    **A rejected reply is retried once, told what was wrong with it.** The role runs on
+    the cheapest route at the lowest effort over a schema with four bounded free-text
+    fields per challenge and an id to echo back exactly, which is a shape a small model
+    misses; and the reply is billed whether or not it validates. Without a retry the
+    step's only outcome for a near miss was to pay in full and produce nothing, which is
+    what the first acceptance pass recorded.
+
+    An identical retry would be a known failure at full price, so the refusals go back
+    with it — the same thing the section writer does with its own (gap P6).
+    """
+    problems: list[str] = []
+    for attempt in range(1, MAX_BRIEF_ATTEMPTS + 1):
+        try:
+            return await ChallengeBriefAgent().run(
+                agent_context,
+                ChallengeBriefInput(
+                    company_name=request.company_name,
+                    ticker=request.ticker,
+                    challenges=challenges,
+                    problems=problems,
+                ),
+            )
+        except BudgetExceededError:
+            # Never retried and never swallowed: a cap a nice-to-have can spend past is
+            # not a cap.
+            raise
+        except ValidationError as rejected:
+            problems = schema_problems(rejected)
+            _log.warning(
+                "challenge_briefs.reply_refused",
+                job_id=str(job_id),
+                attempt=attempt,
+                problems=problems,
+            )
+    return None
 
 
 async def _unsettled(session: AsyncSession, *, job_id: uuid.UUID) -> list[UnsettledChallenge]:
