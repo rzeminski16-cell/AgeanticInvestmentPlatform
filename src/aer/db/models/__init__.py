@@ -34,6 +34,7 @@ from aer.db.models.job_step import JobStep
 from aer.db.models.judgement import Decision, Judgement, Premise, Review, ReviewVerdict, Thesis
 from aer.db.models.macro import MacroObservationRow, MacroSeriesRow
 from aer.db.models.obsidian_export import ObsidianExport
+from aer.db.models.operator_slate import OperatorPeer, OperatorTheme
 from aer.db.models.plan import ResearchPlan
 from aer.db.models.plan_skill_pin import PlanSkillPin
 from aer.db.models.portfolio import Portfolio
@@ -93,6 +94,8 @@ __all__ = [
     "MacroObservationRow",
     "MacroSeriesRow",
     "ObsidianExport",
+    "OperatorPeer",
+    "OperatorTheme",
     "PlanSkillPin",
     "Portfolio",
     "Premise",

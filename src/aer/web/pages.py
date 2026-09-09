@@ -118,7 +118,8 @@ from aer.services.sectors import (
 )
 from aer.services.spend import recent_runs, spend_by_role, spend_summary
 from aer.services.subject import subject_name
-from aer.services.themes import THEME_STEP, theme_set_payload, theme_set_required
+from aer.services.themes import THEME_STEP, add_operator_theme, theme_set_required
+from aer.services.themes import payload_for_job as theme_payload_for_job
 from aer.services.valuation_view import GridView, lineage_rows, valuation_view
 from aer.storage.local import LocalArtefactStore
 from aer.web import figures, vocabulary
@@ -906,7 +907,9 @@ async def theme_review(
             status=HTTP_404_NOT_FOUND,
         )
 
-    payload = theme_set_payload(produced)
+    # The whole slate — what the step proposed and what the operator has added — because
+    # that is what the page shows and therefore what the hash must cover.
+    payload = await theme_payload_for_job(session, job_id)
     # The subject's display name travels beside the payload rather than inside it: the
     # hash covers what is being approved, and the name is presentation.
     payload_for_page = dict(payload)
@@ -1607,6 +1610,57 @@ SETTLED_WITHOUT_COMMENT: Final = "Settled without further comment."
 
 def _rationale_or_default(written: str) -> str:
     return written.strip() or SETTLED_WITHOUT_COMMENT
+
+
+@router.post(
+    "/runs/{job_id}/themes/add",
+    summary="Put a theme of your own on this run's slate",
+)
+async def add_theme(
+    request: Request,
+    job_id: uuid.UUID,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Add one theme to the slate this gate is about to hash.
+
+    **An addition, not a confirmation.** The row joins the slate; the gate's approval is
+    still what files the company under anything, and every rationale is still read at full
+    length before any of it becomes an edge (K1, ADR 0065).
+
+    Adding one *after* approving changes the payload and so invalidates that approval —
+    which is the stale-approval rule working rather than a case to route around. The key
+    is slugged by the same function a model's proposal passes through, so an operator
+    founding a theme and a model founding one cannot produce two spellings of one identity.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {k: str(v) for k, v in form.multi_items() if isinstance(v, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was added.",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        await add_operator_theme(
+            session,
+            job=job,
+            label=submitted.get("label", ""),
+            rationale=submitted.get("rationale", ""),
+            actor=user,
+        )
+    except ValidationError as refused:
+        return _problem(request, str(refused), status=HTTP_422_UNPROCESSABLE_CONTENT)
+
+    await session.commit()
+    return RedirectResponse(f"/runs/{job_id}/themes", status_code=HTTP_303_SEE_OTHER)
 
 
 @router.post("/runs/{job_id}/gates/{gate}", summary="Record a gate decision")

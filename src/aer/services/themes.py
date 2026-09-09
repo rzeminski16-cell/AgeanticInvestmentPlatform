@@ -32,17 +32,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aer.core.enums import Decision, GateKind
 from aer.core.hashing import canonical_json, sha256_hex
-from aer.db.models import Approval, Job, JobStep, Report, Theme, ThemeMembership
-from aer.errors import AerError
+from aer.db.models import (
+    Approval,
+    Job,
+    JobStep,
+    OperatorTheme,
+    Report,
+    Theme,
+    ThemeMembership,
+    User,
+)
+from aer.errors import AerError, ValidationError
 
 __all__ = [
     "THEME_STEP",
     "ThemeSetNotConfirmedError",
+    "add_operator_theme",
     "confirmed_theme_set",
     "existing_vocabulary",
     "gate_payload_for_job",
     "normalised_slate",
+    "operator_themes_for_job",
+    "payload_for_job",
     "record_confirmed_themes",
+    "slate_for_job",
     "slugged",
     "theme_set_payload",
     "theme_set_required",
@@ -179,9 +192,10 @@ async def confirmed_theme_set(session: AsyncSession, job: Job) -> tuple[dict[str
             Refusals rather than empty results, because "no themes" and "themes nobody
             has agreed to" mean opposite things.
     """
-    step = await _proposal_step(session, job.id)
-    produced = (step.output_ref or {}) if step is not None else {}
-    payload = theme_set_payload(produced)
+    # The whole slate, additions included: the operator approved what the page showed, and
+    # the page shows both halves. Verifying against the proposal alone would accept an
+    # approval of a slate nobody was ever offered.
+    payload = await payload_for_job(session, job.id)
 
     if not payload["themes"]:
         return ()
@@ -237,7 +251,25 @@ async def gate_payload_for_job(session: AsyncSession, job_id: uuid.UUID) -> dict
     step = await _proposal_step(session, job_id)
     if step is None or not step.output_ref:
         return {}
-    return theme_set_payload(step.output_ref)
+    return await payload_for_job(session, job_id)
+
+
+async def payload_for_job(session: AsyncSession, job_id: uuid.UUID) -> dict[str, Any]:
+    """The gate's payload over the whole slate — the step's proposal and the operator's.
+
+    **One funnel.** The page renders this, the approval hashes this, and
+    `confirmed_theme_set` verifies against this, so the three cannot disagree about what
+    was agreed to. It is the reason an addition is a row rather than a rewrite of the
+    step's recorded output: the record stays the record, and the payload is assembled.
+
+    Adding a theme after approving changes the payload and therefore invalidates the
+    approval — which is the stale-approval rule working, not a problem to route around.
+    """
+    step = await _proposal_step(session, job_id)
+    produced = (step.output_ref or {}) if step is not None else {}
+    payload = theme_set_payload(produced)
+    payload["themes"] = await slate_for_job(session, job_id)
+    return payload
 
 
 async def record_confirmed_themes(
@@ -292,3 +324,101 @@ async def record_confirmed_themes(
             keys=recorded,
         )
     return tuple(recorded)
+
+
+async def operator_themes_for_job(
+    session: AsyncSession, job_id: uuid.UUID
+) -> list[tuple[str, str, str]]:
+    """What the operator added to this run's slate, as ``normalised_slate`` takes it.
+
+    Oldest first, so the slate reads in the order it was built and a second render puts
+    nothing in a new place.
+    """
+    rows = await session.scalars(
+        select(OperatorTheme)
+        .where(OperatorTheme.job_id == job_id)
+        .order_by(OperatorTheme.created_at, OperatorTheme.key)
+    )
+    return [(row.key, row.label, row.rationale) for row in rows]
+
+
+async def add_operator_theme(
+    session: AsyncSession, *, job: Job, label: str, rationale: str, actor: User
+) -> OperatorTheme:
+    """Put one theme of the operator's own on this run's slate.
+
+    **An addition, not a confirmation.** The row joins the slate the gate is about to
+    hash; the gate's approval is still what files the company under anything. Adding one
+    after approving invalidates that approval by changing the payload, which is the stale
+    approval rule working rather than a problem to work around.
+
+    The key is slugged by the same function a model's proposal passes through, so an
+    operator founding a theme and a model founding one cannot produce two spellings of one
+    identity.
+
+    Raises:
+        ValidationError: If the label slugs to nothing, if the rationale is blank, or if
+            this run's slate already carries the key — from the model or from the
+            operator. A rationale is required for the reason the gate shows every one at
+            full length: a theme shapes how every later reader weighs the company, and it
+            does so invisibly.
+    """
+    key = slugged(label)
+    if not key:
+        message = (
+            f"{label!r} does not name a theme. A theme's identity is its key, and this "
+            "one has no letters or digits to make one from."
+        )
+        raise ValidationError(message, context={"label": label})
+    if not rationale.strip():
+        message = (
+            "A theme needs a reason. It shapes how every later reader of the library "
+            "weighs this company, and it does so invisibly — which is why the gate shows "
+            "every rationale at full length."
+        )
+        raise ValidationError(message, context={"key": key})
+
+    proposed = {theme["key"] for theme in await slate_for_job(session, job.id)}
+    if key in proposed:
+        message = (
+            f"This run's slate already carries {key!r}. A theme joins a run once; if the "
+            "rationale on it is wrong, that is the proposal to argue with rather than a "
+            "second row."
+        )
+        raise ValidationError(message, context={"key": key, "job_id": str(job.id)})
+
+    row = OperatorTheme(
+        job_id=job.id,
+        key=key,
+        label=label.strip(),
+        rationale=rationale.strip(),
+        added_by=actor.email,
+    )
+    session.add(row)
+    await session.flush()
+
+    _log.info(
+        "theme.added_by_operator",
+        job_id=str(job.id),
+        key=key,
+        actor=actor.email,
+    )
+    return row
+
+
+async def slate_for_job(session: AsyncSession, job_id: uuid.UUID) -> list[dict[str, Any]]:
+    """The run's whole slate: what the step proposed, then what the operator added.
+
+    One funnel, so the page, the gate's hash and `confirmed_theme_set` cannot disagree
+    about what is being approved. Both halves go through `normalised_slate`, which is
+    where slugging, de-duplication and the ``existing`` flag live — an operator's addition
+    is held to the identity rules a model's proposal is held to.
+    """
+    step = await _proposal_step(session, job_id)
+    produced = (step.output_ref or {}) if step is not None else {}
+    proposed = theme_set_payload(produced)["themes"]
+    added = await operator_themes_for_job(session, job_id)
+    if not added:
+        return list(proposed)
+    entries = [(theme["key"], theme["label"], theme["rationale"]) for theme in proposed] + added
+    return await normalised_slate(session, entries)

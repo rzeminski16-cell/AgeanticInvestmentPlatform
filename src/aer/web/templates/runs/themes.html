@@ -41,6 +41,53 @@
         </li>
       {% endfor %}
     </ul>
+    {#
+      One of your own. An addition, not a confirmation: it joins the slate this gate is
+      about to hash, and approving is still what files the company under anything. Adding
+      one after approving changes the payload and invalidates that approval, which is the
+      stale-approval rule working rather than a case to route around.
+    #}
+    {% if not decided %}
+      <form
+        method="post"
+        action="/runs/{{ job.id }}/themes/add"
+        class="mt-4 flex flex-col gap-2 border-t border-line pt-4"
+        id="add-theme"
+      >
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+        <p class="type-label text-ink">Add a theme of your own</p>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-start">
+          <label for="theme-label" class="sr-only">Theme name</label>
+          <input
+            id="theme-label"
+            name="label"
+            required
+            maxlength="120"
+            placeholder="AI capital expenditure"
+            class="min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink sm:max-w-xs"
+          />
+          <label for="theme-rationale" class="sr-only">Why this company belongs</label>
+          <input
+            id="theme-rationale"
+            name="rationale"
+            required
+            maxlength="600"
+            placeholder="Why this company belongs under it"
+            class="min-h-11 w-full rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink"
+          />
+          <button
+            type="submit"
+            class="inline-flex min-h-11 shrink-0 items-center rounded-sm border border-control-boundary bg-surface px-3 type-label text-ink hover:bg-surface-selected"
+          >Add</button>
+        </div>
+        <p class="max-w-prose type-body-sm text-ink-muted">
+          The name becomes a key the library matches on, so one that already exists joins
+          that theme rather than founding a rival spelling. The reason is required and is
+          read at the same length as the proposed ones.
+        </p>
+      </form>
+    {% endif %}
+
     {% if payload.proposed_by %}
       <p class="mt-3 type-body-sm text-ink-muted" id="proposed-by">
         Proposed by <span class="type-data-sm">{{ payload.proposed_by }}</span>. Keys are
