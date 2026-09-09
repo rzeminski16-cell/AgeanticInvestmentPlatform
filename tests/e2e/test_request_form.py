@@ -10,7 +10,7 @@ attribute or a submit button outside the ``<form>``.
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -50,7 +50,6 @@ def fill_valid(page: Page, **overrides: str) -> None:
     typed = {
         "company_name": "Microsoft Corporation",
         "ticker": "msft",
-        "as_of_date": "2026-07-01",
         "investment_horizon_months": "36",
         "current_weight_percent": "2.5",
         "maximum_weight_percent": "5",
@@ -118,16 +117,15 @@ class TestHappyPath:
 
 
 class TestRejection:
-    def test_a_future_as_of_date_shows_an_inline_error_and_creates_nothing(
+    def test_a_cost_above_the_platform_budget_shows_an_inline_error_and_creates_nothing(
         self, page: Page, live_server: str
     ):
-        tomorrow = (datetime.now(UTC).date() + timedelta(days=1)).isoformat()
         page.goto(f"{live_server}/requests/new")
-        fill_valid(page, as_of_date=tomorrow)
+        fill_valid(page, max_cost_gbp="999.00")
         page.click("#submit")
 
         expect(page.locator("#error-summary")).to_be_visible()
-        expect(page.locator("#error-summary")).to_contain_text("in the future")
+        expect(page.locator("#error-summary")).to_contain_text("budget")
         # Still on the form. Nothing was created, and the URL not having changed is the
         # visible proof of that.
         expect(page).to_have_url(f"{live_server}/requests/new")
@@ -269,6 +267,23 @@ class TestEditingADraft:
         # Two radios rather than a checkbox since tranche 5, so each state has a name;
         # the id carries the value it selects.
         expect(page.locator("#point_in_time-true")).to_be_checked()
+        expect(page.locator("#undated_sources_admissible-true")).to_be_checked()
+
+    def test_the_form_states_the_run_date_instead_of_asking_for_it(
+        self, page: Page, live_server: str
+    ):
+        """ADR 0110, in the browser: there is no input, and the date is on the page.
+
+        The statement sits above the hindsight choice it governs, because an operator who
+        cannot see the date cannot tell what that choice will be applied to.
+        """
+        page.goto(f"{live_server}/requests/new")
+
+        expect(page.locator("#as-of-statement")).to_be_visible()
+        expect(page.locator("#as-of-statement")).to_contain_text(
+            datetime.now(UTC).date().isoformat()
+        )
+        expect(page.locator("#as_of_date")).to_have_count(0)
 
     def test_changing_a_value_and_saving_updates_the_request(self, page: Page, live_server: str):
         self.create(page, live_server)
@@ -284,8 +299,7 @@ class TestEditingADraft:
         self.create(page, live_server)
         page.click("#edit-request")
 
-        tomorrow = (datetime.now(UTC).date() + timedelta(days=1)).isoformat()
-        page.fill("#as_of_date", tomorrow)
+        page.fill("#max_cost_gbp", "999.00")
         open_refinement(page)
         page.fill("#horizon_label", "Kept, please")
         page.click("#submit")

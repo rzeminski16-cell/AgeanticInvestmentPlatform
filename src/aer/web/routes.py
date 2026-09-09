@@ -114,7 +114,10 @@ def _edit_page(item: Any) -> _FormPage:
         submit_label="Save changes",
         cancel_href=f"/requests/{item.id}",
         error_summary_heading="This request was not saved",
-        extra={"item": item},
+        # This request's own stamp, which is not today's date and must not read as it.
+        # An edit cannot move it (ADR 0110), so the statement on the shared form has to
+        # say what the run *is* dated rather than what a run started now would be.
+        extra={"item": item, "as_of": item.work_order.as_of_date.isoformat()},
     )
 
 
@@ -185,6 +188,9 @@ def _form_context(
         "risk_tolerances": list(RiskTolerance),
         "esg_sensitivities": list(EsgSensitivity),
         "today": datetime.now(UTC).date().isoformat(),
+        # The date this form's request is, or will be, dated to. `page.extra` overrides it
+        # on the edit form, which is a request already stamped. See `_edit_page`.
+        "as_of": datetime.now(UTC).date().isoformat(),
         "errors": parsed.errors if parsed else {},
         # A rejected submission wins over the stored row: re-rendering the saved values
         # would throw away everything the operator just typed and silently undo the edit

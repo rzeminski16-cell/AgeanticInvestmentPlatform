@@ -68,7 +68,13 @@
         only correct answer it already knows.
       #}
       <p class="type-body text-ink" id="as-of-statement">
-        Dated <span class="type-data">{{ today }}</span>, the day you commission it.
+        {% if as_of == today %}
+          Dated <span class="type-data" data-field="as-of">{{ as_of }}</span>, the day you
+          commission it.
+        {% else %}
+          Dated <span class="type-data" data-field="as-of">{{ as_of }}</span>, the day it was
+          commissioned. An edit cannot move it.
+        {% endif %}
         Every source is judged against that date, and the run's own record carries it.
       </p>
       {#

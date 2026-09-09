@@ -811,5 +811,5 @@ where they are declared.
 
 The side menu — measured above, and waiting on the operator's own words for the grouping.
 
-**The suite stands at 6,832 passed**, against 6,778 at `7c1a733`: fifty-four tests added
-across the defects, the screens and the two slates, and none removed.
+**The suite stands at 6,856 passed**, against 6,778 at `7c1a733`: seventy-eight tests added
+across the defects, the screens, the two slates and the as-of split, and none removed.

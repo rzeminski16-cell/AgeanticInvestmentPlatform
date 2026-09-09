@@ -297,7 +297,6 @@ class TestTheKeyboardAlone:
         answers = {
             "company_name": "Microsoft Corporation",
             "ticker": "MSFT",
-            "as_of_date": "31122025",
             "max_cost_gbp": "5",
             # The refine-mandate disclosure stays closed, as a first-time reader would
             # leave it: the blank form now seeds the defaults its hints promise, and the
@@ -312,8 +311,8 @@ class TestTheKeyboardAlone:
             if stop is None:
                 pytest.fail("focus left the page before the form was submitted")
             if stop["tag"] == "input" and stop["name"] in answers and stop["name"] not in answered:
-                # A date input keeps focus across several Tab presses (its segments are
-                # one activeElement), so an answer is given once, not per stop.
+                # Answered once, not per stop: a stop can be revisited, and typing into a
+                # field a second time appends rather than replaces.
                 answered.add(stop["name"])
                 page.keyboard.type(answers[stop["name"]])
             elif stop["tag"] == "select":

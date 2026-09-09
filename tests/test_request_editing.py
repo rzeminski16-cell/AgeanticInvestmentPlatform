@@ -20,7 +20,7 @@ import ast
 import inspect
 import textwrap
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
@@ -28,6 +28,7 @@ import pytest
 from aer.core.enums import AnalysisMode
 from aer.db.models import ResearchRequest, WorkOrder
 from aer.services import requests as request_service
+from aer.web import routes
 from aer.web.forms import (
     FORM_FIELDS,
     form_values_from,
@@ -199,6 +200,20 @@ class TestTheFormRoundTrip:
         assert parsed.payload.risk_tolerance is None
         assert parsed.payload.liquidity_constraint_gbp is None
         assert parsed.payload.portfolio_context.is_empty()
+
+    def test_the_edit_form_states_the_requests_own_date_not_todays(self) -> None:
+        """The two form pages share one template, and the statement is not a default.
+
+        An edit form printing today would tell an operator their March run is dated
+        September. It cannot be moved (ADR 0110), so what the page owes them is the date
+        the run actually carries.
+        """
+        stored = a_request(as_of_date=date(2022, 6, 30))
+
+        page = routes._edit_page(stored)
+
+        assert page.extra["as_of"] == "2022-06-30"
+        assert page.extra["as_of"] != datetime.now(UTC).date().isoformat()
 
     def test_point_in_time_off_renders_as_the_chosen_radio(self) -> None:
         # The control is a pair of radios and the parser reads which one was chosen, so
