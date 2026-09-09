@@ -851,8 +851,9 @@ the side menu have all landed. What remains are the two questions §7 asked and 
 has not answered — whether the EODHD tier includes `/api/fundamentals`, and whether Windows
 is the only target — neither of which blocks anything.
 
-**The suite stands at 6,856 passed**, against 6,778 at `7c1a733`: seventy-eight tests added
-across the defects, the screens, the two slates and the as-of split, and none removed. The
+**The suite stands at 6,865 passed**, against 6,778 at `7c1a733`: eighty-seven tests added
+across the defects, the screens, the two slates, the as-of split and the side menu, and none
+removed. The
 browser process is green too — **183 passed** — and it is worth running: two of its
 assertions pinned behaviour this work changed, and neither had a counterpart in the first
 process. A round that stops at `pytest --ignore=tests/e2e` has checked most of the platform
