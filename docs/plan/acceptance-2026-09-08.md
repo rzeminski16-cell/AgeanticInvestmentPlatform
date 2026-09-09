@@ -560,3 +560,53 @@ The vocabulary and its ratchet; the four gate redesigns; custom themes and peers
 comprehensive run export; then the as-of split as two ADRs. §7's remaining questions —
 EODHD's subscription, and whether Windows is the only target — are still open and do not
 block any of it.
+
+### The screens, and the operator's own tooling
+
+Worked after the defects, in the order §7 set.
+
+- **The vocabulary and its ratchet.** `TriggerKind` joins the mapped enums; the review page
+  resolves each section's title; `in_words` is registered as a filter on every template so a
+  value reaches its label without each handler remembering to resolve it. Then the ratchet,
+  modelled on the palette migration: raw identifiers reaching a reader, counted per
+  template, **19 at the start and 13 now**, each remaining entry carrying the reason it is
+  still there. Most of what is left is an operator's own skill key or a provenance name from
+  a stored ledger row.
+- **The financials gate.** 4,754 rows headed "Concept" are now statement lines: the newest
+  period leads, earlier ones sit behind a count, and the figures are in the house style.
+  `Revenue · 1 July 2024 – 30 June 2025 · $331,839m · 12 periods` where it read `revenue ·
+  2024-07-01 – 2025-06-30 · 331839000000 USD`. Grouped, not filtered — the gate asks whether
+  anything is missing, so a page that quietly dropped an observation would be answering its
+  own question — and it still reads the payload the hash covers.
+- **The assumptions gate.** A rate reads as a rate, with what is stored beside it; the ones
+  that are not fractions are named rather than inferred, because an exit multiple of 12
+  means twelve times. "Confirm all" carries the same list hash a single confirmation does.
+  And a value the operator types is confirmed by the act of typing it — the second click
+  recorded the same person agreeing with themselves, and the control that was always the
+  real one, the gate's own approval over the whole list, is untouched.
+- **The plan review** shows section titles in both lists, and `page_header` no longer lets
+  its first action sit hard against the sheet below it — one margin rather than
+  forty-five copies of one.
+- **`aer export-run`**, and `aer diagnose --output`. What each finding in this document had
+  to be established by hand is now one file: every step's recorded output, every model call
+  with its stop reason and both payload hashes, every section with what it was refused for,
+  the evaluations with their thresholds, the approvals with the hash each covered, and every
+  calculation with its inputs. No credentials, no licensed series, no embedded payloads —
+  and the exclusions are in the document, so silence is legible.
+
+### Found on the way, and left alone deliberately
+
+**The suite passes or fails by file order.** Running `tests/test_gates.py` before
+`tests/test_every_page_renders.py` makes the latter error in its fixture with "No research
+request …"; the reverse order is green, and so is the full suite in its canonical order. It
+reproduces identically at `7c1a733` with none of this branch's changes, so it is not a
+regression — but a suite whose answer depends on which files you name is one an acceptance
+pass cannot trust, and `_TABLES` in that file truncates `research_requests` without
+`work_orders`, which is the first place to look. Not fixed here because it is nobody's
+finding yet and the fix wants its own reading.
+
+### Still open
+
+The draft review's figure formatting beyond what the vocabulary work reached; the side
+menu; the compact challenges screen (which needed `brief_challenges` working first, and now
+has it); operator-added themes and peers; and the as-of split as two ADRs.
