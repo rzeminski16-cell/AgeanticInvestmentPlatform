@@ -45,16 +45,16 @@ at boundaries rather than in half-built features.
 
 ### Row 6 is Windows-only
 
-The failing test was re-run on Linux against a real PostgreSQL 16 and the pre-installed
-Chromium, at the same commit:
+Both suites were re-run on Linux at the same commit, against a real PostgreSQL 16, a real
+Redis and the pre-installed Chromium — **6,778 passed, 2 deselected, in 28 minutes**, and
+**182 of 182** in the browser suite. The suite is green. Including the test that failed for
+the operator:
 
 ```
 tests/e2e/test_research_journey.py::TestTheWholeThing::test_from_the_front_page_to_a_finished_report
 1 passed in 31.61s
 ```
 
-and the whole browser suite with it: **181 passed and one failed for want of a Redis this
-environment did not have**, which passed as soon as Redis was up — 182 of 182.
 `net::ERR_ABORTED` on the second navigation is
 therefore a property of the operator's Windows host, not of the application. That downgrades
 it from "the product is broken" to "the acceptance pass cannot go green on the machine the
