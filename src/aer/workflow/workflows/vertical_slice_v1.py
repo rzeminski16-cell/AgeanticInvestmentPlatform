@@ -102,7 +102,6 @@ from aer.providers.protocol import SpentButUnusableError
 from aer.render.document import assemble_document
 from aer.render.html import render_html
 from aer.render.markdown import SectorNote, serialise_markdown
-from aer.render.pdf import render_pdf
 from aer.sections.deterministic import SectionStage, fill_deterministic_sections
 from aer.sections.evidence import SectionExecution
 from aer.sections.registry import create_report_sections, resolve_sections, sections_for_job
@@ -3728,6 +3727,14 @@ async def _render(context: StepContext) -> StepResult:
 
     pdf_sha256 = None
     if approval is not None and approval.decided_at is not None:
+        # Imported here rather than at module scope. WeasyPrint loads the native GTK
+        # stack the moment it is imported, which on Windows prints several
+        # GLib-GIO-WARNING lines to stderr — for `aer diagnose`, `aer preflight`, `aer
+        # config` and every other command that will never render a document. The
+        # operator's whole acceptance pass was read through that noise. Nothing else in
+        # this module needs the renderer, and this is the one branch that does.
+        from aer.render.pdf import render_pdf  # noqa: PLC0415 -- the GTK stack is this branch's
+
         stored_html = await store.read(html_artefact.sha256)
         pdf_bytes = render_pdf(
             stored_html.decode("utf-8"),
