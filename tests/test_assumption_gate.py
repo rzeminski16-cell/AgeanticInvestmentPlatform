@@ -18,13 +18,14 @@ gate was unreachable by construction.
 from __future__ import annotations
 
 import uuid
+from collections.abc import AsyncIterator
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aer.agents.assumptions import PROPOSED_BY as OPINION_BY
@@ -1366,6 +1367,21 @@ class TestTheGateVerifiesTheRowsNotTheRecord:
 class TestConfirmingIsOneActNotTen:
     """The operator's own pass: every value the run proposed needed its own click, on the
     one gate where the real work is reading the list rather than pressing the buttons."""
+
+    @pytest.fixture(autouse=True)
+    async def _clear_assumptions_afterwards(self, db_engine: Any) -> AsyncIterator[None]:
+        """These two drive the real API, so their writes commit and outlive the test.
+
+        Every other test in this file that commits writes rows nothing downstream asserts
+        over. These write *assumptions*, and `tests/test_assumption_proposals.py` asserts
+        that a fresh proposal run writes exactly its own — so a leftover `terminal_growth`
+        there is a failure two files away with nothing in its message to say why.
+        """
+        yield
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            await session.execute(delete(Assumption))
+            await session.commit()
 
     async def test_confirm_all_agrees_to_every_valued_proposal(
         self, api: Any, at_the_gate: dict, db_engine: Any

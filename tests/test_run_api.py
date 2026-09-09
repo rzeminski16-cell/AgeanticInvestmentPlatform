@@ -40,6 +40,7 @@ from aer.core.disagreement import (
     ResolvedBy,
 )
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
+from aer.core.escalation import TriggerKind
 from aer.db.models import (
     Approval,
     AuditEvent,
@@ -61,6 +62,7 @@ from aer.db.models.report_section import SectionStatus
 from aer.services import runs as run_service
 from aer.services.red_team import _shortened
 from aer.web.csrf import CSRF_FIELD_NAME
+from aer.web.vocabulary import TRIGGER_KINDS
 from aer.workflow.workflows.vertical_slice_v1 import WORKFLOW_VERSION
 from tests.api_fixtures import build_app, client_for
 from tests.request_fixtures import research_request
@@ -1347,8 +1349,12 @@ class TestTheWebPages:
         assert page.status_code == 200
 
         assert 'id="triggers"' in page.text
-        assert "low_source_coverage" in page.text
-        assert "material_missing_section" in page.text
+        # The words, not the enum. `low_source_coverage` and `material_missing_section`
+        # were the two headings over the operator's own review; `TriggerKind` is mapped in
+        # `web.vocabulary` now and the completeness test holds it there.
+        assert TRIGGER_KINDS[TriggerKind.LOW_SOURCE_COVERAGE].label in page.text
+        assert TRIGGER_KINDS[TriggerKind.MATERIAL_MISSING_SECTION].label in page.text
+        assert "low_source_coverage" not in page.text
 
         assert 'id="validations"' in page.text
         assert "citation_accuracy" in page.text

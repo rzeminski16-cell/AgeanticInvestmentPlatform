@@ -387,10 +387,29 @@ does need writing down.
 ## 5. The as-of date: this is two questions, not one
 
 The operator wants the as-of date removed: *"The publishing date should only matter for context
-but it should be used when needed."* The footprint is real — **527 references across 86 source
-files, 832 across the tests, six migrations, seventeen templates** — and CLAUDE.md's invariant 4
-and ADR 0010 both stand behind it. But the request divides cleanly, and the two halves cost
-wildly different amounts.
+but it should be used when needed."* CLAUDE.md's invariant 4 and ADR 0010 both stand behind it.
+But the request divides cleanly, and the two halves cost wildly different amounts.
+
+**First, the size, because the obvious measurement overstates it badly.** `as_of_date` is
+mentioned 527 times across 86 source files and 832 times across the tests, which is what a
+grep says and is not what the change costs: almost all of those are the date being *carried*
+— a field, an argument, a serialisation. The places where it **changes behaviour** number
+about fifteen, and they are worth naming because they are what a decision here actually
+touches:
+
+| Where | What the date does |
+|---|---|
+| `sources/sec/{client,submissions,fulltext}.py`, `sources/uk/companies_house.py` | Selects filings filed on or before it |
+| `services/facts.py` | Selects facts by `filed_date` |
+| `services/peer_discovery.py` | Bounds a peer's periods |
+| `services/sources.py` | The quarantine rule — **both branches**, and §3 is about separating them |
+| `services/evaluations.py`, `services/escalation.py` | Detects look-ahead and reports it |
+| `services/history.py`, `obsidian/graph.py` | Reporting only |
+
+And two of them already show the way: `services/filings.py:306` and `services/research.py:274`
+both read `as_of = request.work_order.as_of_date if request.work_order.point_in_time else None`,
+and every adapter treats `None` as "do not filter". **A coherent no-filtering path already
+exists and is exercised.**
 
 **Question one: may the operator choose a historical as-of date?** Removing that is cheap and
 safe. Point-in-time selection is `select_point_in_time`, and with the date fixed at *today*, "the
