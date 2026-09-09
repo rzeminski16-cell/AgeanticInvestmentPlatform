@@ -225,9 +225,33 @@ class SourceTier(StrEnum):
         """Whether a claim may cite this tier as evidence at all."""
         return self is not SourceTier.T6_UNVERIFIED
 
+    def as_evidence(self, *, dated: bool) -> SourceTier:
+        """This tier as an evidence policy must read it, capped where the date is unknown.
+
+        ADR 0111 admits a document nobody can date — refusing every one of them is why a
+        run's plan named news sources and its evidence table held none — and this is the
+        other half of that decision. A page that cannot be dated is not the regulator's
+        record of a filing; it is a page asserting one, and the tier is a statement about
+        *what compels the publisher to be accurate*, which is exactly what an undatable
+        copy of a document no longer carries.
+
+        So it is capped at :attr:`T5_SECONDARY`: usable, corroborating, and never the
+        primary source a section's policy requires. That is what tier 5 already means, so
+        the rule is said in the vocabulary the platform has rather than in a seventh tier
+        nothing else would know how to read.
+
+        Tiers 5 and 6 are returned unchanged. The cap is a floor, and neither is above it.
+        """
+        if dated or self.rank >= _UNDATED_TIER_FLOOR:
+            return self
+        return SourceTier.T5_SECONDARY
+
 
 # Tiers 1 and 2 are primary: the regulator's copy and the issuer's own copy.
 _PRIMARY_TIER_LIMIT = 2
+
+# The best an undated document may count for. See `SourceTier.as_evidence` and ADR 0111.
+_UNDATED_TIER_FLOOR = 5
 
 
 class FactBasis(StrEnum):

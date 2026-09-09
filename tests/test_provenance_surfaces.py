@@ -34,6 +34,7 @@ from aer.db.models import Extraction
 from aer.services import provenance
 from aer.services.citations import override_citation
 from aer.storage.local import LocalArtefactStore
+from aer.web.vocabulary import QUARANTINE_REASONS
 from tests.api_fixtures import build_app, client_for
 from tests.provenance_fixtures import (
     FABRICATED,
@@ -432,7 +433,29 @@ class TestTheSourcesPage:
         html = (await client.get(f"/runs/{built['job'].id}/sources")).text
 
         assert "Quarantined:" in html
-        assert built["quarantine_reason"] in html
+        # The reason in words, not its key. `no_publication_date` on a page a person reads
+        # is the state the vocabulary exists to end, and a refusal's reason was the one
+        # thing the raw-identifier ratchet exempted on the argument that it was a sentence.
+        assert built["quarantine_reason"] not in html
+        assert QUARANTINE_REASONS[built["quarantine_reason"]] in html
+
+    async def test_an_undated_source_says_so_and_shows_both_tiers(self, served: Any) -> None:
+        """ADR 0111 on the evidence table.
+
+        The fixture's announcement carries no publication date, so the tier a policy reads
+        is 5 and the tier acquisition recorded is 2. Both appear: the cap alone reads as a
+        mis-tiered document, and the record alone hides the rule.
+        """
+        client, built = served
+
+        html = (await client.get(f"/runs/{built['job'].id}/sources")).text
+        row = re.search(rf'<tr\s+id="source-{built["quarantined"].id}".*?</tr>', html, re.DOTALL)
+        assert row is not None
+        cells = row.group(0)
+
+        assert 'data-field="undated">Undated<' in cells
+        assert "recorded T2_ISSUER" in cells
+        assert f'data-evidence-tier="{SourceTier.T5_SECONDARY.value}"' in cells
 
     async def test_the_tier_is_printed_and_not_only_coloured(self, served: Any) -> None:
         # Colour is an aid. A reader who cannot distinguish the greens still has to be able
@@ -445,8 +468,11 @@ class TestTheSourcesPage:
         html = (await client.get(f"/runs/{built['job'].id}/sources")).text
 
         badges = re.findall(r'data-field="tier"[^>]*>\s*([A-Z0-9_]+)\s*<', html)
+        # The evidence tier, which is what the badge is for: the fixture's undated
+        # announcement is tier 2 on the record and worth tier 5 (ADR 0111), and the row
+        # says both — see `test_an_undated_source_says_so_and_shows_both_tiers`.
         assert SourceTier.T1_REGULATORY.value in badges
-        assert SourceTier.T2_ISSUER.value in badges
+        assert SourceTier.T5_SECONDARY.value in badges
 
     async def test_the_artefact_digest_is_shown(self, served: Any) -> None:
         client, built = served

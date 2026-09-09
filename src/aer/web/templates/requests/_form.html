@@ -81,7 +81,26 @@
            "label": "Allow later-published sources",
            "consequence": "This run can no longer be treated as a clean historical replay. Later knowledge can reach a conclusion about an earlier date, which is the bias backward-looking analysis exists to avoid."},
         ],
-        chosen=("false" if values and not values.get("point_in_time") else "true"),
+        chosen=(values.get("point_in_time") or "true"),
+      ) }}
+      {#
+        The second half of the same question, and a separate control since ADR 0111. It used
+        to ride on the radios above: choosing point-in-time also refused every page whose
+        publication date nothing could establish, which is why a run's plan named news
+        sources and its evidence table held none.
+      #}
+      {{ ui.choice_group(
+        "undated_sources_admissible",
+        "May this run read a page it cannot date?",
+        [
+          {"value": "true",
+           "label": "Yes, and never as a primary source — recommended",
+           "consequence": "An undated page counts as tier 5 whoever published it, so it can corroborate and can never be the primary source a section requires. It is marked as undated wherever it appears."},
+          {"value": "false",
+           "label": "No, refuse it at acquisition",
+           "consequence": "Every page without a discoverable publication date is quarantined, including most news reporting. The run keeps the document and the record of refusing it."},
+        ],
+        chosen=(values.get("undated_sources_admissible") or "true"),
       ) }}
     </div>
   {% endcall %}

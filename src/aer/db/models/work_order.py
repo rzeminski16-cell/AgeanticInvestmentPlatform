@@ -112,6 +112,16 @@ class WorkOrder(Base):
     # in code, per invariant 4; this is what the enforcement reads.
     point_in_time: Mapped[bool] = mapped_column(nullable=False, server_default=text("true"))
 
+    # Whether a document whose publication date nothing establishes may be used at all.
+    # A separate policy from the one above, and separate since ADR 0111: the two used to
+    # share `point_in_time`, so the only way to read an undated news page was to switch
+    # off the look-ahead check as well. Defaults to admitting them, and the cap that makes
+    # that safe is in `SourceTier.as_evidence` rather than here — an undated document may
+    # corroborate and may never be the primary source a section's policy requires.
+    undated_sources_admissible: Mapped[bool] = mapped_column(
+        nullable=False, server_default=text("true"), default=True
+    )
+
     # -- Control -------------------------------------------------------------------------
 
     max_cost_gbp: Mapped[Decimal] = mapped_column(

@@ -195,12 +195,13 @@ class TestTheFormRoundTrip:
         assert parsed.payload.liquidity_constraint_gbp is None
         assert parsed.payload.portfolio_context.is_empty()
 
-    def test_point_in_time_off_renders_as_an_absent_checkbox(self) -> None:
-        # An unchecked box submits nothing at all, so "" is the only honest representation.
-        # Rendering "false" would read back as *present*, and silently turn the guard on.
+    def test_point_in_time_off_renders_as_the_chosen_radio(self) -> None:
+        # The control is a pair of radios and the parser reads which one was chosen, so
+        # the honest representation is the word. Rendering "" left neither radio checked
+        # and read back as *true*, which is how the guard could not be turned off at all.
         values = form_values_from(a_request(point_in_time=False))
 
-        assert values["point_in_time"] == ""
+        assert values["point_in_time"] == "false"
         parsed = parse_request_form(values)
         assert parsed.payload is not None
         assert parsed.payload.point_in_time is False

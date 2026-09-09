@@ -120,12 +120,15 @@ class TestTheCorpus:
         assert _extract(case) is None
 
     @pytest.mark.parametrize("case", UNDATABLE, ids=lambda c: c.name)
-    def test_an_undatable_document_is_quarantined_under_point_in_time(self, case: Planted) -> None:
+    def test_an_undatable_document_is_quarantined_where_the_run_refuses_them(
+        self, case: Planted
+    ) -> None:
         decision = decide_quarantine(
             publication_date=None,
             point_in_time=True,
             source_tier=SourceTier.T1_REGULATORY,
             as_of_date=AS_OF,
+            undated_sources_admissible=False,
         )
 
         assert decision.quarantined
@@ -133,17 +136,30 @@ class TestTheCorpus:
         assert _extract(case) is None
 
     @pytest.mark.parametrize("case", UNDATABLE, ids=lambda c: c.name)
-    def test_an_undatable_document_is_fine_when_point_in_time_is_off(self, case: Planted) -> None:
-        """The rule is point-in-time's, not a general one. With it off, an undated document is
-        just an undated document."""
+    def test_an_undatable_document_is_admitted_under_point_in_time(self, case: Planted) -> None:
+        """The datability rule is its own, not point-in-time's second meaning (ADR 0111).
+
+        A run may enforce look-ahead — refusing anything demonstrably published after its
+        as-of date — and still read a page whose date nothing establishes. What keeps that
+        honest is the tier cap, which is asserted below rather than here: this is only the
+        half that used to be impossible.
+        """
         decision = decide_quarantine(
             publication_date=None,
-            point_in_time=False,
+            point_in_time=True,
             source_tier=SourceTier.T1_REGULATORY,
             as_of_date=AS_OF,
         )
 
         assert not decision.quarantined
+        assert _extract(case) is None
+
+    @pytest.mark.parametrize("case", UNDATABLE, ids=lambda c: c.name)
+    def test_an_undatable_document_is_never_primary(self, case: Planted) -> None:
+        """The other half of admitting it. A regulator's filing nobody can date is a page
+        asserting a filing, and it counts for what such a page counts for."""
+        assert SourceTier.T1_REGULATORY.as_evidence(dated=False) is SourceTier.T5_SECONDARY
+        assert not SourceTier.T1_REGULATORY.as_evidence(dated=False).is_primary
         assert _extract(case) is None
 
 
@@ -542,9 +558,88 @@ async def _cited_claim(session: AsyncSession, scene: dict[str, Any]) -> Citation
     )
 
 
+async def _refusing_undated(session: AsyncSession, request: Any) -> WorkOrder:
+    """This run's acquisition root, set to the strict datability policy.
+
+    ADR 0111 made admitting an undated document the default, so a test about refusing one
+    has to say so — which is the shape of the decision: the strict rule is still there and
+    is now chosen rather than inherited from `point_in_time`.
+    """
+    root = await acquisition_root(session, request)
+    root.undated_sources_admissible = False
+    await session.flush()
+    return root
+
+
 @pytest.mark.integration
 class TestAtAcquisitionTime:
     """The first of the two checks. What can be decided when the bytes arrive."""
+
+    async def test_an_undated_source_is_admitted_and_capped(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """ADR 0111, at the service. The run enforces look-ahead and still reads the page.
+
+        Both halves in one assertion set, because they are one decision: the document is
+        admissible, and the tier an evidence policy reads is 5 rather than the 1 its
+        provider earned. Splitting them would let either half regress alone.
+        """
+        source = await record_source_document(
+            db_session,
+            work_order=await acquisition_root(db_session, scene["request"]),
+            artefact=await _fresh_artefact(db_session, "undated-admitted"),
+            url="https://example.invalid/undated-admitted.htm",
+            provider=Provider.SEC_EDGAR,
+            source_tier=SourceTier.T1_REGULATORY,
+        )
+
+        assert not source.quarantined
+        assert source.is_admissible
+        assert not source.is_dated
+        assert source.source_tier is SourceTier.T1_REGULATORY
+        assert source.evidence_tier is SourceTier.T5_SECONDARY
+        assert not source.evidence_tier.is_primary
+
+    async def test_an_undated_source_is_refused_where_the_run_says_so(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """The other side of the same policy, and the reason it is a column."""
+        source = await record_source_document(
+            db_session,
+            work_order=await _refusing_undated(db_session, scene["request"]),
+            artefact=await _fresh_artefact(db_session, "undated-refused"),
+            url="https://example.invalid/undated-refused.htm",
+            provider=Provider.SEC_EDGAR,
+            source_tier=SourceTier.T1_REGULATORY,
+        )
+
+        assert source.quarantined
+        assert source.quarantine_reason == NO_PUBLICATION_DATE
+        assert not source.is_admissible
+
+    async def test_the_look_ahead_check_survives_admitting_undated_sources(
+        self, db_session: AsyncSession, scene: dict[str, Any]
+    ) -> None:
+        """The trade that used to be forced, refused. Admitting rule 1 kept rule 2."""
+        found = extract_publication_date(index_date=date(2022, 8, 12))
+        assert found is not None
+
+        root = await acquisition_root(db_session, scene["request"])
+        assert root.undated_sources_admissible
+        assert root.point_in_time
+
+        source = await record_source_document(
+            db_session,
+            work_order=root,
+            artefact=await _fresh_artefact(db_session, "late-and-lenient"),
+            url="https://example.invalid/late-and-lenient.htm",
+            provider=Provider.SEC_EDGAR,
+            source_tier=SourceTier.T1_REGULATORY,
+            published=found,
+        )
+
+        assert source.quarantined
+        assert source.quarantine_reason == PUBLISHED_AFTER_AS_OF
 
     async def test_a_post_dated_source_is_quarantined_when_recorded(
         self, db_session: AsyncSession, scene: dict[str, Any]
@@ -652,7 +747,7 @@ class TestTheOverride:
         reader of the finished report would have no way to know a judgement had been made."""
         source = await record_source_document(
             db_session,
-            work_order=await acquisition_root(db_session, scene["request"]),
+            work_order=await _refusing_undated(db_session, scene["request"]),
             artefact=await _fresh_artefact(db_session, "undated"),
             url="https://example.invalid/undated.htm",
             provider=Provider.SEC_EDGAR,
@@ -679,7 +774,7 @@ class TestTheOverride:
     ) -> None:
         source = await record_source_document(
             db_session,
-            work_order=await acquisition_root(db_session, scene["request"]),
+            work_order=await _refusing_undated(db_session, scene["request"]),
             artefact=await _fresh_artefact(db_session, "undated2"),
             url="https://example.invalid/undated2.htm",
             provider=Provider.SEC_EDGAR,

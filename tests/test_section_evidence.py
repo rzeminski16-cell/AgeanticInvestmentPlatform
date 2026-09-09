@@ -38,9 +38,11 @@ from aer.db.models import (
     User,
 )
 from aer.sections.evidence import (
+    Evidence,
     SectionPolicy,
     _is_substantive,
     gather_evidence,
+    policy_shortfalls,
 )
 from tests.request_fixtures import research_request
 from tests.workflow_fixtures import WORKFLOW_VERSION
@@ -608,3 +610,110 @@ class TestCalculationsReachASectionNewestFirst:
 
         periods = self._periods(evidence)
         assert "FY2025" in periods, "a grid of period-less rows displaced the newest period"
+
+
+class TestAnUndatedDocumentIsNeverPrimary:
+    """ADR 0111's cap, where it actually decides something.
+
+    Admitting a page nobody can date buys the section the page and does not buy it a
+    primary source. The scene's filing carries no publication date, which is what the
+    live acquisition produced for a generated aggregate and for every fetched article.
+    """
+
+    async def test_the_tier_index_carries_the_cap(self, scene: dict[str, Any]) -> None:
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(),
+            categories=frozenset({"search_facts"}),
+        )
+
+        assert set(evidence.source_tiers.values()) == {SourceTier.T5_SECONDARY}
+
+    async def test_a_dated_document_keeps_its_tier(self, scene: dict[str, Any]) -> None:
+        """The control. The cap is about the date, not about the gathering path."""
+        document = await scene["session"].scalar(select(SourceDocument))
+        document.publication_date = date(2026, 7, 29)
+        document.publication_date_latest = date(2026, 7, 29)
+        await scene["session"].flush()
+
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(),
+            categories=frozenset({"search_facts"}),
+        )
+
+        assert set(evidence.source_tiers.values()) == {SourceTier.T1_REGULATORY}
+
+    async def test_the_listing_tells_the_writer_the_capped_tier(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """What the model is told has to be what the shortfall check will apply.
+
+        Handing the writer `T1_REGULATORY` while the check counts the same document as
+        tier 5 is the mismatch that produced "a single primary filing, the Form 10-Q".
+        """
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=_policy(),
+            categories=frozenset({"search_sources"}),
+        )
+
+        listed = [item for item in evidence.internal if "tier" in item]
+        assert listed, "the sources listing came back empty"
+        assert all(item["tier"] == SourceTier.T5_SECONDARY.value for item in listed)
+        assert all(item["dated"] is False for item in listed)
+
+    async def test_a_tier_ceiling_still_shows_it(self, scene: dict[str, Any]) -> None:
+        """The line between the two tiers, and the reason there are two.
+
+        A ceiling is a statement about publishers — "do not show me secondary reporting" —
+        and the undated cap is a statement about worth. Filtering the listing on the cap
+        would put ADR 0111's own blanket refusal back through a different door: a section
+        with a ceiling of 4 would stop seeing an undated filing at all, rather than seeing
+        it and being told it has no primary source.
+        """
+        policy = SectionPolicy(
+            min_sources=1,
+            requires_primary=True,
+            max_tier_rank=SourceTier.T4_LICENSED_MARKET.rank,
+            allow_forward_looking=False,
+            token_budget=4_000,
+        )
+
+        evidence = await gather_evidence(
+            scene["session"],
+            request=scene["request"],
+            evidence_job_id=scene["job"].id,
+            policy=policy,
+            categories=frozenset({"search_sources"}),
+        )
+
+        listed = [item for item in evidence.internal if "tier" in item]
+        assert listed, "the undated filing was excluded by a ceiling about publishers"
+        assert all(item["tier"] == SourceTier.T5_SECONDARY.value for item in listed)
+
+        cited = {item["source_document_id"] for item in listed}
+        assert policy_shortfalls(cited, evidence=evidence, policy=policy) == [
+            "This section's policy requires at least one primary source (tier 1 or 2); "
+            "none of its cited evidence is primary."
+        ]
+
+    def test_the_shortfall_check_reads_the_index(self) -> None:
+        """The last link, stated without a database: a tier-5 index fails the floor."""
+        policy = _policy()
+        assert policy.requires_primary
+
+        capped = Evidence(source_tiers={"a-source": SourceTier.T5_SECONDARY})
+        assert policy_shortfalls({"a-source"}, evidence=capped, policy=policy) == [
+            "This section's policy requires at least one primary source (tier 1 or 2); "
+            "none of its cited evidence is primary."
+        ]
+
+        dated = Evidence(source_tiers={"a-source": SourceTier.T1_REGULATORY})
+        assert policy_shortfalls({"a-source"}, evidence=dated, policy=policy) == []

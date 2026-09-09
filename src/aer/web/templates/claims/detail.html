@@ -116,7 +116,7 @@
 
           {% if citation.source.quarantined %}
             <p class="mt-2 type-body-sm text-refusal-ink" data-field="quarantine">
-              This source is quarantined: {{ citation.source.quarantine_reason }}
+              This source is quarantined: {{ citation.source.quarantine_reason | in_words }}
             </p>
           {% endif %}
 

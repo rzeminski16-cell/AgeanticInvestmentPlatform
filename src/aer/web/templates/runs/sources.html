@@ -60,6 +60,8 @@
     <table class="w-full min-w-[64rem] text-left" id="sources-table">
       <caption class="sr-only">
         Every document this run acquired, its tier, dates, artefact digest and admissibility.
+        A document with no discoverable publication date is shown as undated and counts as
+        tier 5 whoever published it.
       </caption>
       <thead class="border-b border-line-strong">
         <tr>
@@ -79,6 +81,7 @@
             id="source-{{ source.id }}"
             data-source="{{ source.id }}"
             data-tier="{{ source.source_tier.value }}"
+            data-evidence-tier="{{ source.evidence_tier.value }}"
           >
             <td class="px-4 py-3 align-top">
               <a
@@ -108,11 +111,25 @@
               in, so there is nothing here a reader who cannot tell the greens apart loses.
             #}
             <td class="px-4 py-3 align-top">
-              <span class="type-data-sm text-ink" data-field="tier">{{ source.source_tier.value }}</span>
+              <span class="type-data-sm text-ink" data-field="tier">{{ source.evidence_tier.value }}</span>
+              {#
+                Both tiers, and only when they differ. The cap on its own reads as a
+                mis-tiered document; the recorded tier on its own hides the rule that a
+                page nobody can date does not count as its publisher's record of itself.
+              #}
+              {% if source.evidence_tier != source.source_tier %}
+                <span class="mt-1 block type-body-sm text-ink-muted" data-field="tier-capped">
+                  recorded {{ source.source_tier.value }}, capped because it carries no publication date
+                </span>
+              {% endif %}
             </td>
 
             <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="published">
-              {{ source.publication_date.isoformat() if source.publication_date else "—" }}
+              {% if source.is_dated %}
+                {{ source.publication_date.isoformat() if source.publication_date else "—" }}
+              {% else %}
+                <span data-field="undated">Undated</span>
+              {% endif %}
               {% if source.publication_date_latest and source.publication_date_latest != source.publication_date %}
                 <span class="block text-warning-ink" data-field="published-latest">
                   latest evidence {{ source.publication_date_latest.isoformat() }}
@@ -144,7 +161,7 @@
               {% endif %}
               {% if source.quarantined %}
                 <p class="mt-2 max-w-xs type-body-sm text-refusal-ink" data-field="quarantine-reason">
-                  Quarantined: {{ source.quarantine_reason }}
+                  Quarantined: {{ source.quarantine_reason | in_words }}
                 </p>
               {% endif %}
               {% if source.override_reason %}

@@ -63,6 +63,7 @@ __all__ = [
     "PREMISE_STATES",
     "PREMISE_VERDICTS",
     "PROCESS_QUALITIES",
+    "QUARANTINE_REASONS",
     "REQUEST_STATES",
     "SECTION_STATES",
     "SHOCK_KINDS",
@@ -712,27 +713,45 @@ def metric_words(metric: str) -> HumanState:
     return METRIC_WORDS.get(metric, HumanState(metric, Tone.INFO))
 
 
+QUARANTINE_REASONS: Final[dict[str, str]] = {
+    "no_publication_date": "nothing establishes when it was published",
+    "published_after_as_of_date": "it was published after this run's as-of date",
+    "tier_not_citable": "its tier may never be cited as evidence",
+}
+"""Why a source was refused, in the words the sources page prints after "Quarantined:".
+
+Not an enum: the reasons are module constants in `aer.services.sources`, and the
+completeness test walks those rather than a type. They are here because the page was
+printing `no_publication_date` at a reader — the one place the ratchet's `reason`
+exemption was wrong, since these reasons are identifiers and not sentences the platform
+wrote.
+"""
+
+
 # Every mapping whose members a template may meet as a bare value, in the order a lookup
 # tries them. Keyed by the enum's own values, because a payload stores `kind` as a string
 # and a Jinja expression has no enum to hand.
 _BY_VALUE: Final[dict[str, str]] = {
-    member.value: state.label
-    for mapping in (
-        SKILL_KINDS,
-        SHOCK_KINDS,
-        TRANSACTION_KINDS,
-        GRADES,
-        DECISIONS,
-        ANALYSIS_MODES,
-        PREMISE_VERDICTS,
-        PROCESS_QUALITIES,
-        TRIGGER_KINDS,
-        SECTION_STATES,
-        JOB_STATES,
-        REQUEST_STATES,
-        PREMISE_STATES,
-    )
-    for member, state in mapping.items()
+    **QUARANTINE_REASONS,
+    **{
+        member.value: state.label
+        for mapping in (
+            SKILL_KINDS,
+            SHOCK_KINDS,
+            TRANSACTION_KINDS,
+            GRADES,
+            DECISIONS,
+            ANALYSIS_MODES,
+            PREMISE_VERDICTS,
+            PROCESS_QUALITIES,
+            TRIGGER_KINDS,
+            SECTION_STATES,
+            JOB_STATES,
+            REQUEST_STATES,
+            PREMISE_STATES,
+        )
+        for member, state in mapping.items()
+    },
 }
 
 

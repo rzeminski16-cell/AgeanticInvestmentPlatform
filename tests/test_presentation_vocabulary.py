@@ -37,6 +37,7 @@ from aer.core.enums import (
 from aer.core.escalation import TriggerKind
 from aer.db.models.report_section import SectionStatus
 from aer.eval.metrics import Metric
+from aer.services import sources
 from aer.web import vocabulary
 from aer.web.overview.research import GATE_ASKS
 from aer.web.portfolio.pages import GRADE_LABELS
@@ -125,6 +126,30 @@ class TestNothingIsMissing:
             key for key, label in vocabulary.STEP_WORDS.items() if label == key or "_" in label
         )
         assert not retyped, f"these step names are still keys: {retyped}"
+
+    def test_every_quarantine_reason_has_words(self) -> None:
+        """The three reasons a source may be refused, walked from where they are declared.
+
+        Not an enum, so this walks the module's own constants rather than a type. The
+        sources page prints these after "Quarantined:", and printed `no_publication_date`
+        at a reader until ADR 0111 went past that screen — the one place the ratchet's
+        exemption for a `reason` was wrong, because these are identifiers rather than
+        sentences the platform wrote.
+        """
+        declared = {sources.NO_PUBLICATION_DATE, sources.PUBLISHED_AFTER_AS_OF, sources.NOT_CITABLE}
+        missing = sorted(declared - set(vocabulary.QUARANTINE_REASONS))
+        assert not missing, f"quarantine reasons with no words: {missing}"
+
+        stale = sorted(set(vocabulary.QUARANTINE_REASONS) - declared)
+        assert not stale, f"words for reasons that no longer exist: {stale}"
+
+    def test_a_quarantine_reason_reads_as_a_clause(self) -> None:
+        """It follows "Quarantined:" on the page, so it has to finish that sentence."""
+        for reason, words in vocabulary.QUARANTINE_REASONS.items():
+            assert words != reason
+            assert "_" not in words, reason
+            assert words[0].islower(), f"{reason} starts a new sentence instead of continuing one"
+            assert vocabulary.in_words(reason) == words
 
 
 class TestTheWordsAreUsable:

@@ -197,13 +197,20 @@ class TestAcquisition:
         assert document.licence_note.startswith("US government work")
         assert document.quarantined is False
 
-    async def test_a_generated_aggregate_is_quarantined_for_having_no_date(
+    async def test_a_generated_aggregate_is_admitted_and_never_counts_as_the_filing(
         self, db_session, store, request_row
     ):
-        # companyfacts is generated on request from whatever filings exist at that moment.
-        # It has no publication date of its own, so under point-in-time rules it is
-        # quarantined -- which is correct, because the citable thing is the filing, not
-        # the endpoint that aggregates it.
+        """companyfacts is generated on request from whatever filings exist at that moment.
+
+        Recorded with no date, which is this path rather than the live one: ADR 0044 has the
+        adapter derive a date from the newest fact inside, and the aggregate that carries no
+        facts is the one that arrives here. Until ADR 0111 that got it quarantined. The
+        conclusion was right and the mechanism was borrowed — what is wrong with citing the
+        aggregate is that **the citable thing is the filing**, not that the endpoint forgot
+        to date itself. The tier cap says exactly that, about every undated document: the
+        aggregate is tier 5 as evidence, so no section's primary-source floor can be met by
+        it, and the facts extracted from it carry the filings' own dates as they always did.
+        """
         result = await fetched(store, COMPANYFACTS)
 
         acquisition = await record_acquisition(
@@ -211,6 +218,27 @@ class TestAcquisition:
             store,
             work_order=await acquisition_root(db_session, request_row),
             result=result,
+            provider=Provider.SEC_EDGAR,
+            source_tier=SourceTier.T1_REGULATORY,
+        )
+
+        assert acquisition.quarantined is False
+        assert acquisition.source_document.publication_date is None
+        assert acquisition.source_document.evidence_tier is SourceTier.T5_SECONDARY
+        assert not acquisition.source_document.evidence_tier.is_primary
+
+    async def test_a_generated_aggregate_is_refused_where_the_run_refuses_undated_sources(
+        self, db_session, store, request_row
+    ):
+        root = await acquisition_root(db_session, request_row)
+        root.undated_sources_admissible = False
+        await db_session.flush()
+
+        acquisition = await record_acquisition(
+            db_session,
+            store,
+            work_order=root,
+            result=await fetched(store, COMPANYFACTS),
             provider=Provider.SEC_EDGAR,
             source_tier=SourceTier.T1_REGULATORY,
         )

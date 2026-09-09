@@ -412,10 +412,11 @@ def _source_comparable(rows: _RunRows, source_id: uuid.UUID, *, request: Researc
 
 
 def _source_rows(rows: _RunRows, *, request: ResearchRequest) -> list[SourceObservation]:
-    # The run's own mode travels with each observation: the hallucination metric already
+    # The run's own policies travel with each observation: the hallucination metric already
     # respects request.work_order.point_in_time, and the temporal metric judging the same run by a
     # stricter rule than it ran under is how a point-in-time-off report came to wear a
-    # temporal-compliance failure on its front page.
+    # temporal-compliance failure on its front page. Both flags, since ADR 0111 — a run
+    # that admitted undated sources on purpose is not one that let them slip through.
     return [
         SourceObservation(
             name=row.title or row.url,
@@ -424,6 +425,7 @@ def _source_rows(rows: _RunRows, *, request: ResearchRequest) -> list[SourceObse
             admitted=row.is_admissible,
             established=row.publication_date,
             point_in_time=request.work_order.point_in_time,
+            undated_sources_admissible=request.work_order.undated_sources_admissible,
         )
         for row in rows.sources
     ]

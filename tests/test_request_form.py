@@ -47,6 +47,7 @@ def valid_form(**overrides) -> dict[str, str]:
         "horizon_label": "Through the next capex cycle",
         "analysis_mode": "full",
         "point_in_time": "true",
+        "undated_sources_admissible": "true",
         "current_weight_percent": "2.5",
         "maximum_weight_percent": "5",
         "benchmark": "MSCI World",
@@ -214,9 +215,39 @@ class TestSuccessfulSubmission:
             row = await session.scalar(select(ResearchRequest))
         assert row.portfolio_context["current_weight"] == "0.025"
 
-    async def test_an_unchecked_point_in_time_box_is_stored_as_false(self, web, db_engine):
-        # An unchecked checkbox is simply absent from the submission. Reading it as
-        # "missing, therefore leave the default" would make the box impossible to turn off.
+    async def test_choosing_later_published_sources_is_stored_as_false(self, web, db_engine):
+        """The control is a pair of radios, so "off" arrives as the word `false`.
+
+        This read `values["point_in_time"] != ""`, which was right for the checkbox the
+        field was first built as and has been wrong since it became radios: `"false"` is
+        not empty, so an operator who chose "allow later-published sources" got a
+        point-in-time run and nothing said otherwise.
+        """
+        token = await fresh_token(web)
+        await web.post(NEW, data=valid_form(csrf_token=token, point_in_time="false"))
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            row = await session.scalar(select(ResearchRequest))
+        assert row.work_order.point_in_time is False
+
+    async def test_refusing_undated_sources_is_stored_as_false(self, web, db_engine):
+        """The second policy, chosen on the same screen and stored separately (ADR 0111)."""
+        token = await fresh_token(web)
+        await web.post(NEW, data=valid_form(csrf_token=token, undated_sources_admissible="false"))
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            row = await session.scalar(select(ResearchRequest))
+        assert row.work_order.undated_sources_admissible is False
+        assert row.work_order.point_in_time is True, "the two policies are independent"
+
+    async def test_a_missing_decision_keeps_the_guard_on(self, web, db_engine):
+        """Nothing selected is not a decision to relax a rule.
+
+        A radio group always submits something, so this is the malformed submission rather
+        than the ordinary one — and the safe reading is the one that keeps both guards.
+        """
         token = await fresh_token(web)
         form = valid_form(csrf_token=token)
         del form["point_in_time"]
@@ -225,7 +256,7 @@ class TestSuccessfulSubmission:
         factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
         async with factory() as session:
             row = await session.scalar(select(ResearchRequest))
-        assert row.work_order.point_in_time is False
+        assert row.work_order.point_in_time is True
 
     async def test_the_new_request_appears_in_the_list(self, web):
         token = await fresh_token(web)

@@ -228,9 +228,15 @@ licence note and robots status of each acquisition. Two fetches of the same PDF 
 artefact and get two provenance records, because they happened at different times and
 possibly under different terms.
 
-**A source whose publication date cannot be established is quarantined** when the request
-is in point-in-time mode — kept, so the record of what was seen survives, but flagged so
-nothing can cite it. See `docs/adr/0008-content-addressed-immutable-artefacts.md`.
+**A source whose publication date cannot be established is admitted, and never counts as
+primary.** `SourceTier.as_evidence` caps it at tier 5 whoever published it, so it may
+corroborate and may never be the primary source a section's policy requires; the recorded
+tier is kept beside the cap, and the evidence table shows both. A run may still refuse
+undated sources outright — `work_orders.undated_sources_admissible`, its own policy since
+ADR 0111 rather than a second meaning for `point_in_time` — and then the document is kept,
+so the record of what was seen survives, but flagged so nothing can cite it. See
+`docs/adr/0111-an-undated-source-is-admitted-and-never-primary.md` and
+`docs/adr/0008-content-addressed-immutable-artefacts.md`.
 
 ### Network egress
 

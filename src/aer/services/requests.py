@@ -160,6 +160,7 @@ _EDITABLE_FIELDS: tuple[str, ...] = (
     "horizon_label",
     "analysis_mode",
     "point_in_time",
+    "undated_sources_admissible",
     "portfolio_context",
     "risk_tolerance",
     "liquidity_constraint_gbp",
@@ -169,10 +170,13 @@ _EDITABLE_FIELDS: tuple[str, ...] = (
     "max_cost_gbp",
 )
 
-# The three of them the *run* owns rather than the equity mandate: what date the evidence is
-# judged against, whether look-ahead is refused, and what the run may spend. Editable by the
-# operator like the rest, stored on `work_orders` since ADR 0072.
-_RUN_ROOT_FIELDS: Final = frozenset({"as_of_date", "point_in_time", "max_cost_gbp"})
+# The four of them the *run* owns rather than the equity mandate: what date the evidence is
+# judged against, whether look-ahead is refused, whether an undatable source may be read, and
+# what the run may spend. Editable by the operator like the rest, stored on `work_orders`
+# since ADR 0072.
+_RUN_ROOT_FIELDS: Final = frozenset(
+    {"as_of_date", "point_in_time", "undated_sources_admissible", "max_cost_gbp"}
+)
 
 
 def _as_problem(exclusion: Exclusion) -> FieldProblem:
@@ -250,6 +254,7 @@ def _apply(request: ResearchRequest, payload: ResearchRequestCreate) -> None:
     request.horizon_label = payload.horizon_label
     request.analysis_mode = payload.analysis_mode
     request.work_order.point_in_time = payload.point_in_time
+    request.work_order.undated_sources_admissible = payload.undated_sources_admissible
     # mode="json" so Decimal weights land as JSON strings the database can read back
     # without a float ever being involved. The CHECK constraints on this column cast
     # the text to numeric, which a float's repr would eventually break.
@@ -294,6 +299,7 @@ def mandate_read(row: ResearchRequest) -> ResearchRequestRead:
         investment_horizon_months=row.investment_horizon_months,
         horizon_label=row.horizon_label,
         point_in_time=row.work_order.point_in_time,
+        undated_sources_admissible=row.work_order.undated_sources_admissible,
         portfolio_context=PortfolioContext.model_validate(row.portfolio_context),
         risk_tolerance=row.risk_tolerance,
         liquidity_constraint_gbp=row.liquidity_constraint_gbp,
@@ -331,6 +337,7 @@ async def create_request(
         subject_kind="company",
         as_of_date=payload.as_of_date,
         point_in_time=payload.point_in_time,
+        undated_sources_admissible=payload.undated_sources_admissible,
         max_cost_gbp=payload.max_cost_gbp,
         status=RequestStatus.DRAFT,
     )
@@ -360,6 +367,7 @@ async def create_request(
             "as_of_date": request.work_order.as_of_date.isoformat(),
             "analysis_mode": request.analysis_mode.value,
             "point_in_time": request.work_order.point_in_time,
+            "undated_sources_admissible": request.work_order.undated_sources_admissible,
             "max_cost_gbp": str(request.work_order.max_cost_gbp),
         },
     )

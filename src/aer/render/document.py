@@ -565,7 +565,7 @@ async def assemble_document(
     undated_ids = {
         identifier
         for identifier, row in (await _load_source_documents(session, citations)).items()
-        if row.publication_date is None
+        if not row.is_dated
     }
     if undated_ids:
         views = [_marked_if_undated(view, undated_ids) for view in views]

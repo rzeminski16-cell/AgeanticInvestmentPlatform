@@ -190,6 +190,15 @@ It is a *selection* over the whole record rather than a filter on it, which matt
 restatements: you see what a reader could have seen then, not today's numbers with the
 recent ones removed.
 
+**A page nobody can date is a separate question**, asked separately on the form. Most news
+reporting carries no publication date a machine can read, and until this was its own choice
+the only way to read any of it was to switch point-in-time off — which switched off the
+look-ahead check too. The default now is to read it and cap what it may be worth: an undated
+document counts as a tier-5 secondary source whoever published it, so it can corroborate a
+sentence and can never be the primary source a section requires. The evidence table says
+**Undated** against it and names the cap. Choosing to refuse them instead quarantines every
+one, with its reason, exactly as before.
+
 ## When a run stops
 
 - **Cancelling** is a decision, recorded like any other. Work already done is kept.

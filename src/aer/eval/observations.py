@@ -90,6 +90,11 @@ class SourceObservation:
     # is what the eval corpus exercises; the live path passes the request's own setting.
     point_in_time: bool = True
 
+    # And whether it admitted a document nothing could date. A second policy since ADR
+    # 0111, and defaulted the way the platform defaults it: the corpus's undated fixtures
+    # are there to be admitted and capped, not refused.
+    undated_sources_admissible: bool = True
+
     @property
     def is_after_as_of(self) -> bool:
         """Whether this document postdates the as-of date, per the fixture's label."""
@@ -97,20 +102,20 @@ class SourceObservation:
 
     @property
     def must_be_refused(self) -> bool:
-        """What the mode the run actually ran in demands.
+        """What the policies the run actually ran under demand.
 
         A post-dated document is inadmissible in any mode — it claims knowledge of a
         future the analysis is not supposed to have. An *undatable* one is inadmissible
-        only under point-in-time rules, where "cannot be shown to predate the as-of date"
-        is disqualifying; with the mode off, the acquisition layer deliberately admits it
-        (``decide_quarantine`` applies exactly this split), and a metric that failed the
-        run anyway was enforcing a rule the operator had switched off. The live AAPL run
-        ran point-in-time off and still wore a temporal-compliance failure on page 1 for
-        seven undated-but-admitted documents.
+        only where the run refused undated sources, and since ADR 0111 that is its own
+        policy rather than a second meaning for ``point_in_time`` (``decide_quarantine``
+        applies exactly this split). A metric failing the run for a rule the operator had
+        switched off measures the platform's opinion rather than the run: the live AAPL
+        run ran point-in-time off and still wore a temporal-compliance failure on page 1
+        for seven undated-but-admitted documents.
         """
         if self.is_after_as_of:
             return True
-        return self.point_in_time and self.published is None
+        return not self.undated_sources_admissible and self.published is None
 
     @property
     def is_violation(self) -> bool:

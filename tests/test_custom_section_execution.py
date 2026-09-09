@@ -1317,6 +1317,13 @@ async def scene(db_session: AsyncSession, tmp_path: Any) -> dict[str, Any]:
         url="https://www.sec.gov/Archives/edgar/data/789019/msft-10k.htm",
         provider=Provider.SEC_EDGAR,
         source_tier=SourceTier.T1_REGULATORY,
+        # Dated, because a filing is: the index gives the SEC adapter an authoritative
+        # date and ADR 0044 derives one even for the aggregate that was never published.
+        # A document nothing can date counts as tier 5 whoever filed it (ADR 0111), so an
+        # undated fixture here would silently be testing the section's behaviour with no
+        # primary source rather than the execution ladder it is named for.
+        publication_date=date(2026, 7, 29),
+        publication_date_latest=date(2026, 7, 29),
         retrieved_at=datetime.now(UTC),
         quarantined=False,
     )
