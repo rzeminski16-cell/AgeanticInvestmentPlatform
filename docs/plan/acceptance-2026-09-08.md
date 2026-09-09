@@ -654,6 +654,53 @@ Worked after the defects, in the order §7 set.
   calculation with its inputs. No credentials, no licensed series, no embedded payloads —
   and the exclusions are in the document, so silence is legible.
 
+### The operator's own additions to a slate
+
+*"To the confirming themes section, it would be good to add the ability to add custom
+themes, similarly with the peers, allow the user to add peers of their own."* Both slates
+arrived as somebody else's work — a model's bounded theme slate, a model's peer proposal
+resolved against EDGAR or the deterministic floor underneath it — and a person could only
+approve or refuse.
+
+Three properties make the addition correct rather than merely present, and they are the
+same three on both gates.
+
+**An addition is not a confirmation.** The row joins the slate the gate is about to hash;
+approving is still what files a company under a theme or admits a peer to a comps table.
+
+**It is a row, not an edit to the step's output.** A step's recorded output is what that
+step produced, and a run's record stops being a record the moment something else writes
+into it. So `payload_for_job` became the single funnel on each gate: the page renders it,
+the approval hashes it, and `confirmed_theme_set` / `confirmed_peer_set` verify against it.
+Adding one *after* approving changes the payload and invalidates the approval — the
+stale-approval rule working, asserted by a test on each side rather than worked around.
+
+**Neither is trusted as typed.** A theme's label goes through the same `slugged` and
+`normalised_slate` path a model's proposal does, so "AI Capex" typed at the gate joins
+"ai-capex" proposed by the model instead of founding a rival spelling. A peer takes the
+registry's name rather than anything typed, and its period end is read from the facts.
+
+Migration `0072` adds `operator_themes` and `operator_peers`. The drift test caught the
+missing indexes on the foreign keys before a human did.
+
+#### The peer constraint, which is a finding rather than a shortcut
+
+**An operator-added peer is a company this platform already holds, not a ticker to go and
+resolve.** The web process has no source client and should not have one — only `aer.fetch`
+reaches the network, and acquisition is the worker's — so a typed ticker cannot be resolved
+where the operator types it.
+
+It turns out not to cost anything. `propose_peers_from_sic` draws from exactly this pool
+and skips a candidate with no stored financial facts, *because a peer with no period end
+cannot be aligned against the subject and would be excluded a step later anyway*. The pool
+of peers a comps table can use is the companies already researched, so the control is a
+picker rather than a text box: offering anything else would be offering the operator a
+refusal.
+
+Arbitrary tickers remain possible and are a different change — resolution would have to
+happen on the worker after approval, which weakens what approving a set means. Not taken
+here; recorded so the option is a decision rather than an omission.
+
 ### Found on the way, and left alone deliberately
 
 **The suite passes or fails by file order.** Running `tests/test_gates.py` before
@@ -705,6 +752,8 @@ and a menu grouped by somebody else's mental model is the problem restated.
 
 ### Still open
 
-The draft review's figure formatting beyond what the vocabulary work reached; the side
-menu; the compact challenges screen (which needed `brief_challenges` working first, and now
-has it); operator-added themes and peers; and the as-of split as two ADRs.
+The side menu — measured above, and waiting on the operator's own words for the grouping —
+and the as-of split as ADRs 0110 and 0111.
+
+**The suite stands at 6,832 passed**, against 6,778 at `7c1a733`: fifty-four tests added
+across the defects, the screens and the two slates, and none removed.
