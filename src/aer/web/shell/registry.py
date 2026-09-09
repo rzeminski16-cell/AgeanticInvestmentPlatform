@@ -81,14 +81,18 @@ PLATFORM: Final = NavSection(
 # not a category, and "Overview · Overview" was the smallest version of the whole problem.
 GROUPS: Final[tuple[NavGroup, ...]] = (
     NavGroup(key="start", label="", sections=(OVERVIEW,)),
-    NavGroup(key="research", label="Research", sections=(RESEARCH,)),
+    # Watchlist sits here rather than beside the theses: it is a standing intention that
+    # commissions research runs (ADR 0107), and its output is a request like any other.
+    # Last in the group because a group's items are its sections' in order, and `Requests`
+    # is what an operator reaches for — leading with the queue that feeds it would put the
+    # secondary destination first.
+    NavGroup(key="research", label="Research", sections=(RESEARCH, WATCHLIST)),
     # What you own, and everything that follows from owning it: what it is worth, what it
     # exposes you to, what you decided, and how those decisions turned out.
     NavGroup(key="book", label="Your book", sections=(PORTFOLIO, RISK, DECISIONS, REVIEW)),
-    # What you think, which is deliberately not the same thing. A thesis is a claim you
-    # have written down, the monitor is the world disagreeing with one, and a watchlist is
-    # a company you have an opinion about and no position in.
-    NavGroup(key="beliefs", label="What you believe", sections=(THESES, MONITOR, WATCHLIST)),
+    # What you think, which is deliberately not the same thing: a thesis is a claim you
+    # have written down, and the monitor is the world disagreeing with one.
+    NavGroup(key="beliefs", label="What you believe", sections=(THESES, MONITOR)),
     NavGroup(key="platform", label="Platform", sections=(PLATFORM,)),
 )
 

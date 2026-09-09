@@ -192,13 +192,13 @@ class TestWhereEachStatePutsATool:
         assert [section.key for section in flat_sections()] == [
             "overview",
             "research",
+            "watchlist",
             "portfolio",
             "risk",
             "decisions",
             "review",
             "theses",
             "monitor",
-            "watchlist",
             "platform",
         ]
         assert [group.label for group in NAV if group.label] == [

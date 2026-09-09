@@ -45,9 +45,9 @@ Four headings, grouped by what the operator is doing:
 | Heading | Destinations |
 |---|---|
 | *(none)* | Overview |
-| Research | Requests, Active run, Reports, Skills, Knowledge |
+| Research | Requests, Active run, Reports, Skills, Knowledge, Watchlist |
 | Your book | Portfolio, Risk, Decisions, Post-trade review, Decision analytics |
-| What you believe | Theses, Monitor, Watchlist |
+| What you believe | Theses, Monitor |
 | Platform | Settings, Costs, Health, API |
 
 **A group with no label draws no heading.** The home page needs it: a category of one, named
@@ -68,17 +68,22 @@ no test asserts a heading's prose beyond the list itself, and nothing outside
 `shell/registry.py` needs editing to reword the entire menu.
 
 The split they encode is a claim worth stating so it can be disagreed with: **what you own
-is not the same as what you think.** A thesis is a position you have written down; the
-monitor is the world contradicting one; a watchlist is a company you have an opinion about
-and no position in. None of those belongs beside the ledger of what you hold, what it
-exposes you to, what you decided and how the decisions turned out.
+is not the same as what you think.** A thesis is a position you have written down and the
+monitor is the world contradicting one; neither belongs beside the ledger of what you hold,
+what it exposes you to, what you decided and how the decisions turned out.
+
+The table above already carries one such disagreement, and that is the mechanism working
+rather than a correction to it. Watchlist was drafted under *What you believe* — a company
+you have an opinion about and no position in — and the operator moved it to *Research*, on
+the ground that a watchlist commissions research runs (ADR 0107) and what comes out is a
+request like any other. That is the better reading, and it cost one line.
 
 ## Consequences
 
 **The chrome stops repeating itself.** `Shell.location` — what a reader sees at the width
 where the rail collapses, and the only thing on screen saying where they are — was
 `"{section.label} · {item.label}"` and is now the group's word. *"Watchlist · Watchlist"*
-becomes *"What you believe · Watchlist"*; a page under no heading is simply named.
+becomes *"Research · Watchlist"*; a page under no heading is simply named.
 
 **Three registries now ask a slightly different question.** The badge registry and the
 attention registry each refuse a provider owned by a tool the navigation has never heard of,

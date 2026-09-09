@@ -761,9 +761,9 @@ it has to decide where their work sits in somebody's day.
 | Heading | Destinations |
 |---|---|
 | *(none)* | Overview |
-| Research | Requests, Active run, Reports, Skills, Knowledge |
+| Research | Requests, Active run, Reports, Skills, Knowledge, Watchlist |
 | Your book | Portfolio, Risk, Decisions, Post-trade review, Decision analytics |
-| What you believe | Theses, Monitor, Watchlist |
+| What you believe | Theses, Monitor |
 | Platform | Settings, Costs, Health, API |
 
 A group with no label draws no heading, which is what the home page needs: a category of
@@ -785,9 +785,16 @@ guess at how they think about the split, and the guess is now cheap: four string
 in one tuple in `shell/registry.py`. No tool learns a word, no route moves, and no test
 asserts a heading's prose beyond the list itself, so rewording the whole menu is an edit to
 one file. The split they encode is the claim worth disagreeing with — **what you own is not
-the same as what you think**: a thesis is a position written down, the monitor is the world
-contradicting one, and a watchlist is a company you have an opinion about and no position
-in. None of those belongs beside the ledger of what you hold.
+the same as what you think**: a thesis is a position written down and the monitor is the
+world contradicting one, and neither belongs beside the ledger of what you hold.
+
+**One of them was disagreed with straight away, which is the mechanism working.** Watchlist
+was drafted under *What you believe*, on the reading that a company you have an opinion
+about and no position in is a belief rather than a holding. The operator moved it to
+*Research*: a watchlist commissions research runs (ADR 0107), and what comes out is a
+request like any other. That is the better reading. It cost one line, and it sits last in
+the group because a group's items are its sections' in order — leading with the queue that
+feeds Requests would put the secondary destination first.
 
 ### The as-of split, as built
 
