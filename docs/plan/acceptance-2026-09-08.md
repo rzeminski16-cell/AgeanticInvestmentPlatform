@@ -503,3 +503,60 @@ items touch the same surfaces and doing it first would mean doing them twice.
 
 **See also:** [ROADMAP](ROADMAP.md) · [the remaining work](remaining-work.md) ·
 [testing by hand](../developers/testing-by-hand.md) · [the knowledge map](../developers/knowledge-map.md)
+
+---
+
+## 8. What has been done since, and what the operator decided
+
+*Appended 2026-09-09, on branch `claude/dreamy-curie-kgb1s9`.*
+
+### The four decisions
+
+| Question | The operator's answer |
+|---|---|
+| The as-of date | **Both changes, made separately.** Every run becomes "as at today", *and* the undated-source rule is decided on its own merits. The look-ahead check stays. |
+| Scope of this round | **Everything** — the defects, the screens and the features. |
+| The 0.6 primary-source floor | **Fix the lineage and keep 0.6 blocking.** Measure a correctly-counted run before touching the threshold. |
+| The numeral rule | **Amend it** — a sentence-initial name is a name, and form numbers are covered. |
+
+### The defects, closed
+
+All five of §2, and the Windows noise with them. Each was reproduced before it was changed
+and each carries its regression test.
+
+- **§2.1 — `acquire_prices` before `extract`.** The step moved into the fan-out after the
+  financials gate, where prices, the calculation and the five research workers are all
+  independent. Seven nodes at the bound of seven. Market capitalisation, the
+  enterprise-value multiples and the comps table follow from the one edge.
+- **§2.2 — the sourcing metric.** A named calculation now contributes the source documents
+  its lineage reaches, through `services.calculations.lineage` — the walk the provenance
+  surface already uses, rather than a second copy. A calculation resting only on
+  assumptions still scores unsourced, because an assumption is a number somebody chose.
+- **§2.3 — the numeral guard**, in three parts. A sentence-initial head is a name where the
+  text attests it (ADR 0060, amended); `or` joins a filing enumeration as `and` does; and
+  **the salvage is offered every refused attempt rather than only the last**, which is the
+  half that actually cost the section.
+- **§2.4 — `brief_challenges`.** A rejected reply is retried once, told what it was refused
+  for. Two failures record a reason rather than a bare `written: false`.
+- **§2.5 — the plan estimate.** Read from the workflow's own step table, the same one the
+  budget guard enforces against, so the number the operator approves and the number the
+  engine holds to cannot drift. About £9.31 where it said £1.34. The runtime is now the
+  median of what completed runs actually spent working, with a stated fallback.
+- **Windows.** `aer.cli` no longer reaches WeasyPrint at import, so the GTK stack — and its
+  GLib warnings on every command — loads only where a document is rendered.
+
+### What the numeral amendment deliberately did not give away
+
+A blanket "a capital is a capital wherever it sits" was written first and rejected on the
+evidence: it broke four of the suite's own cases, which is more of invariant 3's boundary
+than the case is worth. `Shipped 240 units.`, `Together 365 stores opened.`, `Step 200 —
+units shipped.` and `Deliver 5 — points of margin.` all still refuse. The residual is one
+shape — a capitalised verb, a real quantity, and a capital after it — and it is pinned as
+its own test.
+
+### Still open, in the order it will be worked
+
+The vocabulary and its ratchet; the four gate redesigns; custom themes and peers; the
+comprehensive run export; then the as-of split as two ADRs. §7's remaining questions —
+EODHD's subscription, and whether Windows is the only target — are still open and do not
+block any of it.
