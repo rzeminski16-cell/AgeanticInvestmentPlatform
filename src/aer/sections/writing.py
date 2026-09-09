@@ -236,49 +236,79 @@ def _tier_rank(value: object) -> int:
     return 5
 
 
+@dataclass(frozen=True, slots=True)
+class _RefusedAttempt:
+    """One refused candidate, with the policy it was written under.
+
+    The policy travels with the draft because it does not survive the ladder: a
+    truncation retry runs under half the word budget (gap A51a), and salvaging an earlier
+    attempt against a later attempt's budget would judge it by a rule it was never asked
+    to keep.
+    """
+
+    draft: SectionDraft
+    policy: SectionPolicy
+    problems: tuple[str, ...]
+
+
 def _with_salvage(
     draft: SectionDraft | None,
-    last_candidate: SectionDraft | None,
+    refused: Sequence[_RefusedAttempt],
     *,
     section: ReportSection,
     contract: dict[str, Any],
     evidence: Evidence,
-    policy: SectionPolicy,
     augmenter: SectionAugmenter | None,
     block: dict[str, Any] | None,
     attempts: int,
-    problems: list[str],
 ) -> tuple[SectionDraft | None, tuple[str, ...]]:
-    """The last refused draft after the salvage pass, and what the pass changed.
+    """The best refused draft the salvage can repair, and what the pass changed.
 
     Returns the draft untouched when there was one, and ``(None, ())`` when there is
-    nothing to repair or the salvage declined — so the caller's next line is the same
-    "no draft means failed" it always was.
+    nothing to repair or the salvage declined on every attempt — so the caller's next
+    line is the same "no draft means failed" it always was.
+
+    **Every refused attempt is offered, latest first, not just the last one.** The last
+    is tried first because it is what the ladder meant to publish: it was written knowing
+    what the attempt before it was refused for. But a ladder that only ever offered the
+    last reply threw away a repairable draft whenever the retry came back worse, and the
+    first acceptance pass paid for exactly that. `growth_outlook` was refused on one
+    numeral at attempt 1 — which the salvage repairs, and did repair when the archived
+    reply was replayed — then refused at attempt 2 for a gap-remark count and a length,
+    which it declines. The section was lost with a repairable draft sitting in the run's
+    own record.
+
+    This can only turn a lost section into a salvaged one. Where the last attempt is
+    salvageable the behaviour is unchanged, because it is still the one tried first.
     """
-    if draft is not None or last_candidate is None:
+    if draft is not None or not refused:
         return draft, ()
 
-    salvage = salvaged(
-        last_candidate,
-        contract=contract,
-        evidence=evidence,
-        policy=policy,
-        augmenter=augmenter,
-        block=block,
-    )
-    if salvage is None:
-        return None, ()
+    for attempt in reversed(refused):
+        salvage = salvaged(
+            attempt.draft,
+            contract=contract,
+            evidence=evidence,
+            policy=attempt.policy,
+            augmenter=augmenter,
+            block=block,
+        )
+        if salvage is None:
+            continue
 
-    # Recorded on the section, not just in a log: a reader of the run console should see
-    # that the platform edited the draft, and which way.
-    _log.info(
-        "section_writer.draft_salvaged",
-        section=section.section_key,
-        attempts=attempts,
-        problems=problems,
-        repairs=len(salvage.notes),
-    )
-    return salvage.draft, salvage.notes
+        # Recorded on the section, not just in a log: a reader of the run console should
+        # see that the platform edited the draft, and which way.
+        _log.info(
+            "section_writer.draft_salvaged",
+            section=section.section_key,
+            attempts=attempts,
+            salvaged_from=refused.index(attempt) + 1,
+            problems=list(attempt.problems),
+            repairs=len(salvage.notes),
+        )
+        return salvage.draft, salvage.notes
+
+    return None, ()
 
 
 async def execute_builtin_section(
@@ -345,7 +375,9 @@ async def execute_builtin_section(
     agent = _routed_writer(definition, section=section, router=context.router)
     problems: list[str] = []
     draft: SectionDraft | None = None
-    last_candidate: SectionDraft | None = None
+    # Every refused candidate, in attempt order, so the salvage can be offered all of
+    # them rather than only whichever came last.
+    refusals: list[_RefusedAttempt] = []
     # Every attempt's refusals, counted by cause (polish P6). Accumulated across the
     # retries so the run record says what each section struggled with, whether or not a
     # later attempt recovered.
@@ -407,7 +439,6 @@ async def execute_builtin_section(
             )
             continue
 
-        last_candidate = candidate
         problems = validate_draft(candidate, contract=contract, evidence=evidence, policy=policy)
         if augmenter is not None:
             # The deterministic edge of what the model may say beside the rendered block
@@ -419,6 +450,9 @@ async def execute_builtin_section(
             draft = candidate
             break
         _counted(causes, problems)
+        # Kept with the policy it was written under, so the salvage below can offer every
+        # refused attempt rather than only the last one.
+        refusals.append(_RefusedAttempt(draft=candidate, policy=policy, problems=tuple(problems)))
         _log.info(
             "section_writer.draft_refused",
             section=section.section_key,
@@ -428,15 +462,13 @@ async def execute_builtin_section(
 
     draft, salvage_notes = _with_salvage(
         draft,
-        last_candidate,
+        refusals,
         section=section,
         contract=contract,
         evidence=evidence,
-        policy=policy,
         augmenter=augmenter,
         block=block,
         attempts=attempts,
-        problems=problems,
     )
 
     if draft is None:
