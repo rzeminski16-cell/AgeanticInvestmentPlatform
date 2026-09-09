@@ -31,7 +31,7 @@ from decimal import Decimal
 from typing import Any, Final
 
 import structlog
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
@@ -311,7 +311,12 @@ COMPS_STEP: Final = "comps"
 
 # What the gate shows as a runtime estimate. A constant for the slice, which does one
 # fetch and one calculation; Phase 3 derives it from the plan.
-_RUNTIME_ESTIMATE_SECONDS: Final = 120
+# What a run is projected to take when this platform has never finished one, in seconds.
+# A stated default rather than a measurement, and it is only ever the fallback: once a run
+# of this workflow version has completed, `_projected_runtime_seconds` reads the median of
+# what they actually took. The old value here was 120 — two minutes for a run whose draft
+# step alone spends ten, which told the operator nothing they could plan around.
+_RUNTIME_ESTIMATE_SECONDS: Final = 2_400
 
 # The concept this slice calculates. One, on purpose: the deliverable is the chain from
 # filing to footnote, and a second concept would test the same chain twice.
@@ -322,6 +327,71 @@ SLICE_CONCEPT: Final = "revenue"
 # inference — and a reader comparing two documents' dates should be able to see which was
 # stated and which was derived.
 _DERIVED_FROM_CONTENTS: Final = 0.9
+
+
+def _projected_cost(spine_total: Decimal) -> Decimal:
+    """What the rest of the run is projected to cost, at gate 1, in pounds.
+
+    **Read from the workflow's own step table**, which is the same table the budget guard
+    refuses a step against — so the number the operator approves and the number the engine
+    enforces cannot drift apart. Anything else has to be maintained twice, and the version
+    the operator saw was the one that fell behind.
+
+    What it replaces was the plan step's own spend plus one writing call per section, and
+    nothing else: no `critique_plan`, none of the five research workers, no `red_team`, no
+    `revise`, no `verdict`, no `brief_challenges` and no retries. The first acceptance pass
+    showed £1.3353 at the gate for a run that cost £7.5023, on the one screen where the
+    operator decides whether to spend the money.
+
+    Two adjustments to a plain sum, each because the sum would be wrong:
+
+    * **The plan step is spent, not projected.** Its actual cost is added by the caller.
+    * **The draft step's flat estimate is a guard input; the spine is a measurement.** By
+      this point the approved section set is known, with each section's token budget and
+      routed model, so `spine_total` is the better figure — but only when it is larger.
+      The flat estimate was calibrated against live runs that retried, and a spine sum
+      assumes every section drafts first time.
+    """
+    declared = {step.key: step.estimated_cost_gbp for step in build_steps()}
+    declared.pop("plan", None)
+    draft = declared.pop("draft", Decimal(0))
+    return sum(declared.values(), Decimal(0)) + max(draft, spine_total)
+
+
+async def _projected_runtime_seconds(session: AsyncSession) -> int:
+    """How long a run of this workflow has actually taken, or the stated default.
+
+    The median of what previous completed runs spent **working** — the sum of their steps'
+    own elapsed times, not the wall clock between commissioning and finishing, because the
+    difference between those two is how long the operator took to read a gate and that is
+    not a property of the run.
+
+    Self-calibrating on purpose. A constant is wrong for every company and goes stale the
+    first time a model route changes; the platform has the measurements already.
+    """
+    per_run = (
+        select(
+            JobStep.job_id.label("job_id"),
+            func.sum(func.extract("epoch", JobStep.finished_at - JobStep.started_at)).label(
+                "seconds"
+            ),
+        )
+        .join(Job, Job.id == JobStep.job_id)
+        .where(
+            Job.workflow_version == WORKFLOW_VERSION,
+            Job.status == JobStatus.SUCCEEDED,
+            JobStep.started_at.is_not(None),
+            JobStep.finished_at.is_not(None),
+        )
+        .group_by(JobStep.job_id)
+        .subquery()
+    )
+    median = await session.scalar(
+        select(func.percentile_cont(0.5).within_group(per_run.c.seconds.asc()))
+    )
+    if median is None or median <= 0:
+        return _RUNTIME_ESTIMATE_SECONDS
+    return int(median)
 
 
 def build_steps() -> list[WorkflowStep]:
@@ -659,8 +729,10 @@ async def _plan(context: StepContext) -> StepResult:
         plan=payload,
         planned_sources=payload["planned_sources"],
         known_risks=payload["known_risks"],
-        estimated_cost_gbp=agent_context.spend_gbp + sum(spine_estimates.values(), Decimal(0)),
-        estimated_runtime_seconds=_RUNTIME_ESTIMATE_SECONDS,
+        estimated_cost_gbp=(
+            agent_context.spend_gbp + _projected_cost(sum(spine_estimates.values(), Decimal(0)))
+        ),
+        estimated_runtime_seconds=await _projected_runtime_seconds(context.session),
     )
     context.session.add(plan)
     await context.session.flush()
