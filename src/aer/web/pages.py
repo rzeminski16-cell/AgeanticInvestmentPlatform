@@ -715,6 +715,14 @@ async def financials_review(
         {
             "job": job,
             "payload": payload,
+            # The same rows the payload carries and the hash covers, grouped by concept and
+            # rendered in the house style. The operator's own run showed 4,754 of them —
+            # one per concept per period, which is what the filing genuinely holds — under
+            # a heading that made twenty repeats of "revenue" look like a defect. Nothing
+            # is dropped: the newest leads and the rest sit behind a disclosure.
+            "captured": figures.captured_concepts(
+                list(payload.get("mapped_concepts", [])), style=HouseStyle()
+            ),
             "counts": _extraction_counts(produced),
             "payload_hash": payload_hash_for(payload),
             **frame,
