@@ -15,7 +15,6 @@ __all__ = ["DECISIONS"]
 
 DECISIONS: Final = NavSection(
     key="decisions",
-    label="Decisions",
     tool="decisions",
     items=(NavItem(key="decisions", label="Decisions", href="/decisions"),),
 )

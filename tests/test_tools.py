@@ -18,7 +18,7 @@ from starlette.routing import Mount
 
 from aer.api.app import create_app
 from aer.config import Settings
-from aer.web.shell import NAV, UNLISTED, flat_items
+from aer.web.shell import NAV, UNLISTED, flat_items, flat_sections
 from aer.web.tools.registry import (
     INSTALLED_TOOLS,
     PORTFOLIO,
@@ -182,18 +182,30 @@ class TestWhereEachStatePutsATool:
 
         assert not missing, f"tools the application does not serve: {missing}"
 
-    def test_the_navigation_is_ten_sections_now(self) -> None:
-        assert [section.key for section in NAV] == [
+    def test_the_navigation_is_nine_tools_under_four_headings(self) -> None:
+        """Nine contributions, unchanged; ten headings down to four (ADR 0112).
+
+        Both halves, because the point of the grouping is that the first number is free to
+        grow and the second is not. A tenth tool adds a line to a group; it does not add a
+        heading, and the type it contributes has no way to ask for one.
+        """
+        assert [section.key for section in flat_sections()] == [
             "overview",
             "research",
-            "watchlist",
             "portfolio",
             "risk",
-            "theses",
             "decisions",
-            "monitor",
             "review",
+            "theses",
+            "monitor",
+            "watchlist",
             "platform",
+        ]
+        assert [group.label for group in NAV if group.label] == [
+            "Research",
+            "Your book",
+            "What you believe",
+            "Platform",
         ]
 
 

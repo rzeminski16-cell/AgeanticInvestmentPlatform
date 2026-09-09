@@ -732,9 +732,11 @@ complaint is specific and the number is the whole of it:
 | Review | 2 — Post-trade review, Decision analytics |
 | Platform | 4 — Settings, Costs, Health, API |
 
-**Ten headings over fifteen destinations, and seven of the ten head a single link.** A
-section header above one item is not navigation, it is the word said twice, and seven of
-them in a column is why the menu reads as longer than the product.
+**Ten headings over eighteen destinations, and seven of the ten head a single link** —
+and six of those seven say the same word as the link beneath them. A section header above
+one item is not navigation, it is the word said twice, and seven of them in a column is why
+the menu reads as longer than the product. (The count above said fifteen destinations when
+this was first written; the table it sits under adds to eighteen, and eighteen is right.)
 
 The cause is structural rather than careless: a section is contributed *per tool*
 (`shell/registry.py`, "one import per tool, and one line here"), a tool is a registered
@@ -743,14 +745,49 @@ call when the second tool arrived and it stops being right at the ninth.
 
 The fix is a presentation-level grouping over the sections rather than a change to how
 tools register — the registry keeps its one-line contract, and the shell decides how the
-contributions are drawn. Something like: **Research** (as it is), **your book** (Portfolio,
-Risk, Decisions, Post-trade review, Decision analytics), **what you believe** (Theses,
-Monitor, Watchlist), **Platform**. Five headings, and each groups by what the operator is
-doing rather than by which tool implements it.
+contributions are drawn.
 
-**The words are the operator's to choose**, which is why this is written down rather than
-built: "your book" and "what you believe" are a guess at how they think about the split,
-and a menu grouped by somebody else's mental model is the problem restated.
+### The side menu, as built
+
+**ADR 0112 — the menu is grouped by what you are doing, not by which tool does it.** Ten
+headings became four. A tool still contributes one `NavSection` and one line; the section
+**lost its `label`**, and that is the substance rather than a tidy-up. A field whose only
+use was to become a heading is the mechanism by which every tool got one, and leaving it
+would invite the next person to draw it again. `NavSection` now has no field a tool could
+use to ask for a heading or to name a group, so a tenth tool adds a line *inside* an
+existing group and cannot add a tenth heading by existing — which also means whoever ships
+it has to decide where their work sits in somebody's day.
+
+| Heading | Destinations |
+|---|---|
+| *(none)* | Overview |
+| Research | Requests, Active run, Reports, Skills, Knowledge |
+| Your book | Portfolio, Risk, Decisions, Post-trade review, Decision analytics |
+| What you believe | Theses, Monitor, Watchlist |
+| Platform | Settings, Costs, Health, API |
+
+A group with no label draws no heading, which is what the home page needs: a category of
+one, named after the link inside it, is the whole problem in miniature. One concept rather
+than a special case — "ungrouped" is a group whose name is nothing.
+
+**The chrome stopped repeating itself too.** `Shell.location` is what a reader sees at the
+width where the rail collapses, and it is the only thing on screen saying where they are.
+It read *"Watchlist · Watchlist"* and *"Portfolio · Portfolio"*; it now names the group, or
+names an ungrouped page by itself.
+
+Four guards keep the numbers from coming back: no heading over a single destination, no
+heading repeating a link beneath it, every registered section in exactly one group — walked
+from the registry's own module, so a section imported and never placed fails rather than
+disappearing — and `NavSection` having no field a tool could use to ask for a heading.
+
+**The words remain the operator's.** *"Your book"* and *"What you believe"* are still a
+guess at how they think about the split, and the guess is now cheap: four string literals
+in one tuple in `shell/registry.py`. No tool learns a word, no route moves, and no test
+asserts a heading's prose beyond the list itself, so rewording the whole menu is an edit to
+one file. The split they encode is the claim worth disagreeing with — **what you own is not
+the same as what you think**: a thesis is a position written down, the monitor is the world
+contradicting one, and a watchlist is a company you have an opinion about and no position
+in. None of those belongs beside the ledger of what you hold.
 
 ### The as-of split, as built
 
@@ -809,7 +846,10 @@ where they are declared.
 
 ### Still open
 
-The side menu — measured above, and waiting on the operator's own words for the grouping.
+Nothing from this pass. The five defects, the screens, the two slates, the as-of split and
+the side menu have all landed. What remains are the two questions §7 asked and the operator
+has not answered — whether the EODHD tier includes `/api/fundamentals`, and whether Windows
+is the only target — neither of which blocks anything.
 
 **The suite stands at 6,856 passed**, against 6,778 at `7c1a733`: seventy-eight tests added
 across the defects, the screens, the two slates and the as-of split, and none removed. The

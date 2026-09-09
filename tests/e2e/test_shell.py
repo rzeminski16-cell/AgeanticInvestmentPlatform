@@ -525,12 +525,15 @@ class TestTheIndex:
         page.goto(f"{live_server}")
         page.locator("#aer-menu summary").click()
 
-        # By role, because "Overview" is both a section and the item inside it and a text
-        # match resolves to both.
-        for label in ("Overview", "Research", "Portfolio", "Platform"):
-            expect(
-                page.locator('nav[aria-label="Main"]').get_by_role("heading", name=label)
-            ).to_be_visible()
+        # By role, because a heading and a link can share a word — and since ADR 0112
+        # they no longer do: these are the four groups, and "Overview" and "Portfolio"
+        # are links under them rather than headings of their own.
+        index = page.locator('nav[aria-label="Main"]')
+        for label in ("Research", "Your book", "What you believe", "Platform"):
+            expect(index.get_by_role("heading", name=label)).to_be_visible()
+        for label in ("Overview", "Portfolio", "Watchlist"):
+            expect(index.get_by_role("link", name=label)).to_be_visible()
+            expect(index.get_by_role("heading", name=label)).to_have_count(0)
 
     def test_it_does_not_reopen_itself_after_the_operator_shuts_it(
         self, page: Page, live_server: str

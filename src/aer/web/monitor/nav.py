@@ -15,7 +15,6 @@ __all__ = ["MONITOR"]
 
 MONITOR: Final = NavSection(
     key="monitor",
-    label="Monitor",
     tool="monitor",
     items=(NavItem(key="monitor", label="Monitor", href="/monitor"),),
 )

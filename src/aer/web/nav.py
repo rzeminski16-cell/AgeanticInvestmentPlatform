@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-__all__ = ["NavItem", "NavSection", "active_key"]
+__all__ = ["NavGroup", "NavItem", "NavSection", "active_key"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,19 +66,50 @@ class NavItem:
 
 @dataclass(frozen=True, slots=True)
 class NavSection:
-    """A group of destinations, usually one tool's.
+    """One tool's contribution to the sidebar: its destinations, and nothing else.
 
     ``tool`` is the registry key of whatever contributed the section (ADR 0071), so a page
     can say which tool it is inside without a second lookup.
+
+    **A section has no label, and losing it is the point** (ADR 0112). It had one, and it
+    was the sidebar's heading, which made "one heading per tool" a rule nobody chose: at
+    the second tool that reads as organisation and at the ninth it reads as a wall, with
+    seven headings standing over a single link each and six of them repeating the word
+    below. The heading is the group's now, and a section is the unit of *contribution*
+    rather than the unit of *presentation*. Nothing about how a tool registers changed.
     """
 
     key: str
-    label: str
     tool: str
     items: tuple[NavItem, ...] = field(default_factory=tuple)
 
 
-def active_key(sections: tuple[NavSection, ...], path: str) -> str:
+@dataclass(frozen=True, slots=True)
+class NavGroup:
+    """A heading in the sidebar, over the sections of however many tools sit beneath it.
+
+    The grouping is the **shell's** decision, not a tool's: a tool says what it offers, and
+    where that sits in a menu is a judgement about the whole product that no single
+    contributor can make. So a group is declared in `shell/registry.py` and a tool never
+    names one — which is also what stops a ninth tool from adding a ninth heading simply by
+    existing.
+
+    ``label`` may be empty, and that renders the items with no heading at all. The home
+    page needs it: a category of one, called the same thing as the link inside it, is the
+    noise this whole arrangement exists to remove.
+    """
+
+    key: str
+    label: str
+    sections: tuple[NavSection, ...] = field(default_factory=tuple)
+
+    @property
+    def items(self) -> tuple[NavItem, ...]:
+        """Every destination under this heading, in the order its sections declared them."""
+        return tuple(item for section in self.sections for item in section.items)
+
+
+def active_key(groups: tuple[NavGroup, ...], path: str) -> str:
     """Which item the current path is inside, or ``""``.
 
     The longest matching prefix wins, so ``/requests/new`` lights *Requests* rather than
@@ -87,8 +118,8 @@ def active_key(sections: tuple[NavSection, ...], path: str) -> str:
     """
     best = ""
     best_length = -1
-    for section in sections:
-        for item in (*section.items, *(child for i in section.items for child in i.children)):
+    for group in groups:
+        for item in (*group.items, *(child for i in group.items for child in i.children)):
             if item.matches(path) and len(item.prefix) > best_length:
                 best, best_length = item.key, len(item.prefix)
     return best
