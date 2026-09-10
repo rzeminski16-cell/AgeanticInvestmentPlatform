@@ -143,6 +143,10 @@ page specifications, a production handoff and a twelve-screen prototype.
 - [`data-sources/`](data-sources/) — one dossier per publisher: what it offers, its terms,
   its rate limits, and whether we may use it. Two sources were **declined** at this step
   and stayed declined.
+- [`experiments/`](experiments/) — deliberate comparisons run against the platform, kept
+  whole with their method. The first asks what the architecture buys over a very
+  well-prompted general assistant, and carries the pipeline specification the comparison
+  was written from.
 - [`archive/`](archive/) — superseded documents, kept whole rather than deleted, with
   [an index](archive/README.md) saying what each was and what replaced it.
 
