@@ -12,10 +12,12 @@ configured, and a total too small to round to a penny.
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import ClassVar
 
 import pytest
 
 from aer.config import HouseStyle
+from aer.web import figures
 from aer.web.figures import (
     NOT_AVAILABLE,
     RenderedFigure,
@@ -275,3 +277,93 @@ class TestALineageRowBecomesAFigure:
         figure = self._figure(self._row(value=None))
         assert not figure.is_available
         assert figure.provenance is None
+
+
+class TestTheFinancialsGateReadsAsStatementLines:
+    """The operator's own run showed 4,754 rows headed "Concept", one per concept per
+    period, with `revenue` twenty times over and `331839000000 USD` beside `2025-06-30`.
+
+    An XBRL filing genuinely holds that many observations, so the defect was never the
+    data. It was a page asking "is anything missing?" over a wall of repeats.
+    """
+
+    ROWS: ClassVar[list[dict[str, str]]] = [
+        {
+            "concept": "revenue",
+            "value": "331839000000",
+            "unit": "USD",
+            "period_end": "2025-06-30",
+            "period_start": "2024-07-01",
+        },
+        {
+            "concept": "revenue",
+            "value": "245122000000",
+            "unit": "USD",
+            "period_end": "2024-06-30",
+            "period_start": "2023-07-01",
+        },
+        {
+            "concept": "operating_income",
+            "value": "109433000000",
+            "unit": "USD",
+            "period_end": "2025-06-30",
+            "period_start": "2024-07-01",
+        },
+    ]
+
+    def test_a_concept_reported_for_many_periods_is_one_line(self) -> None:
+        captured = figures.captured_concepts(list(self.ROWS), style=HouseStyle())
+
+        assert [line.label for line in captured] == ["Operating income", "Revenue"]
+        revenue = next(line for line in captured if line.concept == "revenue")
+        assert revenue.observations == 2
+        assert len(revenue.earlier) == 1
+
+    def test_the_newest_period_leads_and_nothing_is_dropped(self) -> None:
+        """Grouped, not filtered: the gate asks whether anything is missing, so a page
+        that quietly dropped an observation would be answering its own question."""
+        captured = figures.captured_concepts(list(self.ROWS), style=HouseStyle())
+        revenue = next(line for line in captured if line.concept == "revenue")
+
+        assert "30 June 2025" in revenue.latest.period
+        assert "30 June 2024" in revenue.earlier[0].period
+        assert sum(line.observations for line in captured) == len(self.ROWS)
+
+    def test_the_figures_are_in_the_house_style(self) -> None:
+        captured = figures.captured_concepts(list(self.ROWS), style=HouseStyle())
+        revenue = next(line for line in captured if line.concept == "revenue")
+
+        assert revenue.latest.value_display == "$331,839m"
+        assert "331839000000" not in revenue.latest.value_display
+
+    def test_an_instant_says_it_is_one(self) -> None:
+        """A share count is an instant, not a period, and a range with one end is a lie."""
+        captured = figures.captured_concepts(
+            [
+                {
+                    "concept": "shares_outstanding",
+                    "value": "7434000000",
+                    "unit": "shares",
+                    "period_end": "2025-07-24",
+                    "period_start": "",
+                }
+            ],
+            style=HouseStyle(),
+        )
+        assert captured[0].latest.period == "at 24 July 2025"
+
+    def test_a_concept_name_is_derived_not_listed(self) -> None:
+        """A map of every concept is one somebody maintains for ever, and is wrong the
+        first time the vocabulary grows."""
+        assert figures.concept_name("gross_profit") == "Gross profit"
+        assert figures.concept_name("cash_and_equivalents") == "Cash and equivalents"
+        # And the handful the transform gets wrong are held by name.
+        assert figures.concept_name("eps_diluted") == "Earnings per share, diluted"
+
+    def test_a_payload_from_an_older_build_still_renders(self) -> None:
+        """A gate that will not render is worse than a date in the wrong shape."""
+        captured = figures.captured_concepts(
+            [{"concept": "revenue", "value": "1", "unit": "USD", "period_end": "FY2025"}],
+            style=HouseStyle(),
+        )
+        assert captured[0].latest.period == "FY2025"

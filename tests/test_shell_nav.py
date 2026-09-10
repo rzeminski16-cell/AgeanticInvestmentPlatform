@@ -13,12 +13,15 @@ from __future__ import annotations
 import ast
 import subprocess
 import sys
+from dataclasses import fields
 from pathlib import Path
 
 import pytest
 
-from aer.web.nav import NavItem, NavSection, active_key
+from aer.web import nav as nav_types
+from aer.web.nav import NavGroup, NavItem, NavSection, active_key
 from aer.web.shell import NAV, UNLISTED, Shell, flat_items, shell_for
+from aer.web.shell import registry as nav_registry
 from tests.route_fixtures import page_routes_for
 
 
@@ -153,6 +156,67 @@ class TestNoContributorImportsTheShellBack:
             assert finished.returncode == 0, f"{module} does not import alone:\n{finished.stderr}"
 
 
+def _one_group(*items: NavItem) -> NavGroup:
+    """One group holding one section holding these items — the smallest whole nav."""
+    return NavGroup(key="g", label="G", sections=(NavSection(key="s", tool="t", items=items),))
+
+
+class TestTheMenuIsGroupedByWhatYouAreDoing:
+    """ADR 0112, held as measurements rather than as taste.
+
+    The defect was structural: a nav section is one tool's contribution, and drawing each
+    under its own heading made "one heading per tool" a rule nobody chose. Ten headings
+    over eighteen destinations, seven of them over a single link, six of those repeating
+    the word beneath. Every assertion here is one of those numbers refusing to come back.
+    """
+
+    def test_no_heading_stands_over_a_single_destination(self) -> None:
+        thin = {group.label: len(group.items) for group in NAV if group.label}
+
+        assert all(count > 1 for count in thin.values()), (
+            f"a heading over one link is a heading that says nothing new: {thin}"
+        )
+
+    def test_no_heading_repeats_a_link_beneath_it(self) -> None:
+        # "Watchlist · Watchlist" and "Portfolio · Portfolio" were the smallest version
+        # of the whole problem, and the one a reader met twice: in the rail and in the
+        # chrome at the width where the rail collapses.
+        echoes = [
+            (group.label, item.label)
+            for group in NAV
+            if group.label
+            for item in group.items
+            if item.label.casefold() == group.label.casefold()
+        ]
+
+        assert not echoes, f"these headings name their own link: {echoes}"
+
+    def test_every_registered_section_sits_in_exactly_one_group(self) -> None:
+        """A section imported and never placed is a tool nobody can reach.
+
+        Walked from the registry's own module rather than from a list, because a list
+        would be the third place to keep in step and the one that quietly disagrees.
+        """
+        imported = sorted(
+            value.key
+            for value in vars(nav_registry).values()
+            if isinstance(value, nav_types.NavSection)
+        )
+        placed = sorted(section.key for group in NAV for section in group.sections)
+
+        assert placed == imported, "a section is missing from every group, or is in two"
+
+    def test_the_grouping_is_the_shells_alone(self) -> None:
+        """No tool names a group, and none can: the type has no field for it.
+
+        This is what keeps ADR 0071's registration contract one line long. A tool that
+        could ask for a heading would be a tool deciding what the product's menu looks
+        like, and nine of those is what the menu already looked like.
+        """
+        assert not hasattr(NavSection, "label")
+        assert "group" not in {field.name for field in fields(NavSection)}
+
+
 class TestWhereYouAre:
     def test_a_leaf_lights_its_own_item(self) -> None:
         assert active_key(NAV, "/settings") == "settings"
@@ -162,33 +226,37 @@ class TestWhereYouAre:
         assert active_key(NAV, "/requests/abc/edit") == "requests"
 
     def test_the_longest_prefix_wins(self) -> None:
-        sections = (
-            NavSection(
-                key="s",
-                label="S",
-                tool="t",
-                items=(
-                    NavItem(key="runs", label="Runs", href="/runs"),
-                    NavItem(key="review", label="Review", href="/runs/review"),
-                ),
+        groups = (
+            _one_group(
+                NavItem(key="runs", label="Runs", href="/runs"),
+                NavItem(key="review", label="Review", href="/runs/review"),
             ),
         )
 
-        assert active_key(sections, "/runs/review/x") == "review"
+        assert active_key(groups, "/runs/review/x") == "review"
 
     def test_a_path_under_nothing_lights_nothing(self) -> None:
         assert active_key(NAV, "/nowhere") == ""
 
+    def test_the_chrome_names_the_group_and_the_page(self) -> None:
+        # What a reader sees at the width where the rail collapses. The group's word, so
+        # a page in a one-tool group is not announced twice (ADR 0112).
+        assert shell_for("/portfolio").location == "Your book · Portfolio"
+        assert shell_for("/requests").location == "Research · Requests"
+
+    def test_an_ungrouped_page_is_named_by_itself(self) -> None:
+        # The home page is under no heading, so there is no category to put in front of it.
+        assert shell_for("/").location == "Overview"
+
+    def test_an_unlisted_page_names_nothing(self) -> None:
+        assert shell_for("/runs/abc/sources").location == ""
+
     def test_the_root_does_not_light_everything(self) -> None:
         # A `/` item would match every path if its prefix were compared naively.
-        sections = (
-            NavSection(
-                key="s", label="S", tool="t", items=(NavItem(key="home", label="H", href="/"),)
-            ),
-        )
+        groups = (_one_group(NavItem(key="home", label="H", href="/")),)
 
-        assert active_key(sections, "/") == "home"
-        assert active_key(sections, "/requests") == ""
+        assert active_key(groups, "/") == "home"
+        assert active_key(groups, "/requests") == ""
 
 
 class TestTheShellNeedsNoDatabase:

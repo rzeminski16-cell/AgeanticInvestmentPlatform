@@ -59,13 +59,13 @@ FORM_FIELDS: Final[tuple[str, ...]] = (
     "ticker",
     "exchange",
     "isin",
-    "as_of_date",
     "base_currency",
     "reporting_currency",
     "investment_horizon_months",
     "horizon_label",
     "analysis_mode",
     "point_in_time",
+    "undated_sources_admissible",
     "current_weight_percent",
     "maximum_weight_percent",
     "benchmark",
@@ -154,6 +154,28 @@ def _lines(raw: str) -> list[str]:
     return [line.strip() for line in raw.splitlines() if line.strip()]
 
 
+_DENIALS: Final[frozenset[str]] = frozenset({"false", "0", "no", "off"})
+
+
+def _chosen(raw: str, *, default: bool) -> bool:
+    """Read a yes/no decision the form states in words.
+
+    Both of these are rendered as a pair of radios rather than as a checkbox, because a
+    checkbox names only the state it is in and leaves the other one to be inferred. That
+    changes how the answer arrives: a radio group submits ``"false"`` where an unticked
+    checkbox submits nothing at all. This function used to be ``value != ""``, which was
+    right for the checkbox the field was first built as and has been wrong since — the
+    string ``"false"`` is not empty, so an operator who chose "allow later-published
+    sources" got a point-in-time run and no indication that their choice had been dropped.
+
+    ``default`` is what an absent key means, which is the safe reading rather than the
+    permissive one: nothing selected is not a decision to relax a rule.
+    """
+    if raw == "":
+        return default
+    return raw.strip().casefold() not in _DENIALS
+
+
 def _form_field_for(location: str) -> str:
     """Map a schema field name onto the form input that carries it."""
     return _LOCATION_TO_FIELD.get((location,), location)
@@ -189,15 +211,13 @@ def parse_request_form(form: dict[str, str]) -> ParsedForm:
         "ticker": values["ticker"],
         "exchange": values["exchange"],
         "isin": values["isin"],
-        "as_of_date": values["as_of_date"],
         "base_currency": values["base_currency"],
         "reporting_currency": values["reporting_currency"],
         "investment_horizon_months": values["investment_horizon_months"],
         "horizon_label": values["horizon_label"],
         "analysis_mode": values["analysis_mode"],
-        # An unchecked checkbox is simply absent from the submission -- there is no
-        # "false" to read, only a missing key.
-        "point_in_time": values["point_in_time"] != "",
+        "point_in_time": _chosen(values["point_in_time"], default=True),
+        "undated_sources_admissible": _chosen(values["undated_sources_admissible"], default=True),
         "portfolio_context": {
             "current_weight": weights.get("current_weight"),
             "maximum_weight": weights.get("maximum_weight"),
@@ -241,15 +261,17 @@ def form_values_from(request: ResearchRequest) -> dict[str, str]:
         "ticker": request.ticker,
         "exchange": request.exchange,
         "isin": request.isin or "",
-        "as_of_date": request.work_order.as_of_date.isoformat(),
         "base_currency": request.base_currency,
         "reporting_currency": request.reporting_currency or "",
         "investment_horizon_months": str(request.investment_horizon_months),
         "horizon_label": request.horizon_label or "",
         "analysis_mode": request.analysis_mode.value,
-        # An unchecked checkbox submits nothing at all, so "" is the only honest
-        # representation of false here -- the parser reads presence, not a value.
-        "point_in_time": "true" if request.work_order.point_in_time else "",
+        # The word, not a presence: these are radio groups, and the parser reads which
+        # option was chosen. See `_chosen`.
+        "point_in_time": "true" if request.work_order.point_in_time else "false",
+        "undated_sources_admissible": (
+            "true" if request.work_order.undated_sources_admissible else "false"
+        ),
         "current_weight_percent": fraction_to_percent(_weight(portfolio.get("current_weight"))),
         "maximum_weight_percent": fraction_to_percent(_weight(portfolio.get("maximum_weight"))),
         "benchmark": str(portfolio.get("benchmark") or ""),

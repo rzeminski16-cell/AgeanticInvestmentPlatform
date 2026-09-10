@@ -125,6 +125,12 @@ class ChallengeBriefInput(BaseModel):
     company_name: str
     ticker: str
     challenges: list[UnsettledChallenge] = Field(default_factory=list, max_length=MAX_BRIEFS)
+    problems: list[str] = Field(default_factory=list)
+    """What the previous attempt's reply was refused for, field by field.
+
+    Empty on the first attempt. A retry told only that its reply "did not validate" makes
+    the same mistake again at the same price, which is how the first acceptance pass paid
+    £0.0715 for a step that produced nothing at all."""
 
 
 _SYSTEM_PROMPT: Final = f"""\
@@ -170,9 +176,13 @@ class ChallengeBriefAgent(Agent[ChallengeBriefInput, ChallengeBriefs]):
 
     def user_message(self, payload: ChallengeBriefInput) -> str:
         body = payload.model_dump(mode="json")
-        return "\n\n".join(
-            [
-                f"The draft is about {payload.company_name} ({payload.ticker}).",
-                f"Unsettled challenges:\n{body['challenges']}",
-            ]
-        )
+        parts = [
+            f"The draft is about {payload.company_name} ({payload.ticker}).",
+            f"Unsettled challenges:\n{body['challenges']}",
+        ]
+        if payload.problems:
+            parts.append(
+                "Your previous reply was refused. Fix exactly these and return the whole "
+                "object again:\n" + "\n".join(f"- {problem}" for problem in payload.problems)
+            )
+        return "\n\n".join(parts)

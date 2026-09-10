@@ -415,10 +415,15 @@ async def commission(
     settings: Settings,
     user: User,
     entry: WatchlistEntry,
-    as_of: date | None = None,
     budget: StandingBudget | None = None,
 ) -> tuple[WatchlistCommission, Job]:
-    """Turn an entry into a research run as at a date, inside the standing budget.
+    """Turn an entry into a research run, inside the standing budget.
+
+    **As at the day the queue reaches it**, which is what ADR 0107's "researched as at a
+    date" always meant in practice and is now the only thing it can mean: a run is dated by
+    the platform at commissioning (ADR 0110). `WatchlistCommission.as_of_date` keeps
+    recording it, because *when* an entry was researched is exactly what a list of past
+    commissions is for.
 
     The request is an ordinary research request with the form's own defaults and the
     per-run cap; the run it starts stops at gate one for the operator. The caller enqueues
@@ -470,12 +475,12 @@ async def commission(
             },
         )
 
-    dated = as_of or datetime.now(UTC).date()
+    limits = request_service.limits_from(settings)
+    dated = limits.today
     payload = ResearchRequestCreate(
         company_name=entry.company_name,
         ticker=entry.ticker,
         exchange=entry.exchange,
-        as_of_date=dated,
         investment_horizon_months=DEFAULT_HORIZON_MONTHS,
         horizon_label=_HORIZON_LABEL,
         analysis_mode=DEFAULT_MODE,
@@ -483,7 +488,7 @@ async def commission(
         max_cost_gbp=cap,
     )
     request = await request_service.create_request(
-        session, user=user, payload=payload, limits=request_service.limits_from(settings)
+        session, user=user, payload=payload, limits=limits
     )
     job = await run_service.start_run(session, request=request)
     # The relationship rather than the key, so a caller may read `row.entry` afterwards

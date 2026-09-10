@@ -7,6 +7,11 @@ close that loop and be paid for on every request in the product.
 
 So the rule the shell has always implied is now visible: **a tool contributes a section
 from a module that holds data and imports nothing heavy.** Its pages live elsewhere.
+
+And it contributes *destinations only*. Where they appear in the menu, and under what
+heading, is the shell's to decide in `GROUPS` (ADR 0112) — a section has no label and no
+field naming a group, because "one heading per tool" was a rule that followed from the
+type rather than from anybody's judgement, and it produced ten headings for nine tools.
 """
 
 from __future__ import annotations
@@ -19,7 +24,6 @@ __all__ = ["OVERVIEW"]
 
 OVERVIEW: Final = NavSection(
     key="overview",
-    label="Overview",
     tool="overview",
     items=(NavItem(key="overview", label="Overview", href="/"),),
 )

@@ -112,6 +112,22 @@ class SourceView:
         return not self.quarantined or self.override_reason is not None
 
     @property
+    def is_dated(self) -> bool:
+        """Whether anything establishes when this document was published."""
+        return (self.publication_date_latest or self.publication_date) is not None
+
+    @property
+    def evidence_tier(self) -> SourceTier:
+        """The tier an evidence policy reads, capped at tier 5 where the date is unknown.
+
+        Mirrors :attr:`aer.db.models.source_document.SourceDocument.evidence_tier`, for
+        the reason `is_admissible` mirrors its own: the page and the rule may not disagree
+        about what a document is worth. Where the two differ from `source_tier`, the table
+        shows both — the cap without the recorded tier reads as a mis-tiered document.
+        """
+        return self.source_tier.as_evidence(dated=self.is_dated)
+
+    @property
     def short_hash(self) -> str:
         return self.sha256[:HASH_PREFIX]
 
@@ -125,6 +141,11 @@ class SourceView:
             "provider": self.provider.value,
             "source_tier": self.source_tier.value,
             "tier_rank": self.source_tier.rank,
+            # What the tier is worth to a policy, which is not always what was recorded:
+            # an undated document is capped at tier 5 (ADR 0111). Both, because the cap
+            # alone reads as a mis-tiered document and the record alone hides the rule.
+            "evidence_tier": self.evidence_tier.value,
+            "dated": self.is_dated,
             "publication_date": _iso(self.publication_date),
             "publication_date_latest": _iso(self.publication_date_latest),
             "publication_date_confidence": self.publication_date_confidence,
@@ -328,14 +349,19 @@ async def sources_for_run(session: AsyncSession, job_id: uuid.UUID) -> list[Sour
     Ordered by tier because that is the order a reader assesses evidence in, and a table
     sorted by acquisition time would put a blog above a filing for no reason other than
     that it was fetched first.
+
+    The tier sorted on is the **evidence** tier, so an undated document sits where the
+    rules actually place it (ADR 0111) rather than where its publisher would. That is a
+    derived value, so the sort happens here rather than in SQL; the query orders by
+    recency and the sort below is stable, which is the same two keys in the same order.
     """
     rows = await session.scalars(
         select(SourceDocument)
         .where(SourceDocument.job_id == job_id)
         .options(selectinload(SourceDocument.artefact), selectinload(SourceDocument.extractions))
-        .order_by(SourceDocument.source_tier, SourceDocument.retrieved_at.desc())
+        .order_by(SourceDocument.retrieved_at.desc())
     )
-    return [_source_view(row) for row in rows]
+    return sorted((_source_view(row) for row in rows), key=lambda view: view.evidence_tier.rank)
 
 
 def _source_view(row: SourceDocument) -> SourceView:

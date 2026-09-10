@@ -268,7 +268,6 @@ def tools_needing_a_page() -> tuple[Tool, ...]:
 # looks for, because the thing that broke it was the thing going right.
 PORTFOLIO: Final = NavSection(
     key="portfolio",
-    label="Portfolio",
     tool="portfolio",
     items=tuple(
         NavItem(key=tool.key, label=tool.label, href=tool.href)

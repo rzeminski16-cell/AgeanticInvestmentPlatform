@@ -15,7 +15,6 @@ __all__ = ["THESES"]
 
 THESES: Final = NavSection(
     key="theses",
-    label="Theses",
     tool="theses",
     items=(NavItem(key="theses", label="Theses", href="/theses"),),
 )

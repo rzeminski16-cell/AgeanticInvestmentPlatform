@@ -59,11 +59,24 @@
     </div>
   {% endcall %}
 
-  {% call ui.sheet("Date and hindsight", subtitle="What the research is allowed to have known.") %}
+  {% call ui.sheet("Hindsight", subtitle="What the research is allowed to have known.") %}
     <div class="flex flex-col gap-5">
-      {{ ui.field("as_of_date", "As-of date", value=values.get("as_of_date", ""), type="date",
-                  required=true, error=errors.get("as_of_date", [""])[0], maximum=today,
-                  hint="Cannot be in the future.") }}
+      {#
+        The as-of date is stated, not asked for (ADR 0110). A report is written about a
+        company as it stands, and the date it stands at is the day the run is commissioned
+        — so the platform stamps it and shows it here rather than offering a field whose
+        only correct answer it already knows.
+      #}
+      <p class="type-body text-ink" id="as-of-statement">
+        {% if as_of == today %}
+          Dated <span class="type-data" data-field="as-of">{{ as_of }}</span>, the day you
+          commission it.
+        {% else %}
+          Dated <span class="type-data" data-field="as-of">{{ as_of }}</span>, the day it was
+          commissioned. An edit cannot move it.
+        {% endif %}
+        Every source is judged against that date, and the run's own record carries it.
+      </p>
       {#
         Two radios rather than one checkbox, and the difference is not cosmetic. A checkbox has
         one label, so the state it is *not* in goes unnamed: the reader sees "point-in-time
@@ -75,13 +88,32 @@
         "Which sources may this run use?",
         [
           {"value": "true",
-           "label": "Use only information available by this date — recommended",
-           "consequence": "Anything published later is refused at acquisition, in code, so the run can be read as a clean historical replay."},
+           "label": "Refuse anything published after today — recommended",
+           "consequence": "Enforced at acquisition, in code. With the run dated to today this mostly catches a document whose own evidence puts it in the future, which is a document that has been mis-dated or made up."},
           {"value": "false",
-           "label": "Allow later-published sources",
-           "consequence": "This run can no longer be treated as a clean historical replay. Later knowledge can reach a conclusion about an earlier date, which is the bias backward-looking analysis exists to avoid."},
+           "label": "Admit a source that says it was published later",
+           "consequence": "Only for a source you know is dated wrongly and would otherwise have to override one document at a time. It switches the look-ahead check off for the whole run."},
         ],
-        chosen=("false" if values and not values.get("point_in_time") else "true"),
+        chosen=(values.get("point_in_time") or "true"),
+      ) }}
+      {#
+        The second half of the same question, and a separate control since ADR 0111. It used
+        to ride on the radios above: choosing point-in-time also refused every page whose
+        publication date nothing could establish, which is why a run's plan named news
+        sources and its evidence table held none.
+      #}
+      {{ ui.choice_group(
+        "undated_sources_admissible",
+        "May this run read a page it cannot date?",
+        [
+          {"value": "true",
+           "label": "Yes, and never as a primary source — recommended",
+           "consequence": "An undated page counts as tier 5 whoever published it, so it can corroborate and can never be the primary source a section requires. It is marked as undated wherever it appears."},
+          {"value": "false",
+           "label": "No, refuse it at acquisition",
+           "consequence": "Every page without a discoverable publication date is quarantined, including most news reporting. The run keeps the document and the record of refusing it."},
+        ],
+        chosen=(values.get("undated_sources_admissible") or "true"),
       ) }}
     </div>
   {% endcall %}

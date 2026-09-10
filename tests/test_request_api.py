@@ -34,7 +34,6 @@ def payload(**overrides):
         "ticker": "msft",
         "exchange": "nasdaq",
         "isin": "US5949181045",
-        "as_of_date": "2026-07-01",
         "base_currency": "USD",
         "investment_horizon_months": 36,
         "max_cost_gbp": "2.00",
@@ -259,13 +258,18 @@ class TestCreate:
 
 
 class TestValidationIsReached:
-    async def test_a_future_as_of_date_is_rejected(self, api):
+    async def test_an_as_of_date_is_refused_rather_than_ignored(self, api):
+        """ADR 0110. The API's date went with the form's, and `extra="forbid"` says so.
+
+        A silently-dropped field would be the worse answer: a client that had been
+        commissioning research about a past quarter would keep believing it was.
+        """
         tomorrow = (datetime.now(UTC).date() + timedelta(days=1)).isoformat()
         response = await api.post(ENDPOINT, json=payload(as_of_date=tomorrow))
 
         assert response.status_code == 422
-        problems = response.json()["context"]["problems"]
-        assert [p["field"] for p in problems] == ["as_of_date"]
+        assert response.json()["code"] == "request_validation_error"
+        assert "as_of_date" in response.text
 
     async def test_a_cost_above_the_per_run_budget_is_rejected(self, api):
         response = await api.post(ENDPOINT, json=payload(max_cost_gbp="999.00"))
@@ -303,13 +307,12 @@ class TestValidationIsReached:
                 ticker="SPY",
                 company_name="SPDR S&P 500 ETF Trust",
                 exchange="NYSE",
-                as_of_date="2099-01-01",
                 max_cost_gbp="999.00",
             ),
         )
 
         fields = {p["field"] for p in response.json()["context"]["problems"]}
-        assert fields == {"as_of_date", "max_cost_gbp", "ticker"}
+        assert fields == {"max_cost_gbp", "ticker"}
 
     async def test_a_malformed_ticker_is_a_schema_error(self, api):
         response = await api.post(ENDPOINT, json=payload(ticker="NOT A TICKER!"))

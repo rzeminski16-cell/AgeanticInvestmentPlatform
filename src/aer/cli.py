@@ -12,9 +12,11 @@ as a different error from each command.
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import json
 import sys
 import uuid
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Final
@@ -69,6 +71,7 @@ from aer.services.retention import (
     purgeable_artefacts,
     verify_store,
 )
+from aer.services.run_export import RunExport, export_run
 from aer.services.run_replay import RunReplay, replay_run
 from aer.services.section_rehearsal import RehearsalOutcome, rehearse_section
 from aer.services.step_diagnostic import RunDiagnostic, StepDiagnostic, run_diagnostic
@@ -1182,6 +1185,14 @@ def diagnose_command(
     step_key: Annotated[
         str | None, typer.Argument(help="One step to show in full. Omit for the whole run.")
     ] = None,
+    output: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Write the readout to this file instead of the terminal.",
+        ),
+    ] = None,
 ) -> None:
     """Print a run's per-step diagnostic, from what each step already recorded.
 
@@ -1204,18 +1215,108 @@ def diagnose_command(
         step = readout.step(step_key)
         if step is None:
             hint = "not reached yet" if step_key in readout.not_reached else "not a recorded step"
+            # A filename here is almost always a missing `>` or `--output`: the runbook's
+            # own line is `aer diagnose <job-id> > run-diagnosis.txt`, and dropping one
+            # character turns the redirect into a step name. The operator hit exactly that.
+            looks_like_a_file = "." in step_key or "/" in step_key or "\\" in step_key
             typer.secho(
                 f"Run {job_id} has no record of {step_key!r} ({hint}).", fg=typer.colors.RED
             )
+            if looks_like_a_file:
+                typer.secho(
+                    f"That reads like a filename. To write the readout to it, use "
+                    f"`aer diagnose {job_id} --output {step_key}`.",
+                    fg=typer.colors.YELLOW,
+                )
             raise typer.Exit(code=1)
-        _print_step_detail(step)
+        with _written_to(output):
+            _print_step_detail(step)
+        _wrote(output)
         return
 
-    _print_run_diagnostic(readout)
-    if readout.status in {JobStatus.QUEUED, JobStatus.RUNNING}:
+    with _written_to(output):
+        _print_run_diagnostic(readout)
+    _wrote(output)
+    if output is None and readout.status in {JobStatus.QUEUED, JobStatus.RUNNING}:
         _print_worker_line(settings, status=readout.status)
     if readout.status is JobStatus.FAILED:
         raise typer.Exit(code=1)
+
+
+@contextlib.contextmanager
+def _written_to(output: Path | None) -> Iterator[None]:
+    """Send everything printed inside to ``output``, or leave it on the terminal.
+
+    A redirect works and is what the runbook documents; this exists because one missing
+    `>` sent the operator's readout to a step-name lookup instead, and because a Windows
+    shell's redirect writes UTF-16 by default, which is not a file anybody can paste.
+    """
+    if output is None:
+        yield
+        return
+    with output.open("w", encoding="utf-8") as handle, contextlib.redirect_stdout(handle):
+        yield
+
+
+def _wrote(output: Path | None) -> None:
+    if output is not None:
+        typer.secho(f"Wrote {output}.", fg=typer.colors.GREEN)
+
+
+@app.command(name="export-run")
+def export_run_command(
+    job_id: Annotated[uuid.UUID, typer.Argument(help="The run to write out.")],
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", "-o", help="Where to write it. Default: ./run-<job>.json"),
+    ] = None,
+) -> None:
+    """Write everything one run recorded to a single JSON file, at no cost.
+
+    What `aer diagnose` prints is what a person needs to see; this is what a reader who was
+    not there needs to answer *why*. Every step's own recorded output, every model call
+    with its stop reason and the hashes of both halves, every section with what it was
+    refused for, the evaluations with their thresholds, the approvals with the hash each
+    covered, the disagreements, and every calculation with its inputs.
+
+    All reads. No fetch, no model call, nothing spent, and the same bytes a month later.
+
+    **It carries no credentials and no licensed vendor series** — a document meant to be
+    pasted into a chat is a republication, and ADR 0030 does not permit one of the price
+    bars. Figures derived from them are the operator's own and are included. Archived
+    request and response bodies are addressed by content hash rather than embedded: one
+    drafting reply is megabytes.
+    """
+    settings = _settings_or_exit()
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+
+    destination = output or Path(f"run-{job_id}.json")
+    try:
+        export = asyncio.run(_export_run(settings, job_id=job_id))
+    except ValueError as missing:
+        typer.secho(str(missing), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from missing
+    except AerError as error:
+        typer.secho(str(error), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from error
+
+    destination.write_text(
+        json.dumps(export.document, indent=2, sort_keys=False, default=str) + "\n",
+        encoding="utf-8",
+    )
+    size = destination.stat().st_size
+    typer.secho(export.summary, fg=typer.colors.GREEN)
+    typer.echo(f"Wrote {destination} ({size:,} bytes). Read it before you send it.")
+
+
+async def _export_run(settings: Settings, *, job_id: uuid.UUID) -> RunExport:
+    engine = create_engine(settings)
+    factory = create_session_factory(engine)
+    try:
+        async with factory() as session:
+            return await export_run(session, job_id=job_id)
+    finally:
+        await engine.dispose()
 
 
 @app.command(name="preflight")

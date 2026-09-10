@@ -49,6 +49,7 @@ from aer.core.enums import (
     SkillKind,
     TransactionKind,
 )
+from aer.core.escalation import TriggerKind
 from aer.core.skill_guidance import PLANNER, SECTION_WRITER, roles_for
 from aer.db.models.report_section import SectionStatus
 
@@ -58,9 +59,11 @@ __all__ = [
     "GATES",
     "GRADES",
     "JOB_STATES",
+    "METRIC_WORDS",
     "PREMISE_STATES",
     "PREMISE_VERDICTS",
     "PROCESS_QUALITIES",
+    "QUARANTINE_REASONS",
     "REQUEST_STATES",
     "SECTION_STATES",
     "SHOCK_KINDS",
@@ -68,15 +71,19 @@ __all__ = [
     "STEP_WORDS",
     "STOPPED_PASS",
     "TRANSACTION_KINDS",
+    "TRIGGER_KINDS",
     "GateCertainty",
     "GateWords",
     "HumanState",
     "Tone",
     "gate_words",
+    "in_words",
     "job_state",
+    "metric_words",
     "request_state",
     "section_state",
     "step_label",
+    "trigger_words",
 ]
 
 
@@ -392,6 +399,26 @@ DECISIONS: Final[dict[Decision, HumanState]] = {
 }
 
 
+# What each escalation trigger is called on the review page. The trigger carries its own
+# sentence — `TriggerKind` was rendering as itself beside it, so the operator's first
+# acceptance pass read `material_missing_section` and `low_source_coverage` as the headings
+# of the two things that had gone wrong with the report they were about to approve.
+#
+# No `detail` on any of them, deliberately: the trigger's `message` is already the sentence,
+# and a second one under the chip would be the same thing said twice.
+TRIGGER_KINDS: Final[dict[TriggerKind, HumanState]] = {
+    TriggerKind.LOW_SOURCE_COVERAGE: HumanState("Thinly sourced", Tone.FAILURE),
+    TriggerKind.CREDIBLE_SOURCE_CONFLICT: HumanState("Sources disagree", Tone.FAILURE),
+    TriggerKind.POTENTIAL_LOOK_AHEAD: HumanState("Possible hindsight", Tone.FAILURE),
+    TriggerKind.HIGH_MODEL_UNCERTAINTY: HumanState("Low confidence", Tone.FAILURE),
+    TriggerKind.MATERIAL_MISSING_SECTION: HumanState("A section is missing", Tone.FAILURE),
+    TriggerKind.SKILL_POLICY_CLAMP: HumanState("A method was overruled", Tone.FAILURE),
+    TriggerKind.COST_ABOVE_THRESHOLD: HumanState("Near the spending cap", Tone.FAILURE),
+    TriggerKind.VALIDATION_FAILURE: HumanState("A check did not pass", Tone.FAILURE),
+    TriggerKind.SUSPICIOUS_SOURCE: HumanState("A source needs a look", Tone.FAILURE),
+}
+
+
 # -- Gates ---------------------------------------------------------------------------------
 
 # `asks` is the phrase `web/overview/research.py` has always used, moved here rather than
@@ -586,6 +613,176 @@ def request_state(status: RequestStatus) -> HumanState:
 
 def section_state(status: SectionStatus) -> HumanState:
     return _looked_up(SECTION_STATES, status, "section")
+
+
+# What each evaluation metric is called on the page a person reads, and the sentence saying
+# what it measures. The draft review's own table printed `primary_source_ratio` and
+# `cited_figure_agreement` as themselves, beside a score of `0.51470000` — the operator was
+# being asked to approve a report against a row they had to decode first.
+#
+# Keyed by the metric's string value rather than the enum, because `aer.eval` is a package
+# the interface reads from and must not import back into. `tests/test_presentation_vocabulary`
+# walks `Metric` and fails when one has no words here.
+METRIC_WORDS: Final[dict[str, HumanState]] = {
+    "citation_accuracy": HumanState(
+        "Citations that check out",
+        Tone.INFO,
+        "Every citation re-read against the archived bytes it points at.",
+    ),
+    "hallucinated_citation_rate": HumanState(
+        "Citations pointing at nothing",
+        Tone.INFO,
+        "A claim citing an excerpt that is not in the document it names.",
+    ),
+    "temporal_compliance": HumanState(
+        "Sources within the evidence date",
+        Tone.INFO,
+        "Nothing published after the run's as-of date supporting a claim.",
+    ),
+    "look_ahead_recall": HumanState(
+        "Hindsight caught",
+        Tone.INFO,
+        "Of the post-dated sources planted or found, how many the guard stopped.",
+    ),
+    "injection_resistance": HumanState(
+        "Instructions in fetched text, refused",
+        Tone.INFO,
+        "Untrusted content is data; an attempt to make it an instruction fails.",
+    ),
+    "unit_integrity": HumanState(
+        "Units carried through",
+        Tone.INFO,
+        "Arithmetic that mixed units raised rather than coercing.",
+    ),
+    "numerical_consistency": HumanState(
+        "Figures that re-derive",
+        Tone.INFO,
+        "Every stored calculation replayed from its own record, and the drift between.",
+    ),
+    "assumption_completeness": HumanState(
+        "Assumptions confirmed",
+        Tone.INFO,
+        "Every input a valuation rested on, agreed by a person before it ran.",
+    ),
+    "source_coverage": HumanState(
+        "Sections meeting their evidence floor",
+        Tone.INFO,
+        "Each section against the number of sources its own policy demands.",
+    ),
+    "primary_source_ratio": HumanState(
+        "Figures resting on primary evidence",
+        Tone.INFO,
+        "Numeric claims reaching a filing, an issuer document, an official statistic or a "
+        "market feed — directly, or through the calculation that produced them.",
+    ),
+    "custom_section_contract_conformance": HumanState(
+        "Custom sections matching their contract",
+        Tone.INFO,
+        "A section an operator's own skill wrote, validated against the shape it declared.",
+    ),
+    "skill_privilege_containment": HumanState(
+        "Skill files kept additive",
+        Tone.INFO,
+        "An authored instruction may add a requirement and never relax one.",
+    ),
+    "presentation_integrity": HumanState(
+        "Defects in the rendered draft",
+        Tone.INFO,
+        "The draft assembled exactly as the preview renders it, scanned for what a live "
+        "note once shipped.",
+    ),
+    "figure_plausibility": HumanState(
+        "Figures outside a sane range",
+        Tone.INFO,
+        "A margin over one hundred per cent is arithmetic that went wrong somewhere.",
+    ),
+    "cited_figure_agreement": HumanState(
+        "Sentences agreeing with the figure they cite",
+        Tone.INFO,
+        "A claim naming a calculation, read against the number that calculation holds.",
+    ),
+}
+
+
+def metric_words(metric: str) -> HumanState:
+    """What an evaluation metric is called, or its own key where nothing maps it.
+
+    Falling back rather than raising, for the reason `trigger_words` does: a run recorded
+    under a build that measured something this one does not must still render.
+    """
+    return METRIC_WORDS.get(metric, HumanState(metric, Tone.INFO))
+
+
+QUARANTINE_REASONS: Final[dict[str, str]] = {
+    "no_publication_date": "nothing establishes when it was published",
+    "published_after_as_of_date": "it was published after this run's as-of date",
+    "tier_not_citable": "its tier may never be cited as evidence",
+}
+"""Why a source was refused, in the words the sources page prints after "Quarantined:".
+
+Not an enum: the reasons are module constants in `aer.services.sources`, and the
+completeness test walks those rather than a type. They are here because the page was
+printing `no_publication_date` at a reader — the one place the ratchet's `reason`
+exemption was wrong, since these reasons are identifiers and not sentences the platform
+wrote.
+"""
+
+
+# Every mapping whose members a template may meet as a bare value, in the order a lookup
+# tries them. Keyed by the enum's own values, because a payload stores `kind` as a string
+# and a Jinja expression has no enum to hand.
+_BY_VALUE: Final[dict[str, str]] = {
+    **QUARANTINE_REASONS,
+    **{
+        member.value: state.label
+        for mapping in (
+            SKILL_KINDS,
+            SHOCK_KINDS,
+            TRANSACTION_KINDS,
+            GRADES,
+            DECISIONS,
+            ANALYSIS_MODES,
+            PREMISE_VERDICTS,
+            PROCESS_QUALITIES,
+            TRIGGER_KINDS,
+            SECTION_STATES,
+            JOB_STATES,
+            REQUEST_STATES,
+            PREMISE_STATES,
+        )
+        for member, state in mapping.items()
+    },
+}
+
+
+def in_words(value: object) -> str:
+    """One enum value, as a person reads it — or unchanged where nothing maps it.
+
+    The template-side half of this module, registered as the `in_words` filter. The
+    mappings above are complete and were still being gone round: a handler that forgot to
+    resolve a state left the template printing the value, and `custom_section` and
+    `house_view` were on the plan gate the operator approves at.
+
+    Falling back to the value rather than raising is deliberate. A label is presentation,
+    and a page that will not render because one chip has no word is a worse failure than a
+    chip reading as its own key — which is what every one of these did already.
+    """
+    text = str(value)
+    return _BY_VALUE.get(text, text)
+
+
+def trigger_words(kind: TriggerKind | str) -> HumanState:
+    """What an escalation trigger is called on the page a person reads.
+
+    Accepts the raw string as well as the enum, because the gate-2 payload stores
+    `kind` as its value and a run recorded under a build that fired a trigger this one no
+    longer declares must still render — as its own key, which is what it did everywhere
+    before this mapping existed.
+    """
+    try:
+        return TRIGGER_KINDS[TriggerKind(kind)]
+    except (KeyError, ValueError):
+        return HumanState(str(kind), Tone.FAILURE)
 
 
 def gate_words(gate: GateKind) -> GateWords:

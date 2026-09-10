@@ -24,7 +24,7 @@ from aer.db.models import Job
 from aer.errors import IntegrityError
 from aer.services.runs import awaiting_approval_count
 from aer.web import routes as routes_module
-from aer.web.shell import NAV, UNLISTED, flat_items, shell_for
+from aer.web.shell import UNLISTED, flat_items, flat_sections, shell_for
 from aer.web.shell import badges as badge_module
 from aer.web.shell.badges import (
     Badge,
@@ -129,7 +129,7 @@ class TestSlotsAndProvidersAgree:
         assert any(item.badge_key for item in flat_items())
 
     def test_a_badge_belongs_to_a_tool_the_nav_knows(self) -> None:
-        tools = {section.tool for section in NAV}
+        tools = {section.tool for section in flat_sections()}
         strangers = sorted(p.key for p in registered_badges() if p.tool not in tools)
 
         assert not strangers, f"badges owned by a tool with no section: {strangers}"

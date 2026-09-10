@@ -1,10 +1,22 @@
-"""What the sidebar contains, composed from one entry per tool.
+"""What the sidebar contains, composed from one entry per tool and grouped by the shell.
 
 Explicit, in the shape `db/models/__init__.py` settled for models and
 `agents/registry.py` for capability: a tuple somebody edits, not a scan that discovers.
 The reason is the same one ADR 0071 gives for `INSTALLED_TOOLS` — a navigation that
 assembled itself from whatever happened to be importable would be a navigation nobody
 could read, and the test below could only ever confirm it agreed with itself.
+
+**`GROUPS` is where the menu is decided, and it is the only such place** (ADR 0112). A
+tool contributes a `NavSection` of destinations and says nothing about where they sit; the
+shell puts each section under a heading. That division is what stops nine tools from
+producing nine headings — which is what happened, and which read as organisation at the
+second tool and as a wall at the ninth: ten headings over eighteen links, seven of them
+standing over a single link, six of those repeating the word underneath.
+
+**The group names are a judgement, and they are meant to be argued with.** They are four
+string literals in one tuple below, so rewording the menu is an edit to this file and
+nothing else — no tool learns a new word, no route moves, no test asserts a heading's
+prose. If "your book" is not how you think of it, the fix is three seconds long.
 
 `UNLISTED` is the other half of that test. Every server-rendered page either appears in the
 nav or is named there as deliberately reachable only from inside another page. A route in
@@ -18,7 +30,7 @@ from typing import Final
 
 from aer.web.decisions.nav import DECISIONS
 from aer.web.monitor.nav import MONITOR
-from aer.web.nav import NavItem, NavSection
+from aer.web.nav import NavGroup, NavItem, NavSection
 from aer.web.overview.nav import OVERVIEW
 from aer.web.review.nav import REVIEW
 from aer.web.risk.nav import RISK
@@ -26,13 +38,12 @@ from aer.web.theses.nav import THESES
 from aer.web.tools.registry import PORTFOLIO
 from aer.web.watchlist.nav import WATCHLIST
 
-__all__ = ["NAV", "UNLISTED", "flat_items"]
+__all__ = ["GROUPS", "NAV", "UNLISTED", "flat_items", "flat_sections"]
 
 # The research tool's own destinations. When a second tool arrives it contributes its own
 # NavSection from its own module and adds one line below, and nothing here changes.
 RESEARCH: Final = NavSection(
     key="research",
-    label="Research",
     tool="research",
     items=(
         # The one item carrying a count. `badge_key` names it; `web/shell/badges.py`
@@ -52,7 +63,6 @@ RESEARCH: Final = NavSection(
 
 PLATFORM: Final = NavSection(
     key="platform",
-    label="Platform",
     tool="platform",
     items=(
         NavItem(key="settings", label="Settings", href="/settings"),
@@ -62,27 +72,51 @@ PLATFORM: Final = NavSection(
     ),
 )
 
-# One import per tool, and one line here. Overview is the first section this file did
-# not declare itself, which is the whole claim the nav-as-data slice made.
-NAV: Final[tuple[NavSection, ...]] = (
-    OVERVIEW,
-    RESEARCH,
-    WATCHLIST,
-    PORTFOLIO,
-    RISK,
-    THESES,
-    DECISIONS,
-    MONITOR,
-    REVIEW,
-    PLATFORM,
+# One import per tool, and one line here — inside the group the tool belongs to. That
+# "inside" is the whole change (ADR 0112): a new tool's author has to decide where their
+# work sits in somebody's day, and cannot answer by adding a heading.
+#
+# The four names are the arguable part, and they are grouped by what the operator is doing
+# rather than by which tool implements it. `""` is a heading nobody sees: the home page is
+# not a category, and "Overview · Overview" was the smallest version of the whole problem.
+GROUPS: Final[tuple[NavGroup, ...]] = (
+    NavGroup(key="start", label="", sections=(OVERVIEW,)),
+    # Watchlist sits here rather than beside the theses: it is a standing intention that
+    # commissions research runs (ADR 0107), and its output is a request like any other.
+    # Last in the group because a group's items are its sections' in order, and `Requests`
+    # is what an operator reaches for — leading with the queue that feeds it would put the
+    # secondary destination first.
+    NavGroup(key="research", label="Research", sections=(RESEARCH, WATCHLIST)),
+    # What you own, and everything that follows from owning it: what it is worth, what it
+    # exposes you to, what you decided, and how those decisions turned out.
+    NavGroup(key="book", label="Your book", sections=(PORTFOLIO, RISK, DECISIONS, REVIEW)),
+    # What you think, which is deliberately not the same thing: a thesis is a claim you
+    # have written down, and the monitor is the world disagreeing with one.
+    NavGroup(key="beliefs", label="What you believe", sections=(THESES, MONITOR)),
+    NavGroup(key="platform", label="Platform", sections=(PLATFORM,)),
 )
+
+# The name the rest of the application knows the navigation by. Kept because "the nav" is
+# what a shell, a template and five tests call it, and because what changed is its shape
+# rather than its job.
+NAV: Final[tuple[NavGroup, ...]] = GROUPS
+
+
+def flat_sections() -> tuple[NavSection, ...]:
+    """Every tool's contribution, in the order the groups place them.
+
+    What "which tools are in the menu?" means now that a group sits above them. Asked by
+    the badge and attention registries, each of which refuses a provider owned by a tool
+    the navigation has never heard of.
+    """
+    return tuple(section for group in NAV for section in group.sections)
 
 
 def flat_items() -> tuple[NavItem, ...]:
     """Every item in declaration order, children included."""
     found: list[NavItem] = []
-    for section in NAV:
-        for item in section.items:
+    for group in NAV:
+        for item in group.items:
             found.append(item)
             found.extend(item.children)
     return tuple(found)

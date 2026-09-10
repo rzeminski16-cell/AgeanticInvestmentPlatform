@@ -18,18 +18,20 @@ gate was unreachable by construction.
 from __future__ import annotations
 
 import uuid
+from collections.abc import AsyncIterator
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aer.agents.assumptions import PROPOSED_BY as OPINION_BY
 from aer.agents.assumptions import AssumptionProposalDraft, OpinionProposal
 from aer.agents.base import AgentContext
+from aer.api.routes.assumptions import assumptions_payload
 from aer.calc.dcf import DRIVER_NAMES
 from aer.config import Settings
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
@@ -39,7 +41,8 @@ from aer.db.models import Approval, Assumption, Job, JobStep, User
 from aer.providers.fake import FakeProvider
 from aer.providers.router import Router
 from aer.services import approvals as approval_service
-from aer.services.approvals import GATE_ORDER
+from aer.services import assumptions as assumption_service
+from aer.services.approvals import GATE_ORDER, payload_hash_for
 from aer.services.assumption_gate import (
     COST_OF_CAPITAL_NAMES,
     COST_OF_DEBT_ASSUMPTION,
@@ -1359,3 +1362,74 @@ class TestTheGateVerifiesTheRowsNotTheRecord:
         await driver.advance(job_id)
 
         assert await driver.waiting_at(job_id) != "gate_assumptions"
+
+
+class TestConfirmingIsOneActNotTen:
+    """The operator's own pass: every value the run proposed needed its own click, on the
+    one gate where the real work is reading the list rather than pressing the buttons."""
+
+    @pytest.fixture(autouse=True)
+    async def _clear_assumptions_afterwards(self, db_engine: Any) -> AsyncIterator[None]:
+        """These two drive the real API, so their writes commit and outlive the test.
+
+        Every other test in this file that commits writes rows nothing downstream asserts
+        over. These write *assumptions*, and `tests/test_assumption_proposals.py` asserts
+        that a fresh proposal run writes exactly its own — so a leftover `terminal_growth`
+        there is a failure two files away with nothing in its message to say why.
+        """
+        yield
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            await session.execute(delete(Assumption))
+            await session.commit()
+
+    async def test_confirm_all_agrees_to_every_valued_proposal(
+        self, api: Any, at_the_gate: dict, db_engine: Any
+    ) -> None:
+        job_id = at_the_gate["job"].id
+        request_id = at_the_gate["request"].id
+        page = await api.get(f"/runs/{job_id}/assumptions")
+        assert page.status_code == 200
+        assert 'id="confirm-all"' in page.text
+        token = page.cookies.get("aer_csrf") or ""
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            rows = await assumption_service.assumptions_for_request(session, request_id)
+        assert [row for row in rows if not row.approved and row.value is not None]
+
+        response = await api.post(
+            f"/requests/{request_id}/assumptions/confirm-all",
+            data={
+                CSRF_FIELD_NAME: token,
+                "payload_hash": payload_hash_for(assumptions_payload(rows)),
+            },
+            follow_redirects=False,
+        )
+        assert response.status_code == 303, response.text
+
+        async with factory() as session:
+            after = await assumption_service.assumptions_for_request(session, request_id)
+        assert all(row.approved for row in after if row.value is not None)
+
+    async def test_confirm_all_is_refused_against_a_stale_list(
+        self, api: Any, at_the_gate: dict, db_engine: Any
+    ) -> None:
+        """The same hash check a single confirmation makes: one decision over the set is
+        still a decision *about this set*."""
+        job_id = at_the_gate["job"].id
+        request_id = at_the_gate["request"].id
+        page = await api.get(f"/runs/{job_id}/assumptions")
+        token = page.cookies.get("aer_csrf") or ""
+
+        response = await api.post(
+            f"/requests/{request_id}/assumptions/confirm-all",
+            data={CSRF_FIELD_NAME: token, "payload_hash": "0" * 64},
+            follow_redirects=False,
+        )
+        assert response.status_code == 409
+
+        factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+        async with factory() as session:
+            after = await assumption_service.assumptions_for_request(session, request_id)
+        assert any(not row.approved for row in after)

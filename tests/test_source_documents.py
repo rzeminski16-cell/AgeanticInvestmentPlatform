@@ -34,6 +34,7 @@ from aer.services.injection import record_findings
 from aer.services.sources import (
     NO_PUBLICATION_DATE,
     NOT_CITABLE,
+    PUBLISHED_AFTER_AS_OF,
     decide_quarantine,
     list_quarantined,
     record_source_document,
@@ -306,6 +307,18 @@ class TestArtefactImmutability:
         await db_session.rollback()
 
 
+async def _refusing_undated(session, request_row):
+    """This run's acquisition root, set to the strict datability policy.
+
+    ADR 0111 made admitting an undated document the default, so a test about refusing one
+    says so. The strict rule did not go away; it stopped being implied by `point_in_time`.
+    """
+    root = await acquisition_root(session, request_row)
+    root.undated_sources_admissible = False
+    await session.flush()
+    return root
+
+
 class TestQuarantineRule:
     """The rule alone, with no database. Pure input to pure output."""
 
@@ -318,24 +331,50 @@ class TestQuarantineRule:
         assert decision.quarantined is False
         assert decision.reason is None
 
-    def test_an_undated_source_is_quarantined_under_point_in_time(self):
+    def test_an_undated_source_is_quarantined_where_the_run_refuses_them(self):
         decision = decide_quarantine(
             publication_date=None,
             point_in_time=True,
             source_tier=SourceTier.T1_REGULATORY,
+            undated_sources_admissible=False,
         )
         assert decision.quarantined is True
         assert decision.reason == NO_PUBLICATION_DATE
 
-    def test_an_undated_source_passes_when_point_in_time_is_off(self):
-        # Turning point-in-time off is the operator saying they accept look-ahead risk.
-        # The rule exists to enforce their choice, not to override it.
+    def test_an_undated_source_passes_under_the_default_policy(self):
+        # ADR 0111. The datability rule is not point-in-time's second meaning, and the
+        # platform's default is to read the page and cap what it may be worth.
         decision = decide_quarantine(
             publication_date=None,
-            point_in_time=False,
+            point_in_time=True,
             source_tier=SourceTier.T2_ISSUER,
         )
         assert decision.quarantined is False
+
+    def test_the_two_rules_are_independent(self):
+        # The trade that used to be forced: admitting an undated page cost the look-ahead
+        # check, because both were spelled `point_in_time`. All four corners, stated.
+        for undated_admissible in (True, False):
+            late = decide_quarantine(
+                publication_date=date(2026, 6, 1),
+                point_in_time=True,
+                source_tier=SourceTier.T1_REGULATORY,
+                as_of_date=date(2026, 5, 1),
+                undated_sources_admissible=undated_admissible,
+            )
+            assert late.quarantined is True
+            assert late.reason == PUBLISHED_AFTER_AS_OF
+
+        for point_in_time in (True, False):
+            undated = decide_quarantine(
+                publication_date=None,
+                point_in_time=point_in_time,
+                source_tier=SourceTier.T1_REGULATORY,
+                as_of_date=date(2026, 5, 1),
+                undated_sources_admissible=False,
+            )
+            assert undated.quarantined is True
+            assert undated.reason == NO_PUBLICATION_DATE
 
     def test_an_uncitable_tier_is_quarantined_whatever_its_date(self):
         for point_in_time in (True, False):
@@ -354,6 +393,7 @@ class TestQuarantineRule:
             publication_date=None,
             point_in_time=True,
             source_tier=SourceTier.T6_UNVERIFIED,
+            undated_sources_admissible=False,
         )
         assert decision.reason == NO_PUBLICATION_DATE
 
@@ -389,6 +429,50 @@ class TestSourceTierOrdering:
     def test_only_the_last_tier_is_uncitable(self):
         uncitable = {tier for tier in SourceTier if not tier.is_citable}
         assert uncitable == {SourceTier.T6_UNVERIFIED}
+
+
+class TestTheUndatedCap:
+    """ADR 0111's other half. Admitting a document nobody can date costs it its tier."""
+
+    def test_a_dated_document_keeps_its_tier(self):
+        for tier in SourceTier:
+            assert tier.as_evidence(dated=True) is tier
+
+    def test_an_undated_document_is_never_better_than_secondary(self):
+        for tier in SourceTier:
+            assert tier.as_evidence(dated=False).rank >= SourceTier.T5_SECONDARY.rank
+            assert not tier.as_evidence(dated=False).is_primary
+
+    def test_the_cap_is_a_floor_and_not_a_promotion(self):
+        # Tier 6 stays tier 6. A blog nobody can date does not become citable by
+        # acquiring a second problem.
+        assert SourceTier.T6_UNVERIFIED.as_evidence(dated=False) is SourceTier.T6_UNVERIFIED
+        assert not SourceTier.T6_UNVERIFIED.as_evidence(dated=False).is_citable
+        assert SourceTier.T5_SECONDARY.as_evidence(dated=False) is SourceTier.T5_SECONDARY
+
+    def test_the_recorded_tier_is_not_overwritten(self):
+        # What the provider is, and what kind of thing it published, is a fact about the
+        # document. The cap is a verdict about it, and the two are shown side by side.
+        assert SourceTier.T1_REGULATORY.as_evidence(dated=False) is SourceTier.T5_SECONDARY
+        assert SourceTier.T1_REGULATORY is SourceTier.T1_REGULATORY
+
+    @pytest.mark.parametrize(
+        ("latest", "chosen", "dated"),
+        [
+            (None, None, False),
+            (date(2026, 1, 1), None, True),
+            (None, date(2026, 1, 1), True),
+            (date(2026, 2, 1), date(2026, 1, 1), True),
+        ],
+    )
+    def test_datedness_reads_the_conservative_bound_first(self, latest, chosen, dated):
+        document = SourceDocument(
+            publication_date=chosen,
+            publication_date_latest=latest,
+            source_tier=SourceTier.T1_REGULATORY,
+        )
+        assert document.is_dated is dated
+        assert document.evidence_tier.is_primary is dated
 
 
 class TestRecordingSources:
@@ -461,12 +545,33 @@ class TestRecordingSources:
         )
         assert len(list(held)) == 1
 
-    async def test_an_undated_source_is_auto_quarantined(self, db_session, request_row, artefact):
+    async def test_an_undated_source_is_admitted_by_default(
+        self, db_session, request_row, artefact
+    ):
+        """ADR 0111. The run enforces point-in-time and still reads the page."""
         assert request_row.work_order.point_in_time is True
+        assert request_row.work_order.undated_sources_admissible is True
 
         document = await record_source_document(
             db_session,
             work_order=await acquisition_root(db_session, request_row),
+            artefact=artefact,
+            url="https://example.invalid/undated-note",
+            provider=Provider.WEB_SEARCH,
+            source_tier=SourceTier.T5_SECONDARY,
+            publication_date=None,
+        )
+
+        assert document.quarantined is False
+        assert document.is_admissible
+        assert document.is_dated is False
+
+    async def test_an_undated_source_is_auto_quarantined_where_the_run_refuses_them(
+        self, db_session, request_row, artefact
+    ):
+        document = await record_source_document(
+            db_session,
+            work_order=await _refusing_undated(db_session, request_row),
             artefact=artefact,
             url="https://example.invalid/undated-note",
             provider=Provider.WEB_SEARCH,
@@ -482,7 +587,7 @@ class TestRecordingSources:
     ):
         await record_source_document(
             db_session,
-            work_order=await acquisition_root(db_session, request_row),
+            work_order=await _refusing_undated(db_session, request_row),
             artefact=artefact,
             url="https://example.invalid/undated-note",
             provider=Provider.WEB_SEARCH,
@@ -540,7 +645,7 @@ class TestRecordingSources:
     async def test_quarantined_sources_can_be_listed(self, db_session, request_row, artefact):
         await record_source_document(
             db_session,
-            work_order=await acquisition_root(db_session, request_row),
+            work_order=await _refusing_undated(db_session, request_row),
             artefact=artefact,
             url="https://example.invalid/a",
             provider=Provider.WEB_SEARCH,

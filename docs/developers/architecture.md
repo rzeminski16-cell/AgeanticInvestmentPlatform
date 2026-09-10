@@ -109,8 +109,11 @@ evidence is a system that can launder an opinion into a fact.
 ## Two clocks
 
 The research clock is an **as-of date**: a run is a point-in-time selection over the record,
-and look-ahead is refused. The portfolio clock is **continuous**: a book is followed, and
-what it was worth last March is a different question from what it is worth now.
+and look-ahead is refused. Since ADR 0110 the platform stamps it at commissioning rather than
+taking it from an operator, so it is a fact about the run rather than a setting on it — the
+selection, and every guard over it, is unchanged. The portfolio clock is **continuous**: a
+book is followed, and what it was worth last March is a different question from what it is
+worth now.
 
 Conflating them is the mistake ADR 0075 exists to prevent, and it is why a watchlist —
 followed continuously, researched as at a date — is not built yet: it needs both, plus a

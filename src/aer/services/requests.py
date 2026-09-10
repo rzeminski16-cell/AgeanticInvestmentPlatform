@@ -126,16 +126,18 @@ _EXCLUSION_FIELDS: dict[ExclusionRule, str] = {
 
 
 def limits_from(settings: Settings, *, today: datetime | None = None) -> RequestLimits:
-    """Build the validation limits from configuration and the clock.
+    """Build the limits from configuration and the clock.
 
     The clock is read here rather than inside :func:`~aer.core.schemas.request.check_limits`
-    so the rule itself stays a pure function of its arguments.
+    so the rules themselves stay pure functions of their arguments — and, since ADR 0110,
+    so that the date a run is *stamped* with is read exactly once, in the same place and at
+    the same moment as the date its rules are checked against.
 
-    "Today" is the UTC date. Deterministic beats locally intuitive: a server-side rule
-    that depends on the reader's timezone gives different answers to the same request. The
-    consequence is that shortly after local midnight in a positive-offset timezone, today's
-    date can still be tomorrow by UTC — which is why the rejection message states the date
-    it compared against rather than only saying "in the future".
+    "Today" is the UTC date. Deterministic beats locally intuitive: a server-side rule that
+    depends on the reader's timezone gives different answers to the same request. The
+    consequence is that shortly after local midnight in a positive-offset timezone a run is
+    dated to what is already tomorrow locally, which is the price of one clock — and every
+    surface prints the stamp rather than describing it, so the date is never a mystery.
     """
     moment = today or datetime.now(UTC)
     return RequestLimits(
@@ -153,13 +155,13 @@ _EDITABLE_FIELDS: tuple[str, ...] = (
     "ticker",
     "exchange",
     "isin",
-    "as_of_date",
     "base_currency",
     "reporting_currency",
     "investment_horizon_months",
     "horizon_label",
     "analysis_mode",
     "point_in_time",
+    "undated_sources_admissible",
     "portfolio_context",
     "risk_tolerance",
     "liquidity_constraint_gbp",
@@ -169,10 +171,14 @@ _EDITABLE_FIELDS: tuple[str, ...] = (
     "max_cost_gbp",
 )
 
-# The three of them the *run* owns rather than the equity mandate: what date the evidence is
-# judged against, whether look-ahead is refused, and what the run may spend. Editable by the
-# operator like the rest, stored on `work_orders` since ADR 0072.
-_RUN_ROOT_FIELDS: Final = frozenset({"as_of_date", "point_in_time", "max_cost_gbp"})
+# The three of them the *run* owns rather than the equity mandate: whether look-ahead is
+# refused, whether an undatable source may be read, and what the run may spend. Editable by
+# the operator like the rest, stored on `work_orders` since ADR 0072.
+#
+# `as_of_date` is a work-order field too and is deliberately not here: it is stamped at
+# commissioning and never edited (ADR 0110), so it is neither an editable field nor a
+# payload one.
+_RUN_ROOT_FIELDS: Final = frozenset({"point_in_time", "undated_sources_admissible", "max_cost_gbp"})
 
 
 def _as_problem(exclusion: Exclusion) -> FieldProblem:
@@ -234,22 +240,27 @@ def _apply(request: ResearchRequest, payload: ResearchRequestCreate) -> None:
     so that a field added to the schema cannot end up settable at creation and silently
     ignored on edit — which would look exactly like an edit that did not save.
 
-    **Three of them land on the work order** (ADR 0072): the as-of date, the point-in-time
-    flag and the cap are properties of a *run*, and the spend guard and the look-ahead
-    refusal have read them from there since 0054. Writing them here rather than to a second
-    copy is what removes the mirror this function used to need beside it.
+    **Three of them land on the work order** (ADR 0072): the two source policies and the
+    cap are properties of a *run*, and the spend guard and the look-ahead refusal have read
+    them from there since 0054. Writing them here rather than to a second copy is what
+    removes the mirror this function used to need beside it.
+
+    The as-of date is a work-order field and is **not** among them. It is stamped once, at
+    creation, from the clock (ADR 0110); an edit that moved it would falsify evidence the
+    run had already judged against it, which is the reason it was frozen for a live run
+    even when it was still typed.
     """
     request.company_name = payload.company_name
     request.ticker = payload.ticker
     request.exchange = payload.exchange
     request.isin = payload.isin
-    request.work_order.as_of_date = payload.as_of_date
     request.base_currency = payload.base_currency
     request.reporting_currency = payload.reporting_currency
     request.investment_horizon_months = payload.investment_horizon_months
     request.horizon_label = payload.horizon_label
     request.analysis_mode = payload.analysis_mode
     request.work_order.point_in_time = payload.point_in_time
+    request.work_order.undated_sources_admissible = payload.undated_sources_admissible
     # mode="json" so Decimal weights land as JSON strings the database can read back
     # without a float ever being involved. The CHECK constraints on this column cast
     # the text to numeric, which a float's repr would eventually break.
@@ -294,6 +305,7 @@ def mandate_read(row: ResearchRequest) -> ResearchRequestRead:
         investment_horizon_months=row.investment_horizon_months,
         horizon_label=row.horizon_label,
         point_in_time=row.work_order.point_in_time,
+        undated_sources_admissible=row.work_order.undated_sources_admissible,
         portfolio_context=PortfolioContext.model_validate(row.portfolio_context),
         risk_tolerance=row.risk_tolerance,
         liquidity_constraint_gbp=row.liquidity_constraint_gbp,
@@ -329,8 +341,12 @@ async def create_request(
         user_id=user.id,
         tool="research",
         subject_kind="company",
-        as_of_date=payload.as_of_date,
+        # The stamp, not a choice (ADR 0110). `limits.today` is the same value the rules
+        # above were checked against, so a request cannot be judged on one day and dated
+        # to another by a clock read that crossed midnight in between.
+        as_of_date=limits.today,
         point_in_time=payload.point_in_time,
+        undated_sources_admissible=payload.undated_sources_admissible,
         max_cost_gbp=payload.max_cost_gbp,
         status=RequestStatus.DRAFT,
     )
@@ -360,6 +376,7 @@ async def create_request(
             "as_of_date": request.work_order.as_of_date.isoformat(),
             "analysis_mode": request.analysis_mode.value,
             "point_in_time": request.work_order.point_in_time,
+            "undated_sources_admissible": request.work_order.undated_sources_admissible,
             "max_cost_gbp": str(request.work_order.max_cost_gbp),
         },
     )
@@ -532,7 +549,7 @@ async def update_request(
         request_id=request.id,
         payload={
             "request_id": str(request.id),
-            # Before and after, not just the field names: "as_of_date changed" is a fact
+            # Before and after, not just the field names: "the ticker changed" is a fact
             # you cannot act on months later, and the row itself only remembers the after.
             "changes": changes,
         },

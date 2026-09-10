@@ -382,6 +382,8 @@ class EvidenceUnit:
     fact_source: tuple[str, str] | None = None
     figure_value: tuple[str, Decimal] | None = None
     calculation_id: str | None = None
+    # The **evidence** tier, keyed by source document id — what a policy may read this
+    # document as, which for an undated one is tier 5 whoever published it (ADR 0111).
     source_tier: tuple[str, SourceTier] | None = None
     extraction_source: tuple[str, str] | None = None
 
@@ -621,6 +623,13 @@ async def gather_evidence(
                 .limit(EVIDENCE_ITEM_CAP)
             )
         )
+        # The **recorded** tier here, deliberately, where everything below reads the
+        # evidence tier. A ceiling is a statement about publishers — "do not show me
+        # secondary reporting" — and the undated cap is a statement about worth (ADR
+        # 0111). Filtering on the cap would put the blanket refusal back through a
+        # different door: a section with a ceiling of 4 would stop seeing an undated
+        # filing at all, rather than seeing it and reporting that it has no primary
+        # source, which is the honest outcome and the one the shortfall check produces.
         admissible = [
             source for source in sources if source.source_tier.rank <= policy.max_tier_rank
         ]
@@ -636,12 +645,19 @@ async def gather_evidence(
                         # was shown ids and tiers and invented the rest, and a wrong
                         # description of a right citation is still a wrong sentence.
                         "title": source.title or source.url,
-                        "tier": source.source_tier.value,
+                        # The tier as policy reads it. Telling the writer a document is
+                        # tier 1 while the shortfall check counts it as tier 5 is the
+                        # mismatch that produced "a single primary filing, the Form 10-Q".
+                        "tier": source.evidence_tier.value,
                         "publication_date": (
                             source.publication_date.isoformat() if source.publication_date else None
                         ),
+                        # Said rather than left to be inferred from a null date, because a
+                        # writer that cannot see the difference will describe an undated
+                        # page in the words it would use for a filing.
+                        "dated": source.is_dated,
                     },
-                    source_tier=(identifier, source.source_tier),
+                    source_tier=(identifier, source.evidence_tier),
                 )
             )
 
@@ -660,7 +676,7 @@ async def gather_evidence(
                 enumerate(substantive),
                 key=lambda item: (-_keyword_hits(item[1].excerpt, keywords), item[0]),
             )
-            tier_by_source = {str(source.id): source.source_tier.value for source in admissible}
+            tier_by_source = {str(source.id): source.evidence_tier.value for source in admissible}
             for _, extraction in ranked:
                 source_id = str(extraction.source_document_id)
                 extraction_id = str(extraction.id)
@@ -693,13 +709,20 @@ async def gather_evidence(
     # listing: nothing here reaches the prompt. It answers "how authoritative is the
     # thing this content cites", which the primary-source shortfall check needs even when
     # the cited source arrived through a fact rather than through the sources listing.
+    # Indexed by evidence tier, so an undated document cannot satisfy a primary-source
+    # floor by arriving through a fact instead of through the listing (ADR 0111).
     tier_rows = await session.execute(
-        select(SourceDocument.id, SourceDocument.source_tier).where(
-            SourceDocument.work_order_id == request.id
-        )
+        select(
+            SourceDocument.id,
+            SourceDocument.source_tier,
+            SourceDocument.publication_date,
+            SourceDocument.publication_date_latest,
+        ).where(SourceDocument.work_order_id == request.id)
     )
-    for source_id, tier in tier_rows:
-        evidence.source_tiers.setdefault(str(source_id), tier)
+    for source_id, tier, published, latest in tier_rows:
+        evidence.source_tiers.setdefault(
+            str(source_id), tier.as_evidence(dated=(latest or published) is not None)
+        )
 
     return evidence
 
@@ -1018,6 +1041,10 @@ def policy_shortfalls(
 
     A shortfall degrades — banner, low confidence — and never blocks: §2.12's ladder is
     explicit that thin evidence is presented as thin, not padded until it looks thick.
+
+    The tiers read here are **evidence** tiers, so an undated document is never primary
+    however authoritative its publisher (ADR 0111). That is the whole of what admitting
+    undated sources costs a section: it gains the page and does not gain a primary source.
     """
     shortfalls: list[str] = []
     distinct = len(cited_source_ids)

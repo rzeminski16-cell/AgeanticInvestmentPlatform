@@ -139,8 +139,8 @@ your name in the audit chain. A run still going takes the new ceiling at its nex
 already stopped continues from where it stopped, without repeating a step you paid for.
 
 That is the only field on a request that changes while a run is under way. Everything else
-is frozen for the run's lifetime, because moving an as-of date or a ticker would falsify
-evidence the run has already gathered — and the monthly ceiling is not on the request at
+is frozen for the run's lifetime, because changing a ticker would falsify evidence the run
+has already gathered — and the monthly ceiling is not on the request at
 all, so no figure here releases a run stopped by it.
 
 One consequence worth knowing: a step with no cost estimate is invisible to the guard.
@@ -182,13 +182,30 @@ written.
 
 ## Point-in-time
 
-If the request is in point-in-time mode, nothing published after the as-of date may support
-a claim. This is enforced **when a source is acquired**, not filtered afterwards, and
-checked a second time on the latest date before the report is rendered.
+**A run is dated the day you commission it**, by the platform rather than by you (ADR 0110).
+The form states the date above the choice below; there is nothing to fill in. Commissioning
+research about a past quarter is the capability that gives up, deliberately: a date somebody
+types is a date somebody can get wrong, and a wrong one fails silently — set it a week early
+and the newest quarterly filing simply is not there, with no error anywhere.
+
+If the request is in point-in-time mode, nothing published after that date may support a
+claim. This is enforced **when a source is acquired**, not filtered afterwards, and checked a
+second time on the latest date before the report is rendered. With the date fixed at today,
+what it mostly catches is a document whose own evidence puts it in the future — one that has
+been mis-dated or made up.
 
 It is a *selection* over the whole record rather than a filter on it, which matters for
 restatements: you see what a reader could have seen then, not today's numbers with the
 recent ones removed.
+
+**A page nobody can date is a separate question**, asked separately on the form. Most news
+reporting carries no publication date a machine can read, and until this was its own choice
+the only way to read any of it was to switch point-in-time off — which switched off the
+look-ahead check too. The default now is to read it and cap what it may be worth: an undated
+document counts as a tier-5 secondary source whoever published it, so it can corroborate a
+sentence and can never be the primary source a section requires. The evidence table says
+**Undated** against it and names the cap. Choosing to refuse them instead quarantines every
+one, with its reason, exactly as before.
 
 ## When a run stops
 

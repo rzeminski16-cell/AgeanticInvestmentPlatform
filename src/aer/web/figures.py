@@ -25,7 +25,7 @@ They are not interchangeable and merging them would be a fourth. A report that p
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Final
 
@@ -37,12 +37,19 @@ from aer.web.vocabulary import Tone
 
 __all__ = [
     "NOT_AVAILABLE",
+    "AssumptionFigure",
+    "CapturedConcept",
+    "CapturedPeriod",
     "CostContext",
     "RenderedFigure",
+    "assumption_figure",
+    "captured_concepts",
+    "concept_name",
     "cost_context",
     "cost_guidance",
     "lineage_figure",
     "pounds",
+    "trimmed",
     "waited_for",
 ]
 
@@ -340,3 +347,208 @@ def tone_for(cost: CostContext) -> Tone:
     if cost.fraction >= Decimal(1):
         return Tone.REFUSAL
     return Tone.WARNING if cost.is_near_ceiling else Tone.INFO
+
+
+# The concept names whose mechanical title-casing reads badly. Everything else takes the
+# transform below, which is right for the great majority: `operating_income` reads as
+# "Operating income" without anybody maintaining a row for it.
+_CONCEPT_NAMES: Final[dict[str, str]] = {
+    "eps_basic": "Earnings per share, basic",
+    "eps_diluted": "Earnings per share, diluted",
+    "ebitda": "EBITDA",
+    "ebit": "EBIT",
+    "capex": "Capital expenditure",
+    "fcf": "Free cash flow",
+    "sga_expense": "Selling, general and administrative expense",
+    "rnd_expense": "Research and development expense",
+    "pp_and_e_net": "Property, plant and equipment, net",
+}
+
+
+def concept_name(concept: str) -> str:
+    """A canonical concept as a person reads it.
+
+    Derived rather than listed, for the reason the numeral rule's denylist is: a map of
+    every concept is a map somebody maintains for ever and which is wrong the first time
+    the vocabulary grows. `_CONCEPT_NAMES` holds only the ones the transform gets wrong.
+    """
+    if concept in _CONCEPT_NAMES:
+        return _CONCEPT_NAMES[concept]
+    words = concept.replace("_", " ").strip()
+    return words[:1].upper() + words[1:] if words else concept
+
+
+@dataclass(frozen=True, slots=True)
+class CapturedPeriod:
+    """One observation of one concept, ready to print."""
+
+    period: str
+    value_display: str
+
+
+@dataclass(frozen=True, slots=True)
+class CapturedConcept:
+    """Every period this filing reported one concept for, newest first.
+
+    **Grouped, not filtered.** The financials gate showed 4,754 rows on the operator's own
+    run — one per concept per period, which is what an XBRL filing genuinely holds — sorted
+    so that the same concept appeared twenty times in a column headed "Concept". Nothing is
+    dropped here: the newest observation leads, the rest sit behind a disclosure, and the
+    count says how many there are, because the question the gate asks is "is anything
+    missing?" and a reader cannot answer it over a wall of repeats.
+    """
+
+    concept: str
+    label: str
+    unit: str
+    latest: CapturedPeriod
+    earlier: tuple[CapturedPeriod, ...]
+
+    @property
+    def observations(self) -> int:
+        return 1 + len(self.earlier)
+
+
+def _as_date(value: str) -> date | None:
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _period_label(start: str, end: str, *, style: HouseStyle) -> str:
+    """A period as a reader meets it, from the ISO dates the payload carries.
+
+    Falls back to the ISO text a payload written by an older build might carry, rather
+    than raising: a gate that will not render is worse than a date in the wrong shape.
+    """
+    finish = _as_date(end)
+    if finish is None:
+        return end
+    shown = display.date_text(finish, style=style)
+    opening = _as_date(start)
+    if opening is None:
+        return f"at {shown}"
+    return f"{display.date_text(opening, style=style)} \N{EN DASH} {shown}"
+
+
+def captured_concepts(rows: list[dict[str, Any]], *, style: HouseStyle) -> list[CapturedConcept]:
+    """The gate's mapped figures, grouped by concept and rendered in the house style.
+
+    Reads the gate payload and nothing else, so the page still shows exactly what its hash
+    covers — grouping and formatting the same rows is presentation, and the alternative was
+    a template deciding how to print a number, which is the thing this module exists to
+    stop (ADR 0077).
+    """
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        grouped.setdefault(str(row.get("concept", "")), []).append(row)
+
+    captured: list[CapturedConcept] = []
+    for concept, observations in grouped.items():
+        observations.sort(key=lambda row: str(row.get("period_end", "")), reverse=True)
+        periods = [
+            CapturedPeriod(
+                period=_period_label(
+                    str(row.get("period_start", "")), str(row.get("period_end", "")), style=style
+                ),
+                value_display=display.scalar(
+                    Decimal(str(row.get("value", "0"))),
+                    style=style,
+                    unit=str(row.get("unit", "")),
+                    label=concept,
+                    in_table=True,
+                ),
+            )
+            for row in observations
+        ]
+        captured.append(
+            CapturedConcept(
+                concept=concept,
+                label=concept_name(concept),
+                unit=str(observations[0].get("unit", "")),
+                latest=periods[0],
+                earlier=tuple(periods[1:]),
+            )
+        )
+    captured.sort(key=lambda item: item.label)
+    return captured
+
+
+# The assumptions stored as a fraction, where "0.025" means 2.5%. Named rather than
+# inferred, because the ones that are *not* fractions are the ones that matter: an exit
+# multiple of 12 means twelve times, and a beta of 1.15 is a coefficient. Rendering either
+# as a percentage would be the platform telling the operator something untrue about the
+# number it is asking them to agree to.
+_RATE_ASSUMPTIONS: Final[frozenset[str]] = frozenset(
+    {
+        "revenue_growth",
+        "ebit_margin",
+        "capex_intensity",
+        "depreciation_intensity",
+        "working_capital_intensity",
+        "tax_rate",
+        "terminal_growth",
+        "risk_free_rate",
+        "equity_risk_premium",
+        "cost_of_debt",
+        "target_debt_weight",
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class AssumptionFigure:
+    """One assumption's value, as the gate shows it.
+
+    `shown` leads and `stored` sits under it, muted, where the two differ — the operator is
+    agreeing to a rate, and "2.5%" is the rate, but the record holds `0.025` and a page that
+    showed only the friendly form would be hiding what is actually stored.
+    """
+
+    shown: str
+    stored: str
+
+
+def assumption_figure(name: str, value: object, unit: str) -> AssumptionFigure:
+    """An assumption's value in the terms the operator thinks in.
+
+    The gate showed `0.025` beside the word `pure`, which is the unit algebra's answer to a
+    question nobody asked. Every assumption a forecast needs is dimensionless, so the unit
+    carries no information and the scale carries all of it.
+    """
+    text = str(value)
+    if value is None or text == "":
+        return AssumptionFigure(shown=NOT_AVAILABLE, stored="")
+    try:
+        quantity = Decimal(text)
+    except (ArithmeticError, ValueError):
+        return AssumptionFigure(shown=text, stored="")
+
+    if name in _RATE_ASSUMPTIONS:
+        percentage = (quantity * 100).normalize()
+        return AssumptionFigure(shown=f"{percentage:f}%", stored=text)
+    if unit and unit != "pure":
+        return AssumptionFigure(shown=f"{quantity:f} {unit}", stored="")
+    return AssumptionFigure(shown=f"{quantity:f}", stored="")
+
+
+def trimmed(value: object) -> str:
+    """A stored decimal without the column's trailing zeros.
+
+    `evaluations.value` is `NUMERIC(20, 8)`, so a primary-source ratio of 0.5147 reaches
+    the draft review as `0.51470000` and its 0.6 floor as `0.60000000`. Eight decimal
+    places is the right precision to *store* a replay delta at and the wrong number of
+    digits to ask a person to compare two of.
+
+    Normalised through `:f` rather than printed from `normalize()` directly, because
+    `Decimal("100").normalize()` is `1E+2` — which is the same number and not a number
+    anybody wants to read in a table.
+    """
+    if value is None:
+        return NOT_AVAILABLE
+    try:
+        quantity = Decimal(str(value))
+    except (ArithmeticError, ValueError):
+        return str(value)
+    return f"{quantity.normalize():f}"

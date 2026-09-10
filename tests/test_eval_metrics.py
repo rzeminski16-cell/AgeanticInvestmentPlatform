@@ -194,17 +194,28 @@ class TestTemporalCompliance:
         assert not result.passed
         assert "leaked" in result.describe()
 
-    def test_admitting_an_undatable_source_fails(self):
-        # Undatable is not "probably fine". Under point-in-time rules a document that cannot be
-        # shown to predate the as-of date is inadmissible.
-        result = temporal_compliance([_source("undated", published=None, admitted=True)])
+    def test_admitting_an_undatable_source_fails_where_the_run_refused_them(self):
+        # Undatable is not "probably fine". Where the run's policy refuses a document that
+        # cannot be shown to predate the as-of date, admitting one is the metric's failure.
+        result = temporal_compliance(
+            [
+                SourceObservation(
+                    name="undated",
+                    published=None,
+                    as_of=AS_OF,
+                    admitted=True,
+                    undated_sources_admissible=False,
+                )
+            ]
+        )
 
         assert not result.passed
 
-    def test_with_the_mode_off_an_undated_source_is_admissible(self):
+    def test_an_undated_source_the_run_admitted_on_purpose_is_not_a_failure(self):
         """The rule the run actually ran under. The live AAPL report ran point-in-time
         off and still wore this metric's failure on page 1, for seven undated documents
-        the acquisition layer had deliberately admitted."""
+        the acquisition layer had deliberately admitted. Since ADR 0111 that is the
+        default, and the metric measures the run rather than the platform's opinion of it."""
         result = temporal_compliance(
             [
                 SourceObservation(
@@ -212,7 +223,7 @@ class TestTemporalCompliance:
                     published=None,
                     as_of=AS_OF,
                     admitted=True,
-                    point_in_time=False,
+                    point_in_time=True,
                 )
             ]
         )

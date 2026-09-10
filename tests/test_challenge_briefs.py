@@ -40,6 +40,7 @@ from aer.core.enums import GateKind
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import Disagreement, JobStep
 from aer.providers.fake import FakeProvider
+from aer.providers.protocol import SpentButUnusableError, Usage
 from aer.services.challenge_briefs import (
     _unsettled,
     brief_unsettled_challenges,
@@ -316,3 +317,95 @@ class TestReadingBackWhatWasStored:
         stored = {"briefs": {"abc": {"leans": "draft"}, "bad": "not a mapping"}}
 
         assert briefs_from_output(stored) == {"abc": {"leans": "draft"}}
+
+
+class TestARejectedReplyIsRetriedOnce:
+    """The first acceptance pass paid £0.0715 for a step that produced nothing.
+
+    `brief_challenges` reported SUCCEEDED with `written: False`; the model call ended
+    `stop: schema_rejected` and the reason lived in a log line the operator never sees.
+    The role runs on the cheapest route at the lowest effort over a schema with four
+    bounded free-text fields per challenge and an id to echo back exactly — a shape a
+    small model misses — and the reply is billed whether or not it validates.
+    """
+
+    @staticmethod
+    def _rejection() -> SpentButUnusableError:
+        return SpentButUnusableError(
+            "briefs.0.because: String should have at most 600 characters",
+            usage=Usage(model="claude-haiku-4-5", input_tokens=4238, output_tokens=2772),
+            request_payload={},
+            response_payload={},
+        )
+
+    @staticmethod
+    def _good(disagreement_id: str) -> ChallengeBriefs:
+        return ChallengeBriefs(
+            briefs=[
+                ChallengeBrief(
+                    disagreement_id=disagreement_id,
+                    keeping_assumes="a",
+                    keeping_means="b",
+                    accepting_assumes="c",
+                    accepting_means="d",
+                    leans=ChallengeSide.DRAFT,
+                    because="e",
+                )
+            ]
+        )
+
+    async def test_the_retry_is_told_what_was_wrong_and_succeeds(
+        self, scene: dict[str, Any], workflow_settings: Any
+    ) -> None:
+        session: AsyncSession = scene["session"]
+        challenge = _challenge(scene["job"].id)
+        session.add(challenge)
+        await session.flush()
+
+        attempts: list[int] = []
+
+        def script(schema: type) -> Any:
+            attempts.append(1)
+            if len(attempts) == 1:
+                raise TestARejectedReplyIsRetriedOnce._rejection()
+            return TestARejectedReplyIsRetriedOnce._good(str(challenge.id))
+
+        provider = FakeProvider(script, inspect_schema=refuse_unanswerable_schema)
+        outcome = await brief_unsettled_challenges(
+            _context(scene, provider, workflow_settings),
+            session,
+            job_id=scene["job"].id,
+            request=scene["request"],
+        )
+
+        assert outcome.written is True
+        assert len(provider.calls) == 2
+        # An identical retry is a known failure at full price, so the refusal goes back
+        # with it — the same thing the section writer does with its own.
+        first = provider.calls[0]["messages"][-1]["content"]
+        retry = provider.calls[1]["messages"][-1]["content"]
+        assert "Your previous reply was refused" not in first
+        assert "Your previous reply was refused" in retry
+
+    async def test_two_rejections_say_why_rather_than_only_that_nothing_was_written(
+        self, scene: dict[str, Any], workflow_settings: Any
+    ) -> None:
+        session: AsyncSession = scene["session"]
+        session.add(_challenge(scene["job"].id))
+        await session.flush()
+
+        def always_rejected(schema: type) -> Any:
+            raise TestARejectedReplyIsRetriedOnce._rejection()
+
+        provider = FakeProvider(always_rejected, inspect_schema=refuse_unanswerable_schema)
+        outcome = await brief_unsettled_challenges(
+            _context(scene, provider, workflow_settings),
+            session,
+            job_id=scene["job"].id,
+            request=scene["request"],
+        )
+
+        assert outcome.written is False
+        assert len(provider.calls) == 2
+        assert "did not match its schema" in outcome.reason
+        assert outcome.as_dict()["reason"] == outcome.reason

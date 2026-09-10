@@ -44,11 +44,16 @@ refusal happens at gate 2, where a person can see all of them at once.
 **Point-in-time is checked again here, and that repetition is the design.** A source is already
 screened at acquisition, in :mod:`aer.services.sources`, and screening it a second time looks
 redundant until you notice the two moments know different things. Acquisition cannot know what a
-claim will later rest on: a document is fetched while the as-of date is one thing and cited after
-an operator has moved it earlier, or it is gathered for background and ends up under a numeric
-claim. This check runs against the request's as-of date **as it stands when the claim is made**,
-which is the only moment at which the question "does this report use information nobody had?" has
-a final answer. Threat T13.
+claim will later rest on: a document gathered for background ends up under a numeric claim, or
+a document admitted under one policy is cited after a correction to the record moved the run's
+own date. This check runs against the work order's as-of date **as it stands when the claim is
+made**, which is the only moment at which the question "does this report use information nobody
+had?" has a final answer. Threat T13.
+
+The operator moving the as-of date used to be the headline case for this, and since ADR 0110
+they cannot: the date is stamped at commissioning and never edited. What that removes is one
+way in for the mismatch, not the mismatch — a run started on Monday and still acquiring on
+Tuesday is dated Monday, and the second check is what notices.
 """
 
 from __future__ import annotations

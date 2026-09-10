@@ -20,7 +20,7 @@ import ast
 import inspect
 import textwrap
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
@@ -28,6 +28,7 @@ import pytest
 from aer.core.enums import AnalysisMode
 from aer.db.models import ResearchRequest, WorkOrder
 from aer.services import requests as request_service
+from aer.web import routes
 from aer.web.forms import (
     FORM_FIELDS,
     form_values_from,
@@ -54,6 +55,10 @@ def a_request(**overrides: object) -> ResearchRequest:
         "horizon_label": "Through the next capex cycle",
         "analysis_mode": AnalysisMode.FULL,
         "point_in_time": True,
+        # Stated rather than left to the column default, which applies at INSERT and this
+        # row is never persisted. An unset boolean reads back as `None` and would make the
+        # round trip below assert that "false" is the honest rendering of "not yet known".
+        "undated_sources_admissible": True,
         # As stored: `model_dump(mode="json")` writes the weights as strings so that no
         # float is ever involved on the way into JSONB.
         "portfolio_context": {
@@ -81,8 +86,9 @@ def _fields_assigned_by_apply() -> set[str]:
 
     Both rows count. Since ADR 0072's fourth step three of these land on the work order as
     ``request.work_order.<name> = ...``, and a scan that only saw ``request.<name>`` would
-    have quietly stopped covering the as-of date, the point-in-time flag and the cap — the
-    three whose silent edit matters most.
+    have quietly stopped covering the two source policies and the cap — the three whose
+    silent edit matters most. The as-of date is on that row and is not among them: it is
+    stamped once and never edited (ADR 0110), so ``_apply`` does not write it.
     """
     source = textwrap.dedent(inspect.getsource(request_service._apply))
     assigned: set[str] = set()
@@ -145,13 +151,13 @@ class TestTheFormRoundTrip:
         assert payload.ticker == stored.ticker
         assert payload.exchange == stored.exchange
         assert payload.isin == stored.isin
-        assert payload.as_of_date == stored.work_order.as_of_date
         assert payload.base_currency == stored.base_currency
         assert payload.reporting_currency == stored.reporting_currency
         assert payload.investment_horizon_months == stored.investment_horizon_months
         assert payload.horizon_label == stored.horizon_label
         assert payload.analysis_mode is stored.analysis_mode
         assert payload.point_in_time == stored.work_order.point_in_time
+        assert payload.undated_sources_admissible == stored.work_order.undated_sources_admissible
         assert payload.focus_questions == stored.focus_questions
         assert payload.excluded_sources == stored.excluded_sources
         assert payload.max_cost_gbp == stored.work_order.max_cost_gbp
@@ -195,12 +201,27 @@ class TestTheFormRoundTrip:
         assert parsed.payload.liquidity_constraint_gbp is None
         assert parsed.payload.portfolio_context.is_empty()
 
-    def test_point_in_time_off_renders_as_an_absent_checkbox(self) -> None:
-        # An unchecked box submits nothing at all, so "" is the only honest representation.
-        # Rendering "false" would read back as *present*, and silently turn the guard on.
+    def test_the_edit_form_states_the_requests_own_date_not_todays(self) -> None:
+        """The two form pages share one template, and the statement is not a default.
+
+        An edit form printing today would tell an operator their March run is dated
+        September. It cannot be moved (ADR 0110), so what the page owes them is the date
+        the run actually carries.
+        """
+        stored = a_request(as_of_date=date(2022, 6, 30))
+
+        page = routes._edit_page(stored)
+
+        assert page.extra["as_of"] == "2022-06-30"
+        assert page.extra["as_of"] != datetime.now(UTC).date().isoformat()
+
+    def test_point_in_time_off_renders_as_the_chosen_radio(self) -> None:
+        # The control is a pair of radios and the parser reads which one was chosen, so
+        # the honest representation is the word. Rendering "" left neither radio checked
+        # and read back as *true*, which is how the guard could not be turned off at all.
         values = form_values_from(a_request(point_in_time=False))
 
-        assert values["point_in_time"] == ""
+        assert values["point_in_time"] == "false"
         parsed = parse_request_form(values)
         assert parsed.payload is not None
         assert parsed.payload.point_in_time is False

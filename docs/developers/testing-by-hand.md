@@ -1250,7 +1250,8 @@ and every cause is invisible from the outside.
 
 ### 14.4 Point-in-time
 
-Run a request with point-in-time **on** and an as-of date in the past.
+Run a request with point-in-time **on**. There is no as-of date to set: a run is dated the
+day you commission it (ADR 0110), and the form states that date above the choice.
 
 **Expect:** nothing published after that date supports any claim, and the report says
 point-in-time is on. Enforcement is at acquisition, not a filter afterwards — and it is
@@ -1258,6 +1259,12 @@ checked a second time on the latest date before rendering.
 
 **Wrong:** a citation to a document filed after the as-of date. That is a look-ahead and it
 is the one error this whole mode exists to prevent.
+
+**Also worth looking at:** the evidence table's tier column. A document with no discoverable
+publication date reads **Undated**, is admitted, and shows its recorded tier beside a cap of
+`T5_SECONDARY` (ADR 0111). It can corroborate a sentence; it can never be the primary source
+a section requires, and a section resting only on undated evidence carries the
+"Insufficient evidence" banner saying so.
 
 ### 14.5 Units
 

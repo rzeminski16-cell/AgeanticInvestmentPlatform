@@ -7,14 +7,18 @@ through the door nobody was testing.
 
 **Where the clock is, and is not.** ``aer.core`` is required to be pure — no I/O, no
 globals, no clock reads — because it is the part of the codebase that has to be trivially
-testable. Two of the required rules need outside knowledge: ``as_of_date`` must not be in
-the future, and ``max_cost_gbp`` must not exceed the configured per-run budget. Rather
-than reach for ``date.today()`` and ``get_settings()`` here, those live in
-:func:`check_limits`, which takes both as arguments in a :class:`RequestLimits`.
+testable. What needs outside knowledge arrives in a :class:`RequestLimits`: today's date,
+and the configured per-run budget ``max_cost_gbp`` may not exceed. Rather than reach for
+``date.today()`` and ``get_settings()`` here, the caller reads them and passes them in.
 
-That is not ceremony. It means "is this date in the future?" is a function you can test
-at any date you like without freezing a clock, and it keeps the impurity where it
-belongs: at the edge, in the service layer, where it is visible.
+That is not ceremony. It keeps the impurity where it belongs — at the edge, in the
+service layer, where it is visible — and it means every rule here is a function you can
+test at any date you like without freezing a clock.
+
+``today`` used to be checked against a typed as-of date. Since ADR 0110 there is no such
+field: a run is dated by the platform at the moment it is commissioned, and ``today`` is
+what :func:`aer.services.requests.create_request` stamps onto the work order. Same value,
+same clock, one fewer thing an operator can get wrong.
 """
 
 from __future__ import annotations
@@ -150,7 +154,10 @@ class ResearchRequestCreate(BaseModel):
     isin: Annotated[str | None, Field(min_length=12, max_length=12)] = None
 
     # -- Temporal and currency -----------------------------------------------------------
-    as_of_date: date
+    # **No as-of date.** A run is dated by the platform at the moment it is commissioned
+    # (ADR 0110), not by a date somebody types: `work_orders.as_of_date` is a stamp, and
+    # `create_request` writes it from `RequestLimits.today`. Commissioning research about
+    # a past quarter is the capability that buys, and it is gone deliberately.
     base_currency: Annotated[str, Field(min_length=3, max_length=3)] = "GBP"
     reporting_currency: Annotated[str | None, Field(min_length=3, max_length=3)] = None
 
@@ -159,6 +166,11 @@ class ResearchRequestCreate(BaseModel):
     horizon_label: Annotated[str | None, Field(max_length=120)] = None
     analysis_mode: AnalysisMode = AnalysisMode.FULL
     point_in_time: bool = True
+    # Two policies, two fields, since ADR 0111. The one above refuses a source published
+    # after the as-of date; this one decides whether a page nothing can date may be read
+    # at all. They shared `point_in_time`, which meant admitting a news article with no
+    # byline date cost the look-ahead check as well.
+    undated_sources_admissible: bool = True
     portfolio_context: PortfolioContext = Field(default_factory=PortfolioContext)
 
     # -- Operator preferences ------------------------------------------------------------
@@ -314,6 +326,7 @@ class ResearchRequestRead(ResearchRequestSummary):
     investment_horizon_months: int
     horizon_label: str | None
     point_in_time: bool
+    undated_sources_admissible: bool
     portfolio_context: PortfolioContext
     risk_tolerance: str | None
     liquidity_constraint_gbp: Decimal | None
@@ -336,13 +349,15 @@ class ResearchRequestRead(ResearchRequestSummary):
 
 @dataclass(frozen=True, slots=True)
 class RequestLimits:
-    """The outside facts the context-dependent rules need.
+    """The outside facts a request needs from beyond ``aer.core``.
 
     Passed in rather than read, so that :func:`check_limits` stays a pure function of its
-    arguments and "reject a future as-of date" can be tested at any date without freezing
-    a clock.
+    arguments and can be tested at any date without freezing a clock.
     """
 
+    # The date a new run is stamped with (ADR 0110). Carried here rather than read at the
+    # write, so the clock is consulted once per request and the same value validates and
+    # stamps — a request cannot be judged against one day and dated to another.
     today: date
     per_run_budget_gbp: Decimal
 
@@ -371,18 +386,6 @@ def check_limits(payload: ResearchRequestCreate, limits: RequestLimits) -> list[
     at once. An empty list means the request passes.
     """
     problems: list[FieldProblem] = []
-
-    if payload.as_of_date > limits.today:
-        problems.append(
-            FieldProblem(
-                field="as_of_date",
-                message=(
-                    f"{payload.as_of_date.isoformat()} is in the future. Research is "
-                    "performed as at a date that has already happened; a future as-of date "
-                    f"has no evidence behind it. Today is {limits.today.isoformat()}."
-                ),
-            )
-        )
 
     above_ceiling = cost_above_ceiling(payload.max_cost_gbp, limits.per_run_budget_gbp)
     if above_ceiling is not None:

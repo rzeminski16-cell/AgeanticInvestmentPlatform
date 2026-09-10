@@ -51,9 +51,9 @@ guards that bound what any run may spend.
 
 ## Commissioning
 
-**Commission** on a row starts a research run on that company as at today, or as at a date
-you enter, with the request form's own defaults: the standard depth, a year's horizon,
-point-in-time on, the per-run cap. You land on the run, which stops at gate one for your
+**Commission** on a row starts a research run on that company as at today — the day the
+queue reaches it, which is the only date a run is ever given (ADR 0110) — with the request
+form's own defaults: the standard depth, a year's horizon, point-in-time on, the per-run cap. You land on the run, which stops at gate one for your
 approval like any other.
 
 **Commission the next the budget affords** walks the queue in the order you followed and

@@ -13,7 +13,6 @@ __all__ = ["RISK"]
 
 RISK: Final = NavSection(
     key="risk",
-    label="Risk",
     tool="risk",
     items=(NavItem(key="risk", label="Risk", href="/risk"),),
 )

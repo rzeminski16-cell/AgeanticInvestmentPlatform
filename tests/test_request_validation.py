@@ -33,7 +33,6 @@ VALID: dict[str, object] = {
     "company_name": "Microsoft Corporation",
     "ticker": "MSFT",
     "exchange": "NASDAQ",
-    "as_of_date": date(2026, 7, 1),
     "base_currency": "USD",
     "investment_horizon_months": 36,
     "max_cost_gbp": Decimal("2.00"),
@@ -87,31 +86,26 @@ class TestExchange:
         assert build(exchange="nyse-american").exchange == "NYSE_AMERICAN"
 
 
-class TestAsOfDate:
-    def test_a_past_date_passes(self):
-        assert check_limits(build(as_of_date=date(2020, 1, 1)), limits()) == []
+class TestTheAsOfDateIsNotAField:
+    """ADR 0110: a run is dated by the platform, so there is nothing here to validate.
 
-    def test_today_passes(self):
-        # The boundary is inclusive: research as at today is ordinary, not an error.
-        assert check_limits(build(as_of_date=TODAY), limits()) == []
+    The rule this replaces refused an as-of date in the future. It is not relaxed — the
+    field it guarded is gone, and `create_request` stamps `RequestLimits.today`, which
+    cannot be in the future because it *is* the clock. The refusal below is what makes
+    that true rather than merely intended: `extra="forbid"` means a client that still
+    sends a date is told so, instead of having it silently ignored.
+    """
 
-    def test_a_future_date_is_rejected(self):
-        problems = check_limits(build(as_of_date=date(2026, 7, 29)), limits())
+    def test_a_submitted_as_of_date_is_refused_rather_than_ignored(self):
+        with pytest.raises(PydanticValidationError) as excinfo:
+            build(as_of_date=date(2020, 1, 1))
 
-        assert [p.field for p in problems] == ["as_of_date"]
-        assert "in the future" in problems[0].message
+        assert "as_of_date" in str(excinfo.value)
 
-    def test_the_rejection_states_the_date_it_compared_against(self):
-        # "Today" is the UTC date, which shortly after local midnight can differ from the
-        # operator's. Naming the date turns a baffling rejection into an obvious one.
-        problems = check_limits(build(as_of_date=date(2026, 7, 29)), limits())
-        assert TODAY.isoformat() in problems[0].message
-
-    def test_the_rule_does_not_read_the_clock(self):
-        # The whole reason the rule takes `today` as an argument. If it ever reached for
-        # date.today(), this would fail.
-        far_future = build(as_of_date=date(2099, 1, 1))
-        assert check_limits(far_future, limits(today=date(2100, 1, 1))) == []
+    def test_nothing_is_left_that_reads_the_clock(self):
+        # The reason `check_limits` took `today` at all. It still does, because the stamp
+        # is drawn from the same limits, and it still never reaches for `date.today()`.
+        assert check_limits(build(), limits(today=date(2100, 1, 1))) == []
 
 
 class TestCurrency:
@@ -290,12 +284,15 @@ class TestUnknownFields:
             build(rating="BUY")
 
 
-class TestAllProblemsTogether:
-    def test_both_contextual_rules_report_at_once(self):
+class TestEveryProblemAtOnce:
+    def test_the_contextual_rules_report_together(self):
         # Told one problem at a time, an operator makes one round trip per rule. The
-        # configuration loader has the same property for the same reason.
-        problems = check_limits(
-            build(as_of_date=date(2030, 1, 1), max_cost_gbp=Decimal("99")),
-            limits(budget="2.50"),
-        )
-        assert sorted(p.field for p in problems) == ["as_of_date", "max_cost_gbp"]
+        # configuration loader has the same property for the same reason. One contextual
+        # rule survives ADR 0110 — the other guarded a field that is now a stamp — so what
+        # this holds is the shape: a list, gathered, never a raise at the first fault.
+        problems = check_limits(build(max_cost_gbp=Decimal("99")), limits(budget="2.50"))
+
+        assert sorted(p.field for p in problems) == ["max_cost_gbp"]
+
+    def test_a_sound_request_reports_nothing(self):
+        assert check_limits(build(), limits(budget="2.50")) == []

@@ -25,8 +25,9 @@ from aer.web.csrf import (
     set_csrf_cookie,
     usable_csrf_token,
 )
+from aer.web.figures import assumption_figure, concept_name, trimmed
 from aer.web.shell import GUIDANCE_COOKIE, THEME_COOKIE, shell_for
-from aer.web.vocabulary import ROLE_WORDS
+from aer.web.vocabulary import ROLE_WORDS, in_words, metric_words
 
 __all__ = ["DISCLAIMER", "STATIC_DIR", "STYLES_DIR", "TEMPLATES_DIR", "render", "templates"]
 
@@ -67,6 +68,18 @@ templates.env.globals["app_version"] = version()
 # skills editor read one mapping rather than each carrying a copy.
 templates.env.globals["role_words"] = ROLE_WORDS
 templates.env.filters["percent"] = percent
+# One enum value in a person's words. Registered as a filter rather than left to each
+# handler because the mappings were already complete and were still being gone round:
+# `custom_section` and `house_view` were on the plan gate the operator approves at.
+templates.env.filters["in_words"] = in_words
+# The assumptions gate showed `0.025` beside the word `pure`, which is the unit algebra's
+# answer to a question nobody asked. A rate is a rate.
+templates.env.filters["assumption_figure"] = assumption_figure
+templates.env.filters["concept_name"] = concept_name
+# The draft review printed `primary_source_ratio` beside a score of `0.51470000`, on the
+# screen where a report is approved.
+templates.env.filters["metric_words"] = metric_words
+templates.env.filters["trimmed"] = trimmed
 # The disagreement rule (gap A68), so four surfaces read one answer rather than four
 # copies of a conditional living in Jinja.
 templates.env.filters["position_figure"] = position_figure

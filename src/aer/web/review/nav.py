@@ -13,7 +13,6 @@ __all__ = ["REVIEW"]
 
 REVIEW: Final = NavSection(
     key="review",
-    label="Review",
     tool="review",
     items=(
         NavItem(key="review", label="Post-trade review", href="/review"),

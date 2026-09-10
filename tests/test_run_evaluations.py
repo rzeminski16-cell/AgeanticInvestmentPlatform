@@ -9,6 +9,8 @@ slice, whose validate step must leave all eight rows behind.
 from __future__ import annotations
 
 import hashlib
+import json
+import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
@@ -62,6 +64,7 @@ from aer.services.citations import record_citation, record_claim
 from aer.services.escalation import triggers_for_job
 from aer.services.evaluations import _figure_scenes, evaluate_run, evaluations_for_job
 from aer.services.extractions import record_excerpt
+from aer.services.run_export import EXPORT_SCHEMA, export_run
 from aer.storage.local import LocalArtefactStore
 from tests.ledger_fixtures import record_valuation_ledger
 from tests.request_fixtures import research_request
@@ -1123,3 +1126,183 @@ class TestTheFigureScenesAreAssembledHonestly:
 
         assert not result.passed
         assert any("818000000" in line for line in result.failures)
+
+
+class TestAComputedFigureRestsOnWhatIsUnderIt:
+    """The first acceptance pass measured 0.5147 against a 0.6 floor while every one of
+    the run's 74 citations verified. Both readings could not be true.
+
+    A numeric claim names exactly one figure — a fact, a calculation or an attestation —
+    so a claim naming a *calculation* has no ``financial_fact_id``, and a calculated
+    figure has nothing to cite: no document contains the sentence "the quick ratio is
+    0.93". The sourcing measure reached a tier only through citations and
+    ``financial_fact_id``, so every DCF output, ratio and growth rate in the report
+    scored as though nothing were behind it.
+    """
+
+    @staticmethod
+    def _calculation(
+        scene: dict[str, Any], *, inputs: list[dict[str, Any]], name: str
+    ) -> Calculation:
+        return Calculation(
+            job_id=scene["job"].id,
+            name=name,
+            formula="a / b",
+            function_ref="tests:example",
+            code_version="test",
+            inputs=inputs,
+            output_value=Decimal("0.93"),
+            output_unit="ratio",
+        )
+
+    @staticmethod
+    def _fact_input(scene: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "name": "revenue",
+            "value": "198270000000",
+            "unit": "USD",
+            "source": {
+                "kind": "fact",
+                "id": str(scene["fact"].id),
+                "table": "financial_facts",
+                "label": "revenue",
+            },
+        }
+
+    async def test_a_claim_naming_a_calculation_over_a_filing_is_primary_sourced(
+        self, scene: dict[str, Any]
+    ) -> None:
+        session = scene["session"]
+        calculation = self._calculation(
+            scene, inputs=[self._fact_input(scene)], name="operating_margin"
+        )
+        session.add(calculation)
+        await session.flush()
+
+        # No citation, because there is nothing to cite: the figure was computed.
+        await record_claim(
+            session,
+            section=scene["section"],
+            kind=ClaimKind.NUMERIC,
+            text="The operating margin was 0.93.",
+            calculation_id=calculation.id,
+        )
+
+        await evaluate_run(
+            _context(scene, FakeProvider()), job=scene["job"], request=scene["request"]
+        )
+        rows = await _rows_by_metric(session, scene["job"].id)
+
+        ratio = rows["primary_source_ratio"]
+        assert ratio.passed is True
+        # Both claims sourced: the one naming the fact, and the one naming a calculation
+        # whose lineage reaches the same tier-1 filing.
+        assert ratio.value == Decimal(1)
+        assert ratio.details is None or "operating margin" not in str(ratio.details)
+
+    async def test_a_calculation_resting_on_nothing_published_is_not_primary_sourced(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The half that must keep failing. An assumption is a number somebody chose,
+        and choosing it well does not make it published — so a figure computed only from
+        assumptions reaches no document and scores exactly as it did before."""
+        session = scene["session"]
+        calculation = self._calculation(
+            scene,
+            inputs=[
+                {
+                    "name": "growth",
+                    "value": "0.03",
+                    "unit": "ratio",
+                    "source": {
+                        "kind": "assumption",
+                        "id": str(uuid.uuid4()),
+                        "table": "assumptions",
+                        "label": "terminal growth",
+                    },
+                }
+            ],
+            name="terminal_value",
+        )
+        session.add(calculation)
+        await session.flush()
+
+        await record_claim(
+            session,
+            section=scene["section"],
+            kind=ClaimKind.NUMERIC,
+            text="The terminal value multiple was 0.93.",
+            calculation_id=calculation.id,
+        )
+
+        await evaluate_run(
+            _context(scene, FakeProvider()), job=scene["job"], request=scene["request"]
+        )
+        rows = await _rows_by_metric(session, scene["job"].id)
+
+        # One of two claims sourced, so the run now fails the floor — which is the metric
+        # reporting thin sourcing rather than miscounting it.
+        assert rows["primary_source_ratio"].value == Decimal("0.5")
+        assert rows["primary_source_ratio"].passed is False
+
+
+class TestTheRunExportIsWholeAndSafe:
+    """`aer export-run`. The operator asked for "a highly detailed and comprehensive log
+    ... so that I can then take that log and give it to Claude".
+
+    `aer diagnose` prints what a person needs to *see*; this is what a reader who was not
+    there needs to answer *why*.
+    """
+
+    async def test_a_missing_run_says_so_rather_than_writing_an_empty_document(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """An empty document would read as a run that did nothing."""
+        with pytest.raises(ValueError, match="No run"):
+            await export_run(scene["session"], job_id=uuid.uuid4())
+
+    async def test_it_carries_the_record_a_reader_needs(self, scene: dict[str, Any]) -> None:
+        document = (await export_run(scene["session"], job_id=scene["job"].id)).document
+
+        assert document["schema"] == EXPORT_SCHEMA
+        # Each of these answered a question the first acceptance pass had to ask by hand.
+        for key in (
+            "run",
+            "subject",
+            "steps",
+            "model_calls",
+            "sections",
+            "evaluations",
+            "approvals",
+            "disagreements",
+            "calculations",
+            "counts",
+            "omitted",
+        ):
+            assert key in document, f"the export has no {key!r}"
+        assert document["run"]["job_id"] == str(scene["job"].id)
+        assert document["subject"]["ticker"] == "MSFT"
+
+    async def test_it_serialises_without_the_application(self, scene: dict[str, Any]) -> None:
+        """A document that needs this codebase to read it is not one anybody can paste."""
+        export = await export_run(scene["session"], job_id=scene["job"].id)
+        text = json.dumps(export.document, indent=2, default=str)
+
+        assert json.loads(text)["run"]["job_id"] == str(scene["job"].id)
+        assert str(scene["job"].id) in export.summary
+
+    async def test_it_says_what_it_leaves_out(self, scene: dict[str, Any]) -> None:
+        """The exclusions are part of the document, so a reader knows what silence means."""
+        omitted = (await export_run(scene["session"], job_id=scene["job"].id)).document["omitted"]
+
+        assert "credentials" in omitted
+        assert "licensed_series" in omitted
+
+    async def test_nothing_in_it_is_named_like_a_secret(self, scene: dict[str, Any]) -> None:
+        """Not a redaction — nothing here reads settings — but the assertion is cheap and
+        what it would catch is expensive."""
+        export = await export_run(scene["session"], job_id=scene["job"].id)
+        text = json.dumps(export.document, default=str).lower()
+
+        for forbidden in ("api_key", "secret_key", "sk-ant", "password", "authorization"):
+            assert forbidden not in text, f"the export mentions {forbidden!r}"

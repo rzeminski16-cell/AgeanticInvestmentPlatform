@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aer.core.enums import Decision, GateKind, JobStatus, UserRole
 from aer.core.hashing import canonical_json, sha256_hex
 from aer.db.models import Company, Job, JobStep, Report, Theme, ThemeMembership, User
+from aer.errors import ValidationError
 from aer.obsidian.graph import build_graph, theme_edges
 from aer.services import approvals as approval_service
 from aer.services import themes as theme_service
@@ -352,3 +353,161 @@ class TestTheNormalisedSlate:
             ("ai-capex", True),
             ("grid-buildout", False),
         ]
+
+
+class TestTheOperatorMayAddOneOfTheirOwn:
+    """The slate arrived as somebody else's work and a person could only take it or leave
+    it. The first acceptance pass asked for the third option.
+    """
+
+    async def test_an_addition_joins_the_slate_the_gate_hashes(self, clean: AsyncSession) -> None:
+        user = await _user(clean)
+        company = await _company(clean, "MSFT", "MICROSOFT CORP")
+        job, _ = await _run_with_slate(
+            clean, user=user, company=company, themes=_slate(), approve_gate=False
+        )
+
+        await theme_service.add_operator_theme(
+            clean,
+            job=job,
+            label="Sovereign compute",
+            rationale="States buying capacity directly changes who the customer is.",
+            actor=user,
+        )
+
+        payload = await theme_service.payload_for_job(clean, job.id)
+        keys = [theme["key"] for theme in payload["themes"]]
+        assert keys == ["ai-capex", "sovereign-compute"]
+        # Through `normalised_slate` like every proposal, so the identity rules are one set.
+        added = next(t for t in payload["themes"] if t["key"] == "sovereign-compute")
+        assert added["label"] == "Sovereign compute"
+        assert added["existing"] is False
+
+    async def test_the_label_is_slugged_by_the_rule_a_proposal_passes(
+        self, clean: AsyncSession
+    ) -> None:
+        """An operator founding a theme and a model founding one cannot produce two
+        spellings of one identity."""
+        user = await _user(clean)
+        company = await _company(clean, "MSFT", "MICROSOFT CORP")
+        job, _ = await _run_with_slate(
+            clean, user=user, company=company, themes=[], approve_gate=False
+        )
+
+        row = await theme_service.add_operator_theme(
+            clean,
+            job=job,
+            label="  AI  Capex  ",
+            rationale="The same theme the model would have named.",
+            actor=user,
+        )
+        assert row.key == theme_service.slugged("AI Capex")
+
+    async def test_a_key_already_on_the_slate_is_refused(self, clean: AsyncSession) -> None:
+        """A theme joins a run once. If the rationale on it is wrong, that is the proposal
+        to argue with rather than a second row."""
+        user = await _user(clean)
+        company = await _company(clean, "MSFT", "MICROSOFT CORP")
+        job, _ = await _run_with_slate(
+            clean, user=user, company=company, themes=_slate(), approve_gate=False
+        )
+
+        # The slate's key is `ai-capex`; this label slugs to the same identity, which is
+        # the whole point of slugging both halves through one function.
+        with pytest.raises(ValidationError, match="already carries"):
+            await theme_service.add_operator_theme(
+                clean,
+                job=job,
+                label="AI Capex",
+                rationale="A second reason for the same theme.",
+                actor=user,
+            )
+
+    async def test_a_rationale_is_required(self, clean: AsyncSession) -> None:
+        """The gate shows every rationale at full length because a theme shapes how every
+        later reader weighs the company, invisibly. One with no reason is the one most
+        likely to be wrong."""
+        user = await _user(clean)
+        company = await _company(clean, "MSFT", "MICROSOFT CORP")
+        job, _ = await _run_with_slate(
+            clean, user=user, company=company, themes=[], approve_gate=False
+        )
+
+        with pytest.raises(ValidationError, match="needs a reason"):
+            await theme_service.add_operator_theme(
+                clean, job=job, label="Sovereign compute", rationale="   ", actor=user
+            )
+
+    async def test_a_label_that_slugs_to_nothing_is_refused(self, clean: AsyncSession) -> None:
+        user = await _user(clean)
+        company = await _company(clean, "MSFT", "MICROSOFT CORP")
+        job, _ = await _run_with_slate(
+            clean, user=user, company=company, themes=[], approve_gate=False
+        )
+
+        with pytest.raises(ValidationError, match="does not name a theme"):
+            await theme_service.add_operator_theme(
+                clean, job=job, label="—  —", rationale="A reason.", actor=user
+            )
+
+    async def test_adding_after_approving_invalidates_the_approval(
+        self, clean: AsyncSession
+    ) -> None:
+        """The stale-approval rule working, not a case to route around: the operator
+        approved a slate, and this is no longer that slate."""
+        user = await _user(clean)
+        company = await _company(clean, "MSFT", "MICROSOFT CORP")
+        job, _ = await _run_with_slate(clean, user=user, company=company, themes=_slate())
+
+        # Confirmed before the addition.
+        assert await theme_service.confirmed_theme_set(clean, job)
+
+        await theme_service.add_operator_theme(
+            clean,
+            job=job,
+            label="Sovereign compute",
+            rationale="States buying capacity directly changes who the customer is.",
+            actor=user,
+        )
+
+        with pytest.raises(theme_service.ThemeSetNotConfirmedError, match="different slate"):
+            await theme_service.confirmed_theme_set(clean, job)
+
+    async def test_an_added_theme_is_recorded_when_the_slate_is_approved(
+        self, clean: AsyncSession
+    ) -> None:
+        """The addition is not a confirmation; the gate's approval is still what files the
+        company under anything. Approving the whole slate records both."""
+        user = await _user(clean)
+        company = await _company(clean, "MSFT", "MICROSOFT CORP")
+        job, report = await _run_with_slate(
+            clean, user=user, company=company, themes=_slate(), approve_gate=False
+        )
+        await theme_service.add_operator_theme(
+            clean,
+            job=job,
+            label="Sovereign compute",
+            rationale="States buying capacity directly changes who the customer is.",
+            actor=user,
+        )
+
+        payload = await theme_service.payload_for_job(clean, job.id)
+        await approval_service.record_decision(
+            session=clean,
+            job=job,
+            gate=GateKind.PLAN,
+            decision=Decision.APPROVED,
+            actor=user,
+            payload_hash="1" * 64,
+        )
+        await approval_service.record_decision(
+            session=clean,
+            job=job,
+            gate=GateKind.THEME_SET,
+            decision=Decision.APPROVED,
+            actor=user,
+            payload_hash=sha256_hex(canonical_json(payload)),
+        )
+
+        recorded = await theme_service.record_confirmed_themes(clean, job=job, report=report)
+        assert set(recorded) == {"ai-capex", "sovereign-compute"}

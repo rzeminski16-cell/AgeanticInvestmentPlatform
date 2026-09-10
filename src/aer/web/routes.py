@@ -114,7 +114,10 @@ def _edit_page(item: Any) -> _FormPage:
         submit_label="Save changes",
         cancel_href=f"/requests/{item.id}",
         error_summary_heading="This request was not saved",
-        extra={"item": item},
+        # This request's own stamp, which is not today's date and must not read as it.
+        # An edit cannot move it (ADR 0110), so the statement on the shared form has to
+        # say what the run *is* dated rather than what a run started now would be.
+        extra={"item": item, "as_of": item.work_order.as_of_date.isoformat()},
     )
 
 
@@ -185,6 +188,9 @@ def _form_context(
         "risk_tolerances": list(RiskTolerance),
         "esg_sensitivities": list(EsgSensitivity),
         "today": datetime.now(UTC).date().isoformat(),
+        # The date this form's request is, or will be, dated to. `page.extra` overrides it
+        # on the edit form, which is a request already stamped. See `_edit_page`.
+        "as_of": datetime.now(UTC).date().isoformat(),
         "errors": parsed.errors if parsed else {},
         # A rejected submission wins over the stored row: re-rendering the saved values
         # would throw away everything the operator just typed and silently undo the edit
@@ -1068,6 +1074,62 @@ async def confirm_assumption_page(
 
 
 @router.post(
+    "/requests/{request_id}/assumptions/confirm-all",
+    summary="Agree that every value still awaiting confirmation may be used",
+)
+async def confirm_all_assumptions_page(
+    request: Request,
+    request_id: uuid.UUID,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Confirm every unconfirmed assumption against the hash of the list displayed.
+
+    **One decision over the set, not a shortcut past it.** It carries the same list hash a
+    single confirmation does and is refused by the same check, so it agrees to exactly the
+    values that were on screen; and it confirms only what is already valued, because a
+    figure the run does not have is not a figure anybody can agree to.
+
+    A gate whose every value is a model's proposal is a gate where the operator's real work
+    is reading the list, and the confirming was ten clicks after they had already done it.
+    """
+    found = await request_service.get_request(session, request_id, user_id=user.id)
+    if found is None:
+        return _request_not_found(request, request_id)
+
+    form = await request.form()
+    submitted = {k: str(v) for k, v in form.multi_items() if isinstance(v, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem_page(
+            request,
+            "This form's security token was missing or had expired. Nothing was confirmed.",
+            HTTP_403_FORBIDDEN,
+        )
+
+    rows = await assumption_service.assumptions_for_request(session, request_id)
+    if payload_hash_for(assumptions_payload(rows)) != submitted.get("payload_hash", ""):
+        return _problem_page(
+            request,
+            "The assumptions changed after this page was rendered, so confirming would "
+            "agree to something other than what was shown. Reload and look again.",
+            HTTP_409_CONFLICT,
+        )
+
+    for row in rows:
+        if row.approved or row.value is None:
+            continue
+        try:
+            await assumption_service.confirm(session, assumption=row, actor=user)
+        except ValidationError as refused:
+            return _problem_page(request, refused.message, HTTP_409_CONFLICT)
+
+    await session.commit()
+    return _go_to(request, _assumptions_destination(submitted, request_id))
+
+
+@router.post(
     "/requests/{request_id}/assumptions/{assumption_id}/amend",
     summary="Replace an assumption's value",
 )
@@ -1113,7 +1175,7 @@ async def amend_assumption_page(
         )
 
     try:
-        await assumption_service.amend(
+        amended = await assumption_service.amend(
             session,
             assumption=assumption,
             value=value,
@@ -1123,6 +1185,17 @@ async def amend_assumption_page(
             # The operator ticking "I mean this figure" against the plausible range (B14).
             accepted_anyway=bool(submitted.get("accepted_anyway")),
         )
+        # **The operator's own figure is confirmed by the act of typing it.** Proposing and
+        # confirming are two acts because the proposer is usually a model, and agreeing with
+        # a model is a decision. When the proposer is the operator, signed in, supplying a
+        # justification the service refuses to do without, a second click records the same
+        # person agreeing with themselves — and it cost the first acceptance pass a round
+        # trip on every value they set by hand.
+        #
+        # What this does not weaken: the gate's own approval still carries the hash of the
+        # whole list as displayed, so "a person agreed to this exact set" is unchanged. That
+        # was always the control; the per-row confirm is the finer one.
+        await assumption_service.confirm(session, assumption=amended, actor=user)
     except ValidationError as refused:
         return _problem_page(request, refused.message, HTTP_422_UNPROCESSABLE_CONTENT)
 

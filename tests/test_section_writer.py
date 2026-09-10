@@ -513,6 +513,72 @@ class TestTheFailureLadder:
         assert scene["section"].confidence == UNSOURCED_MATERIAL_CEILING
         assert UNSOURCED_MATERIAL_CEILING > INSUFFICIENT_EVIDENCE_CEILING
 
+    async def test_a_repairable_first_attempt_survives_a_worse_second_one(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The first acceptance pass, and the section it cost.
+
+        `growth_outlook` was refused at attempt 1 on a single numeral — which the salvage
+        repairs, and did repair when the archived reply was replayed under the same rules
+        — then refused at attempt 2 on a gap-remark count and a length, which the salvage
+        declines. The ladder offered the salvage only the *last* reply, so a repairable
+        draft sat in the run's own record while the section was lost and
+        `material_missing_section` fired at gate 2.
+
+        Every refused attempt is offered now, latest first. The last is still tried
+        first, because it was written knowing what the one before it was refused for;
+        this can only turn a lost section into a salvaged one.
+        """
+        repairable = _good_draft(scene)
+        repairable.content["commentary"] = (
+            "Operating cash generation covered the capital programme. "
+            "Margins expanded 340 basis points."
+        )
+        # A single-sentence field: removing the sentence would empty it, so the salvage
+        # declines on this one exactly as `test_a_bare_numeral_with_no_lineage_is_refused`
+        # asserts it does.
+        beyond_repair = SectionDraft(
+            content={"commentary": "Margins improved by 42% on the year.", "figures": []},
+            claims=[],
+        )
+
+        outcome = await _run(scene, _scripted([repairable, beyond_repair]))
+
+        assert outcome.status is SectionStatus.GENERATED
+        assert outcome.attempts == 2
+        assert (
+            scene["section"].content["commentary"]
+            == "Operating cash generation covered the capital programme."
+        )
+        assert "42" not in str(_reader_facing(scene["section"].content))
+
+    async def test_the_last_attempt_is_still_preferred_when_it_can_be_repaired(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """The half of the ladder that does not change.
+
+        The retry is written knowing what the first attempt was refused for, so where it
+        is salvageable it is what the section publishes — the fallback below it exists
+        for the case where the retry came back worse, and nothing else.
+        """
+        first = _good_draft(scene)
+        first.content["commentary"] = (
+            "Operating cash generation covered the capital programme. "
+            "Margins expanded 340 basis points."
+        )
+        second = _good_draft(scene)
+        second.content["commentary"] = (
+            "The capital programme was funded from operations. Returns improved 512 basis points."
+        )
+
+        outcome = await _run(scene, _scripted([first, second]))
+
+        assert outcome.status is SectionStatus.GENERATED
+        assert (
+            scene["section"].content["commentary"]
+            == "The capital programme was funded from operations."
+        )
+
 
 class TestASectionWithAMalformedClaim:
     """ADR 0096, from the MSFT run's record (roadmap §2.1).

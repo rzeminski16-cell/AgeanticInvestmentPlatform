@@ -184,6 +184,26 @@ class SourceDocument(Base):
         """
         return not self.quarantined or self.admissibility_override_reason is not None
 
+    @property
+    def is_dated(self) -> bool:
+        """Whether anything establishes when this document was published.
+
+        The conservative bound first, for the reason it is stored: a document with two
+        candidate dates is dated, and it is dated at the later one.
+        """
+        return (self.publication_date_latest or self.publication_date) is not None
+
+    @property
+    def evidence_tier(self) -> SourceTier:
+        """The tier an evidence policy must read, which for an undated document is capped.
+
+        `source_tier` stays exactly as acquisition recorded it — what the provider is, and
+        what kind of thing it published, is a fact about the document and not a verdict to
+        be overwritten. This is the verdict: ADR 0111 admits an undated source and refuses
+        to let it count as primary, and `SourceTier.as_evidence` is where that rule lives.
+        """
+        return self.source_tier.as_evidence(dated=self.is_dated)
+
     # -- What the document tried ----------------------------------------------------------
 
     # **A flag, not a quarantine.** A document that hides text is shown to a human at gate 2;

@@ -146,10 +146,10 @@
         line worth $40bn beside a revenue line of $331bn is one decision, and forty segment
         breakdowns beside the same revenue are a different one.
       #}
-      {% call ui.disclosure("What the run did capture (" ~ (payload.mapped_concepts | length) ~ " mapped figures)") %}
+      {% call ui.disclosure("What the run did capture (" ~ (captured | length) ~ " statement lines, " ~ (payload.mapped_concepts | length) ~ " figures across every period)") %}
         <div hidden id="mapped-filter-shell">
           <label for="mapped-filter" class="block type-label text-ink-muted">
-            Filter by concept or period
+            Filter by statement line
           </label>
           <input
             id="mapped-filter"
@@ -164,24 +164,50 @@
 
         <div class="mt-3 overflow-x-auto">
           <table class="w-full text-left" id="mapped-concepts">
+            <caption class="sr-only">
+              Every statement line this filing reported, newest period first. A line
+              reported for several periods shows its most recent value; the earlier ones
+              are behind the count beside it.
+            </caption>
             <thead>
               <tr>
-                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Concept</th>
-                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Period</th>
+                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Statement line</th>
+                <th scope="col" class="py-2 pr-4 type-eyebrow text-ink-muted">Most recent period</th>
                 <th scope="col" class="py-2 pr-4 text-right type-eyebrow text-ink-muted">Value</th>
+                <th scope="col" class="py-2 text-right type-eyebrow text-ink-muted">Periods</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-line">
-              {% for row in payload.mapped_concepts %}
-                <tr data-search="{{ row.concept }} {{ row.period_end }}">
-                  <td class="py-2.5 pr-4 type-data-sm text-ink">{{ row.concept }}</td>
-                  <td class="py-2.5 pr-4 type-data-sm text-ink">
-                    {% if row.period_start %}{{ row.period_start }} &ndash; {% endif %}{{ row.period_end }}
+              {% for line in captured %}
+                <tr data-search="{{ line.concept }} {{ line.label }}" data-concept="{{ line.concept }}">
+                  <td class="py-2.5 pr-4 text-ink">
+                    <span class="type-body-sm">{{ line.label }}</span>
+                    <span class="block type-data-sm text-ink-muted">{{ line.concept }}</span>
                   </td>
+                  <td class="py-2.5 pr-4 type-body-sm text-ink">{{ line.latest.period }}</td>
                   <td class="py-2.5 pr-4 text-right type-data-sm tabular-nums text-ink">
-                    {{ row.value }} {{ row.unit }}
+                    {{ line.latest.value_display }}
+                  </td>
+                  <td class="py-2.5 text-right type-data-sm tabular-nums text-ink-muted">
+                    {{ line.observations }}
                   </td>
                 </tr>
+                {% if line.earlier %}
+                  <tr data-search="{{ line.concept }} {{ line.label }}" data-earlier="{{ line.concept }}">
+                    <td colspan="4" class="pb-3 pl-4">
+                      {% call ui.disclosure(line.observations - 1 ~ " earlier period" ~ ("" if line.observations == 2 else "s")) %}
+                        <ul class="mt-1 flex flex-col gap-1">
+                          {% for period in line.earlier %}
+                            <li class="flex justify-between gap-6 type-body-sm text-ink-muted">
+                              <span>{{ period.period }}</span>
+                              <span class="type-data-sm tabular-nums">{{ period.value_display }}</span>
+                            </li>
+                          {% endfor %}
+                        </ul>
+                      {% endcall %}
+                    </td>
+                  </tr>
+                {% endif %}
               {% endfor %}
             </tbody>
           </table>

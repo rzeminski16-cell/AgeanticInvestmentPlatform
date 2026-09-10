@@ -45,7 +45,7 @@
     </div>
   {% endcall %}
 
-  {% call ui.sheet("Followed", subtitle="In the order followed, which is the order the queue runs in. Commission any one now, as at today or a date you state; the queue commissions the next it can afford.", id="followed") %}
+  {% call ui.sheet("Followed", subtitle="In the order followed, which is the order the queue runs in. Commission any one now, as at today; the queue commissions the next it can afford.", id="followed") %}
     {% if rows %}
       {% call ui.record_list("Followed companies") %}
         {% for row in rows %}
@@ -94,13 +94,11 @@
               {{ ui.status(row.tone, row.label) }}
               {% if not row.is_withdrawn %}
                 {% if row.state != "commissioned" %}
+                  {# The date is the platform's (ADR 0110), so the button says what it does
+                     rather than asking for the one answer that was ever right. #}
                   <form method="post" action="/watchlist/{{ row.id }}/commission" class="flex flex-wrap items-end gap-2" data-commission="{{ row.id }}">
                     <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
-                    <div>
-                      <label for="as_of-{{ row.id }}" class="block type-label text-ink-muted">As at</label>
-                      <input id="as_of-{{ row.id }}" name="as_of" type="date" value="{{ today }}" max="{{ today }}" class="mt-1 min-h-11 rounded-sm border border-control-boundary bg-surface px-3 type-body text-ink" />
-                    </div>
-                    <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 py-2 type-label text-on-verification hover:bg-verification-strong">Commission</button>
+                    <button type="submit" class="inline-flex min-h-11 items-center rounded-sm bg-verification px-3 py-2 type-label text-on-verification hover:bg-verification-strong">Commission as at {{ today }}</button>
                   </form>
                 {% endif %}
                 <form method="post" action="/watchlist/{{ row.id }}/stop" class="flex flex-wrap items-end gap-2" data-stop="{{ row.id }}">

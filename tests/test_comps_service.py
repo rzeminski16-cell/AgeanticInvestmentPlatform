@@ -14,6 +14,7 @@ set.
 from __future__ import annotations
 
 import inspect
+import uuid
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -36,10 +37,12 @@ from aer.db.models import (
     SourceDocument,
     User,
 )
+from aer.errors import ValidationError
 from aer.fetch.policy import DEFAULT_POLICIES
 from aer.render.document import assemble_document
 from aer.render.markdown import _comps_block, render_markdown
 from aer.services import approvals as approval_service
+from aer.services import comps as comps_service
 from aer.services import comps as service
 from aer.workflow.workflows.vertical_slice_v1 import COMPS_STEP, comps_note_for
 from tests.request_fixtures import research_request
@@ -890,3 +893,156 @@ class TestTheNoteReportsWhatTheStepBuilt:
         assert note is not None
         # Two peers confirmed by the fixture; one in the table leaves one excluded.
         assert note.excluded_count == 1
+
+
+class TestTheOperatorMayAddAComparable:
+    """The peer set arrived as a model's proposal or the deterministic floor, and a person
+    could only take it or leave it. The first acceptance pass asked for the third option.
+
+    **A company this platform already holds, not a ticker to go and resolve.** The web
+    process has no source client and should not have one; the floor draws from exactly
+    this pool, and a company with no stored facts could not be aligned against the subject
+    in any case.
+    """
+
+    async def test_an_addition_joins_the_set_the_gate_hashes(
+        self, db_session: Any, scene: dict[str, Any]
+    ) -> None:
+        await record_proposal(db_session, scene)
+        _, peer = await seed_two_companies(db_session, scene, subject_sic="3571", peer_sic="3571")
+
+        await comps_service.add_operator_peer(
+            db_session,
+            job=scene["job"],
+            company_id=peer.id,
+            rationale="Same industry, and the platform already holds its filings.",
+            actor=scene["analyst"],
+        )
+
+        payload = await comps_service.payload_for_job(db_session, scene["job"].id)
+        identifiers = [row["identifier"] for row in payload["peers"]]
+        assert str(peer.id) in identifiers
+        added = next(row for row in payload["peers"] if row["identifier"] == str(peer.id))
+        # The registry's name, not anything typed.
+        assert added["name"] == "Peer plc"
+        assert added["period_end"] == PERIOD_END.isoformat()
+
+    async def test_a_company_with_no_stored_facts_yields_nothing(
+        self, db_session: Any, scene: dict[str, Any]
+    ) -> None:
+        """The rule the floor already obeys: a peer with no period end cannot be aligned
+        against the subject and would be excluded a step later anyway."""
+        await record_proposal(db_session, scene)
+        _, peer = await seed_two_companies(
+            db_session, scene, subject_sic="3571", peer_sic="3571", peer_facts=False
+        )
+
+        await comps_service.add_operator_peer(
+            db_session,
+            job=scene["job"],
+            company_id=peer.id,
+            rationale="Comparable on the face of it.",
+            actor=scene["analyst"],
+        )
+
+        payload = await comps_service.payload_for_job(db_session, scene["job"].id)
+        assert str(peer.id) not in [row["identifier"] for row in payload["peers"]]
+
+    async def test_a_rationale_is_required(self, db_session: Any, scene: dict[str, Any]) -> None:
+        """A badly chosen peer moves a median more than most modelling choices do and does
+        it invisibly, which is what this gate exists to catch."""
+        await record_proposal(db_session, scene)
+        _, peer = await seed_two_companies(db_session, scene, subject_sic="3571", peer_sic="3571")
+
+        with pytest.raises(ValidationError, match="needs a reason"):
+            await comps_service.add_operator_peer(
+                db_session,
+                job=scene["job"],
+                company_id=peer.id,
+                rationale="  ",
+                actor=scene["analyst"],
+            )
+
+    async def test_a_company_the_registry_does_not_hold_is_refused(
+        self, db_session: Any, scene: dict[str, Any]
+    ) -> None:
+        await record_proposal(db_session, scene)
+
+        with pytest.raises(ValidationError, match="No company"):
+            await comps_service.add_operator_peer(
+                db_session,
+                job=scene["job"],
+                company_id=uuid.uuid4(),
+                rationale="A company that does not exist here.",
+                actor=scene["analyst"],
+            )
+
+    async def test_one_already_on_the_set_is_refused(
+        self, db_session: Any, scene: dict[str, Any]
+    ) -> None:
+        _, peer = await seed_two_companies(db_session, scene, subject_sic="3571", peer_sic="3571")
+        await record_proposal(
+            db_session,
+            scene,
+            peers=[
+                {
+                    "identifier": str(peer.id),
+                    "name": "Peer plc",
+                    "rationale": "Proposed by the floor.",
+                    "period_end": PERIOD_END.isoformat(),
+                }
+            ],
+        )
+
+        with pytest.raises(ValidationError, match="already carries"):
+            await comps_service.add_operator_peer(
+                db_session,
+                job=scene["job"],
+                company_id=peer.id,
+                rationale="A second reason for the same company.",
+                actor=scene["analyst"],
+            )
+
+    async def test_the_picker_offers_only_what_the_table_could_use(
+        self, db_session: Any, scene: dict[str, Any]
+    ) -> None:
+        """Held, with facts, and not already on the set — offering anything else would be
+        offering the operator a refusal."""
+        await record_proposal(db_session, scene, peers=[])
+        _, peer = await seed_two_companies(db_session, scene, subject_sic="3571", peer_sic="3571")
+
+        offered = await comps_service.addable_companies(db_session, job_id=scene["job"].id)
+        names = [name for _, name in offered]
+        assert "Peer plc" in names
+        # The subject has no facts of its own in this fixture, so it is not offered either
+        # — but once added, a peer stops being offered.
+        await comps_service.add_operator_peer(
+            db_session,
+            job=scene["job"],
+            company_id=peer.id,
+            rationale="Same industry.",
+            actor=scene["analyst"],
+        )
+        again = await comps_service.addable_companies(db_session, job_id=scene["job"].id)
+        assert "Peer plc" not in [name for _, name in again]
+
+    async def test_adding_after_approving_invalidates_the_approval(
+        self, db_session: Any, scene: dict[str, Any]
+    ) -> None:
+        """The stale-approval rule working: the operator approved a set, and this is no
+        longer that set."""
+        output = await record_proposal(db_session, scene)
+        await confirm(db_session, scene, output)
+        assert await comps_service.confirmed_peer_set(db_session, scene["job"])
+
+        _, peer = await seed_two_companies(db_session, scene, subject_sic="3571", peer_sic="3571")
+        await comps_service.add_operator_peer(
+            db_session,
+            job=scene["job"],
+            company_id=peer.id,
+            rationale="Same industry.",
+            actor=scene["analyst"],
+        )
+
+        with pytest.raises(comps_service.PeerSetNotConfirmedError, match="different set"):
+            await comps_service.confirmed_peer_set(db_session, scene["job"])

@@ -34,7 +34,10 @@ from aer.core.enums import (
     SkillKind,
     TransactionKind,
 )
+from aer.core.escalation import TriggerKind
 from aer.db.models.report_section import SectionStatus
+from aer.eval.metrics import Metric
+from aer.services import sources
 from aer.web import vocabulary
 from aer.web.overview.research import GATE_ASKS
 from aer.web.portfolio.pages import GRADE_LABELS
@@ -44,6 +47,7 @@ from aer.web.vocabulary import (
     GATES,
     GRADES,
     JOB_STATES,
+    METRIC_WORDS,
     PREMISE_VERDICTS,
     PROCESS_QUALITIES,
     REQUEST_STATES,
@@ -51,9 +55,11 @@ from aer.web.vocabulary import (
     SHOCK_KINDS,
     SKILL_KINDS,
     TRANSACTION_KINDS,
+    TRIGGER_KINDS,
     GateCertainty,
     HumanState,
     Tone,
+    metric_words,
 )
 from aer.workflow.workflows.vertical_slice_v1 import build_steps
 
@@ -71,6 +77,7 @@ MAPPED: list[tuple[str, type[StrEnum], dict[Any, HumanState]]] = [
     ("premise verdict", PremiseVerdict, PREMISE_VERDICTS),
     ("process quality", ProcessQuality, PROCESS_QUALITIES),
     ("shock kind", ShockKind, SHOCK_KINDS),
+    ("escalation trigger", TriggerKind, TRIGGER_KINDS),
 ]
 
 
@@ -119,6 +126,30 @@ class TestNothingIsMissing:
             key for key, label in vocabulary.STEP_WORDS.items() if label == key or "_" in label
         )
         assert not retyped, f"these step names are still keys: {retyped}"
+
+    def test_every_quarantine_reason_has_words(self) -> None:
+        """The three reasons a source may be refused, walked from where they are declared.
+
+        Not an enum, so this walks the module's own constants rather than a type. The
+        sources page prints these after "Quarantined:", and printed `no_publication_date`
+        at a reader until ADR 0111 went past that screen — the one place the ratchet's
+        exemption for a `reason` was wrong, because these are identifiers rather than
+        sentences the platform wrote.
+        """
+        declared = {sources.NO_PUBLICATION_DATE, sources.PUBLISHED_AFTER_AS_OF, sources.NOT_CITABLE}
+        missing = sorted(declared - set(vocabulary.QUARANTINE_REASONS))
+        assert not missing, f"quarantine reasons with no words: {missing}"
+
+        stale = sorted(set(vocabulary.QUARANTINE_REASONS) - declared)
+        assert not stale, f"words for reasons that no longer exist: {stale}"
+
+    def test_a_quarantine_reason_reads_as_a_clause(self) -> None:
+        """It follows "Quarantined:" on the page, so it has to finish that sentence."""
+        for reason, words in vocabulary.QUARANTINE_REASONS.items():
+            assert words != reason
+            assert "_" not in words, reason
+            assert words[0].islower(), f"{reason} starts a new sentence instead of continuing one"
+            assert vocabulary.in_words(reason) == words
 
 
 class TestTheWordsAreUsable:
@@ -296,3 +327,43 @@ class TestALookupRefusesRatherThanGuessing:
         finally:
             GATES.clear()
             GATES.update(original)
+
+
+class TestEveryMetricHasWords:
+    """The draft review's own table printed `primary_source_ratio` and
+    `cited_figure_agreement` as themselves, beside a score of `0.51470000`.
+
+    Not in `MAPPED` because `METRIC_WORDS` is keyed by the metric's string value rather
+    than by the enum: `aer.eval` is a package the interface reads from and must not import
+    back into. The completeness obligation is the same.
+    """
+
+    def test_every_metric_has_a_label(self) -> None:
+        missing = sorted(metric.value for metric in Metric if metric.value not in METRIC_WORDS)
+        assert not missing, (
+            f"These metrics have no words: {missing}. Add them to `METRIC_WORDS` — a metric "
+            "with no label renders as its own key on the screen where a report is approved."
+        )
+
+    def test_no_entry_names_a_metric_that_is_gone(self) -> None:
+        known = {metric.value for metric in Metric}
+        stale = sorted(key for key in METRIC_WORDS if key not in known)
+        assert not stale, f"these METRIC_WORDS entries name no metric: {stale}"
+
+    def test_no_label_is_a_raw_key(self) -> None:
+        shouting = sorted(
+            state.label
+            for state in METRIC_WORDS.values()
+            if "_" in state.label or state.label.isupper()
+        )
+        assert not shouting, f"these metric labels are still keys: {shouting}"
+
+    def test_every_metric_says_what_it_measures(self) -> None:
+        """A score with a threshold and no sentence is a number the operator cannot weigh."""
+        silent = sorted(key for key, state in METRIC_WORDS.items() if not state.detail.strip())
+        assert not silent, f"these metrics have a label and no explanation: {silent}"
+
+    def test_the_lookup_falls_back_rather_than_raising(self) -> None:
+        """A run recorded under a build that measured something this one does not must
+        still render its history."""
+        assert metric_words("a_metric_no_build_has").label == "a_metric_no_build_has"

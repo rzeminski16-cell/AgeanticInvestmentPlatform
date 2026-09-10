@@ -2,14 +2,19 @@
 
 A source document says where a set of bytes came from and what may be done with it. This
 module writes those records and applies the admissibility rules that can be decided at
-acquisition time. Two of the three are the defence against look-ahead bias (threat T13):
+acquisition time:
 
-1. **A source whose publication date is unknown is quarantined**, because a document that
-   cannot be dated cannot be shown to have existed before the as-of date. It might be from
-   last week; it might be from after the quarter being analysed, in which case a report
-   citing it would quietly use information nobody had at the time.
-2. **A source published after the as-of date is quarantined.** The same failure, except
-   demonstrated rather than merely possible.
+1. **A source whose publication date is unknown is quarantined where the run's policy says
+   so**, because a document that cannot be dated cannot be shown to have existed before the
+   as-of date. Since ADR 0111 that policy is `work_orders.undated_sources_admissible`, and
+   it defaults to admitting them: refusing every undatable page is why a run's plan named
+   news sources and its evidence table held none. What makes admitting them safe is not
+   here — `SourceTier.as_evidence` caps an undated document at tier 5, so it may
+   corroborate and may never be the primary source a section's policy requires.
+2. **A source published after the as-of date is quarantined** when the run is point-in-time.
+   The look-ahead rule proper, and the defence against threat T13. It kept `point_in_time`
+   when rule 1 stopped sharing it, because the two questions are different: "can this be
+   shown to predate the as-of date?" and "is this demonstrably newer than it?".
 3. **A source at a tier that may never be cited is quarantined**, whatever its date.
 
 The date checked is the **latest** any evidence supports, not the best estimate. The question
@@ -107,6 +112,7 @@ def decide_quarantine(
     point_in_time: bool,
     source_tier: SourceTier,
     as_of_date: date | None = None,
+    undated_sources_admissible: bool = True,
 ) -> QuarantineDecision:
     """Decide admissibility from the facts alone.
 
@@ -120,12 +126,17 @@ def decide_quarantine(
             document with any evidence of being newer cannot. See :mod:`aer.extract.dates`.
         as_of_date: The request's as-of date. ``None`` skips the look-ahead check, which is
             correct only where the caller has no as-of date to check against.
+        undated_sources_admissible: The run's policy on a document nothing can date (ADR
+            0111). Defaults to admitting it, which is the platform's default and what the
+            work order carries; a caller that means the strict rule passes ``False``. This
+            is deliberately **not** ``point_in_time``: the two used to share that flag, so
+            reading an undated news page cost the look-ahead check as well.
 
     Order matters. An undatable source is quarantined for *that* reason first, because it
     is the reason the operator can act on — supplying a date makes it admissible, whereas
     a tier-6 source is inadmissible whatever its date.
     """
-    if point_in_time and publication_date is None:
+    if not undated_sources_admissible and publication_date is None:
         return QuarantineDecision(
             quarantined=True,
             reason=NO_PUBLICATION_DATE,
@@ -218,6 +229,7 @@ async def record_source_document(
         point_in_time=work_order.point_in_time,
         source_tier=source_tier,
         as_of_date=work_order.as_of_date,
+        undated_sources_admissible=work_order.undated_sources_admissible,
     )
 
     document = SourceDocument(

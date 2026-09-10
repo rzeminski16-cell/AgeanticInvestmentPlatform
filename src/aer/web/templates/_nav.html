@@ -46,12 +46,27 @@
     <div id="aer-nav-panel" class="px-4 pb-4 min-[60rem]:pt-4">
       <a href="/" class="flex min-h-11 items-center type-title-2 text-nav-ink">Tracework</a>
 
+      {#
+        Four headings over eighteen destinations, grouped by what the operator is doing
+        rather than by which tool implements it (ADR 0112).
+
+        **A heading per tool was never a decision.** A nav section is one tool's
+        contribution, and drawing each one under its own title is right at two tools and a
+        wall at nine: ten headings, seven of them over a single link, six of those saying
+        the same word as the link beneath. The grouping is `GROUPS` in `shell/registry.py`
+        and it is the shell's alone — nothing here reads a tool's opinion of where it sits.
+
+        A group with no label draws no heading, which is what the home page needs: a
+        category of one, named after the link inside it, is the problem in miniature.
+      #}
       <nav aria-label="Main" class="mt-2">
-        {% for section in shell.nav %}
+        {% for group in shell.nav %}
           <div class="mt-4 first:mt-0">
-            <h2 class="type-eyebrow text-nav-muted">{{ section.label }}</h2>
-            <ul class="mt-1">
-              {% for item in section.items %}
+            {% if group.label %}
+              <h2 class="type-eyebrow text-nav-muted">{{ group.label }}</h2>
+            {% endif %}
+            <ul class="{{ 'mt-1' if group.label else '' }}">
+              {% for item in group.items %}
                 <li>
                   <a
                     href="{{ item.href }}"

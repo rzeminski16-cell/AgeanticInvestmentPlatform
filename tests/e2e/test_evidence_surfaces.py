@@ -21,6 +21,7 @@ from sqlalchemy.pool import NullPool
 
 from aer.config import load_settings
 from aer.storage.local import LocalArtefactStore
+from aer.web.vocabulary import QUARANTINE_REASONS
 from tests.db_fixtures import run_async
 from tests.provenance_fixtures import SUPPORTED_SENTENCE, build_evidence
 
@@ -104,9 +105,13 @@ class TestWhatTheReaderIsTold:
         page.goto(f"{live_server}/runs/{evidence.job_id}/sources")
 
         expect(page.locator("#quarantined-count")).to_have_text("1")
-        expect(page.locator('[data-field="quarantine-reason"]')).to_contain_text(
-            evidence.quarantine_reason
-        )
+        # The reason in words, not its key. `Quarantined: no_publication_date` is the
+        # thing the vocabulary exists to end, and this screen was the last place it read
+        # that way — the ratchet exempts a `reason` on the argument that it is a sentence,
+        # which is true of every refusal except these three module constants.
+        reason = page.locator('[data-field="quarantine-reason"]')
+        expect(reason).to_contain_text(QUARANTINE_REASONS[evidence.quarantine_reason])
+        expect(reason).not_to_contain_text(evidence.quarantine_reason)
 
     def test_an_unverified_citation_is_visibly_unverified(
         self, page: Page, live_server: str, evidence: EvidenceFixture

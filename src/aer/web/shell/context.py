@@ -21,7 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final
 
-from aer.web.nav import NavSection, active_key
+from aer.web.nav import NavGroup, active_key
 from aer.web.shell.registry import NAV
 
 __all__ = ["THEMES", "Shell", "shell_for"]
@@ -58,7 +58,7 @@ position somebody can hold and go back to. A tri-state that spelt one of its sta
 class Shell:
     """What surrounds a page: where you are, and how to get somewhere else."""
 
-    nav: tuple[NavSection, ...]
+    nav: tuple[NavGroup, ...]
     active: str
     guidance: bool
     path: str
@@ -90,10 +90,15 @@ class Shell:
         reachable but unlisted (`UNLISTED` in the registry) has no navigation item to name,
         and inventing one would put a label on the chrome that leads nowhere.
         """
-        for section in self.nav:
-            for item in section.items:
+        for group in self.nav:
+            for item in group.items:
                 if item.key == self.active:
-                    return f"{section.label} · {item.label}"
+                    # The group's word, not the tool's, and never both. This read
+                    # "Watchlist · Watchlist" and "Portfolio · Portfolio" while a section
+                    # was its own heading — the same duplication as the sidebar, in the one
+                    # place a 320px reader has to rely on (ADR 0112). An ungrouped item has
+                    # no category to name, so it is simply itself.
+                    return f"{group.label} · {item.label}" if group.label else item.label
         return ""
 
     @property

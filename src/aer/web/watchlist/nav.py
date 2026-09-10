@@ -13,7 +13,6 @@ __all__ = ["WATCHLIST"]
 
 WATCHLIST: Final = NavSection(
     key="watchlist",
-    label="Watchlist",
     tool="watchlist",
     items=(NavItem(key="watchlist", label="Watchlist", href="/watchlist"),),
 )

@@ -36,7 +36,7 @@ from aer.web.overview.attention import (
 from aer.web.overview.nav import OVERVIEW
 from aer.web.overview.pages import _pounds
 from aer.web.overview.research import GATE_ASKS
-from aer.web.shell import NAV, flat_items
+from aer.web.shell import NAV, flat_items, flat_sections
 from tests.api_fixtures import build_app, client_for
 from tests.request_fixtures import research_request
 
@@ -103,7 +103,7 @@ class TestAProviderHasAnOwnerAndARecord:
             _provider(items_ref="aer.web.overview.platform:TOOL").items_fn()
 
     def test_every_provider_belongs_to_a_tool_the_nav_knows(self) -> None:
-        tools = {section.tool for section in NAV}
+        tools = {section.tool for section in flat_sections()}
         strangers = sorted(p.key for p in registered_providers() if p.tool not in tools)
 
         assert not strangers, f"attention from a tool with no section: {strangers}"
@@ -207,13 +207,21 @@ class TestSpendReadsAsMoney:
 
 
 class TestOverviewIsInTheNav:
-    def test_it_leads_the_sections(self) -> None:
-        assert next(section.key for section in NAV) == "overview"
+    def test_it_leads_the_menu(self) -> None:
+        assert next(section.key for section in flat_sections()) == "overview"
+
+    def test_it_sits_under_no_heading(self) -> None:
+        # ADR 0112. The home page is not a category, and a heading reading "Overview" over
+        # one link called "Overview" was the smallest version of what the grouping fixed.
+        first = NAV[0]
+
+        assert first.label == ""
+        assert [section.key for section in first.sections] == ["overview"]
 
     def test_the_section_comes_from_its_own_module(self) -> None:
         # The claim the nav-as-data slice made: a tool contributes a section rather than
         # editing the shell's own file. `registry.py` imports it; it declares nothing.
-        assert OVERVIEW in NAV
+        assert OVERVIEW in flat_sections()
 
     def test_the_item_resolves(self) -> None:
         assert "/" in {item.href for item in flat_items()}

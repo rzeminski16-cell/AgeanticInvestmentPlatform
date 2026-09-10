@@ -123,7 +123,7 @@
           {% for row in scenarios %}
             <tr data-scenario="{{ row.id }}" data-loss="{{ 'yes' if row.is_loss else 'no' }}">
               {{ ui.cell(row.name, header=true) }}
-              <td class="border-b border-line py-2 pr-4 type-body-sm text-ink">{% for shock in row.shocks %}{{ shock.kind }}{% if shock.target %} {{ shock.target }}{% endif %} {{ shock.shock }}{% if not loop.last %}; {% endif %}{% endfor %}</td>
+              <td class="border-b border-line py-2 pr-4 type-body-sm text-ink">{% for shock in row.shocks %}{{ shock.kind | in_words }}{% if shock.target %} {{ shock.target }}{% endif %} {{ shock.shock }}{% if not loop.last %}; {% endif %}{% endfor %}</td>
               <td class="border-b border-line py-2 pr-4 type-body-sm text-ink">{% if row.problem %}<span class="text-ink-muted">{{ row.problem }}</span>{% else %}{{ row.count }}: {{ row.reached }}{% endif %}</td>
               <td class="border-b border-line py-2 pr-4 text-right type-data text-ink" data-field="pnl">{% if row.href %}<a href="{{ row.href }}" class="underline underline-offset-[3px]">{{ row.pnl }}</a>{% else %}{{ row.pnl }}{% endif %}</td>
               {{ ui.cell(row.impact, numeric=true) }}

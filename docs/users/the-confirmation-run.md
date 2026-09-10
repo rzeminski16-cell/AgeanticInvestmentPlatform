@@ -287,8 +287,8 @@ uv run python -c "from aer.config import load_settings; print(load_settings().pr
 
 Go to <http://127.0.0.1:8000/requests/new>.
 
-**Expect** — a form in five blocks: Company, Date and hindsight, Depth and spending, Questions,
-and a closed "Refine this mandate — optional" disclosure.
+**Expect** — a form in five blocks: Company, Hindsight, Depth and spending, Questions, and a
+closed "Refine this mandate — optional" disclosure.
 
 ### 2.2 Fill it in
 
@@ -298,8 +298,8 @@ and a closed "Refine this mandate — optional" disclosure.
 | Ticker | `MSFT` | |
 | Exchange | `NASDAQ` | |
 | ISIN | *leave blank* | Optional; one less thing to get wrong |
-| As-of date | `2026-08-31` | Comfortably after the FY2026 10-K was filed, so there is a full year to read |
-| Which sources may this run use? | **Use only information available by this date** | Point-in-time on. This is the honest test |
+| Which sources may this run use? | **Refuse anything published after today** | Point-in-time on. This is the honest test |
+| May this run read a page it cannot date? | **Yes, and never as a primary source** | The default. News reporting mostly carries no machine-readable date |
 | Depth | `standard` | Depth is most of what a run costs |
 | Most this report may cost | **`3.00`** | **The important one — see below** |
 | Questions | two or three, one per line | They shape the plan more than anything else |
@@ -322,8 +322,10 @@ That gives you a free checkpoint at exactly the moment before the money.
 **Expect** — you land on the request's own page, which says *"Nothing has been fetched and
 nothing has been spent"* and offers a **Start the run** button.
 
-**If not** — field errors appear inline. The ticker takes letters, digits, dot and hyphen; the
-as-of date cannot be in the future.
+**If not** — field errors appear inline. The ticker takes letters, digits, dot and hyphen.
+
+There is no as-of date to fill in. A run is dated the day you commission it (ADR 0110), and
+the form states that date above the hindsight choice it governs.
 
 ### 2.4 Start the run and note the id
 

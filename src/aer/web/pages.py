@@ -27,7 +27,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, Final
 
 from fastapi import APIRouter, Request
 from redis.asyncio import Redis
@@ -71,6 +71,7 @@ from aer.db.models import (
     ReportSection,
     ResearchPlan,
     ResearchRequest,
+    SectionDefinition,
     SourceDocument,
     WorkOrder,
 )
@@ -98,9 +99,11 @@ from aer.services.assumptions import assumptions_for_request
 from aer.services.challenge_briefs import briefs_from_output
 from aer.services.comps import (
     PEER_SET_STEP,
-    peer_set_payload,
+    add_operator_peer,
+    addable_companies,
     peer_set_required,
 )
+from aer.services.comps import payload_for_job as peer_payload_for_job
 from aer.services.comps_run import comps_table_from_record, grouped_exclusions
 from aer.services.disagreements import disagreements_for_job, settle_by_hand
 from aer.services.escalation import cost_scene_for_job
@@ -117,7 +120,8 @@ from aer.services.sectors import (
 )
 from aer.services.spend import recent_runs, spend_by_role, spend_summary
 from aer.services.subject import subject_name
-from aer.services.themes import THEME_STEP, theme_set_payload, theme_set_required
+from aer.services.themes import THEME_STEP, add_operator_theme, theme_set_required
+from aer.services.themes import payload_for_job as theme_payload_for_job
 from aer.services.valuation_view import GridView, lineage_rows, valuation_view
 from aer.storage.local import LocalArtefactStore
 from aer.web import figures, vocabulary
@@ -659,6 +663,14 @@ async def plan_review(
             "job": job,
             "plan": plan,
             "payload": payload,
+            # The readable name for each section the plan names. The list read
+            # `growth_outlook` and `valuation_dcf` on the screen where a run is approved,
+            # while the spine table under it carried the title all along.
+            "section_titles": {
+                str(row.get("key", "")): str(row.get("title", ""))
+                for row in payload.get("section_listing", [])
+                if row.get("title")
+            },
             # The hash of exactly the structure rendered below. Carried back by the form,
             # so approving a plan that has since changed is refused rather than recorded.
             "payload_hash": payload_hash_for(payload),
@@ -714,6 +726,14 @@ async def financials_review(
         {
             "job": job,
             "payload": payload,
+            # The same rows the payload carries and the hash covers, grouped by concept and
+            # rendered in the house style. The operator's own run showed 4,754 of them —
+            # one per concept per period, which is what the filing genuinely holds — under
+            # a heading that made twenty repeats of "revenue" look like a defect. Nothing
+            # is dropped: the newest leads and the rest sit behind a disclosure.
+            "captured": figures.captured_concepts(
+                list(payload.get("mapped_concepts", [])), style=HouseStyle()
+            ),
             "counts": _extraction_counts(produced),
             "payload_hash": payload_hash_for(payload),
             **frame,
@@ -833,7 +853,9 @@ async def peer_review(
             status=HTTP_404_NOT_FOUND,
         )
 
-    payload = peer_set_payload(produced)
+    # The whole set — what the step proposed and what the operator has added — because
+    # that is what the page shows and therefore what the hash must cover.
+    payload = await peer_payload_for_job(session, job_id)
     frame = await frame_for(session, job=job, gate=GateKind.PEER_SET)
     token = new_csrf_token(settings)
 
@@ -847,6 +869,10 @@ async def peer_review(
             # Why the model was not asked, when it was not: context, never part of the hash.
             "not_asked": str(produced.get("model_skipped_because", "")).strip(),
             "refused": [item for item in produced.get("refused", []) if isinstance(item, dict)],
+            # The companies this run could still add: held, with facts on or before the
+            # subject's own period end, and not already on the set. A picker rather than a
+            # text box, because that pool is exactly what a comps table can use.
+            "addable": await addable_companies(session, job_id=job_id),
             **frame,
             "csrf_field": CSRF_FIELD_NAME,
             "csrf_token": token,
@@ -889,7 +915,9 @@ async def theme_review(
             status=HTTP_404_NOT_FOUND,
         )
 
-    payload = theme_set_payload(produced)
+    # The whole slate — what the step proposed and what the operator has added — because
+    # that is what the page shows and therefore what the hash must cover.
+    payload = await theme_payload_for_job(session, job_id)
     # The subject's display name travels beside the payload rather than inside it: the
     # hash covers what is being approved, and the name is presentation.
     payload_for_page = dict(payload)
@@ -1069,6 +1097,10 @@ async def draft_review(
     ]
     cost = await cost_scene_for_job(session, job=job, request=research_request)
     outcomes = await section_outcomes(session, job_id=job.id)
+    section_titles: dict[str, str] = {
+        row.key: row.title
+        for row in await session.execute(select(SectionDefinition.key, SectionDefinition.title))
+    }
 
     frame = await frame_for(session, job=job, gate=GateKind.FINAL)
     review = _review_verdict(
@@ -1087,7 +1119,15 @@ async def draft_review(
         "runs/review.html",
         {
             "job": job,
-            "sections": payload["sections"],
+            # The section's own title beside its key. The key is what a log line and the
+            # worker terminal say, so it stays reachable; it is no longer the label. The
+            # operator's first acceptance pass read this table as `growth_outlook` /
+            # `valuation_dcf` / `scenarios_sensitivities`, and `section_definitions.title`
+            # has held the readable name since the migration seeded it.
+            "sections": [
+                {**row, "title": section_titles.get(str(row.get("key", "")), str(row.get("key")))}
+                for row in payload["sections"]
+            ],
             # Split by what the two things *are*, rather than shown as one list of
             # "disagreements" (gap R15). A source conflict is a fault: two documents say
             # different numbers and somebody has to decide. A red-team challenge is the
@@ -1105,7 +1145,12 @@ async def draft_review(
             "briefs": briefs_from_output(
                 await _step_output(session, job_id=job_id, step_key="brief_challenges")
             ),
-            "triggers": payload["triggers"],
+            # `TriggerKind` was rendering as itself: the two headings over the operator's
+            # own review were `material_missing_section` and `low_source_coverage`.
+            "triggers": [
+                {**row, "words": vocabulary.trigger_words(str(row.get("kind", "")))}
+                for row in payload["triggers"]
+            ],
             "evaluations": evaluations,
             "coverage": coverage,
             "disagreements": [
@@ -1538,7 +1583,7 @@ async def settle_disagreement_page(
             disagreement=found,
             outcome=outcome,
             actor=user,
-            rationale=submitted.get("rationale", ""),
+            rationale=_rationale_or_default(submitted.get("rationale", "")),
         )
         await gates_service.reseal_final_gate(
             session,
@@ -1554,6 +1599,134 @@ async def settle_disagreement_page(
 
     await session.commit()
     return RedirectResponse(f"/runs/{job_id}/review#disagreements", status_code=HTTP_303_SEE_OTHER)
+
+
+# What the record says when the operator settles a challenge and writes nothing.
+#
+# **The service still refuses a blank**, and should: `resolution_rationale` is `NOT NULL`
+# with a `char_length > 0` constraint, and `sections/deterministic.py` renders it into the
+# report's own disagreement appendix. Making the box optional in the *form* while letting a
+# blank reach the database would put an em dash in a published report where a reason
+# belongs.
+#
+# So the sentence is supplied here instead. It is true — the operator did choose a side and
+# did decline to say more — and it reads as prose in the appendix, which is what that
+# section is. The operator asked for the box to be optional; what they were asking not to
+# do was type "agreed" eleven times.
+SETTLED_WITHOUT_COMMENT: Final = "Settled without further comment."
+
+
+def _rationale_or_default(written: str) -> str:
+    return written.strip() or SETTLED_WITHOUT_COMMENT
+
+
+@router.post(
+    "/runs/{job_id}/themes/add",
+    summary="Put a theme of your own on this run's slate",
+)
+async def add_theme(
+    request: Request,
+    job_id: uuid.UUID,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Add one theme to the slate this gate is about to hash.
+
+    **An addition, not a confirmation.** The row joins the slate; the gate's approval is
+    still what files the company under anything, and every rationale is still read at full
+    length before any of it becomes an edge (K1, ADR 0065).
+
+    Adding one *after* approving changes the payload and so invalidates that approval —
+    which is the stale-approval rule working rather than a case to route around. The key
+    is slugged by the same function a model's proposal passes through, so an operator
+    founding a theme and a model founding one cannot produce two spellings of one identity.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {k: str(v) for k, v in form.multi_items() if isinstance(v, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was added.",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        await add_operator_theme(
+            session,
+            job=job,
+            label=submitted.get("label", ""),
+            rationale=submitted.get("rationale", ""),
+            actor=user,
+        )
+    except ValidationError as refused:
+        return _problem(request, str(refused), status=HTTP_422_UNPROCESSABLE_CONTENT)
+
+    await session.commit()
+    return RedirectResponse(f"/runs/{job_id}/themes", status_code=HTTP_303_SEE_OTHER)
+
+
+@router.post(
+    "/runs/{job_id}/peers/add",
+    summary="Put a company of your own on this run's peer set",
+)
+async def add_peer(
+    request: Request,
+    job_id: uuid.UUID,
+    *,
+    session: DbSession,
+    settings: SettingsDep,
+    user: CurrentUser,
+) -> Response:
+    """Add one company to the peer set this gate is about to hash.
+
+    **A company this platform already holds, not a ticker to go and resolve.** The web
+    process has no source client and should not have one — only `aer.fetch` reaches the
+    network, and acquisition is the worker's. The deterministic floor draws from exactly
+    this pool, and a company with no stored facts could not be aligned against the subject
+    in any case.
+
+    An addition, not a confirmation: it joins the set, and approving the set is still what
+    admits it to a comps table.
+    """
+    job = await _owned_job(session, job_id=job_id, user=user)
+    if job is None:
+        return _problem(request, f"No run {job_id}.", status=HTTP_404_NOT_FOUND)
+
+    form = await request.form()
+    submitted = {k: str(v) for k, v in form.multi_items() if isinstance(v, str)}
+    if not csrf_is_valid(request, submitted.get(CSRF_FIELD_NAME), settings):
+        return _problem(
+            request,
+            "This form's security token was missing or had expired. Nothing was added.",
+            status=HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        company_id = uuid.UUID(submitted.get("company_id", ""))
+    except ValueError:
+        return _problem(
+            request, "That is not a company on this platform.", status=HTTP_404_NOT_FOUND
+        )
+
+    try:
+        await add_operator_peer(
+            session,
+            job=job,
+            company_id=company_id,
+            rationale=submitted.get("rationale", ""),
+            actor=user,
+        )
+    except ValidationError as refused:
+        return _problem(request, str(refused), status=HTTP_422_UNPROCESSABLE_CONTENT)
+
+    await session.commit()
+    return RedirectResponse(f"/runs/{job_id}/peers", status_code=HTTP_303_SEE_OTHER)
 
 
 @router.post("/runs/{job_id}/gates/{gate}", summary="Record a gate decision")
