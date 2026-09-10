@@ -1,0 +1,49 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Bash(uv run pytest:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(uv run mypy:*)",
+      "Bash(uv run alembic current:*)",
+      "Bash(uv run alembic heads:*)",
+      "Bash(uv run alembic history:*)",
+      "Bash(uv run alembic upgrade:*)",
+      "Bash(uv run aer preflight:*)",
+      "Bash(uv run aer diagnose:*)",
+      "Bash(uv run aer export-run:*)",
+      "Bash(uv run aer verify-audit:*)",
+      "Bash(uv run aer verify-artefacts:*)",
+      "Bash(uv run aer backup:*)",
+      "Bash(uv run aer verify-backup:*)",
+      "Bash(uv sync:*)",
+      "Bash(just test:*)",
+      "Bash(just health:*)",
+      "Bash(just preflight:*)",
+      "Bash(just runs:*)",
+      "Bash(just up:*)",
+      "Bash(just logs:*)",
+      "Bash(just migrate-status:*)",
+      "Bash(just backup:*)",
+      "Bash(just verify-backup:*)",
+      "Bash(just css:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git fetch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git stash list:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Bash(just down-hard:*)",
+      "Bash(just migrate-base:*)"
+    ]
+  }
+}

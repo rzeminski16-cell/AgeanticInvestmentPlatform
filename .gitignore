@@ -77,3 +77,9 @@ dump.rdb
 # directory by design — the operator reads it before deciding to send it anywhere — and
 # it is one run's own data, never the project's.
 run-diagnosis.json
+
+# Claude Code's per-machine overrides. `.claude/settings.json` IS committed — the
+# permission allowlist is a statement about this project, and `docs/developers/
+# working-with-claude.md` explains what it decides. This one is the personal layer that
+# sits on top of it, and it is nobody else's business which prompts you have accepted.
+.claude/settings.local.json
