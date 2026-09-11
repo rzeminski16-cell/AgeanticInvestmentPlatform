@@ -124,6 +124,10 @@ ignore = [
   "PLR0917",
 ]
 "src/aer/**" = ["S101"]
+# The readiness audit (audit/): a harness beside the product, held to the product's rules
+# except where a harness is not a product — asserts, subprocesses it spawns itself, and the
+# vendor SDK it may import because it lives outside the boundary the tests scan.
+"audit/**" = ["S101", "S603", "S607", "PLR2004", "PLR0912", "PLR0913", "PLR0915", "PLR0917", "PLR0911", "C901", "BLE001", "T201", "E501"]
 # The HTML notation's whole job is constructing markup, and every interpolated value in
 # it passes through markupsafe.escape — the exact discipline S704 exists to encourage but
 # cannot see through an f-string. The escaping is held by test (a section containing
@@ -131,7 +135,7 @@ ignore = [
 "src/aer/render/html.py" = ["S101", "S704"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["aer"]
+known-first-party = ["aer", "audit"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -144,7 +148,7 @@ docstring-code-format = true
 # --------------------------------------------------------------------------------------
 [tool.mypy]
 python_version = "3.12"
-packages = ["aer"]
+packages = ["aer", "audit"]
 mypy_path = "src"
 warn_unused_ignores = true
 warn_redundant_casts = true
@@ -163,6 +167,9 @@ strict = true
 [[tool.mypy.overrides]]
 module = ["tests.*"]
 disallow_untyped_defs = false
+# The audit's smoke script borrows the suite's fake scene; following that import must not
+# start type-checking the test tree, which `packages` deliberately leaves out.
+follow_imports = "silent"
 
 # `arelle` ships no type information. Everything read from its model is converted at the
 # boundary in `aer.extract.ixbrl` rather than trusted, which is why that module's helpers take
