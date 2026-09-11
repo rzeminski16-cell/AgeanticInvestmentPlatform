@@ -27,6 +27,10 @@ CONCEPTS: Final[tuple[tuple[str, str], ...]] = (
     ("cash flow from operations", "operating_cash_flow"),
     ("cash provided by operating", "operating_cash_flow"),
     ("capital expenditure", "capex"),
+    ("depreciation", "depreciation"),
+    ("amortisation", "depreciation"),
+    ("amortization", "depreciation"),
+    ("property and equipment additions", "capex"),
     ("capex", "capex"),
     ("purchases of property", "capex"),
     ("additions to property", "capex"),
@@ -151,7 +155,7 @@ _CONTEXT_CHARS: Final = 90
 _QUALIFIED: Final = re.compile(
     r"(constant[- ]currency|\bcc\b|non-?gaap|adjusted|underlying|organic|\bex-|excluding|"
     r"segment|basis points|\bbps?\b|run-?rate|annuali[sz]ed|sequential|quarter|\bq[1-4]\b|"
-    r"\bh[12]\b|first half|second half|nine months|six months|three months|per share|"
+    r"\bh[12]\b|first half|second half|(nine|six|three|twelve)[- ]months?|per share|"
     r"per diluted share|calendar|commercial|consumer|bookings|backlog|\brpo\b|"
     r"remaining performance|"
     # The subjects' own segment and product lines: a figure for one of them is not the
@@ -159,20 +163,31 @@ _QUALIFIED: Final = re.compile(
     r"intelligent cloud|productivity and business|more personal computing|microsoft cloud|"
     r"azure|linkedin|xbox|windows|server products|dynamics|search and news|gaming|devices|"
     r"office|copilot|oncology|biopharmaceuticals|rare disease|alexion|cardiovascular|"
-    r"respiratory|vaccines|commercial bank|retail bank|institutional|wealth)",
+    r"respiratory|vaccines|commercial bank|retail bank|institutional|wealth|\bmpc\b|\bpbp\b)",
     re.I,
 )
 # A change rather than a level: "less the $36.6bn increase", "rose by $12bn".
 _DELTA_BEFORE: Final = re.compile(
     r"\b(by|increase|decrease|change|delta|gain|loss|add-?back|less|plus|minus|added|"
-    r"absorbed|contributed)\s+(of\s+|in\s+|the\s+|a\s+|an\s+)?[~≈+\-−]?\s*[$£€]?\s*$",
+    r"absorbed|contributed|drawdown|reduction|build|burn|inflow|outflow|returned|return)"
+    r"\s+(of\s+|in\s+|the\s+|a\s+|an\s+)?[(]?\s*[~≈+\-−]?\s*[$£€]?\s*$",
     re.I,
 )
 _DELTA_AFTER: Final = re.compile(
-    r"^\s*(bn|mn?|million|billion|thousand)?\s*(increase|decrease|change|gain|loss|rise|"
-    r"fall|decline|growth|add-?back|of (revenue|sales|growth))\b",
+    r"^\s*(bn|mn?|million|billion|thousand)?\s*(\S+\s+){0,2}(increase|decrease|change|gain|"
+    r"loss|rise|fall|decline|growth|add-?back|drawdown|of (revenue|sales|growth))\b",
     re.I,
 )
+# An operand or a result: "$182.94bn less $115.95bn = $66.99bn". The note's arithmetic is
+# the note's; its inputs are checked where the note states them as figures.
+_ARITHMETIC_BEFORE: Final = re.compile(
+    r"(less|minus|plus|times|divided by|[÷×−/*=])\s*[$£€]?\s*$", re.I
+)
+_ARITHMETIC_AFTER: Final = re.compile(
+    r"^\s*(bn|mn?|million|billion)?\**\s*(less|minus|plus|times|divided by|[÷×−/*])\s", re.I
+)
+_RANGE: Final = re.compile(r"^\s*[–-]\s*\d")
+_RANGE_BEFORE: Final = re.compile(r"\d\s*[–-]\s*[$£€]?$")
 # A figure the note reasons towards, not one it reports.
 _HYPOTHETICAL: Final = re.compile(
     r"\b(must|would|could|should|implie[sd]|implying|steady-state|scenario|if|were|"
@@ -204,6 +219,12 @@ _BLOCKING: Final = (
     "relative to",
     "times",
     "multiple",
+    "authorisation",
+    "authorization",
+    "remaining",
+    "capacity",
+    "programme",
+    "program",
 )
 _FOOTNOTE_LINE: Final = re.compile(r"^\s*\[\^[^\]]+\]:")
 _TABLE_SEPARATOR: Final = re.compile(r"^\s*\|?\s*:?-{2,}")
@@ -236,25 +257,26 @@ class Numeral:
         return self.value * (self.scale or Decimal(1))
 
 
+_MONTH_NAMES: Final = (
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
+)
 _MONTHS: Final = {
-    m: i + 1
-    for i, m in enumerate(
-        (
-            "january",
-            "february",
-            "march",
-            "april",
-            "may",
-            "june",
-            "july",
-            "august",
-            "september",
-            "october",
-            "november",
-            "december",
-        )
-    )
+    **{m: i + 1 for i, m in enumerate(_MONTH_NAMES)},
+    **{m[:3]: i + 1 for i, m in enumerate(_MONTH_NAMES)},
+    "sept": 9,
 }
+_MONTH_WORD: Final = "|".join([*_MONTH_NAMES, *(m[:3] for m in _MONTH_NAMES), "sept"])
 _FULL_DATE: Final = re.compile(
     r"(?:(?P<d1>\d{1,2})\s+(?P<m1>[A-Za-z]+)\s+(?P<y1>20\d\d))|"
     r"(?:(?P<m2>[A-Za-z]+)\s+(?P<d2>\d{1,2}),?\s+(?P<y2>20\d\d))"
@@ -278,6 +300,8 @@ def _period_from(context_before: str, context_after: str) -> str | None:
     dated = _full_date(context_before[-60:]) or _full_date(context_after[:60])
     if dated is not None:
         return dated
+    if re.fullmatch(r"\s*\**Q[1-4]\**\s*", context_before + context_after, re.I):
+        return "Q"
     for text in (context_before[-60:], context_after[:60]):
         matches = list(_PERIOD.finditer(text))
         if not matches:
@@ -325,12 +349,14 @@ def _concept_from(before: str, after: str) -> str | None:
                     best = candidate
         idx = lowered_after.find(phrase)
         if 0 <= idx <= _AFTER_REACH:
-            distance = idx + 40  # a phrase after the numeral is a weaker attribution
+            distance = idx + 3  # a phrase after the numeral is a slightly weaker attribution
             candidate = (distance, -len(phrase), concept)
             if best is None or candidate < best:
                 best = candidate
     chosen: str | None = best[2] if best else None
-    if chosen is not None and any(b in lowered_before[-45:] for b in _BLOCKING):
+    if chosen is not None and any(
+        b in lowered_before[-45:] or b in lowered_after[:40] for b in _BLOCKING
+    ):
         chosen = None
     return chosen
 
@@ -444,14 +470,8 @@ def extract_numerals(text: str) -> tuple[Numeral, ...]:
             excluded = "reference"
         elif "http" in before[-200:] and " " not in before[before.rfind("http") :]:
             excluded = "url"
-        elif re.search(
-            r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s*$",
-            before,
-            re.I,
-        ) or re.match(
-            r"^\s+(January|February|March|April|May|June|July|August|September|October|November|December)\b",
-            after,
-            re.I,
+        elif re.search(rf"\b({_MONTH_WORD})\.?\s*$", before, re.I) or re.match(
+            rf"^\s+({_MONTH_WORD})\b", after, re.I
         ):
             excluded = "date"
         currency = None
@@ -479,10 +499,16 @@ def extract_numerals(text: str) -> tuple[Numeral, ...]:
         multiple = suffix in {"x", "×"} or bool(re.match(r"^\s*(x|×|times)\b", after, re.I))
         money = currency is not None or scale is not None
         sentence_before, sentence_after = _sentence_window(before, after)
-        if excluded is None and _QUALIFIED.search(sentence_before[-60:] + " " + after[:30]):
+        if excluded is None and _QUALIFIED.search(sentence_before + " " + sentence_after):
             excluded = "qualified"
         elif excluded is None and (_DELTA_BEFORE.search(before) or _DELTA_AFTER.match(after)):
             excluded = "delta"
+        elif excluded is None and (
+            _ARITHMETIC_BEFORE.search(before[-12:]) or _ARITHMETIC_AFTER.match(after)
+        ):
+            excluded = "arithmetic"
+        elif excluded is None and (_RANGE.match(after) or _RANGE_BEFORE.search(before[-8:])):
+            excluded = "range"
         elif excluded is None and _HYPOTHETICAL.search(sentence_before[-80:]):
             excluded = "hypothetical"
         elif excluded is None and not money and not percent and _PRODUCT.search(before):
@@ -493,7 +519,7 @@ def extract_numerals(text: str) -> tuple[Numeral, ...]:
             concept, period = table
             near = (table[0] or "") + " " + sentence_after[:40]
         else:
-            period = _period_from(before, after)
+            period = _period_from(sentence_before, sentence_after)
             concept = _concept_from(before, after)
             near = sentence_before[-40:] + " " + sentence_after[:40]
         concept = _compatible(

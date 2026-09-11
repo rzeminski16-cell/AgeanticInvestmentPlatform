@@ -71,6 +71,7 @@ _OUTSIDE: Final = frozenset(
         "ebitda_margin",
         "net_interest_margin",
         "roa",
+        "depreciation",
     }
 )
 APPROX_TOLERANCE: Final = Decimal("0.02")
