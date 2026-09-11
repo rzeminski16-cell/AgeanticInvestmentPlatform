@@ -63,6 +63,7 @@ async def drive(
     services: dict[str, Any] | None = None,
     label: str | None = None,
     screenshots: bool = False,
+    existing_job_id: uuid.UUID | None = None,
 ) -> dict[str, Any]:
     label = label or subject.key
     recorder = Recorder(out_root / label)
@@ -94,19 +95,41 @@ async def drive(
             )
             recorder.event("ledger.before", **reading.as_dict())
             actor = await runtime.operator(session)
-            request, job = await commission(
-                session, runtime, subject, actor, cap_gbp, analysis_mode
-            )
-            job_id = job.id
-            summary.update(
-                request_id=str(request.id),
-                job_id=str(job_id),
-                as_of_date=str(request.work_order.as_of_date),
-                cap_gbp=str(cap_gbp),
-            )
-            recorder.event(
-                "commissioned", **{k: v for k, v in summary.items() if k != "started_at"}
-            )
+            if existing_job_id is None:
+                request, job = await commission(
+                    session, runtime, subject, actor, cap_gbp, analysis_mode
+                )
+                job_id = job.id
+                summary.update(
+                    request_id=str(request.id),
+                    job_id=str(job_id),
+                    as_of_date=str(request.work_order.as_of_date),
+                    cap_gbp=str(cap_gbp),
+                )
+                recorder.event(
+                    "commissioned", **{k: v for k, v in summary.items() if k != "started_at"}
+                )
+            else:
+                # A run picked up where an earlier driver left it: nothing is commissioned
+                # and nothing already paid for is repeated.
+                job = await _job(session, existing_job_id)
+                request = await mandate_of(session, job)
+                if request is None:
+                    message = f"Run {existing_job_id} has no research request."
+                    raise RuntimeError(message)
+                job_id = job.id
+                summary.update(
+                    request_id=str(request.id),
+                    job_id=str(job_id),
+                    as_of_date=str(request.work_order.as_of_date),
+                    cap_gbp=str(request.work_order.max_cost_gbp),
+                    resumed_by_driver=True,
+                )
+                recorder.event(
+                    "resumed_existing",
+                    status=job.status.value,
+                    **{k: v for k, v in summary.items() if k != "started_at"},
+                )
 
         await executor.start()
         raised = False
@@ -114,6 +137,19 @@ async def drive(
         killed = False
         stop_reason: str | None = None
         enqueue = True
+        if existing_job_id is not None:
+            # Wherever the run is — at a gate, on a cap, failed — the first pass reads that
+            # state rather than enqueueing over it; only a queued job needs the worker told.
+            async with runtime.session() as session:
+                job = await _job(session, job_id)
+                if job.status is JobStatus.RUNNING:
+                    # RUNNING with no worker alive but the one this driver just started:
+                    # the previous worker died under it. Re-enqueueing is the only way on,
+                    # and that it is the only way is itself a finding (use case 11).
+                    recorder.event("recovery.reenqueue_running_job", status=job.status.value)
+                    enqueue = True
+                elif job.status is not JobStatus.QUEUED:
+                    enqueue = False
         for _ in range(_MAX_ITERATIONS):
             result = await executor.advance(
                 job_id,
@@ -179,6 +215,11 @@ async def drive(
                         cap_gbp=raise_to_gbp,
                         recorder=recorder,
                     )
+                if outcome.not_waiting:
+                    # A stale read: the worker already took the job. Poll on without
+                    # enqueueing over it.
+                    enqueue = False
+                    continue
                 if not outcome.approved:
                     stop_reason = outcome.stop_reason
                     break
@@ -327,7 +368,7 @@ def _capture(
         recorder.event(
             "screen.captured",
             page=page_key,
-            **{k: v for k, v in record.items() if k != "raw_tokens"},
+            **{k: v for k, v in record.items() if k not in {"raw_tokens", "page"}},
             raw_token_count=len(record.get("raw_tokens", [])),
         )
     else:
@@ -489,6 +530,7 @@ def main(argv: list[str] | None = None) -> int:
         "--mode", choices=[m.value for m in AnalysisMode], default=AnalysisMode.STANDARD.value
     )
     parser.add_argument("--screenshots", action="store_true")
+    parser.add_argument("--resume-job", type=uuid.UUID, default=None)
     args = parser.parse_args(argv)
     summary = asyncio.run(
         drive(
@@ -500,6 +542,7 @@ def main(argv: list[str] | None = None) -> int:
             kill_after_seconds=args.kill_after,
             analysis_mode=AnalysisMode(args.mode),
             screenshots=args.screenshots,
+            existing_job_id=args.resume_job,
         )
     )
     print(json.dumps(summary, indent=2, default=str))

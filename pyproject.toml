@@ -127,7 +127,7 @@ ignore = [
 # The readiness audit (audit/): a harness beside the product, held to the product's rules
 # except where a harness is not a product — asserts, subprocesses it spawns itself, and the
 # vendor SDK it may import because it lives outside the boundary the tests scan.
-"audit/**" = ["S101", "S603", "S607", "PLR2004", "PLR0912", "PLR0913", "PLR0915", "PLR0917", "PLR0911", "C901", "BLE001", "T201", "E501"]
+"audit/**" = ["S101", "S603", "S607", "PLR2004", "PLR0912", "PLR0913", "PLR0915", "PLR0917", "PLR0911", "C901", "BLE001", "T201", "E501", "RUF001"]
 # The HTML notation's whole job is constructing markup, and every interpolated value in
 # it passes through markupsafe.escape — the exact discipline S704 exists to encourage but
 # cannot see through an f-string. The escaping is held by test (a section containing

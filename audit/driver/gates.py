@@ -60,6 +60,7 @@ class GateOutcome:
     rationale: str
     stop_reason: str | None = None
     resealed: bool = False
+    not_waiting: bool = False
 
 
 async def _paused_step(session: AsyncSession, job_id: uuid.UUID) -> JobStep | None:
@@ -91,6 +92,11 @@ async def clear_pending_gate(
     recorder: Recorder,
 ) -> GateOutcome:
     """Decide the gate the run is waiting at, as the policy says, and write it down."""
+    paused = await _paused_step(session, job.id)
+    if paused is None:
+        # `pending_gate` would fall back to the gate order and name a gate the run is not
+        # at. A run with no paused step is not waiting on anybody; the caller keeps polling.
+        return GateOutcome(gate="", approved=False, rationale="no step is paused", not_waiting=True)
     gate = await approval_service.pending_gate(session, job)
     if gate is None:
         return GateOutcome(
@@ -99,8 +105,6 @@ async def clear_pending_gate(
             rationale="waiting with no pending gate",
             stop_reason="no pending gate",
         )
-
-    paused = await _paused_step(session, job.id)
     context = ((paused.error or {}).get("context", {}) if paused is not None else {}) or {}
 
     # A second pause at the final gate after it was approved: the seal drifted, or the

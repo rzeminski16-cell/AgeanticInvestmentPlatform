@@ -34,6 +34,8 @@ _WORKER_START_SECONDS: Final = 120.0
 # The worker records its health every thirty seconds (`aer.queue.HEALTH_CHECK_INTERVAL_SECONDS`);
 # three missed beats is a dead worker rather than a slow one.
 _WORKER_SILENCE_SECONDS: Final = 100.0
+# How long the worker may take to pick a queued job up before that is itself the finding.
+_PICKUP_SECONDS: Final = 180.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +113,14 @@ class WorkerExecutor:
             self._log_handle.close()
             self._log_handle = None
 
+    async def _fingerprint(self, job_id: uuid.UUID) -> tuple[Any, ...]:
+        async with self._runtime.session() as session:
+            state = await run_service.run_state(session, job_id=job_id)
+            return (
+                state.job.status.value,
+                tuple((s.step_key, s.attempt, s.status.value) for s in state.steps),
+            )
+
     async def enqueue(self, job_id: uuid.UUID) -> str | None:
         task = await enqueue_run(self._runtime.redis, job_id)
         self._recorder.event("run.enqueued", job_id=str(job_id), task=task)
@@ -130,6 +140,11 @@ class WorkerExecutor:
         ``kill_after_seconds`` — the failure-and-recovery drill — and returns with the job
         still ``RUNNING`` in the database, which is exactly the state an operator meets.
         """
+        # What the run looked like before the worker was told: an enqueue is only "taken"
+        # once the status or the paused step changes, and a poll that reads the old pause
+        # a moment after enqueueing must not be mistaken for a new one.
+        before = await self._fingerprint(job_id)
+        taken = not enqueue
         if enqueue:
             await self.enqueue(job_id)
         started = time.monotonic()
@@ -180,7 +195,20 @@ class WorkerExecutor:
                         killed_at_step=kill_at_step,
                         step_timeline=tuple(timeline),
                     )
-            if status not in {JobStatus.QUEUED, JobStatus.RUNNING}:
+            if not taken:
+                if await self._fingerprint(job_id) != before:
+                    taken = True
+                elif time.monotonic() - started > _PICKUP_SECONDS:
+                    self._recorder.event(
+                        "worker.never_took_the_job", job_id=str(job_id), status=status.value
+                    )
+                    return AdvanceResult(
+                        status=status,
+                        elapsed_seconds=time.monotonic() - started,
+                        worker_dead=True,
+                        step_timeline=tuple(timeline),
+                    )
+            if taken and status not in {JobStatus.QUEUED, JobStatus.RUNNING}:
                 return AdvanceResult(
                     status=status,
                     elapsed_seconds=time.monotonic() - started,
