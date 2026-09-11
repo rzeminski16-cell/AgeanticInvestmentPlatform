@@ -44,6 +44,8 @@ _TO_BASKET: Final[dict[str, tuple[str, ...]]] = {
     "shares_outstanding": ("shares_outstanding", "diluted_shares"),
     "roe": ("roe",),
     "growth": ("revenue_growth", "net_income_growth"),
+    "revenue_growth": ("revenue_growth",),
+    "net_income_growth": ("net_income_growth",),
     "dividends": ("dividends",),
     "buybacks": ("buybacks",),
     "net_interest_income": ("net_interest_income",),
@@ -127,13 +129,29 @@ def _relative_error(quoted: Decimal, stored: Decimal) -> Decimal | None:
     return best
 
 
+def _year_of(truth: Truth, period: str | None) -> int | str | None:
+    """The fiscal year a period hint names; ``"outside"`` for a date that is not a year end."""
+    if period is None:
+        return None
+    if period.startswith("FY") and period[2:].isdigit():
+        return int(period[2:])
+    if period.startswith("D"):
+        iso = period[1:]
+        for obs in truth.observations:
+            if obs.end == iso:
+                return obs.fiscal_year
+        return "outside"
+    return None
+
+
 def _candidates(
     truth: Truth, concepts: tuple[str, ...], period: str | None
 ) -> list[tuple[str, int, Decimal]]:
     years = truth.periods()
-    wanted_year = (
-        int(period[2:]) if period and period.startswith("FY") and period[2:].isdigit() else None
-    )
+    resolved = _year_of(truth, period)
+    if resolved == "outside":
+        return []
+    wanted_year = resolved if isinstance(resolved, int) else None
     out: list[tuple[str, int, Decimal]] = []
     for concept in concepts:
         for year in years:
@@ -149,6 +167,13 @@ def classify(numeral: Numeral, truth: Truth) -> Classification:
     if numeral.excluded:
         return _result("excluded", numeral)
     if numeral.concept in _OUTSIDE:
+        return _result("outside-truth", numeral)
+    # The basket is annual. A quarter's figure has nothing to be checked against, and
+    # checking it against the year it falls in would manufacture a contradiction.
+    if numeral.period is not None and numeral.period.startswith("Q"):
+        return _result("outside-truth", numeral)
+    # A balance at a date that is not a fiscal year end (a quarter-end column) likewise.
+    if _year_of(truth, numeral.period) == "outside":
         return _result("outside-truth", numeral)
     concepts = _TO_BASKET.get(numeral.concept or "")
     quoted = numeral.value

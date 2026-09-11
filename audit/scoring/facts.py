@@ -28,7 +28,9 @@ from aer.storage.local import LocalArtefactStore
 __all__ = ["Truth", "build_truth", "load_truth"]
 
 # Concept -> the tags that carry it, US GAAP first, IFRS after. The first tag with a
-# value for a fiscal year wins; the tag that answered is recorded.
+# value for a fiscal year wins, year by year — Microsoft's revenue is `Revenues` to
+# FY2010, `SalesRevenueNet` to FY2017 and `RevenueFromContractWithCustomer…` after —
+# and the tag that answered is recorded.
 TAGS: Final[dict[str, tuple[str, ...]]] = {
     "revenue": (
         "us-gaap:Revenues",
@@ -262,8 +264,6 @@ async def build_truth(directory: Path) -> Truth:
                         original_filed=str(original.get("filed")) if original else None,
                     )
                 )
-            if any(o.concept == concept for o in observations):
-                break
     observations.sort(key=lambda o: (o.concept, o.fiscal_year))
     truth = Truth(
         cik=str(payload.get("cik", acquire.get("cik", ""))),
