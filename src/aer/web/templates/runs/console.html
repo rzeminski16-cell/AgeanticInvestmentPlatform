@@ -210,6 +210,9 @@
           Same run, same record: the completed steps are skipped, and only what remains is
           spent.
         </span>
+        {% if stranding and stranding.stranded %}
+          <p class="mt-2 type-body-sm text-warning-ink" id="stranded-run">{{ stranding.reason }}</p>
+        {% endif %}
       </form>
     {% endif %}
 

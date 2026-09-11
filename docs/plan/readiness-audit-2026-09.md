@@ -180,8 +180,15 @@ the same way. The only way on was to re-enqueue the job id directly, which the d
 and which no surface offers an operator. The engine then re-ran the step as attempt 1 and
 continued correctly.
 
-*State: observed; to fix — a RUNNING job with no live worker must be resumable from the
-console.*
+*Fix: `services/resume.py` now decides whether a RUNNING run is *stranded* from the
+worker's own health record — no worker has reported within the interval, or a worker
+reports nothing in flight while the run's step has been recorded as running for longer
+than the interval — and `resume_run(..., stranded=True)` continues it as itself, the audit
+event saying so. The console offers *Continue* with the evidence (`id="stranded-run"`),
+the resume form and `aer resume` attest it, and a run a worker is executing is still
+refused with what was observed. `tests/test_stranded_run.py` (13 tests) holds it to that.
+The residual: a worker that is alive with one other job in flight cannot be told apart
+from one executing this run, so that case still refuses, with the reason.*
 
 ### F-09 — What the code audit reported, pending adversarial verification
 

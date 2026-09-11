@@ -131,7 +131,7 @@ sources = set(rows.citation_sources.get(claim.id, set()))
 if claim.financial_fact_id in rows.fact_sources:
     sources.add(rows.fact_sources[claim.financial_fact_id])
 ranks = [rows.source_tiers[s] for s in sources if s in rows.source_tiers]
-best_tier_rank=min(ranks) if ranks else None
+best_tier_rank = min(ranks) if ranks else None
 ```
 
 A numeric claim reaches a tier through its citations, or through `financial_fact_id`. It has
@@ -313,8 +313,12 @@ This is the most consequential answer in this section, because it is not about t
 ```python
 if point_in_time and publication_date is None:
     return QuarantineDecision(quarantined=True, reason=NO_PUBLICATION_DATE)
-if point_in_time and publication_date is not None and as_of_date is not None \
-        and publication_date > as_of_date:
+if (
+    point_in_time
+    and publication_date is not None
+    and as_of_date is not None
+    and publication_date > as_of_date
+):
     return QuarantineDecision(quarantined=True, reason=PUBLISHED_AFTER_AS_OF)
 ```
 
