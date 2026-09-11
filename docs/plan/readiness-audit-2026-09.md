@@ -200,6 +200,26 @@ not lost if verification lags:
 
 *State: verification running.*
 
+### F-10 — The financials gate page raised on the first real filing
+
+*Reliability and practicality. Major. Observed live; fixed.*
+
+MSFT #1 stopped at the unmapped-concepts gate, as a real 10-K should, and the page that
+exists to clear it (`/runs/{job_id}/financials`) answered 500. The template built the
+"earlier periods" disclosure label as `line.observations - 1 ~ " earlier period"`, and
+Jinja binds `~` tighter than `-`, so the expression was an integer minus a string. Every
+concept a real filing reports for more than one year takes that branch; the suite's
+unmapped fixture (`companyfacts_unmapped.json`) reports each concept once, so no test had
+ever rendered it, and the ordinary MSFT fixture maps every tag, so the page 404s on it by
+design. An operator using the product as documented cannot clear the gate: the API route
+still answers, and the audit's driver cleared it through the service, which is why the run
+went on at all.
+
+*Fix: parenthesised in `runs/financials.html`; regression test
+`test_a_concept_with_earlier_periods_still_renders` drives a run whose filing carries two
+periods of revenue and renders the page (fails on the old template with the exact
+`TypeError`, passes on the new one).*
+
 ## 6. The harness's own defects, for honesty
 
 The driver, not the platform, caused two stops on MSFT #1: a duplicated keyword in the

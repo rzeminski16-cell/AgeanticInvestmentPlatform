@@ -12,6 +12,7 @@ hand-wrote the step's output would prove only that the gate reads a dictionary.
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import AsyncIterator
 from datetime import date
@@ -165,6 +166,30 @@ def unmapped_runner(db_engine: Any, api_settings: Settings) -> Runner:
 def mapped_runner(db_engine: Any, api_settings: Settings) -> Runner:
     """The ordinary case: a filing whose every tag the concept map knows."""
     return Runner(db_engine, api_settings, payload=fixture_bytes("companyfacts_msft.json"))
+
+
+def _with_an_earlier_period(payload: bytes) -> bytes:
+    """The unmapped fixture, with revenue reported for the year before as well.
+
+    Every concept in ``companyfacts_unmapped.json`` is observed once, so the gate page's
+    "earlier periods" disclosure never rendered in the suite — and a real filing, which
+    reports each line for three years, was the first thing to open it.
+    """
+    document = json.loads(payload)
+    rows = document["facts"]["us-gaap"]["Revenues"]["units"]["USD"]
+    earlier = dict(rows[0])
+    earlier.update(
+        {"start": "2022-01-01", "end": "2022-12-31", "fy": 2022, "filed": "2023-02-15", "val": 900}
+    )
+    rows.append(earlier)
+    return json.dumps(document).encode()
+
+
+@pytest.fixture
+def two_period_runner(db_engine: Any, api_settings: Settings) -> Runner:
+    return Runner(
+        db_engine, api_settings, payload=_with_an_earlier_period(fixture_bytes(UNMAPPED_FIXTURE))
+    )
 
 
 @pytest.fixture
@@ -358,6 +383,24 @@ class TestThePageShowsWhatItHashes:
         assert "Of the biggest mapped line" in page.text
         # And the comparison: what the run did capture, beside what it could not place.
         assert 'id="mapped-concepts"' in page.text
+
+    async def test_a_concept_with_earlier_periods_still_renders(
+        self, api: Any, committed: dict, two_period_runner: Runner
+    ) -> None:
+        """Readiness audit 2026-09, F-10: the page raised on the first real filing.
+
+        A concept observed more than once puts its older periods behind a disclosure whose
+        label is built in the template, and ``~`` binds tighter than ``-`` in Jinja, so the
+        label was ``observations - ("1" ~ "earlier period")`` — a 500 on exactly the runs
+        the gate exists for, and never in the suite, whose fixture reports each concept once.
+        """
+        job_id = await run_to_the_financials_gate(api, two_period_runner, committed["request"].id)
+
+        page = await api.get(f"/runs/{job_id}/financials")
+
+        assert page.status_code == 200, page.text[:500]
+        assert "1 earlier period" in page.text
+        assert "31 December 2022" in page.text
 
     async def test_the_tables_are_filterable_without_being_broken_by_it(
         self, api: Any, committed: dict, unmapped_runner: Runner
