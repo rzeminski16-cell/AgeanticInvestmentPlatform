@@ -141,6 +141,44 @@ class TestAnEmptySeriesIsRecordedRatherThanImplied:
         assert observation.replayed == Decimal(800)
 
 
+class TestAStoredReferenceOutranksTheName:
+    def test_a_record_re_runs_as_the_function_that_produced_it(self):
+        """The DCF's projected free cash flow was recorded as `free_cash_flow` until the
+        2026-09 readiness audit gave that name to the reported figure. The old rows carry
+        the reference of the function that ran, and that is what re-runs them."""
+        observation = replay(
+            name="free_cash_flow",
+            label="free_cash_flow#7",
+            inputs=[
+                _input("nopat", "165", "USD"),
+                _input("depreciation", "55", "USD"),
+                _input("capex", "128", "USD"),
+                _input("working_capital_change", "18", "USD"),
+            ],
+            parameters={},
+            expected_value=Decimal(74),
+            expected_unit="USD",
+            function_ref="aer.calc.dcf:free_cash_flow",
+        )
+
+        assert observation.error is None, observation.error
+        assert observation.replayed == Decimal(74)
+
+    def test_a_reference_this_build_no_longer_has_falls_back_to_the_name(self):
+        observation = replay(
+            name="net_debt",
+            label="net_debt#1",
+            inputs=[_input("total_debt", "500", "USD"), _input("cash", "100", "USD")],
+            parameters={},
+            expected_value=Decimal(400),
+            expected_unit="USD",
+            function_ref="aer.calc.ratios:a_function_that_was_renamed_away",
+        )
+
+        assert observation.error is None, observation.error
+        assert observation.replayed == Decimal(400)
+
+
 class TestReplayNeverRaises:
     def test_a_name_no_function_carries_becomes_the_observation_error(self):
         observation = replay(
@@ -389,8 +427,10 @@ class TestReplayingAStoredRun:
     ):
         # Renaming a stored row's function simulates the drift the registry exists to catch:
         # the code moved on and the record can no longer be re-run. That must fail the
-        # metric, not shrink its population.
+        # metric, not shrink its population. Both the name and the reference move: a row
+        # whose reference still resolves re-runs as that function, by design.
         ledger["rows"][0].name = "a_calculation_this_code_no_longer_has"
+        ledger["rows"][0].function_ref = "aer.calc.ratios:a_calculation_this_code_no_longer_has"
         await db_session.flush()
 
         observations = await replay_observations_for_job(db_session, ledger["job"].id)

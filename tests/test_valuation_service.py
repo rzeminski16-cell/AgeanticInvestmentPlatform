@@ -245,7 +245,7 @@ class TestRunningAValuation:
         )
         names = {row.name for row in rows}
         assert "wacc" not in names, "the discount rate is computed elsewhere and passed in"
-        assert {"projected_revenue", "free_cash_flow", "value_per_share"} <= names
+        assert {"projected_revenue", "forecast_free_cash_flow", "value_per_share"} <= names
         assert result.gordon.value_per_share.value > 0
 
     async def test_the_per_share_figure_resolves_through_stored_rows(self, db_session, scene):

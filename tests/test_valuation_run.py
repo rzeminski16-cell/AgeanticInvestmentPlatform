@@ -187,7 +187,12 @@ class TestAConfirmedRunProducesAValuation:
                 select(Calculation).where(Calculation.job_id == scene["job"].id)
             )
         }
-        assert {"wacc", "cost_of_equity", "gordon_terminal_value", "free_cash_flow"} <= names
+        assert {
+            "wacc",
+            "cost_of_equity",
+            "gordon_terminal_value",
+            "forecast_free_cash_flow",
+        } <= names
 
     async def test_the_discount_rate_is_decomposed_rather_than_asserted(
         self, scene: dict[str, Any]

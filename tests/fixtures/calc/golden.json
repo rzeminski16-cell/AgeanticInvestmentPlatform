@@ -513,7 +513,7 @@
       }
     },
     {
-      "name": "free_cash_flow",
+      "name": "forecast_free_cash_flow",
       "inputs": [
         {
           "name": "nopat",

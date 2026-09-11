@@ -136,8 +136,15 @@ def replay(
     parameters: Mapping[str, Any],
     expected_value: Decimal,
     expected_unit: str,
+    function_ref: str | None = None,
 ) -> ReplayObservation:
     """Re-run one stored calculation and compare it with what was stored.
+
+    ``function_ref`` is the record's ``module:qualname`` and, when given, is what the
+    record is re-run with: the name is what a reader sees, and a name can be handed to a
+    different calculation later (the DCF's projected free cash flow gave up
+    ``free_cash_flow`` to the reported figure in 2026-09), whereas the reference is the
+    function that actually ran. A reference that no longer resolves falls back to the name.
 
     Never raises for a broken record: an input that cannot be reconstructed, a function that
     no longer exists, arithmetic that now refuses — each becomes an observation carrying the
@@ -145,7 +152,7 @@ def replay(
     surface, and an exception here would stop the harness at the first of them.
     """
     try:
-        function = registry().get(name)
+        function = _by_reference(function_ref) or registry().get(name)
         if function is None:
             message = f"no traced function is named {name!r}"
             raise RegistryError(message, context={"name": name})
@@ -172,6 +179,21 @@ def replay(
         replayed=result.value,
         replayed_unit=result.unit.symbol,
     )
+
+
+def _by_reference(function_ref: str | None) -> Any | None:
+    """The traced function a ``module:qualname`` names, if it is one this build still has."""
+    if not function_ref or ":" not in function_ref:
+        return None
+    module_name, _, qualname = function_ref.partition(":")
+    if module_name not in CALC_MODULES:
+        return None
+    try:
+        module = importlib.import_module(module_name)
+    except ImportError:
+        return None
+    function = getattr(module, qualname, None)
+    return function if getattr(function, "calculation_name", None) else None
 
 
 def _reconstruct_inputs(inputs: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
@@ -285,6 +307,7 @@ async def replay_observations_for_job(
             parameters=row.parameters,
             expected_value=row.output_value,
             expected_unit=row.output_unit,
+            function_ref=row.function_ref,
         )
         for row in rows
     ]

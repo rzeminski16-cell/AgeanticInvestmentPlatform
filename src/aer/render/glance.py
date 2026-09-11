@@ -100,6 +100,10 @@ _HEADLINE_CALCULATIONS: Final[tuple[tuple[str, str], ...]] = (
     ("gross_margin", "Gross margin"),
     ("operating_margin", "Operating margin"),
     ("net_margin", "Net margin"),
+    # The reported year's, from the ratio suite. The DCF's projections are recorded as
+    # `forecast_free_cash_flow` precisely so that this row cannot pick one up: on the first
+    # live run of the 2026-09 readiness audit it showed the final forecast year, unlabelled,
+    # at twice the filed figure.
     ("free_cash_flow", "Free cash flow"),
     ("net_debt", "Net debt"),
     ("wacc", "WACC"),

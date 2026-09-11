@@ -1343,6 +1343,48 @@ class TestTheFrontPageNumbers:
         html = render_html(document)
         assert html.index('id="at-a-glance"') < html.index('id="contents"')
 
+    async def test_the_front_page_shows_the_reported_free_cash_flow_not_the_forecast(
+        self, scene: dict[str, Any]
+    ) -> None:
+        """Readiness audit 2026-09, F-11: the headline read `Free cash flow | — | $139,225m`,
+        the DCF's final forecast year, twice the filed figure. The forecast rows now carry
+        their own name and the reported year's row, with its period, is what the page shows."""
+        session: AsyncSession = scene["session"]
+        session.add(
+            Calculation(
+                job_id=scene["job"].id,
+                name="free_cash_flow",
+                formula="free cash flow = operating cash flow - capital expenditure",
+                function_ref="aer.calc.ratios:free_cash_flow",
+                code_version="goldencode123456",
+                inputs=[],
+                output_value=Decimal("65149000000"),
+                output_unit="USD",
+                period_label="FY2022",
+                sequence=6,
+            )
+        )
+        session.add(
+            Calculation(
+                job_id=scene["job"].id,
+                name="forecast_free_cash_flow",
+                formula="FCFF_t = NOPAT_t + depreciation_t - capex_t - change in working capital_t",
+                function_ref="aer.calc.dcf:free_cash_flow",
+                code_version="goldencode123456",
+                inputs=[],
+                output_value=Decimal("139224921462"),
+                output_unit="USD",
+                parameters={"case": "base"},
+                sequence=7,
+            )
+        )
+        await session.flush()
+        document = await _document(await self._with_figures(scene))
+
+        markdown = serialise_markdown(document)
+        assert "| Free cash flow | FY2022 | $65,149m" in markdown
+        assert "139,225" not in markdown.split("## Golden Overview")[0]
+
     async def test_a_run_with_nothing_to_show_shows_nothing(self, scene: dict[str, Any]) -> None:
         """The golden scene holds no facts and no curated calculation: no block, no
         apology — the coverage notice owns the honest account."""

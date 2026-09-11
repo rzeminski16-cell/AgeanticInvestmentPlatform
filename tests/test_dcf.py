@@ -573,7 +573,7 @@ class TestProvenance:
             "projected_working_capital",
             "change_in_working_capital",
             "forecast_ebitda",
-            "free_cash_flow",
+            "forecast_free_cash_flow",
             "discount_factor",
         ):
             assert len(context.named(name)) == 3, name
@@ -649,7 +649,7 @@ class TestTheSensitivityGrid:
         assert len({record.output_value for record in context.named("discount_factor")}) == 9
         # The forecast itself depends on neither axis, so all nine cells share one, and the
         # ledger holds those three years once rather than twenty-seven times (gap R14).
-        assert len(context.named("free_cash_flow")) == 3
+        assert len(context.named("forecast_free_cash_flow")) == 3
 
     def test_the_base_case_cell_matches_the_base_case(self, context):
         grid = sensitivity_grid(

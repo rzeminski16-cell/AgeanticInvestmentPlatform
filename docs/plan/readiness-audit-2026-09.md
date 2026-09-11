@@ -227,6 +227,37 @@ went on at all.
 periods of revenue and renders the page (fails on the old template with the exact
 `TypeError`, passes on the new one).*
 
+### F-11 — The front page calls a forecast "Free cash flow"
+
+*Accuracy and practicality. Major. Observed on MSFT #1; fixed.*
+
+The report's headline table reads `Free cash flow | — | $139,225m`. That figure is the
+discounted-cash-flow model's **final explicit forecast year** of free cash flow to the firm
+(`aer.calc.dcf:free_cash_flow`, NOPAT + depreciation − capex − working-capital change; the
+five base-case years run $43.1bn, $94.6bn, $107.6bn, $122.4bn, $139.2bn). Microsoft's
+filed free cash flow for FY2026 is $66,987m (operating cash flow $182,935m less additions
+to property and equipment $115,948m), which the report's own cash-flow section states
+correctly two pages later. The figure is traceable, footnoted and arithmetically right;
+it is the label and the missing period that mislead: a reader takes the front page as
+the trailing year and sees a company generating twice the cash it does.
+
+The cause is a name collision. The front page (`render/glance.py`, `_HEADLINE_CALCULATIONS`)
+shows "the latest run of each" named calculation, and the only calculations named
+`free_cash_flow` are the DCF's forecast rows — the platform records no historical free
+cash flow at all (68 calculation names on this run; `cash_conversion` and
+`distributions_to_operating_cash_flow` are the nearest). The baseline note, for what it is
+worth, states the filed figure correctly.
+
+*Fix: the ratio suite now records `free_cash_flow` for every reported year (operating
+cash flow − capital expenditure, with the sign convention `core/concepts.py` documents),
+the DCF's projections are recorded as `forecast_free_cash_flow` so no surface can mistake
+one for the other, and the front page shows the reported year with its period. Because
+the calculation registry keys on the name, replay now resolves a stored row by its
+`function_ref` first, so runs recorded before the rename (MSFT #1 among them) still
+re-run as themselves. Tests: `test_ratios` (a hand-worked answer), `test_report_document`
+(the front page with both rows present), `test_eval_replay` (an old row re-runs by its
+reference; a row whose reference and name are both gone still fails).*
+
 ## 6. The harness's own defects, for honesty
 
 The driver, not the platform, caused two stops on MSFT #1: a duplicated keyword in the

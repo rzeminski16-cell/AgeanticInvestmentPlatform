@@ -58,6 +58,7 @@ __all__ = [
     "days_outstanding",
     "debt_to_equity",
     "ebitda",
+    "free_cash_flow",
     "gross_margin",
     "interest_cover",
     "invested_capital",
@@ -83,6 +84,7 @@ class RatioFamily(StrEnum):
     LEVERAGE = "leverage"
     COVERAGE = "coverage"
     EFFICIENCY = "efficiency"
+    CASH = "cash"
 
 
 # The denominator that turns a balance-sheet-over-flow ratio into a number of days.
@@ -190,6 +192,26 @@ def ebitda(
 def net_debt(_context: CalculationContext, *, total_debt: Quantity, cash: Quantity) -> Quantity:
     """Borrowings net of cash."""
     return total_debt - cash
+
+
+@traced(
+    name="free_cash_flow",
+    formula="free cash flow = operating cash flow - capital expenditure",
+    assumptions=(
+        "Capital expenditure is the filer's payments for property, plant and equipment, "
+        "stated as a positive magnitude (see `aer.core.concepts.MAGNITUDE_CONCEPTS`), so it "
+        "is subtracted. Acquisitions, capitalised software and lease principal are not "
+        "deducted; a filer that grows by buying rather than building shows more free cash "
+        "here than it keeps.",
+        "The reported year, not a forecast. The discounted-cash-flow model's projected "
+        "free cash flow to the firm is recorded under its own name.",
+    ),
+)
+def free_cash_flow(
+    _context: CalculationContext, *, operating_cash_flow: Quantity, capital_expenditure: Quantity
+) -> Quantity:
+    """Cash from operations after the spending that keeps the business running."""
+    return operating_cash_flow - capital_expenditure
 
 
 @traced(
@@ -705,6 +727,20 @@ RATIO_DEFINITIONS: Final[tuple[RatioDefinition, ...]] = (
         ),
         note="The additive acid test: cash, short-term investments and receivables over "
         "current liabilities.",
+    ),
+    RatioDefinition(
+        key="free_cash_flow",
+        label="Free cash flow",
+        family=RatioFamily.CASH,
+        needs=("operating_cash_flow", "capital_expenditure"),
+        compute=lambda ctx, v: free_cash_flow(
+            ctx,
+            operating_cash_flow=v["operating_cash_flow"],
+            capital_expenditure=v["capital_expenditure"],
+        ),
+        note="Operating cash flow less capital expenditure, for the reported year. The "
+        "readiness audit of 2026-09 found the front page showing the valuation model's "
+        "final forecast year under this label, because nothing recorded the filed figure.",
     ),
     RatioDefinition(
         key="debt_to_equity",

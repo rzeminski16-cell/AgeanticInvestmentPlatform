@@ -616,7 +616,7 @@ def forecast_ebitda(
 
 
 @traced(
-    name="free_cash_flow",
+    name="forecast_free_cash_flow",
     formula="FCFF_t = NOPAT_t + depreciation_t - capex_t - change in working capital_t",
     assumptions=(
         "Free cash flow to the firm: before interest and before debt repayment, because the "
