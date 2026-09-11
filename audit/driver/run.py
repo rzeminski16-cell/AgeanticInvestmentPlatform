@@ -488,6 +488,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--mode", choices=[m.value for m in AnalysisMode], default=AnalysisMode.STANDARD.value
     )
+    parser.add_argument("--screenshots", action="store_true")
     args = parser.parse_args(argv)
     summary = asyncio.run(
         drive(
