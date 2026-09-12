@@ -286,12 +286,12 @@ persona 2's complaint, and use case 9's row below.
 
 | Journey measure | What the audit recorded |
 |---|---|
-| Gate stops per run | **6** (plan, peers, themes, unmapped concepts, assumptions, final) — 7 with the sector gate the fix adds for a specialist filer |
-| Wall-clock, commission to gate 2 | 31–42 minutes of step time (MSFT #1 42 min, MSFT #2 36 min, AZN 31 min); the audit's own stops added hours and are not the product's |
-| Operator attention | six decisions, each on a page that shows what it hashes; the unmapped-concepts page carried **105 items** on MSFT and 51 on AZN |
-| Values the operator had to supply | **2 on MSFT** (risk-free rate, equity risk premium), **5 on AZN**, **6 on a bank** — each with a justification the page requires |
-| Anything that needed the terminal | **yes**: a stranded run needed `aer resume` before F-08's fix; a refused presentation check has no re-measure anywhere (F-22) |
-| Developer vocabulary reaching the reader | **21 raw UUIDs** in the refresh run's own comparison table (F-22), and the coverage notice names metrics by their code identifiers |
+| Gate stops per run | **6** on an ordinary filer (plan, peers, themes, unmapped concepts, assumptions, final); **7 on a bank**, which adds the sector gate |
+| Wall-clock, commission to gate 2 | **31–42 minutes of step time** (MSFT #1 42, MSFT #2 36, AZN 31, MTB 41); the audit's own stops added hours and are not the product's |
+| Operator attention | six or seven decisions, each on a page that shows what it hashes; the unmapped-concepts page carried **105 items** on MSFT, 51 on AZN and **304 on the bank** |
+| Values the operator had to supply | **2 on MSFT** (risk-free rate, equity risk premium), **5 on AZN**, **3 on the bank** — each with a justification the page requires |
+| Anything that needed the terminal | **yes**: a stranded run needed `aer resume` before F-08's fix, and a run refused at gate 2 can be re-measured nowhere at all (F-22, F-25) |
+| Developer vocabulary reaching the reader | **21 raw UUIDs** in the refresh run's own comparison table (F-22), an architecture decision record in the withheld-figure note (F-25), and a coverage notice that names metrics by their code identifiers |
 | Reading time of the result | 30–45 minutes, 12.5–15.3k words |
 
 ### 4.3 The suitability matrix
@@ -870,19 +870,21 @@ the platform's own table at the same rate the platform uses.
 | Platform | MSFT #2 — refused at gate 2 (F-22) | £6.80 |
 | Platform | AZN — approved and rendered | £6.83 |
 | Platform | MTB as found — stopped for the operator (F-23) | £2.03 |
-| Platform | MTB on the fixed classification | *see below* |
+| Platform | MTB on the fixed classification — refused at gate 2 (F-24) | £7.61 |
 | Baseline | MSFT — Opus 5 high, 25 searches, 12,967 words | £7.63 |
 | Baseline | AZN — 25 searches, 12,907 words | £11.03 |
 | Baseline | MTB — 25 searches, 11,225 words | £6.71 |
 | — | The M&T baseline turn the container cut off, billed and unrecorded | unknown |
 | — | `just test-live`, WP0 | < £0.05 |
 
-By category across every platform run: **output tokens £13.91, input £5.92, cache writes
-£3.23, cache reads £0.09, web search £0.17** — so three quarters of the bill is what the
-models wrote, and the cache is a cost rather than a saving at this hit rate (§3.3).
+**Platform £30.75, baselines £25.37, total £56.12 of the £100 ceiling**, leaving £43.88
+unspent. By category across every platform run: **output tokens £13.91, input £5.92, cache
+writes £3.23, cache reads £0.09, web search £0.17** — so three quarters of the bill is what
+the models wrote, and the cache is a cost rather than a saving at this hit rate (§3.3).
 
 The judged reads and the code reading were paid for in this session's own tokens, not in
-pounds from the £100.
+pounds from the £100. Nothing was spent on a sixth run: the two runs refused at gate 2 were
+re-measured from their own records instead, which is what the fixes needed proving against.
 
 
 
