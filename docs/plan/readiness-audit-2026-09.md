@@ -875,7 +875,7 @@ should stop a run once it does.*
 The driver, not the platform, caused two stops on MSFT #1: a duplicated keyword in the
 screenshot hook at the first gate, and a poll a moment after enqueueing that read the old
 pause as a new one and stopped the worker mid-step. Both are fixed and committed; the second
-is how F-08 was observed at all. Three more, found on the later runs:
+is how F-08 was observed at all. Six more, found on the later runs:
 
 - The screenshot capture waited for the network to fall idle, which the console's event
   stream never lets it do, so every console screenshot on MSFT #1 and AZN timed out. It
@@ -897,6 +897,16 @@ is how F-08 was observed at all. Three more, found on the later runs:
 - The first M&T baseline was cut off by the container stopping mid-stream and re-run the
   next morning; whatever the vendor billed for the cut-off turn is not in the ledger's
   numbers and is noted there.
+- The accuracy matcher over-attributed on two documents and had to be tightened twice, each
+  time by a rule that applies to both sides: a half-year or trailing-twelve-month figure is
+  a qualified measure (two apparent contradictions in the M&T console note), and a table row
+  labelled as a change or a ratio is not a level, a period stated immediately after a figure
+  belongs to that figure, and a figure the platform quotes in order to refuse it is not a
+  claim (nine in the bank's report). All eleven were misreads; `tests/audit/test_match.py`
+  holds each rule. The matcher's precision is calibrated this way and its recall is not
+  measured, which §9 says.
+- The scorer read a whole driver log, so the bank driven into one directory twice had both
+  runs' gate stops counted together. It reads from the newest commission onwards now.
 - The run-to-run comparison keyed a calculation by name, period and case and kept one row
   per key — but one key holds many rows (a sensitivity grid records `present_value` once
   per cell, 117 times; one year's `days_outstanding` covers receivables, inventory and
