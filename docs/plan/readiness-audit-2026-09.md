@@ -38,11 +38,13 @@ here can match a footnote that resolves to bytes and a calculation that re-execu
 not use it yet** to reach a view, to research a bank or a domestic UK filer, to answer a
 question under time pressure, or to hand somebody a document that stands on its own.
 
-The pass found 23 findings and fixed 17 of them with regression tests, including two that
-were blocking and live: the refresh run's gate refused itself over a leaked identifier
-(F-22), and no run ever discovered what kind of business it was researching, so a bank took
-the model that ADR 0029 exists to forbid (F-23). Fourteen decisions that are not mine to
-take are in §8.
+The pass found **24 findings** and **fixed 16** with regression tests (one of them a bundle
+of fifteen smaller ones), among them three that were blocking and live: the refresh run's
+own gate refused it over a leaked identifier (F-22); no run ever discovered what kind of
+business it was researching, so a bank took the model ADR 0029 exists to forbid (F-23); and
+a bank's revenue resolves to its fee income, which the plausibility guard catches and
+nothing corrects (F-24, the one blocking finding left open). The eight that remain are §8's
+fifteen decisions, two small integrity items (F-06, F-07) and F-24.
 
 ## 2. Method
 
@@ -67,10 +69,13 @@ case; AstraZeneca (AZN, on the NYSE per EDGAR's own ticker file, a 20-F under IF
 Bank (MTB, NYSE, the residual-income path). Each request capped at £10 with one automatic
 raise to £12; the audit's own ledger holds the £100 ceiling across platform and baseline.
 
-**Deviations from the plan, and why.** The four platform runs and three baselines were made
-(the plan's fourth baseline, a second MSFT console run, was dropped when the first three
-cost £7.6, £11.0 and £6.7 against the £3 each the ledger had assumed; the platform's
-run-to-run variance is the reliability check, the console's is not). The adversarial
+**Deviations from the plan, and why.** **Five** platform runs and three baselines were made:
+the plan's four subjects, plus M&T a second time once the classification defect it exposed
+was fixed, because a live sector gate and a live residual-income valuation had never been
+exercised and the ledger had room. The plan's fourth baseline — a second MSFT console run —
+was dropped when the first three cost £7.6, £11.0 and £6.7 against the £3 each the ledger
+had assumed; the platform's run-to-run variance is the reliability check and the console's
+is not. The adversarial
 verification of the code reading — three refuters per finding — was launched twice and lost
 every refuter to the account's session limit both times; the finders' 89 findings (six
 blocking, 47 major, 36 minor) were instead verified by hand in the main loop against the
@@ -79,7 +84,9 @@ thirteen subsystem readers never completed (render, observability, the GUI, the 
 the live findings F-08, F-10, F-11 and F-02 are what the audit has for those areas, and §9
 says so. The container was stopped four times by the same limit; each stop killed the
 worker under whatever run was in flight, which is how F-08 was met three times and its fix
-proved once (§5). The audit's own defects are in §6.
+proved once (§5). The practitioner reads did complete, on the second attempt: three judges
+for each of four documents and three blind pairwise comparisons per subject, all eighteen
+agents (§4.1). The audit's own defects are in §6.
 
 **The accuracy matcher.** `audit/scoring/` extracts every numeral in a report or a console
 answer with the platform's own numeral scanner, attributes a concept and a period from the
@@ -383,7 +390,8 @@ honours it.*
 produce no `costs` row; EODHD is bounded separately by a weighted-call allowance in Redis.
 The `cost.py` docstring describes a row nothing creates.
 
-*State: to document, or to meter.*
+*State: to document, or to meter. Not closed here — no run's money turned on it (every
+acquisition in this pass was free), and writing a row per fetch is a schema decision.*
 
 ### F-07 — The audit chain is application-writable
 
@@ -393,7 +401,9 @@ Migration 0001 notes that UPDATE and DELETE were never revoked on `audit_events`
 application role, and `verify_audit_chain` documents that a full rewrite with recomputed
 hashes is undetectable.
 
-*State: to record; to close if cheap.*
+*State: recorded, not closed. Revoking UPDATE and DELETE for the application role is a
+migration and a grant, and `verify-audit` exited 0 on every run in this pass — so the chain
+holds today and the guarantee is that nobody *did* rewrite it, not that nobody could.*
 
 ### F-08 — A run whose worker dies mid-step is left RUNNING with no exit in the product
 
@@ -895,5 +905,12 @@ definition or what a run does. They are listed in the order I would take them.
   figure in a sentence it could not read is not counted. Its precision was calibrated, its
   recall was not measured.
 - **Anything a second run of AZN on the fixed alias table would show.** The IFRS fix is
-  proved against the archived tags, not by a run, unless the ledger allowed the fifth run
-  (§7 says).
+  proved against the archived tags, not by a run: the ledger's remaining room went to the
+  bank instead, because a live sector gate and a live residual-income valuation had never
+  been exercised at all.
+- **That the fixed refresh run finishes.** F-22's fix is proved by re-measuring the failed
+  check on the run that failed it, which is the tightest proof available without paying for
+  a sixth run; the run itself stays unapproved because nothing re-evaluates a finished job.
+- **The judges are model readings, and the operator's own read is the column §4 leaves
+  open.** Six of six blind comparisons agreeing is a strong signal about the documents, not
+  a substitute for the operator reading one.
