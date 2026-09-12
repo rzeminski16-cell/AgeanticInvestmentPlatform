@@ -148,10 +148,14 @@ def _mixing_refusal(facts: list[FinancialFact], subject_id: uuid.UUID | None) ->
         return None
     noun = "figure" if len(facts) == 1 else "figures"
     verb = "belongs" if foreign == 1 else "belong"
+    # The reason is the reader's, so it is said in words rather than by citing the decision
+    # it comes from (ADR 0061). M&T's live run failed `presentation_integrity` on the sister
+    # note below for exactly that: an architecture decision record in a document that is
+    # supposed to be about the company, written by the platform about itself.
     return (
         f"the at-a-glance block was withheld — {foreign} of the {len(facts)} stored "
         f"{noun} offered to it {verb} to a company other than the subject, and a "
-        "front page must not mix issuers (ADR 0061)"
+        "front page must not mix one company's figures with another's"
     )
 
 
@@ -190,8 +194,8 @@ def _impossibility_refusal(content: dict[str, Any]) -> str | None:
     stated = "; ".join(item.statement for item in found)
     return (
         "the at-a-glance block was withheld — the figures offered to it cannot all be "
-        f"true at once: {stated}. A figure that is traceable is not thereby possible "
-        "(ADR 0066)"
+        f"true at once: {stated}. A figure that is traceable is not thereby possible, so "
+        "the block is withheld rather than shown with a caveat beside it"
     )
 
 

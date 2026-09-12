@@ -1497,7 +1497,10 @@ class TestTheFrontPageNumbers:
         markdown = serialise_markdown(document)
         assert "At a glance" not in markdown
         assert "Coverage notice" in markdown
-        assert "front page must not mix issuers" in markdown
+        assert "must not mix one company's figures with another's" in markdown
+        # And it reaches the page in a reader's words: the decision it enforces is named in
+        # the code, because `presentation_integrity` refuses a decision record in the prose.
+        assert "ADR" not in markdown
 
 
 class TestTheOnePageSummary:
