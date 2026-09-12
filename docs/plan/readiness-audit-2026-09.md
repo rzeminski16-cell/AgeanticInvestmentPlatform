@@ -425,7 +425,10 @@ reads. The recorded pair passes both ways, the six affected modules pass in both
 the second shuffled seed (20260909) ran 6,881 tests with two failures — both of which turned
 out to be the audit's own doing: `inspect.getsource` pins in `test_section_spine` and
 `test_planner_salvage` read the workflow file from disk after a commit made during the run
-had moved the pinned functions by two lines (§6). The seed is re-run on the final commit.*
+had moved the pinned functions by two lines (§6). **Re-run on the final tree with nothing
+else running, seed 20260909 is green: 6,925 passed, 0 failed.** The shuffled runner was
+widened in the same pass to walk every directory rather than only the top one, which had
+left the audit's own thirty-five tests unshuffled.*
 
 ### F-04 — A UK company with no SEC filings cannot be researched, and the refusal can name the wrong company
 
@@ -1055,11 +1058,13 @@ definition or what a run does. They are listed in the order I would take them.
   subtracts the repeatability. Its minutes-to-answer here (16, 19, 14) are the API's.
 - **The four subsystems nobody read** (render, observability, the GUI, the documents) beyond
   what the live runs showed of them.
-- **Whether the fixes hold under a full suite in every order.** Both suite processes were
-  run on the audited commit; two shuffled seeds were run, the first reproducing the
-  recorded order dependence and the second, after the fix, leaving a residual pair
-  (`test_section_spine`'s red-team refill and `test_planner_salvage`'s plan salvage) that
-  pass alone and failed in that order once. Not root-caused.
+- **Whether the fixes hold under a full suite in every order.** On the final tree, with
+  nothing else running, all three passes are green: the default suite **6,960 passed** in
+  34m39s, the browser suite **183 passed** in 7m43s, and seed 20260909 — the ordering that
+  had left a residual pair — **6,925 passed** in 34m08s, so the pair is gone. What is not
+  established is a *third* ordering, and the shuffled runner was widened in this pass to
+  walk every directory (it globbed one, so the audit's own thirty-five tests were never
+  shuffled); that widening has not itself been run under a seed.
 - **The matcher's recall.** It judges what it can attribute and sets the rest aside; a wrong
   figure in a sentence it could not read is not counted. Its precision was calibrated, its
   recall was not measured.
