@@ -1,0 +1,70 @@
+{
+  "text": "audit/out/azn2/report.md",
+  "truth": "audit/out/azn2/truth.json",
+  "words": 15948,
+  "numerals": 1221,
+  "accuracy": {
+    "numerals": 1221,
+    "by_kind": {
+      "excluded": 878,
+      "outside-truth": 37,
+      "matched": 122,
+      "approx": 4,
+      "unknown": 123,
+      "matched-unhinted": 52,
+      "checkable-absent": 5
+    },
+    "checkable": 178,
+    "matched": 174,
+    "approx": 4,
+    "contradicted": 0,
+    "contradicted_share_of_checkable": 0.0,
+    "contradictions": [],
+    "approximations": [
+      {
+        "kind": "approx",
+        "token": "10225",
+        "context": "---|---| | Revenue | FY2025 | $58,739m[^1] | | Net income | FY2025 | $10,225m[^2] | | EPS (diluted) | FY2025 | $6.54[^3] |  ### Revenue history  | ",
+        "concept": "net_income",
+        "period": "FY2025",
+        "basket_concept": "net_income",
+        "basket_period": "FY2025",
+        "stored": "10233000000",
+        "relative_error": "0.0008"
+      },
+      {
+        "kind": "approx",
+        "token": "15.6",
+        "context": "nverted at an 81.9% gross margin and a 23.4% operating margin, with a 15.6% return on invested capital \u2014 economics that fund $14.2 billion of res",
+        "concept": "operating_margin",
+        "period": null,
+        "basket_concept": "operating_margin",
+        "basket_period": "FY2018",
+        "stored": "0.1533272974196468990493435944",
+        "relative_error": "0.0174"
+      },
+      {
+        "kind": "approx",
+        "token": "10225",
+        "context": "r the year ended 31 December 2025 was $14,575m against net income of $10,225m, so the accrual result converted into cash with room to spare; after ",
+        "concept": "net_income",
+        "period": "D2025-12-31",
+        "basket_concept": "net_income",
+        "basket_period": "FY2025",
+        "stored": "10233000000",
+        "relative_error": "0.0008"
+      },
+      {
+        "kind": "approx",
+        "token": "10225",
+        "context": "ting cash flow (FY2025) | 14,575 USD m[^54] | | Net income (FY2025) | 10,225 USD m[^55] | | Free cash flow (FY2025) | 11,765 USD m[^56] | | Intere",
+        "concept": "net_income",
+        "period": "FY2025",
+        "basket_concept": "net_income",
+        "basket_period": "FY2025",
+        "stored": "10233000000",
+        "relative_error": "0.0008"
+      }
+    ]
+  }
+}

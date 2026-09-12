@@ -1,0 +1,63 @@
+{
+  "payload": {
+    "subject": "7a1961cf-f0f5-47f9-8b5f-a56673b54e88",
+    "subject_period_end": "2026-09-12",
+    "basis": "ttm",
+    "peers": [
+      {
+        "identifier": "0000078003",
+        "name": "PFIZER INC",
+        "rationale": "Global diversified biopharma with broad oncology, vaccines, and specialty care portfolio overlapping AstraZeneca's therapeutic areas; comparable scale and R&D-driven model.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000310158",
+        "name": "Merck & Co., Inc.",
+        "rationale": "Large-cap innovator pharma with strong oncology (Keytruda) and vaccines franchise, similar patent-cliff dynamics and global commercial footprint to AstraZeneca.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001114448",
+        "name": "NOVARTIS AG",
+        "rationale": "European-headquartered global pharma with overlapping oncology, cardiovascular, and immunology pipelines; similar international regulatory and reimbursement exposure.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001131399",
+        "name": "GSK plc",
+        "rationale": "UK-based peer with overlapping respiratory, vaccines, and specialty medicine focus; comparable geographic mix and R&D pipeline structure to AstraZeneca.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001121404",
+        "name": "Sanofi",
+        "rationale": "French global pharma with immunology, oncology, and vaccines overlap; similar scale and diversified therapeutic focus, though vaccines weighting differs somewhat.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000014272",
+        "name": "BRISTOL MYERS SQUIBB CO",
+        "rationale": "US large-cap oncology and immunology-focused biopharma with overlapping cardiovascular and cancer drug portfolios comparable to AstraZeneca's core areas.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000059478",
+        "name": "ELI LILLY & Co",
+        "rationale": "Global innovator pharma with strong oncology, diabetes, and immunology overlap, though its faster growth from GLP-1 drugs makes multiples partially less directly comparable.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000200406",
+        "name": "JOHNSON & JOHNSON",
+        "rationale": "Diversified healthcare giant whose pharmaceutical segment overlaps in oncology and immunology, but its consumer/medtech divisions dilute direct comparability to AstraZeneca.",
+        "period_end": ""
+      }
+    ],
+    "proposed_by": "aer.agents.peers"
+  },
+  "hash": "9ee2123e8b20bb3c569fbe566b6ced4bfef0fd1e83a8e2bb0b65342aff1dc0bf",
+  "pause_context": {
+    "gate": "PEER_SET",
+    "job_id": "571b1434-66d2-4f6d-9534-7ca671fe6caf"
+  }
+}

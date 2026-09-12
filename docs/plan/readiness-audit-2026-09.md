@@ -23,10 +23,10 @@ Four criteria, measured in §3:
 
 | Criterion | Threshold | Measured | Verdict |
 |---|---|---|---|
-| **Accurate** | 0 figures contradicting the filing | **0 contradicted** of 169, 188, 165 and 79 checkable numerals; **216 of 216 citations verified** across four runs; every blocking metric at its threshold — except on the bank, where the check that reads relations between figures caught eleven impossible ones and refused the report (F-24) | **yes, and the one failure is the guard working** |
-| **Budget friendly** | ≤ £10 per report | **£7.48, £6.80, £6.83, £7.61** — average £7.18; no cap raised, no run breached | **yes** |
-| **Reliable** | a report without rescue; nothing lost; the same numbers twice | 0 sections lost and 0 figures re-paid across five runs — but **three of five never reached a report**, and 837 calculation rows reproduced except where a model-proposed assumption moved (value per share $485.29 against $512.50) | **not yet** |
-| **Complete** | every section, every expected figure, parity with the console | **18 of 18 sections on every run** — and **no peer multiple on any of them**, no segment revenue, no guidance, and on one subject no valuation at all | **no** |
+| **Accurate** | 0 figures contradicting the filing | **0 contradicted of 779** checkable numerals across five reports; **259 of 259 citations verified**; every blocking metric at its threshold — except on the bank, where the check that reads relations between figures caught eleven impossible ones and refused the report (F-24) | **yes, and the one failure is the guard working** |
+| **Budget friendly** | ≤ £10 per report | **£7.48, £6.80, £6.83, £7.21, £7.61** — average £7.19; no cap raised, no run breached | **yes** |
+| **Reliable** | a report without rescue; nothing lost; the same numbers twice | 0 sections lost and 0 figures paid for twice in the five runs that drafted; **three of six reached an approved, rendered report**, and the three that did not are the three defects this pass fixed or put to you; 837 calculation rows reproduced except where a model-proposed assumption moved (value per share $485.29 against $512.50) | **not yet** |
+| **Complete** | every section, every expected figure, parity with the console | **18 of 18 sections on every run** — and **no peer multiple on any of them**, no segment revenue, no guidance | **no** |
 
 Two halves that disagree, which is why the pass has both. **Technically** the core is
 sound: the arithmetic is deterministic and replayable, every figure traces to hashed bytes,
@@ -42,7 +42,7 @@ here can match a footnote that resolves to bytes and a calculation that re-execu
 not use it yet** to reach a view, to research a bank or a domestic UK filer, to answer a
 question under time pressure, or to hand somebody a document that stands on its own.
 
-The pass found **26 findings** and **fixed 18** with regression tests (one of them a bundle
+The pass found **26 findings** and **fixed 19** with regression tests (one of them a bundle
 of fifteen smaller ones), among them three that were blocking and live: the refresh run's
 own gate refused it over a leaked identifier (F-22); no run ever discovered what kind of
 business it was researching, so a bank took the model ADR 0029 exists to forbid (F-23); and
@@ -73,10 +73,12 @@ case; AstraZeneca (AZN, on the NYSE per EDGAR's own ticker file, a 20-F under IF
 Bank (MTB, NYSE, the residual-income path). Each request capped at £10 with one automatic
 raise to £12; the audit's own ledger holds the £100 ceiling across platform and baseline.
 
-**Deviations from the plan, and why.** **Five** platform runs and three baselines were made:
+**Deviations from the plan, and why.** **Six** platform runs and three baselines were made:
 the plan's four subjects, plus M&T a second time once the classification defect it exposed
-was fixed, because a live sector gate and a live residual-income valuation had never been
-exercised and the ledger had room. The plan's fourth baseline — a second MSFT console run —
+was fixed — a live sector gate and a live residual-income valuation had never been exercised
+— and AstraZeneca a second time once the IFRS aliases were corrected, the one run that
+proves two fixes at once: the valuation the first AZN run withheld, and the refresh section
+that refused MSFT's second run. The plan's fourth baseline — a second MSFT console run —
 was dropped when the first three cost £7.6, £11.0 and £6.7 against the £3 each the ledger
 had assumed; the platform's run-to-run variance is the reliability check and the console's
 is not. The adversarial
@@ -108,9 +110,13 @@ number (F-21).
 
 ## 3. Part A — the technical assessment
 
-Five live runs, three console baselines. M&T appears twice: once as the product stood
-(`audit/out/mtb-unclassified/`, stopped for the operator at the assumptions gate), once on
-the fixed classification (`audit/out/mtb/`). Every number below is read from `audit/out/`.
+Six live runs, three console baselines. Two subjects were run twice. **M&T** appears as
+the product stood (`mtb-unclassified`, stopped for the operator at the assumptions gate)
+and on the fixed classification (`mtb`, refused at gate 2 by the revenue defect).
+**AstraZeneca** appears as the product stood (`azn`, approved with its valuation withheld)
+and on the corrected aliases (`azn2`, approved with the valuation and the refresh section
+the two fixes restored). Every number below is read from the run records.
+
 Two runs reached gate 2 and were refused there, so their documents were assembled from
 their own records to be scored — the same bytes the renderer would emit, and in both cases
 the check that refused them re-measures to zero under the fix (§5).
@@ -151,14 +157,21 @@ model's opinion confirmed at a gate. That is the design (ADR 0046), and it means
 subject twice gives the same numbers" holds for everything except the assumptions — where
 it is the operator's confirmation, not the platform, that fixes the answer.
 
-**Verdict on reliability: not yet.** Nothing was lost and nothing was paid for twice —
-0 sections lost in five runs, every resume free, every replay exact — but **three of five
-runs did not reach a report**: the refresh run refused by the platform's own presentation
-check over a leaked identifier (F-22), the bank stopped at the assumptions gate because it
-was never classified as a bank (F-23), and the bank again, refused by the check that found
-eleven impossible relations among figures built on a revenue that is not one (F-24). Two of
-the three are fixed here and re-measured on the runs that failed; the third is §8's to
-decide, and until it is taken a bank produces no approvable report.
+**Verdict on reliability: not yet.** Nothing was lost and nothing was paid for twice — 90
+of 90 sections drafted across the five runs that reached the writer, every resume free,
+every replay exact — and **three of six runs reached an approved, rendered report**. The
+three that did not are the three defects this pass found: the refresh run refused by the
+platform's own presentation check over a leaked identifier (F-22), the bank stopped at the
+assumptions gate because it was never classified as a bank (F-23), and the bank again,
+refused by the check that found eleven impossible relations among figures built on a revenue
+that is not one (F-24).
+
+Two of those three are fixed *and* shown working on a live run: **AZN #2 is the proof**.
+Commissioned after the corrected aliases and with an approved report already on file, it ran
+without a retry, a resume or a failed check, produced the valuation the first AZN run
+withheld, and rendered the refresh section — the section that refused MSFT #2 — with three
+reader columns and no identifier in it. The third, F-24, is §8's to decide, and until it is
+taken a bank produces no approvable report.
 
 ### 3.2 Accurate
 
@@ -173,7 +186,9 @@ decide, and until it is taken a bank produces no approvable report.
 | The audit's own matcher, against the filing | 0 contradicted | **0 of 169** checkable numerals | **0 of 188** | **0 of 165** | **0 of 79** |
 | Claims / of which numeric | — | 280 / 182 | 279 / 197 | 243 / 175 | — |
 
-The bank is the one run that failed an accuracy check, and it failed the right one: every
+**779 checkable figures across five reports and not one contradicts its filing**, and 259
+citations of 259 verified by re-reading the archived bytes. The bank is the one run that
+failed an accuracy check, and it failed the right one: every
 figure it stated was traceable and none contradicted the filing, and the check that reads
 *relations between* figures caught eleven impossible ones — a net margin above 1, income
 above revenue — because the revenue it was measured against is not a bank's revenue
@@ -184,11 +199,14 @@ approved while it is.
 as-of date was offered to a claim — the honest reading is that the check had no population,
 not that it passed.
 
-Held against the console: **0 contradicted of 151** checkable numerals (MSFT), **1 of 179** (AZN —
-capital expenditure stated as $3,270m inside its own cash-flow bridge, where the filing's property
-additions are a different figure) and **0 of 106** (M&T). On stated figures the two are a draw,
-and both are good. The difference is not accuracy: it is what each will state at all, which is
-§3.4 and §4.
+Held against the console: **0 contradicted of 154** checkable numerals (MSFT), **0 of 107**
+(M&T), and on AZN **one figure the matcher flags of 179** — capital expenditure of $3,270m
+where the filing's property additions are $2,810m, which the note's own table discloses as
+"Capex (PP&E + software intangibles)" and the sentence the matcher read does not. A
+disclosed definition rather than a wrong number, and the only one in three notes.
+
+On stated figures the two sides are a draw, and both are good. The difference is not
+accuracy: it is what each will state at all, which is §3.4 and §4.
 
 The console's own verifiability is weaker than its accuracy. Across the three notes it
 cited **46, 58 and 55 distinct URLs**, of which **33, 37 and 35 still resolved** when the
@@ -202,23 +220,24 @@ the platform's measures or by an independent recomputation that does not trust t
 
 ### 3.3 Budget friendly
 
-| Measure | MSFT #1 | MSFT #2 | AZN | MTB |
-|---|---|---|---|---|
-| Run spend | **£7.48** | **£6.80** | **£6.83** | **£7.61** |
-| Against the £10 target | **inside** | **inside** | **inside** | **inside** |
-| The guard's own estimate for the plan | £9.31 | £9.31 | £9.31 | £9.30 |
-| Dearest steps | `draft` £3.71, `revise` £1.09 | `draft` £2.31, `revise` £1.34 | `draft` £2.83, `revise` £0.97 | `draft` £4.04, `revise` £1.16 |
-| Worst per-step estimate against actual | `research_industry` **1.78×** | `research_macro` **1.45×** | `research_industry` **1.91×** | `research_macro` **1.28×** |
-| Cache hit rate | 10.7 % | 10.3 % | 7.6 % | 14.3 % |
-| Paid replies the platform could not read | **1** (1,431 output tokens) | **3** (7,366) | **5** (18,706, including the red team's 9,919) | **4** (6,888) |
-| Web searches billed | £0.04 | £0.04 | £0.06 | £0.04 |
-| Effort as requested | Opus high ×24, Sonnet medium ×31, **Haiku low ×2 — dropped at the API** (F-05) | ×23 / ×32 / ×2 | ×20 / ×31 / ×3 | ×24 / ×35 / ×2 |
+| Measure | MSFT #1 | MSFT #2 | AZN | AZN #2 | MTB |
+|---|---|---|---|---|---|
+| Run spend | **£7.48** | **£6.80** | **£6.83** | **£7.21** | **£7.61** |
+| Against the £10 target | **inside** | **inside** | **inside** | **inside** | **inside** |
+| The guard's own estimate for the plan | £9.31 | £9.31 | £9.31 | £9.27 | £9.30 |
+| Dearest steps | `draft` £3.71, `revise` £1.09 | `draft` £2.31, `revise` £1.34 | `draft` £2.83, `revise` £0.97 | `draft` £3.77, `revise` £1.22 | `draft` £4.04, `revise` £1.16 |
+| Worst per-step estimate against actual | `research_industry` **1.78×** | `research_macro` **1.45×** | `research_industry` **1.91×** | `research_industry` **1.35×** | `research_macro` **1.28×** |
+| Cache hit rate | 10.7 % | 10.3 % | 7.6 % | 13.6 % | 14.3 % |
+| Paid replies the platform could not read | **1** (1,431 output tokens) | **3** (7,366) | **5** (18,706, including the red team's 9,919) | **3** (6,903) | **4** (6,888) |
+| Web searches billed | £0.04 | £0.04 | £0.06 | £0.04 | £0.04 |
+| Effort as requested | Opus high ×24, Sonnet medium ×31, **Haiku low ×2 — dropped at the API** (F-05) | ×23 / ×32 / ×2 | ×20 / ×31 / ×3 | ×25 / ×30 / ×2 | ×24 / ×35 / ×2 |
 
-Four runs at **£7.48, £6.80, £6.83 and £7.61** against a £10 target and a £12 hard cap: no
-cap was raised, no run breached, and the monthly cap never bound. The abandoned first M&T
-run added £2.03 for a run that produced nothing, which is the cost of F-23. The console
-cost **£7.63, £11.03 and £6.71** for the same three briefs, so on money the two are level
-and the platform is the more predictable of them.
+Five runs at **£7.48, £6.80, £6.83, £7.21 and £7.61** against a £10 target and a £12 hard
+cap: no cap was raised, no run breached, and the monthly cap never bound. The abandoned
+first M&T run added £2.03 for a run that produced nothing, which is the cost of F-23. The
+console cost **£7.63, £11.03 and £6.71** for the same three briefs, so on money the two are
+level and the platform is the more predictable of them — every one of its five runs landed
+between £6.80 and £7.61, a spread of 11 %, against the console's 65 %.
 
 Two real leaks, both small and both metered: **every Haiku call was priced at Opus rates**
 until F-13 was fixed (£0.28 charged on MSFT #1 for what Haiku's list price makes about
@@ -226,21 +245,21 @@ until F-13 was fixed (£0.28 charged on MSFT #1 for what Haiku's list price make
 output tokens paid for and discarded, which the run's own ledger carries but no surface
 sums up.
 
-**Verdict on budget: yes.** **£7.18 a report on average**, inside the operator's £10, with
+**Verdict on budget: yes.** **£7.19 a report on average**, inside the operator's £10, with
 the cap mechanism never needed and the arithmetic of the ledger checkable row by row.
 
 ### 3.4 Complete
 
-| Measure | MSFT #1 | MSFT #2 | AZN | MTB |
-|---|---|---|---|---|
-| Sections generated | **18 / 18** | **18 / 18** | **18 / 18** | **18 / 18** |
-| Report length | 13,993 words, 142 footnotes | 15,297 words | 12,548 words, 114 footnotes | 13,251 words |
-| Facts chosen / rejected | 18,610 / 14,061 | 18,610 / 14,061 | 4,181 / 5,217 | 23,174 / 17,210 |
-| Unmapped tags at the gate | 496 (2 refused) | 496 | 322 | 852 |
-| Market capitalisation | present | present | **withheld** | **withheld** |
-| Valuation per share | present | present | **withheld** — no share count in the IFRS tags (F-12) | present, from residual income |
-| **EV/EBITDA, P/E** | **withheld** | **withheld** | **withheld** | **withheld** |
-| Peers priced in the comps table | **0 of 8** | 0 of 8 | **0 of 8** | **0 of 7** |
+| Measure | MSFT #1 | MSFT #2 | AZN | AZN #2 | MTB |
+|---|---|---|---|---|---|
+| Sections generated | **18 / 18** | **18 / 18** | **18 / 18** | **18 / 18** | **18 / 18** |
+| Report length | 13,993 words, 142 footnotes | 15,297 words | 12,548 words, 114 footnotes | **15,948 words, 148 footnotes** | 13,251 words |
+| Facts chosen / rejected | 18,610 / 14,061 | 18,610 / 14,061 | 4,181 / 5,217 | **4,171** | 23,174 / 17,210 |
+| Unmapped tags at the gate | 496 (2 refused) | 496 | 322 | **312**, and 1,178 concepts mapped against 1,025 (F-12) | 852 |
+| Market capitalisation | present | present | **withheld** | **withheld** | **withheld** |
+| Valuation per share | present | present | **withheld** — no share count in the IFRS tags (F-12) | **present: 831 calculations, a WACC of 5.83 %** | present, from residual income |
+| **EV/EBITDA, P/E** | **withheld** | **withheld** | **withheld** | **withheld** | **withheld** |
+| Peers priced in the comps table | **0 of 8** | 0 of 8 | **0 of 8** | **0 of 8** | **0 of 7** |
 
 **No run produced a single peer multiple.** The model proposes eight comparables, the
 operator confirms them, the comps table is built — and every peer is excluded with the same
@@ -264,9 +283,10 @@ document (§4.1), across both subjects:
   on AZN — a valuation with a per-share result at all.
 
 **Verdict on completeness: no.** Every section is written and every figure it states is
-traceable, but the figures a reader expects from a research note — segment revenue,
-guidance, peer multiples, and on one subject any valuation at all — are absent, and the
-absences are structural rather than incidental.
+traceable, and the one absence this pass could fix it did: AZN's second run carries the
+valuation its first withheld, 831 calculations where there had been 152, because ten IFRS
+tags now map (F-12). What remains absent is structural rather than incidental — segment
+revenue, management guidance, and a peer multiple on any run, ever.
 
 ## 4. Part B — the practical assessment
 
@@ -326,9 +346,9 @@ persona 2's complaint, and use case 9's row below.
 | # | Use case | Supported? | What the audit found |
 |---|---|---|---|
 | 1 | First deep dive on a US large cap | **partly** | A complete, accurate, £7.48 report in 42 minutes of step time — with no view, no segment revenue, no guidance and no peer multiple. Good as an evidence base; not a decision document. |
-| 2 | Refreshing a company already researched | **no** | The refresh section printed the prior report's UUID 21 times and the presentation check refused the run (F-22). Fixed here; the £6.80 run cannot be re-measured. |
+| 2 | Refreshing a company already researched | **yes, once fixed** | MSFT's refresh printed the prior report's UUID 21 times and the presentation check refused the run (F-22). AZN's second run, after the fix, rendered the same section with three reader columns, no identifier, every check green, and an approved report at £7.21. The £6.80 MSFT run itself cannot be re-measured, which is the other half of F-22. |
 | 3 | A domestic UK filer (LSE) | **no** | Acquisition resolves every subject against EDGAR; the Companies House client nobody calls (F-04). Proved offline. |
-| 4 | A UK plc through its 20-F | **partly** | AZN ran to an approved report at £6.83 — with the DCF withheld for want of a share count in the IFRS tags (F-12, fixed) and every peer multiple absent. |
+| 4 | A UK plc through its 20-F | **yes, with the peer gap** | AZN's first run reached an approved report at £6.83 with its DCF withheld for want of a share count (F-12). Its second, on the corrected aliases, carries the valuation: 831 calculations, a 5.83 % WACC, a per-share figure, 15,948 words, every check green, £7.21. Market capitalisation and the peer multiples are still absent. |
 | 5 | A bank | **no** | Twice. As found, no run resolved an industry code, so M&T met no sector gate, took the standard model and was asked for the EBIT margin of a bank (F-23, fixed). Re-run on the fix it classified as a bank, blocked the discounted cash flow, valued it on residual income over book — 643 calculations, 18 of 18 sections, £7.61 — and then failed gate 2 because its revenue is ASC 606 fee income and eleven relations among its figures are impossible (F-24, open). The path works; the bank's revenue does not. |
 | 6 | A company with a material recent event | **partly** | Recent developments came from filings alone: MSFT's 8-K of 2 September 2026 is cited, its substance "not before us". Every built-in section's tier ceiling is T4, so news never reaches one (F-21). The console's web search is the whole of the difference. |
 | 7 | Research under time pressure | **no** | 31–42 minutes of step time plus six human decisions; the console answered the same brief in 14–19 minutes with one prompt. Nothing useful exists at ten minutes. |
@@ -339,11 +359,11 @@ persona 2's complaint, and use case 9's row below.
 | 12 | Living with it | **partly** | £7 a report and about 40 minutes of attention; bring-up on a clean machine took one session and a local Postgres and Redis; the Windows path is untested here (§9). |
 
 **Who should use it today, and for what.** For building and auditing an evidence base on a
-US filer — every figure traceable, every citation verified, nothing invented — it already
-works, and no console session can be re-derived the way these runs can. For reaching a
-view, for anything needing segment detail, guidance, peer multiples or news, and for a
-bank, a domestic UK filer or a fast answer, the console is the better tool today, and six
-of six blind judgements said so.
+filer that files with the SEC — every figure traceable, every citation verified, nothing
+invented, and now a valuation on a 20-F filer too — it already works, and no console
+session can be re-derived the way these runs can. For reaching a view, for anything needing
+segment detail, guidance, peer multiples or news, and for a bank, a domestic UK filer or a
+fast answer, the console is the better tool today, and six of six blind judgements said so.
 
 ### 4.4 What the operator should check by hand
 
@@ -607,8 +627,12 @@ citations verified, 0 contradicted figures — is sound; the number an investor 
 absent for a reason that was a spelling.
 
 *Fix: the aliases now name the elements the taxonomy has (`tests/test_ifrs_aliases.py`
-holds them against the tags AstraZeneca files). Unproven live until AZN is run again on the
-fixed code; that run is the audit's fifth if the ledger allows.*
+holds them against the tags AstraZeneca files). **Proved live by a second AZN run**: 312
+unmapped tags against 322 and 1,178 mapped concepts against 1,025, with the share count
+(1,562m diluted), capital expenditure ($2,810m), both halves of the debt ($24,715m and
+$3,104m), taxes paid and share-based payments all mapped — so the valuation ran: **831
+calculations against 152, a WACC of 5.83 %, and a per-share figure on the front page**, in
+an approved and rendered report for £7.21.*
 
 ### F-13 — Every Haiku call was metered at Opus rates
 
@@ -781,6 +805,11 @@ job's document, re-assembled from its own record under the fix, scores `presenta
 **0 failures** against 21 before, with all 18 sections and 15,297 words unchanged. The run itself
 stays unapproved, because re-measuring it is exactly what the platform cannot do.*
 
+*Proved again on a fresh run, which is the stronger evidence: AstraZeneca's second
+commission met this section with a prior approved report on file, rendered it with three
+reader columns and no identifier anywhere in the document, passed all eleven checks, and was
+approved and rendered (§3.1). The refresh use case works.*
+
 ### F-23 — No run ever discovered what kind of business it was researching, so a bank was valued as an ordinary company
 
 *Completeness and correctness. Blocking. Found live, fixed with tests.*
@@ -922,14 +951,18 @@ is how F-08 was observed at all. Six more, found on the later runs:
 - The first M&T baseline was cut off by the container stopping mid-stream and re-run the
   next morning; whatever the vendor billed for the cut-off turn is not in the ledger's
   numbers and is noted there.
-- The accuracy matcher over-attributed on two documents and had to be tightened twice, each
-  time by a rule that applies to both sides: a half-year or trailing-twelve-month figure is
-  a qualified measure (two apparent contradictions in the M&T console note), and a table row
-  labelled as a change or a ratio is not a level, a period stated immediately after a figure
-  belongs to that figure, and a figure the platform quotes in order to refuse it is not a
-  claim (nine in the bank's report). All eleven were misreads; `tests/audit/test_match.py`
-  holds each rule. The matcher's precision is calibrated this way and its recall is not
-  measured, which §9 says.
+- The accuracy matcher over-attributed on three documents and was tightened three times,
+  each time by a rule that applies to both sides. A half-year or trailing-twelve-month
+  figure is a qualified measure (two apparent contradictions in the M&T console note). A
+  table row labelled as a change or a ratio is not a level, a period stated immediately
+  after a figure belongs to that figure, and a figure the platform quotes in order to refuse
+  it is not a claim (nine in the bank's report). And a concept phrase does not reach across
+  another figure, while a phrase right behind a figure labels it and a comma separates a
+  figure from the next item's label (four in AZN's second report, in sentences that state
+  two figures each). All fifteen were misreads, every one of them the matcher's;
+  `tests/audit/test_match.py` holds each rule. Precision is calibrated this way and recall
+  is not measured, which §9 says — and each tightening costs recall, because a phrase the
+  matcher will not reach for is a figure it no longer checks.
 - The scorer read a whole driver log, so the bank driven into one directory twice had both
   runs' gate stops counted together. It reads from the newest commission onwards now.
 - The run-to-run comparison keyed a calculation by name, period and case and kept one row
@@ -951,7 +984,8 @@ the platform's own table at the same rate the platform uses.
 |---|---|---|
 | Platform | MSFT #1 — approved and rendered | £7.48 |
 | Platform | MSFT #2 — refused at gate 2 (F-22) | £6.80 |
-| Platform | AZN — approved and rendered | £6.83 |
+| Platform | AZN — approved and rendered, valuation withheld | £6.83 |
+| Platform | AZN #2 — approved and rendered on the corrected aliases | £7.21 |
 | Platform | MTB as found — stopped for the operator (F-23) | £2.03 |
 | Platform | MTB on the fixed classification — refused at gate 2 (F-24) | £7.61 |
 | Baseline | MSFT — Opus 5 high, 25 searches, 12,967 words | £7.63 |
@@ -960,14 +994,16 @@ the platform's own table at the same rate the platform uses.
 | — | The M&T baseline turn the container cut off, billed and unrecorded | unknown |
 | — | `just test-live`, WP0 | < £0.05 |
 
-**Platform £30.75, baselines £25.37, total £56.12 of the £100 ceiling**, leaving £43.88
+**Platform £37.96, baselines £25.37, total £63.32 of the £100 ceiling**, leaving £36.68
 unspent. By category across every platform run: **output tokens £13.91, input £5.92, cache
 writes £3.23, cache reads £0.09, web search £0.17** — so three quarters of the bill is what
 the models wrote, and the cache is a cost rather than a saving at this hit rate (§3.3).
 
 The judged reads and the code reading were paid for in this session's own tokens, not in
-pounds from the £100. Nothing was spent on a sixth run: the two runs refused at gate 2 were
-re-measured from their own records instead, which is what the fixes needed proving against.
+pounds from the £100. The sixth run was the one worth paying for: AZN again, which proved
+two fixes on a live, approved, rendered report for £7.21. The two runs refused at gate 2
+were re-measured from their own records rather than re-run, which is the cheapest honest
+proof available for them.
 
 
 
@@ -1068,13 +1104,15 @@ definition or what a run does. They are listed in the order I would take them.
 - **The matcher's recall.** It judges what it can attribute and sets the rest aside; a wrong
   figure in a sentence it could not read is not counted. Its precision was calibrated, its
   recall was not measured.
-- **Anything a second run of AZN on the fixed alias table would show.** The IFRS fix is
-  proved against the archived tags, not by a run: the ledger's remaining room went to the
-  bank instead, because a live sector gate and a live residual-income valuation had never
-  been exercised at all.
-- **That the fixed refresh run finishes.** F-22's fix is proved by re-measuring the failed
-  check on the run that failed it, which is the tightest proof available without paying for
-  a sixth run; the run itself stays unapproved because nothing re-evaluates a finished job.
+- **Whether the valuation AZN's second run produced is *right*.** It exists, it is
+  traceable, its inputs are the filer's own tags and the operator's stated assumptions, and
+  nothing in it contradicts the filing — but a 5.83 % WACC on a 0.4 beta and a $2.5tn-plus
+  enterprise value on the grid's far corner are modelling outputs, and this pass measured
+  provenance, not judgement. §8's modelling items are where that goes.
+- **That MSFT's own refused run can be recovered.** F-22's fix is proved twice — by
+  re-measuring the failed check on the run that failed it, and by a fresh approved run
+  through the same section — but that £6.80 run stays unapproved, because nothing
+  re-evaluates a finished job.
 - **The judges are model readings.** Three per document, blind, answering a fixed rubric;
   agreement is reported and disagreement listed rather than averaged. Six of six blind
   comparisons agreeing is a strong signal about the documents, not a substitute for the

@@ -321,7 +321,7 @@ def _full_date(text: str) -> str | None:
 # sentence three times, and each prior year was judged against the latest year's figure.
 _PERIOD_IMMEDIATELY_AFTER: Final = re.compile(
     r"^\s*(percent|per cent|%|x|×|USD|\$|£|€|billion|million|bn|m)?\s*"
-    r"(in|for|of|during|at)?\s*(fiscal\s+)?(FY\s?\d{2,4}|\d{4})\b",
+    r"[(\[]?\s*(in|for|of|during|at)?\s*(fiscal\s+)?(FY\s?\d{2,4}|\d{4})\b",
     re.I,
 )
 
@@ -389,25 +389,61 @@ def _sentence_window(before: str, after: str) -> tuple[str, str]:
     return before_sentence, after_sentence
 
 
+# Any figure at all, used to see whether another number stands between a concept phrase and
+# the numeral being attributed. "$14,575m against net income of $10,225m" names two figures
+# and one concept each side of the word "against": reading the phrase across the intervening
+# figure gave the operating cash flow the net income's value to be judged against.
+_ANY_FIGURE: Final = re.compile(r"\d")
+# How close a following phrase has to be to read as the numeral's own label: enough for a
+# per-cent sign, a scale word and a space ("$136.2bn operating cash flow").
+_ADJACENT_REACH: Final = 4
+# What separates a figure from the *next* item's label rather than its own. "gross margin of
+# 67.9%, operating margin of 46.8%" labels each figure before it and lists them with commas;
+# without this, the comma read as adjacency and every figure took the next one's name.
+_NEW_ITEM: Final = re.compile(r"[,;:]|\band\b")
+
+
 def _concept_from(before: str, after: str) -> str | None:
-    """The concept phrase nearest the numeral inside its sentence; before beats after."""
+    """The concept phrase nearest the numeral inside its sentence; before beats after.
+
+    **A phrase separated from the numeral by another numeral does not attribute.** The
+    readiness audit's second AstraZeneca report produced four of these in one run — R&D
+    against revenue, operating cash flow against net income, R&D against SG&A — each a
+    correct sentence naming two figures, each read as one figure claiming the other's
+    concept. Where a figure stands between, the attribution is refused rather than guessed,
+    which costs recall and buys the only precision that matters here.
+    """
     before_s, after_s = _sentence_window(before, after)
     lowered_before, lowered_after = before_s.lower(), after_s.lower()
     best: tuple[int, int, str] | None = None
     for phrase, concept in CONCEPTS:
         idx = lowered_before.rfind(phrase)
         if idx >= 0:
-            distance = len(lowered_before) - (idx + len(phrase))
-            if distance <= _BEFORE_REACH:
+            gap = lowered_before[idx + len(phrase) :]
+            distance = len(gap)
+            if distance <= _BEFORE_REACH and not _ANY_FIGURE.search(gap):
                 candidate = (distance, -len(phrase), concept)
                 if best is None or candidate < best:
                     best = candidate
         idx = lowered_after.find(phrase)
-        if 0 <= idx <= _AFTER_REACH:
-            distance = idx + 3  # a phrase after the numeral is a slightly weaker attribution
-            candidate = (distance, -len(phrase), concept)
-            if best is None or candidate < best:
-                best = candidate
+        if 0 <= idx <= _AFTER_REACH and not _ANY_FIGURE.search(lowered_after[:idx]):
+            # **A phrase right behind the numeral is its label**, whatever follows it: "a
+            # 46.8% operating margin" and "$136.2bn operating cash flow" name themselves,
+            # and the strongest reading is the adjacent one — stronger than any phrase
+            # before, which is how "a 67.9% gross margin, a 46.8% operating margin" used to
+            # give the second figure the first's concept.
+            #
+            # Further away, a phrase with its own figure behind it belongs to that figure:
+            # "was $14,575m against net income of $10,225m" names the cash flow first and
+            # the income second, so this numeral takes nothing from it.
+            gap_after = lowered_after[:idx]
+            adjacent = idx <= _ADJACENT_REACH and not _NEW_ITEM.search(gap_after)
+            claimed = _ANY_FIGURE.search(lowered_after[idx + len(phrase) : idx + len(phrase) + 25])
+            if adjacent or claimed is None:
+                distance = -1 if adjacent else idx + 3
+                candidate = (distance, -len(phrase), concept)
+                if best is None or candidate < best:
+                    best = candidate
     chosen: str | None = best[2] if best else None
     if chosen is not None and any(
         b in lowered_before[-45:] or b in lowered_after[:40] for b in _BLOCKING

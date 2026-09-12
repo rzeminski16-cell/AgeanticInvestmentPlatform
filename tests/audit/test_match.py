@@ -149,3 +149,63 @@ def test_a_figure_quoted_in_order_to_refuse_it_is_not_a_claim() -> None:
     )
     result = summarise(classify_all(extract_numerals(text), _truth()))
     assert result["contradicted"] == 0
+
+
+def test_a_concept_phrase_does_not_reach_across_another_figure() -> None:
+    """The second AstraZeneca report stated pairs of figures in one sentence — operating
+    cash flow against net income, R&D against revenue, R&D against SG&A — and each first
+    figure was read as claiming the second's concept. A phrase separated from a numeral by
+    another numeral attributes to neither, and a phrase with its own figure behind it
+    belongs to that figure."""
+    numerals = extract_numerals(
+        "Operating cash flow was $118,548m against net income of $88,136m, and FY2024 "
+        "revenue of $245,122m against capex of $44,477m."
+    )
+    by_value = {str(n.value): n.concept for n in numerals}
+    assert by_value["118548"] == "operating_cash_flow"
+    assert by_value["88136"] == "net_income"
+    assert by_value["245122"] == "revenue"
+    assert by_value["44477"] == "capex"
+    assert summarise(classify_all(numerals, _truth()))["contradicted"] == 0
+
+
+def test_a_parenthesised_year_after_a_figure_is_its_period() -> None:
+    """ "capex rises from $1,361m (2023) to $1,924m (2024)" gives each figure the year in
+    the brackets behind it, not the year the sentence opened with."""
+    numerals = extract_numerals(
+        "Revenue rises from $211,915m (2023) to $245,122m (2024) on the same basis."
+    )
+    periods = {str(n.value): n.period for n in numerals if n.excluded is None}
+    assert periods["211915"] == "FY2023"
+    assert periods["245122"] == "FY2024"
+
+
+def test_a_phrase_right_behind_a_figure_labels_it() -> None:
+    """ "a 67.9% gross margin, a 46.8% operating margin" labels each figure with the words
+    right behind it. Refusing a forward reading whenever another figure followed the phrase
+    sent the second margin back to the first's concept, so adjacency wins outright."""
+    numerals = extract_numerals(
+        "For FY2024 the company earned a 67.9% gross margin, a 46.8% operating margin and a "
+        "36.0% net margin."
+    )
+    by_value = {str(n.value): n.concept for n in numerals}
+    assert by_value["67.9"] == "gross_margin"
+    assert by_value["46.8"] == "operating_margin"
+    assert by_value["36.0"] == "net_margin"
+
+
+def test_a_comma_separates_a_figure_from_the_next_item_s_label() -> None:
+    """Both orders appear in the same reports: "a 67.9% gross margin, a 46.8% operating
+    margin" labels each figure behind it, and "gross margin of 67.9%, operating margin of
+    46.8%" labels each in front. The comma is what tells them apart, and without it every
+    figure in the second shape took the next one's name."""
+    labelled_behind = extract_numerals(
+        "For FY2024 the company earned a 67.9% gross margin and a 36.0% net margin."
+    )
+    labelled_in_front = extract_numerals(
+        "Fiscal 2024: revenue of $245,122m, gross margin of 67.9%, net margin of 36.0%."
+    )
+    for numerals in (labelled_behind, labelled_in_front):
+        by_value = {str(n.value): n.concept for n in numerals if n.excluded is None}
+        assert by_value["67.9"] == "gross_margin"
+        assert by_value["36.0"] == "net_margin"
