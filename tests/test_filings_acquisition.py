@@ -31,6 +31,7 @@ from aer.services.filings import (
     _paragraphs,
     acquire_filings,
 )
+from aer.services.sectors import propose_from_sic
 from aer.sources.base import ResolvedEntity
 from aer.sources.sec.companyfacts import parse_company_facts
 from aer.sources.sec.submissions import Filing, SubmissionsIndex, parse_submissions
@@ -188,6 +189,62 @@ class _IndexClient(StubSecClient):
     async def fetch_submissions(self, cik: str) -> Any:
         self.submissions_calls.append(cik)
         return SimpleNamespace(data=self._index)
+
+
+class TestTheFilerSaysWhatKindOfBusinessItIs:
+    """The index carries the SIC code, and nothing was reading it.
+
+    ADR 0029 says a bank ticker cannot produce a discounted cash flow by any route, and the
+    type-level block delivers that — for a run whose company is classified. `classify`
+    proposes from `Company.sic`, which no run through this workflow ever filled: the step
+    fetches companyfacts, which carries no SIC. So M&T Bank's live audit run classified
+    nothing, met no sector gate, and took the standard model. The submissions index was
+    already being fetched for the filings, and it carries `sic` and `sicDescription`, so
+    the classification costs no extra request.
+    """
+
+    async def test_the_index_fills_the_company_s_classification(
+        self, scene: dict[str, Any]
+    ) -> None:
+        company: Company = scene["company"]
+        assert company.sic is None
+
+        await _acquire(scene)
+
+        assert company.sic == "7372"
+        assert company.sic_description == "Services-Prepackaged Software"
+
+    async def test_a_bank_s_code_reaches_the_classifier(self, scene: dict[str, Any]) -> None:
+        index = SubmissionsIndex(
+            cik=MSFT_CIK,
+            name="M&T BANK CORP",
+            tickers=("MTB",),
+            exchanges=("NYSE",),
+            filings=(_filing("10-K", date(2022, 7, 28), sequence=1),),
+            sic="6022",
+            sic_description="State Commercial Banks",
+        )
+
+        await _acquire(scene, client=_IndexClient(scene["store"], index))
+
+        assert scene["company"].sic == "6022"
+        assert propose_from_sic(scene["company"].sic or "").sector_key == "banks"
+
+    async def test_an_index_without_a_code_leaves_the_company_alone(
+        self, scene: dict[str, Any]
+    ) -> None:
+        scene["company"].sic = "7372"
+        index = SubmissionsIndex(
+            cik=MSFT_CIK,
+            name="MICROSOFT CORP",
+            tickers=("MSFT",),
+            exchanges=("NASDAQ",),
+            filings=(_filing("10-K", date(2022, 7, 28), sequence=1),),
+        )
+
+        await _acquire(scene, client=_IndexClient(scene["store"], index))
+
+        assert scene["company"].sic == "7372"
 
 
 class TestQuarterlyReports:

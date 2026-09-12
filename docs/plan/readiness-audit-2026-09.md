@@ -455,6 +455,38 @@ it is put in §8 rather than changed here.
   ceiling is T4 and MSFT #1's one admitted T5 document was cited nowhere. Use case 6 turns
   on this.
 
+### F-22 — The refresh run's own comparison table printed the prior report's identifier
+
+*Presentation and practicality. Major. Found live, fixed with a test, and the fix proved on
+the run that failed.*
+
+MSFT's second run — the refresh use case, commissioned the next UTC day — reached gate 2
+with ten of eleven checks green and `presentation_integrity` failing on **twenty-one raw
+UUIDs**, all one string: the prior report's id. Every row of `prior_research_comparison`
+carries a `prior_report_id` (its contract requires one), the renderer hides
+`financial_fact_id` and `extraction_id` as provenance a reader cannot follow, and nobody
+had added this key to that list — so the section rendered a *Prior Report Id* column of
+UUIDs, and its own commentary invited the reader to follow them. Only a second run on a
+company reaches this section with rows in it, so the first run of every subject passes and
+the refresh fails.
+
+The platform does not bar approval on a failed check: the failure banners at the gate and
+lands on the coverage notice, and the operator decides. So the honest operator refuses —
+which is what the audit's policy did — and there is **no way to re-measure the check after
+a fix**: the metrics are written at `validate`, the run waits at gate 2 for ever, and no
+CLI command or page re-evaluates a job. A £6.80 run therefore has two ends: approve a
+document with a column of machine identifiers in it, or pay again. That is the finding
+behind use case 2's row in §4.
+
+*Fix: `prior_report_id` joins the renderer's provenance keys, so the id stays in the run
+export and the interface (which can resolve it) and leaves the document; the section's
+sentence now says where to find it. `tests/test_report_document.py::TestAPriorReportIdIsProvenanceNotAColumn`
+holds the three parts of it — the id absent, the reader's columns intact, and the check
+passing. Proved live: the same job's document, re-assembled from its own record under the
+fix, scores `presentation_integrity` **0 failures** against 21 before, with all 18 sections
+and 15,297 words unchanged. The run itself stays unapproved, because re-measuring it is
+exactly what the platform cannot do.*
+
 ## 6. The harness's own defects, for honesty
 
 The driver, not the platform, caused two stops on MSFT #1: a duplicated keyword in the
@@ -477,6 +509,14 @@ is how F-08 was observed at all. Three more, found on the later runs:
 - The first M&T baseline was cut off by the container stopping mid-stream and re-run the
   next morning; whatever the vendor billed for the cut-off turn is not in the ledger's
   numbers and is noted there.
+- The run-to-run comparison keyed a calculation by name, period and case and kept one row
+  per key — but one key holds many rows (a sensitivity grid records `present_value` once
+  per cell, 117 times; one year's `days_outstanding` covers receivables, inventory and
+  payables), and the rows are not emitted in a stable order. Its first answer on the two
+  MSFT runs was "31 keys differ", of which most were a grid read against itself out of
+  order, and a second version comparing row by row made it "642 rows of 837". Comparing the
+  multiset of values under each key is the measure that matches the claim, and it is what
+  §3.1 reports; `tests/audit/test_variance.py` holds it.
 
 ## 7. The spend ledger ⏳
 

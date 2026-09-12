@@ -2319,14 +2319,15 @@ async def _classify(context: StepContext) -> StepResult:
     A SIC code matching no specialist profile produces an empty proposal, no gate, and the
     standard model — which is the right answer for most listed companies.
 
-    **`Company.sic` is populated by the adapters that parse it**, which today means Companies
-    House and the SEC *submissions* endpoint. This slice acquires *companyfacts*, which does
-    not carry a SIC code, so a run through this path classifies nothing and takes the standard
-    model. That is safe rather than merely convenient — an absent classification is the
-    permissive state and it is reached here by the data genuinely not being present, not by a
-    lookup failing quietly — but it does mean the block is exercised by runs that resolve a
-    SIC and not yet by this one. The mechanism, the gate and the refusal are tested
-    independently of where the proposal came from.
+    **`Company.sic` is populated by the adapters that parse it**, which means Companies House
+    and the SEC *submissions* index — the index `acquire` already fetches for the filings, and
+    which `aer.services.filings` records the code from. It did not, once, and the consequence
+    was not theoretical: M&T Bank's live audit run classified nothing, met no sector gate and
+    ran the standard model on a bank, which is the one thing ADR 0029 exists to prevent. A SIC
+    code matching no specialist profile still produces an empty proposal, no gate and the
+    standard model, and an index that carries no code at all leaves the column as it was —
+    the permissive state is reached by the data saying nothing, never by a lookup failing
+    quietly.
     """
     acquired = context.output_of("acquire")
     company = await context.session.get(Company, _uuid(acquired["company_id"]))

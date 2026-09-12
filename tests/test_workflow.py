@@ -57,6 +57,7 @@ from tests.workflow_fixtures import (
     SPINE_KEYS,
     StubSecClient,
     _peer_cik,
+    paused_at,
     seed_job,
     seed_request,
     seed_user,
@@ -115,6 +116,26 @@ async def approve(
         actor=actor,  # type: ignore[arg-type]
         payload_hash=payload_hash_for(await gate_payload(session, job=job, gate=gate.value)),
     )
+
+
+async def clear_the_sector_gate(*, actor: object, **kwargs: Any) -> run_service.RunOutcome:
+    """Run until the sector gate, agree with the classification, and carry on.
+
+    A new stop on the way to everything downstream: `acquire` records the filer's own SIC
+    code now, and the fixture's filer is Microsoft, whose 7372 matches the early-stage
+    technology profile. A test whose subject is further along clears it the way an operator
+    who agrees does; the classification itself is the subject of `tests/test_sectors_*`.
+    """
+    session, job = kwargs["session"], kwargs["job"]
+    outcome = await run_to_next_stop(**kwargs)
+    if outcome.status is JobStatus.AWAITING_APPROVAL and (
+        await paused_at(session, job.id) == "gate_sector_specialist"
+    ):
+        await approve(
+            session, job=job, gate=GateKind.SECTOR_SPECIALIST, actor=actor, step="classify"
+        )
+        return await run_to_next_stop(**kwargs)
+    return outcome
 
 
 # The conditional gates a downstream-subject flow clears, by the step each one pauses at.
@@ -662,7 +683,8 @@ class TestThePeerSetAModelProposed:
             actor=scenario["user"],
             step="critique_plan",
         )
-        await run_to_next_stop(
+        await clear_the_sector_gate(
+            actor=scenario["user"],
             **{**_args(scenario), "settings": with_price_feed(scenario["settings"])},
             stop_after="propose_peers",
         )
@@ -722,7 +744,8 @@ class TestThePeerSetAModelProposed:
         )
 
         broken = FakeProvider(fail_with=ValidationError("the provider is unavailable"))
-        outcome = await run_to_next_stop(
+        outcome = await clear_the_sector_gate(
+            actor=scenario["user"],
             **{
                 **_args(scenario),
                 "provider": broken,
@@ -764,7 +787,8 @@ class TestThePeerSetAModelProposed:
         )
 
         capped = FakeProvider(fail_with=BudgetExceededError("the run is at its ceiling"))
-        outcome = await run_to_next_stop(
+        outcome = await clear_the_sector_gate(
+            actor=scenario["user"],
             **{
                 **_args(scenario),
                 "provider": capped,
@@ -792,7 +816,9 @@ class TestThePeerSetAModelProposed:
         )
         assert not scenario["settings"].price_feed_configured
 
-        outcome = await run_to_next_stop(**_args(scenario), stop_after="propose_peers")
+        outcome = await clear_the_sector_gate(
+            actor=scenario["user"], **_args(scenario), stop_after="propose_peers"
+        )
 
         row = await session.scalar(
             select(JobStep).where(

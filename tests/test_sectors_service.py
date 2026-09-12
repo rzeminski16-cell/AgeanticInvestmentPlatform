@@ -305,7 +305,10 @@ class TestTheProposalFromSic:
         assert proposal.is_specialist
         assert "6021" in proposal.rationale
 
-    def test_an_ordinary_code_proposes_nothing(self):
+    def test_a_code_outside_every_profile_proposes_nothing(self):
+        """A retail bakery matches no specialist profile and needs no gate. Software does
+        match one — 7372 is the early-stage technology profile's own prefix — which is why
+        Microsoft's own run meets the sector gate now that the code is resolved."""
         proposal = propose_from_sic("7372")
         assert proposal.sector_key == "early_stage_tech"
 
