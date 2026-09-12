@@ -43,6 +43,7 @@ from aer.core.disagreement import (
 from aer.core.enums import ClaimKind, FactBasis, GateKind, JobStatus, Provider, SourceTier
 from aer.db.models import (
     Artefact,
+    Calculation,
     Company,
     Disagreement,
     FinancialFact,
@@ -64,7 +65,12 @@ from aer.services.disagreements import (
     settle_by_hand,
 )
 from aer.services.escalation import triggers_for_job
-from aer.services.red_team import MATERIAL_SEVERITY, _shortened, run_red_team
+from aer.services.red_team import (
+    MATERIAL_SEVERITY,
+    _evidence_index,
+    _shortened,
+    run_red_team,
+)
 from aer.storage.local import LocalArtefactStore
 from tests.ledger_fixtures import record_valuation_ledger
 from tests.request_fixtures import research_request
@@ -706,6 +712,101 @@ class TestThePlantedContradictionIsChallenged:
             outcome["session"], job=outcome["job"], request=outcome["request"]
         )
         assert [t.kind for t in fired] == []
+
+
+class TestTheAdversarySeesTheFigureTheDraftWasWrittenFrom:
+    """The readiness audit's second AstraZeneca run produced eight escalated challenges,
+    six of them severity 3 to 5, saying every headline figure in the draft contradicted the
+    run's own record: gross margin 0.668 against the draft's 81.9%, operating margin 0.028
+    against 23.4%, free cash flow $4,872m against $11,765m. The draft was right — the run
+    holds FY2025 gross margin 0.818978 and free cash flow $11,765m — and the adversary was
+    shown FY2021 and FY2022, because the index took the first forty rows by sequence and
+    the ratio suite computes the oldest year first. Worse, the entries carried no period at
+    all, so the two could not be told apart even in principle.
+
+    The accusations then reached the published report, unresolved, where a reader meets them
+    as the platform's own verdict on its own figures.
+    """
+
+    async def _with_five_years(self, scene: dict[str, Any]) -> dict[str, Any]:
+        session: AsyncSession = scene["session"]
+        for index, year in enumerate(range(2021, 2026)):
+            session.add(
+                Calculation(
+                    job_id=scene["job"].id,
+                    name="gross_margin",
+                    formula="gross margin = gross profit / revenue",
+                    function_ref="aer.calc.ratios:gross_margin",
+                    code_version="test",
+                    inputs=[],
+                    output_value=Decimal("0.60") + Decimal("0.05") * index,
+                    output_unit="pure",
+                    period_label=f"FY{year}",
+                    period_end=date(year, 12, 31),
+                    sequence=index,
+                )
+            )
+        # A sensitivity cell: one of a grid of them, and never the figure a draft quotes.
+        session.add(
+            Calculation(
+                job_id=scene["job"].id,
+                name="value_per_share",
+                formula="value per share = equity value / shares",
+                function_ref="aer.calc.dcf:value_per_share",
+                code_version="test",
+                inputs=[],
+                parameters={"case": "sensitivity"},
+                output_value=Decimal("11.11"),
+                output_unit="USD/shares",
+                sequence=98,
+            )
+        )
+        session.add(
+            Calculation(
+                job_id=scene["job"].id,
+                name="value_per_share",
+                formula="value per share = equity value / shares",
+                function_ref="aer.calc.dcf:value_per_share",
+                code_version="test",
+                inputs=[],
+                parameters={"case": "base"},
+                output_value=Decimal("99.99"),
+                output_unit="USD/shares",
+                sequence=99,
+            )
+        )
+        await session.flush()
+        return scene
+
+    async def test_the_newest_period_is_what_the_adversary_is_shown(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await self._with_five_years(scene)
+
+        index = await _evidence_index(scene["session"], job=scene["job"], request=scene["request"])
+        margins = [row for row in index.calculations if row["name"] == "gross_margin"]
+
+        assert len(margins) == 1, "one row per figure, at its newest period"
+        assert margins[0]["period"] == "FY2025"
+        assert Decimal(margins[0]["value"]) == Decimal("0.80")
+
+    async def test_every_figure_states_its_period(self, scene: dict[str, Any]) -> None:
+        await self._with_five_years(scene)
+
+        index = await _evidence_index(scene["session"], job=scene["job"], request=scene["request"])
+
+        assert index.calculations, "the index must carry the run's figures"
+        assert all("period" in row for row in index.calculations)
+
+    async def test_a_sensitivity_cell_is_not_offered_as_the_answer(
+        self, scene: dict[str, Any]
+    ) -> None:
+        await self._with_five_years(scene)
+
+        index = await _evidence_index(scene["session"], job=scene["job"], request=scene["request"])
+        per_share = [row for row in index.calculations if row["name"] == "value_per_share"]
+
+        assert [Decimal(row["value"]) for row in per_share] == [Decimal("99.99")]
 
 
 class TestRejectionAndSkipping:

@@ -172,6 +172,12 @@ in `claim_ids`, from the claim list — that is how the section that made them g
 chance to answer you before a person reads it.
 4. You never produce a figure of your own. Where the evidence is thin, say the evidence \
 is thin — that is itself a finding.
+4a. **The index is a digest, not the whole record.** Each recorded calculation appears \
+once, at its newest period, and that period is stated beside it; sensitivity-grid cells \
+are left out. So a figure in the draft that you cannot find here may be a figure for \
+another period, and a difference between the draft and a row you *can* see is only a \
+contradiction when the periods match. Say "not shown in my index" where that is what you \
+mean; it is a weaker and truer claim than "contradicts the record".
 5. If the claims genuinely survive your attack, say so in the coverage note and return \
 few or no challenges. A manufactured objection wastes the reader's trust in the real \
 ones.
@@ -187,9 +193,12 @@ class RedTeamAgent(Agent[RedTeamInput, RedTeamReport]):
 
     role: ClassVar[str] = "red_team"
     output_schema: ClassVar[type[BaseModel]] = RedTeamReport
-    # Bumped when challenges gained claim attribution (ADR 0091): rule 3 now asks for the
-    # claims under attack by id, so the revise loop can route them to their sections.
-    prompt_version: ClassVar[str] = "2"
+    # Bumped when challenges gained claim attribution (ADR 0091): rule 3 asks for the
+    # claims under attack by id, so the revise loop can route them to their sections. Then
+    # again for rule 4a: the index carries each figure's period and says it is a digest,
+    # after a live run escalated six false severity-3-to-5 challenges built on reading
+    # FY2021 rows as though they were the FY2025 figures the draft had quoted.
+    prompt_version: ClassVar[str] = "3"
 
     def system_prompt(self, payload: RedTeamInput) -> str:  # noqa: ARG002 -- fixed by design
         return _SYSTEM_PROMPT

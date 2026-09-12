@@ -39,6 +39,7 @@ from aer.agents.red_team import (
     RedTeamChallenge,
     RedTeamInput,
 )
+from aer.calc.dcf import SENSITIVITY_CASE
 from aer.core.disagreement import (
     THESIS_UNIT,
     DisagreementKind,
@@ -62,7 +63,13 @@ from aer.providers.protocol import SpentButUnusableError
 from aer.services.disagreements import record_resolution
 from aer.services.subject import subject_name
 
-__all__ = ["EVIDENCE_ITEM_CAP", "MATERIAL_SEVERITY", "RedTeamOutcome", "run_red_team"]
+__all__ = [
+    "EVIDENCE_CALCULATION_CAP",
+    "EVIDENCE_ITEM_CAP",
+    "MATERIAL_SEVERITY",
+    "RedTeamOutcome",
+    "run_red_team",
+]
 
 # One retry at most. A second adversary costs about what the first did, and a third has
 # never been the difference between a bear case and none.
@@ -103,6 +110,12 @@ def _shortened(statement: str) -> str:
 # Rows per evidence category in the index. The same bound the other evidence-assembling
 # services use: enough to argue from, small enough to stay inside the role's input cap.
 EVIDENCE_ITEM_CAP: Final = 40
+
+# Calculations are bounded separately, because they are deduplicated to one row per figure
+# before the bound applies: a run records six to eight hundred rows and computes sixty-odd
+# distinct figures, so a cap that fits the figures costs a few hundred tokens and a cap of
+# forty silently hid the newest year of two thirds of them.
+EVIDENCE_CALCULATION_CAP: Final = 120
 
 
 @dataclass(slots=True)
@@ -314,13 +327,39 @@ async def _evidence_index(
             }
         )
 
-    calculations = await session.scalars(
+    # **One row per figure, at its newest period, with the period stated.** This used to
+    # take the first forty rows by sequence, which on a real run means the oldest fiscal
+    # year: the ratio suite computes FY2021 before FY2025, a DCF records a hundred and more
+    # sensitivity cells, and eight hundred rows do not fit in forty. The readiness audit
+    # watched the consequence twice. The adversary was shown gross margin 0.668 (FY2021),
+    # read the draft's 81.9% (FY2025, and recorded), and escalated *every* headline figure
+    # as contradicting the run's own record — six challenges at severity 3 to 5, all false,
+    # all unresolved in the published report, where a reader meets them as the platform's
+    # verdict on itself. The entries carried no period either, so nothing in the pack could
+    # have told the two apart.
+    #
+    # A sensitivity cell is a grid point rather than an answer, so the case the valuation
+    # reports is the one offered and the grid is left out.
+    rows = await session.scalars(
         select(Calculation)
         .where(Calculation.job_id == job.id)
-        .order_by(Calculation.sequence)
-        .limit(EVIDENCE_ITEM_CAP)
+        .order_by(
+            Calculation.name,
+            Calculation.period_end.desc().nullslast(),
+            Calculation.sequence.desc(),
+        )
     )
-    for calc in calculations:
+    seen: set[tuple[str, str]] = set()
+    for calc in rows:
+        case = str((calc.parameters or {}).get("case", ""))
+        if case == SENSITIVITY_CASE:
+            continue
+        key = (calc.name, case)
+        if key in seen:
+            continue
+        seen.add(key)
+        if len(index.calculations) >= EVIDENCE_CALCULATION_CAP:
+            break
         identifier = str(calc.id)
         index.calculation_ids.add(identifier)
         index.calculations.append(
@@ -329,6 +368,8 @@ async def _evidence_index(
                 "name": calc.name,
                 "value": str(calc.output_value),
                 "unit": calc.output_unit,
+                "period": calc.period_label
+                or (calc.period_end.isoformat() if calc.period_end else "not period-specific"),
             }
         )
 
