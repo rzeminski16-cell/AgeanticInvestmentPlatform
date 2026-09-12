@@ -124,4 +124,3 @@ closing bracket. The separator is the anchor, and the two-digit bound with no de
 separator continuing it keeps a quantity's shape out: "Phase 12.5 —" and "Step 200 —" keep
 their figures, and "Step 2 — 40 bps" excuses the 2 and keeps the 40. The counter-tests hold
 all three.
-

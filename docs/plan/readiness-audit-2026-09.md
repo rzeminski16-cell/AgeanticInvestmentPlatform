@@ -158,10 +158,18 @@ it beyond the re-measurement in §5.
 as-of date was offered to a claim — the honest reading is that the check had no population,
 not that it passed.
 
-Held against the console: **0 contradicted of 154 checkable numerals** (MSFT) and **1 of
-178** (AZN — capital expenditure stated including intangibles, where the filing's figure is
-property alone). On stated figures the two are a draw, and both are good. The difference is
-not accuracy: it is what each will state at all, which is §3.4 and §4.
+Held against the console: **0 contradicted of 154** checkable numerals (MSFT), **1 of 178**
+(AZN — capital expenditure stated including intangibles, where the filing's figure is
+property alone) and **0 of 106** (M&T). On stated figures the two are a draw, and both are
+good. The difference is not accuracy: it is what each will state at all, which is §3.4
+and §4.
+
+The console's own verifiability is weaker than its accuracy. Across the three notes it
+cited **46, 58 and 55 distinct URLs**, of which **33, 37 and 35 still resolved** when the
+audit fetched each one — so roughly a third of its references were already unreachable the
+day after they were written — and **no response carried a citation block at all**: the
+references are the model's own prose, which is why the matcher's URL scan is the only way to
+count them.
 
 **Verdict on accuracy: yes.** No figure in any run contradicted the filing it came from, by
 the platform's measures or by an independent recomputation that does not trust them.
@@ -256,9 +264,8 @@ evidence rules exclude what would answer them; and on AZN the valuation is withh
 altogether.
 
 **The verifiability result deserves care.** The platform's footnotes resolve to hashed bytes
-and the console's are URLs that may or may not still say what was quoted — 46 URLs cited on
-MSFT of which **33 resolved**, 58 on AZN of which **37 resolved**, and the response carried
-no citation blocks at all, so the references are the model's own prose. Yet judges reading
+and the console's are URLs that may or may not still say what was quoted — a third of them
+already did not (§3.2). Yet judges reading
 the *exported Markdown alone* found the console no slower to check, because a URL can be
 opened and a footnote to `source_document:<uuid>` cannot. **The platform's verifiability
 advantage lives in the interface, not in the document it exports** — which is exactly

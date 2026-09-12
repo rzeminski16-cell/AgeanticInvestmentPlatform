@@ -52,6 +52,16 @@ which is the operator's move rather than a session's.
 *Finished 2026-08-25 and now in §4: the drafted-figure check (§4.14) and the comps
 disclosure (§4.15), which were the two at the top of this list.*
 
+**The confirmation run happened, five times over, in the readiness audit of 2026-09-12** —
+[`readiness-audit-2026-09.md`](readiness-audit-2026-09.md). Item 1 is closed by it: 18 of 18
+sections drafted on every run, nothing starved and no section lost. What the pass put in
+front of this list instead is three blocking findings — two fixed there (the refresh run's
+leaked identifier; no run resolving the filer's industry code, so a bank took the standard
+model) and **one open: a bank's revenue resolves to its ASC 606 fee income**, so every
+margin on it is impossible and a bank cannot produce an approvable report. That, and the
+fifteen decisions in the audit's §8, are the next thing that would otherwise put a wrong
+number or no answer in front of somebody.
+
 Everything else sits in its bucket below. The running order across everything open — the
 phases, what gates each, and the moves only the operator can make — is
 [`remaining-work.md`](remaining-work.md); this list stays the authority on priority.
