@@ -980,12 +980,25 @@ definition or what a run does. They are listed in the order I would take them.
    acquire them, to drop the multiples from the spine, or to keep proposing peers for the
    record and say in the report that the table is structurally empty. Today the report says
    the peers were "excluded", which reads as a judgement about the peers.
-2. **A bank's revenue** (F-24). M&T reports no total-revenue caption after FY2023, so
-   revenue resolves to ASC 606 fee income and every margin computed on it is impossible.
-   The components are mapped; the definition is not. Adopting `revenue = net interest
-   income + non-interest income` for a confirmed bank is the fix, and it is a modelling
-   definition rather than a bug fix — which is why a bank cannot produce an approvable
-   report until you take it.
+2. **A bank's revenue** (F-24) — **the one blocking finding open, and the reason no bank
+   produces an approvable report.** M&T reports no total-revenue caption after FY2023, so
+   revenue resolves to its ASC 606 fee income of $1,657m against net income of $2,851m.
+   Both components are already mapped (`InterestIncomeExpenseNet` $6,948m,
+   `NoninterestIncome` $2,742m); no definition sums them. Three ways, in the order I would
+   weigh them:
+   - **Derive it.** A traced calculation, `revenue = net interest income + non-interest
+     income`, taken for a filer the sector gate has confirmed as a bank and used where the
+     caption is absent. It is the caption `RevenuesNetOfInterestExpense` already means, and
+     it gives M&T $9,690m and a 29.4 % net margin. The work is one function in `aer.calc`,
+     one place in the ratio inputs that prefers it, and an ADR saying a bank's revenue is
+     that sum.
+   - **Withhold it.** Treat an ASC 606 component as no revenue at all when the filer also
+     reports interest income, so every margin withholds rather than computing (ADR 0034's
+     posture). Smaller, honest, and leaves a bank's report with no margins in it.
+   - **Leave it.** The plausibility guard catches the symptom and refuses the report, which
+     is safe and useless: a bank cannot be researched.
+   I did not choose, because each answer is a different statement about what a bank's
+   revenue *is*, and that is yours.
 3. **The sector gate needs a third answer** (F-26). "Approve" grants a mandate and "Reject"
    kills the run; an operator who thinks the classification is wrong has nowhere to say so.
    The narrow fix is a "not this sector" decision that records the correction and runs the
