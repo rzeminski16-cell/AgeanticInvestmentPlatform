@@ -2,7 +2,8 @@
 
 *An assurance and audit pass over the equity research tool alone — the `vertical_slice_v1`
 workflow and everything it reaches — run from a cloud session on branch
-`claude/cool-noether-fj0y7b` against commit `82616f1`, starting 2026-09-11. The question is
+`claude/cool-noether-fj0y7b`, which starts at commit `82616f1` and carries the pass's own
+fixes, over 2026-09-11 and 2026-09-12. The question is
 the operator's: **reliable, accurate, budget friendly, complete**, held against the same
 research done in the Claude console with an optimised set-up. This document is the record:
 what was measured, what was found, what was fixed, and what only the operator can decide.*
@@ -138,11 +139,14 @@ model's opinion confirmed at a gate. That is the design (ADR 0046), and it means
 subject twice gives the same numbers" holds for everything except the assumptions — where
 it is the operator's confirmation, not the platform, that fixes the answer.
 
-**Verdict on reliability: not yet.** Nothing was lost and nothing was paid for twice, but
-two of four subjects did not reach a report — one refused by the platform's own
-presentation check on every refresh run (F-22), one stopped because a bank was never
-classified as one (F-23). Both are fixed here; neither fix has a completed live run behind
-it beyond the re-measurement in §5.
+**Verdict on reliability: not yet.** Nothing was lost and nothing was paid for twice —
+0 sections lost in five runs, every resume free, every replay exact — but **three of five
+runs did not reach a report**: the refresh run refused by the platform's own presentation
+check over a leaked identifier (F-22), the bank stopped at the assumptions gate because it
+was never classified as a bank (F-23), and the bank again, refused by the check that found
+eleven impossible relations among figures built on a revenue that is not one (F-24). Two of
+the three are fixed here and re-measured on the runs that failed; the third is §8's to
+decide, and until it is taken a bank produces no approvable report.
 
 ### 3.2 Accurate
 
