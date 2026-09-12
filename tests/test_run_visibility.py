@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, Final
 
 import pytest
 from sqlalchemy import select, text
@@ -292,6 +292,13 @@ class TestAFailureSurvivesTheExceptionThatCausedIt:
         assert "on fire" in error["message"]
 
 
+# The conditional gates that pause before the leg these two tests make fail, in order: the
+# peer set (ADR 0059) and the theme set (K1). Asserted by name rather than counted, so a
+# gate that arrives or moves says which one — the sector gate would join them for a filer
+# whose industry code blocks a model, and the fixture's does not.
+_GATES_BEFORE_THE_SECOND_LEG: Final = ("gate_peer_set", "gate_theme_set")
+
+
 class TestACrashDoesNotUnspendCompletedWork:
     async def test_steps_finished_before_a_failure_are_kept(
         self,
@@ -317,12 +324,10 @@ class TestACrashDoesNotUnspendCompletedWork:
 
         await worker.run(job_id)
         await worker.approve(job_id, gate=GateKind.PLAN, step=_PLAN_SEAL)
-        # Two conditional gates now pause this stretch — the peer set (ADR 0059) and the
-        # theme set (K1) — and both sit before the leg this test makes fail. Clear each.
-        await worker.run(job_id)
-        assert await worker.approve_the_pause(job_id)
-        await worker.run(job_id)
-        assert await worker.approve_the_pause(job_id)
+        for expected in _GATES_BEFORE_THE_SECOND_LEG:
+            await worker.run(job_id)
+            assert await worker.waiting_at(job_id) == expected
+            assert await worker.approve_the_pause(job_id)
 
         monkeypatch.setattr(vertical_slice_v1, "_calculate", _step_that_explodes)
         await worker.run_expecting_failure(job_id)
@@ -353,12 +358,10 @@ class TestACrashDoesNotUnspendCompletedWork:
 
         await worker.run(job_id)
         await worker.approve(job_id, gate=GateKind.PLAN, step=_PLAN_SEAL)
-        # Two conditional gates now pause this stretch — the peer set (ADR 0059) and the
-        # theme set (K1) — and both sit before the leg this test makes fail. Clear each.
-        await worker.run(job_id)
-        assert await worker.approve_the_pause(job_id)
-        await worker.run(job_id)
-        assert await worker.approve_the_pause(job_id)
+        for expected in _GATES_BEFORE_THE_SECOND_LEG:
+            await worker.run(job_id)
+            assert await worker.waiting_at(job_id) == expected
+            assert await worker.approve_the_pause(job_id)
 
         monkeypatch.setattr(vertical_slice_v1, "_calculate", _step_that_explodes)
         await worker.run_expecting_failure(job_id)

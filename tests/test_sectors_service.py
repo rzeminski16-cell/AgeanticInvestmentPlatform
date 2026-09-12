@@ -305,16 +305,24 @@ class TestTheProposalFromSic:
         assert proposal.is_specialist
         assert "6021" in proposal.rationale
 
-    def test_a_code_outside_every_profile_proposes_nothing(self):
-        """A retail bakery matches no specialist profile and needs no gate. Software does
-        match one — 7372 is the early-stage technology profile's own prefix — which is why
-        Microsoft's own run meets the sector gate now that the code is resolved."""
+    def test_a_code_that_blocks_no_model_proposes_nothing_and_says_it_matched(self):
+        """A gate is earned by blocking a model, not by matching a prefix.
+
+        7372 is the early-stage technology profile's own prefix, and that profile blocks
+        nothing — so proposing it would stop a Microsoft run at a gate whose only answers
+        are "approve this label" and "kill the run". The match is still recorded, so a
+        reviewer sees what the code suggested.
+        """
         proposal = propose_from_sic("7372")
-        assert proposal.sector_key == "early_stage_tech"
+        assert proposal.sector_key == ""
+        assert not proposal.is_specialist
+        assert proposal.sic_candidates == ("early_stage_tech",)
+        assert "blocks no valuation model" in proposal.rationale
 
         ordinary = propose_from_sic("5461")
         assert ordinary.sector_key == ""
         assert not ordinary.is_specialist
+        assert ordinary.sic_candidates == ()
 
     def test_a_missing_code_says_so_rather_than_guessing(self):
         proposal = propose_from_sic("")

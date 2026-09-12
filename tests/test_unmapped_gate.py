@@ -295,14 +295,23 @@ class TestTheGateFiresOnARealExtraction:
     async def test_confirming_a_different_set_of_tags_is_not_confirming_these(
         self, api: Any, committed: dict, unmapped_runner: Runner
     ) -> None:
-        """The same rule as every other gate: the hash is what was approved."""
+        """The same rule as every other gate: the hash is what was approved.
+
+        The refusal moved earlier. The JSON API used to record any 64-character hash and
+        leave the engine to refuse it at the next step, which is how the run could hold an
+        approval naming a set nobody had seen; it now compares the submitted hash against
+        the gate's live payload before writing anything, as the web route always did, and
+        answers 422 with both hashes. The run is left waiting either way — that is the
+        property this test is about — and now it is waiting with no decision recorded.
+        """
         job_id = await run_to_the_financials_gate(api, unmapped_runner, committed["request"].id)
 
         response = await api.post(
             f"/api/runs/{job_id}/gates/UNMAPPED_CONCEPTS/decide",
             json={"decision": "APPROVED", "payload_hash": "0" * 64},
         )
-        assert response.status_code == 202, response.text
+        assert response.status_code == 422, response.text
+        assert "decide on what it shows now" in response.json()["detail"]
 
         status = await unmapped_runner.advance(job_id)
         assert status == JobStatus.AWAITING_APPROVAL
