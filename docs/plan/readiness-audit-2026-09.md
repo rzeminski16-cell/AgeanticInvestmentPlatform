@@ -38,13 +38,13 @@ here can match a footnote that resolves to bytes and a calculation that re-execu
 not use it yet** to reach a view, to research a bank or a domestic UK filer, to answer a
 question under time pressure, or to hand somebody a document that stands on its own.
 
-The pass found **24 findings** and **fixed 16** with regression tests (one of them a bundle
+The pass found **26 findings** and **fixed 18** with regression tests (one of them a bundle
 of fifteen smaller ones), among them three that were blocking and live: the refresh run's
 own gate refused it over a leaked identifier (F-22); no run ever discovered what kind of
 business it was researching, so a bank took the model ADR 0029 exists to forbid (F-23); and
 a bank's revenue resolves to its fee income, which the plausibility guard catches and
-nothing corrects (F-24, the one blocking finding left open). The eight that remain are §8's
-fifteen decisions, two small integrity items (F-06, F-07) and F-24.
+nothing corrects (F-24, the one blocking finding left open). The eight that remain are
+§8's decisions, two small integrity items (F-06, F-07) and F-24.
 
 ## 2. Method
 
@@ -781,6 +781,47 @@ traced calculation, `revenue = net interest income + non-interest income`, taken
 filer the sector gate has confirmed as a bank and used where the caption is absent; that is
 a modelling definition, and §8 carries it.
 
+### F-25 — The platform's own withheld-figure note failed the platform's own presentation check
+
+*Presentation. Major. Found live on the bank's run, fixed with tests, re-measured on the
+run that failed it.*
+
+The bank's run failed **two** checks at gate 2, and the second was not about the bank. The
+at-a-glance block was correctly withheld and its reason correctly stated — and the sentence
+stating it ends *"A figure that is traceable is not thereby possible (ADR 0066)"*, while
+`presentation_integrity` refuses an architecture decision record in a document that should
+be about the company. So the platform failed a check on prose it had written about itself,
+and it can only fail it on the runs that withhold a figure — the runs whose reader most
+needs the note. The sister note, for a front page that would mix two issuers, cites ADR
+0061 the same way.
+
+*Fix: both notes now say the reason in a reader's words and name the decision in the code.
+`tests/test_plausibility.py::TestTheWithheldNoteSpeaksToAReader` holds it, and the three
+tests that pinned the old wording now assert the opposite. Re-measured on the bank's own
+run: the document assembled from its record under the fix scores `presentation_integrity`
+**0 failures**, and the withheld note still names every impossible relation it found.*
+
+### F-26 — The sector gate can be approved or refused, and a wrong classification needs neither
+
+*Practicality. Major. Found by fixing F-23; not fixed, because the answer is a decision.*
+
+Resolving the filer's industry code (F-23) made the sector gate reachable, and the first
+thing it showed was that the gate has two answers: *Approve and continue*, which grants the
+mandate deciding which valuation models may run, and *Reject and stop this run*. There is
+no third. For a bank that is survivable — approving is right, and refusing costs a run. For
+a filer the code merely mislabels it is a gate with no right answer, and a bare SIC lookup
+mislabels readily: **7372 is the early-stage-technology profile's own prefix**, so an
+unrestricted proposal put *Sector: Early-stage and loss-making technology* on the front of a
+Microsoft note and stopped the run to ask an operator to agree with it.
+
+*Fix, partial and by narrowing: a code now proposes only a profile that **blocks a model**,
+which is the rule `sector_gate_required`'s own docstring states — an ordinary company does
+not need a person to confirm that it is ordinary. Banks, insurers, REITs and pre-revenue
+biotechnology still stop for a person; a profile that blocks nothing is recorded as a
+candidate with its reason and runs the standard model. What remains for the operator (§8):
+whether the gate should offer "not this sector", and whether the four non-blocking profiles
+should stop a run once it does.*
+
 ## 6. The harness's own defects, for honesty
 
 The driver, not the platform, caused two stops on MSFT #1: a duplicated keyword in the
@@ -800,6 +841,11 @@ is how F-08 was observed at all. Three more, found on the later runs:
 - The audit committed to `src/` while the second shuffled suite was running, and two tests
   that pin a function's source by line number read the moved file (F-03). The suite's
   verdict on that seed is repeated on the final commit.
+- A full suite run alongside a live platform run and a pre-commit sweep lost one test to
+  `canceling statement due to statement timeout` on a fixture's `TRUNCATE` — three
+  PostgreSQL clients on one small machine, not a platform defect; the test passes on its
+  own and in the final run. The rule it breaks is this repository's own: one pytest process
+  per database, and one heavy thing at a time.
 - The first M&T baseline was cut off by the container stopping mid-stream and re-run the
   next morning; whatever the vendor billed for the cut-off turn is not in the ledger's
   numbers and is noted there.
@@ -858,11 +904,14 @@ definition or what a run does. They are listed in the order I would take them.
    income + non-interest income` for a confirmed bank is the fix, and it is a modelling
    definition rather than a bug fix — which is why a bank cannot produce an approvable
    report until you take it.
-3. **The sector gate needs a third answer** (F-23). "Approve" grants a mandate and "Reject"
+3. **The sector gate needs a third answer** (F-26). "Approve" grants a mandate and "Reject"
    kills the run; an operator who thinks the classification is wrong has nowhere to say so.
    The narrow fix is a "not this sector" decision that records the correction and runs the
-   standard model; the wider question is whether a proposal that blocks no model should
-   stop a run at all, which is what `sector_gate_required`'s own docstring argues.
+   standard model. Once it exists, the second half follows: should the four profiles that
+   block no model (utilities, mining and oil and gas, early-stage technology, holding
+   companies) stop a run to confirm a label, given they change nothing but the warnings a
+   report carries? This pass narrowed the proposal to the profiles that block a model, so
+   nothing stops today that did not stop before the industry code was resolved.
 4. **A stale approval is a dead end** (F-16). The gate refuses a decision on a payload that
    has moved and refuses a second decision on the same gate, so the run has no exit. A
    superseding decision is an approvals-model change and needs an ADR.
