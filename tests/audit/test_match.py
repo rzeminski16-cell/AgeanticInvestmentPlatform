@@ -84,3 +84,17 @@ def test_a_price_is_outside_the_truth() -> None:
     kinds = summarise(classify_all(extract_numerals(text), _truth()))["by_kind"]
     assert kinds.get("outside-truth", 0) == 2
     assert "contradicted" not in kinds
+
+
+def test_a_half_year_figure_is_not_judged_against_the_year() -> None:
+    """The M&T console note bridged "FY25 EPS $17.00 less 1H25 $7.55 plus 1H26 $9.44" to a
+    trailing figure. Judging either half against the filed annual earnings per share
+    manufactured a contradiction out of correct arithmetic, so a half-year or
+    trailing-twelve-month qualifier sets the numeral aside like any other qualified
+    measure."""
+    text = (
+        "Trailing EPS of $18.89 (computed from FY25 EPS $17.00 less 1H25 $7.55 plus "
+        "1H26 $9.44); a screen reports TTM EPS $18.94."
+    )
+    result = summarise(classify_all(extract_numerals(text), _truth()))
+    assert result["contradicted"] == 0

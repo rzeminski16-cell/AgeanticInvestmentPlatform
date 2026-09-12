@@ -717,6 +717,42 @@ looking at a wrong classification cannot correct it. For a filer whose profile b
 model that is the safe direction; for Microsoft-as-early-stage-technology it is a gate with
 no right answer. §8 carries the decision.*
 
+### F-24 — A bank that reports no total-revenue caption gets fee income as its revenue, and every margin on it is impossible
+
+*Correctness. Blocking. Reproduced live and independently.*
+
+This repository's record already carries the symptom: an M&T run once published a **172.1 %
+net margin**, and gap A62's fix ranked the revenue tags so a total beats an ASC 606
+component and added `RevenuesNetOfInterestExpense` as a bank's total-revenue caption. The
+ranking is right. The hole it leaves is a filer that reports **no** total-revenue caption at
+all, and M&T is one: its own companyfacts carry `Revenues` through FY2023 and then stop.
+
+For FY2024 and FY2025 the only tag that maps to `revenue` is
+`RevenueFromContractWithCustomerExcludingAssessedTax` — **$1,541m and $1,657m**, which is
+fee income from contracts with customers, not the revenue of a bank. Against net income of
+$2,588m and $2,851m that is a net margin of **168 % and 172 %**, and the run recorded
+exactly those two figures (`net_margin` FY2024 1.6794, FY2025 1.7206) beside sane margins
+of 24–31 % for FY2021 to FY2023, when the caption existed. The audit's **independent**
+recomputation from the archived companyfacts reaches the same two numbers, so this is the
+data and the selection rule, not the platform's arithmetic.
+
+The components are all there and all mapped: `InterestIncomeExpenseNet` $6,948m (net
+interest income), `NoninterestIncome` $2,742m, `InterestAndDividendIncomeOperating`
+$10,486m. A bank's total revenue is the first two added — which is precisely what the
+caption `RevenuesNetOfInterestExpense` means — giving $9,690m and a net margin of 29.4 %.
+Nothing sums them, because a sum is a calculation rather than a fact and no calculation
+claims that definition.
+
+*State: not fixed, and it is §8's to decide.* The guard added after the first incident does
+its job — `figure_plausibility` refuses a margin above one, so the run stops at gate 2
+rather than publishing the number (§7 records what M&T's run did with it) — so no wrong
+figure reaches a reader. But the honest position is that **a bank cannot presently produce
+an approvable report**: the sector block now routes it to residual income correctly (F-23),
+and the ratio suite still computes margins on a revenue that is not one. The fix is a
+traced calculation, `revenue = net interest income + non-interest income`, taken for a
+filer the sector gate has confirmed as a bank and used where the caption is absent; that is
+a modelling definition, and §8 carries it.
+
 ## 6. The harness's own defects, for honesty
 
 The driver, not the platform, caused two stops on MSFT #1: a duplicated keyword in the
@@ -788,44 +824,50 @@ definition or what a run does. They are listed in the order I would take them.
    acquire them, to drop the multiples from the spine, or to keep proposing peers for the
    record and say in the report that the table is structurally empty. Today the report says
    the peers were "excluded", which reads as a judgement about the peers.
-2. **The sector gate needs a third answer** (F-23). "Approve" grants a mandate and "Reject"
+2. **A bank's revenue** (F-24). M&T reports no total-revenue caption after FY2023, so
+   revenue resolves to ASC 606 fee income and every margin computed on it is impossible.
+   The components are mapped; the definition is not. Adopting `revenue = net interest
+   income + non-interest income` for a confirmed bank is the fix, and it is a modelling
+   definition rather than a bug fix — which is why a bank cannot produce an approvable
+   report until you take it.
+3. **The sector gate needs a third answer** (F-23). "Approve" grants a mandate and "Reject"
    kills the run; an operator who thinks the classification is wrong has nowhere to say so.
    The narrow fix is a "not this sector" decision that records the correction and runs the
    standard model; the wider question is whether a proposal that blocks no model should
    stop a run at all, which is what `sector_gate_required`'s own docstring argues.
-3. **A stale approval is a dead end** (F-16). The gate refuses a decision on a payload that
+4. **A stale approval is a dead end** (F-16). The gate refuses a decision on a payload that
    has moved and refuses a second decision on the same gate, so the run has no exit. A
    superseding decision is an approvals-model change and needs an ADR.
-4. **Cost rows inside a step, or at its end** (F-21). Sibling calls in the research wave and
+5. **Cost rows inside a step, or at its end** (F-21). Sibling calls in the research wave and
    the draft fan-out cannot see each other's spend, and a step that dies mid-flight loses
    the rows it flushed. Both fixes publish cost before the step commits, which amends ADR
    0016's publication rule.
-5. **A filer with long-term debt and no short-term line** is valued as debt-free (F-21).
+6. **A filer with long-term debt and no short-term line** is valued as debt-free (F-21).
    Refusing the valuation, or asking for the missing half at the assumptions gate, are both
    changes to what a run does.
-6. **Three modelling definitions** (F-21): scenarios keep the base WACC while reporting a
+7. **Three modelling definitions** (F-21): scenarios keep the base WACC while reporting a
    rate override as argued about; the DCF's working capital includes cash and short-term
    debt; a bank's opening book value includes preferred stock and non-controlling
    interests. Each is defensible and none is stated to the reader.
-7. **Two guards that do not exist** (F-21): a fact-backed numeric claim is never checked
+8. **Two guards that do not exist** (F-21): a fact-backed numeric claim is never checked
    against its fact's value, and the reading ladder discards the scale word, so "$331.8
    million" reads as the right number. ADR 0060's territory.
-8. **`cited_figure_agreement` is measured before `revise` rewrites the claims** (F-21), and
+9. **`cited_figure_agreement` is measured before `revise` rewrites the claims** (F-21), and
    nothing re-measures a failed check on a finished run (F-22). Both are the same question:
    what re-runs after a late change?
-9. **The citation override the gate message promises exists on no surface** (F-21). Decide
+10. **The citation override the gate message promises exists on no surface** (F-21). Decide
    whether it should exist at all; today an unverified citation at gate 2 has no recovery.
-10. **News never reaches a built-in section** (F-21, use case 6). Every built-in section's
+11. **News never reaches a built-in section** (F-21, use case 6). Every built-in section's
     tier ceiling is T4, so the T5 documents a run admits are cited nowhere. Raising the
     ceiling for named sections is a change to the evidence policy.
-11. **Effort on Haiku** (F-05): retire the setting on those four routes, or move them to a
+12. **Effort on Haiku** (F-05): retire the setting on those four routes, or move them to a
     model that honours it.
-12. **A UK acquisition path** (F-04): wiring Companies House into `acquire` is a source
+13. **A UK acquisition path** (F-04): wiring Companies House into `acquire` is a source
     adapter and an ADR, not a bug fix, and the product's documents claim "UK or US" today.
-13. **Whether any of the audit's scorers should become a permanent metric.** The numeral
+14. **Whether any of the audit's scorers should become a permanent metric.** The numeral
     matcher against the filing (§2) and the peer-multiple completeness check are the two
     that earned their place here.
-14. **The call on "ready".** The numbers in §3 and §4 are mine; the judgement is yours.
+15. **The call on "ready".** The numbers in §3 and §4 are mine; the judgement is yours.
 
 
 

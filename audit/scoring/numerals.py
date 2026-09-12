@@ -155,7 +155,11 @@ _CONTEXT_CHARS: Final = 90
 _QUALIFIED: Final = re.compile(
     r"(constant[- ]currency|\bcc\b|non-?gaap|adjusted|underlying|organic|\bex-|excluding|"
     r"segment|basis points|\bbps?\b|run-?rate|annuali[sz]ed|sequential|quarter|\bq[1-4]\b|"
-    r"\bh[12]\b|first half|second half|(nine|six|three|twelve)[- ]months?|per share|"
+    # A half-year, written either way round ("H1", "1H26"), and a trailing twelve months:
+    # the M&T console note bridged "FY25 EPS $17.00 less 1H25 $7.55 plus 1H26 $9.44", and
+    # judging those halves against the filed annual figure manufactured two contradictions.
+    r"\bh[12]\b|\b[12]h\s?\d{2}\b|\bttm\b|trailing[- ](twelve|12)|"
+    r"first half|second half|(nine|six|three|twelve)[- ]months?|per share|"
     r"per diluted share|calendar|commercial|consumer|bookings|backlog|\brpo\b|"
     r"remaining performance|"
     # The subjects' own segment and product lines: a figure for one of them is not the
