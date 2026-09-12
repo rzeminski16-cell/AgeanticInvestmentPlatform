@@ -126,6 +126,15 @@ the check that refused them re-measures to zero under the fix (§5).
 | Sections degraded | 0 | 1 (`earnings_quality`, shortened to its budget) | 2 (`valuation_dcf` withheld — F-12; `catalysts`) | — | 1 (`executive_summary`, shortened) |
 | Resumes needed | 0 | 1 (F-08's fix, live) | 1 (F-08's fix, live) | 0 | **0** |
 | Acceptance / replay / artefacts / audit chain | all pass; 852 calculations, 69 citations, 14 artefacts re-derived | fails only on the refused check; 857 calculations, 57 citations re-derived | all pass; 152 calculations, 34 citations | — | fails on the two refused checks; 643 calculations, 56 citations |
+| The rendered PDF | **1.85 MB, approved and immutable** | not rendered | **1.82 MB** | — | not rendered |
+
+Across the whole store, at the end of the pass: **`aer verify-artefacts` re-read and
+re-hashed 559 artefacts, all intact**, and **`aer verify-audit` walked 36 audit events with
+the chain unbroken** — 27 gate approvals, five requests, **three stranded-run resumes** (the
+live proofs of F-08) and the seeded user. Nothing in the record contradicts anything else in
+it, and the two approved reports are in the results folder as the PDFs a reader would be
+handed ([`msft1/report.pdf`](readiness-audit-2026-09/msft1/report.pdf),
+[`azn/report.pdf`](readiness-audit-2026-09/azn/report.pdf)).
 
 **Run-to-run, the measure that matters.** MSFT twice, one UTC day apart, same filings:
 **837 calculation rows compared, 178 keys identical, 18 keys differing (527 rows)** — and
@@ -475,8 +484,9 @@ application role, and `verify_audit_chain` documents that a full rewrite with re
 hashes is undetectable.
 
 *State: recorded, not closed. Revoking UPDATE and DELETE for the application role is a
-migration and a grant, and `verify-audit` exited 0 on every run in this pass — so the chain
-holds today and the guarantee is that nobody *did* rewrite it, not that nobody could.*
+migration and a grant. `verify-audit` walked all 36 events of this pass with the chain
+unbroken, so the chain holds today — the guarantee is that nobody *did* rewrite it, not
+that nobody could.*
 
 ### F-08 — A run whose worker dies mid-step is left RUNNING with no exit in the product
 
