@@ -431,8 +431,15 @@ at `acquire` with: *"TSCO is in the SEC's ticker file, but on NASDAQ rather than
 the exchange on the request."* — TSCO on NASDAQ is Tractor Supply Company. An operator who
 "checks the exchange" as told would commission research on a different company.
 
-*State: established (`audit/smoke.py`). The UK path is an ADR-shaped addition for the
-operator to decide; the misleading message is a defect to fix.*
+*State: established offline (`audit/smoke.py`). **The message is fixed**: the refusal now
+names the filer the symbol belongs to on that venue and says plainly that it is a different
+company, so "TSCO is on NASDAQ, where it belongs to TRACTOR SUPPLY CO" cannot be mistaken
+for advice to change the exchange
+(`tests/test_sec_tickers.py::TestResolution::test_it_names_the_company_the_symbol_belongs_to`).
+The documents are fixed too: the product page, the watchlist guide and the README said "UK
+and US listed equities" and now say what the platform researches — a filer with the SEC,
+which means any US listing and a UK plc with a 20-F. **The UK path itself is not fixed**: it
+is a source adapter and an ADR, and §8 puts it to the operator.*
 
 ### F-05 — Four roles ask for low effort on a model that has no effort parameter
 

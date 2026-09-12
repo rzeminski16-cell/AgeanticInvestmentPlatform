@@ -247,13 +247,28 @@ def resolve_ticker(
         ]
         if not narrowed:
             listed = sorted({record.exchange or "unknown" for record in matches})
+            # **Name the filer, not just the venue.** "Check the exchange on the request"
+            # is bad advice when the symbol belongs to somebody else: the readiness audit
+            # drove Tesco PLC, TSCO, LSE through here, and TSCO on NASDAQ is Tractor Supply
+            # Company — an operator who took the advice would have commissioned a report on
+            # a farm-supply retailer and never known.
+            whose = sorted({record.name for record in matches})
             message = (
                 f"{wanted} is in the SEC's ticker file, but on {' and '.join(listed)} "
-                f"rather than {wanted_exchange}. Check the exchange on the request."
+                f"rather than {wanted_exchange}, where it belongs to "
+                f"{' and '.join(whose)}. That is a different company from the one this "
+                "request names unless you meant that filer: a symbol is reused across "
+                "venues, so changing the exchange on the request would research whoever "
+                "holds it there."
             )
             raise ValidationError(
                 message,
-                context={"ticker": wanted, "requested": wanted_exchange, "listed": listed},
+                context={
+                    "ticker": wanted,
+                    "requested": wanted_exchange,
+                    "listed": listed,
+                    "filers": whose,
+                },
             )
         matches = narrowed
 
