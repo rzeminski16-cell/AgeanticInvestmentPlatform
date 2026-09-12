@@ -1,0 +1,35 @@
+{
+  "baseline": [
+    {
+      "label": "msft1",
+      "amount_gbp": "7.6279",
+      "recorded_at": "2026-09-11T16:28:39.088387+00:00",
+      "detail": {
+        "searches": 25,
+        "turns": 1,
+        "words": 12967
+      }
+    },
+    {
+      "label": "azn",
+      "amount_gbp": "11.0286",
+      "recorded_at": "2026-09-11T21:32:44.932089+00:00",
+      "detail": {
+        "searches": 25,
+        "turns": 1,
+        "words": 12907
+      }
+    },
+    {
+      "label": "mtb",
+      "amount_gbp": "6.7113",
+      "recorded_at": "2026-09-12T07:29:44.589902+00:00",
+      "detail": {
+        "searches": 25,
+        "turns": 1,
+        "words": 11225
+      }
+    }
+  ],
+  "other": []
+}

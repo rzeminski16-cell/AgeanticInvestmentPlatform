@@ -1,0 +1,21 @@
+{
+  "model": "claude-opus-5",
+  "max_tokens": 48000,
+  "system": "You are a sell-side equity research analyst writing for a professional reader. Use the web search tool to read primary sources before you write. Every figure and every factual claim must carry a citation to a page you read. Do not invent or estimate a number you did not read; say plainly when something could not be sourced. Write in UK English. Return the complete note as Markdown.",
+  "output_config": {
+    "effort": "high"
+  },
+  "tools": [
+    {
+      "type": "web_search_20260209",
+      "name": "web_search",
+      "max_uses": 25
+    }
+  ],
+  "messages": [
+    {
+      "role": "user",
+      "content": "Write an institutional-style equity research note on Microsoft Corporation (MSFT, NASDAQ) as at 2026-09-11, for a 12-month investment horizon, in USD.\n\nUse web search to find and read the primary sources \u2014 the latest annual report or 20-F, the most recent quarterly filing, the proxy statement, the latest results presentation, and the current share price and share count \u2014 and cite a URL for every figure and every factual claim. Do not state a number you have not read in a source you fetched. Compute every ratio, growth rate, cost of capital and valuation from the figures you read, and show the inputs beside each result. Include a discounted cash flow with every assumption stated and justified, a sensitivity grid, bear, base and bull scenarios, and a comparable-companies table. Where something cannot be sourced, say so rather than estimating.\n\nAnswer these questions in the body:\n- Is the cloud margin expansion durable, or is capitalised infrastructure flattering it?\n- What would have to be true for the current multiple to be justified?\n- How much of the growth is AI revenue that did not exist three years ago?\n\nStructure the note under these sections, in this order:\n1. Executive Summary\n2. Investment Thesis\n3. Business Overview\n4. Segment Analysis\n5. Industry & Competitive Positioning\n6. Management & Governance\n7. Historical Financial Analysis\n8. Earnings Quality\n9. Balance Sheet & Liquidity\n10. Cash Flow Analysis\n11. Capital Allocation\n12. Growth Outlook\n13. Valuation - Discounted Cash Flow\n14. Scenarios & Sensitivities\n15. Key Risks\n16. Catalysts\n17. Prior Research Comparison\n18. Validation & Disagreements\n\nFinish with an appendix listing every source you used with its URL and the date it was published. State on the first page that this is a personal research document and not investment advice."
+    }
+  ]
+}

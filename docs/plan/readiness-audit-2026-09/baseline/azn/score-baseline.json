@@ -1,0 +1,134 @@
+{
+  "label": "azn",
+  "subject": "azn",
+  "model": "claude-opus-5",
+  "effort": "high",
+  "elapsed_seconds": 1129.678295,
+  "price_gbp": "11.0286",
+  "searches": 25,
+  "words": 12907,
+  "accuracy": {
+    "numerals": 2496,
+    "by_kind": {
+      "excluded": 1891,
+      "matched-unhinted": 153,
+      "unknown": 340,
+      "outside-truth": 65,
+      "checkable-absent": 22,
+      "matched": 19,
+      "approx": 5,
+      "contradicted": 1
+    },
+    "checkable": 178,
+    "matched": 172,
+    "approx": 5,
+    "contradicted": 1,
+    "contradicted_share_of_checkable": 0.0056179775280898875,
+    "contradictions": [
+      {
+        "kind": "contradicted",
+        "token": "3270",
+        "context": "goes.** FY2025 net investment cash outflows of $7,225m less capex of $3,270m leaves **$3,955m** (computed) of intangible purchases, contingent con",
+        "concept": "capex",
+        "period": "FY2025",
+        "basket_concept": "capex",
+        "basket_period": "FY2025",
+        "stored": "2810000000",
+        "relative_error": "0.1637"
+      }
+    ],
+    "approximations": [
+      {
+        "kind": "approx",
+        "token": "3.84",
+        "context": "nue growth, CER | \u2014 | +21% | +8% | as reported | | Reported EPS ($) | 3.84 | 4.54 | 6.60 | [FY2024 AR extract](https://www.sec.gov/Archives/edga",
+        "concept": "eps_diluted",
+        "period": "FY2023",
+        "basket_concept": "eps_diluted",
+        "basket_period": "FY2023",
+        "stored": "3.81",
+        "relative_error": "0.0079"
+      },
+      {
+        "kind": "approx",
+        "token": "4.54",
+        "context": "wth, CER | \u2014 | +21% | +8% | as reported | | Reported EPS ($) | 3.84 | 4.54 | 6.60 | [FY2024 AR extract](https://www.sec.gov/Archives/edgar/data/",
+        "concept": "eps_diluted",
+        "period": "FY2024",
+        "basket_concept": "eps_diluted",
+        "basket_period": "FY2024",
+        "stored": "4.5",
+        "relative_error": "0.0089"
+      },
+      {
+        "kind": "approx",
+        "token": "6.60",
+        "context": "R | \u2014 | +21% | +8% | as reported | | Reported EPS ($) | 3.84 | 4.54 | 6.60 | [FY2024 AR extract](https://www.sec.gov/Archives/edgar/data/901832/",
+        "concept": "eps_diluted",
+        "period": "FY2025",
+        "basket_concept": "eps_diluted",
+        "basket_period": "FY2025",
+        "stored": "6.54",
+        "relative_error": "0.0092"
+      },
+      {
+        "kind": "approx",
+        "token": "6.60",
+        "context": "| **18,478** | **31%** | | Tax rate | 18% | \u2014 | 18% | \u2014 | | EPS ($) | 6.60 | \u2014 | 9.16 | \u2014 |  **The bridge is $4,735m** (computed: $18,478m \u2212 $13",
+        "concept": "eps_diluted",
+        "period": "FY2025",
+        "basket_concept": "eps_diluted",
+        "basket_period": "FY2025",
+        "stored": "6.54",
+        "relative_error": "0.0092"
+      },
+      {
+        "kind": "approx",
+        "token": "3270",
+        "context": "|---|---:| | Operating cash flow | 14,575 | Capex (PP&E + software) | 3,270 | | Share issuance proceeds | 40 | Other investing (residual) | 3,955",
+        "concept": "operating_cash_flow",
+        "period": null,
+        "basket_concept": "operating_cash_flow",
+        "basket_period": "FY2015",
+        "stored": "3324000000",
+        "relative_error": "0.0162"
+      }
+    ]
+  },
+  "citations": {
+    "attached_by_model": 0,
+    "distinct_urls_cited": 0,
+    "urls_in_text": 58,
+    "distinct_urls": 58,
+    "by_tier": {
+      "T6": 31,
+      "T2": 10,
+      "T4": 3,
+      "T1": 14
+    },
+    "primary_share": 0.41379310344827586,
+    "resolved": null,
+    "unresolved": null,
+    "fetch_checked": false
+  },
+  "sections_present": {
+    "executive summary": true,
+    "investment thesis": true,
+    "business overview": true,
+    "segment": true,
+    "industry": true,
+    "management": true,
+    "historical financial": true,
+    "earnings quality": true,
+    "balance sheet": true,
+    "cash flow": true,
+    "capital allocation": true,
+    "growth outlook": true,
+    "valuation": true,
+    "scenario": true,
+    "key risks": true,
+    "catalyst": true,
+    "prior research": true,
+    "validation": true
+  }
+}

@@ -143,7 +143,14 @@ ordering defect before — fails at HEAD: **28 failed, 7 errors, 6,830 passed**,
 `test_db_schema.py`, `test_decisions.py` and `test_thesis_monitor.py`'s page tests, not
 only the recorded pair.
 
-*State: reproduced; to fix.*
+*Fix: the engine fixtures empty the database on the way in (`tests/db_fixtures.py`,
+`tests/api_fixtures.py`, through the existing `tests/db_cleanup.py`), at setup rather than
+teardown, so what an earlier test committed is never what the next test's application
+reads. The recorded pair passes both ways, the six affected modules pass in both orders, and
+the second shuffled seed (20260909) ran 6,881 tests with two failures — both of which turned
+out to be the audit's own doing: `inspect.getsource` pins in `test_section_spine` and
+`test_planner_salvage` read the workflow file from disk after a commit made during the run
+had moved the pinned functions by two lines (§6). The seed is re-run on the final commit.*
 
 ### F-04 — A UK company with no SEC filings cannot be researched, and the refusal can name the wrong company
 
@@ -218,22 +225,27 @@ refused with what was observed. `tests/test_stranded_run.py` (13 tests) holds it
 The residual: a worker that is alive with one other job in flight cannot be told apart
 from one executing this run, so that case still refuses, with the reason.*
 
-### F-09 — What the code audit reported, pending adversarial verification
+### F-09 — What the code reading found, verified by hand
 
-The subsystem readers of the WP1 workflow (four of thirteen completed before the session's
-usage limit) reported 41 findings. Each is being verified by three independent refuters
-before it is counted; the ones their finders marked **blocking** are listed here so they are
-not lost if verification lags:
+Nine of the thirteen subsystem readers completed (acquisition, budget, calculations,
+citations, engine, gates, provider, retries, sections) and reported 89 findings: six
+blocking, 47 major, 36 minor. The planned three refuters per finding were lost to the
+session limit twice, so each blocking and major finding was verified in the main loop by
+reading the cited code and, where a live run could show it, the run. The outcome:
 
-- A step that raises after flushing rows has those rows committed with its FAILED status,
-  and `render` becomes unrecoverable (`workflow/engine.py:832`).
-- The peer-set and theme-set gates cannot be passed once the operator adds a peer or theme
-  of their own: the page hashes the whole set, the engine and the decide pre-check hash the
-  step's proposal only (`vertical_slice_v1.py:3482`).
-- Every stale-approval pause except the FINAL seal-drift case is a dead end: the run tells
-  the operator to "decide again", which `record_decision` refuses (`:2183`).
-
-*State: verification running.*
+- **Six blocking, all confirmed.** Four are fixed with tests (F-15 the gate funnel, F-18
+  the render step, F-19 the growth rate, and the fact that a failed step publishes its
+  flushed rows — closed at the render step, the one place it stranded a run); two are the
+  operator's to decide (F-16 the stale approval; a filer with lone long-term debt valued as
+  debt-free, F-21).
+- **Of the 47 major: 24 confirmed** (13 fixed with tests, F-12 to F-20; eleven put to the
+  operator in F-21), **one partly** (a raised cap reaches the next node rather than the next
+  call — fixed anyway), **none refuted**, and **22 not read** — plausible claims about the
+  retry ladders, the evidence packs, the quarterly point-in-time key and the tie-break
+  between a parent-attributable and a consolidated profit line. They are listed with their
+  file and line in the results folder (`code-audit-findings.json`) as work the next pass
+  should take up, not as defects the platform has.
+- **The 36 minor findings were not verified** and are carried the same way.
 
 ### F-10 — The financials gate page raised on the first real filing
 
@@ -448,7 +460,23 @@ it is put in §8 rather than changed here.
 The driver, not the platform, caused two stops on MSFT #1: a duplicated keyword in the
 screenshot hook at the first gate, and a poll a moment after enqueueing that read the old
 pause as a new one and stopped the worker mid-step. Both are fixed and committed; the second
-is how F-08 was observed at all.
+is how F-08 was observed at all. Three more, found on the later runs:
+
+- The screenshot capture waited for the network to fall idle, which the console's event
+  stream never lets it do, so every console screenshot on MSFT #1 and AZN timed out. It
+  waits for the document now; the gate pages were captured throughout.
+- The kill-and-resume drill on MSFT #2 called the resume service the way the product did
+  before F-08's fix, was refused, and — because `execute` now declines a job another
+  execution holds — the driver's fallback re-enqueue did nothing and the driver stopped,
+  honestly, with "the worker died and the run did not move". The run was continued through
+  `aer resume` (which attested the stranding) and the driver was taught the same path. The
+  drill therefore proved F-08's fix twice, once by accident.
+- The audit committed to `src/` while the second shuffled suite was running, and two tests
+  that pin a function's source by line number read the moved file (F-03). The suite's
+  verdict on that seed is repeated on the final commit.
+- The first M&T baseline was cut off by the container stopping mid-stream and re-run the
+  next morning; whatever the vendor billed for the cut-off turn is not in the ledger's
+  numbers and is noted there.
 
 ## 7. The spend ledger ⏳
 

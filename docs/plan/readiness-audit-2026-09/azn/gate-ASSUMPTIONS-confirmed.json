@@ -1,0 +1,101 @@
+{
+  "payload": {
+    "assumptions": [
+      {
+        "name": "beta",
+        "value": "0.300000000000",
+        "unit": "pure",
+        "justification": "Audit policy: the proposed 0.278618602016 lies outside the 0.3-2.0 band; amended to the nearest bound by the operator's standing policy.",
+        "proposed_by": "operator:audit",
+        "confidence": null
+      },
+      {
+        "name": "capex_intensity",
+        "value": "0.050000000000",
+        "unit": "pure",
+        "justification": "Capital expenditure near 5 % of revenue (20-F). Stated by the operator because the platform derived nothing for it; recorded as a completeness finding.",
+        "proposed_by": "operator:audit",
+        "confidence": null
+      },
+      {
+        "name": "depreciation_intensity",
+        "value": "0.114739000000",
+        "unit": "pure",
+        "justification": "The mean of depreciation and amortisation over revenue across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.1745, 0.1236, 0.1017, 0.0873, 0.0866.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "ebit_margin",
+        "value": "0.142147000000",
+        "unit": "pure",
+        "justification": "The mean of operating income over revenue across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.0282, 0.0847, 0.1788, 0.1850, 0.2340.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "equity_risk_premium",
+        "value": "0.045000000000",
+        "unit": "pure",
+        "justification": "4.5 %: inside the 4-6 % band the operator's audit policy accepts, and the neighbourhood of the implied US premium in the Damodaran monthly series through 2026. A judgement, stated as one.",
+        "proposed_by": "operator:audit",
+        "confidence": null
+      },
+      {
+        "name": "exit_multiple",
+        "value": "11.000000000000",
+        "unit": "pure",
+        "justification": "Large-cap pharma in a mature, capital-intensive, regulated industry with recurring patent cliffs \u2014 that argues for a multiple near the middle of the 2x-40x band rather than the software end. EV/EBITDA rather than EV/EBIT matters here because the derived D&A intensity is high relative to the derived EBIT margin (acquired-intangible amortisation, Alexion), so EBITDA flatters operating economics; I have discounted for that. Note plainly: I have no stored peer-multiple fact to point at, so this leans on convention and should be checked against current peer EV/EBITDA before use. Consistency: 11x and 2.5% describe the same mature, modestly-growing business. Of the two, I regard the perpetual growth rate as the better terminal-value estimate, because a multiple imported from today's market embeds current sentiment about pipelines that will have turned over entirely by the terminal year.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.4
+      },
+      {
+        "name": "revenue_growth",
+        "value": "0.119346000000",
+        "unit": "pure",
+        "justification": "The compound annual growth rate of revenue from 2021-12-31 to 2025-12-31, over 4 year(s): revenue moved from 37,417,000,000 to 58,739,000,000. Held flat across the forecast, because a trailing rate is one number and projecting a fade is a judgement this derivation does not make.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "risk_free_rate",
+        "value": "0.048300000000",
+        "unit": "pure",
+        "justification": "US 10-year Treasury constant-maturity yield, FRED series DGS10, observation 2026-09-09: 4.83 %. Stated by the operator; the platform acquires no macro series for a run.",
+        "proposed_by": "operator:audit",
+        "confidence": null
+      },
+      {
+        "name": "tax_rate",
+        "value": "0.200000000000",
+        "unit": "pure",
+        "justification": "Effective tax rate near 20 % (20-F). Stated by the operator because the platform derived nothing for it; recorded as a completeness finding.",
+        "proposed_by": "operator:audit",
+        "confidence": null
+      },
+      {
+        "name": "terminal_growth",
+        "value": "0.025000000000",
+        "unit": "pure",
+        "justification": "Taken to be below a cost of capital of at least 7% for a large, investment-grade, USD-funded pharma; it clears any ordinary WACC with room. Rests on: a globally diversified five-therapy-area portfolio in categories (oncology, rare disease, metabolic) growing faster than GDP, offset in perpetuity by the patent-cliff pattern the research documents directly (Brilinta -33%, Soliris -30% CER) and by US pricing policy now acting structurally on price (the October 2025 pricing agreement, Section 232). Net: modest real growth plus inflation, not the 11.9% trailing CAGR. Lower it toward 0.02 if pipeline replacement is judged weaker or US price cuts permanent; raise toward 0.03 only on a view that pharma pricing power outpaces nominal GDP for ever.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.55
+      },
+      {
+        "name": "working_capital_intensity",
+        "value": "-0.035125000000",
+        "unit": "pure",
+        "justification": "The mean of net working capital \u2014 current assets less current liabilities \u2014 over revenue, across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. A negative figure is normal for a business paid before it pays, and is proposed as it stands rather than floored at zero.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      }
+    ],
+    "outstanding": [],
+    "refused": [],
+    "skipped": [
+      "Capex intensity could not be derived: capital expenditure over revenue is available for 0 period(s), and an average needs at least 2.",
+      "Tax rate could not be derived: at least one period is negative, so a trailing average would project a loss-making year forward as though it were the normal state. Enter it by hand."
+    ]
+  },
+  "hash": "ba9229c44fb34e6dc64ec2f40807862e79591084b83e89b19514e8d3c0f92d25"
+}

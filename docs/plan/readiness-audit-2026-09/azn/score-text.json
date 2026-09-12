@@ -1,0 +1,103 @@
+{
+  "text": "audit/out/azn/report.md",
+  "truth": "audit/out/azn/truth.json",
+  "words": 12548,
+  "numerals": 1241,
+  "accuracy": {
+    "numerals": 1241,
+    "by_kind": {
+      "excluded": 894,
+      "outside-truth": 38,
+      "matched": 96,
+      "approx": 7,
+      "unknown": 133,
+      "matched-unhinted": 62,
+      "checkable-absent": 11
+    },
+    "checkable": 165,
+    "matched": 158,
+    "approx": 7,
+    "contradicted": 0,
+    "contradicted_share_of_checkable": 0.0,
+    "contradictions": [],
+    "approximations": [
+      {
+        "kind": "approx",
+        "token": "10225",
+        "context": "---|---| | Revenue | FY2025 | $58,739m[^1] | | Net income | FY2025 | $10,225m[^2] | | EPS (diluted) | FY2025 | $6.54[^3] |  ### Revenue history  | ",
+        "concept": "net_income",
+        "period": "FY2025",
+        "basket_concept": "net_income",
+        "basket_period": "FY2025",
+        "stored": "10233000000",
+        "relative_error": "0.0008"
+      },
+      {
+        "kind": "approx",
+        "token": "10225",
+        "context": "rongest evidence for FY2025 earnings quality: reported net income of $10,225m against operating cash flow of $14,575m, cash comfortably ahead of ac",
+        "concept": "net_income",
+        "period": "FY2025",
+        "basket_concept": "net_income",
+        "basket_period": "FY2025",
+        "stored": "10233000000",
+        "relative_error": "0.0008"
+      },
+      {
+        "kind": "approx",
+        "token": "10225",
+        "context": "sh flow (FY2025) | 14,575 USD millions[^70] | | Net income (FY2025) | 10,225 USD millions[^71] | | EBITDA margin (FY2025) | 32.1%[^72] | | Net mar",
+        "concept": "net_income",
+        "period": "FY2025",
+        "basket_concept": "net_income",
+        "basket_period": "FY2025",
+        "stored": "10233000000",
+        "relative_error": "0.0008"
+      },
+      {
+        "kind": "approx",
+        "token": "65.4",
+        "context": "eneca reported total assets of $114.1bn against total liabilities of $65.4bn. The asset side is dominated by acquired rights: goodwill of $21.2bn ",
+        "concept": "total_assets",
+        "period": null,
+        "basket_concept": "total_assets",
+        "basket_period": "FY2020",
+        "stored": "66729000000",
+        "relative_error": "0.0199"
+      },
+      {
+        "kind": "approx",
+        "token": "0.0887",
+        "context": "ive inference the draft draws from it reverses. Recorded ROE (0.0029, 0.0887) and ROA (0.0011, 0.0341) likewise do not support the claimed 21.0% a",
+        "concept": "roe",
+        "period": null,
+        "basket_concept": "roe",
+        "basket_period": "FY2022",
+        "stored": "0.08886070484105996006260456582",
+        "relative_error": "0.0018"
+      },
+      {
+        "kind": "approx",
+        "token": "10225",
+        "context": "e fact in the index is AccountingProfit of $12,402m, not the claimed $10,225m net income.[^112][^113]  **Basis:** Recorded cash_conversion 53.24 an",
+        "concept": "net_income",
+        "period": null,
+        "basket_concept": "net_income",
+        "basket_period": "FY2025",
+        "stored": "10233000000",
+        "relative_error": "0.0008"
+      },
+      {
+        "kind": "approx",
+        "token": "10225",
+        "context": "w $14,575m; fact AccountingProfit $12,402m versus claimed net income $10,225m.  **Resolution:** Escalated for human decision at approval.  **Red te",
+        "concept": "net_income",
+        "period": null,
+        "basket_concept": "net_income",
+        "basket_period": "FY2025",
+        "stored": "10233000000",
+        "relative_error": "0.0008"
+      }
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "text": "audit/out/msft1/report.md",
+  "truth": "audit/out/msft1/truth.json",
+  "words": 13993,
+  "numerals": 1177,
+  "accuracy": {
+    "numerals": 1177,
+    "by_kind": {
+      "excluded": 842,
+      "outside-truth": 42,
+      "matched": 121,
+      "unknown": 118,
+      "matched-unhinted": 46,
+      "checkable-absent": 6,
+      "approx": 2
+    },
+    "checkable": 169,
+    "matched": 167,
+    "approx": 2,
+    "contradicted": 0,
+    "contradicted_share_of_checkable": 0.0,
+    "contradictions": [],
+    "approximations": [
+      {
+        "kind": "approx",
+        "token": "40.3",
+        "context": "9.2 billion plus long-term debt of $31.1 billion gives total debt of $40.3 billion against equity of $442.4 billion, a debt-to-equity ratio of 0",
+        "concept": "total_debt",
+        "period": null,
+        "basket_concept": "long_term_debt",
+        "basket_period": "FY2025",
+        "stored": "40152000000",
+        "relative_error": "0.0037"
+      },
+      {
+        "kind": "approx",
+        "token": "40294",
+        "context": "s  | Label | Value | |---|---| | Total debt (short- plus long-term) | 40,294 USD m[^64] | | Net debt | 19,359 USD m[^65] | | Debt to equity | 0.09",
+        "concept": "total_debt",
+        "period": null,
+        "basket_concept": "long_term_debt",
+        "basket_period": "FY2025",
+        "stored": "40152000000",
+        "relative_error": "0.0035"
+      }
+    ]
+  }
+}

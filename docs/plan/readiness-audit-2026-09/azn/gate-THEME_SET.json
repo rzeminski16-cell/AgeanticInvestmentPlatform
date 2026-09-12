@@ -1,0 +1,37 @@
+{
+  "payload": {
+    "subject": "7a1961cf-f0f5-47f9-8b5f-a56673b54e88",
+    "themes": [
+      {
+        "key": "glp1-obesity-demand",
+        "label": "GLP-1 and obesity drug demand",
+        "rationale": "AstraZeneca is expanding its obesity/metabolic pipeline (e.g. oral GLP-1 candidates) to compete in the fast-growing weight-loss drug market, exposing it to the same demand wave reshaping Novo Nordisk and Eli Lilly economics.",
+        "existing": false
+      },
+      {
+        "key": "biopharma-patent-cliff",
+        "label": "Biopharma patent cliff and generic erosion",
+        "rationale": "Several AZN blockbusters face loss of exclusivity this decade, pressuring revenue unless offset by pipeline launches; a structural force common to large-cap pharma valuations.",
+        "existing": false
+      },
+      {
+        "key": "oncology-pipeline-innovation",
+        "label": "Oncology drug pipeline innovation",
+        "rationale": "AZN's growth strategy leans heavily on oncology franchises (Tagrisso, Enhertu, Imfinzi); success of next-gen cancer therapeutics is a recurring theme across biopharma peers.",
+        "existing": false
+      },
+      {
+        "key": "drug-pricing-policy-risk",
+        "label": "Drug pricing and government reimbursement policy",
+        "rationale": "US IRA price negotiation and global reimbursement pressure directly affect AZN's revenue mix and pricing power, a cross-industry regulatory force for pharma companies.",
+        "existing": false
+      }
+    ],
+    "proposed_by": "aer.agents.themes"
+  },
+  "hash": "547b8116b87bf2f22719762168a2cfa19e5a8cbabe465b820e845a59605d520c",
+  "pause_context": {
+    "gate": "THEME_SET",
+    "job_id": "6f2a7527-99a8-455f-9c28-8333c8080f8f"
+  }
+}
