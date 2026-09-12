@@ -134,7 +134,7 @@ async def _prior_research_comparison(
     Delegates to :func:`aer.services.history.prior_comparison_content`: a first run gets
     the honest one-sentence state, and a later run gets the prior view, confidence and
     valuation range plus every prior catalyst (dated against this run's as-of) and key
-    risk, each row carrying the prior ``report_id``.
+    risk, each row carrying the prior ``report_id`` for the export.
     """
     return await prior_comparison_content(session, job_id=job.id, request=request)
 

@@ -1087,6 +1087,84 @@ class TestTheWalkStripsNotation:
         assert [str(ref) for ref in rendered.citations] == [f"source_document:{source_id}"]
 
 
+class TestAPriorReportIdIsProvenanceNotAColumn:
+    """The refresh run's own comparison table printed the prior report's UUID.
+
+    MSFT's second live run (2026-09-12, the refresh use case) reached gate 2 with every
+    check green but `presentation_integrity`, which counted twenty-one raw UUIDs: the
+    `prior_research_comparison` rows each carry a `prior_report_id`, the contract requires
+    it, and nothing hid it from the rendered table. A report id names a row in this
+    platform's own table — a reader holding the PDF cannot follow it — so it is
+    provenance, exactly like `financial_fact_id`, and belongs in the export rather than in
+    front of the reader.
+    """
+
+    CONTRACT: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {
+            "commentary": {"type": "string"},
+            "comparisons": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["aspect", "prior", "current", "prior_report_id"],
+                    "properties": {
+                        "aspect": {"type": "string"},
+                        "prior": {"type": "string"},
+                        "current": {"type": "string"},
+                        "prior_report_id": {"type": "string"},
+                    },
+                },
+            },
+        },
+    }
+
+    PRIOR_ID = "350fc450-9c9b-4cb6-a2ad-0ddfc76ae788"
+
+    def _rendered(self) -> str:
+        return render_section(
+            key="prior_research_comparison",
+            title="Prior Research Comparison",
+            contract=self.CONTRACT,
+            content={
+                "commentary": "One prior approved report exists; the most recent is as "
+                "of 2026-09-11.",
+                "comparisons": [
+                    {
+                        "aspect": "Non-binding view",
+                        "prior": "no view reached",
+                        "current": "Recorded at this run's approval.",
+                        "prior_report_id": self.PRIOR_ID,
+                    },
+                    {
+                        "aspect": "Valuation range",
+                        "prior": "not recorded",
+                        "current": "206.87 to 512.50 USD/shares",
+                        "prior_report_id": self.PRIOR_ID,
+                    },
+                ],
+            },
+        ).markdown
+
+    def test_the_id_never_reaches_the_reader(self) -> None:
+        markdown = self._rendered()
+
+        assert self.PRIOR_ID not in markdown
+        assert "Prior Report Id" not in markdown
+
+    def test_the_columns_a_reader_needs_are_all_still_there(self) -> None:
+        markdown = self._rendered()
+
+        assert "Non-binding view" in markdown
+        assert "Valuation range" in markdown
+        assert "206.87 to 512.50 USD/shares" in markdown
+
+    def test_the_presentation_check_passes_on_the_section(self) -> None:
+        result = presentation_integrity(self._rendered(), "<main></main>", sections=1)
+
+        assert result.failures == ()
+
+
 class TestThePeriodSeries:
     """Gap R9: a period series renders as a financial table — periods across the top,
     line items down the side, a footnote per cell — never a key-value dump."""
