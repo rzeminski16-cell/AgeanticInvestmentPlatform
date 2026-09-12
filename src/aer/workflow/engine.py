@@ -542,12 +542,10 @@ class WorkflowEngine:
                     services=services,
                     outputs=outputs,
                 )
-                if paused:
-                    return outputs
-                if job.step_mode and pending:
-                    # `pending` guards the last step: a run whose final step just set
-                    # SUCCEEDED must finish, not flip back to a pause over nothing.
-                    await self._pause_stepwise(session, job=job, after_step=step.key)
+                if paused or (job.step_mode and pending):
+                    await self._stop_serial_path(
+                        session, job=job, step=step, paused=paused, failure=first_failure
+                    )
                     return outputs
                 continue
 
@@ -901,6 +899,31 @@ class WorkflowEngine:
         step boundary is what makes that sentence true.
         """
         await session.commit()
+
+    async def _stop_serial_path(
+        self,
+        session: AsyncSession,
+        *,
+        job: Job,
+        step: WorkflowStep,
+        paused: bool,
+        failure: Exception | None,
+    ) -> None:
+        """End the round after a pause or a step-mode stop on the serial path.
+
+        A branch that failed in an earlier wave is not forgotten because a later step
+        paused at a gate: before the readiness audit of 2026-09 the run returned here as
+        AWAITING_APPROVAL with a FAILED row nobody was shown. The failure is the run's
+        state, and the gate waits behind it.
+        """
+        if failure is not None:
+            job.status = JobStatus.FAILED
+            await self._publish(session)
+            raise failure
+        if not paused:
+            # `pending` guards the last step: a run whose final step just set SUCCEEDED
+            # must finish, not flip back to a pause over nothing.
+            await self._pause_stepwise(session, job=job, after_step=step.key)
 
     async def _cancelled(self, session: AsyncSession, *, job: Job) -> bool:
         """Whether somebody has asked for this run to stop.

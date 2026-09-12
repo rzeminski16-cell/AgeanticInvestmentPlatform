@@ -51,7 +51,7 @@ def capture(
             locale="en-GB", timezone_id="Europe/London", viewport={"width": 1280, "height": 900}
         )
         page = context.new_page()
-        response = page.goto(f"{base_url}{path}", wait_until="networkidle", timeout=60_000)
+        response = page.goto(f"{base_url}{path}", wait_until="domcontentloaded", timeout=60_000)
         page.screenshot(path=str(out / f"{page_key}.png"), full_page=True)
         html = page.content()
         (out / f"{page_key}.html").write_text(html, encoding="utf-8")

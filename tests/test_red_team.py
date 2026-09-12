@@ -55,6 +55,7 @@ from aer.db.models import (
 )
 from aer.db.models.report_section import ReportSection
 from aer.providers.fake import FakeProvider
+from aer.providers.protocol import SpentButUnusableError, Usage
 from aer.providers.router import Router
 from aer.services.citations import record_claim
 from aer.services.disagreements import (
@@ -469,6 +470,76 @@ async def _rows(session: AsyncSession, job_id: Any) -> list[Disagreement]:
             .order_by(Disagreement.created_at, Disagreement.id)
         )
     )
+
+
+class _UnusableOnce(FakeProvider):
+    """The adversary's first reply is paid for and unreadable; the second is the fixture."""
+
+    def __init__(self, report: RedTeamReport) -> None:
+        super().__init__({"RedTeamReport": report})
+        self.unusable_replies = 0
+
+    def _unusable(self) -> SpentButUnusableError:
+        self.unusable_replies += 1
+        return SpentButUnusableError(
+            "claude-opus-5's reply could not be read as RedTeamReport: List should have at "
+            "most 8 items after validation, not 9",
+            usage=Usage(input_tokens=1200, output_tokens=900, model="claude-opus-5"),
+            request_payload={},
+            response_payload={},
+            context={"schema": "RedTeamReport"},
+        )
+
+    async def complete_structured(self, *args: Any, **kwargs: Any) -> Any:
+        if self.unusable_replies == 0:
+            raise self._unusable()
+        return await super().complete_structured(*args, **kwargs)
+
+    async def complete_structured_batch(self, *args: Any, **kwargs: Any) -> Any:
+        if self.unusable_replies == 0:
+            raise self._unusable()
+        return await super().complete_structured_batch(*args, **kwargs)
+
+
+class TestAnUnusableReplyIsRetriedOnce:
+    """Readiness audit 2026-09: on the AstraZeneca run the adversary returned nine
+    challenges against a ceiling of eight, the reply escaped the retry loop, and the run
+    failed at `red_team`; the operator's Continue re-ran the step from nothing."""
+
+    async def test_the_second_attempt_carries_the_step(self, scene: dict[str, Any]) -> None:
+        provider = _UnusableOnce(_fixture_report(scene))
+
+        outcome = await run_red_team(
+            _context(scene, provider),
+            scene["session"],
+            job=scene["job"],
+            request=scene["request"],
+            use_batch=False,
+        )
+
+        assert provider.unusable_replies == 1
+        assert outcome.challenges == 3
+        # The second ask names what was wrong with the first reply.
+        second = provider.calls[-1]
+        assert "could not be used" in str(second.get("payload") or second)
+
+    async def test_two_unusable_replies_still_fail_the_step(self, scene: dict[str, Any]) -> None:
+        provider = _UnusableOnce(_fixture_report(scene))
+
+        async def always_unusable(*args: Any, **kwargs: Any) -> Any:
+            raise provider._unusable()
+
+        provider.complete_structured = always_unusable  # type: ignore[method-assign]
+
+        with pytest.raises(SpentButUnusableError):
+            await run_red_team(
+                _context(scene, provider),
+                scene["session"],
+                job=scene["job"],
+                request=scene["request"],
+                use_batch=False,
+            )
+        assert provider.unusable_replies == 2
 
 
 class TestThePlantedContradictionIsChallenged:

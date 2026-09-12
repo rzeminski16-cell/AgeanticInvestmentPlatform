@@ -20,6 +20,7 @@ alongside makes every row self-describing.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import StrEnum
@@ -83,7 +84,25 @@ DEFAULT_PRICES: Final[dict[str, ModelPrices]] = {
     "claude-opus-5": ModelPrices.from_input_rate("5.00", "25.00"),
     "claude-sonnet-5": ModelPrices.from_input_rate("3.00", "15.00"),
     "claude-haiku-4-5": ModelPrices.from_input_rate("1.00", "5.00"),
+    # The tier above Opus, which the provider already accepts as a route. Listed so the
+    # unknown-model fallback below overstates rather than halves a Fable bill (readiness
+    # audit 2026-09). The cache-read rate derived here ($1.00) overstates the published
+    # $0.25, which is the safe direction.
+    "claude-fable-5-1": ModelPrices.from_input_rate("10.00", "50.00"),
+    "claude-fable-5": ModelPrices.from_input_rate("10.00", "50.00"),
 }
+
+# The API echoes a model's dated snapshot id (`claude-haiku-4-5-20251001`) where the
+# route named the alias; the readiness audit of 2026-09 found every Haiku call on a live
+# run metered at Opus rates because the table held only the alias.
+_SNAPSHOT_SUFFIX: Final = re.compile(r"-\d{8}$")
+
+
+def prices_for(model: str, table: dict[str, ModelPrices] | None = None) -> ModelPrices:
+    """The rate card for a model id, as the API echoes it or as a route names it."""
+    known = table if table is not None else DEFAULT_PRICES
+    found = known.get(model) or known.get(_SNAPSHOT_SUFFIX.sub("", model))
+    return found if found is not None else unknown_model_prices(model)
 
 
 # The vendor's per-search fee, beside the token rates it is charged on top of. Verified
@@ -160,7 +179,7 @@ def price_usage(
     pounds" is noise in a table whose whole purpose is to be summed and read.
     """
     table = prices if prices is not None else DEFAULT_PRICES
-    model_prices = table.get(usage.model) or unknown_model_prices(usage.model)
+    model_prices = prices_for(usage.model, table)
 
     priced = (
         (CostCategory.LLM_INPUT, usage.input_tokens, model_prices.input_usd),
@@ -240,7 +259,7 @@ def estimate_gbp(
     an estimate from character counts is wrong by enough to make the gate misleading.
     """
     table = prices if prices is not None else DEFAULT_PRICES
-    model_prices = table.get(model) or unknown_model_prices(model)
+    model_prices = prices_for(model, table)
 
     usd = (
         Decimal(input_tokens) * model_prices.input_usd

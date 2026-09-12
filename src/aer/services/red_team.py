@@ -58,6 +58,7 @@ from aer.db.models import (
     ResearchRequest,
     SourceDocument,
 )
+from aer.providers.protocol import SpentButUnusableError
 from aer.services.disagreements import record_resolution
 from aer.services.subject import subject_name
 
@@ -193,10 +194,26 @@ async def run_red_team(
             sources=index.sources,
             problems=problems,
         )
-        if use_batch:
-            report = (await agent.run_batch(context, [payload]))[0]
-        else:
-            report = await agent.run(context, payload)
+        try:
+            if use_batch:
+                report = (await agent.run_batch(context, [payload]))[0]
+            else:
+                report = await agent.run(context, payload)
+        except SpentButUnusableError as unusable:
+            # Paid for and unreadable — nine challenges against a ceiling of eight, or a
+            # reply cut off at the output ceiling. Before the readiness audit of 2026-09
+            # this escaped the loop and failed the run; the operator's Continue re-ran
+            # the step from scratch. Told what was wrong, the adversary gets one more go.
+            if attempt == _MAX_RED_TEAM_ATTEMPTS:
+                raise
+            problems = [f"your previous reply could not be used: {unusable.message}"]
+            _log.info(
+                "red_team.retrying",
+                job_id=str(job.id),
+                attempt=attempt,
+                reason="the reply could not be read as a report",
+            )
+            continue
 
         dropped = [
             (number, challenge, problem)

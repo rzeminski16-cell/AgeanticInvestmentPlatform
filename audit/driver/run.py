@@ -64,6 +64,7 @@ async def drive(
     label: str | None = None,
     screenshots: bool = False,
     existing_job_id: uuid.UUID | None = None,
+    already_queued: bool = False,
 ) -> dict[str, Any]:
     label = label or subject.key
     recorder = Recorder(out_root / label)
@@ -142,7 +143,13 @@ async def drive(
             # state rather than enqueueing over it; only a queued job needs the worker told.
             async with runtime.session() as session:
                 job = await _job(session, job_id)
-                if job.status is JobStatus.RUNNING:
+                if already_queued:
+                    # The operator continued it through the product (`aer resume`, or the
+                    # console's Continue on a stranded run) before this driver started, so
+                    # the queue already holds it; a second task would race the first.
+                    recorder.event("recovery.already_queued", status=job.status.value)
+                    enqueue = False
+                elif job.status is JobStatus.RUNNING:
                     # RUNNING with no worker alive but the one this driver just started:
                     # the previous worker died under it. Re-enqueueing is the only way on,
                     # and that it is the only way is itself a finding (use case 11).
@@ -531,6 +538,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--screenshots", action="store_true")
     parser.add_argument("--resume-job", type=uuid.UUID, default=None)
+    parser.add_argument(
+        "--already-queued",
+        action="store_true",
+        help="the resumed job was continued through the product and is already on the queue",
+    )
     args = parser.parse_args(argv)
     summary = asyncio.run(
         drive(
@@ -543,6 +555,7 @@ def main(argv: list[str] | None = None) -> int:
             analysis_mode=AnalysisMode(args.mode),
             screenshots=args.screenshots,
             existing_job_id=args.resume_job,
+            already_queued=args.already_queued,
         )
     )
     print(json.dumps(summary, indent=2, default=str))

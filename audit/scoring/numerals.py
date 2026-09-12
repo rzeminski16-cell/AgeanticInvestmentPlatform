@@ -163,7 +163,11 @@ _QUALIFIED: Final = re.compile(
     r"intelligent cloud|productivity and business|more personal computing|microsoft cloud|"
     r"azure|linkedin|xbox|windows|server products|dynamics|search and news|gaming|devices|"
     r"office|copilot|oncology|biopharmaceuticals|rare disease|alexion|cardiovascular|"
-    r"respiratory|vaccines|commercial bank|retail bank|institutional|wealth|\bmpc\b|\bpbp\b)",
+    r"respiratory|vaccines|commercial bank|retail bank|institutional|wealth|\bmpc\b|\bpbp\b|"
+    # A filer's own sub-lines and non-GAAP labels: "Core" (the pharma convention), alliance
+    # and collaboration revenue, product sales, milestones, a capex that folds intangibles in.
+    r"\bcore\b|alliance|collaboration|product sales|milestone|impairment|other operating|"
+    r"intangibles|\bwithin\b|non-?recurring|one-?off)",
     re.I,
 )
 # A change rather than a level: "less the $36.6bn increase", "rose by $12bn".
@@ -228,11 +232,12 @@ _BLOCKING: Final = (
 )
 _FOOTNOTE_LINE: Final = re.compile(r"^\s*\[\^[^\]]+\]:")
 _TABLE_SEPARATOR: Final = re.compile(r"^\s*\|?\s*:?-{2,}")
+_QUALIFIED_CELL: Final = "__qualified__"
 # How far a concept phrase may sit from the number it is said to describe. Beyond this
 # the sentence is about something else and the number is left unattributed, which is
 # the honest state: an unread number is not a wrong one.
 _BEFORE_REACH: Final = 45
-_AFTER_REACH: Final = 25
+_AFTER_REACH: Final = 12
 
 
 @dataclass(frozen=True, slots=True)
@@ -426,6 +431,10 @@ def _table_hints(text: str, start: int) -> tuple[str | None, str | None] | None:
             break
         cursor = previous_start
     label = cells[1].lower() if len(cells) > 1 else ""
+    # A column headed "Core", "Alliance" or the like is a qualified measure whatever the
+    # row is called: the header is the sentence the cell sits in.
+    if header is not None and column < len(header) and _QUALIFIED.search(header[column]):
+        return _QUALIFIED_CELL, None
     concept: str | None = None
     for phrase, name in CONCEPTS:
         if phrase in label and (concept is None or len(phrase) > len(_phrase_of(concept))):
@@ -515,6 +524,9 @@ def extract_numerals(text: str) -> tuple[Numeral, ...]:
             excluded = "product"
         context = (before[-70:] + raw + after[:70]).replace("\n", " ")
         table = _table_hints(text, start)
+        if table is not None and table[0] == _QUALIFIED_CELL:
+            excluded = excluded or "qualified"
+            table = (None, table[1])
         if table is not None:
             concept, period = table
             near = (table[0] or "") + " " + sentence_after[:40]

@@ -436,10 +436,14 @@ IFRS_ALIASES: Final[dict[str, str]] = {
     "CurrentAccruedExpensesAndOtherCurrentLiabilities": "accrued_liabilities",
     "CurrentContractLiabilities": "deferred_revenue",
     "CurrentDeferredIncome": "deferred_revenue",
+    # The combined current line, not `CurrentPortionOfLongtermBorrowings` on its own: two
+    # tags on one concept are settled by name, and the component would win over the total.
+    "CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings": "short_term_debt",
     "CurrentPortionOfNoncurrentBorrowings": "short_term_debt",
     "BorrowingsCurrent": "short_term_debt",
     "CurrentLiabilities": "current_liabilities",
     "NoncurrentPortionOfNoncurrentBorrowings": "long_term_debt",
+    "LongtermBorrowings": "long_term_debt",
     "BorrowingsNoncurrent": "long_term_debt",
     "LeaseLiabilities": "lease_liabilities",
     "NoncurrentLeaseLiabilities": "lease_liabilities",
@@ -467,11 +471,17 @@ IFRS_ALIASES: Final[dict[str, str]] = {
     (
         "DepreciationAmortisationAndImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss"
     ): "depreciation_and_amortisation",
-    "AdjustmentsForShareBasedPayments": "share_based_compensation",
+    # The ifrs-full element names, as the taxonomy spells them. The readiness audit of
+    # 2026-09 found seven keys here spelt the way us-gaap would spell them
+    # (`AdjustmentsForShareBasedPayments`, `PurchaseOfPropertyPlantAndEquipment`,
+    # `IncomeTaxesPaidClassifiedAsOperatingActivities`, the weighted-share counts): every
+    # one of them missed AstraZeneca's 20-F, which left the run without capital
+    # expenditure, share counts, share-based pay, tax paid or the two halves of debt.
+    "AdjustmentsForSharebasedPayments": "share_based_compensation",
     "AdjustmentsForDeferredTaxExpense": "deferred_income_tax_expense",
-    "PurchaseOfPropertyPlantAndEquipment": "capital_expenditure",
-    "PaymentsToAcquirePropertyPlantAndEquipment": "capital_expenditure",
-    "PaymentsForRepurchaseOfEntitysOwnEquityInstruments": "share_repurchases",
+    "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities": "capital_expenditure",
+    "PaymentsToAcquireOrRedeemEntitysShares": "share_repurchases",
+    "PurchaseOfTreasuryShares": "share_repurchases",
     "DividendsPaid": "dividends_paid",
     "DividendsPaidClassifiedAsFinancingActivities": "dividends_paid",
     "ProceedsFromBorrowings": "proceeds_from_debt",
@@ -479,15 +489,15 @@ IFRS_ALIASES: Final[dict[str, str]] = {
     "RepaymentsOfBorrowings": "repayments_of_debt",
     "RepaymentsOfBorrowingsClassifiedAsFinancingActivities": "repayments_of_debt",
     "InterestPaidClassifiedAsOperatingActivities": "interest_paid",
-    "IncomeTaxesPaidClassifiedAsOperatingActivities": "income_taxes_paid",
+    "IncomeTaxesPaidRefundClassifiedAsOperatingActivities": "income_taxes_paid",
+    "IncomeTaxesPaidRefund": "income_taxes_paid",
     # -- Per share and share counts -------------------------------------------------------
     "DividendsPaidOrdinarySharesPerShare": "dividends_per_share",
     # The ifrs-full spellings differ from the us-gaap ones, and the diluted count is
     # "adjusted" rather than "diluted" — a filing tagged correctly under IFRS would miss the
     # us-gaap name entirely.
-    "WeightedAverageNumberOfOrdinarySharesOutstanding": "basic_shares_outstanding",
-    "AdjustedWeightedAverageNumberOfOrdinarySharesOutstanding": "diluted_shares_outstanding",
-    "WeightedAverageNumberOfDilutedSharesOutstanding": "diluted_shares_outstanding",
+    "WeightedAverageShares": "basic_shares_outstanding",
+    "AdjustedWeightedAverageShares": "diluted_shares_outstanding",
     "NumberOfSharesOutstanding": "shares_outstanding",
 }
 
