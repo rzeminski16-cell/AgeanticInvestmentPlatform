@@ -40,6 +40,34 @@ case; AstraZeneca (AZN, on the NYSE per EDGAR's own ticker file, a 20-F under IF
 Bank (MTB, NYSE, the residual-income path). Each request capped at £10 with one automatic
 raise to £12; the audit's own ledger holds the £100 ceiling across platform and baseline.
 
+**Deviations from the plan, and why.** The four platform runs and three baselines were made
+(the plan's fourth baseline, a second MSFT console run, was dropped when the first three
+cost £7.6, £11.0 and £6.7 against the £3 each the ledger had assumed; the platform's
+run-to-run variance is the reliability check, the console's is not). The adversarial
+verification of the code reading — three refuters per finding — was launched twice and lost
+every refuter to the account's session limit both times; the finders' 89 findings (six
+blocking, 47 major, 36 minor) were instead verified by hand in the main loop against the
+code and the live runs, and §5 says for each what was read and what was seen. Four of the
+thirteen subsystem readers never completed (render, observability, the GUI, the documents);
+the live findings F-08, F-10, F-11 and F-02 are what the audit has for those areas, and §9
+says so. The container was stopped four times by the same limit; each stop killed the
+worker under whatever run was in flight, which is how F-08 was met three times and its fix
+proved once (§5). The audit's own defects are in §6.
+
+**The accuracy matcher.** `audit/scoring/` extracts every numeral in a report or a console
+answer with the platform's own numeral scanner, attributes a concept and a period from the
+table row or the words beside it, and classifies it against the filing (companyfacts, read
+from the run's archived artefact, with the latest-filed annual observation per fiscal year
+and a small set of derived margins). It was calibrated on the platform's reports, whose
+figures are code-produced: every "contradiction" it raised there was a misread (a ratio
+beside the word "revenue", a table cell under the wrong column, an operand read as a
+result, a quarter-end column read as a year end), and each was closed by a rule that
+applies to both sides. It sets aside what it cannot attribute — qualified measures
+(constant currency, "core", a segment, a quarter), deltas, hypotheticals, ranges, arithmetic
+— and the counts it reports are of what it could check. It shares one blind spot with the
+platform's own reading ladder: a figure stated at the wrong scale word reads as the right
+number (F-21).
+
 ## 3. Part A — the technical assessment ⏳
 
 ### 3.1 Reliable
@@ -426,4 +454,29 @@ is how F-08 was observed at all.
 
 ## 8. What only the operator can decide ⏳
 
-## 9. What this pass does not establish ⏳
+## 9. What this pass does not establish
+
+- **Anything about Windows.** Every run here was on Linux; the operator's own pass found
+  two of three defects that CI could not see by construction (§4.10 of the roadmap), and
+  nothing here changes that.
+- **A domestic UK filer, live.** The LSE refusal is proved offline on the fake scene (F-04);
+  no money was spent to watch it happen.
+- **The console itself.** The baseline is the same brief through the API with the same
+  model, effort and search tool; the console adds a person's follow-up questions and
+  subtracts the repeatability. Its minutes-to-answer here (16, 19, 14) are the API's.
+- **The four subsystems nobody read** (render, observability, the GUI, the documents) beyond
+  what the live runs showed of them.
+- **Whether the fixes hold under a full suite in every order.** Both suite processes were
+  run on the audited commit; two shuffled seeds were run, the first reproducing the
+  recorded order dependence and the second, after the fix, leaving a residual pair
+  (`test_section_spine`'s red-team refill and `test_planner_salvage`'s plan salvage) that
+  pass alone and failed in that order once. Not root-caused.
+- **The judges' reads as a measure.** Three model judges per document answered a fixed
+  rubric blind; their agreement is reported and their disagreement listed. They are
+  advisory. The operator's own reads are the column §4 leaves open.
+- **The matcher's recall.** It judges what it can attribute and sets the rest aside; a wrong
+  figure in a sentence it could not read is not counted. Its precision was calibrated, its
+  recall was not measured.
+- **Anything a second run of AZN on the fixed alias table would show.** The IFRS fix is
+  proved against the archived tags, not by a run, unless the ledger allowed the fifth run
+  (§7 says).
