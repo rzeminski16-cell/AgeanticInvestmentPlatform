@@ -175,11 +175,11 @@ approved while it is.
 as-of date was offered to a claim — the honest reading is that the check had no population,
 not that it passed.
 
-Held against the console: **0 contradicted of 151** checkable numerals (MSFT), **1 of 179**
-(AZN — capital expenditure stated as $3,270m inside its own cash-flow bridge, where the
-filing's property additions are a different figure) and **0 of 106** (M&T). On stated figures the two are a draw, and both are
-good. The difference is not accuracy: it is what each will state at all, which is §3.4
-and §4.
+Held against the console: **0 contradicted of 151** checkable numerals (MSFT), **1 of 179** (AZN —
+capital expenditure stated as $3,270m inside its own cash-flow bridge, where the filing's property
+additions are a different figure) and **0 of 106** (M&T). On stated figures the two are a draw,
+and both are good. The difference is not accuracy: it is what each will state at all, which is
+§3.4 and §4.
 
 The console's own verifiability is weaker than its accuracy. Across the three notes it
 cited **46, 58 and 55 distinct URLs**, of which **33, 37 and 35 still resolved** when the
@@ -567,7 +567,7 @@ reference; a row whose reference and name are both gone still fails).*
 
 ### F-12 — The IFRS alias table named elements the taxonomy does not have, so a 20-F filer got no valuation
 
-*Completeness and accuracy. Blocking for the UK-plc-through-its-20-F use case. Observed live on AZN; fixed.*
+*Completeness and accuracy. Blocking for a 20-F filer. Observed live on AZN; fixed.*
 
 Seven keys in `core/concepts.py`'s `IFRS_ALIASES` were spelt the way us-gaap would spell
 them — `AdjustmentsForShareBasedPayments`, `PurchaseOfPropertyPlantAndEquipment`,
@@ -614,7 +614,8 @@ asking again. *Fix: an unusable reply is retried once with the problem stated
 
 ### F-15 — Adding a peer or a theme on the review page made the gate impassable
 
-*Reliability and practicality. Blocking for the operator who uses the control. Confirmed in code; fixed.*
+*Reliability and practicality. Blocking for an operator who uses the control. Confirmed in
+code; fixed.*
 
 The review pages hash the whole set — the step's proposal plus the operator's additions —
 and so does the service that confirms it; the engine's gate and the `gate_payload` entry
@@ -675,7 +676,8 @@ named.
 - The JSON API recorded a decision against any 64-character hash; it now checks the hash
   against what the gate shows, as the web route does (`test_run_api.py`).
 - `execute` ran a job whatever its status, so a job queued twice ran twice; it now declines
-  a RUNNING job, and a stranded run is continued through the resume service (`test_stranded_run.py`).
+a RUNNING job, and a stranded run is continued through the resume service
+(`test_stranded_run.py`).
 - The per-call spend guard read the cap from a row the session had loaded at the start of a
   long node, so a cap raised mid-run was not seen until the node ended; it reads the column
   (`test_cap_raise.py` covers the engine's guard; the per-call guard's read is the same select).
@@ -746,13 +748,13 @@ document with a column of machine identifiers in it, or pay again. That is the f
 behind use case 2's row in §4.
 
 *Fix: `prior_report_id` joins the renderer's provenance keys, so the id stays in the run
-export and the interface (which can resolve it) and leaves the document; the section's
-sentence now says where to find it. `tests/test_report_document.py::TestAPriorReportIdIsProvenanceNotAColumn`
-holds the three parts of it — the id absent, the reader's columns intact, and the check
-passing. Proved live: the same job's document, re-assembled from its own record under the
-fix, scores `presentation_integrity` **0 failures** against 21 before, with all 18 sections
-and 15,297 words unchanged. The run itself stays unapproved, because re-measuring it is
-exactly what the platform cannot do.*
+export and the interface (which can resolve it) and leaves the document; the section's sentence
+now says where to find it.
+`tests/test_report_document.py::TestAPriorReportIdIsProvenanceNotAColumn` holds the three parts of
+it — the id absent, the reader's columns intact, and the check passing. Proved live: the same
+job's document, re-assembled from its own record under the fix, scores `presentation_integrity`
+**0 failures** against 21 before, with all 18 sections and 15,297 words unchanged. The run itself
+stays unapproved, because re-measuring it is exactly what the platform cannot do.*
 
 ### F-23 — No run ever discovered what kind of business it was researching, so a bank was valued as an ordinary company
 
