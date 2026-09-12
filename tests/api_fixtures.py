@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async
 
 from aer.api.app import AppState, create_app
 from aer.config import Settings, load_settings
+from tests.db_cleanup import delete_all
 
 BASE_URL = "http://testserver"
 
@@ -60,9 +61,14 @@ async def broken_redis() -> AsyncIterator[Redis]:
 
 @pytest.fixture
 async def api_engine(database_url: str) -> AsyncIterator[AsyncEngine]:
-    """An engine against the migrated test database. Requires PostgreSQL."""
+    """An engine against the migrated test database, emptied first. Requires PostgreSQL.
+
+    Emptied for the reason `tests/db_fixtures.py` gives for `db_engine`: what an earlier
+    test committed must not be what this test's application reads.
+    """
     engine = create_async_engine(database_url)
     try:
+        await delete_all(engine)
         yield engine
     finally:
         await engine.dispose()

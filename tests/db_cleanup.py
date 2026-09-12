@@ -37,7 +37,7 @@ from collections.abc import Sequence
 from typing import Any, Final
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 
 import aer.db.models  # noqa: F401 -- importing is what registers the tables on the metadata
 from aer.db.base import Base
@@ -102,14 +102,29 @@ async def delete_all(engine: AsyncEngine, names: Sequence[str] | None = None) ->
     Row locks rather than an exclusive lock on the schema, so this does not deadlock
     against a fixture holding a read, and every declared foreign key is honoured on the
     way down.
+
+    Looks before it deletes. Every engine fixture empties the database on the way in (see
+    `tests/db_fixtures.py`), and nearly every test finds it already empty: asking is one
+    round trip where the deletes are one per table — about a millisecond against
+    twenty-five, over two thousand tests.
     """
     order = deletion_order(names)
     async with engine.begin() as connection:
         # A test that wedges here should say so quickly rather than hanging the suite,
         # which is the failure mode A17 is about.
         await connection.execute(text("SET LOCAL statement_timeout = '10s'"))
+        if not await _holds_rows(connection, order):
+            return
         for name in order:
             await connection.execute(text(f'DELETE FROM "{name}"'))  # noqa: S608 -- from metadata
+
+
+async def _holds_rows(connection: AsyncConnection, tables: Sequence[str]) -> bool:
+    """Whether any of ``tables`` has a row in it, asked in one statement."""
+    if not tables:
+        return False
+    probe = " OR ".join(f'EXISTS (SELECT 1 FROM "{name}")' for name in tables)  # noqa: S608
+    return bool((await connection.execute(text(f"SELECT {probe}"))).scalar())
 
 
 async def empty_the_database(database_url: str, names: Sequence[str] | None = None) -> None:

@@ -12,6 +12,17 @@ Tests can therefore call ``commit()`` and observe its effects — including cons
 violations, which only fire at flush time — while leaving the database untouched. Deleting
 rows between tests instead would be slower and would silently mask ordering bugs.
 
+**And an empty database on the way in.** Not every test can live inside that transaction:
+a page test drives the application, whose own sessions cannot see an uncommitted row, so
+its fixture commits for real — and what it leaves behind is the next test's problem. A
+``users`` row one module committed surfaced as a unique violation, or as a stranger's
+account, in four other modules the first time the files ran in a different order, and the
+per-module cleanups that were meant to prevent it each named their own tables and ran at
+their own end, or not at all. So :func:`db_engine` empties the database before handing the
+engine over. At setup rather than teardown, because an empty table is what the *next* test
+needs, and a cleanup at setup cannot contend with a transaction a finished test still holds
+open. The transactional tests find nothing to delete, and pay one round trip to learn that.
+
 The whole module skips when PostgreSQL is unreachable, so ``uv run pytest`` still works on
 a machine with nothing running. It reports the reason rather than passing quietly.
 """
@@ -30,6 +41,8 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from tests.db_cleanup import delete_all
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -153,8 +166,11 @@ def database_url() -> str:
 
 @pytest.fixture
 async def db_engine(database_url: str) -> AsyncIterator[Any]:
+    """An engine on an emptied database. The module docstring says why emptied, and why
+    on the way in rather than the way out."""
     engine = create_async_engine(database_url, poolclass=None)
     try:
+        await delete_all(engine)
         yield engine
     finally:
         await engine.dispose()
