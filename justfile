@@ -291,8 +291,9 @@ test-shuffled seed="":
 test-cov:
     uv run pytest --ignore=tests/e2e --cov --cov-report=term-missing
 
-# The eight blocking metrics from docs/archive/PLAN.md section 2.10, on their own, together with
-# the thirty golden calculations they lean on.
+# The ten blocking metrics from docs/archive/PLAN.md section 2.10 and the two added since
+# (custom section contract conformance, skill privilege containment), on their own, together
+# with the thirty-nine golden calculations they lean on.
 #
 # Inside `test` as well — the gate is ordinary pytest. Runnable alone because "did the
 # platform's guarantees move?" is a question worth being able to ask in ten seconds without

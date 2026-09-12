@@ -81,7 +81,7 @@ they are broken.
 | 4 | Migrations round-trip, and refuse to eat data | B | |
 | 5 | Static gates clean (lint, types, secrets) | B | |
 | 6 | Both suites green, counts as stated | B | |
-| 7 | The eight blocking metrics pass | B | |
+| 7 | The ten blocking metrics pass | B | |
 | 8 | The application renders; the degraded page degrades | B | |
 | 8.3 | Keyboard, 320px, 200%, both schemes, no JS | A | |
 | 9 | **A run stepped through, every step read** | B | |
@@ -345,12 +345,12 @@ just typecheck
 ```
 All checks passed!
 <N> files already formatted
-Success: no issues found in 353 source files
+Success: no issues found in 453 source files
 ```
 
-**`mypy`'s count is the one to read.** It should be **353 source files** and it grows slowly
+**`mypy`'s count is the one to read.** It should be **453 source files** and it grows slowly
 as modules are added. A number that has *dropped sharply* means a path is being excluded
-that should not be, and a `mypy` run that checks 200 files instead of 353 is a green build
+that should not be, and a `mypy` run that checks 200 files instead of 453 is a green build
 that checked half the codebase. Note `just typecheck` runs a bare `mypy` deliberately: the
 packages come from `pyproject.toml`, so this command, pre-commit and CI check exactly the
 same set. A bare `mypy src` checks fewer and is not the gate.
@@ -448,8 +448,8 @@ in two thousand dots.
 just eval
 ```
 
-**Expect:** green, in about ten seconds. These are the eight metrics the platform's
-guarantees are stated in, plus the thirty golden calculations they lean on. **If this is red
+**Expect:** green, in about ten seconds. These are the ten metrics the platform's
+guarantees are stated in, plus the thirty-nine golden calculations they lean on. **If this is red
 and §6 was green, stop and read it** — something that is supposed to be a guarantee has
 moved, and every number downstream inherits it.
 

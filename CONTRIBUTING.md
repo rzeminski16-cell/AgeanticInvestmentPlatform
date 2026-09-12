@@ -84,7 +84,7 @@ Never edit an accepted ADR to change its decision. Write a new one that supersed
 
 - Deterministic code gets exhaustive tests. It is cheap and it is the correctness core.
 - Model-facing code gets contract tests against a fake provider.
-- External HTTP is replayed from recorded cassettes. A test that touches the real network
+- External HTTP is replayed from stored fixtures through `respx`. A test that touches the real network
   is a bug in the test.
 - Use `pytest.mark.integration` for anything needing Docker, and `pytest.mark.live_llm`
   for anything that would cost money.

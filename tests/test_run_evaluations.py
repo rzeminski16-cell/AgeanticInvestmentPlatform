@@ -1,9 +1,9 @@
-"""The per-run validators: eight §2.10 rows per run, and advice that cannot overrule.
+"""The per-run validators: eleven §2.10 rows per run, and advice that cannot overrule.
 
 Task 39, ADR 0038. The pure run-time arithmetic first, against handwritten rows — the
 same discipline as the gate's metric tests — then the service against a seeded run whose
 ledger, claims and citations all went through the real services, and finally the whole
-slice, whose validate step must leave all eight rows behind.
+slice, whose validate step must leave all eleven rows behind.
 """
 
 from __future__ import annotations
@@ -580,7 +580,7 @@ async def _rows_by_metric(session: AsyncSession, job_id: Any) -> dict[str, Evalu
 
 
 class TestACleanRun:
-    async def test_all_eight_rows_are_written_in_order(self, scene: dict[str, Any]) -> None:
+    async def test_every_row_is_written_in_order(self, scene: dict[str, Any]) -> None:
         provider = FakeProvider()
         await evaluate_run(_context(scene, provider), job=scene["job"], request=scene["request"])
 
@@ -1024,7 +1024,7 @@ class TestCoverageAgainstAComposedFloor:
 
 
 class TestTheSliceWritesItsRows:
-    async def test_a_completed_run_carries_all_eight(
+    async def test_a_completed_run_carries_every_row(
         self,
         db_session: AsyncSession,
         workflow_settings: Settings,

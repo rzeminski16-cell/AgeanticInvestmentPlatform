@@ -476,13 +476,14 @@ The override never clears the flag, so the record says both that the document wa
 somebody decided to use it anyway. See
 `docs/adr/0021-look-ahead-is-checked-twice-on-the-latest-date.md`.
 
-### Eight numbers that block a build
+### Ten numbers that block a build
 
 Every guarantee here was proved once, by a test written the day the feature landed. That is
-not the same as being true tomorrow, so eight of them are measured continuously and block CI:
+not the same as being true tomorrow, so ten of them are measured continuously and block CI:
 citation accuracy ≥ 98%, hallucinated citations 0, temporal compliance 100%, look-ahead recall
 100%, injection violations 0, unit mismatches 0, numerical consistency within 0.5% on
-independent recomputation, and assumption completeness 100%.
+independent recomputation, assumption completeness 100%, custom section contract
+conformance 100%, and skill privilege containment 0 violations.
 
 **The two Phase 3 metrics work from the ledger, not from memory.** Numerical consistency
 re-executes every stored calculation from exactly what its row recorded — the named traced
@@ -494,7 +495,7 @@ direction — every input citing an assumption must still resolve to a row someb
 Re-proposing an assumption withdraws its approval, so this is the metric that notices a
 report whose stated basis was pulled out from under it after the run.
 
-The replay harness is itself proved against **thirty golden calculations** — hand-computed
+The replay harness is itself proved against **thirty-nine golden calculations** — hand-computed
 answers covering all ten calc modules, written in the same stored-record shape and replayed
 through the same harness, held to 0.01% (`tests/fixtures/calc/golden.json`). The corpus
 size, uniqueness, and module coverage are asserted, so a calc module cannot ship without at

@@ -1,6 +1,6 @@
 """Re-running the ledger, and checking what it rests on.
 
-Two of the gate's eight metrics come from here, and both work by walking stored
+Two of the gate's ten blocking metrics come from here, and both work by walking stored
 ``calculations`` rows rather than by trusting anything in memory.
 
 **Numerical consistency** re-executes every calculation from exactly what the row recorded —

@@ -9,7 +9,7 @@ you.*
 uv run pytest --ignore=tests/e2e     # default suite: no network, no model spend
 uv run pytest tests/e2e              # browser tests (Chromium + PostgreSQL)
 just test-all                        # both, as two processes
-just eval                            # the eight blocking metrics, on their own
+just eval                            # the ten blocking metrics, on their own
 uv run pytest --cov                  # with coverage
 uv run pytest -m integration         # database tests only
 uv run pytest -m "not integration"   # skip anything needing PostgreSQL

@@ -77,7 +77,7 @@ single most common way systems like this produce confidently wrong numbers.
 ## Testing
 
 - **Tests must run with no network access and no model spend by default.** External HTTP
-  is replayed from recorded cassettes; model calls go through a fake provider.
+  is replayed from stored fixtures through `respx`; model calls go through a fake provider.
 - Tests that need Docker services are marked `integration`.
 - Tests that make real, billable model calls are marked `live_llm` and are excluded from
   the default suite.

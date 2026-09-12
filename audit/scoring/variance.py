@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections import Counter
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -30,30 +31,72 @@ def _calc_key(row: dict[str, Any]) -> tuple[str, str, str]:
     return (str(row.get("name")), str(row.get("period")), case)
 
 
+def _by_key(rows: list[dict[str, Any]]) -> dict[tuple[str, str, str], list[dict[str, Any]]]:
+    """Every row under its key, in the order the run recorded them.
+
+    One key holds many rows: a DCF's five forecast years carry no period label, and a
+    sensitivity grid records `present_value` once per cell — 117 of them in MSFT's first
+    run. Keeping one row per key (what a dict comprehension does) compared the last cell
+    of one run against the last cell of the other and called the rest identical, which is
+    how this comparison first reported thirty-one differences that were mostly a grid
+    read out of order.
+    """
+    grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    for row in rows:
+        grouped.setdefault(_calc_key(row), []).append(row)
+    return grouped
+
+
+def _values(rows: list[dict[str, Any]]) -> Counter[tuple[str, str]]:
+    """The (value, unit) pairs a key's rows hold, as a multiset.
+
+    Order inside a key is not the platform's promise and is not stable: `days_outstanding`
+    for one year records receivable, inventory and payable days, and two runs emitted the
+    same three numbers in a different order. Comparing position by position called all
+    three different; what reliability actually claims is that the same numbers came out,
+    so the comparison is of multisets, and the ordering difference is reported separately.
+    """
+    return Counter(
+        (str(Decimal(str(row["output_value"]))), str(row.get("output_unit"))) for row in rows
+    )
+
+
 def _step_output(export: dict[str, Any], key: str) -> dict[str, Any]:
     return next((s.get("output") or {} for s in export.get("steps", []) if s["key"] == key), {})
 
 
 def compare_runs(first: Path, second: Path) -> dict[str, Any]:
     a, b = _export(first), _export(second)
-    calcs_a = {_calc_key(r): r for r in a.get("calculations", [])}
-    calcs_b = {_calc_key(r): r for r in b.get("calculations", [])}
+    rows_a, rows_b = a.get("calculations", []), b.get("calculations", [])
+    calcs_a, calcs_b = _by_key(rows_a), _by_key(rows_b)
     shared = sorted(set(calcs_a) & set(calcs_b))
     differing = []
+    rows_compared = 0
+    rows_differing = 0
     for key in shared:
-        ra, rb = calcs_a[key], calcs_b[key]
-        same_value = Decimal(str(ra["output_value"])) == Decimal(str(rb["output_value"]))
-        same_unit = ra.get("output_unit") == rb.get("output_unit")
-        same_formula = ra.get("formula") == rb.get("formula")
-        same_code = ra.get("code_version") == rb.get("code_version")
-        if not (same_value and same_unit and same_formula):
+        group_a, group_b = calcs_a[key], calcs_b[key]
+        rows_compared += min(len(group_a), len(group_b))
+        values_a, values_b = _values(group_a), _values(group_b)
+        only_a, only_b = values_a - values_b, values_b - values_a
+        unmatched = sum(only_a.values())
+        rows_differing += unmatched
+        formulae = {row.get("formula") for row in group_a} ^ {row.get("formula") for row in group_b}
+        if unmatched or sum(only_b.values()) or formulae or len(group_a) != len(group_b):
             differing.append(
                 {
                     "key": key,
-                    "first": ra["output_value"],
-                    "second": rb["output_value"],
-                    "unit": (ra.get("output_unit"), rb.get("output_unit")),
-                    "same_code_version": same_code,
+                    "rows": (len(group_a), len(group_b)),
+                    "rows_differing": unmatched,
+                    "formula_changed": sorted(f for f in formulae if f),
+                    # Enough to see the shape of the difference without printing a grid.
+                    "examples": [
+                        {"first": first, "second": second}
+                        for first, second in zip(
+                            sorted(v for v, _ in only_a.elements()),
+                            sorted(v for v, _ in only_b.elements()),
+                            strict=False,
+                        )
+                    ][:3],
                 }
             )
     extract_a, extract_b = _step_output(a, "extract"), _step_output(b, "extract")
@@ -97,6 +140,9 @@ def compare_runs(first: Path, second: Path) -> dict[str, Any]:
         "calculations": {
             "first": len(calcs_a),
             "second": len(calcs_b),
+            "rows": (len(rows_a), len(rows_b)),
+            "rows_compared": rows_compared,
+            "rows_differing": rows_differing,
             "shared": len(shared),
             "only_first": [list(k) for k in sorted(set(calcs_a) - set(calcs_b))][:40],
             "only_second": [list(k) for k in sorted(set(calcs_b) - set(calcs_a))][:40],
