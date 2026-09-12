@@ -1183,10 +1183,11 @@ definition or what a run does. They are listed in the order I would take them.
 - **The four subsystems nobody read** (render, observability, the GUI, the documents) beyond
   what the live runs showed of them.
 - **Whether the fixes hold under a full suite in every order.** Green on every pass run,
-  each with nothing else running: the default suite **6,960 passed** (34m39s) and again
-  **6,964 passed** (35m06s) after the later fixes, the browser suite **183 passed** (7m43s),
+  each with nothing else running: the default suite **6,960 passed** (34m39s), then **6,964**
+  (35m06s), then **6,968 passed** (35m16s) on the final tree with the adversary's fixes in
+  it; the browser suite **183 passed** (7m43s);
   and seed 20260909 — the ordering that had left a residual pair — **6,925 passed** (34m08s),
-  so the pair is gone. What is not established is a *third* ordering; and the shuffled runner
+  so the pair is gone. Every run had zero failures and zero errors. What is not established is a *third* ordering; and the shuffled runner
   was widened in this pass to walk every directory (it globbed one, so the audit's own tests
   were never shuffled), which has not itself been run under a seed.
 - **The matcher's recall.** It judges what it can attribute and sets the rest aside; a wrong
