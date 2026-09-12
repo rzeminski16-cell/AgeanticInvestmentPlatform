@@ -132,6 +132,12 @@ page specifications, a production handoff and a twelve-screen prototype.
   on the operator's own machine, including a live run: the two blocking rows, the five defects
   root-caused, and the order the work falls into. A findings document; what survives review
   moves into the roadmap.
+- [`readiness-audit-2026-09.md`](plan/readiness-audit-2026-09.md) — **is the research tool
+  ready for use?** Five live runs and three console baselines, measured against the four
+  criteria and against what a practitioner does with the result: the verdict per criterion
+  with its number, a suitability matrix by use case, 23 findings with their reproductions,
+  the spend ledger, and the decisions only the operator can take. Results in
+  [`readiness-audit-2026-09/`](plan/readiness-audit-2026-09/).
 
 ---
 

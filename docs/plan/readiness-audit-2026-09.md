@@ -7,15 +7,42 @@ the operator's: **reliable, accurate, budget friendly, complete**, held against 
 research done in the Claude console with an optimised set-up. This document is the record:
 what was measured, what was found, what was fixed, and what only the operator can decide.*
 
-*Working draft. Sections marked ⏳ are still being measured; every number here is read from
-`audit/out/` or the repository, never remembered.*
+*Every number here is read from `audit/out/` or from the repository, never remembered.*
 
 ---
 
 ## 1. The verdict
 
-⏳ Written last, from the scorecard below. Two halves: Part A (technical, per criterion
-against its threshold) and Part B (practical, the suitability matrix).
+**Not ready for general use; ready for one thing, and good at it.**
+
+Four criteria, measured in §3:
+
+| Criterion | Threshold | Measured | Verdict |
+|---|---|---|---|
+| **Accurate** | 0 figures contradicting the filing | **0 of 169, 0 of 188, 0 of 165** checkable numerals; every blocking metric 0 or 100 %; 160 of 160 citations verified across three runs | **yes** |
+| **Budget friendly** | ≤ £10 per report | **£7.48, £6.80, £6.83** — average £7.04; no cap raised, no run breached | **yes** |
+| **Reliable** | a report without rescue; nothing lost; the same numbers twice | 0 sections lost and 0 figures re-paid — but **two of four subjects never reached a report**, and 837 calculation rows reproduced except where a model-proposed assumption moved (value per share $485.29 against $512.50) | **not yet** |
+| **Complete** | every section, every expected figure, parity with the console | **18 of 18 sections every time** — and **no peer multiple on any run**, no segment revenue, no guidance, and on one subject no valuation at all | **no** |
+
+Two halves that disagree, which is why the pass has both. **Technically** the core is
+sound: the arithmetic is deterministic and replayable, every figure traces to hashed bytes,
+the money is metered and capped, and an independent recomputation of the filings found
+nothing wrong in any report. **Practically** the documents do not yet do a reader's job:
+three independent judges read each report and each console note blind, and **all six
+comparisons chose the console**, on every dimension, because the platform's report states
+no view, answers the brief's questions "partly" or not at all, and withholds the figures a
+research note is read for.
+
+So: **use it today to build and audit an evidence base on a US filer**, where nothing else
+here can match a footnote that resolves to bytes and a calculation that re-executes. **Do
+not use it yet** to reach a view, to research a bank or a domestic UK filer, to answer a
+question under time pressure, or to hand somebody a document that stands on its own.
+
+The pass found 23 findings and fixed 17 of them with regression tests, including two that
+were blocking and live: the refresh run's gate refused itself over a leaked identifier
+(F-22), and no run ever discovered what kind of business it was researching, so a bank took
+the model that ADR 0029 exists to forbid (F-23). Fourteen decisions that are not mine to
+take are in §8.
 
 ## 2. Method
 
@@ -68,37 +95,203 @@ applies to both sides. It sets aside what it cannot attribute — qualified meas
 platform's own reading ladder: a figure stated at the wrong scale word reads as the right
 number (F-21).
 
-## 3. Part A — the technical assessment ⏳
+## 3. Part A — the technical assessment
+
+Five live runs, three console baselines. MTB appears twice: once as the product stood
+(`mtb-unclassified`, stopped for the operator at the assumptions gate), once on the fixed
+classification (`mtb`). Every number below is read from `audit/out/`.
 
 ### 3.1 Reliable
 
-| Measure | MSFT #1 | MSFT #2 | AZN | MTB |
+| Measure | MSFT #1 | MSFT #2 | AZN | MTB (as found) |
 |---|---|---|---|---|
-| Reached an approved, rendered report | ⏳ | | | |
-| Steps failed / non-gate retries | ⏳ | | | |
-| Sections lost / degraded | ⏳ | | | |
-| Resumes needed | ⏳ | | | |
-| Replay, artefacts, audit chain all hold | ⏳ | | | |
+| Reached an approved, rendered report | **yes** | **no** — gate 2 refused on `presentation_integrity` (F-22) | **yes** | **no** — stopped for the operator at the assumptions gate (F-23) |
+| Steps failed | 0 | 0 | 1 (`red_team`, retried and passed — F-14) | 0 |
+| Non-gate retries | 1 (`extract`, caused by the audit's own driver — §6) | 1 (`draft`, the kill drill) | 2 (`red_team`, `revise`) | 0 |
+| Sections lost | **0** | 0 | 0 | — |
+| Sections degraded | 0 | 1 (`earnings_quality`, shortened to its budget) | 2 (`valuation_dcf` withheld — F-12; `catalysts`) | — |
+| Resumes needed | 0 | 1 (F-08's fix, live) | 1 (F-08's fix, live) | 0 |
+| Acceptance / replay / artefacts / audit chain | all pass; 852 calculations, 69 citations, 14 artefacts re-derived | fails only on the refused check; 857 calculations, 57 citations re-derived | all pass; 152 calculations, 34 citations | — |
+
+**Run-to-run, the measure that matters.** MSFT twice, one UTC day apart, same filings:
+**837 calculation rows compared, 178 keys identical, 18 keys differing (527 rows)** — and
+every differing key is downstream of exactly three inputs: the day's closing price
+(market capitalisation, the multiple), the beta regression's extra day
+(1.0646 → 1.0670, so WACC 9.3212 % → 9.3311 %), and **one model-proposed assumption the
+operator confirmed — the exit multiple, 14× against 15×**. Facts chosen, rejected and
+unmapped are identical to the row (18,610 / 14,061 / 496); so are all nine other derived
+drivers. The front page moved with them: **value per share $485.29 against $512.50, 5.6 %
+apart**, which is the exit multiple's 7.1 % net of the rest.
+
+So the arithmetic is reproducible and the *report* is not, because one of its inputs is a
+model's opinion confirmed at a gate. That is the design (ADR 0046), and it means "the same
+subject twice gives the same numbers" holds for everything except the assumptions — where
+it is the operator's confirmation, not the platform, that fixes the answer.
+
+**Verdict on reliability: not yet.** Nothing was lost and nothing was paid for twice, but
+two of four subjects did not reach a report — one refused by the platform's own
+presentation check on every refresh run (F-22), one stopped because a bank was never
+classified as one (F-23). Both are fixed here; neither fix has a completed live run behind
+it beyond the re-measurement in §5.
 
 ### 3.2 Accurate
 
-⏳ `cited_figure_agreement`, `figure_plausibility`, citations verified, the independent
-basket against the platform's facts and calculations, the baseline's numerals against the
-same basket.
+| Measure | Threshold | MSFT #1 | MSFT #2 | AZN |
+|---|---|---|---|---|
+| `cited_figure_agreement` | 0 | **0** | **0** | **0** |
+| `figure_plausibility` | 0 | **0** | **0** | **0** |
+| `numerical_consistency` | ≤ 0.5 % | **0** | **0** | **0** |
+| `citation_accuracy` | ≥ 98 % | **100 %** (69 of 69 verified) | **100 %** (57 of 57) | **100 %** (34 of 34) |
+| `hallucinated_citation_rate` | 0 | **0** | **0** | **0** |
+| `temporal_compliance` | 100 % | **100 %** | **100 %** | **100 %** |
+| The audit's own matcher, against the filing | 0 contradicted | **0 of 169** checkable numerals | **0 of 188** | **0 of 165** |
+| Claims / of which numeric | — | 280 / 182 | 279 / 197 | 243 / 175 |
+
+**`look_ahead_recall` is "not exercised" on every run**, because nothing published after the
+as-of date was offered to a claim — the honest reading is that the check had no population,
+not that it passed.
+
+Held against the console: **0 contradicted of 154 checkable numerals** (MSFT) and **1 of
+178** (AZN — capital expenditure stated including intangibles, where the filing's figure is
+property alone). On stated figures the two are a draw, and both are good. The difference is
+not accuracy: it is what each will state at all, which is §3.4 and §4.
+
+**Verdict on accuracy: yes.** No figure in any run contradicted the filing it came from, by
+the platform's measures or by an independent recomputation that does not trust them.
 
 ### 3.3 Budget friendly
 
-⏳ Cost per run against £10; by step, role and category; estimate against actual; cache hit
-rate; the baseline's priced usage.
+| Measure | MSFT #1 | MSFT #2 | AZN | MTB (as found) |
+|---|---|---|---|---|
+| Run spend | **£7.48** | **£6.80** | **£6.83** | £2.03 (stopped early) |
+| Against the £10 target | **inside** | **inside** | **inside** | inside |
+| The guard's own estimate for the plan | £9.31 | £9.31 | £9.31 | £9.30 |
+| Dearest steps | `draft` £3.71, `revise` £1.09 | `draft` £2.31, `revise` £1.34 | `draft` £2.83, `revise` £0.97 | — |
+| Worst per-step estimate against actual | `research_industry` **1.78×** | `research_macro` **1.45×** | `research_industry` **1.91×** | — |
+| Cache hit rate | 10.7 % | 10.3 % | 7.6 % | — |
+| Paid replies the platform could not read | **1** (1,431 output tokens) | **3** (7,366) | **5** (18,706, including the red team's 9,919) | 0 |
+| Web searches billed | £0.04 | £0.04 | £0.06 | — |
+| Effort as requested | Opus high ×24, Sonnet medium ×31, **Haiku low ×2 — dropped at the API** (F-05) | ×23 / ×32 / ×2 | ×20 / ×31 / ×3 | — |
+
+Three finished runs at **£7.48, £6.80 and £6.83** against a £10 target and a £12 hard cap:
+no cap was raised, no run breached, and the monthly cap never bound. The console cost
+**£7.63, £11.03 and £6.71** for the same three briefs, so on money the two are level and
+the platform is the more predictable of them.
+
+Two real leaks, both small and both metered: **every Haiku call was priced at Opus rates**
+until F-13 was fixed (£0.28 charged on MSFT #1 for what Haiku's list price makes about
+£0.06), and **schema-rejected replies are routine** — one to five per run, up to 18,706
+output tokens paid for and discarded, which the run's own ledger carries but no surface
+sums up.
+
+**Verdict on budget: yes.** £7.04 a report on average, inside the operator's £10, with the
+cap mechanism never needed and the arithmetic of the ledger checkable row by row.
 
 ### 3.4 Complete
 
-⏳ Sections of 18; headline figures; unmapped concepts; peers priced; the checklist against
-the baseline.
+| Measure | MSFT #1 | MSFT #2 | AZN |
+|---|---|---|---|
+| Sections generated | **18 / 18** | **18 / 18** | **18 / 18** |
+| Report length | 13,993 words, 142 footnotes | 15,297 words | 12,548 words, 114 footnotes |
+| Facts chosen / rejected | 18,610 / 14,061 | 18,610 / 14,061 | 4,181 / 5,217 |
+| Unmapped tags at the gate | 496 (2 refused) | 496 | 322 |
+| Market capitalisation | present | present | **withheld** |
+| DCF value per share | present | present | **withheld** — no share count in the IFRS tags (F-12) |
+| **EV/EBITDA, P/E** | **withheld** | **withheld** | **withheld** |
+| Peers priced in the comps table | **0 of 8** | 0 of 8 | **0 of 8** |
 
-## 4. Part B — the practical assessment ⏳
+**No run produced a single peer multiple.** The model proposes eight comparables, the
+operator confirms them, the comps table is built — and every peer is excluded with the same
+sentence: *"this research holds no filings and no price series for it, and a peer multiple
+needs both."* Nothing acquires a peer's financials (ADR 0059, as amended), so on any
+database that has not researched the peer itself the table is empty by construction, and
+EV/EBITDA and P/E are withheld on every run. That is the largest completeness gap the pass
+found, and it is not a defect in the sense of a bug: it is the consequence of a decision,
+and it is in §8.
 
-The suitability matrix, the journeys as walked, the practitioner reads.
+Against the console on the fixed checklist, scored blind by three judges per document
+(§4): the platform is **ahead on one item of ten** — the risk factors the company itself
+names, which the console omitted on both subjects — and **behind on five**: segment
+revenue, management guidance, named competitors, a bear case with a number, and (on AZN) a
+valuation with a per-share result.
+
+**Verdict on completeness: no.** Every section is written and every figure it states is
+traceable, but the figures a reader expects from a research note — segment revenue,
+guidance, peer multiples, and on one subject any valuation at all — are absent, and the
+absences are structural rather than incidental.
+
+## 4. Part B — the practical assessment
+
+### 4.1 What three judges made of the documents
+
+Each report and each console note was read by three independent judges under a fixed
+rubric — an investor deciding with their own money, a reader handed only the file, and a
+sceptic checking the work — blind to which tool produced which document, and then the pair
+was compared blind. Twelve reads, six comparisons; the raw rubrics are in
+`audit/out/judges/reads.json`.
+
+| Question | Platform (2 documents, 6 judges) | Console (2 documents, 6 judges) |
+|---|---|---|
+| Would you act on it? | **no — 6 of 6** | **with reservations — 6 of 6** |
+| Is an investment view stated? | no (5 of 6) | yes (6 of 6) |
+| Is the view argued rather than recited? | no (5 of 6) | yes (6 of 6) |
+| Is the bear case in the body? | yes (6 of 6) | yes (6 of 6) |
+| Are the numbers explained? | mixed (3 of 6) | yes (6 of 6) |
+| Minutes to check three figures | 10–30 | 10–15 |
+| Reading time | 30–45 min | 50–60 min |
+
+**All six blind comparisons chose the console**, on answering the brief, on the focus
+questions, on recent developments, on argument and on the checklist; on verifiability the
+console won four and the other two were called equal. The reasons the judges gave were the
+same three every time: the platform's header says *"Non-binding view: no view reached"*, so
+there is no thesis to act on; the focus questions are answered "partly" or "no" because the
+evidence rules exclude what would answer them; and on AZN the valuation is withheld
+altogether.
+
+**The verifiability result deserves care.** The platform's footnotes resolve to hashed bytes
+and the console's are URLs that may or may not still say what was quoted — 46 URLs cited on
+MSFT of which **33 resolved**, 58 on AZN of which **37 resolved**, and the response carried
+no citation blocks at all, so the references are the model's own prose. Yet judges reading
+the *exported Markdown alone* found the console no slower to check, because a URL can be
+opened and a footnote to `source_document:<uuid>` cannot. **The platform's verifiability
+advantage lives in the interface, not in the document it exports** — which is exactly
+persona 2's complaint, and use case 9's row below.
+
+### 4.2 The journeys, as walked
+
+| Journey measure | What the audit recorded |
+|---|---|
+| Gate stops per run | **6** (plan, peers, themes, unmapped concepts, assumptions, final) — 7 with the sector gate the fix adds for a specialist filer |
+| Wall-clock, commission to gate 2 | 31–42 minutes of step time (MSFT #1 42 min, MSFT #2 36 min, AZN 31 min); the audit's own stops added hours and are not the product's |
+| Operator attention | six decisions, each on a page that shows what it hashes; the unmapped-concepts page carried **105 items** on MSFT and 51 on AZN |
+| Values the operator had to supply | **2 on MSFT** (risk-free rate, equity risk premium), **5 on AZN**, **6 on a bank** — each with a justification the page requires |
+| Anything that needed the terminal | **yes**: a stranded run needed `aer resume` before F-08's fix; a refused presentation check has no re-measure anywhere (F-22) |
+| Developer vocabulary reaching the reader | **21 raw UUIDs** in the refresh run's own comparison table (F-22), and the coverage notice names metrics by their code identifiers |
+| Reading time of the result | 30–45 minutes, 12.5–15.3k words |
+
+### 4.3 The suitability matrix
+
+| # | Use case | Supported? | What the audit found |
+|---|---|---|---|
+| 1 | First deep dive on a US large cap | **partly** | A complete, accurate, £7.48 report in 42 minutes of step time — with no view, no segment revenue, no guidance and no peer multiple. Good as an evidence base; not a decision document. |
+| 2 | Refreshing a company already researched | **no** | The refresh section printed the prior report's UUID 21 times and the presentation check refused the run (F-22). Fixed here; the £6.80 run cannot be re-measured. |
+| 3 | A domestic UK filer (LSE) | **no** | Acquisition resolves every subject against EDGAR; the Companies House client nobody calls (F-04). Proved offline. |
+| 4 | A UK plc through its 20-F | **partly** | AZN ran to an approved report at £6.83 — with the DCF withheld for want of a share count in the IFRS tags (F-12, fixed) and every peer multiple absent. |
+| 5 | A bank | **no, as found** | No run ever resolved a SIC code, so the bank met no sector gate, took the standard model, and was asked for an EBIT margin (F-23). Fixed here; the re-run is in §7. |
+| 6 | A company with a material recent event | **partly** | Recent developments came from filings alone: MSFT's 8-K of 2 September 2026 is cited, its substance "not before us". Every built-in section's tier ceiling is T4, so news never reaches one (F-21). The console's web search is the whole of the difference. |
+| 7 | Research under time pressure | **no** | 31–42 minutes of step time plus six human decisions; the console answered the same brief in 14–19 minutes with one prompt. Nothing useful exists at ten minutes. |
+| 8 | A question-driven brief | **no** | Of eighteen judge-readings of the three focus questions, the platform answered **none** "yes"; the console answered four "yes" and the rest "partly". |
+| 9 | Sharing the result | **partly** | The PDF renders and carries its disclaimer, but a reader outside the interface cannot follow a footnote to anything (§4.1), and a refresh report would have shown them UUIDs. |
+| 10 | Checking the work | **yes, in the interface** | Every figure walks to a hashed artefact and every objection to its basis; replay re-derived 852, 857 and 152 calculations and re-verified every citation. This is the platform's strongest result, and it is the one the console cannot match. |
+| 11 | Recovering from a problem mid-run | **partly** | Three stranded runs, all recovered; before F-08 the only way on was the terminal, and the console now offers *Continue* with the evidence. A refused check still has no path (F-22). |
+| 12 | Living with it | **partly** | £7 a report and about 40 minutes of attention; bring-up on a clean machine took one session and a local Postgres and Redis; the Windows path is untested here (§9). |
+
+**Who should use it today, and for what.** For building and auditing an evidence base on a
+US filer — every figure traceable, every citation verified, nothing invented — it already
+works, and no console session can be re-derived the way these runs can. For reaching a
+view, for anything needing segment detail, guidance, peer multiples or news, and for a
+bank, a domestic UK filer or a fast answer, the console is the better tool today, and six
+of six blind judgements said so.
 
 ## 5. Findings
 
@@ -487,6 +680,43 @@ fix, scores `presentation_integrity` **0 failures** against 21 before, with all 
 and 15,297 words unchanged. The run itself stays unapproved, because re-measuring it is
 exactly what the platform cannot do.*
 
+### F-23 — No run ever discovered what kind of business it was researching, so a bank was valued as an ordinary company
+
+*Completeness and correctness. Blocking. Found live, fixed with tests.*
+
+ADR 0029's acceptance criterion is that **a bank ticker cannot produce a discounted cash
+flow by any route**, and the type-level block delivers exactly that — for a run whose
+company is classified. No run was. `classify` proposes from `Company.sic`; the `acquire`
+step fetches *companyfacts*, which carries no industry code; and nothing else wrote that
+column. So every run through the product's only workflow classified nothing, met no sector
+gate, and took the standard model.
+
+M&T Bank's run is what that looks like from the outside: plan approved, 23,174 facts
+chosen, 852 unmapped tags, **no sector gate**, and then the assumptions gate asking the
+operator for **the EBIT margin of a bank** — the discounted cash flow's driver, on a filer
+whose deposits are raw material rather than financing. The audit's policy supplies only the
+six residual-income inputs for a bank, so it declined to state one and stopped the run for
+the operator, £2.03 spent (`audit/out/mtb-unclassified/`). An operator who typed a number
+there would have got a DCF of a bank, which is the one outcome ADR 0029 exists to prevent,
+and the 172.1 % net margin in this repository's own record came from an MTB run.
+
+*Fix: the submissions index — already fetched, for the filings — carries `sic` and
+`sicDescription`, and `aer.services.filings` now records them on the company, so the code
+costs no extra request. An index with no code leaves the column alone: the permissive state
+is reached by the data saying nothing, never by a later fetch overwriting what an earlier
+one knew. `tests/test_filings_acquisition.py::TestTheFilerSaysWhatKindOfBusinessItIs` holds
+the three cases, the second of them a bank's 6022 reaching the classifier as `banks`.*
+
+*The consequence, stated plainly: an ordinary run now meets the sector gate whenever the
+filer's code matches a seeded profile — Microsoft's 7372 is the early-stage-technology
+profile's own prefix, so the fake scene's MSFT run meets it too, and the shared gate
+mapping the test drivers read includes it now. That is the designed flow (a SIC code
+proposes, a person confirms), and it exposes a second thing: **the sector gate offers
+"Approve and continue" or "Reject and stop this run" and nothing else**, so an operator
+looking at a wrong classification cannot correct it. For a filer whose profile blocks a
+model that is the safe direction; for Microsoft-as-early-stage-technology it is a gate with
+no right answer. §8 carries the decision.*
+
 ## 6. The harness's own defects, for honesty
 
 The driver, not the platform, caused two stops on MSFT #1: a duplicated keyword in the
@@ -518,9 +748,86 @@ is how F-08 was observed at all. Three more, found on the later runs:
   multiset of values under each key is the measure that matches the claim, and it is what
   §3.1 reports; `tests/audit/test_variance.py` holds it.
 
-## 7. The spend ledger ⏳
+## 7. The spend ledger
 
-## 8. What only the operator can decide ⏳
+Every platform figure is the sum of that run's own `costs` rows, read from the database
+rather than from the driver's notes; every baseline figure is the vendor's usage priced by
+the platform's own table at the same rate the platform uses.
+
+| Side | Item | Spend |
+|---|---|---|
+| Platform | MSFT #1 — approved and rendered | £7.48 |
+| Platform | MSFT #2 — refused at gate 2 (F-22) | £6.80 |
+| Platform | AZN — approved and rendered | £6.83 |
+| Platform | MTB as found — stopped for the operator (F-23) | £2.03 |
+| Platform | MTB on the fixed classification | *see below* |
+| Baseline | MSFT — Opus 5 high, 25 searches, 12,967 words | £7.63 |
+| Baseline | AZN — 25 searches, 12,907 words | £11.03 |
+| Baseline | MTB — 25 searches, 11,225 words | £6.71 |
+| — | The M&T baseline turn the container cut off, billed and unrecorded | unknown |
+| — | `just test-live`, WP0 | < £0.05 |
+
+By category across every platform run: **output tokens £13.91, input £5.92, cache writes
+£3.23, cache reads £0.09, web search £0.17** — so three quarters of the bill is what the
+models wrote, and the cache is a cost rather than a saving at this hit rate (§3.3).
+
+The judged reads and the code reading were paid for in this session's own tokens, not in
+pounds from the £100.
+
+
+
+## 8. What only the operator can decide
+
+Each of these is confirmed in the code and each changes a recorded decision, a modelling
+definition or what a run does. They are listed in the order I would take them.
+
+1. **Peer multiples, or no peer multiples.** Nothing acquires a peer's financials, so the
+   comps table is empty on every run and EV/EBITDA and P/E are withheld from every report
+   (§3.4). Acquiring eight peers' companyfacts is free from EDGAR and slow rather than
+   expensive; pricing them needs the feed the run already has. The alternatives are to
+   acquire them, to drop the multiples from the spine, or to keep proposing peers for the
+   record and say in the report that the table is structurally empty. Today the report says
+   the peers were "excluded", which reads as a judgement about the peers.
+2. **The sector gate needs a third answer** (F-23). "Approve" grants a mandate and "Reject"
+   kills the run; an operator who thinks the classification is wrong has nowhere to say so.
+   The narrow fix is a "not this sector" decision that records the correction and runs the
+   standard model; the wider question is whether a proposal that blocks no model should
+   stop a run at all, which is what `sector_gate_required`'s own docstring argues.
+3. **A stale approval is a dead end** (F-16). The gate refuses a decision on a payload that
+   has moved and refuses a second decision on the same gate, so the run has no exit. A
+   superseding decision is an approvals-model change and needs an ADR.
+4. **Cost rows inside a step, or at its end** (F-21). Sibling calls in the research wave and
+   the draft fan-out cannot see each other's spend, and a step that dies mid-flight loses
+   the rows it flushed. Both fixes publish cost before the step commits, which amends ADR
+   0016's publication rule.
+5. **A filer with long-term debt and no short-term line** is valued as debt-free (F-21).
+   Refusing the valuation, or asking for the missing half at the assumptions gate, are both
+   changes to what a run does.
+6. **Three modelling definitions** (F-21): scenarios keep the base WACC while reporting a
+   rate override as argued about; the DCF's working capital includes cash and short-term
+   debt; a bank's opening book value includes preferred stock and non-controlling
+   interests. Each is defensible and none is stated to the reader.
+7. **Two guards that do not exist** (F-21): a fact-backed numeric claim is never checked
+   against its fact's value, and the reading ladder discards the scale word, so "$331.8
+   million" reads as the right number. ADR 0060's territory.
+8. **`cited_figure_agreement` is measured before `revise` rewrites the claims** (F-21), and
+   nothing re-measures a failed check on a finished run (F-22). Both are the same question:
+   what re-runs after a late change?
+9. **The citation override the gate message promises exists on no surface** (F-21). Decide
+   whether it should exist at all; today an unverified citation at gate 2 has no recovery.
+10. **News never reaches a built-in section** (F-21, use case 6). Every built-in section's
+    tier ceiling is T4, so the T5 documents a run admits are cited nowhere. Raising the
+    ceiling for named sections is a change to the evidence policy.
+11. **Effort on Haiku** (F-05): retire the setting on those four routes, or move them to a
+    model that honours it.
+12. **A UK acquisition path** (F-04): wiring Companies House into `acquire` is a source
+    adapter and an ADR, not a bug fix, and the product's documents claim "UK or US" today.
+13. **Whether any of the audit's scorers should become a permanent metric.** The numeral
+    matcher against the filing (§2) and the peer-multiple completeness check are the two
+    that earned their place here.
+14. **The call on "ready".** The numbers in §3 and §4 are mine; the judgement is yours.
+
+
 
 ## 9. What this pass does not establish
 
