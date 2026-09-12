@@ -242,11 +242,17 @@ EV/EBITDA and P/E are withheld on every run. That is the largest completeness ga
 found, and it is not a defect in the sense of a bug: it is the consequence of a decision,
 and it is in §8.
 
-Against the console on the fixed checklist, scored blind by three judges per document
-(§4): the platform is **ahead on one item of ten** — the risk factors the company itself
-names, which the console omitted on both subjects — and **behind on five**: segment
-revenue, management guidance, named competitors, a bear case with a number, and (on AZN) a
-valuation with a per-share result.
+Against the console on the fixed ten-item checklist, scored blind by three judges per
+document (§4.1), across both subjects:
+
+- **The platform is ahead on the filing's own risk factors** — present and sourced in both
+  reports, absent from both console notes, unanimously. It is also ahead on management and
+  board changes for MSFT, though unsourced there.
+- **Level on capital allocation and on the 90 days before the as-of date**, both present
+  and sourced on either side.
+- **Behind on six**: segment revenue for the latest year, management guidance, named
+  competitors, a bear case with a number attached, open regulatory and legal matters, and —
+  on AZN — a valuation with a per-share result at all.
 
 **Verdict on completeness: no.** Every section is written and every figure it states is
 traceable, but the figures a reader expects from a research note — segment revenue,
@@ -274,7 +280,7 @@ declines to publish is not one to hold against the console.
 | Is an investment view stated? | no (5 of 6) | yes (6 of 6) |
 | Is the view argued rather than recited? | no (5 of 6) | yes (6 of 6) |
 | Is the bear case in the body? | yes (6 of 6) | yes (6 of 6) |
-| Are the numbers explained? | mixed (3 of 6) | yes (6 of 6) |
+| Are the numbers explained? | **no on MSFT (3 of 3), yes on AZN (3 of 3)** | yes (6 of 6) |
 | Minutes to check three figures | 10–30 | 10–15 |
 | Reading time | 30–45 min | 50–60 min |
 
