@@ -1,0 +1,27 @@
+{
+  "page": "plan",
+  "url": "http://127.0.0.1:8000/runs/60cf1343-c809-48b0-ac3f-efa96207cb61/plan",
+  "status": 200,
+  "title": "Approve this research plan? \u00b7 Tracework Invest",
+  "payload_hash": "559cd5eaa8373b0208507b71c03afb3543079ec015829256be425d0aaf1ad81c",
+  "words": 2796,
+  "raw_tokens": [
+    "cash_flow_analysis",
+    "earnings_quality",
+    "executive_summary",
+    "growth_outlook",
+    "historical_financial_analysis",
+    "investment_thesis",
+    "issuer_disclosure",
+    "key_risks",
+    "market_data",
+    "prior_research_comparison",
+    "regulatory_filing",
+    "scenarios_sensitivities",
+    "segment_analysis",
+    "third_party",
+    "valuation_dcf"
+  ],
+  "uuids": 0,
+  "approve_control": 1
+}

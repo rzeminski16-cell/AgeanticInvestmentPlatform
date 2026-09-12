@@ -1,0 +1,28 @@
+{
+  "page": "claims",
+  "url": "http://127.0.0.1:8000/runs/e8d0289f-6698-4e47-b567-d4822cc6d8fb/claims",
+  "status": 200,
+  "title": "Claims \u00b7 MTB",
+  "payload_hash": null,
+  "words": 7022,
+  "raw_tokens": [
+    "balance_sheet_liquidity",
+    "business_overview",
+    "capital_allocation",
+    "cash_flow_analysis",
+    "earnings_quality",
+    "executive_summary",
+    "forward_looking",
+    "growth_outlook",
+    "historical_financial_analysis",
+    "industry_landscape",
+    "investment_thesis",
+    "key_risks",
+    "management_governance",
+    "scenarios_sensitivities",
+    "segment_analysis",
+    "valuation_dcf"
+  ],
+  "uuids": 0,
+  "approve_control": 0
+}

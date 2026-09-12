@@ -1,0 +1,32 @@
+{
+  "page": "console",
+  "url": "http://127.0.0.1:8000/runs/cf99d6a2-c3d7-47a8-a153-23b634dd7b23",
+  "status": 200,
+  "title": "Run \u00b7 MTB",
+  "payload_hash": null,
+  "words": 542,
+  "raw_tokens": [
+    "acquire_prices",
+    "brief_challenges",
+    "critique_plan",
+    "gate_assumptions",
+    "gate_final",
+    "gate_peer_set",
+    "gate_plan",
+    "gate_sector_specialist",
+    "gate_theme_set",
+    "gate_unmapped_concepts",
+    "propose_assumptions",
+    "propose_peers",
+    "propose_themes",
+    "red_team",
+    "research_company",
+    "research_industry",
+    "research_macro",
+    "research_recent_developments",
+    "research_technical_context",
+    "step_paused"
+  ],
+  "uuids": 0,
+  "approve_control": 0
+}

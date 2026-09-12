@@ -1,0 +1,48 @@
+{
+  "passed": false,
+  "subject": "MSFT \u2014 MICROSOFT CORP",
+  "checks": [
+    {
+      "name": "report",
+      "required": "the run produced a report",
+      "measured": "no report; run status AWAITING_APPROVAL",
+      "passed": false
+    },
+    {
+      "name": "sections",
+      "required": "all but at most one generated, none pending",
+      "measured": "18 of 18 generated, 0 pending",
+      "passed": true
+    },
+    {
+      "name": "citations",
+      "required": "every citation verified or overridden with a reason",
+      "measured": "57 of 57 verified",
+      "passed": true
+    },
+    {
+      "name": "metrics",
+      "required": "every exercised blocking metric passed",
+      "measured": "10 metric(s) exercised; failing: presentation_integrity",
+      "passed": false
+    },
+    {
+      "name": "cited_sources",
+      "required": "cited documents belong to the subject (or carry no issuer)",
+      "measured": "0 foreign issuer(s) cited",
+      "passed": true
+    },
+    {
+      "name": "front_page",
+      "required": "the at-a-glance block is present and the subject's",
+      "measured": "present, 3 headline row(s)",
+      "passed": true
+    },
+    {
+      "name": "spend",
+      "required": "reported for comparison against the baseline",
+      "measured": "\u00a36.80",
+      "passed": null
+    }
+  ]
+}

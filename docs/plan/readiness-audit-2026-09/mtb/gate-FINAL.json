@@ -1,0 +1,1685 @@
+{
+  "payload": {
+    "revisions": [
+      {
+        "section_key": "cash_flow_analysis",
+        "dimension": "governance",
+        "severity": 4,
+        "disposition": "revised"
+      },
+      {
+        "section_key": "earnings_quality",
+        "dimension": "governance",
+        "severity": 4,
+        "disposition": "revised"
+      },
+      {
+        "section_key": "capital_allocation",
+        "dimension": "governance",
+        "severity": 5,
+        "disposition": "revision_refused"
+      },
+      {
+        "section_key": "earnings_quality",
+        "dimension": "governance",
+        "severity": 5,
+        "disposition": "revised"
+      },
+      {
+        "section_key": "cash_flow_analysis",
+        "dimension": "governance",
+        "severity": 5,
+        "disposition": "revised"
+      },
+      {
+        "section_key": "growth_outlook",
+        "dimension": "governance",
+        "severity": 5,
+        "disposition": "revised"
+      },
+      {
+        "section_key": "growth_outlook",
+        "dimension": "profitability",
+        "severity": 4,
+        "disposition": "revised"
+      }
+    ],
+    "sections": [
+      {
+        "key": "executive_summary",
+        "content": {
+          "thesis": "The latest filed period ahead of 12 September 2026 is the quarter ended 30 June 2026, in which M&T reported pre-tax income of $1,063 million, net income of $818 million and diluted earnings per share of $5.32. Fiscal 2025 returns were bank-typical and earnings converted fully into cash, while capital return absorbed most of first-half operating cash flow.",
+          "key_risks": [
+            "Commercial real estate exposure is directionally lower but unquantified here, and reserve coverage of that book is not evidenced \u2014 the central credit risk cannot be sized.",
+            "Deposit mix migration away from noninterest-bearing balances is a funding-cost headwind whose margin effect is not disclosed in the material reviewed.",
+            "Distributions close to the level of first-half operating cash flow, alongside a large investing outflow funded externally, leave less flexibility if credit costs rise."
+          ],
+          "key_points": [
+            "Data cut: the quarter ended 30 June 2026. Pre-tax income $1,063 million, income tax expense $245 million, net income $818 million; basic earnings per share $5.35 and diluted $5.32.",
+            "Capital return dominates cash use: in the six months to 30 June 2026, share repurchases of $1,698 million and dividends of $445 million were set against operating cash flow of $2,280 million, leaving little internally generated cash after distributions.",
+            "Earnings quality is sound: fiscal 2025 cash conversion of 1.05 and an accruals ratio of -0.0007 indicate reported profit was matched by operating cash rather than by accrual build.",
+            "Returns are typical for a regional bank: fiscal 2025 return on equity of 9.8% and return on assets of 1.3%.",
+            "Balance sheet expanded in the half: investing cash flow of -$8,150 million against a financing inflow of $4,539 million, so deployment was funded by external flows rather than from operations.",
+            "Mix, not margin, is what the disclosure shows: average loans declined as criticized commercial real estate balances were reduced, partly offset by commercial and industrial growth spanning most industry types, while average deposits grew through savings and interest-checking with lower noninterest-bearing balances \u2014 a shift that lifts funding cost even as balances grow.",
+            "Disclosure sweep from 1 July 2026 to 12 September 2026 returns a negative finding on the decisive metrics: nothing reviewed quantifies the commercial real estate share of loans, allowance coverage of that book, net interest margin direction or hedge contribution, or return on tangible common equity relative to price-to-tangible-book.",
+            "Every conclusion above rests on filed data; none rests on management forward-looking commentary."
+          ],
+          "headline_figures": [
+            {
+              "unit": "USD millions",
+              "label": "Net income, quarter ended 30 June 2026",
+              "value": "818",
+              "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+            },
+            {
+              "unit": "USD per share",
+              "label": "Diluted earnings per share, quarter ended 30 June 2026",
+              "value": "5.32",
+              "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+            },
+            {
+              "unit": "USD millions",
+              "label": "Operating cash flow, six months to 30 June 2026",
+              "value": "2,280",
+              "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+            },
+            {
+              "unit": "percent",
+              "label": "Return on equity, fiscal 2025",
+              "value": "9.8",
+              "calculation_id": "e3b5a116-e435-4a2e-bdd3-a17a1ad261ba"
+            }
+          ]
+        },
+        "status": "generated",
+        "note": "Shortened to fit the length allotted to this section."
+      },
+      {
+        "key": "investment_thesis",
+        "content": {
+          "thesis_statement": "M&T is earning well and returning capital hard, so the investment question is narrow: whether commercial real estate credit migration and deposit repricing compress the spread faster than CRE runoff, fee mix and buybacks add to per-share value. The recorded figures carry the earnings and capital-return leg \u2014 net income of $818 million and diluted earnings per share of $5.32 in the quarter ended June 2026, on total assets of $219.261 billion \u2014 but say nothing about reserves, criticized loans or the received-fixed hedge book on which the bear case turns. We therefore hold a balanced view with low conviction on credit, and frame each leg below as a proposition the next two quarterly filings should confirm or falsify inside twelve months.",
+          "supporting_pillars": [
+            {
+              "pillar": "Bull: earnings power is being converted into distributions",
+              "evidence": "FY2025 return on equity was 0.098 and return on assets 0.013, and shareholder distributions reached $3.53 billion, with repurchases up $2.235 billion year over year while dividends paid changed by only $4 million. Distributions ran at 1.175 times operating cash flow in FY2025, so the pace is governed by capital ratios rather than cash generation. Confirmed if the next two quarterly filings show buyback activity continuing with stable capital ratios; falsified if repurchase use slows.",
+              "calculation_id": "3f50e036-e754-4edb-8ce2-d8baa85ef972"
+            },
+            {
+              "pillar": "Bull: fee-income mix, and the unproven CRE runoff claim",
+              "evidence": "Retail Bank noninterest income rose in the first quarter of 2026 on higher sub-servicing revenue from the Bayview arrangement effective February 2025, a stream largely independent of the rate cycle. The companion proposition \u2014 that commercial real estate runoff is already lowering concentration \u2014 is not evidenced in what we hold; the loan-composition and criticized-asset tables of the next two quarterly filings are where it is proved or disproved.",
+              "source_document_id": "c72c1b26-4103-453c-bdb5-d4cff37ac477"
+            },
+            {
+              "pillar": "Bear: deposit repricing and expiring received-fixed hedges",
+              "evidence": "The same segment disclosure shows net interest income declining as the margin narrowed on both deposits and loans, with higher average loan balances only a partial offset \u2014 repricing, not volume, is the binding constraint. We hold no swap notional or maturity schedule; the hedging and margin tables in the next two quarterly filings decide whether the roll-off of received-fixed positions is a material further drag.",
+              "source_document_id": "c72c1b26-4103-453c-bdb5-d4cff37ac477"
+            },
+            {
+              "pillar": "Bear: CRE migration and reserve build, currently untested",
+              "evidence": "No allowance, charge-off, non-accrual or CRE concentration figures are recorded in the evidence before us, so we neither confirm nor dismiss this leg and keep confidence on it low. Provision expense, allowance-to-loans coverage and criticized-loan movement in the next two quarterly filings resolve it; two consecutive quarters of stable coverage alongside declining CRE balances would retire the concern."
+            },
+            {
+              "pillar": "Funding mix, and a caveat on the tagged figures",
+              "evidence": "In the six months to June 2026 operating cash flow was $2.28 billion, investing cash flow was negative $8.15 billion and financing supplied $4.539 billion, including $3.203 billion of debt proceeds against $463 million of repayments \u2014 growth funded wholesale, which sharpens the spread-compression risk. Separately, tagged quarterly revenue of $442 million sits below net income, so revenue-based ratios such as the FY2025 net margin of 1.72 reflect tagging, not margin. No price or tangible book value is recorded, so the discount-to-peer valuation leg cannot be tested here."
+            }
+          ],
+          "what_would_change_the_view": [
+            "Provision expense and allowance coverage rising over two consecutive quarters would move us to the bear case.",
+            "Disclosure that commercial real estate and criticized balances are falling would strengthen the bull case.",
+            "A further quarter of deposit margin narrowing, with hedge maturities disclosed as a coming drag, would outweigh the fee offset.",
+            "A pause in repurchases, or distributions pulled back toward cash generation, would remove the per-share support.",
+            "Recorded price and tangible book value would allow the relative-valuation leg to be tested at all."
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "business_overview",
+        "content": {
+          "commentary": "M&T Bank Corp is a regional bank holding company operating primarily through domestic banking offices concentrated in the Northeastern and Mid-Atlantic United States, including the District of Columbia. Its Retail Bank segment serves consumers and small businesses through a branch network, digital and telephone banking, and ATMs, offering deposit products (demand, savings, time accounts), consumer credit (auto and recreational finance loans originated largely through dealers, home equity loans and lines of credit, credit cards), residential mortgage origination and servicing (including for the wealth management segment and third parties), and small-business lending such as SBA-guaranteed loans, business credit cards, and cash management services. A separate Institutional Services and Wealth Management segment provides trustee, agency, investment management and administrative services to corporations, institutions and legal and finance executives, alongside personal trust, planning, fiduciary, asset management and family-office services for high-net-worth clients, plus investment products such as mutual funds and annuities. Revenue is earned through a mix of net interest income on loans and deposits and fee-based noninterest income from wealth management, mortgage banking, and transaction services, consistent with a diversified regional bank and wealth manager rather than a single product-line lender. For the quarter ended June 30, 2026, the company reported revenue of approximately $442 million and net income of approximately $818 million, with diluted earnings per share of 5.32 dollars and a quarterly dividend of 1.50 dollars per share. Total assets stood at approximately 219.3 billion dollars and total equity at approximately 27.9 billion dollars as of that date. On a full-year 2025 basis, return on equity was approximately 9.8 percent and return on assets was approximately 1.3 percent, metrics consistent with a well-capitalized regional bank rather than a high-growth or narrowly specialized lender. The available material does not provide a further breakdown of revenue by product line or segment for the current period, so the relative scale of retail banking versus institutional services and wealth management within total company revenue cannot be stated with precision here.",
+          "operating_footprint": [
+            "Northeastern and Mid-Atlantic regions of the U.S., including the District of Columbia"
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "segment_analysis",
+        "content": {
+          "commentary": "Segment disclosures available for this review cover two of M&T's reported segments in detail: Retail Bank, and Institutional Services & Wealth Management. Coverage for Commercial Real Estate and Commercial Banking, and for the geographic concentration of the loan book, was not present in the material reviewed, so this note cannot characterize where CRE risk concentrates across the bank's footprint; that remains an open question for a subsequent review.\n\nWithin Retail Bank, net interest income for the first quarter of 2026 declined versus the year-ago quarter, as a narrowing of the margin on both deposits and loans outweighed the benefit of higher average loan balances, with growth concentrated in consumer categories such as recreational finance, home equity and automobile lending, alongside retained and purchased residential mortgages. Noninterest income rose, helped by higher sub-servicing revenue tied to an arrangement under which the company began sub-servicing a large pool of additional residential mortgage loans with servicing rights held by a third party, partly offset by the effect of an accounting election described in the filing. Noninterest expense fell, reflecting the absence of prior-year servicing-right amortization tied to that same accounting election, though this was partly offset by higher centrally allocated technology, operations, risk, finance and human-resources costs. Net income for the segment was modestly lower year over year.\n\nIn Institutional Services & Wealth Management, net interest income declined from the year-ago quarter but ticked up slightly from the immediately preceding quarter. Noninterest income rose both sequentially and year over year. Provision for credit losses fell to nil from a small charge a year earlier. Noninterest expense increased modestly on both comparisons. Net income was lower year over year but essentially flat, with a small sequential improvement, quarter over quarter. Average loan balances grew, led by commercial and industrial lending, with smaller contributions from residential real estate and consumer loans and a modest decline in commercial real estate loans within the segment; average deposits also grew, driven by both noninterest-bearing and interest-bearing balances, with interest-bearing deposits growing faster.\n\nTaken together, the available segment evidence points to a bank where fee income is increasingly anchored in trust, wealth and sub-servicing activity rather than in spread income alone, with margin compression a common theme across both segments reviewed. Provision activity in Institutional Services & Wealth Management was negligible in the latest quarter, consistent with a segment carrying limited credit risk relative to its scale. No evidence reviewed indicated a segment re-presentation that would break comparability with prior periods, though the absence of Commercial Real Estate and Commercial Banking detail means that conclusion cannot be extended to the segments most directly exposed to commercial property risk."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "industry_landscape",
+        "content": {
+          "commentary": "M&T operates in a highly competitive financial-services landscape that has consolidated over time, with commercial banks and thrifts pressured on price and market share by private credit funds, insurance companies, hedge funds, brokerages and financial-technology entrants, some of which face lighter regulatory burdens. This has narrowed the field of scaled, diversified regional banks while intensifying competition for deposits and loan originations. A recurring supervisory concern across this peer set is commercial real estate concentration measured against a bank's total risk-based capital, which examiners scrutinize when it becomes elevated; cumulative deposit repricing (interest-bearing deposit beta) through the recent rate cycle is another axis on which regional banks are commonly differentiated, alongside profitability measured on a tangible common equity basis and valuation expressed as price to tangible book value. The evidence available for this note does not include peer 10-Q disclosures, peer non-GAAP reconciliations, or M&T's own CRE-to-risk-based-capital, deposit-beta, ROTCE or price-to-tangible-book figures, so a like-for-like peer comparison on those specific metrics cannot be constructed here and is flagged as an evidence gap rather than estimated.",
+          "industry_trends": [
+            "Continued consolidation among commercial banks and non-bank financial competitors",
+            "Growing competitive pressure from fintech and marketplace lenders",
+            "Heightened supervisory attention to commercial real estate concentration at regional banks"
+          ],
+          "competitive_position": "What the record does support is M&T's underlying scale and current profitability. For the quarter ended June 2026 the company reported net income of 818 million dollars on revenue of 442 million dollars, with pre-tax income of 1,063 million dollars, implying pre-tax income exceeded reported revenue for the period, a relationship that reflects the composition of a bank's income statement rather than a comparable operating margin. Diluted earnings per share were 5.32 dollars. Total assets stood at 219,261 million dollars against total equity of 27,946 million dollars, indicating a highly leveraged balance sheet typical of a regional bank holding company. Full-year 2025 return on equity was recorded at approximately 9.8 percent, a broad profitability marker though not the tangible-equity or CRE-adjusted metric peers are typically compared on. Competitively, M&T's scale and deposit franchise support its position among super-regional banks, but without stored figures for CRE concentration relative to risk-based capital, cumulative deposit beta, or price to tangible book value, this note cannot place M&T precisely within its peer group on those specific, commonly used differentiators, and that limitation should be read as a gap in currently available evidence rather than a judgment on relative standing."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "management_governance",
+        "content": {
+          "commentary": "Public evidence available for this review does not include an executive biography, board composition detail, or a compensation table for M&T Bank Corporation's named executive officers, so no assessment can be offered here of who specifically leads the company, their tenure, or their individual track record. What the record does show is the regulatory framework under which management pay is set: federal banking agencies, together with Federal Reserve Incentive Compensation Guidance, treat excessive compensation as an unsafe and unsound practice and require that incentive arrangements not encourage risk-taking beyond the organization's ability to manage it, be compatible with internal controls, and rest on active board oversight. Any deficiency in this area can feed into supervisory ratings and constrain the bank's ability to pursue acquisitions or other strategic actions, which gives compensation governance a direct link to strategic flexibility for a regulated depository holding company such as this one. On the corporate-actions side, the company amended the terms of its Series L Preferred Stock in July 2026 via a Certificate of Amendment filed with a Form 8-K, a capital-structure governance step that shareholders and analysts would ordinarily want reflected in any assessment of the board's capital management discipline. Turning to the financial backdrop against which management's stewardship can be judged, the bank generated net income of 818 million dollars in the quarter ended June 2026, with diluted earnings per share of 5.32 dollars, and paid a quarterly dividend of 1.50 dollars per share in the same period. Over fiscal 2025, return on equity ran at approximately 9.8 percent, and total shareholder distributions reached roughly 3.53 billion dollars, indicating a capital-return posture that returns a substantial share of earnings to shareholders through dividends and buybacks. These figures speak to the outcomes produced under the current management team, even though the identities, incentive structures, and specific pay packages of that team are not addressed by the material reviewed here. Investors seeking a fuller governance picture \u2014 director independence, say-on-pay results, peer benchmarking of pay, and clawback provisions \u2014 will need to consult the proxy statement directly, since none of that detail is present in what was examined for this note.",
+          "governance_observations": [
+            "No executive biography or named-officer compensation table was available in the material reviewed for this section.",
+            "Federal Reserve Incentive Compensation Guidance and related federal banking agency rules govern how incentive pay must be structured, tying compensation governance to safety-and-soundness supervision.",
+            "The company filed a Certificate of Amendment for its Series L Preferred Stock in July 2026, a capital-structure governance action disclosed via Form 8-K.",
+            "A full assessment of board independence, say-on-pay outcomes, and clawback policy is not supported by the evidence reviewed."
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "historical_financial_analysis",
+        "content": {
+          "figures": [
+            {
+              "unit": "pure ratio",
+              "label": "Return on equity",
+              "value": "0.098",
+              "calculation_id": "e3b5a116-e435-4a2e-bdd3-a17a1ad261ba"
+            },
+            {
+              "unit": "pure ratio",
+              "label": "Return on assets",
+              "value": "0.0134",
+              "calculation_id": "4156e8c0-2554-4e5e-ae70-53e6b9cb9a3d"
+            },
+            {
+              "unit": "USD million",
+              "label": "Shareholder distributions",
+              "value": "3,530",
+              "calculation_id": "3f50e036-e754-4edb-8ce2-d8baa85ef972"
+            },
+            {
+              "unit": "pure ratio",
+              "label": "Distributions to operating cash flow",
+              "value": "1.18",
+              "calculation_id": "11669a6e-76a5-443c-9646-5afbdb9fe240"
+            }
+          ],
+          "commentary": "The annual record available here is a single fully tagged fiscal year \u2014 the twelve months ended December 2025 \u2014 supported by two recorded prior-year ratio points and the interim filings made during 2026. A four-year read on net interest margin, return on tangible common equity, allowance coverage, charge-off rates and commercial real estate balances cannot be assembled from that base, so nothing below should be taken as a cycle judgement; where a multi-year series would be needed to say whether returns sit at an extreme, the record is silent and we leave it silent.\n\nOn the income statement, the fiscal year ended December 2025 produced pre-tax income of $3,692 million, income tax expense of $841 million and net income of $2,851 million, or $17.00 per diluted share. Recorded returns are $0.098 of net income per unit of year-end equity and $0.0134 per unit of total assets, both expressed as pure ratios. For a balance-sheet-led institution those are the two ratios that carry the most information in the absence of a margin series: the asset-side return is consistent with a bank whose earnings are spread-driven rather than fee-driven, and the equity return reflects the leverage implicit in the funding structure.\n\nThe balance sheet at the December 2025 year-end carries total assets of $213,510 million against total liabilities of $184,333 million and total equity of $29,177 million. Goodwill of $8,465 million sits inside that equity figure, so tangible common equity \u2014 the denominator the market watches for a bank of this type \u2014 is materially below reported book value, and the tangible return measures reported in the interim filings are correspondingly higher than the recorded return on total equity.\n\nCash generation tracked earnings closely: operating cash flow of $3,003 million against net income of $2,851 million gives a recorded cash conversion of 1.05, with no sign of earnings running ahead of cash. Investing activities absorbed $6,816 million, the pattern expected when a bank is deploying into loans and securities, and financing activities supplied $1,800 million. Capital return was the striking feature of the year: repurchases of $2,631 million and dividends of $899 million combined to $3,530 million of shareholder distributions, or 1.18 times operating cash flow. Repurchases rose by $2,235 million against the prior fiscal year, so the step-up in buyback intensity, not the dividend, drove distributions above internally generated cash \u2014 a mix funded from the balance sheet rather than from the year's operating flow.\n\nOne definitional caution governs the ratio history. The tagged revenue line for the year ended December 2025 is $1,657 million, well below net income, which tells us the tag captures a component of revenue rather than total taxable-equivalent net interest income plus fees. The recorded net margin therefore reads 1.72 for the latest fiscal year against 1.68 for the prior one; the direction is a mild improvement, but the level is not a margin in the conventional sense and should not be compared with bank efficiency or margin disclosures. Similarly, no allowance, charge-off or commercial real estate series is on record here, so credit quality cannot be trended.\n\nThe interim filings add qualitative, not quantitative, colour. On the company's non-GAAP net operating basis, the efficiency ratio improved and the annualised return on average tangible common equity rose in the second quarter of 2026 relative to the first, with tangible book value per share higher at the later period end. Within the Retail Bank in the first quarter of 2026, net interest income declined as deposit and loan spreads narrowed, partly offset by higher average loan balances, while noninterest income benefited from sub-servicing revenues under an arrangement effective February 2025 \u2014 a reminder that reported fee trends embed a servicing arrangement and an accounting election, and are not a clean organic comparison.",
+          "financials": [
+            {
+              "label": "Pre-tax income",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "3,692",
+                  "period": "FY2025",
+                  "financial_fact_id": "501a9685-c985-4e79-bcf7-8ba19f2e145d",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Income tax expense",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "841",
+                  "period": "FY2025",
+                  "financial_fact_id": "6db962ff-72b2-44d1-affa-c51b6dd278a3",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Net income",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "2,851",
+                  "period": "FY2025",
+                  "financial_fact_id": "7e31dc0e-c090-45e6-a891-c80d284de9dd",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Diluted earnings per share",
+              "values": [
+                {
+                  "unit": "USD/share",
+                  "value": "17.00",
+                  "period": "FY2025",
+                  "financial_fact_id": "36d0233c-e24f-4da8-848f-25d855d86b33",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Total assets",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "213,510",
+                  "period": "FY2025",
+                  "financial_fact_id": "19f7b2b3-4ac8-4d5b-b2f0-d00a2b6b03d9",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Total liabilities",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "184,333",
+                  "period": "FY2025",
+                  "financial_fact_id": "785cb544-9a61-401a-9bd6-6cb00ff27cc7",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Total equity",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "29,177",
+                  "period": "FY2025",
+                  "financial_fact_id": "907a89e5-4451-487f-9f0c-bf4a6fab9f5e",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Goodwill",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "8,465",
+                  "period": "FY2025",
+                  "financial_fact_id": "a7f712c8-e957-4561-b88a-5e45ab42700b",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Operating cash flow",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "3,003",
+                  "period": "FY2025",
+                  "financial_fact_id": "1af4467b-ad36-4b5f-9898-81c84fecd7df",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Investing cash flow",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "-6,816",
+                  "period": "FY2025",
+                  "financial_fact_id": "e8dadc8f-487e-46b1-954a-2860eda83b67",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Financing cash flow",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "1,800",
+                  "period": "FY2025",
+                  "financial_fact_id": "f041552e-72b9-49a2-98f5-8595f876ccb5",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Share repurchases",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "2,631",
+                  "period": "FY2025",
+                  "financial_fact_id": "0a44a8c9-b7f9-4b5d-b3ee-540faf478b6d",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Dividends paid",
+              "values": [
+                {
+                  "unit": "USD million",
+                  "value": "899",
+                  "period": "FY2025",
+                  "financial_fact_id": "d9fff9d8-6059-49d9-a5ac-65a433f8385e",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Return on equity",
+              "values": [
+                {
+                  "unit": "pure ratio",
+                  "value": "0.098",
+                  "period": "FY2025",
+                  "calculation_id": "e3b5a116-e435-4a2e-bdd3-a17a1ad261ba"
+                }
+              ]
+            },
+            {
+              "label": "Return on assets",
+              "values": [
+                {
+                  "unit": "pure ratio",
+                  "value": "0.0134",
+                  "period": "FY2025",
+                  "calculation_id": "4156e8c0-2554-4e5e-ae70-53e6b9cb9a3d"
+                }
+              ]
+            }
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "earnings_quality",
+        "content": {
+          "figures": [
+            {
+              "unit": "x",
+              "label": "Cash conversion (FY2025)",
+              "value": "1.05",
+              "calculation_id": "76c8aeb9-dad5-46a2-8114-343f51a60cd7"
+            },
+            {
+              "unit": "ratio",
+              "label": "Accruals ratio (FY2025)",
+              "value": "-0.0007",
+              "calculation_id": "fcaa1cd8-7d34-42c7-9271-b4541cf4c57d"
+            },
+            {
+              "unit": "USD millions",
+              "label": "Shareholder distributions (FY2025)",
+              "value": "3,530",
+              "calculation_id": "3f50e036-e754-4edb-8ce2-d8baa85ef972"
+            },
+            {
+              "unit": "x",
+              "label": "Distributions to operating cash flow (FY2025)",
+              "value": "1.18",
+              "calculation_id": "11669a6e-76a5-443c-9646-5afbdb9fe240"
+            }
+          ],
+          "red_flags": [
+            "Cash conversion and the accruals ratio are weak earnings-quality signals at a bank, because operating cash flow carries loan-held-for-sale, trading and collateral flows.",
+            "Shareholder distributions exceeded operating cash flow for the year, with buybacks the entire increase; the pace depends on capital capacity rather than on cash earnings.",
+            "The captured revenue line produces a net margin above one, so revenue-denominated quality ratios cannot be relied on.",
+            "Goodwill is a large share of shareholders' equity, and the impairment test rests on assumptions the company describes as subjective and highly sensitive."
+          ],
+          "commentary": "Reported profit and cash tracked closely at the headline level in the year ended December 2025. Net income of $2,851m was more than covered by operating cash flow of $3,003m \u2014 a cash conversion of 1.05 times \u2014 and the accruals ratio for the year reads negative 0.0007, effectively nil. Depreciation and amortisation of $323m is small against that profit, so non-cash charges are not the swing factor either.\n\nThose readings deserve less weight at a depository than the arithmetic implies. Operating cash flow here absorbs originations and sales of loans held for sale, trading positions and derivative collateral movements, none of which speak to accrual discipline; a conversion ratio at or above one can come from balance-sheet churn as easily as from conservative revenue recognition. We read 1.05 times as consistent with faithful accrual rather than as evidence of it, and would not treat a near-zero single-year accruals ratio at a bank as a clean bill of health.\n\nOne ratio is unusable as stated: net margin for the year computes to 1.72, above one, which tells us the captured top line does not represent the bank's total revenue. Margin- and turnover-based quality tests built on that denominator are set aside.\n\nCapital return is the harder question. Shareholder distributions of $3,530m for the year exceeded operating cash flow, at 1.18 times. Buybacks of $2,631m did the work, rising $2,235m year over year, while dividends paid of $899m rose $4m; the dividend amount sits alongside the common dividends declared in the 10-K capital table. Financing was a net inflow of $1,800m even with debt repayments of $5,380m against proceeds of $3,533m. The excess over operating cash flow is a funding observation rather than an accounting one: for a bank, distributions are governed by regulatory capital and stress capacity, not by operating cash flow, so the above-one ratio flags the repeatability of the buyback pace rather than the quality of the earnings behind it.\n\nGoodwill of $8,465m against total shareholders' equity of $29,177m keeps book value sensitive to reporting-unit valuation. Management states that a sensitivity test raising the discount rates used at the October 2025 measurement date would not have produced impairment, while also cautioning that those fair-value estimates rest on subjective, highly sensitive assumptions. Tangible common equity per share rose year over year on the company's own reconciliation, which we use as presented. The detail needed to separate recurring from non-recurring margin \u2014 rate and volume attribution, purchase-accounting accretion, hedge notionals and amounts reclassified from accumulated other comprehensive income \u2014 is not in the evidence here, so we take no view on how much of the year's margin and return on tangible common equity repeats."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "balance_sheet_liquidity",
+        "content": {
+          "figures": [
+            {
+              "unit": "USD billion",
+              "label": "Total assets (end June 2026)",
+              "value": "219.3",
+              "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+            },
+            {
+              "unit": "USD billion",
+              "label": "Total equity (end June 2026)",
+              "value": "27.9",
+              "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+            },
+            {
+              "unit": "USD billion",
+              "label": "Long-term debt (end June 2026)",
+              "value": "13.6",
+              "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+            },
+            {
+              "unit": "USD billion",
+              "label": "Operating cash flow, six months to June 2026",
+              "value": "2.28",
+              "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+            },
+            {
+              "unit": "USD billion",
+              "label": "Shareholder distributions, FY2025",
+              "value": "3.53",
+              "calculation_id": "3f50e036-e754-4edb-8ce2-d8baa85ef972"
+            },
+            {
+              "unit": "percent",
+              "label": "Return on equity, FY2025",
+              "value": "9.8",
+              "calculation_id": "e3b5a116-e435-4a2e-bdd3-a17a1ad261ba"
+            }
+          ],
+          "commentary": "M&T's balance sheet at the end of June 2026 is a bank balance sheet, and the leverage vocabulary reads accordingly. Total assets of $219.3 billion are funded by $191.3 billion of liabilities \u2014 overwhelmingly deposits and other banking liabilities rather than capital-markets debt \u2014 against $27.9 billion of equity, of which $22.0 billion is retained earnings. Explicit borrowings are a thin slice of the funding stack: $13.6 billion of long-term debt and $4.6 billion of short-term debt. Goodwill of $8.5 billion is the dominant intangible; management notes that a goodwill impairment would not significantly affect regulatory tangible capital ratios but would reduce M&T Bank's capacity to dividend earnings up to the parent.\n\nMaturity structure and runway. Parent-company liquidity at December 2025, inclusive of the projected repayment of notes receivable from bank subsidiaries, was disclosed as covering projected cash outflows \u2014 common and preferred dividends, debt service and scheduled debt maturities \u2014 over a multi-year horizon. Preferred capital includes the perpetual Series L, which carries no maturity date and is first redeemable on a dividend payment date on or after September 2031. Core deposits from the customer base are described as the most significant source of funding, with brokered deposits used as a component of wholesale funding that management may resize as market conditions change.\n\nCash flow in the six months to June 2026 shows operations generating $2.28 billion, investing absorbing $8.15 billion as earning assets grew, and financing supplying $4.54 billion, including $3.20 billion of debt proceeds against $463 million of repayments. Distributions took $1.70 billion of buybacks and $445 million of dividends. The pattern echoes FY2025, when shareholder distributions of $3.53 billion ran at 1.18 times operating cash flow \u2014 capital return drawn on balance-sheet capacity rather than on period cash generation. Profitability is bank-like: return on equity of 9.8 percent in FY2025 against 8.9 percent in FY2024.\n\nThese aggregates stop short of the granularity that governs a bank's risk profile: loan composition by category, including commercial real estate, construction and land, multifamily and owner- versus non-owner-occupied exposures; the allowance rollforward, its allocation by portfolio segment, charge-offs, and nonaccrual and criticized balances; and, on the funding side, the noninterest- versus interest-bearing deposit split, the time-deposit maturity ladder, the uninsured share, brokered balances, and the repricing and maturity distribution of loans and securities. Those dimensions cannot be assessed from what is set out above.",
+          "financials": [
+            {
+              "label": "Total assets",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "219.3",
+                  "period": "Q2 FY2026",
+                  "financial_fact_id": "444dd948-b27b-4180-8c66-73f03fff5335",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Total liabilities",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "191.3",
+                  "period": "Q2 FY2026",
+                  "financial_fact_id": "805548f3-097f-44eb-92e8-ce644ca0598c",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Total equity",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "27.9",
+                  "period": "Q2 FY2026",
+                  "financial_fact_id": "eebec46a-8095-415c-b7af-dac0efd07762",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Retained earnings",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "22.0",
+                  "period": "Q2 FY2026",
+                  "financial_fact_id": "82a2b091-603a-4880-ab38-1d632d142561",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Long-term debt",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "13.6",
+                  "period": "Q2 FY2026",
+                  "financial_fact_id": "19b84a71-79e4-49b3-8466-23ba61fbcb03",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Short-term debt",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "4.6",
+                  "period": "Q2 FY2026",
+                  "financial_fact_id": "890018df-c34c-4c3e-a380-672a04bc43ce",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            },
+            {
+              "label": "Goodwill",
+              "values": [
+                {
+                  "unit": "USD billion",
+                  "value": "8.5",
+                  "period": "Q2 FY2026",
+                  "financial_fact_id": "f9798659-1622-4ed1-86f8-18352bfe17ca",
+                  "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+                }
+              ]
+            }
+          ],
+          "observations": [
+            "Borrowed funds are modest against the size of the balance sheet; the funding question for this name sits in deposit behaviour, which the aggregates above do not resolve.",
+            "Capital return in FY2025 exceeded operating cash flow, leaving capital ratios rather than period cash generation as the binding constraint on the pace of buybacks."
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "cash_flow_analysis",
+        "content": {
+          "figures": [
+            {
+              "unit": "USD millions",
+              "label": "Operating cash flow, six months to June 2026",
+              "value": "2,280"
+            },
+            {
+              "unit": "USD millions",
+              "label": "Investing cash flow, six months to June 2026",
+              "value": "-8,150"
+            },
+            {
+              "unit": "USD millions",
+              "label": "Financing cash flow, six months to June 2026",
+              "value": "4,539"
+            },
+            {
+              "unit": "USD millions",
+              "label": "Shareholder distributions, fiscal 2025",
+              "value": "3,530",
+              "calculation_id": "3f50e036-e754-4edb-8ce2-d8baa85ef972"
+            },
+            {
+              "unit": "x",
+              "label": "Distributions to operating cash flow, fiscal 2025",
+              "value": "1.18",
+              "calculation_id": "11669a6e-76a5-443c-9646-5afbdb9fe240"
+            },
+            {
+              "unit": "x",
+              "label": "Cash conversion, fiscal 2025",
+              "value": "1.05",
+              "calculation_id": "76c8aeb9-dad5-46a2-8114-343f51a60cd7"
+            },
+            {
+              "unit": "ratio",
+              "label": "Accruals ratio, fiscal 2025",
+              "value": "-0.0007",
+              "calculation_id": "fcaa1cd8-7d34-42c7-9271-b4541cf4c57d"
+            }
+          ],
+          "commentary": "Cash generation at M&T is a balance-sheet story, not an industrial one, and the first half of fiscal 2026 shows it. Operating activities produced $2,280m in the six months to June 2026, while depreciation and amortisation of $156m was immaterial: a $219,261m balance sheet carrying only $1,726m of property, plant and equipment generates operating cash that is essentially net interest and fee income adjusted for working-capital and trading swings, not earnings grossed up for heavy non-cash charges.\n\nInvesting activities absorbed $8,150m over the half \u2014 for a bank, principally deployment of funding into loans and securities rather than capital expenditure \u2014 and financing supplied $4,539m, including $3,203m of debt proceeds against $463m of repayments. Growth in earning assets is being funded on the liability side; operating cash flow is not the binding constraint on investment.\n\nShareholder returns in the half were $1,698m of repurchases and $445m of dividends, each individually within the half's operating inflow, with buybacks much the larger of the two. The durability question sits in the fiscal 2025 comparison. Distributions for fiscal 2025 stand at $3,530m, equal to 1.18 times that year's operating cash flow, and the mix shifted toward the discretionary element: repurchases rose by $2,235m year on year while dividends rose by $4m, alongside a $4,371m increase in debt repayments. Read literally, that is a year in which returns exceeded operating cash generation. We qualify rather than dramatise it: at a bank, distributions are governed by earnings, regulatory capital and stress-test capacity, and the operating line of the cash flow statement is a weak proxy for distributable capacity. The conclusion is about composition, not solvency \u2014 the buyback is the flexible component and would compress first under capital or credit stress, while the dividend, barely changed, is the durable one.\n\nOn the recorded ratios earnings quality looks clean \u2014 cash conversion of 1.05 for fiscal 2025 and an accruals ratio of -0.0007 \u2014 but that reading deserves caution rather than endorsement. Bank operating cash flow includes originations and sales of loans held for sale, trading inventory and other flows unrelated to the persistence of earnings, so a conversion ratio at or above one is not the quality signal it would be at an operating company; provisioning and credit marks, not accruals, are the swing factor. Second-quarter net income of $818m is the reference point for that judgement.\n\nTwo structural points frame durability. The company describes itself as a financial intermediary whose liquidity risk arises whenever the cash flows associated with assets and liabilities differ \u2014 the cash flow statement is an outcome of that mismatch management rather than an independent measure of it. And a substantial swap book, with cash flow hedges on variable-rate commercial real estate and commercial and industrial loans and fair value hedges on fixed-rate long-term borrowings, sits between market rates and realised interest cash flows, stabilising them within the hedged horizon. Full-year cash flow detail for fiscal 2026 is not yet available; the half-year pattern above is the operative evidence.",
+          "financials": [
+            {
+              "label": "Net cash from operating activities",
+              "values": [
+                {
+                  "unit": "USD millions",
+                  "value": "2,280",
+                  "period": "H1 FY2026",
+                  "financial_fact_id": "8a46648b-a714-40e3-837c-737c86717526"
+                }
+              ]
+            },
+            {
+              "label": "Net cash used in investing activities",
+              "values": [
+                {
+                  "unit": "USD millions",
+                  "value": "-8,150",
+                  "period": "H1 FY2026",
+                  "financial_fact_id": "33b2eb75-2c8b-4767-9511-4e4a2ae8dedb"
+                }
+              ]
+            },
+            {
+              "label": "Net cash from financing activities",
+              "values": [
+                {
+                  "unit": "USD millions",
+                  "value": "4,539",
+                  "period": "H1 FY2026",
+                  "financial_fact_id": "9e33d0e7-bcf7-48b8-a415-59c15db7bfd9"
+                }
+              ]
+            },
+            {
+              "label": "Proceeds from debt",
+              "values": [
+                {
+                  "unit": "USD millions",
+                  "value": "3,203",
+                  "period": "H1 FY2026",
+                  "financial_fact_id": "d17583e2-128a-4061-9593-b8793ff785ee"
+                }
+              ]
+            },
+            {
+              "label": "Repayments of debt",
+              "values": [
+                {
+                  "unit": "USD millions",
+                  "value": "463",
+                  "period": "H1 FY2026",
+                  "financial_fact_id": "d8d18818-006a-4564-aff6-828dc0b82602"
+                }
+              ]
+            },
+            {
+              "label": "Share repurchases",
+              "values": [
+                {
+                  "unit": "USD millions",
+                  "value": "1,698",
+                  "period": "H1 FY2026",
+                  "financial_fact_id": "4bae6682-6101-47b8-b454-c9687a5269ed"
+                }
+              ]
+            },
+            {
+              "label": "Dividends paid",
+              "values": [
+                {
+                  "unit": "USD millions",
+                  "value": "445",
+                  "period": "H1 FY2026",
+                  "financial_fact_id": "d7e84bb1-a6e7-4e4e-bdf4-3ece5f8bce70"
+                }
+              ]
+            },
+            {
+              "label": "Depreciation and amortisation",
+              "values": [
+                {
+                  "unit": "USD millions",
+                  "value": "156",
+                  "period": "H1 FY2026",
+                  "financial_fact_id": "85690bdc-b165-4c6c-93e5-9e58e6692193"
+                }
+              ]
+            }
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "capital_allocation",
+        "content": {
+          "figures": [
+            {
+              "unit": "USD billions",
+              "label": "Operating cash flow, Q2 2026",
+              "value": "2.28",
+              "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+            },
+            {
+              "unit": "USD billions",
+              "label": "Investing cash flow, Q2 2026",
+              "value": "-8.15",
+              "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+            },
+            {
+              "unit": "USD billions",
+              "label": "Financing cash flow, Q2 2026",
+              "value": "4.539",
+              "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+            },
+            {
+              "unit": "USD billions",
+              "label": "Share repurchases, Q2 2026",
+              "value": "1.698",
+              "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+            },
+            {
+              "unit": "USD millions",
+              "label": "Dividends paid, Q2 2026",
+              "value": "445",
+              "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+            },
+            {
+              "unit": "USD/share",
+              "label": "Dividends per share, Q2 2026",
+              "value": "1.50",
+              "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+            },
+            {
+              "unit": "USD billions",
+              "label": "Shareholder distributions, FY2025",
+              "value": "3.530",
+              "calculation_id": "3f50e036-e754-4edb-8ce2-d8baa85ef972"
+            },
+            {
+              "unit": "percent",
+              "label": "Distributions to operating cash flow, FY2025",
+              "value": "117.5",
+              "calculation_id": "11669a6e-76a5-443c-9646-5afbdb9fe240"
+            },
+            {
+              "unit": "USD billions",
+              "label": "Share repurchases change, FY2025",
+              "value": "2.235",
+              "calculation_id": "4d88bcd0-db6c-444d-b7b1-b26ab14ca6cf"
+            },
+            {
+              "unit": "USD millions",
+              "label": "Dividends paid change, FY2025",
+              "value": "4",
+              "calculation_id": "c70da04d-9061-4c39-9c0e-3d908700654d"
+            }
+          ],
+          "commentary": "M&T Bank returned capital to shareholders in the second quarter of 2026 through both dividends and share repurchases, funded by operating cash flow of 2.28 billion dollars for the quarter. Financing activities produced a net cash inflow of 4.539 billion dollars, reflecting debt issuance of 3.203 billion dollars against repayments of 463 million dollars, alongside common stock repurchases of 1.698 billion dollars and dividend payments of 445 million dollars, equivalent to 1.50 dollars per share. Investing activities used 8.15 billion dollars in the quarter, consistent with balance-sheet growth funded partly by the financing inflows. On a full fiscal-year 2025 basis, combined shareholder distributions (dividends plus repurchases) totaled 3.530 billion dollars, equal to roughly 117.5% of that year's operating cash flow, indicating distributions modestly exceeded internally generated cash. Within that trend, share repurchases rose by 2.235 billion dollars year over year while dividends paid increased by a comparatively small 4 million dollars, suggesting buybacks have been the primary lever for incremental capital return. Capital distribution capacity at M&T is governed by Federal Reserve oversight: dividend payments and share repurchases depend on maintaining CET1 risk-based, Tier 1 risk-based, and total risk-based capital ratios above required minimums, which incorporate the firm's stress capital buffer, and the capital plan rule requires prior Federal Reserve approval for any distribution if M&T must resubmit its capital plan. The material available to us does not include the current CET1 ratio, the 2026 stress capital buffer level, or the commercial real estate stress-loss assumptions underlying the Federal Reserve's 2026 supervisory stress test, so we cannot quantify the present cushion above regulatory minimums or state with confidence whether CRE stress assumptions are constraining the pace of buybacks; that is a real gap rather than a settled conclusion, and it bears watching given the bank's CRE exposure. Separately, M&T's capital stack includes Series L Preferred Stock, which carries a fixed contractual dividend obligation ahead of common shareholders, a modest but permanent claim on distributable capital. No capital-plan or repurchase-authorization disclosure covering the period between July 2026 and the report date was available to confirm here, so current-quarter authorization status should be treated as unconfirmed.",
+          "uses_of_capital": [
+            "Common stock dividends",
+            "Common share repurchases",
+            "Debt issuance and repayment (net financing inflow)",
+            "Preferred stock dividends (Series L, fixed rate)"
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "growth_outlook",
+        "content": {
+          "figures": [
+            {
+              "unit": "USD millions",
+              "label": "Net income, quarter ended June 2026",
+              "value": "818",
+              "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+            },
+            {
+              "unit": "USD per share",
+              "label": "Diluted EPS, quarter ended June 2026",
+              "value": "5.32",
+              "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+            },
+            {
+              "unit": "USD millions",
+              "label": "Share repurchases, six months to June 2026",
+              "value": "1,698",
+              "source_document_id": "befbf6d4-3b60-465a-b187-d7dd99a6011b"
+            },
+            {
+              "unit": "USD millions",
+              "label": "Shareholder distributions, FY2025",
+              "value": "3,530",
+              "calculation_id": "3f50e036-e754-4edb-8ce2-d8baa85ef972"
+            },
+            {
+              "unit": "x",
+              "label": "Distributions to operating cash flow, FY2025",
+              "value": "1.18",
+              "calculation_id": "11669a6e-76a5-443c-9646-5afbdb9fe240"
+            },
+            {
+              "unit": "percent",
+              "label": "Return on equity, FY2025",
+              "value": "9.8",
+              "calculation_id": "e3b5a116-e435-4a2e-bdd3-a17a1ad261ba"
+            },
+            {
+              "unit": "percent",
+              "label": "Return on assets, FY2025",
+              "value": "1.3",
+              "calculation_id": "4156e8c0-2554-4e5e-ae70-53e6b9cb9a3d"
+            }
+          ],
+          "commentary": [
+            {
+              "text": "No management guidance, segment breakdown or multi-year revenue history is available here, so this outlook is built from the funding base, the current earnings run-rate and the capital-return record. One caution on the top line: the revenue figure for the quarter ended June 2026, $442 million, is a narrow line item rather than the bank's total revenue, and the FY2025 net margin computed against it reads 1.72 \u2014 above one. No top-line growth rate can honestly be drawn from it.",
+              "lead_in": "What the evidence supports"
+            },
+            {
+              "text": "The one visible volume driver is deposits. Core deposits were higher at 30 June 2026 than at 31 December 2025, reflecting growth in savings and interest-checking balances, growth in noninterest-bearing deposits, and the redesignation of certain brokered arrangements as core deposits consistent with regulatory presentation. That last component is presentational rather than new funding, so the organic gain is smaller than the reported movement. Deposit growth is the precondition for loan growth, not evidence of it.",
+              "lead_in": "Funding"
+            },
+            {
+              "text": "June-quarter earnings were $818 million, or $5.32 per diluted share on 146.8 million diluted shares. Shares outstanding stood at 144,416,262 on 31 July 2026, below the quarter's average diluted count, so repurchases are still shrinking the denominator: $1,698 million of buybacks and $445 million of dividends in the six months to June 2026. Per-share growth is being carried by share count as much as by earnings.",
+              "lead_in": "Per-share mechanics"
+            },
+            {
+              "text": "For FY2025 the recorded shareholder distributions total $3,530 million, and the recorded ratio of distributions to operating cash flow is 1.18 \u2014 on its face, distributions exceeding operating cash generation. Two qualifications matter. For a bank, operating cash flow is a weak proxy for distributable earnings, swinging with origination and trading flows, so a ratio above one is not by itself evidence of strain; capital return is governed by earnings and regulatory capital. And the first-half 2026 statement shows the balance sheet expanding on borrowed money: $2,280 million of operating inflow against $8,150 million of investing outflow, funded by $4,539 million of financing inflow, including $3,203 million of debt proceeds against $463 million of repayments. Distributions are being sustained alongside balance-sheet growth, not out of it.",
+              "lead_in": "Capital return"
+            },
+            {
+              "text": "Recorded FY2025 return on equity is 9.8% and return on assets 1.3%, against 8.9% return on equity in FY2024 \u2014 improving, but close enough to any plausible cost of equity that the sign of value creation over book turns on a point either way. The return should be read as a range rather than a point, and any conclusion requiring returns to clear a required return by a wide margin is not supported by what is on record.",
+              "lead_in": "Returns and their dispersion"
+            },
+            {
+              "text": "Modest per-share growth, led by deposit-funded balance-sheet expansion and a shrinking share count rather than by revenue or fee acceleration. Durability depends on deposit costs and credit. The company's own risk disclosure lists weaker loan demand, lower net interest income, higher delinquencies and impairment of goodwill among the consequences of a weakening economy; goodwill of $8,465 million against $27,946 million of equity makes that last item material to book value.",
+              "lead_in": "Base case"
+            }
+          ],
+          "growth_drivers": [
+            "Core deposit growth, part of it presentational reclassification rather than new funding",
+            "Balance-sheet expansion funded by wholesale debt issuance in the first half of 2026",
+            "Share-count reduction through continued repurchases",
+            "Improving return on equity year over year, from a level close to a plausible required return",
+            "No visible driver from revenue or fees: the available top-line data cannot support a growth rate"
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "valuation_dcf",
+        "content": {
+          "commentary": "The appraisal above is equity-side by construction, and that is the right shape for this company. A bank's operating cash flows are inseparable from its funding and lending decisions \u2014 core deposits are the most significant source of funding, and balance sheet growth consumes and releases cash for reasons that have nothing to do with value creation \u2014 so a firm-level free cash flow structure would carry no economic meaning here. No such structure was forced onto the bank: what is rendered is a premium to book value earned by the spread between return on equity and cost of equity, converted to a value per share on shares outstanding.\n\nEverything in the result reduces to one judgement: whether M&T earns more on its book equity than shareholders require, and for how long. The two value-per-share figures are the same appraisal under two terminal treatments. In the competed-away case the excess return decays to nothing, so the premium to book value captures only the transitional period. In the perpetuity case the spread is held open indefinitely and the premium compounds. The distance between them is not a disagreement about near-term earnings power; it is the price of franchise durability. A reader who believes a deposit franchise of this kind is defensible should weight the perpetuity figure; one who expects competition to erode pricing should weight the other.\n\nThe conditioning inputs deserve to be read as declared assumptions rather than observations. Cost of equity is assembled from a risk-free rate, an equity risk premium and a beta; terminal growth and the payout ratio bind mainly on the perpetuity variant, where an assumed growth rate close to cost of equity magnifies the terminal contribution. The recorded return on equity was 9.8 percent for FY2025 against 8.9 percent for FY2024 \u2014 an improving trend, but at a level close to most defensible cost-of-equity assumptions. When the assumed sustainable return sits near the required return, the premium to book value is both modest and unstable: a small revision to either side moves the appraisal disproportionately, and the two value-per-share outputs should be read as a range, not as competing point estimates.\n\nThe base of that premium is book value, not tangible book. Common equity of $27.946 billion at June 30, 2026 carries goodwill of $8.465 billion and other intangible assets of $48 million; expressed on a tangible basis, the same value per share would represent a materially wider premium, and the return the bank must sustain to justify it is correspondingly higher. Reported equity also mixes common and preferred capital, with a preferred series redeemed in February 2026 and a further series issued in July 2026, so the bridge from equity value to common value per share is sensitive to how preferred is handled. Book value likewise absorbs accumulated other comprehensive income, including unrealised marks on available-for-sale securities and cash flow hedges, which makes the anchor itself move with rate conditions.\n\nShare count is the other lever, and it is moving. Shares outstanding stood at 144,416,262 at July 31, 2026 against 146,445,060 at April 30, 2026, following repurchases of $1.698 billion in the first six months of 2026 under a program the board authorised in March 2026 that replaced the prior authorisation. Buybacks executed below the appraised value per share accrete to continuing holders and executed above it dilute them, so the repurchase pace is itself a claim by management about which of the two terminal cases is nearer the truth. Diluted earnings of $5.32 per share against a declared dividend of $1.50 per share in the second quarter of 2026 leaves the payout assumption in the appraisal well covered by current earnings, with retained capital available to fund either growth or further repurchase.\n\nTwo limits should be stated. This appraisal is internally consistent but unbenchmarked: it carries no cross-check of price to tangible book against return on tangible common equity for comparable banks, so it establishes what the assumptions imply rather than whether the market shares them. And if the sustainable return converges toward the required return \u2014 through funding cost, credit normalisation or regulatory capital demands \u2014 the value per share migrates toward the competed-away figure, which is the conservative reading and, in our judgement, the more prudent anchor absent evidence of a widening return advantage.",
+          "method_note": "The equity was valued as its filed book value plus the present value of the return earned above its cost of equity over a 5-year explicit forecast, discounted at the cost of equity shown below rather than at a weighted average cost of capital \u2014 a bank's deposits are priced in net interest income, and blending them into the discount rate would charge them twice. The excess return beyond the forecast was taken both ways \u2014 competed away to nothing, and grown as a perpetuity \u2014 with each carried through to a per-share figure, because the choice between them is a judgement about competition rather than arithmetic. Every figure cites the calculation that produced it.",
+          "cost_of_capital": [
+            {
+              "unit": "pure",
+              "label": "Risk-free rate",
+              "value": "0.048300000000",
+              "provenance": "set by the operator and confirmed at the assumptions gate"
+            },
+            {
+              "unit": "pure",
+              "label": "Beta",
+              "value": "1.000000000000",
+              "provenance": "set by the operator and confirmed at the assumptions gate"
+            },
+            {
+              "unit": "pure",
+              "label": "Equity risk premium",
+              "value": "0.045000000000",
+              "provenance": "set by the operator and confirmed at the assumptions gate"
+            },
+            {
+              "unit": "pure",
+              "label": "Cost of equity",
+              "value": "0.093300000000",
+              "provenance": "computed: Ke = risk-free rate + beta * equity risk premium",
+              "calculation_id": "0045b262-45b6-4904-97d2-22da9cfc6b97"
+            }
+          ],
+          "forecast_drivers": [
+            {
+              "unit": "pure",
+              "label": "Return on equity",
+              "value": "0.094214000000",
+              "provenance": "proposed by aer.services.assumption_proposals with a stated justification, and confirmed by the operator at the assumptions gate"
+            },
+            {
+              "unit": "pure",
+              "label": "Payout ratio",
+              "value": "0.336680000000",
+              "provenance": "proposed by aer.services.assumption_proposals with a stated justification, and confirmed by the operator at the assumptions gate"
+            },
+            {
+              "unit": "pure",
+              "label": "Terminal growth",
+              "value": "0.025000000000",
+              "provenance": "proposed by aer.agents.assumptions with a stated justification, and confirmed by the operator at the assumptions gate"
+            }
+          ],
+          "valuation_caveats": [
+            "Residual income equals the dividend-discount value only under clean surplus \u2014 that every gain and loss passes through profit, so book value moves only by earnings less dividends. A bank's available-for-sale securities move through other comprehensive income instead, so a book value carrying unrealised losses is treated here as fully earning.",
+            "No value is placed on anything beyond the explicit forecast: the excess return is assumed competed away at the end of it.",
+            "The two terminal treatments are opposite claims about competition, not two estimates of one number. Fading to nothing says a bank's excess return is competed away at the end of the forecast; perpetual growth says it never is. Both are shown because choosing between them is a judgement about banking, and presenting either alone would present that judgement as arithmetic.",
+            "The valuation assumes the bank earns above its cost of equity in perpetuity. Competition has historically removed such a spread.",
+            "This request carries no authored scenarios, so the valuation is the base case and the two grids beside it. Scenarios are written, not generated: nothing here invents a bear case the operator did not argue for."
+          ],
+          "terminal_valuations": [
+            {
+              "unit": "USD/shares",
+              "label": "Value per share \u2014 excess return competed away",
+              "value": "184.470643922956",
+              "provenance": "computed: value per share = equity value / shares outstanding",
+              "calculation_id": "657bf0e2-8117-4489-8592-76dd6bbad5a8"
+            },
+            {
+              "unit": "USD",
+              "label": "Premium to book value \u2014 excess return competed away",
+              "value": "115278019.170031898055",
+              "provenance": "computed: premium = equity value - opening book value",
+              "calculation_id": "9e132940-dd46-4f74-a015-b143d84e3000"
+            },
+            {
+              "unit": "USD/shares",
+              "label": "Value per share \u2014 excess return in perpetuity",
+              "value": "186.526881840223",
+              "provenance": "computed: value per share = equity value / shares outstanding",
+              "calculation_id": "386830d9-7ebb-4609-b503-1da10400201a"
+            },
+            {
+              "unit": "USD",
+              "label": "Premium to book value \u2014 excess return in perpetuity",
+              "value": "441790094.290808305163",
+              "provenance": "computed: premium = equity value - opening book value",
+              "calculation_id": "3600d74e-a429-4cc7-bcf2-f26bd46584df"
+            },
+            {
+              "unit": "shares",
+              "label": "Shares outstanding",
+              "value": "158791000.000000",
+              "provenance": "the filed count: diluted_shares_outstanding",
+              "calculation_id": "657bf0e2-8117-4489-8592-76dd6bbad5a8"
+            }
+          ]
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "scenarios_sensitivities",
+        "content": {
+          "scenarios": [
+            {
+              "unit": "ratio",
+              "label": "Base-case anchor: return on equity, FY2025",
+              "value": "0.098",
+              "calculation_id": "e3b5a116-e435-4a2e-bdd3-a17a1ad261ba"
+            },
+            {
+              "unit": "ratio",
+              "label": "Prior-year comparison: return on equity, FY2024",
+              "value": "0.089",
+              "calculation_id": "4063a1e2-651e-442d-9df0-da6992165f9a"
+            },
+            {
+              "unit": "ratio",
+              "label": "Balance-sheet return: return on assets, FY2025",
+              "value": "0.013",
+              "calculation_id": "4156e8c0-2554-4e5e-ae70-53e6b9cb9a3d"
+            },
+            {
+              "unit": "USD",
+              "label": "Capital return: shareholder distributions, FY2025",
+              "value": "3,530,000,000",
+              "calculation_id": "3f50e036-e754-4edb-8ce2-d8baa85ef972"
+            },
+            {
+              "unit": "ratio",
+              "label": "Distribution strain: distributions to operating cash flow, FY2025",
+              "value": "1.18",
+              "calculation_id": "11669a6e-76a5-443c-9646-5afbdb9fe240"
+            }
+          ],
+          "commentary": [
+            {
+              "text": "A quantified rate grid and a commercial real estate loss grid both need inputs the record here does not carry: the disclosed interest-rate sensitivity simulation, CRE balances split by criticized migration, and the notional and maturity ladder of the swap book. Hedge notionals are undisclosed in the material available, so no swap roll-off effect on net interest margin is put a number to, and no scenario value for margin, provision, return on tangible common equity or tangible book value per share is asserted. The cases below are framed on reported earnings, capital return and balance sheet scale, with each swing variable described by direction.",
+              "lead_in": "What this section can resolve"
+            },
+            {
+              "text": "The June 2026 quarter produced pre-tax income of USD 1,063 million, net income of USD 818 million and diluted earnings per share of USD 5.32, against total assets of USD 219,261 million and equity of USD 27,946 million. Return on equity for FY2025 is 0.098, above 0.089 for FY2024, with return on assets of 0.013: the returns of a spread lender working a very large balance sheet. The base case assumes deposit pricing and credit costs stay near their recent path, leaving quarterly earnings near this level and capital return as the main lever on per-share outcomes.",
+              "lead_in": "Base case"
+            },
+            {
+              "text": "Two pressures compound. On rates, the first quarter of 2026 already showed the deposit-beta channel live: Retail Bank net interest income fell as margins on both deposits and loans narrowed year over year, offset only partly by higher average loan balances. On credit, the annual report's market risk discussion sets out the transmission \u2014 weaker conditions raise delinquencies, nonperforming assets, net charge-offs and the provision for credit losses, reduce collateral values, and can impair intangible assets. Goodwill of USD 8,465 million sits against equity of USD 27,946 million; first-half impairment charges of USD 3 million show none of that risk crystallised to date.",
+              "lead_in": "Bear case"
+            },
+            {
+              "text": "Deposit mix stabilises, fixed-rate assets reprice into higher yields, and credit migration stays benign, while fee income from the residential sub-servicing arrangement entered in early 2025 and continued loan growth carry revenue. Capital return amplifies the path: repurchases of USD 1,698 million in the first half of 2026 against operating cash flow of USD 2,280 million. The constraint is that FY2025 shareholder distributions of USD 3,530 million ran at 1.18 times operating cash flow, so a sustained bull outcome depends on internal capital generation rather than on further balance sheet leverage.",
+              "lead_in": "Bull case"
+            }
+          ],
+          "sensitivity_commentary": "Ranked by influence, cumulative interest-bearing deposit beta and the noninterest-bearing mix shift dominate: net interest income is the largest earnings line for this franchise, and the deposit margin narrowing already disclosed for the first quarter of 2026 shows how small changes in beta move it. CRE loss severity and criticized-asset migration rank second, working through the provision rather than through revenue, with intangible impairment a tail case rather than a base expectation. Distribution pace ranks third, since it shifts per-share outcomes without changing earning power. Magnitudes are not quantified here because the simulation disclosures, CRE segmentation and hedge notionals needed to size them are not in the record available."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "key_risks",
+        "content": {
+          "risks": [
+            {
+              "risk": "Commercial real estate concentration, including office and multifamily",
+              "early_warning": "Criticised and non-accrual balances in commercial real estate rising faster than charge-offs.",
+              "why_it_matters": "The second-quarter filing's cautionary disclosure names loan concentrations by type and industry, credit losses, and market values of collateral securing loans. It describes the exposure without sizing the office or multifamily books. Against total assets of $219.3 billion and equity of $27.9 billion at June 30, 2026, a modest loss rate on a concentrated book absorbs a large share of capital.",
+              "source_document_id": "c72c1b26-4103-453c-bdb5-d4cff37ac477"
+            },
+            {
+              "risk": "Geographic concentration in the Northeast and Mid-Atlantic footprint",
+              "early_warning": "Regional vacancy or employment data diverging from national trends.",
+              "why_it_matters": "M&T names political conditions nationally and in the states where it and its subsidiaries do business among factors that could change outcomes. Regional employment, office utilisation and state fiscal stress would strike credit quality, deposit gathering and fee income together. Described only: no state-level loan or deposit split is available in the filings to hand.",
+              "source_document_id": "c72c1b26-4103-453c-bdb5-d4cff37ac477"
+            },
+            {
+              "risk": "Deposit funding sensitivity and uninsured deposit share",
+              "early_warning": "Growing reliance on wholesale borrowing; deposit costs catching up with asset yields.",
+              "why_it_matters": "Levels of client deposits, sources of liquidity and changes in credit ratings are named factors. In the six months to June 30, 2026, operating cash flow of $2.3 billion accompanied an investing outflow of $8.2 billion and a financing inflow of $4.5 billion, with short-term debt of $4.6 billion and long-term debt of $13.6 billion outstanding at quarter end. The uninsured share itself is not quantified in the available filings.",
+              "source_document_id": "c72c1b26-4103-453c-bdb5-d4cff37ac477"
+            },
+            {
+              "risk": "AOCI, held-to-maturity securities marks and hedge roll-off",
+              "early_warning": "Widening spread between amortised cost and fair value on held-to-maturity securities.",
+              "why_it_matters": "Interest rates, spreads on earning assets and interest-bearing liabilities, rate sensitivity and prepayment speeds are named risks. Unrealised securities marks and the repricing of maturing hedges bear on equity of $27.9 billion. The mechanism is described; the AOCI balance, the held-to-maturity mark and the hedge maturity ladder are not quantified in the material available.",
+              "source_document_id": "c72c1b26-4103-453c-bdb5-d4cff37ac477"
+            },
+            {
+              "risk": "Regulatory and stress-capital constraints on distributions",
+              "early_warning": "Stress-capital buffer reset higher; repurchase pace slowing ahead of any dividend action.",
+              "calculation_id": "11669a6e-76a5-443c-9646-5afbdb9fe240",
+              "why_it_matters": "Regulatory supervision and oversight, including monetary policy and capital requirements, is a named factor. Fiscal 2025 shareholder distributions of $3.5 billion ran above operating cash flow, a ratio of 1.18, with repurchases up $2.2 billion year over year. In July 2026 the company set out Series L Preferred Stock terms by Certificate of Amendment. A harsher stress outcome would most likely fall on the buyback first.",
+              "source_document_id": "36dc9b72-b82c-454c-9322-764f03bb6b6c"
+            },
+            {
+              "risk": "Goodwill carrying value and acquisition integration",
+              "early_warning": "Sustained trading below tangible book value; segment underperformance at annual goodwill testing.",
+              "calculation_id": "e3b5a116-e435-4a2e-bdd3-a17a1ad261ba",
+              "why_it_matters": "Goodwill of $8.5 billion sits against equity of $27.9 billion, with other intangible assets of only $48 million; acquisition-related carrying value is therefore a meaningful share of the capital base. Fiscal 2025 return on equity of 0.098 and return on assets of 0.013 leave a modest earnings cushion for absorbing an impairment or a further integration."
+            },
+            {
+              "risk": "Operational, cyber and litigation events",
+              "why_it_matters": "Fraud by employees or persons outside the company, breaches in data and cybersecurity, and pending or future litigation, investigations and tax-related examinations are all named and none is quantified. These are event risks without a usable base rate; they are noted here, not sized.",
+              "source_document_id": "c72c1b26-4103-453c-bdb5-d4cff37ac477"
+            }
+          ],
+          "commentary": "M&T's dominant risks are the regional-bank triad: commercial real estate concentration, deposit funding sensitivity, and rate-driven marks on securities and hedges. The company's own cautionary disclosure names all three; the material available quantifies none of them at portfolio level. What is quantified is scale and leverage \u2014 a large balance sheet on comparatively thin equity, substantial goodwill carried from prior acquisitions, and fiscal 2025 distributions running ahead of operating cash flow. Those amplify the described exposures rather than create them, and they are the reason a qualitative concentration risk deserves a quantitative reading of the capital that stands behind it."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "catalysts",
+        "content": {
+          "catalysts": [],
+          "commentary": "The evidence to hand names no specific dated event for M&T Bank beyond the filings already made: it does not disclose a scheduled investor day, a stress-test submission date, a capital-plan announcement date, or an FOMC meeting date, so no calendar-anchored catalyst can be given from what is available. What would resolve the thesis is the next quarterly results release and accompanying 10-Q disclosure of criticized commercial real estate balances and allowance for credit losses, together with any capital-plan or buyback announcement and Federal Reserve rate decisions that shape the deposit repricing path, but none of these carry disclosed dates in the material reviewed, so they are described here only as recurring, undated sources of potential re-rating rather than as scheduled catalysts."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "prior_research_comparison",
+        "content": {
+          "commentary": "This is the first research run for M&T BANK CORP (MTB). No prior approved report exists to compare against."
+        },
+        "status": "generated",
+        "note": null
+      },
+      {
+        "key": "validation_disagreements",
+        "content": {
+          "summary": "The run's validators measured 11 metric(s): 8 passed, 2 failed, 1 not exercised. custom_section_contract_conformance, injection_resistance, skill_privilege_containment and unit_integrity are corpus metrics, measured by the CI evaluation gate against adversarial fixtures rather than against any one run. 6 disagreement(s) between sources were recorded, of which 6 were escalated for human decision at approval.",
+          "validations": [
+            {
+              "score": "1.00000000",
+              "metric": "assumption_completeness",
+              "verdict": "pass",
+              "threshold": "at least 1.00000000"
+            },
+            {
+              "score": "1.00000000",
+              "metric": "citation_accuracy",
+              "verdict": "pass",
+              "threshold": "at least 0.98000000"
+            },
+            {
+              "score": "0E-8",
+              "metric": "cited_figure_agreement",
+              "verdict": "pass",
+              "threshold": "at most 0E-8"
+            },
+            {
+              "score": "11.00000000",
+              "metric": "figure_plausibility",
+              "verdict": "fail",
+              "threshold": "at most 0E-8"
+            },
+            {
+              "score": "0E-8",
+              "metric": "hallucinated_citation_rate",
+              "verdict": "pass",
+              "threshold": "at most 0E-8"
+            },
+            {
+              "score": "\u2014",
+              "metric": "look_ahead_recall",
+              "verdict": "not exercised",
+              "threshold": "at least 1.00000000"
+            },
+            {
+              "score": "0E-8",
+              "metric": "numerical_consistency",
+              "verdict": "pass",
+              "threshold": "at most 0.00500000"
+            },
+            {
+              "score": "1.00000000",
+              "metric": "presentation_integrity",
+              "verdict": "fail",
+              "threshold": "at most 0E-8"
+            },
+            {
+              "score": "1.00000000",
+              "metric": "primary_source_ratio",
+              "verdict": "pass",
+              "threshold": "at least 0.60000000"
+            },
+            {
+              "score": "1.00000000",
+              "metric": "source_coverage",
+              "verdict": "pass",
+              "threshold": "at least 0.90000000"
+            },
+            {
+              "score": "1.00000000",
+              "metric": "temporal_compliance",
+              "verdict": "pass",
+              "threshold": "at least 1.00000000"
+            }
+          ],
+          "disagreements": [
+            {
+              "text": "The report treats the tagged revenue line inconsistently. Business overview and industry landscape present '$442 million revenue' for the June 2026 quarter as a descriptive fact about a bank with $219bn of assets, while the thesis and earnings-quality sections concede the same tag is not an economic revenue measure. Recorded net_margin values of 0.24-0.31 differ from the 1.72/1.68 figures the draft reports, so even the acknowledged-broken ratio is not the one in the index. Any scale or efficiency inference a reader draws from the $442m line is unsafe.",
+              "lead_in": "Red team \u2014 competitive position, severity 3/5",
+              "calculation_id": "b7a1b01c-9b09-4f9f-a014-97f9b2d46ed5"
+            },
+            {
+              "text": "Recorded net_margin values are 0.310247, 0.284248 and 0.243551, none matching the reported 1.72 or 1.68; the draft simultaneously asserts the revenue tag is unrepresentative and uses it as reported revenue in two sections.",
+              "lead_in": "Basis"
+            },
+            {
+              "text": "Escalated for human decision at approval.",
+              "lead_in": "Resolution"
+            },
+            {
+              "text": "The capital-return leg is the report's central durability argument, and the figures carrying it do not reconcile to the run's own recorded calculations. The draft repeatedly asserts FY2025 shareholder distributions of $3,530m at 1.18x (or 1.175x / 117.5%) operating cash flow. The only recorded shareholder_distributions values are $2,584m and $1,462m, and the only recorded distributions_to_operating_cash_flow values are 0.565 and 0.374 \\u2014 all well below one. If the calculation index is the evidence of record, the 'distributions exceed cash generation' premise is inverted, and with it the fragility conclusion on buybacks and per-share growth.",
+              "lead_in": "Red team \u2014 governance, severity 5/5",
+              "calculation_id": "af2d45fa-fd17-43c3-8dca-06445be81533"
+            },
+            {
+              "text": "Recorded calculations name distributions_to_operating_cash_flow at 0.564932 and 0.374392 and shareholder_distributions at $2.584bn and $1.462bn; the facts index for this run is empty, so no stored fact supports $3,530m or 1.18x.",
+              "lead_in": "Basis"
+            },
+            {
+              "text": "Escalated for human decision at approval.",
+              "lead_in": "Resolution"
+            },
+            {
+              "text": "The earnings-quality verdict \\u2014 cash conversion 'sound' at 1.05 with an accruals ratio 'effectively nil' at -0.0007 \\u2014 rests on two numbers absent from the calculation index. Recorded cash_conversion values are 1.42, 1.46 and 2.30; recorded accruals_ratio values are -0.0055, -0.0056 and -0.0129. A cash conversion far above one at a bank usually reflects loan-held-for-sale and trading flows rather than earnings quality, so the recorded values would require the opposite treatment from the draft's: a caution, not a clean bill.",
+              "lead_in": "Red team \u2014 governance, severity 4/5",
+              "calculation_id": "6b3cf266-4b93-41b4-ab36-c60f8bc7ac96"
+            },
+            {
+              "text": "Recorded cash_conversion: 1.460463, 1.424663, 2.296185. Recorded accruals_ratio: -0.005519, -0.005589, -0.012863. No stored fact in the run's index supports 1.05 or -0.0007.",
+              "lead_in": "Basis"
+            },
+            {
+              "text": "Escalated for human decision at approval.",
+              "lead_in": "Resolution"
+            },
+            {
+              "text": "The 9.8% ROE / 1.3% ROA pair is repeated in seven sections and anchors the valuation section's judgement that the sustainable return sits close to a plausible required return. No recorded return_on_equity equals 0.098: the index carries 0.1038, 0.1017 and 0.0787. Return_on_assets in the index runs 0.0120, 0.0132 and 0.0099. The spread across recorded ROE values is over 250bp \\u2014 wide enough that 'modest premium to book' versus 'materially above required return' versus 'below it' are all defensible, and the draft picks a figure that is none of them.",
+              "lead_in": "Red team \u2014 profitability, severity 4/5",
+              "calculation_id": "eeeab412-574a-4fcf-8ff6-542bd8fa41f9"
+            },
+            {
+              "text": "Recorded return_on_equity values are 0.103837, 0.101680 and 0.078679; return_on_assets values are 0.011985, 0.013161 and 0.009924. The facts index is empty, so the specific 0.098/0.013 pair has no visible stored source.",
+              "lead_in": "Basis"
+            },
+            {
+              "text": "Escalated for human decision at approval.",
+              "lead_in": "Resolution"
+            },
+            {
+              "text": "The draft twice excuses the missing relative-valuation leg on the grounds that no price or market data was recorded. The source index contains a T4 licensed market document dated 2026-09-11, one day before the as-of date. Either that source was not interrogated for price and share-count data, in which case the 'cannot be tested' framing understates what was available, or it was and the result was not recorded. Both are failures of the valuation leg rather than an unavoidable data gap, and they leave the buyback-accretion argument \\u2014 which depends on price versus appraised value \\u2014 with nothing underneath it.",
+              "lead_in": "Red team \u2014 valuation, severity 3/5",
+              "source_document_id": "ba9cf42d-2d43-4d32-87ba-6b1b0eda05e4"
+            },
+            {
+              "text": "Source index lists ba9cf42d (T4_LICENSED_MARKET, 2026-09-11, not quarantined) alongside twelve regulatory filings; the draft nonetheless asserts price and tangible book value are unrecorded.",
+              "lead_in": "Basis"
+            },
+            {
+              "text": "Escalated for human decision at approval.",
+              "lead_in": "Resolution"
+            },
+            {
+              "text": "The valuation section reasons about 'two value-per-share outputs', a 'premium to book value', and a payout assumption 'well covered by current earnings' \\u2014 but the calculation index contains no valuation calculation of any kind: no cost of equity, no excess-return output, no tangible book value, no value per share. The section's own concession that price and tangible book are unrecorded is not a caveat on the appraisal; it means the appraisal's outputs are unevidenced within this run. Every valuation conclusion is therefore an assertion, not a traceable result.",
+              "lead_in": "Red team \u2014 valuation, severity 4/5",
+              "calculation_id": "a5f46653-1d04-48a9-b0c3-ce3e754756ca"
+            },
+            {
+              "text": "Recorded calculations comprise only ratio, cash-flow and change metrics (net_margin, ROE, ROA, free_cash_flow, accruals, distributions); none is a discount rate, terminal value, tangible book or per-share appraisal. The facts index is empty.",
+              "lead_in": "Basis"
+            },
+            {
+              "text": "Escalated for human decision at approval.",
+              "lead_in": "Resolution"
+            }
+          ],
+          "failed_check_findings": [
+            {
+              "metric": "figure_plausibility",
+              "finding": "`net income 2588000000.000000 exceeds revenue 1541000000.000000 for FY2024 \u2014 impossible on a consolidated statement; the ordinary cause is a revenue concept resolved to a partial caption`"
+            },
+            {
+              "metric": "figure_plausibility",
+              "finding": "`net margin 1.679428942245 for FY2024 is above 1 \u2014 income exceeding the revenue it is measured against`"
+            },
+            {
+              "metric": "figure_plausibility",
+              "finding": "`net income 2851000000.000000 exceeds revenue 1657000000.000000 for FY2025 \u2014 impossible on a consolidated statement; the ordinary cause is a revenue concept resolved to a partial caption`"
+            },
+            {
+              "metric": "figure_plausibility",
+              "finding": "`net margin 1.720579360290 for FY2025 is above 1 \u2014 income exceeding the revenue it is measured against`"
+            },
+            {
+              "metric": "figure_plausibility",
+              "finding": "`net income 531000000.000000 exceeds revenue 367000000.000000 for Q1 FY2025 \u2014 impossible on a consolidated statement; the ordinary cause is a revenue concept resolved to a partial caption`"
+            },
+            {
+              "metric": "figure_plausibility",
+              "finding": "`net income 664000000.000000 exceeds revenue 418000000.000000 for Q1 FY2026 \u2014 impossible on a consolidated statement; the ordinary cause is a revenue concept resolved to a partial caption`"
+            },
+            {
+              "metric": "figure_plausibility",
+              "finding": "`net income 867000000.000000 exceeds revenue 376000000.000000 for Q2 FY2024 \u2014 impossible on a consolidated statement; the ordinary cause is a revenue concept resolved to a partial caption`"
+            },
+            {
+              "metric": "figure_plausibility",
+              "finding": "`net income 655000000.000000 exceeds revenue 388000000.000000 for Q2 FY2025 \u2014 impossible on a consolidated statement; the ordinary cause is a revenue concept resolved to a partial caption`"
+            },
+            {
+              "metric": "figure_plausibility",
+              "finding": "`net income 818000000.000000 exceeds revenue 442000000.000000 for Q2 FY2026 \u2014 impossible on a consolidated statement; the ordinary cause is a revenue concept resolved to a partial caption`"
+            },
+            {
+              "metric": "figure_plausibility",
+              "finding": "`net income 690000000.000000 exceeds revenue 360000000.000000 for Q3 FY2024 \u2014 impossible on a consolidated statement; the ordinary cause is a revenue concept resolved to a partial caption`"
+            },
+            {
+              "metric": "figure_plausibility",
+              "finding": "\u2026 and 1 more of the same kind, recorded on the run's evaluation row."
+            },
+            {
+              "metric": "presentation_integrity",
+              "finding": "`process language 'ADR 0066' \u2014 an architecture decision record, in a document that should be about the company`"
+            }
+          ]
+        },
+        "status": "generated",
+        "note": null
+      }
+    ],
+    "escalations": [
+      {
+        "id": "130ccf36-9d9c-467d-b08c-b6e11cc6a977",
+        "topic": "Red team (profitability): The 9.8% ROE / 1.3% ROA pair is repeated in seven sections and anchors the valuation section's judgement that the\u2026",
+        "kind": "thesis_conflict",
+        "rule": "thesis_conflict",
+        "rationale": "Base thesis (the draft's recorded claims) and Red team challenge (profitability, severity 4/5) reach opposing conclusions on profitability: The 9.8% ROE / 1.3% ROA pair is repeated in seven sections and anchors the valuation section's judgement that the sustainable return sits close to a plausible required return. No recorded return_on_equity equals 0.098: the index carries 0.1038, 0.1017 and 0.0787. Return_on_assets in the index runs 0.0120, 0.0132 and 0.0099. The spread across recorded ROE values is over 250bp \\u2014 wide enough that 'modest premium to book' versus 'materially above required return' versus 'below it' are all defensible, and the draft picks a figure that is none of them.. A thesis-level disagreement is never resolved automatically; both are published.",
+        "detail": {
+          "basis": "Recorded return_on_equity values are 0.103837, 0.101680 and 0.078679; return_on_assets values are 0.011985, 0.013161 and 0.009924. The facts index is empty, so the specific 0.098/0.013 pair has no visible stored source.",
+          "claims": [
+            "cfebb384-13c9-4db5-80ba-d15f7c4cac35",
+            "91ec08ed-fd18-482e-aeca-60f22653f310",
+            "4835dd44-ce49-42dc-9c65-2c6ddca62da0",
+            "6ae649cb-4e99-415d-b7ca-81a581dda62b",
+            "b21963c9-c657-4207-887b-22f3c1c1b0c7",
+            "d48511fb-e4dd-4987-88e7-72921312ced0"
+          ],
+          "evidence": {
+            "facts": [],
+            "sources": [],
+            "calculations": [
+              "eeeab412-574a-4fcf-8ff6-542bd8fa41f9",
+              "5cae11fc-0949-4af1-b000-7406454af701",
+              "d13477cd-77bc-4727-8625-6753defd6e20",
+              "88937b06-e388-40b0-9ff5-4dae216aaa34",
+              "ffef732f-eb1d-4e9f-9b5a-eb2825a6fb89",
+              "e06caf8f-e732-44e8-b67e-a2f32797f7a1"
+            ]
+          },
+          "sections": [
+            "balance_sheet_liquidity",
+            "growth_outlook",
+            "historical_financial_analysis",
+            "valuation_dcf"
+          ],
+          "severity": 4,
+          "challenge": "The 9.8% ROE / 1.3% ROA pair is repeated in seven sections and anchors the valuation section's judgement that the sustainable return sits close to a plausible required return. No recorded return_on_equity equals 0.098: the index carries 0.1038, 0.1017 and 0.0787. Return_on_assets in the index runs 0.0120, 0.0132 and 0.0099. The spread across recorded ROE values is over 250bp \\u2014 wide enough that 'modest premium to book' versus 'materially above required return' versus 'below it' are all defensible, and the draft picks a figure that is none of them.",
+          "dimension": "profitability"
+        },
+        "material": true,
+        "position_a": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Base thesis (the draft's recorded claims)",
+          "scale": 0,
+          "value": "0",
+          "reference": "draft:e8d0289f-6698-4e47-b567-d4822cc6d8fb",
+          "filed_date": "2026-09-12"
+        },
+        "position_b": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Red team challenge (profitability, severity 4/5)",
+          "scale": 0,
+          "value": "0",
+          "reference": "red_team:profitability:36feee7e3566",
+          "filed_date": "2026-09-12"
+        }
+      },
+      {
+        "id": "34691127-247b-440a-8705-192e4e305a74",
+        "topic": "Red team (governance): The earnings-quality verdict \\u2014 cash conversion 'sound' at 1.05 with an accruals ratio 'effectively nil' at\u2026",
+        "kind": "thesis_conflict",
+        "rule": "thesis_conflict",
+        "rationale": "Base thesis (the draft's recorded claims) and Red team challenge (governance, severity 4/5) reach opposing conclusions on governance: The earnings-quality verdict \\u2014 cash conversion 'sound' at 1.05 with an accruals ratio 'effectively nil' at -0.0007 \\u2014 rests on two numbers absent from the calculation index. Recorded cash_conversion values are 1.42, 1.46 and 2.30; recorded accruals_ratio values are -0.0055, -0.0056 and -0.0129. A cash conversion far above one at a bank usually reflects loan-held-for-sale and trading flows rather than earnings quality, so the recorded values would require the opposite treatment from the draft's: a caution, not a clean bill.. A thesis-level disagreement is never resolved automatically; both are published.",
+        "detail": {
+          "basis": "Recorded cash_conversion: 1.460463, 1.424663, 2.296185. Recorded accruals_ratio: -0.005519, -0.005589, -0.012863. No stored fact in the run's index supports 1.05 or -0.0007.",
+          "claims": [
+            "061b9a8a-1430-4173-be20-b580f17dd235",
+            "5f263a2f-9e42-43d7-89e2-bc5c9e6b2227",
+            "2315c281-f0d3-4d1d-ac21-e3ad86255f60",
+            "202ac59d-2b0b-4ede-8e54-e2dbe927550f",
+            "aee07007-ee94-4224-901e-f19b49fa3f56",
+            "54e74231-8540-4611-9333-4c8eb64790b4"
+          ],
+          "evidence": {
+            "facts": [],
+            "sources": [],
+            "calculations": [
+              "6b3cf266-4b93-41b4-ab36-c60f8bc7ac96",
+              "ed7d994e-a8df-4607-9ee3-b742298cdcc3",
+              "7d78f19f-c8f6-4f25-8fd0-e8c1b8aa8fd6",
+              "3e723f57-bf9f-42db-956f-019b42a0fa24",
+              "93e3186b-c520-42bf-ad75-8f6c103f7bfa",
+              "c0d8bfcb-4cdd-4b46-9157-0c4be2dd11cb"
+            ]
+          },
+          "sections": [
+            "cash_flow_analysis",
+            "earnings_quality",
+            "historical_financial_analysis"
+          ],
+          "severity": 4,
+          "challenge": "The earnings-quality verdict \\u2014 cash conversion 'sound' at 1.05 with an accruals ratio 'effectively nil' at -0.0007 \\u2014 rests on two numbers absent from the calculation index. Recorded cash_conversion values are 1.42, 1.46 and 2.30; recorded accruals_ratio values are -0.0055, -0.0056 and -0.0129. A cash conversion far above one at a bank usually reflects loan-held-for-sale and trading flows rather than earnings quality, so the recorded values would require the opposite treatment from the draft's: a caution, not a clean bill.",
+          "dimension": "governance"
+        },
+        "material": true,
+        "position_a": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Base thesis (the draft's recorded claims)",
+          "scale": 0,
+          "value": "0",
+          "reference": "draft:e8d0289f-6698-4e47-b567-d4822cc6d8fb",
+          "filed_date": "2026-09-12"
+        },
+        "position_b": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Red team challenge (governance, severity 4/5)",
+          "scale": 0,
+          "value": "0",
+          "reference": "red_team:governance:2bad77741aa8",
+          "filed_date": "2026-09-12"
+        }
+      },
+      {
+        "id": "41fd84f1-54b0-4b83-a518-521c653b37f3",
+        "topic": "Red team (valuation): The valuation section reasons about 'two value-per-share outputs', a 'premium to book value', and a payout assumption\u2026",
+        "kind": "thesis_conflict",
+        "rule": "thesis_conflict",
+        "rationale": "Base thesis (the draft's recorded claims) and Red team challenge (valuation, severity 4/5) reach opposing conclusions on valuation: The valuation section reasons about 'two value-per-share outputs', a 'premium to book value', and a payout assumption 'well covered by current earnings' \\u2014 but the calculation index contains no valuation calculation of any kind: no cost of equity, no excess-return output, no tangible book value, no value per share. The section's own concession that price and tangible book are unrecorded is not a caveat on the appraisal; it means the appraisal's outputs are unevidenced within this run. Every valuation conclusion is therefore an assertion, not a traceable result.. A thesis-level disagreement is never resolved automatically; both are published.",
+        "detail": {
+          "basis": "Recorded calculations comprise only ratio, cash-flow and change metrics (net_margin, ROE, ROA, free_cash_flow, accruals, distributions); none is a discount rate, terminal value, tangible book or per-share appraisal. The facts index is empty.",
+          "claims": [
+            "4835dd44-ce49-42dc-9c65-2c6ddca62da0",
+            "e68e3712-7e74-4dd9-925c-086c8a0c3eef",
+            "ec54f20f-7da1-41b5-9265-7aa0700f814e",
+            "c598def2-b503-4319-8db8-17240574b73b",
+            "297429af-5c75-431c-8523-226c6d773ce7",
+            "45e666a1-5840-4dc9-acfe-4a986be5564f"
+          ],
+          "evidence": {
+            "facts": [],
+            "sources": [],
+            "calculations": [
+              "a5f46653-1d04-48a9-b0c3-ce3e754756ca",
+              "88dd15fd-0b91-4bec-8d56-788f8513a3bc",
+              "6ffbb548-e363-44bc-920e-62db489c584f"
+            ]
+          },
+          "sections": [
+            "investment_thesis",
+            "valuation_dcf"
+          ],
+          "severity": 4,
+          "challenge": "The valuation section reasons about 'two value-per-share outputs', a 'premium to book value', and a payout assumption 'well covered by current earnings' \\u2014 but the calculation index contains no valuation calculation of any kind: no cost of equity, no excess-return output, no tangible book value, no value per share. The section's own concession that price and tangible book are unrecorded is not a caveat on the appraisal; it means the appraisal's outputs are unevidenced within this run. Every valuation conclusion is therefore an assertion, not a traceable result.",
+          "dimension": "valuation"
+        },
+        "material": true,
+        "position_a": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Base thesis (the draft's recorded claims)",
+          "scale": 0,
+          "value": "0",
+          "reference": "draft:e8d0289f-6698-4e47-b567-d4822cc6d8fb",
+          "filed_date": "2026-09-12"
+        },
+        "position_b": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Red team challenge (valuation, severity 4/5)",
+          "scale": 0,
+          "value": "0",
+          "reference": "red_team:valuation:992639073b41",
+          "filed_date": "2026-09-12"
+        }
+      },
+      {
+        "id": "f22a8c38-380b-4379-a1f3-5743b3024aa9",
+        "topic": "Red team (governance): The capital-return leg is the report's central durability argument, and the figures carrying it do not reconcile to\u2026",
+        "kind": "thesis_conflict",
+        "rule": "thesis_conflict",
+        "rationale": "Base thesis (the draft's recorded claims) and Red team challenge (governance, severity 5/5) reach opposing conclusions on governance: The capital-return leg is the report's central durability argument, and the figures carrying it do not reconcile to the run's own recorded calculations. The draft repeatedly asserts FY2025 shareholder distributions of $3,530m at 1.18x (or 1.175x / 117.5%) operating cash flow. The only recorded shareholder_distributions values are $2,584m and $1,462m, and the only recorded distributions_to_operating_cash_flow values are 0.565 and 0.374 \\u2014 all well below one. If the calculation index is the evidence of record, the 'distributions exceed cash generation' premise is inverted, and with it the fragility conclusion on buybacks and per-share growth.. A thesis-level disagreement is never resolved automatically; both are published.",
+        "detail": {
+          "basis": "Recorded calculations name distributions_to_operating_cash_flow at 0.564932 and 0.374392 and shareholder_distributions at $2.584bn and $1.462bn; the facts index for this run is empty, so no stored fact supports $3,530m or 1.18x.",
+          "claims": [
+            "4ecd5cd3-726e-4166-a2da-56233ee82bdc",
+            "e12263cc-569c-4578-bb18-171adfa5f064",
+            "d76e8f79-87d6-43ec-a039-05328d2cbacb",
+            "31ad236e-8e74-4d67-ab00-8b1374918e5f",
+            "54e74231-8540-4611-9333-4c8eb64790b4",
+            "fef117db-b04d-4502-bc47-ff9bc3ee178d"
+          ],
+          "evidence": {
+            "facts": [],
+            "sources": [],
+            "calculations": [
+              "af2d45fa-fd17-43c3-8dca-06445be81533",
+              "6d5e0023-cc8d-4836-8f03-1a5fd41718bb",
+              "ad0b5194-1e90-44db-8b33-58f946b829f7",
+              "35e9b412-fbe6-4aff-8c61-d75b8ec29cbc"
+            ]
+          },
+          "sections": [
+            "capital_allocation",
+            "cash_flow_analysis",
+            "earnings_quality",
+            "growth_outlook",
+            "historical_financial_analysis",
+            "investment_thesis"
+          ],
+          "severity": 5,
+          "challenge": "The capital-return leg is the report's central durability argument, and the figures carrying it do not reconcile to the run's own recorded calculations. The draft repeatedly asserts FY2025 shareholder distributions of $3,530m at 1.18x (or 1.175x / 117.5%) operating cash flow. The only recorded shareholder_distributions values are $2,584m and $1,462m, and the only recorded distributions_to_operating_cash_flow values are 0.565 and 0.374 \\u2014 all well below one. If the calculation index is the evidence of record, the 'distributions exceed cash generation' premise is inverted, and with it the fragility conclusion on buybacks and per-share growth.",
+          "dimension": "governance"
+        },
+        "material": true,
+        "position_a": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Base thesis (the draft's recorded claims)",
+          "scale": 0,
+          "value": "0",
+          "reference": "draft:e8d0289f-6698-4e47-b567-d4822cc6d8fb",
+          "filed_date": "2026-09-12"
+        },
+        "position_b": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Red team challenge (governance, severity 5/5)",
+          "scale": 0,
+          "value": "0",
+          "reference": "red_team:governance:f5ea726c7d11",
+          "filed_date": "2026-09-12"
+        }
+      },
+      {
+        "id": "22fcdc21-8b32-491f-bff8-6784aade88df",
+        "topic": "Red team (valuation): The draft twice excuses the missing relative-valuation leg on the grounds that no price or market data was recorded.\u2026",
+        "kind": "thesis_conflict",
+        "rule": "thesis_conflict",
+        "rationale": "Base thesis (the draft's recorded claims) and Red team challenge (valuation, severity 3/5) reach opposing conclusions on valuation: The draft twice excuses the missing relative-valuation leg on the grounds that no price or market data was recorded. The source index contains a T4 licensed market document dated 2026-09-11, one day before the as-of date. Either that source was not interrogated for price and share-count data, in which case the 'cannot be tested' framing understates what was available, or it was and the result was not recorded. Both are failures of the valuation leg rather than an unavoidable data gap, and they leave the buyback-accretion argument \\u2014 which depends on price versus appraised value \\u2014 with nothing underneath it.. A thesis-level disagreement is never resolved automatically; both are published.",
+        "detail": {
+          "basis": "Source index lists ba9cf42d (T4_LICENSED_MARKET, 2026-09-11, not quarantined) alongside twelve regulatory filings; the draft nonetheless asserts price and tangible book value are unrecorded.",
+          "claims": [
+            "45e666a1-5840-4dc9-acfe-4a986be5564f",
+            "bd6ea477-3dd2-4a35-a17f-0e12c5b8af32",
+            "f6fbd6d9-a891-432d-b8ab-1dcde37ffec7",
+            "705d783c-b352-4442-9064-9381629a7595"
+          ],
+          "evidence": {
+            "facts": [],
+            "sources": [
+              "ba9cf42d-2d43-4d32-87ba-6b1b0eda05e4"
+            ],
+            "calculations": []
+          },
+          "sections": [
+            "capital_allocation",
+            "investment_thesis",
+            "valuation_dcf"
+          ],
+          "severity": 3,
+          "challenge": "The draft twice excuses the missing relative-valuation leg on the grounds that no price or market data was recorded. The source index contains a T4 licensed market document dated 2026-09-11, one day before the as-of date. Either that source was not interrogated for price and share-count data, in which case the 'cannot be tested' framing understates what was available, or it was and the result was not recorded. Both are failures of the valuation leg rather than an unavoidable data gap, and they leave the buyback-accretion argument \\u2014 which depends on price versus appraised value \\u2014 with nothing underneath it.",
+          "dimension": "valuation"
+        },
+        "material": false,
+        "position_a": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Base thesis (the draft's recorded claims)",
+          "scale": 0,
+          "value": "0",
+          "reference": "draft:e8d0289f-6698-4e47-b567-d4822cc6d8fb",
+          "filed_date": "2026-09-12"
+        },
+        "position_b": {
+          "tier": "T4_LICENSED_MARKET",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Red team challenge (valuation, severity 3/5)",
+          "scale": 0,
+          "value": "0",
+          "reference": "red_team:valuation:23119601b840",
+          "filed_date": "2026-09-12"
+        }
+      },
+      {
+        "id": "3add5814-5d4a-4715-81a1-336fe564b034",
+        "topic": "Red team (competitive_position): The report treats the tagged revenue line inconsistently. Business overview and industry landscape present '$442\u2026",
+        "kind": "thesis_conflict",
+        "rule": "thesis_conflict",
+        "rationale": "Base thesis (the draft's recorded claims) and Red team challenge (competitive_position, severity 3/5) reach opposing conclusions on competitive_position: The report treats the tagged revenue line inconsistently. Business overview and industry landscape present '$442 million revenue' for the June 2026 quarter as a descriptive fact about a bank with $219bn of assets, while the thesis and earnings-quality sections concede the same tag is not an economic revenue measure. Recorded net_margin values of 0.24-0.31 differ from the 1.72/1.68 figures the draft reports, so even the acknowledged-broken ratio is not the one in the index. Any scale or efficiency inference a reader draws from the $442m line is unsafe.. A thesis-level disagreement is never resolved automatically; both are published.",
+        "detail": {
+          "basis": "Recorded net_margin values are 0.310247, 0.284248 and 0.243551, none matching the reported 1.72 or 1.68; the draft simultaneously asserts the revenue tag is unrepresentative and uses it as reported revenue in two sections.",
+          "claims": [
+            "71b7ae1c-d70f-48fe-85ce-fb796e75ee04",
+            "290d31f9-e862-45e2-9051-b0dd9597b9ff",
+            "45e666a1-5840-4dc9-acfe-4a986be5564f",
+            "1a70402a-1d2f-4640-9822-99d84488dd67",
+            "9de74cd1-e812-4ba6-98b6-274eb4104b58",
+            "18f2c228-bb57-4023-a753-2e56768bccb7"
+          ],
+          "evidence": {
+            "facts": [],
+            "sources": [],
+            "calculations": [
+              "b7a1b01c-9b09-4f9f-a014-97f9b2d46ed5",
+              "9963c332-3a8b-4e78-abaa-10e50d865499",
+              "e79f548f-fab7-4d04-8086-720a1d8b92ac",
+              "11b7c314-e855-4dfd-adfa-11e2da16dbcd"
+            ]
+          },
+          "sections": [
+            "business_overview",
+            "earnings_quality",
+            "historical_financial_analysis",
+            "industry_landscape",
+            "investment_thesis"
+          ],
+          "severity": 3,
+          "challenge": "The report treats the tagged revenue line inconsistently. Business overview and industry landscape present '$442 million revenue' for the June 2026 quarter as a descriptive fact about a bank with $219bn of assets, while the thesis and earnings-quality sections concede the same tag is not an economic revenue measure. Recorded net_margin values of 0.24-0.31 differ from the 1.72/1.68 figures the draft reports, so even the acknowledged-broken ratio is not the one in the index. Any scale or efficiency inference a reader draws from the $442m line is unsafe.",
+          "dimension": "competitive_position"
+        },
+        "material": false,
+        "position_a": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Base thesis (the draft's recorded claims)",
+          "scale": 0,
+          "value": "0",
+          "reference": "draft:e8d0289f-6698-4e47-b567-d4822cc6d8fb",
+          "filed_date": "2026-09-12"
+        },
+        "position_b": {
+          "tier": "T1_REGULATORY",
+          "unit": "thesis",
+          "basis": "as_reported",
+          "label": "Red team challenge (competitive_position, severity 3/5)",
+          "scale": 0,
+          "value": "0",
+          "reference": "red_team:competitive_position:37601ce5578d",
+          "filed_date": "2026-09-12"
+        }
+      }
+    ],
+    "triggers": [
+      {
+        "kind": "cost_above_threshold",
+        "message": "This run is close to its \u00a310.00 cost cap. The hard cap still stops the run in code; this banner is the warning before it does.",
+        "evidence": [
+          "estimated \u00a39.2800 exceeds \u00a38.000 (80% of cap)"
+        ]
+      },
+      {
+        "kind": "validation_failure",
+        "message": "A validator failed this run. The scores and the named failures are in the validation table; approving over a failed validation is a recorded decision.",
+        "evidence": [
+          "figure_plausibility scored 11 against a threshold of 0",
+          "net income 2588000000.000000 exceeds revenue 1541000000.000000 for FY2024 \u2014 impossible on a consolidated statement; the ordinary cause is a revenue concept resolved to a partial caption",
+          "net margin 1.679428942245 for FY2024 is above 1 \u2014 income exceeding the revenue it is measured against",
+          "net income 2851000000.000000 exceeds revenue 1657000000.000000 for FY2025 \u2014 impossible on a consolidated statement; the ordinary cause is a revenue concept resolved to a partial caption",
+          "net margin 1.720579360290 for FY2025 is above 1 \u2014 income exceeding the revenue it is measured against",
+          "net income 531000000.000000 exceeds revenue 367000000.000000 for Q1 FY2025 \u2014 impossible on a consolidated statement; the ordinary cause is a revenue concept resolved to a partial caption"
+        ]
+      }
+    ]
+  },
+  "hash": "23eecc8f2c64377576429ba6b841f84669319f450eb83b09bb1fa0f7616a70d8",
+  "pause_context": {
+    "gate": "FINAL",
+    "job_id": "e8d0289f-6698-4e47-b567-d4822cc6d8fb",
+    "triggers": [
+      "cost_above_threshold",
+      "validation_failure"
+    ]
+  }
+}

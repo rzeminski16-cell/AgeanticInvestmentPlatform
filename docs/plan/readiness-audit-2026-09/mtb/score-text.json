@@ -1,0 +1,48 @@
+{
+  "text": "audit/out/mtb/report.md",
+  "truth": "audit/out/mtb/truth.json",
+  "words": 13251,
+  "numerals": 1002,
+  "accuracy": {
+    "numerals": 1002,
+    "by_kind": {
+      "excluded": 766,
+      "outside-truth": 18,
+      "matched-unhinted": 37,
+      "unknown": 118,
+      "checkable-absent": 21,
+      "matched": 40,
+      "approx": 2
+    },
+    "checkable": 79,
+    "matched": 77,
+    "approx": 2,
+    "contradicted": 0,
+    "contradicted_share_of_checkable": 0.0,
+    "contradictions": [],
+    "approximations": [
+      {
+        "kind": "approx",
+        "token": "2235",
+        "context": "g cash flow, at 1.18 times. Buybacks of $2,631m did the work, rising $2,235m year over year, while dividends paid of $899m rose $4m; the dividend ",
+        "concept": "buybacks",
+        "period": null,
+        "basket_concept": "buybacks",
+        "basket_period": "FY2018",
+        "stored": "2194396000",
+        "relative_error": "0.0185"
+      },
+      {
+        "kind": "approx",
+        "token": "9.4",
+        "context": "ns  | Label | Value | Provenance | |---|---|---| | Return on equity | 9.4% | proposed by aer.services.assumption_proposals with a stated justifi",
+        "concept": "roe",
+        "period": null,
+        "basket_concept": "roe",
+        "basket_period": "FY2011",
+        "stored": "0.09270409069626194383062662054",
+        "relative_error": "0.0140"
+      }
+    ]
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "payload": {
+    "subject": "d88e5c60-588d-44a1-b4aa-8e5421eddc90",
+    "subject_period_end": "2026-09-12",
+    "basis": "ttm",
+    "peers": [
+      {
+        "identifier": "0000320193",
+        "name": "Apple Inc.",
+        "rationale": "Mega-cap tech competitor with overlapping devices, services, and platform ecosystem strategy, though hardware mix differs materially from Microsoft's enterprise/cloud weighting.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001652044",
+        "name": "Alphabet Inc.",
+        "rationale": "Direct competitor in cloud infrastructure (Google Cloud vs Azure), productivity software, and AI investment, with comparable scale and diversified revenue base.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001018724",
+        "name": "AMAZON COM INC",
+        "rationale": "AWS is the leading cloud infrastructure competitor to Azure; retail segment is not comparable, so fit is partial but cloud economics overlap strongly.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001341439",
+        "name": "ORACLE CORP",
+        "rationale": "Enterprise software and database vendor increasingly competing in cloud infrastructure and applications, similar enterprise customer base though smaller scale.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001108524",
+        "name": "Salesforce, Inc.",
+        "rationale": "Enterprise SaaS competitor overlapping with Microsoft's Dynamics and productivity cloud offerings, similar subscription-based enterprise software economics.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001000184",
+        "name": "SAP SE",
+        "rationale": "Global enterprise applications leader competing with Microsoft's business software suite, similar large enterprise customer focus and subscription transition.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000051143",
+        "name": "INTERNATIONAL BUSINESS MACHINES CORP",
+        "rationale": "Enterprise IT, hybrid cloud, and AI competitor with overlapping enterprise services, though IBM's mix skews more toward consulting and legacy hardware.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000796343",
+        "name": "ADOBE INC.",
+        "rationale": "Software subscription model comparable to Microsoft 365, overlapping creative and productivity software markets though smaller and more narrowly focused.",
+        "period_end": ""
+      }
+    ],
+    "proposed_by": "aer.agents.peers"
+  },
+  "hash": "8805d8d6138fee8d85d51784f8c172cae3c4cc4fd98f9b5df5807e6427e3d273",
+  "pause_context": {
+    "gate": "PEER_SET",
+    "job_id": "60cf1343-c809-48b0-ac3f-efa96207cb61"
+  }
+}

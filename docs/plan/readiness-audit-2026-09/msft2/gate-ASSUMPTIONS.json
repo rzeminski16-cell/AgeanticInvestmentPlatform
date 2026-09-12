@@ -1,0 +1,95 @@
+{
+  "payload": {
+    "assumptions": [
+      {
+        "name": "beta",
+        "value": "1.066964356910",
+        "unit": "pure",
+        "justification": "Regressed against S&P 500 on monthly total returns to 2026-09-12, over 72 paired observations. The proxy and the window are both judgements and both change the answer, which is why this is a proposal rather than an input.",
+        "proposed_by": "aer.services.prices",
+        "confidence": null
+      },
+      {
+        "name": "capex_intensity",
+        "value": "0.202619000000",
+        "unit": "pure",
+        "justification": "The mean of capital expenditure over revenue across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.1205, 0.1326, 0.1814, 0.2291, 0.3494.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "depreciation_intensity",
+        "value": "0.087170000000",
+        "unit": "pure",
+        "justification": "The mean of depreciation and amortisation over revenue across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.0736, 0.0637, 0.0816, 0.0994, 0.1175.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "ebit_margin",
+        "value": "0.441750000000",
+        "unit": "pure",
+        "justification": "The mean of operating income over revenue across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.4206, 0.4177, 0.4464, 0.4562, 0.4678.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "exit_multiple",
+        "value": "15.000000000000",
+        "unit": "pure",
+        "justification": "A mature large-cap platform multiple, below where MSFT has recently traded, because the terminal year should price a slower business than an 18%-growth one. It is set below asset-light software comparables deliberately: derived capex intensity averages 20.3% of revenue and reached 34.9% in FY26 against 11.8% D&A, so EBITDA overstates cash conversion for an infrastructure-heavy firm. 15x is broadly what a ~3% perpetual rate and ~8-9% WACC imply once capex is assumed to converge toward D&A. This is the convention-laden of the two numbers \u2014 I have no traded comparable set in evidence. Raise it if margins hold near the FY26 46.8% level; cut it if capex stays at FY26 intensity.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.4
+      },
+      {
+        "name": "revenue_growth",
+        "value": "0.137411000000",
+        "unit": "pure",
+        "justification": "The compound annual growth rate of revenue from 2022-06-30 to 2026-06-30, over 4 year(s): revenue moved from 198,270,000,000 to 331,839,000,000. Held flat across the forecast, because a trailing rate is one number and projecting a fade is a judgement this derivation does not make.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "tax_rate",
+        "value": "0.174698000000",
+        "unit": "pure",
+        "justification": "The mean of income tax expense over pre tax income across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. The individual observations were 0.1311, 0.1898, 0.1823, 0.1763, 0.1940.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "terminal_growth",
+        "value": "0.030000000000",
+        "unit": "pure",
+        "justification": "Taken as below a cost of capital of roughly 8-9% for a low-beta, investment-grade issuer \u2014 and below any ordinary WACC for this business, so the Gordon denominator stays well-behaved. 3% sits near the top of the permitted band because the position is unusually durable: commercial RPO up 84% (FY26 Q4), Microsoft 365 Copilot past 30M paid seats, Azure past $100B. It is held below 4% because no firm outgrows nominal GDP in perpetuity. Lower it toward 2.0-2.5% if the Devices and Consumer side (Windows OEM, Xbox, both declining in Q3/Q4 FY26) becomes a larger drag, or if AI capex proves to be rent-competed away rather than a moat.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.55
+      },
+      {
+        "name": "working_capital_intensity",
+        "value": "0.237834000000",
+        "unit": "pure",
+        "justification": "The mean of net working capital \u2014 current assets less current liabilities \u2014 over revenue, across 5 period(s) ending 2022-06-30, 2023-06-30, 2024-06-30, 2025-06-30, 2026-06-30. A negative figure is normal for a business paid before it pays, and is proposed as it stands rather than floored at zero.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      }
+    ],
+    "outstanding": [
+      {
+        "name": "risk_free_rate",
+        "reason": "No macroeconomic series has been acquired for this run, so there is no published government yield to propose. Enter the rate you are using and say which instrument and date it is from."
+      },
+      {
+        "name": "equity_risk_premium",
+        "reason": "The equity risk premium is a judgement with no series behind it, and no role in this platform proposes one. Enter the premium you are using and cite where it comes from."
+      }
+    ],
+    "refused": [],
+    "skipped": []
+  },
+  "hash": "2f4be880016a9b15cef2402bae852b1fecefcfddb855bbebaf2040859a7114df",
+  "pause_context": {
+    "gate": "ASSUMPTIONS",
+    "job_id": "60cf1343-c809-48b0-ac3f-efa96207cb61"
+  }
+}

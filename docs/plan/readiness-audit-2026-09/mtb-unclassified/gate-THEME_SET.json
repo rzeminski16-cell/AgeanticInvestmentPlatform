@@ -1,0 +1,43 @@
+{
+  "payload": {
+    "subject": "d8831bbf-ae2c-400c-8e56-c5ffbc0d8fa3",
+    "themes": [
+      {
+        "key": "regional-bank-net-interest-margin",
+        "label": "Regional bank net interest margin cycle",
+        "rationale": "M&T's earnings are highly sensitive to the path of Fed policy rates and deposit repricing, which drive net interest margin, its dominant revenue driver as a traditional spread lender.",
+        "existing": false
+      },
+      {
+        "key": "commercial-real-estate-credit-stress",
+        "label": "Commercial real estate credit stress",
+        "rationale": "M&T carries substantial CRE and office-related loan exposure; credit normalization or deterioration in this book is a recurring theme across regional banks with similar concentrations.",
+        "existing": false
+      },
+      {
+        "key": "bank-deposit-funding-costs",
+        "label": "Deposit competition and funding costs",
+        "rationale": "Rising deposit betas and competition for funding from money-market funds and higher-rate alternatives directly affect M&T's cost of funds and margin, a shared pressure across regional banks.",
+        "existing": false
+      },
+      {
+        "key": "bank-capital-regulation",
+        "label": "Bank capital and regulatory requirements",
+        "rationale": "Evolving capital rules (e.g., Basel III endgame proposals) affect M&T's capital planning, buybacks, and balance sheet growth, a force shared with other large regional banks near stress-test thresholds.",
+        "existing": false
+      },
+      {
+        "key": "regional-bank-consolidation",
+        "label": "Regional bank M&A and consolidation",
+        "rationale": "M&T's scale and past acquisitions (e.g., People's United) place it within an industry-wide consolidation trend among regional banks seeking scale efficiencies amid rising compliance costs.",
+        "existing": false
+      }
+    ],
+    "proposed_by": "aer.agents.themes"
+  },
+  "hash": "103831e29b45e8e2f33e59aaac4c8712c2ecfff815f4f036b94f0cdcf4099b89",
+  "pause_context": {
+    "gate": "THEME_SET",
+    "job_id": "cf99d6a2-c3d7-47a8-a153-23b634dd7b23"
+  }
+}

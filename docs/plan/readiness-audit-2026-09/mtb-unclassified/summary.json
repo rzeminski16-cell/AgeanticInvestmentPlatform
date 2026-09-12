@@ -1,0 +1,31 @@
+{
+  "subject": "mtb",
+  "label": "mtb",
+  "started_at": "2026-09-12T15:01:03.142969+00:00",
+  "request_id": "76bae83e-5347-48ff-831a-199ce94b00da",
+  "job_id": "cf99d6a2-c3d7-47a8-a153-23b634dd7b23",
+  "as_of_date": "2026-09-12",
+  "cap_gbp": "10",
+  "stop_reason": "outstanding assumption ebit_margin",
+  "cap_raised": false,
+  "resumes": 0,
+  "killed_for_the_drill": false,
+  "finished_at": "2026-09-12T15:13:41.804811+00:00",
+  "status": "AWAITING_APPROVAL",
+  "spend_gbp": "2.027037",
+  "acceptance_passed": false,
+  "replay": {
+    "calculations_checked": 82,
+    "citations_checked": 0,
+    "artefacts_checked": 16,
+    "model_calls_checked": 28
+  },
+  "ledger": {
+    "platform_gbp": "23.138525",
+    "baseline_gbp": "25.3678",
+    "other_gbp": "0",
+    "total_gbp": "48.506325",
+    "ceiling_gbp": "100.00",
+    "remaining_gbp": "51.493675"
+  }
+}

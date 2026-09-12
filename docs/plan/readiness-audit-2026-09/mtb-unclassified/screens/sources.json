@@ -1,0 +1,13 @@
+{
+  "page": "sources",
+  "url": "http://127.0.0.1:8000/runs/cf99d6a2-c3d7-47a8-a153-23b634dd7b23/sources",
+  "status": 200,
+  "title": "Sources \u00b7 MTB",
+  "payload_hash": null,
+  "words": 892,
+  "raw_tokens": [
+    "sec_edgar"
+  ],
+  "uuids": 0,
+  "approve_control": 0
+}

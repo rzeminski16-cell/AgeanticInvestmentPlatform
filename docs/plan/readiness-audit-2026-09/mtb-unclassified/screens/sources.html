@@ -1,0 +1,1289 @@
+<!DOCTYPE html><html lang="en-GB" class="h-full"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>
+  Sources · MTB
+</title>
+    
+    <link rel="preload" href="http://127.0.0.1:8000/static/fonts/source-sans-3-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin="">
+    <link rel="stylesheet" href="http://127.0.0.1:8000/static/css/app.css">
+    <link rel="icon" href="http://127.0.0.1:8000/static/favicon.svg" type="image/svg+xml">
+    <script src="http://127.0.0.1:8000/static/vendor/htmx.min.js" defer=""></script>
+    <script src="http://127.0.0.1:8000/static/js/app.js" defer=""></script>
+    
+    <script src="http://127.0.0.1:8000/static/js/drawer.js" defer=""></script>
+    
+    <script src="http://127.0.0.1:8000/static/js/nav.js" defer=""></script>
+    
+    
+  <style>.htmx-indicator{opacity:0;visibility: hidden} .htmx-request .htmx-indicator, .htmx-request.htmx-indicator{opacity:1;visibility: visible;transition: opacity 200ms ease-in}</style></head>
+  
+  
+  <body data-guidance="off" class="min-h-full bg-canvas text-ink antialiased">
+    
+    <a href="#aer-main" class="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-sm focus:bg-surface-raised focus:px-4 focus:py-3 focus:type-label focus:text-ink">Skip to the content</a>
+
+    
+    <div class="flex min-h-dvh flex-col min-[60rem]:flex-row">
+      
+<div id="aer-nav" data-scheme="dark" class="bg-nav-surface text-nav-ink min-[60rem]:sticky min-[60rem]:top-0 min-[60rem]:h-dvh min-[60rem]:w-58 min-[60rem]:shrink-0 min-[60rem]:overflow-y-auto">
+  <details id="aer-menu" open="" class="min-[60rem]:open:block">
+    <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 type-label marker:content-none min-[60rem]:hidden" aria-controls="aer-nav-panel">
+      <svg class="h-4 w-4 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M2 4h12M2 8h12M2 12h12"></path>
+      </svg>
+      <span class="aer-menu-open">Open index</span>
+      <span class="aer-menu-close">Close index</span>
+    </summary>
+
+    <div id="aer-nav-panel" class="px-4 pb-4 min-[60rem]:pt-4">
+      <a href="/" class="flex min-h-11 items-center type-title-2 text-nav-ink">Tracework</a>
+
+      
+      <nav aria-label="Main" class="mt-2">
+        
+          <div class="mt-4 first:mt-0">
+            
+            <ul class="">
+              
+                <li>
+                  <a href="/" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Overview</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Research</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/requests" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Requests<span id="aer-badge-approvals" aria-live="polite" class="ml-auto inline-flex min-w-5 justify-center rounded-xs bg-nav-accent px-1.5 type-data-sm text-nav-surface empty:hidden"><span aria-hidden="true">2</span><span class="sr-only">2 runs waiting for your approval</span></span></a>
+                </li>
+              
+                <li>
+                  <a href="/runs/active" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Active run</a>
+                </li>
+              
+                <li>
+                  <a href="/reports" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Reports</a>
+                </li>
+              
+                <li>
+                  <a href="/skills" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Skills</a>
+                </li>
+              
+                <li>
+                  <a href="/knowledge" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Knowledge</a>
+                </li>
+              
+                <li>
+                  <a href="/watchlist" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Watchlist</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Your book</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/portfolio" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Portfolio</a>
+                </li>
+              
+                <li>
+                  <a href="/risk" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Risk</a>
+                </li>
+              
+                <li>
+                  <a href="/decisions" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Decisions</a>
+                </li>
+              
+                <li>
+                  <a href="/review" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Post-trade review</a>
+                </li>
+              
+                <li>
+                  <a href="/analytics" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Decision analytics</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">What you believe</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/theses" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Theses</a>
+                </li>
+              
+                <li>
+                  <a href="/monitor" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Monitor</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+          <div class="mt-4 first:mt-0">
+            
+              <h2 class="type-eyebrow text-nav-muted">Platform</h2>
+            
+            <ul class="mt-1">
+              
+                <li>
+                  <a href="/settings" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Settings</a>
+                </li>
+              
+                <li>
+                  <a href="/costs" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Costs</a>
+                </li>
+              
+                <li>
+                  <a href="/healthz" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">Health</a>
+                </li>
+              
+                <li>
+                  <a href="/docs" class="flex min-h-11 items-center gap-2 border-l-[3px] pl-3 type-label
+                           border-transparent text-nav-muted hover:bg-nav-selected hover:text-nav-ink">API</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+      </nav>
+
+      
+      <div class="mt-6 border-t border-nav-selected pt-3" id="aer-appearance">
+        <h2 class="type-eyebrow text-nav-muted">Appearance</h2>
+
+        <form method="post" action="/_shell/theme" class="mt-2">
+          <input type="hidden" name="csrf_token" value="ERy7ZJCBYeQKanVzSmeR6w.1789226026.6b661aabd65a068abf71d49d57f443563a3fb14c0770272471e4165138acef3d" style="">
+          <input type="hidden" name="next" value="/runs/cf99d6a2-c3d7-47a8-a153-23b634dd7b23/sources" style="">
+          <div class="flex overflow-hidden rounded-sm border border-nav-muted" role="group" aria-label="Colour scheme">
+            
+              <button type="submit" name="theme" value="light" id="aer-theme-light" class="flex-1 px-2 py-1 type-caption
+                       text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+                Light
+              </button>
+            
+              <button type="submit" name="theme" value="dark" id="aer-theme-dark" class="flex-1 px-2 py-1 type-caption
+                       text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+                Dark
+              </button>
+            
+              <button type="submit" name="theme" value="system" id="aer-theme-system" aria-current="true" class="flex-1 px-2 py-1 type-caption
+                       bg-nav-accent text-nav-surface">
+                Auto
+              </button>
+            
+          </div>
+        </form>
+
+        <form method="post" action="/_shell/guidance" class="mt-2">
+          <input type="hidden" name="csrf_token" value="ERy7ZJCBYeQKanVzSmeR6w.1789226026.6b661aabd65a068abf71d49d57f443563a3fb14c0770272471e4165138acef3d" style="">
+          <input type="hidden" name="next" value="/runs/cf99d6a2-c3d7-47a8-a153-23b634dd7b23/sources" style="">
+          <input type="hidden" name="guidance" value="on" style="">
+          <button type="submit" id="aer-guidance-toggle" class="w-full rounded-sm border border-nav-muted px-2 py-1 type-caption text-nav-muted hover:bg-nav-selected hover:text-nav-ink">
+            Show explanations
+          </button>
+        </form>
+      </div>
+
+      
+      <span hx-get="/_shell/badges" hx-trigger="load" hx-swap="none" hidden="" aria-hidden="true"></span>
+    </div>
+  </details>
+</div>
+
+      <div class="flex min-w-0 flex-1 flex-col">
+        
+        
+
+        <main id="aer-main" class="mx-auto w-full max-w-shell flex-1 px-4 py-8 sm:px-6 min-[80rem]:px-8">
+          
+  
+
+<header class="mb-6 flex flex-col gap-3">
+  <nav aria-label="Breadcrumb">
+    <ol class="flex flex-wrap items-center gap-2 type-body-sm text-ink-muted">
+      
+      
+      <li class="flex items-center gap-2">
+        
+        <a href="/runs/cf99d6a2-c3d7-47a8-a153-23b634dd7b23" class="underline underline-offset-[3px] hover:text-verification">Run console</a>
+      </li>
+      
+    </ol>
+  </nav>
+  <p class="type-eyebrow text-ink-muted">THE EVIDENCE TABLE</p><h1 class="type-title-1 text-ink">Sources</h1><p class="type-body text-ink-muted">Every document this run fetched, with the record that decides what it may support.</p></header>
+
+
+  
+
+<section class="border-l-[3px] p-5 border-success-ink bg-transparent">
+  <p class="type-eyebrow text-ink-muted">WHAT WAS ACQUIRED</p>
+  <p class="mt-2 type-body-lg text-ink">16 sources acquired · 16 admissible</p></section>
+
+
+  <dl class="flex flex-wrap gap-x-10 gap-y-3">
+    <div>
+      <dt class="type-eyebrow text-ink-muted">Acquired</dt>
+      <dd class="mt-1 type-data text-ink" id="source-count">16</dd>
+    </div>
+    <div>
+      <dt class="type-eyebrow text-ink-muted">Quarantined</dt>
+      <dd class="mt-1 type-data text-ink" id="quarantined-count">0</dd>
+    </div>
+    <div>
+      <dt class="type-eyebrow text-ink-muted">Still inadmissible</dt>
+      <dd class="mt-1 type-data text-ink" id="inadmissible-count">0</dd>
+    </div>
+  </dl>
+
+  
+
+  
+  <div class="overflow-x-auto rounded-md border border-line bg-surface">
+    <table class="w-full min-w-[64rem] text-left" id="sources-table">
+      <caption class="sr-only">
+        Every document this run acquired, its tier, dates, artefact digest and admissibility.
+        A document with no discoverable publication date is shown as undated and counts as
+        tier 5 whoever published it.
+      </caption>
+      <thead class="border-b border-line-strong">
+        <tr>
+          <th scope="col" class="px-4 py-3 type-label text-ink-muted">Document</th>
+          <th scope="col" class="px-4 py-3 type-label text-ink-muted">Tier</th>
+          <th scope="col" class="px-4 py-3 type-label text-ink-muted">Published</th>
+          <th scope="col" class="px-4 py-3 type-label text-ink-muted">Retrieved</th>
+          <th scope="col" class="px-4 py-3 type-label text-ink-muted">Artefact</th>
+          <th scope="col" class="px-4 py-3 type-label text-ink-muted">Admissibility</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line">
+        
+          
+          <tr id="source-94957345-1fd7-4cdd-b6b1-03df7b7d2cd0" data-source="94957345-1fd7-4cdd-b6b1-03df7b7d2cd0" data-tier="T1_REGULATORY" data-evidence-tier="T1_REGULATORY">
+            <td class="px-4 py-3 align-top">
+              <a href="https://www.sec.gov/Archives/edgar/data/36270/000003627026000022/mtb2025ars.pdf" rel="noopener noreferrer nofollow" class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong">
+                ARS 0000036270-26-000022
+              </a>
+              <p class="mt-1 type-data-sm text-ink-muted">
+                sec_edgar
+              </p>
+              
+                <p class="mt-1 max-w-md type-body-sm text-ink-muted" data-field="licence">
+                  US government work; not subject to copyright in the United States. Access is conditional on sending a descriptive User-Agent identifying the operator.
+                </p>
+              
+              
+            </td>
+
+            
+            <td class="px-4 py-3 align-top">
+              <span class="type-data-sm text-ink" data-field="tier">T1_REGULATORY</span>
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="published">
+              
+                2026-03-10
+              
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="retrieved">
+              2026-09-12
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="hash" title="2e1f89505890f65dcc521495f6442dc3c104da5237b3d6ee9dbafebeb060703a">
+              2e1f89505890
+              
+            </td>
+
+            <td class="px-4 py-3 align-top" data-field="admissibility">
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-success-ink bg-success-wash text-success-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4"></path></svg>
+
+  <span>Admissible</span></span>
+
+              
+              
+              
+            </td>
+          </tr>
+        
+          
+          <tr id="source-437cdb9a-3eac-4b47-891c-d5670e937f35" data-source="437cdb9a-3eac-4b47-891c-d5670e937f35" data-tier="T1_REGULATORY" data-evidence-tier="T1_REGULATORY">
+            <td class="px-4 py-3 align-top">
+              <a href="https://www.sec.gov/Archives/edgar/data/36270/000003627026000046/ex991release2q26.htm" rel="noopener noreferrer nofollow" class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong">
+                8-K 0000036270-26-000046
+              </a>
+              <p class="mt-1 type-data-sm text-ink-muted">
+                sec_edgar
+              </p>
+              
+                <p class="mt-1 max-w-md type-body-sm text-ink-muted" data-field="licence">
+                  US government work; not subject to copyright in the United States. Access is conditional on sending a descriptive User-Agent identifying the operator.
+                </p>
+              
+              
+            </td>
+
+            
+            <td class="px-4 py-3 align-top">
+              <span class="type-data-sm text-ink" data-field="tier">T1_REGULATORY</span>
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="published">
+              
+                2026-07-15
+              
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="retrieved">
+              2026-09-12
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="hash" title="b4f57c5c7d20dd3449bb371272c0f3b277050ed43b1060360a4636fc48454a43">
+              b4f57c5c7d20
+              
+            </td>
+
+            <td class="px-4 py-3 align-top" data-field="admissibility">
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-success-ink bg-success-wash text-success-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4"></path></svg>
+
+  <span>Admissible</span></span>
+
+              
+              
+              
+            </td>
+          </tr>
+        
+          
+          <tr id="source-036d3d72-27d1-4a72-9ebe-179f1768af10" data-source="036d3d72-27d1-4a72-9ebe-179f1768af10" data-tier="T1_REGULATORY" data-evidence-tier="T1_REGULATORY">
+            <td class="px-4 py-3 align-top">
+              <a href="https://www.sec.gov/Archives/edgar/data/36270/000119312526310413/d127076dex11.htm" rel="noopener noreferrer nofollow" class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong">
+                8-K 0001193125-26-310413
+              </a>
+              <p class="mt-1 type-data-sm text-ink-muted">
+                sec_edgar
+              </p>
+              
+                <p class="mt-1 max-w-md type-body-sm text-ink-muted" data-field="licence">
+                  US government work; not subject to copyright in the United States. Access is conditional on sending a descriptive User-Agent identifying the operator.
+                </p>
+              
+              
+            </td>
+
+            
+            <td class="px-4 py-3 align-top">
+              <span class="type-data-sm text-ink" data-field="tier">T1_REGULATORY</span>
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="published">
+              
+                2026-07-21
+              
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="retrieved">
+              2026-09-12
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="hash" title="f4cb95638ef1323ac7d0166e9f1e27847fd8c9aba63edbf15cbf1773249b5ebb">
+              f4cb95638ef1
+              
+            </td>
+
+            <td class="px-4 py-3 align-top" data-field="admissibility">
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-success-ink bg-success-wash text-success-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4"></path></svg>
+
+  <span>Admissible</span></span>
+
+              
+              
+              
+            </td>
+          </tr>
+        
+          
+          <tr id="source-8e8507e6-9897-4910-bba8-72929402a643" data-source="8e8507e6-9897-4910-bba8-72929402a643" data-tier="T1_REGULATORY" data-evidence-tier="T1_REGULATORY">
+            <td class="px-4 py-3 align-top">
+              <a href="https://www.sec.gov/Archives/edgar/data/36270/000119312512366382/d401109d8a12b.htm" rel="noopener noreferrer nofollow" class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong">
+                8-A12B 0001193125-12-366382
+              </a>
+              <p class="mt-1 type-data-sm text-ink-muted">
+                sec_edgar
+              </p>
+              
+                <p class="mt-1 max-w-md type-body-sm text-ink-muted" data-field="licence">
+                  US government work; not subject to copyright in the United States. Access is conditional on sending a descriptive User-Agent identifying the operator.
+                </p>
+              
+              
+            </td>
+
+            
+            <td class="px-4 py-3 align-top">
+              <span class="type-data-sm text-ink" data-field="tier">T1_REGULATORY</span>
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="published">
+              
+                2012-08-23
+              
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="retrieved">
+              2026-09-12
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="hash" title="072c8ed7239c481d89daf35da13175fb6585d60e52af1a6eacb1059b9bd92545">
+              072c8ed7239c
+              
+            </td>
+
+            <td class="px-4 py-3 align-top" data-field="admissibility">
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-success-ink bg-success-wash text-success-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4"></path></svg>
+
+  <span>Admissible</span></span>
+
+              
+              
+              
+            </td>
+          </tr>
+        
+          
+          <tr id="source-d0546855-bb46-49d5-8c9b-746066fd126a" data-source="d0546855-bb46-49d5-8c9b-746066fd126a" data-tier="T1_REGULATORY" data-evidence-tier="T1_REGULATORY">
+            <td class="px-4 py-3 align-top">
+              <a href="https://www.sec.gov/Archives/edgar/data/36270/000003627026000046/a2q26earningspresentatio.htm" rel="noopener noreferrer nofollow" class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong">
+                8-K 0000036270-26-000046
+              </a>
+              <p class="mt-1 type-data-sm text-ink-muted">
+                sec_edgar
+              </p>
+              
+                <p class="mt-1 max-w-md type-body-sm text-ink-muted" data-field="licence">
+                  US government work; not subject to copyright in the United States. Access is conditional on sending a descriptive User-Agent identifying the operator.
+                </p>
+              
+              
+            </td>
+
+            
+            <td class="px-4 py-3 align-top">
+              <span class="type-data-sm text-ink" data-field="tier">T1_REGULATORY</span>
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="published">
+              
+                2026-07-15
+              
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="retrieved">
+              2026-09-12
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="hash" title="c6270cf3013b0def5754a0d950746554d7969f41c7cb06efc76d80192c893c25">
+              c6270cf3013b
+              
+            </td>
+
+            <td class="px-4 py-3 align-top" data-field="admissibility">
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-success-ink bg-success-wash text-success-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4"></path></svg>
+
+  <span>Admissible</span></span>
+
+              
+              
+              
+            </td>
+          </tr>
+        
+          
+          <tr id="source-41a553c4-e028-491b-b6f5-afec39e5a8c2" data-source="41a553c4-e028-491b-b6f5-afec39e5a8c2" data-tier="T1_REGULATORY" data-evidence-tier="T1_REGULATORY">
+            <td class="px-4 py-3 align-top">
+              <a href="https://www.sec.gov/Archives/edgar/data/36270/000003627026000027/mbt-20260421.htm" rel="noopener noreferrer nofollow" class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong">
+                M&amp;T BANK CORP 8-K 2026-04-23
+              </a>
+              <p class="mt-1 type-data-sm text-ink-muted">
+                sec_edgar · US Securities and Exchange Commission
+              </p>
+              
+                <p class="mt-1 max-w-md type-body-sm text-ink-muted" data-field="licence">
+                  US government work; not subject to copyright in the United States. Access is conditional on sending a descriptive User-Agent identifying the operator.
+                </p>
+              
+              
+            </td>
+
+            
+            <td class="px-4 py-3 align-top">
+              <span class="type-data-sm text-ink" data-field="tier">T1_REGULATORY</span>
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="published">
+              
+                2026-04-23
+              
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="retrieved">
+              2026-09-12
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="hash" title="9076c96cf7a0945b3ed88f405d680c211524350d0fb17693d17e579075e1390b">
+              9076c96cf7a0
+              
+                <span class="block text-ink-muted">
+                  4 excerpts
+                </span>
+              
+            </td>
+
+            <td class="px-4 py-3 align-top" data-field="admissibility">
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-success-ink bg-success-wash text-success-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4"></path></svg>
+
+  <span>Admissible</span></span>
+
+              
+              
+              
+            </td>
+          </tr>
+        
+          
+          <tr id="source-35cbaef1-3c2f-43e4-811e-c98b8bf36981" data-source="35cbaef1-3c2f-43e4-811e-c98b8bf36981" data-tier="T1_REGULATORY" data-evidence-tier="T1_REGULATORY">
+            <td class="px-4 py-3 align-top">
+              <a href="https://www.sec.gov/Archives/edgar/data/36270/000003627026000030/mbt-20260501.htm" rel="noopener noreferrer nofollow" class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong">
+                M&amp;T BANK CORP 8-K 2026-05-01
+              </a>
+              <p class="mt-1 type-data-sm text-ink-muted">
+                sec_edgar · US Securities and Exchange Commission
+              </p>
+              
+                <p class="mt-1 max-w-md type-body-sm text-ink-muted" data-field="licence">
+                  US government work; not subject to copyright in the United States. Access is conditional on sending a descriptive User-Agent identifying the operator.
+                </p>
+              
+              
+            </td>
+
+            
+            <td class="px-4 py-3 align-top">
+              <span class="type-data-sm text-ink" data-field="tier">T1_REGULATORY</span>
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="published">
+              
+                2026-05-01
+              
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="retrieved">
+              2026-09-12
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="hash" title="a8c40e463414b21a73e381fa707fcf6d87f56e8ad4f9f8c1c0b384634bac4e8e">
+              a8c40e463414
+              
+                <span class="block text-ink-muted">
+                  3 excerpts
+                </span>
+              
+            </td>
+
+            <td class="px-4 py-3 align-top" data-field="admissibility">
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-success-ink bg-success-wash text-success-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4"></path></svg>
+
+  <span>Admissible</span></span>
+
+              
+              
+              
+            </td>
+          </tr>
+        
+          
+          <tr id="source-9c3cbf49-dd15-4788-a9eb-9f606819805a" data-source="9c3cbf49-dd15-4788-a9eb-9f606819805a" data-tier="T1_REGULATORY" data-evidence-tier="T1_REGULATORY">
+            <td class="px-4 py-3 align-top">
+              <a href="https://www.sec.gov/Archives/edgar/data/36270/000003627026000039/mbt-20260616.htm" rel="noopener noreferrer nofollow" class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong">
+                M&amp;T BANK CORP 8-K 2026-06-16
+              </a>
+              <p class="mt-1 type-data-sm text-ink-muted">
+                sec_edgar · US Securities and Exchange Commission
+              </p>
+              
+                <p class="mt-1 max-w-md type-body-sm text-ink-muted" data-field="licence">
+                  US government work; not subject to copyright in the United States. Access is conditional on sending a descriptive User-Agent identifying the operator.
+                </p>
+              
+              
+            </td>
+
+            
+            <td class="px-4 py-3 align-top">
+              <span class="type-data-sm text-ink" data-field="tier">T1_REGULATORY</span>
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="published">
+              
+                2026-06-16
+              
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="retrieved">
+              2026-09-12
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="hash" title="ac6d1025dfc18f7669d1f1bf443379fa9fee4f005c2b20e06826d06cac3932aa">
+              ac6d1025dfc1
+              
+                <span class="block text-ink-muted">
+                  4 excerpts
+                </span>
+              
+            </td>
+
+            <td class="px-4 py-3 align-top" data-field="admissibility">
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-success-ink bg-success-wash text-success-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4"></path></svg>
+
+  <span>Admissible</span></span>
+
+              
+              
+              
+            </td>
+          </tr>
+        
+          
+          <tr id="source-e827d8ec-0842-418c-a4ad-2832e00e74c2" data-source="e827d8ec-0842-418c-a4ad-2832e00e74c2" data-tier="T1_REGULATORY" data-evidence-tier="T1_REGULATORY">
+            <td class="px-4 py-3 align-top">
+              <a href="https://www.sec.gov/Archives/edgar/data/36270/000003627026000046/mbt-20260715.htm" rel="noopener noreferrer nofollow" class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong">
+                M&amp;T BANK CORP 8-K 2026-07-15
+              </a>
+              <p class="mt-1 type-data-sm text-ink-muted">
+                sec_edgar · US Securities and Exchange Commission
+              </p>
+              
+                <p class="mt-1 max-w-md type-body-sm text-ink-muted" data-field="licence">
+                  US government work; not subject to copyright in the United States. Access is conditional on sending a descriptive User-Agent identifying the operator.
+                </p>
+              
+              
+            </td>
+
+            
+            <td class="px-4 py-3 align-top">
+              <span class="type-data-sm text-ink" data-field="tier">T1_REGULATORY</span>
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="published">
+              
+                2026-07-15
+              
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="retrieved">
+              2026-09-12
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="hash" title="4ebc2c88c1a6fb15ce139c94f0282bc73fdbeb1acd8f0643b9976d456f28d72b">
+              4ebc2c88c1a6
+              
+                <span class="block text-ink-muted">
+                  3 excerpts
+                </span>
+              
+            </td>
+
+            <td class="px-4 py-3 align-top" data-field="admissibility">
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-success-ink bg-success-wash text-success-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4"></path></svg>
+
+  <span>Admissible</span></span>
+
+              
+              
+              
+            </td>
+          </tr>
+        
+          
+          <tr id="source-e8c09087-5b3f-4f59-a9ca-b75c101256db" data-source="e8c09087-5b3f-4f59-a9ca-b75c101256db" data-tier="T1_REGULATORY" data-evidence-tier="T1_REGULATORY">
+            <td class="px-4 py-3 align-top">
+              <a href="https://www.sec.gov/Archives/edgar/data/36270/000119312526310413/d127076d8k.htm" rel="noopener noreferrer nofollow" class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong">
+                M&amp;T BANK CORP 8-K 2026-07-21
+              </a>
+              <p class="mt-1 type-data-sm text-ink-muted">
+                sec_edgar · US Securities and Exchange Commission
+              </p>
+              
+                <p class="mt-1 max-w-md type-body-sm text-ink-muted" data-field="licence">
+                  US government work; not subject to copyright in the United States. Access is conditional on sending a descriptive User-Agent identifying the operator.
+                </p>
+              
+              
+            </td>
+
+            
+            <td class="px-4 py-3 align-top">
+              <span class="type-data-sm text-ink" data-field="tier">T1_REGULATORY</span>
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="published">
+              
+                2026-07-21
+              
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="retrieved">
+              2026-09-12
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="hash" title="6a708725904e51124f7faa2ab232e054e45ba1c52dd25cf0562d30ecf9b57f30">
+              6a708725904e
+              
+                <span class="block text-ink-muted">
+                  19 excerpts
+                </span>
+              
+            </td>
+
+            <td class="px-4 py-3 align-top" data-field="admissibility">
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-success-ink bg-success-wash text-success-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4"></path></svg>
+
+  <span>Admissible</span></span>
+
+              
+              
+              
+            </td>
+          </tr>
+        
+          
+          <tr id="source-516f7c37-6511-4d45-8037-cc27114e503a" data-source="516f7c37-6511-4d45-8037-cc27114e503a" data-tier="T1_REGULATORY" data-evidence-tier="T1_REGULATORY">
+            <td class="px-4 py-3 align-top">
+              <a href="https://www.sec.gov/Archives/edgar/data/36270/000003627026000034/mtb-20260331.htm" rel="noopener noreferrer nofollow" class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong">
+                M&amp;T BANK CORP 10-Q 2026-05-05
+              </a>
+              <p class="mt-1 type-data-sm text-ink-muted">
+                sec_edgar · US Securities and Exchange Commission
+              </p>
+              
+                <p class="mt-1 max-w-md type-body-sm text-ink-muted" data-field="licence">
+                  US government work; not subject to copyright in the United States. Access is conditional on sending a descriptive User-Agent identifying the operator.
+                </p>
+              
+              
+            </td>
+
+            
+            <td class="px-4 py-3 align-top">
+              <span class="type-data-sm text-ink" data-field="tier">T1_REGULATORY</span>
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="published">
+              
+                2026-05-05
+              
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="retrieved">
+              2026-09-12
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="hash" title="5db63a086d45bf646304f1d4cfe275b15507667dc47915d6567645d58dcdeeee">
+              5db63a086d45
+              
+                <span class="block text-ink-muted">
+                  60 excerpts
+                </span>
+              
+            </td>
+
+            <td class="px-4 py-3 align-top" data-field="admissibility">
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-success-ink bg-success-wash text-success-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4"></path></svg>
+
+  <span>Admissible</span></span>
+
+              
+              
+              
+            </td>
+          </tr>
+        
+          
+          <tr id="source-fbda9122-4ccc-411d-b8b5-4f645ef74133" data-source="fbda9122-4ccc-411d-b8b5-4f645ef74133" data-tier="T1_REGULATORY" data-evidence-tier="T1_REGULATORY">
+            <td class="px-4 py-3 align-top">
+              <a href="https://www.sec.gov/Archives/edgar/data/36270/000003627026000050/mtb-20260630.htm" rel="noopener noreferrer nofollow" class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong">
+                M&amp;T BANK CORP 10-Q 2026-08-04
+              </a>
+              <p class="mt-1 type-data-sm text-ink-muted">
+                sec_edgar · US Securities and Exchange Commission
+              </p>
+              
+                <p class="mt-1 max-w-md type-body-sm text-ink-muted" data-field="licence">
+                  US government work; not subject to copyright in the United States. Access is conditional on sending a descriptive User-Agent identifying the operator.
+                </p>
+              
+              
+            </td>
+
+            
+            <td class="px-4 py-3 align-top">
+              <span class="type-data-sm text-ink" data-field="tier">T1_REGULATORY</span>
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="published">
+              
+                2026-08-04
+              
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="retrieved">
+              2026-09-12
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="hash" title="35396f04fa69c0ea8814256397a92aff08b0ba11a6af8997bb29b552e1ef400d">
+              35396f04fa69
+              
+                <span class="block text-ink-muted">
+                  60 excerpts
+                </span>
+              
+            </td>
+
+            <td class="px-4 py-3 align-top" data-field="admissibility">
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-success-ink bg-success-wash text-success-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4"></path></svg>
+
+  <span>Admissible</span></span>
+
+              
+              
+              
+            </td>
+          </tr>
+        
+          
+          <tr id="source-6a653036-e401-4a3c-952c-69ad04018f6f" data-source="6a653036-e401-4a3c-952c-69ad04018f6f" data-tier="T1_REGULATORY" data-evidence-tier="T1_REGULATORY">
+            <td class="px-4 py-3 align-top">
+              <a href="https://www.sec.gov/Archives/edgar/data/36270/000003627026000010/mtb-20251231.htm" rel="noopener noreferrer nofollow" class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong">
+                M&amp;T BANK CORP 10-K 2026-02-18
+              </a>
+              <p class="mt-1 type-data-sm text-ink-muted">
+                sec_edgar · US Securities and Exchange Commission
+              </p>
+              
+                <p class="mt-1 max-w-md type-body-sm text-ink-muted" data-field="licence">
+                  US government work; not subject to copyright in the United States. Access is conditional on sending a descriptive User-Agent identifying the operator.
+                </p>
+              
+              
+            </td>
+
+            
+            <td class="px-4 py-3 align-top">
+              <span class="type-data-sm text-ink" data-field="tier">T1_REGULATORY</span>
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="published">
+              
+                2026-02-18
+              
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="retrieved">
+              2026-09-12
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="hash" title="c26cca148c6982b71ea6f1734a8484ba88e7049407939579a7236efe9e25a161">
+              c26cca148c69
+              
+                <span class="block text-ink-muted">
+                  60 excerpts
+                </span>
+              
+            </td>
+
+            <td class="px-4 py-3 align-top" data-field="admissibility">
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-success-ink bg-success-wash text-success-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4"></path></svg>
+
+  <span>Admissible</span></span>
+
+              
+              
+              
+            </td>
+          </tr>
+        
+          
+          <tr id="source-befbf6d4-3b60-465a-b187-d7dd99a6011b" data-source="befbf6d4-3b60-465a-b187-d7dd99a6011b" data-tier="T1_REGULATORY" data-evidence-tier="T1_REGULATORY">
+            <td class="px-4 py-3 align-top">
+              <a href="https://data.sec.gov/api/xbrl/companyfacts/CIK0000036270.json" rel="noopener noreferrer nofollow" class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong">
+                M&amp;T BANK CORP XBRL company facts
+              </a>
+              <p class="mt-1 type-data-sm text-ink-muted">
+                sec_edgar · US Securities and Exchange Commission
+              </p>
+              
+                <p class="mt-1 max-w-md type-body-sm text-ink-muted" data-field="licence">
+                  US government work; not subject to copyright in the United States. Access is conditional on sending a descriptive User-Agent identifying the operator.
+                </p>
+              
+              
+            </td>
+
+            
+            <td class="px-4 py-3 align-top">
+              <span class="type-data-sm text-ink" data-field="tier">T1_REGULATORY</span>
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="published">
+              
+                2026-08-04
+              
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="retrieved">
+              2026-09-12
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="hash" title="31b7b199ea6bc258a238daac1215dbe0ad385cb801d7a08ec6c8bb93d57aa363">
+              31b7b199ea6b
+              
+                <span class="block text-ink-muted">
+                  14371 excerpts
+                </span>
+              
+            </td>
+
+            <td class="px-4 py-3 align-top" data-field="admissibility">
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-success-ink bg-success-wash text-success-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4"></path></svg>
+
+  <span>Admissible</span></span>
+
+              
+              
+              
+            </td>
+          </tr>
+        
+          
+          <tr id="source-e4600969-50e4-4489-9ae3-a3de77b0c00f" data-source="e4600969-50e4-4489-9ae3-a3de77b0c00f" data-tier="T4_LICENSED_MARKET" data-evidence-tier="T4_LICENSED_MARKET">
+            <td class="px-4 py-3 align-top">
+              <a href="https://eodhd.com/api/eod/GSPC.INDX?api_token=REDACTED&amp;fmt=json&amp;period=d&amp;to=2026-09-12&amp;from=2020-09-01" rel="noopener noreferrer nofollow" class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong">
+                S&amp;P 500 daily prices to 2026-09-12
+              </a>
+              <p class="mt-1 type-data-sm text-ink-muted">
+                eodhd · EOD Historical Data
+              </p>
+              
+                <p class="mt-1 max-w-md type-body-sm text-ink-muted" data-field="licence">
+                  Licensed market data under a subscription agreement. Selling, retransmitting, redistributing or displaying the information in original or repackaged form is prohibited without prior written approval. Figures computed from it — multiples, ratios and other derived values — may be published: the operator determined this on 2026-08-09, having read the executed agreement, and the determination is theirs rather than an inference from the published terms. It does not extend to the series itself or to a chart of it, which remain the information in repackaged form. Copies must be deleted within one month of the subscription ending.
+                </p>
+              
+              
+            </td>
+
+            
+            <td class="px-4 py-3 align-top">
+              <span class="type-data-sm text-ink" data-field="tier">T4_LICENSED_MARKET</span>
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="published">
+              
+                2026-09-11
+              
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="retrieved">
+              2026-09-12
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="hash" title="ee8a48296387c37c93730a1cac00570fa87dabcd844ba7f959a66644dadf7a55">
+              ee8a48296387
+              
+            </td>
+
+            <td class="px-4 py-3 align-top" data-field="admissibility">
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-success-ink bg-success-wash text-success-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4"></path></svg>
+
+  <span>Admissible</span></span>
+
+              
+              
+              
+            </td>
+          </tr>
+        
+          
+          <tr id="source-3f746bee-a8bb-49f9-be3f-bdbc154546a8" data-source="3f746bee-a8bb-49f9-be3f-bdbc154546a8" data-tier="T4_LICENSED_MARKET" data-evidence-tier="T4_LICENSED_MARKET">
+            <td class="px-4 py-3 align-top">
+              <a href="https://eodhd.com/api/eod/MTB.US?api_token=REDACTED&amp;fmt=json&amp;period=d&amp;to=2026-09-12&amp;from=2020-09-01" rel="noopener noreferrer nofollow" class="type-body text-verification underline underline-offset-[3px] hover:text-verification-strong">
+                M&amp;T BANK CORP daily prices to 2026-09-12
+              </a>
+              <p class="mt-1 type-data-sm text-ink-muted">
+                eodhd · EOD Historical Data
+              </p>
+              
+                <p class="mt-1 max-w-md type-body-sm text-ink-muted" data-field="licence">
+                  Licensed market data under a subscription agreement. Selling, retransmitting, redistributing or displaying the information in original or repackaged form is prohibited without prior written approval. Figures computed from it — multiples, ratios and other derived values — may be published: the operator determined this on 2026-08-09, having read the executed agreement, and the determination is theirs rather than an inference from the published terms. It does not extend to the series itself or to a chart of it, which remain the information in repackaged form. Copies must be deleted within one month of the subscription ending.
+                </p>
+              
+              
+            </td>
+
+            
+            <td class="px-4 py-3 align-top">
+              <span class="type-data-sm text-ink" data-field="tier">T4_LICENSED_MARKET</span>
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="published">
+              
+                2026-09-11
+              
+              
+              
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="retrieved">
+              2026-09-12
+            </td>
+
+            <td class="px-4 py-3 align-top type-data-sm text-ink" data-field="hash" title="43b01a6601f0e997081ba4e7dccf4875c0a63e6f80b9c084f2a6cccdb7aa316a">
+              43b01a6601f0
+              
+            </td>
+
+            <td class="px-4 py-3 align-top" data-field="admissibility">
+              
+                
+
+<span class="aer-status inline-flex items-center gap-2 rounded-xs border-l-[3px] px-2 py-1.5 type-label
+             border-success-ink bg-success-wash text-success-ink">
+  
+<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4"></path></svg>
+
+  <span>Admissible</span></span>
+
+              
+              
+              
+            </td>
+          </tr>
+        
+      </tbody>
+    </table>
+  </div>
+
+        </main>
+
+        <footer class="border-t border-line">
+          <div class="mx-auto w-full max-w-shell px-4 py-6 sm:px-6">
+            <p class="type-body-sm text-ink-muted">This is a personal research tool, not regulated investment advice. Nothing it produces is a recommendation to buy, sell or hold any security.</p>
+            <p class="mt-2 type-caption text-ink-subtle">
+              Tracework Invest · version 0.1.0
+            </p>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    
+<div id="aer-drawer" hidden="">
+  
+  <div data-drawer-close="" class="fixed inset-0 z-40 bg-ink/40" aria-hidden="true"></div>
+
+  <div role="dialog" aria-modal="true" aria-labelledby="aer-drawer-title" tabindex="-1" class="fixed inset-y-0 right-0 z-50 flex w-full max-w-drawer flex-col border-l border-line bg-surface shadow-xl focus:outline-none">
+    <header class="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+      <h2 id="aer-drawer-title" class="text-base font-semibold text-ink"></h2>
+      <button type="button" data-drawer-close="" class="-mr-1 rounded-md px-2 py-1 text-sm font-semibold text-ink-muted hover:bg-surface-sunken hover:text-ink">
+        Close<span class="sr-only"> this panel</span>
+      </button>
+    </header>
+
+    <div id="aer-drawer-body" class="flex-1 overflow-y-auto px-5 py-4"></div>
+  </div>
+</div>
+  
+</body></html>

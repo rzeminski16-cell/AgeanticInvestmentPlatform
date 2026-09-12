@@ -1,0 +1,11 @@
+{
+  "page": "financials",
+  "url": "http://127.0.0.1:8000/runs/cf99d6a2-c3d7-47a8-a153-23b634dd7b23/financials",
+  "status": 200,
+  "title": "Proceed without the figures nothing could map? \u00b7 Tracework Invest",
+  "payload_hash": "ebaece647b0beecca65ffbd4e865907f11c6c525f59b046003d8142d79e0c740",
+  "words": 13593,
+  "raw_tokens": [],
+  "uuids": 0,
+  "approve_control": 1
+}

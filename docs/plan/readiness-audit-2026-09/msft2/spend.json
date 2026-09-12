@@ -1,0 +1,155 @@
+{
+  "total_gbp": "6.802436",
+  "calls": 57,
+  "output_tokens": 236019,
+  "cache": {
+    "fresh_tokens": 523716,
+    "read_tokens": 89176,
+    "written_tokens": 251121
+  },
+  "by_kind": [
+    [
+      "cache_read",
+      "0.027794"
+    ],
+    [
+      "cache_write",
+      "1.049521"
+    ],
+    [
+      "llm_input",
+      "1.400555"
+    ],
+    [
+      "llm_output",
+      "4.285066"
+    ],
+    [
+      "web_search",
+      "0.039500"
+    ]
+  ],
+  "by_role": [
+    {
+      "role": "analysis",
+      "model": "claude-sonnet-5",
+      "calls": 24,
+      "output_tokens": 22960,
+      "cache": {
+        "fresh_tokens": 425952,
+        "read_tokens": 47040,
+        "written_tokens": 32853
+      }
+    },
+    {
+      "role": "report_writer",
+      "model": "claude-opus-5",
+      "calls": 18,
+      "output_tokens": 158339,
+      "cache": {
+        "fresh_tokens": 29287,
+        "read_tokens": 39776,
+        "written_tokens": 147013
+      }
+    },
+    {
+      "role": "report_writer",
+      "model": "claude-sonnet-5",
+      "calls": 6,
+      "output_tokens": 20692,
+      "cache": {
+        "fresh_tokens": 8403,
+        "read_tokens": 0,
+        "written_tokens": 60128
+      }
+    },
+    {
+      "role": "red_team",
+      "model": "claude-opus-5",
+      "calls": 1,
+      "output_tokens": 7949,
+      "cache": {
+        "fresh_tokens": 34947,
+        "read_tokens": 0,
+        "written_tokens": 1976
+      }
+    },
+    {
+      "role": "planner",
+      "model": "claude-opus-5",
+      "calls": 2,
+      "output_tokens": 17022,
+      "cache": {
+        "fresh_tokens": 9648,
+        "read_tokens": 2360,
+        "written_tokens": 2360
+      }
+    },
+    {
+      "role": "plan_critic",
+      "model": "claude-opus-5",
+      "calls": 1,
+      "output_tokens": 4109,
+      "cache": {
+        "fresh_tokens": 5322,
+        "read_tokens": 0,
+        "written_tokens": 1633
+      }
+    },
+    {
+      "role": "assumption_proposal",
+      "model": "claude-opus-5",
+      "calls": 1,
+      "output_tokens": 1903,
+      "cache": {
+        "fresh_tokens": 3545,
+        "read_tokens": 0,
+        "written_tokens": 1738
+      }
+    },
+    {
+      "role": "challenge_brief",
+      "model": "claude-haiku-4-5",
+      "calls": 1,
+      "output_tokens": 1791,
+      "cache": {
+        "fresh_tokens": 3761,
+        "read_tokens": 0,
+        "written_tokens": 0
+      }
+    },
+    {
+      "role": "verdict",
+      "model": "claude-haiku-4-5",
+      "calls": 1,
+      "output_tokens": 56,
+      "cache": {
+        "fresh_tokens": 2453,
+        "read_tokens": 0,
+        "written_tokens": 0
+      }
+    },
+    {
+      "role": "theme_proposal",
+      "model": "claude-sonnet-5",
+      "calls": 1,
+      "output_tokens": 522,
+      "cache": {
+        "fresh_tokens": 335,
+        "read_tokens": 0,
+        "written_tokens": 1725
+      }
+    },
+    {
+      "role": "peer_proposal",
+      "model": "claude-sonnet-5",
+      "calls": 1,
+      "output_tokens": 676,
+      "cache": {
+        "fresh_tokens": 63,
+        "read_tokens": 0,
+        "written_tokens": 1695
+      }
+    }
+  ]
+}

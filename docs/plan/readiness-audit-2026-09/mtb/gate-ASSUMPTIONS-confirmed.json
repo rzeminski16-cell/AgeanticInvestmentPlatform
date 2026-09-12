@@ -1,0 +1,66 @@
+{
+  "payload": {
+    "assumptions": [
+      {
+        "name": "beta",
+        "value": "1.000000000000",
+        "unit": "pure",
+        "justification": "A regional bank's published beta sits near the market's. Used only when the platform's own regression proposes nothing, and recorded as a finding when it is.",
+        "proposed_by": "operator:audit",
+        "confidence": null
+      },
+      {
+        "name": "equity_risk_premium",
+        "value": "0.045000000000",
+        "unit": "pure",
+        "justification": "4.5 %: inside the 4-6 % band the operator's audit policy accepts, and the neighbourhood of the implied US premium in the Damodaran monthly series through 2026. A judgement, stated as one.",
+        "proposed_by": "operator:audit",
+        "confidence": null
+      },
+      {
+        "name": "exit_multiple",
+        "value": "9.000000000000",
+        "unit": "pure",
+        "justification": "Flagged plainly as convention: EV/EBITDA is not a meaningful bank metric \u2014 interest is revenue, not a financing cost, and deposits make enterprise value ambiguous. 9x is where US regional banks conventionally sit on a pre-tax pre-provision earnings basis, and is loosely consistent with MTB's ~9-10% ROE, 3.70% NIM and thinning capital (CET1 10.19%, TCE/TA 8.07%). Of the two numbers, the 2.5% perpetual rate is the better terminal anchor for a bank; treat this multiple as a cross-check only. Confirm what the bank sector model feeds in as EBITDA before using it.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.25
+      },
+      {
+        "name": "payout_ratio",
+        "value": "0.336680000000",
+        "unit": "pure",
+        "justification": "The mean of dividends paid over net income across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.3120, 0.3936, 0.3167, 0.3458, 0.3153.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "return_on_equity",
+        "value": "0.094214000000",
+        "unit": "pure",
+        "justification": "The mean of net income over equity across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.1038, 0.0787, 0.1017, 0.0892, 0.0977.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "risk_free_rate",
+        "value": "0.048300000000",
+        "unit": "pure",
+        "justification": "US 10-year Treasury constant-maturity yield, FRED series DGS10, observation 2026-09-09: 4.83 %. Stated by the operator; the platform acquires no macro series for a run.",
+        "proposed_by": "operator:audit",
+        "confidence": null
+      },
+      {
+        "name": "terminal_growth",
+        "value": "0.025000000000",
+        "unit": "pure",
+        "justification": "Anchored to long-run US nominal GDP (~2% real + ~2% inflation): a $219B super-regional's loan and deposit book cannot compound faster than the economy it lends into. The derived ROE (9.42%) against a 33.7% payout implies retention-funded growth well above that \u2014 a mid-cycle rate, not a perpetual one. I took the discount rate to be a bank cost of equity of at least 8%, so 2.5% sits far below any ordinary figure and below the 4% cap. Raise it if you assume structurally higher inflation; lower it if CRE run-off (25.3B to 23.6B) signals persistent balance-sheet shrinkage rather than the C&I mix shift shown.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.6
+      }
+    ],
+    "outstanding": [],
+    "refused": [],
+    "skipped": []
+  },
+  "hash": "4b0b2bcd692755657a4f08573242153f82c416a072734c71b48d1214d0b872ef"
+}

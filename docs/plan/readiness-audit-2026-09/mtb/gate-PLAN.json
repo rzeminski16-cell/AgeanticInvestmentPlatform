@@ -1,0 +1,401 @@
+{
+  "payload": {
+    "plan_id": "90521ef4-5c20-466d-aa85-dd34eab01fc0",
+    "workflow_version": "vertical_slice_v1",
+    "summary": "Plan for a 12-month-horizon standard research run on M&T Bank Corporation (MTB, NYSE), point-in-time as of 2026-09-12, base currency USD. It is organised around three operator questions: CRE concentration and how it is reserved; whether net interest margin is at a peak and what deposit repricing and the hedge book do to it; whether ROTCE supports the price-to-tangible-book multiple. Evidence comes first from MTB filings dated on or before the as-of date (FY2025 10-K, Q1 and Q2 2026 10-Qs, earnings 8-Ks), then from an explicit sweep of every 8-K and IR posting between 2026-07-01 and 2026-09-12 with 'no qualifying disclosure found' recorded as an affirmative result, then from regulatory sources (FR Y-9C/Call Report line items, 2026 DFAST and stress capital buffer) and peer filings. Concentration ratios and all metrics are recorded as calculations over stored line items under declared definitions, never as retrieved figures. No figure is stated in this plan; each section names the schedule that would establish it. Before retrieval, each quantitative section's calculation contract is checked for bank-specific metrics; a mismatch is escalated, not substituted with a non-bank proxy.",
+    "sections": [
+      {
+        "key": "executive_summary",
+        "focus": "Condense answers to the three operator questions into verified statements with explicit pointers: CRE share of loans and its reserve coverage; direction and drivers of NIM including deposit cost, asset repricing and hedge contribution; ROTCE versus P/TBV. State the data cut (latest filed period before 2026-09-12) and the result of the 2026-07-01 to 2026-09-12 disclosure sweep, including a negative finding. Flag which conclusions rest on management forward-looking commentary rather than filed data. No figure may originate here; every number is a reference to a stored fact or recorded calculation."
+      },
+      {
+        "key": "balance_sheet_liquidity",
+        "focus": "Core for question (a). From the FY2025 10-K loan note and the Q2 2026 10-Q: loan composition by category \u2014 commercial real estate, construction/land, multifamily, owner- versus non-owner-occupied \u2014 plus the ACL rollforward, allocation by portfolio segment, charge-offs, nonaccrual and criticized/classified balances. Then the inputs to question (b): deposit composition (noninterest- versus interest-bearing), time deposit maturity ladder, uninsured share, brokered funding, borrowings, and the disclosed repricing/maturity distribution of loans and securities. Flag any dimension the filings do not disclose."
+      },
+      {
+        "key": "earnings_quality",
+        "focus": "Decompose net interest income and margin from the average balance sheet and rate/volume schedules in the 10-K and 10-Qs: earning-asset yields, interest-bearing deposit cost, purchase-accounting accretion from the People's United transaction, securities repositioning, and items management labels notable. Add the derivative and hedge disclosures: received-fixed and pay-fixed notionals by maturity, designated cash-flow and fair-value hedge effects on interest income and expense, and amounts reclassified from AOCI. Identify how much of margin and ROTCE is recurring. Use the company's own non-GAAP ROTCE and tangible book reconciliation rather than restating it."
+      },
+      {
+        "key": "segment_analysis",
+        "focus": "Use MTB's reported operating segments (including Commercial Real Estate, Commercial Banking, Retail Banking, Institutional Services and Wealth Management) from the 10-K segment note and quarterly updates to establish where CRE risk and where fee income actually sit: segment average loans, deposits, net interest income and provision, plus the geographic footprint concentration disclosed in the filings. Note any segment re-presentation that breaks comparability with prior years."
+      },
+      {
+        "key": "historical_financial_analysis",
+        "focus": "Build the multi-year series needed to judge whether NIM and ROTCE sit at cyclical extremes: NIM, efficiency ratio, ROTCE, ACL-to-loans, net charge-off rate and CRE balances across the FY2022-FY2025 10-Ks plus 2026 interim periods. Record definitional breaks (acquisition accounting, CECL model changes, segment re-presentation) so trends are on consistent bases. Confirm before retrieval that this section's calculation contract accepts bank metrics rather than requiring leverage, working capital or EV-based ratios; escalate if it does not."
+      },
+      {
+        "key": "capital_allocation",
+        "focus": "CET1 and other regulatory ratios, the 2026 stress capital buffer, repurchase authorisation and actual repurchases, dividend declarations, and AOCI drag on tangible common equity. Establish whether capital return is constrained by CRE stress loss assumptions in the Federal Reserve's 2026 supervisory results. Include any capital action disclosed by 8-K between 2026-07-01 and the as-of date. Sources: 10-K/10-Q capital notes, 8-K capital plan disclosures, Fed DFAST publication."
+      },
+      {
+        "key": "industry_landscape",
+        "focus": "Position MTB against regional-bank peers on the operator's metrics: CRE-to-total-risk-based-capital concentration measured against the interagency 100%/300% guidance under a declared construction of the numerator; cumulative interest-bearing deposit beta; ROTCE and P/TBV. Use peer Q2 2026 10-Qs for the same period end and each peer's own non-GAAP reconciliation, noting where definitions differ so comparisons are not made across incompatible bases. Escalate if the section contract only supports non-bank comparables."
+      },
+      {
+        "key": "valuation_dcf",
+        "focus": "Question (c). A bank has no meaningful enterprise free cash flow, so valuation must run equity-side: residual income / excess return on tangible common equity, dividend discount, and a P/TBV-versus-ROTCE cross-check against peers. Inputs are stored facts \u2014 tangible common equity, share count, market price as of 2026-09-12 \u2014 with cost of equity and sustainable ROTCE as declared assumptions, not asserted facts. State explicitly if the section's calculation contract only supports an FCFF structure, and escalate rather than force a non-bank proxy."
+      },
+      {
+        "key": "scenarios_sensitivities",
+        "focus": "Grids on the swing variables: (i) rate path \u2014 cumulative interest-bearing deposit beta and noninterest-bearing mix shift, combined with fixed-rate asset repricing and the maturity roll-off of the swap book, using the company's own disclosed interest-rate sensitivity simulation; (ii) CRE credit \u2014 loss severity and criticized-asset migration applied to disclosed CRE balances, benchmarked to supervisory stress loss rates. Effects on NIM, provision, ROTCE and tangible book per share reported via recorded calculations only, with hedge-notional data flagged where undisclosed."
+      },
+      {
+        "key": "investment_thesis",
+        "focus": "State bull and bear cases as testable propositions tied to evidence. Bear: CRE credit migration and reserve build, plus deposit repricing and expiring received-fixed hedges compressing spread. Bull: CRE runoff already reducing concentration, fee income mix, capital return at a discount to peer P/TBV. Each leg names the disclosure that would confirm or falsify it and the horizon over which it resolves \u2014 the next two quarterly filings inside the 12-month window."
+      },
+      {
+        "key": "key_risks",
+        "focus": "Company-level risks evidenced from the 10-K risk factors and disclosed exposures: office and multifamily concentration, geographic concentration in the Northeast/Mid-Atlantic footprint, uninsured deposit share and funding sensitivity, AOCI and held-to-maturity securities marks, hedge roll-off and basis risk, regulatory and stress-capital risk, and integration or acquisition risk. Distinguish risks the filings quantify from those they only describe."
+      },
+      {
+        "key": "catalysts",
+        "focus": "Dated events inside the 12-month horizon that would resolve the thesis: Q3 2026 and Q4 2026 earnings releases and the 10-Q/10-K with updated CRE criticized balances and ACL, the 2027 stress test cycle and buffer reset, capital plan and buyback announcements, scheduled investor conference appearances, and FOMC decisions driving the deposit repricing path. Give expected timing windows and mark each as scheduled or conditional."
+      }
+    ],
+    "section_listing": [
+      {
+        "key": "executive_summary",
+        "title": "Executive Summary",
+        "position": "100.00",
+        "required": true,
+        "token_budget": 2000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0672"
+      },
+      {
+        "key": "investment_thesis",
+        "title": "Investment Thesis",
+        "position": "110.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "business_overview",
+        "title": "Business Overview",
+        "position": "120.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "segment_analysis",
+        "title": "Segment Analysis",
+        "position": "130.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "industry_landscape",
+        "title": "Industry & Competitive Positioning",
+        "position": "140.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "management_governance",
+        "title": "Management & Governance",
+        "position": "150.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "historical_financial_analysis",
+        "title": "Historical Financial Analysis",
+        "position": "200.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "earnings_quality",
+        "title": "Earnings Quality",
+        "position": "210.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "balance_sheet_liquidity",
+        "title": "Balance Sheet & Liquidity",
+        "position": "220.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "cash_flow_analysis",
+        "title": "Cash Flow Analysis",
+        "position": "230.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "capital_allocation",
+        "title": "Capital Allocation",
+        "position": "240.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "growth_outlook",
+        "title": "Growth Outlook",
+        "position": "250.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "valuation_dcf",
+        "title": "Valuation \u2014 Discounted Cash Flow",
+        "position": "300.00",
+        "required": true,
+        "token_budget": 5000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0790"
+      },
+      {
+        "key": "scenarios_sensitivities",
+        "title": "Scenarios & Sensitivities",
+        "position": "310.00",
+        "required": true,
+        "token_budget": 4000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0750"
+      },
+      {
+        "key": "key_risks",
+        "title": "Key Risks",
+        "position": "400.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "catalysts",
+        "title": "Catalysts",
+        "position": "410.00",
+        "required": true,
+        "token_budget": 3000,
+        "deterministic": false,
+        "estimated_cost_gbp": "0.0711"
+      },
+      {
+        "key": "prior_research_comparison",
+        "title": "Prior Research Comparison",
+        "position": "900.00",
+        "required": true,
+        "token_budget": 0,
+        "deterministic": true,
+        "estimated_cost_gbp": "0"
+      },
+      {
+        "key": "validation_disagreements",
+        "title": "Validation & Disagreements",
+        "position": "910.00",
+        "required": true,
+        "token_budget": 0,
+        "deterministic": true,
+        "estimated_cost_gbp": "0"
+      }
+    ],
+    "planned_sources": [
+      {
+        "why": "Primary anchor for CRE exposure, reserve coverage, NIM build, hedge book and tangible book inputs; the only source with full-year audited granularity.",
+        "tier": "primary_filing",
+        "what": "M&T FY2025 Form 10-K: loan note with CRE/construction detail, ACL rollforward and allocation, average balance sheet and rate/volume tables, derivative and hedge notes, segment note, capital and AOCI disclosures.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Most recent filed periodic report before the 2026-09-12 as-of date; defines the point-in-time data cut.",
+        "tier": "primary_filing",
+        "what": "M&T 10-Q for the quarter ended 2026-06-30: loan composition, nonaccrual and criticized balances, ACL activity, deposit mix and cost, interim margin, derivative notionals and hedge effects.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Detects post-Q2 events that would make trailing balances unrepresentative; a nil result is to be recorded affirmatively as 'no qualifying disclosure found'.",
+        "tier": "primary_filing",
+        "what": "Full-text sweep of every M&T 8-K (all items) filed 2026-07-01 through 2026-09-12, including exhibits: capital actions, credit updates, acquisitions, portfolio sales, senior management or auditor changes, conference materials furnished under Item 7.01.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Regional banks routinely present mid-quarter in early September; such decks may update CRE or NIM commentary not in any filing. Absence to be recorded, not assumed.",
+        "tier": "primary_company",
+        "what": "M&T investor relations events and presentations page: any conference deck, webcast or credit update posted 2026-07-01 to 2026-09-12, captured with its posting date.",
+        "provider": "Company IR"
+      },
+      {
+        "why": "Establishes intra-year direction of travel rather than a single-quarter snapshot.",
+        "tier": "primary_filing",
+        "what": "M&T 10-Q for the quarter ended 2026-03-31: same schedules, for sequential comparison of CRE migration, deposit repricing and hedge notionals within 2026.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Carries the quarterly trend schedules and the company's own ROTCE and tangible book definitions used in the valuation cross-check.",
+        "tier": "primary_filing",
+        "what": "Forms 8-K carrying the Q1 2026 and Q2 2026 earnings releases and quarterly financial supplements, including non-GAAP reconciliations for ROTCE and tangible common equity.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Supplies the comparative series needed to judge whether margin and returns sit at a cyclical peak.",
+        "tier": "primary_filing",
+        "what": "M&T FY2024 and FY2023 Forms 10-K: prior-period CRE balances, ACL-to-loans, NIM, ROTCE reconciliations, purchase-accounting accretion and hedge notional disclosure.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Only source for forward guidance; to be recorded as management assertion, not as verified fact.",
+        "tier": "primary_company",
+        "what": "Q1 2026 and Q2 2026 earnings call transcripts and slide decks: management commentary on NIM trajectory, deposit betas, swap book roll-off, CRE runoff strategy and reserve philosophy.",
+        "provider": "Company IR"
+      },
+      {
+        "why": "These reports publish line items, not ratios. The concentration measures must be computed from declared lines, with the ratio stored as a calculation rather than a retrieved figure.",
+        "tier": "regulatory",
+        "what": "FR Y-9C Schedule HC-C and HC-R for M&T Bank Corporation, and Call Report Schedule RC-C/RC-R for M&T Bank, 2025Q4-2026Q2: construction and land, multifamily, non-owner-occupied nonfarm-nonresidential balances and total risk-based capital, retrieved as line items.",
+        "provider": "FFIEC / Federal Reserve"
+      },
+      {
+        "why": "Fixes the definition of the numerator and denominator before retrieval, so the guidance comparison does not rest on an ad hoc construction.",
+        "tier": "regulatory",
+        "what": "The 2006 interagency guidance on CRE concentrations (and SR 07-1) defining the 100% construction and 300% total-CRE screens: the exact loan categories included and the capital denominator.",
+        "provider": "Federal banking agencies"
+      },
+      {
+        "why": "Independent, non-management estimate of CRE loss severity and the binding constraint on buybacks.",
+        "tier": "regulatory",
+        "what": "2026 DFAST/CCAR supervisory stress test results and M&T's disclosed stress capital buffer, including modelled CRE loss rates under the severely adverse scenario.",
+        "provider": "Federal Reserve"
+      },
+      {
+        "why": "Supplies the like-for-like peer set for the P/TBV-versus-ROTCE comparison and the CRE concentration ranking.",
+        "tier": "primary_filing",
+        "what": "Q2 2026 10-Qs for regional-bank peers (e.g. Citizens Financial, KeyCorp, Huntington, Fifth Third, Regions): CRE share of loans, ACL coverage, deposit cost, tangible common equity and each peer's own non-GAAP reconciliation.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Market-side input to the P/TBV and dividend discount calculations; must be as-of-dated to preserve point-in-time integrity.",
+        "tier": "market_data",
+        "what": "MTB closing share price, shares outstanding and dividend history as of 2026-09-12, delivered as a point-in-time snapshot rather than a restated current series.",
+        "provider": "Market data feed"
+      },
+      {
+        "why": "Defines the rate scenarios driving deposit repricing, fixed-rate asset repricing and hedge-book sensitivity.",
+        "tier": "market_data",
+        "what": "Treasury curve, SOFR and effective fed funds history through 2026-09-12, plus the policy path implied by dated market instruments as of that date.",
+        "provider": "FRED / Federal Reserve H.15"
+      },
+      {
+        "why": "Shows whether management is paid on the return measure the valuation question turns on.",
+        "tier": "primary_filing",
+        "what": "M&T DEF 14A proxy filed in 2026: incentive metrics, any ROTCE or credit-quality performance conditions, board risk committee composition and insider ownership.",
+        "provider": "SEC EDGAR"
+      },
+      {
+        "why": "Property-type and maturity granularity is often disclosed only in decks, not in the 10-Q; availability is to be confirmed, not assumed.",
+        "tier": "primary_company",
+        "what": "M&T fixed income and investor presentations posted before the as-of date containing office and multifamily CRE splits, maturity schedules, and LTV or debt-service-coverage disclosure if published.",
+        "provider": "Company IR"
+      },
+      {
+        "why": "Benchmarks whether M&T's CRE reserve coverage is conservative or thin relative to the industry.",
+        "tier": "regulatory",
+        "what": "Quarterly Banking Profile releases through 2026Q2: industry CRE delinquency, charge-off and reserve coverage benchmarks for banks of comparable asset size.",
+        "provider": "FDIC"
+      },
+      {
+        "why": "Industry deposit flow and CRE balance context for the deposit repricing scenario.",
+        "tier": "regulatory",
+        "what": "Assets and liabilities of commercial banks: deposit and CRE loan aggregates through the week nearest 2026-09-12.",
+        "provider": "Federal Reserve H.8"
+      },
+      {
+        "why": "Independent third-party read on credit risk; used as corroboration only, never as a figure source.",
+        "tier": "secondary",
+        "what": "Most recent Moody's and S&P credit opinions on M&T published on or before 2026-09-12, covering CRE asset quality and funding profile.",
+        "provider": "Credit rating agencies"
+      }
+    ],
+    "known_risks": [
+      "Contract mismatch is not confined to valuation_dcf. historical_financial_analysis, industry_landscape, scenarios_sensitivities and earnings_quality may have output contracts built for non-financial issuers (EV multiples, leverage, working capital, FCF) and may lack NIM, ROTCE, ACL-to-loans and deposit beta. Each quantitative section's contract must be checked before retrieval; where bank metrics are not accepted, escalate rather than validate on an irrelevant proxy.",
+      "The quarter ending 2026-09-30 is unreported at the as-of date, so the freshest periodic data is the Q2 2026 10-Q. The 8-K and IR sweep for 2026-07-01 to 2026-09-12 bounds but does not remove this gap: credit migration and deposit repricing that triggered no disclosure obligation remain invisible and must be labelled as unobserved, not inferred.",
+      "CRE granularity may not exist at the level the question implies. Office versus multifamily versus industrial splits, LTV, debt-service coverage and maturity ladders are often disclosed only in investor decks or annually, and the ACL is generally not allocated by property type.",
+      "Hedge-book disclosure may be insufficient for question (b). Filings may give aggregate notionals without a maturity ladder, or not separate hedge-related amounts within interest income and expense. Where that is so, the hedge contribution to the forward NIM path cannot be quantified and must be stated as undisclosed rather than modelled.",
+      "'Peak' NIM is inherently forward-looking. Filings support only realised margin; any peak call rests on management guidance and on scenario assumptions about deposit beta, asset repricing and hedge roll-off, which are declared inputs and not evidence.",
+      "FR Y-9C and Call Report data for 2026Q2 may not be posted or may be amended later. Separately, the interagency concentration ratio computed here from declared schedule lines is our construction under published guidance and may differ from any measure supervisors use internally; it must be presented as a calculation, with its definition shown.",
+      "Peer ROTCE and tangible book definitions differ on intangibles, preferred equity and AOCI treatment, so the P/TBV-versus-ROTCE comparison risks being not like-for-like unless each peer's own reconciliation is used and differences are recorded.",
+      "Point-in-time enforcement is fragile on market and peer data feeds, which commonly return restated or current-vintage values. Any source that cannot deliver an as-of-2026-09-12 snapshot must be flagged rather than silently used.",
+      "Purchase-accounting accretion from prior acquisitions distorts both NIM and ROTCE trend comparisons; if recent filings stop disclosing accretion separately, the recurring-earnings split in earnings_quality cannot be completed for those periods.",
+      "If the 8-K/IR sweep finds an acquisition, securities repositioning or portfolio sale announced close to the as-of date, trailing balances become unrepresentative of the forward book. This run cannot construct pro-forma statements; the finding would be reported as a limitation on the 12-month view."
+    ],
+    "prior_research": "",
+    "critique": {
+      "revised": true,
+      "consulted": true,
+      "challenges": [
+        {
+          "aspect": "coverage",
+          "severity": 3,
+          "statement": "Every planned company source stops at the Q2 2026 10-Q and Q2 earnings materials. Nothing covers company disclosures made between that filing and the 2026-09-12 as-of date \u2014 8-Ks, mid-quarter investor conference decks (regional banks routinely present in early September), capital action or credit-update filings. The plan names 'unrepresentative trailing balances' as a risk but plans no source that would detect such an event, so the run cannot tell a stale book from an unchanged one.",
+          "suggestion": "Add an explicit EDGAR 8-K/6-K sweep and an IR events-page check for the window 2026-07-01 to 2026-09-12, with instruction to record 'no qualifying disclosure found' as an affirmative result rather than leaving the window unexamined."
+        },
+        {
+          "aspect": "focus",
+          "severity": 3,
+          "statement": "The earnings_quality NIM decomposition names asset yields, deposit cost, purchase-accounting accretion and securities repositioning, but no section asks about the interest-rate hedge book. For a bank, received-fixed swap notionals, their maturity ladder and their contribution to reported margin can dominate the near-term NIM path, as can the fixed-rate asset repricing schedule. Question (b) cannot be answered on deposit repricing alone.",
+          "suggestion": "Extend earnings_quality and scenarios_sensitivities to ask what the filings disclose on derivative notionals by maturity, hedge accounting effects on interest income/expense, and the repricing/maturity distribution of loans and securities, flagging any of these not disclosed."
+        },
+        {
+          "aspect": "sources",
+          "severity": 3,
+          "statement": "The FR Y-9C/Call Report entry says it 'gives the supervisory concentration ratios'. Those reports publish schedule line items, not the interagency ratio; the 100%/300% measures must be assembled from specified construction, multifamily and non-owner-occupied nonfarm-nonresidential lines against total risk-based capital under a stated definition. Left implicit, the comparison to guidance thresholds risks resting on an ad hoc numerator.",
+          "suggestion": "Require the plan to declare the exact schedule lines and the definition of each concentration measure before retrieval, and to record the ratio as a calculation over stored line items rather than as a retrieved figure."
+        },
+        {
+          "aspect": "risks",
+          "severity": 3,
+          "statement": "The plan names a contract-mismatch risk only for valuation_dcf. The same hazard applies to historical_financial_analysis, industry_landscape and scenarios_sensitivities, whose output contracts in a general equity platform may demand non-bank metrics (EV multiples, leverage, working capital, FCF) while lacking NIM, ROTCE, ACL-to-loans and deposit beta. No risk covers a section that validates on irrelevant ratios.",
+          "suggestion": "Broaden the named risk to all quantitative sections: require an upfront check that each section's calculation contract accepts bank-specific metrics, with escalation rather than substitution of a non-bank proxy where it does not."
+        },
+        {
+          "aspect": "focus",
+          "severity": 2,
+          "statement": "Operator question (a) asks how CRE is reserved, but no section focus names the CECL methodology inputs behind the allowance: economic scenario selection and weighting, reasonable-and-supportable forecast period, qualitative or management overlays, and individually evaluated versus collectively evaluated CRE loans. Without these, the run answers only 'what is the coverage ratio', not 'how is it reserved', and cannot judge whether coverage is conservative.",
+          "suggestion": "Add to balance_sheet_liquidity a requirement to extract the CECL methodology disclosure \u2014 scenario weights, forecast horizon, qualitative adjustments, individually evaluated CRE balances and their specific reserves \u2014 and to flag any element the filings do not quantify."
+        },
+        {
+          "aspect": "coverage",
+          "severity": 2,
+          "statement": "The peer set for the P/TBV-versus-ROTCE comparison that drives question (c) is asserted by example, with no stated selection criteria. Whether peers are matched on asset size, CRE share, deposit franchise or footprint materially moves the relative-multiple conclusion, and an unjustified set invites the appearance of a chosen answer.",
+          "suggestion": "Require the peer set to be stated with explicit, pre-declared inclusion criteria and the resulting list recorded, plus a check of how the conclusion moves if the set is widened or narrowed on one criterion."
+        }
+      ],
+      "coverage_note": "Plan is unusually disciplined on point-in-time, non-GAAP reconciliation and bank-appropriate valuation; its own risk list pre-empts several objections I would otherwise raise. Challenges target gaps in the as-of-date window, the hedge/repricing driver of NIM, derivation of supervisory concentration ratios, contract mismatch beyond valuation, CECL methodology and peer-set construction. No view on the company is expressed or implied."
+    },
+    "estimated_cost_gbp": "9.2800",
+    "estimated_runtime_seconds": 2197,
+    "skills": []
+  },
+  "hash": "0191e7507bb6e96faf7c9cf9990f6e6d46cc6ab45aa9252c225f9d5c48a4ae1f",
+  "pause_context": {
+    "gate": "PLAN",
+    "job_id": "e8d0289f-6698-4e47-b567-d4822cc6d8fb"
+  }
+}

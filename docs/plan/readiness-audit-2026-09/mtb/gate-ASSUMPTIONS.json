@@ -1,0 +1,59 @@
+{
+  "payload": {
+    "assumptions": [
+      {
+        "name": "exit_multiple",
+        "value": "9.000000000000",
+        "unit": "pure",
+        "justification": "Flagged plainly as convention: EV/EBITDA is not a meaningful bank metric \u2014 interest is revenue, not a financing cost, and deposits make enterprise value ambiguous. 9x is where US regional banks conventionally sit on a pre-tax pre-provision earnings basis, and is loosely consistent with MTB's ~9-10% ROE, 3.70% NIM and thinning capital (CET1 10.19%, TCE/TA 8.07%). Of the two numbers, the 2.5% perpetual rate is the better terminal anchor for a bank; treat this multiple as a cross-check only. Confirm what the bank sector model feeds in as EBITDA before using it.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.25
+      },
+      {
+        "name": "payout_ratio",
+        "value": "0.336680000000",
+        "unit": "pure",
+        "justification": "The mean of dividends paid over net income across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.3120, 0.3936, 0.3167, 0.3458, 0.3153.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "return_on_equity",
+        "value": "0.094214000000",
+        "unit": "pure",
+        "justification": "The mean of net income over equity across 5 period(s) ending 2021-12-31, 2022-12-31, 2023-12-31, 2024-12-31, 2025-12-31. The individual observations were 0.1038, 0.0787, 0.1017, 0.0892, 0.0977.",
+        "proposed_by": "aer.services.assumption_proposals",
+        "confidence": null
+      },
+      {
+        "name": "terminal_growth",
+        "value": "0.025000000000",
+        "unit": "pure",
+        "justification": "Anchored to long-run US nominal GDP (~2% real + ~2% inflation): a $219B super-regional's loan and deposit book cannot compound faster than the economy it lends into. The derived ROE (9.42%) against a 33.7% payout implies retention-funded growth well above that \u2014 a mid-cycle rate, not a perpetual one. I took the discount rate to be a bank cost of equity of at least 8%, so 2.5% sits far below any ordinary figure and below the 4% cap. Raise it if you assume structurally higher inflation; lower it if CRE run-off (25.3B to 23.6B) signals persistent balance-sheet shrinkage rather than the C&I mix shift shown.",
+        "proposed_by": "aer.agents.assumptions",
+        "confidence": 0.6
+      }
+    ],
+    "outstanding": [
+      {
+        "name": "risk_free_rate",
+        "reason": "No macroeconomic series has been acquired for this run, so there is no published government yield to propose. Enter the rate you are using and say which instrument and date it is from."
+      },
+      {
+        "name": "beta",
+        "reason": "No price history has been acquired for this run, so no beta could be regressed. Enter one and say what it is measured against \u2014 beta is a first-class assumption here, and a documented, confirmed figure is more defensible than a regression nobody inspected."
+      },
+      {
+        "name": "equity_risk_premium",
+        "reason": "The equity risk premium is a judgement with no series behind it, and no role in this platform proposes one. Enter the premium you are using and cite where it comes from."
+      }
+    ],
+    "refused": [],
+    "skipped": []
+  },
+  "hash": "40f631e28095852011fe2d66f55cff044559fbbc203d60f70681450c684e4d82",
+  "pause_context": {
+    "gate": "ASSUMPTIONS",
+    "job_id": "e8d0289f-6698-4e47-b567-d4822cc6d8fb"
+  }
+}

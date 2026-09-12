@@ -1,0 +1,57 @@
+{
+  "payload": {
+    "subject": "d8831bbf-ae2c-400c-8e56-c5ffbc0d8fa3",
+    "subject_period_end": "2026-09-12",
+    "basis": "ttm",
+    "peers": [
+      {
+        "identifier": "0000091576",
+        "name": "KEYCORP /NEW/",
+        "rationale": "Large regional bank with similar commercial and consumer banking mix, comparable asset size, overlapping Northeast/Midwest footprint; useful for regional bank multiples.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000759944",
+        "name": "CITIZENS FINANCIAL GROUP INC/RI",
+        "rationale": "Northeast-focused super-regional bank of similar scale to MTB, comparable commercial lending and retail deposit franchise.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0001281761",
+        "name": "REGIONS FINANCIAL CORP",
+        "rationale": "Regional bank holding company with similar balance sheet size and diversified commercial/consumer banking, though more Southeast-weighted footprint than MTB.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000035527",
+        "name": "FIFTH THIRD BANCORP",
+        "rationale": "Comparable-size regional bank with similar business mix of commercial banking, consumer lending and wealth management.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000049196",
+        "name": "HUNTINGTON BANCSHARES INC /MD/",
+        "rationale": "Midwest regional bank of similar scale to MTB with overlapping geographic markets and comparable commercial/consumer banking model.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000092230",
+        "name": "TRUIST FINANCIAL CORP",
+        "rationale": "Large super-regional bank; broader national footprint and larger scale than MTB, but similar diversified banking model provides a useful, if imperfect, comparison.",
+        "period_end": ""
+      },
+      {
+        "identifier": "0000109380",
+        "name": "ZIONS BANCORPORATION, NATIONAL ASSOCIATION /UT/",
+        "rationale": "Regional bank with community banking focus comparable to MTB's model, though smaller scale and different Western geographic footprint.",
+        "period_end": ""
+      }
+    ],
+    "proposed_by": "aer.agents.peers"
+  },
+  "hash": "3a3943f4b29e902b15e6bfc9bdf6f4dc1e16380bf9323887483eb065c9883f38",
+  "pause_context": {
+    "gate": "PEER_SET",
+    "job_id": "cf99d6a2-c3d7-47a8-a153-23b634dd7b23"
+  }
+}

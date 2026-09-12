@@ -1,0 +1,738 @@
+{
+  "first": {
+    "label": "msft1",
+    "job_id": "8d1127b2-9ec9-450b-9ad6-1366c7bfb791",
+    "code_version": "3169dcda7c2fe3e27f2bc80b35eb9d2e2c84ee2e",
+    "as_of": "2026-09-11"
+  },
+  "second": {
+    "label": "msft2",
+    "job_id": "60cf1343-c809-48b0-ac3f-efa96207cb61",
+    "code_version": "b5685acba70964354b34d8484c8717be16d056e2",
+    "as_of": "2026-09-12"
+  },
+  "calculations": {
+    "first": 197,
+    "second": 202,
+    "rows": [
+      852,
+      857
+    ],
+    "rows_compared": 837,
+    "rows_differing": 527,
+    "shared": 196,
+    "only_first": [
+      [
+        "free_cash_flow",
+        "None",
+        ""
+      ]
+    ],
+    "only_second": [
+      [
+        "forecast_free_cash_flow",
+        "None",
+        ""
+      ],
+      [
+        "free_cash_flow",
+        "FY2022",
+        ""
+      ],
+      [
+        "free_cash_flow",
+        "FY2023",
+        ""
+      ],
+      [
+        "free_cash_flow",
+        "FY2024",
+        ""
+      ],
+      [
+        "free_cash_flow",
+        "FY2025",
+        ""
+      ],
+      [
+        "free_cash_flow",
+        "FY2026",
+        ""
+      ]
+    ],
+    "differing": [
+      {
+        "key": [
+          "beta",
+          "None",
+          ""
+        ],
+        "rows": [
+          1,
+          1
+        ],
+        "rows_differing": 1,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "1.064553313698",
+            "second": "1.066964356910"
+          }
+        ]
+      },
+      {
+        "key": [
+          "cost_of_equity",
+          "None",
+          ""
+        ],
+        "rows": [
+          1,
+          1
+        ],
+        "rows_differing": 1,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "0.096204899116",
+            "second": "0.096313396061"
+          }
+        ]
+      },
+      {
+        "key": [
+          "covariance",
+          "None",
+          ""
+        ],
+        "rows": [
+          1,
+          1
+        ],
+        "rows_differing": 1,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "0.002108002527",
+            "second": "0.002086114578"
+          }
+        ]
+      },
+      {
+        "key": [
+          "discount_factor",
+          "None",
+          ""
+        ],
+        "rows": [
+          55,
+          55
+        ],
+        "rows_differing": 55,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "0.611935205288",
+            "second": "0.611659491323"
+          },
+          {
+            "first": "0.611935205288",
+            "second": "0.611659491323"
+          },
+          {
+            "first": "0.625992892472",
+            "second": "0.625709560891"
+          }
+        ]
+      },
+      {
+        "key": [
+          "enterprise_value",
+          "None",
+          ""
+        ],
+        "rows": [
+          62,
+          62
+        ],
+        "rows_differing": 62,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "1481372261570.771457217138",
+            "second": "1479344670366.495762253396"
+          },
+          {
+            "first": "1521053488893.798932199656",
+            "second": "1518909260939.339247075377"
+          },
+          {
+            "first": "1563444744412.492381294939",
+            "second": "1561172248917.664476603799"
+          }
+        ]
+      },
+      {
+        "key": [
+          "equity_value",
+          "None",
+          ""
+        ],
+        "rows": [
+          62,
+          62
+        ],
+        "rows_differing": 62,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "1462013261570.771457217138",
+            "second": "1459985670366.495762253396"
+          },
+          {
+            "first": "1501694488893.798932199656",
+            "second": "1499550260939.339247075377"
+          },
+          {
+            "first": "1544085744412.492381294939",
+            "second": "1541813248917.664476603799"
+          }
+        ]
+      },
+      {
+        "key": [
+          "exit_multiple_terminal_value",
+          "None",
+          ""
+        ],
+        "rows": [
+          7,
+          7
+        ],
+        "rows_differing": 3,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "4009459042773.539502641122",
+            "second": "5011823803466.924378301402"
+          },
+          {
+            "first": "4677702216569.129419747976",
+            "second": "5011823803466.924378301402"
+          },
+          {
+            "first": "4677702216569.129419747976",
+            "second": "5680066977262.514295408256"
+          }
+        ]
+      },
+      {
+        "key": [
+          "gordon_terminal_value",
+          "None",
+          ""
+        ],
+        "rows": [
+          31,
+          31
+        ],
+        "rows_differing": 31,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "1824602949543.829496805620",
+            "second": "1822286068475.139036396914"
+          },
+          {
+            "first": "1889448421711.724510864026",
+            "second": "1886970081613.360796706839"
+          },
+          {
+            "first": "1949214151684.989009662770",
+            "second": "1946570230854.263184138541"
+          }
+        ]
+      },
+      {
+        "key": [
+          "implied_exit_multiple",
+          "None",
+          ""
+        ],
+        "rows": [
+          31,
+          31
+        ],
+        "rows_differing": 31,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "5.460895138457",
+            "second": "5.453960893082"
+          },
+          {
+            "first": "5.654972608189",
+            "second": "5.647555128459"
+          },
+          {
+            "first": "5.833846803443",
+            "second": "5.825933753420"
+          }
+        ]
+      },
+      {
+        "key": [
+          "implied_terminal_growth",
+          "None",
+          ""
+        ],
+        "rows": [
+          31,
+          31
+        ],
+        "rows_differing": 31,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "0.046860528252",
+            "second": "0.049666289132"
+          },
+          {
+            "first": "0.049569937817",
+            "second": "0.052000041663"
+          },
+          {
+            "first": "0.051692734173",
+            "second": "0.054031037554"
+          }
+        ]
+      },
+      {
+        "key": [
+          "market_capitalisation",
+          "None",
+          ""
+        ],
+        "rows": [
+          1,
+          1
+        ],
+        "rows_differing": 1,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "3656635621588.040000000000",
+            "second": "3680323111704.330000000000"
+          }
+        ]
+      },
+      {
+        "key": [
+          "market_enterprise_value",
+          "None",
+          ""
+        ],
+        "rows": [
+          1,
+          1
+        ],
+        "rows_differing": 1,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "3675994621588.040000000000",
+            "second": "3699682111704.330000000000"
+          }
+        ]
+      },
+      {
+        "key": [
+          "multiple",
+          "None",
+          ""
+        ],
+        "rows": [
+          4,
+          4
+        ],
+        "rows_differing": 4,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "11.077644947062",
+            "second": "11.149027425060"
+          },
+          {
+            "first": "18.925305794406",
+            "second": "19.047257276957"
+          },
+          {
+            "first": "27.433983286908",
+            "second": "27.611699164345"
+          }
+        ]
+      },
+      {
+        "key": [
+          "present_value",
+          "None",
+          ""
+        ],
+        "rows": [
+          117,
+          117
+        ],
+        "rows_differing": 117,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "1116538780497.331164471775",
+            "second": "1114618569688.169504873728"
+          },
+          {
+            "first": "1156220007820.358639454293",
+            "second": "1154183160261.012989695709"
+          },
+          {
+            "first": "1198611263339.052088549576",
+            "second": "1196446148239.338219224131"
+          }
+        ]
+      },
+      {
+        "key": [
+          "terminal_value_share",
+          "None",
+          ""
+        ],
+        "rows": [
+          62,
+          62
+        ],
+        "rows_differing": 62,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "0.753719243611",
+            "second": "0.753454277435"
+          },
+          {
+            "first": "0.760144213378",
+            "second": "0.759876307257"
+          },
+          {
+            "first": "0.766647665434",
+            "second": "0.766376771730"
+          }
+        ]
+      },
+      {
+        "key": [
+          "value_per_share",
+          "None",
+          ""
+        ],
+        "rows": [
+          62,
+          62
+        ],
+        "rows_differing": 62,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "196.164398439658",
+            "second": "195.892348096940"
+          },
+          {
+            "first": "201.488593706400",
+            "second": "201.200893725928"
+          },
+          {
+            "first": "207.176404724607",
+            "second": "206.871494554899"
+          }
+        ]
+      },
+      {
+        "key": [
+          "variance",
+          "None",
+          ""
+        ],
+        "rows": [
+          1,
+          1
+        ],
+        "rows_differing": 1,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "0.001980175629",
+            "second": "0.001955186755"
+          }
+        ]
+      },
+      {
+        "key": [
+          "wacc",
+          "None",
+          ""
+        ],
+        "rows": [
+          1,
+          1
+        ],
+        "rows_differing": 1,
+        "formula_changed": [],
+        "examples": [
+          {
+            "first": "0.093211834819",
+            "second": "0.093311274485"
+          }
+        ]
+      }
+    ],
+    "identical": 178
+  },
+  "facts": {
+    "chosen": [
+      18610,
+      18610
+    ],
+    "rejected": [
+      14061,
+      14061
+    ],
+    "written": [
+      18610,
+      0
+    ],
+    "unmapped_tags": [
+      496,
+      496
+    ]
+  },
+  "classification": [
+    "",
+    ""
+  ],
+  "assumptions": {
+    "beta": {
+      "first": "1.064553313698",
+      "second": "1.066964356910",
+      "delta": "0.002411043212"
+    },
+    "capex_intensity": {
+      "first": "0.202619000000",
+      "second": "0.202619000000",
+      "delta": "0E-12"
+    },
+    "depreciation_intensity": {
+      "first": "0.087170000000",
+      "second": "0.087170000000",
+      "delta": "0E-12"
+    },
+    "ebit_margin": {
+      "first": "0.441750000000",
+      "second": "0.441750000000",
+      "delta": "0E-12"
+    },
+    "exit_multiple": {
+      "first": "14.000000000000",
+      "second": "15.000000000000",
+      "delta": "1.000000000000"
+    },
+    "revenue_growth": {
+      "first": "0.137411000000",
+      "second": "0.137411000000",
+      "delta": "0E-12"
+    },
+    "tax_rate": {
+      "first": "0.174698000000",
+      "second": "0.174698000000",
+      "delta": "0E-12"
+    },
+    "terminal_growth": {
+      "first": "0.030000000000",
+      "second": "0.030000000000",
+      "delta": "0E-12"
+    },
+    "working_capital_intensity": {
+      "first": "0.237834000000",
+      "second": "0.237834000000",
+      "delta": "0E-12"
+    }
+  },
+  "plan": {
+    "prior_research_seen": [
+      false,
+      true
+    ],
+    "planned_sources": [
+      18,
+      18
+    ],
+    "estimated_cost_gbp": [
+      "9.2637",
+      "9.2866"
+    ]
+  },
+  "sections": {
+    "balance_sheet_liquidity": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "business_overview": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "capital_allocation": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "cash_flow_analysis": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "catalysts": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "earnings_quality": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "executive_summary": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "growth_outlook": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "historical_financial_analysis": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "industry_landscape": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "investment_thesis": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "key_risks": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "management_governance": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "prior_research_comparison": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        null,
+        null
+      ]
+    },
+    "scenarios_sensitivities": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "segment_analysis": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    },
+    "validation_disagreements": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        null,
+        null
+      ]
+    },
+    "valuation_dcf": {
+      "first": "generated",
+      "second": "generated",
+      "confidence": [
+        0.5,
+        0.5
+      ]
+    }
+  },
+  "red_team": {
+    "first": 6,
+    "second": 7
+  },
+  "spend_gbp": [
+    "7.475043",
+    "6.802436"
+  ],
+  "model_calls": [
+    57,
+    57
+  ]
+}
